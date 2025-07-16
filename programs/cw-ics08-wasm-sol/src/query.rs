@@ -5,10 +5,10 @@ use solana_light_client::header::Header;
 
 use crate::{
     msg::{
-        CheckForMisbehaviourMsg, CheckForMisbehaviourResult, SolanaMisbehaviourMsg, Status,
-        StatusResult, TimestampAtHeightMsg, TimestampAtHeightResult, VerifyClientMessageMsg,
+        CheckForMisbehaviourMsg, CheckForMisbehaviourResult, Status, StatusResult,
+        TimestampAtHeightMsg, TimestampAtHeightResult, VerifyClientMessageMsg,
     },
-    state::{get_sol_client_state, get_sol_consensus_state},
+    state::{get_attestor_client_state, get_attestor_consensus_state},
     ContractError,
 };
 
@@ -24,35 +24,18 @@ pub fn verify_client_message(
     env: Env,
     verify_client_message_msg: VerifyClientMessageMsg,
 ) -> Result<Binary, ContractError> {
-    let sol_client_state = get_sol_client_state(deps.storage)?;
+    let sol_client_state = get_attestor_client_state(deps.storage)?;
 
     if let Ok(header) = serde_json::from_slice::<Header>(&verify_client_message_msg.client_message)
     {
-        let sol_consensus_state = get_sol_consensus_state(deps.storage, header.trusted_slot)?;
+        let sol_consensus_state =
+            get_attestor_consensus_state(deps.storage, header.trusted_height)?;
 
         solana_light_client::verify::verify_header(
             &sol_consensus_state,
             &sol_client_state,
             env.block.time.seconds(),
             &header,
-        )
-        .map_err(ContractError::VerifyClientMessageFailed)?;
-
-        return Ok(Binary::default());
-    }
-
-    if let Ok(misbehaviour) =
-        serde_json::from_slice::<SolanaMisbehaviourMsg>(&verify_client_message_msg.client_message)
-    {
-        let sol_consensus_state = get_sol_consensus_state(deps.storage, misbehaviour.trusted_slot)?;
-
-        solana_light_client::misbehaviour::verify_misbehaviour(
-            &sol_client_state,
-            &sol_consensus_state,
-            &misbehaviour.sync_committee,
-            &misbehaviour.update_1,
-            &misbehaviour.update_2,
-            env.block.time.seconds(),
         )
         .map_err(ContractError::VerifyClientMessageFailed)?;
 
@@ -70,31 +53,11 @@ pub fn verify_client_message(
 /// Returns an error if the misbehaviour cannot be verified
 #[allow(clippy::needless_pass_by_value)]
 pub fn check_for_misbehaviour(
-    deps: Deps,
-    env: Env,
-    check_for_misbehaviour_msg: CheckForMisbehaviourMsg,
+    _deps: Deps,
+    _env: Env,
+    _check_for_misbehaviour_msg: CheckForMisbehaviourMsg,
 ) -> Result<Binary, ContractError> {
-    let misbehaviour = serde_json::from_slice::<SolanaMisbehaviourMsg>(
-        &check_for_misbehaviour_msg.client_message,
-    )
-    .map_err(ContractError::DeserializeSolMisbehaviourFailed)?;
-
-    let sol_client_state = get_sol_client_state(deps.storage)?;
-    let sol_consensus_state = get_sol_consensus_state(deps.storage, misbehaviour.trusted_slot)?;
-
-    solana_light_client::misbehaviour::verify_misbehaviour(
-        &sol_client_state,
-        &sol_consensus_state,
-        &misbehaviour.sync_committee,
-        &misbehaviour.update_1,
-        &misbehaviour.update_2,
-        env.block.time.seconds(),
-    )
-    .map_err(ContractError::VerifyClientMessageFailed)?;
-
-    Ok(to_json_binary(&CheckForMisbehaviourResult {
-        found_misbehaviour: true,
-    })?)
+    todo!()
 }
 
 /// Gets the consensus timestamp at a given height
@@ -108,7 +71,7 @@ pub fn timestamp_at_height(
     timestamp_at_height_msg: TimestampAtHeightMsg,
 ) -> Result<Binary, ContractError> {
     let sol_consensus_state =
-        get_sol_consensus_state(deps.storage, timestamp_at_height_msg.height.revision_height)?;
+        get_attestor_consensus_state(deps.storage, timestamp_at_height_msg.height.revision_height)?;
 
     let nano_timestamp = sol_consensus_state.timestamp * 1_000_000_000; // ibc-go expects nanoseconds
 
@@ -123,7 +86,7 @@ pub fn timestamp_at_height(
 /// # Errors
 /// Errors if the client state can't be deserialized.
 pub fn status(deps: Deps) -> Result<Binary, ContractError> {
-    let sol_client_state = get_sol_client_state(deps.storage)?;
+    let sol_client_state = get_attestor_client_state(deps.storage)?;
 
     if sol_client_state.is_frozen {
         return Ok(to_json_binary(&StatusResult {

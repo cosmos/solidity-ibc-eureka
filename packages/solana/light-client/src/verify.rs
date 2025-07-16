@@ -1,18 +1,22 @@
-//! Solana light client verification logic
+//! Attestor light client verification logic
 
 use crate::{
-    client_state::ClientState,
-    consensus_state::ConsensusState,
-    error::SolanaIBCError,
+    client_state::ClientState, consensus_state::ConsensusState, error::SolanaIBCError,
     header::Header,
 };
 
 /// Verifies the header of the light client
-/// For now, this is extremely minimal - just basic slot progression
-/// # Errors
-/// Returns an error if the header cannot be verified
+///
+/// Trusted consensus state must be retvieved using the header
+/// height.
+///
+/// Returns an error if:
+/// - The client is frozen
+/// - The haeder's timestamp does not match the consensus state
+/// - The header's height and trusted height are invalid
+/// - The header contains no data
 pub fn verify_header(
-    consensus_state: &ConsensusState,
+    trusted_consensus_state: &ConsensusState,
     client_state: &ClientState,
     _current_timestamp: u64,
     header: &Header,
@@ -22,28 +26,24 @@ pub fn verify_header(
         return Err(SolanaIBCError::ClientFrozen);
     }
 
-    // Verify slot progression (new slot should be greater than trusted slot)
-    if header.new_slot <= header.trusted_slot {
-        return Err(SolanaIBCError::InvalidSlotProgression {
-            current: header.trusted_slot,
-            new: header.new_slot,
+    if header.timestamp != trusted_consensus_state.timestamp {
+        return Err(SolanaIBCError::InvalidHeader {
+            reason: "timestamp does not match consensus state".into(),
         });
     }
 
-    // Verify that the trusted slot matches our consensus state
-    if header.trusted_slot != consensus_state.slot {
-        return Err(SolanaIBCError::InvalidHeader {
-            reason: format!(
-                "Trusted slot {} does not match consensus state slot {}",
-                header.trusted_slot, consensus_state.slot
-            ),
+    let height_has_not_progressed = header.new_height <= header.trusted_height;
+    if height_has_not_progressed {
+        return Err(SolanaIBCError::InvalidHeightProgression {
+            current: header.trusted_height,
+            new: header.new_height,
         });
     }
 
     // TODO: Add cryptographic signature verification here
     // For now, we just verify that signature data is present
     if header.signature_data.is_empty() {
-        return Err(SolanaIBCError::InvalidSignature);
+        todo!()
     }
 
     Ok(())

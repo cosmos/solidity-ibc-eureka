@@ -1,9 +1,7 @@
 //! Misbehaviour detection (not implemented for minimal Solana client)
 
 use crate::{
-    client_state::ClientState,
-    consensus_state::ConsensusState,
-    error::SolanaIBCError,
+    client_state::ClientState, consensus_state::ConsensusState, error::SolanaIBCError,
     header::ActiveSyncCommittee,
 };
 use solana_types::consensus::light_client_header::LightClientUpdate;
@@ -19,7 +17,5 @@ pub fn verify_misbehaviour(
     _update_2: &LightClientUpdate,
     _current_timestamp: u64,
 ) -> Result<(), SolanaIBCError> {
-    Err(SolanaIBCError::InvalidHeader {
-        reason: "Misbehaviour detection not implemented for minimal Solana client".to_string(),
-    })
+    todo!()
 }

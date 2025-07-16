@@ -8,8 +8,8 @@ use ibc_proto::ibc::{
     },
 };
 use solana_light_client::{
-    client_state::ClientState as SolClientState,
-    consensus_state::ConsensusState as SolConsensusState,
+    client_state::ClientState as AttestorClientState,
+    consensus_state::ConsensusState as AttestorConsensusState,
 };
 
 use crate::{
@@ -18,7 +18,7 @@ use crate::{
     ContractError,
 };
 
-/// Initializes the client state and consensus state
+/// Initializes the client state and initial consensus state
 /// # Errors
 /// Will return an error if the client state or consensus state cannot be deserialized.
 /// # Panics
@@ -26,36 +26,36 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn client(storage: &mut dyn Storage, msg: InstantiateMsg) -> Result<(), ContractError> {
     let client_state_bz: Vec<u8> = msg.client_state.into();
-    let client_state: SolClientState = serde_json::from_slice(&client_state_bz)
+    let client_state: AttestorClientState = serde_json::from_slice(&client_state_bz)
         .map_err(ContractError::DeserializeClientStateFailed)?;
     let wasm_client_state = WasmClientState {
         checksum: msg.checksum.into(),
         data: client_state_bz,
         latest_height: Some(IbcProtoHeight {
             revision_number: 0,
-            revision_height: client_state.latest_slot,
+            revision_height: client_state.latest_height,
         }),
     };
 
     let consensus_state_bz: Vec<u8> = msg.consensus_state.into();
-    let consensus_state: SolConsensusState = serde_json::from_slice(&consensus_state_bz)
+    let consensus_state: AttestorConsensusState = serde_json::from_slice(&consensus_state_bz)
         .map_err(ContractError::DeserializeConsensusStateFailed)?;
     let wasm_consensus_state = WasmConsensusState {
         data: consensus_state_bz,
     };
 
     ensure!(
-        wasm_client_state.latest_height.unwrap().revision_height == client_state.latest_slot,
-        ContractError::ClientStateSlotMismatch
+        wasm_client_state.latest_height.unwrap().revision_height == client_state.latest_height,
+        ContractError::ClientStateHeightMismatch
     );
 
     ensure!(
-        client_state.latest_slot == consensus_state.slot,
+        client_state.latest_height == consensus_state.height,
         ContractError::ClientAndConsensusStateMismatch
     );
 
     store_client_state(storage, &wasm_client_state)?;
-    store_consensus_state(storage, &wasm_consensus_state, consensus_state.slot)?;
+    store_consensus_state(storage, &wasm_consensus_state, consensus_state.height)?;
 
     Ok(())
 }

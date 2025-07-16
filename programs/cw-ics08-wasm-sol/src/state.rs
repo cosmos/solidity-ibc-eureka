@@ -1,8 +1,6 @@
-//! State management for the Solana light client
+//! State management for the attestor light client
 
 use cosmwasm_std::Storage;
-use solana_light_client::client_state::ClientState as SolClientState;
-use solana_light_client::consensus_state::ConsensusState as SolConsensusState;
 use ibc_proto::{
     google::protobuf::Any,
     ibc::lightclients::wasm::v1::{
@@ -10,6 +8,8 @@ use ibc_proto::{
     },
 };
 use prost::Message;
+use solana_light_client::client_state::ClientState;
+use solana_light_client::consensus_state::ConsensusState;
 
 use crate::ContractError;
 
@@ -20,8 +20,8 @@ pub const HOST_CONSENSUS_STATES_KEY: &str = "consensusStates";
 
 /// The key used to store the consensus states by height
 #[must_use]
-pub fn consensus_db_key(slot: u64) -> String {
-    format!("{}/{}-{}", HOST_CONSENSUS_STATES_KEY, 0, slot)
+pub fn consensus_db_key(height: u64) -> String {
+    format!("{}/{}-{}", HOST_CONSENSUS_STATES_KEY, 0, height)
 }
 
 /// Get the Wasm client state
@@ -41,29 +41,29 @@ pub fn get_wasm_client_state(storage: &dyn Storage) -> Result<WasmClientState, C
     )?)
 }
 
-/// Get the Solana client state
+/// Get the attestor client state
 /// # Errors
 /// Returns an error if the client state is not found or cannot be deserialized
 /// # Returns
-/// The Solana client state
+/// The attestor client state
 #[allow(clippy::module_name_repetitions)]
-pub fn get_sol_client_state(storage: &dyn Storage) -> Result<SolClientState, ContractError> {
+pub fn get_attestor_client_state(storage: &dyn Storage) -> Result<ClientState, ContractError> {
     let wasm_client_state = get_wasm_client_state(storage)?;
     Ok(serde_json::from_slice(&wasm_client_state.data)?)
 }
 
-/// Get the Solana consensus state at a given height
+/// Get the attestor consensus state at a given height
 /// # Errors
 /// Returns an error if the consensus state is not found or cannot be deserialized
 /// # Returns
-/// The Solana consensus state
+/// The attestor consensus state
 #[allow(clippy::module_name_repetitions)]
-pub fn get_sol_consensus_state(
+pub fn get_attestor_consensus_state(
     storage: &dyn Storage,
-    slot: u64,
-) -> Result<SolConsensusState, ContractError> {
+    height: u64,
+) -> Result<ConsensusState, ContractError> {
     let wasm_consensus_state_any_bz = storage
-        .get(consensus_db_key(slot).as_bytes())
+        .get(consensus_db_key(height).as_bytes())
         .ok_or(ContractError::ConsensusStateNotFound)?;
     let wasm_consensus_state_any = Any::decode(wasm_consensus_state_any_bz.as_slice())?;
     let wasm_consensus_state =
@@ -79,11 +79,11 @@ pub fn get_sol_consensus_state(
 pub fn store_consensus_state(
     storage: &mut dyn Storage,
     wasm_consensus_state: &WasmConsensusState,
-    slot: u64,
+    height: u64,
 ) -> Result<(), ContractError> {
     let wasm_consensus_state_any = Any::from_msg(wasm_consensus_state)?;
     storage.set(
-        consensus_db_key(slot).as_bytes(),
+        consensus_db_key(height).as_bytes(),
         wasm_consensus_state_any.encode_to_vec().as_slice(),
     );
 

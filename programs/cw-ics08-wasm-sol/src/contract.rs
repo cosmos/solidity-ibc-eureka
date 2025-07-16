@@ -3,7 +3,7 @@
 use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
 
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, Migration, QueryMsg, SudoMsg};
-use crate::{instantiate, query, state};
+use crate::{instantiate, query};
 use crate::{sudo, ContractError};
 
 /// The version of the contracts state.
@@ -40,8 +40,8 @@ pub fn instantiate(
 pub fn sudo(deps: DepsMut, _env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     let result = match msg {
         SudoMsg::UpdateState(update_state_msg) => sudo::update_state(deps, update_state_msg)?,
-        SudoMsg::UpdateStateOnMisbehaviour(misbehaviour_msg) => {
-            sudo::misbehaviour(deps, misbehaviour_msg)?
+        SudoMsg::UpdateStateOnMisbehaviour(_) => {
+            todo!()
         }
         SudoMsg::VerifyUpgradeAndUpdateState(_) => todo!(),
         SudoMsg::MigrateClientStore(_) => todo!(),
@@ -72,11 +72,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractErro
         QueryMsg::VerifyClientMessage(verify_client_message_msg) => {
             query::verify_client_message(deps, env, verify_client_message_msg)
         }
-        QueryMsg::CheckForMisbehaviour(check_for_misbehaviour_msg) => {
-            query::check_for_misbehaviour(deps, env, check_for_misbehaviour_msg)
+        QueryMsg::CheckForMisbehaviour(_) => {
+            todo!()
         }
-        QueryMsg::TimestampAtHeight(timestamp_at_height_msg) => {
-            query::timestamp_at_height(deps, timestamp_at_height_msg)
+        QueryMsg::TimestampAtHeight(_) => {
+            todo!()
         }
         QueryMsg::Status(_) => query::status(deps),
     }
@@ -97,16 +97,6 @@ pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, Co
         Migration::Reinstantiate(instantiate_msg) => {
             // Re-instantiate the client
             instantiate::client(deps.storage, instantiate_msg)?;
-        }
-        Migration::UpdateForkParameters(fork_parameters) => {
-            // Change the fork parameters
-            let mut client_state = state::get_sol_client_state(deps.storage)?;
-            client_state.fork_parameters = fork_parameters;
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state)
-                .map_err(ContractError::SerializeClientStateFailed)?;
-            let mut wasm_client_state = state::get_wasm_client_state(deps.storage)?;
-            wasm_client_state.data = client_state_bz;
-            state::store_client_state(deps.storage, &wasm_client_state)?;
         }
     }
 
@@ -129,10 +119,9 @@ mod tests {
         };
         use prost::{Message, Name};
         use solana_light_client::{
-            client_state::ClientState as SolClientState,
-            consensus_state::ConsensusState as SolConsensusState,
+            client_state::ClientState as AttestorClientState,
+            consensus_state::ConsensusState as AttestorConsensusState,
         };
-        use solana_types::consensus::fork::ForkParameters;
 
         use crate::{
             contract::instantiate,
@@ -147,15 +136,14 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            let client_state = SolClientState {
-                latest_slot: 42,
-                fork_parameters: ForkParameters,
+            let client_state = AttestorClientState {
+                latest_height: 42,
                 is_frozen: false,
             };
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
 
-            let consensus_state = SolConsensusState {
-                slot: 42,
+            let consensus_state = AttestorConsensusState {
+                height: 42,
                 timestamp: 1234567890,
             };
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
@@ -187,14 +175,14 @@ mod tests {
                 actual_client_state.latest_height.unwrap().revision_number
             );
             assert_eq!(
-                client_state.latest_slot,
+                client_state.latest_height,
                 actual_client_state.latest_height.unwrap().revision_height
             );
 
             // Verify consensus state storage
             let actual_wasm_consensus_state_any_bz = deps
                 .storage
-                .get(consensus_db_key(consensus_state.slot).as_bytes())
+                .get(consensus_db_key(consensus_state.height).as_bytes())
                 .unwrap();
             let actual_wasm_consensus_state_any =
                 Any::decode(actual_wasm_consensus_state_any_bz.as_slice()).unwrap();
@@ -220,11 +208,10 @@ mod tests {
         };
         use prost::Message;
         use solana_light_client::{
-            client_state::ClientState as SolClientState,
-            consensus_state::ConsensusState as SolConsensusState, error::SolanaIBCError,
+            client_state::ClientState as AttestorClientState,
+            consensus_state::ConsensusState as AttestorConsensusState, error::SolanaIBCError,
             header::Header,
         };
-        use solana_types::consensus::fork::ForkParameters;
 
         use crate::{
             contract::{instantiate, migrate, query, sudo},
@@ -244,13 +231,12 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup initial client state
-            let client_state = SolClientState {
-                latest_slot: 100,
-                fork_parameters: ForkParameters,
+            let client_state = AttestorClientState {
+                latest_height: 100,
                 is_frozen: false,
             };
-            let consensus_state = SolConsensusState {
-                slot: 100,
+            let consensus_state = AttestorConsensusState {
+                height: 100,
                 timestamp: 1234567890,
             };
 
@@ -265,10 +251,10 @@ mod tests {
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-            // Create a header for client update (slot progression)
+            // Create a header for client update (height progression)
             let header = Header {
-                trusted_slot: 100,
-                new_slot: 150,
+                trusted_height: 100,
+                new_height: 150,
                 timestamp: 1234567900,            // 10 seconds later
                 signature_data: vec![1, 2, 3, 4], // Some signature data
             };
@@ -295,7 +281,7 @@ mod tests {
             assert_eq!(1, update_state_result.heights.len());
             assert_eq!(0, update_state_result.heights[0].revision_number);
             assert_eq!(
-                header.new_slot,
+                header.new_height,
                 update_state_result.heights[0].revision_height
             );
         }
@@ -307,13 +293,12 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup initial client state
-            let client_state = SolClientState {
-                latest_slot: 100,
-                fork_parameters: ForkParameters,
+            let client_state = AttestorClientState {
+                latest_height: 100,
                 is_frozen: false,
             };
-            let consensus_state = SolConsensusState {
-                slot: 100,
+            let consensus_state = AttestorConsensusState {
+                height: 100,
                 timestamp: 1234567890,
             };
 
@@ -328,10 +313,10 @@ mod tests {
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-            // Create a header with slot regression (new_slot < trusted_slot)
+            // Create a header with height regression (new_height < trusted_height)
             let header = Header {
-                trusted_slot: 100,
-                new_slot: 90, // This should fail
+                trusted_height: 100,
+                new_height: 90, // This should fail
                 timestamp: 1234567900,
                 signature_data: vec![1, 2, 3, 4],
             };
@@ -348,7 +333,7 @@ mod tests {
             assert!(matches!(
                 err,
                 ContractError::VerifyClientMessageFailed(
-                    SolanaIBCError::InvalidSlotProgression { .. }
+                    SolanaIBCError::InvalidHeightProgression { .. }
                 )
             ));
         }
@@ -360,13 +345,12 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup initial client state
-            let client_state = SolClientState {
-                latest_slot: 100,
-                fork_parameters: ForkParameters,
+            let client_state = AttestorClientState {
+                latest_height: 100,
                 is_frozen: false,
             };
-            let consensus_state = SolConsensusState {
-                slot: 100,
+            let consensus_state = AttestorConsensusState {
+                height: 100,
                 timestamp: 1234567890,
             };
 
@@ -383,8 +367,8 @@ mod tests {
 
             // Create a header with empty signature data
             let header = Header {
-                trusted_slot: 100,
-                new_slot: 150,
+                trusted_height: 100,
+                new_height: 150,
                 timestamp: 1234567900,
                 signature_data: vec![], // Empty signature data should fail
             };
@@ -412,13 +396,12 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup frozen client state
-            let client_state = SolClientState {
-                latest_slot: 100,
-                fork_parameters: ForkParameters,
+            let client_state = AttestorClientState {
+                latest_height: 100,
                 is_frozen: true, // Client is frozen
             };
-            let consensus_state = SolConsensusState {
-                slot: 100,
+            let consensus_state = AttestorConsensusState {
+                height: 100,
                 timestamp: 1234567890,
             };
 
@@ -435,8 +418,8 @@ mod tests {
 
             // Create a valid header
             let header = Header {
-                trusted_slot: 100,
-                new_slot: 150,
+                trusted_height: 100,
+                new_height: 150,
                 timestamp: 1234567900,
                 signature_data: vec![1, 2, 3, 4],
             };
@@ -462,13 +445,12 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            let client_state = SolClientState {
-                latest_slot: 42,
-                fork_parameters: ForkParameters,
+            let client_state = AttestorClientState {
+                latest_height: 42,
                 is_frozen: false,
             };
-            let consensus_state = SolConsensusState {
-                slot: 42,
+            let consensus_state = AttestorConsensusState {
+                height: 42,
                 timestamp: 1234567890,
             };
 
@@ -500,13 +482,12 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            let client_state = SolClientState {
-                latest_slot: 42,
-                fork_parameters: ForkParameters,
+            let client_state = AttestorClientState {
+                latest_height: 42,
                 is_frozen: false,
             };
-            let consensus_state = SolConsensusState {
-                slot: 42,
+            let consensus_state = AttestorConsensusState {
+                height: 42,
                 timestamp: 1234567890,
             };
 
@@ -522,13 +503,12 @@ mod tests {
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
             // Create new state for migration
-            let new_client_state = SolClientState {
-                latest_slot: 100,
-                fork_parameters: ForkParameters,
+            let new_client_state = AttestorClientState {
+                latest_height: 100,
                 is_frozen: false,
             };
-            let new_consensus_state = SolConsensusState {
-                slot: 100,
+            let new_consensus_state = AttestorConsensusState {
+                height: 100,
                 timestamp: 1234567999,
             };
 
@@ -558,65 +538,8 @@ mod tests {
             assert_eq!(new_msg.checksum, wasm_client_state.checksum);
             assert_eq!(
                 wasm_client_state.latest_height.unwrap().revision_height,
-                new_client_state.latest_slot
+                new_client_state.latest_height
             );
-        }
-
-        #[test]
-        fn migrate_with_fork_parameters() {
-            let mut deps = mk_deps();
-            let creator = deps.api.addr_make("creator");
-            let info = message_info(&creator, &coins(1, "uatom"));
-
-            let client_state = SolClientState {
-                latest_slot: 42,
-                fork_parameters: ForkParameters,
-                is_frozen: false,
-            };
-            let consensus_state = SolConsensusState {
-                slot: 42,
-                timestamp: 1234567890,
-            };
-
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-
-            let msg = InstantiateMsg {
-                client_state: client_state_bz.into(),
-                consensus_state: consensus_state_bz.into(),
-                checksum: b"checksum".into(),
-            };
-            let msg_copy = msg.clone();
-
-            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-            let migrate_msg = MigrateMsg {
-                migration: Migration::UpdateForkParameters(ForkParameters),
-            };
-
-            // Migrate with fork parameter update
-            migrate(deps.as_mut(), mock_env(), migrate_msg).unwrap();
-
-            let actual_wasm_client_state_any_bz =
-                deps.storage.get(HOST_CLIENT_STATE_KEY.as_bytes()).unwrap();
-            let actual_wasm_client_state_any =
-                Any::decode(actual_wasm_client_state_any_bz.as_slice()).unwrap();
-            let wasm_client_state =
-                WasmClientState::decode(actual_wasm_client_state_any.value.as_slice()).unwrap();
-
-            // Verify checksum hasn't changed
-            assert_eq!(msg_copy.checksum, wasm_client_state.checksum);
-            // Verify latest height hasn't changed
-            assert_eq!(
-                wasm_client_state.latest_height.unwrap().revision_height,
-                client_state.latest_slot
-            );
-
-            // Verify we can deserialize the updated client state
-            let sol_client_state: SolClientState =
-                serde_json::from_slice(&wasm_client_state.data).unwrap();
-            assert_eq!(sol_client_state.latest_slot, client_state.latest_slot);
-            assert_eq!(sol_client_state.fork_parameters, ForkParameters);
         }
     }
 }

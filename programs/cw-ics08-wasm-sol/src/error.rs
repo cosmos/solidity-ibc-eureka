@@ -13,8 +13,8 @@ pub enum ContractError {
     #[error("unauthorized")]
     Unauthorized,
 
-    #[error("client state latest height and slot are not equal")]
-    ClientStateSlotMismatch,
+    #[error("client state latest height and height are not equal")]
+    ClientStateHeightMismatch,
 
     #[error("client and consensus state mismatch")]
     ClientAndConsensusStateMismatch,

@@ -1,36 +1,29 @@
-//! Solana light client update logic
+//! Attestor light client update logic
 
 use crate::{
-    client_state::ClientState,
-    consensus_state::ConsensusState,
-    error::SolanaIBCError,
+    client_state::ClientState, consensus_state::ConsensusState, error::SolanaIBCError,
     header::Header,
 };
 
 /// Updates the consensus state with a new header
-/// Returns (new_slot, new_consensus_state, optional_new_client_state)
+/// Returns (new_height, new_consensus_state, optional_new_client_state)
 /// # Errors
 /// Returns an error if the update cannot be performed
 pub fn update_consensus_state(
-    current_consensus_state: ConsensusState,
     current_client_state: ClientState,
     header: Header,
 ) -> Result<(u64, ConsensusState, Option<ClientState>), SolanaIBCError> {
-    // Create new consensus state with updated slot and timestamp
     let new_consensus_state = ConsensusState {
-        slot: header.new_slot,
+        height: header.new_height,
         timestamp: header.timestamp,
     };
 
-    // Update client state if the slot has progressed
-    let new_client_state = if header.new_slot > current_client_state.latest_slot {
-        Some(ClientState {
-            latest_slot: header.new_slot,
-            ..current_client_state
-        })
-    } else {
-        None
-    };
+    // Update client state if the height has progressed beyond the latest
+    let height_has_progressed = header.new_height > current_client_state.latest_height;
+    let new_client_state = height_has_progressed.then_some(ClientState {
+        latest_height: header.new_height,
+        ..current_client_state
+    });
 
-    Ok((header.new_slot, new_consensus_state, new_client_state))
+    Ok((header.new_height, new_consensus_state, new_client_state))
 }

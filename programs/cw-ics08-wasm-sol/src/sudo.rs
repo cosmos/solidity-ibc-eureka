@@ -10,8 +10,7 @@ use solana_light_client::update::update_consensus_state;
 use crate::{
     msg::{Height, UpdateStateMsg, UpdateStateOnMisbehaviourMsg, UpdateStateResult},
     state::{
-        get_sol_client_state, get_sol_consensus_state, get_wasm_client_state, store_client_state,
-        store_consensus_state,
+        get_attestor_client_state, get_wasm_client_state, store_client_state, store_consensus_state,
     },
     ContractError,
 };
@@ -32,11 +31,10 @@ pub fn update_state(
     let header = serde_json::from_slice(&header_bz)
         .map_err(ContractError::DeserializeClientMessageFailed)?;
 
-    let sol_client_state = get_sol_client_state(deps.storage)?;
-    let sol_consensus_state = get_sol_consensus_state(deps.storage, sol_client_state.latest_slot)?;
+    let sol_client_state = get_attestor_client_state(deps.storage)?;
 
     let (updated_slot, updated_consensus_state, updated_client_state) =
-        update_consensus_state(sol_consensus_state, sol_client_state, header)
+        update_consensus_state(sol_client_state, header)
             .map_err(ContractError::UpdateClientStateFailed)?;
 
     let consensus_state_bz: Vec<u8> = serde_json::to_vec(&updated_consensus_state)
@@ -44,8 +42,8 @@ pub fn update_state(
     let wasm_consensus_state = WasmConsensusState {
         data: consensus_state_bz,
     };
-    store_consensus_state(deps.storage, &wasm_consensus_state, updated_slot)?;
 
+    store_consensus_state(deps.storage, &wasm_consensus_state, updated_slot)?;
     if let Some(client_state) = updated_client_state {
         let client_state_bz: Vec<u8> =
             serde_json::to_vec(&client_state).map_err(ContractError::SerializeClientStateFailed)?;
@@ -75,7 +73,7 @@ pub fn misbehaviour(
     deps: DepsMut,
     _msg: UpdateStateOnMisbehaviourMsg,
 ) -> Result<Binary, ContractError> {
-    let mut sol_client_state = get_sol_client_state(deps.storage)?;
+    let mut sol_client_state = get_attestor_client_state(deps.storage)?;
     sol_client_state.is_frozen = true;
 
     let client_state_bz: Vec<u8> =

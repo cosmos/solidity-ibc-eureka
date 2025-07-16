@@ -1,16 +1,16 @@
-//! Error types for Solana light client
+//! Error types for attestor light client
 
 use thiserror::Error;
 
-/// Main error type for Solana IBC operations
+/// Main error type for attestor IBC operations
 #[derive(Error, Debug)]
 pub enum SolanaIBCError {
-    /// Invalid slot progression
-    #[error("Invalid slot progression: current {current}, new {new}")]
-    InvalidSlotProgression {
-        /// Current slot
+    /// Invalid height progression
+    #[error("Invalid height progression: current {current}, new {new}")]
+    InvalidHeightProgression {
+        /// Current height
         current: u64,
-        /// Proposed new slot
+        /// Proposed new height
         new: u64,
     },
 
@@ -36,7 +36,11 @@ pub enum SolanaIBCError {
         reason: String,
     },
 
-    /// Slot computation failed
-    #[error("Slot computation failed")]
-    SlotComputationFailed,
+    /// Height computation failed
+    #[error("Height computation failed")]
+    HeightComputationFailed,
+
+    /// Height not found in consensus state
+    #[error("Height {0} not found in consensus state")]
+    HeightNotFound(u64),
 }

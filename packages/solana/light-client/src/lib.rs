@@ -1,4 +1,4 @@
-#![doc = "Solana light client for IBC"]
+#![doc = "Attestor light client for IBC"]
 #![deny(
     clippy::nursery,
     clippy::pedantic,

@@ -1,13 +1,15 @@
-//! Solana consensus state for IBC light client
+//! Minimal attestor consensus state for IBC light client
 
 use serde::{Deserialize, Serialize};
 
-/// Minimal Solana consensus state for IBC light client
-/// Currently zero-size since consensus state is not used in verification
+/// Minimal attestor consensus state for IBC light client
+/// Contains only the essential information needed for IBC verification:
+/// - Height: The attestor height at which this state was created
+/// - Timestamp: The timestamp at which this height was reached
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConsensusState {
-    /// Slot number for IBC height tracking
-    pub slot: u64,
-    /// Timestamp for IBC queries
+    /// Attestor height
+    pub height: u64,
+    /// Timestamp when this height was reached (Unix timestamp in seconds)
     pub timestamp: u64,
 }

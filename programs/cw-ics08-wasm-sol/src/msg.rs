@@ -3,9 +3,6 @@
 
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Binary;
-use solana_light_client::header::ActiveSyncCommittee;
-use solana_types::consensus::fork::ForkParameters;
-use solana_types::consensus::light_client_header::LightClientUpdate;
 
 /// The message to instantiate the contract
 #[cw_serde]
@@ -71,8 +68,6 @@ pub enum Migration {
     CodeOnly,
     /// Migrate the contract code and reinitialize state
     Reinstantiate(InstantiateMsg),
-    /// Migrate the contract code and update fork parameters
-    UpdateForkParameters(ForkParameters),
 }
 
 /// Update state message
@@ -105,19 +100,6 @@ pub struct VerifyUpgradeAndUpdateStateMsg {
 /// Migrate client store message
 #[cw_serde]
 pub struct MigrateClientStoreMsg {}
-
-/// The misbehaviour message for the Solana light client
-#[cw_serde]
-pub struct SolanaMisbehaviourMsg {
-    /// The slot of the trusted consensus state
-    pub trusted_slot: u64,
-    /// The trusted sync committee, active or next
-    pub sync_committee: ActiveSyncCommittee,
-    /// The first light client update
-    pub update_1: LightClientUpdate,
-    /// The second conflicting light client update
-    pub update_2: LightClientUpdate,
-}
 
 /// The message to verify the client message
 #[cw_serde]
@@ -161,13 +143,6 @@ pub struct Height {
 pub struct UpdateStateResult {
     /// The updated client state heights
     pub heights: Vec<Height>,
-}
-
-/// The merkle path
-#[cw_serde]
-pub struct MerklePath {
-    /// The key path
-    pub key_path: Vec<Binary>,
 }
 
 /// The response to the status query
