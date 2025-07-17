@@ -1,4 +1,6 @@
-//! This module defines test utilities for the Ethereum light client.
+//! Ethereum specific test-utils
 
 pub mod bls_verifier;
-pub mod fixtures;
+
+// Re-export fixtures from the test-utils crate
+pub use wasm_test_utils::fixtures;

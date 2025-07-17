@@ -1,0 +1,14 @@
+[package]
+name = "wasm-test-utils"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]
+ibc-eureka-solidity-types = { workspace = true }
+ibc-proto-eureka = { workspace = true }
+prost = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+schemars = { workspace = true, features = ["derive"] }
+hex = { workspace = true }

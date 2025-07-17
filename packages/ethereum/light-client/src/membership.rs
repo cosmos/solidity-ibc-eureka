@@ -146,7 +146,7 @@ mod test {
         let fixture: fixtures::StepsFixture =
             fixtures::load("Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack");
 
-        let initial_state: InitialState = fixture.get_data_at_step(0);
+        let initial_state: InitialState<ClientState, ConsensusState> = fixture.get_data_at_step(0);
 
         let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
         let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
