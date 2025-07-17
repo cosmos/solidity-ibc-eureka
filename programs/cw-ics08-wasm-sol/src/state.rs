@@ -1,6 +1,6 @@
 //! State management for the attestor light client
 
-use cosmwasm_std::Storage;
+use cosmwasm_std::{Order, Storage};
 use ibc_proto::{
     google::protobuf::Any,
     ibc::lightclients::wasm::v1::{
@@ -17,11 +17,35 @@ use crate::ContractError;
 pub const HOST_CLIENT_STATE_KEY: &str = "clientState";
 /// The store key used by `ibc-go` to store the consensus states
 pub const HOST_CONSENSUS_STATES_KEY: &str = "consensusStates";
+/// The store key used by `ibc-go` to store sorted keys of consensusStates
+pub const HOST_ITERATE_CONSENSUS_STATES_KEY: &str = "iterateConsensusStates";
 
 /// The key used to store the consensus states by height
 #[must_use]
 pub fn consensus_db_key(height: u64) -> String {
     format!("{}/{}-{}", HOST_CONSENSUS_STATES_KEY, 0, height)
+}
+
+fn height_from_consensus_db_key(key: &str) -> u64 {
+    key.split("-").last().unwrap().parse().unwrap()
+}
+
+fn height_to_big_endian(revision: u64, height: u64) -> Vec<u8> {
+    let mut key = Vec::with_capacity(16);
+    key.extend_from_slice(&revision.to_be_bytes());
+    key.extend_from_slice(&height.to_be_bytes());
+    key
+}
+
+/// The key used to store the consensus states by height
+#[must_use]
+pub fn iteration_db_key(revision: u64, height: u64) -> Vec<u8> {
+    let key = height_to_big_endian(revision, height);
+    let mut prefix = format!("{}/", HOST_ITERATE_CONSENSUS_STATES_KEY)
+        .as_bytes()
+        .to_vec();
+    prefix.extend(key);
+    prefix
 }
 
 /// Get the Wasm client state
@@ -47,7 +71,7 @@ pub fn get_wasm_client_state(storage: &dyn Storage) -> Result<WasmClientState, C
 /// # Returns
 /// The attestor client state
 #[allow(clippy::module_name_repetitions)]
-pub fn get_attestor_client_state(storage: &dyn Storage) -> Result<ClientState, ContractError> {
+pub fn get_client_state(storage: &dyn Storage) -> Result<ClientState, ContractError> {
     let wasm_client_state = get_wasm_client_state(storage)?;
     Ok(serde_json::from_slice(&wasm_client_state.data)?)
 }
@@ -58,7 +82,7 @@ pub fn get_attestor_client_state(storage: &dyn Storage) -> Result<ClientState, C
 /// # Returns
 /// The attestor consensus state
 #[allow(clippy::module_name_repetitions)]
-pub fn get_attestor_consensus_state(
+pub fn get_consensus_state(
     storage: &dyn Storage,
     height: u64,
 ) -> Result<ConsensusState, ContractError> {
@@ -72,6 +96,46 @@ pub fn get_attestor_consensus_state(
     Ok(serde_json::from_slice(&wasm_consensus_state.data)?)
 }
 
+pub fn get_previous_consensus_state(
+    storage: &dyn Storage,
+    height: u64,
+) -> Result<Option<ConsensusState>, ContractError> {
+    let target_key = iteration_db_key(0, height);
+
+    let mut prev_key = storage.range(None, Some(&target_key), Order::Descending);
+
+    if let Some((_, consensus_key_bytes)) = prev_key.next() {
+        let consensus_key = String::from_utf8(consensus_key_bytes).unwrap();
+        let bytes = storage.get(consensus_key.as_bytes()).unwrap();
+        let any = Any::decode(bytes.as_slice())?;
+        let wasm_consensus_state = WasmConsensusState::decode(any.value.as_slice())?;
+
+        Ok(Some(serde_json::from_slice(&wasm_consensus_state.data)?))
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn get_next_consensus_state(
+    storage: &dyn Storage,
+    height: u64,
+) -> Result<Option<ConsensusState>, ContractError> {
+    let target_key = iteration_db_key(0, height);
+
+    let mut next_key = storage.range(Some(&target_key), None, Order::Ascending);
+
+    if let Some((_, consensus_key_bytes)) = next_key.next() {
+        let consensus_key = String::from_utf8(consensus_key_bytes).unwrap();
+        let bytes = storage.get(consensus_key.as_bytes()).unwrap();
+        let any = Any::decode(bytes.as_slice())?;
+        let wasm_consensus_state = WasmConsensusState::decode(any.value.as_slice())?;
+
+        Ok(Some(serde_json::from_slice(&wasm_consensus_state.data)?))
+    } else {
+        Ok(None)
+    }
+}
+
 /// Store the consensus state
 /// # Errors
 /// Returns an error if the consensus state cannot be serialized into an Any
@@ -81,11 +145,15 @@ pub fn store_consensus_state(
     wasm_consensus_state: &WasmConsensusState,
     height: u64,
 ) -> Result<(), ContractError> {
+    let consensus_key = consensus_db_key(height);
     let wasm_consensus_state_any = Any::from_msg(wasm_consensus_state)?;
     storage.set(
-        consensus_db_key(height).as_bytes(),
+        consensus_key.as_bytes(),
         wasm_consensus_state_any.encode_to_vec().as_slice(),
     );
+
+    let iteration_key = iteration_db_key(0, height);
+    storage.set(&iteration_key, consensus_key.as_bytes());
 
     Ok(())
 }

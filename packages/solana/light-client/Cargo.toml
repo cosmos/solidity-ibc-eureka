@@ -23,4 +23,4 @@ prost = { workspace = true, optional = true }
 ibc-proto-eureka = { workspace = true, optional = true }
 
 [dev-dependencies]
-solana-types = { workspace = true, features = ["test-utils"] }
+solana-types = { workspace = true, fatures = ["test-utils"] }

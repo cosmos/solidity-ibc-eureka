@@ -5,10 +5,13 @@ use solana_light_client::header::Header;
 
 use crate::{
     msg::{
-        CheckForMisbehaviourMsg, CheckForMisbehaviourResult, Status, StatusResult,
-        TimestampAtHeightMsg, TimestampAtHeightResult, VerifyClientMessageMsg,
+        CheckForMisbehaviourMsg, Status, StatusResult, TimestampAtHeightMsg,
+        TimestampAtHeightResult, VerifyClientMessageMsg,
     },
-    state::{get_attestor_client_state, get_attestor_consensus_state},
+    state::{
+        get_client_state, get_consensus_state, get_next_consensus_state,
+        get_previous_consensus_state,
+    },
     ContractError,
 };
 
@@ -21,20 +24,34 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn verify_client_message(
     deps: Deps,
-    env: Env,
     verify_client_message_msg: VerifyClientMessageMsg,
 ) -> Result<Binary, ContractError> {
-    let sol_client_state = get_attestor_client_state(deps.storage)?;
+    let sol_client_state = get_client_state(deps.storage)?;
 
     if let Ok(header) = serde_json::from_slice::<Header>(&verify_client_message_msg.client_message)
     {
-        let sol_consensus_state =
-            get_attestor_consensus_state(deps.storage, header.trusted_height)?;
+        if let Ok(height_in_msg_exists) = get_consensus_state(deps.storage, header.trusted_height) {
+            let _sol_consensus_state = solana_light_client::verify::verify_header(
+                Some(&height_in_msg_exists),
+                None,
+                None,
+                &sol_client_state,
+                &header,
+            )
+            .map_err(ContractError::VerifyClientMessageFailed)?;
 
-        solana_light_client::verify::verify_header(
-            &sol_consensus_state,
+            return Ok(Binary::default());
+        }
+
+        let (prev, next) = (
+            get_previous_consensus_state(deps.storage, header.trusted_height)?,
+            get_next_consensus_state(deps.storage, header.trusted_height)?,
+        );
+        let _sol_consensus_state = solana_light_client::verify::verify_header(
+            None,
+            prev.as_ref(),
+            next.as_ref(),
             &sol_client_state,
-            env.block.time.seconds(),
             &header,
         )
         .map_err(ContractError::VerifyClientMessageFailed)?;
@@ -71,7 +88,7 @@ pub fn timestamp_at_height(
     timestamp_at_height_msg: TimestampAtHeightMsg,
 ) -> Result<Binary, ContractError> {
     let sol_consensus_state =
-        get_attestor_consensus_state(deps.storage, timestamp_at_height_msg.height.revision_height)?;
+        get_consensus_state(deps.storage, timestamp_at_height_msg.height.revision_height)?;
 
     let nano_timestamp = sol_consensus_state.timestamp * 1_000_000_000; // ibc-go expects nanoseconds
 
@@ -86,7 +103,7 @@ pub fn timestamp_at_height(
 /// # Errors
 /// Errors if the client state can't be deserialized.
 pub fn status(deps: Deps) -> Result<Binary, ContractError> {
-    let sol_client_state = get_attestor_client_state(deps.storage)?;
+    let sol_client_state = get_client_state(deps.storage)?;
 
     if sol_client_state.is_frozen {
         return Ok(to_json_binary(&StatusResult {

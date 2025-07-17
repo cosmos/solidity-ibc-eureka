@@ -67,10 +67,10 @@ pub fn execute(
 /// # Errors
 /// Will return an error if the handler returns an error.
 #[entry_point]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
     match msg {
         QueryMsg::VerifyClientMessage(verify_client_message_msg) => {
-            query::verify_client_message(deps, env, verify_client_message_msg)
+            query::verify_client_message(deps, verify_client_message_msg)
         }
         QueryMsg::CheckForMisbehaviour(_) => {
             todo!()
@@ -223,7 +223,6 @@ mod tests {
             test::helpers::mk_deps,
             ContractError,
         };
-
         #[test]
         fn basic_client_update_flow() {
             let mut deps = mk_deps();
@@ -253,8 +252,7 @@ mod tests {
 
             // Create a header for client update (height progression)
             let header = Header {
-                trusted_height: 100,
-                new_height: 150,
+                trusted_height: 101,
                 timestamp: 1234567900,            // 10 seconds later
                 signature_data: vec![1, 2, 3, 4], // Some signature data
             };
@@ -281,13 +279,13 @@ mod tests {
             assert_eq!(1, update_state_result.heights.len());
             assert_eq!(0, update_state_result.heights[0].revision_number);
             assert_eq!(
-                header.new_height,
+                header.trusted_height,
                 update_state_result.heights[0].revision_height
             );
         }
 
         #[test]
-        fn invalid_slot_regression() {
+        fn incremental_client_update_flow() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
@@ -313,17 +311,279 @@ mod tests {
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-            // Create a header with height regression (new_height < trusted_height)
-            let header = Header {
+            for i in 1..6 {
+                // Create a header for client update (height progression)
+                let header = Header {
+                    trusted_height: consensus_state.height + i,
+                    timestamp: consensus_state.timestamp + i,
+                    signature_data: vec![1, 2, 3, 4],
+                };
+                let header_bz = serde_json::to_vec(&header).unwrap();
+
+                let mut env = mock_env();
+                env.block.time = Timestamp::from_seconds(header.timestamp + 100);
+
+                // Verify client message
+                let query_verify_client_msg =
+                    QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
+                        client_message: Binary::from(header_bz.clone()),
+                    });
+                query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
+
+                // Update state
+                let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
+                    client_message: Binary::from(header_bz),
+                });
+                let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
+                let update_state_result: UpdateStateResult =
+                    serde_json::from_slice(&update_res.data.unwrap())
+                        .expect("update state result should be deserializable");
+
+                assert_eq!(1, update_state_result.heights.len());
+                assert_eq!(0, update_state_result.heights[0].revision_number);
+                assert_eq!(
+                    header.trusted_height,
+                    update_state_result.heights[0].revision_height
+                );
+            }
+        }
+        #[test]
+        fn client_update_flow_with_historical_updates() {
+            let mut deps = mk_deps();
+            let creator = deps.api.addr_make("creator");
+            let info = message_info(&creator, &coins(1, "uatom"));
+
+            // Setup initial client state
+            let client_state = AttestorClientState {
+                latest_height: 100,
+                is_frozen: false,
+            };
+            let consensus_state = AttestorConsensusState {
+                height: 100,
+                timestamp: 1234567890,
+            };
+
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+            let msg = InstantiateMsg {
+                client_state: Binary::from(client_state_bz),
+                consensus_state: Binary::from(consensus_state_bz),
+                checksum: b"checksum".into(),
+            };
+
+            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+            // Add some even states
+            for i in 1..6 {
+                if i % 2 == 0 {
+                    continue;
+                }
+                let header = Header {
+                    trusted_height: consensus_state.height + i,
+                    timestamp: consensus_state.timestamp + i,
+                    signature_data: vec![1, 2, 3, 4],
+                };
+                let header_bz = serde_json::to_vec(&header).unwrap();
+
+                let mut env = mock_env();
+                env.block.time = Timestamp::from_seconds(header.timestamp + 100);
+
+                let query_verify_client_msg =
+                    QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
+                        client_message: Binary::from(header_bz.clone()),
+                    });
+                query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
+
+                let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
+                    client_message: Binary::from(header_bz),
+                });
+                let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
+                let update_state_result: UpdateStateResult =
+                    serde_json::from_slice(&update_res.data.unwrap())
+                        .expect("update state result should be deserializable");
+
+                assert_eq!(1, update_state_result.heights.len());
+                assert_eq!(0, update_state_result.heights[0].revision_number);
+                assert_eq!(
+                    header.trusted_height,
+                    update_state_result.heights[0].revision_height
+                );
+            }
+
+            // Retroactively add odd states
+            for i in 1..6 {
+                if i % 2 == 1 {
+                    continue;
+                }
+                let header = Header {
+                    trusted_height: consensus_state.height + i,
+                    timestamp: consensus_state.timestamp + i,
+                    signature_data: vec![1, 2, 3, 4],
+                };
+                let header_bz = serde_json::to_vec(&header).unwrap();
+
+                let mut env = mock_env();
+                env.block.time = Timestamp::from_seconds(header.timestamp + 100);
+
+                let query_verify_client_msg =
+                    QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
+                        client_message: Binary::from(header_bz.clone()),
+                    });
+                query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
+
+                let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
+                    client_message: Binary::from(header_bz),
+                });
+                let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
+                let update_state_result: UpdateStateResult =
+                    serde_json::from_slice(&update_res.data.unwrap())
+                        .expect("update state result should be deserializable");
+
+                assert_eq!(1, update_state_result.heights.len());
+                assert_eq!(0, update_state_result.heights[0].revision_number);
+                assert_eq!(
+                    header.trusted_height,
+                    update_state_result.heights[0].revision_height
+                );
+            }
+        }
+
+        #[test]
+        fn updates_fail_on_non_monotonic_client_updates() {
+            let mut deps = mk_deps();
+            let creator = deps.api.addr_make("creator");
+            let info = message_info(&creator, &coins(1, "uatom"));
+
+            // Setup initial client state
+            let client_state = AttestorClientState {
+                latest_height: 100,
+                is_frozen: false,
+            };
+            let consensus_state = AttestorConsensusState {
+                height: 100,
+                timestamp: 1234567890,
+            };
+
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+            let msg = InstantiateMsg {
+                client_state: Binary::from(client_state_bz),
+                consensus_state: Binary::from(consensus_state_bz),
+                checksum: b"checksum".into(),
+            };
+
+            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+            // Add some even states
+            for i in 1..6 {
+                if i % 2 == 0 {
+                    continue;
+                }
+                let header = Header {
+                    trusted_height: consensus_state.height + i,
+                    timestamp: consensus_state.timestamp + i,
+                    signature_data: vec![1, 2, 3, 4],
+                };
+                let header_bz = serde_json::to_vec(&header).unwrap();
+
+                let mut env = mock_env();
+                env.block.time = Timestamp::from_seconds(header.timestamp + 100);
+
+                let query_verify_client_msg =
+                    QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
+                        client_message: Binary::from(header_bz.clone()),
+                    });
+                query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
+
+                let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
+                    client_message: Binary::from(header_bz),
+                });
+                let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
+                let update_state_result: UpdateStateResult =
+                    serde_json::from_slice(&update_res.data.unwrap())
+                        .expect("update state result should be deserializable");
+
+                assert_eq!(1, update_state_result.heights.len());
+                assert_eq!(0, update_state_result.heights[0].revision_number);
+                assert_eq!(
+                    header.trusted_height,
+                    update_state_result.heights[0].revision_height
+                );
+            }
+
+            // Retroactively add odd states
+            for i in 1..6 {
+                if i % 2 == 1 {
+                    continue;
+                }
+
+                let timestamp_with_same_time_as_previous = consensus_state.timestamp + i - 1;
+                let header = Header {
+                    trusted_height: consensus_state.height + i,
+                    timestamp: timestamp_with_same_time_as_previous,
+                    signature_data: vec![1, 2, 3, 4],
+                };
+                let header_bz = serde_json::to_vec(&header).unwrap();
+
+                let mut env = mock_env();
+                env.block.time = Timestamp::from_seconds(header.timestamp + 100);
+
+                let query_verify_client_msg =
+                    QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
+                        client_message: Binary::from(header_bz.clone()),
+                    });
+                let res = query(deps.as_ref(), env.clone(), query_verify_client_msg);
+                assert!(matches!(
+                    res,
+                    Err(ContractError::VerifyClientMessageFailed(
+                        SolanaIBCError::InvalidHeader { reason }
+                    ))
+                        if reason.contains("timestamp")
+                ));
+            }
+        }
+
+        #[test]
+        fn inconsistent_timestamp_for_existing_consensus_state() {
+            let mut deps = mk_deps();
+            let creator = deps.api.addr_make("creator");
+            let info = message_info(&creator, &coins(1, "uatom"));
+
+            // Setup initial client state
+            let client_state = AttestorClientState {
+                latest_height: 100,
+                is_frozen: false,
+            };
+            let consensus_state = AttestorConsensusState {
+                height: 100,
+                timestamp: 1234567890,
+            };
+
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+            let msg = InstantiateMsg {
+                client_state: Binary::from(client_state_bz),
+                consensus_state: Binary::from(consensus_state_bz),
+                checksum: b"checksum".into(),
+            };
+
+            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+            let header_with_different_ts_for_existing_height = Header {
                 trusted_height: 100,
-                new_height: 90, // This should fail
-                timestamp: 1234567900,
+                timestamp: 12345654321,
                 signature_data: vec![1, 2, 3, 4],
             };
-            let header_bz = serde_json::to_vec(&header).unwrap();
+            let header_bz =
+                serde_json::to_vec(&header_with_different_ts_for_existing_height).unwrap();
 
             let mut env = mock_env();
-            env.block.time = Timestamp::from_seconds(header.timestamp + 100);
+            env.block.time = Timestamp::from_seconds(
+                header_with_different_ts_for_existing_height.timestamp + 100,
+            );
 
             // Verify client message should fail
             let query_verify_client_msg = QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
@@ -333,8 +593,9 @@ mod tests {
             assert!(matches!(
                 err,
                 ContractError::VerifyClientMessageFailed(
-                    SolanaIBCError::InvalidHeightProgression { .. }
+                    SolanaIBCError::InvalidHeader { reason }
                 )
+                    if reason.contains("timestamp")
             ));
         }
 
@@ -368,7 +629,6 @@ mod tests {
             // Create a header with empty signature data
             let header = Header {
                 trusted_height: 100,
-                new_height: 150,
                 timestamp: 1234567900,
                 signature_data: vec![], // Empty signature data should fail
             };
@@ -382,10 +642,9 @@ mod tests {
                 client_message: Binary::from(header_bz),
             });
             let err = query(deps.as_ref(), env, query_verify_client_msg).unwrap_err();
-            println!("{:#?}", err);
             assert!(matches!(
                 err,
-                ContractError::VerifyClientMessageFailed(SolanaIBCError::InvalidSignature)
+                ContractError::VerifyClientMessageFailed(SolanaIBCError::InvalidHeader { reason }) if reason.contains("signature")
             ));
         }
 
@@ -419,7 +678,6 @@ mod tests {
             // Create a valid header
             let header = Header {
                 trusted_height: 100,
-                new_height: 150,
                 timestamp: 1234567900,
                 signature_data: vec![1, 2, 3, 4],
             };

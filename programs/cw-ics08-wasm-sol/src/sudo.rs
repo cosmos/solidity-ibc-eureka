@@ -9,9 +9,7 @@ use solana_light_client::update::update_consensus_state;
 
 use crate::{
     msg::{Height, UpdateStateMsg, UpdateStateOnMisbehaviourMsg, UpdateStateResult},
-    state::{
-        get_attestor_client_state, get_wasm_client_state, store_client_state, store_consensus_state,
-    },
+    state::{get_client_state, get_wasm_client_state, store_client_state, store_consensus_state},
     ContractError,
 };
 
@@ -31,7 +29,7 @@ pub fn update_state(
     let header = serde_json::from_slice(&header_bz)
         .map_err(ContractError::DeserializeClientMessageFailed)?;
 
-    let sol_client_state = get_attestor_client_state(deps.storage)?;
+    let sol_client_state = get_client_state(deps.storage)?;
 
     let (updated_slot, updated_consensus_state, updated_client_state) =
         update_consensus_state(sol_client_state, header)
@@ -73,7 +71,7 @@ pub fn misbehaviour(
     deps: DepsMut,
     _msg: UpdateStateOnMisbehaviourMsg,
 ) -> Result<Binary, ContractError> {
-    let mut sol_client_state = get_attestor_client_state(deps.storage)?;
+    let mut sol_client_state = get_client_state(deps.storage)?;
     sol_client_state.is_frozen = true;
 
     let client_state_bz: Vec<u8> =
