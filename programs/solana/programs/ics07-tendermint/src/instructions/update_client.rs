@@ -248,6 +248,7 @@ fn create_consensus_state_account<'info>(
     let mut data = new_consensus_state_store.try_borrow_mut_data()?;
     let mut cursor = std::io::Cursor::new(&mut data[..]);
 
+    // TODO: use build.rs to compute
     // NOTE: Anchor requires all accounts to start with an 8-byte discriminator that identifies
     // the account type. This is the SHA256 hash of "account:ConsensusStateStore" (first 8 bytes).
     // We write it manually here because we're creating the account using system_program::create_account

@@ -1,4 +1,6 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
+use anchor_lang::solana_program::program::invoke;
 use crate::state::{ClientRegistry, ClientType};
 use crate::errors::RouterError;
 
@@ -9,7 +11,7 @@ pub struct MembershipMsg {
     pub delay_time_period: u64,
     pub delay_block_period: u64,
     pub proof: Vec<u8>,
-    pub path: Vec<u8>,
+    pub path: Vec<Vec<u8>>,
     pub value: Vec<u8>,
 }
 
@@ -20,7 +22,7 @@ pub struct NonMembershipMsg {
     pub delay_time_period: u64,
     pub delay_block_period: u64,
     pub proof: Vec<u8>,
-    pub path: Vec<u8>,
+    pub path: Vec<Vec<u8>>,
 }
 
 /// Accounts needed for light client verification via CPI
@@ -55,7 +57,6 @@ pub fn verify_membership_cpi(
         ClientType::ICS07Tendermint => {
             verify_tendermint_membership(light_client_accounts, membership_msg)
         }
-        // Future client types can be added here
     }
 }
 
@@ -78,51 +79,108 @@ pub fn verify_non_membership_cpi(
         ClientType::ICS07Tendermint => {
             verify_tendermint_non_membership(light_client_accounts, non_membership_msg)
         }
-        // Future client types can be added here
     }
 }
 
 fn verify_tendermint_membership(
-    _light_client_accounts: &LightClientVerification,
+    light_client_accounts: &LightClientVerification,
     membership_msg: MembershipMsg,
 ) -> Result<u64> {
-    // TODO: Implement actual CPI call to ICS07 Tendermint program
+    // TODO: use build.rs to compute
+    // Define the instruction discriminator for verify_membership
+    // This is the 8-byte discriminator that Anchor generates for the instruction
+    const VERIFY_MEMBERSHIP_IX_DISCM: [u8; 8] = [117, 157, 187, 21, 220, 192, 82, 200];
 
-    msg!("TODO: Verify membership proof via CPI to ICS07 Tendermint");
-    msg!("Proof height: {}", membership_msg.height);
-    msg!("Proof path length: {}", membership_msg.path.len());
-    msg!("Proof value length: {}", membership_msg.value.len());
+    let mut ix_data = Vec::new();
+    ix_data.extend_from_slice(&VERIFY_MEMBERSHIP_IX_DISCM);
+    membership_msg.serialize(&mut ix_data)?;
 
-    // Return timestamp for now (placeholder)
+    let ix = Instruction {
+        program_id: light_client_accounts.light_client_program.key(),
+        accounts: vec![
+            AccountMeta::new_readonly(light_client_accounts.client_state.key(), false),
+            AccountMeta::new_readonly(light_client_accounts.consensus_state.key(), false),
+        ],
+        data: ix_data,
+    };
+
+    let account_infos = vec![
+        light_client_accounts.client_state.to_account_info(),
+        light_client_accounts.consensus_state.to_account_info(),
+        light_client_accounts.light_client_program.to_account_info(),
+    ];
+
+    invoke(&ix, &account_infos)?;
+
+    msg!("Verified membership proof via CPI to ICS07 Tendermint");
+
+    // Return the height as timestamp for now
+    // In a real implementation, we might need to get this from the consensus state
     Ok(membership_msg.height)
 }
 
-/// Verify non-membership using ICS07 Tendermint light client
 fn verify_tendermint_non_membership(
-    _light_client_accounts: &LightClientVerification,
+    light_client_accounts: &LightClientVerification,
     non_membership_msg: NonMembershipMsg,
 ) -> Result<u64> {
-    // TODO: Implement actual CPI call to ICS07 Tendermint program
-    // This would look something like:
+    // TODO: use build.rs to compute
+    // Define the instruction discriminator for verify_non_membership
+    // This is the 8-byte discriminator that Anchor generates for the instruction
+    const VERIFY_NON_MEMBERSHIP_IX_DISCM: [u8; 8] = [122, 152, 236, 247, 57, 132, 159, 5];
 
-    msg!("TODO: Verify non-membership proof via CPI to ICS07 Tendermint");
-    msg!("Proof height: {}", non_membership_msg.height);
-    msg!("Proof path length: {}", non_membership_msg.path.len());
+    let membership_msg = MembershipMsg {
+        height: non_membership_msg.height,
+        delay_time_period: non_membership_msg.delay_time_period,
+        delay_block_period: non_membership_msg.delay_block_period,
+        proof: non_membership_msg.proof,
+        path: non_membership_msg.path,
+        value: vec![], // Empty value for non-membership
+    };
 
-    Ok(non_membership_msg.height)
+    let mut ix_data = Vec::new();
+    ix_data.extend_from_slice(&VERIFY_NON_MEMBERSHIP_IX_DISCM);
+    membership_msg.serialize(&mut ix_data)?;
+
+    let ix = Instruction {
+        program_id: light_client_accounts.light_client_program.key(),
+        accounts: vec![
+            AccountMeta::new_readonly(light_client_accounts.client_state.key(), false),
+            AccountMeta::new_readonly(light_client_accounts.consensus_state.key(), false),
+        ],
+        data: ix_data,
+    };
+
+    let account_infos = vec![
+        light_client_accounts.client_state.to_account_info(),
+        light_client_accounts.consensus_state.to_account_info(),
+        light_client_accounts.light_client_program.to_account_info(),
+    ];
+
+    invoke(&ix, &account_infos)?;
+
+    msg!("Verified non-membership proof via CPI to ICS07 Tendermint");
+
+    // Return the height as timestamp
+    Ok(membership_msg.height)
 }
 
-/// Helper function to construct IBC commitment path
 pub fn construct_commitment_path(
     _client_id: &str,
     sequence: u64,
     port_id: &str,
     dest_port: &str,
-) -> Vec<u8> {
+) -> Vec<Vec<u8>> {
     // ICS24 path: commitments/ports/{port_id}/channels/{channel_id}/sequences/{sequence}
-    // For now, simplified path construction
-    format!("commitments/ports/{}/channels/{}/sequences/{}", port_id, dest_port, sequence)
-        .into_bytes()
+    // Split into path segments for ICS23 proof verification
+    vec![
+        b"commitments".to_vec(),
+        b"ports".to_vec(),
+        port_id.as_bytes().to_vec(),
+        b"channels".to_vec(),
+        dest_port.as_bytes().to_vec(),
+        b"sequences".to_vec(),
+        sequence.to_string().as_bytes().to_vec(),
+    ]
 }
 
 pub fn construct_receipt_path(
@@ -130,11 +188,18 @@ pub fn construct_receipt_path(
     sequence: u64,
     port_id: &str,
     dest_port: &str,
-) -> Vec<u8> {
+) -> Vec<Vec<u8>> {
     // ICS24 path: receipts/ports/{port_id}/channels/{channel_id}/sequences/{sequence}
-    // For now, simplified path construction
-    format!("receipts/ports/{}/channels/{}/sequences/{}", port_id, dest_port, sequence)
-        .into_bytes()
+    // Split into path segments for ICS23 proof verification
+    vec![
+        b"receipts".to_vec(),
+        b"ports".to_vec(),
+        port_id.as_bytes().to_vec(),
+        b"channels".to_vec(),
+        dest_port.as_bytes().to_vec(),
+        b"sequences".to_vec(),
+        sequence.to_string().as_bytes().to_vec(),
+    ]
 }
 
 pub fn construct_ack_path(
@@ -142,9 +207,16 @@ pub fn construct_ack_path(
     sequence: u64,
     port_id: &str,
     dest_port: &str,
-) -> Vec<u8> {
+) -> Vec<Vec<u8>> {
     // ICS24 path: acks/ports/{port_id}/channels/{channel_id}/sequences/{sequence}
-    // For now, simplified path construction
-    format!("acks/ports/{}/channels/{}/sequences/{}", port_id, dest_port, sequence)
-        .into_bytes()
+    // Split into path segments for ICS23 proof verification
+    vec![
+        b"acks".to_vec(),
+        b"ports".to_vec(),
+        port_id.as_bytes().to_vec(),
+        b"channels".to_vec(),
+        dest_port.as_bytes().to_vec(),
+        b"sequences".to_vec(),
+        sequence.to_string().as_bytes().to_vec(),
+    ]
 }
