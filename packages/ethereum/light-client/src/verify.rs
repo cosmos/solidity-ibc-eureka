@@ -404,7 +404,7 @@ mod test {
         let fixture: fixtures::StepsFixture =
             fixtures::load("Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack");
 
-        let initial_state: InitialState<ClientState, ConsensusState> = fixture.get_data_at_step(0);
+        let initial_state: InitialState = fixture.get_data_at_step(0);
 
         let client_state = initial_state.client_state;
         let consensus_state = initial_state.consensus_state;

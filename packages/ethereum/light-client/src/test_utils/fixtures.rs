@@ -1,4 +1,4 @@
-//! Test fixtures types and utilities for IBC Eureka light clients
+//! Test fixtures types and ulitiies for the Ethereum light client
 
 use std::path::PathBuf;
 
@@ -11,18 +11,21 @@ use ibc_proto_eureka::{
     },
 };
 use prost::Message;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::{client_state::ClientState, consensus_state::ConsensusState};
+
 /// A test fixture with an ordered list of light client operations from the e2e test
-#[derive(Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq, Clone, Debug)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
 pub struct StepsFixture {
     /// steps is a list of light client operations
     pub steps: Vec<Step>,
 }
 
 /// Step is a light client operation such as an initial state, commitment proof, or update client
-#[derive(Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq, Clone, Debug)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
 pub struct Step {
     /// name is the name of the operation, only used for documentation and easy of reading
     pub name: String,
@@ -31,17 +34,16 @@ pub struct Step {
 }
 
 /// The initial state of the light client in the e2e tests
-/// This is a generic structure that can hold any client and consensus state types
-#[derive(Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq, Clone, Debug)]
-pub struct InitialState<CS, CNS> {
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
+pub struct InitialState {
     /// The client state at the initial state
-    pub client_state: CS,
+    pub client_state: ClientState,
     /// The consensus state at the initial state
-    pub consensus_state: CNS,
+    pub consensus_state: ConsensusState,
 }
 
 /// Operation to update the light client
-#[derive(Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq, Clone, Debug)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
 pub struct RelayerMessages {
     /// The headers used to update the light client, in order, as a `TxBody`, encoded as hex
     pub relayer_tx_body: String,
@@ -122,7 +124,7 @@ where
 {
     // Construct the path relative to the Cargo manifest directory
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("src/fixtures");
+    path.push("src/test_utils/fixtures");
     path.push(format!("{name}.json"));
 
     // Open the file and deserialize its contents

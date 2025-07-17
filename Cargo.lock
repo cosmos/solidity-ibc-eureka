@@ -3083,6 +3083,7 @@ dependencies = [
  "ethereum-trie-db 0.1.0",
  "ethereum-types 0.1.0",
  "hex",
+ "ibc-eureka-solidity-types 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "milagro_bls",
  "prost",
@@ -3092,7 +3093,6 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror 2.0.12",
  "tree_hash 0.1.0",
- "wasm-test-utils",
 ]
 
 [[package]]
@@ -11197,19 +11197,6 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
-]
-
-[[package]]
-name = "wasm-test-utils"
-version = "0.1.0"
-dependencies = [
- "hex",
- "ibc-eureka-solidity-types 0.1.0",
- "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
- "prost",
- "schemars 0.8.22",
- "serde",
- "serde_json",
 ]
 
 [[package]]
