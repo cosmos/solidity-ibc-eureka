@@ -4,6 +4,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::keccak::hash as keccak256;
 use sha2::{Digest, Sha256};
 
+// TODO: calc in build.rs
 /// Universal error acknowledgement
 /// sha256("UNIVERSAL_ERROR_ACKNOWLEDGEMENT")
 pub const UNIVERSAL_ERROR_ACK: [u8; 32] = [
@@ -11,7 +12,6 @@ pub const UNIVERSAL_ERROR_ACK: [u8; 32] = [
     0x45, 0x7a, 0xbe, 0xf8, 0x58, 0x91, 0x78, 0xdb, 0x8d, 0x10, 0xc9, 0x4b, 0x4a, 0xb5, 0x11, 0xab,
 ];
 
-/// Keccak256 hash of the universal error acknowledgement
 pub fn keccak256_universal_error_ack() -> [u8; 32] {
     keccak256(&UNIVERSAL_ERROR_ACK).to_bytes()
 }
@@ -126,3 +126,4 @@ fn sha256(data: &[u8]) -> [u8; 32] {
     hasher.update(data);
     hasher.finalize().into()
 }
+
