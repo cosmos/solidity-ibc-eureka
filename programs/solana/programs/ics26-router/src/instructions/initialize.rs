@@ -7,7 +7,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 32 + 1, // discriminator + pubkey + bool
+        space = 8 + RouterState::INIT_SPACE, // discriminator + router_state
         seeds = [ROUTER_STATE_SEED],
         bump
     )]
@@ -32,4 +32,3 @@ pub fn initialize(ctx: Context<Initialize>, authority: Pubkey) -> Result<()> {
 
     Ok(())
 }
-

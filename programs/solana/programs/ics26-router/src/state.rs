@@ -1,7 +1,11 @@
 use anchor_lang::prelude::*;
 
+pub const MIN_PORT_ID_LENGTH: usize = 2;
+pub const MAX_PORT_ID_LENGTH: usize = 128;
+
 /// Router state account
 #[account]
+#[derive(InitSpace)]
 pub struct RouterState {
     /// Authority that can perform restricted operations
     pub authority: Pubkey,
@@ -11,8 +15,10 @@ pub struct RouterState {
 
 /// Port registry mapping port IDs to IBC app program IDs
 #[account]
+#[derive(InitSpace)]
 pub struct PortRegistry {
     /// The port identifier
+    #[max_len(MAX_PORT_ID_LENGTH)]
     pub port_id: String,
     /// The program ID of the IBC application
     pub app_program_id: Pubkey,
@@ -35,6 +41,7 @@ pub struct ClientSequence {
 
 /// Commitment storage (simple key-value)
 #[account]
+#[derive(InitSpace)]
 pub struct Commitment {
     /// The commitment value (sha256 hash)
     pub value: [u8; 32],

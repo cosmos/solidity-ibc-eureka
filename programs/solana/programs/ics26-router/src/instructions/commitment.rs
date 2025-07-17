@@ -14,7 +14,7 @@ pub struct StoreCommitment<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 32, // discriminator + commitment value
+        space = 8 + Commitment::INIT_SPACE , // discriminator + commitment
         seeds = [COMMITMENT_SEED, &path_hash],
         bump
     )]

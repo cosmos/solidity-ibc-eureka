@@ -28,7 +28,7 @@ pub struct SendPacket<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 32, // discriminator + commitment
+        space = 8 + Commitment::INIT_SPACE, // discriminator + commitment
         seeds = [
             PACKET_COMMITMENT_SEED,
             msg.source_client.as_bytes(),
@@ -102,4 +102,3 @@ pub struct SendPacketEvent {
     pub sequence: u64,
     pub packet_data: Vec<u8>,
 }
-

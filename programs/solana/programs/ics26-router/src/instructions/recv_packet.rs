@@ -28,7 +28,7 @@ pub struct RecvPacket<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        space = 8 + 32, // discriminator + receipt
+        space = 8 + Commitment::INIT_SPACE, // discriminator + receipt
         seeds = [
             PACKET_RECEIPT_SEED,
             msg.packet.dest_client.as_bytes(),
@@ -41,7 +41,7 @@ pub struct RecvPacket<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 32, // discriminator + ack commitment
+        space = 8 + Commitment::INIT_SPACE, // discriminator + commitment
         seeds = [
             PACKET_ACK_SEED,
             msg.packet.dest_client.as_bytes(),
@@ -133,4 +133,3 @@ pub struct WriteAcknowledgementEvent {
 
 #[event]
 pub struct NoopEvent {}
-

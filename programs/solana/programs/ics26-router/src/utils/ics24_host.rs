@@ -126,4 +126,3 @@ fn sha256(data: &[u8]) -> [u8; 32] {
     hasher.update(data);
     hasher.finalize().into()
 }
-
