@@ -1,5 +1,5 @@
 [package]
-name = "cw-ics08-wasm-sol"
+name = "cw-ics08-wasm-attestor"
 version = { workspace = true }
 edition = { workspace = true }
 repository = { workspace = true }
@@ -9,8 +9,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 ibc-proto = { workspace = true }
-solana-light-client = { workspace = true }
-solana-types = { workspace = true }
+attestor-light-client = { workspace = true }
 
 solana-sdk = { workspace = true }
 
@@ -24,4 +23,4 @@ thiserror = { workspace = true }
 hex = { workspace = true }
 
 [dev-dependencies]
-solana-light-client = { workspace = true, features = ["test-utils"] }
+attestor-light-client = { workspace = true, features = ["test-utils"] }

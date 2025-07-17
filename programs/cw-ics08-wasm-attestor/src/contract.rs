@@ -106,6 +106,10 @@ pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, Co
 #[cfg(test)]
 mod tests {
     mod instantiate {
+        use attestor_light_client::{
+            client_state::ClientState as AttestorClientState,
+            consensus_state::ConsensusState as AttestorConsensusState,
+        };
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
@@ -118,10 +122,6 @@ mod tests {
             },
         };
         use prost::{Message, Name};
-        use solana_light_client::{
-            client_state::ClientState as AttestorClientState,
-            consensus_state::ConsensusState as AttestorConsensusState,
-        };
 
         use crate::{
             contract::instantiate,
@@ -198,6 +198,11 @@ mod tests {
     }
 
     mod integration_tests {
+        use attestor_light_client::{
+            client_state::ClientState as AttestorClientState,
+            consensus_state::ConsensusState as AttestorConsensusState, error::SolanaIBCError,
+            header::Header,
+        };
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
@@ -207,11 +212,6 @@ mod tests {
             google::protobuf::Any, ibc::lightclients::wasm::v1::ClientState as WasmClientState,
         };
         use prost::Message;
-        use solana_light_client::{
-            client_state::ClientState as AttestorClientState,
-            consensus_state::ConsensusState as AttestorConsensusState, error::SolanaIBCError,
-            header::Header,
-        };
 
         use crate::{
             contract::{instantiate, migrate, query, sudo},

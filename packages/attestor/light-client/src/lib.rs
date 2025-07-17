@@ -22,7 +22,6 @@ pub mod consensus_state;
 pub mod error;
 pub mod header;
 pub mod membership;
-pub mod misbehaviour;
 pub mod update;
 pub mod verify;
 

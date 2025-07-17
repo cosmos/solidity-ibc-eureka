@@ -1,11 +1,11 @@
 //! This module contains the sudo message handlers
 
+use attestor_light_client::update::update_consensus_state;
 use cosmwasm_std::{to_json_binary, Binary, DepsMut};
 use ibc_proto::ibc::{
     core::client::v1::Height as IbcProtoHeight,
     lightclients::wasm::v1::ConsensusState as WasmConsensusState,
 };
-use solana_light_client::update::update_consensus_state;
 
 use crate::{
     msg::{Height, UpdateStateMsg, UpdateStateOnMisbehaviourMsg, UpdateStateResult},

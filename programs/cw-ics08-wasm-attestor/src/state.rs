@@ -1,5 +1,7 @@
 //! State management for the attestor light client
 
+use attestor_light_client::client_state::ClientState;
+use attestor_light_client::consensus_state::ConsensusState;
 use cosmwasm_std::{Order, Storage};
 use ibc_proto::{
     google::protobuf::Any,
@@ -8,8 +10,6 @@ use ibc_proto::{
     },
 };
 use prost::Message;
-use solana_light_client::client_state::ClientState;
-use solana_light_client::consensus_state::ConsensusState;
 
 use crate::ContractError;
 

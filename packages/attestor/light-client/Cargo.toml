@@ -1,5 +1,5 @@
 [package]
-name = "solana-light-client"
+name = "attestor-light-client"
 version = { workspace = true }
 edition = { workspace = true }
 repository = { workspace = true }
@@ -9,7 +9,6 @@ default = []
 test-utils = ["dep:prost", "dep:ibc-proto-eureka"]
 
 [dependencies]
-solana-types = { workspace = true }
 solana-sdk = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
@@ -22,5 +21,3 @@ sha2 = { workspace = true }
 prost = { workspace = true, optional = true }
 ibc-proto-eureka = { workspace = true, optional = true }
 
-[dev-dependencies]
-solana-types = { workspace = true, fatures = ["test-utils"] }

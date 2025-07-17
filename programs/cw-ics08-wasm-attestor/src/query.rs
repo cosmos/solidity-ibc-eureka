@@ -1,7 +1,7 @@
 //! This module contains the query message handlers
 
+use attestor_light_client::header::Header;
 use cosmwasm_std::{to_json_binary, Binary, Deps, Env};
-use solana_light_client::header::Header;
 
 use crate::{
     msg::{
@@ -31,7 +31,7 @@ pub fn verify_client_message(
     if let Ok(header) = serde_json::from_slice::<Header>(&verify_client_message_msg.client_message)
     {
         if let Ok(height_in_msg_exists) = get_consensus_state(deps.storage, header.trusted_height) {
-            let _sol_consensus_state = solana_light_client::verify::verify_header(
+            let _sol_consensus_state = attestor_light_client::verify::verify_header(
                 Some(&height_in_msg_exists),
                 None,
                 None,
@@ -47,7 +47,7 @@ pub fn verify_client_message(
             get_previous_consensus_state(deps.storage, header.trusted_height)?,
             get_next_consensus_state(deps.storage, header.trusted_height)?,
         );
-        let _sol_consensus_state = solana_light_client::verify::verify_header(
+        let _sol_consensus_state = attestor_light_client::verify::verify_header(
             None,
             prev.as_ref(),
             next.as_ref(),

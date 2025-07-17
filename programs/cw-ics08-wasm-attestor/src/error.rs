@@ -1,7 +1,7 @@
 //! Defines the [`ContractError`] type.
 
+use attestor_light_client::error::SolanaIBCError;
 use cosmwasm_std::StdError;
-use solana_light_client::error::SolanaIBCError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
