@@ -1,4 +1,4 @@
-use crate::errors::IbcRouterError;
+use crate::errors::RouterError;
 use crate::state::{Commitment, RouterState, COMMITMENT_SEED, ROUTER_STATE_SEED};
 use anchor_lang::prelude::*;
 
@@ -47,7 +47,7 @@ pub fn store_commitment(
 
     require!(
         ctx.accounts.authority.key() == router_state.authority,
-        IbcRouterError::UnauthorizedSender
+        RouterError::UnauthorizedSender
     );
 
     let commitment_account = &mut ctx.accounts.commitment;

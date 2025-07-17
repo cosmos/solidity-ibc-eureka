@@ -1,4 +1,4 @@
-use crate::errors::IbcRouterError;
+use crate::errors::RouterError;
 use crate::state::{RouterState, ROUTER_STATE_SEED};
 use anchor_lang::prelude::*;
 
@@ -24,7 +24,7 @@ pub fn initialize(ctx: Context<Initialize>, authority: Pubkey) -> Result<()> {
 
     require!(
         !router_state.initialized,
-        IbcRouterError::AlreadyInitialized
+        RouterError::AlreadyInitialized
     );
 
     router_state.authority = authority;

@@ -1,4 +1,4 @@
-use crate::errors::IbcRouterError;
+use crate::errors::RouterError;
 use crate::state::{Packet, Payload};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::keccak::hash as keccak256;
@@ -87,7 +87,7 @@ fn hash_payload(payload: &Payload) -> [u8; 32] {
 
 /// sha256_hash(0x02 + sha256_hash(ack1) + sha256_hash(ack2), ...)
 pub fn packet_acknowledgement_commitment_bytes32(acks: &[Vec<u8>]) -> Result<[u8; 32]> {
-    require!(!acks.is_empty(), IbcRouterError::NoAcknowledgements);
+    require!(!acks.is_empty(), RouterError::NoAcknowledgements);
 
     let mut ack_bytes = Vec::new();
     for ack in acks {
@@ -111,7 +111,7 @@ pub fn packet_receipt_commitment_bytes32(packet: &Packet) -> [u8; 32] {
 pub fn prefixed_path(merkle_prefix: &[Vec<u8>], path: &[u8]) -> Result<Vec<Vec<u8>>> {
     require!(
         !merkle_prefix.is_empty(),
-        IbcRouterError::InvalidMerklePrefix
+        RouterError::InvalidMerklePrefix
     );
 
     let mut result = merkle_prefix.to_vec();

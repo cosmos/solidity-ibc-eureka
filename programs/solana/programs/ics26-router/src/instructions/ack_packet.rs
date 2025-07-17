@@ -1,6 +1,10 @@
-use crate::errors::IbcRouterError;
+use crate::errors::RouterError;
 use crate::state::*;
 use crate::utils::ics24_host;
+use crate::instructions::light_client_cpi::{
+    verify_membership_cpi, MembershipMsg, LightClientVerification,
+    construct_ack_path
+};
 use anchor_lang::prelude::*;
 use crate::instructions::recv_packet::NoopEvent;
 
@@ -37,7 +41,24 @@ pub struct AckPacket<'info> {
     pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
-    // TODO: Add light client accounts for proof verification
+
+    // Client registry for light client lookup
+    #[account(
+        seeds = [CLIENT_REGISTRY_SEED, msg.packet.source_client.as_bytes()],
+        bump,
+        constraint = client_registry.active @ RouterError::ClientNotActive,
+    )]
+    pub client_registry: Account<'info, ClientRegistry>,
+
+    // Light client verification accounts
+    /// CHECK: Light client program, validated against client registry
+    pub light_client_program: AccountInfo<'info>,
+
+    /// CHECK: Client state account, owned by light client program
+    pub client_state: AccountInfo<'info>,
+
+    /// CHECK: Consensus state account, owned by light client program
+    pub consensus_state: AccountInfo<'info>,
 }
 
 pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
@@ -46,17 +67,43 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
 
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
-        IbcRouterError::UnauthorizedSender
+        RouterError::UnauthorizedSender
     );
 
     require!(
         msg.packet.payloads.len() == 1,
-        IbcRouterError::MultiPayloadPacketNotSupported
+        RouterError::MultiPayloadPacketNotSupported
     );
 
-    // TODO: Verify counterparty client ID
+    // Verify acknowledgement proof on counterparty chain via light client
+    let client_registry = &ctx.accounts.client_registry;
+    let light_client_verification = LightClientVerification {
+        light_client_program: ctx.accounts.light_client_program.clone(),
+        client_state: ctx.accounts.client_state.clone(),
+        consensus_state: ctx.accounts.consensus_state.clone(),
+    };
 
-    // TODO: Verify merkle proof of acknowledgement via CPI to light client
+    let ack_path = construct_ack_path(
+        &msg.packet.source_client,
+        msg.packet.sequence,
+        &msg.packet.payloads[0].source_port,
+        &msg.packet.payloads[0].dest_port,
+    );
+
+    let membership_msg = MembershipMsg {
+        height: msg.proof_height,
+        delay_time_period: 0,
+        delay_block_period: 0,
+        proof: msg.proof_acked.clone(),
+        path: ack_path,
+        value: msg.acknowledgement.clone(),
+    };
+
+    verify_membership_cpi(
+        client_registry,
+        &light_client_verification,
+        membership_msg,
+    )?;
 
     let expected_commitment = ics24_host::packet_commitment_bytes32(&msg.packet);
     if packet_commitment.value != expected_commitment {

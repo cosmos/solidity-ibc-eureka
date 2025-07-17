@@ -1,4 +1,4 @@
-use crate::errors::IbcRouterError;
+use crate::errors::RouterError;
 use crate::state::{PortRegistry, RouterState, PORT_REGISTRY_SEED, ROUTER_STATE_SEED};
 use anchor_lang::prelude::*;
 
@@ -38,10 +38,10 @@ pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
 
     require!(
         ctx.accounts.authority.key() == router_state.authority,
-        IbcRouterError::UnauthorizedSender
+        RouterError::UnauthorizedSender
     );
 
-    require!(!port_id.is_empty(), IbcRouterError::InvalidPortIdentifier);
+    require!(!port_id.is_empty(), RouterError::InvalidPortIdentifier);
 
     port_registry.port_id = port_id;
     port_registry.app_program_id = ctx.accounts.app_program.key();

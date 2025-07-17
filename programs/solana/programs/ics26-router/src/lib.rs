@@ -9,7 +9,7 @@ pub mod state;
 pub mod utils;
 
 use instructions::*;
-use state::{MsgSendPacket, MsgRecvPacket, MsgAckPacket, MsgTimeoutPacket};
+use state::{MsgSendPacket, MsgRecvPacket, MsgAckPacket, MsgTimeoutPacket, ClientType, CounterpartyInfo};
 
 declare_id!("HsCyuYgKgoN9wUPiJyNZvvWg2N1uyZhDjvJfKJFu3jvU");
 
@@ -51,6 +51,23 @@ pub mod ics26_router {
 
     pub fn get_commitment(ctx: Context<GetCommitment>, path_hash: [u8; 32]) -> Result<[u8; 32]> {
         instructions::get_commitment(ctx, path_hash)
+    }
+
+    pub fn add_client(
+        ctx: Context<AddClient>,
+        client_id: String,
+        client_type: ClientType,
+        counterparty_info: CounterpartyInfo,
+    ) -> Result<()> {
+        instructions::add_client(ctx, client_id, client_type, counterparty_info)
+    }
+
+    pub fn update_client(
+        ctx: Context<UpdateClient>,
+        client_id: String,
+        active: bool,
+    ) -> Result<()> {
+        instructions::update_client(ctx, client_id, active)
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::errors::IbcRouterError;
+use crate::errors::RouterError;
 use crate::state::*;
 use crate::utils::ics24_host;
 use anchor_lang::prelude::*;
@@ -57,17 +57,17 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
 
     require!(
         ctx.accounts.app_caller.key() == port_registry.app_program_id,
-        IbcRouterError::UnauthorizedSender
+        RouterError::UnauthorizedSender
     );
 
     let current_timestamp = clock.unix_timestamp;
     require!(
         msg.timeout_timestamp > current_timestamp,
-        IbcRouterError::InvalidTimeoutTimestamp
+        RouterError::InvalidTimeoutTimestamp
     );
     require!(
         msg.timeout_timestamp - current_timestamp <= MAX_TIMEOUT_DURATION,
-        IbcRouterError::InvalidTimeoutDuration
+        RouterError::InvalidTimeoutDuration
     );
 
     let sequence = client_sequence.next_sequence_send;

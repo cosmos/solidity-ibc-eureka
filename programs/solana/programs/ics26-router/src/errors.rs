@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[error_code]
-pub enum IbcRouterError {
+pub enum RouterError {
     #[msg("Unauthorized sender")]
     UnauthorizedSender,
     #[msg("Port already exists")]
@@ -40,5 +40,21 @@ pub enum IbcRouterError {
     ClientNotFound,
     #[msg("Already initialized")]
     AlreadyInitialized,
+    #[msg("Router not initialized")]
+    RouterNotInitialized,
+    #[msg("Unauthorized authority")]
+    UnauthorizedAuthority,
+    #[msg("Invalid client ID")]
+    InvalidClientId,
+    #[msg("Invalid light client program")]
+    InvalidLightClientProgram,
+    #[msg("Unsupported client type")]
+    UnsupportedClientType,
+    #[msg("Invalid counterparty info")]
+    InvalidCounterpartyInfo,
+    #[msg("Client already exists")]
+    ClientAlreadyExists,
+    #[msg("Client not active")]
+    ClientNotActive,
 }
 

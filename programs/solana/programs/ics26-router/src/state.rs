@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 
 pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
+pub const MAX_CLIENT_ID_LENGTH: usize = 64;
 
 /// Router state account
 #[account]
@@ -24,6 +25,45 @@ pub struct PortRegistry {
     pub app_program_id: Pubkey,
     /// Authority that registered this port
     pub authority: Pubkey,
+}
+
+/// Client type enumeration
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, Debug, InitSpace)]
+pub enum ClientType {
+    ICS07Tendermint,
+}
+
+/// Counterparty chain information
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
+pub struct CounterpartyInfo {
+    /// Client ID on the counterparty chain
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
+    pub client_id: String,
+    /// Connection ID on the counterparty chain
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
+    pub connection_id: String,
+    /// Merkle prefix for proof verification
+    #[max_len(128)]
+    pub merkle_prefix: Vec<u8>,
+}
+
+/// Client registry mapping client IDs to light client program IDs
+#[account]
+#[derive(InitSpace)]
+pub struct ClientRegistry {
+    /// The client identifier
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
+    pub client_id: String,
+    /// The program ID of the light client
+    pub client_program_id: Pubkey,
+    /// Type of the light client
+    pub client_type: ClientType,
+    /// Counterparty chain information
+    pub counterparty_info: CounterpartyInfo,
+    /// Authority that registered this client
+    pub authority: Pubkey,
+    /// Whether the client is active
+    pub active: bool,
 }
 
 /// Client sequence tracking
@@ -100,6 +140,7 @@ pub struct MsgTimeoutPacket {
 /// Constants
 pub const ROUTER_STATE_SEED: &[u8] = b"router_state";
 pub const PORT_REGISTRY_SEED: &[u8] = b"port_registry";
+pub const CLIENT_REGISTRY_SEED: &[u8] = b"client_registry";
 pub const CLIENT_SEQUENCE_SEED: &[u8] = b"client_sequence";
 pub const COMMITMENT_SEED: &[u8] = b"commitment";
 pub const PACKET_COMMITMENT_SEED: &[u8] = b"packet_commitment";

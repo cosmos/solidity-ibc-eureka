@@ -1,6 +1,10 @@
-use crate::errors::IbcRouterError;
+use crate::errors::RouterError;
 use crate::state::*;
 use crate::utils::ics24_host;
+use crate::instructions::light_client_cpi::{
+    verify_membership_cpi, MembershipMsg, LightClientVerification,
+    construct_commitment_path
+};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -59,7 +63,24 @@ pub struct RecvPacket<'info> {
     pub system_program: Program<'info, System>,
 
     pub clock: Sysvar<'info, Clock>,
-    // TODO: Add light client accounts for proof verification
+
+    // Client registry for light client lookup
+    #[account(
+        seeds = [CLIENT_REGISTRY_SEED, msg.packet.dest_client.as_bytes()],
+        bump,
+        constraint = client_registry.active @ RouterError::ClientNotActive,
+    )]
+    pub client_registry: Account<'info, ClientRegistry>,
+
+    // Light client verification accounts
+    /// CHECK: Light client program, validated against client registry
+    pub light_client_program: AccountInfo<'info>,
+
+    /// CHECK: Client state account, owned by light client program
+    pub client_state: AccountInfo<'info>,
+
+    /// CHECK: Consensus state account, owned by light client program
+    pub consensus_state: AccountInfo<'info>,
 }
 
 pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
@@ -71,27 +92,56 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     // Check authority (relayer must be authorized)
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
-        IbcRouterError::UnauthorizedSender
+        RouterError::UnauthorizedSender
     );
 
     // Multi-payload check
     require!(
         msg.packet.payloads.len() == 1,
-        IbcRouterError::MultiPayloadPacketNotSupported
+        RouterError::MultiPayloadPacketNotSupported
     );
 
     // Validate timeout
     let current_timestamp = clock.unix_timestamp;
     require!(
         msg.packet.timeout_timestamp > current_timestamp,
-        IbcRouterError::InvalidTimeoutTimestamp
+        RouterError::InvalidTimeoutTimestamp
     );
 
-    // TODO: Verify counterparty client ID
-    // This would normally check against stored client info
+    // Verify packet commitment on counterparty chain via light client
+    let client_registry = &ctx.accounts.client_registry;
+    let light_client_verification = LightClientVerification {
+        light_client_program: ctx.accounts.light_client_program.clone(),
+        client_state: ctx.accounts.client_state.clone(),
+        consensus_state: ctx.accounts.consensus_state.clone(),
+    };
 
-    // TODO: Verify merkle proof via CPI to light client
-    // For now, we'll skip the actual verification
+    // Construct commitment path for the packet
+    let commitment_path = construct_commitment_path(
+        &msg.packet.dest_client,
+        msg.packet.sequence,
+        &msg.packet.payloads[0].source_port,
+        &msg.packet.payloads[0].dest_port,
+    );
+
+    // Calculate expected commitment value
+    let expected_commitment = ics24_host::packet_commitment_bytes32(&msg.packet);
+
+    // Verify membership proof via CPI to light client
+    let membership_msg = MembershipMsg {
+        height: msg.proof_height,
+        delay_time_period: 0,
+        delay_block_period: 0,
+        proof: msg.proof_commitment.clone(),
+        path: commitment_path,
+        value: expected_commitment.to_vec(),
+    };
+
+    verify_membership_cpi(
+        client_registry,
+        &light_client_verification,
+        membership_msg,
+    )?;
 
     // Check if receipt already exists (no-op case)
     let receipt_commitment = ics24_host::packet_receipt_commitment_bytes32(&msg.packet);
