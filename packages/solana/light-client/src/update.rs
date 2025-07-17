@@ -14,16 +14,16 @@ pub fn update_consensus_state(
     header: Header,
 ) -> Result<(u64, ConsensusState, Option<ClientState>), SolanaIBCError> {
     let new_consensus_state = ConsensusState {
-        height: header.new_height,
+        height: header.trusted_height,
         timestamp: header.timestamp,
     };
 
     // Update client state if the height has progressed beyond the latest
-    let height_has_progressed = header.new_height > current_client_state.latest_height;
+    let height_has_progressed = header.trusted_height > current_client_state.latest_height;
     let new_client_state = height_has_progressed.then_some(ClientState {
-        latest_height: header.new_height,
+        latest_height: header.trusted_height,
         ..current_client_state
     });
 
-    Ok((header.new_height, new_consensus_state, new_client_state))
+    Ok((header.trusted_height, new_consensus_state, new_client_state))
 }

@@ -5,15 +5,6 @@ use thiserror::Error;
 /// Main error type for attestor IBC operations
 #[derive(Error, Debug)]
 pub enum SolanaIBCError {
-    /// Invalid height progression
-    #[error("Invalid height progression: current {current}, new {new}")]
-    InvalidHeightProgression {
-        /// Current height
-        current: u64,
-        /// Proposed new height
-        new: u64,
-    },
-
     /// Invalid signature verification
     #[error("Signature verification failed")]
     InvalidSignature,
