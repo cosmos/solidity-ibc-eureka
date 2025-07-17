@@ -116,7 +116,6 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         consensus_state: ctx.accounts.consensus_state.clone(),
     };
 
-    // Construct commitment path for the packet
     let commitment_path = construct_commitment_path(
         &msg.packet.dest_client,
         msg.packet.sequence,
@@ -124,7 +123,6 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         &msg.packet.payloads[0].dest_port,
     );
 
-    // Calculate expected commitment value
     let expected_commitment = ics24_host::packet_commitment_bytes32(&msg.packet);
 
     // Verify membership proof via CPI to light client
@@ -150,19 +148,16 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         return Ok(());
     }
 
-    // Set packet receipt
     packet_receipt.value = receipt_commitment;
 
     // TODO: CPI to IBC app's onRecvPacket
     // For now, we'll create a simple acknowledgement
     let ack_data = b"packet received".to_vec();
 
-    // Store acknowledgement commitment
     let acks = vec![ack_data.clone()];
     let ack_commitment = ics24_host::packet_acknowledgement_commitment_bytes32(&acks)?;
     packet_ack.value = ack_commitment;
 
-    // Emit event
     emit!(WriteAcknowledgementEvent {
         client_id: msg.packet.dest_client.clone(),
         sequence: msg.packet.sequence,

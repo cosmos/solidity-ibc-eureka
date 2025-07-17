@@ -104,7 +104,6 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         non_membership_msg,
     )?;
 
-    // Verify that the packet has timed out
     require!(
         counterparty_timestamp >= msg.packet.timeout_timestamp as u64,
         RouterError::InvalidTimeoutTimestamp

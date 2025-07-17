@@ -71,7 +71,6 @@ pub fn add_client(
         RouterError::InvalidClientId
     );
 
-    // Validate light client program ID based on client type
     let expected_program_id = match client_type {
         ClientType::ICS07Tendermint => {
             // Known ICS07 Tendermint program ID
