@@ -82,12 +82,24 @@ pub fn verify_header(
 
 #[cfg(test)]
 mod verify_header {
+    use ibc_proto_eureka::cosmos::crypto::secp256k1::PubKey;
+    use std::cell::LazyCell;
+    pub const KEYS: LazyCell<[PubKey; 5]> = LazyCell::new(|| {
+        [
+            PubKey::default(),
+            PubKey::default(),
+            PubKey::default(),
+            PubKey::default(),
+            PubKey::default(),
+        ]
+    });
 
     use super::*;
 
     #[test]
     fn fails_on_frozon() {
         let frozen = ClientState {
+            pub_keys: KEYS.clone(),
             latest_height: 100,
             is_frozen: true,
         };
@@ -108,6 +120,7 @@ mod verify_header {
     #[test]
     fn fails_on_empty_signature() {
         let cs = ClientState {
+            pub_keys: KEYS.clone(),
             latest_height: 100,
             is_frozen: false,
         };
@@ -130,6 +143,7 @@ mod verify_header {
     #[test]
     fn fails_on_inconsistent_ts() {
         let cs = ClientState {
+            pub_keys: KEYS.clone(),
             latest_height: 100,
             is_frozen: false,
         };
@@ -152,6 +166,7 @@ mod verify_header {
     #[test]
     fn fails_non_monotonic_ts() {
         let cs = ClientState {
+            pub_keys: KEYS.clone(),
             latest_height: 100,
             is_frozen: false,
         };
@@ -204,6 +219,7 @@ mod verify_header {
     #[test]
     fn succeeds_on_monotonic_ts() {
         let cs = ClientState {
+            pub_keys: KEYS.clone(),
             latest_height: 100,
             is_frozen: false,
         };

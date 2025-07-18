@@ -89,7 +89,19 @@ pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, 
 
 #[cfg(test)]
 mod tests {
+    use ibc_proto::cosmos::crypto::secp256k1::PubKey;
+    use std::cell::LazyCell;
+    pub const KEYS: LazyCell<[PubKey; 5]> = LazyCell::new(|| {
+        [
+            PubKey::default(),
+            PubKey::default(),
+            PubKey::default(),
+            PubKey::default(),
+            PubKey::default(),
+        ]
+    });
     mod instantiate {
+
         use attestor_light_client::{
             client_state::ClientState as AttestorClientState,
             consensus_state::ConsensusState as AttestorConsensusState,
@@ -108,7 +120,7 @@ mod tests {
         use prost::{Message, Name};
 
         use crate::{
-            contract::instantiate,
+            contract::{instantiate, tests::KEYS},
             msg::InstantiateMsg,
             state::{consensus_db_key, HOST_CLIENT_STATE_KEY},
             test::helpers::mk_deps,
@@ -121,6 +133,7 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             let client_state = AttestorClientState {
+                pub_keys: KEYS.clone(),
                 latest_height: 42,
                 is_frozen: false,
             };
@@ -190,20 +203,15 @@ mod tests {
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
-            Binary, Storage, Timestamp,
+            Binary, Timestamp,
         };
-        use ibc_proto::{
-            google::protobuf::Any, ibc::lightclients::wasm::v1::ClientState as WasmClientState,
-        };
-        use prost::Message;
 
         use crate::{
-            contract::{instantiate, migrate, query, sudo},
+            contract::{instantiate, query, sudo, tests::KEYS},
             msg::{
-                InstantiateMsg, MigrateMsg, Migration, QueryMsg, SudoMsg, UpdateStateMsg,
-                UpdateStateResult, VerifyClientMessageMsg,
+                InstantiateMsg, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
+                VerifyClientMessageMsg,
             },
-            state::HOST_CLIENT_STATE_KEY,
             test::helpers::mk_deps,
             ContractError,
         };
@@ -215,6 +223,7 @@ mod tests {
 
             // Setup initial client state
             let client_state = AttestorClientState {
+                pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: false,
             };
@@ -276,6 +285,7 @@ mod tests {
 
             // Setup initial client state
             let client_state = AttestorClientState {
+                pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: false,
             };
@@ -339,6 +349,7 @@ mod tests {
 
             // Setup initial client state
             let client_state = AttestorClientState {
+                pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: false,
             };
@@ -441,6 +452,7 @@ mod tests {
 
             // Setup initial client state
             let client_state = AttestorClientState {
+                pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: false,
             };
@@ -537,6 +549,7 @@ mod tests {
 
             // Setup initial client state
             let client_state = AttestorClientState {
+                pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: false,
             };
@@ -591,6 +604,7 @@ mod tests {
 
             // Setup initial client state
             let client_state = AttestorClientState {
+                pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: false,
             };
@@ -640,6 +654,7 @@ mod tests {
 
             // Setup frozen client state
             let client_state = AttestorClientState {
+                pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: true, // Client is frozen
             };

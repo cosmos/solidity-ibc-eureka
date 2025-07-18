@@ -6,7 +6,7 @@ repository = { workspace = true }
 
 [features]
 default = []
-test-utils = ["dep:prost", "dep:ibc-proto-eureka"]
+test-utils = ["dep:prost"]
 
 [dependencies]
 solana-sdk = { workspace = true }
@@ -16,9 +16,8 @@ thiserror = { workspace = true }
 schemars = { workspace = true }
 hex = { workspace = true }
 sha2 = { workspace = true }
-secp256k1 = { workspace = true, default-features = false, features = ["serde", "hashes", "global-context"] }
+ibc-proto-eureka = { workspace = true, features = ["serde"] }
 
 # Only used for test-utils feature
 prost = { workspace = true, optional = true }
-ibc-proto-eureka = { workspace = true, optional = true }
 
