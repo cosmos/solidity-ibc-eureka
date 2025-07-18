@@ -245,7 +245,7 @@ mod tests {
 
             // Create a header for client update (height progression)
             let header = Header {
-                trusted_height: 101,
+                new_height: 101,
                 timestamp: 1234567900,            // 10 seconds later
                 signature_data: vec![1, 2, 3, 4], // Some signature data
             };
@@ -272,7 +272,7 @@ mod tests {
             assert_eq!(1, update_state_result.heights.len());
             assert_eq!(0, update_state_result.heights[0].revision_number);
             assert_eq!(
-                header.trusted_height,
+                header.new_height,
                 update_state_result.heights[0].revision_height
             );
         }
@@ -308,7 +308,7 @@ mod tests {
             for i in 1..6 {
                 // Create a header for client update (height progression)
                 let header = Header {
-                    trusted_height: consensus_state.height + i,
+                    new_height: consensus_state.height + i,
                     timestamp: consensus_state.timestamp + i,
                     signature_data: vec![1, 2, 3, 4],
                 };
@@ -336,7 +336,7 @@ mod tests {
                 assert_eq!(1, update_state_result.heights.len());
                 assert_eq!(0, update_state_result.heights[0].revision_number);
                 assert_eq!(
-                    header.trusted_height,
+                    header.new_height,
                     update_state_result.heights[0].revision_height
                 );
             }
@@ -375,7 +375,7 @@ mod tests {
                     continue;
                 }
                 let header = Header {
-                    trusted_height: consensus_state.height + i,
+                    new_height: consensus_state.height + i,
                     timestamp: consensus_state.timestamp + i,
                     signature_data: vec![1, 2, 3, 4],
                 };
@@ -401,7 +401,7 @@ mod tests {
                 assert_eq!(1, update_state_result.heights.len());
                 assert_eq!(0, update_state_result.heights[0].revision_number);
                 assert_eq!(
-                    header.trusted_height,
+                    header.new_height,
                     update_state_result.heights[0].revision_height
                 );
             }
@@ -412,7 +412,7 @@ mod tests {
                     continue;
                 }
                 let header = Header {
-                    trusted_height: consensus_state.height + i,
+                    new_height: consensus_state.height + i,
                     timestamp: consensus_state.timestamp + i,
                     signature_data: vec![1, 2, 3, 4],
                 };
@@ -438,7 +438,7 @@ mod tests {
                 assert_eq!(1, update_state_result.heights.len());
                 assert_eq!(0, update_state_result.heights[0].revision_number);
                 assert_eq!(
-                    header.trusted_height,
+                    header.new_height,
                     update_state_result.heights[0].revision_height
                 );
             }
@@ -478,7 +478,7 @@ mod tests {
                     continue;
                 }
                 let header = Header {
-                    trusted_height: consensus_state.height + i,
+                    new_height: consensus_state.height + i,
                     timestamp: consensus_state.timestamp + i,
                     signature_data: vec![1, 2, 3, 4],
                 };
@@ -504,7 +504,7 @@ mod tests {
                 assert_eq!(1, update_state_result.heights.len());
                 assert_eq!(0, update_state_result.heights[0].revision_number);
                 assert_eq!(
-                    header.trusted_height,
+                    header.new_height,
                     update_state_result.heights[0].revision_height
                 );
             }
@@ -517,7 +517,7 @@ mod tests {
 
                 let timestamp_with_same_time_as_previous = consensus_state.timestamp + i - 1;
                 let header = Header {
-                    trusted_height: consensus_state.height + i,
+                    new_height: consensus_state.height + i,
                     timestamp: timestamp_with_same_time_as_previous,
                     signature_data: vec![1, 2, 3, 4],
                 };
@@ -570,7 +570,7 @@ mod tests {
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
             let header_with_different_ts_for_existing_height = Header {
-                trusted_height: 100,
+                new_height: 100,
                 timestamp: 12345654321,
                 signature_data: vec![1, 2, 3, 4],
             };
@@ -626,7 +626,7 @@ mod tests {
 
             // Create a header with empty signature data
             let header = Header {
-                trusted_height: 100,
+                new_height: 100,
                 timestamp: 1234567900,
                 signature_data: vec![], // Empty signature data should fail
             };
@@ -676,7 +676,7 @@ mod tests {
 
             // Create a valid header
             let header = Header {
-                trusted_height: 100,
+                new_height: 100,
                 timestamp: 1234567900,
                 signature_data: vec![1, 2, 3, 4],
             };

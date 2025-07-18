@@ -108,7 +108,7 @@ mod verify_header {
             timestamp: 123456789,
         };
         let header = Header {
-            trusted_height: cns.height,
+            new_height: cns.height,
             timestamp: cns.timestamp,
             signature_data: [0].into(),
         };
@@ -129,7 +129,7 @@ mod verify_header {
             timestamp: 123456789,
         };
         let no_sig = Header {
-            trusted_height: cns.height,
+            new_height: cns.height,
             timestamp: cns.timestamp + 1,
             signature_data: [].into(),
         };
@@ -152,7 +152,7 @@ mod verify_header {
             timestamp: 123456789,
         };
         let bad_ts = Header {
-            trusted_height: cns.height,
+            new_height: cns.height,
             timestamp: cns.timestamp + 1,
             signature_data: [0].into(),
         };
@@ -183,7 +183,7 @@ mod verify_header {
         );
 
         let not_inbetween = Header {
-            trusted_height: 100 + 1,
+            new_height: 100 + 1,
             timestamp: next.timestamp + 3,
             signature_data: [0].into(),
         };
@@ -194,7 +194,7 @@ mod verify_header {
         );
 
         let not_before = Header {
-            trusted_height: 100 - 1,
+            new_height: 100 - 1,
             timestamp: next.timestamp + 3,
             signature_data: [0].into(),
         };
@@ -205,7 +205,7 @@ mod verify_header {
         );
 
         let not_after = Header {
-            trusted_height: 100 + 3,
+            new_height: 100 + 3,
             timestamp: prev.timestamp - 1,
             signature_data: [0].into(),
         };
@@ -236,7 +236,7 @@ mod verify_header {
         );
 
         let inbetween = Header {
-            trusted_height: 100 + 1,
+            new_height: 100 + 1,
             timestamp: 123456789 + 1,
             signature_data: [0].into(),
         };
@@ -245,7 +245,7 @@ mod verify_header {
         assert!(res.is_ok(),);
 
         let before = Header {
-            trusted_height: 100 - 1,
+            new_height: 100 - 1,
             timestamp: 123456789 - 1,
             signature_data: [0].into(),
         };
@@ -254,7 +254,7 @@ mod verify_header {
         assert!(res.is_ok(),);
 
         let after = Header {
-            trusted_height: 100 + 3,
+            new_height: 100 + 3,
             timestamp: prev.timestamp + 3,
             signature_data: [0].into(),
         };

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Header {
     /// The height this header is updating from (trusted height)
-    pub trusted_height: u64,
+    pub new_height: u64,
     /// Timestamp of the new height
     pub timestamp: u64,
     /// Signature data for verification (placeholder for now)

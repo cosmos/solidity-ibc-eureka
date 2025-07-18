@@ -30,7 +30,7 @@ pub fn verify_client_message(
 
     if let Ok(header) = serde_json::from_slice::<Header>(&verify_client_message_msg.client_message)
     {
-        if let Ok(height_in_msg_exists) = get_consensus_state(deps.storage, header.trusted_height) {
+        if let Ok(height_in_msg_exists) = get_consensus_state(deps.storage, header.new_height) {
             let _sol_consensus_state = attestor_light_client::verify::verify_header(
                 Some(&height_in_msg_exists),
                 None,
@@ -44,8 +44,8 @@ pub fn verify_client_message(
         }
 
         let (prev, next) = (
-            get_previous_consensus_state(deps.storage, header.trusted_height)?,
-            get_next_consensus_state(deps.storage, header.trusted_height)?,
+            get_previous_consensus_state(deps.storage, header.new_height)?,
+            get_next_consensus_state(deps.storage, header.new_height)?,
         );
         let _sol_consensus_state = attestor_light_client::verify::verify_header(
             None,
