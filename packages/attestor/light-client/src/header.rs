@@ -12,10 +12,3 @@ pub struct Header {
     /// Signature data for verification (placeholder for now)
     pub signature_data: Vec<u8>,
 }
-
-/// Minimal sync committee structure (placeholder)
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
-pub struct ActiveSyncCommittee {
-    /// Placeholder for sync committee data
-    pub _placeholder: (),
-}
