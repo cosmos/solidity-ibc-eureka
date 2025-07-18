@@ -56,19 +56,11 @@ pub enum QueryMsg {
 /// The message to migrate the contract
 #[cw_serde]
 pub struct MigrateMsg {
-    /// Migration enum that defines the type of migration
-    /// and any additional data needed for the migration
     pub migration: Migration,
 }
 
-/// The supported migration types
 #[cw_serde]
-pub enum Migration {
-    /// Migrate only the contract code not state
-    CodeOnly,
-    /// Migrate the contract code and reinitialize state
-    Reinstantiate(InstantiateMsg),
-}
+pub enum Migration {}
 
 /// Update state message
 #[cw_serde]

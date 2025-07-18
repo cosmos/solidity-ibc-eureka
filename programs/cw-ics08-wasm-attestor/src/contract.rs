@@ -82,25 +82,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractErr
     }
 }
 
-/// The migrate entry point for the CosmWasm contract.
-/// # Errors
-/// Will return an errror if the state version is not newer than the current one.
-#[entry_point]
 #[allow(clippy::needless_pass_by_value)]
-pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
-    // Check if the state version is older than the current one and update it
-    cw2::ensure_from_older_version(deps.storage, CONTRACT_NAME, STATE_VERSION)?;
-
-    // Perform the migration
-    match msg.migration {
-        Migration::CodeOnly => {} // do nothing here
-        Migration::Reinstantiate(instantiate_msg) => {
-            // Re-instantiate the client
-            instantiate::client(deps.storage, instantiate_msg)?;
-        }
-    }
-
-    Ok(Response::default())
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    todo!()
 }
 
 #[cfg(test)]
@@ -695,109 +679,6 @@ mod tests {
                 err,
                 ContractError::VerifyClientMessageFailed(SolanaIBCError::ClientFrozen)
             ));
-        }
-
-        #[test]
-        fn migrate_with_same_state_version() {
-            let mut deps = mk_deps();
-            let creator = deps.api.addr_make("creator");
-            let info = message_info(&creator, &coins(1, "uatom"));
-
-            let client_state = AttestorClientState {
-                latest_height: 42,
-                is_frozen: false,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 42,
-                timestamp: 1234567890,
-            };
-
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-
-            let msg = InstantiateMsg {
-                client_state: Binary::from(client_state_bz),
-                consensus_state: Binary::from(consensus_state_bz),
-                checksum: b"checksum".into(),
-            };
-
-            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-            // Migrate without any changes (i.e. same state version)
-            migrate(
-                deps.as_mut(),
-                mock_env(),
-                MigrateMsg {
-                    migration: Migration::CodeOnly,
-                },
-            )
-            .unwrap();
-        }
-
-        #[test]
-        fn migrate_with_reinstantiate() {
-            let mut deps = mk_deps();
-            let creator = deps.api.addr_make("creator");
-            let info = message_info(&creator, &coins(1, "uatom"));
-
-            let client_state = AttestorClientState {
-                latest_height: 42,
-                is_frozen: false,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 42,
-                timestamp: 1234567890,
-            };
-
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-
-            let msg = InstantiateMsg {
-                client_state: client_state_bz.into(),
-                consensus_state: consensus_state_bz.into(),
-                checksum: b"original_checksum".into(),
-            };
-
-            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-            // Create new state for migration
-            let new_client_state = AttestorClientState {
-                latest_height: 100,
-                is_frozen: false,
-            };
-            let new_consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567999,
-            };
-
-            let new_client_state_bz: Vec<u8> = serde_json::to_vec(&new_client_state).unwrap();
-            let new_consensus_state_bz: Vec<u8> = serde_json::to_vec(&new_consensus_state).unwrap();
-
-            let new_msg = InstantiateMsg {
-                client_state: Binary::from(new_client_state_bz),
-                consensus_state: Binary::from(new_consensus_state_bz),
-                checksum: b"new_checksum".into(),
-            };
-
-            let migrate_msg = MigrateMsg {
-                migration: Migration::Reinstantiate(new_msg.clone()),
-            };
-
-            // Migrate with reinstantiation
-            migrate(deps.as_mut(), mock_env(), migrate_msg).unwrap();
-
-            // Verify the new state is stored
-            let actual_wasm_client_state_any_bz =
-                deps.storage.get(HOST_CLIENT_STATE_KEY.as_bytes()).unwrap();
-            let actual_wasm_client_state_any =
-                Any::decode(actual_wasm_client_state_any_bz.as_slice()).unwrap();
-            let wasm_client_state =
-                WasmClientState::decode(actual_wasm_client_state_any.value.as_slice()).unwrap();
-            assert_eq!(new_msg.checksum, wasm_client_state.checksum);
-            assert_eq!(
-                wasm_client_state.latest_height.unwrap().revision_height,
-                new_client_state.latest_height
-            );
         }
     }
 }
