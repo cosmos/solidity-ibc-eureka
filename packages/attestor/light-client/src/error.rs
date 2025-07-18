@@ -20,17 +20,6 @@ pub enum SolanaIBCError {
     #[error("Client is frozen")]
     ClientFrozen,
 
-    /// Fork verification failed
-    #[error("Fork verification failed: {reason}")]
-    ForkVerificationFailed {
-        /// Reason for error
-        reason: String,
-    },
-
-    /// Height computation failed
-    #[error("Height computation failed")]
-    HeightComputationFailed,
-
     /// Height not found in consensus state
     #[error("Height {0} not found in consensus state")]
     HeightNotFound(u64),
