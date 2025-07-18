@@ -3,17 +3,7 @@ use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::program::invoke;
 use crate::state::{ClientRegistry, ClientType};
 use crate::errors::RouterError;
-
-/// Message structure for light client membership verification
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct MembershipMsg {
-    pub height: u64,
-    pub delay_time_period: u64,
-    pub delay_block_period: u64,
-    pub proof: Vec<u8>,
-    pub path: Vec<Vec<u8>>,
-    pub value: Vec<u8>,
-}
+use ics07_tendermint::MembershipMsg;
 
 /// Message structure for light client non-membership verification
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -164,59 +154,3 @@ fn verify_tendermint_non_membership(
     Ok(membership_msg.height)
 }
 
-pub fn construct_commitment_path(
-    _client_id: &str,
-    sequence: u64,
-    port_id: &str,
-    dest_port: &str,
-) -> Vec<Vec<u8>> {
-    // ICS24 path: commitments/ports/{port_id}/channels/{channel_id}/sequences/{sequence}
-    // Split into path segments for ICS23 proof verification
-    vec![
-        b"commitments".to_vec(),
-        b"ports".to_vec(),
-        port_id.as_bytes().to_vec(),
-        b"channels".to_vec(),
-        dest_port.as_bytes().to_vec(),
-        b"sequences".to_vec(),
-        sequence.to_string().as_bytes().to_vec(),
-    ]
-}
-
-pub fn construct_receipt_path(
-    _client_id: &str,
-    sequence: u64,
-    port_id: &str,
-    dest_port: &str,
-) -> Vec<Vec<u8>> {
-    // ICS24 path: receipts/ports/{port_id}/channels/{channel_id}/sequences/{sequence}
-    // Split into path segments for ICS23 proof verification
-    vec![
-        b"receipts".to_vec(),
-        b"ports".to_vec(),
-        port_id.as_bytes().to_vec(),
-        b"channels".to_vec(),
-        dest_port.as_bytes().to_vec(),
-        b"sequences".to_vec(),
-        sequence.to_string().as_bytes().to_vec(),
-    ]
-}
-
-pub fn construct_ack_path(
-    _client_id: &str,
-    sequence: u64,
-    port_id: &str,
-    dest_port: &str,
-) -> Vec<Vec<u8>> {
-    // ICS24 path: acks/ports/{port_id}/channels/{channel_id}/sequences/{sequence}
-    // Split into path segments for ICS23 proof verification
-    vec![
-        b"acks".to_vec(),
-        b"ports".to_vec(),
-        port_id.as_bytes().to_vec(),
-        b"channels".to_vec(),
-        dest_port.as_bytes().to_vec(),
-        b"sequences".to_vec(),
-        sequence.to_string().as_bytes().to_vec(),
-    ]
-}

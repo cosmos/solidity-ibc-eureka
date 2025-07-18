@@ -1,12 +1,11 @@
 use crate::errors::RouterError;
-use crate::state::*;
-use crate::utils::ics24_host;
 use crate::instructions::light_client_cpi::{
-    verify_non_membership_cpi, NonMembershipMsg, LightClientVerification,
-    construct_receipt_path
+    verify_non_membership_cpi, LightClientVerification, NonMembershipMsg,
 };
-use anchor_lang::prelude::*;
 use crate::instructions::recv_packet::NoopEvent;
+use crate::state::*;
+use crate::utils::{construct_receipt_path, ics24_host};
+use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgTimeoutPacket)]
@@ -84,7 +83,6 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     };
 
     let receipt_path = construct_receipt_path(
-        &msg.packet.source_client,
         msg.packet.sequence,
         &msg.packet.payloads[0].source_port,
         &msg.packet.payloads[0].dest_port,
@@ -135,4 +133,3 @@ pub struct TimeoutPacketEvent {
     pub sequence: u64,
     pub packet_data: Vec<u8>,
 }
-

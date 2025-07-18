@@ -1,11 +1,11 @@
 use crate::errors::RouterError;
-use crate::state::*;
-use crate::utils::ics24_host;
 use crate::instructions::light_client_cpi::{
-    verify_membership_cpi, MembershipMsg, LightClientVerification,
-    construct_commitment_path
+    verify_membership_cpi, LightClientVerification,
 };
+use crate::state::*;
+use crate::utils::{construct_commitment_path, ics24_host};
 use anchor_lang::prelude::*;
+use ics07_tendermint::MembershipMsg;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
@@ -117,7 +117,6 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     };
 
     let commitment_path = construct_commitment_path(
-        &msg.packet.dest_client,
         msg.packet.sequence,
         &msg.packet.payloads[0].source_port,
         &msg.packet.payloads[0].dest_port,
@@ -135,11 +134,7 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         value: expected_commitment.to_vec(),
     };
 
-    verify_membership_cpi(
-        client_registry,
-        &light_client_verification,
-        membership_msg,
-    )?;
+    verify_membership_cpi(client_registry, &light_client_verification, membership_msg)?;
 
     // Check if receipt already exists (no-op case)
     let receipt_commitment = ics24_host::packet_receipt_commitment_bytes32(&msg.packet);

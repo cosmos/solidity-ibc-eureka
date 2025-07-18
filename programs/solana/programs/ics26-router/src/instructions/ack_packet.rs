@@ -1,12 +1,12 @@
 use crate::errors::RouterError;
-use crate::state::*;
-use crate::utils::ics24_host;
 use crate::instructions::light_client_cpi::{
-    verify_membership_cpi, MembershipMsg, LightClientVerification,
-    construct_ack_path
+    verify_membership_cpi, LightClientVerification,
 };
-use anchor_lang::prelude::*;
 use crate::instructions::recv_packet::NoopEvent;
+use crate::state::*;
+use crate::utils::{construct_ack_path, ics24_host};
+use anchor_lang::prelude::*;
+use ics07_tendermint::MembershipMsg;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgAckPacket)]
@@ -84,7 +84,6 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     };
 
     let ack_path = construct_ack_path(
-        &msg.packet.source_client,
         msg.packet.sequence,
         &msg.packet.payloads[0].source_port,
         &msg.packet.payloads[0].dest_port,
@@ -99,11 +98,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         value: msg.acknowledgement.clone(),
     };
 
-    verify_membership_cpi(
-        client_registry,
-        &light_client_verification,
-        membership_msg,
-    )?;
+    verify_membership_cpi(client_registry, &light_client_verification, membership_msg)?;
 
     let expected_commitment = ics24_host::packet_commitment_bytes32(&msg.packet);
     if packet_commitment.value != expected_commitment {
@@ -133,4 +128,3 @@ pub struct AckPacketEvent {
     pub packet_data: Vec<u8>,
     pub acknowledgement: Vec<u8>,
 }
-
