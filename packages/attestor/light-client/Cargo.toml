@@ -16,6 +16,7 @@ thiserror = { workspace = true }
 schemars = { workspace = true }
 hex = { workspace = true }
 sha2 = { workspace = true }
+secp256k1 = { workspace = true, default-features = false, features = ["serde", "hashes", "global-context"] }
 
 # Only used for test-utils feature
 prost = { workspace = true, optional = true }
