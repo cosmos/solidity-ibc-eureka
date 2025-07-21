@@ -26,10 +26,6 @@ pub fn consensus_db_key(height: u64) -> String {
     format!("{}/{}-{}", HOST_CONSENSUS_STATES_KEY, 0, height)
 }
 
-fn height_from_consensus_db_key(key: &str) -> u64 {
-    key.split("-").last().unwrap().parse().unwrap()
-}
-
 fn height_to_big_endian(revision: u64, height: u64) -> Vec<u8> {
     let mut key = Vec::with_capacity(16);
     key.extend_from_slice(&revision.to_be_bytes());
