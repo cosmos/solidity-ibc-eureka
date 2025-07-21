@@ -1,6 +1,6 @@
 //! Attestor client state for IBC light client
 
-use ibc_proto_eureka::cosmos::crypto::secp256k1::PubKey;
+use secp256k1::PublicKey;
 use serde::{Deserialize, Serialize};
 
 /// Minimal attestor client state for IBC light client
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ClientState {
     /// Attestor public keys
-    pub pub_keys: [PubKey; 5],
+    pub pub_keys: [PublicKey; 5],
     /// Latest height for tracking progression
     pub latest_height: u64,
     /// Whether the client is frozen due to misbehavior

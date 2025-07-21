@@ -89,15 +89,18 @@ pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, 
 
 #[cfg(test)]
 mod tests {
-    use ibc_proto::cosmos::crypto::secp256k1::PubKey;
+    use secp256k1::{PublicKey, SecretKey};
     use std::cell::LazyCell;
-    pub const KEYS: LazyCell<[PubKey; 5]> = LazyCell::new(|| {
+    const S_KEY: LazyCell<SecretKey> = LazyCell::new(|| {
+        SecretKey::from_byte_array([0xcd; 32]).expect("32 bytes, within curve order")
+    });
+    pub const KEYS: LazyCell<[PublicKey; 5]> = LazyCell::new(|| {
         [
-            PubKey::default(),
-            PubKey::default(),
-            PubKey::default(),
-            PubKey::default(),
-            PubKey::default(),
+            PublicKey::from_secret_key_global(&*S_KEY),
+            PublicKey::from_secret_key_global(&*S_KEY),
+            PublicKey::from_secret_key_global(&*S_KEY),
+            PublicKey::from_secret_key_global(&*S_KEY),
+            PublicKey::from_secret_key_global(&*S_KEY),
         ]
     });
     mod instantiate {
