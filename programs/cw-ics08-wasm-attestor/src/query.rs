@@ -36,7 +36,7 @@ pub fn verify_client_message(
                 None,
                 None,
                 &sol_client_state,
-                &header,
+                header,
             )
             .map_err(ContractError::VerifyClientMessageFailed)?;
 
@@ -52,7 +52,7 @@ pub fn verify_client_message(
             prev.as_ref(),
             next.as_ref(),
             &sol_client_state,
-            &header,
+            header,
         )
         .map_err(ContractError::VerifyClientMessageFailed)?;
 

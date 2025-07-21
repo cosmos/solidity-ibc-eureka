@@ -2,7 +2,7 @@
 
 use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
 
-use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, Migration, QueryMsg, SudoMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, SudoMsg};
 use crate::{instantiate, query};
 use crate::{sudo, ContractError};
 
@@ -89,20 +89,41 @@ pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, 
 
 #[cfg(test)]
 mod tests {
-    use secp256k1::{PublicKey, SecretKey};
+    use secp256k1::{ecdsa::Signature, hashes::Hash, Message, PublicKey, SecretKey};
     use std::cell::LazyCell;
-    const S_KEY: LazyCell<SecretKey> = LazyCell::new(|| {
-        SecretKey::from_byte_array([0xcd; 32]).expect("32 bytes, within curve order")
+
+    pub const DUMMY_DATA: [u8; 1] = [0];
+    pub const S_KEYS: LazyCell<[SecretKey; 5]> = LazyCell::new(|| {
+        [
+            SecretKey::from_byte_array([0xcd; 32]).expect("32 bytes, within curve order"),
+            SecretKey::from_byte_array([0x02; 32]).expect("32 bytes, within curve order"),
+            SecretKey::from_byte_array([0x03; 32]).expect("32 bytes, within curve order"),
+            SecretKey::from_byte_array([0x10; 32]).expect("32 bytes, within curve order"),
+            SecretKey::from_byte_array([0x1F; 32]).expect("32 bytes, within curve order"),
+        ]
     });
     pub const KEYS: LazyCell<[PublicKey; 5]> = LazyCell::new(|| {
         [
-            PublicKey::from_secret_key_global(&*S_KEY),
-            PublicKey::from_secret_key_global(&*S_KEY),
-            PublicKey::from_secret_key_global(&*S_KEY),
-            PublicKey::from_secret_key_global(&*S_KEY),
-            PublicKey::from_secret_key_global(&*S_KEY),
+            PublicKey::from_secret_key_global(&S_KEYS[0]),
+            PublicKey::from_secret_key_global(&S_KEYS[1]),
+            PublicKey::from_secret_key_global(&S_KEYS[2]),
+            PublicKey::from_secret_key_global(&S_KEYS[3]),
+            PublicKey::from_secret_key_global(&S_KEYS[4]),
         ]
     });
+    pub const SIGS: LazyCell<Vec<Signature>> = LazyCell::new(|| {
+        let sigs = S_KEYS
+            .iter()
+            .map(|skey| {
+                let digest = secp256k1::hashes::sha256::Hash::hash(&DUMMY_DATA);
+                let message = Message::from_digest(digest.to_byte_array());
+                skey.sign_ecdsa(message)
+            })
+            .collect();
+
+        sigs
+    });
+
     mod instantiate {
 
         use attestor_light_client::{
@@ -123,7 +144,10 @@ mod tests {
         use prost::{Message, Name};
 
         use crate::{
-            contract::{instantiate, tests::KEYS},
+            contract::{
+                instantiate,
+                tests::{DUMMY_DATA, KEYS},
+            },
             msg::InstantiateMsg,
             state::{consensus_db_key, HOST_CLIENT_STATE_KEY},
             test::helpers::mk_deps,
@@ -139,12 +163,14 @@ mod tests {
                 pub_keys: KEYS.clone(),
                 latest_height: 42,
                 is_frozen: false,
+                min_required_sigs: 5,
             };
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
 
             let consensus_state = AttestorConsensusState {
                 height: 42,
                 timestamp: 1234567890,
+                attestation_data: DUMMY_DATA.to_vec(),
             };
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
@@ -210,7 +236,10 @@ mod tests {
         };
 
         use crate::{
-            contract::{instantiate, query, sudo, tests::KEYS},
+            contract::{
+                instantiate, query, sudo,
+                tests::{DUMMY_DATA, KEYS, SIGS},
+            },
             msg::{
                 InstantiateMsg, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
                 VerifyClientMessageMsg,
@@ -229,10 +258,12 @@ mod tests {
                 pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: false,
+                min_required_sigs: 5,
             };
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
+                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -249,8 +280,10 @@ mod tests {
             // Create a header for client update (height progression)
             let header = Header {
                 new_height: 101,
-                timestamp: 1234567900,            // 10 seconds later
-                signature_data: vec![1, 2, 3, 4], // Some signature data
+                timestamp: 1234567900, // 10 seconds later
+                attestation_data: DUMMY_DATA.to_vec(),
+                signatures: SIGS.to_vec(),
+                pubkeys: KEYS.to_vec(),
             };
             let header_bz = serde_json::to_vec(&header).unwrap();
 
@@ -291,10 +324,12 @@ mod tests {
                 pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: false,
+                min_required_sigs: 5,
             };
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
+                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -313,7 +348,9 @@ mod tests {
                 let header = Header {
                     new_height: consensus_state.height + i,
                     timestamp: consensus_state.timestamp + i,
-                    signature_data: vec![1, 2, 3, 4],
+                    attestation_data: DUMMY_DATA.to_vec(),
+                    signatures: SIGS.to_vec(),
+                    pubkeys: KEYS.to_vec(),
                 };
                 let header_bz = serde_json::to_vec(&header).unwrap();
 
@@ -355,10 +392,12 @@ mod tests {
                 pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: false,
+                min_required_sigs: 5,
             };
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
+                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -380,7 +419,9 @@ mod tests {
                 let header = Header {
                     new_height: consensus_state.height + i,
                     timestamp: consensus_state.timestamp + i,
-                    signature_data: vec![1, 2, 3, 4],
+                    attestation_data: DUMMY_DATA.to_vec(),
+                    signatures: SIGS.to_vec(),
+                    pubkeys: KEYS.to_vec(),
                 };
                 let header_bz = serde_json::to_vec(&header).unwrap();
 
@@ -417,7 +458,9 @@ mod tests {
                 let header = Header {
                     new_height: consensus_state.height + i,
                     timestamp: consensus_state.timestamp + i,
-                    signature_data: vec![1, 2, 3, 4],
+                    attestation_data: DUMMY_DATA.to_vec(),
+                    signatures: SIGS.to_vec(),
+                    pubkeys: KEYS.to_vec(),
                 };
                 let header_bz = serde_json::to_vec(&header).unwrap();
 
@@ -458,10 +501,12 @@ mod tests {
                 pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: false,
+                min_required_sigs: 5,
             };
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
+                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -483,7 +528,9 @@ mod tests {
                 let header = Header {
                     new_height: consensus_state.height + i,
                     timestamp: consensus_state.timestamp + i,
-                    signature_data: vec![1, 2, 3, 4],
+                    attestation_data: DUMMY_DATA.to_vec(),
+                    signatures: SIGS.to_vec(),
+                    pubkeys: KEYS.to_vec(),
                 };
                 let header_bz = serde_json::to_vec(&header).unwrap();
 
@@ -522,7 +569,9 @@ mod tests {
                 let header = Header {
                     new_height: consensus_state.height + i,
                     timestamp: timestamp_with_same_time_as_previous,
-                    signature_data: vec![1, 2, 3, 4],
+                    attestation_data: DUMMY_DATA.to_vec(),
+                    signatures: SIGS.to_vec(),
+                    pubkeys: KEYS.to_vec(),
                 };
                 let header_bz = serde_json::to_vec(&header).unwrap();
 
@@ -555,10 +604,12 @@ mod tests {
                 pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: false,
+                min_required_sigs: 5,
             };
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
+                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -575,7 +626,9 @@ mod tests {
             let header_with_different_ts_for_existing_height = Header {
                 new_height: 100,
                 timestamp: 12345654321,
-                signature_data: vec![1, 2, 3, 4],
+                attestation_data: DUMMY_DATA.to_vec(),
+                signatures: SIGS.to_vec(),
+                pubkeys: KEYS.to_vec(),
             };
             let header_bz =
                 serde_json::to_vec(&header_with_different_ts_for_existing_height).unwrap();
@@ -600,7 +653,7 @@ mod tests {
         }
 
         #[test]
-        fn missing_signature_data() {
+        fn bad_attestation_data() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
@@ -610,10 +663,12 @@ mod tests {
                 pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: false,
+                min_required_sigs: 5,
             };
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
+                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -627,16 +682,17 @@ mod tests {
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-            // Create a header with empty signature data
-            let header = Header {
+            let header_with_random_data = Header {
                 new_height: 100,
                 timestamp: 1234567900,
-                signature_data: vec![], // Empty signature data should fail
+                attestation_data: [156].to_vec(),
+                signatures: SIGS.to_vec(),
+                pubkeys: KEYS.to_vec(),
             };
-            let header_bz = serde_json::to_vec(&header).unwrap();
+            let header_bz = serde_json::to_vec(&header_with_random_data).unwrap();
 
             let mut env = mock_env();
-            env.block.time = Timestamp::from_seconds(header.timestamp + 100);
+            env.block.time = Timestamp::from_seconds(header_with_random_data.timestamp + 100);
 
             // Verify client message should fail
             let query_verify_client_msg = QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
@@ -645,7 +701,7 @@ mod tests {
             let err = query(deps.as_ref(), env, query_verify_client_msg).unwrap_err();
             assert!(matches!(
                 err,
-                ContractError::VerifyClientMessageFailed(SolanaIBCError::InvalidHeader { reason }) if reason.contains("signature")
+                ContractError::VerifyClientMessageFailed(SolanaIBCError::InvalidSignature)
             ));
         }
 
@@ -660,10 +716,12 @@ mod tests {
                 pub_keys: KEYS.clone(),
                 latest_height: 100,
                 is_frozen: true, // Client is frozen
+                min_required_sigs: 5,
             };
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
+                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -681,7 +739,9 @@ mod tests {
             let header = Header {
                 new_height: 100,
                 timestamp: 1234567900,
-                signature_data: vec![1, 2, 3, 4],
+                attestation_data: [].into(),
+                signatures: SIGS.to_vec(),
+                pubkeys: KEYS.to_vec(),
             };
             let header_bz = serde_json::to_vec(&header).unwrap();
 
