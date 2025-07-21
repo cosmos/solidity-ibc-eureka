@@ -1384,7 +1384,6 @@ name = "attestor-light-client"
 version = "0.1.0"
 dependencies = [
  "hex",
- "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",
  "schemars 0.8.22",
  "secp256k1 0.31.1",
@@ -4340,9 +4339,7 @@ dependencies = [
  "cosmos-sdk-proto",
  "flex-error",
  "ics23",
- "informalsystems-pbjson",
  "prost",
- "serde",
  "subtle-encoding",
  "tendermint-proto",
 ]
