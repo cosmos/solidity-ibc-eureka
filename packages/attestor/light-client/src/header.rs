@@ -1,5 +1,6 @@
 //! Attestor header types for IBC light client
 
+use secp256k1::{ecdsa::Signature, PublicKey};
 use serde::{Deserialize, Serialize};
 
 /// Minimal attestor header for client updates
@@ -9,6 +10,10 @@ pub struct Header {
     pub new_height: u64,
     /// Timestamp of the new height
     pub timestamp: u64,
-    /// Signature data for verification (placeholder for now)
-    pub signature_data: Vec<u8>,
+    /// Opaque borsh-encoded data that was signed
+    pub attestation_data: Vec<u8>,
+    /// Signatures of the attestors
+    pub signatures: Vec<Signature>,
+    /// Public keys of the attestors submitting attestations
+    pub pubkeys: Vec<PublicKey>,
 }

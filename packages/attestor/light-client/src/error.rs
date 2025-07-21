@@ -1,5 +1,6 @@
 //! Error types for attestor light client
 
+use secp256k1::PublicKey;
 use thiserror::Error;
 
 /// Main error type for attestor IBC operations
@@ -19,6 +20,20 @@ pub enum SolanaIBCError {
     /// Bad proof provided
     #[error("Proof invalid: {reason}")]
     InvalidProof {
+        /// Reason for error
+        reason: String,
+    },
+
+    /// Unregistered public key
+    #[error("Unknown public key submitted {pubkey}")]
+    UnknownPublicKeySubmitted {
+        /// Bad key
+        pubkey: PublicKey,
+    },
+
+    /// Cannot attest to data as malformed
+    #[error("Invalid attested data: {reason}")]
+    InvalidAttestedData {
         /// Reason for error
         reason: String,
     },

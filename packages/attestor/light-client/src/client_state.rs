@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 pub struct ClientState {
     /// Attestor public keys
     pub pub_keys: [PublicKey; 5],
+    /// Minimum required signatures
+    pub min_required_sigs: u8,
     /// Latest height for tracking progression
     pub latest_height: u64,
     /// Whether the client is frozen due to misbehavior

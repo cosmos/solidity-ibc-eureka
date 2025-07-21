@@ -26,6 +26,7 @@ pub mod header;
 pub mod membership;
 pub mod update;
 pub mod verify;
+pub mod verify_attestation;
 
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;
