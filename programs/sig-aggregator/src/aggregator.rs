@@ -1,6 +1,6 @@
 use crate::{
     attestor_data::AttestatorData,
-    config::Config,
+    config::AttestorConfig,
     error::AggregatorError,
     rpc::{
         aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient,
@@ -9,7 +9,6 @@ use crate::{
 };
 
 use futures::{stream::FuturesUnordered, StreamExt};
-use std::sync::Arc;
 use tokio::{
     sync::{Mutex, RwLock},
     time::{timeout, Duration},
@@ -18,28 +17,28 @@ use tonic::{transport::Channel, Request, Response, Status};
 
 #[derive(Debug)]
 pub struct AggregatorService {
-    config: Config,
-    attestor_clients: Vec<Arc<Mutex<AttestationServiceClient<Channel>>>>,
-    cached_height: Arc<RwLock<AggregateResponse>>,
+    config: AttestorConfig,
+    attestor_clients: Vec<Mutex<AttestationServiceClient<Channel>>>,
+    cached_height: RwLock<AggregateResponse>,
 }
 
 impl AggregatorService {
-    pub async fn from_config(config: Config) -> Result<Self, AggregatorError> {
+    pub async fn from_config(config: AttestorConfig) -> Result<Self, AggregatorError> {
         let mut attestor_clients = Vec::new();
-        for endpoint in &config.attestor.attestor_endpoints {
+        for endpoint in &config.attestor_endpoints {
             let client = AttestationServiceClient::connect(endpoint.to_string())
                 .await
                 .map_err(|e| AggregatorError::Config(e.to_string()))?;
-            attestor_clients.push(Arc::new(Mutex::new(client)));
+            attestor_clients.push(Mutex::new(client));
         }
         Ok(Self {
             config,
             attestor_clients,
-            cached_height: Arc::new(RwLock::new(AggregateResponse {
+            cached_height: RwLock::new(AggregateResponse {
                 height: 0,
                 state: vec![],
                 sig_pubkey_pairs: vec![],
-            })),
+            }),
         })
     }
 }
@@ -59,7 +58,7 @@ impl Aggregator for AggregatorService {
             }
         }
         let mut futs = FuturesUnordered::new();
-        let timeout_ms = Duration::from_millis(self.config.attestor.attestor_query_timeout_ms);
+        let timeout_ms = Duration::from_millis(self.config.attestor_query_timeout_ms);
 
         // Spin up one future per client, each with its own timeout
         for client in self.attestor_clients.iter() {
@@ -82,7 +81,7 @@ impl Aggregator for AggregatorService {
             }
         }
 
-        if let Some(agg_resp) = attestator_data.get_latest(self.config.attestor.quorum_threshold) {
+        if let Some(agg_resp) = attestator_data.get_latest(self.config.quorum_threshold) {
             let mut cached_height = self.cached_height.write().await;
             if cached_height.height < agg_resp.height {
                 *cached_height = agg_resp;
