@@ -89,6 +89,15 @@ pub struct VerifyUpgradeAndUpdateStateMsg {
     pub proof_upgrade_consensus_state: Binary,
 }
 
+/// Verify membership message
+#[cw_serde]
+pub struct VerifyMembershipMsg {
+    /// The proof height
+    pub height: Height,
+    /// The proof bytes
+    pub value: Binary,
+}
+
 /// Migrate client store message
 #[cw_serde]
 pub struct MigrateClientStoreMsg {}

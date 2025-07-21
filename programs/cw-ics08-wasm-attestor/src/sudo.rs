@@ -8,10 +8,40 @@ use ibc_proto::ibc::{
 };
 
 use crate::{
-    msg::{Height, UpdateStateMsg, UpdateStateOnMisbehaviourMsg, UpdateStateResult},
-    state::{get_client_state, get_wasm_client_state, store_client_state, store_consensus_state},
+    msg::{
+        Height, UpdateStateMsg, UpdateStateOnMisbehaviourMsg, UpdateStateResult,
+        VerifyMembershipMsg,
+    },
+    state::{
+        get_client_state, get_consensus_state, get_wasm_client_state, store_client_state,
+        store_consensus_state,
+    },
     ContractError,
 };
+
+/// Verify the membership of a value at a given height
+/// # Errors
+/// Returns an error if the membership proof verification fails
+/// # Returns
+/// An empty response
+pub fn verify_membership(
+    deps: DepsMut,
+    verify_membership_msg: VerifyMembershipMsg,
+) -> Result<Binary, ContractError> {
+    let client_state = get_client_state(deps.storage)?;
+    let consensus_state =
+        get_consensus_state(deps.storage, verify_membership_msg.height.revision_height)?;
+
+    attestor_light_client::membership::verify_membership(
+        &consensus_state,
+        &client_state,
+        verify_membership_msg.height.revision_height,
+        verify_membership_msg.value.into(),
+    )
+    .map_err(ContractError::VerifyMembershipFailed)?;
+
+    Ok(Binary::default())
+}
 
 /// Update the state of the light client
 /// This function is always called after the verify client message, so

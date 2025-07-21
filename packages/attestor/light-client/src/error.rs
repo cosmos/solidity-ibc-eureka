@@ -16,6 +16,17 @@ pub enum SolanaIBCError {
         reason: String,
     },
 
+    /// Bad proof provided
+    #[error("Proof invalid: {reason}")]
+    InvalidProof {
+        /// Reason for error
+        reason: String,
+    },
+
+    /// Proof cannot be deserialized
+    #[error("deserializing membership proof failed: {0}")]
+    DeserializeMembershipProofFailed(#[source] serde_json::Error),
+
     /// Client is frozen
     #[error("Client is frozen")]
     ClientFrozen,
