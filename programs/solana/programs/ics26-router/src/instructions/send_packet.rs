@@ -50,6 +50,7 @@ pub struct SendPacket<'info> {
 }
 
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
+    // TODO: Support multi-payload packets #602
     let port_registry = &ctx.accounts.port_registry;
     let client_sequence = &mut ctx.accounts.client_sequence;
     let packet_commitment = &mut ctx.accounts.packet_commitment;
