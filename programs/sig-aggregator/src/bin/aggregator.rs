@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Server { config } => {
             let config = Config::from_file(config)?;
-            let aggregator_service = AggregatorService::from_config(config.clone()).await?;
+            let aggregator_service = AggregatorService::from_config(config.attestor).await?;
 
             start_server(aggregator_service, config.server).await?;
         }
