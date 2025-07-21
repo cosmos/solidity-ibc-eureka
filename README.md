@@ -149,7 +149,7 @@ Or use the scripts directly:
 ./scripts/test-services.sh
 
 # Stop services
-cd docker && docker-compose down
+cd programs/sig-aggregator && docker-compose down
 ```
 
 The setup includes:

@@ -55,7 +55,7 @@ start-attestor-services:
 # Stop the attestor and aggregator services
 [group('run')]
 stop-attestor-services:
-    cd docker && docker-compose down
+    cd programs/sig-aggregator && docker-compose down
 
 # Test the attestor and aggregator services
 [group('run')]

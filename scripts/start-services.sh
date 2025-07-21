@@ -16,8 +16,8 @@ if ! command -v docker-compose > /dev/null 2>&1; then
     exit 1
 fi
 
-# Navigate to the docker directory
-cd "$(dirname "$0")/../docker"
+# Navigate to the sig-aggregator directory
+cd "$(dirname "$0")/../programs/sig-aggregator"
 
 # Create config directory if it doesn't exist
 mkdir -p config
@@ -51,7 +51,7 @@ echo "Test the setup with:"
 echo "  grpcurl -plaintext -d '{\"min_height\": 100}' localhost:50060 aggregator.Aggregator.GetAggregateAttestation"
 echo ""
 echo "View logs with:"
-echo "  cd docker && docker-compose logs -f"
+echo "  cd programs/sig-aggregator && docker-compose logs -f"
 echo ""
 echo "Stop services with:"
-echo "  cd docker && docker-compose down"
+echo "  cd programs/sig-aggregator && docker-compose down"

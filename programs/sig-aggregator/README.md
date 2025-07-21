@@ -29,3 +29,40 @@ cargo build --release
     a. Run `cargo run -- server --config config.example.toml`
     
     b. Query `grpcurl -plaintext -d '{"min_height": 394277673}' localhost:50060 aggregator.Aggregator.GetAggregateAttestation | jq`
+
+## Docker Setup
+
+This directory contains a complete Docker Compose setup for running 3 IBC attestor instances and 1 sig-aggregator locally.
+
+### Quick Start
+
+From the workspace root:
+
+```sh
+# Start all services
+./scripts/start-services.sh
+
+# Test the services
+./scripts/test-services.sh
+
+# Stop services
+cd programs/sig-aggregator && docker-compose down
+```
+
+Or manually from this directory:
+
+```sh
+# Start services
+docker-compose up --build -d
+
+# Stop services
+docker-compose down
+```
+
+The setup includes:
+- **3 IBC Attestor instances** on ports 8080, 8081, 8082
+- **1 Sig-Aggregator** on port 50060 (requires 2/3 quorum)
+
+Configuration files are in the `config/` directory.
+
+For detailed documentation, see [../../docs/README-docker.md](../../docs/README-docker.md).

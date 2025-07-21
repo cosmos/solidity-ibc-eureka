@@ -4,7 +4,7 @@ services:
   # IBC Attestor 1
   ibc-attestor-1:
     build:
-      context: ..
+      context: ../..
       dockerfile: programs/ibc-attestor/Dockerfile
     command: >
       sh -c "
@@ -29,7 +29,7 @@ services:
   # IBC Attestor 2  
   ibc-attestor-2:
     build:
-      context: ..
+      context: ../..
       dockerfile: programs/ibc-attestor/Dockerfile
     command: >
       sh -c "
@@ -54,7 +54,7 @@ services:
   # IBC Attestor 3
   ibc-attestor-3:
     build:
-      context: ..
+      context: ../..
       dockerfile: programs/ibc-attestor/Dockerfile
     command: >
       sh -c "
@@ -79,7 +79,7 @@ services:
   # Signature Aggregator
   sig-aggregator:
     build:
-      context: ..
+      context: ../..
       dockerfile: programs/sig-aggregator/Dockerfile
     depends_on:
       - ibc-attestor-1
