@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # Build base image with both binaries
+  rust-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.attestor-aggregator
+    image: attestor-aggregator:latest
+    command: ["echo", "Base image built"]
+
+  # IBC Attestor 1
+  ibc-attestor-1:
+    depends_on:
+      - rust-builder
+    image: attestor-aggregator:latest
+    command: >
+      sh -c "
+      mkdir -p /root/.ibc-attestor &&
+      echo '-----BEGIN PRIVATE KEY-----
+      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgVGWyJQV8zR4Q9Jh1
+      8X6N7P5G4L2T9K1M3B6S7C8E9F0hRANCAASFhKgF2JZv8L3Q4Y9X6N7P5G4L2T9K
+      1M3B6S7C8E9F0hRANCAASFhKgF2JZv8L3Q4Y9X6N7P5G4L2T9K1M3B6S7C8E9F0
+      -----END PRIVATE KEY-----' > /root/.ibc-attestor/ibc-attestor.pem &&
+      ibc_attestor server solana --config /config/attestor1.toml
+      "
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config:/config:ro
+    healthcheck:
+      test: ["CMD", "grpcurl", "-plaintext", "localhost:8080", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # IBC Attestor 2  
+  ibc-attestor-2:
+    depends_on:
+      - rust-builder
+    image: attestor-aggregator:latest
+    command: >
+      sh -c "
+      mkdir -p /root/.ibc-attestor &&
+      echo '-----BEGIN PRIVATE KEY-----
+      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgWHXzKRW9aS5R0Ki2
+      9Y7O8Q6H5M3U0L2N4C7T8D9F1iSRANCAASGiLhG3KAw9M4R5Z8Y7O8Q6H5M3U0L2
+      N4C7T8D9F1iSRANCAASGiLhG3KAw9M4R5Z8Y7O8Q6H5M3U0L2N4C7T8D9F1iS
+      -----END PRIVATE KEY-----' > /root/.ibc-attestor/ibc-attestor.pem &&
+      ibc_attestor server solana --config /config/attestor2.toml
+      "
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./config:/config:ro
+    healthcheck:
+      test: ["CMD", "grpcurl", "-plaintext", "localhost:8081", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # IBC Attestor 3
+  ibc-attestor-3:
+    depends_on:
+      - rust-builder
+    image: attestor-aggregator:latest
+    command: >
+      sh -c "
+      mkdir -p /root/.ibc-attestor &&
+      echo '-----BEGIN PRIVATE KEY-----
+      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgYIY0LTV0bT6S1Lj3
+      0Z8P9R7I6N4V1M3O5D8G0F2jTURANCAATHjMiH4LAx0N5S6a9Z8P9R7I6N4V1M3O
+      5D8G0F2jTURANCAATHjMiH4LAx0N5S6a9Z8P9R7I6N4V1M3O5D8G0F2jTU
+      -----END PRIVATE KEY-----' > /root/.ibc-attestor/ibc-attestor.pem &&
+      ibc_attestor server solana --config /config/attestor3.toml
+      "
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./config:/config:ro
+    healthcheck:
+      test: ["CMD", "grpcurl", "-plaintext", "localhost:8082", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Signature Aggregator
+  sig-aggregator:
+    depends_on:
+      - ibc-attestor-1
+      - ibc-attestor-2
+      - ibc-attestor-3
+    image: attestor-aggregator:latest
+    command: ["aggregator", "server", "--config", "/config/aggregator.toml"]
+    ports:
+      - "50060:50060"
+    volumes:
+      - ./config:/config:ro
+    healthcheck:
+      test: ["CMD", "grpcurl", "-plaintext", "localhost:50060", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  default:
+    driver: bridge
