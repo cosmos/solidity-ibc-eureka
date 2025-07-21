@@ -17,10 +17,11 @@ This Docker Compose setup spins up three separate IBC attestor servers and one s
 ### Starting the Services
 
 ```bash
-# Build and start all services
-docker-compose up --build
+# Option 1: Use the startup script (recommended)
+./scripts/start-services.sh
 
-# Or run in detached mode
+# Option 2: Manual Docker Compose commands
+cd docker
 docker-compose up --build -d
 ```
 
@@ -28,6 +29,7 @@ docker-compose up --build -d
 
 ```bash
 # Stop all services
+cd docker
 docker-compose down
 
 # Stop and remove volumes
@@ -65,18 +67,18 @@ grpcurl -plaintext -d '{"min_height": 100}' localhost:50060 aggregator.Aggregato
 
 ### Configuration
 
-The configuration files are located in the `config/` directory:
+The configuration files are located in the `docker/config/` directory:
 
-- `config/attestor1.toml` - Configuration for IBC Attestor 1
-- `config/attestor2.toml` - Configuration for IBC Attestor 2  
-- `config/attestor3.toml` - Configuration for IBC Attestor 3
-- `config/aggregator.toml` - Configuration for the Sig-Aggregator
+- `docker/config/attestor1.toml` - Configuration for IBC Attestor 1
+- `docker/config/attestor2.toml` - Configuration for IBC Attestor 2  
+- `docker/config/attestor3.toml` - Configuration for IBC Attestor 3
+- `docker/config/aggregator.toml` - Configuration for the Sig-Aggregator
 
 ### Customizing the Setup
 
 #### Changing Quorum Threshold
 
-Edit `config/aggregator.toml` and modify the `quorum_threshold` value:
+Edit `docker/config/aggregator.toml` and modify the `quorum_threshold` value:
 
 ```toml
 [attestor]
@@ -85,9 +87,9 @@ quorum_threshold = 3  # Require all 3 attestors to agree
 
 #### Adding More Attestors
 
-1. Add a new service to `docker-compose.yml` following the pattern of existing attestors
-2. Create a new configuration file in `config/`
-3. Add the new endpoint to `config/aggregator.toml`
+1. Add a new service to `docker/docker-compose.yml` following the pattern of existing attestors
+2. Create a new configuration file in `docker/config/`
+3. Add the new endpoint to `docker/config/aggregator.toml`
 
 #### Using Different Solana Networks
 
@@ -104,11 +106,13 @@ url = "https://api.testnet.solana.com"       # For testnet
 
 View logs for all services:
 ```bash
+cd docker
 docker-compose logs -f
 ```
 
 View logs for a specific service:
 ```bash
+cd docker
 docker-compose logs -f ibc-attestor-1
 docker-compose logs -f sig-aggregator
 ```
@@ -118,6 +122,7 @@ docker-compose logs -f sig-aggregator
 The services include health checks that verify they're responding to gRPC requests. You can check the health status:
 
 ```bash
+cd docker
 docker-compose ps
 ```
 
@@ -126,7 +131,7 @@ Healthy services will show status as "Up" with "(healthy)" indicator.
 ## Troubleshooting
 
 ### Port Conflicts
-If you have port conflicts, modify the ports in `docker-compose.yml`:
+If you have port conflicts, modify the ports in `docker/docker-compose.yml`:
 
 ```yaml
 ports:
@@ -138,18 +143,21 @@ If you encounter build issues:
 
 1. Clean up Docker resources:
 ```bash
+cd docker
 docker-compose down -v
 docker system prune -f
 ```
 
 2. Rebuild from scratch:
 ```bash
+cd docker
 docker-compose build --no-cache
 ```
 
 ### Service Not Starting
 Check the logs:
 ```bash
+cd docker
 docker-compose logs [service-name]
 ```
 

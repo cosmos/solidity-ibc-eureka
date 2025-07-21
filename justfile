@@ -37,6 +37,31 @@ build-cw-ics08-wasm-eth:
 build-relayer-image:
     docker build -t eureka-relayer:latest -f programs/relayer/Dockerfile .
 
+# Build the ibc-attestor docker image
+[group('build')]
+build-ibc-attestor-image:
+    docker build -t eureka-ibc-attestor:latest -f programs/ibc-attestor/Dockerfile .
+
+# Build the sig-aggregator docker image
+[group('build')]
+build-sig-aggregator-image:
+    docker build -t eureka-sig-aggregator:latest -f programs/sig-aggregator/Dockerfile .
+
+# Start the attestor and aggregator services using Docker Compose
+[group('run')]
+start-attestor-services:
+    ./scripts/start-services.sh
+
+# Stop the attestor and aggregator services
+[group('run')]
+stop-attestor-services:
+    cd docker && docker-compose down
+
+# Test the attestor and aggregator services
+[group('run')]
+test-attestor-services:
+    ./scripts/test-services.sh
+
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 [group('install')]
 install-operator:

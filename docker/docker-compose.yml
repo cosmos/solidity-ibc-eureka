@@ -1,19 +1,11 @@
 version: '3.8'
 
 services:
-  # Build base image with both binaries
-  rust-builder:
-    build:
-      context: .
-      dockerfile: Dockerfile.attestor-aggregator
-    image: attestor-aggregator:latest
-    command: ["echo", "Base image built"]
-
   # IBC Attestor 1
   ibc-attestor-1:
-    depends_on:
-      - rust-builder
-    image: attestor-aggregator:latest
+    build:
+      context: ..
+      dockerfile: programs/ibc-attestor/Dockerfile
     command: >
       sh -c "
       mkdir -p /root/.ibc-attestor &&
@@ -36,9 +28,9 @@ services:
 
   # IBC Attestor 2  
   ibc-attestor-2:
-    depends_on:
-      - rust-builder
-    image: attestor-aggregator:latest
+    build:
+      context: ..
+      dockerfile: programs/ibc-attestor/Dockerfile
     command: >
       sh -c "
       mkdir -p /root/.ibc-attestor &&
@@ -61,9 +53,9 @@ services:
 
   # IBC Attestor 3
   ibc-attestor-3:
-    depends_on:
-      - rust-builder
-    image: attestor-aggregator:latest
+    build:
+      context: ..
+      dockerfile: programs/ibc-attestor/Dockerfile
     command: >
       sh -c "
       mkdir -p /root/.ibc-attestor &&
@@ -86,11 +78,13 @@ services:
 
   # Signature Aggregator
   sig-aggregator:
+    build:
+      context: ..
+      dockerfile: programs/sig-aggregator/Dockerfile
     depends_on:
       - ibc-attestor-1
       - ibc-attestor-2
       - ibc-attestor-3
-    image: attestor-aggregator:latest
     command: ["aggregator", "server", "--config", "/config/aggregator.toml"]
     ports:
       - "50060:50060"

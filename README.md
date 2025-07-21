@@ -120,6 +120,44 @@ The recipe also accepts a `testname` argument that will only run the test with t
 just test-foundry test_success_sendTransfer
 ```
 
+## Docker Services
+
+This repository includes Docker Compose setup to run IBC attestor and sig-aggregator services locally for development and testing.
+
+### Quick Start
+
+To start three IBC attestor instances and one sig-aggregator:
+
+```sh
+# Start all services
+just start-attestor-services
+
+# Test the services
+just test-attestor-services
+
+# Stop all services
+just stop-attestor-services
+```
+
+Or use the scripts directly:
+
+```sh
+# Start services
+./scripts/start-services.sh
+
+# Test services
+./scripts/test-services.sh
+
+# Stop services
+cd docker && docker-compose down
+```
+
+The setup includes:
+- **3 IBC Attestor instances** on ports 8080, 8081, 8082
+- **1 Sig-Aggregator** on port 50060 (requires 2/3 quorum)
+
+For detailed configuration and usage, see [docs/README-docker.md](docs/README-docker.md).
+
 ## End to End Testing
 
 There are several end-to-end tests in the `e2e/interchaintestv8` directory. These tests are written in Go and use the [`interchaintest`](https://github.com/strangelove-ventures/interchaintest) library. 
