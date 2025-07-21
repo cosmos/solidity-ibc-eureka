@@ -53,7 +53,6 @@ pub fn iteration_db_key(revision: u64, height: u64) -> Vec<u8> {
 /// Returns an error if the client state is not found or cannot be deserialized
 /// # Returns
 /// The Wasm client state
-#[allow(clippy::module_name_repetitions)]
 pub fn get_wasm_client_state(storage: &dyn Storage) -> Result<WasmClientState, ContractError> {
     let wasm_client_state_any_bz = storage
         .get(HOST_CLIENT_STATE_KEY.as_bytes())
@@ -70,7 +69,6 @@ pub fn get_wasm_client_state(storage: &dyn Storage) -> Result<WasmClientState, C
 /// Returns an error if the client state is not found or cannot be deserialized
 /// # Returns
 /// The attestor client state
-#[allow(clippy::module_name_repetitions)]
 pub fn get_client_state(storage: &dyn Storage) -> Result<ClientState, ContractError> {
     let wasm_client_state = get_wasm_client_state(storage)?;
     Ok(serde_json::from_slice(&wasm_client_state.data)?)
@@ -81,7 +79,6 @@ pub fn get_client_state(storage: &dyn Storage) -> Result<ClientState, ContractEr
 /// Returns an error if the consensus state is not found or cannot be deserialized
 /// # Returns
 /// The attestor consensus state
-#[allow(clippy::module_name_repetitions)]
 pub fn get_consensus_state(
     storage: &dyn Storage,
     height: u64,
@@ -139,7 +136,6 @@ pub fn get_next_consensus_state(
 /// Store the consensus state
 /// # Errors
 /// Returns an error if the consensus state cannot be serialized into an Any
-#[allow(clippy::module_name_repetitions)]
 pub fn store_consensus_state(
     storage: &mut dyn Storage,
     wasm_consensus_state: &WasmConsensusState,
