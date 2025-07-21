@@ -1,0 +1,135 @@
+services:
+  # IBC Attestor 1
+  ibc-attestor-1:
+    build:
+      context: ../..
+      dockerfile: programs/ibc-attestor/Dockerfile
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        mkdir -p /root/.ibc-attestor
+        ibc_attestor key generate || true
+        ibc_attestor server solana --config /config/attestor1.toml
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config:/config:ro
+    environment:
+      - RUST_BACKTRACE=1
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "bash", "-c", "timeout 5 bash -c '</dev/tcp/localhost/8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # IBC Attestor 2
+  ibc-attestor-2:
+    build:
+      context: ../..
+      dockerfile: programs/ibc-attestor/Dockerfile
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        mkdir -p /root/.ibc-attestor
+        ibc_attestor key generate || true
+        ibc_attestor server solana --config /config/attestor2.toml
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./config:/config:ro
+    environment:
+      - RUST_BACKTRACE=1
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "bash", "-c", "timeout 5 bash -c '</dev/tcp/localhost/8081' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # IBC Attestor 3
+  ibc-attestor-3:
+    build:
+      context: ../..
+      dockerfile: programs/ibc-attestor/Dockerfile
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        mkdir -p /root/.ibc-attestor
+        ibc_attestor key generate || true
+        ibc_attestor server solana --config /config/attestor3.toml
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./config:/config:ro
+    environment:
+      - RUST_BACKTRACE=1
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "bash", "-c", "timeout 5 bash -c '</dev/tcp/localhost/8082' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Signature Aggregator
+  sig-aggregator:
+    build:
+      context: ../..
+      dockerfile: programs/sig-aggregator/Dockerfile
+    depends_on:
+      ibc-attestor-1:
+        condition: service_healthy
+      ibc-attestor-2:
+        condition: service_healthy
+      ibc-attestor-3:
+        condition: service_healthy
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "Waiting for attestors to be ready..."
+        
+        # Wait for attestor-1
+        until timeout 5 bash -c '</dev/tcp/ibc-attestor-1/8080'; do
+          echo "Waiting for ibc-attestor-1..."
+          sleep 2
+        done
+
+        # Wait for attestor-2
+        until timeout 5 bash -c '</dev/tcp/ibc-attestor-2/8081'; do
+          echo "Waiting for ibc-attestor-2..."
+          sleep 2
+        done
+
+        # Wait for attestor-3
+        until timeout 5 bash -c '</dev/tcp/ibc-attestor-3/8082'; do
+          echo "Waiting for ibc-attestor-3..."
+          sleep 2
+        done
+
+        echo "All attestors are ready. Starting aggregator..."
+        sleep 5
+        aggregator server --config /config/aggregator.toml
+    ports:
+      - "50060:50060"
+    volumes:
+      - ./config:/config:ro
+    environment:
+      - RUST_BACKTRACE=1
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "bash", "-c", "timeout 5 bash -c '</dev/tcp/localhost/50060' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+networks:
+  default:
+    driver: bridge
