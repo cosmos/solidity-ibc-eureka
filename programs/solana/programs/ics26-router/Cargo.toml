@@ -20,6 +20,5 @@ idl-build = ["anchor-lang/idl-build"]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl = { version = "0.31" }
 sha2 = { version = "0.10" }
-ics07-tendermint = { path = "../ics07-tendermint", features = ["cpi"] }
 
 [dev-dependencies]

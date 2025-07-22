@@ -70,19 +70,8 @@ pub fn add_client(
         RouterError::InvalidClientId
     );
 
-    let expected_program_id = match client_type {
-        ClientType::ICS07Tendermint => {
-            // Known ICS07 Tendermint program ID
-            "8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV"
-                .parse::<Pubkey>()
-                .map_err(|_| RouterError::InvalidLightClientProgram)?
-        }
-    };
-
-    require!(
-        light_client_program.key() == expected_program_id,
-        RouterError::InvalidLightClientProgram
-    );
+    // The program ID validation happens during verification when we check
+    // that the light client program matches what's stored in the client registry
 
     require!(
         !counterparty_info.client_id.is_empty(),

@@ -4,7 +4,6 @@ use crate::instructions::recv_packet::NoopEvent;
 use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
-use ics07_tendermint::MembershipMsg;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgAckPacket)]

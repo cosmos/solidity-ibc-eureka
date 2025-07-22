@@ -3,7 +3,6 @@ use crate::instructions::light_client_cpi::{verify_membership_cpi, LightClientVe
 use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
-use ics07_tendermint::MembershipMsg;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]

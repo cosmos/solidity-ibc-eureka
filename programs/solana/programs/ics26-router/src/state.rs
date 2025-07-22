@@ -28,12 +28,6 @@ pub struct Port {
     pub authority: Pubkey,
 }
 
-/// Client type enumeration
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, Debug, InitSpace)]
-pub enum ClientType {
-    ICS07Tendermint,
-}
-
 /// Counterparty chain information
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
 pub struct CounterpartyInfo {
@@ -57,8 +51,6 @@ pub struct Client {
     pub client_id: String,
     /// The program ID of the light client
     pub client_program_id: Pubkey,
-    /// Type of the light client
-    pub client_type: ClientType,
     /// Counterparty chain information
     pub counterparty_info: CounterpartyInfo,
     /// Authority that registered this client
@@ -146,3 +138,15 @@ pub const PACKET_ACK_SEED: &[u8] = b"packet_ack";
 
 /// Maximum timeout duration (1 day in seconds)
 pub const MAX_TIMEOUT_DURATION: i64 = 86400;
+
+/// Message structure for light client membership verification
+/// This is the standard structure all light clients must accept
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct MembershipMsg {
+    pub height: u64,
+    pub delay_time_period: u64,
+    pub delay_block_period: u64,
+    pub proof: Vec<u8>,
+    pub path: Vec<Vec<u8>>,
+    pub value: Vec<u8>,
+}

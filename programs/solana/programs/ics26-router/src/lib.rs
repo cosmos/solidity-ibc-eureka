@@ -9,7 +9,7 @@ pub mod state;
 pub mod utils;
 
 use instructions::*;
-use state::{MsgSendPacket, MsgRecvPacket, MsgAckPacket, MsgTimeoutPacket, ClientType, CounterpartyInfo};
+use state::{CounterpartyInfo, MsgAckPacket, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket};
 
 declare_id!("HsCyuYgKgoN9wUPiJyNZvvWg2N1uyZhDjvJfKJFu3jvU");
 
@@ -70,4 +70,3 @@ pub mod ics26_router {
         instructions::update_client(ctx, client_id, active)
     }
 }
-

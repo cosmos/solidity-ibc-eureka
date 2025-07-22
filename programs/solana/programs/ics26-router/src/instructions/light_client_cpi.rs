@@ -1,9 +1,9 @@
 use crate::errors::RouterError;
-use crate::state::{Client, ClientType};
+use crate::state::{Client, MembershipMsg};
 use anchor_lang::prelude::*;
-use ics07_tendermint::cpi::accounts::{VerifyMembership, VerifyNonMembership};
-use ics07_tendermint::cpi::{verify_membership, verify_non_membership};
-use ics07_tendermint::MembershipMsg;
+use anchor_lang::solana_program::hash::hash;
+use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
+use anchor_lang::solana_program::program::invoke;
 
 /// Message structure for light client non-membership verification
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -28,6 +28,15 @@ pub struct LightClientVerification<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
+/// Compute the 8-byte discriminator for an Anchor instruction
+fn compute_discriminator(namespace: &str, name: &str) -> [u8; 8] {
+    let preimage = format!("{}:{}", namespace, name);
+    let hash_result = hash(preimage.as_bytes());
+    let mut discriminator = [0u8; 8];
+    discriminator.copy_from_slice(&hash_result.to_bytes()[..8]);
+    discriminator
+}
+
 pub fn verify_membership_cpi(
     client: &Client,
     light_client_accounts: &LightClientVerification,
@@ -40,11 +49,39 @@ pub fn verify_membership_cpi(
 
     require!(client.active, RouterError::ClientNotActive);
 
-    match client.client_type {
-        ClientType::ICS07Tendermint => {
-            verify_tendermint_membership(light_client_accounts, membership_msg)
-        }
-    }
+    // Compute discriminator dynamically
+    // All light clients must use "verify_membership" as the instruction name
+    let discriminator = compute_discriminator("global", "verify_membership");
+
+    let mut ix_data = Vec::new();
+    ix_data.extend_from_slice(&discriminator);
+    membership_msg.serialize(&mut ix_data)?;
+
+    // Build the instruction with standard account layout
+    // All light clients must accept: [client_state, consensus_state]
+    let ix = Instruction {
+        program_id: client.client_program_id,
+        accounts: vec![
+            AccountMeta::new_readonly(light_client_accounts.client_state.key(), false),
+            AccountMeta::new_readonly(light_client_accounts.consensus_state.key(), false),
+        ],
+        data: ix_data,
+    };
+
+    let account_infos = vec![
+        light_client_accounts.client_state.to_account_info(),
+        light_client_accounts.consensus_state.to_account_info(),
+        light_client_accounts.light_client_program.to_account_info(),
+    ];
+
+    invoke(&ix, &account_infos)?;
+
+    emit!(MembershipVerifiedEvent {
+        client_type: format!("{:?}", client.client_type),
+        height: membership_msg.height,
+    });
+
+    Ok(membership_msg.height)
 }
 
 pub fn verify_non_membership_cpi(
@@ -59,42 +96,6 @@ pub fn verify_non_membership_cpi(
 
     require!(client.active, RouterError::ClientNotActive);
 
-    match client.client_type {
-        ClientType::ICS07Tendermint => {
-            verify_tendermint_non_membership(light_client_accounts, non_membership_msg)
-        }
-    }
-}
-
-fn verify_tendermint_membership(
-    light_client_accounts: &LightClientVerification,
-    membership_msg: MembershipMsg,
-) -> Result<u64> {
-    verify_membership(
-        CpiContext::new(
-            light_client_accounts.light_client_program.to_account_info(),
-            VerifyMembership {
-                client_state: light_client_accounts.client_state.to_account_info(),
-                consensus_state_at_height: light_client_accounts.consensus_state.to_account_info(),
-            },
-        ),
-        membership_msg.clone(),
-    )?;
-
-    emit!(MembershipVerifiedEvent {
-        client_type: "ICS07Tendermint".to_string(),
-        height: membership_msg.height,
-    });
-
-    // Return the height as timestamp for now
-    // In a real implementation, we might need to get this from the consensus state
-    Ok(membership_msg.height)
-}
-
-fn verify_tendermint_non_membership(
-    light_client_accounts: &LightClientVerification,
-    non_membership_msg: NonMembershipMsg,
-) -> Result<u64> {
     let membership_msg = MembershipMsg {
         height: non_membership_msg.height,
         delay_time_period: non_membership_msg.delay_time_period,
@@ -104,23 +105,36 @@ fn verify_tendermint_non_membership(
         value: vec![], // Empty value for non-membership
     };
 
-    verify_non_membership(
-        CpiContext::new(
-            light_client_accounts.light_client_program.to_account_info(),
-            VerifyNonMembership {
-                client_state: light_client_accounts.client_state.to_account_info(),
-                consensus_state_at_height: light_client_accounts.consensus_state.to_account_info(),
-            },
-        ),
-        membership_msg.clone(),
-    )?;
+    // Compute discriminator dynamically
+    // All light clients must use "verify_non_membership" as the instruction name
+    let discriminator = compute_discriminator("global", "verify_non_membership");
+
+    let mut ix_data = Vec::new();
+    ix_data.extend_from_slice(&discriminator);
+    membership_msg.serialize(&mut ix_data)?;
+
+    let ix = Instruction {
+        program_id: client.client_program_id,
+        accounts: vec![
+            AccountMeta::new_readonly(light_client_accounts.client_state.key(), false),
+            AccountMeta::new_readonly(light_client_accounts.consensus_state.key(), false),
+        ],
+        data: ix_data,
+    };
+
+    let account_infos = vec![
+        light_client_accounts.client_state.to_account_info(),
+        light_client_accounts.consensus_state.to_account_info(),
+        light_client_accounts.light_client_program.to_account_info(),
+    ];
+
+    invoke(&ix, &account_infos)?;
 
     emit!(NonMembershipVerifiedEvent {
-        client_type: "ICS07Tendermint".to_string(),
+        client_type: format!("{:?}", client.client_type),
         height: membership_msg.height,
     });
 
-    // Return the height as timestamp
     Ok(membership_msg.height)
 }
 
