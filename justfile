@@ -50,12 +50,26 @@ build-sig-aggregator-image:
 # Start the attestor and aggregator services using Docker Compose
 [group('run')]
 start-aggregator-services:
-    ./scripts/start-agg-services.sh
+    @echo "🚀 Starting IBC Attestor and Sig-Aggregator services..."
+    @cd programs/sig-aggregator && docker-compose down --volumes
+    @cd programs/sig-aggregator && docker-compose up --build -d --wait
+    @echo ""
+    @echo "🎉 All services are up and running!"
+    @echo ""
+    @echo "Service URLs:"
+    @echo "  • IBC Attestor 1: gRPC on localhost:8080"
+    @echo "  • IBC Attestor 2: gRPC on localhost:8081" 
+    @echo "  • IBC Attestor 3: gRPC on localhost:8082"
+    @echo "  • Sig-Aggregator: gRPC on localhost:50060"
+    @echo ""
+    @echo "Test the setup with: just test-aggregator-services"
+    @echo "View logs with: cd programs/sig-aggregator && docker-compose logs -f"
+    @echo "Stop services with: just stop-aggregator-services"
 
 # Stop the attestor and aggregator services
 [group('run')]
 stop-aggregator-services:
-    cd programs/sig-aggregator && docker-compose down
+    cd programs/sig-aggregator && docker-compose down --volumes
 
 # Test the attestor and aggregator services
 [group('run')]

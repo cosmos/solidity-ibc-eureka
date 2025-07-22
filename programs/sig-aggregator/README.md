@@ -39,29 +39,24 @@ This directory contains a complete Docker Compose setup for running 3 IBC attest
 From the workspace root:
 
 ```sh
-# Start all services
-./scripts/start-agg-services.sh
+# Start all services (docker-compose handles all health checking internally)
+just start-aggregator-services
 
 # Test the services
-./scripts/test-agg-services.sh
-
-# Stop services
-cd programs/sig-aggregator && docker-compose down
-
-# Or use just commands
-just start-aggregator-services
 just test-aggregator-services
+
+# Stop services (cleans up volumes too)
 just stop-aggregator-services
 ```
 
 Or manually from this directory:
 
 ```sh
-# Start services
-docker-compose up --build -d
+# Start services - the --wait flag ensures all health checks pass before returning
+docker-compose down --volumes && docker-compose up --build -d --wait
 
-# Stop services
-docker-compose down
+# Stop services (with volume cleanup)
+docker-compose down --volumes
 ```
 
 The setup includes:
@@ -70,3 +65,16 @@ The setup includes:
 - **1 Sig-Aggregator** on port 50060 (requires 2/3 quorum)
 
 Configuration files are in the `config/` directory.
+
+### Health Checks
+
+The docker-compose setup includes reliable health checks:
+
+- **Attestor health checks**: Verify each attestor's gRPC server is listening and accepting connections
+- **Aggregator health check**: Verifies the aggregator's gRPC server is listening and accepting connections  
+- **Startup orchestration**: The aggregator only starts after all attestors are healthy
+- **Wait flag support**: Using `--wait` ensures the command only returns when all services are fully ready
+
+The health checks use basic TCP connectivity tests, which are reliable and fast. Functional testing is handled by the test script after startup.
+
+When `docker-compose up --wait` completes, all services are guaranteed to be ready for use.
