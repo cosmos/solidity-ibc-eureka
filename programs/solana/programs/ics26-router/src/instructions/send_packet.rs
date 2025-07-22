@@ -47,6 +47,13 @@ pub struct SendPacket<'info> {
     pub system_program: Program<'info, System>,
 
     pub clock: Sysvar<'info, Clock>,
+
+    #[account(
+        seeds = [CLIENT_SEED, msg.source_client.as_bytes()],
+        bump,
+        constraint = client.active @ RouterError::ClientNotActive,
+    )]
+    pub client: Account<'info, Client>,
 }
 
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
@@ -74,13 +81,12 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     let sequence = client_sequence.next_sequence_send;
     client_sequence.next_sequence_send += 1;
 
-    // TODO: Get counterparty client ID from somewhere
-    let counterparty_client_id = "counterparty-client".to_string(); // Placeholder
+    let counterparty_client_id = ctx.accounts.client.counterparty_info.client_id.clone();
 
     let packet = Packet {
         sequence,
         source_client: msg.source_client.clone(),
-        dest_client: counterparty_client_id.clone(),
+        dest_client: counterparty_client_id,
         timeout_timestamp: msg.timeout_timestamp,
         payloads: vec![msg.payload.clone()],
     };
