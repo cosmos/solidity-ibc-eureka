@@ -1,9 +1,7 @@
 use crate::errors::RouterError;
-use crate::instructions::light_client_cpi::{
-    verify_membership_cpi, LightClientVerification,
-};
+use crate::instructions::light_client_cpi::{verify_membership_cpi, LightClientVerification};
 use crate::state::*;
-use crate::utils::{construct_commitment_path, ics24_host};
+use crate::utils::ics24;
 use anchor_lang::prelude::*;
 use ics07_tendermint::MembershipMsg;
 
@@ -116,13 +114,13 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         consensus_state: ctx.accounts.consensus_state.clone(),
     };
 
-    let commitment_path = construct_commitment_path(
+    let commitment_path = ics24::construct_commitment_path(
         msg.packet.sequence,
         &msg.packet.payloads[0].source_port,
         &msg.packet.payloads[0].dest_port,
     );
 
-    let expected_commitment = ics24_host::packet_commitment_bytes32(&msg.packet);
+    let expected_commitment = ics24::packet_commitment_bytes32(&msg.packet);
 
     // Verify membership proof via CPI to light client
     let membership_msg = MembershipMsg {
@@ -137,7 +135,7 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     verify_membership_cpi(client_registry, &light_client_verification, membership_msg)?;
 
     // Check if receipt already exists (no-op case)
-    let receipt_commitment = ics24_host::packet_receipt_commitment_bytes32(&msg.packet);
+    let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&msg.packet);
     if packet_receipt.value == receipt_commitment {
         emit!(NoopEvent {});
         return Ok(());
@@ -150,7 +148,7 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     let ack_data = b"packet received".to_vec();
 
     let acks = vec![ack_data.clone()];
-    let ack_commitment = ics24_host::packet_acknowledgement_commitment_bytes32(&acks)?;
+    let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&acks)?;
     packet_ack.value = ack_commitment;
 
     emit!(WriteAcknowledgementEvent {

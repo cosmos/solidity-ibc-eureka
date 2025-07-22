@@ -1,10 +1,8 @@
 use crate::errors::RouterError;
-use crate::instructions::light_client_cpi::{
-    verify_membership_cpi, LightClientVerification,
-};
+use crate::instructions::light_client_cpi::{verify_membership_cpi, LightClientVerification};
 use crate::instructions::recv_packet::NoopEvent;
 use crate::state::*;
-use crate::utils::{construct_ack_path, ics24_host};
+use crate::utils::ics24;
 use anchor_lang::prelude::*;
 use ics07_tendermint::MembershipMsg;
 
@@ -84,7 +82,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         consensus_state: ctx.accounts.consensus_state.clone(),
     };
 
-    let ack_path = construct_ack_path(
+    let ack_path = ics24::construct_ack_path(
         msg.packet.sequence,
         &msg.packet.payloads[0].source_port,
         &msg.packet.payloads[0].dest_port,
@@ -101,7 +99,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
 
     verify_membership_cpi(client_registry, &light_client_verification, membership_msg)?;
 
-    let expected_commitment = ics24_host::packet_commitment_bytes32(&msg.packet);
+    let expected_commitment = ics24::packet_commitment_bytes32(&msg.packet);
     if packet_commitment.value != expected_commitment {
         // No-op case - commitment doesn't exist or mismatch
         emit!(NoopEvent {});

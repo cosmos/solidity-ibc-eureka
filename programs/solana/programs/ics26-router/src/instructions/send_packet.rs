@@ -1,6 +1,6 @@
 use crate::errors::RouterError;
 use crate::state::*;
-use crate::utils::ics24_host;
+use crate::utils::ics24;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -85,7 +85,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
         payloads: vec![msg.payload.clone()],
     };
 
-    let commitment = ics24_host::packet_commitment_bytes32(&packet);
+    let commitment = ics24::packet_commitment_bytes32(&packet);
     packet_commitment.value = commitment;
 
     emit!(SendPacketEvent {
