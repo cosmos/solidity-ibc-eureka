@@ -170,7 +170,6 @@ mod tests {
             let consensus_state = AttestorConsensusState {
                 height: 42,
                 timestamp: 1234567890,
-                attestation_data: DUMMY_DATA.to_vec(),
             };
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
@@ -263,7 +262,6 @@ mod tests {
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
-                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -329,7 +327,6 @@ mod tests {
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
-                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -397,7 +394,6 @@ mod tests {
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
-                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -506,7 +502,6 @@ mod tests {
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
-                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -609,7 +604,6 @@ mod tests {
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
-                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -668,7 +662,6 @@ mod tests {
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
-                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -721,7 +714,6 @@ mod tests {
             let consensus_state = AttestorConsensusState {
                 height: 100,
                 timestamp: 1234567890,
-                attestation_data: DUMMY_DATA.to_vec(),
             };
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();

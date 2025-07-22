@@ -12,6 +12,4 @@ pub struct ConsensusState {
     pub height: u64,
     /// Timestamp when this height was reached (Unix timestamp in seconds)
     pub timestamp: u64,
-    /// The attestation that has been verified
-    pub attestation_data: Vec<u8>,
 }

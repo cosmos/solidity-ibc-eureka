@@ -16,7 +16,6 @@ pub fn update_consensus_state(
     let new_consensus_state = ConsensusState {
         height: header.new_height,
         timestamp: header.timestamp,
-        attestation_data: [0].into(),
     };
 
     // Update client state if the height has progressed beyond the latest

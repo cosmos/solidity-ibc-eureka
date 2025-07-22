@@ -136,7 +136,6 @@ mod verify_header {
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
-            attestation_data: DUMMY_DATA.clone().into(),
         };
         let header = Header {
             new_height: cns.height,
@@ -160,7 +159,6 @@ mod verify_header {
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
-            attestation_data: DUMMY_DATA.clone().into(),
         };
 
         let mut too_few_sigs = SIGS.to_vec();
@@ -190,7 +188,6 @@ mod verify_header {
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
-            attestation_data: DUMMY_DATA.clone().into(),
         };
 
         let mut too_few_keys = KEYS.to_vec();
@@ -220,7 +217,6 @@ mod verify_header {
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
-            attestation_data: DUMMY_DATA.clone().into(),
         };
 
         let rogue_sig =
@@ -256,7 +252,6 @@ mod verify_header {
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
-            attestation_data: DUMMY_DATA.clone().into(),
         };
 
         let rogue_key =
@@ -297,7 +292,6 @@ mod verify_header {
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
-            attestation_data: DUMMY_DATA.clone().into(),
         };
 
         let mut bad_sigs = SIGS.clone();
@@ -328,7 +322,6 @@ mod verify_header {
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
-            attestation_data: DUMMY_DATA.clone().into(),
         };
 
         let mut bad_keys = KEYS.clone();
@@ -359,7 +352,6 @@ mod verify_header {
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
-            attestation_data: DUMMY_DATA.clone().into(),
         };
         let bad_ts = Header {
             new_height: cns.height,
@@ -388,12 +380,10 @@ mod verify_header {
             ConsensusState {
                 height: 100,
                 timestamp: 123456789,
-                attestation_data: DUMMY_DATA.clone().into(),
             },
             ConsensusState {
                 height: 100 + 2,
                 timestamp: 123456789 + 2,
-                attestation_data: DUMMY_DATA.clone().into(),
             },
         );
 
@@ -450,12 +440,10 @@ mod verify_header {
             ConsensusState {
                 height: 100,
                 timestamp: 123456789,
-                attestation_data: DUMMY_DATA.clone().into(),
             },
             ConsensusState {
                 height: 100 + 2,
                 timestamp: 123456789 + 2,
-                attestation_data: DUMMY_DATA.clone().into(),
             },
         );
 
