@@ -16,10 +16,10 @@ pub struct AckPacket<'info> {
     pub router_state: Account<'info, RouterState>,
 
     #[account(
-        seeds = [PORT_REGISTRY_SEED, msg.packet.payloads[0].source_port.as_bytes()],
+        seeds = [PORT_SEED, msg.packet.payloads[0].source_port.as_bytes()],
         bump
     )]
-    pub port_registry: Account<'info, PortRegistry>,
+    pub port: Account<'info, Port>,
 
     #[account(
         mut,

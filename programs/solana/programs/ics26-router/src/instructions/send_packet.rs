@@ -13,10 +13,10 @@ pub struct SendPacket<'info> {
     pub router_state: Account<'info, RouterState>,
 
     #[account(
-        seeds = [PORT_REGISTRY_SEED, msg.payload.source_port.as_bytes()],
+        seeds = [PORT_SEED, msg.payload.source_port.as_bytes()],
         bump
     )]
-    pub port_registry: Account<'info, PortRegistry>,
+    pub port: Account<'info, Port>,
 
     #[account(
         mut,
@@ -58,13 +58,13 @@ pub struct SendPacket<'info> {
 
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
     // TODO: Support multi-payload packets #602
-    let port_registry = &ctx.accounts.port_registry;
+    let port = &ctx.accounts.port;
     let client_sequence = &mut ctx.accounts.client_sequence;
     let packet_commitment = &mut ctx.accounts.packet_commitment;
     let clock = &ctx.accounts.clock;
 
     require!(
-        ctx.accounts.app_caller.key() == port_registry.app_program_id,
+        ctx.accounts.app_caller.key() == port.app_program_id,
         RouterError::UnauthorizedSender
     );
 

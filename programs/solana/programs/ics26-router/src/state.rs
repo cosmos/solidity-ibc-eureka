@@ -15,10 +15,10 @@ pub struct RouterState {
     pub initialized: bool,
 }
 
-/// Port registry mapping port IDs to IBC app program IDs
+/// Port mapping port IDs to IBC app program IDs
 #[account]
 #[derive(InitSpace)]
-pub struct PortRegistry {
+pub struct Port {
     /// The port identifier
     #[max_len(MAX_PORT_ID_LENGTH)]
     pub port_id: String,
@@ -136,7 +136,7 @@ pub struct MsgTimeoutPacket {
 
 /// Constants
 pub const ROUTER_STATE_SEED: &[u8] = b"router_state";
-pub const PORT_REGISTRY_SEED: &[u8] = b"port_registry";
+pub const PORT_SEED: &[u8] = b"port";
 pub const CLIENT_SEED: &[u8] = b"client";
 pub const CLIENT_SEQUENCE_SEED: &[u8] = b"client_sequence";
 pub const COMMITMENT_SEED: &[u8] = b"commitment";
