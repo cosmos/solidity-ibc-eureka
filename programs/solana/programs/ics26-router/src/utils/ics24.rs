@@ -4,20 +4,6 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::keccak::hash as keccak256;
 use sha2::{Digest, Sha256};
 
-// TODO: calc in build.rs
-/// Universal error acknowledgement
-/// sha256("UNIVERSAL_ERROR_ACKNOWLEDGEMENT")
-pub const UNIVERSAL_ERROR_ACK: [u8; 32] = [
-    0x47, 0x74, 0xd4, 0xa5, 0x75, 0x99, 0x3f, 0x96, 0x3b, 0x1c, 0x06, 0x57, 0x37, 0x36, 0x61, 0x7a,
-    0x45, 0x7a, 0xbe, 0xf8, 0x58, 0x91, 0x78, 0xdb, 0x8d, 0x10, 0xc9, 0x4b, 0x4a, 0xb5, 0x11, 0xab,
-];
-
-pub fn keccak256_universal_error_ack() -> [u8; 32] {
-    keccak256(&UNIVERSAL_ERROR_ACK).to_bytes()
-}
-
-// ===== Path Construction Functions =====
-
 /// Construct ICS24 commitment path for proof verification
 /// Returns path segments: commitments/ports/{port_id}/channels/{dest_port}/sequences/{sequence}
 pub fn construct_commitment_path(sequence: u64, port_id: &str, dest_port: &str) -> Vec<Vec<u8>> {
@@ -60,8 +46,6 @@ pub fn construct_ack_path(sequence: u64, port_id: &str, dest_port: &str) -> Vec<
     ]
 }
 
-// ===== Storage Path Functions =====
-
 pub fn packet_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
     let mut path = Vec::new();
     path.extend_from_slice(client_id.as_bytes());
@@ -86,8 +70,6 @@ pub fn packet_receipt_commitment_path(client_id: &str, sequence: u64) -> Vec<u8>
     path
 }
 
-// ===== Storage Key Functions =====
-
 pub fn packet_commitment_key(client_id: &str, sequence: u64) -> [u8; 32] {
     let path = packet_commitment_path(client_id, sequence);
     keccak256(&path).to_bytes()
@@ -103,9 +85,6 @@ pub fn packet_receipt_commitment_key(client_id: &str, sequence: u64) -> [u8; 32]
     keccak256(&path).to_bytes()
 }
 
-// ===== Commitment Calculation Functions =====
-
-/// Get the packet commitment bytes
 /// sha256_hash(0x02 + sha256_hash(destinationClient) + sha256_hash(timeout) + sha256_hash(payload))
 pub fn packet_commitment_bytes32(packet: &Packet) -> [u8; 32] {
     let mut app_bytes = Vec::new();
@@ -158,13 +137,8 @@ pub fn packet_receipt_commitment_bytes32(packet: &Packet) -> [u8; 32] {
     keccak256(&packet_bytes).to_bytes()
 }
 
-// ===== Utility Functions =====
-
 pub fn prefixed_path(merkle_prefix: &[Vec<u8>], path: &[u8]) -> Result<Vec<Vec<u8>>> {
-    require!(
-        !merkle_prefix.is_empty(),
-        RouterError::InvalidMerklePrefix
-    );
+    require!(!merkle_prefix.is_empty(), RouterError::InvalidMerklePrefix);
 
     let mut result = merkle_prefix.to_vec();
     let last_idx = result.len() - 1;
@@ -178,3 +152,4 @@ fn sha256(data: &[u8]) -> [u8; 32] {
     hasher.update(data);
     hasher.finalize().into()
 }
+
