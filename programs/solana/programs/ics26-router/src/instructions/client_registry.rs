@@ -101,7 +101,12 @@ pub fn add_client(
     client_registry.authority = ctx.accounts.authority.key();
     client_registry.active = true;
 
-    msg!("Client {} added with type {:?}", client_registry.client_id, client_registry.client_type);
+    emit!(ClientAddedEvent {
+        client_id: client_registry.client_id.clone(),
+        client_type: client_registry.client_type.clone(),
+        client_program_id: client_registry.client_program_id,
+        authority: client_registry.authority,
+    });
 
     Ok(())
 }
@@ -115,7 +120,24 @@ pub fn update_client(
 
     client_registry.active = active;
 
-    msg!("Client {} status updated to active: {}", client_registry.client_id, active);
+    emit!(ClientStatusUpdatedEvent {
+        client_id: client_registry.client_id.clone(),
+        active,
+    });
 
     Ok(())
+}
+
+#[event]
+pub struct ClientAddedEvent {
+    pub client_id: String,
+    pub client_type: ClientType,
+    pub client_program_id: Pubkey,
+    pub authority: Pubkey,
+}
+
+#[event]
+pub struct ClientStatusUpdatedEvent {
+    pub client_id: String,
+    pub active: bool,
 }

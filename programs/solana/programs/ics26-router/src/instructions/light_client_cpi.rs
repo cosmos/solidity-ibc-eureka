@@ -102,7 +102,10 @@ fn verify_tendermint_membership(
 
     invoke(&ix, &account_infos)?;
 
-    msg!("Verified membership proof via CPI to ICS07 Tendermint");
+    emit!(MembershipVerifiedEvent {
+        client_type: "ICS07Tendermint".to_string(),
+        height: membership_msg.height,
+    });
 
     // Return the height as timestamp for now
     // In a real implementation, we might need to get this from the consensus state
@@ -148,9 +151,24 @@ fn verify_tendermint_non_membership(
 
     invoke(&ix, &account_infos)?;
 
-    msg!("Verified non-membership proof via CPI to ICS07 Tendermint");
+    emit!(NonMembershipVerifiedEvent {
+        client_type: "ICS07Tendermint".to_string(),
+        height: membership_msg.height,
+    });
 
     // Return the height as timestamp
     Ok(membership_msg.height)
+}
+
+#[event]
+pub struct MembershipVerifiedEvent {
+    pub client_type: String,
+    pub height: u64,
+}
+
+#[event]
+pub struct NonMembershipVerifiedEvent {
+    pub client_type: String,
+    pub height: u64,
 }
 
