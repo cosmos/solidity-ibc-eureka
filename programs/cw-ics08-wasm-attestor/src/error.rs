@@ -68,6 +68,9 @@ pub enum ContractError {
     #[error("serde json error: {0}")]
     SerdeJsonError(#[from] serde_json::Error),
 
+    #[error("timestamp too large overflow")]
+    TimestampOverflow,
+
     #[error("invalid client message")]
     InvalidClientMessage,
 }

@@ -85,7 +85,10 @@ pub fn timestamp_at_height(
     let consensus_state =
         get_consensus_state(deps.storage, timestamp_at_height_msg.height.revision_height)?;
 
-    let nano_timestamp = consensus_state.timestamp * 1_000_000_000; // ibc-go expects nanoseconds
+    let nano_timestamp = consensus_state
+        .timestamp
+        .checked_mul(1_000_000_000) // ibc-go expects nanoseconds
+        .ok_or(ContractError::TimestampOverflow)?;
 
     Ok(to_json_binary(&TimestampAtHeightResult {
         timestamp: nano_timestamp,
