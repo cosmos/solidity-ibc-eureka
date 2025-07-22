@@ -122,7 +122,6 @@ impl AggregatorService {
         let mut successful_responses = Vec::new();
         let mut error_count = 0;
 
-        // Collect all responses
         while let Some(result) = futs.next().await {
             match result {
                 Ok(response) => successful_responses.push(response),
@@ -149,12 +148,10 @@ impl AggregatorService {
     ) -> Result<AggregateResponse> {
         let mut attestator_data = AttestatorData::new();
 
-        // Insert all responses into the data aggregator
         for response in responses {
             attestator_data.insert(response);
         }
 
-        // Get the latest aggregate response that meets quorum
         match attestator_data.get_latest(self.config.quorum_threshold) {
             Some(aggregate_response) => Ok(aggregate_response),
             None => Err(AggregatorError::quorum_not_met(
