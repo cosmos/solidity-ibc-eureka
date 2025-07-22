@@ -1,12 +1,12 @@
 [server]
-listner_addr = "0.0.0.0:50060"
-log_level = "info"
+listener_addr = "0.0.0.0:50060"
+log_level = "INFO"
 
 [attestor]
 attestor_query_timeout_ms = 5000
 quorum_threshold = 2
 attestor_endpoints = [
     "http://ibc-attestor-1:8080",
-    "http://ibc-attestor-2:8081", 
-    "http://ibc-attestor-3:8082"
+    "http://ibc-attestor-2:8081",
+    "http://ibc-attestor-3:8082",
 ]

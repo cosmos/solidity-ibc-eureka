@@ -8,9 +8,9 @@ use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 
 /// Starts the [AggregatorService] RPC server with the provided configuration.
 pub async fn start(service: AggregatorService, config: ServerConfig) -> Result<()> {
-    tracing::info!("Starting aggregator server on {}", config.listner_addr);
+    tracing::info!("Starting aggregator server on {}", config.listener_addr);
 
-    let socket_addr = config.listner_addr;
+    let socket_addr = config.listener_addr;
     let reflection_service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(AGG_FILE_DESCRIPTOR)
         .build_v1()
@@ -56,7 +56,7 @@ mod tests {
         let listener_addr: String = "127.0.0.1:50051".to_string();
         let config = Config {
             server: ServerConfig {
-                listner_addr: listener_addr.parse().unwrap(),
+                listener_addr: listener_addr.parse().unwrap(),
                 log_level: "INFO".to_string(),
             },
             attestor: AttestorConfig {

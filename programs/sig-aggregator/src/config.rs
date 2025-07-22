@@ -103,7 +103,7 @@ impl AttestorConfig {
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct ServerConfig {
     /// The listener address to bind the server to.
-    pub listner_addr: SocketAddr,
+    pub listener_addr: SocketAddr,
     /// The log level for the server.
     #[serde(default)]
     pub log_level: String,

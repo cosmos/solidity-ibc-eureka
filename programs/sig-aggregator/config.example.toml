@@ -1,5 +1,6 @@
 [server]
-listner_addr = "127.0.0.1:50060"
+listener_addr = "127.0.0.1:50060"
+log_level = "INFO"
 
 [attestor]
 attestor_query_timeout_ms = 5000
