@@ -1,18 +1,23 @@
 use crate::{
     aggregator::AggregatorService,
     config::ServerConfig,
+    error::{AggregatorError, Result},
     rpc::{aggregator_server::AggregatorServer, AGG_FILE_DESCRIPTOR},
 };
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 
 /// Starts the [AggregatorService] RPC server with the provided configuration.
-pub async fn start(service: AggregatorService, config: ServerConfig) -> Result<(), anyhow::Error> {
-    tracing::info!("Starting Server With Config: {:?}", config);
+pub async fn start(service: AggregatorService, config: ServerConfig) -> Result<()> {
+    tracing::info!("Starting aggregator server on {}", config.listner_addr);
+
     let socket_addr = config.listner_addr;
     let reflection_service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(AGG_FILE_DESCRIPTOR)
         .build_v1()
-        .unwrap();
+        .map_err(|e| AggregatorError::internal_with_source(
+            "Failed to build reflection service",
+            e
+        ))?;
 
     tonic::transport::Server::builder()
         .layer(
@@ -24,7 +29,12 @@ pub async fn start(service: AggregatorService, config: ServerConfig) -> Result<(
         .add_service(reflection_service)
         .serve(socket_addr)
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to start server: {}", e))
+        .map_err(|e| AggregatorError::internal_with_source(
+            format!("Failed to start server on {socket_addr}"),
+            e
+        ))?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -56,7 +66,7 @@ mod tests {
             },
         };
 
-        let service = AggregatorService::from_config(config.clone())
+        let service = AggregatorService::from_config(config.attestor)
             .await
             .expect("failed to build AggregatorService");
 
