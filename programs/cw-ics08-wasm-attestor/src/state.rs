@@ -37,7 +37,7 @@ fn height_to_big_endian(revision: u64, height: u64) -> Vec<u8> {
 #[must_use]
 pub fn iteration_db_key(revision: u64, height: u64) -> Vec<u8> {
     let key = height_to_big_endian(revision, height);
-    let mut prefix = format!("{}/", HOST_ITERATE_CONSENSUS_STATES_KEY)
+    let mut prefix = format!("{HOST_ITERATE_CONSENSUS_STATES_KEY}/")
         .as_bytes()
         .to_vec();
     prefix.extend(key);
