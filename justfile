@@ -75,13 +75,18 @@ stop-aggregator-services:
 [group('run')]
 test-aggregator-services:
     # TODO: point to e2e test when we have one.
-    @just start-aggregator-services
-    @echo "✅ Services are ready, testing aggregator..."
-    @if grpcurl -plaintext -d '{"min_height": 100}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq > /dev/null 2>&1; then \
-        echo "🎉 Aggregator test successful!"; \
+    @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
+        echo "✅ Services are already running, proceeding with tests..."; \
+    else \
+        echo "🚀 Services not running, starting them..."; \
+        just start-aggregator-services; \
+    fi
+    @echo "✅ Testing aggregator service..."
+    @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
+        echo "🎉 Aggregator service is reachable, testing GetAggregateAttestation..."; \
         grpcurl -plaintext -d '{"min_height": 100}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq; \
     else \
-        echo "❌ Aggregator test failed. Check logs with: cd programs/sig-aggregator && docker-compose logs"; \
+        echo "❌ Aggregator service is not reachable. Check logs with: cd programs/sig-aggregator && docker-compose logs"; \
         exit 1; \
     fi
 
