@@ -98,8 +98,11 @@ pub fn get_previous_consensus_state(
     let mut prev_key = storage.range(None, Some(&target_key), Order::Descending);
 
     if let Some((_, consensus_key_bytes)) = prev_key.next() {
-        let consensus_key = String::from_utf8(consensus_key_bytes).unwrap();
-        let bytes = storage.get(consensus_key.as_bytes()).unwrap();
+        let consensus_key = String::from_utf8_lossy(&consensus_key_bytes);
+        let bytes = storage
+            .get(consensus_key.as_bytes())
+            .ok_or(ContractError::ConsensusStateNotFound)?;
+
         let any = Any::decode(bytes.as_slice())?;
         let wasm_consensus_state = WasmConsensusState::decode(any.value.as_slice())?;
 
@@ -118,8 +121,11 @@ pub fn get_next_consensus_state(
     let mut next_key = storage.range(Some(&target_key), None, Order::Ascending);
 
     if let Some((_, consensus_key_bytes)) = next_key.next() {
-        let consensus_key = String::from_utf8(consensus_key_bytes).unwrap();
-        let bytes = storage.get(consensus_key.as_bytes()).unwrap();
+        let consensus_key = String::from_utf8_lossy(&consensus_key_bytes);
+        let bytes = storage
+            .get(consensus_key.as_bytes())
+            .ok_or(ContractError::ConsensusStateNotFound)?;
+
         let any = Any::decode(bytes.as_slice())?;
         let wasm_consensus_state = WasmConsensusState::decode(any.value.as_slice())?;
 
