@@ -14,10 +14,9 @@ pub async fn start(service: AggregatorService, config: ServerConfig) -> Result<(
     let reflection_service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(AGG_FILE_DESCRIPTOR)
         .build_v1()
-        .map_err(|e| AggregatorError::internal_with_source(
-            "Failed to build reflection service",
-            e
-        ))?;
+        .map_err(|e| {
+            AggregatorError::internal_with_source("Failed to build reflection service", e)
+        })?;
 
     tonic::transport::Server::builder()
         .layer(
@@ -29,10 +28,12 @@ pub async fn start(service: AggregatorService, config: ServerConfig) -> Result<(
         .add_service(reflection_service)
         .serve(socket_addr)
         .await
-        .map_err(|e| AggregatorError::internal_with_source(
-            format!("Failed to start server on {socket_addr}"),
-            e
-        ))?;
+        .map_err(|e| {
+            AggregatorError::internal_with_source(
+                format!("Failed to start server on {socket_addr}"),
+                e,
+            )
+        })?;
 
     Ok(())
 }

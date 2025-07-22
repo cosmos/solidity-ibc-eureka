@@ -15,17 +15,16 @@ impl Config {
     /// Load configuration from a TOML file.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
-        let content = fs::read_to_string(path)
-            .map_err(|e| AggregatorError::config_with_source(
+        let content = fs::read_to_string(path).map_err(|e| {
+            AggregatorError::config_with_source(
                 format!("Failed to read config file '{}'", path.display()),
-                e
-            ))?;
+                e,
+            )
+        })?;
 
-        let config: Config = toml::from_str(&content)
-            .map_err(|e| AggregatorError::config_with_source(
-                "Invalid TOML format in configuration file",
-                e
-            ))?;
+        let config: Config = toml::from_str(&content).map_err(|e| {
+            AggregatorError::config_with_source("Invalid TOML format in configuration file", e)
+        })?;
 
         Ok(config)
     }
@@ -50,7 +49,7 @@ impl AttestorConfig {
         // Validate quorum threshold
         if self.quorum_threshold == 0 {
             return Err(AggregatorError::config(
-                "quorum_threshold must be greater than 0"
+                "quorum_threshold must be greater than 0",
             ));
         }
 
@@ -65,20 +64,20 @@ impl AttestorConfig {
         // Validate timeout
         if self.attestor_query_timeout_ms == 0 {
             return Err(AggregatorError::config(
-                "attestor_query_timeout_ms must be greater than 0"
+                "attestor_query_timeout_ms must be greater than 0",
             ));
         }
 
         if self.attestor_query_timeout_ms > 60_000 {
             return Err(AggregatorError::config(
-                "attestor_query_timeout_ms should not exceed 60 seconds"
+                "attestor_query_timeout_ms should not exceed 60 seconds",
             ));
         }
 
         // Validate endpoints
         if self.attestor_endpoints.is_empty() {
             return Err(AggregatorError::config(
-                "at least one attestor endpoint must be specified"
+                "at least one attestor endpoint must be specified",
             ));
         }
 
@@ -112,11 +111,12 @@ pub struct ServerConfig {
 impl ServerConfig {
     pub fn validate(&self) -> std::result::Result<(), AggregatorError> {
         if !self.log_level.is_empty() {
-            Level::from_str(&self.log_level)
-                .map_err(|_| AggregatorError::config(format!(
+            Level::from_str(&self.log_level).map_err(|_| {
+                AggregatorError::config(format!(
                     "invalid log level '{}'. Valid levels are: TRACE, DEBUG, INFO, WARN, ERROR",
                     self.log_level
-                )))?;
+                ))
+            })?;
         }
 
         Ok(())
