@@ -50,17 +50,17 @@ build-sig-aggregator-image:
 # Start the attestor and aggregator services using Docker Compose
 [group('run')]
 start-aggregator-services:
+    @just stop-aggregator-services
     @echo "🚀 Starting IBC Attestor and Sig-Aggregator services..."
-    @cd programs/sig-aggregator && docker-compose down --volumes
     @cd programs/sig-aggregator && docker-compose up --build -d --wait
     @echo ""
     @echo "🎉 All services are up and running!"
     @echo ""
     @echo "Service URLs:"
-    @echo "  • IBC Attestor 1: gRPC on localhost:8080"
-    @echo "  • IBC Attestor 2: gRPC on localhost:8081" 
-    @echo "  • IBC Attestor 3: gRPC on localhost:8082"
-    @echo "  • Sig-Aggregator: gRPC on localhost:50060"
+    @echo "  • IBC Attestor 1: gRPC on localhost:9000"
+    @echo "  • IBC Attestor 2: gRPC on localhost:9001" 
+    @echo "  • IBC Attestor 3: gRPC on localhost:9002"
+    @echo "  • Sig-Aggregator: gRPC on localhost:8080"
     @echo ""
     @echo "Test the setup with: just test-aggregator-services"
     @echo "View logs with: cd programs/sig-aggregator && docker-compose logs -f"
@@ -74,7 +74,16 @@ stop-aggregator-services:
 # Test the attestor and aggregator services
 [group('run')]
 test-aggregator-services:
-    ./scripts/test-agg-services.sh
+    # TODO: point to e2e test when we have one.
+    @just start-aggregator-services
+    @echo "✅ Services are ready, testing aggregator..."
+    @if grpcurl -plaintext -d '{"min_height": 100}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq > /dev/null 2>&1; then \
+        echo "🎉 Aggregator test successful!"; \
+        grpcurl -plaintext -d '{"min_height": 100}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq; \
+    else \
+        echo "❌ Aggregator test failed. Check logs with: cd programs/sig-aggregator && docker-compose logs"; \
+        exit 1; \
+    fi
 
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 [group('install')]

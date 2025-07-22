@@ -1,10 +1,12 @@
-FROM rust:1.88-bookworm AS build
+FROM rust:1.88-alpine AS build
 
-RUN apt update && apt install -y build-essential protobuf-compiler ca-certificates
+RUN apk add --no-cache \
+    musl-dev \
+    protobuf-dev \
+    openssl-dev \
+    pkgconfig
 
-ENV PATH="/root/.cargo/bin:${PATH}"
-
-WORKDIR /solidity-ibc-eureka/
+WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY packages packages
 COPY programs programs
@@ -14,23 +16,14 @@ COPY proto proto
 
 RUN cargo build --bin aggregator --release --locked
 
-# Download and install grpcurl for health checks
-RUN apt-get update && apt-get install -y curl \
-    && curl -sSL "https://github.com/fullstorydev/grpcurl/releases/download/v1.8.7/grpcurl_1.8.7_linux_x86_64.tar.gz" \
-    | tar -xz -C /usr/local/bin
+FROM alpine:latest
 
-FROM debian:bookworm-slim
-
-# Install required runtime dependencies
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
+RUN apk add --no-cache \
     bash \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates \
+    libgcc
 
 WORKDIR /usr/local/bin
-COPY --from=build /etc/ssl/certs /etc/ssl/certs
-COPY --from=build /solidity-ibc-eureka/target/release/aggregator /usr/local/bin/aggregator
-COPY --from=build /usr/local/bin/grpcurl /usr/local/bin/grpcurl
+COPY --from=build /app/target/release/aggregator /usr/local/bin/aggregator
 
 ENTRYPOINT ["aggregator"]
