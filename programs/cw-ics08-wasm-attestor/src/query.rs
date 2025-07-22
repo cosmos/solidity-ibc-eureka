@@ -30,25 +30,20 @@ pub fn verify_client_message(
 
     if let Ok(header) = serde_json::from_slice::<Header>(&verify_client_message_msg.client_message)
     {
-        if let Ok(height_in_msg_exists) = get_consensus_state(deps.storage, header.new_height) {
-            let _consensus_state = attestor_light_client::verify::verify_header(
-                Some(&height_in_msg_exists),
-                None,
-                None,
-                &client_state,
-                header,
-            )
-            .map_err(ContractError::VerifyClientMessageFailed)?;
-
-            return Ok(Binary::default());
-        }
-
-        let (prev, next) = (
-            get_previous_consensus_state(deps.storage, header.new_height)?,
-            get_next_consensus_state(deps.storage, header.new_height)?,
-        );
+        let consensus_maybe_exists = get_consensus_state(deps.storage, header.new_height);
+        let (current, prev, next) = match consensus_maybe_exists {
+            Ok(exists) => (Some(exists), None, None),
+            Err(e) => match e {
+                ContractError::ConsensusStateNotFound => (
+                    None,
+                    get_previous_consensus_state(deps.storage, header.new_height)?,
+                    get_next_consensus_state(deps.storage, header.new_height)?,
+                ),
+                _ => return Err(e),
+            },
+        };
         let _consensus_state = attestor_light_client::verify::verify_header(
-            None,
+            current.as_ref(),
             prev.as_ref(),
             next.as_ref(),
             &client_state,
