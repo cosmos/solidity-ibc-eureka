@@ -12,6 +12,7 @@ pub struct Config {
 }
 
 impl Config {
+    /// Load configuration from a TOML file.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         let content = fs::read_to_string(path)

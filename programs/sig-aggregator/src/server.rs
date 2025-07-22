@@ -1,6 +1,7 @@
 use crate::{
     aggregator::AggregatorService,
     config::ServerConfig,
+    error::{AggregatorError, Result},
     rpc::{aggregator_server::AggregatorServer, AGG_FILE_DESCRIPTOR},
 };
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
