@@ -5,6 +5,7 @@ pub const MAX_PORT_ID_LENGTH: usize = 128;
 pub const MAX_CLIENT_ID_LENGTH: usize = 64;
 
 /// Router state account
+/// TODO: Implement multi-router ACL
 #[account]
 #[derive(InitSpace)]
 pub struct RouterState {
