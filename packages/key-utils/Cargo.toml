@@ -1,0 +1,15 @@
+[package]
+name = "key-utils"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+
+[dependencies]
+anyhow = { workspace = true, default-features = false }
+pem    = { workspace = true, default-features = true }
+pkcs8  = { workspace = true, features = ["pem"] }
+sec1   = { workspace = true, features = ["pem", "der"] }
+secp256k1 = { workspace = true, features = ["global-context", "rand"] }
+

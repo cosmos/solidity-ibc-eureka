@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -7,18 +7,11 @@ pub struct Cli {
     pub command: Commands,
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Parser, Debug)]
 pub enum Commands {
     /// Run the aggregator service
-    Aggregator {
-        #[arg(long, default_value = "config.toml")]
+    Server {
+        #[clap(long, default_value = "config.toml")]
         config: String,
-    },
-    /// Run a relayer client to query the aggregator
-    Relayer {
-        #[arg(long)]
-        aggregator_addr: String,
-        #[arg(long)]
-        min_height: u64,
     },
 }

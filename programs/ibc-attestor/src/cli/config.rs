@@ -1,8 +1,27 @@
 //! Defines the top level configuration for the attestor.
-use std::{fs, path::Path, str::FromStr};
+use std::{
+    cell::LazyCell,
+    env, fs,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use thiserror::Error;
 use tracing::Level;
+
+pub const IBC_ATTESTOR_DIR: LazyCell<PathBuf> = LazyCell::new(|| {
+    env::home_dir()
+        .map(|home| home.join(".ibc-attestor"))
+        .unwrap()
+});
+
+const IBC_ATTESTOR_FILE: &str = "ibc-attestor.pem";
+
+pub const IBC_ATTESTOR_PATH: LazyCell<PathBuf> = LazyCell::new(|| {
+    env::home_dir()
+        .map(|home| home.join(&*IBC_ATTESTOR_DIR).join(IBC_ATTESTOR_FILE))
+        .unwrap()
+});
 
 /// The top level configuration for the relayer.
 #[derive(Debug, serde::Deserialize)]
@@ -10,7 +29,7 @@ pub struct AttestorConfig {
     /// The configuration for the attestor server.
     pub server: ServerConfig,
     /// The configuration for the attestor signer.
-    pub signer: SignerConfig,
+    pub signer: Option<SignerConfig>,
 
     #[cfg(feature = "sol")]
     /// The configuration for the attestor signer.
@@ -33,6 +52,14 @@ impl AttestorConfig {
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct SignerConfig {
     pub secret_key: String,
+}
+
+impl Default for SignerConfig {
+    fn default() -> Self {
+        SignerConfig {
+            secret_key: IBC_ATTESTOR_PATH.to_str().unwrap().into(),
+        }
+    }
 }
 
 /// The configuration for the relayer server.

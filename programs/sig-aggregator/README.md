@@ -14,3 +14,18 @@ To build the project, you need to have the Rust toolchain and `protoc` (the Prot
 
 ```sh
 cargo build --release
+```
+
+## Run Locally
+
+1. Run the attestor
+
+    a. Run: `cargo run -- key generate` to generate a private key
+    
+    b. Run `cargo run -- server solana --config server.dev.toml` to start a dev server
+
+2. Run the aggregator
+
+    a. Run `cargo run -- server --config config.example.toml`
+    
+    b. Query `grpcurl -plaintext -d '{"min_height": 394277673}' localhost:50060 aggregator.Aggregator.GetAggregateAttestation | jq`
