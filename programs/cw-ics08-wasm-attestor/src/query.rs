@@ -74,7 +74,7 @@ pub fn check_for_misbehaviour(
 
 /// Gets the consensus timestamp at a given height
 /// # Errors
-/// Returns an error if the conensus state is not found
+/// Returns an error if the consensus state is not found
 /// # Returns
 /// The timestamp at the given height
 #[allow(clippy::needless_pass_by_value)]
