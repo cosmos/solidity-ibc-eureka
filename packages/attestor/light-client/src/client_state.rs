@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ClientState {
     /// Attestor public keys
-    pub pub_keys: [PublicKey; 5],
+    pub pub_keys: Vec<PublicKey>,
     /// Minimum required signatures
     pub min_required_sigs: u8,
     /// Latest height for tracking progression

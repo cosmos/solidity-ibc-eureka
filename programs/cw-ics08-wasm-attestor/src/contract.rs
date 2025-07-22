@@ -102,7 +102,7 @@ mod tests {
             SecretKey::from_byte_array([0x1F; 32]).expect("32 bytes, within curve order"),
         ]
     });
-    pub const KEYS: LazyCell<[PublicKey; 5]> = LazyCell::new(|| {
+    pub const KEYS: LazyCell<Vec<PublicKey>> = LazyCell::new(|| {
         [
             PublicKey::from_secret_key_global(&S_KEYS[0]),
             PublicKey::from_secret_key_global(&S_KEYS[1]),
@@ -110,6 +110,7 @@ mod tests {
             PublicKey::from_secret_key_global(&S_KEYS[3]),
             PublicKey::from_secret_key_global(&S_KEYS[4]),
         ]
+        .to_vec()
     });
     pub const SIGS: LazyCell<Vec<Signature>> = LazyCell::new(|| {
         let sigs = S_KEYS
