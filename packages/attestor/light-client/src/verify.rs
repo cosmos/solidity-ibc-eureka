@@ -30,7 +30,7 @@ pub fn verify_header(
         return Err(IbcAttestorClientError::ClientFrozen);
     }
 
-    let _ = verify_attestation::verify_attesation(
+    let _ = verify_attestation::verify_attestation(
         client_state,
         header.attestation_data,
         header.signatures,

@@ -16,7 +16,7 @@ use crate::{client_state::ClientState, error::IbcAttestorClientError};
 /// - The attestations cannot be verified
 /// - A rogue public key is submitted
 #[allow(clippy::module_name_repetitions)]
-pub(crate) fn verify_attesation(
+pub(crate) fn verify_attestation(
     client_state: &ClientState,
     attestation_data: Vec<u8>,
     signatures: Vec<Signature>,

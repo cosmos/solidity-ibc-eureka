@@ -37,7 +37,7 @@ pub fn verify_membership(
         });
     }
 
-    let _ = verify_attestation::verify_attesation(
+    let _ = verify_attestation::verify_attestation(
         client_state,
         attested_state.attestation_data,
         attested_state.signatures,
