@@ -8,7 +8,6 @@ services:
     command:
       - |
         echo "🚀 Starting IBC Attestor 1..."
-        mkdir -p /root/.ibc-attestor
         ibc_attestor key generate || true
         echo "✅ IBC Attestor 1 starting server on port 9000..."
         ibc_attestor server solana --config /config/attestor1.toml
@@ -36,7 +35,6 @@ services:
     command:
       - |
         echo "🚀 Starting IBC Attestor 2..."
-        mkdir -p /root/.ibc-attestor
         ibc_attestor key generate || true
         echo "✅ IBC Attestor 2 starting server on port 9001..."
         ibc_attestor server solana --config /config/attestor2.toml
@@ -64,7 +62,6 @@ services:
     command:
       - |
         echo "🚀 Starting IBC Attestor 3..."
-        mkdir -p /root/.ibc-attestor
         ibc_attestor key generate || true
         echo "✅ IBC Attestor 3 starting server on port 9002..."
         ibc_attestor server solana --config /config/attestor3.toml
