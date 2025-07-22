@@ -1,8 +1,8 @@
-use std::fs;
-
+use key_utils::read_private_pem_to_secret;
 use secp256k1::hashes::{sha256, Hash};
 use secp256k1::Message;
-use secp256k1::SecretKey;
+use secp256k1::{SecretKey, SECP256K1};
+use thiserror::Error;
 
 use crate::cli::SignerConfig;
 use crate::{adapter_client::Signable, attestation_store::Attestation};
@@ -14,11 +14,10 @@ pub struct Signer {
 }
 
 impl Signer {
-    pub fn from_config(config: SignerConfig) -> Self {
-        let bytes = fs::read(&config.secret_key).unwrap();
-        // TODO: Implement key parsing in the key management tool
-        let skey = SecretKey::from_byte_array(bytes.try_into().unwrap()).unwrap();
-        Self { skey }
+    pub fn from_config(config: SignerConfig) -> Result<Self, SignerError> {
+        let skey = read_private_pem_to_secret(config.secret_key)
+            .map_err(|e| SignerError::SecretKeyError(e.to_string()))?;
+        Ok(Self { skey })
     }
 
     pub fn sign(&self, signable_data: impl Signable) -> Attestation {
@@ -33,4 +32,14 @@ impl Signer {
             signature: sig.serialize_compact(),
         }
     }
+
+    pub fn get_pubkey(&self) -> Vec<u8> {
+        self.skey.public_key(SECP256K1).serialize().to_vec()
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum SignerError {
+    #[error("failed to read secret due to {0}")]
+    SecretKeyError(String),
 }

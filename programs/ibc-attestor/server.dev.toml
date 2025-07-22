@@ -3,9 +3,6 @@ address = "127.0.0.1"
 port = 8080
 log_level = "info"
 
-[signer]
-secret_key = "key.bin"
-
 [solana]
 url = "https://api.devnet.solana.com"
 account_key = "vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg"
