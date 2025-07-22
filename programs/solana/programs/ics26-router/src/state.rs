@@ -73,10 +73,6 @@ pub struct ClientSequence {
     pub client_id: String,
     /// Next sequence number for sending packets
     pub next_sequence_send: u64,
-    /// Next sequence number for receiving packets
-    pub next_sequence_recv: u64,
-    /// Next sequence number for acknowledgments
-    pub next_sequence_ack: u64,
 }
 
 /// Commitment storage (simple key-value)
