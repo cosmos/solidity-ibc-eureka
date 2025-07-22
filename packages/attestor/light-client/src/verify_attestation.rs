@@ -18,12 +18,12 @@ use crate::{client_state::ClientState, error::IbcAttestorClientError};
 #[allow(clippy::module_name_repetitions)]
 pub(crate) fn verify_attestation(
     client_state: &ClientState,
-    attestation_data: Vec<u8>,
-    signatures: Vec<Signature>,
-    pubkeys: Vec<PublicKey>,
+    attestation_data: &[u8],
+    signatures: &[Signature],
+    pubkeys: &[PublicKey],
 ) -> Result<(), IbcAttestorClientError> {
-    let unique_sigs: HashSet<Signature> = signatures.iter().cloned().collect();
-    let unique_pubkeys: HashSet<PublicKey> = pubkeys.iter().cloned().collect();
+    let unique_sigs: HashSet<Signature> = signatures.iter().copied().collect();
+    let unique_pubkeys: HashSet<PublicKey> = pubkeys.iter().copied().collect();
 
     if unique_sigs.len() != signatures.len()
         || unique_sigs.len() < client_state.min_required_sigs as usize
@@ -45,11 +45,11 @@ pub(crate) fn verify_attestation(
         });
     }
 
-    for (att_key, att_sig) in pubkeys.iter().zip(&signatures) {
+    for (att_key, att_sig) in pubkeys.iter().zip(signatures) {
         if let Some(lc_key) = client_state.pub_keys.iter().find(|k| k == &att_key) {
-            let digest = secp256k1::hashes::sha256::Hash::hash(&attestation_data);
+            let digest = secp256k1::hashes::sha256::Hash::hash(attestation_data);
             let message = Message::from_digest(digest.to_byte_array());
-            let _ = att_sig
+            att_sig
                 .verify(message, lc_key)
                 .map_err(|_| IbcAttestorClientError::InvalidSignature)?;
         } else {

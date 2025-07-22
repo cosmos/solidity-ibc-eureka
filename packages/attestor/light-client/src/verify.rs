@@ -14,9 +14,10 @@ use crate::{
 /// been reliably retrieved using height. Only a timestamp
 /// validation takes place
 ///
+/// # Errors
 /// Returns an error if:
 /// - The client is frozen
-/// - The header attestation verification fails. see [verify_attestation::verify_attesation]
+/// - The header attestation verification fails. see [`verify_attestation::verify_attesation`]
 /// - The header's timestamp does not match the consensus state
 /// - The header's timestamp is not monotonically increasing
 pub fn verify_header(
@@ -24,17 +25,17 @@ pub fn verify_header(
     existing_prev_trusted_consensus: Option<&ConsensusState>,
     existing_next_trusted_consensus: Option<&ConsensusState>,
     client_state: &ClientState,
-    header: Header,
+    header: &Header,
 ) -> Result<(), IbcAttestorClientError> {
     if client_state.is_frozen {
         return Err(IbcAttestorClientError::ClientFrozen);
     }
 
-    let _ = verify_attestation::verify_attestation(
+    verify_attestation::verify_attestation(
         client_state,
-        header.attestation_data,
-        header.signatures,
-        header.pubkeys,
+        &header.attestation_data,
+        &header.signatures,
+        &header.pubkeys,
     )?;
 
     if let Some(trusted_consensus) = existing_trusted_consensus {
@@ -141,7 +142,7 @@ mod verify_header {
             pubkeys: KEYS.clone().into(),
         };
 
-        let res = verify_header(Some(&cns), None, None, &frozen, header);
+        let res = verify_header(Some(&cns), None, None, &frozen, &header);
         assert!(matches!(res, Err(IbcAttestorClientError::ClientFrozen)));
     }
     #[test]
@@ -167,7 +168,7 @@ mod verify_header {
             pubkeys: KEYS.clone().into(),
         };
 
-        let res = verify_header(Some(&cns), None, None, &cs, no_sig);
+        let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
         assert!(
             matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { reason}) if reason.contains("signature"))
         );
@@ -196,7 +197,7 @@ mod verify_header {
             pubkeys: too_few_keys,
         };
 
-        let res = verify_header(Some(&cns), None, None, &cs, no_sig);
+        let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
         assert!(
             matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { reason}) if reason.contains("keys"))
         );
@@ -233,7 +234,7 @@ mod verify_header {
             pubkeys: KEYS.clone().into(),
         };
 
-        let res = verify_header(Some(&cns), None, None, &cs, no_sig);
+        let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
         assert!(matches!(res, Err(IbcAttestorClientError::InvalidSignature)));
     }
 
@@ -270,7 +271,7 @@ mod verify_header {
             pubkeys: rogue_keys.to_vec(),
         };
 
-        let res = verify_header(Some(&cns), None, None, &cs, no_sig);
+        let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
         assert!(matches!(
             res,
             Err(IbcAttestorClientError::UnknownPublicKeySubmitted { pubkey } ) if pubkey == rogue_pkey
@@ -301,7 +302,7 @@ mod verify_header {
             pubkeys: KEYS.clone().into(),
         };
 
-        let res = verify_header(Some(&cns), None, None, &cs, no_sig);
+        let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
         assert!(
             matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { reason }) if reason.contains("signature"))
         );
@@ -331,7 +332,7 @@ mod verify_header {
             pubkeys: bad_keys.to_vec(),
         };
 
-        let res = verify_header(Some(&cns), None, None, &cs, no_sig);
+        let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
         assert!(
             matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { reason }) if reason.contains("keys"))
         );
@@ -357,7 +358,7 @@ mod verify_header {
             pubkeys: KEYS.clone().into(),
         };
 
-        let res = verify_header(Some(&cns), None, None, &cs, bad_ts);
+        let res = verify_header(Some(&cns), None, None, &cs, &bad_ts);
         assert!(
             matches!(res, Err(IbcAttestorClientError::InvalidHeader {reason}) if reason.contains("consensus"))
         );
@@ -391,7 +392,7 @@ mod verify_header {
             pubkeys: KEYS.clone().into(),
         };
 
-        let res = verify_header(None, Some(&prev), Some(&next), &cs, not_inbetween);
+        let res = verify_header(None, Some(&prev), Some(&next), &cs, &not_inbetween);
         assert!(
             matches!(res, Err(IbcAttestorClientError::InvalidHeader {reason}) if reason.contains("between"))
         );
@@ -404,7 +405,7 @@ mod verify_header {
             pubkeys: KEYS.clone().into(),
         };
 
-        let res = verify_header(None, None, Some(&next), &cs, not_before);
+        let res = verify_header(None, None, Some(&next), &cs, &not_before);
         assert!(
             matches!(res, Err(IbcAttestorClientError::InvalidHeader {reason}) if reason.contains("before"))
         );
@@ -417,7 +418,7 @@ mod verify_header {
             pubkeys: KEYS.clone().into(),
         };
 
-        let res = verify_header(None, Some(&prev), None, &cs, not_after);
+        let res = verify_header(None, Some(&prev), None, &cs, &not_after);
         assert!(
             matches!(res, Err(IbcAttestorClientError::InvalidHeader {reason}) if reason.contains("after"))
         );
@@ -451,7 +452,7 @@ mod verify_header {
             pubkeys: KEYS.clone().into(),
         };
 
-        let res = verify_header(None, Some(&prev), Some(&next), &cs, inbetween);
+        let res = verify_header(None, Some(&prev), Some(&next), &cs, &inbetween);
         assert!(res.is_ok(),);
 
         let before = Header {
@@ -462,7 +463,7 @@ mod verify_header {
             pubkeys: KEYS.clone().into(),
         };
 
-        let res = verify_header(None, None, Some(&next), &cs, before);
+        let res = verify_header(None, None, Some(&next), &cs, &before);
         assert!(res.is_ok(),);
 
         let after = Header {
@@ -473,7 +474,7 @@ mod verify_header {
             pubkeys: KEYS.clone().into(),
         };
 
-        let res = verify_header(None, Some(&prev), None, &cs, after);
+        let res = verify_header(None, Some(&prev), None, &cs, &after);
         assert!(res.is_ok(),);
     }
 }

@@ -6,12 +6,12 @@ use crate::{
 };
 
 /// Updates the consensus state with a new header
-/// Returns (new_height, new_consensus_state, optional_new_client_state)
+/// Returns (`new_height`, `new_consensus_state`, `optional_new_client_state`)
 /// # Errors
 /// Returns an error if the update cannot be performed
 pub fn update_consensus_state(
     current_client_state: ClientState,
-    header: Header,
+    header: &Header,
 ) -> Result<(u64, ConsensusState, Option<ClientState>), IbcAttestorClientError> {
     let new_consensus_state = ConsensusState {
         height: header.new_height,

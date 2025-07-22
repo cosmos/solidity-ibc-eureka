@@ -1,6 +1,6 @@
 //! This module contains the sudo message handlers
 
-use attestor_light_client::update::update_consensus_state;
+use attestor_light_client::{header::Header, update::update_consensus_state};
 use cosmwasm_std::{to_json_binary, Binary, DepsMut};
 use ibc_proto::ibc::{
     core::client::v1::Height as IbcProtoHeight,
@@ -56,13 +56,13 @@ pub fn update_state(
     update_state_msg: UpdateStateMsg,
 ) -> Result<Binary, ContractError> {
     let header_bz: Vec<u8> = update_state_msg.client_message.into();
-    let header = serde_json::from_slice(&header_bz)
+    let header: Header = serde_json::from_slice(&header_bz)
         .map_err(ContractError::DeserializeClientMessageFailed)?;
 
     let client_state = get_client_state(deps.storage)?;
 
     let (updated_slot, updated_consensus_state, updated_client_state) =
-        update_consensus_state(client_state, header)
+        update_consensus_state(client_state, &header)
             .map_err(ContractError::UpdateClientStateFailed)?;
 
     let consensus_state_bz: Vec<u8> = serde_json::to_vec(&updated_consensus_state)

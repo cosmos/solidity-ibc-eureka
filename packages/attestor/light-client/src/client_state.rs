@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Minimal attestor client state for IBC light client
 /// Contains only the essential information needed for client management
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientState {
     /// Attestor public keys
     pub pub_keys: Vec<PublicKey>,

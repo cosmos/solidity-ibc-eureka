@@ -22,6 +22,7 @@ pub struct Verifyable {
 /// Verify membership proof - only works for heights that exist in consensus state
 /// # Errors
 /// Returns an error if the height is not found in consensus state or proof verification fails
+#[allow(clippy::needless_pass_by_value)]
 pub fn verify_membership(
     consensus_state: &ConsensusState,
     client_state: &ClientState,
@@ -37,11 +38,11 @@ pub fn verify_membership(
         });
     }
 
-    let _ = verify_attestation::verify_attestation(
+    verify_attestation::verify_attestation(
         client_state,
-        attested_state.attestation_data,
-        attested_state.signatures,
-        attested_state.pubkeys,
+        &attested_state.attestation_data,
+        &attested_state.signatures,
+        &attested_state.pubkeys,
     )?;
 
     Ok(())

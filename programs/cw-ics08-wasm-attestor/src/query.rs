@@ -42,12 +42,12 @@ pub fn verify_client_message(
                 _ => return Err(e),
             },
         };
-        let _consensus_state = attestor_light_client::verify::verify_header(
+        attestor_light_client::verify::verify_header(
             current.as_ref(),
             prev.as_ref(),
             next.as_ref(),
             &client_state,
-            header,
+            &header,
         )
         .map_err(ContractError::VerifyClientMessageFailed)?;
 
