@@ -1,4 +1,4 @@
-FROM rust:1.85-bookworm AS build
+FROM rust:1.88-bookworm AS build
 
 RUN apt update && apt install -y build-essential protobuf-compiler ca-certificates
 
@@ -19,7 +19,6 @@ RUN apt-get update && apt-get install -y curl \
     && curl -sSL "https://github.com/fullstorydev/grpcurl/releases/download/v1.8.7/grpcurl_1.8.7_linux_x86_64.tar.gz" \
     | tar -xz -C /usr/local/bin
 
-# Use Debian slim instead of distroless for better compatibility
 FROM debian:bookworm-slim
 
 # Install required runtime dependencies
