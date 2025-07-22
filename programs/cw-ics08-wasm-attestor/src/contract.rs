@@ -225,8 +225,8 @@ mod tests {
     mod integration_tests {
         use attestor_light_client::{
             client_state::ClientState as AttestorClientState,
-            consensus_state::ConsensusState as AttestorConsensusState, error::SolanaIBCError,
-            header::Header,
+            consensus_state::ConsensusState as AttestorConsensusState,
+            error::IbcAttestorClientError, header::Header,
         };
         use cosmwasm_std::{
             coins,
@@ -581,7 +581,7 @@ mod tests {
                 assert!(matches!(
                     res,
                     Err(ContractError::VerifyClientMessageFailed(
-                        SolanaIBCError::InvalidHeader { reason }
+                        IbcAttestorClientError::InvalidHeader { reason }
                     ))
                         if reason.contains("timestamp")
                 ));
@@ -640,7 +640,7 @@ mod tests {
             assert!(matches!(
                 err,
                 ContractError::VerifyClientMessageFailed(
-                    SolanaIBCError::InvalidHeader { reason }
+                    IbcAttestorClientError::InvalidHeader { reason }
                 )
                     if reason.contains("timestamp")
             ));
@@ -694,7 +694,7 @@ mod tests {
             let err = query(deps.as_ref(), env, query_verify_client_msg).unwrap_err();
             assert!(matches!(
                 err,
-                ContractError::VerifyClientMessageFailed(SolanaIBCError::InvalidSignature)
+                ContractError::VerifyClientMessageFailed(IbcAttestorClientError::InvalidSignature)
             ));
         }
 
@@ -747,7 +747,7 @@ mod tests {
             let err = query(deps.as_ref(), env, query_verify_client_msg).unwrap_err();
             assert!(matches!(
                 err,
-                ContractError::VerifyClientMessageFailed(SolanaIBCError::ClientFrozen)
+                ContractError::VerifyClientMessageFailed(IbcAttestorClientError::ClientFrozen)
             ));
         }
     }

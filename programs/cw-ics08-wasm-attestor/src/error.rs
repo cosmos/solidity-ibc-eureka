@@ -1,6 +1,6 @@
 //! Defines the [`ContractError`] type.
 
-use attestor_light_client::error::SolanaIBCError;
+use attestor_light_client::error::IbcAttestorClientError;
 use cosmwasm_std::StdError;
 use thiserror::Error;
 
@@ -38,19 +38,19 @@ pub enum ContractError {
     DeserializeSolMisbehaviourFailed(#[source] serde_json::Error),
 
     #[error("verify membership failed: {0}")]
-    VerifyMembershipFailed(#[source] SolanaIBCError),
+    VerifyMembershipFailed(#[source] IbcAttestorClientError),
 
     #[error("verify non-membership failed: {0}")]
-    VerifyNonMembershipFailed(#[source] SolanaIBCError),
+    VerifyNonMembershipFailed(#[source] IbcAttestorClientError),
 
     #[error("verify client message failed: {0}")]
-    VerifyClientMessageFailed(#[source] SolanaIBCError),
+    VerifyClientMessageFailed(#[source] IbcAttestorClientError),
 
     #[error("update client state failed: {0}")]
-    UpdateClientStateFailed(#[source] SolanaIBCError),
+    UpdateClientStateFailed(#[source] IbcAttestorClientError),
 
     #[error("unsupported fork version")]
-    UnsupportedForkVersion(#[source] SolanaIBCError),
+    UnsupportedForkVersion(#[source] IbcAttestorClientError),
 
     #[error("client state not found")]
     ClientStateNotFound,

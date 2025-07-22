@@ -3,7 +3,7 @@
 use crate::{
     client_state::ClientState,
     consensus_state::ConsensusState,
-    error::SolanaIBCError,
+    error::IbcAttestorClientError,
     verify_attestation::{self, Verifyable},
 };
 
@@ -15,12 +15,12 @@ pub fn verify_membership(
     client_state: &ClientState,
     height: u64,
     proof: Vec<u8>,
-) -> Result<(), SolanaIBCError> {
-    let attested_state: Verifyable =
-        serde_json::from_slice(&proof).map_err(SolanaIBCError::DeserializeMembershipProofFailed)?;
+) -> Result<(), IbcAttestorClientError> {
+    let attested_state: Verifyable = serde_json::from_slice(&proof)
+        .map_err(IbcAttestorClientError::DeserializeMembershipProofFailed)?;
 
     if consensus_state.height != height {
-        return Err(SolanaIBCError::InvalidProof {
+        return Err(IbcAttestorClientError::InvalidProof {
             reason: "heights must match".into(),
         });
     }
@@ -38,6 +38,6 @@ pub fn verify_non_membership(
     _client_state: &ClientState,
     _height: u64,
     _proof: Vec<u8>,
-) -> Result<(), SolanaIBCError> {
+) -> Result<(), IbcAttestorClientError> {
     todo!()
 }

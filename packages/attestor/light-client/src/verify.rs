@@ -3,7 +3,7 @@
 use crate::{
     client_state::ClientState,
     consensus_state::ConsensusState,
-    error::SolanaIBCError,
+    error::IbcAttestorClientError,
     header::Header,
     verify_attestation::{self, Verifyable},
 };
@@ -29,9 +29,9 @@ pub fn verify_header(
     existing_next_trusted_consensus: Option<&ConsensusState>,
     client_state: &ClientState,
     header: Header,
-) -> Result<(), SolanaIBCError> {
+) -> Result<(), IbcAttestorClientError> {
     if client_state.is_frozen {
-        return Err(SolanaIBCError::ClientFrozen);
+        return Err(IbcAttestorClientError::ClientFrozen);
     }
     let verifiable = Verifyable::new(
         header.attestation_data,
@@ -44,7 +44,7 @@ pub fn verify_header(
 
     if let Some(trusted_consensus) = existing_trusted_consensus {
         if header.timestamp != trusted_consensus.timestamp {
-            return Err(SolanaIBCError::InvalidHeader {
+            return Err(IbcAttestorClientError::InvalidHeader {
                 reason: "timestamp does not match consensus state".into(),
             });
         }
@@ -57,7 +57,7 @@ pub fn verify_header(
     ) {
         (Some(prev), Some(next)) => {
             if !(header.timestamp > prev.timestamp && header.timestamp < next.timestamp) {
-                return Err(SolanaIBCError::InvalidHeader {
+                return Err(IbcAttestorClientError::InvalidHeader {
                     reason:
                         "timestamp must increase monotonically between previous and next timestamps"
                             .into(),
@@ -66,7 +66,7 @@ pub fn verify_header(
         }
         (Some(prev), None) => {
             if header.timestamp < prev.timestamp {
-                return Err(SolanaIBCError::InvalidHeader {
+                return Err(IbcAttestorClientError::InvalidHeader {
                     reason: "timestamp must increase monotonically after previous timestamp".into(),
                 });
             }
@@ -74,7 +74,7 @@ pub fn verify_header(
 
         (None, Some(next)) => {
             if header.timestamp > next.timestamp {
-                return Err(SolanaIBCError::InvalidHeader {
+                return Err(IbcAttestorClientError::InvalidHeader {
                     reason: "timestamp must increase monotonically before next timestamp".into(),
                 });
             }
@@ -146,7 +146,7 @@ mod verify_header {
         };
 
         let res = verify_header(Some(&cns), None, None, &frozen, header);
-        assert!(matches!(res, Err(SolanaIBCError::ClientFrozen)));
+        assert!(matches!(res, Err(IbcAttestorClientError::ClientFrozen)));
     }
     #[test]
     fn fails_on_too_few_sigs() {
@@ -173,7 +173,7 @@ mod verify_header {
 
         let res = verify_header(Some(&cns), None, None, &cs, no_sig);
         assert!(
-            matches!(res, Err(SolanaIBCError::InvalidAttestedData { reason}) if reason.contains("signature"))
+            matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { reason}) if reason.contains("signature"))
         );
     }
 
@@ -202,7 +202,7 @@ mod verify_header {
 
         let res = verify_header(Some(&cns), None, None, &cs, no_sig);
         assert!(
-            matches!(res, Err(SolanaIBCError::InvalidAttestedData { reason}) if reason.contains("keys"))
+            matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { reason}) if reason.contains("keys"))
         );
     }
 
@@ -238,7 +238,7 @@ mod verify_header {
         };
 
         let res = verify_header(Some(&cns), None, None, &cs, no_sig);
-        assert!(matches!(res, Err(SolanaIBCError::InvalidSignature)));
+        assert!(matches!(res, Err(IbcAttestorClientError::InvalidSignature)));
     }
 
     #[test]
@@ -277,7 +277,7 @@ mod verify_header {
         let res = verify_header(Some(&cns), None, None, &cs, no_sig);
         assert!(matches!(
             res,
-            Err(SolanaIBCError::UnknownPublicKeySubmitted { pubkey } ) if pubkey == rogue_pkey
+            Err(IbcAttestorClientError::UnknownPublicKeySubmitted { pubkey } ) if pubkey == rogue_pkey
         ));
     }
 
@@ -307,7 +307,7 @@ mod verify_header {
 
         let res = verify_header(Some(&cns), None, None, &cs, no_sig);
         assert!(
-            matches!(res, Err(SolanaIBCError::InvalidAttestedData { reason }) if reason.contains("signature"))
+            matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { reason }) if reason.contains("signature"))
         );
     }
 
@@ -337,7 +337,7 @@ mod verify_header {
 
         let res = verify_header(Some(&cns), None, None, &cs, no_sig);
         assert!(
-            matches!(res, Err(SolanaIBCError::InvalidAttestedData { reason }) if reason.contains("keys"))
+            matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { reason }) if reason.contains("keys"))
         );
     }
 
@@ -363,7 +363,7 @@ mod verify_header {
 
         let res = verify_header(Some(&cns), None, None, &cs, bad_ts);
         assert!(
-            matches!(res, Err(SolanaIBCError::InvalidHeader {reason}) if reason.contains("consensus"))
+            matches!(res, Err(IbcAttestorClientError::InvalidHeader {reason}) if reason.contains("consensus"))
         );
     }
 
@@ -397,7 +397,7 @@ mod verify_header {
 
         let res = verify_header(None, Some(&prev), Some(&next), &cs, not_inbetween);
         assert!(
-            matches!(res, Err(SolanaIBCError::InvalidHeader {reason}) if reason.contains("between"))
+            matches!(res, Err(IbcAttestorClientError::InvalidHeader {reason}) if reason.contains("between"))
         );
 
         let not_before = Header {
@@ -410,7 +410,7 @@ mod verify_header {
 
         let res = verify_header(None, None, Some(&next), &cs, not_before);
         assert!(
-            matches!(res, Err(SolanaIBCError::InvalidHeader {reason}) if reason.contains("before"))
+            matches!(res, Err(IbcAttestorClientError::InvalidHeader {reason}) if reason.contains("before"))
         );
 
         let not_after = Header {
@@ -423,7 +423,7 @@ mod verify_header {
 
         let res = verify_header(None, Some(&prev), None, &cs, not_after);
         assert!(
-            matches!(res, Err(SolanaIBCError::InvalidHeader {reason}) if reason.contains("after"))
+            matches!(res, Err(IbcAttestorClientError::InvalidHeader {reason}) if reason.contains("after"))
         );
     }
 

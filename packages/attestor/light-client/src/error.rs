@@ -5,7 +5,7 @@ use thiserror::Error;
 
 /// Main error type for attestor IBC operations
 #[derive(Error, Debug)]
-pub enum SolanaIBCError {
+pub enum IbcAttestorClientError {
     /// Invalid signature verification
     #[error("Signature verification failed")]
     InvalidSignature,

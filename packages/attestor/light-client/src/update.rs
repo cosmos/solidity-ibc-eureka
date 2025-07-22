@@ -1,7 +1,7 @@
 //! Attestor light client update logic
 
 use crate::{
-    client_state::ClientState, consensus_state::ConsensusState, error::SolanaIBCError,
+    client_state::ClientState, consensus_state::ConsensusState, error::IbcAttestorClientError,
     header::Header,
 };
 
@@ -12,7 +12,7 @@ use crate::{
 pub fn update_consensus_state(
     current_client_state: ClientState,
     header: Header,
-) -> Result<(u64, ConsensusState, Option<ClientState>), SolanaIBCError> {
+) -> Result<(u64, ConsensusState, Option<ClientState>), IbcAttestorClientError> {
     let new_consensus_state = ConsensusState {
         height: header.new_height,
         timestamp: header.timestamp,
