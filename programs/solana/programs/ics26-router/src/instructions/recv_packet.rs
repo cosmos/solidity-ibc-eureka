@@ -82,6 +82,7 @@ pub struct RecvPacket<'info> {
 }
 
 pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
+    // TODO: Support multi-payload packets #602
     let router_state = &ctx.accounts.router_state;
     let packet_receipt = &mut ctx.accounts.packet_receipt;
     let packet_ack = &mut ctx.accounts.packet_ack;
