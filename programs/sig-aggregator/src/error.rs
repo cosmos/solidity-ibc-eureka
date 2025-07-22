@@ -147,9 +147,9 @@ impl AggregatorError {
             Self::GrpcStatus { code, message } => tonic::Status::new(*code, message.clone()),
             Self::AttestorConnection {
                 endpoint, reason, ..
-            } => tonic::Status::unavailable(format!( "Attestor '{endpoint}' unavailable: {reason}")),
+            } => tonic::Status::unavailable(format!("Attestor '{endpoint}' unavailable: {reason}")),
             Self::QuorumNotMet { required } => { 
-                tonic::Status::failed_precondition(format!( "Quorum not met: required {required}"))
+                tonic::Status::failed_precondition(format!("Quorum not met: required {required}"))
             }
             Self::NoAttestationsFound { min_height } => tonic::Status::not_found(format!(
                 "No valid attestation found for height >= {min_height}"
