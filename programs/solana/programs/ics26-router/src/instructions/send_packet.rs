@@ -88,7 +88,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
         source_client: msg.source_client.clone(),
         dest_client: counterparty_client_id,
         timeout_timestamp: msg.timeout_timestamp,
-        payloads: vec![msg.payload.clone()],
+        payloads: vec![msg.payload],
     };
 
     let commitment = ics24::packet_commitment_bytes32(&packet);
