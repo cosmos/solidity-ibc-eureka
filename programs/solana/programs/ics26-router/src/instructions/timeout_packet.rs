@@ -41,13 +41,13 @@ pub struct TimeoutPacket<'info> {
 
     pub system_program: Program<'info, System>,
 
-    // Client registry for light client lookup
+    // Client for light client lookup
     #[account(
-        seeds = [CLIENT_REGISTRY_SEED, msg.packet.source_client.as_bytes()],
+        seeds = [CLIENT_SEED, msg.packet.source_client.as_bytes()],
         bump,
-        constraint = client_registry.active @ RouterError::ClientNotActive,
+        constraint = client.active @ RouterError::ClientNotActive,
     )]
-    pub client_registry: Account<'info, ClientRegistry>,
+    pub client: Account<'info, Client>,
 
     // Light client verification accounts
     /// CHECK: Light client program, validated against client registry
@@ -75,7 +75,7 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     );
 
     // Verify non-membership proof on counterparty chain via light client
-    let client_registry = &ctx.accounts.client_registry;
+    let client = &ctx.accounts.client;
     let light_client_verification = LightClientVerification {
         light_client_program: ctx.accounts.light_client_program.clone(),
         client_state: ctx.accounts.client_state.clone(),
@@ -97,7 +97,7 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     };
 
     let counterparty_timestamp = verify_non_membership_cpi(
-        client_registry,
+        client,
         &light_client_verification,
         non_membership_msg,
     )?;

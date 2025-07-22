@@ -1,8 +1,8 @@
+use crate::errors::RouterError;
+use crate::state::{Client, ClientType};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::program::invoke;
-use crate::state::{ClientRegistry, ClientType};
-use crate::errors::RouterError;
 use ics07_tendermint::MembershipMsg;
 
 /// Message structure for light client non-membership verification
@@ -29,21 +29,18 @@ pub struct LightClientVerification<'info> {
 }
 
 pub fn verify_membership_cpi(
-    client_registry: &ClientRegistry,
+    client: &Client,
     light_client_accounts: &LightClientVerification,
     membership_msg: MembershipMsg,
 ) -> Result<u64> {
     require!(
-        light_client_accounts.light_client_program.key() == client_registry.client_program_id,
+        light_client_accounts.light_client_program.key() == client.client_program_id,
         RouterError::InvalidLightClientProgram
     );
 
-    require!(
-        client_registry.active,
-        RouterError::ClientNotActive
-    );
+    require!(client.active, RouterError::ClientNotActive);
 
-    match client_registry.client_type {
+    match client.client_type {
         ClientType::ICS07Tendermint => {
             verify_tendermint_membership(light_client_accounts, membership_msg)
         }
@@ -51,21 +48,18 @@ pub fn verify_membership_cpi(
 }
 
 pub fn verify_non_membership_cpi(
-    client_registry: &ClientRegistry,
+    client: &Client,
     light_client_accounts: &LightClientVerification,
     non_membership_msg: NonMembershipMsg,
 ) -> Result<u64> {
     require!(
-        light_client_accounts.light_client_program.key() == client_registry.client_program_id,
+        light_client_accounts.light_client_program.key() == client.client_program_id,
         RouterError::InvalidLightClientProgram
     );
 
-    require!(
-        client_registry.active,
-        RouterError::ClientNotActive
-    );
+    require!(client.active, RouterError::ClientNotActive);
 
-    match client_registry.client_type {
+    match client.client_type {
         ClientType::ICS07Tendermint => {
             verify_tendermint_non_membership(light_client_accounts, non_membership_msg)
         }
@@ -171,4 +165,3 @@ pub struct NonMembershipVerifiedEvent {
     pub client_type: String,
     pub height: u64,
 }
-

@@ -1,9 +1,8 @@
-use anchor_lang::prelude::*;
-use crate::state::{
-    ClientRegistry, ClientType, CounterpartyInfo, RouterState,
-    CLIENT_REGISTRY_SEED, ROUTER_STATE_SEED
-};
 use crate::errors::RouterError;
+use crate::state::{
+    Client, ClientType, CounterpartyInfo, RouterState, CLIENT_SEED, ROUTER_STATE_SEED,
+};
+use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 #[instruction(client_id: String)]
@@ -22,11 +21,11 @@ pub struct AddClient<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + ClientRegistry::INIT_SPACE,
-        seeds = [CLIENT_REGISTRY_SEED, client_id.as_bytes()],
+        space = 8 + Client::INIT_SPACE,
+        seeds = [CLIENT_SEED, client_id.as_bytes()],
         bump,
     )]
-    pub client_registry: Account<'info, ClientRegistry>,
+    pub client: Account<'info, Client>,
 
     /// CHECK: Light client program ID validation happens in instruction
     pub light_client_program: AccountInfo<'info>,
@@ -50,11 +49,11 @@ pub struct UpdateClient<'info> {
 
     #[account(
         mut,
-        seeds = [CLIENT_REGISTRY_SEED, client_id.as_bytes()],
+        seeds = [CLIENT_SEED, client_id.as_bytes()],
         bump,
-        constraint = client_registry.authority == authority.key() @ RouterError::UnauthorizedAuthority,
+        constraint = client.authority == authority.key() @ RouterError::UnauthorizedAuthority,
     )]
-    pub client_registry: Account<'info, ClientRegistry>,
+    pub client: Account<'info, Client>,
 }
 
 pub fn add_client(
@@ -63,7 +62,7 @@ pub fn add_client(
     client_type: ClientType,
     counterparty_info: CounterpartyInfo,
 ) -> Result<()> {
-    let client_registry = &mut ctx.accounts.client_registry;
+    let client = &mut ctx.accounts.client;
     let light_client_program = &ctx.accounts.light_client_program;
 
     require!(
@@ -94,34 +93,30 @@ pub fn add_client(
         RouterError::InvalidCounterpartyInfo
     );
 
-    client_registry.client_id = client_id;
-    client_registry.client_program_id = light_client_program.key();
-    client_registry.client_type = client_type;
-    client_registry.counterparty_info = counterparty_info;
-    client_registry.authority = ctx.accounts.authority.key();
-    client_registry.active = true;
+    client.client_id = client_id;
+    client.client_program_id = light_client_program.key();
+    client.client_type = client_type;
+    client.counterparty_info = counterparty_info;
+    client.authority = ctx.accounts.authority.key();
+    client.active = true;
 
     emit!(ClientAddedEvent {
-        client_id: client_registry.client_id.clone(),
-        client_type: client_registry.client_type.clone(),
-        client_program_id: client_registry.client_program_id,
-        authority: client_registry.authority,
+        client_id: client.client_id.clone(),
+        client_type: client.client_type.clone(),
+        client_program_id: client.client_program_id,
+        authority: client.authority,
     });
 
     Ok(())
 }
 
-pub fn update_client(
-    ctx: Context<UpdateClient>,
-    _client_id: String,
-    active: bool,
-) -> Result<()> {
-    let client_registry = &mut ctx.accounts.client_registry;
+pub fn update_client(ctx: Context<UpdateClient>, _client_id: String, active: bool) -> Result<()> {
+    let client = &mut ctx.accounts.client;
 
-    client_registry.active = active;
+    client.active = active;
 
     emit!(ClientStatusUpdatedEvent {
-        client_id: client_registry.client_id.clone(),
+        client_id: client.client_id.clone(),
         active,
     });
 

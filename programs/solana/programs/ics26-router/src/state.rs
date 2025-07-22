@@ -48,10 +48,10 @@ pub struct CounterpartyInfo {
     pub merkle_prefix: Vec<u8>,
 }
 
-/// Client registry mapping client IDs to light client program IDs
+/// Client mapping client IDs to light client program IDs
 #[account]
 #[derive(InitSpace)]
-pub struct ClientRegistry {
+pub struct Client {
     /// The client identifier
     #[max_len(MAX_CLIENT_ID_LENGTH)]
     pub client_id: String,
@@ -137,7 +137,7 @@ pub struct MsgTimeoutPacket {
 /// Constants
 pub const ROUTER_STATE_SEED: &[u8] = b"router_state";
 pub const PORT_REGISTRY_SEED: &[u8] = b"port_registry";
-pub const CLIENT_REGISTRY_SEED: &[u8] = b"client_registry";
+pub const CLIENT_SEED: &[u8] = b"client";
 pub const CLIENT_SEQUENCE_SEED: &[u8] = b"client_sequence";
 pub const COMMITMENT_SEED: &[u8] = b"commitment";
 pub const PACKET_COMMITMENT_SEED: &[u8] = b"packet_commitment";
