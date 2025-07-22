@@ -1,11 +1,23 @@
 //! Membership proof verification for attestor client
 
+use secp256k1::{ecdsa::Signature, PublicKey};
+use serde::Deserialize;
+
 use crate::{
-    client_state::ClientState,
-    consensus_state::ConsensusState,
-    error::IbcAttestorClientError,
-    verify_attestation::{self, Verifyable},
+    client_state::ClientState, consensus_state::ConsensusState, error::IbcAttestorClientError,
+    verify_attestation,
 };
+
+/// Data structure that can be verified cryptographically
+#[derive(Deserialize)]
+pub struct Verifyable {
+    /// Opaque borsh-encoded data that was signed
+    attestation_data: Vec<u8>,
+    /// Signatures of the attestors
+    signatures: Vec<Signature>,
+    /// Public keys of the attestors submitting attestations
+    pubkeys: Vec<PublicKey>,
+}
 
 /// Verify membership proof - only works for heights that exist in consensus state
 /// # Errors
@@ -25,7 +37,12 @@ pub fn verify_membership(
         });
     }
 
-    let _ = verify_attestation::verify_attesation(client_state, &attested_state)?;
+    let _ = verify_attestation::verify_attesation(
+        client_state,
+        attested_state.attestation_data,
+        attested_state.signatures,
+        attested_state.pubkeys,
+    )?;
 
     Ok(())
 }

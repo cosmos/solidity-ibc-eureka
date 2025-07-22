@@ -1,11 +1,8 @@
 //! Attestor light client verification logic
 
 use crate::{
-    client_state::ClientState,
-    consensus_state::ConsensusState,
-    error::IbcAttestorClientError,
-    header::Header,
-    verify_attestation::{self, Verifyable},
+    client_state::ClientState, consensus_state::ConsensusState, error::IbcAttestorClientError,
+    header::Header, verify_attestation,
 };
 
 /// Verifies the header of the light client
@@ -19,7 +16,6 @@ use crate::{
 ///
 /// Returns an error if:
 /// - The client is frozen
-/// - The header cannot marshalled to [Verifyable]
 /// - The header attestation verification fails. see [verify_attestation::verify_attesation]
 /// - The header's timestamp does not match the consensus state
 /// - The header's timestamp is not monotonically increasing
@@ -33,14 +29,13 @@ pub fn verify_header(
     if client_state.is_frozen {
         return Err(IbcAttestorClientError::ClientFrozen);
     }
-    let verifiable = Verifyable::new(
+
+    let _ = verify_attestation::verify_attesation(
+        client_state,
         header.attestation_data,
         header.signatures,
         header.pubkeys,
-        client_state,
     )?;
-
-    let _ = verify_attestation::verify_attesation(client_state, &verifiable)?;
 
     if let Some(trusted_consensus) = existing_trusted_consensus {
         if header.timestamp != trusted_consensus.timestamp {
