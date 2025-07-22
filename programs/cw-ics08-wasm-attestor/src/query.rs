@@ -26,7 +26,7 @@ pub fn verify_client_message(
     deps: Deps,
     verify_client_message_msg: VerifyClientMessageMsg,
 ) -> Result<Binary, ContractError> {
-    let sol_client_state = get_client_state(deps.storage)?;
+    let client_state = get_client_state(deps.storage)?;
 
     if let Ok(header) = serde_json::from_slice::<Header>(&verify_client_message_msg.client_message)
     {
@@ -35,7 +35,7 @@ pub fn verify_client_message(
                 Some(&height_in_msg_exists),
                 None,
                 None,
-                &sol_client_state,
+                &client_state,
                 header,
             )
             .map_err(ContractError::VerifyClientMessageFailed)?;
@@ -51,7 +51,7 @@ pub fn verify_client_message(
             None,
             prev.as_ref(),
             next.as_ref(),
-            &sol_client_state,
+            &client_state,
             header,
         )
         .map_err(ContractError::VerifyClientMessageFailed)?;
@@ -103,9 +103,9 @@ pub fn timestamp_at_height(
 /// # Errors
 /// Errors if the client state can't be deserialized.
 pub fn status(deps: Deps) -> Result<Binary, ContractError> {
-    let sol_client_state = get_client_state(deps.storage)?;
+    let client_state = get_client_state(deps.storage)?;
 
-    if sol_client_state.is_frozen {
+    if client_state.is_frozen {
         return Ok(to_json_binary(&StatusResult {
             status: Status::Frozen.to_string(),
         })?);

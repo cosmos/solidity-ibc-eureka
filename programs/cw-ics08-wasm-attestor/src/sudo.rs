@@ -59,10 +59,10 @@ pub fn update_state(
     let header = serde_json::from_slice(&header_bz)
         .map_err(ContractError::DeserializeClientMessageFailed)?;
 
-    let sol_client_state = get_client_state(deps.storage)?;
+    let client_state = get_client_state(deps.storage)?;
 
     let (updated_slot, updated_consensus_state, updated_client_state) =
-        update_consensus_state(sol_client_state, header)
+        update_consensus_state(client_state, header)
             .map_err(ContractError::UpdateClientStateFailed)?;
 
     let consensus_state_bz: Vec<u8> = serde_json::to_vec(&updated_consensus_state)
@@ -101,11 +101,11 @@ pub fn misbehaviour(
     deps: DepsMut,
     _msg: UpdateStateOnMisbehaviourMsg,
 ) -> Result<Binary, ContractError> {
-    let mut sol_client_state = get_client_state(deps.storage)?;
-    sol_client_state.is_frozen = true;
+    let mut client_state = get_client_state(deps.storage)?;
+    client_state.is_frozen = true;
 
     let client_state_bz: Vec<u8> =
-        serde_json::to_vec(&sol_client_state).map_err(ContractError::SerializeClientStateFailed)?;
+        serde_json::to_vec(&client_state).map_err(ContractError::SerializeClientStateFailed)?;
 
     let mut wasm_client_state = get_wasm_client_state(deps.storage)?;
     wasm_client_state.data = client_state_bz;
