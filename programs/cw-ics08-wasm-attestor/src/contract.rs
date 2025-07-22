@@ -144,10 +144,7 @@ mod tests {
         use prost::{Message, Name};
 
         use crate::{
-            contract::{
-                instantiate,
-                tests::{DUMMY_DATA, KEYS},
-            },
+            contract::{instantiate, tests::KEYS},
             msg::InstantiateMsg,
             state::{consensus_db_key, HOST_CLIENT_STATE_KEY},
             test::helpers::mk_deps,
@@ -246,6 +243,7 @@ mod tests {
             test::helpers::mk_deps,
             ContractError,
         };
+
         #[test]
         fn basic_client_update_flow() {
             let mut deps = mk_deps();
@@ -378,6 +376,7 @@ mod tests {
                 );
             }
         }
+
         #[test]
         fn client_update_flow_with_historical_updates() {
             let mut deps = mk_deps();

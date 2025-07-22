@@ -7,18 +7,6 @@
     // unused_crate_dependencies
 )]
 
-// TODO: move into separate package
-
-/// Ensure that a condition is true, otherwise return an error.
-/// This macro is used for precondition checks in the light client logic for readability.
-macro_rules! ensure {
-    ($cond:expr, $err:expr) => {
-        if !$cond {
-            return Err($err);
-        }
-    };
-}
-
 pub mod client_state;
 pub mod consensus_state;
 pub mod error;
