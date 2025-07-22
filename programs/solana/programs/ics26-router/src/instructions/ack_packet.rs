@@ -62,6 +62,7 @@ pub struct AckPacket<'info> {
 }
 
 pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
+    // TODO: Support multi-payload packets #602
     let router_state = &ctx.accounts.router_state;
     let packet_commitment = &ctx.accounts.packet_commitment;
 
