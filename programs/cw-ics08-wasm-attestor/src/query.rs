@@ -31,7 +31,7 @@ pub fn verify_client_message(
     if let Ok(header) = serde_json::from_slice::<Header>(&verify_client_message_msg.client_message)
     {
         if let Ok(height_in_msg_exists) = get_consensus_state(deps.storage, header.new_height) {
-            let _sol_consensus_state = attestor_light_client::verify::verify_header(
+            let _consensus_state = attestor_light_client::verify::verify_header(
                 Some(&height_in_msg_exists),
                 None,
                 None,
@@ -47,7 +47,7 @@ pub fn verify_client_message(
             get_previous_consensus_state(deps.storage, header.new_height)?,
             get_next_consensus_state(deps.storage, header.new_height)?,
         );
-        let _sol_consensus_state = attestor_light_client::verify::verify_header(
+        let _consensus_state = attestor_light_client::verify::verify_header(
             None,
             prev.as_ref(),
             next.as_ref(),
@@ -87,10 +87,10 @@ pub fn timestamp_at_height(
     deps: Deps,
     timestamp_at_height_msg: TimestampAtHeightMsg,
 ) -> Result<Binary, ContractError> {
-    let sol_consensus_state =
+    let consensus_state =
         get_consensus_state(deps.storage, timestamp_at_height_msg.height.revision_height)?;
 
-    let nano_timestamp = sol_consensus_state.timestamp * 1_000_000_000; // ibc-go expects nanoseconds
+    let nano_timestamp = consensus_state.timestamp * 1_000_000_000; // ibc-go expects nanoseconds
 
     Ok(to_json_binary(&TimestampAtHeightResult {
         timestamp: nano_timestamp,
