@@ -224,12 +224,6 @@ impl IntoAggregatorError for tonic::Status {
     }
 }
 
-impl IntoAggregatorError for tokio::time::error::Elapsed {
-    fn into_aggregator_error(self) -> AggregatorError {
-        AggregatorError::timeout(0) // Duration will be set by caller
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
