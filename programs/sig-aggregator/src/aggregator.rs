@@ -4,7 +4,8 @@ use crate::{
     error::{AggregatorError, IntoAggregatorError, Result},
     rpc::{
         aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient,
-        AggregateRequest, AggregateResponse, AttestationsFromHeightRequest, AttestationsFromHeightResponse,
+        AggregateRequest, AggregateResponse, AttestationsFromHeightRequest,
+        AttestationsFromHeightResponse,
     },
 };
 
@@ -29,11 +30,13 @@ impl AggregatorService {
         for endpoint in &config.attestor_endpoints {
             let client = AttestationServiceClient::connect(endpoint.to_string())
                 .await
-                .map_err(|e| AggregatorError::attestor_connection(
-                    endpoint,
-                    "Failed to establish initial connection",
-                    Some(e),
-                ))?;
+                .map_err(|e| {
+                    AggregatorError::attestor_connection(
+                        endpoint,
+                        "Failed to establish initial connection",
+                        Some(e),
+                    )
+                })?;
 
             attestor_clients.push(Mutex::new(client));
         }
@@ -67,10 +70,14 @@ impl Aggregator for AggregatorService {
             }
         }
 
-        let responses = self.query_all_attestors(min_height).await
+        let responses = self
+            .query_all_attestors(min_height)
+            .await
             .map_err(|e| e.to_grpc_status())?;
 
-        let aggregate_response = self.process_attestor_responses(responses).await
+        let aggregate_response = self
+            .process_attestor_responses(responses)
+            .await
             .map_err(|e| e.to_grpc_status())?;
 
         if aggregate_response.height < min_height {
@@ -89,7 +96,10 @@ impl Aggregator for AggregatorService {
 
 impl AggregatorService {
     /// Query all attestors concurrently and collect successful responses
-    async fn query_all_attestors(&self, min_height: u64) -> Result<Vec<AttestationsFromHeightResponse>> {
+    async fn query_all_attestors(
+        &self,
+        min_height: u64,
+    ) -> Result<Vec<AttestationsFromHeightResponse>> {
         let mut futs = FuturesUnordered::new();
         let timeout_duration = Duration::from_millis(self.config.attestor_query_timeout_ms);
 
@@ -102,7 +112,9 @@ impl AggregatorService {
                 match timeout(timeout_duration, client.get_attestations_from_height(req)).await {
                     Ok(Ok(resp)) => Ok(resp.into_inner()),
                     Ok(Err(status)) => Err(status.into_aggregator_error()),
-                    Err(_) => Err(AggregatorError::timeout(self.config.attestor_query_timeout_ms)),
+                    Err(_) => Err(AggregatorError::timeout(
+                        self.config.attestor_query_timeout_ms,
+                    )),
                 }
             });
         }
@@ -131,7 +143,10 @@ impl AggregatorService {
     }
 
     /// Process attestor responses and create an aggregate response
-    async fn process_attestor_responses(&self, responses: Vec<AttestationsFromHeightResponse>) -> Result<AggregateResponse> {
+    async fn process_attestor_responses(
+        &self,
+        responses: Vec<AttestationsFromHeightResponse>,
+    ) -> Result<AggregateResponse> {
         let mut attestator_data = AttestatorData::new();
 
         // Insert all responses into the data aggregator
@@ -142,7 +157,9 @@ impl AggregatorService {
         // Get the latest aggregate response that meets quorum
         match attestator_data.get_latest(self.config.quorum_threshold) {
             Some(aggregate_response) => Ok(aggregate_response),
-            None => Err(AggregatorError::quorum_not_met(self.config.quorum_threshold)),
+            None => Err(AggregatorError::quorum_not_met(
+                self.config.quorum_threshold,
+            )),
         }
     }
 }
@@ -190,7 +207,9 @@ mod e2e_tests {
             ],
         );
 
-        let aggregator_service = AggregatorService::from_config(config.attestor).await.unwrap();
+        let aggregator_service = AggregatorService::from_config(config.attestor)
+            .await
+            .unwrap();
 
         // 3. Execute: Query for an aggregated attestation
         let request = Request::new(AggregateRequest { min_height: 100 });
@@ -240,7 +259,9 @@ mod e2e_tests {
             ],
         );
 
-        let aggregator_service = AggregatorService::from_config(config.attestor).await.unwrap();
+        let aggregator_service = AggregatorService::from_config(config.attestor)
+            .await
+            .unwrap();
 
         // 3. Execute: Query for an aggregated attestation
         let request = Request::new(AggregateRequest { min_height: 100 });
@@ -250,7 +271,9 @@ mod e2e_tests {
         assert!(response.is_err());
         let status = response.unwrap_err();
         assert_eq!(status.code(), tonic::Code::Internal);
-        assert!(status.message().contains("No attestors responded successfully"));
+        assert!(status
+            .message()
+            .contains("No attestors responded successfully"));
     }
 }
 

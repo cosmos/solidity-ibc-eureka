@@ -19,10 +19,7 @@ pub enum AggregatorError {
 
     /// gRPC status errors (server-side errors)
     #[error("gRPC status error: {code} - {message}")]
-    GrpcStatus {
-        code: tonic::Code,
-        message: String,
-    },
+    GrpcStatus { code: tonic::Code, message: String },
 
     /// Errors when connecting to specific attestors
     #[error("Failed to connect to attestor '{endpoint}': {reason}")]
@@ -35,27 +32,19 @@ pub enum AggregatorError {
 
     /// Quorum not met errors
     #[error("Quorum not met: required {required}")]
-    QuorumNotMet {
-        required: usize,
-    },
+    QuorumNotMet { required: usize },
 
     /// No attestations found for requested height
     #[error("No valid attestations found for height >= {min_height}")]
-    NoAttestationsFound {
-        min_height: u64,
-    },
+    NoAttestationsFound { min_height: u64 },
 
     /// Request timeout errors
     #[error("Request timed out after {timeout_ms}ms")]
-    Timeout {
-        timeout_ms: u64,
-    },
+    Timeout { timeout_ms: u64 },
 
     /// Invalid attestation data
     #[error("Invalid attestation data: {reason}")]
-    InvalidData {
-        reason: String,
-    },
+    InvalidData { reason: String },
 
     /// Internal service errors
     #[error("Internal error: {message}")]
@@ -88,7 +77,11 @@ impl AggregatorError {
     }
 
     /// Create an attestor connection error
-    pub fn attestor_connection<E, R>(endpoint: E, reason: R, source: Option<tonic::transport::Error>) -> Self
+    pub fn attestor_connection<E, R>(
+        endpoint: E,
+        reason: R,
+        source: Option<tonic::transport::Error>,
+    ) -> Self
     where
         E: Into<String>,
         R: Into<String>,
@@ -151,22 +144,16 @@ impl AggregatorError {
             Self::Transport { source } => {
                 tonic::Status::unavailable(format!("Transport error: {source}"))
             }
-            Self::GrpcStatus { code, message } => {
-                tonic::Status::new(*code, message.clone())
+            Self::GrpcStatus { code, message } => tonic::Status::new(*code, message.clone()),
+            Self::AttestorConnection {
+                endpoint, reason, ..
+            } => tonic::Status::unavailable(format!( "Attestor '{endpoint}' unavailable: {reason}")),
+            Self::QuorumNotMet { required } => { 
+                tonic::Status::failed_precondition(format!( "Quorum not met: required {required}"))
             }
-            Self::AttestorConnection { endpoint, reason, .. } => {
-                tonic::Status::unavailable(format!("Attestor '{endpoint}' unavailable: {reason}"))
-            }
-            Self::QuorumNotMet { required } => {
-                tonic::Status::failed_precondition(format!(
-                    "Quorum not met: required {required}"
-                ))
-            }
-            Self::NoAttestationsFound { min_height } => {
-                tonic::Status::not_found(format!(
-                    "No valid attestation found for height >= {min_height}"
-                ))
-            }
+            Self::NoAttestationsFound { min_height } => tonic::Status::not_found(format!(
+                "No valid attestation found for height >= {min_height}"
+            )),
             Self::Timeout { timeout_ms } => {
                 tonic::Status::deadline_exceeded(format!("Request timeout after {timeout_ms}ms"))
             }
@@ -186,8 +173,9 @@ impl AggregatorError {
             Self::Transport { .. }
                 | Self::AttestorConnection { .. }
                 | Self::Timeout { .. }
-                | Self::GrpcStatus { 
-                    code: tonic::Code::Unavailable | tonic::Code::DeadlineExceeded, .. 
+                | Self::GrpcStatus {
+                    code: tonic::Code::Unavailable | tonic::Code::DeadlineExceeded,
+                    ..
                 }
         )
     }
@@ -240,7 +228,7 @@ mod tests {
     fn test_error_chaining() {
         let source_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
         let err = AggregatorError::config_with_source("Failed to read config", source_err);
-        
+
         assert!(err.source().is_some());
         assert_eq!(err.category(), "configuration");
     }
@@ -249,7 +237,7 @@ mod tests {
     fn test_grpc_status_conversion() {
         let err = AggregatorError::quorum_not_met(3);
         let status = err.to_grpc_status();
-        
+
         assert_eq!(status.code(), tonic::Code::FailedPrecondition);
         assert!(status.message().contains("Quorum not met"));
     }
@@ -257,7 +245,10 @@ mod tests {
     #[test]
     fn test_retryable_classification() {
         assert!(AggregatorError::timeout(5000).is_retryable());
-        assert!(AggregatorError::attestor_connection("http://test", "connection failed", None).is_retryable());
+        assert!(
+            AggregatorError::attestor_connection("http://test", "connection failed", None)
+                .is_retryable()
+        );
         assert!(!AggregatorError::config("bad config").is_retryable());
         assert!(!AggregatorError::invalid_data("malformed data").is_retryable());
     }
@@ -267,7 +258,10 @@ mod tests {
         assert_eq!(AggregatorError::config("test").category(), "configuration");
         assert_eq!(AggregatorError::timeout(100).category(), "timeout");
         assert_eq!(AggregatorError::quorum_not_met(3).category(), "quorum");
-        assert_eq!(AggregatorError::no_attestations_found(100).category(), "no_attestations");
+        assert_eq!(
+            AggregatorError::no_attestations_found(100).category(),
+            "no_attestations"
+        );
     }
 
     #[test]
