@@ -21,13 +21,13 @@ cargo build --release
 1. Run the attestor
 
     a. Run: `cargo run -- key generate` to generate a private key
-    
+
     b. Run `cargo run -- server solana --config server.dev.toml` to start a dev server
 
 2. Run the aggregator
 
     a. Run `cargo run -- server --config config.example.toml`
-    
+
     b. Query `grpcurl -plaintext -d '{"min_height": 394277673}' localhost:50060 aggregator.Aggregator.GetAggregateAttestation | jq`
 
 ## Docker Setup
@@ -47,6 +47,11 @@ From the workspace root:
 
 # Stop services
 cd programs/sig-aggregator && docker-compose down
+
+# Or use just commands
+just start-aggregator-services
+just test-aggregator-services
+just stop-aggregator-services
 ```
 
 Or manually from this directory:
@@ -60,9 +65,8 @@ docker-compose down
 ```
 
 The setup includes:
+
 - **3 IBC Attestor instances** on ports 8080, 8081, 8082
 - **1 Sig-Aggregator** on port 50060 (requires 2/3 quorum)
 
 Configuration files are in the `config/` directory.
-
-For detailed documentation, see [../../docs/README-docker.md](../../docs/README-docker.md).
