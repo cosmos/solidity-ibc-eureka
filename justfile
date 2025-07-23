@@ -39,10 +39,10 @@ build-relayer-image:
 
 # Start the attestor and aggregator services using Docker Compose
 [group('run')]
-start-aggregator-services:
+start-aggregator-services *flags="":
     @just stop-aggregator-services
     @echo "🚀 Starting IBC Attestor and Sig-Aggregator services..."
-    @cd programs/sig-aggregator && COMPOSE_BAKE=true docker compose up --build -d --wait
+    @cd programs/sig-aggregator && COMPOSE_BAKE=true docker compose up {{ if flags =~ "--build" { "--build" } else { "" } }} -d --wait
 
 # Stop the attestor and aggregator services
 [group('run')]
@@ -51,13 +51,13 @@ stop-aggregator-services:
 
 # Test the attestor and aggregator services
 [group('run')]
-test-aggregator-services:
+test-aggregator-services *flags="":
     # TODO: point to e2e test when we have one.
     @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
         echo "✅ Services are already running, proceeding with tests..."; \
     else \
         echo "🚀 Services not running, starting them..."; \
-        just start-aggregator-services; \
+        just start-aggregator-services {{ flags }}; \
     fi
     @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
         grpcurl -plaintext -d '{"min_height": 100}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq; \
