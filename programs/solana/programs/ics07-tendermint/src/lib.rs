@@ -1,7 +1,3 @@
-#![allow(unexpected_cfgs)]
-#![warn(clippy::all)]
-#![allow(clippy::result_large_err)]
-#![allow(deprecated, reason = "anchor #[program] uses deprecated functionality")]
 use anchor_lang::prelude::*;
 
 pub mod error;
@@ -15,8 +11,10 @@ use crate::state::ConsensusStateStore;
 declare_id!("8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV");
 
 pub use types::{
-    ClientState, ConsensusState, MembershipMsg, MisbehaviourMsg, UpdateClientMsg, UpdateResult,
+    ClientState, ConsensusState, IbcHeight, MisbehaviourMsg, UpdateClientMsg, UpdateResult,
 };
+
+pub use solana_light_client_interface::MembershipMsg;
 
 #[derive(Accounts)]
 #[instruction(chain_id: String, client_state: ClientState)]
@@ -48,7 +46,7 @@ pub struct UpdateClient<'info> {
     #[account(mut)]
     pub client_state: Account<'info, ClientState>,
     /// Trusted consensus state at the height specified in the header
-    /// We use UncheckedAccount here because the trusted height is extracted from the header,
+    /// We use `UncheckedAccount` here because the trusted height is extracted from the header,
     /// which can only be deserialized inside the instruction handler. Since Anchor's account
     /// validation happens before the instruction code runs, we cannot use the standard
     /// #[account(seeds = ...)] constraint. Instead, we manually validate the PDA derivation
@@ -92,7 +90,7 @@ pub struct SubmitMisbehaviour<'info> {
 pub mod ics07_tendermint {
     use super::*;
     use crate::types::{
-        ClientState, ConsensusState, MembershipMsg, MisbehaviourMsg, UpdateClientMsg,
+        ClientState, ConsensusState,  MisbehaviourMsg, UpdateClientMsg,
     };
 
     pub fn initialize(
