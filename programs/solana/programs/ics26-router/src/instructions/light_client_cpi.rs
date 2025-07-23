@@ -1,10 +1,9 @@
 use crate::errors::RouterError;
 use crate::state::Client;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::hash::hash;
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::program::invoke;
-use solana_light_client_interface::MembershipMsg;
+use solana_light_client_interface::{discriminators, MembershipMsg};
 
 /// Message structure for light client non-membership verification
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -29,15 +28,6 @@ pub struct LightClientVerification<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
-/// Compute the 8-byte discriminator for an Anchor instruction
-fn compute_discriminator(namespace: &str, name: &str) -> [u8; 8] {
-    let preimage = format!("{}:{}", namespace, name);
-    let hash_result = hash(preimage.as_bytes());
-    let mut discriminator = [0u8; 8];
-    discriminator.copy_from_slice(&hash_result.to_bytes()[..8]);
-    discriminator
-}
-
 pub fn verify_membership_cpi(
     client: &Client,
     light_client_accounts: &LightClientVerification,
@@ -50,12 +40,8 @@ pub fn verify_membership_cpi(
 
     require!(client.active, RouterError::ClientNotActive);
 
-    // Compute discriminator dynamically
-    // All light clients must use "verify_membership" as the instruction name
-    let discriminator = compute_discriminator("global", "verify_membership");
-
     let mut ix_data = Vec::new();
-    ix_data.extend_from_slice(&discriminator);
+    ix_data.extend_from_slice(&discriminators::VERIFY_MEMBERSHIP);
     membership_msg.serialize(&mut ix_data)?;
 
     // Build the instruction with standard account layout
@@ -106,12 +92,8 @@ pub fn verify_non_membership_cpi(
         value: vec![], // Empty value for non-membership
     };
 
-    // Compute discriminator dynamically
-    // All light clients must use "verify_non_membership" as the instruction name
-    let discriminator = compute_discriminator("global", "verify_non_membership");
-
     let mut ix_data = Vec::new();
-    ix_data.extend_from_slice(&discriminator);
+    ix_data.extend_from_slice(&discriminators::VERIFY_NON_MEMBERSHIP);
     membership_msg.serialize(&mut ix_data)?;
 
     let ix = Instruction {

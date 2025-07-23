@@ -8,3 +8,6 @@ repository = "https://github.com/cosmos/solidity-ibc-eureka"
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["derive"] }
+
+[build-dependencies]
+sha2 = "0.10"

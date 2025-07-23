@@ -23,3 +23,6 @@ pub struct MembershipMsg {
     pub value: Vec<u8>,
 }
 
+// Include the auto-generated discriminators
+include!(concat!(env!("OUT_DIR"), "/discriminators.rs"));
+

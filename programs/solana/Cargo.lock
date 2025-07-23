@@ -4525,6 +4525,7 @@ name = "solana-light-client-interface"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "sha2 0.10.9",
 ]
 
 [[package]]
