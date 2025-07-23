@@ -8,14 +8,29 @@ services:
     command:
       - |
         echo "🚀 Starting IBC Attestor 1..."
+
+        # Generate key if not exists
         ibc_attestor key generate || true
+
+        # Create config directory
+        mkdir -p /tmp/config
+
+        # Generate attestor config dynamically
+        cat > /tmp/config/attestor.toml << EOF
+        [server]
+        address = "0.0.0.0"
+        port = 9000
+        log_level = "info"
+
+        [solana]
+        url = "https://api.devnet.solana.com"
+        account_key = "vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg"
+        EOF
+
         echo "✅ IBC Attestor 1 starting server on port 9000..."
-        ibc_attestor server solana --config /config/attestor1.toml
+        ibc_attestor server solana --config /tmp/config/attestor.toml
     ports:
       - "9000:9000"
-    volumes:
-      - ./config:/config:ro
-      - attestor1_keys:/root/.ibc-attestor
     environment:
       - RUST_BACKTRACE=1
       - RUST_LOG=info
@@ -35,14 +50,29 @@ services:
     command:
       - |
         echo "🚀 Starting IBC Attestor 2..."
+
+        # Generate key if not exists
         ibc_attestor key generate || true
+
+        # Create config directory
+        mkdir -p /tmp/config
+
+        # Generate attestor config dynamically
+        cat > /tmp/config/attestor.toml << EOF
+        [server]
+        address = "0.0.0.0"
+        port = 9001
+        log_level = "info"
+
+        [solana]
+        url = "https://api.devnet.solana.com"
+        account_key = "vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg"
+        EOF
+
         echo "✅ IBC Attestor 2 starting server on port 9001..."
-        ibc_attestor server solana --config /config/attestor2.toml
+        ibc_attestor server solana --config /tmp/config/attestor.toml
     ports:
       - "9001:9001"
-    volumes:
-      - ./config:/config:ro
-      - attestor2_keys:/root/.ibc-attestor
     environment:
       - RUST_BACKTRACE=1
       - RUST_LOG=info
@@ -62,14 +92,29 @@ services:
     command:
       - |
         echo "🚀 Starting IBC Attestor 3..."
+
+        # Generate key if not exists
         ibc_attestor key generate || true
+
+        # Create config directory
+        mkdir -p /tmp/config
+
+        # Generate attestor config dynamically
+        cat > /tmp/config/attestor.toml << EOF
+        [server]
+        address = "0.0.0.0"
+        port = 9002
+        log_level = "info"
+
+        [solana]
+        url = "https://api.devnet.solana.com"
+        account_key = "vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg"
+        EOF
+
         echo "✅ IBC Attestor 3 starting server on port 9002..."
-        ibc_attestor server solana --config /config/attestor3.toml
+        ibc_attestor server solana --config /tmp/config/attestor.toml
     ports:
       - "9002:9002"
-    volumes:
-      - ./config:/config:ro
-      - attestor3_keys:/root/.ibc-attestor
     environment:
       - RUST_BACKTRACE=1
       - RUST_LOG=info
@@ -97,36 +142,30 @@ services:
     command:
       - |
         echo "🚀 Starting Signature Aggregator..."
-        echo "⏳ Waiting for attestors to be ready..."
+        
+        # Create config directory
+        mkdir -p /tmp/config
+        
+        # Generate aggregator config dynamically
+        cat > /tmp/config/aggregator.toml << EOF
+        [server]
+        listener_addr = "0.0.0.0:8080"
+        log_level = "INFO"
 
-        # Wait for attestor-1
-        until timeout 5 bash -c '</dev/tcp/ibc-attestor-1/9000'; do
-          echo "⏳ Waiting for ibc-attestor-1..."
-          sleep 2
-        done
-        echo "✅ IBC Attestor 1 is ready"
+        [attestor]
+        attestor_query_timeout_ms = 5000
+        quorum_threshold = 2
+        attestor_endpoints = [
+          "http://ibc-attestor-1:9000",
+          "http://ibc-attestor-2:9001",
+          "http://ibc-attestor-3:9002"
+        ]
+        EOF
 
-        # Wait for attestor-2
-        until timeout 5 bash -c '</dev/tcp/ibc-attestor-2/9001'; do
-          echo "⏳ Waiting for ibc-attestor-2..."
-          sleep 2
-        done
-        echo "✅ IBC Attestor 2 is ready"
-
-        # Wait for attestor-3
-        until timeout 5 bash -c '</dev/tcp/ibc-attestor-3/9002'; do
-          echo "⏳ Waiting for ibc-attestor-3..."
-          sleep 2
-        done
-        echo "✅ IBC Attestor 3 is ready"
-
-        echo "🎉 All attestors are ready. Starting aggregator on port 8080..."
-        sleep 2
-        aggregator server --config /config/aggregator.toml
+        echo "✅ Starting aggregator server on port 8080..."
+        aggregator server --config /tmp/config/aggregator.toml
     ports:
       - "8080:8080"
-    volumes:
-      - ./config:/config:ro
     environment:
       - RUST_BACKTRACE=1
       - RUST_LOG=info
@@ -136,15 +175,3 @@ services:
       timeout: 5s
       retries: 6
       start_period: 60s
-
-volumes:
-  attestor1_keys:
-    driver: local
-  attestor2_keys:
-    driver: local
-  attestor3_keys:
-    driver: local
-
-networks:
-  default:
-    driver: bridge
