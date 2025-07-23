@@ -52,7 +52,7 @@ build-sig-aggregator-image:
 start-aggregator-services:
     @just stop-aggregator-services
     @echo "🚀 Starting IBC Attestor and Sig-Aggregator services..."
-    @cd programs/sig-aggregator && docker-compose up --build -d --wait
+    @cd programs/sig-aggregator && COMPOSE_BAKE=true docker compose up --build -d --wait
     @echo ""
     @echo "🎉 All services are up and running!"
     @echo ""
