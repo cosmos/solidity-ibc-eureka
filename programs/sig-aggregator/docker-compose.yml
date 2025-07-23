@@ -7,15 +7,9 @@ services:
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        echo "🚀 Starting IBC Attestor 1..."
-
-        # Generate key if not exists
         ibc_attestor key generate || true
-
-        # Create config directory
         mkdir -p /tmp/config
 
-        # Generate attestor config dynamically
         cat > /tmp/config/attestor.toml << EOF
         [server]
         address = "0.0.0.0"
@@ -49,15 +43,9 @@ services:
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        echo "🚀 Starting IBC Attestor 2..."
-
-        # Generate key if not exists
         ibc_attestor key generate || true
-
-        # Create config directory
         mkdir -p /tmp/config
 
-        # Generate attestor config dynamically
         cat > /tmp/config/attestor.toml << EOF
         [server]
         address = "0.0.0.0"
@@ -91,15 +79,9 @@ services:
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        echo "🚀 Starting IBC Attestor 3..."
-
-        # Generate key if not exists
         ibc_attestor key generate || true
-
-        # Create config directory
         mkdir -p /tmp/config
 
-        # Generate attestor config dynamically
         cat > /tmp/config/attestor.toml << EOF
         [server]
         address = "0.0.0.0"
@@ -125,7 +107,7 @@ services:
       retries: 6
       start_period: 30s
 
-  # Signature Aggregator
+
   sig-aggregator:
     build:
       context: ../..
@@ -141,12 +123,8 @@ services:
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        echo "🚀 Starting Signature Aggregator..."
-        
-        # Create config directory
         mkdir -p /tmp/config
-        
-        # Generate aggregator config dynamically
+
         cat > /tmp/config/aggregator.toml << EOF
         [server]
         listener_addr = "0.0.0.0:8080"
