@@ -1,28 +1,16 @@
 services:
   ibc-attestor-1:
     build:
+      args:
+        PORT: 9000
       context: ../..
       dockerfile: programs/ibc-attestor/Dockerfile
-    restart: unless-stopped
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         ibc_attestor key generate || true
-        mkdir -p /tmp/config
-
-        cat > /tmp/config/attestor.toml << EOF
-        [server]
-        address = "0.0.0.0"
-        port = 9000
-        log_level = "info"
-
-        [solana]
-        url = "https://api.devnet.solana.com"
-        account_key = "vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg"
-        EOF
-
         echo "✅ IBC Attestor 1 starting server on port 9000..."
-        ibc_attestor server solana --config /tmp/config/attestor.toml
+        ibc_attestor server solana --config /tmp/attestor.toml
     ports:
       - "9000:9000"
     environment:
@@ -37,28 +25,16 @@ services:
 
   ibc-attestor-2:
     build:
+      args:
+        PORT: 9001
       context: ../..
       dockerfile: programs/ibc-attestor/Dockerfile
-    restart: unless-stopped
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         ibc_attestor key generate || true
-        mkdir -p /tmp/config
-
-        cat > /tmp/config/attestor.toml << EOF
-        [server]
-        address = "0.0.0.0"
-        port = 9001
-        log_level = "info"
-
-        [solana]
-        url = "https://api.devnet.solana.com"
-        account_key = "vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg"
-        EOF
-
         echo "✅ IBC Attestor 2 starting server on port 9001..."
-        ibc_attestor server solana --config /tmp/config/attestor.toml
+        ibc_attestor server solana --config /tmp/attestor.toml
     ports:
       - "9001:9001"
     environment:
@@ -73,6 +49,8 @@ services:
 
   ibc-attestor-3:
     build:
+      args:
+        PORT: 9002
       context: ../..
       dockerfile: programs/ibc-attestor/Dockerfile
     restart: unless-stopped
@@ -80,21 +58,8 @@ services:
     command:
       - |
         ibc_attestor key generate || true
-        mkdir -p /tmp/config
-
-        cat > /tmp/config/attestor.toml << EOF
-        [server]
-        address = "0.0.0.0"
-        port = 9002
-        log_level = "info"
-
-        [solana]
-        url = "https://api.devnet.solana.com"
-        account_key = "vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg"
-        EOF
-
         echo "✅ IBC Attestor 3 starting server on port 9002..."
-        ibc_attestor server solana --config /tmp/config/attestor.toml
+        ibc_attestor server solana --config /tmp/attestor.toml
     ports:
       - "9002:9002"
     environment:
@@ -107,7 +72,6 @@ services:
       retries: 6
       start_period: 30s
 
-
   sig-aggregator:
     build:
       context: ../..
@@ -119,29 +83,11 @@ services:
         condition: service_healthy
       ibc-attestor-3:
         condition: service_healthy
-    restart: unless-stopped
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        mkdir -p /tmp/config
-
-        cat > /tmp/config/aggregator.toml << EOF
-        [server]
-        listener_addr = "0.0.0.0:8080"
-        log_level = "INFO"
-
-        [attestor]
-        attestor_query_timeout_ms = 5000
-        quorum_threshold = 2
-        attestor_endpoints = [
-          "http://ibc-attestor-1:9000",
-          "http://ibc-attestor-2:9001",
-          "http://ibc-attestor-3:9002"
-        ]
-        EOF
-
         echo "✅ Starting aggregator server on port 8080..."
-        aggregator server --config /tmp/config/aggregator.toml
+        aggregator server --config /tmp/aggregator.toml
     ports:
       - "8080:8080"
     environment:
