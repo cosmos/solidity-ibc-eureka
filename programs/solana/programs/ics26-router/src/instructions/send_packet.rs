@@ -28,7 +28,7 @@ pub struct SendPacket<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + Commitment::INIT_SPACE, // discriminator + commitment
+        space = 8 + Commitment::INIT_SPACE,
         seeds = [
             PACKET_COMMITMENT_SEED,
             msg.source_client.as_bytes(),

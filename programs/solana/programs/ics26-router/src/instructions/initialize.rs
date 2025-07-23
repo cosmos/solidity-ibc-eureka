@@ -7,7 +7,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + RouterState::INIT_SPACE, // discriminator + router_state
+        space = 8 + RouterState::INIT_SPACE,
         seeds = [ROUTER_STATE_SEED],
         bump
     )]
