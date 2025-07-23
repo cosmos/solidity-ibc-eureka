@@ -1,0 +1,27 @@
+[package]
+name = "cw-ics08-wasm-attestor"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ibc-proto = { workspace = true }
+attestor-light-client = { workspace = true }
+
+solana-sdk = { workspace = true }
+
+cosmwasm-std = { workspace = true, features = ["std"] }
+cosmwasm-schema = { workspace = true }
+cw2 = { workspace = true }
+prost = { workspace = true, features = ["std"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+attestor-light-client = { workspace = true, features = ["test-utils"] }
+secp256k1 = { workspace = true, features = ["global-context", "hashes", "serde"] }
