@@ -3,6 +3,7 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+// NOTE: Precompute discriminators for functions so light client could be called dynamically in router
 fn main() {
     let verify_membership_discm = compute_discriminator("global", "verify_membership");
     let verify_non_membership_discm = compute_discriminator("global", "verify_non_membership");
