@@ -59,9 +59,7 @@ test-aggregator-services:
         echo "🚀 Services not running, starting them..."; \
         just start-aggregator-services; \
     fi
-    @echo "✅ Testing aggregator service..."
     @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
-        echo "🎉 Aggregator service is reachable, testing GetAggregateAttestation..."; \
         grpcurl -plaintext -d '{"min_height": 100}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq; \
     else \
         echo "❌ Aggregator service is not reachable. Check logs with: cd programs/sig-aggregator && docker-compose logs"; \
