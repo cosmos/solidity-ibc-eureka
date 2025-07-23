@@ -2458,7 +2458,6 @@ dependencies = [
  "hex",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
- "secp256k1 0.31.1",
  "serde",
  "serde_json",
  "solana-sdk",
