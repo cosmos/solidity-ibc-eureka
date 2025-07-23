@@ -1,6 +1,6 @@
 use crate::errors::RouterError;
 use crate::state::{
-    Client, ClientType, CounterpartyInfo, RouterState, CLIENT_SEED, ROUTER_STATE_SEED,
+    Client, CounterpartyInfo, RouterState, CLIENT_SEED, ROUTER_STATE_SEED,
 };
 use anchor_lang::prelude::*;
 
@@ -59,7 +59,6 @@ pub struct UpdateClient<'info> {
 pub fn add_client(
     ctx: Context<AddClient>,
     client_id: String,
-    client_type: ClientType,
     counterparty_info: CounterpartyInfo,
 ) -> Result<()> {
     let client = &mut ctx.accounts.client;
@@ -84,14 +83,12 @@ pub fn add_client(
 
     client.client_id = client_id;
     client.client_program_id = light_client_program.key();
-    client.client_type = client_type;
     client.counterparty_info = counterparty_info;
     client.authority = ctx.accounts.authority.key();
     client.active = true;
 
     emit!(ClientAddedEvent {
         client_id: client.client_id.clone(),
-        client_type: client.client_type.clone(),
         client_program_id: client.client_program_id,
         authority: client.authority,
     });
@@ -115,7 +112,6 @@ pub fn update_client(ctx: Context<UpdateClient>, _client_id: String, active: boo
 #[event]
 pub struct ClientAddedEvent {
     pub client_id: String,
-    pub client_type: ClientType,
     pub client_program_id: Pubkey,
     pub authority: Pubkey,
 }

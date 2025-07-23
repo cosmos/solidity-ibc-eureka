@@ -2172,6 +2172,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-primitives",
  "ibc-proto",
+ "solana-light-client-interface",
  "tendermint",
  "tendermint-light-client-membership",
  "tendermint-light-client-misbehaviour",
@@ -2206,6 +2207,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "sha2 0.10.9",
+ "solana-light-client-interface",
 ]
 
 [[package]]
@@ -4516,6 +4518,13 @@ dependencies = [
  "solana-sdk-ids",
  "solana-sdk-macro",
  "solana-sysvar-id",
+]
+
+[[package]]
+name = "solana-light-client-interface"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
 ]
 
 [[package]]

@@ -2,6 +2,7 @@
 members = [
     "programs/ics07-tendermint",
     "programs/ics26-router",
+    "solana-light-client-interface",
     "tests",
 ]
 resolver = "2"
@@ -20,6 +21,7 @@ tendermint-light-client-update-client     = { path = "../../packages/tendermint-
 tendermint-light-client-membership        = { path = "../../packages/tendermint-light-client/membership", default-features = false }
 tendermint-light-client-misbehaviour      = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false }
 tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-light-client/uc-and-membership", default-features = false }
+solana-light-client-interface             = { path = "./solana-light-client-interface", default-features = false }
 
 ibc-client-tendermint = { version = "0.57", default-features = false }
 ibc-core-client = { version = "0.57", default-features = false }

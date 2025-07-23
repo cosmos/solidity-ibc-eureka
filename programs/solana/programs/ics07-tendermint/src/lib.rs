@@ -15,8 +15,10 @@ use crate::state::ConsensusStateStore;
 declare_id!("8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV");
 
 pub use types::{
-    ClientState, ConsensusState, MembershipMsg, MisbehaviourMsg, UpdateClientMsg, UpdateResult,
+    ClientState, ConsensusState, MisbehaviourMsg, UpdateClientMsg, UpdateResult,
 };
+
+pub use solana_light_client_interface::MembershipMsg;
 
 #[derive(Accounts)]
 #[instruction(chain_id: String, client_state: ClientState)]
@@ -92,7 +94,7 @@ pub struct SubmitMisbehaviour<'info> {
 pub mod ics07_tendermint {
     use super::*;
     use crate::types::{
-        ClientState, ConsensusState, MembershipMsg, MisbehaviourMsg, UpdateClientMsg,
+        ClientState, ConsensusState,  MisbehaviourMsg, UpdateClientMsg,
     };
 
     pub fn initialize(

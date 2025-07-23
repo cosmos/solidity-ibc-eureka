@@ -138,15 +138,3 @@ pub const PACKET_ACK_SEED: &[u8] = b"packet_ack";
 
 /// Maximum timeout duration (1 day in seconds)
 pub const MAX_TIMEOUT_DURATION: i64 = 86400;
-
-/// Message structure for light client membership verification
-/// This is the standard structure all light clients must accept
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct MembershipMsg {
-    pub height: u64,
-    pub delay_time_period: u64,
-    pub delay_block_period: u64,
-    pub proof: Vec<u8>,
-    pub path: Vec<Vec<u8>>,
-    pub value: Vec<u8>,
-}

@@ -126,16 +126,6 @@ pub struct UpdateClientMsg {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct MembershipMsg {
-    pub height: u64,
-    pub delay_time_period: u64,
-    pub delay_block_period: u64,
-    pub proof: Vec<u8>,
-    pub path: Vec<Vec<u8>>,
-    pub value: Vec<u8>,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct MisbehaviourMsg {
     pub client_id: String,
     pub misbehaviour: Vec<u8>, // Protobuf encoded Misbehaviour

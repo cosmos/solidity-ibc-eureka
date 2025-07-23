@@ -56,10 +56,9 @@ pub mod ics26_router {
     pub fn add_client(
         ctx: Context<AddClient>,
         client_id: String,
-        client_type: ClientType,
         counterparty_info: CounterpartyInfo,
     ) -> Result<()> {
-        instructions::add_client(ctx, client_id, client_type, counterparty_info)
+        instructions::add_client(ctx, client_id, counterparty_info)
     }
 
     pub fn update_client(

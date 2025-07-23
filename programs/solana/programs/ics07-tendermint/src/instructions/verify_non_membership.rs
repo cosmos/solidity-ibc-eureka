@@ -1,8 +1,8 @@
 use crate::error::ErrorCode;
 use crate::helpers::{deserialize_merkle_proof, validate_proof_params};
-use crate::types::MembershipMsg;
 use crate::VerifyNonMembership;
 use anchor_lang::prelude::*;
+use solana_light_client_interface::MembershipMsg;
 use tendermint_light_client_membership::KVPair;
 
 pub fn verify_non_membership(ctx: Context<VerifyNonMembership>, msg: MembershipMsg) -> Result<()> {

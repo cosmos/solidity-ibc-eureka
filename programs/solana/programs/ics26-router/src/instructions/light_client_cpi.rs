@@ -1,9 +1,10 @@
 use crate::errors::RouterError;
-use crate::state::{Client, MembershipMsg};
+use crate::state::Client;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::hash::hash;
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::program::invoke;
+use solana_light_client_interface::MembershipMsg;
 
 /// Message structure for light client non-membership verification
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -77,7 +78,7 @@ pub fn verify_membership_cpi(
     invoke(&ix, &account_infos)?;
 
     emit!(MembershipVerifiedEvent {
-        client_type: format!("{:?}", client.client_type),
+        client_id: client.client_id.clone(),
         height: membership_msg.height,
     });
 
@@ -131,7 +132,7 @@ pub fn verify_non_membership_cpi(
     invoke(&ix, &account_infos)?;
 
     emit!(NonMembershipVerifiedEvent {
-        client_type: format!("{:?}", client.client_type),
+        client_id: client.client_id.clone(),
         height: membership_msg.height,
     });
 
@@ -140,12 +141,12 @@ pub fn verify_non_membership_cpi(
 
 #[event]
 pub struct MembershipVerifiedEvent {
-    pub client_type: String,
+    pub client_id: String,
     pub height: u64,
 }
 
 #[event]
 pub struct NonMembershipVerifiedEvent {
-    pub client_type: String,
+    pub client_id: String,
     pub height: u64,
 }
