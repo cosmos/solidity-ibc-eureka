@@ -119,29 +119,9 @@ The recipe also accepts a `testname` argument that will only run the test with t
 just test-foundry test_success_sendTransfer
 ```
 
-## Aggregator Services
+## Aggregator Services For Dev Environment
 
-This repository includes Docker Compose setup to run IBC attestor and sig-aggregator services locally for development and testing.
-
-### Quick Start
-
-To start three IBC attestor instances and one sig-aggregator:
-
-```sh
-# Start all services
-just start-aggregator-services
-
-# Test the services
-just test-aggregator-services
-
-# Stop all services
-just stop-aggregator-services
-```
-
-The setup includes:
-
-- **3 IBC Attestor instances** on ports 9000, 9001, 9002
-- **1 Sig-Aggregator** on port 8080 (requires 2/3 quorum)
+For documentation on IBC attestor and sig-aggregator services, see the [sig-aggregator README](./programs/sig-aggregator/README.md).
 
 ## End to End Testing
 
