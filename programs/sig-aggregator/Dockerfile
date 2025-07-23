@@ -1,10 +1,8 @@
-FROM rust:1.88-alpine AS build
+FROM rust:1.88-bullseye AS build
 
-RUN apk add --no-cache \
-    musl-dev \
-    protobuf-dev \
-    openssl-dev \
-    pkgconfig
+RUN apt-get update && apt-get install -y \
+    protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
@@ -16,12 +14,11 @@ COPY proto proto
 
 RUN cargo build --bin aggregator --release --locked
 
-FROM alpine:latest
+FROM debian:bullseye-slim
 
-RUN apk add --no-cache \
-    bash \
+RUN apt-get update && apt-get install -y \
     ca-certificates \
-    libgcc
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/local/bin
 COPY --from=build /app/target/release/aggregator /usr/local/bin/aggregator
