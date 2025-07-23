@@ -40,7 +40,7 @@ fn compute_discriminator(namespace: &str, name: &str) -> [u8; 8] {
     hasher.update(preimage.as_bytes());
     let hash_result = hasher.finalize();
 
-    let mut discriminator = [0_u8; 8];
+    let mut discriminator = [0u8; 8];
     discriminator.copy_from_slice(hash_result.get(..8).expect("Hash result too short"));
     discriminator
 }

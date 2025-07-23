@@ -28,11 +28,11 @@ pub struct ClientState {
 }
 
 impl ClientState {
-    pub fn is_frozen(&self) -> bool {
+    pub const fn is_frozen(&self) -> bool {
         self.frozen_height.revision_height > 0
     }
 
-    pub fn freeze(&mut self) {
+    pub const fn freeze(&mut self) {
         self.frozen_height = self.latest_height;
     }
 }
@@ -56,13 +56,13 @@ pub struct IbcHeight {
 
 impl From<IbcHeight> for Height {
     fn from(h: IbcHeight) -> Self {
-        Height::new(h.revision_number, h.revision_height).expect("valid height")
+        Self::new(h.revision_number, h.revision_height).expect("valid height")
     }
 }
 
 impl From<Height> for IbcHeight {
     fn from(h: Height) -> Self {
-        IbcHeight {
+        Self {
             revision_number: h.revision_number(),
             revision_height: h.revision_height(),
         }
@@ -71,7 +71,7 @@ impl From<Height> for IbcHeight {
 
 impl From<ClientState> for UpdateClientState {
     fn from(cs: ClientState) -> Self {
-        UpdateClientState {
+        Self {
             chain_id: cs.chain_id,
             trust_level: TrustThreshold {
                 numerator: cs.trust_level_numerator,
@@ -100,7 +100,7 @@ impl From<ConsensusState> for IbcConsensusState {
         let seconds = time.unix_timestamp();
         let nanos = time.nanosecond();
 
-        IbcConsensusState {
+        Self {
             timestamp: Time::from_unix_timestamp(seconds, nanos).expect("invalid time"),
             root: CommitmentRoot::from_bytes(&cs.root),
             next_validators_hash: tendermint::Hash::Sha256(cs.next_validators_hash),
@@ -112,7 +112,7 @@ impl TryFrom<IbcConsensusState> for ConsensusState {
     type Error = <[u8; 32] as TryFrom<Vec<u8>>>::Error;
 
     fn try_from(cs: IbcConsensusState) -> std::result::Result<Self, Self::Error> {
-        Ok(ConsensusState {
+        Ok(Self {
             timestamp: cs.timestamp.unix_timestamp_nanos() as u64,
             root: cs.root.into_vec().try_into()?,
             next_validators_hash: cs.next_validators_hash.as_bytes().to_vec().try_into()?,

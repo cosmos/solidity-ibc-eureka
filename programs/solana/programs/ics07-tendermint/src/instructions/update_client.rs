@@ -55,15 +55,15 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
         client_state,
     )?;
 
-    if let UpdateResult::Update = update_result {
+    if update_result == UpdateResult::Update {
         client_state.latest_height = new_height.into();
     }
 
     Ok(update_result)
 }
 
-fn validate_and_load_trusted_state<'info>(
-    trusted_consensus_state_account: &UncheckedAccount<'info>,
+fn validate_and_load_trusted_state(
+    trusted_consensus_state_account: &UncheckedAccount<'_>,
     client_key: Pubkey,
     trusted_height: u64,
     program_id: &Pubkey,
@@ -172,15 +172,7 @@ fn handle_consensus_state_storage<'info>(
     new_consensus_state: &ConsensusState,
     client_state: &mut ClientState,
 ) -> Result<UpdateResult> {
-    if !new_consensus_state_store.data_is_empty() {
-        // Consensus state already exists at this height - check for misbehaviour
-        check_existing_consensus_state(
-            new_consensus_state_store,
-            new_consensus_state,
-            revision_height,
-            client_state,
-        )
-    } else {
+    if new_consensus_state_store.data_is_empty() {
         // Create new consensus state account
         create_consensus_state_account(
             new_consensus_state_store,
@@ -191,6 +183,14 @@ fn handle_consensus_state_storage<'info>(
             new_consensus_state,
         )?;
         Ok(UpdateResult::Update)
+    } else {
+        // Consensus state already exists at this height - check for misbehaviour
+        check_existing_consensus_state(
+            new_consensus_state_store,
+            new_consensus_state,
+            revision_height,
+            client_state,
+        )
     }
 }
 
