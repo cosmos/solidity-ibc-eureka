@@ -207,6 +207,7 @@ pub fn create_test_merkle_proof_bytes() -> Vec<u8> {
 /// Creates a minimal valid protobuf-encoded Misbehaviour for testing
 pub fn create_test_misbehaviour_bytes() -> Vec<u8> {
     // Create a minimal RawMisbehaviour with two headers
+    #[allow(deprecated)]
     let raw_misbehaviour = RawMisbehaviour {
         client_id: "test-client".to_string(),
         header_1: Some(Default::default()),

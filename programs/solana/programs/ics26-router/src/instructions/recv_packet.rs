@@ -148,7 +148,7 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     // For now, we'll create a simple acknowledgement
     let ack_data = b"packet received".to_vec();
 
-    let acks = vec![ack_data.clone()];
+    let acks = vec![ack_data];
     let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&acks)?;
     packet_ack.value = ack_commitment;
 

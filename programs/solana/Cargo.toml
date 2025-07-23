@@ -7,6 +7,12 @@ members = [
 ]
 resolver = "2"
 
+[workspace.lints.clippy]
+# Allow negative feature names as they are standard in Anchor
+negative_feature_names = "allow"
+# Allow multiple crate versions as they come from dependencies
+multiple_crate_versions = "allow"
+
 [workspace.package]
 version    = "0.1.0"
 edition    = "2021"

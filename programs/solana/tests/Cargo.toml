@@ -3,6 +3,14 @@ name = "tests"
 version = "0.1.0"
 description = "Created with Anchor"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/cosmos/solidity-ibc-eureka"
+readme = "../../../README.md"
+keywords = ["test", "anchor", "solana"]
+categories = ["development-tools::testing"]
+
+[lints]
+workspace = true
 
 [dependencies]
 anchor-client = "0.31.1"

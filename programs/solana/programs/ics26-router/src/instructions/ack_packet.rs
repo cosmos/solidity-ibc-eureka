@@ -114,7 +114,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         client_id: msg.packet.source_client.clone(),
         sequence: msg.packet.sequence,
         packet_data: msg.packet.try_to_vec().unwrap(),
-        acknowledgement: msg.acknowledgement.clone(),
+        acknowledgement: msg.acknowledgement,
     });
 
     Ok(())

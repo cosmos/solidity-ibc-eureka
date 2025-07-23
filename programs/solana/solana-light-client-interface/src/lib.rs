@@ -7,7 +7,7 @@ use anchor_lang::prelude::*;
 
 /// Standard message structure for membership verification
 /// All light clients must accept this structure for both membership and non-membership proofs
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, PartialEq)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct MembershipMsg {
     /// The height at which to verify
     pub height: u64,
