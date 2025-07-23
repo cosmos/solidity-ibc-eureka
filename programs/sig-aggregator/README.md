@@ -28,7 +28,7 @@ cargo build --release
 
     a. Run `cargo run -- server --config config.example.toml`
 
-    b. Query `grpcurl -plaintext -d '{"min_height": 394277673}' localhost:50060 aggregator.Aggregator.GetAggregateAttestation | jq`
+    b. Query `grpcurl -plaintext -d '{"min_height": 394277673}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq`
 
 ## Docker Setup
 
