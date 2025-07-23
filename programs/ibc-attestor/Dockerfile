@@ -24,4 +24,8 @@ COPY test/sig-aggregator/configs/attestor.toml /tmp/attestor.toml
 
 RUN sed -i "s/port = 9000/port = ${PORT}/g" /tmp/attestor.toml
 
+COPY test/sig-aggregator/configs/attestor.toml /tmp/attestor.toml
+
+RUN sed -i "s/port = 9000/port = ${PORT}/g" /tmp/attestor.toml
+
 ENTRYPOINT ["ibc_attestor"]
