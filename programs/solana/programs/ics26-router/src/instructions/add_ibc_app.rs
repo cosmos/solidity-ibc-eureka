@@ -1,5 +1,5 @@
 use crate::errors::RouterError;
-use crate::state::{Port, RouterState, PORT_SEED, ROUTER_STATE_SEED};
+use crate::state::{IBCApp, RouterState, IBC_APP_SEED, ROUTER_STATE_SEED};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -14,11 +14,11 @@ pub struct AddIbcApp<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + Port::INIT_SPACE,
-        seeds = [PORT_SEED, port_id.as_bytes()],
+        space = 8 + IBCApp::INIT_SPACE,
+        seeds = [IBC_APP_SEED, port_id.as_bytes()],
         bump
     )]
-    pub port: Account<'info, Port>,
+    pub ibc_app: Account<'info, IBCApp>,
 
     /// The IBC application program to register
     /// CHECK: This is the program ID of the IBC app
@@ -34,7 +34,7 @@ pub struct AddIbcApp<'info> {
 
 pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
     let router_state = &ctx.accounts.router_state;
-    let port = &mut ctx.accounts.port;
+    let ibc_app = &mut ctx.accounts.ibc_app;
 
     require!(
         ctx.accounts.authority.key() == router_state.authority,
@@ -43,20 +43,20 @@ pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
 
     require!(!port_id.is_empty(), RouterError::InvalidPortIdentifier);
 
-    port.port_id = port_id;
-    port.app_program_id = ctx.accounts.app_program.key();
-    port.authority = ctx.accounts.authority.key();
+    ibc_app.port_id = port_id;
+    ibc_app.app_program_id = ctx.accounts.app_program.key();
+    ibc_app.authority = ctx.accounts.authority.key();
 
-    emit!(PortAdded {
-        port_id: port.port_id.clone(),
-        app_program_id: port.app_program_id,
+    emit!(IBCAppAdded {
+        port_id: ibc_app.port_id.clone(),
+        app_program_id: ibc_app.app_program_id,
     });
 
     Ok(())
 }
 
 #[event]
-pub struct PortAdded {
+pub struct IBCAppAdded {
     pub port_id: String,
     pub app_program_id: Pubkey,
 }

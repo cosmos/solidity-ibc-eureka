@@ -13,10 +13,10 @@ pub struct SendPacket<'info> {
     pub router_state: Account<'info, RouterState>,
 
     #[account(
-        seeds = [PORT_SEED, msg.payload.source_port.as_bytes()],
+        seeds = [IBC_APP_SEED, msg.payload.source_port.as_bytes()],
         bump
     )]
-    pub port: Account<'info, Port>,
+    pub ibc_app: Account<'info, IBCApp>,
 
     #[account(
         mut,
@@ -58,13 +58,13 @@ pub struct SendPacket<'info> {
 
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
     // TODO: Support multi-payload packets #602
-    let port = &ctx.accounts.port;
+    let ibc_app = &ctx.accounts.ibc_app;
     let client_sequence = &mut ctx.accounts.client_sequence;
     let packet_commitment = &mut ctx.accounts.packet_commitment;
     let clock = &ctx.accounts.clock;
 
     require!(
-        ctx.accounts.app_caller.key() == port.app_program_id,
+        ctx.accounts.app_caller.key() == ibc_app.app_program_id,
         RouterError::UnauthorizedSender
     );
 

@@ -17,10 +17,10 @@ pub struct TimeoutPacket<'info> {
     pub router_state: Account<'info, RouterState>,
 
     #[account(
-        seeds = [PORT_SEED, msg.packet.payloads[0].source_port.as_bytes()],
+        seeds = [IBC_APP_SEED, msg.packet.payloads[0].source_port.as_bytes()],
         bump
     )]
-    pub port: Account<'info, Port>,
+    pub ibc_app: Account<'info, IBCApp>,
 
     #[account(
         mut,
@@ -96,11 +96,8 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         path: receipt_path,
     };
 
-    let counterparty_timestamp = verify_non_membership_cpi(
-        client,
-        &light_client_verification,
-        non_membership_msg,
-    )?;
+    let counterparty_timestamp =
+        verify_non_membership_cpi(client, &light_client_verification, non_membership_msg)?;
 
     require!(
         counterparty_timestamp >= msg.packet.timeout_timestamp as u64,

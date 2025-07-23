@@ -15,10 +15,10 @@ pub struct RecvPacket<'info> {
     pub router_state: Account<'info, RouterState>,
 
     #[account(
-        seeds = [PORT_SEED, msg.packet.payloads[0].dest_port.as_bytes()],
+        seeds = [IBC_APP_SEED, msg.packet.payloads[0].dest_port.as_bytes()],
         bump
     )]
-    pub port: Account<'info, Port>,
+    pub ibc_app: Account<'info, IBCApp>,
 
     #[account(
         mut,

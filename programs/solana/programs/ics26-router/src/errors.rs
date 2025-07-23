@@ -4,8 +4,8 @@ use anchor_lang::prelude::*;
 pub enum RouterError {
     #[msg("Unauthorized sender")]
     UnauthorizedSender,
-    #[msg("Port already exists")]
-    PortAlreadyExists,
+    #[msg("Port already bound to IBC app")]
+    PortAlreadyBound,
     #[msg("Port not found")]
     PortNotFound,
     #[msg("Invalid port identifier")]

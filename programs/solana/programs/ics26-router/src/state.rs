@@ -15,10 +15,10 @@ pub struct RouterState {
     pub initialized: bool,
 }
 
-/// Port mapping port IDs to IBC app program IDs
+/// IBCApp mapping port IDs to IBC app program IDs
 #[account]
 #[derive(InitSpace)]
-pub struct Port {
+pub struct IBCApp {
     /// The port identifier
     #[max_len(MAX_PORT_ID_LENGTH)]
     pub port_id: String,
@@ -128,7 +128,7 @@ pub struct MsgTimeoutPacket {
 
 /// Constants
 pub const ROUTER_STATE_SEED: &[u8] = b"router_state";
-pub const PORT_SEED: &[u8] = b"port";
+pub const IBC_APP_SEED: &[u8] = b"ibc_app";
 pub const CLIENT_SEED: &[u8] = b"client";
 pub const CLIENT_SEQUENCE_SEED: &[u8] = b"client_sequence";
 pub const COMMITMENT_SEED: &[u8] = b"commitment";
