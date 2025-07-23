@@ -1,0 +1,150 @@
+services:
+  ibc-attestor-1:
+    build:
+      context: ../..
+      dockerfile: programs/ibc-attestor/Dockerfile
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "🚀 Starting IBC Attestor 1..."
+        ibc_attestor key generate || true
+        echo "✅ IBC Attestor 1 starting server on port 9000..."
+        ibc_attestor server solana --config /config/attestor1.toml
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./config:/config:ro
+      - attestor1_keys:/root/.ibc-attestor
+    environment:
+      - RUST_BACKTRACE=1
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "bash", "-c", "timeout 5 bash -c '</dev/tcp/localhost/9000' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  ibc-attestor-2:
+    build:
+      context: ../..
+      dockerfile: programs/ibc-attestor/Dockerfile
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "🚀 Starting IBC Attestor 2..."
+        ibc_attestor key generate || true
+        echo "✅ IBC Attestor 2 starting server on port 9001..."
+        ibc_attestor server solana --config /config/attestor2.toml
+    ports:
+      - "9001:9001"
+    volumes:
+      - ./config:/config:ro
+      - attestor2_keys:/root/.ibc-attestor
+    environment:
+      - RUST_BACKTRACE=1
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "bash", "-c", "timeout 5 bash -c '</dev/tcp/localhost/9001' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  ibc-attestor-3:
+    build:
+      context: ../..
+      dockerfile: programs/ibc-attestor/Dockerfile
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "🚀 Starting IBC Attestor 3..."
+        ibc_attestor key generate || true
+        echo "✅ IBC Attestor 3 starting server on port 9002..."
+        ibc_attestor server solana --config /config/attestor3.toml
+    ports:
+      - "9002:9002"
+    volumes:
+      - ./config:/config:ro
+      - attestor3_keys:/root/.ibc-attestor
+    environment:
+      - RUST_BACKTRACE=1
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "bash", "-c", "timeout 5 bash -c '</dev/tcp/localhost/9002' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  # Signature Aggregator
+  sig-aggregator:
+    build:
+      context: ../..
+      dockerfile: programs/sig-aggregator/Dockerfile
+    depends_on:
+      ibc-attestor-1:
+        condition: service_healthy
+      ibc-attestor-2:
+        condition: service_healthy
+      ibc-attestor-3:
+        condition: service_healthy
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "🚀 Starting Signature Aggregator..."
+        echo "⏳ Waiting for attestors to be ready..."
+
+        # Wait for attestor-1
+        until timeout 5 bash -c '</dev/tcp/ibc-attestor-1/9000'; do
+          echo "⏳ Waiting for ibc-attestor-1..."
+          sleep 2
+        done
+        echo "✅ IBC Attestor 1 is ready"
+
+        # Wait for attestor-2
+        until timeout 5 bash -c '</dev/tcp/ibc-attestor-2/9001'; do
+          echo "⏳ Waiting for ibc-attestor-2..."
+          sleep 2
+        done
+        echo "✅ IBC Attestor 2 is ready"
+
+        # Wait for attestor-3
+        until timeout 5 bash -c '</dev/tcp/ibc-attestor-3/9002'; do
+          echo "⏳ Waiting for ibc-attestor-3..."
+          sleep 2
+        done
+        echo "✅ IBC Attestor 3 is ready"
+
+        echo "🎉 All attestors are ready. Starting aggregator on port 8080..."
+        sleep 2
+        aggregator server --config /config/aggregator.toml
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config:/config:ro
+    environment:
+      - RUST_BACKTRACE=1
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "bash", "-c", "timeout 5 bash -c '</dev/tcp/localhost/8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+volumes:
+  attestor1_keys:
+    driver: local
+  attestor2_keys:
+    driver: local
+  attestor3_keys:
+    driver: local
+
+networks:
+  default:
+    driver: bridge

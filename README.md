@@ -16,7 +16,7 @@ This is a work-in-progress implementation of IBC v2 in Solidity. IBC v2 is a sim
 
 `solidity-ibc-eureka` is an implementation of IBC in Solidity.
 
-- [IBC in Solidity      ](#ibc-in-solidity------)
+- [IBC in Solidity](#ibc-in-solidity------)
   - [Overview](#overview)
     - [Project Structure](#project-structure)
     - [Contracts](#contracts)
@@ -49,12 +49,12 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 - `programs/`: Contains the Rust programs for the project.
-    - `relayer/`: Contains the relayer implementation.
-    - `operator/`: Contains the operator for the SP1 light client.
-    - `sp1-programs/`: Contains the SP1 programs for the light client.
-    - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum
+  - `relayer/`: Contains the relayer implementation.
+  - `operator/`: Contains the operator for the SP1 light client.
+  - `sp1-programs/`: Contains the SP1 programs for the light client.
+  - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum
 - `packages/`: Contains the Rust packages for the project.
-    - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
+  - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
 
 ### Contracts
 
@@ -73,7 +73,6 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 |     `membership`    | As consensus states are added to the client, they can be used for proof verification by relayers wishing to prove packet flow messages against a particular height on the counterparty. This uses the `verify_membership` and `verify_non_membership` methods on the tendermint client. |      ✅     |
 | `uc-and-membership` | This is a program that combines `update-client` and `membership` to update the client, and prove membership of packet flow messages against the new consensus state.                                                                                                                    |      ✅     |
 |    `misbehaviour`   | In case, the malicious subset of the validators exceeds the trust level of the client; then the client can be deceived into accepting invalid blocks and the connection is no longer secure. The tendermint client has some mitigations in place to prevent this.                       |      ✅     |
-
 
 ## Build Requirements
 
@@ -99,7 +98,7 @@ just install-relayer
 
 > [!TIP]
 > Nix users can enter a development shell with all the necessary dependencies by running:
-> 
+>
 > ```sh
 > nix develop
 > ```
@@ -120,10 +119,34 @@ The recipe also accepts a `testname` argument that will only run the test with t
 just test-foundry test_success_sendTransfer
 ```
 
+## Aggregator Services
+
+This repository includes Docker Compose setup to run IBC attestor and sig-aggregator services locally for development and testing.
+
+### Quick Start
+
+To start three IBC attestor instances and one sig-aggregator:
+
+```sh
+# Start all services
+just start-aggregator-services
+
+# Test the services
+just test-aggregator-services
+
+# Stop all services
+just stop-aggregator-services
+```
+
+The setup includes:
+
+- **3 IBC Attestor instances** on ports 9000, 9001, 9002
+- **1 Sig-Aggregator** on port 8080 (requires 2/3 quorum)
+
 ## End to End Testing
 
-There are several end-to-end tests in the `e2e/interchaintestv8` directory. These tests are written in Go and use the [`interchaintest`](https://github.com/strangelove-ventures/interchaintest) library. 
-It spins up a local Ethereum and a Tendermint network and runs the tests found in [`e2e/interchaintestv8/ibc_eureka_test.go`](e2e/interchaintestv8/ibc_eureka_test.go). 
+There are several end-to-end tests in the `e2e/interchaintestv8` directory. These tests are written in Go and use the [`interchaintest`](https://github.com/strangelove-ventures/interchaintest) library.
+It spins up a local Ethereum and a Tendermint network and runs the tests found in [`e2e/interchaintestv8/ibc_eureka_test.go`](e2e/interchaintestv8/ibc_eureka_test.go).
 Some of the tests use the prover network to generate the proofs, so you need to provide your SP1 network private key to `.env` for these tests to pass.
 
 ### Requirements
@@ -131,18 +154,19 @@ Some of the tests use the prover network to generate the proofs, so you need to 
 - [Go](https://go.dev/doc/install)
 - [Docker](https://docs.docker.com/get-docker/)
 - [Kurtosis](https://docs.kurtosis.com/install/)
-    - Needs to be the same version as `github.com/kurtosis-tech/kurtosis/api/golang` dependency in e2e [`go.mod`](./e2e/interchaintestv8/go.mod) file.
+  - Needs to be the same version as `github.com/kurtosis-tech/kurtosis/api/golang` dependency in e2e [`go.mod`](./e2e/interchaintestv8/go.mod) file.
 
 To prepare for running the e2e tests, you need to make sure you have done the following:
-* Set up an .env file (see the instructions in the `.env.example` file)
-* If you have made changes to the contract interfaces or types, you need to update the ABIs by running `just generate-abi`
+- Set up an .env file (see the instructions in the `.env.example` file)
+- If you have made changes to the contract interfaces or types, you need to update the ABIs by running `just generate-abi`
 
 > [!NOTE]
 > If you are running on a Mac with an M chip, you will need to do the following:
+>
 > - Set up Rosetta
 > - Enable Rosetta for Docker (in Docker Desktop: Settings -> General -> enable "Use Rosetta for x86_64/amd64 emulation on Apple Silicon")
 > - Pull the foundry image with the following command:
-> 
+>
 >     ```sh
 >     docker pull --platform=linux/amd64 ghcr.io/foundry-rs/foundry:latest
 >     ```
@@ -152,27 +176,36 @@ To prepare for running the e2e tests, you need to make sure you have done the fo
 There are five test suites in the `e2e/interchaintestv8` directory:
 
 - `TestWithIbcEurekaTestSuite`: This test suite tests the IBC contracts via the relayer (requires the operator and the relayer to be installed).
-    - To run any of the tests, run the following command:
+  - To run any of the tests, run the following command:
+
         ```sh
         just test-e2e-eureka $TEST_NAME
         ```
+
 - `TestWithRelayerTestSuite`: This test suite tests the relayer via the IBC contracts (requires the relayer and operator to be installed).
-    - To run any of the tests, run the following command:
+  - To run any of the tests, run the following command:
+
         ```sh
         just test-e2e-relayer $TEST_NAME
         ```
+
 - `TestWithCosmosRelayerTestSuite`: This test suite tests the relayer via Cosmos to Cosmos connections (requires the relayer and operator to be installed).
-    - To run any of the tests, run the following command:
+  - To run any of the tests, run the following command:
+
         ```sh
         just test-e2e-cosmos-relayer $TEST_NAME
         ```
+
 - `TestWithSP1ICS07TendermintTestSuite`: This test suite tests the SP1 ICS07 Tendermint light client (requires the operator to be installed).
-    - To run any of the tests, run the following command:
+  - To run any of the tests, run the following command:
+
         ```sh
         just test-e2e-sp1-ics07 $TEST_NAME
         ```
+
 - `TestWithMultichainTestSuite`: This test suite tests multi-chain transfers with Ethereum and multiple Cosmos chains (requires the relayer and operator to be installed).
-    - To run any of the tests, run the following command:
+  - To run any of the tests, run the following command:
+
         ```sh
         just test-e2e-multichain $TEST_NAME
         ```
@@ -266,6 +299,7 @@ Until **govAdmin** is implemented, the **Security Council** remains the sole adm
 The Security Council must **apply a timelock** to itself. This ensures that after delegation, the Security Council only retains power in cases where IBC light clients are **frozen**—effectively making **govAdmin** the primary administrator in normal conditions.
 
 > [!WARNING]
+>
 > - The timelock on the **Security Council** is **not** enforced within the IBC contracts but should be self-enforced.
 > - The timelock duration should be at least as long as:
 >   - The **govAdmin** timelock (if applicable).
