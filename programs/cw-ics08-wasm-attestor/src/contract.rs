@@ -40,11 +40,9 @@ pub fn instantiate(
 pub fn sudo(deps: DepsMut, _env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     let result = match msg {
         SudoMsg::UpdateState(update_state_msg) => sudo::update_state(deps, update_state_msg)?,
-        SudoMsg::UpdateStateOnMisbehaviour(_) => {
-            todo!()
+        SudoMsg::VerifyMembership(verify_membership_msg) => {
+            sudo::verify_membership(deps, verify_membership_msg)?
         }
-        SudoMsg::VerifyUpgradeAndUpdateState(_) => todo!(),
-        SudoMsg::MigrateClientStore(_) => todo!(),
     };
 
     Ok(Response::default().set_data(result))
@@ -224,7 +222,7 @@ mod tests {
         use attestor_light_client::{
             client_state::ClientState as AttestorClientState,
             consensus_state::ConsensusState as AttestorConsensusState,
-            error::IbcAttestorClientError, header::Header,
+            error::IbcAttestorClientError, header::Header, membership::Verifyable,
         };
         use cosmwasm_std::{
             coins,
@@ -238,8 +236,8 @@ mod tests {
                 tests::{DUMMY_DATA, KEYS, SIGS},
             },
             msg::{
-                InstantiateMsg, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
-                VerifyClientMessageMsg,
+                Height, InstantiateMsg, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
+                VerifyClientMessageMsg, VerifyMembershipMsg,
             },
             test::helpers::mk_deps,
             ContractError,
@@ -308,6 +306,68 @@ mod tests {
                 header.new_height,
                 update_state_result.heights[0].revision_height
             );
+
+            // Verify membership for the added state
+            let env = mock_env();
+            let value = Verifyable {
+                attestation_data: DUMMY_DATA.to_vec(),
+                signatures: SIGS.to_vec(),
+                pubkeys: KEYS.to_vec(),
+            };
+            let as_bytes = serde_json::to_vec(&value).unwrap();
+            let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
+                height: Height {
+                    revision_number: 0,
+                    revision_height: consensus_state.height,
+                },
+                value: as_bytes.into(),
+            });
+            let res = sudo(deps.as_mut(), env.clone(), msg);
+            assert!(res.is_ok());
+
+            // Non existent height fails
+            let env = mock_env();
+            let value = Verifyable {
+                attestation_data: DUMMY_DATA.to_vec(),
+                signatures: SIGS.to_vec(),
+                pubkeys: KEYS.to_vec(),
+            };
+            let as_bytes = serde_json::to_vec(&value).unwrap();
+            let bad_height = consensus_state.height + 100;
+            let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
+                height: Height {
+                    revision_number: 0,
+                    revision_height: bad_height,
+                },
+                value: as_bytes.into(),
+            });
+            let res = sudo(deps.as_mut(), env.clone(), msg);
+            assert!(matches!(res, Err(ContractError::ConsensusStateNotFound)));
+
+            // Bad attestation fails
+            let env = mock_env();
+            let bad_data = [254].to_vec();
+            let value = Verifyable {
+                attestation_data: bad_data,
+                signatures: SIGS.to_vec(),
+                pubkeys: KEYS.to_vec(),
+            };
+            let as_bytes = serde_json::to_vec(&value).unwrap();
+            let bad_height = consensus_state.height + 1;
+            let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
+                height: Height {
+                    revision_number: 0,
+                    revision_height: bad_height,
+                },
+                value: as_bytes.into(),
+            });
+            let res = sudo(deps.as_mut(), env.clone(), msg);
+            assert!(matches!(
+                res,
+                Err(ContractError::VerifyMembershipFailed(
+                    IbcAttestorClientError::InvalidSignature
+                ))
+            ));
         }
 
         #[test]
@@ -483,6 +543,47 @@ mod tests {
                     header.new_height,
                     update_state_result.heights[0].revision_height
                 );
+            }
+
+            // Now validate messages for all those states
+            for i in 1..6 {
+                let env = mock_env();
+
+                let value = Verifyable {
+                    attestation_data: DUMMY_DATA.to_vec(),
+                    signatures: SIGS.to_vec(),
+                    pubkeys: KEYS.to_vec(),
+                };
+                let as_bytes = serde_json::to_vec(&value).unwrap();
+                let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
+                    height: Height {
+                        revision_number: 0,
+                        revision_height: consensus_state.height + i,
+                    },
+                    value: as_bytes.into(),
+                });
+                let res = sudo(deps.as_mut(), env.clone(), msg);
+                assert!(res.is_ok());
+            }
+            // Now validate messages for all those states
+            for i in 1..6 {
+                let env = mock_env();
+
+                let value = Verifyable {
+                    attestation_data: DUMMY_DATA.to_vec(),
+                    signatures: SIGS.to_vec(),
+                    pubkeys: KEYS.to_vec(),
+                };
+                let as_bytes = serde_json::to_vec(&value).unwrap();
+                let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
+                    height: Height {
+                        revision_number: 0,
+                        revision_height: consensus_state.height + i,
+                    },
+                    value: as_bytes.into(),
+                });
+                let res = sudo(deps.as_mut(), env.clone(), msg);
+                assert!(res.is_ok());
             }
         }
 

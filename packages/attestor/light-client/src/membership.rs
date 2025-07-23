@@ -9,15 +9,15 @@ use crate::{
 };
 
 /// Data structure that can be verified cryptographically
-#[cfg_attr(test, derive(serde::Serialize))]
+#[cfg_attr(any(test, feature = "test-utils"), derive(serde::Serialize))]
 #[derive(Deserialize)]
 pub struct Verifyable {
     /// Opaque borsh-encoded data that was signed
-    attestation_data: Vec<u8>,
+    pub attestation_data: Vec<u8>,
     /// Signatures of the attestors
-    signatures: Vec<Signature>,
+    pub signatures: Vec<Signature>,
     /// Public keys of the attestors submitting attestations
-    pubkeys: Vec<PublicKey>,
+    pub pubkeys: Vec<PublicKey>,
 }
 
 /// Verify membership proof - only works for heights that exist in consensus state
