@@ -1,7 +1,5 @@
 use crate::errors::RouterError;
-use crate::state::{
-    Client, CounterpartyInfo, RouterState, CLIENT_SEED, ROUTER_STATE_SEED,
-};
+use crate::state::{Client, CounterpartyInfo, RouterState, CLIENT_SEED, ROUTER_STATE_SEED};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -26,6 +24,8 @@ pub struct AddClient<'info> {
         bump,
     )]
     pub client: Account<'info, Client>,
+
+    pub relayer: Signer<'info>,
 
     /// CHECK: Light client program ID validation happens in instruction
     pub light_client_program: AccountInfo<'info>,
@@ -54,6 +54,8 @@ pub struct UpdateClient<'info> {
         constraint = client.authority == authority.key() @ RouterError::UnauthorizedAuthority,
     )]
     pub client: Account<'info, Client>,
+
+    pub relayer: Signer<'info>,
 }
 
 pub fn add_client(
@@ -63,6 +65,12 @@ pub fn add_client(
 ) -> Result<()> {
     let client = &mut ctx.accounts.client;
     let light_client_program = &ctx.accounts.light_client_program;
+    let router_state = &ctx.accounts.router_state;
+
+    require!(
+        ctx.accounts.relayer.key() == router_state.authority,
+        RouterError::UnauthorizedSender
+    );
 
     require!(
         !client_id.is_empty() && client_id.len() <= 64,
@@ -98,6 +106,12 @@ pub fn add_client(
 
 pub fn update_client(ctx: Context<UpdateClient>, _client_id: String, active: bool) -> Result<()> {
     let client = &mut ctx.accounts.client;
+    let router_state = &ctx.accounts.router_state;
+
+    require!(
+        ctx.accounts.relayer.key() == router_state.authority,
+        RouterError::UnauthorizedSender
+    );
 
     client.active = active;
 
