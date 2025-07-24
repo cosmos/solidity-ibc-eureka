@@ -27,7 +27,7 @@ message StateAttestationResponse {
   Attestation attestation = 1;
 }
 
-// Request message for getting an attestation for a set of packets at a given height.
+// Request message for getting an attestation for a set of packets.
 message PacketAttestationRequest {
   // The packets to attest to
   repeated bytes packets = 1;
@@ -35,7 +35,7 @@ message PacketAttestationRequest {
   uint64 height = 2;
 }
 
-// Response message for getting an attestation for a set of packets at a given height.
+// Response message for getting an attestation for a set of packets.
 message PacketAttestationResponse {
   // The attestation
   Attestation attestation = 1;
