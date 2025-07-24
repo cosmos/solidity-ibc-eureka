@@ -279,13 +279,6 @@ mod tests {
 /*
 Error good practices:
 
-- Use thiserror for error definitions
-- Use descriptive error messages
-- Use error categories for better error handling
-- Use error chaining for better error handling
-- Use error codes for better error handling
-- Use error messages for better error handling
-
 Rust for Rustasian P:58-59
 First, your error type should implement the std::error::Error trait
 
@@ -312,4 +305,7 @@ not add much cost to the "happy path.” For that reason, errors are often place
 a pointer type, such as a Box or Arc. This way, they’re unlikely to add much to the size
 of the overall Result type they’re contained within.
 
+
+thiserror -> Libraries
+anyhow -> Binaries
 */
