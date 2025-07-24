@@ -275,3 +275,41 @@ mod tests {
         assert!(matches!(err3, AggregatorError::AttestorConnection { .. }));
     }
 }
+
+/*
+Error good practices:
+
+- Use thiserror for error definitions
+- Use descriptive error messages
+- Use error categories for better error handling
+- Use error chaining for better error handling
+- Use error codes for better error handling
+- Use error messages for better error handling
+
+Rust for Rustasian P:58-59
+First, your error type should implement the std::error::Error trait
+
+The main method of interest is Error::source, which provides a mechanism to find the underlying
+cause of an error.
+
+
+Second, your type should implement both Display and Debug 
+Display should give a one-line description of what went wrong that can easily be folded
+The display format should be lowercase and without trailing punctua-tion 
+
+which #[derive(Debug)] is usually sufficient for.
+
+
+Third, your type should, if possible, implement both Send and Sync so
+that users are able to share the error across thread boundaries. 
+
+
+Finally, where possible, your error type should be 'static. It's important that this allowes user to downcast the error to a more specific type.
+
+
+In general, the community consensus is that errors should be rare and therefore should
+not add much cost to the "happy path.” For that reason, errors are often placed behind
+a pointer type, such as a Box or Arc. This way, they’re unlikely to add much to the size
+of the overall Result type they’re contained within.
+
+*/
