@@ -1,5 +1,6 @@
 //! Error types for attestor light client
 
+use attestor_packet_membership::PacketAttestationError;
 use secp256k1::PublicKey;
 use thiserror::Error;
 
@@ -23,6 +24,10 @@ pub enum IbcAttestorClientError {
         /// Reason for error
         reason: String,
     },
+
+    /// Packet not found in attested data
+    #[error("Membership proof failed: {0}")]
+    MembershipProofFailed(#[from] PacketAttestationError),
 
     /// Unregistered public key
     #[error("Unknown public key submitted {pubkey}")]

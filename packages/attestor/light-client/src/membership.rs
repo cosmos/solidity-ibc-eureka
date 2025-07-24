@@ -3,6 +3,8 @@
 use secp256k1::{ecdsa::Signature, PublicKey};
 use serde::Deserialize;
 
+use attestor_packet_membership::verify_packet_membership;
+
 use crate::{
     client_state::ClientState, consensus_state::ConsensusState, error::IbcAttestorClientError,
     verify_attestation,
@@ -12,7 +14,7 @@ use crate::{
 #[cfg_attr(any(test, feature = "test-utils"), derive(serde::Serialize))]
 #[derive(Deserialize)]
 pub struct Verifyable {
-    /// Opaque borsh-encoded data that was signed
+    /// Opaque serde-encoded data that was signed
     pub attestation_data: Vec<u8>,
     /// Signatures of the attestors
     pub signatures: Vec<Signature>,
@@ -29,6 +31,7 @@ pub fn verify_membership(
     client_state: &ClientState,
     height: u64,
     proof: Vec<u8>,
+    value: Vec<u8>,
 ) -> Result<(), IbcAttestorClientError> {
     let attested_state: Verifyable = serde_json::from_slice(&proof)
         .map_err(IbcAttestorClientError::DeserializeMembershipProofFailed)?;
@@ -45,6 +48,8 @@ pub fn verify_membership(
         &attested_state.signatures,
         &attested_state.pubkeys,
     )?;
+
+    verify_packet_membership::verify_packet_membership(attested_state.attestation_data, value)?;
 
     Ok(())
 }
@@ -63,7 +68,7 @@ pub fn verify_non_membership(
 
 #[cfg(test)]
 mod verify_membership {
-    use crate::test_utils::{DUMMY_DATA, KEYS, SIGS};
+    use crate::test_utils::{KEYS, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS};
 
     use super::*;
 
@@ -82,13 +87,15 @@ mod verify_membership {
 
         let height = cns.height;
         let attestation = Verifyable {
-            attestation_data: DUMMY_DATA.to_vec(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone(),
             pubkeys: KEYS.clone(),
             signatures: SIGS.clone(),
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let res = verify_membership(&cns, &cs, height, as_bytes);
+        let value = serde_json::to_vec(PACKET_COMMITMENTS[0]).unwrap();
+        let res = verify_membership(&cns, &cs, height, as_bytes, value);
+        println!("{:?}", res);
         assert!(res.is_ok());
     }
 
@@ -107,13 +114,14 @@ mod verify_membership {
 
         let bad_height = cns.height + 1;
         let attestation = Verifyable {
-            attestation_data: DUMMY_DATA.to_vec(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
             pubkeys: KEYS.clone(),
             signatures: SIGS.clone(),
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let res = verify_membership(&cns, &cs, bad_height, as_bytes);
+        let value = serde_json::to_vec(PACKET_COMMITMENTS[0]).unwrap();
+        let res = verify_membership(&cns, &cs, bad_height, as_bytes, value);
         assert!(
             matches!(res, Err(IbcAttestorClientError::InvalidProof { reason }) if reason.contains("height"))
         );
@@ -136,7 +144,8 @@ mod verify_membership {
         let attestation = [0, 1, 3].to_vec();
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let res = verify_membership(&cns, &cs, height, as_bytes);
+        let value = serde_json::to_vec(PACKET_COMMITMENTS[0]).unwrap();
+        let res = verify_membership(&cns, &cs, height, as_bytes, value);
         assert!(matches!(
             res,
             Err(IbcAttestorClientError::DeserializeMembershipProofFailed { .. })
@@ -162,13 +171,14 @@ mod verify_membership {
 
         let height = cns.height;
         let attestation = Verifyable {
-            attestation_data: DUMMY_DATA.to_vec(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
             pubkeys: bad_keys,
             signatures: SIGS.clone(),
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let res = verify_membership(&cns, &cs, height, as_bytes);
+        let value = serde_json::to_vec(PACKET_COMMITMENTS[0]).unwrap();
+        let res = verify_membership(&cns, &cs, height, as_bytes, value);
         assert!(matches!(
             res,
             Err(IbcAttestorClientError::InvalidAttestedData { reason }) if reason.contains("keys")

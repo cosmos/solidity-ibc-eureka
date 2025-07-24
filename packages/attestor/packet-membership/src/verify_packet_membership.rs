@@ -1,6 +1,5 @@
 //! Generic function and data structures for verifying
 //! the membership of IBC packets in a packet attestation.
-use borsh::from_slice;
 
 use crate::PacketAttestationError;
 
@@ -15,10 +14,10 @@ pub fn verify_packet_membership(
     proof: Vec<u8>,
     value: Vec<u8>,
 ) -> Result<(), PacketAttestationError> {
-    let proof_packets: Vec<Vec<u8>> =
-        from_slice(&proof).map_err(|e| PacketAttestationError::BorshDeserializationError(e))?;
-    let value_packet: Vec<u8> =
-        from_slice(&value).map_err(|e| PacketAttestationError::BorshDeserializationError(e))?;
+    let proof_packets: Vec<Vec<u8>> = serde_json::from_slice(&proof)
+        .map_err(|e| PacketAttestationError::SerdeDeserializationError(e))?;
+    let value_packet: Vec<u8> = serde_json::from_slice(&value)
+        .map_err(|e| PacketAttestationError::SerdeDeserializationError(e))?;
 
     if proof_packets
         .iter()
@@ -37,7 +36,6 @@ pub fn verify_packet_membership(
 #[cfg(test)]
 #[allow(clippy::module_name_repetitions)]
 mod verify_packet_membership {
-    use borsh::to_vec;
     use ibc::core::channel::types::{
         commitment::{compute_packet_commitment, PacketCommitment},
         timeout::{TimeoutHeight, TimeoutTimestamp},
@@ -57,9 +55,9 @@ mod verify_packet_membership {
             .map(|d| compute_packet_commitment(d, &timeout_height, &timeout_timestamp))
             .collect();
 
-        let proof = to_vec(&packets).unwrap();
+        let proof = serde_json::to_vec(&packets).unwrap();
 
-        let value = to_vec(&compute_packet_commitment(
+        let value = serde_json::to_vec(&compute_packet_commitment(
             b"hear, hear!!".as_slice(),
             &timeout_height,
             &timeout_timestamp,
@@ -82,9 +80,9 @@ mod verify_packet_membership {
             .map(|d| compute_packet_commitment(d, &timeout_height, &timeout_timestamp))
             .collect();
 
-        let proof = to_vec(&packets).unwrap();
+        let proof = serde_json::to_vec(&packets).unwrap();
 
-        let value = to_vec(&compute_packet_commitment(
+        let value = serde_json::to_vec(&compute_packet_commitment(
             b"this does not exist".as_slice(),
             &timeout_height,
             &timeout_timestamp,

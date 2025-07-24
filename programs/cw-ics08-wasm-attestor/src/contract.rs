@@ -87,7 +87,15 @@ pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, 
 
 #[cfg(test)]
 mod tests {
-    use attestor_light_client::test_utils::{DUMMY_DATA, KEYS, SIGS};
+    use attestor_light_client::test_utils::{
+        KEYS, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS,
+    };
+    use cosmwasm_std::Binary;
+
+    pub fn membership_value() -> Binary {
+        let value = serde_json::to_vec(PACKET_COMMITMENTS[0]).unwrap();
+        value.into()
+    }
 
     mod instantiate {
 
@@ -199,7 +207,7 @@ mod tests {
         use crate::{
             contract::{
                 instantiate, query, sudo,
-                tests::{DUMMY_DATA, KEYS, SIGS},
+                tests::{membership_value, KEYS, PACKET_COMMITMENTS_ENCODED, SIGS},
             },
             msg::{
                 Height, InstantiateMsg, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
@@ -242,7 +250,7 @@ mod tests {
             let header = Header {
                 new_height: 101,
                 timestamp: 1234567900, // 10 seconds later
-                attestation_data: DUMMY_DATA.to_vec(),
+                attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                 signatures: SIGS.to_vec(),
                 pubkeys: KEYS.to_vec(),
             };
@@ -276,7 +284,7 @@ mod tests {
             // Verify membership for the added state
             let env = mock_env();
             let value = Verifyable {
-                attestation_data: DUMMY_DATA.to_vec(),
+                attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                 signatures: SIGS.to_vec(),
                 pubkeys: KEYS.to_vec(),
             };
@@ -286,15 +294,17 @@ mod tests {
                     revision_number: 0,
                     revision_height: consensus_state.height,
                 },
-                value: as_bytes.into(),
+                proof: as_bytes.into(),
+                value: membership_value(),
             });
             let res = sudo(deps.as_mut(), env.clone(), msg);
+            println!("{:?}", res);
             assert!(res.is_ok());
 
             // Non existent height fails
             let env = mock_env();
             let value = Verifyable {
-                attestation_data: DUMMY_DATA.to_vec(),
+                attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                 signatures: SIGS.to_vec(),
                 pubkeys: KEYS.to_vec(),
             };
@@ -305,7 +315,8 @@ mod tests {
                     revision_number: 0,
                     revision_height: bad_height,
                 },
-                value: as_bytes.into(),
+                proof: as_bytes.into(),
+                value: membership_value(),
             });
             let res = sudo(deps.as_mut(), env.clone(), msg);
             assert!(matches!(res, Err(ContractError::ConsensusStateNotFound)));
@@ -325,7 +336,8 @@ mod tests {
                     revision_number: 0,
                     revision_height: bad_height,
                 },
-                value: as_bytes.into(),
+                proof: as_bytes.into(),
+                value: membership_value(),
             });
             let res = sudo(deps.as_mut(), env.clone(), msg);
             assert!(matches!(
@@ -370,7 +382,7 @@ mod tests {
                 let header = Header {
                     new_height: consensus_state.height + i,
                     timestamp: consensus_state.timestamp + i,
-                    attestation_data: DUMMY_DATA.to_vec(),
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                     signatures: SIGS.to_vec(),
                     pubkeys: KEYS.to_vec(),
                 };
@@ -441,7 +453,7 @@ mod tests {
                 let header = Header {
                     new_height: consensus_state.height + i,
                     timestamp: consensus_state.timestamp + i,
-                    attestation_data: DUMMY_DATA.to_vec(),
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                     signatures: SIGS.to_vec(),
                     pubkeys: KEYS.to_vec(),
                 };
@@ -480,7 +492,7 @@ mod tests {
                 let header = Header {
                     new_height: consensus_state.height + i,
                     timestamp: consensus_state.timestamp + i,
-                    attestation_data: DUMMY_DATA.to_vec(),
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                     signatures: SIGS.to_vec(),
                     pubkeys: KEYS.to_vec(),
                 };
@@ -516,7 +528,7 @@ mod tests {
                 let env = mock_env();
 
                 let value = Verifyable {
-                    attestation_data: DUMMY_DATA.to_vec(),
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                     signatures: SIGS.to_vec(),
                     pubkeys: KEYS.to_vec(),
                 };
@@ -526,7 +538,8 @@ mod tests {
                         revision_number: 0,
                         revision_height: consensus_state.height + i,
                     },
-                    value: as_bytes.into(),
+                    proof: as_bytes.into(),
+                    value: membership_value(),
                 });
                 let res = sudo(deps.as_mut(), env.clone(), msg);
                 assert!(res.is_ok());
@@ -536,7 +549,7 @@ mod tests {
                 let env = mock_env();
 
                 let value = Verifyable {
-                    attestation_data: DUMMY_DATA.to_vec(),
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                     signatures: SIGS.to_vec(),
                     pubkeys: KEYS.to_vec(),
                 };
@@ -546,7 +559,8 @@ mod tests {
                         revision_number: 0,
                         revision_height: consensus_state.height + i,
                     },
-                    value: as_bytes.into(),
+                    proof: as_bytes.into(),
+                    value: membership_value(),
                 });
                 let res = sudo(deps.as_mut(), env.clone(), msg);
                 assert!(res.is_ok());
@@ -590,7 +604,7 @@ mod tests {
                 let header = Header {
                     new_height: consensus_state.height + i,
                     timestamp: consensus_state.timestamp + i,
-                    attestation_data: DUMMY_DATA.to_vec(),
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                     signatures: SIGS.to_vec(),
                     pubkeys: KEYS.to_vec(),
                 };
@@ -631,7 +645,7 @@ mod tests {
                 let header = Header {
                     new_height: consensus_state.height + i,
                     timestamp: timestamp_with_same_time_as_previous,
-                    attestation_data: DUMMY_DATA.to_vec(),
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                     signatures: SIGS.to_vec(),
                     pubkeys: KEYS.to_vec(),
                 };
@@ -687,7 +701,7 @@ mod tests {
             let header_with_different_ts_for_existing_height = Header {
                 new_height: 100,
                 timestamp: 12345654321,
-                attestation_data: DUMMY_DATA.to_vec(),
+                attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                 signatures: SIGS.to_vec(),
                 pubkeys: KEYS.to_vec(),
             };

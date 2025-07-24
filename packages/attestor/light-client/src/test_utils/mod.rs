@@ -4,7 +4,10 @@ use secp256k1::{ecdsa::Signature, hashes::Hash, Message, PublicKey, SecretKey};
 use std::cell::LazyCell;
 
 #[allow(missing_docs)]
-pub const DUMMY_DATA: [u8; 1] = [0];
+pub const PACKET_COMMITMENTS: [&[u8; 12]; 3] = [b"cosmos rules", b"so does rust", b"hear, hear!!"];
+#[allow(missing_docs)]
+pub const PACKET_COMMITMENTS_ENCODED: LazyCell<Vec<u8>> =
+    LazyCell::new(|| serde_json::to_vec(&PACKET_COMMITMENTS).unwrap());
 #[allow(missing_docs)]
 pub const S_KEYS: LazyCell<[SecretKey; 5]> = LazyCell::new(|| {
     [
@@ -31,7 +34,7 @@ pub const SIGS: LazyCell<Vec<Signature>> = LazyCell::new(|| {
     let sigs = S_KEYS
         .iter()
         .map(|skey| {
-            let digest = secp256k1::hashes::sha256::Hash::hash(&DUMMY_DATA);
+            let digest = secp256k1::hashes::sha256::Hash::hash(&PACKET_COMMITMENTS_ENCODED);
             let message = Message::from_digest(digest.to_byte_array());
             skey.sign_ecdsa(message)
         })

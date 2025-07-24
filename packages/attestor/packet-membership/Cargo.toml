@@ -1,5 +1,5 @@
 [package]
-name = "packet-membership"
+name = "attestor-packet-membership"
 version = { workspace = true }
 edition = { workspace = true }
 repository = { workspace = true }
@@ -8,11 +8,10 @@ repository = { workspace = true }
 default = []
 
 [dependencies]
-borsh = { workspace = true, features = ["std"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 schemars = { workspace = true }
 
 [dev-dependencies]
-ibc = { workspace = true, features = ["borsh"] }
+ibc = { workspace = true, features = ["serde"] }

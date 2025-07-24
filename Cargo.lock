@@ -1383,6 +1383,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 name = "attestor-light-client"
 version = "0.1.0"
 dependencies = [
+ "attestor-packet-membership",
  "hex",
  "prost",
  "schemars 0.8.22",
@@ -1390,6 +1391,17 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "attestor-packet-membership"
+version = "0.1.0"
+dependencies = [
+ "ibc",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
  "thiserror 2.0.12",
 ]
 
@@ -4129,6 +4141,7 @@ checksum = "57cad93b5e1074c1f7b8dcea6099640b5a725a8a1dde957b00e89685eb2c0151"
 dependencies = [
  "ibc-app-transfer-types",
  "ibc-core",
+ "serde-json-wasm",
 ]
 
 [[package]]
@@ -4137,12 +4150,12 @@ version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "364c7eb9dc122a279cafb5cd9eb1c459a1902a3c9a1e107f8d3037ca97ab4a5c"
 dependencies = [
- "borsh",
  "derive_more 1.0.0",
  "displaydoc",
  "ibc-core",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "primitive-types 0.13.1",
+ "serde",
  "uint 0.10.0",
 ]
 
@@ -4200,6 +4213,7 @@ dependencies = [
  "ibc-core-handler-types",
  "ibc-core-host",
  "ibc-primitives",
+ "serde",
  "tendermint",
  "tendermint-light-client-verifier",
 ]
@@ -4210,7 +4224,6 @@ version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa16efb7dc6d7b73d483e55553e6c69eeaf0b82384b464514c52fe813d3c55d2"
 dependencies = [
- "borsh",
  "displaydoc",
  "ibc-core-client-types",
  "ibc-core-commitment-types",
@@ -4235,6 +4248,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
 ]
 
 [[package]]
@@ -4286,7 +4300,6 @@ version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "681d986a6943683ef16fbaab8295125bf795ab4e15a1909eccb8574bb4567f10"
 dependencies = [
- "borsh",
  "derive_more 1.0.0",
  "displaydoc",
  "ibc-core-client-types",
@@ -4295,6 +4308,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
  "sha2 0.10.9",
  "subtle-encoding",
  "tendermint",
@@ -4337,7 +4351,6 @@ version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f741122f7504846a6099d41244687e5db3235b7ce5f651de8a552489c1f5c9a"
 dependencies = [
- "borsh",
  "derive_more 1.0.0",
  "displaydoc",
  "ibc-core-commitment-types",
@@ -4355,7 +4368,6 @@ version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ba35d2bde395cff6ddbf550d604c3098903e661430588995b1e5f8db1f2e1d1"
 dependencies = [
- "borsh",
  "derive_more 1.0.0",
  "displaydoc",
  "ibc-core-host-types",
@@ -4385,7 +4397,6 @@ version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2eed5ea03d3900f89b3b498c7f2ff83ca50c2f4f76cebc339bfa5ecb2f0ffc1"
 dependencies = [
- "borsh",
  "derive_more 1.0.0",
  "displaydoc",
  "ibc-core-client-types",
@@ -4393,6 +4404,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
  "subtle-encoding",
  "tendermint",
 ]
@@ -4419,7 +4431,6 @@ version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "426cdb98d683cf8f65b1ebb7638fd4e8a35e1718aa143bcf895636ee34c68385"
 dependencies = [
- "borsh",
  "derive_more 1.0.0",
  "displaydoc",
  "ibc-core-channel-types",
@@ -4430,6 +4441,7 @@ dependencies = [
  "ibc-core-router-types",
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
  "subtle-encoding",
  "tendermint",
 ]
@@ -4459,7 +4471,6 @@ version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d06697cc443a9ad99a6063e10ae08bf0aa78a72ba9e4e46fd6db8ee1c511b66f"
 dependencies = [
- "borsh",
  "derive_more 1.0.0",
  "displaydoc",
  "ibc-app-transfer-types",
@@ -4472,6 +4483,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
  "sha2 0.10.9",
  "subtle-encoding",
  "tendermint",
@@ -4484,7 +4496,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5879fb43b0789f42919b7965a93f8a18a08eaa39bf624fbaf837d8673ef1ecdc"
 dependencies = [
  "base64 0.22.1",
- "borsh",
  "derive_more 1.0.0",
  "displaydoc",
  "ibc-primitives",
@@ -4513,12 +4524,12 @@ version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61cdfb5f8f7986ac50941f556c16d46e81cdf3529b257be1ab3beca8281f953e"
 dependencies = [
- "borsh",
  "derive_more 1.0.0",
  "displaydoc",
  "ibc-core-host-types",
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
  "subtle-encoding",
  "tendermint",
 ]
@@ -4632,7 +4643,6 @@ version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ff3dab00855e9ab99fa7276814bd29b0350f2da70b3e9f67f1d86f4e269655b"
 dependencies = [
- "borsh",
  "derive_more 1.0.0",
  "displaydoc",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -6015,18 +6025,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c2c2010678b9332b563eaa38364915b585c1a94b5ca61e2c7541c087ddda5c"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "packet-membership"
-version = "0.1.0"
-dependencies = [
- "borsh",
- "ibc",
- "schemars 0.8.22",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -10504,7 +10502,6 @@ version = "0.40.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2c40e13d39ca19082d8a7ed22de7595979350319833698f8b1080f29620a094"
 dependencies = [
- "borsh",
  "bytes",
  "flex-error",
  "prost",

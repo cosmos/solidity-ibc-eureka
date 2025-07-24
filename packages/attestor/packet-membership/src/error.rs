@@ -4,9 +4,9 @@ use thiserror::Error;
 /// Collection of errors that can occur when
 /// verifying packet memebership.
 pub enum PacketAttestationError {
-    #[error("unable to deserialize packets from borsh byte schema {0}")]
+    #[error("unable to deserialize packets from serde json byte schema {0}")]
     /// Packet cannot be deserialized from bytes
-    BorshDeserializationError(#[source] std::io::Error),
+    SerdeDeserializationError(#[source] serde_json::Error),
     #[error("verification failed: {reason}")]
     /// Packet cannot be deserialized from bytes
     VerificiationFailed {

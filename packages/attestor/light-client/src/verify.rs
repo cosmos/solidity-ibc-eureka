@@ -84,7 +84,7 @@ pub fn verify_header(
 
 #[cfg(test)]
 mod verify_header {
-    use crate::test_utils::{DUMMY_DATA, KEYS, SIGS};
+    use crate::test_utils::{KEYS, PACKET_COMMITMENTS_ENCODED, SIGS};
     use secp256k1::{hashes::Hash, Message, PublicKey, SecretKey};
 
     use super::*;
@@ -104,7 +104,7 @@ mod verify_header {
         let header = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: SIGS.clone(),
             pubkeys: KEYS.clone().into(),
         };
@@ -130,7 +130,7 @@ mod verify_header {
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: too_few_sigs,
             pubkeys: KEYS.clone().into(),
         };
@@ -159,7 +159,7 @@ mod verify_header {
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: SIGS.to_vec(),
             pubkeys: too_few_keys,
         };
@@ -186,7 +186,7 @@ mod verify_header {
         let rogue_sig =
             SecretKey::from_byte_array([0x04; 32]).expect("32 bytes, within curve order");
 
-        let digest = secp256k1::hashes::sha256::Hash::hash(&DUMMY_DATA);
+        let digest = secp256k1::hashes::sha256::Hash::hash(&PACKET_COMMITMENTS_ENCODED);
         let message = Message::from_digest(digest.to_byte_array());
         let rogue_sig = rogue_sig.sign_ecdsa(message);
 
@@ -196,7 +196,7 @@ mod verify_header {
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: bad_sigs,
             pubkeys: KEYS.clone().into(),
         };
@@ -220,7 +220,7 @@ mod verify_header {
 
         let rogue_key =
             SecretKey::from_byte_array([0x04; 32]).expect("32 bytes, within curve order");
-        let digest = secp256k1::hashes::sha256::Hash::hash(&DUMMY_DATA);
+        let digest = secp256k1::hashes::sha256::Hash::hash(&PACKET_COMMITMENTS_ENCODED);
         let message = Message::from_digest(digest.to_byte_array());
         let rogue_sig = rogue_key.sign_ecdsa(message);
         let mut valid_sigs_with_rogue_signer = SIGS.clone();
@@ -233,7 +233,7 @@ mod verify_header {
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: valid_sigs_with_rogue_signer,
             pubkeys: rogue_keys.to_vec(),
         };
@@ -264,7 +264,7 @@ mod verify_header {
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: bad_sigs,
             pubkeys: KEYS.clone().into(),
         };
@@ -294,7 +294,7 @@ mod verify_header {
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: SIGS.clone(),
             pubkeys: bad_keys.to_vec(),
         };
@@ -320,7 +320,7 @@ mod verify_header {
         let bad_ts = Header {
             new_height: cns.height,
             timestamp: cns.timestamp + 1,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: SIGS.clone(),
             pubkeys: KEYS.clone().into(),
         };
@@ -354,7 +354,7 @@ mod verify_header {
         let not_inbetween = Header {
             new_height: 100 + 1,
             timestamp: next.timestamp + 3,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: SIGS.clone(),
             pubkeys: KEYS.clone().into(),
         };
@@ -367,7 +367,7 @@ mod verify_header {
         let not_before = Header {
             new_height: 100 - 1,
             timestamp: next.timestamp + 3,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: SIGS.clone(),
             pubkeys: KEYS.clone().into(),
         };
@@ -380,7 +380,7 @@ mod verify_header {
         let not_after = Header {
             new_height: 100 + 3,
             timestamp: prev.timestamp - 1,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: SIGS.clone(),
             pubkeys: KEYS.clone().into(),
         };
@@ -414,7 +414,7 @@ mod verify_header {
         let inbetween = Header {
             new_height: 100 + 1,
             timestamp: 123456789 + 1,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: SIGS.clone(),
             pubkeys: KEYS.clone().into(),
         };
@@ -425,7 +425,7 @@ mod verify_header {
         let before = Header {
             new_height: 100 - 1,
             timestamp: 123456789 - 1,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: SIGS.clone(),
             pubkeys: KEYS.clone().into(),
         };
@@ -436,7 +436,7 @@ mod verify_header {
         let after = Header {
             new_height: 100 + 3,
             timestamp: prev.timestamp + 3,
-            attestation_data: DUMMY_DATA.clone().into(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone().into(),
             signatures: SIGS.clone(),
             pubkeys: KEYS.clone().into(),
         };

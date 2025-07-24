@@ -9,6 +9,7 @@ default = []
 test-utils = ["dep:prost"]
 
 [dependencies]
+attestor-packet-membership = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

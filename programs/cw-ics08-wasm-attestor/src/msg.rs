@@ -91,6 +91,8 @@ pub struct VerifyMembershipMsg {
     /// The proof height
     pub height: Height,
     /// The proof bytes
+    pub proof: Binary,
+    /// The value to verify against the proof
     pub value: Binary,
 }
 
