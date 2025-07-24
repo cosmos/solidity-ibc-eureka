@@ -3,7 +3,6 @@ members = [
     "programs/ics07-tendermint",
     "programs/ics26-router",
     "solana-light-client-interface",
-    "tests",
 ]
 resolver = "2"
 

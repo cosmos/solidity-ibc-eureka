@@ -44,3 +44,152 @@ pub fn initialize(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::IbcHeight;
+    use anchor_lang::InstructionData;
+    use mollusk_svm::Mollusk;
+    use solana_sdk::account::Account;
+    use solana_sdk::instruction::{AccountMeta, Instruction};
+    use solana_sdk::pubkey::Pubkey;
+    use solana_sdk::{native_loader, system_program};
+
+    #[test]
+    fn test_initialize_happy_path() {
+        let chain_id = "test-chain";
+        let client_state = ClientState {
+            chain_id: chain_id.to_string(),
+            trust_level_numerator: 1,
+            trust_level_denominator: 3,
+            trusting_period: 1000,
+            unbonding_period: 2000,
+            max_clock_drift: 5,
+            frozen_height: IbcHeight {
+                revision_number: 0,
+                revision_height: 0,
+            },
+            latest_height: IbcHeight {
+                revision_number: 0,
+                revision_height: 42,
+            },
+        };
+
+        let consensus_state = ConsensusState {
+            timestamp: 123456789,
+            root: [0u8; 32],
+            next_validators_hash: [1u8; 32],
+        };
+
+        let payer = Pubkey::new_unique();
+
+        let (client_state_pda, _) =
+            Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID);
+
+        let latest_height = client_state.latest_height.revision_height;
+        let (consensus_state_store_pda, _) = Pubkey::find_program_address(
+            &[
+                b"consensus_state",
+                client_state_pda.as_ref(),
+                &latest_height.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let instruction_data = crate::instruction::Initialize {
+            chain_id: chain_id.to_string(),
+            latest_height,
+            client_state: client_state.clone(),
+            consensus_state: consensus_state.clone(),
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(consensus_state_store_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let payer_lamports = 10_000_000_000;
+        let accounts = vec![
+            (
+                client_state_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                consensus_state_store_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: payer_lamports,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        // Create Mollusk instance with the program
+        // The compiled program is in the workspace target/deploy directory
+        let mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+
+        match result.program_result {
+            mollusk_svm::result::ProgramResult::Success => {}
+            _ => panic!("Initialize instruction failed: {:?}", result.program_result),
+        }
+
+        // Verify client state account was created and initialized
+        let client_state_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &client_state_pda)
+            .map(|(_, account)| account)
+            .expect("Client state account not found");
+
+        assert_eq!(client_state_account.owner, crate::ID);
+        assert!(client_state_account.lamports > 0);
+
+        // Verify consensus state store account was created and initialized
+        let consensus_state_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &consensus_state_store_pda)
+            .map(|(_, account)| account)
+            .expect("Consensus state store account not found");
+
+        assert_eq!(consensus_state_account.owner, crate::ID);
+        assert!(consensus_state_account.lamports > 0);
+    }
+}
