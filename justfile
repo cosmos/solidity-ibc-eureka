@@ -42,7 +42,7 @@ build-relayer-image:
 start-aggregator-services *flags="":
     @just stop-aggregator-services
     @echo "🚀 Starting IBC Attestor and Sig-Aggregator services..."
-    @cd programs/sig-aggregator && COMPOSE_BAKE=true docker compose up {{ if flags =~ "--build" { "--build" } else { "" } }} -d --wait
+    @cd programs/sig-aggregator && COMPOSE_BAKE=true docker compose up {{ if flags =~ "--no-build" { "" } else { "--build" } }} -d --wait
 
 # Stop the attestor and aggregator services
 [group('run')]
