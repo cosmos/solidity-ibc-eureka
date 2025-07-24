@@ -28,7 +28,7 @@ cargo build --release
 
     a. Run `cargo run -- server --config config.example.toml`
 
-    b. Query `grpcurl -plaintext -d '{"min_height": 394277673}' localhost:50060 aggregator.Aggregator.GetAggregateAttestation | jq`
+    b. Query `grpcurl -plaintext -d '{"min_height": 394277673}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq`
 
 ## Docker Setup
 
@@ -39,7 +39,7 @@ This directory contains a complete Docker Compose setup for running 3 IBC attest
 From the workspace root:
 
 ```sh
-# Start all services (docker-compose handles all health checking internally)
+# Start all three attestor and one aggregator
 just start-aggregator-services
 
 # Test the services
@@ -61,20 +61,7 @@ docker-compose down --volumes
 
 The setup includes:
 
-- **3 IBC Attestor instances** on ports 8080, 8081, 8082
-- **1 Sig-Aggregator** on port 50060 (requires 2/3 quorum)
+- **3 IBC Attestor instances** on ports 9000, 9001, 9002
+- **1 Sig-Aggregator** on port 8080 (requires 2/3 quorum)
 
 Configuration files are in the `config/` directory.
-
-### Health Checks
-
-The docker-compose setup includes reliable health checks:
-
-- **Attestor health checks**: Verify each attestor's gRPC server is listening and accepting connections
-- **Aggregator health check**: Verifies the aggregator's gRPC server is listening and accepting connections  
-- **Startup orchestration**: The aggregator only starts after all attestors are healthy
-- **Wait flag support**: Using `--wait` ensures the command only returns when all services are fully ready
-
-The health checks use basic TCP connectivity tests, which are reliable and fast. Functional testing is handled by the test script after startup.
-
-When `docker-compose up --wait` completes, all services are guaranteed to be ready for use.

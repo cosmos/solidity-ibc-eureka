@@ -37,34 +37,12 @@ build-cw-ics08-wasm-eth:
 build-relayer-image:
     docker build -t eureka-relayer:latest -f programs/relayer/Dockerfile .
 
-# Build the ibc-attestor docker image
-[group('build')]
-build-ibc-attestor-image:
-    docker build -t eureka-ibc-attestor:latest -f programs/ibc-attestor/Dockerfile .
-
-# Build the sig-aggregator docker image
-[group('build')]
-build-sig-aggregator-image:
-    docker build -t eureka-sig-aggregator:latest -f programs/sig-aggregator/Dockerfile .
-
 # Start the attestor and aggregator services using Docker Compose
 [group('run')]
-start-aggregator-services:
+start-aggregator-services *flags="":
     @just stop-aggregator-services
     @echo "🚀 Starting IBC Attestor and Sig-Aggregator services..."
-    @cd programs/sig-aggregator && docker-compose up --build -d --wait
-    @echo ""
-    @echo "🎉 All services are up and running!"
-    @echo ""
-    @echo "Service URLs:"
-    @echo "  • IBC Attestor 1: gRPC on localhost:9000"
-    @echo "  • IBC Attestor 2: gRPC on localhost:9001" 
-    @echo "  • IBC Attestor 3: gRPC on localhost:9002"
-    @echo "  • Sig-Aggregator: gRPC on localhost:8080"
-    @echo ""
-    @echo "Test the setup with: just test-aggregator-services"
-    @echo "View logs with: cd programs/sig-aggregator && docker-compose logs -f"
-    @echo "Stop services with: just stop-aggregator-services"
+    @cd programs/sig-aggregator && COMPOSE_BAKE=true docker compose up {{ if flags =~ "--build" { "--build" } else { "" } }} -d --wait
 
 # Stop the attestor and aggregator services
 [group('run')]
@@ -73,17 +51,15 @@ stop-aggregator-services:
 
 # Test the attestor and aggregator services
 [group('run')]
-test-aggregator-services:
+test-aggregator-services *flags="":
     # TODO: point to e2e test when we have one.
     @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
         echo "✅ Services are already running, proceeding with tests..."; \
     else \
         echo "🚀 Services not running, starting them..."; \
-        just start-aggregator-services; \
+        just start-aggregator-services {{ flags }}; \
     fi
-    @echo "✅ Testing aggregator service..."
     @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
-        echo "🎉 Aggregator service is reachable, testing GetAggregateAttestation..."; \
         grpcurl -plaintext -d '{"min_height": 100}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq; \
     else \
         echo "❌ Aggregator service is not reachable. Check logs with: cd programs/sig-aggregator && docker-compose logs"; \
