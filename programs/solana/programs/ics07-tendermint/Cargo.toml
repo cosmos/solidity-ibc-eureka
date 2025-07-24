@@ -45,7 +45,7 @@ tendermint.workspace = true
 time = { workspace = true, features = ["macros"] }
 
 [dev-dependencies]
-mollusk-svm = "0.4.1"
-mollusk-svm-bencher = "0.4.1"
-solana-sdk = "2.3.1"
+mollusk-svm.workspace = true
+mollusk-svm-bencher.workspace = true
+solana-sdk.workspace = true
 
