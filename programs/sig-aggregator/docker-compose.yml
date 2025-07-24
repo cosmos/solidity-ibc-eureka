@@ -9,7 +9,6 @@ services:
     command:
       - |
         ibc_attestor key generate || true
-        echo "✅ IBC Attestor 1 starting server on port 9000..."
         ibc_attestor server solana --config /tmp/attestor.toml
     ports:
       - "9000:9000"
@@ -33,7 +32,6 @@ services:
     command:
       - |
         ibc_attestor key generate || true
-        echo "✅ IBC Attestor 2 starting server on port 9001..."
         ibc_attestor server solana --config /tmp/attestor.toml
     ports:
       - "9001:9001"
@@ -57,7 +55,6 @@ services:
     command:
       - |
         ibc_attestor key generate || true
-        echo "✅ IBC Attestor 3 starting server on port 9002..."
         ibc_attestor server solana --config /tmp/attestor.toml
     ports:
       - "9002:9002"
@@ -84,9 +81,7 @@ services:
         condition: service_healthy
     entrypoint: ["/bin/bash", "-c"]
     command:
-      - |
-        echo "✅ Starting aggregator server on port 8080..."
-        aggregator server --config /tmp/aggregator.toml
+      - aggregator server --config /tmp/aggregator.toml
     ports:
       - "8080:8080"
     environment:
