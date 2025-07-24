@@ -13,8 +13,6 @@ RUN cargo build --bin aggregator --release --locked
 
 FROM debian:bullseye-slim
 
-ARG PORT
-
 RUN apt-get update && apt-get install -y \
     ca-certificates
 
