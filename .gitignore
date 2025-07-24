@@ -28,6 +28,7 @@ broadcast/*/31337/
 .idea/
 *.iml
 CLAUDE.md
+*.code-workspace
 
 # Rust
 target
