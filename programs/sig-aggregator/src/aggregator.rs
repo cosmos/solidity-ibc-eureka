@@ -7,45 +7,56 @@ use crate::{
         AttestationsFromHeightResponse,
     },
 };
-
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::future::join_all;
+use std::sync::Arc;
 use tokio::{
     sync::{Mutex, RwLock},
     time::{timeout, Duration},
 };
 use tonic::{transport::Channel, Request, Response, Status};
+use tracing::{error, instrument};
 
 #[derive(Debug)]
 pub struct AggregatorService {
-    config: AttestorConfig,
+    config: Arc<AttestorConfig>,
     attestor_clients: Vec<Mutex<AttestationServiceClient<Channel>>>,
-    cached_height: RwLock<AggregateResponse>,
+    cached_response: RwLock<Option<AggregateResponse>>,
 }
 
 impl AggregatorService {
     pub async fn from_config(config: AttestorConfig) -> anyhow::Result<Self> {
-        let mut attestor_clients = Vec::new();
+        let mut attestor_clients = Vec::with_capacity(config.attestor_endpoints.len());
 
         for endpoint in &config.attestor_endpoints {
-            let client = AttestationServiceClient::connect(endpoint.to_string()).await?;
+            let client = AttestationServiceClient::connect(endpoint.clone()).await?;
             attestor_clients.push(Mutex::new(client));
         }
 
         Ok(Self {
-            config,
+            config: Arc::new(config),
             attestor_clients,
-            cached_height: RwLock::new(AggregateResponse {
-                height: 0,
-                state: vec![],
-                sig_pubkey_pairs: vec![],
-            }),
+            cached_response: RwLock::new(None),
         })
+    }
+
+    async fn get_cached_response(&self, min_height: u64) -> Option<AggregateResponse> {
+        let cached = self.cached_response.read().await;
+        cached.as_ref()
+            .filter(|resp| resp.height >= min_height)
+            .cloned()
+    }
+
+    async fn update_cache(&self, new_resp: &AggregateResponse) {
+        let mut cached = self.cached_response.write().await;
+        if cached.as_ref().is_none_or(|c| new_resp.height > c.height) {
+            *cached = Some(new_resp.clone());
+        }
     }
 }
 
 #[tonic::async_trait]
 impl Aggregator for AggregatorService {
-    #[tracing::instrument(skip_all, fields(min_height = request.get_ref().min_height))]
+    #[instrument(skip_all, fields(min_height = request.get_ref().min_height))]
     async fn get_aggregate_attestation(
         &self,
         request: Request<AggregateRequest>,
@@ -53,28 +64,20 @@ impl Aggregator for AggregatorService {
         let min_height = request.into_inner().min_height;
 
         // Check cache first
-        {
-            let cached_height = self.cached_height.read().await;
-            if min_height <= cached_height.height {
-                return Ok(Response::new(cached_height.clone()));
-            }
+        if let Some(cached_response) = self.get_cached_response(min_height).await {
+            return Ok(Response::new(cached_response));
         }
 
         let responses = self.query_all_attestors(min_height).await?;
-
         let aggregate_response = self.process_attestor_responses(responses).await?;
 
         if aggregate_response.height < min_height {
-            return Err(Status::not_found(
-                format!("No valid attestations found for height >= {min_height}")
-            ));
+            return Err(Status::not_found(format!(
+                "No valid attestations found for height >= {min_height}"
+            )));
         }
 
-        // Update cache if we have a newer height
-        {
-            let mut cached_height = self.cached_height.write().await;
-            *cached_height = aggregate_response.clone();
-        }
+        self.update_cache(&aggregate_response).await;
 
         Ok(Response::new(aggregate_response))
     }
@@ -86,36 +89,39 @@ impl AggregatorService {
         &self,
         min_height: u64,
     ) -> Result<Vec<AttestationsFromHeightResponse>, Status> {
-        let mut futs = FuturesUnordered::new();
         let timeout_duration = Duration::from_millis(self.config.attestor_query_timeout_ms);
 
-        // Create futures for all attestor queries
-        for client in self.attestor_clients.iter() {
-            let mut client = client.lock().await;
-            let req = Request::new(AttestationsFromHeightRequest { height: min_height });
+        let query_futures = self.attestor_clients.iter().enumerate().map(|(i, client)| {
+            let endpoint = &self.config.attestor_endpoints[i];
 
-            futs.push(async move {
-                let response = timeout(timeout_duration, client.get_attestations_from_height(req)).await;
+            async move {
+                let mut client = client.lock().await;
+                let request = Request::new(AttestationsFromHeightRequest { height: min_height });
+                let response = timeout(timeout_duration, client.get_attestations_from_height(request)).await;
+
                 match response {
-                    Ok(Ok(inner_resp)) => Ok(inner_resp.into_inner()),
+                    Ok(Ok(response)) => Ok(response.into_inner()),
                     Ok(Err(status)) => Err(status),
                     Err(_) => Err(Status::deadline_exceeded(format!(
-                        "Request timed out after {timeout_duration:?}"
+                        "Request to {endpoint} timed out after {timeout_duration:?}"
                     ))),
                 }
-            });
-        }
-
-        let mut successful_responses = Vec::new();
-
-        while let Some(result) = futs.next().await {
-            match result {
-                Ok(response) => successful_responses.push(response),
-                Err(e) => {
-                    tracing::error!("Attestor query failed: {e}");
-                }
             }
-        }
+        });
+
+
+        let results = join_all(query_futures).await;
+
+        let successful_responses = results
+            .into_iter()
+            .filter_map(|result| match result {
+                Ok(response) => Some(response),
+                Err(e) => {
+                    error!(error = %e, "Attestor query failed, continuing with other responses");
+                    None
+                }
+            })
+            .collect();
 
         Ok(successful_responses)
     }
@@ -131,10 +137,9 @@ impl AggregatorService {
             attestator_data.insert(response);
         }
 
-        attestator_data.get_latest(self.config.quorum_threshold)
-            .ok_or(Status::failed_precondition(
-                format!("Quorum not met: required {}", self.config.quorum_threshold)
-            ))
+        attestator_data
+            .get_latest(self.config.quorum_threshold)
+            .ok_or(Status::failed_precondition("Quorum not met"))
     }
 }
 
