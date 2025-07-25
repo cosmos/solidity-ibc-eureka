@@ -1,13 +1,12 @@
 use crate::{
     aggregator::AggregatorService,
     config::ServerConfig,
-    error::Result,
     rpc::{aggregator_server::AggregatorServer, AGG_FILE_DESCRIPTOR},
 };
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 
 /// Starts the [AggregatorService] RPC server with the provided configuration.
-pub async fn start(service: AggregatorService, config: ServerConfig) -> Result<()> {
+pub async fn start(service: AggregatorService, config: ServerConfig) -> anyhow::Result<()> {
     tracing::info!("Starting aggregator server on {}", config.listener_addr);
 
     let socket_addr = config.listener_addr;

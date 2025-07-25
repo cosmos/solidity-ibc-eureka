@@ -1,4 +1,4 @@
-use crate::error::{AggregatorError, Result};
+use crate::error::AggregatorError;
 use serde::Deserialize;
 use std::{fs, net::SocketAddr, path::Path, str::FromStr};
 use tracing::Level;
@@ -13,23 +13,18 @@ pub struct Config {
 
 impl Config {
     /// Load configuration from a TOML file.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
         let path = path.as_ref();
-        let content = fs::read_to_string(path).map_err(|e| {
-            AggregatorError::Config(format!("Failed to read config file {e:?}"))
-        })?;
-
-        let config: Config = toml::from_str(&content).map_err(|e| {
-            AggregatorError::Config(format!("Invalid TOML {e:?}"))
-        })?;
-
+        let content = fs::read_to_string(path)?;
+        let config: Config = toml::from_str(&content)?;
+        config.validate()?;
         Ok(config)
     }
 
-    pub fn validate(&self) -> Result<()> {
+    #[allow(clippy::result_large_err)]
+    pub fn validate(&self) -> anyhow::Result<()> {
         self.server.validate()?;
         self.attestor.validate()?;
-
         Ok(())
     }
 }
@@ -42,7 +37,8 @@ pub struct AttestorConfig {
 }
 
 impl AttestorConfig {
-    pub fn validate(&self) -> Result<()> {
+    #[allow(clippy::result_large_err)]
+    pub fn validate(&self) -> Result<(), AggregatorError> {
         // Validate quorum threshold
         if self.quorum_threshold == 0 {
             return Err(AggregatorError::Config("quorum_threshold must be greater than 0".to_string()));
@@ -94,7 +90,8 @@ pub struct ServerConfig {
 }
 
 impl ServerConfig {
-    pub fn validate(&self) -> Result<()> {
+    #[allow(clippy::result_large_err)]
+    pub fn validate(&self) -> Result<(), AggregatorError> {
         if !self.log_level.is_empty() {
             Level::from_str(&self.log_level).map_err(|_| {
                 AggregatorError::Config(format!(

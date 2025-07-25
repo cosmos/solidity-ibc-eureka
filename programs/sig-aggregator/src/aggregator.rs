@@ -1,7 +1,6 @@
 use crate::{
     attestor_data::AttestatorData,
     config::AttestorConfig,
-    error::{AggregatorError, Result},
     rpc::{
         aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient,
         AggregateRequest, AggregateResponse, AttestationsFromHeightRequest,
@@ -24,7 +23,7 @@ pub struct AggregatorService {
 }
 
 impl AggregatorService {
-    pub async fn from_config(config: AttestorConfig) -> Result<Self> {
+    pub async fn from_config(config: AttestorConfig) -> anyhow::Result<Self> {
         let mut attestor_clients = Vec::new();
 
         for endpoint in &config.attestor_endpoints {
@@ -66,7 +65,9 @@ impl Aggregator for AggregatorService {
         let aggregate_response = self.process_attestor_responses(responses).await?;
 
         if aggregate_response.height < min_height {
-            return Err(AggregatorError::NoAttestationsFound(min_height).into());
+            return Err(Status::not_found(
+                format!("No valid attestations found for height >= {min_height}")
+            ));
         }
 
         // Update cache if we have a newer height
@@ -84,7 +85,7 @@ impl AggregatorService {
     async fn query_all_attestors(
         &self,
         min_height: u64,
-    ) -> Result<Vec<AttestationsFromHeightResponse>> {
+    ) -> Result<Vec<AttestationsFromHeightResponse>, Status> {
         let mut futs = FuturesUnordered::new();
         let timeout_duration = Duration::from_millis(self.config.attestor_query_timeout_ms);
 
@@ -97,8 +98,10 @@ impl AggregatorService {
                 let response = timeout(timeout_duration, client.get_attestations_from_height(req)).await;
                 match response {
                     Ok(Ok(inner_resp)) => Ok(inner_resp.into_inner()),
-                    Ok(Err(status)) => Err(AggregatorError::GrpcStatus(status)),
-                    Err(_) => Err(AggregatorError::Timeout(timeout_duration.as_millis() as u64)),
+                    Ok(Err(status)) => Err(status),
+                    Err(_) => Err(Status::deadline_exceeded(format!(
+                        "Request timed out after {timeout_duration:?}"
+                    ))),
                 }
             });
         }
@@ -121,7 +124,7 @@ impl AggregatorService {
     async fn process_attestor_responses(
         &self,
         responses: Vec<AttestationsFromHeightResponse>,
-    ) -> Result<AggregateResponse> {
+    ) -> Result<AggregateResponse, Status> {
         let mut attestator_data = AttestatorData::new();
 
         for response in responses {
@@ -129,7 +132,9 @@ impl AggregatorService {
         }
 
         attestator_data.get_latest(self.config.quorum_threshold)
-            .ok_or(AggregatorError::QuorumNotMet(self.config.quorum_threshold))
+            .ok_or(Status::failed_precondition(
+                format!("Quorum not met: required {}", self.config.quorum_threshold)
+            ))
     }
 }
 
@@ -239,10 +244,8 @@ mod e2e_tests {
         // 4. Assert: Can not reach quorum due to timeouts
         assert!(response.is_err());
         let status = response.unwrap_err();
-        assert_eq!(status.code(), tonic::Code::Internal);
-        assert!(status
-            .message()
-            .contains("No attestors responded successfully"));
+        assert_eq!(status.code(), tonic::Code::FailedPrecondition);
+        assert!(status.message().contains("Quorum not met"));
     }
 }
 
