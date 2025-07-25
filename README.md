@@ -183,7 +183,7 @@ You may need these additional tools to develop on this project:
 
 - [Natlint](https://docs.rs/crate/natlint/latest)
 - [Abigen](https://geth.ethereum.org/docs/tools/abigen)
-- [golanci-lint](https://golangci-lint.run/welcome/install/#local-installation)
+- [golangci-lint](https://golangci-lint.run/welcome/install/#local-installation)
 - [jq](https://jqlang.org/)
 - [GNU Parallel](https://www.gnu.org/software/parallel/)
 
