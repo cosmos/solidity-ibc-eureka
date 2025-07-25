@@ -1383,14 +1383,19 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 name = "attestor-light-client"
 version = "0.1.0"
 dependencies = [
- "hex",
- "prost",
- "schemars 0.8.22",
+ "attestor-packet-membership",
  "secp256k1 0.31.1",
  "serde",
  "serde_json",
- "sha2 0.10.9",
- "solana-sdk",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "attestor-packet-membership"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
  "thiserror 2.0.12",
 ]
 
@@ -2458,7 +2463,6 @@ dependencies = [
  "hex",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
- "secp256k1 0.31.1",
  "serde",
  "serde_json",
  "solana-sdk",

@@ -40,11 +40,9 @@ pub fn instantiate(
 pub fn sudo(deps: DepsMut, _env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     let result = match msg {
         SudoMsg::UpdateState(update_state_msg) => sudo::update_state(deps, update_state_msg)?,
-        SudoMsg::UpdateStateOnMisbehaviour(_) => {
-            todo!()
+        SudoMsg::VerifyMembership(verify_membership_msg) => {
+            sudo::verify_membership(deps, verify_membership_msg)?
         }
-        SudoMsg::VerifyUpgradeAndUpdateState(_) => todo!(),
-        SudoMsg::MigrateClientStore(_) => todo!(),
     };
 
     Ok(Response::default().set_data(result))
@@ -89,48 +87,60 @@ pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, 
 
 #[cfg(test)]
 mod tests {
-    use secp256k1::{ecdsa::Signature, hashes::Hash, Message, PublicKey, SecretKey};
-    use std::cell::LazyCell;
+    use attestor_light_client::{
+        client_state::ClientState,
+        consensus_state::ConsensusState,
+        header::Header,
+        test_utils::{KEYS, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS},
+    };
+    use cosmwasm_std::Binary;
 
-    pub const DUMMY_DATA: [u8; 1] = [0];
-    pub const S_KEYS: LazyCell<[SecretKey; 5]> = LazyCell::new(|| {
-        [
-            SecretKey::from_byte_array([0xcd; 32]).expect("32 bytes, within curve order"),
-            SecretKey::from_byte_array([0x02; 32]).expect("32 bytes, within curve order"),
-            SecretKey::from_byte_array([0x03; 32]).expect("32 bytes, within curve order"),
-            SecretKey::from_byte_array([0x10; 32]).expect("32 bytes, within curve order"),
-            SecretKey::from_byte_array([0x1F; 32]).expect("32 bytes, within curve order"),
-        ]
-    });
-    pub const KEYS: LazyCell<Vec<PublicKey>> = LazyCell::new(|| {
-        [
-            PublicKey::from_secret_key_global(&S_KEYS[0]),
-            PublicKey::from_secret_key_global(&S_KEYS[1]),
-            PublicKey::from_secret_key_global(&S_KEYS[2]),
-            PublicKey::from_secret_key_global(&S_KEYS[3]),
-            PublicKey::from_secret_key_global(&S_KEYS[4]),
-        ]
-        .to_vec()
-    });
-    pub const SIGS: LazyCell<Vec<Signature>> = LazyCell::new(|| {
-        let sigs = S_KEYS
-            .iter()
-            .map(|skey| {
-                let digest = secp256k1::hashes::sha256::Hash::hash(&DUMMY_DATA);
-                let message = Message::from_digest(digest.to_byte_array());
-                skey.sign_ecdsa(message)
-            })
-            .collect();
+    use crate::msg::InstantiateMsg;
 
-        sigs
-    });
+    pub fn membership_value() -> Binary {
+        let value = serde_json::to_vec(PACKET_COMMITMENTS[0]).unwrap();
+        value.into()
+    }
+
+    pub fn consensus() -> ConsensusState {
+        ConsensusState {
+            height: 42,
+            timestamp: 1234567890,
+        }
+    }
+
+    pub fn client_state() -> ClientState {
+        ClientState {
+            pub_keys: KEYS.clone(),
+            latest_height: 42,
+            is_frozen: false,
+            min_required_sigs: 5,
+        }
+    }
+
+    pub fn header(cns: &ConsensusState) -> Header {
+        Header {
+            new_height: cns.height,
+            timestamp: cns.timestamp,
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
+            signatures: SIGS.to_vec(),
+            pubkeys: KEYS.to_vec(),
+        }
+    }
+
+    pub fn make_instatiate_msg(cs: &ClientState, cns: &ConsensusState) -> InstantiateMsg {
+        let client_state_bz: Vec<u8> = serde_json::to_vec(&cs).unwrap();
+        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&cns).unwrap();
+
+        InstantiateMsg {
+            client_state: client_state_bz.into(),
+            consensus_state: consensus_state_bz.into(),
+            checksum: b"solana_checksum".into(),
+        }
+    }
 
     mod instantiate {
 
-        use attestor_light_client::{
-            client_state::ClientState as AttestorClientState,
-            consensus_state::ConsensusState as AttestorConsensusState,
-        };
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
@@ -145,8 +155,10 @@ mod tests {
         use prost::{Message, Name};
 
         use crate::{
-            contract::{instantiate, tests::KEYS},
-            msg::InstantiateMsg,
+            contract::{
+                instantiate,
+                tests::{client_state, consensus, make_instatiate_msg},
+            },
             state::{consensus_db_key, HOST_CLIENT_STATE_KEY},
             test::helpers::mk_deps,
         };
@@ -157,25 +169,9 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 42,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-
-            let consensus_state = AttestorConsensusState {
-                height: 42,
-                timestamp: 1234567890,
-            };
-            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-
-            let msg = InstantiateMsg {
-                client_state: client_state_bz.into(),
-                consensus_state: consensus_state_bz.into(),
-                checksum: b"solana_checksum".into(),
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
+            let msg = make_instatiate_msg(&client_state, &consensus_state);
 
             let res = instantiate(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
             assert_eq!(0, res.messages.len());
@@ -221,11 +217,7 @@ mod tests {
     }
 
     mod integration_tests {
-        use attestor_light_client::{
-            client_state::ClientState as AttestorClientState,
-            consensus_state::ConsensusState as AttestorConsensusState,
-            error::IbcAttestorClientError, header::Header,
-        };
+        use attestor_light_client::{error::IbcAttestorClientError, membership::Verifyable};
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
@@ -235,11 +227,14 @@ mod tests {
         use crate::{
             contract::{
                 instantiate, query, sudo,
-                tests::{DUMMY_DATA, KEYS, SIGS},
+                tests::{
+                    client_state, consensus, header, make_instatiate_msg, membership_value, KEYS,
+                    PACKET_COMMITMENTS_ENCODED, SIGS,
+                },
             },
             msg::{
-                InstantiateMsg, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
-                VerifyClientMessageMsg,
+                Height, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
+                VerifyClientMessageMsg, VerifyMembershipMsg,
             },
             test::helpers::mk_deps,
             ContractError,
@@ -251,49 +246,23 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            // Setup initial client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
-
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-
-            let msg = InstantiateMsg {
-                client_state: Binary::from(client_state_bz),
-                consensus_state: Binary::from(consensus_state_bz),
-                checksum: b"checksum".into(),
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
+            let msg = make_instatiate_msg(&client_state, &consensus_state);
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-            // Create a header for client update (height progression)
-            let header = Header {
-                new_height: 101,
-                timestamp: 1234567900, // 10 seconds later
-                attestation_data: DUMMY_DATA.to_vec(),
-                signatures: SIGS.to_vec(),
-                pubkeys: KEYS.to_vec(),
-            };
+            let header = header(&consensus_state);
             let header_bz = serde_json::to_vec(&header).unwrap();
 
             let mut env = mock_env();
             env.block.time = Timestamp::from_seconds(header.timestamp + 100);
 
-            // Verify client message
+            // Verify and Update state
             let query_verify_client_msg = QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
                 client_message: Binary::from(header_bz.clone()),
             });
             query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
-
-            // Update state
             let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
                 client_message: Binary::from(header_bz),
             });
@@ -308,6 +277,86 @@ mod tests {
                 header.new_height,
                 update_state_result.heights[0].revision_height
             );
+
+            // Verify membership for the added state
+            let env = mock_env();
+            let verifyable = Verifyable {
+                attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
+                signatures: SIGS.to_vec(),
+                pubkeys: KEYS.to_vec(),
+            };
+            let as_bytes = serde_json::to_vec(&verifyable).unwrap();
+            let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
+                height: Height {
+                    revision_number: 0,
+                    revision_height: consensus_state.height,
+                },
+                proof: as_bytes.into(),
+                value: membership_value(),
+            });
+            let res = sudo(deps.as_mut(), env.clone(), msg);
+            assert!(res.is_ok());
+
+            // Verify membership fails for non-existant packet
+            let as_bytes = serde_json::to_vec(&verifyable).unwrap();
+            let missing_packet = serde_json::to_vec(b"this does not exist").unwrap();
+            let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
+                height: Height {
+                    revision_number: 0,
+                    revision_height: consensus_state.height,
+                },
+                proof: as_bytes.into(),
+                value: missing_packet.into(),
+            });
+            let res = sudo(deps.as_mut(), env.clone(), msg);
+            assert!(matches!(res,
+                    Err(ContractError::VerifyMembershipFailed(IbcAttestorClientError::MembershipProofFailed(e)))
+                    if e.to_string().contains("does not exist")));
+
+            // Non existent height fails
+            let env = mock_env();
+            let value = Verifyable {
+                attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
+                signatures: SIGS.to_vec(),
+                pubkeys: KEYS.to_vec(),
+            };
+            let as_bytes = serde_json::to_vec(&value).unwrap();
+            let bad_height = consensus_state.height + 100;
+            let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
+                height: Height {
+                    revision_number: 0,
+                    revision_height: bad_height,
+                },
+                proof: as_bytes.into(),
+                value: membership_value(),
+            });
+            let res = sudo(deps.as_mut(), env.clone(), msg);
+            assert!(matches!(res, Err(ContractError::ConsensusStateNotFound)));
+
+            // Bad attestation fails
+            let env = mock_env();
+            let bad_data = [254].to_vec();
+            let value = Verifyable {
+                attestation_data: bad_data,
+                signatures: SIGS.to_vec(),
+                pubkeys: KEYS.to_vec(),
+            };
+            let as_bytes = serde_json::to_vec(&value).unwrap();
+            let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
+                height: Height {
+                    revision_number: 0,
+                    revision_height: consensus_state.height,
+                },
+                proof: as_bytes.into(),
+                value: membership_value(),
+            });
+            let res = sudo(deps.as_mut(), env.clone(), msg);
+            assert!(matches!(
+                res,
+                Err(ContractError::VerifyMembershipFailed(
+                    IbcAttestorClientError::InvalidSignature
+                ))
+            ));
         }
 
         #[test]
@@ -317,50 +366,28 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup initial client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
-
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-
-            let msg = InstantiateMsg {
-                client_state: Binary::from(client_state_bz),
-                consensus_state: Binary::from(consensus_state_bz),
-                checksum: b"checksum".into(),
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
+            let msg = make_instatiate_msg(&client_state, &consensus_state);
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
             for i in 1..6 {
-                // Create a header for client update (height progression)
-                let header = Header {
-                    new_height: consensus_state.height + i,
-                    timestamp: consensus_state.timestamp + i,
-                    attestation_data: DUMMY_DATA.to_vec(),
-                    signatures: SIGS.to_vec(),
-                    pubkeys: KEYS.to_vec(),
-                };
+                let mut header = header(&consensus_state);
+                header.new_height += i;
+                header.timestamp += i;
+
                 let header_bz = serde_json::to_vec(&header).unwrap();
 
                 let mut env = mock_env();
                 env.block.time = Timestamp::from_seconds(header.timestamp + 100);
 
-                // Verify client message
+                // Verify and update
                 let query_verify_client_msg =
                     QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
                         client_message: Binary::from(header_bz.clone()),
                     });
                 query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
-
-                // Update state
                 let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
                     client_message: Binary::from(header_bz),
                 });
@@ -384,26 +411,9 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            // Setup initial client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
-
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-
-            let msg = InstantiateMsg {
-                client_state: Binary::from(client_state_bz),
-                consensus_state: Binary::from(consensus_state_bz),
-                checksum: b"checksum".into(),
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
+            let msg = make_instatiate_msg(&client_state, &consensus_state);
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -412,13 +422,10 @@ mod tests {
                 if i % 2 == 0 {
                     continue;
                 }
-                let header = Header {
-                    new_height: consensus_state.height + i,
-                    timestamp: consensus_state.timestamp + i,
-                    attestation_data: DUMMY_DATA.to_vec(),
-                    signatures: SIGS.to_vec(),
-                    pubkeys: KEYS.to_vec(),
-                };
+                let mut header = header(&consensus_state);
+                header.new_height += i;
+                header.timestamp += i;
+
                 let header_bz = serde_json::to_vec(&header).unwrap();
 
                 let mut env = mock_env();
@@ -451,13 +458,10 @@ mod tests {
                 if i % 2 == 1 {
                     continue;
                 }
-                let header = Header {
-                    new_height: consensus_state.height + i,
-                    timestamp: consensus_state.timestamp + i,
-                    attestation_data: DUMMY_DATA.to_vec(),
-                    signatures: SIGS.to_vec(),
-                    pubkeys: KEYS.to_vec(),
-                };
+                let mut header = header(&consensus_state);
+                header.new_height += i;
+                header.timestamp += i;
+
                 let header_bz = serde_json::to_vec(&header).unwrap();
 
                 let mut env = mock_env();
@@ -483,6 +487,45 @@ mod tests {
                     header.new_height,
                     update_state_result.heights[0].revision_height
                 );
+            }
+
+            // Now validate messages for all those states
+            for i in 1..6 {
+                let env = mock_env();
+
+                let value = Verifyable {
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
+                    signatures: SIGS.to_vec(),
+                    pubkeys: KEYS.to_vec(),
+                };
+                let as_bytes = serde_json::to_vec(&value).unwrap();
+                let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
+                    height: Height {
+                        revision_number: 0,
+                        revision_height: consensus_state.height + i,
+                    },
+                    proof: as_bytes.into(),
+                    value: membership_value(),
+                });
+                let res = sudo(deps.as_mut(), env.clone(), msg);
+                assert!(res.is_ok());
+
+                let value = Verifyable {
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
+                    signatures: SIGS.to_vec(),
+                    pubkeys: KEYS.to_vec(),
+                };
+                let as_bytes = serde_json::to_vec(&value).unwrap();
+                let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
+                    height: Height {
+                        revision_number: 0,
+                        revision_height: consensus_state.height + i,
+                    },
+                    proof: as_bytes.into(),
+                    value: membership_value(),
+                });
+                let res = sudo(deps.as_mut(), env.clone(), msg);
+                assert!(res.is_ok());
             }
         }
 
@@ -493,25 +536,9 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup initial client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
-
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-
-            let msg = InstantiateMsg {
-                client_state: Binary::from(client_state_bz),
-                consensus_state: Binary::from(consensus_state_bz),
-                checksum: b"checksum".into(),
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
+            let msg = make_instatiate_msg(&client_state, &consensus_state);
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -520,13 +547,10 @@ mod tests {
                 if i % 2 == 0 {
                     continue;
                 }
-                let header = Header {
-                    new_height: consensus_state.height + i,
-                    timestamp: consensus_state.timestamp + i,
-                    attestation_data: DUMMY_DATA.to_vec(),
-                    signatures: SIGS.to_vec(),
-                    pubkeys: KEYS.to_vec(),
-                };
+                let mut header = header(&consensus_state);
+                header.new_height += i;
+                header.timestamp += i;
+
                 let header_bz = serde_json::to_vec(&header).unwrap();
 
                 let mut env = mock_env();
@@ -560,14 +584,12 @@ mod tests {
                     continue;
                 }
 
+                let mut header = header(&consensus_state);
+                header.new_height += i;
+
                 let timestamp_with_same_time_as_previous = consensus_state.timestamp + i - 1;
-                let header = Header {
-                    new_height: consensus_state.height + i,
-                    timestamp: timestamp_with_same_time_as_previous,
-                    attestation_data: DUMMY_DATA.to_vec(),
-                    signatures: SIGS.to_vec(),
-                    pubkeys: KEYS.to_vec(),
-                };
+                header.timestamp = timestamp_with_same_time_as_previous;
+
                 let header_bz = serde_json::to_vec(&header).unwrap();
 
                 let mut env = mock_env();
@@ -595,35 +617,15 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup initial client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
-
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-
-            let msg = InstantiateMsg {
-                client_state: Binary::from(client_state_bz),
-                consensus_state: Binary::from(consensus_state_bz),
-                checksum: b"checksum".into(),
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
+            let msg = make_instatiate_msg(&client_state, &consensus_state);
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-            let header_with_different_ts_for_existing_height = Header {
-                new_height: 100,
-                timestamp: 12345654321,
-                attestation_data: DUMMY_DATA.to_vec(),
-                signatures: SIGS.to_vec(),
-                pubkeys: KEYS.to_vec(),
-            };
+            let mut header_with_different_ts_for_existing_height = header(&consensus_state);
+            header_with_different_ts_for_existing_height.timestamp += 3;
+
             let header_bz =
                 serde_json::to_vec(&header_with_different_ts_for_existing_height).unwrap();
 
@@ -653,35 +655,15 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup initial client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
-
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-
-            let msg = InstantiateMsg {
-                client_state: Binary::from(client_state_bz),
-                consensus_state: Binary::from(consensus_state_bz),
-                checksum: b"checksum".into(),
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
+            let msg = make_instatiate_msg(&client_state, &consensus_state);
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-            let header_with_random_data = Header {
-                new_height: 100,
-                timestamp: 1234567900,
-                attestation_data: [156].to_vec(),
-                signatures: SIGS.to_vec(),
-                pubkeys: KEYS.to_vec(),
-            };
+            let mut header_with_random_data = header(&consensus_state);
+            header_with_random_data.attestation_data = [156].to_vec();
+
             let header_bz = serde_json::to_vec(&header_with_random_data).unwrap();
 
             let mut env = mock_env();
@@ -705,36 +687,16 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup frozen client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: true, // Client is frozen
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
+            let mut client_state = client_state();
+            client_state.is_frozen = true;
 
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-
-            let msg = InstantiateMsg {
-                client_state: Binary::from(client_state_bz),
-                consensus_state: Binary::from(consensus_state_bz),
-                checksum: b"checksum".into(),
-            };
+            let consensus_state = consensus();
+            let msg = make_instatiate_msg(&client_state, &consensus_state);
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
             // Create a valid header
-            let header = Header {
-                new_height: 100,
-                timestamp: 1234567900,
-                attestation_data: [].into(),
-                signatures: SIGS.to_vec(),
-                pubkeys: KEYS.to_vec(),
-            };
+            let header = header(&consensus_state);
             let header_bz = serde_json::to_vec(&header).unwrap();
 
             let mut env = mock_env();

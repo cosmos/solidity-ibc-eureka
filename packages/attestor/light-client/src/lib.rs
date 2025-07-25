@@ -2,9 +2,9 @@
 #![deny(
     clippy::nursery,
     clippy::pedantic,
-    // warnings,
+    warnings,
     missing_docs,
-    // unused_crate_dependencies
+    unused_crate_dependencies
 )]
 
 pub mod client_state;

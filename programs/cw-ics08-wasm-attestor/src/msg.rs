@@ -24,12 +24,8 @@ pub enum ExecuteMsg {}
 pub enum SudoMsg {
     /// The message to update the client state
     UpdateState(UpdateStateMsg),
-    /// The message to update the client state on misbehaviour
-    UpdateStateOnMisbehaviour(UpdateStateOnMisbehaviourMsg),
-    /// The message to verify the upgrade and update the state
-    VerifyUpgradeAndUpdateState(VerifyUpgradeAndUpdateStateMsg),
-    /// The message to migrate the client store
-    MigrateClientStore(MigrateClientStoreMsg),
+    /// Verify membership of IBC packets
+    VerifyMembership(VerifyMembershipMsg),
 }
 
 /// The query messages called by `ibc-go`
@@ -95,6 +91,8 @@ pub struct VerifyMembershipMsg {
     /// The proof height
     pub height: Height,
     /// The proof bytes
+    pub proof: Binary,
+    /// The value to verify against the proof
     pub value: Binary,
 }
 
