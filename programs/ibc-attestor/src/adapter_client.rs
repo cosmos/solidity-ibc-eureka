@@ -1,11 +1,10 @@
 use std::{fmt::Debug, future::Future, time::Duration};
 use thiserror::Error;
 
-pub trait Signable: Sync + Send + borsh::BorshSerialize + borsh::BorshDeserialize + Debug {
+pub trait Signable: Sync + Send + serde::Serialize + Debug {
     fn to_encoded_bytes(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-        let _ = self.serialize(&mut buf).unwrap();
-        buf
+        let encoded = serde_json::to_vec(self).unwrap();
+        encoded
     }
     fn height(&self) -> u64;
 }
