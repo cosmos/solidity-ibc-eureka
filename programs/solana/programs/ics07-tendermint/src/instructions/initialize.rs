@@ -48,8 +48,10 @@ pub fn initialize(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::ConsensusStateStore;
     use crate::types::IbcHeight;
-    use anchor_lang::InstructionData;
+    use anchor_lang::{AnchorDeserialize, InstructionData};
+    use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
     use solana_sdk::instruction::{AccountMeta, Instruction};
@@ -77,7 +79,7 @@ mod tests {
         };
 
         let consensus_state = ConsensusState {
-            timestamp: 123456789,
+            timestamp: 123_456_789,
             root: [0u8; 32],
             next_validators_hash: [1u8; 32],
         };
@@ -159,18 +161,30 @@ mod tests {
             ),
         ];
 
-        // Create Mollusk instance with the program
-        // The compiled program is in the workspace target/deploy directory
         let mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let checks = vec![
+            Check::success(),
+            Check::account(&client_state_pda).owner(&crate::ID).build(),
+            Check::account(&consensus_state_store_pda)
+                .owner(&crate::ID)
+                .build(),
+        ];
 
-        match result.program_result {
-            mollusk_svm::result::ProgramResult::Success => {}
-            _ => panic!("Initialize instruction failed: {:?}", result.program_result),
-        }
+        let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
 
-        // Verify client state account was created and initialized
+        let payer_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &payer)
+            .map(|(_, account)| account)
+            .expect("Payer account not found");
+
+        assert!(
+            payer_account.lamports < payer_lamports,
+            "Payer should have paid for account creation"
+        );
+
         let client_state_account = result
             .resulting_accounts
             .iter()
@@ -178,10 +192,57 @@ mod tests {
             .map(|(_, account)| account)
             .expect("Client state account not found");
 
-        assert_eq!(client_state_account.owner, crate::ID);
-        assert!(client_state_account.lamports > 0);
+        assert!(
+            client_state_account.lamports > 0,
+            "Client state account should be rent-exempt"
+        );
+        assert!(
+            client_state_account.data.len() > 8,
+            "Client state account should have data"
+        );
 
-        // Verify consensus state store account was created and initialized
+        let mut data_slice = &client_state_account.data[8..];
+        let deserialized_client_state: ClientState =
+            ClientState::deserialize(&mut data_slice).expect("Failed to deserialize client state");
+
+        assert_eq!(deserialized_client_state.chain_id, client_state.chain_id);
+        assert_eq!(
+            deserialized_client_state.trust_level_numerator,
+            client_state.trust_level_numerator
+        );
+        assert_eq!(
+            deserialized_client_state.trust_level_denominator,
+            client_state.trust_level_denominator
+        );
+        assert_eq!(
+            deserialized_client_state.trusting_period,
+            client_state.trusting_period
+        );
+        assert_eq!(
+            deserialized_client_state.unbonding_period,
+            client_state.unbonding_period
+        );
+        assert_eq!(
+            deserialized_client_state.max_clock_drift,
+            client_state.max_clock_drift
+        );
+        assert_eq!(
+            deserialized_client_state.frozen_height.revision_number,
+            client_state.frozen_height.revision_number
+        );
+        assert_eq!(
+            deserialized_client_state.frozen_height.revision_height,
+            client_state.frozen_height.revision_height
+        );
+        assert_eq!(
+            deserialized_client_state.latest_height.revision_number,
+            client_state.latest_height.revision_number
+        );
+        assert_eq!(
+            deserialized_client_state.latest_height.revision_height,
+            client_state.latest_height.revision_height
+        );
+
         let consensus_state_account = result
             .resulting_accounts
             .iter()
@@ -189,7 +250,34 @@ mod tests {
             .map(|(_, account)| account)
             .expect("Consensus state store account not found");
 
-        assert_eq!(consensus_state_account.owner, crate::ID);
-        assert!(consensus_state_account.lamports > 0);
+        assert!(
+            consensus_state_account.lamports > 0,
+            "Consensus state store account should be rent-exempt"
+        );
+        assert!(
+            consensus_state_account.data.len() > 8,
+            "Consensus state store account should have data"
+        );
+
+        let mut data_slice = &consensus_state_account.data[8..];
+        let deserialized_consensus_store: ConsensusStateStore =
+            ConsensusStateStore::deserialize(&mut data_slice)
+                .expect("Failed to deserialize consensus state store");
+
+        assert_eq!(deserialized_consensus_store.height, latest_height);
+        assert_eq!(
+            deserialized_consensus_store.consensus_state.timestamp,
+            consensus_state.timestamp
+        );
+        assert_eq!(
+            deserialized_consensus_store.consensus_state.root,
+            consensus_state.root
+        );
+        assert_eq!(
+            deserialized_consensus_store
+                .consensus_state
+                .next_validators_hash,
+            consensus_state.next_validators_hash
+        );
     }
 }
