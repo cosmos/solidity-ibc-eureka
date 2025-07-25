@@ -280,12 +280,12 @@ mod tests {
 
             // Verify membership for the added state
             let env = mock_env();
-            let value = Verifyable {
+            let verifyable = Verifyable {
                 attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                 signatures: SIGS.to_vec(),
                 pubkeys: KEYS.to_vec(),
             };
-            let as_bytes = serde_json::to_vec(&value).unwrap();
+            let as_bytes = serde_json::to_vec(&verifyable).unwrap();
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                 height: Height {
                     revision_number: 0,
@@ -295,8 +295,25 @@ mod tests {
                 value: membership_value(),
             });
             let res = sudo(deps.as_mut(), env.clone(), msg);
-            println!("{:?}", res);
             assert!(res.is_ok());
+
+            // Verify membership fails for non-existant packet
+            let as_bytes = serde_json::to_vec(&verifyable).unwrap();
+            let missing_packet = serde_json::to_vec(b"this does not exist").unwrap();
+            let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
+                height: Height {
+                    revision_number: 0,
+                    revision_height: consensus_state.height,
+                },
+                proof: as_bytes.into(),
+                value: missing_packet.into(),
+            });
+            let res = sudo(deps.as_mut(), env.clone(), msg);
+            assert!(
+                matches!(res, 
+                    Err(ContractError::VerifyMembershipFailed(IbcAttestorClientError::MembershipProofFailed(e)))
+                    if e.to_string().contains("does not exist"))
+            );
 
             // Non existent height fails
             let env = mock_env();
