@@ -2,6 +2,12 @@
 //! the membership of IBC packets in a packet attestation.
 
 use crate::PacketAttestationError;
+use serde::Deserialize;
+
+/// Wrapper type that represents the serde byte-encoded
+/// list of packets.
+#[derive(Deserialize)]
+pub struct Packets(Vec<Vec<u8>>);
 
 /// Verifies that the provided `value` exists in the `proof`.
 ///
@@ -14,12 +20,16 @@ pub fn verify_packet_membership(
     proof: Vec<u8>,
     value: Vec<u8>,
 ) -> Result<(), PacketAttestationError> {
-    let proof_packets: Vec<Vec<u8>> = serde_json::from_slice(&proof)
+    let proof_packets: Packets = serde_json::from_slice(&proof)
         .map_err(PacketAttestationError::SerdeDeserializationError)?;
     let value_packet: Vec<u8> = serde_json::from_slice(&value)
         .map_err(PacketAttestationError::SerdeDeserializationError)?;
 
-    if proof_packets.iter().any(|packet| **packet == value_packet) {
+    if proof_packets
+        .0
+        .iter()
+        .any(|packet| **packet == value_packet)
+    {
         Ok(())
     } else {
         Err(PacketAttestationError::VerificiationFailed {

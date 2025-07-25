@@ -8,5 +8,6 @@ repository = { workspace = true }
 default = []
 
 [dependencies]
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
