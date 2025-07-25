@@ -115,7 +115,7 @@ impl AggregatorService {
                     Ok(Ok(response)) => Ok(response.into_inner()),
                     Ok(Err(status)) => Err(status),
                     Err(_) => Err(Status::deadline_exceeded(format!(
-                        "Request timed out after {timeout_duration:?}"
+                        "Request to {endpoint} timed out after {timeout_duration:?}"
                     ))),
                 };
                 (endpoint, result)
