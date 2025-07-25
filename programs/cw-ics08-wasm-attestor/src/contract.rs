@@ -87,8 +87,10 @@ pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, 
 
 #[cfg(test)]
 mod tests {
-    use attestor_light_client::test_utils::{
-        KEYS, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS,
+    use attestor_light_client::{
+        client_state::ClientState,
+        consensus_state::ConsensusState,
+        test_utils::{KEYS, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS},
     };
     use cosmwasm_std::Binary;
 
@@ -97,12 +99,24 @@ mod tests {
         value.into()
     }
 
+    pub fn consensus() -> ConsensusState {
+        ConsensusState {
+            height: 42,
+            timestamp: 1234567890,
+        }
+    }
+
+    pub fn client_state() -> ClientState {
+        ClientState {
+            pub_keys: KEYS.clone(),
+            latest_height: 42,
+            is_frozen: false,
+            min_required_sigs: 5,
+        }
+    }
+
     mod instantiate {
 
-        use attestor_light_client::{
-            client_state::ClientState as AttestorClientState,
-            consensus_state::ConsensusState as AttestorConsensusState,
-        };
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
@@ -117,7 +131,10 @@ mod tests {
         use prost::{Message, Name};
 
         use crate::{
-            contract::{instantiate, tests::KEYS},
+            contract::{
+                instantiate,
+                tests::{client_state, consensus},
+            },
             msg::InstantiateMsg,
             state::{consensus_db_key, HOST_CLIENT_STATE_KEY},
             test::helpers::mk_deps,
@@ -129,18 +146,10 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 42,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
+            let client_state = client_state();
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
 
-            let consensus_state = AttestorConsensusState {
-                height: 42,
-                timestamp: 1234567890,
-            };
+            let consensus_state = consensus();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
             let msg = InstantiateMsg {
@@ -194,8 +203,6 @@ mod tests {
 
     mod integration_tests {
         use attestor_light_client::{
-            client_state::ClientState as AttestorClientState,
-            consensus_state::ConsensusState as AttestorConsensusState,
             error::IbcAttestorClientError, header::Header, membership::Verifyable,
         };
         use cosmwasm_std::{
@@ -207,7 +214,10 @@ mod tests {
         use crate::{
             contract::{
                 instantiate, query, sudo,
-                tests::{membership_value, KEYS, PACKET_COMMITMENTS_ENCODED, SIGS},
+                tests::{
+                    client_state, consensus, membership_value, KEYS, PACKET_COMMITMENTS_ENCODED,
+                    SIGS,
+                },
             },
             msg::{
                 Height, InstantiateMsg, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
@@ -223,17 +233,8 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            // Setup initial client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
@@ -248,8 +249,8 @@ mod tests {
 
             // Create a header for client update (height progression)
             let header = Header {
-                new_height: 101,
-                timestamp: 1234567900, // 10 seconds later
+                new_height: consensus_state.height + 1,
+                timestamp: consensus_state.timestamp + 10, // 10 seconds later
                 attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                 signatures: SIGS.to_vec(),
                 pubkeys: KEYS.to_vec(),
@@ -355,16 +356,8 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup initial client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
@@ -423,16 +416,8 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup initial client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
@@ -574,16 +559,8 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup initial client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
@@ -676,16 +653,8 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup initial client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
@@ -699,8 +668,8 @@ mod tests {
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
             let header_with_different_ts_for_existing_height = Header {
-                new_height: 100,
-                timestamp: 12345654321,
+                new_height: consensus_state.height,
+                timestamp: consensus_state.timestamp + 3,
                 attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
                 signatures: SIGS.to_vec(),
                 pubkeys: KEYS.to_vec(),
@@ -734,16 +703,8 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup initial client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: false,
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
+            let client_state = client_state();
+            let consensus_state = consensus();
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
@@ -786,16 +747,10 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             // Setup frozen client state
-            let client_state = AttestorClientState {
-                pub_keys: KEYS.clone(),
-                latest_height: 100,
-                is_frozen: true, // Client is frozen
-                min_required_sigs: 5,
-            };
-            let consensus_state = AttestorConsensusState {
-                height: 100,
-                timestamp: 1234567890,
-            };
+            let mut client_state = client_state();
+            client_state.is_frozen = true;
+
+            let consensus_state = consensus();
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
