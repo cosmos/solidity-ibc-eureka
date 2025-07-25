@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 type Height = u64;
 
-pub const STATE_BYTE_LENGTH: usize = 12; // Length of the state hash
+pub const STATE_BYTE_LENGTH: usize = 12;
 type State = FixedBytes<STATE_BYTE_LENGTH>;
 
 // https://docs.rs/secp256k1/latest/secp256k1/ecdsa/struct.Signature.html#method.serialize_compact
@@ -16,76 +16,99 @@ type Signature = FixedBytes<SIGNATURE_BYTE_LENGTH>;
 pub const PUBKEY_BYTE_LENGTH: usize = 33;
 type Pubkey = FixedBytes<PUBKEY_BYTE_LENGTH>;
 
-//  HashMap<height, HashMap<State, Vec[(Signatures, pub_key)]>>
-//  Height: 101
-//      State: 0x1234... (32 bytes)
-//          Sign_PK: [(SigAtt_A, PK_Att_A), (SigAtt_B, PK_Att_B)]
-//      State: 0x9876...
-//          Sign_PK: [(SigAtt_C, PK_Att_C), (SigAtt_D, PK_Att_D), (SigAtt_E, PK_Att_E)]
-//  Height: 102
-//      State: 0x5678...
-//          Sign_PK: [(SigAtt_A, PK_Att_A), (SigAtt_B, PK_Att_B), (SigAtt_C, PK_Att_C), (SigAtt_D, PK_Att_D), (SigAtt_E, PK_Att_E)]
+/// Maps height -> state -> list of (signature, pubkey) pairs
+/// 
+/// Structure:
+/// ```text
+/// Height: 101
+///   State: 0x1234... (12 bytes)
+///     [(signature_A, pubkey_A), (signature_B, pubkey_B)]
+///   State: 0x9876...
+///     [(signature_C, pubkey_C), (signature_D, pubkey_D)]
+/// Height: 102
+///   State: 0x5678...
+///     [(signature_A, pubkey_A), (signature_B, pubkey_B), ...]
+/// ```
 type SignedStates = HashMap<State, Vec<(Signature, Pubkey)>>;
 
-#[derive(Debug, Clone)]
-pub struct AttestatorData(HashMap<Height, SignedStates>);
+#[derive(Debug, Clone, Default)]
+pub struct AttestatorData {
+    height_states: HashMap<Height, SignedStates>,
+}
 
 impl AttestatorData {
+    #[must_use]
     pub fn new() -> Self {
-        Self(HashMap::new())
+        Self::default()
     }
 
-    pub fn insert(&mut self, att_resp: AttestationsFromHeightResponse) {
-        for attestations in att_resp.attestations {
-            let state_map = self.0.entry(attestations.height).or_default();
-            state_map
-                .entry(State::from_slice(&attestations.data))
+    pub fn insert(&mut self, response: AttestationsFromHeightResponse) {
+        let pubkey = match Pubkey::try_from(response.pubkey.as_slice()) {
+            Ok(pk) => pk,
+            Err(_) => {
+                tracing::warn!("Invalid pubkey length: {}", response.pubkey.len());
+                return;
+            }
+        };
+
+        for attestation in response.attestations {
+            let state = match State::try_from(attestation.data.as_slice()) {
+                Ok(s) => s,
+                Err(_) => {
+                    tracing::warn!("Invalid state length: {}", attestation.data.len());
+                    continue;
+                }
+            };
+
+            let signature = match Signature::try_from(attestation.signature.as_slice()) {
+                Ok(sig) => sig,
+                Err(_) => {
+                    tracing::warn!("Invalid signature length: {}", attestation.signature.len());
+                    continue;
+                }
+            };
+
+            self.height_states
+                .entry(attestation.height)
                 .or_default()
-                .push((
-                    Signature::from_slice(&attestations.signature),
-                    Pubkey::from_slice(&att_resp.pubkey),
-                ));
+                .entry(state)
+                .or_default()
+                .push((signature, pubkey));
         }
     }
 
+    #[must_use]
     pub fn get_latest(&self, quorum: usize) -> Option<AggregateResponse> {
-        let mut latest = AggregateResponse {
-            height: 0,
-            state: vec![],
-            sig_pubkey_pairs: vec![],
-        };
+        let mut best_response: Option<AggregateResponse> = None;
 
-        for (height, state_map) in self.0.iter() {
-            if *height <= latest.height {
-                continue;
+        for (&height, state_map) in &self.height_states {
+            if let Some(ref current_best) = best_response {
+                if height <= current_best.height {
+                    continue;
+                }
             }
 
-            for (state, sig_to_pks) in state_map.iter() {
-                if sig_to_pks.len() < quorum {
+            for (&state, sig_pubkey_pairs) in state_map {
+                if sig_pubkey_pairs.len() < quorum {
                     continue;
                 }
 
-                latest.height = *height;
-                latest.state = state.to_vec();
-                latest.sig_pubkey_pairs = sig_to_pks
-                    .iter()
-                    .map(|(sig, pubkey)| SigPubkeyPair {
-                        sig: sig.to_vec(),
-                        pubkey: pubkey.to_vec(),
-                    })
-                    .collect();
+                let response = AggregateResponse {
+                    height,
+                    state: state.to_vec(),
+                    sig_pubkey_pairs: sig_pubkey_pairs
+                        .iter()
+                        .map(|(signature, pubkey)| SigPubkeyPair {
+                            sig: signature.to_vec(),
+                            pubkey: pubkey.to_vec(),
+                        })
+                        .collect(),
+                };
+
+                best_response = Some(response);
             }
         }
 
-        if latest.height > 0 {
-            return Some(latest);
-        }
-        None
-    }
-}
-
-impl Default for AttestatorData {
-    fn default() -> Self {
-        Self::new()
+        best_response
     }
 }

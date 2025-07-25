@@ -7527,7 +7527,6 @@ dependencies = [
  "anyhow",
  "clap",
  "futures",
- "hex",
  "prost",
  "rand 0.9.1",
  "serde",

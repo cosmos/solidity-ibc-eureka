@@ -37,6 +37,35 @@ build-cw-ics08-wasm-eth:
 build-relayer-image:
     docker build -t eureka-relayer:latest -f programs/relayer/Dockerfile .
 
+# Start the attestor and aggregator services using Docker Compose
+[group('run')]
+start-aggregator-services *flags="":
+    @just stop-aggregator-services
+    @echo "🚀 Starting IBC Attestor and Sig-Aggregator services..."
+    @cd programs/sig-aggregator && COMPOSE_BAKE=true docker compose up {{ if flags =~ "--build" { "--build" } else { "" } }} -d --wait
+
+# Stop the attestor and aggregator services
+[group('run')]
+stop-aggregator-services:
+    cd programs/sig-aggregator && docker-compose down --volumes
+
+# Test the attestor and aggregator services
+[group('run')]
+test-aggregator-services *flags="":
+    # TODO: point to e2e test when we have one.
+    @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
+        echo "✅ Services are already running, proceeding with tests..."; \
+    else \
+        echo "🚀 Services not running, starting them..."; \
+        just start-aggregator-services {{ flags }}; \
+    fi
+    @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
+        grpcurl -plaintext -d '{"min_height": 100}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq; \
+    else \
+        echo "❌ Aggregator service is not reachable. Check logs with: cd programs/sig-aggregator && docker-compose logs"; \
+        exit 1; \
+    fi
+
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 [group('install')]
 install-operator:

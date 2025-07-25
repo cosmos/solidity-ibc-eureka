@@ -1,0 +1,8 @@
+[server]
+address = "0.0.0.0"
+port = 9001
+log_level = "info"
+
+[solana]
+url = "https://api.devnet.solana.com"
+account_key = "vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg"
