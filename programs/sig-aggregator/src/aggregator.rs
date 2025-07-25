@@ -1,7 +1,7 @@
 use crate::{
     attestor_data::AttestatorData,
     config::AttestorConfig,
-    error::{AggregatorError, IntoAggregatorError, Result},
+    error::{AggregatorError, Result},
     rpc::{
         aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient,
         AggregateRequest, AggregateResponse, AttestationsFromHeightRequest,
@@ -28,16 +28,7 @@ impl AggregatorService {
         let mut attestor_clients = Vec::new();
 
         for endpoint in &config.attestor_endpoints {
-            let client = AttestationServiceClient::connect(endpoint.to_string())
-                .await
-                .map_err(|e| {
-                    AggregatorError::attestor_connection(
-                        endpoint,
-                        "Failed to establish initial connection",
-                        Some(e),
-                    )
-                })?;
-
+            let client = AttestationServiceClient::connect(endpoint.to_string()).await?;
             attestor_clients.push(Mutex::new(client));
         }
 
@@ -70,18 +61,12 @@ impl Aggregator for AggregatorService {
             }
         }
 
-        let responses = self
-            .query_all_attestors(min_height)
-            .await
-            .map_err(|e| e.to_grpc_status())?;
+        let responses = self.query_all_attestors(min_height).await?;
 
-        let aggregate_response = self
-            .process_attestor_responses(responses)
-            .await
-            .map_err(|e| e.to_grpc_status())?;
+        let aggregate_response = self.process_attestor_responses(responses).await?;
 
         if aggregate_response.height < min_height {
-            return Err(AggregatorError::no_attestations_found(min_height).to_grpc_status());
+            return Err(AggregatorError::NoAttestationsFound(min_height).into());
         }
 
         // Update cache if we have a newer height
@@ -109,33 +94,24 @@ impl AggregatorService {
             let req = Request::new(AttestationsFromHeightRequest { height: min_height });
 
             futs.push(async move {
-                match timeout(timeout_duration, client.get_attestations_from_height(req)).await {
-                    Ok(Ok(resp)) => Ok(resp.into_inner()),
-                    Ok(Err(status)) => Err(status.into_aggregator_error()),
-                    Err(_) => Err(AggregatorError::timeout(
-                        self.config.attestor_query_timeout_ms,
-                    )),
+                let response = timeout(timeout_duration, client.get_attestations_from_height(req)).await;
+                match response {
+                    Ok(Ok(inner_resp)) => Ok(inner_resp.into_inner()),
+                    Ok(Err(status)) => Err(AggregatorError::GrpcStatus(status)),
+                    Err(_) => Err(AggregatorError::Timeout(timeout_duration.as_millis() as u64)),
                 }
             });
         }
 
         let mut successful_responses = Vec::new();
-        let mut error_count = 0;
 
         while let Some(result) = futs.next().await {
             match result {
                 Ok(response) => successful_responses.push(response),
                 Err(e) => {
-                    error_count += 1;
                     tracing::error!("Attestor query failed: {e}");
                 }
             }
-        }
-
-        if successful_responses.is_empty() {
-            return Err(AggregatorError::internal(format!(
-                "No attestors responded successfully ({error_count} errors)",
-            )));
         }
 
         Ok(successful_responses)
@@ -152,12 +128,8 @@ impl AggregatorService {
             attestator_data.insert(response);
         }
 
-        match attestator_data.get_latest(self.config.quorum_threshold) {
-            Some(aggregate_response) => Ok(aggregate_response),
-            None => Err(AggregatorError::quorum_not_met(
-                self.config.quorum_threshold,
-            )),
-        }
+        attestator_data.get_latest(self.config.quorum_threshold)
+            .ok_or(AggregatorError::QuorumNotMet(self.config.quorum_threshold))
     }
 }
 
