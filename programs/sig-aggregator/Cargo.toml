@@ -5,30 +5,31 @@ edition = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
 
-
 [dependencies]
 tokio-stream = "0.1"
+tokio        = { workspace = true, features = ["full"] }
+futures      = { workspace = true }
 
-toml  = { workspace = true, default-features = true }
-
-tower-http       = { workspace = true, features = ["trace"] }
 tonic            = { workspace = true, default-features = true }
 tonic-reflection = { workspace = true, default-features = true }
+tower-http       = { workspace = true, features = ["trace"] }
 
-tokio = { workspace = true, features = ["full"] }
-prost = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true, features = ["derive"] }
-clap  = { workspace = true, features = ["derive"] }
-rand  = { workspace = true, default-features = true }
-hex   = { workspace = true, default-features = true }
+toml  = { workspace = true, default-features = true }
 
-tracing-subscriber = { workspace = true, default-features = true }
-alloy-primitives   = { workspace = true, default-features = true }
+clap = { workspace = true, features = ["derive"] }
 
 anyhow    = { workspace = true, default-features = true }
 thiserror = { workspace = true, default-features = true }
-futures   = { workspace = true }
-tracing   = { workspace = true, default-features = true }
+
+tracing            = { workspace = true, default-features = true }
+tracing-subscriber = { workspace = true, default-features = true }
+
+alloy-primitives = { workspace = true, default-features = true }
+
+prost = { workspace = true, default-features = true }
+
+rand  = { workspace = true, default-features = true }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }
