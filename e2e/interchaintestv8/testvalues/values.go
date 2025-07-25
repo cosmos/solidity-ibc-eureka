@@ -115,6 +115,8 @@ const (
 	E2EDeployScriptPath = "scripts/E2ETestDeploy.s.sol:E2ETestDeploy"
 	// SolanaLedgerDir is the path to the Solana ledger directory.
 	SolanaLedgerDir = "test-ledger"
+	// SolanaFixturesDir is the directory where the Solana fixtures are stored.
+	SolanaFixturesDir = "programs/solana/tests/fixtures/"
 
 	// IbcCommitmentSlotHex is the storage slot in the IBC solidity contract for the IBC commitments.
 	IbcCommitmentSlotHex = ics26router.IbcStoreStorageSlot

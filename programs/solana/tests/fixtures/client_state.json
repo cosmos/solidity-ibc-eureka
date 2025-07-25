@@ -1,0 +1,15 @@
+{
+  "chain_id": "simd-2",
+  "frozen_height": 0,
+  "latest_height": 20,
+  "max_clock_drift": 15,
+  "metadata": {
+    "description": "Client state for simd-2 captured from simd-1",
+    "generated_at": "2025-07-25T12:14:50Z",
+    "source": "real_cosmos_chain"
+  },
+  "trust_level_denominator": 3,
+  "trust_level_numerator": 1,
+  "trusting_period": 1209600,
+  "unbonding_period": 1814400
+}
