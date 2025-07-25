@@ -7,7 +7,6 @@ pub mod api {
 }
 
 pub mod adapter_client;
-pub mod attestation_store;
 pub mod attestor;
 pub mod cli;
 pub mod server;

@@ -1,5 +1,4 @@
 use std::{
-    future::Future,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -9,11 +8,9 @@ use tonic::{Response, Status};
 use crate::{
     adapter_client::{Adapter, AdapterError, Signable},
     api::{
-        attestation_service_server::AttestationService, Attestation,
-        StateAttestationRequest, StateAttestationResponse,
-        PacketAttestationRequest, PacketAttestationResponse,
+        attestation_service_server::AttestationService, Attestation, PacketAttestationRequest,
+        PacketAttestationResponse, StateAttestationRequest, StateAttestationResponse,
     },
-    attestation_store::AttestationStore,
     signer::Signer,
 };
 
@@ -41,18 +38,9 @@ use crate::{
 pub struct AttestorService<A: Adapter> {
     adapter: A,
     signer: Signer,
-    // Interior mutability to allow Arc
-    // of service
-    store: Arc<Mutex<AttestationStore>>,
-    /// How often the `store` should be updated
-    update_frequency: Duration,
 }
 
 pub trait Attestor: Send + Sync + 'static {
-    fn update_frequency(&self) -> Duration;
-
-    fn update_attestation_store(&self) -> impl Future<Output = ()> + Send;
-
     fn state_attestation(&self, height: u64) -> Attestation;
 
     fn packet_attestation(&self, height: u64) -> Attestation;
@@ -62,18 +50,8 @@ impl<A> AttestorService<A>
 where
     A: Adapter,
 {
-    pub fn new(
-        adapter: A,
-        signer: Signer,
-        store: AttestationStore,
-        update_frequency: Duration,
-    ) -> Self {
-        Self {
-            adapter,
-            signer,
-            store: Arc::new(Mutex::new(store)),
-            update_frequency,
-        }
+    pub fn new(adapter: A, signer: Signer) -> Self {
+        Self { adapter, signer }
     }
 
     async fn _get_latest_finalized_signable<'a>(
@@ -93,22 +71,6 @@ impl<A> Attestor for AttestorService<A>
 where
     A: Adapter,
 {
-    fn update_frequency(&self) -> Duration {
-        self.update_frequency
-    }
-
-    async fn update_attestation_store(&self) {
-        let to_sign = self.get_latest_unfinalized_signable().await.unwrap();
-        tracing::debug!("adding new height: {:#?}", to_sign);
-        let store_at_height = to_sign.height();
-        let signed = self.signer.sign(to_sign);
-
-        // Unwrap acceptable because poisoned lock is a critical
-        // issue
-        let mut store = self.store.lock().unwrap();
-        store.push(store_at_height, signed);
-    }
-
     fn state_attestation(&self, _height: u64) -> Attestation {
         todo!()
     }

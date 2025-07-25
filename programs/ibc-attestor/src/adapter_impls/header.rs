@@ -2,7 +2,7 @@ use alloy_primitives::FixedBytes;
 
 use crate::adapter_client::Signable;
 
-#[derive(Debug, borsh::BorshSerialize, borsh::BorshDeserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Header {
     height: u64,
     state: [u8; 32],
