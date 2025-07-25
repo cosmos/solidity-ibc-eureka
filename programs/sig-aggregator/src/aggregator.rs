@@ -111,7 +111,7 @@ mod e2e_tests {
     fn default_config(timeout: u64, attestor_endpoints: Vec<String>) -> Config {
         Config {
             server: ServerConfig {
-                listner_addr: "127.0.0.1:50060".parse().unwrap(),
+                listener_addr: "127.0.0.1:50060".parse().unwrap(),
                 log_level: "INFO".to_string(),
             },
             attestor: AttestorConfig {
