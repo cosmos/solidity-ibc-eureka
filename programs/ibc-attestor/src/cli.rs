@@ -1,5 +1,5 @@
 mod cmd;
-mod config;
+pub mod config;
 
 pub use cmd::*;
 pub use config::*;

@@ -5,7 +5,7 @@ use secp256k1::{SecretKey, SECP256K1};
 use thiserror::Error;
 
 use crate::cli::SignerConfig;
-use crate::{adapter_client::Signable, attestation_store::Attestation};
+use crate::{adapter_client::Signable, api::Attestation};
 
 /// Signs `borsh` encoded byte data using
 /// the `secp256k1` algorithm.
@@ -22,14 +22,17 @@ impl Signer {
 
     pub fn sign(&self, signable_data: impl Signable) -> Attestation {
         let bytes = signable_data.to_encoded_bytes();
+        let height = signable_data.height();
 
         let digest = sha256::Hash::hash(&bytes);
         let message = Message::from_digest(digest.to_byte_array());
         let sig = self.skey.sign_ecdsa(message);
 
         Attestation {
-            data: bytes,
-            signature: sig.serialize_compact(),
+            height,
+            attested_data: bytes,
+            public_key: self.get_pubkey(),
+            signature: sig.serialize_compact().to_vec(),
         }
     }
 

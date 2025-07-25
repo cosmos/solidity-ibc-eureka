@@ -36,13 +36,13 @@ pub fn read_private_pem_to_secret<P: AsRef<Path>>(path: P) -> Result<SecretKey, 
         other => return Err(anyhow::anyhow!("unexpected PEM label: {}", other)),
     };
 
-    let ec = EcPrivateKey::from_der(&sec1_der).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let ec = EcPrivateKey::from_der(sec1_der).map_err(|e| anyhow::anyhow!("{e}"))?;
     let raw = ec.private_key;
     let arr: [u8; 32] = raw
         .try_into()
         .map_err(|_| anyhow::anyhow!("SEC1 privateKey OCTET STRING must be 32 bytes"))?;
 
-    Ok(SecretKey::from_byte_array(arr).map_err(|e| anyhow::anyhow!("{e}"))?)
+    SecretKey::from_byte_array(arr).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 pub fn generate_secret_key<P: AsRef<Path>>(path: &P) -> Result<(), anyhow::Error> {
