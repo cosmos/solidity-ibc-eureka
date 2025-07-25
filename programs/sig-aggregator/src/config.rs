@@ -30,8 +30,8 @@ pub struct AttestorConfig {
 /// The configuration for the relayer server.
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct ServerConfig {
-    /// The listner_addr to bind the server to.
-    pub listner_addr: SocketAddr,
+    /// The listener_addr to bind the server to.
+    pub listener_addr: SocketAddr,
     /// The log level for the server.
     #[serde(default)]
     pub log_level: String,
