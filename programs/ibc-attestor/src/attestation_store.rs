@@ -5,12 +5,7 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 use crate::adapter_client::Adapter;
-
-#[derive(Clone)]
-pub struct Attestation {
-    pub data: Vec<u8>,
-    pub signature: [u8; 64],
-}
+use crate::api::Attestation;
 
 pub struct AttestationStore {
     store: VecDeque<(u64, Attestation)>,
@@ -115,8 +110,10 @@ mod push {
 
         for i in 1..=10 {
             let att = Attestation {
-                signature: [0; 64],
-                data: Vec::new(),
+                height: i,
+                signature: vec![0; 64],
+                attested_data: Vec::new(),
+                public_key: vec![0; 64],
             };
             store.push(i, att);
         }
@@ -126,15 +123,19 @@ mod push {
         store.push(
             10,
             Attestation {
-                signature: [0; 64],
-                data: Vec::new(),
+                height: 10,
+                signature: vec![0; 64],
+                attested_data: Vec::new(),
+                public_key: vec![0; 64],
             },
         );
         store.push(
             10,
             Attestation {
-                signature: [0; 64],
-                data: Vec::new(),
+                height: 10,
+                signature: vec![0; 64],
+                attested_data: Vec::new(),
+                public_key: vec![0; 64],
             },
         );
         assert_eq!(store.store.iter().count(), 10);
@@ -143,8 +144,10 @@ mod push {
         store.push(
             11,
             Attestation {
-                signature: [0; 64],
-                data: Vec::new(),
+                height: 11,
+                signature: vec![0; 64],
+                attested_data: Vec::new(),
+                public_key: vec![0; 64],
             },
         );
         assert_eq!(store.store.iter().count(), 10);
@@ -164,8 +167,10 @@ mod range_from {
 
         for i in 1..=10 {
             let att = Attestation {
-                signature: [0; 64],
-                data: Vec::new(),
+                height: i,
+                signature: vec![0; 64],
+                attested_data: Vec::new(),
+                public_key: vec![0; 64],
             };
             store.push(i, att);
         }
@@ -180,8 +185,10 @@ mod range_from {
 
         for i in 1..=10 {
             let att = Attestation {
-                signature: [0; 64],
-                data: Vec::new(),
+                height: i,
+                signature: vec![0; 64],
+                attested_data: Vec::new(),
+                public_key: vec![0; 64],
             };
             store.push(i, att);
         }
@@ -196,8 +203,10 @@ mod range_from {
 
         for i in 1..=10 {
             let att = Attestation {
-                signature: [0; 64],
-                data: Vec::new(),
+                height: i,
+                signature: vec![0; 64],
+                attested_data: Vec::new(),
+                public_key: vec![0; 64],
             };
             store.push(i, att);
         }
@@ -212,8 +221,10 @@ mod range_from {
 
         for i in 1..=10 {
             let att = Attestation {
-                signature: [0; 64],
-                data: Vec::new(),
+                height: i,
+                signature: vec![0; 64],
+                attested_data: Vec::new(),
+                public_key: vec![0; 64],
             };
             store.push(i, att);
         }

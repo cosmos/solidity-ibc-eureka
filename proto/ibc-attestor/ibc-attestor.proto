@@ -2,36 +2,42 @@ syntax = "proto3";
 
 package ibc_attestor;
 
-// Request message for fetching attestations from a given height.
-message AttestationsFromHeightRequest {
-  // Block height to start from.
-  uint64 height = 1;
-}
-
-// Entry pairing a block height with its corresponding attestation data and signature.
-message AttestationEntry {
-  // Block height of the attestation.
-  uint64 height = 1;
-
-  // Arbitrary data payload.
-  bytes data = 2;
-
-  // Signature over the data (64 bytes).
-  bytes signature = 3;
-}
-
-// Response containing a common public key and a list of attestations in insertion order.
-message AttestationsFromHeightResponse {
-  // Compact compressed public key (64-bit) applicable to all attestations.
-  bytes pubkey = 1;
-
-  // Ordered list of height-attestation entries.
-  repeated AttestationEntry attestations = 2;
-}
+import "attestation.proto";
 
 // Service definition for retrieving attestations.
 service AttestationService {
-  // Retrieves all attestations from the specified block height onward, in insertion order.
-  rpc GetAttestationsFromHeight(AttestationsFromHeightRequest)
-    returns (AttestationsFromHeightResponse);
+  // Retrieves an attestation for a state at a given height.
+  rpc StateAttestation(StateAttestationRequest)
+    returns (StateAttestationResponse);
+
+  // Retrieves an attestation for a set of packets.
+  rpc PacketAttestation(PacketAttestationRequest)
+    returns (PacketAttestationResponse);
+}
+
+// Request message for getting an attestation for a state at a given height.
+message StateAttestationRequest {
+  // The height to attest to
+  uint64 height = 1;
+}
+
+// Response message for getting an attestation for a state at a given height.
+message StateAttestationResponse {
+  // The attestation
+  Attestation attestation = 1;
+}
+
+// Request message for getting an attestation for a set of packets.
+// This request's parameters does not include a height at the moment, because
+// we are currently only attesting to the latest height, and using the returned
+// height to request a state attestation.
+message PacketAttestationRequest {
+  // The packets to attest to
+  repeated bytes packets = 1;
+}
+
+// Response message for getting an attestation for a set of packets.
+message PacketAttestationResponse {
+  // The attestation
+  Attestation attestation = 1;
 }

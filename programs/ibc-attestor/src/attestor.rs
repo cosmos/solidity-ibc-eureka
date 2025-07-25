@@ -9,10 +9,11 @@ use tonic::{Response, Status};
 use crate::{
     adapter_client::{Adapter, AdapterError, Signable},
     api::{
-        attestation_service_server::AttestationService, AttestationEntry,
-        AttestationsFromHeightRequest, AttestationsFromHeightResponse,
+        attestation_service_server::AttestationService, Attestation,
+        StateAttestationRequest, StateAttestationResponse,
+        PacketAttestationRequest, PacketAttestationResponse,
     },
-    attestation_store::{Attestation, AttestationStore},
+    attestation_store::AttestationStore,
     signer::Signer,
 };
 
@@ -22,18 +23,18 @@ use crate::{
 /// The [AttestorService] is composed of three parts:
 /// - A generic [Adapter] client that fetches [Signable] data
 /// - A concrete [Signer] that uses the `sepc256k1` aglo for
-/// cryptographic signatures
+///   cryptographic signatures
 /// - An internally mutable instance of the [AttestationStore]
 ///
 /// The relationship between these components is as follows:
 /// - The service when run in a loop should update its store
-/// using [Attestor::update_attestation_store]. The frequency of these updates
-/// should be determined by [Attestor::update_frequency].
+///   using [Attestor::update_attestation_store]. The frequency of these updates
+///   should be determined by [Attestor::update_frequency].
 /// - Once raw data has been retrieved the service uses the [Signer]
-/// to make the data cryptographically verifiable by a given light
-/// client in the future.
+///   to make the data cryptographically verifiable by a given light
+///   client in the future.
 /// - The signed data is stored in the [AttestationStore] and made
-/// accessible via the [Attestor::attestations_from_height] method.
+///   accessible via the [Attestor::attestations_from_height] method.
 ///
 /// These methods use internal types before converting them into
 /// RPC generated types in the [AttestationService] trait implementation.
@@ -52,7 +53,9 @@ pub trait Attestor: Send + Sync + 'static {
 
     fn update_attestation_store(&self) -> impl Future<Output = ()> + Send;
 
-    fn attestations_from_height(&self, height: u64) -> Vec<(u64, Attestation)>;
+    fn state_attestation(&self, height: u64) -> Attestation;
+
+    fn packet_attestation(&self, height: u64) -> Attestation;
 }
 
 impl<A> AttestorService<A>
@@ -106,11 +109,12 @@ where
         store.push(store_at_height, signed);
     }
 
-    /// Returns a vector of (height, [Attestation]) that contains all attestations
-    /// in insertion order from a given `height`
-    fn attestations_from_height(&self, height: u64) -> Vec<(u64, Attestation)> {
-        let store = self.store.lock().unwrap();
-        store.range_from(height).cloned().collect()
+    fn state_attestation(&self, _height: u64) -> Attestation {
+        todo!()
+    }
+
+    fn packet_attestation(&self, _height: u64) -> Attestation {
+        todo!()
     }
 }
 
@@ -121,26 +125,17 @@ impl<A> AttestationService for Arc<AttestorService<A>>
 where
     A: Adapter,
 {
-    async fn get_attestations_from_height(
+    async fn state_attestation(
         self: Arc<Self>,
-        request: tonic::Request<AttestationsFromHeightRequest>,
-    ) -> Result<Response<AttestationsFromHeightResponse>, Status> {
-        let atts = self.attestations_from_height(request.get_ref().height);
-        let as_messages: Vec<_> = atts
-            .into_iter()
-            .map(|(h, att)| AttestationEntry {
-                height: h,
-                data: att.data,
-                signature: att.signature.to_vec(),
-            })
-            .collect();
+        _request: tonic::Request<StateAttestationRequest>,
+    ) -> Result<Response<StateAttestationResponse>, Status> {
+        todo!()
+    }
 
-        let pubkey = self.signer.get_pubkey();
-        let message = AttestationsFromHeightResponse {
-            pubkey,
-            attestations: as_messages,
-        };
-
-        Ok(message.into())
+    async fn packet_attestation(
+        self: Arc<Self>,
+        _request: tonic::Request<PacketAttestationRequest>,
+    ) -> Result<Response<PacketAttestationResponse>, Status> {
+        todo!()
     }
 }
