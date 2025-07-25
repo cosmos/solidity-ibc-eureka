@@ -1,0 +1,10 @@
+{
+  "metadata": {
+    "description": "Consensus state captured from simd-1",
+    "generated_at": "2025-07-25T15:24:27Z",
+    "source": "real_cosmos_chain"
+  },
+  "next_validators_hash": "d6a5aa064ed96c96e2d468c46c0d0b5563dc71cb0f82563d297449064cf84c17",
+  "root": "0d54c1df25467962a200146c65aa5f2b5ea3607b640f581051e9824553d86c52",
+  "timestamp": 1753457022970246379
+}

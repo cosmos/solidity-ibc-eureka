@@ -49,7 +49,7 @@ pub fn initialize(
 mod tests {
     use super::*;
     use crate::state::ConsensusStateStore;
-    use crate::types::IbcHeight;
+    use crate::test_helpers::fixtures::*;
     use anchor_lang::{AnchorDeserialize, InstructionData};
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
@@ -60,29 +60,12 @@ mod tests {
 
     #[test]
     fn test_initialize_happy_path() {
-        let chain_id = "test-chain";
-        let client_state = ClientState {
-            chain_id: chain_id.to_string(),
-            trust_level_numerator: 1,
-            trust_level_denominator: 3,
-            trusting_period: 1000,
-            unbonding_period: 2000,
-            max_clock_drift: 5,
-            frozen_height: IbcHeight {
-                revision_number: 0,
-                revision_height: 0,
-            },
-            latest_height: IbcHeight {
-                revision_number: 0,
-                revision_height: 42,
-            },
-        };
-
-        let consensus_state = ConsensusState {
-            timestamp: 123_456_789,
-            root: [0u8; 32],
-            next_validators_hash: [1u8; 32],
-        };
+        let client_state_fixture = load_client_state_fixture();
+        let consensus_state_fixture = load_consensus_state_fixture();
+        
+        let chain_id = &client_state_fixture.chain_id;
+        let client_state = client_state_from_fixture(&client_state_fixture);
+        let consensus_state = consensus_state_from_fixture(&consensus_state_fixture);
 
         let payer = Pubkey::new_unique();
 
