@@ -21,20 +21,20 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Server { config } => {
             let config = Config::from_file(config)
-                .map_err(|e| anyhow::anyhow!("Configuration error: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Configuration error: {e:#?}"))?;
 
             // Validate configuration before proceeding
             config
                 .validate()
-                .map_err(|e| anyhow::anyhow!("Invalid configuration: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Invalid configuration: {e:#?}"))?;
 
             let aggregator_service = AggregatorService::from_config(config.attestor)
                 .await
-                .map_err(|e| anyhow::anyhow!("Failed to initialize aggregator service: {e}"))?;
+                .map_err(|e| anyhow::anyhow!("Failed to initialize aggregator service: {e:#?}"))?;
 
             start_server(aggregator_service, config.server)
                 .await
-                .map_err(|e| anyhow::anyhow!("Server error: {e}"))?;
+                .map_err(|e| anyhow::anyhow!("Server error: {e:#?}"))?;
         }
     }
 

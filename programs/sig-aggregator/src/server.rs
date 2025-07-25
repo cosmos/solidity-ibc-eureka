@@ -1,7 +1,7 @@
 use crate::{
     aggregator::AggregatorService,
     config::ServerConfig,
-    error::{AggregatorError, Result},
+    error::Result,
     rpc::{aggregator_server::AggregatorServer, AGG_FILE_DESCRIPTOR},
 };
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
@@ -13,10 +13,7 @@ pub async fn start(service: AggregatorService, config: ServerConfig) -> Result<(
     let socket_addr = config.listener_addr;
     let reflection_service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(AGG_FILE_DESCRIPTOR)
-        .build_v1()
-        .map_err(|e| {
-            AggregatorError::internal_with_source("Failed to build reflection service", e)
-        })?;
+        .build_v1()?;
 
     tonic::transport::Server::builder()
         .layer(
@@ -27,13 +24,7 @@ pub async fn start(service: AggregatorService, config: ServerConfig) -> Result<(
         .add_service(AggregatorServer::new(service))
         .add_service(reflection_service)
         .serve(socket_addr)
-        .await
-        .map_err(|e| {
-            AggregatorError::internal_with_source(
-                format!("Failed to start server on {socket_addr}"),
-                e,
-            )
-        })?;
+        .await?;
 
     Ok(())
 }
