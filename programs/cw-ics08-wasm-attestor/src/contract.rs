@@ -309,11 +309,9 @@ mod tests {
                 value: missing_packet.into(),
             });
             let res = sudo(deps.as_mut(), env.clone(), msg);
-            assert!(
-                matches!(res, 
+            assert!(matches!(res,
                     Err(ContractError::VerifyMembershipFailed(IbcAttestorClientError::MembershipProofFailed(e)))
-                    if e.to_string().contains("does not exist"))
-            );
+                    if e.to_string().contains("does not exist")));
 
             // Non existent height fails
             let env = mock_env();
