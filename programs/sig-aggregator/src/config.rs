@@ -1,4 +1,4 @@
-use crate::error::AggregatorError;
+use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::{fs, net::SocketAddr, path::Path, str::FromStr};
 use tracing::Level;
@@ -13,11 +13,17 @@ pub struct Config {
 
 impl Config {
     /// Load configuration from a TOML file.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
-        let content = fs::read_to_string(path)?;
-        let config: Config = toml::from_str(&content)?;
-        config.validate()?;
+        let content = fs::read_to_string(path)
+            .context(format!("Failed to read config file: {}", path.display()))?;
+
+        let config: Config = toml::from_str(&content)
+            .context("Failed to parse TOML configuration")?;
+
+        config.validate()
+            .context("Configuration validation failed")?;
+
         Ok(config)
     }
 
@@ -37,42 +43,45 @@ pub struct AttestorConfig {
 }
 
 impl AttestorConfig {
-    #[allow(clippy::result_large_err)]
-    pub fn validate(&self) -> Result<(), AggregatorError> {
-        // Validate quorum threshold
-        if self.quorum_threshold == 0 {
-            return Err(AggregatorError::Config("quorum_threshold must be greater than 0".to_string()));
-        }
+    fn validate(&self) -> Result<()> {
+        anyhow::ensure!(
+            self.quorum_threshold > 0,
+            "quorum_threshold must be greater than 0"
+        );
 
-        if self.quorum_threshold > self.attestor_endpoints.len() {
-            return Err(AggregatorError::Config(format!(
-                "quorum_threshold [{}] cannot exceed number of attestor endpoints [{}]",
-                self.quorum_threshold,
-                self.attestor_endpoints.len()
-            )));
-        }
+        anyhow::ensure!(
+            self.quorum_threshold <= self.attestor_endpoints.len(),
+            "quorum_threshold ({}) cannot exceed number of attestor endpoints ({})",
+            self.quorum_threshold,
+            self.attestor_endpoints.len()
+        );
 
-        if self.attestor_query_timeout_ms == 0 {
-            return Err(AggregatorError::Config("attestor_query_timeout_ms must be greater than 0".to_string()));
-        }
+        anyhow::ensure!(
+            self.attestor_query_timeout_ms > 0,
+            "attestor_query_timeout_ms must be greater than 0"
+        );
 
-        if self.attestor_query_timeout_ms > 60_000 {
-            return Err(AggregatorError::Config("attestor_query_timeout_ms should not exceed 60 seconds".to_string()));
-        }
+        anyhow::ensure!(
+            self.attestor_query_timeout_ms <= 60_000,
+            "attestor_query_timeout_ms should not exceed 60 seconds"
+        );
 
-        if self.attestor_endpoints.is_empty() {
-            return Err(AggregatorError::Config("at least one attestor endpoint must be specified".to_string()));
-        }
+        anyhow::ensure!(
+            !self.attestor_endpoints.is_empty(),
+            "at least one attestor endpoint must be specified"
+        );
 
         for endpoint in &self.attestor_endpoints {
-            if endpoint.trim().is_empty() {
-                return Err(AggregatorError::Config("attestor endpoint cannot be empty".to_string()));
-            }
+            anyhow::ensure!(
+                !endpoint.trim().is_empty(),
+                "attestor endpoint cannot be empty"
+            );
 
-            // Basic URL validation - ensure it looks like a URL
-            if !endpoint.starts_with("http://") && !endpoint.starts_with("https://") {
-                return Err(AggregatorError::Config(format!("attestor endpoint '{endpoint}' must start with http:// or https://")));
-            }
+            anyhow::ensure!(
+                endpoint.starts_with("http://") || endpoint.starts_with("https://"),
+                "attestor endpoint '{}' must start with http:// or https://",
+                endpoint
+            );
         }
 
         Ok(())
@@ -90,17 +99,15 @@ pub struct ServerConfig {
 }
 
 impl ServerConfig {
-    #[allow(clippy::result_large_err)]
-    pub fn validate(&self) -> Result<(), AggregatorError> {
+    fn validate(&self) -> Result<()> {
         if !self.log_level.is_empty() {
             Level::from_str(&self.log_level).map_err(|_| {
-                AggregatorError::Config(format!(
+                anyhow::anyhow!(
                     "invalid log level '{}'. Valid levels are: TRACE, DEBUG, INFO, WARN, ERROR",
                     self.log_level
-                ))
+                )
             })?;
         }
-
         Ok(())
     }
 
