@@ -265,3 +265,233 @@ fn create_consensus_state_account<'info>(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::ConsensusStateStore;
+    use crate::test_helpers::fixtures::*;
+    use crate::types::UpdateClientMsg;
+    use anchor_lang::{AnchorDeserialize, InstructionData};
+    use mollusk_svm::result::Check;
+    use mollusk_svm::Mollusk;
+    use solana_sdk::account::Account;
+    use solana_sdk::instruction::{AccountMeta, Instruction};
+    use solana_sdk::pubkey::Pubkey;
+    use solana_sdk::{native_loader, system_program};
+
+    fn setup_initialized_client() -> (
+        Pubkey,
+        Pubkey,
+        Pubkey,
+        ClientState,
+        ConsensusState,
+        Vec<(Pubkey, Account)>,
+    ) {
+        let client_state_fixture = load_client_state_fixture();
+        let consensus_state_fixture = load_consensus_state_fixture();
+
+        let chain_id = &client_state_fixture.chain_id;
+        let client_state = client_state_from_fixture(&client_state_fixture);
+        let consensus_state = consensus_state_from_fixture(&consensus_state_fixture);
+
+        let payer = Pubkey::new_unique();
+
+        let (client_state_pda, _) =
+            Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID);
+
+        let latest_height = client_state.latest_height.revision_height;
+        let (consensus_state_store_pda, _) = Pubkey::find_program_address(
+            &[
+                b"consensus_state",
+                client_state_pda.as_ref(),
+                &latest_height.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let instruction_data = crate::instruction::Initialize {
+            chain_id: chain_id.to_string(),
+            latest_height,
+            client_state: client_state.clone(),
+            consensus_state: consensus_state.clone(),
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(consensus_state_store_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let payer_lamports = 10_000_000_000;
+        let accounts = vec![
+            (
+                client_state_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                consensus_state_store_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: payer_lamports,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
+
+        let checks = vec![
+            Check::success(),
+            Check::account(&client_state_pda).owner(&crate::ID).build(),
+            Check::account(&consensus_state_store_pda)
+                .owner(&crate::ID)
+                .build(),
+        ];
+
+        let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+
+        // Return the resulting accounts from the initialize instruction
+        (
+            client_state_pda,
+            consensus_state_store_pda,
+            payer,
+            client_state,
+            consensus_state,
+            result.resulting_accounts,
+        )
+    }
+
+    #[test]
+    fn test_update_client_happy_path() {
+        let (client_state_pda, trusted_consensus_state_pda, payer, _, _, initialized_accounts) =
+            setup_initialized_client();
+
+        let update_message_fixture = load_update_client_message_fixture();
+        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
+
+        let new_height = update_message_fixture.new_height;
+        let (new_consensus_state_pda, _) = Pubkey::find_program_address(
+            &[
+                b"consensus_state",
+                client_state_pda.as_ref(),
+                &new_height.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let update_msg = UpdateClientMsg { client_message };
+
+        let instruction_data = crate::instruction::UpdateClient {
+            msg: update_msg.clone(),
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new_readonly(trusted_consensus_state_pda, false),
+                AccountMeta::new(new_consensus_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        // Create new account for the new consensus state (initially empty)
+        let new_consensus_account = Account {
+            lamports: 0,
+            data: vec![],
+            owner: system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        let mut accounts = initialized_accounts;
+        accounts.push((new_consensus_state_pda, new_consensus_account));
+
+        let mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
+
+        let checks = vec![
+            Check::success(),
+            Check::account(&client_state_pda).owner(&crate::ID).build(),
+            Check::account(&new_consensus_state_pda)
+                .owner(&crate::ID)
+                .build(),
+        ];
+
+        let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+
+        // Verify the client state was updated
+        let client_state_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &client_state_pda)
+            .map(|(_, account)| account)
+            .expect("Client state account not found");
+
+        let mut data_slice = &client_state_account.data[8..];
+        let updated_client_state: ClientState =
+            ClientState::deserialize(&mut data_slice).expect("Failed to deserialize client state");
+
+        // The latest height should have been updated to the new height
+        assert!(updated_client_state.latest_height.revision_height >= new_height);
+
+        // Verify the new consensus state was created
+        let new_consensus_state_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &new_consensus_state_pda)
+            .map(|(_, account)| account)
+            .expect("New consensus state account not found");
+
+        assert!(
+            new_consensus_state_account.lamports > 0,
+            "New consensus state account should be rent-exempt"
+        );
+        assert!(
+            new_consensus_state_account.data.len() > 8,
+            "New consensus state account should have data"
+        );
+
+        let mut data_slice = &new_consensus_state_account.data[8..];
+        let new_consensus_store: ConsensusStateStore =
+            ConsensusStateStore::deserialize(&mut data_slice)
+                .expect("Failed to deserialize new consensus state store");
+
+        assert_eq!(new_consensus_store.height, new_height);
+    }
+}

@@ -168,13 +168,31 @@ func (g *SolanaFixtureGenerator) generateUpdateClientMessageFixture(clientMessag
 	g.suite.T().Log("🔧 Generating UpdateClientMessage fixture")
 
 	headerBytes := clientMessage.Value
+	
+	// Parse the header to extract the new height information
+	var tmHeader ibctmtypes.Header
+	err := proto.Unmarshal(headerBytes, &tmHeader)
+	g.suite.Require().NoError(err, "Failed to parse header for height extraction - fixture generation cannot continue")
+
+	// Validate that we have valid height information
+	trustedHeight := tmHeader.TrustedHeight.RevisionHeight
+	newHeight := tmHeader.Header.Height
+	
+	g.suite.Require().Greater(newHeight, int64(0), "New height must be greater than 0")
+	g.suite.Require().Greater(trustedHeight, uint64(0), "Trusted height must be greater than 0")
+	g.suite.Require().Greater(newHeight, int64(trustedHeight), "New height must be greater than trusted height")
+
 	updateClientMessage := map[string]interface{}{
 		"client_message_hex":    hex.EncodeToString(headerBytes),
 		"client_message_base64": hex.EncodeToString(headerBytes),
 		"client_message_bytes":  headerBytes,
 		"type_url":              clientMessage.TypeUrl,
+		"trusted_height":        trustedHeight,
+		"new_height":            newHeight,
 		"metadata":              g.createMetadata("Protobuf-encoded Tendermint header for update client"),
 	}
+
+	g.suite.T().Logf("📏 Header heights - Trusted: %d, New: %d", trustedHeight, newHeight)
 
 	filename := filepath.Join(g.FixtureDir, "update_client_message.json")
 	g.saveJsonFixture(filename, updateClientMessage)
