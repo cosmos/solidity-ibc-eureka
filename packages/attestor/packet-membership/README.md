@@ -1,25 +1,52 @@
-# Attestor Light Client
+# Attestor Packet Membership
 
-This package contains the core attestor light client implementation for IBC.
+This package provides packet membership verification functionality for IBC attestor chains.
 
 ## Overview
 
-The attestor light client provides IBC client functionality for verifying blockchain state through attestation and facilitating cross-chain communication with Cosmos-based chains.
+The attestor packet membership package contains utilities for verifying that IBC packets exist within packet attestations. It provides a simple, JSON-based approach to prove packet membership without requiring complex cryptographic proofs.
 
 ## Key Components
 
-- **ClientState**: Chain parameters and configuration
-- **ConsensusState**: Trusted chain state at specific heights with minimal height and timestamp
-- **Header**: Block/state information for updates
-- **Verification**: Logic to verify client messages and state transitions
-- **Updates**: Logic to update consensus state with new blockchain data
+- **`verify_packet_membership`**: Core function that verifies whether a specific packet exists in a packet attestation proof
+- **`PacketAttestationError`**: Error types for packet verification failures
 
-## Initial Implementation Focus
+## Functionality
 
-This initial implementation focuses on:
-1. Basic client state management
-2. Consensus state updates using minimal height and timestamp data
-3. Simple verification of state transitions through attestation
-4. Integration with IBC verify_client_message and update_state methods
+### Packet Membership Verification
 
-Note: Advanced features like merkle proof verification for membership proofs are not included in the initial implementation.
+The `verify_packet_membership` function takes two parameters:
+- `proof`: A JSON-serialized vector of packet bytes representing the attestation
+- `value`: A JSON-serialized packet to verify membership for
+
+The function returns `Ok(())` if the packet is found in the proof, or an error if:
+- The proof cannot be deserialized
+- The value cannot be deserialized  
+- The packet is not found in the attestation
+
+### Example Usage
+
+```rust
+use attestor_packet_membership::verify_packet_membership;
+
+// Create a proof containing multiple packets
+let packets = vec![b"packet1".to_vec(), b"packet2".to_vec(), b"packet3".to_vec()];
+let proof = serde_json::to_vec(&packets).unwrap();
+
+// Verify that a specific packet exists in the proof
+let value = serde_json::to_vec(b"packet2".as_slice()).unwrap();
+let result = verify_packet_membership(proof, value);
+
+assert!(result.is_ok());
+```
+
+## Error Handling
+
+The package defines `PacketAttestationError` with the following variants:
+
+- `SerdeDeserializationError`: When JSON deserialization fails
+- `VerificationFailed`: When the packet is not found in the attestation
+
+## Design Philosophy
+
+This implementation prioritizes simplicity over cryptographic complexity. Instead of using merkle proofs or other advanced verification mechanisms, it uses straightforward JSON serialization and direct comparison to verify packet membership. This approach is suitable for attestor-based IBC implementations where trust is established through attestation rather than cryptographic proofs.

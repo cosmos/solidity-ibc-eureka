@@ -5,26 +5,21 @@ use crate::PacketAttestationError;
 
 /// Verifies that the provided `value` exists in the `proof`.
 ///
-/// Fails if:
+/// # Errors
 /// - Individual packets cannot be deserialized
 /// - The value cannot be deserialized
 /// - The value does not exist in the proof
-#[allow(clippy::module_name_repetitions)]
+#[allow(clippy::module_name_repetitions, clippy::needless_pass_by_value)]
 pub fn verify_packet_membership(
     proof: Vec<u8>,
     value: Vec<u8>,
 ) -> Result<(), PacketAttestationError> {
     let proof_packets: Vec<Vec<u8>> = serde_json::from_slice(&proof)
-        .map_err(|e| PacketAttestationError::SerdeDeserializationError(e))?;
+        .map_err(PacketAttestationError::SerdeDeserializationError)?;
     let value_packet: Vec<u8> = serde_json::from_slice(&value)
-        .map_err(|e| PacketAttestationError::SerdeDeserializationError(e))?;
+        .map_err(PacketAttestationError::SerdeDeserializationError)?;
 
-    if proof_packets
-        .iter()
-        .map(|packet| packet)
-        .find(|packet| **packet == value_packet)
-        .is_some()
-    {
+    if proof_packets.iter().any(|packet| **packet == value_packet) {
         Ok(())
     } else {
         Err(PacketAttestationError::VerificiationFailed {
@@ -36,33 +31,15 @@ pub fn verify_packet_membership(
 #[cfg(test)]
 #[allow(clippy::module_name_repetitions)]
 mod verify_packet_membership {
-    use ibc::core::channel::types::{
-        commitment::{compute_packet_commitment, PacketCommitment},
-        timeout::{TimeoutHeight, TimeoutTimestamp},
-    };
-
     use super::*;
 
     #[test]
     fn succeeds() {
         let data = [b"cosmos rules", b"so does rust", b"hear, hear!!"];
-
-        let timeout_height = TimeoutHeight::Never;
-        let timeout_timestamp = TimeoutTimestamp::Never;
-
-        let packets: Vec<PacketCommitment> = data
-            .into_iter()
-            .map(|d| compute_packet_commitment(d, &timeout_height, &timeout_timestamp))
-            .collect();
+        let packets: Vec<Vec<u8>> = data.into_iter().map(|d| d.to_vec()).collect();
 
         let proof = serde_json::to_vec(&packets).unwrap();
-
-        let value = serde_json::to_vec(&compute_packet_commitment(
-            b"hear, hear!!".as_slice(),
-            &timeout_height,
-            &timeout_timestamp,
-        ))
-        .unwrap();
+        let value = serde_json::to_vec(b"hear, hear!!".as_slice()).unwrap();
 
         let res = verify_packet_membership(proof, value);
         assert!(res.is_ok());
@@ -72,22 +49,10 @@ mod verify_packet_membership {
     fn fails_on_missing() {
         let data = [b"cosmos rules", b"so does rust", b"hear, hear!!"];
 
-        let timeout_height = TimeoutHeight::Never;
-        let timeout_timestamp = TimeoutTimestamp::Never;
-
-        let packets: Vec<PacketCommitment> = data
-            .into_iter()
-            .map(|d| compute_packet_commitment(d, &timeout_height, &timeout_timestamp))
-            .collect();
+        let packets: Vec<Vec<u8>> = data.into_iter().map(|d| d.to_vec()).collect();
 
         let proof = serde_json::to_vec(&packets).unwrap();
-
-        let value = serde_json::to_vec(&compute_packet_commitment(
-            b"this does not exist".as_slice(),
-            &timeout_height,
-            &timeout_timestamp,
-        ))
-        .unwrap();
+        let value = serde_json::to_vec(b"this does not exist".as_slice()).unwrap();
 
         let res = verify_packet_membership(proof, value);
         assert!(

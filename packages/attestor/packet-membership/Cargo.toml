@@ -8,10 +8,5 @@ repository = { workspace = true }
 default = []
 
 [dependencies]
-serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
+serde_json = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
-schemars = { workspace = true }
-
-[dev-dependencies]
-ibc = { workspace = true, features = ["serde"] }
