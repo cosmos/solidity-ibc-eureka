@@ -94,7 +94,7 @@ mod tests {
             ),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics26_router");
+        let mollusk = Mollusk::new(&crate::ID, crate::ROUTER_PROGRAM_PATH);
 
         let checks = vec![
             Check::success(),

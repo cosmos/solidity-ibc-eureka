@@ -10,6 +10,9 @@ use state::{CounterpartyInfo, MsgAckPacket, MsgRecvPacket, MsgSendPacket, MsgTim
 
 declare_id!("HsCyuYgKgoN9wUPiJyNZvvWg2N1uyZhDjvJfKJFu3jvU");
 
+#[cfg(test)]
+pub const ROUTER_PROGRAM_PATH: &str = "../../target/deploy/ics26_router";
+
 #[program]
 pub mod ics26_router {
     use super::*;
