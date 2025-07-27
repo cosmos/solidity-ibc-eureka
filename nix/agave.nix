@@ -99,6 +99,11 @@ let
         cp -r ${agave.src}/platform-tools-sdk/sbf/scripts/* $out/scripts/
         chmod +x $out/scripts/*.sh 2>/dev/null || true
       fi
+
+      # Create env.sh at the root to fix strip.sh script path
+      if [ -f "$out/sbf-sdk/env.sh" ]; then
+        ln -s $out/sbf-sdk/env.sh $out/env.sh
+      fi
     '';
 
     meta = with lib; {
