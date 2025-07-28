@@ -73,6 +73,7 @@ impl AttestatorData {
     }
 }
 
+// TODO: move this to a separate library IBC-138
 impl Attestation {
     pub fn validate(&self) -> anyhow::Result<()> {
         if self.public_key.len() != PUBKEY_BYTE_LENGTH {
