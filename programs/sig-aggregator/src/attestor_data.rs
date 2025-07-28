@@ -41,7 +41,8 @@ impl AttestatorData {
             return;
         }
 
-        let attested_data = State::try_from(attestation.attested_data.as_slice()).unwrap();
+        let attested_data = State::try_from(attestation.attested_data.as_slice())
+            .expect("Failed to convert attested_data to State: invalid length or format");
         if let Some(attestations) = self.state_attestations.get_mut(&attested_data) {
             attestations.push(attestation);
             return;
