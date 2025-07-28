@@ -58,6 +58,7 @@ tree_hash                               = { path = "packages/ethereum/tree_hash"
 
 attestor-light-client              = { path = "packages/attestor/light-client", default-features = false }
 attestor-packet-membership         = { path = "packages/attestor/packet-membership", default-features = false }
+key-utils                          = { path = "packages/key-utils", default-features = false }
 
 tendermint-light-client-update-client     = { path = "packages/tendermint-light-client/update-client", default-features = false }
 tendermint-light-client-membership        = { path = "packages/tendermint-light-client/membership", default-features = false }
