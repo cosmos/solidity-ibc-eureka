@@ -3,8 +3,8 @@ use crate::{
     config::AttestorConfig,
     rpc::{
         aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient,
-        AggregateRequest, AggregateResponse, AttestationsFromHeightRequest,
-        AttestationsFromHeightResponse,
+        AggregateRequest, AggregateResponse, StateAttestationRequest,
+        StateAttestationResponse,
     },
 };
 use futures::future::join_all;
@@ -14,7 +14,7 @@ use tokio::{
     time::{timeout, Duration},
 };
 use tonic::{transport::Channel, Request, Response, Status};
-use tracing::{error, instrument};
+use tracing::{error as tracing_error, instrument};
 
 #[derive(Debug)]
 pub struct AggregatorService {
@@ -41,8 +41,9 @@ impl AggregatorService {
 
     async fn get_cached_response(&self, min_height: u64) -> Option<AggregateResponse> {
         let cached = self.cached_response.read().await;
-        cached.as_ref()
-            .filter(|resp| resp.height >= min_height)
+        cached
+            .as_ref()
+            .filter(|csh| csh.height >= min_height)
             .cloned()
     }
 
@@ -88,7 +89,7 @@ impl AggregatorService {
     async fn query_all_attestors(
         &self,
         min_height: u64,
-    ) -> Result<Vec<AttestationsFromHeightResponse>, Status> {
+    ) -> Result<Vec<StateAttestationResponse>, Status> {
         let timeout_duration = Duration::from_millis(self.config.attestor_query_timeout_ms);
 
         let query_futures = self.attestor_clients.iter().enumerate().map(|(i, client)| {
@@ -96,8 +97,8 @@ impl AggregatorService {
 
             async move {
                 let mut client = client.lock().await;
-                let request = Request::new(AttestationsFromHeightRequest { height: min_height });
-                let response = timeout(timeout_duration, client.get_attestations_from_height(request)).await;
+                let request = Request::new(StateAttestationRequest { height: min_height });
+                let response = timeout(timeout_duration, client.state_attestation(request)).await;
 
                 match response {
                     Ok(Ok(response)) => Ok(response.into_inner()),
@@ -117,7 +118,7 @@ impl AggregatorService {
             .filter_map(|result| match result {
                 Ok(response) => Some(response),
                 Err(e) => {
-                    error!(error = %e, "Attestor query failed, continuing with other responses");
+                    tracing_error!(error = %e, "Attestor query failed, continuing with other responses");
                     None
                 }
             })
@@ -129,7 +130,7 @@ impl AggregatorService {
     /// Process attestor responses and create an aggregate response
     async fn process_attestor_responses(
         &self,
-        responses: Vec<AttestationsFromHeightResponse>,
+        responses: Vec<StateAttestationResponse>,
     ) -> Result<AggregateResponse, Status> {
         let mut attestator_data = AttestatorData::new();
 
@@ -258,7 +259,7 @@ mod e2e_tests {
 mod tests {
     use super::*;
     use crate::attestor_data::{PUBKEY_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH, STATE_BYTE_LENGTH};
-    use crate::rpc::{AttestationEntry, AttestationsFromHeightResponse};
+    use crate::rpc::{Attestation, StateAttestationResponse};
 
     // Helper to build a FixedBytes-N vector filled with `b`
     fn fill_bytes<const N: usize>(b: u8) -> Vec<u8> {
@@ -270,16 +271,16 @@ mod tests {
         // We have a height 100 but only 1 signature < quorum 2
         let mut attestator_data = AttestatorData::new();
 
-        attestator_data.insert(AttestationsFromHeightResponse {
-            pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x03),
-            attestations: vec![AttestationEntry {
+        attestator_data.insert(StateAttestationResponse {
+            attestation: StateAttestation {
+                pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x03),
                 height: 100,
                 data: fill_bytes::<STATE_BYTE_LENGTH>(1),
                 signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x04),
-            }],
+            },
         });
 
-        let latest = attestator_data.get_latest(2); // Quprum 2
+        let latest = attestator_data.get_latest(2); // Quorum 2
         assert!(latest.is_none(), "Should not return a state below quorum");
     }
 
