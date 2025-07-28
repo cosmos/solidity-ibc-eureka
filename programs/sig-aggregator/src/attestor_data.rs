@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use crate::rpc::{AggregateResponse, Attestation, SigPubkeyPair};
 use alloy_primitives::FixedBytes;
 use std::collections::HashMap;
@@ -36,18 +36,16 @@ impl AttestatorData {
     }
 
     pub fn insert(&mut self, attestation: Attestation) -> Result<()> {
-        attestation.validate().map_err(|e| anyhow::anyhow!("Invalid attestation: {e}"))?;
+        attestation.validate().context("Invalid attestation")?;
 
         let attested_data = State::try_from(attestation.attested_data.as_slice())
-            .map_err(|e| anyhow::anyhow!("Failed to convert attested_data to State: {e}"))?;
-
-        if let Some(attestations) = self.state_attestations.get_mut(&attested_data) {
-            attestations.push(attestation);
-            return Ok(());
-        }
+            .context("Failed to convert attested_data to State")?;
 
         self.state_attestations
-            .insert(attested_data, vec![attestation]);
+            .entry(attested_data)
+            .or_default()
+            .push(attestation);
+
         Ok(())
     }
 
@@ -56,16 +54,20 @@ impl AttestatorData {
         self.state_attestations
             .iter()
             .find(|(_, attestations)| attestations.len() >= quorum)
-            .map(|(state, attestations)| AggregateResponse {
-                height: attestations[0].height,
-                state: state.to_vec(),
-                sig_pubkey_pairs: attestations
+            .map(|(state, attestations)| {
+                let sig_pubkey_pairs = attestations
                     .iter()
                     .map(|a| SigPubkeyPair {
                         sig: a.signature.clone(),
                         pubkey: a.public_key.clone(),
                     })
-                    .collect(),
+                    .collect();
+
+                AggregateResponse {
+                    height: attestations[0].height,
+                    state: state.to_vec(),
+                    sig_pubkey_pairs,
+                }
             })
     }
 }
@@ -74,31 +76,22 @@ impl AttestatorData {
 impl Attestation {
     pub fn validate(&self) -> anyhow::Result<()> {
         if self.public_key.len() != PUBKEY_BYTE_LENGTH {
-            return Err(anyhow::anyhow!(
-                "Invalid pubkey length: {}",
-                self.public_key.len()
-            ));
+            anyhow::bail!("Invalid pubkey length: {}", self.public_key.len());
         }
         Pubkey::try_from(self.public_key.as_slice())
-            .map_err(|e| anyhow::anyhow!("Invalid pubkey: {:#?}", self.public_key).context(e))?;
+            .with_context(|| format!("Invalid pubkey: {:?}", self.public_key))?;
 
         if self.attested_data.len() != STATE_BYTE_LENGTH {
-            return Err(anyhow::anyhow!(
-                "Invalid attested_data length: {}",
-                self.attested_data.len()
-            ));
+            anyhow::bail!("Invalid attested_data length: {}", self.attested_data.len());
         }
         State::try_from(self.attested_data.as_slice())
-            .map_err(|e| anyhow::anyhow!("Invalid attested_data: {:#?}", self.attested_data).context(e))?;
+            .with_context(|| format!("Invalid attested_data: {:#?}", self.attested_data))?;
 
         if self.signature.len() != SIGNATURE_BYTE_LENGTH {
-            return Err(anyhow::anyhow!(
-                "Invalid signature length: {}",
-                self.signature.len()
-            ));
+            anyhow::bail!("Invalid signature length: {}", self.signature.len());
         }
         Signature::try_from(self.signature.as_slice())
-            .map_err(|e| anyhow::anyhow!("Invalid signature: {:?}", self.signature).context(e))?;
+            .with_context(|| format!("Invalid signature: {:?}", self.signature))?;
 
         Ok(())
     }
@@ -108,20 +101,16 @@ impl Attestation {
 mod tests {
     use super::*;
 
-    fn fill_bytes<const N: usize>(b: u8) -> Vec<u8> {
-        vec![b; N]
-    }
-
     #[test]
     fn ignores_states_below_quorum() {
         // We have a height 100 but only 1 signature < quorum 2
         let mut attestator_data = AttestatorData::new();
 
         attestator_data.insert(Attestation {
-            attested_data: fill_bytes::<STATE_BYTE_LENGTH>(1),
-            public_key: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x03),
+            attested_data: vec![1; STATE_BYTE_LENGTH],
+            public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
             height: 100,
-            signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x04),
+            signature: vec![0x04; SIGNATURE_BYTE_LENGTH],
         }).unwrap();
 
         let latest = attestator_data.get_quorum(2); // Quorum 2
@@ -131,20 +120,20 @@ mod tests {
     #[test]
     fn state_meeting_quorum() {
         let mut attestator_data = AttestatorData::new();
-        let state = fill_bytes::<STATE_BYTE_LENGTH>(0xAA);
+        let state = vec![0xAA; STATE_BYTE_LENGTH];
         let height = 123;
         attestator_data.insert(Attestation {
             attested_data: state.clone(),
-            public_key: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x21),
+            public_key: vec![0x21; PUBKEY_BYTE_LENGTH],
             height,
-            signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
+            signature: vec![0x11; SIGNATURE_BYTE_LENGTH],
         }).unwrap();
 
         attestator_data.insert(Attestation {
             attested_data: state.clone(),
-            public_key: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x22),
+            public_key: vec![0x22; PUBKEY_BYTE_LENGTH],
             height,
-            signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
+            signature: vec![0x11; SIGNATURE_BYTE_LENGTH],
         }).unwrap();
 
         let latest = attestator_data.get_quorum(2); // Quorum 2
@@ -160,7 +149,7 @@ mod tests {
             .into_iter()
             .map(|p| p.pubkey)
             .collect();
-        assert!(pubs.contains(&fill_bytes::<PUBKEY_BYTE_LENGTH>(0x21)));
-        assert!(pubs.contains(&fill_bytes::<PUBKEY_BYTE_LENGTH>(0x22)));
+        assert!(pubs.contains(&vec![0x21; PUBKEY_BYTE_LENGTH]));
+        assert!(pubs.contains(&vec![0x22; PUBKEY_BYTE_LENGTH]));
     }
 }

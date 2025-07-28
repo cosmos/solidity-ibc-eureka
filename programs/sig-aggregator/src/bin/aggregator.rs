@@ -8,6 +8,20 @@ use sig_aggregator::{
 };
 use tracing_subscriber::FmtSubscriber;
 
+/// Initialize logging with appropriate configuration
+fn init_logging(log_level: tracing::Level) -> Result<()> {
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(log_level)
+        .with_target(false)
+        .with_thread_ids(true)
+        .with_file(true)
+        .with_line_number(true)
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber)?;
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -16,10 +30,7 @@ async fn main() -> Result<()> {
         Commands::Server { config } => {
             let config = Config::from_file(config)?;
 
-            let subscriber = FmtSubscriber::builder()
-                .with_max_level(config.server.log_level())
-                .finish();
-            tracing::subscriber::set_global_default(subscriber)?;
+            init_logging(config.server.log_level())?;
 
             tracing::info!(
                 "Starting sig-aggregator with attestor endpoints: {:?}",

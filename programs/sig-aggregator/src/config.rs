@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use std::{fs, net::SocketAddr, path::Path, str::FromStr};
+use std::{collections::HashSet, fs, net::SocketAddr, path::Path, str::FromStr};
 use tracing::Level;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -12,23 +12,20 @@ pub struct Config {
 }
 
 impl Config {
-    /// Load configuration from a TOML file.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         let content = fs::read_to_string(path)
-            .context(format!("Failed to read config file: {}", path.display()))?;
+            .with_context(|| format!("Failed to read config file '{}'", path.display()))?;
 
-        let config: Config =
-            toml::from_str(&content).context("Failed to parse TOML configuration")?;
+        let config: Config = toml::from_str(&content)
+            .context("Failed to parse TOML configuration")?;
 
-        config
-            .validate()
-            .context("Configuration validation failed")?;
+        config.validate()?;
 
         Ok(config)
     }
 
-    pub fn validate(&self) -> anyhow::Result<()> {
+    pub fn validate(&self) -> Result<()> {
         self.server.validate()?;
         self.attestor.validate()?;
         Ok(())
@@ -45,8 +42,9 @@ pub struct AttestorConfig {
 impl AttestorConfig {
     fn validate(&self) -> Result<()> {
         anyhow::ensure!(
-            self.quorum_threshold > 0,
-            "quorum_threshold must be greater than 0"
+            self.quorum_threshold >= defaults::MIN_QUORUM_THRESHOLD,
+            "quorum_threshold must be >= {}",
+            defaults::MIN_QUORUM_THRESHOLD
         );
 
         anyhow::ensure!(
@@ -57,13 +55,15 @@ impl AttestorConfig {
         );
 
         anyhow::ensure!(
-            self.attestor_query_timeout_ms > 0,
-            "attestor_query_timeout_ms must be greater than 0"
+            self.attestor_query_timeout_ms >= defaults::MIN_TIMEOUT_MS,
+            "attestor_query_timeout_ms must be >= {}ms",
+            defaults::MIN_TIMEOUT_MS
         );
 
         anyhow::ensure!(
-            self.attestor_query_timeout_ms <= 60_000,
-            "attestor_query_timeout_ms should not exceed 60 seconds"
+            self.attestor_query_timeout_ms <= defaults::MAX_TIMEOUT_MS,
+            "attestor_query_timeout_ms must be <= {}ms",
+            defaults::MAX_TIMEOUT_MS
         );
 
         anyhow::ensure!(
@@ -71,16 +71,24 @@ impl AttestorConfig {
             "at least one attestor endpoint must be specified"
         );
 
-        for endpoint in &self.attestor_endpoints {
+        for (i, endpoint) in self.attestor_endpoints.iter().enumerate() {
             anyhow::ensure!(
                 !endpoint.trim().is_empty(),
-                "attestor endpoint cannot be empty"
+                "endpoint at index {i} is empty"
             );
 
             anyhow::ensure!(
                 endpoint.starts_with("http://") || endpoint.starts_with("https://"),
-                "attestor endpoint '{}' must start with http:// or https://",
-                endpoint
+                "endpoint '{endpoint}' must start with http:// or https://"
+            );
+        }
+
+        // Check for duplicate endpoints
+        let mut unique_endpoints = HashSet::new();
+        for endpoint in &self.attestor_endpoints {
+            anyhow::ensure!(
+                unique_endpoints.insert(endpoint),
+                "duplicate endpoint: '{endpoint}'"
             );
         }
 
@@ -94,19 +102,18 @@ pub struct ServerConfig {
     /// The listener_addr to bind the server to.
     pub listener_addr: SocketAddr,
     /// The log level for the server.
-    #[serde(default)]
+    #[serde(default = "defaults::default_log_level")]
     pub log_level: String,
 }
 
 impl ServerConfig {
     fn validate(&self) -> Result<()> {
         if !self.log_level.is_empty() {
-            Level::from_str(&self.log_level).map_err(|_| {
-                anyhow::anyhow!(
+            Level::from_str(&self.log_level)
+                .with_context(|| format!(
                     "invalid log level '{}'. Valid levels are: TRACE, DEBUG, INFO, WARN, ERROR",
                     self.log_level
-                )
-            })?;
+                ))?;
         }
         Ok(())
     }
@@ -114,6 +121,20 @@ impl ServerConfig {
     /// Returns the log level for the server.
     #[must_use]
     pub fn log_level(&self) -> Level {
-        Level::from_str(&self.log_level).unwrap_or(Level::INFO)
+        Level::from_str(&self.log_level).unwrap_or(defaults::DEFAULT_LOG_LEVEL)
+    }
+}
+
+/// Default values for configuration
+mod defaults {
+    use tracing::Level;
+
+    pub const DEFAULT_LOG_LEVEL: Level = Level::INFO;
+    pub const MIN_TIMEOUT_MS: u64 = 10;
+    pub const MAX_TIMEOUT_MS: u64 = 60_000;
+    pub const MIN_QUORUM_THRESHOLD: usize = 1;
+
+    pub fn default_log_level() -> String {
+        DEFAULT_LOG_LEVEL.to_string().to_lowercase()
     }
 }
