@@ -2,7 +2,9 @@ use crate::{
     attestor_data::{PUBKEY_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH, STATE_BYTE_LENGTH},
     rpc::{
         attestation_service_server::{AttestationService, AttestationServiceServer},
-        AttestationEntry, AttestationsFromHeightRequest, AttestationsFromHeightResponse,
+        Attestation,
+        PacketAttestationRequest, PacketAttestationResponse,
+        StateAttestationRequest, StateAttestationResponse,
     },
 };
 use rand::Rng;
@@ -13,59 +15,50 @@ use tonic::{transport::Server, Request, Response, Status};
 #[derive(Debug, Default)]
 pub struct MockAttestor {
     // Using BTreeMap to keep heights sorted.
-    store: BTreeMap<u64, (Vec<u8>, Vec<u8>)>,
+    store: Attestation,
     // To simulate failures
     should_fail: bool,
     // To simulate latency
     delay_ms: u64,
-    pub_key: Vec<u8>,
 }
 
 impl MockAttestor {
     pub fn new(should_fail: bool, delay_ms: u64) -> Self {
-        let mut store = BTreeMap::new();
-        // Populate with some data
-        for i in 95..=105 {
-            // Let's create some forks/disagreements.
-            // Attestors that don't fail will agree on height 100, but disagree on 105.
-            let height = if i == 105 && !should_fail { 104 } else { i };
-            store.insert(
-                height,
-                (
-                    vec![height as u8; STATE_BYTE_LENGTH],
-                    vec![height as u8; SIGNATURE_BYTE_LENGTH],
-                ),
-            );
-        }
-        // A higher block that only some attestors will have quorum for.
-        if !should_fail {
-            store.insert(
-                110,
-                (
-                    vec![110; STATE_BYTE_LENGTH],
-                    vec![110; SIGNATURE_BYTE_LENGTH],
-                ),
-            );
-        }
+        let mut store = Attestation { 
+            height: 110, 
+            attested_data: vec![110; STATE_BYTE_LENGTH], 
+            signature: vec![110; SIGNATURE_BYTE_LENGTH], 
+            public_key: vec![110; PUBKEY_BYTE_LENGTH] 
+        };
 
-        let mut pub_key = [0u8; PUBKEY_BYTE_LENGTH];
-        rand::rng().fill(&mut pub_key[..]);
+        if should_fail {
+            store.height = 105;
+            store.attested_data = vec![105; STATE_BYTE_LENGTH];
+            store.signature = vec![105; SIGNATURE_BYTE_LENGTH];
+            store.public_key = vec![105; PUBKEY_BYTE_LENGTH];
+        }
 
         Self {
             store,
             should_fail,
             delay_ms,
-            pub_key: pub_key.to_vec(),
         }
     }
 }
 
 #[tonic::async_trait]
 impl AttestationService for MockAttestor {
-    async fn get_attestations_from_height(
+    async fn packet_attestation(
         &self,
-        request: Request<AttestationsFromHeightRequest>,
-    ) -> Result<Response<AttestationsFromHeightResponse>, Status> {
+        request: Request<PacketAttestationRequest>,
+    ) -> Result<Response<PacketAttestationResponse>, Status> {
+        todo!()
+    }
+
+    async fn state_attestation(
+        &self,
+        request: Request<StateAttestationRequest>,
+    ) -> Result<Response<StateAttestationResponse>, Status> {
         if self.delay_ms > 0 {
             sleep(Duration::from_millis(self.delay_ms)).await;
         }
@@ -77,18 +70,17 @@ impl AttestationService for MockAttestor {
         let min_height = request.into_inner().height;
         let store = self.store.clone();
 
-        let attestations = store
-            .range(min_height..)
-            .map(|(&height, (state, signature))| AttestationEntry {
+        let attestation = store
+            .max_by_key(|(&height, _)| height)
+            .map(|(&height, (state, signature))| Attestation {
                 height,
-                data: state.clone(),
+                attested_data: state.clone(),
                 signature: signature.clone(),
-            })
-            .collect();
+                public_key: self.pub_key.clone(),
+            });
 
-        Ok(Response::new(AttestationsFromHeightResponse {
-            pubkey: self.pub_key.clone(),
-            attestations,
+        Ok(Response::new(StateAttestationResponse {
+            attestation,
         }))
     }
 }

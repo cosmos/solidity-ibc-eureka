@@ -1,4 +1,4 @@
-use crate::rpc::{AggregateResponse, AttestationsFromHeightResponse, SigPubkeyPair};
+use crate::rpc::{AggregateResponse, StateAttestationResponse, SigPubkeyPair};
 use alloy_primitives::FixedBytes;
 use std::collections::HashMap;
 
@@ -42,39 +42,43 @@ impl AttestatorData {
         Self::default()
     }
 
-    pub fn insert(&mut self, response: AttestationsFromHeightResponse) {
-        let pubkey = match Pubkey::try_from(response.pubkey.as_slice()) {
+    pub fn insert(&mut self, response: StateAttestationResponse) {
+        if response.attestation.is_none() {
+            tracing::warn!("No attestation found in response");
+            return;
+        }
+
+        let attestation = response.attestation.unwrap();
+        let pubkey = match Pubkey::try_from(attestation.public_key.as_slice()) {
             Ok(pk) => pk,
             Err(_) => {
-                tracing::warn!("Invalid pubkey length: {}", response.pubkey.len());
+                tracing::warn!("Invalid pubkey length: {}", attestation.public_key.len());
                 return;
             }
         };
 
-        for attestation in response.attestations {
-            let state = match State::try_from(attestation.data.as_slice()) {
-                Ok(s) => s,
-                Err(_) => {
-                    tracing::warn!("Invalid state length: {}", attestation.data.len());
-                    continue;
-                }
-            };
+        let state = match State::try_from(attestation.attested_data.as_slice()) {
+            Ok(s) => s,
+            Err(_) => {
+                tracing::warn!("Invalid state length: {}", attestation.attested_data.len());
+                return;
+            }
+        };
 
-            let signature = match Signature::try_from(attestation.signature.as_slice()) {
-                Ok(sig) => sig,
-                Err(_) => {
-                    tracing::warn!("Invalid signature length: {}", attestation.signature.len());
-                    continue;
-                }
-            };
+        let signature = match Signature::try_from(attestation.signature.as_slice()) {
+            Ok(sig) => sig,
+            Err(_) => {
+                tracing::warn!("Invalid signature length: {}", attestation.signature.len());
+                return;
+            }
+        };
 
-            self.height_states
-                .entry(attestation.height)
-                .or_default()
-                .entry(state)
-                .or_default()
-                .push((signature, pubkey));
-        }
+        self.height_states
+            .entry(attestation.height)
+            .or_default()
+            .entry(state)
+            .or_default()
+            .push((signature, pubkey));
     }
 
     #[must_use]
