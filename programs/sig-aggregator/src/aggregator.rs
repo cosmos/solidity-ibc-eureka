@@ -3,7 +3,7 @@ use crate::{
     config::AttestorConfig,
     rpc::{
         aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient,
-        AggregateRequest, AggregateResponse, StateAttestationRequest,StateAttestationResponse,
+        AggregateRequest, AggregateResponse, StateAttestationRequest, StateAttestationResponse,
     },
 };
 use futures::future::join_all;

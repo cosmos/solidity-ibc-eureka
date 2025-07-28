@@ -45,7 +45,7 @@ impl AttestatorData {
         if let Some(attestations) = self.state_attestations.get_mut(&attested_data) {
             attestations.push(attestation);
             return;
-        } 
+        }
         self.state_attestations
             .insert(attested_data, vec![attestation]);
     }
@@ -76,38 +76,32 @@ impl Attestation {
     pub fn validate(&self) -> anyhow::Result<()> {
         if self.public_key.len() != PUBKEY_BYTE_LENGTH {
             return Err(anyhow::anyhow!(
-                "Invalid pubkey length: {}", 
+                "Invalid pubkey length: {}",
                 self.public_key.len()
             ));
         }
         if let Err(e) = Pubkey::try_from(self.public_key.as_slice()) {
-            return Err(anyhow::anyhow!(
-                "Invalid pubkey: {:#?}", self.public_key).context(e),
-            );
+            return Err(anyhow::anyhow!("Invalid pubkey: {:#?}", self.public_key).context(e));
         }
 
         if self.attested_data.len() != STATE_BYTE_LENGTH {
             return Err(anyhow::anyhow!(
                 "Invalid attested_data length: {}",
-                self.attested_data.len())
-            );
+                self.attested_data.len()
+            ));
         }
         if let Err(e) = State::try_from(self.attested_data.as_slice()) {
-            return Err(anyhow::anyhow!(
-                "Invalid state: {}", self.attested_data.len()).context(e),
-            );
+            return Err(anyhow::anyhow!("Invalid state: {}", self.attested_data.len()).context(e));
         }
 
         if self.signature.len() != SIGNATURE_BYTE_LENGTH {
             return Err(anyhow::anyhow!(
                 "Invalid signature length: {}",
-                self.signature.len())
-            );
+                self.signature.len()
+            ));
         }
         if let Err(e) = Signature::try_from(self.signature.as_slice()) {
-            return Err(
-                anyhow::anyhow!("Invalid signature: {:?}", self.signature).context(e)
-            );
+            return Err(anyhow::anyhow!("Invalid signature: {:?}", self.signature).context(e));
         }
 
         Ok(())
