@@ -41,8 +41,8 @@ mod tests {
 
     #[tokio::test]
     async fn server_accepts_and_responds_to_rpc() {
-        let (addr_1, pk_1) = setup_attestor_server(false, 0).await.unwrap();
-        let (addr_2, pk_2) = setup_attestor_server(false, 0).await.unwrap();
+        let (addr_1, pk_1) = setup_attestor_server(false, 0, 1).await.unwrap();
+        let (addr_2, pk_2) = setup_attestor_server(false, 0, 2).await.unwrap();
 
         let listener_addr: String = "127.0.0.1:50051".to_string();
         let config = Config {
@@ -57,7 +57,7 @@ mod tests {
             },
         };
 
-        let service = AggregatorService::from_config(config.attestor)
+        let service = AggregatorService::from_attestor_config(config.attestor)
             .await
             .expect("failed to build AggregatorService");
 
@@ -76,7 +76,7 @@ mod tests {
             .await
             .expect("client connect failed");
 
-        let req = Request::new(AggregateRequest { min_height: 11 });
+        let req = Request::new(AggregateRequest { min_height: 110 });
         let resp = client
             .get_aggregate_attestation(req)
             .await
