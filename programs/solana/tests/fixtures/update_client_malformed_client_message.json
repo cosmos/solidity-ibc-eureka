@@ -1,0 +1,46 @@
+{
+  "client_state": {
+    "chain_id": "simd-2",
+    "frozen_height": 0,
+    "latest_height": 19,
+    "max_clock_drift": 15,
+    "metadata": {
+      "description": "Client state for simd-2 captured from simd-1",
+      "generated_at": "2025-07-28T12:40:28Z",
+      "source": "real_cosmos_chain"
+    },
+    "trust_level_denominator": 3,
+    "trust_level_numerator": 1,
+    "trusting_period": 1209600,
+    "unbonding_period": 1814400
+  },
+  "metadata": {
+    "chain_id": "simd-2",
+    "description": "Unified update client fixture for scenario: malformed_client_message",
+    "generated_at": "2025-07-28T12:40:28Z",
+    "scenario": "malformed_client_message",
+    "source": "real_cosmos_chain"
+  },
+  "scenario": "malformed_client_message",
+  "trusted_consensus_state": {
+    "metadata": {
+      "description": "Consensus state captured from simd-1",
+      "generated_at": "2025-07-28T12:40:28Z",
+      "source": "real_cosmos_chain"
+    },
+    "next_validators_hash": "47efd09df9464359281261cd1a7dc329b4775925680c3401933f9c6245ef4ee0",
+    "root": "cae4e504e2b7f6e9850090ca163196865a195dbf3bdd9e2f59aeff153e5ecc0a",
+    "timestamp": 1753706384135553630
+  },
+  "update_client_message": {
+    "client_message_hex": "0ab0050a8c030a02080b120673696d642d321825220c08b9df9dc406108885f285032a480a2002d6587a6da89552a75c9b991fd9fae6480606fc12bd041ca0ef45e353243e7c12240801122060d4bcca5e23e81dd9a0406e09b610e07ecbc09ac1b22c1304a27e062d12432732204c5c1ef716419c26c9ab56eb3ff56e6849b2edc0e059457def64bcb58e91f74d3a20e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855422047efd09df9464359281261cd1a7dc329b4775925680c3401933f9c6245ef4ee04a2047efd09df9464359281261cd1a7dc329b4775925680c3401933f9c6245ef4ee05220048091bc7ddc283f77bfbf91d73c44da58c3df8a9cbc867405d8b7f3daada22f5a2002c11b72514db732f66ba7e84de4fa2fe2449dc11bb5cd63fc2df757b8c071b26220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8556a20e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8557214033e4e3cfd4530ff6086eeb90ad32d93569cdb5d129e0208251a480a2051fa38caf7a317c37b381e6cae8f9d5c8b4434a8a2233be46fb8606e457814801224080112200f5ab4816e3b73993a9972dd8f5b4527db35ce58d11f59e71106cb8bb201c1f2226708021214033e4e3cfd4530ff6086eeb90ad32d93569cdb5d1a0b08bcdf9dc40610b4b9d96a22408d45ad62ddfcaab3f9fd7b10de41e1bd50d8526298c2aaa5fe9c9fe79ea72587ea80f1cb38f3320259d2623f694481531c368eae7746a37fe09562cd5814ae0b226708021214285cb5d1e9503430521656fc3bafeaefbadd97f41a0b08bcdf9dc40610b3afdd3a22403dcbcb1f99421d00e3b5500b015dd6d15d885634de8052fa5797a5a6faa8ed6c1910ec3d58cdc9465bd227217905add0067d3acda7ec72fbe538891f42bd000312c8010a3f0a14033e4e3cfd4530ff6086eeb90ad32d93569cdb5d12220a205eb15ee3828a78d22b55c9f434ed4210981d995304ae7bbe83344945c01b94fb18c096b1020a3f0a14285cb5d1e9503430521656fc3bafeaefbadd97f412220a203af5c532543e860e99917ffd12bff55f0bf8f2c47e5d032bbc37e401d6152ad718c096b102123f0a14033e4e3cfd4530ff6086eeb90ad32d93569cdb5d12220a205eb15ee3828a78d22b55c9f434ed4210981d995304ae7bbe83344945c01b94fb18c096b1021880ade2041a040802101322c8010a3f0a14033e4e3cfd4530ff6086eeb90ad32d93569cdb5d12220a205eb15ee3828a78d22b55c9f434ed4210981d995304ae7bbe83344945c01b94fb18c096b1020a3f0a14285cb5d1e9503430521656fc3bafeaefbadd97f412220a203af5c532543e860e99917ffd12bff55f0bf8f2c47e5d032bbc37e401d6152ad718c096b102123f0a14033e4e3cfd4530ff6086eeb90ad32d93569cdb5d12220a205eb15ee3828a78d22b55c9f434ed4210981d995304ae7bbe83344945c01b94fb18c096b1021880ade204",
+    "metadata": {
+      "description": "Intentionally malformed Tendermint header for unhappy path testing (signature corruption in valid protobuf structure)",
+      "generated_at": "2025-07-28T12:40:28Z",
+      "source": "real_cosmos_chain"
+    },
+    "new_height": 20,
+    "trusted_height": 19,
+    "type_url": "/ibc.lightclients.tendermint.v1.Header"
+  }
+}

@@ -8,7 +8,6 @@ use anchor_lang::solana_program::pubkey::Pubkey;
 use anchor_lang::system_program;
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use ibc_core_client_types::Height;
-use std::io::Write;
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
 pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result<UpdateResult> {
@@ -50,6 +49,7 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
         &ctx.accounts.payer,
         &ctx.accounts.system_program,
         ctx.program_id,
+        client_state.key(),
         new_height.revision_height(),
         &new_consensus_state,
         client_state,
@@ -87,9 +87,31 @@ fn validate_and_load_trusted_state(
     let account_data = trusted_consensus_state_account.try_borrow_data()?;
     require!(!account_data.is_empty(), ErrorCode::ConsensusStateNotFound);
 
-    // Deserialize the consensus state (skip 8-byte discriminator)
-    ConsensusStateStore::try_deserialize(&mut &account_data[8..])
-        .map_err(|_| error!(ErrorCode::SerializationError))
+    msg!(
+        "Loading trusted consensus state, account length: {}",
+        account_data.len()
+    );
+
+    // Validate discriminator
+    if account_data.len() >= 8 {
+        let actual_discriminator = &account_data[0..8];
+        let expected_discriminator = ConsensusStateStore::DISCRIMINATOR;
+
+        if actual_discriminator != expected_discriminator {
+            msg!(
+                "Discriminator mismatch - expected: {:?}, found: {:?}",
+                expected_discriminator,
+                actual_discriminator
+            );
+            return err!(ErrorCode::AccountValidationFailed);
+        }
+    }
+
+    // Deserialize the consensus state (include discriminator for proper validation)
+    ConsensusStateStore::try_deserialize(&mut &account_data[..]).map_err(|e| {
+        msg!("Failed to deserialize consensus state: {:?}", e);
+        error!(ErrorCode::SerializationError)
+    })
 }
 
 fn check_timestamp_misbehaviour(
@@ -115,10 +137,40 @@ fn verify_header_and_get_state(
     consensus_state: &ConsensusState,
     client_message: &[u8],
 ) -> Result<(Height, ConsensusState)> {
+    msg!(
+        "Attempting to deserialize header from {} bytes",
+        client_message.len()
+    );
     let header = deserialize_header(client_message)?;
+    msg!("Header deserialized successfully");
+
     let update_client_state: UpdateClientState = client_state.clone().into();
     let trusted_consensus_state: IbcConsensusState = consensus_state.clone().into();
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
+
+    msg!("Header verification inputs:");
+    msg!("  - Header trusted height: {:?}", header.trusted_height);
+    msg!(
+        "  - Header height: {:?}",
+        header.signed_header.header.height
+    );
+    msg!("  - Current time: {}", current_time);
+    msg!(
+        "  - Trusted consensus timestamp: {}",
+        trusted_consensus_state.timestamp.unix_timestamp()
+    );
+    msg!("  - Client chain_id: {}", update_client_state.chain_id);
+    msg!(
+        "  - Trust level: {}/{}",
+        update_client_state.trust_level.numerator,
+        update_client_state.trust_level.denominator
+    );
+
+    msg!("Calling tendermint light client verification...");
+    msg!(
+        "Header signed_header time: {:?}",
+        header.signed_header.header.time
+    );
 
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
@@ -127,8 +179,16 @@ fn verify_header_and_get_state(
         current_time,
     )
     .map_err(|e| {
-        msg!("Update client failed: {:?}", e);
-        error!(ErrorCode::UpdateClientFailed)
+        match e {
+            tendermint_light_client_update_client::UpdateClientError::HeaderVerificationFailed => {
+                msg!("Header verification failed - cryptographic validation failed after successful deserialization");
+                error!(ErrorCode::HeaderVerificationFailed)
+            },
+            _ => {
+                msg!("Update client failed with error: {:?}", e);
+                error!(ErrorCode::UpdateClientFailed)
+            }
+        }
     })?;
 
     Ok((
@@ -168,6 +228,7 @@ fn handle_consensus_state_storage<'info>(
     payer: &Signer<'info>,
     system_program: &Program<'info, System>,
     program_id: &Pubkey,
+    client_key: Pubkey,
     revision_height: u64,
     new_consensus_state: &ConsensusState,
     client_state: &mut ClientState,
@@ -179,6 +240,7 @@ fn handle_consensus_state_storage<'info>(
             payer,
             system_program,
             program_id,
+            client_key,
             revision_height,
             new_consensus_state,
         )?;
@@ -201,7 +263,7 @@ fn check_existing_consensus_state(
     client_state: &mut ClientState,
 ) -> Result<UpdateResult> {
     let data = new_consensus_state_store.try_borrow_data()?;
-    let existing_store: ConsensusStateStore = ConsensusStateStore::try_deserialize(&mut &data[8..])
+    let existing_store: ConsensusStateStore = ConsensusStateStore::try_deserialize(&mut &data[..])
         .map_err(|_| error!(ErrorCode::SerializationError))?;
 
     if &existing_store.consensus_state != new_consensus_state {
@@ -226,19 +288,44 @@ fn create_consensus_state_account<'info>(
     payer: &Signer<'info>,
     system_program: &Program<'info, System>,
     program_id: &Pubkey,
+    client_key: Pubkey,
     revision_height: u64,
     new_consensus_state: &ConsensusState,
 ) -> Result<()> {
     let space = 8 + ConsensusStateStore::INIT_SPACE;
     let rent = Rent::get()?.minimum_balance(space);
 
+    let height_bytes = revision_height.to_le_bytes();
+    let seeds = [
+        b"consensus_state".as_ref(),
+        client_key.as_ref(),
+        height_bytes.as_ref(),
+    ];
+    let (_, bump) = Pubkey::find_program_address(&seeds, program_id);
+    let bump_bytes = [bump];
+    let signer_seeds = [
+        b"consensus_state".as_ref(),
+        client_key.as_ref(),
+        height_bytes.as_ref(),
+        bump_bytes.as_ref(),
+    ];
+    let signer_seeds_slice = [&signer_seeds[..]];
+
+    // Verify the PDA derivation
+    let (expected_pda, _) = Pubkey::find_program_address(&seeds, program_id);
+    require!(
+        expected_pda == new_consensus_state_store.key(),
+        ErrorCode::AccountValidationFailed
+    );
+
     system_program::create_account(
-        CpiContext::new(
+        CpiContext::new_with_signer(
             system_program.to_account_info(),
             system_program::CreateAccount {
                 from: payer.to_account_info(),
                 to: new_consensus_state_store.to_account_info(),
             },
+            &signer_seeds_slice,
         ),
         rent,
         space as u64,
@@ -248,20 +335,693 @@ fn create_consensus_state_account<'info>(
     let mut data = new_consensus_state_store.try_borrow_mut_data()?;
     let mut cursor = std::io::Cursor::new(&mut data[..]);
 
-    // TODO: use build.rs to compute
-    // NOTE: Anchor requires all accounts to start with an 8-byte discriminator that identifies
-    // the account type. This is the SHA256 hash of "account:ConsensusStateStore" (first 8 bytes).
-    // We write it manually here because we're creating the account using system_program::create_account
-    // instead of Anchor's init constraint, which would normally handle this automatically.
-    // We do manual creation to check for existing accounts first (for misbehaviour detection).
-    let discriminator = [217, 208, 130, 233, 170, 148, 153, 101];
-    cursor.write_all(&discriminator)?;
-
     let store = ConsensusStateStore {
         height: revision_height,
         consensus_state: new_consensus_state.clone(),
     };
+
+    // Use try_serialize which handles both discriminator and data serialization
     store.try_serialize(&mut cursor)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::ConsensusStateStore;
+    use crate::test_helpers::fixtures::*;
+    use crate::types::UpdateClientMsg;
+    use anchor_lang::{AnchorDeserialize, InstructionData};
+    use mollusk_svm::result::Check;
+    use mollusk_svm::Mollusk;
+    use solana_sdk::account::Account;
+    use solana_sdk::instruction::{AccountMeta, Instruction};
+    use solana_sdk::pubkey::Pubkey;
+    use solana_sdk::sysvar::clock::{Clock, ID as CLOCK_ID};
+    use solana_sdk::{native_loader, system_program};
+
+    pub struct InitializedClientResult {
+        pub client_state_pda: Pubkey,
+        pub consensus_state_store_pda: Pubkey,
+        pub payer: Pubkey,
+        pub client_state: ClientState,
+        pub consensus_state: ConsensusState,
+        pub resulting_accounts: Vec<(Pubkey, Account)>,
+    }
+
+    pub struct UpdateClientTestScenario {
+        pub client_state_pda: Pubkey,
+        pub trusted_consensus_state_pda: Pubkey,
+        pub new_consensus_state_pda: Pubkey,
+        pub payer: Pubkey,
+        pub instruction: Instruction,
+        pub accounts: Vec<(Pubkey, Account)>,
+    }
+
+    pub struct HappyPathTestScenario {
+        pub client_state_pda: Pubkey,
+        pub trusted_consensus_state_pda: Pubkey,
+        pub new_consensus_state_pda: Pubkey,
+        pub payer: Pubkey,
+        pub instruction: Instruction,
+        pub accounts: Vec<(Pubkey, Account)>,
+        pub update_message_fixture: UpdateClientMessageFixture,
+    }
+
+    fn create_clock_account(unix_timestamp: i64) -> (Pubkey, Account) {
+        let clock = Clock {
+            slot: 1000,
+            epoch_start_timestamp: 0,
+            epoch: 1,
+            leader_schedule_epoch: 1,
+            unix_timestamp,
+        };
+
+        // Serialize the Clock struct using bincode
+        let data = bincode::serialize(&clock).expect("Failed to serialize Clock");
+
+        (
+            CLOCK_ID,
+            Account {
+                lamports: 1,
+                data,
+                owner: solana_sdk::sysvar::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        )
+    }
+
+    fn create_update_client_instruction(
+        client_state_pda: Pubkey,
+        trusted_consensus_state_pda: Pubkey,
+        new_consensus_state_pda: Pubkey,
+        payer: Pubkey,
+        client_message: Vec<u8>,
+    ) -> Instruction {
+        let update_msg = UpdateClientMsg { client_message };
+        let instruction_data = crate::instruction::UpdateClient { msg: update_msg };
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new_readonly(trusted_consensus_state_pda, false),
+                AccountMeta::new(new_consensus_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        }
+    }
+
+    fn create_empty_consensus_state_account() -> Account {
+        Account {
+            lamports: 0,
+            data: vec![],
+            owner: system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        }
+    }
+
+    fn setup_test_accounts_with_new_consensus_state(
+        initialized_accounts: Vec<(Pubkey, Account)>,
+        new_consensus_state_pda: Pubkey,
+        payer: Pubkey,
+        payer_lamports: u64,
+    ) -> Vec<(Pubkey, Account)> {
+        let mut accounts = initialized_accounts;
+        accounts.push((
+            new_consensus_state_pda,
+            create_empty_consensus_state_account(),
+        ));
+
+        // Update payer lamports
+        for (pubkey, account) in accounts.iter_mut() {
+            if pubkey == &payer {
+                account.lamports = payer_lamports;
+                break;
+            }
+        }
+
+        accounts
+    }
+
+    fn execute_update_client_instruction(
+        instruction: &Instruction,
+        accounts: &[(Pubkey, Account)],
+    ) -> mollusk_svm::result::InstructionResult {
+        let mut mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
+        mollusk.compute_budget.compute_unit_limit = 20_000_000;
+        mollusk.process_instruction(instruction, accounts)
+    }
+
+    fn find_account_in_result<'a>(
+        result: &'a mollusk_svm::result::InstructionResult,
+        target_pubkey: &Pubkey,
+    ) -> &'a Account {
+        result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == target_pubkey)
+            .map(|(_, account)| account)
+            .expect(&format!("Account {} not found", target_pubkey))
+    }
+
+    fn setup_update_client_test_scenario(
+        client_message: Vec<u8>,
+        new_height: u64,
+        custom_accounts: Option<Vec<(Pubkey, Account)>>,
+    ) -> UpdateClientTestScenario {
+        let initialized_client = setup_initialized_client();
+        let client_state_pda = initialized_client.client_state_pda;
+        let trusted_consensus_state_pda = initialized_client.consensus_state_store_pda;
+        let payer = initialized_client.payer;
+        let initialized_accounts = initialized_client.resulting_accounts;
+
+        let (new_consensus_state_pda, _) = Pubkey::find_program_address(
+            &[
+                b"consensus_state",
+                client_state_pda.as_ref(),
+                &new_height.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let instruction = create_update_client_instruction(
+            client_state_pda,
+            trusted_consensus_state_pda,
+            new_consensus_state_pda,
+            payer,
+            client_message,
+        );
+
+        let accounts = if let Some(custom_accounts) = custom_accounts {
+            custom_accounts
+        } else {
+            setup_test_accounts_with_new_consensus_state(
+                initialized_accounts,
+                new_consensus_state_pda,
+                payer,
+                100_000_000_000,
+            )
+        };
+
+        UpdateClientTestScenario {
+            client_state_pda,
+            trusted_consensus_state_pda,
+            new_consensus_state_pda,
+            payer,
+            instruction,
+            accounts,
+        }
+    }
+
+    // Helper function to setup a standard happy path test scenario
+    fn setup_happy_path_test_scenario() -> HappyPathTestScenario {
+        let update_message_fixture = load_primary_update_client_message();
+        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
+        let new_height = update_message_fixture.new_height;
+
+        let test_scenario = setup_update_client_test_scenario(client_message, new_height, None);
+
+        HappyPathTestScenario {
+            client_state_pda: test_scenario.client_state_pda,
+            trusted_consensus_state_pda: test_scenario.trusted_consensus_state_pda,
+            new_consensus_state_pda: test_scenario.new_consensus_state_pda,
+            payer: test_scenario.payer,
+            instruction: test_scenario.instruction,
+            accounts: test_scenario.accounts,
+            update_message_fixture,
+        }
+    }
+
+    fn assert_instruction_failed(result: mollusk_svm::result::InstructionResult, test_name: &str) {
+        match result.program_result {
+            mollusk_svm::result::ProgramResult::Success => {
+                panic!(
+                    "Expected instruction to fail for {}, but it succeeded",
+                    test_name
+                );
+            }
+            _ => {
+                println!(
+                    "✅ {} correctly rejected: {:?}",
+                    test_name, result.program_result
+                );
+            }
+        }
+    }
+
+    fn setup_initialized_client() -> InitializedClientResult {
+        // Load from primary fixtures efficiently (single JSON parse)
+        let (client_state, consensus_state, update_fixture) = load_primary_fixtures();
+
+        let chain_id = &client_state.chain_id;
+        let payer = Pubkey::new_unique();
+
+        let (client_state_pda, _) =
+            Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID);
+
+        let latest_height = client_state.latest_height.revision_height;
+        let (consensus_state_store_pda, _) = Pubkey::find_program_address(
+            &[
+                b"consensus_state",
+                client_state_pda.as_ref(),
+                &latest_height.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let instruction_data = crate::instruction::Initialize {
+            chain_id: chain_id.to_string(),
+            latest_height,
+            client_state: client_state.clone(),
+            consensus_state: consensus_state.clone(),
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(consensus_state_store_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let payer_lamports = 10_000_000_000;
+
+        // Create clock account with timestamp based on fixture data
+        let clock_timestamp = get_valid_clock_timestamp_for_header(&update_fixture);
+        let (clock_pubkey, clock_account) = create_clock_account(clock_timestamp);
+
+        let accounts = vec![
+            (
+                client_state_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                consensus_state_store_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: payer_lamports,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (clock_pubkey, clock_account),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
+
+        let checks = vec![
+            Check::success(),
+            Check::account(&client_state_pda).owner(&crate::ID).build(),
+            Check::account(&consensus_state_store_pda)
+                .owner(&crate::ID)
+                .build(),
+        ];
+
+        let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+
+        // Return the resulting accounts from the initialize instruction
+        InitializedClientResult {
+            client_state_pda,
+            consensus_state_store_pda,
+            payer,
+            client_state,
+            consensus_state,
+            resulting_accounts: result.resulting_accounts,
+        }
+    }
+
+    #[test]
+    fn test_update_client_happy_path() {
+        let scenario = setup_happy_path_test_scenario();
+
+        let new_height = scenario.update_message_fixture.new_height;
+        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
+
+        // Check if the instruction succeeded
+        match result.program_result {
+            mollusk_svm::result::ProgramResult::Success => {
+                // Continue with test validation
+            }
+            _ => {
+                panic!(
+                    "Update client instruction failed: {:?}",
+                    result.program_result
+                );
+            }
+        }
+
+        // Verify the client state was updated
+        let client_state_account = find_account_in_result(&result, &scenario.client_state_pda);
+        let mut data_slice = &client_state_account.data[8..];
+        let updated_client_state: ClientState =
+            ClientState::deserialize(&mut data_slice).expect("Failed to deserialize client state");
+
+        // Verify the client state updates
+        assert_eq!(
+            updated_client_state.latest_height.revision_height, new_height,
+            "Client state latest height should be updated to new height"
+        );
+        assert_eq!(
+            updated_client_state.latest_height.revision_number, 2,
+            "Revision number should remain the same"
+        );
+        assert!(
+            !updated_client_state.is_frozen(),
+            "Client should not be frozen after successful update"
+        );
+
+        // Verify the new consensus state was created and is properly configured
+        let new_consensus_state_account =
+            find_account_in_result(&result, &scenario.new_consensus_state_pda);
+        assert!(
+            new_consensus_state_account.lamports > 0,
+            "New consensus state account should be rent-exempt"
+        );
+        assert!(
+            new_consensus_state_account.data.len() > 8,
+            "New consensus state account should have data"
+        );
+        assert_eq!(
+            new_consensus_state_account.owner,
+            crate::ID,
+            "New consensus state should be owned by our program"
+        );
+
+        // Verify the consensus state store structure
+        let mut data_slice = &new_consensus_state_account.data[8..];
+        let new_consensus_store: ConsensusStateStore =
+            ConsensusStateStore::deserialize(&mut data_slice)
+                .expect("Failed to deserialize new consensus state store");
+
+        assert_eq!(
+            new_consensus_store.height, new_height,
+            "Consensus state store height should match new height"
+        );
+
+        // Verify the consensus state contains valid data
+        let consensus_state = &new_consensus_store.consensus_state;
+        assert!(
+            consensus_state.timestamp > 0,
+            "Consensus state should have a valid timestamp"
+        );
+        assert_eq!(
+            consensus_state.root.len(),
+            32,
+            "Root hash should be 32 bytes"
+        );
+        assert_eq!(
+            consensus_state.next_validators_hash.len(),
+            32,
+            "Next validators hash should be 32 bytes"
+        );
+
+        // Verify the trusted consensus state account is unchanged
+        let trusted_consensus_state_account =
+            find_account_in_result(&result, &scenario.trusted_consensus_state_pda);
+        assert_eq!(
+            trusted_consensus_state_account.data.len(),
+            88,
+            "Trusted consensus state should remain unchanged"
+        );
+
+        // Verify payer account was charged for creating the new consensus state
+        let payer_account = find_account_in_result(&result, &scenario.payer);
+        assert!(
+            payer_account.lamports < 100_000_000_000,
+            "Payer should have been charged for account creation"
+        );
+
+        // Verify account discriminators are correct
+        assert_eq!(
+            &client_state_account.data[0..8],
+            crate::types::ClientState::DISCRIMINATOR,
+            "Client state should have correct discriminator"
+        );
+        assert_eq!(
+            &new_consensus_state_account.data[0..8],
+            ConsensusStateStore::DISCRIMINATOR,
+            "New consensus state should have correct discriminator"
+        );
+
+        println!("✅ All state updates verified successfully:");
+        println!("  - Client state latest height: {} -> {}", 19, new_height);
+        println!("  - New consensus state created at height: {}", new_height);
+        println!(
+            "  - Consensus state timestamp: {}",
+            consensus_state.timestamp
+        );
+        println!(
+            "  - Payer charged: {} lamports",
+            100_000_000_000 - payer_account.lamports
+        );
+    }
+
+    #[test]
+    fn test_update_client_with_malformed_header() {
+        // Use malformed client message from fixture - this should deserialize successfully
+        // but fail during cryptographic verification
+        let malformed_fixture = load_unified_malformed_client_message_fixture();
+        let malformed_message =
+            hex_to_bytes(&malformed_fixture.update_client_message.client_message_hex);
+        let new_height = malformed_fixture.update_client_message.new_height;
+
+        // CRITICAL TEST: Verify that the malformed message can be deserialized
+        // This proves we're testing cryptographic validation, not protobuf parsing
+        let _parsed_header = crate::helpers::deserialize_header(&malformed_message)
+            .expect("CRITICAL: Malformed header MUST deserialize successfully. If this fails, the test is testing parsing instead of validation!");
+
+        println!("✅ Malformed header deserialized successfully - testing cryptographic validation, not parsing");
+
+        let scenario = setup_update_client_test_scenario(malformed_message, new_height, None);
+
+        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
+
+        // Verify it fails, and check the specific error type
+        match result.program_result {
+            mollusk_svm::result::ProgramResult::Success => {
+                panic!("CRITICAL FAILURE: Malformed header should fail cryptographic verification, but instruction succeeded!");
+            }
+            mollusk_svm::result::ProgramResult::Failure(error) => {
+                println!(
+                    "✅ Malformed header correctly failed with error: {:?}",
+                    error
+                );
+
+                // Extract the error code to distinguish between deserialization and validation failures
+                let error_code = match error {
+                    anchor_lang::prelude::ProgramError::Custom(code) => Some(code),
+                    _ => None,
+                };
+
+                if let Some(code) = error_code {
+                    if code == 6008 {
+                        panic!("CRITICAL: Got InvalidHeader (6008) - this means the test failed during DESERIALIZATION, not validation!");
+                    } else if code == 6012 {
+                        println!("✅ Got HeaderVerificationFailed (6012) - this confirms CRYPTOGRAPHIC validation failure after successful deserialization");
+                    } else {
+                        panic!("Expected HeaderVerificationFailed (6012) for malformed header, but got error code: {}", code);
+                    }
+                } else {
+                    panic!("Expected custom error code HeaderVerificationFailed (6012), but got non-custom error: {:?}", error);
+                }
+            }
+            _ => {
+                panic!("Unexpected program result: {:?}", result.program_result);
+            }
+        }
+
+        println!("✅ Test passed: Malformed header failed cryptographic validation (not deserialization)");
+    }
+
+    #[test]
+    fn test_update_client_with_invalid_protobuf_bytes() {
+        // Test with completely invalid protobuf bytes to trigger InvalidHeader (6008)
+        let invalid_protobuf_bytes = vec![0xFF, 0xFF, 0xFF, 0xFF]; // Invalid protobuf data
+        let dummy_height = 123;
+
+        let scenario =
+            setup_update_client_test_scenario(invalid_protobuf_bytes, dummy_height, None);
+
+        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
+
+        // Verify it fails with InvalidHeader error code 6008
+        match result.program_result {
+            mollusk_svm::result::ProgramResult::Success => {
+                panic!("CRITICAL FAILURE: Invalid protobuf bytes should fail deserialization, but instruction succeeded!");
+            }
+            mollusk_svm::result::ProgramResult::Failure(error) => {
+                println!(
+                    "✅ Invalid protobuf correctly failed with error: {:?}",
+                    error
+                );
+
+                // Extract the error code and verify it's InvalidHeader (6008)
+                let error_code = match error {
+                    anchor_lang::prelude::ProgramError::Custom(code) => Some(code),
+                    _ => None,
+                };
+
+                if let Some(code) = error_code {
+                    if code == 6008 {
+                        println!("✅ Got InvalidHeader (6008) - this confirms deserialization failure as expected");
+                    } else {
+                        panic!("Expected InvalidHeader error code 6008, but got: {}", code);
+                    }
+                } else {
+                    panic!(
+                        "Expected custom error code, but got non-custom error: {:?}",
+                        error
+                    );
+                }
+            }
+            _ => {
+                panic!("Unexpected program result: {:?}", result.program_result);
+            }
+        }
+
+        println!("✅ Test passed: Invalid protobuf bytes correctly returned InvalidHeader (6008)");
+    }
+
+    #[test]
+    fn test_update_client_with_wrong_trusted_height() {
+        let update_message_fixture = load_primary_update_client_message();
+        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
+        let new_height = update_message_fixture.new_height;
+
+        let scenario = setup_update_client_test_scenario(client_message.clone(), new_height, None);
+        let mut accounts = scenario.accounts;
+
+        // Use wrong trusted consensus state (height differs from fixture)
+        let wrong_trusted_height = if update_message_fixture.trusted_height > 1 {
+            update_message_fixture.trusted_height - 1
+        } else {
+            update_message_fixture.trusted_height + 10
+        };
+
+        let (wrong_trusted_consensus_state_pda, _) = Pubkey::find_program_address(
+            &[
+                b"consensus_state",
+                scenario.client_state_pda.as_ref(),
+                &wrong_trusted_height.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let (new_consensus_state_pda, _) = Pubkey::find_program_address(
+            &[
+                b"consensus_state",
+                scenario.client_state_pda.as_ref(),
+                &new_height.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        // Create instruction with wrong trusted consensus state
+        let instruction = create_update_client_instruction(
+            scenario.client_state_pda,
+            wrong_trusted_consensus_state_pda, // Wrong trusted state
+            new_consensus_state_pda,
+            scenario.payer,
+            client_message,
+        );
+
+        // Add empty account for wrong trusted state
+        accounts.push((
+            wrong_trusted_consensus_state_pda,
+            create_empty_consensus_state_account(),
+        ));
+
+        let result = execute_update_client_instruction(&instruction, &accounts);
+        assert_instruction_failed(result, "Wrong trusted height");
+    }
+
+    #[test]
+    fn test_update_client_with_expired_header() {
+        let scenario = setup_happy_path_test_scenario();
+
+        // Use a clock time that's way in the future to make header appear expired
+        let future_timestamp =
+            get_expired_clock_timestamp_for_header(&scenario.update_message_fixture);
+        let (clock_pubkey, clock_account) = create_clock_account(future_timestamp);
+
+        // Replace the clock account
+        let mut accounts = scenario.accounts;
+        for (pubkey, account) in accounts.iter_mut() {
+            if pubkey == &clock_pubkey {
+                *account = clock_account;
+                break;
+            }
+        }
+
+        let result = execute_update_client_instruction(&scenario.instruction, &accounts);
+        assert_instruction_failed(result, "Expired header");
+    }
+
+    #[test]
+    fn test_update_client_with_duplicate_consensus_state() {
+        // First, create a consensus state at the target height
+        let scenario = setup_happy_path_test_scenario();
+
+        // Execute the first update (should succeed)
+        let first_result =
+            execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
+        match first_result.program_result {
+            mollusk_svm::result::ProgramResult::Success => {}
+            _ => panic!(
+                "First update should succeed: {:?}",
+                first_result.program_result
+            ),
+        }
+
+        // Now try to update with the same height again (should return NoOp)
+        let second_result = execute_update_client_instruction(
+            &scenario.instruction,
+            &first_result.resulting_accounts,
+        );
+        match second_result.program_result {
+            mollusk_svm::result::ProgramResult::Success => {
+                println!("✅ Duplicate consensus state correctly handled as NoOp");
+            }
+            _ => panic!(
+                "Second update with same height should succeed as NoOp: {:?}",
+                second_result.program_result
+            ),
+        }
+    }
 }

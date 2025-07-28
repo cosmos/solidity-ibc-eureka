@@ -143,6 +143,13 @@ generate-ethereum-types:
 	rm -f e2e/interchaintestv8/types/ethereum/types.gen.go.bak # this is to be linux and mac compatible (coming from the sed command)
 	cd e2e/interchaintestv8 && golangci-lint run --fix types/ethereum/types.gen.go
 
+# Generate the fixtures for the Solana tests using the e2e tests
+[group('generate')]
+generate-fixtures-solana: clean-foundry install-relayer
+	@echo "Generating Solana fixtures... This may take a while."
+	@echo "Generating basic client state, consensus state, and update client fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_SOLANA_FIXTURES=true go test -v -run '^TestWithCosmosRelayerTestSuite/Test_UpdateClient$' -timeout 40m
+
 # Generate the fixtures for the Solidity tests using the e2e tests
 [group('generate')]
 generate-fixtures-solidity: clean-foundry install-operator install-relayer
@@ -265,20 +272,15 @@ test-e2e-solana testname:
 # Run the Solana Anchor tests
 [group('test')]
 test-solana *ARGS:
-	@echo "Copying all files from target/deploy to programs/solana/target/deploy (overwriting if needed)"
-	if [ -n "$(ls -A target/deploy 2>/dev/null)" ]; then \
-		mkdir -p programs/solana/target/deploy; \
-		cp -f target/deploy/* programs/solana/target/deploy/; \
-		echo "✅ Copied all files from target/deploy to programs/solana/target/deploy/ (overwriting if needed)"; \
-	fi
-	@echo "Running Solana Anchor tests (anchor-nix preferred) ..."
+	@echo "Running Solana Anchor build and tests..."
 	if command -v anchor-nix >/dev/null 2>&1; then \
-		echo "🦀 Using anchor-nix"; \
-		(cd programs/solana && anchor-nix test {{ARGS}}); \
+		ANCHOR_CMD=anchor-nix; \
 	else \
-		echo "🦀 Using anchor"; \
-		(cd programs/solana && anchor test {{ARGS}}); \
-	fi
+		ANCHOR_CMD=anchor; \
+	fi; \
+	echo "🦀 Using $ANCHOR_CMD"; \
+	(cd programs/solana && $ANCHOR_CMD build {{ARGS}}); \
+	(cd programs/solana && cargo test --release {{ARGS}})
 
 # Clean up the foundry cache and out directories
 [group('clean')]

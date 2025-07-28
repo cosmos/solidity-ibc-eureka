@@ -33,6 +33,8 @@ pub enum ErrorCode {
     // Update errors
     #[msg("Update client failed: header verification failed")]
     UpdateClientFailed,
+    #[msg("Header verification failed: cryptographic validation failed after successful deserialization")]
+    HeaderVerificationFailed,
 
     // Misbehaviour errors
     #[msg("Misbehaviour detected: conflicting consensus state at same height")]
