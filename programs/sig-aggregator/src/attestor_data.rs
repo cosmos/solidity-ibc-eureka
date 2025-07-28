@@ -91,7 +91,7 @@ impl Attestation {
             ));
         }
         if let Err(e) = State::try_from(self.attested_data.as_slice()) {
-            return Err(anyhow::anyhow!("Invalid state: {}", self.attested_data.len()).context(e));
+            return Err(anyhow::anyhow!("Invalid attested_data length: {}", self.attested_data.len()).context(e));
         }
 
         if self.signature.len() != SIGNATURE_BYTE_LENGTH {
