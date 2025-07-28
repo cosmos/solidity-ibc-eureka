@@ -18,22 +18,22 @@ use tracing::{error as tracing_error, instrument};
 
 #[derive(Debug)]
 pub struct AggregatorService {
-    config: Arc<AttestorConfig>,
+    attestor_config: Arc<AttestorConfig>,
     attestor_clients: Vec<Mutex<AttestationServiceClient<Channel>>>,
     cached_response: RwLock<Option<AggregateResponse>>,
 }
 
 impl AggregatorService {
-    pub async fn from_config(config: AttestorConfig) -> anyhow::Result<Self> {
-        let mut attestor_clients = Vec::with_capacity(config.attestor_endpoints.len());
+    pub async fn from_attestor_config(attestor_config: AttestorConfig) -> anyhow::Result<Self> {
+        let mut attestor_clients = Vec::with_capacity(attestor_config.attestor_endpoints.len());
 
-        for endpoint in &config.attestor_endpoints {
+        for endpoint in &attestor_config.attestor_endpoints {
             let client = AttestationServiceClient::connect(endpoint.clone()).await?;
             attestor_clients.push(Mutex::new(client));
         }
 
         Ok(Self {
-            config: Arc::new(config),
+            attestor_config: Arc::new(attestor_config),
             attestor_clients,
             cached_response: RwLock::new(None),
         })
@@ -90,10 +90,10 @@ impl AggregatorService {
         &self,
         min_height: u64,
     ) -> Result<Vec<StateAttestationResponse>, Status> {
-        let timeout_duration = Duration::from_millis(self.config.attestor_query_timeout_ms);
+        let timeout_duration = Duration::from_millis(self.attestor_config.attestor_query_timeout_ms);
 
         let query_futures = self.attestor_clients.iter().enumerate().map(|(i, client)| {
-            let endpoint = &self.config.attestor_endpoints[i];
+            let endpoint = &self.attestor_config.attestor_endpoints[i];
 
             async move {
                 let mut client = client.lock().await;
@@ -135,11 +135,20 @@ impl AggregatorService {
         let mut attestator_data = AttestatorData::new();
 
         for response in responses {
-            attestator_data.insert(response);
+            if response.attestation.is_none() {
+                tracing_error!("No attestation found in response, continuing with other responses");
+                continue;
+            }
+            let attestation = response.attestation.unwrap();
+            if let Err(e) = attestation.validate() {
+                tracing_error!(error = %e, "Invalid attestation, continuing with other responses");
+                continue;
+            }
+            attestator_data.insert(attestation);
         }
 
         attestator_data
-            .get_latest(self.config.quorum_threshold)
+            .get_quorum(self.attestor_config.quorum_threshold)
             .ok_or(Status::failed_precondition("Quorum not met"))
     }
 }
@@ -148,21 +157,16 @@ impl AggregatorService {
 mod e2e_tests {
     use super::*;
     use crate::{
-        config::{AttestorConfig, Config, ServerConfig},
+        attestor_data::STATE_BYTE_LENGTH,
+        config::AttestorConfig,
         mock_attestor::setup_attestor_server,
     };
 
-    fn default_config(timeout: u64, attestor_endpoints: Vec<String>) -> Config {
-        Config {
-            server: ServerConfig {
-                listener_addr: "127.0.0.1:50060".parse().unwrap(),
-                log_level: "INFO".to_string(),
-            },
-            attestor: AttestorConfig {
-                attestor_query_timeout_ms: timeout,
-                quorum_threshold: 3,
-                attestor_endpoints,
-            },
+    fn default_attestor_config(timeout: u64, attestor_endpoints: Vec<String>) -> AttestorConfig {
+        AttestorConfig {
+            attestor_query_timeout_ms: timeout,
+            quorum_threshold: 3,
+            attestor_endpoints,
         }
     }
 
@@ -171,13 +175,13 @@ mod e2e_tests {
         let _ = tracing_subscriber::fmt::try_init();
 
         // 1. Setup: Create 3 successful attestors and 1 failing attestor.
-        let (addr_1, pk_1) = setup_attestor_server(false, 0).await.unwrap();
-        let (addr_2, pk_2) = setup_attestor_server(false, 0).await.unwrap();
-        let (addr_3, pk_3) = setup_attestor_server(false, 0).await.unwrap();
-        let (addr_4, _) = setup_attestor_server(true, 0).await.unwrap(); // This one will fail
+        let (addr_1, pk_1) = setup_attestor_server(false, 0, 1).await.unwrap();
+        let (addr_2, pk_2) = setup_attestor_server(false, 0, 2).await.unwrap();
+        let (addr_3, pk_3) = setup_attestor_server(false, 0, 3).await.unwrap();
+        let (addr_4, _) = setup_attestor_server(true, 0, 4).await.unwrap(); // This one is malicious
 
         // 2. Setup: Create AggregatorService
-        let config = default_config(
+        let config = default_attestor_config(
             5000,
             vec![
                 format!("http://{addr_1}"),
@@ -187,12 +191,12 @@ mod e2e_tests {
             ],
         );
 
-        let aggregator_service = AggregatorService::from_config(config.attestor)
+        let aggregator_service = AggregatorService::from_attestor_config(config)
             .await
             .unwrap();
 
         // 3. Execute: Query for an aggregated attestation
-        let request = Request::new(AggregateRequest { min_height: 100 });
+        let request = Request::new(AggregateRequest { min_height: 110 });
         let response = aggregator_service
             .get_aggregate_attestation(request)
             .await
@@ -215,21 +219,21 @@ mod e2e_tests {
             .iter()
             .any(|pair| pair.pubkey == pk_3));
 
-        assert_eq!(aggres.state.len(), 12); // Assuming state is 12 bytes long
+        assert_eq!(aggres.state.len(), STATE_BYTE_LENGTH);
     }
 
     #[tokio::test]
     async fn get_aggregate_attestation_network_timeout() {
         let _ = tracing_subscriber::fmt::try_init();
 
-        // 1. Setup: Create 3 successful attestors and 1 failing attestor.
-        let (addr_1, _) = setup_attestor_server(false, 1000).await.unwrap();
-        let (addr_2, _) = setup_attestor_server(false, 1000).await.unwrap();
-        let (addr_3, _) = setup_attestor_server(false, 1000).await.unwrap();
-        let (addr_4, _) = setup_attestor_server(true, 0).await.unwrap(); // This one will fail
+        // 1. Setup: Create 3 successful attestors and 1 malicious attestor.
+        let (addr_1, _) = setup_attestor_server(false, 1000, 1).await.unwrap();
+        let (addr_2, _) = setup_attestor_server(false, 1000, 2).await.unwrap();
+        let (addr_3, _) = setup_attestor_server(false, 1000, 3).await.unwrap();
+        let (addr_4, _) = setup_attestor_server(true, 0, 4).await.unwrap(); // This one is malicious
 
         // 2. Setup: Create AggregatorService
-        let config = default_config(
+        let config = default_attestor_config(
             100,
             vec![
                 format!("http://{addr_1}"),
@@ -239,7 +243,7 @@ mod e2e_tests {
             ],
         );
 
-        let aggregator_service = AggregatorService::from_config(config.attestor)
+        let aggregator_service = AggregatorService::from_attestor_config(config)
             .await
             .unwrap();
 
@@ -252,165 +256,5 @@ mod e2e_tests {
         let status = response.unwrap_err();
         assert_eq!(status.code(), tonic::Code::FailedPrecondition);
         assert!(status.message().contains("Quorum not met"));
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::attestor_data::{PUBKEY_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH, STATE_BYTE_LENGTH};
-    use crate::rpc::{Attestation, StateAttestationResponse};
-
-    // Helper to build a FixedBytes-N vector filled with `b`
-    fn fill_bytes<const N: usize>(b: u8) -> Vec<u8> {
-        vec![b; N]
-    }
-
-    #[test]
-    fn ignores_states_below_quorum() {
-        // We have a height 100 but only 1 signature < quorum 2
-        let mut attestator_data = AttestatorData::new();
-
-        attestator_data.insert(StateAttestationResponse {
-            attestation: StateAttestation {
-                pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x03),
-                height: 100,
-                data: fill_bytes::<STATE_BYTE_LENGTH>(1),
-                signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x04),
-            },
-        });
-
-        let latest = attestator_data.get_latest(2); // Quorum 2
-        assert!(latest.is_none(), "Should not return a state below quorum");
-    }
-
-    #[test]
-    fn picks_single_height_meeting_quorum() {
-        let mut attestator_data = AttestatorData::new();
-        let state = fill_bytes::<STATE_BYTE_LENGTH>(0xAA);
-        attestator_data.insert(AttestationsFromHeightResponse {
-            pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x21),
-            attestations: vec![AttestationEntry {
-                height: 123,
-                data: state.clone(),
-                signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
-            }],
-        });
-
-        attestator_data.insert(AttestationsFromHeightResponse {
-            pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x22),
-            attestations: vec![AttestationEntry {
-                height: 123,
-                data: state.clone(),
-                signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
-            }],
-        });
-
-        let latest = attestator_data.get_latest(2); // Quorum 2
-        assert!(latest.is_some(), "Should return a state meeting quorum");
-        let latest = latest.unwrap();
-        assert_eq!(latest.height, 123);
-        assert_eq!(latest.state, state);
-        // Should have two SigPubkeyPair entries
-        assert_eq!(latest.sig_pubkey_pairs.len(), 2);
-        // Check that the pairs contain the pubkeys we inserted
-        let pubs: Vec<_> = latest
-            .sig_pubkey_pairs
-            .into_iter()
-            .map(|p| p.pubkey)
-            .collect();
-        assert!(pubs.contains(&fill_bytes::<PUBKEY_BYTE_LENGTH>(0x21)));
-        assert!(pubs.contains(&fill_bytes::<PUBKEY_BYTE_LENGTH>(0x22)));
-    }
-
-    #[test]
-    fn chooses_highest_height_when_multiple() {
-        let mut attestator_data = AttestatorData::new();
-        let state120 = fill_bytes::<STATE_BYTE_LENGTH>(0xAA);
-        let state150 = fill_bytes::<STATE_BYTE_LENGTH>(0xBB);
-        let state200 = fill_bytes::<STATE_BYTE_LENGTH>(0xCC);
-        let pk_a = fill_bytes::<PUBKEY_BYTE_LENGTH>(0xA);
-        let pk_b = fill_bytes::<PUBKEY_BYTE_LENGTH>(0xB);
-        let pk_c = fill_bytes::<PUBKEY_BYTE_LENGTH>(0xC);
-
-        attestator_data.insert(AttestationsFromHeightResponse {
-            pubkey: pk_a.clone(),
-            attestations: vec![
-                AttestationEntry {
-                    height: 120,
-                    data: state120.clone(),
-                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(1),
-                },
-                AttestationEntry {
-                    height: 150,
-                    data: state150.clone(),
-                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(3),
-                },
-                AttestationEntry {
-                    height: 200,
-                    data: state200.clone(),
-                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(5),
-                },
-            ],
-        });
-
-        attestator_data.insert(AttestationsFromHeightResponse {
-            pubkey: pk_b.clone(),
-            attestations: vec![
-                AttestationEntry {
-                    height: 120,
-                    data: state120.clone(),
-                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(2),
-                },
-                AttestationEntry {
-                    height: 150,
-                    data: state150.clone(),
-                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(4),
-                },
-                AttestationEntry {
-                    height: 200,
-                    data: state200.clone(),
-                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(6),
-                },
-            ],
-        });
-
-        attestator_data.insert(AttestationsFromHeightResponse {
-            pubkey: pk_c.clone(),
-            attestations: vec![
-                AttestationEntry {
-                    height: 120,
-                    data: state120.clone(),
-                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(5),
-                },
-                AttestationEntry {
-                    height: 150,
-                    data: state150.clone(),
-                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(10),
-                },
-                AttestationEntry {
-                    height: 200,
-                    data: state200.clone(),
-                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(15),
-                },
-            ],
-        });
-
-        let latest = attestator_data.get_latest(2); // Quorum 2
-        assert!(latest.is_some(), "Should return a state meeting quorum");
-        let latest = latest.unwrap();
-        assert_eq!(latest.height, 200);
-        assert_eq!(latest.state, state200);
-        // Should have three SigPubkeyPair entries
-        assert_eq!(latest.sig_pubkey_pairs.len(), 3);
-        // Check that the pairs contain the pubkeys we inserted
-        let pks: Vec<_> = latest
-            .sig_pubkey_pairs
-            .into_iter()
-            .map(|p| p.pubkey)
-            .collect();
-        assert!(pks.contains(pk_a.as_ref()));
-        assert!(pks.contains(pk_b.as_ref()));
-        assert!(pks.contains(pk_c.as_ref()));
     }
 }
