@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "utils",
     "membership",
     "misbehaviour",
     "uc-and-membership",
@@ -19,11 +20,13 @@ sp1-zkvm   = { version = "5.0", default-features = false }
 
 sp1-ics07-tendermint-update-client = { path = "update-client", default-features = false }
 sp1-ics07-tendermint-membership    = { path = "membership", default-features = false }
+sp1-ics07-utils                    = { path = "utils" }
 ibc-eureka-solidity-types          = { path = "../../packages/solidity", default-features = false }
 
 sha2                        = { version = "0.10", default-features = false }
 ibc-core-commitment-types   = { version = "0.57", default-features = false }
 ibc-core-host-types         = { version = "0.57", default-features = false }
+ibc-core-client-types       = { version = "0.57", default-features = false }
 ibc-core-client             = { version = "0.57", default-features = false }
 ibc-client-tendermint       = { version = "0.57", default-features = false }
 ibc-client-tendermint-types = { version = "0.57", default-features = false }
@@ -31,6 +34,11 @@ ibc-primitives              = { version = "0.57", default-features = false }
 ibc-proto                   = { version = "0.51", default-features = false }
 tendermint-light-client-verifier = { version = "0.40", default-features = false }
 alloy-sol-types        = { version = "1.0", default-features = false }
+
+tendermint-light-client-membership        = { path = "../../packages/tendermint-light-client/membership", default-features = false }
+tendermint-light-client-misbehaviour      = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false }
+tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-light-client/uc-and-membership", default-features = false }
+tendermint-light-client-update-client     = { path = "../../packages/tendermint-light-client/update-client", default-features = false }
 
 [patch.crates-io]
 sha2-v0-9-9         = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.9.9-sp1-4.0.0" }

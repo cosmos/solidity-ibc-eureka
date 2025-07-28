@@ -11,7 +11,10 @@ name = "sp1-ics07-tendermint-misbehaviour"
 test = false
 
 [dependencies]
+tendermint-light-client-misbehaviour = { workspace = true }
+
 sp1-zkvm                           = { workspace = true, default-features = true }
+sp1-ics07-utils                    = { workspace = true }
 ibc-eureka-solidity-types          = { workspace = true }
 tendermint-light-client-verifier   = { workspace = true }
 ibc-client-tendermint              = { workspace = true, features = ["serde"] }
@@ -21,4 +24,3 @@ ibc-primitives                     = { workspace = true }
 ibc-proto                          = { workspace = true }
 sha2                               = { workspace = true }
 alloy-sol-types                    = { workspace = true }
-sp1-ics07-tendermint-update-client = { workspace = true }

@@ -1,18 +1,14 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use ibc_eureka_relayer::cli::{Commands, RelayerCli};
+use ibc_eureka_relayer_core::{builder::RelayerBuilder, config::RelayerConfig};
+use ibc_eureka_relayer_cosmos_to_cosmos::CosmosToCosmosRelayerModule;
+use ibc_eureka_relayer_cosmos_to_eth::CosmosToEthRelayerModule;
+use ibc_eureka_relayer_eth_to_cosmos::EthToCosmosRelayerModule;
+use ibc_eureka_relayer_eth_to_cosmos_compat::EthToCosmosCompatRelayerModule;
+
 use prometheus::{Encoder, TextEncoder};
-use solidity_ibc_eureka_relayer::{
-    cli::{
-        cmd::{Commands, RelayerCli},
-        config::RelayerConfig,
-    },
-    core::builder::RelayerBuilder,
-    modules::{
-        cosmos_to_cosmos::CosmosToCosmosRelayerModule, cosmos_to_eth::CosmosToEthRelayerModule,
-        eth_to_cosmos::EthToCosmosRelayerModule,
-    },
-};
 use warp::Filter;
 
 #[tokio::main]
@@ -34,6 +30,7 @@ async fn main() -> anyhow::Result<()> {
             relayer_builder.add_module(CosmosToEthRelayerModule);
             relayer_builder.add_module(CosmosToCosmosRelayerModule);
             relayer_builder.add_module(EthToCosmosRelayerModule);
+            relayer_builder.add_module(EthToCosmosCompatRelayerModule);
 
             // Start the metrics server.
             tokio::spawn(async {
