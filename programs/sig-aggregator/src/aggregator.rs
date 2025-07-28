@@ -100,13 +100,14 @@ impl AggregatorService {
                 let request = Request::new(StateAttestationRequest { height: min_height });
                 let response = timeout(timeout_duration, client.state_attestation(request)).await;
 
-                match response {
+                let result = match response {
                     Ok(Ok(response)) => Ok(response.into_inner()),
                     Ok(Err(status)) => Err(status),
                     Err(_) => Err(Status::deadline_exceeded(format!(
-                        "Request to {endpoint} timed out after {timeout_duration:?}"
+                        "Request timed out after {timeout_duration:?}"
                     ))),
-                }
+                };
+                (endpoint, result)
             }
         });
 
@@ -115,10 +116,10 @@ impl AggregatorService {
 
         let successful_responses = results
             .into_iter()
-            .filter_map(|result| match result {
+            .filter_map(|(endpoint, result)| match result {
                 Ok(response) => Some(response),
                 Err(e) => {
-                    tracing_error!(error = %e, "Attestor query failed, continuing with other responses");
+                    tracing_error!("Attestor [{endpoint}] failed, continuing with other responses: {e:?}");
                     None
                 }
             })
