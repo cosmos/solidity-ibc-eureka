@@ -137,14 +137,14 @@ impl AggregatorService {
         let mut attestator_data = AttestatorData::new();
 
         for response in responses {
-            if response.attestation.is_none() {
+            if let Some(attestation) = response.attestation {
+                if let Err(e) = attestation.validate() {
+                    tracing_error!(error = %e, "Invalid attestation, continuing with other responses");
+                    continue;
+                }
+                attestator_data.insert(attestation);
+            } else {
                 tracing_error!("No attestation found in response, continuing with other responses");
-                continue;
-            }
-            let attestation = response.attestation.unwrap();
-            if let Err(e) = attestation.validate() {
-                tracing_error!(error = %e, "Invalid attestation, continuing with other responses");
-                continue;
             }
             attestator_data.insert(attestation);
         }
