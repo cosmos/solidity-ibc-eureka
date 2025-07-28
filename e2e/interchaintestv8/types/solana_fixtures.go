@@ -91,9 +91,6 @@ func (g *SolanaFixtureGenerator) extractUpdateClientMessage(txBodyBz []byte) *cl
 func (g *SolanaFixtureGenerator) generateHappyPathScenario(ctx context.Context, chainA *cosmos.CosmosChain, clientMessage *types.Any) {
 	g.suite.T().Log("🔧 Generating happy path scenario")
 
-	// For now, we'll use the current client state and consensus state
-	// In a real scenario, we'd want to capture these at the right moments
-
 	// Get the client state
 	tmClientState := g.queryTendermintClientState(ctx, chainA)
 	solanaClientState := g.convertClientStateToSolanaFormat(tmClientState, chainA.Config().ChainID)
