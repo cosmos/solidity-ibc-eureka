@@ -26,7 +26,6 @@ impl Config {
         Ok(config)
     }
 
-    #[allow(clippy::result_large_err)]
     pub fn validate(&self) -> anyhow::Result<()> {
         self.server.validate()?;
         self.attestor.validate()?;
