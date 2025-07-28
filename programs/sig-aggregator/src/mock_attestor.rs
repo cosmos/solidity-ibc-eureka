@@ -2,9 +2,8 @@ use crate::{
     attestor_data::{PUBKEY_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH, STATE_BYTE_LENGTH},
     rpc::{
         attestation_service_server::{AttestationService, AttestationServiceServer},
-        Attestation,
-        PacketAttestationRequest, PacketAttestationResponse,
-        StateAttestationRequest, StateAttestationResponse,
+        Attestation, PacketAttestationRequest, PacketAttestationResponse, StateAttestationRequest,
+        StateAttestationResponse,
     },
 };
 use std::{net::SocketAddr, time::Duration};

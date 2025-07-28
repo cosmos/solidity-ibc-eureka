@@ -15,7 +15,7 @@ pub const PUBKEY_BYTE_LENGTH: usize = 33;
 type Pubkey = FixedBytes<PUBKEY_BYTE_LENGTH>;
 
 /// Maps attested_data -> list of attestations
-/// 
+///
 /// Structure:
 /// ```text
 /// Attested_data: 0x1234... (12 bytes)
@@ -46,7 +46,8 @@ impl AttestatorData {
             attestations.push(attestation);
             return;
         } 
-        self.state_attestations.insert(attested_data, vec![attestation]);
+        self.state_attestations
+            .insert(attested_data, vec![attestation]);
     }
 
     #[must_use]
@@ -57,10 +58,13 @@ impl AttestatorData {
                 return Some(AggregateResponse {
                     height: attestations[0].height,
                     state: state.to_vec(),
-                    sig_pubkey_pairs: attestations.iter().map(|a| SigPubkeyPair {
-                        sig: a.signature.clone(),
-                        pubkey: a.public_key.clone(),
-                    }).collect(),
+                    sig_pubkey_pairs: attestations
+                        .iter()
+                        .map(|a| SigPubkeyPair {
+                            sig: a.signature.clone(),
+                            pubkey: a.public_key.clone(),
+                        })
+                        .collect(),
                 });
             }
         }
@@ -71,24 +75,39 @@ impl AttestatorData {
 impl Attestation {
     pub fn validate(&self) -> anyhow::Result<()> {
         if self.public_key.len() != PUBKEY_BYTE_LENGTH {
-            return Err(anyhow::anyhow!("Invalid pubkey length: {}", self.public_key.len()));
+            return Err(anyhow::anyhow!(
+                "Invalid pubkey length: {}", 
+                self.public_key.len()
+            ));
         }
         if let Err(e) = Pubkey::try_from(self.public_key.as_slice()) {
-            return Err(anyhow::anyhow!("Invalid pubkey length: {}", self.public_key.len()).context(e));
+            return Err(anyhow::anyhow!(
+                "Invalid pubkey: {:#?}", self.public_key).context(e),
+            );
         }
 
         if self.attested_data.len() != STATE_BYTE_LENGTH {
-            return Err(anyhow::anyhow!("Invalid attested_data length: {}", self.attested_data.len()));
+            return Err(anyhow::anyhow!(
+                "Invalid attested_data length: {}",
+                self.attested_data.len())
+            );
         }
         if let Err(e) = State::try_from(self.attested_data.as_slice()) {
-            return Err(anyhow::anyhow!("Invalid state length: {}", self.attested_data.len()).context(e));
+            return Err(anyhow::anyhow!(
+                "Invalid state: {}", self.attested_data.len()).context(e),
+            );
         }
 
         if self.signature.len() != SIGNATURE_BYTE_LENGTH {
-            return Err(anyhow::anyhow!("Invalid signature length: {}", self.signature.len()));
+            return Err(anyhow::anyhow!(
+                "Invalid signature length: {}",
+                self.signature.len())
+            );
         }
         if let Err(e) = Signature::try_from(self.signature.as_slice()) {
-            return Err(anyhow::anyhow!("Invalid signature length: {}", self.signature.len()).context(e));
+            return Err(
+                anyhow::anyhow!("Invalid signature: {:?}", self.signature).context(e)
+            );
         }
 
         Ok(())
