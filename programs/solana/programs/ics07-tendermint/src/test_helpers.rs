@@ -47,6 +47,7 @@ pub mod fixtures {
         pub metadata: FixtureMetadata,
     }
 
+
     // Legacy individual fixture loaders - kept for potential future use with other scenarios
     pub fn load_client_state_fixture() -> ClientStateFixture {
         let unified = load_unified_happy_path_fixture();
@@ -63,33 +64,21 @@ pub mod fixtures {
         unified.update_client_message
     }
 
-    // New unified fixture loaders
-    pub fn load_unified_update_client_fixture(scenario: &str) -> UnifiedUpdateClientFixture {
-        let fixture_str = match scenario {
-            "happy_path" => include_str!("../../../tests/fixtures/update_client_happy_path.json"),
-            "malformed_client_message" => {
-                include_str!("../../../tests/fixtures/update_client_malformed_client_message.json")
-            }
-            _ => {
-                // For other scenarios, try to read from filesystem
-                let fixture_path =
-                    format!("../../../tests/fixtures/update_client_{}.json", scenario);
-                &std::fs::read_to_string(&fixture_path)
-                    .unwrap_or_else(|_| panic!("Failed to read unified fixture: {}", fixture_path))
-            }
-        };
-
-        serde_json::from_str(fixture_str).unwrap_or_else(|_| {
-            panic!("Failed to parse unified fixture for scenario: {}", scenario)
-        })
+    pub fn load_unified_update_client_fixture(filename: &str) -> UnifiedUpdateClientFixture {
+        let fixture_path = format!("../../tests/fixtures/{}.json", filename);
+        let fixture_content = std::fs::read_to_string(&fixture_path)
+            .unwrap_or_else(|_| panic!("Failed to read fixture: {}", fixture_path));
+        
+        serde_json::from_str(&fixture_content)
+            .unwrap_or_else(|_| panic!("Failed to parse fixture: {}", fixture_path))
     }
 
     pub fn load_unified_happy_path_fixture() -> UnifiedUpdateClientFixture {
-        load_unified_update_client_fixture("happy_path")
+        load_unified_update_client_fixture("update_client_happy_path")
     }
 
     pub fn load_unified_malformed_client_message_fixture() -> UnifiedUpdateClientFixture {
-        load_unified_update_client_fixture("malformed_client_message")
+        load_unified_update_client_fixture("update_client_malformed_client_message")
     }
 
     // Efficient function to load all primary fixtures at once
@@ -126,18 +115,9 @@ pub mod fixtures {
         unified.update_client_message.clone()
     }
 
-    // Helper function to load available test scenarios
-    pub fn load_available_scenarios() -> Vec<String> {
-        // For now, return a hardcoded list. In the future, this could dynamically scan the fixtures directory
-        vec![
-            "happy_path".to_string(),
-            // Add more scenarios as they're implemented
-        ]
-    }
-
-    // Helper to check if a scenario exists
-    pub fn scenario_exists(scenario: &str) -> bool {
-        let fixture_path = format!("../../../tests/fixtures/update_client_{}.json", scenario);
+    // Helper to check if a fixture file exists
+    pub fn fixture_exists(filename: &str) -> bool {
+        let fixture_path = format!("../../tests/fixtures/{}.json", filename);
         std::path::Path::new(&fixture_path).exists()
     }
 
@@ -210,4 +190,5 @@ pub mod fixtures {
         // Add 1 year to make the header appear expired
         header_timestamp + 86400 * 365
     }
+
 }
