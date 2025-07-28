@@ -41,56 +41,87 @@ pub struct AttestorConfig {
 
 impl AttestorConfig {
     fn validate(&self) -> Result<()> {
+        self.validate_endpoints()?;
+        self.validate_quorum_threshold()?;
+        self.validate_timeout()?;
+        Ok(())
+    }
+
+    fn validate_endpoints(&self) -> Result<()> {
         anyhow::ensure!(
-            self.quorum_threshold >= defaults::MIN_QUORUM_THRESHOLD,
-            "quorum_threshold must be >= {}",
-            defaults::MIN_QUORUM_THRESHOLD
+            !self.attestor_endpoints.is_empty(),
+            "At least one attestor endpoint must be specified"
         );
 
+        self.attestor_endpoints
+            .iter()
+            .enumerate()
+            .try_for_each(|(index, endpoint)| self.validate_single_endpoint(endpoint, index))?;
+
+        let unique_count = self.attestor_endpoints
+            .iter()
+            .collect::<HashSet<_>>()
+            .len();
+
         anyhow::ensure!(
-            self.quorum_threshold <= self.attestor_endpoints.len(),
-            "quorum_threshold ({}) cannot exceed number of attestor endpoints ({})",
-            self.quorum_threshold,
+            unique_count == self.attestor_endpoints.len(),
+            "Duplicate endpoints found: {} unique out of {} total", 
+            unique_count, 
             self.attestor_endpoints.len()
         );
 
+        Ok(())
+    }
+
+    fn validate_single_endpoint(&self, endpoint: &str, index: usize) -> Result<()> {
+        let trimmed_endpoint = endpoint.trim();
+
         anyhow::ensure!(
-            self.attestor_query_timeout_ms >= defaults::MIN_TIMEOUT_MS,
-            "attestor_query_timeout_ms must be >= {}ms",
-            defaults::MIN_TIMEOUT_MS
+            !trimmed_endpoint.is_empty(),
+            "Endpoint at index {} cannot be empty or whitespace-only",
+            index
         );
 
         anyhow::ensure!(
-            self.attestor_query_timeout_ms <= defaults::MAX_TIMEOUT_MS,
-            "attestor_query_timeout_ms must be <= {}ms",
-            defaults::MAX_TIMEOUT_MS
+            trimmed_endpoint.starts_with("http://") || trimmed_endpoint.starts_with("https://"),
+            "Endpoint at index {} must start with 'http://' or 'https://': '{}'",
+            index,
+            trimmed_endpoint
+        );
+
+        Ok(())
+    }
+
+    fn validate_quorum_threshold(&self) -> Result<()> {
+        let endpoint_count = self.attestor_endpoints.len();
+
+        anyhow::ensure!(
+            self.quorum_threshold >= defaults::MIN_QUORUM_THRESHOLD,
+            "Quorum threshold must be at least {}, got {}",
+            defaults::MIN_QUORUM_THRESHOLD,
+            self.quorum_threshold
         );
 
         anyhow::ensure!(
-            !self.attestor_endpoints.is_empty(),
-            "at least one attestor endpoint must be specified"
+            self.quorum_threshold <= endpoint_count,
+            "Quorum threshold ({}) cannot exceed number of endpoints ({})",
+            self.quorum_threshold,
+            endpoint_count
         );
 
-        for (i, endpoint) in self.attestor_endpoints.iter().enumerate() {
-            anyhow::ensure!(
-                !endpoint.trim().is_empty(),
-                "endpoint at index {i} is empty"
-            );
+        Ok(())
+    }
 
-            anyhow::ensure!(
-                endpoint.starts_with("http://") || endpoint.starts_with("https://"),
-                "endpoint '{endpoint}' must start with http:// or https://"
-            );
-        }
+    fn validate_timeout(&self) -> Result<()> {
+        let timeout_range = defaults::MIN_TIMEOUT_MS..=defaults::MAX_TIMEOUT_MS;
 
-        // Check for duplicate endpoints
-        let mut unique_endpoints = HashSet::new();
-        for endpoint in &self.attestor_endpoints {
-            anyhow::ensure!(
-                unique_endpoints.insert(endpoint),
-                "duplicate endpoint: '{endpoint}'"
-            );
-        }
+        anyhow::ensure!(
+            timeout_range.contains(&self.attestor_query_timeout_ms),
+            "Query timeout must be between {}ms and {}ms, got {}ms",
+            defaults::MIN_TIMEOUT_MS,
+            defaults::MAX_TIMEOUT_MS,
+            self.attestor_query_timeout_ms
+        );
 
         Ok(())
     }
