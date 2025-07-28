@@ -17,8 +17,8 @@ impl Config {
         let content = fs::read_to_string(path)
             .with_context(|| format!("Failed to read config file '{}'", path.display()))?;
 
-        let config: Config = toml::from_str(&content)
-            .context("Failed to parse TOML configuration")?;
+        let config: Config = 
+            toml::from_str(&content).context("Failed to parse TOML configuration")?;
 
         config.validate()?;
 
@@ -58,15 +58,12 @@ impl AttestorConfig {
             .enumerate()
             .try_for_each(|(index, endpoint)| self.validate_single_endpoint(endpoint, index))?;
 
-        let unique_count = self.attestor_endpoints
-            .iter()
-            .collect::<HashSet<_>>()
-            .len();
+        let unique_count = self.attestor_endpoints.iter().collect::<HashSet<_>>().len();
 
         anyhow::ensure!(
             unique_count == self.attestor_endpoints.len(),
-            "Duplicate endpoints found: {} unique out of {} total", 
-            unique_count, 
+            "Duplicate endpoints found: {} unique out of {} total",
+            unique_count,
             self.attestor_endpoints.len()
         );
 
@@ -140,11 +137,12 @@ pub struct ServerConfig {
 impl ServerConfig {
     fn validate(&self) -> Result<()> {
         if !self.log_level.is_empty() {
-            Level::from_str(&self.log_level)
-                .with_context(|| format!(
+            Level::from_str(&self.log_level).with_context(|| {
+                format!(
                     "invalid log level '{}'. Valid levels are: TRACE, DEBUG, INFO, WARN, ERROR",
                     self.log_level
-                ))?;
+                )
+            })?;
         }
         Ok(())
     }

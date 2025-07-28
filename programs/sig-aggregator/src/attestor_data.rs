@@ -1,6 +1,6 @@
-use anyhow::{Context, Result};
 use crate::rpc::{AggregateResponse, Attestation, SigPubkeyPair};
 use alloy_primitives::FixedBytes;
+use anyhow::{Context, Result};
 use std::collections::HashMap;
 
 pub const STATE_BYTE_LENGTH: usize = 12;
@@ -130,12 +130,14 @@ mod tests {
         // We have a height 100 but only 1 signature < quorum 2
         let mut attestator_data = AttestatorData::new();
 
-        attestator_data.insert(Attestation {
-            attested_data: vec![1; STATE_BYTE_LENGTH],
-            public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
-            height: 100,
-            signature: vec![0x04; SIGNATURE_BYTE_LENGTH],
-        }).unwrap();
+        attestator_data
+            .insert(Attestation {
+                attested_data: vec![1; STATE_BYTE_LENGTH],
+                public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
+                height: 100,
+                signature: vec![0x04; SIGNATURE_BYTE_LENGTH],
+            })
+            .unwrap();
 
         let latest = attestator_data.get_quorum(2);
         assert!(latest.is_none(), "Should not return a state below quorum");

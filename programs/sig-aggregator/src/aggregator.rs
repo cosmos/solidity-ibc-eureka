@@ -36,14 +36,11 @@ impl AggregatorService {
     async fn create_clients(
         config: &AttestorConfig,
     ) -> anyhow::Result<Vec<Mutex<AttestationServiceClient<Channel>>>> {
-        let futures = config
-            .attestor_endpoints
-            .iter()
-            .map(|endpoint| async move {
-                AttestationServiceClient::connect(endpoint.clone())
-                    .await
-                    .map(Mutex::new)
-            });
+        let futures = config.attestor_endpoints.iter().map(|endpoint| async move {
+            AttestationServiceClient::connect(endpoint.clone())
+                .await
+                .map(Mutex::new)
+        });
 
         join_all(futures)
             .await
