@@ -11,14 +11,14 @@ pub trait Signable: Sync + Send {
 }
 
 pub struct UnsignedPacketAttestation {
-    height: u64,
-    packets: Packets,
+    pub height: u64,
+    pub packets: Vec<[u8; 32]>,
 }
 
 #[derive(serde::Serialize)]
 pub struct UnsignedStateAttestation {
-    height: u64,
-    timestamp: u64,
+    pub height: u64,
+    pub timestamp: u64,
 }
 
 impl Signable for UnsignedStateAttestation {

@@ -1,52 +1,88 @@
-use alloy::{consensus::Header as EthHeader, eips::BlockNumberOrTag};
+use alloy::{
+    consensus::BlockHeader,
+    eips::{BlockId, BlockNumberOrTag},
+};
 use alloy_network::Ethereum;
+use alloy_primitives::FixedBytes;
 use alloy_provider::{Provider, RootProvider};
+use attestor_packet_membership::Packets;
+use futures::{stream::FuturesUnordered, StreamExt};
+use ibc_eureka_solidity_types::ics26::{router::routerInstance, IICS26RouterMsgs::Packet};
 
 mod config;
 
-use attestor_packet_membership::Packets;
 pub use config::ArbitrumClientConfig;
 
 use crate::adapter_client::{
     Adapter, AdapterError, UnsignedPacketAttestation, UnsignedStateAttestation,
 };
 
-/// Relevant chain peek options. For their Arbitrum
-/// interpretation see [these docs](https://docs.arbitrum.io/for-devs/troubleshooting-building#how-many-block-numbers-must-we-wait-for-in-arbitrum-before-we-can-confidently-state-that-the-transaction-has-reached-finality)
-enum PeekKind {
-    /// Most recent confirmed L2 block on ETH L1
-    Finalized,
-    /// Latest L2 block
-    Latest,
-}
-
 #[derive(Debug)]
 pub struct ArbitrumClient {
     client: RootProvider,
+    router: routerInstance<RootProvider>,
 }
 
 impl ArbitrumClient {
     pub fn from_config(config: &ArbitrumClientConfig) -> Self {
         let client = RootProvider::<Ethereum>::new_http(config.url.parse().unwrap());
-        Self { client }
+        let address: FixedBytes<20> = config
+            .router_address
+            .clone()
+            .into_bytes()
+            .as_slice()
+            .try_into()
+            .unwrap();
+
+        let router = routerInstance::new(address.into(), client.clone());
+        Self { client, router }
     }
 
-    async fn get_block_by_number(&self, peek_kind: &PeekKind) -> Result<EthHeader, AdapterError> {
-        let kind = match peek_kind {
-            PeekKind::Finalized => BlockNumberOrTag::Finalized,
-            PeekKind::Latest => BlockNumberOrTag::Latest,
-        };
-
-        let block = self
-            .client
-            .get_block_by_number(kind)
+    async fn get_latest_block_number(&self) -> Result<u64, AdapterError> {
+        self.client
+            // https://docs.arbitrum.io/for-devs/troubleshooting-building#how-many-block-numbers-must-we-wait-for-in-arbitrum-before-we-can-confidently-state-that-the-transaction-has-reached-finality
+            .get_block_by_number(BlockNumberOrTag::Latest)
             .await
             .map_err(|e| AdapterError::FinalizedBlockError(e.to_string()))?
             .ok_or_else(|| {
-                AdapterError::FinalizedBlockError(format!("no Arbitrum block of kind {kind} found"))
-            })?;
+                AdapterError::FinalizedBlockError(format!(
+                    "no Arbitrum block of kind {} found",
+                    BlockNumberOrTag::Latest
+                ))
+            })
+            .map(|header| header.header.number())
+    }
 
-        Ok(block.header.into())
+    async fn get_timestamp_for_block_at_height(&self, height: u64) -> Result<u64, AdapterError> {
+        self.client
+            .get_block_by_number(BlockNumberOrTag::Number(height))
+            .await
+            .map_err(|e| AdapterError::FinalizedBlockError(e.to_string()))?
+            .ok_or_else(|| {
+                AdapterError::FinalizedBlockError(format!(
+                    "no Arbitrum block of kind {} found",
+                    BlockNumberOrTag::Latest
+                ))
+            })
+            .map(|header| header.header.timestamp())
+    }
+
+    async fn get_historical_packet_commitment(
+        &self,
+        packet: &Packet,
+        block_number: u64,
+    ) -> Result<[u8; 32], AdapterError> {
+        let fixed: FixedBytes<32> = packet.commitment_path().as_slice().try_into().unwrap();
+
+        self.router
+            .getCommitment(fixed)
+            .block(BlockId::Number(BlockNumberOrTag::Number(block_number)))
+            .call()
+            .await
+            .map_err(|e| {
+                AdapterError::FinalizedBlockError(format!("Failed to get commitment: {}", e))
+            })
+            .map(|commitment| commitment.into())
     }
 }
 
@@ -55,12 +91,50 @@ impl Adapter for ArbitrumClient {
         &self,
         height: u64,
     ) -> Result<UnsignedStateAttestation, AdapterError> {
-        todo!()
+        let ts = self.get_timestamp_for_block_at_height(height).await?;
+        Ok(UnsignedStateAttestation {
+            height,
+            timestamp: ts,
+        })
     }
     async fn get_latest_unsigned_packet_attestation(
         &self,
         packets: &Packets,
     ) -> Result<UnsignedPacketAttestation, AdapterError> {
-        todo!()
+        let mut futures = FuturesUnordered::new();
+        let height = self.get_latest_block_number().await.unwrap();
+
+        for p in packets.packets() {
+            let packet: Packet = serde_json::from_slice(p).unwrap();
+            let validate_commitment = async move |packet: Packet, height: u64| {
+                let cmt = self
+                    .get_historical_packet_commitment(&packet, height)
+                    .await?;
+                if packet.commitment() != cmt {
+                    Err(AdapterError::FinalizedBlockError("something".into()))
+                } else {
+                    Ok(cmt)
+                }
+            };
+            futures.push(validate_commitment(packet, height));
+        }
+
+        let mut validated = Vec::with_capacity(futures.len());
+        while let Some(maybe_cmt) = futures.next().await {
+            match maybe_cmt {
+                Ok(cmt) => validated.push(cmt),
+                Err(e) => {
+                    tracing::error!(
+                        "failed to retrieve packet commitment for due to {}",
+                        e.to_string()
+                    );
+                }
+            }
+        }
+
+        Ok(UnsignedPacketAttestation {
+            height,
+            packets: validated,
+        })
     }
 }

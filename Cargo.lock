@@ -4118,6 +4118,7 @@ name = "ibc-attestor"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "alloy-contract",
  "alloy-network",
  "alloy-primitives 1.1.0",
  "alloy-provider",
@@ -4126,6 +4127,7 @@ dependencies = [
  "attestor-packet-membership",
  "borsh",
  "clap",
+ "futures",
  "ibc-eureka-solidity-types 0.1.0",
  "indexmap 2.10.0",
  "key-utils",
