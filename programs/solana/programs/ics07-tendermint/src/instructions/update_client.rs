@@ -283,8 +283,113 @@ fn check_existing_consensus_state(
     Ok(UpdateResult::NoOp)
 }
 
+/// Creates seeds for deriving consensus state store PDAs
+fn create_consensus_state_seeds(client_key: &Pubkey, revision_height: u64) -> [Vec<u8>; 3] {
+    [
+        b"consensus_state".to_vec(),
+        client_key.as_ref().to_vec(),
+        revision_height.to_le_bytes().to_vec(),
+    ]
+}
+
+/// Converts seed vectors to slices for PDA operations
+fn seeds_as_slices(seeds: &[Vec<u8>; 3]) -> [&[u8]; 3] {
+    [&seeds[0], &seeds[1], &seeds[2]]
+}
+
+/// Validates that the provided account matches the expected PDA for consensus state storage
+fn validate_consensus_state_pda(
+    consensus_state_account: &UncheckedAccount,
+    client_key: &Pubkey,
+    revision_height: u64,
+    program_id: &Pubkey,
+) -> Result<u8> {
+    let seeds = create_consensus_state_seeds(client_key, revision_height);
+    let seeds_slices = seeds_as_slices(&seeds);
+    let (expected_pda, bump) = Pubkey::find_program_address(&seeds_slices, program_id);
+    
+    require!(
+        expected_pda == consensus_state_account.key(),
+        ErrorCode::AccountValidationFailed
+    );
+    
+    Ok(bump)
+}
+
+/// Calculates the required space and rent for a consensus state store account
+fn calculate_consensus_state_rent() -> Result<(usize, u64)> {
+    const DISCRIMINATOR_SIZE: usize = 8;
+    let space = DISCRIMINATOR_SIZE + ConsensusStateStore::INIT_SPACE;
+    let rent = Rent::get()?.minimum_balance(space);
+    Ok((space, rent))
+}
+
+/// Creates signer seeds for consensus state PDA with the bump
+fn create_consensus_state_signer_seeds(
+    client_key: &Pubkey,
+    revision_height: u64,
+    bump: u8,
+) -> [Vec<u8>; 4] {
+    [
+        b"consensus_state".to_vec(),
+        client_key.as_ref().to_vec(),
+        revision_height.to_le_bytes().to_vec(),
+        vec![bump],
+    ]
+}
+
+/// Converts signer seed vectors to slices for signing operations
+fn signer_seeds_as_slices(seeds: &[Vec<u8>; 4]) -> [&[u8]; 4] {
+    [&seeds[0], &seeds[1], &seeds[2], &seeds[3]]
+}
+
+/// Helper function to create account using system program with PDA signing
+fn create_account_with_system_program<'info>(
+    new_account: &UncheckedAccount<'info>,
+    payer: &Signer<'info>,
+    system_program: &Program<'info, System>,
+    program_id: &Pubkey,
+    space: usize,
+    rent: u64,
+    signer_seeds: &[&[&[u8]]],
+) -> Result<()> {
+    system_program::create_account(
+        CpiContext::new_with_signer(
+            system_program.to_account_info(),
+            system_program::CreateAccount {
+                from: payer.to_account_info(),
+                to: new_account.to_account_info(),
+            },
+            signer_seeds,
+        ),
+        rent,
+        space as u64,
+        program_id,
+    )
+}
+
+/// Initializes the consensus state store with the provided data
+fn initialize_consensus_state_store<'info>(
+    consensus_state_account: &UncheckedAccount<'info>,
+    revision_height: u64,
+    consensus_state: &ConsensusState,
+) -> Result<()> {
+    let mut data = consensus_state_account.try_borrow_mut_data()?;
+    let mut cursor = std::io::Cursor::new(&mut data[..]);
+    
+    let consensus_state_store = ConsensusStateStore {
+        height: revision_height,
+        consensus_state: consensus_state.clone(),
+    };
+    
+    // Use try_serialize which handles both discriminator and data serialization
+    consensus_state_store.try_serialize(&mut cursor)?;
+    Ok(())
+}
+
+/// Creates and initializes a new consensus state store account
 fn create_consensus_state_account<'info>(
-    new_consensus_state_store: &UncheckedAccount<'info>,
+    consensus_state_account: &UncheckedAccount<'info>,
     payer: &Signer<'info>,
     system_program: &Program<'info, System>,
     program_id: &Pubkey,
@@ -292,56 +397,39 @@ fn create_consensus_state_account<'info>(
     revision_height: u64,
     new_consensus_state: &ConsensusState,
 ) -> Result<()> {
-    let space = 8 + ConsensusStateStore::INIT_SPACE;
-    let rent = Rent::get()?.minimum_balance(space);
-
-    let height_bytes = revision_height.to_le_bytes();
-    let seeds = [
-        b"consensus_state".as_ref(),
-        client_key.as_ref(),
-        height_bytes.as_ref(),
-    ];
-    let (_, bump) = Pubkey::find_program_address(&seeds, program_id);
-    let bump_bytes = [bump];
-    let signer_seeds = [
-        b"consensus_state".as_ref(),
-        client_key.as_ref(),
-        height_bytes.as_ref(),
-        bump_bytes.as_ref(),
-    ];
-    let signer_seeds_slice = [&signer_seeds[..]];
-
-    // Verify the PDA derivation
-    let (expected_pda, _) = Pubkey::find_program_address(&seeds, program_id);
-    require!(
-        expected_pda == new_consensus_state_store.key(),
-        ErrorCode::AccountValidationFailed
-    );
-
-    system_program::create_account(
-        CpiContext::new_with_signer(
-            system_program.to_account_info(),
-            system_program::CreateAccount {
-                from: payer.to_account_info(),
-                to: new_consensus_state_store.to_account_info(),
-            },
-            &signer_seeds_slice,
-        ),
-        rent,
-        space as u64,
+    // Validate the PDA and get the bump seed
+    let bump = validate_consensus_state_pda(
+        consensus_state_account,
+        &client_key,
+        revision_height,
         program_id,
     )?;
 
-    let mut data = new_consensus_state_store.try_borrow_mut_data()?;
-    let mut cursor = std::io::Cursor::new(&mut data[..]);
+    // Calculate required space and rent
+    let (space, rent) = calculate_consensus_state_rent()?;
 
-    let store = ConsensusStateStore {
-        height: revision_height,
-        consensus_state: new_consensus_state.clone(),
-    };
+    // Prepare signing seeds for account creation
+    let signer_seeds = create_consensus_state_signer_seeds(&client_key, revision_height, bump);
+    let signer_seeds_slices = signer_seeds_as_slices(&signer_seeds);
+    let signer_seeds_slice = [&signer_seeds_slices[..]];
 
-    // Use try_serialize which handles both discriminator and data serialization
-    store.try_serialize(&mut cursor)?;
+    // Create the account with system program
+    create_account_with_system_program(
+        consensus_state_account,
+        payer,
+        system_program,
+        program_id,
+        space,
+        rent,
+        &signer_seeds_slice,
+    )?;
+
+    // Initialize the consensus state store data
+    initialize_consensus_state_store(
+        consensus_state_account,
+        revision_height,
+        new_consensus_state,
+    )?;
 
     Ok(())
 }
