@@ -21,10 +21,13 @@ async fn main() -> Result<()> {
                 .finish();
             tracing::subscriber::set_global_default(subscriber)?;
 
-            tracing::info!("Starting sig-aggregator with attestor endpoints: {:?}",
-                config.attestor.attestor_endpoints);
+            tracing::info!(
+                "Starting sig-aggregator with attestor endpoints: {:?}",
+                config.attestor.attestor_endpoints
+            );
 
-            let aggregator_service = AggregatorService::from_attestor_config(config.attestor).await?;
+            let aggregator_service =
+                AggregatorService::from_attestor_config(config.attestor).await?;
             start_server(aggregator_service, config.server).await?;
         }
     }

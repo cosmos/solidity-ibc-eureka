@@ -3,8 +3,7 @@ use crate::{
     config::AttestorConfig,
     rpc::{
         aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient,
-        AggregateRequest, AggregateResponse, StateAttestationRequest,
-        StateAttestationResponse,
+        AggregateRequest, AggregateResponse, StateAttestationRequest,StateAttestationResponse,
     },
 };
 use futures::future::join_all;
@@ -90,7 +89,8 @@ impl AggregatorService {
         &self,
         min_height: u64,
     ) -> Result<Vec<StateAttestationResponse>, Status> {
-        let timeout_duration = Duration::from_millis(self.attestor_config.attestor_query_timeout_ms);
+        let timeout_duration =
+            Duration::from_millis(self.attestor_config.attestor_query_timeout_ms);
 
         let query_futures = self.attestor_clients.iter().enumerate().map(|(i, client)| {
             let endpoint = &self.attestor_config.attestor_endpoints[i];
@@ -111,7 +111,6 @@ impl AggregatorService {
             }
         });
 
-
         let results = join_all(query_futures).await;
 
         let successful_responses = results
@@ -119,7 +118,9 @@ impl AggregatorService {
             .filter_map(|(endpoint, result)| match result {
                 Ok(response) => Some(response),
                 Err(e) => {
-                    tracing_error!("Attestor [{endpoint}] failed, continuing with other responses: {e:?}");
+                    tracing_error!(
+                        "Attestor [{endpoint}] failed, continuing with other responses: {e:?}"
+                    );
                     None
                 }
             })
@@ -158,8 +159,7 @@ impl AggregatorService {
 mod e2e_tests {
     use super::*;
     use crate::{
-        attestor_data::STATE_BYTE_LENGTH,
-        config::AttestorConfig,
+        attestor_data::STATE_BYTE_LENGTH, config::AttestorConfig,
         mock_attestor::setup_attestor_server,
     };
 
