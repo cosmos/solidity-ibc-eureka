@@ -122,7 +122,7 @@ mod tests {
             public_key: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x03),
             height: 100,
             signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x04),
-        });
+        }).unwrap();
 
         let latest = attestator_data.get_quorum(2); // Quorum 2
         assert!(latest.is_none(), "Should not return a state below quorum");
@@ -138,14 +138,14 @@ mod tests {
             public_key: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x21),
             height,
             signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
-        });
+        }).unwrap();
 
         attestator_data.insert(Attestation {
             attested_data: state.clone(),
             public_key: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x22),
             height,
             signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
-        });
+        }).unwrap();
 
         let latest = attestator_data.get_quorum(2); // Quorum 2
         assert!(latest.is_some(), "Should return a state meeting quorum");
