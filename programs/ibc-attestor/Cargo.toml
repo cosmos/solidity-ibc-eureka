@@ -48,5 +48,8 @@ tracing-subscriber		= { workspace = true, default-features = true }
 
 key-utils			= { workspace = true, default-features = false }
 
+attestor-packet-membership      = { workspace = true, default-features = false }
+ibc-eureka-solidity-types       = { workspace = true, default-features = true }
+
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }

@@ -1,24 +1,54 @@
-use std::{fmt::Debug, future::Future, time::Duration};
+use attestor_packet_membership::Packets;
+use std::{fmt::Debug, future::Future};
 use thiserror::Error;
+use tonic::{Code, Status};
 
-pub trait Signable: Sync + Send + serde::Serialize + Debug {
-    fn to_encoded_bytes(&self) -> Vec<u8> {
-        let encoded = serde_json::to_vec(self).unwrap();
-        encoded
-    }
+use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
+
+pub trait Signable: Sync + Send {
+    fn to_serde_encoded_bytes(&self) -> Vec<u8>;
     fn height(&self) -> u64;
 }
 
+pub struct UnsignedPacketAttestation {
+    height: u64,
+    packets: Packets,
+}
+
+#[derive(serde::Serialize)]
+pub struct UnsignedStateAttestation {
+    height: u64,
+    timestamp: u64,
+}
+
+impl Signable for UnsignedStateAttestation {
+    fn to_serde_encoded_bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(self).unwrap()
+    }
+    fn height(&self) -> u64 {
+        self.height
+    }
+}
+
+impl Signable for UnsignedPacketAttestation {
+    fn to_serde_encoded_bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(&self.packets).unwrap()
+    }
+    fn height(&self) -> u64 {
+        self.height
+    }
+}
+
 pub trait Adapter: Sync + Send + 'static {
-    fn get_latest_finalized_block(
+    fn get_unsigned_state_attestation_at_height(
         &self,
-    ) -> impl Future<Output = Result<impl Signable, AdapterError>> + Send;
+        height: u64,
+    ) -> impl Future<Output = Result<UnsignedStateAttestation, AdapterError>> + Send;
 
-    fn get_latest_unfinalized_block(
+    fn get_latest_unsigned_packet_attestation(
         &self,
-    ) -> impl Future<Output = Result<impl Signable, AdapterError>> + Send;
-
-    fn block_time(&self) -> Duration;
+        packet: &Packets,
+    ) -> impl Future<Output = Result<UnsignedPacketAttestation, AdapterError>> + Send;
 }
 
 #[derive(Debug, Error)]
@@ -27,4 +57,10 @@ pub enum AdapterError {
     FinalizedBlockError(String),
     #[error("Failed to fetch latest unfinalized block due to {0}")]
     UnfinalizedBlockError(String),
+}
+
+impl From<AdapterError> for Status {
+    fn from(value: AdapterError) -> Self {
+        Status::new(Code::Internal, value.to_string())
+    }
 }

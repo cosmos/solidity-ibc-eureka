@@ -1,12 +1,10 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::sync::Arc;
 
+use attestor_packet_membership::Packets;
 use tonic::{Response, Status};
 
 use crate::{
-    adapter_client::{Adapter, AdapterError, Signable},
+    adapter_client::{Adapter, AdapterError},
     api::{
         attestation_service_server::AttestationService, Attestation, PacketAttestationRequest,
         PacketAttestationResponse, StateAttestationRequest, StateAttestationResponse,
@@ -40,12 +38,6 @@ pub struct AttestorService<A: Adapter> {
     signer: Signer,
 }
 
-pub trait Attestor: Send + Sync + 'static {
-    fn state_attestation(&self, height: u64) -> Attestation;
-
-    fn packet_attestation(&self, height: u64) -> Attestation;
-}
-
 impl<A> AttestorService<A>
 where
     A: Adapter,
@@ -54,50 +46,62 @@ where
         Self { adapter, signer }
     }
 
-    async fn _get_latest_finalized_signable<'a>(
-        &'a self,
-    ) -> Result<impl Signable + 'a, AdapterError> {
-        self.adapter.get_latest_finalized_block().await
+    /// Forwards to the [Adapter] and uses the [Signer] to
+    /// sign the result.
+    pub async fn get_latest_state_attestation(
+        &self,
+        height: u64,
+    ) -> Result<Attestation, AdapterError> {
+        let unsigned = self
+            .adapter
+            .get_unsigned_state_attestation_at_height(height)
+            .await?;
+        let signed = self.signer.sign(unsigned);
+        Ok(signed)
     }
 
-    async fn get_latest_unfinalized_signable<'a>(
-        &'a self,
-    ) -> Result<impl Signable + 'a, AdapterError> {
-        self.adapter.get_latest_unfinalized_block().await
+    /// Forwards to the [Adapter] and uses the [Signer] to
+    /// sign the result.
+    pub async fn get_latest_packet_attestation(
+        &self,
+        packets: &Packets,
+    ) -> Result<Attestation, AdapterError> {
+        let unsigned = self
+            .adapter
+            .get_latest_unsigned_packet_attestation(&packets)
+            .await?;
+        let signed = self.signer.sign(unsigned);
+        Ok(signed)
     }
 }
 
-impl<A> Attestor for AttestorService<A>
-where
-    A: Adapter,
-{
-    fn state_attestation(&self, _height: u64) -> Attestation {
-        todo!()
-    }
-
-    fn packet_attestation(&self, _height: u64) -> Attestation {
-        todo!()
-    }
-}
-
-/// *Note*: This RPC auto-generated trait uses the [Arc<Self>] option to
-/// make it possible to share the [AttestorService] across threads.
 #[tonic::async_trait]
 impl<A> AttestationService for Arc<AttestorService<A>>
 where
     A: Adapter,
 {
     async fn state_attestation(
-        self: Arc<Self>,
-        _request: tonic::Request<StateAttestationRequest>,
+        &self,
+        request: tonic::Request<StateAttestationRequest>,
     ) -> Result<Response<StateAttestationResponse>, Status> {
-        todo!()
+        let att = self
+            .get_latest_state_attestation(request.into_inner().height)
+            .await?;
+        Ok(StateAttestationResponse {
+            attestation: Some(att),
+        }
+        .into())
     }
 
     async fn packet_attestation(
-        self: Arc<Self>,
-        _request: tonic::Request<PacketAttestationRequest>,
+        &self,
+        request: tonic::Request<PacketAttestationRequest>,
     ) -> Result<Response<PacketAttestationResponse>, Status> {
-        todo!()
+        let packets = Packets::new(request.into_inner().packets);
+        let att = self.get_latest_packet_attestation(&packets).await?;
+        Ok(PacketAttestationResponse {
+            attestation: Some(att),
+        }
+        .into())
     }
 }

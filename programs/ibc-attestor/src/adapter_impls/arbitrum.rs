@@ -1,15 +1,15 @@
-use std::time::Duration;
-
 use alloy::{consensus::Header as EthHeader, eips::BlockNumberOrTag};
 use alloy_network::Ethereum;
 use alloy_provider::{Provider, RootProvider};
 
 mod config;
 
+use attestor_packet_membership::Packets;
 pub use config::ArbitrumClientConfig;
 
-use super::header::Header;
-use crate::adapter_client::{Adapter, AdapterError, Signable};
+use crate::adapter_client::{
+    Adapter, AdapterError, UnsignedPacketAttestation, UnsignedStateAttestation,
+};
 
 /// Relevant chain peek options. For their Arbitrum
 /// interpretation see [these docs](https://docs.arbitrum.io/for-devs/troubleshooting-building#how-many-block-numbers-must-we-wait-for-in-arbitrum-before-we-can-confidently-state-that-the-transaction-has-reached-finality)
@@ -43,9 +43,7 @@ impl ArbitrumClient {
             .await
             .map_err(|e| AdapterError::FinalizedBlockError(e.to_string()))?
             .ok_or_else(|| {
-                AdapterError::FinalizedBlockError(format!(
-                    "no Arbitrum block of kind {kind} found"
-                ))
+                AdapterError::FinalizedBlockError(format!("no Arbitrum block of kind {kind} found"))
             })?;
 
         Ok(block.header.into())
@@ -53,25 +51,16 @@ impl ArbitrumClient {
 }
 
 impl Adapter for ArbitrumClient {
-    async fn get_latest_finalized_block(&self) -> Result<impl Signable, AdapterError> {
-        let header = self.get_block_by_number(&PeekKind::Finalized).await?;
-
-        Ok(Header::new(
-            header.number,
-            header.state_root,
-            header.timestamp,
-        ))
+    async fn get_unsigned_state_attestation_at_height(
+        &self,
+        height: u64,
+    ) -> Result<UnsignedStateAttestation, AdapterError> {
+        todo!()
     }
-    async fn get_latest_unfinalized_block(&self) -> Result<impl Signable, AdapterError> {
-        let header = self.get_block_by_number(&PeekKind::Latest).await?;
-
-        Ok(Header::new(
-            header.number,
-            header.state_root,
-            header.timestamp,
-        ))
-    }
-    fn block_time(&self) -> Duration {
-        Duration::from_secs(15)
+    async fn get_latest_unsigned_packet_attestation(
+        &self,
+        packets: &Packets,
+    ) -> Result<UnsignedPacketAttestation, AdapterError> {
+        todo!()
     }
 }

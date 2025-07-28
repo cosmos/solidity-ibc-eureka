@@ -1,16 +1,15 @@
 use std::collections::HashMap;
-use std::time::Duration;
 
 use alloy_rpc_client::{ClientBuilder, ReqwestClient};
 
 mod config;
 mod header;
 
+use attestor_packet_membership::Packets;
 pub use config::OpConsensusClientConfig;
 
-use super::header::Header;
 use crate::{
-    adapter_client::{Adapter, AdapterError, Signable},
+    adapter_client::{Adapter, AdapterError, UnsignedPacketAttestation, UnsignedStateAttestation},
     adapter_impls::optimism::header::SyncHeader,
 };
 
@@ -40,33 +39,16 @@ impl OpConsensusClient {
 }
 
 impl Adapter for OpConsensusClient {
-    async fn get_latest_finalized_block(&self) -> Result<impl Signable, AdapterError> {
-        let state = self.get_sync_state().await?;
-
-        state
-            .0
-            .get("finalized_l2")
-            .map(|sync_header| {
-                Header::new(sync_header.height, sync_header.hash, sync_header.timestamp)
-            })
-            .ok_or(AdapterError::FinalizedBlockError(
-                "response received but no finalized L2 found in response".into(),
-            ))
+    async fn get_unsigned_state_attestation_at_height(
+        &self,
+        height: u64,
+    ) -> Result<UnsignedStateAttestation, AdapterError> {
+        todo!()
     }
-    async fn get_latest_unfinalized_block(&self) -> Result<impl Signable, AdapterError> {
-        let state = self.get_sync_state().await?;
-
-        state
-            .0
-            .get("unsafe_l2")
-            .map(|sync_header| {
-                Header::new(sync_header.height, sync_header.hash, sync_header.timestamp)
-            })
-            .ok_or(AdapterError::UnfinalizedBlockError(
-                "response received but no unfinalized L2 found in response".into(),
-            ))
-    }
-    fn block_time(&self) -> Duration {
-        Duration::from_secs(15)
+    async fn get_latest_unsigned_packet_attestation(
+        &self,
+        packets: &Packets,
+    ) -> Result<UnsignedPacketAttestation, AdapterError> {
+        todo!()
     }
 }

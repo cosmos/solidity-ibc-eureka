@@ -2,12 +2,7 @@
 //! the membership of IBC packets in a packet attestation.
 
 use crate::PacketAttestationError;
-use serde::Deserialize;
-
-/// Wrapper type that represents the serde byte-encoded
-/// list of packets.
-#[derive(Deserialize)]
-pub struct Packets(Vec<Vec<u8>>);
+use crate::Packets;
 
 /// Verifies that the provided `value` exists in the `proof`.
 ///
@@ -26,9 +21,8 @@ pub fn verify_packet_membership(
         .map_err(PacketAttestationError::SerdeDeserializationError)?;
 
     if proof_packets
-        .0
-        .iter()
-        .any(|packet| **packet == value_packet)
+        .packets()
+        .any(|packet| *packet == value_packet)
     {
         Ok(())
     } else {
