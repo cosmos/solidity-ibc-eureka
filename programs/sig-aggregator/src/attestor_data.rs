@@ -74,22 +74,46 @@ impl AttestatorData {
 
 // TODO: move this to a separate library IBC-138
 impl Attestation {
-    pub fn validate(&self) -> anyhow::Result<()> {
-        if self.public_key.len() != PUBKEY_BYTE_LENGTH {
-            anyhow::bail!("Invalid pubkey length: {}", self.public_key.len());
-        }
+    fn validate(&self) -> anyhow::Result<()> {
+        self.validate_pubkey()?;
+        self.validate_attested_data()?;
+        self.validate_signature()?;
+        Ok(())
+    }
+
+    fn validate_pubkey(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.public_key.len() == PUBKEY_BYTE_LENGTH,
+            "Invalid pubkey length: {}",
+            self.public_key.len()
+        );
+
         Pubkey::try_from(self.public_key.as_slice())
             .with_context(|| format!("Invalid pubkey: {:?}", self.public_key))?;
 
-        if self.attested_data.len() != STATE_BYTE_LENGTH {
-            anyhow::bail!("Invalid attested_data length: {}", self.attested_data.len());
-        }
+        Ok(())
+    }
+
+    fn validate_attested_data(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.attested_data.len() == STATE_BYTE_LENGTH,
+            "Invalid attested_data length: {}",
+            self.attested_data.len()
+        );
+
         State::try_from(self.attested_data.as_slice())
             .with_context(|| format!("Invalid attested_data: {:#?}", self.attested_data))?;
 
-        if self.signature.len() != SIGNATURE_BYTE_LENGTH {
-            anyhow::bail!("Invalid signature length: {}", self.signature.len());
-        }
+        Ok(())
+    }
+
+    fn validate_signature(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.signature.len() == SIGNATURE_BYTE_LENGTH,
+            "Invalid signature length: {}",
+            self.signature.len()
+        );
+
         Signature::try_from(self.signature.as_slice())
             .with_context(|| format!("Invalid signature: {:?}", self.signature))?;
 
@@ -113,7 +137,7 @@ mod tests {
             signature: vec![0x04; SIGNATURE_BYTE_LENGTH],
         }).unwrap();
 
-        let latest = attestator_data.get_quorum(2); // Quorum 2
+        let latest = attestator_data.get_quorum(2);
         assert!(latest.is_none(), "Should not return a state below quorum");
     }
 
@@ -122,34 +146,34 @@ mod tests {
         let mut attestator_data = AttestatorData::new();
         let state = vec![0xAA; STATE_BYTE_LENGTH];
         let height = 123;
-        attestator_data.insert(Attestation {
-            attested_data: state.clone(),
-            public_key: vec![0x21; PUBKEY_BYTE_LENGTH],
-            height,
-            signature: vec![0x11; SIGNATURE_BYTE_LENGTH],
-        }).unwrap();
 
-        attestator_data.insert(Attestation {
-            attested_data: state.clone(),
-            public_key: vec![0x22; PUBKEY_BYTE_LENGTH],
-            height,
-            signature: vec![0x11; SIGNATURE_BYTE_LENGTH],
-        }).unwrap();
+        [0x21, 0x22].iter().for_each(|&pubkey_byte| {
+            attestator_data
+                .insert(Attestation {
+                    attested_data: state.clone(),
+                    public_key: vec![pubkey_byte; PUBKEY_BYTE_LENGTH],
+                    height,
+                    signature: vec![0x11; SIGNATURE_BYTE_LENGTH],
+                })
+                .unwrap();
+        });
 
-        let latest = attestator_data.get_quorum(2); // Quorum 2
+        let latest = attestator_data.get_quorum(2);
         assert!(latest.is_some(), "Should return a state meeting quorum");
+
         let latest = latest.unwrap();
         assert_eq!(latest.height, height);
         assert_eq!(latest.state, state);
         // Should have two SigPubkeyPair entries
         assert_eq!(latest.sig_pubkey_pairs.len(), 2);
-        // Check that the pairs contain the pubkeys we inserted
-        let pubs: Vec<_> = latest
+
+        let pubkeys: Vec<_> = latest
             .sig_pubkey_pairs
             .into_iter()
             .map(|p| p.pubkey)
             .collect();
-        assert!(pubs.contains(&vec![0x21; PUBKEY_BYTE_LENGTH]));
-        assert!(pubs.contains(&vec![0x22; PUBKEY_BYTE_LENGTH]));
+
+        assert!(pubkeys.contains(&vec![0x21; PUBKEY_BYTE_LENGTH]));
+        assert!(pubkeys.contains(&vec![0x22; PUBKEY_BYTE_LENGTH]));
     }
 }

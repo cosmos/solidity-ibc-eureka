@@ -8,7 +8,6 @@ use sig_aggregator::{
 };
 use tracing_subscriber::FmtSubscriber;
 
-/// Initialize logging with appropriate configuration
 fn init_logging(log_level: tracing::Level) -> Result<()> {
     let subscriber = FmtSubscriber::builder()
         .with_max_level(log_level)
@@ -18,30 +17,23 @@ fn init_logging(log_level: tracing::Level) -> Result<()> {
         .with_line_number(true)
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber)?;
-    Ok(())
+    tracing::subscriber::set_global_default(subscriber).map_err(Into::into)
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
-        Commands::Server { config } => {
-            let config = Config::from_file(config)?;
+    let Commands::Server { config } = cli.command;
 
-            init_logging(config.server.log_level())?;
+    let config = Config::from_file(config)?;
+    init_logging(config.server.log_level())?;
 
-            tracing::info!(
-                "Starting sig-aggregator with attestor endpoints: {:?}",
-                config.attestor.attestor_endpoints
-            );
+    tracing::info!(
+        "Starting sig-aggregator with attestor endpoints: {:?}",
+        config.attestor.attestor_endpoints
+    );
 
-            let aggregator_service =
-                AggregatorService::from_attestor_config(config.attestor).await?;
-            start_server(aggregator_service, config.server).await?;
-        }
-    }
-
-    Ok(())
+    let aggregator_service = AggregatorService::from_attestor_config(config.attestor).await?;
+    start_server(aggregator_service, config.server).await
 }

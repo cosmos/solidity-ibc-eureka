@@ -24,12 +24,7 @@ pub struct AggregatorService {
 
 impl AggregatorService {
     pub async fn from_attestor_config(attestor_config: AttestorConfig) -> anyhow::Result<Self> {
-        let mut attestor_clients = Vec::with_capacity(attestor_config.attestor_endpoints.len());
-
-        for endpoint in &attestor_config.attestor_endpoints {
-            let client = AttestationServiceClient::connect(endpoint.clone()).await?;
-            attestor_clients.push(Mutex::new(client));
-        }
+        let attestor_clients = Self::create_clients(&attestor_config).await?;
 
         Ok(Self {
             attestor_config: Arc::new(attestor_config),
@@ -38,11 +33,31 @@ impl AggregatorService {
         })
     }
 
+    async fn create_clients(
+        config: &AttestorConfig,
+    ) -> anyhow::Result<Vec<Mutex<AttestationServiceClient<Channel>>>> {
+        let futures = config
+            .attestor_endpoints
+            .iter()
+            .map(|endpoint| async move {
+                AttestationServiceClient::connect(endpoint.clone())
+                    .await
+                    .map(Mutex::new)
+            });
+
+        join_all(futures)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| anyhow::anyhow!("Failed to connect to attestor: {e}"))
+    }
+
     async fn get_cached_response(&self, min_height: u64) -> Option<AggregateResponse> {
-        let cached = self.cached_response.read().await;
-        cached
+        self.cached_response
+            .read()
+            .await
             .as_ref()
-            .filter(|csh| csh.height >= min_height)
+            .filter(|response| response.height >= min_height)
             .cloned()
     }
 
@@ -78,7 +93,6 @@ impl Aggregator for AggregatorService {
         }
 
         self.update_cache(&aggregate_response).await;
-
         Ok(Response::new(aggregate_response))
     }
 }
@@ -136,15 +150,14 @@ impl AggregatorService {
     ) -> Result<AggregateResponse, Status> {
         let mut attestator_data = AttestatorData::new();
 
-        for response in responses {
-            if let Some(attestation) = response.attestation {
+        responses
+            .into_iter()
+            .filter_map(|response| response.attestation)
+            .for_each(|attestation| {
                 if let Err(e) = attestator_data.insert(attestation) {
                     tracing_error!("Invalid attestation, continuing with other responses: {e:#?}");
                 }
-            } else {
-                tracing_error!("No attestation found in response, continuing with other responses");
-            }
-        }
+            });
 
         attestator_data
             .get_quorum(self.attestor_config.quorum_threshold)
