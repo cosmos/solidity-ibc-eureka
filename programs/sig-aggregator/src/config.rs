@@ -12,21 +12,20 @@ pub struct Config {
 }
 
 impl Config {
-    /// Load configuration from a TOML file.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         let content = fs::read_to_string(path)
             .with_context(|| format!("Failed to read config file '{}'", path.display()))?;
 
-        let config: Config =
-            toml::from_str(&content).context("Failed to parse TOML configuration")?;
+        let config: Config = toml::from_str(&content)
+            .context("Failed to parse TOML configuration")?;
 
         config.validate()?;
 
         Ok(config)
     }
 
-    pub fn validate(&self) -> anyhow::Result<()> {
+    pub fn validate(&self) -> Result<()> {
         self.server.validate()?;
         self.attestor.validate()?;
         Ok(())
