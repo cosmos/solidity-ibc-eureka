@@ -71,8 +71,6 @@ func (g *SolanaFixtureGenerator) GenerateMultipleUpdateClientScenarios(ctx conte
 	// Generate malformed client message scenario based on the real data
 	g.generateMalformedClientMessageScenario(ctx, chainA)
 
-	// TODO: Add more scenarios here (expired, invalid, etc.)
-
 	g.suite.T().Log("✅ Multiple Solana scenarios generated successfully")
 }
 
