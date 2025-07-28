@@ -37,9 +37,8 @@ pub mod fixtures {
         pub source: String,
     }
 
-    // New unified fixture structure
     #[derive(Deserialize)]
-    pub struct UnifiedUpdateClientFixture {
+    pub struct UpdateClientFixture {
         pub scenario: String,
         pub client_state: ClientStateFixture,
         pub trusted_consensus_state: ConsensusStateFixture,
@@ -48,23 +47,7 @@ pub mod fixtures {
     }
 
 
-    // Legacy individual fixture loaders - kept for potential future use with other scenarios
-    pub fn load_client_state_fixture() -> ClientStateFixture {
-        let unified = load_unified_happy_path_fixture();
-        unified.client_state
-    }
-
-    pub fn load_consensus_state_fixture() -> ConsensusStateFixture {
-        let unified = load_unified_happy_path_fixture();
-        unified.trusted_consensus_state
-    }
-
-    pub fn load_update_client_message_fixture() -> UpdateClientMessageFixture {
-        let unified = load_unified_happy_path_fixture();
-        unified.update_client_message
-    }
-
-    pub fn load_unified_update_client_fixture(filename: &str) -> UnifiedUpdateClientFixture {
+    pub fn load_update_client_fixture(filename: &str) -> UpdateClientFixture {
         let fixture_path = format!("../../tests/fixtures/{}.json", filename);
         let fixture_content = std::fs::read_to_string(&fixture_path)
             .unwrap_or_else(|_| panic!("Failed to read fixture: {}", fixture_path));
@@ -73,46 +56,21 @@ pub mod fixtures {
             .unwrap_or_else(|_| panic!("Failed to parse fixture: {}", fixture_path))
     }
 
-    pub fn load_unified_happy_path_fixture() -> UnifiedUpdateClientFixture {
-        load_unified_update_client_fixture("update_client_happy_path")
+    pub fn load_happy_path_fixture() -> UpdateClientFixture {
+        load_update_client_fixture("update_client_happy_path")
     }
 
-    pub fn load_unified_malformed_client_message_fixture() -> UnifiedUpdateClientFixture {
-        load_unified_update_client_fixture("update_client_malformed_client_message")
+    pub fn load_malformed_client_message_fixture() -> UpdateClientFixture {
+        load_update_client_fixture("update_client_malformed_client_message")
     }
 
-    // Efficient function to load all primary fixtures at once
     pub fn load_primary_fixtures() -> (ClientState, ConsensusState, UpdateClientMessageFixture) {
-        let unified = load_unified_happy_path_fixture();
+        let fixture = load_happy_path_fixture();
         (
-            extract_client_state_from_unified(&unified),
-            extract_consensus_state_from_unified(&unified),
-            extract_update_message_from_unified(&unified),
+            client_state_from_fixture(&fixture.client_state),
+            consensus_state_from_fixture(&fixture.trusted_consensus_state),
+            fixture.update_client_message.clone(),
         )
-    }
-
-    // Primary fixture loading function for backward compatibility (still used in some tests)
-    // This parses JSON each time - prefer using load_primary_fixtures() for efficiency
-    pub fn load_primary_update_client_message() -> UpdateClientMessageFixture {
-        let unified = load_unified_happy_path_fixture();
-        extract_update_message_from_unified(&unified)
-    }
-
-    // Helper functions to extract components from unified fixture for backward compatibility
-    pub fn extract_client_state_from_unified(unified: &UnifiedUpdateClientFixture) -> ClientState {
-        client_state_from_fixture(&unified.client_state)
-    }
-
-    pub fn extract_consensus_state_from_unified(
-        unified: &UnifiedUpdateClientFixture,
-    ) -> ConsensusState {
-        consensus_state_from_fixture(&unified.trusted_consensus_state)
-    }
-
-    pub fn extract_update_message_from_unified(
-        unified: &UnifiedUpdateClientFixture,
-    ) -> UpdateClientMessageFixture {
-        unified.update_client_message.clone()
     }
 
     // Helper to check if a fixture file exists

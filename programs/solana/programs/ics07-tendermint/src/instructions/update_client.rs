@@ -541,7 +541,8 @@ mod tests {
 
     // Helper function to setup a standard happy path test scenario
     fn setup_happy_path_test_scenario() -> HappyPathTestScenario {
-        let update_message_fixture = load_primary_update_client_message();
+        let fixture = load_happy_path_fixture();
+        let update_message_fixture = fixture.update_client_message;
         let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
         let new_height = update_message_fixture.new_height;
 
@@ -816,7 +817,7 @@ mod tests {
     fn test_update_client_with_malformed_header() {
         // Use malformed client message from fixture - this should deserialize successfully
         // but fail during cryptographic verification
-        let malformed_fixture = load_unified_malformed_client_message_fixture();
+        let malformed_fixture = load_malformed_client_message_fixture();
         let malformed_message =
             hex_to_bytes(&malformed_fixture.update_client_message.client_message_hex);
         let new_height = malformed_fixture.update_client_message.new_height;
@@ -920,7 +921,8 @@ mod tests {
 
     #[test]
     fn test_update_client_with_wrong_trusted_height() {
-        let update_message_fixture = load_primary_update_client_message();
+        let fixture = load_happy_path_fixture();
+        let update_message_fixture = fixture.update_client_message;
         let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
         let new_height = update_message_fixture.new_height;
 
