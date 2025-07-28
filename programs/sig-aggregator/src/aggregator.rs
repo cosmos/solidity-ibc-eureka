@@ -138,14 +138,12 @@ impl AggregatorService {
 
         for response in responses {
             if let Some(attestation) = response.attestation {
-                if let Err(e) = attestation.validate() {
+                if let Err(e) = attestator_data.insert(attestation) {
                     tracing_error!("Invalid attestation, continuing with other responses: {e:#?}");
-                    continue;
                 }
-                attestator_data.insert(attestation);
-                continue;
+            } else {
+                tracing_error!("No attestation found in response, continuing with other responses");
             }
-            tracing_error!("No attestation found in response, continuing with other responses");
         }
 
         attestator_data

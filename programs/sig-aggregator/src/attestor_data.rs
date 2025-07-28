@@ -1,3 +1,4 @@
+use anyhow::Result;
 use crate::rpc::{AggregateResponse, Attestation, SigPubkeyPair};
 use alloy_primitives::FixedBytes;
 use std::collections::HashMap;
@@ -23,7 +24,6 @@ type Pubkey = FixedBytes<PUBKEY_BYTE_LENGTH>;
 /// Attested_data: 0x9876...
 ///     [Attestation_C, Attestation_D]
 /// ```
-
 #[derive(Debug, Clone, Default)]
 pub struct AttestatorData {
     state_attestations: HashMap<State, Vec<Attestation>>,
@@ -35,41 +35,38 @@ impl AttestatorData {
         Self::default()
     }
 
-    pub fn insert(&mut self, attestation: Attestation) {
-        if let Err(e) = attestation.validate() {
-            tracing::error!("Invalid attestation should not happen: {e}");
-            return;
-        }
+    pub fn insert(&mut self, attestation: Attestation) -> Result<()> {
+        attestation.validate().map_err(|e| anyhow::anyhow!("Invalid attestation: {e}"))?;
 
         let attested_data = State::try_from(attestation.attested_data.as_slice())
-            .expect("Failed to convert attested_data to State: invalid length or format");
+            .map_err(|e| anyhow::anyhow!("Failed to convert attested_data to State: {e}"))?;
+
         if let Some(attestations) = self.state_attestations.get_mut(&attested_data) {
             attestations.push(attestation);
-            return;
+            return Ok(());
         }
+
         self.state_attestations
             .insert(attested_data, vec![attestation]);
+        Ok(())
     }
 
     #[must_use]
     pub fn get_quorum(&self, quorum: usize) -> Option<AggregateResponse> {
-        for (state, attestations) in &self.state_attestations {
-            let count = attestations.len();
-            if count >= quorum {
-                return Some(AggregateResponse {
-                    height: attestations[0].height,
-                    state: state.to_vec(),
-                    sig_pubkey_pairs: attestations
-                        .iter()
-                        .map(|a| SigPubkeyPair {
-                            sig: a.signature.clone(),
-                            pubkey: a.public_key.clone(),
-                        })
-                        .collect(),
-                });
-            }
-        }
-        None
+        self.state_attestations
+            .iter()
+            .find(|(_, attestations)| attestations.len() >= quorum)
+            .map(|(state, attestations)| AggregateResponse {
+                height: attestations[0].height,
+                state: state.to_vec(),
+                sig_pubkey_pairs: attestations
+                    .iter()
+                    .map(|a| SigPubkeyPair {
+                        sig: a.signature.clone(),
+                        pubkey: a.public_key.clone(),
+                    })
+                    .collect(),
+            })
     }
 }
 
@@ -82,9 +79,8 @@ impl Attestation {
                 self.public_key.len()
             ));
         }
-        if let Err(e) = Pubkey::try_from(self.public_key.as_slice()) {
-            return Err(anyhow::anyhow!("Invalid pubkey: {:#?}", self.public_key).context(e));
-        }
+        Pubkey::try_from(self.public_key.as_slice())
+            .map_err(|e| anyhow::anyhow!("Invalid pubkey: {:#?}", self.public_key).context(e))?;
 
         if self.attested_data.len() != STATE_BYTE_LENGTH {
             return Err(anyhow::anyhow!(
@@ -92,13 +88,8 @@ impl Attestation {
                 self.attested_data.len()
             ));
         }
-        if let Err(e) = State::try_from(self.attested_data.as_slice()) {
-            return Err(anyhow::anyhow!(
-                "Invalid attested_data length: {}",
-                self.attested_data.len()
-            )
-            .context(e));
-        }
+        State::try_from(self.attested_data.as_slice())
+            .map_err(|e| anyhow::anyhow!("Invalid attested_data: {:#?}", self.attested_data).context(e))?;
 
         if self.signature.len() != SIGNATURE_BYTE_LENGTH {
             return Err(anyhow::anyhow!(
@@ -106,9 +97,8 @@ impl Attestation {
                 self.signature.len()
             ));
         }
-        if let Err(e) = Signature::try_from(self.signature.as_slice()) {
-            return Err(anyhow::anyhow!("Invalid signature: {:?}", self.signature).context(e));
-        }
+        Signature::try_from(self.signature.as_slice())
+            .map_err(|e| anyhow::anyhow!("Invalid signature: {:?}", self.signature).context(e))?;
 
         Ok(())
     }
@@ -118,7 +108,6 @@ impl Attestation {
 mod tests {
     use super::*;
 
-    // Helper to build a FixedBytes-N vector filled with `b`
     fn fill_bytes<const N: usize>(b: u8) -> Vec<u8> {
         vec![b; N]
     }
