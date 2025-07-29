@@ -32,6 +32,7 @@ impl ClientState {
         self.frozen_height.revision_height > 0
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     pub fn freeze(&mut self) {
         self.frozen_height = self.latest_height;
     }
