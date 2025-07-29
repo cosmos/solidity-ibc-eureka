@@ -11,7 +11,7 @@ on:
       - 'justfile'
 
 env:
-  SOLANA_VERSION: "2.1.18"
+  SOLANA_VERSION: "2.1.17"
   ANCHOR_VERSION: "0.31.1"
 
 jobs:
