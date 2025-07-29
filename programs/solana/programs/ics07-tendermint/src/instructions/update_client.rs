@@ -647,22 +647,6 @@ mod tests {
         }
     }
 
-    fn assert_instruction_failed(result: mollusk_svm::result::InstructionResult, test_name: &str) {
-        match result.program_result {
-            mollusk_svm::result::ProgramResult::Success => {
-                panic!(
-                    "Expected instruction to fail for {}, but it succeeded",
-                    test_name
-                );
-            }
-            _ => {
-                println!(
-                    "✅ {} correctly rejected: {:?}",
-                    test_name, result.program_result
-                );
-            }
-        }
-    }
 
     fn setup_initialized_client() -> InitializedClientResult {
         // Load from primary fixtures efficiently (single JSON parse)
@@ -921,39 +905,8 @@ mod tests {
 
         let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
 
-        // Verify it fails, and check the specific error type
-        match result.program_result {
-            mollusk_svm::result::ProgramResult::Success => {
-                panic!("CRITICAL FAILURE: Malformed header should fail cryptographic verification, but instruction succeeded!");
-            }
-            mollusk_svm::result::ProgramResult::Failure(error) => {
-                println!(
-                    "✅ Malformed header correctly failed with error: {:?}",
-                    error
-                );
-
-                // Extract the error code to distinguish between deserialization and validation failures
-                let error_code = match error {
-                    anchor_lang::prelude::ProgramError::Custom(code) => Some(code),
-                    _ => None,
-                };
-
-                if let Some(code) = error_code {
-                    if code == 6008 {
-                        panic!("CRITICAL: Got InvalidHeader (6008) - this means the test failed during DESERIALIZATION, not validation!");
-                    } else if code == 6012 {
-                        println!("✅ Got HeaderVerificationFailed (6012) - this confirms CRYPTOGRAPHIC validation failure after successful deserialization");
-                    } else {
-                        panic!("Expected HeaderVerificationFailed (6012) for malformed header, but got error code: {}", code);
-                    }
-                } else {
-                    panic!("Expected custom error code HeaderVerificationFailed (6012), but got non-custom error: {:?}", error);
-                }
-            }
-            _ => {
-                panic!("Unexpected program result: {:?}", result.program_result);
-            }
-        }
+        // Should fail with HeaderVerificationFailed (cryptographic validation failure)
+        assert_error_code(result, ErrorCode::HeaderVerificationFailed, "Malformed header");
 
         println!("✅ Test passed: Malformed header failed cryptographic validation (not deserialization)");
     }
@@ -969,40 +922,8 @@ mod tests {
 
         let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
 
-        // Verify it fails with InvalidHeader error code 6008
-        match result.program_result {
-            mollusk_svm::result::ProgramResult::Success => {
-                panic!("CRITICAL FAILURE: Invalid protobuf bytes should fail deserialization, but instruction succeeded!");
-            }
-            mollusk_svm::result::ProgramResult::Failure(error) => {
-                println!(
-                    "✅ Invalid protobuf correctly failed with error: {:?}",
-                    error
-                );
-
-                // Extract the error code and verify it's InvalidHeader (6008)
-                let error_code = match error {
-                    anchor_lang::prelude::ProgramError::Custom(code) => Some(code),
-                    _ => None,
-                };
-
-                if let Some(code) = error_code {
-                    if code == 6008 {
-                        println!("✅ Got InvalidHeader (6008) - this confirms deserialization failure as expected");
-                    } else {
-                        panic!("Expected InvalidHeader error code 6008, but got: {}", code);
-                    }
-                } else {
-                    panic!(
-                        "Expected custom error code, but got non-custom error: {:?}",
-                        error
-                    );
-                }
-            }
-            _ => {
-                panic!("Unexpected program result: {:?}", result.program_result);
-            }
-        }
+        // Should fail with InvalidHeader (protobuf parsing failure)
+        assert_error_code(result, ErrorCode::InvalidHeader, "Invalid protobuf");
 
         println!("✅ Test passed: Invalid protobuf bytes correctly returned InvalidHeader (6008)");
     }
@@ -1058,7 +979,8 @@ mod tests {
         ));
 
         let result = execute_update_client_instruction(&instruction, &accounts);
-        assert_instruction_failed(result, "Wrong trusted height");
+        // Should fail because account validation fails for wrong PDA
+        assert_error_code(result, ErrorCode::AccountValidationFailed, "Wrong trusted height");
     }
 
     #[test]
@@ -1080,7 +1002,8 @@ mod tests {
         }
 
         let result = execute_update_client_instruction(&scenario.instruction, &accounts);
-        assert_instruction_failed(result, "Expired header");
+        // Should fail with header verification failure due to expiry
+        assert_error_code(result, ErrorCode::HeaderVerificationFailed, "Expired header");
     }
 
     #[test]
@@ -1113,5 +1036,108 @@ mod tests {
                 second_result.program_result
             ),
         }
+    }
+
+    #[test]
+    fn test_update_client_with_expired_header_fixture() {
+        let fixture = load_expired_header_fixture();
+        let update_message_fixture = fixture.update_client_message;
+        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
+        let new_height = update_message_fixture.new_height;
+
+        let scenario = setup_update_client_test_scenario(client_message, new_height, None);
+        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
+        
+        // Should fail with header verification failure due to expiry
+        assert_error_code(result, ErrorCode::HeaderVerificationFailed, "Expired header fixture");
+    }
+
+    #[test]
+    fn test_update_client_with_future_timestamp_fixture() {
+        let fixture = load_future_timestamp_fixture();
+        let update_message_fixture = fixture.update_client_message;
+        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
+        let new_height = update_message_fixture.new_height;
+
+        let scenario = setup_update_client_test_scenario(client_message, new_height, None);
+        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
+        
+        // Should fail with header verification failure due to future timestamp
+        assert_error_code(result, ErrorCode::HeaderVerificationFailed, "Future timestamp fixture");
+    }
+
+    #[test]
+    fn test_update_client_with_wrong_trusted_height_fixture() {
+        let fixture = load_wrong_trusted_height_fixture();
+        let update_message_fixture = fixture.update_client_message;
+        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
+        let new_height = update_message_fixture.new_height;
+
+        let scenario = setup_update_client_test_scenario(client_message, new_height, None);
+        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
+        
+        // Should fail because account validation fails for wrong PDA  
+        assert_error_code(result, ErrorCode::AccountValidationFailed, "Wrong trusted height fixture");
+    }
+
+    #[test]
+    fn test_update_client_with_conflicting_consensus_state() {
+        // Use happy path to create first consensus state
+        let scenario = setup_happy_path_test_scenario();
+        let new_height = scenario.update_message_fixture.new_height;
+
+        // Execute first update to create initial consensus state
+        let first_result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
+        match first_result.program_result {
+            mollusk_svm::result::ProgramResult::Success => {
+                println!("✅ First update succeeded, consensus state created at height {}", new_height);
+            }
+            _ => panic!("First update should succeed: {:?}", first_result.program_result),
+        }
+
+        // Now create a different consensus state by manually creating one with different data
+        // We'll manually populate the consensus state account with different data at the same height
+        let mut modified_accounts = first_result.resulting_accounts.clone();
+        
+        // Find the consensus state account and modify its data to create a conflict
+        for (pubkey, account) in modified_accounts.iter_mut() {
+            if pubkey == &scenario.new_consensus_state_pda {
+                // Modify the consensus state data to create a conflict
+                // We'll change the root hash while keeping the same height
+                let mut data = account.data.clone();
+                if data.len() > 40 {
+                    // Modify bytes in the root hash (after discriminator + height)
+                    // Discriminator (8) + height (8) + timestamp (8) + root starts at byte 24
+                    for i in 24..32 {
+                        if i < data.len() {
+                            data[i] = data[i] ^ 0xFF; // Flip bits to create different root
+                        }
+                    }
+                    account.data = data;
+                    println!("✅ Modified consensus state data to create conflict");
+                }
+                break;
+            }
+        }
+
+        // Try to update again with the same valid message - should detect misbehaviour
+        let second_result = execute_update_client_instruction(&scenario.instruction, &modified_accounts);
+
+        // Should detect misbehaviour and fail
+        assert_error_code(second_result, ErrorCode::MisbehaviourConflictingState, "Conflicting consensus state");
+    }
+
+    #[test]
+    fn test_update_client_with_invalid_protobuf_fixture() {
+        let fixture = load_invalid_protobuf_fixture();
+        let update_message_fixture = fixture.update_client_message;
+        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
+        let new_height = update_message_fixture.new_height;
+
+        let scenario = setup_update_client_test_scenario(client_message, new_height, None);
+        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
+        
+        // Should fail with InvalidHeader (protobuf parsing failure)  
+        assert_error_code(result, ErrorCode::InvalidHeader, "Invalid protobuf fixture");
     }
 }

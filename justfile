@@ -282,6 +282,19 @@ test-solana *ARGS:
 	(cd programs/solana && $ANCHOR_CMD build {{ARGS}}); \
 	(cd programs/solana && cargo test --release {{ARGS}})
 
+# Run the Solana Anchor tests in verbose mode
+[group('test')]
+test-solana-verbose *ARGS:
+	@echo "Running Solana Anchor build and tests..."
+	if command -v anchor-nix >/dev/null 2>&1; then \
+		ANCHOR_CMD=anchor-nix; \
+	else \
+		ANCHOR_CMD=anchor; \
+	fi; \
+	echo "🦀 Using $ANCHOR_CMD"; \
+	(cd programs/solana && $ANCHOR_CMD build); \
+	(cd programs/solana && cargo test --release -- --nocapture)
+
 # Clean up the foundry cache and out directories
 [group('clean')]
 clean-foundry:

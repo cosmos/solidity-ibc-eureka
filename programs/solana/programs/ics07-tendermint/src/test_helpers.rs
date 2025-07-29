@@ -64,6 +64,22 @@ pub mod fixtures {
         load_update_client_fixture("update_client_malformed_client_message")
     }
 
+    pub fn load_expired_header_fixture() -> UpdateClientFixture {
+        load_update_client_fixture("update_client_expired_header")
+    }
+
+    pub fn load_future_timestamp_fixture() -> UpdateClientFixture {
+        load_update_client_fixture("update_client_future_timestamp")
+    }
+
+    pub fn load_wrong_trusted_height_fixture() -> UpdateClientFixture {
+        load_update_client_fixture("update_client_wrong_trusted_height")
+    }
+
+    pub fn load_invalid_protobuf_fixture() -> UpdateClientFixture {
+        load_update_client_fixture("update_client_invalid_protobuf")
+    }
+
     pub fn load_primary_fixtures() -> (ClientState, ConsensusState, UpdateClientMessageFixture) {
         let fixture = load_happy_path_fixture();
         (
@@ -147,6 +163,51 @@ pub mod fixtures {
         let header_timestamp = get_header_timestamp_from_fixture(fixture);
         // Add 1 year to make the header appear expired
         header_timestamp + 86400 * 365
+    }
+
+    // Generic test helper functions
+    pub fn get_error_code(error: &anchor_lang::prelude::ProgramError) -> Option<u32> {
+        match error {
+            anchor_lang::prelude::ProgramError::Custom(code) => Some(*code),
+            _ => None,
+        }
+    }
+
+    pub fn assert_error_code(result: mollusk_svm::result::InstructionResult, expected_error: crate::error::ErrorCode, test_name: &str) {
+        match result.program_result {
+            mollusk_svm::result::ProgramResult::Success => {
+                panic!("Expected {} to fail with {:?}, but it succeeded", test_name, expected_error);
+            }
+            mollusk_svm::result::ProgramResult::Failure(error) => {
+                if let Some(code) = get_error_code(&error) {
+                    let expected_code = expected_error as u32 + 6000; // Anchor errors start at 6000
+                    assert_eq!(code, expected_code, 
+                        "Expected {:?} ({}), but got error code {}", 
+                        expected_error, expected_code, code);
+                    println!("✅ {} correctly failed with {:?} ({})", test_name, expected_error, expected_code);
+                } else {
+                    panic!("Expected custom error code for {}, got: {:?}", test_name, error);
+                }
+            }
+            _ => panic!("Unexpected program result for {}: {:?}", test_name, result.program_result),
+        }
+    }
+
+    pub fn assert_instruction_failed(result: mollusk_svm::result::InstructionResult, test_name: &str) {
+        match result.program_result {
+            mollusk_svm::result::ProgramResult::Success => {
+                panic!(
+                    "Expected instruction to fail for {}, but it succeeded",
+                    test_name
+                );
+            }
+            _ => {
+                println!(
+                    "✅ {} correctly rejected: {:?}",
+                    test_name, result.program_result
+                );
+            }
+        }
     }
 
 }

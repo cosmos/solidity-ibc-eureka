@@ -71,6 +71,13 @@ func (g *SolanaFixtureGenerator) GenerateMultipleUpdateClientScenarios(ctx conte
 	// Generate malformed client message scenario based on the real data
 	g.generateMalformedClientMessageScenario(ctx, chainA)
 
+	// Generate additional edge case scenarios
+	g.generateExpiredHeaderScenario(ctx, chainA)
+	g.generateFutureTimestampScenario(ctx, chainA)
+	g.generateWrongTrustedHeightScenario(ctx, chainA)
+	g.generateInvalidProtobufScenario()
+	// Note: Conflicting consensus state scenario is complex to generate with valid signatures
+
 	g.suite.T().Log("✅ Multiple Solana scenarios generated successfully")
 }
 
@@ -340,3 +347,198 @@ func (g *SolanaFixtureGenerator) createUnifiedMetadata(scenarioName, chainID str
 		"chain_id":     chainID,
 	}
 }
+
+// generateExpiredHeaderScenario creates a fixture with an expired header (beyond trusting period)
+func (g *SolanaFixtureGenerator) generateExpiredHeaderScenario(ctx context.Context, chainA *cosmos.CosmosChain) {
+	g.suite.T().Log("🔧 Generating expired header scenario")
+
+	// Get valid client state and consensus state
+	tmClientState := g.queryTendermintClientState(ctx, chainA)
+	solanaClientState := g.convertClientStateToSolanaFormat(tmClientState, chainA.Config().ChainID)
+
+	tmConsensusState := g.queryTendermintConsensusState(ctx, chainA)
+	solanaConsensusState := g.convertConsensusStateToSolanaFormat(tmConsensusState, chainA.Config().ChainID)
+
+	// Load the happy path fixture to base the expired one on
+	happyPathFile := filepath.Join(g.FixtureDir, "update_client_happy_path.json")
+	g.suite.Require().FileExists(happyPathFile)
+
+	validHex := g.extractHexFromHappyPathFixture(happyPathFile)
+	
+	// Create an expired header by modifying the timestamp
+	expiredHex := g.createExpiredHeader(validHex, int64(tmClientState.TrustingPeriod.Seconds()))
+
+	expiredUpdateMessage := map[string]interface{}{
+		"client_message_hex": expiredHex,
+		"type_url":           "/ibc.lightclients.tendermint.v1.Header",
+		"trusted_height":     tmClientState.LatestHeight.RevisionHeight,
+		"new_height":         tmClientState.LatestHeight.RevisionHeight + 1,
+		"metadata":           g.createMetadata("Expired header - timestamp beyond trusting period"),
+	}
+
+	unifiedFixture := map[string]interface{}{
+		"scenario":                "expired_header",
+		"client_state":            solanaClientState,
+		"trusted_consensus_state": solanaConsensusState,
+		"update_client_message":   expiredUpdateMessage,
+		"metadata":                g.createUnifiedMetadata("expired_header", tmClientState.ChainId),
+	}
+
+	filename := filepath.Join(g.FixtureDir, "update_client_expired_header.json")
+	g.saveJsonFixture(filename, unifiedFixture)
+	g.suite.T().Logf("💾 Expired header scenario fixture saved: %s", filename)
+}
+
+// generateFutureTimestampScenario creates a fixture with a future timestamp
+func (g *SolanaFixtureGenerator) generateFutureTimestampScenario(ctx context.Context, chainA *cosmos.CosmosChain) {
+	g.suite.T().Log("🔧 Generating future timestamp scenario")
+
+	tmClientState := g.queryTendermintClientState(ctx, chainA)
+	solanaClientState := g.convertClientStateToSolanaFormat(tmClientState, chainA.Config().ChainID)
+
+	tmConsensusState := g.queryTendermintConsensusState(ctx, chainA)
+	solanaConsensusState := g.convertConsensusStateToSolanaFormat(tmConsensusState, chainA.Config().ChainID)
+
+	happyPathFile := filepath.Join(g.FixtureDir, "update_client_happy_path.json")
+	g.suite.Require().FileExists(happyPathFile)
+
+	validHex := g.extractHexFromHappyPathFixture(happyPathFile)
+	
+	// Create a header with future timestamp (beyond max clock drift)
+	futureHex := g.createFutureTimestampHeader(validHex, int64(tmClientState.MaxClockDrift.Seconds()))
+
+	futureUpdateMessage := map[string]interface{}{
+		"client_message_hex": futureHex,
+		"type_url":           "/ibc.lightclients.tendermint.v1.Header",
+		"trusted_height":     tmClientState.LatestHeight.RevisionHeight,
+		"new_height":         tmClientState.LatestHeight.RevisionHeight + 1,
+		"metadata":           g.createMetadata("Future timestamp - beyond max clock drift"),
+	}
+
+	unifiedFixture := map[string]interface{}{
+		"scenario":                "future_timestamp",
+		"client_state":            solanaClientState,
+		"trusted_consensus_state": solanaConsensusState,
+		"update_client_message":   futureUpdateMessage,
+		"metadata":                g.createUnifiedMetadata("future_timestamp", tmClientState.ChainId),
+	}
+
+	filename := filepath.Join(g.FixtureDir, "update_client_future_timestamp.json")
+	g.saveJsonFixture(filename, unifiedFixture)
+	g.suite.T().Logf("💾 Future timestamp scenario fixture saved: %s", filename)
+}
+
+// generateWrongTrustedHeightScenario creates a fixture referencing wrong trusted height
+func (g *SolanaFixtureGenerator) generateWrongTrustedHeightScenario(ctx context.Context, chainA *cosmos.CosmosChain) {
+	g.suite.T().Log("🔧 Generating wrong trusted height scenario")
+
+	tmClientState := g.queryTendermintClientState(ctx, chainA)
+	solanaClientState := g.convertClientStateToSolanaFormat(tmClientState, chainA.Config().ChainID)
+
+	tmConsensusState := g.queryTendermintConsensusState(ctx, chainA)
+	solanaConsensusState := g.convertConsensusStateToSolanaFormat(tmConsensusState, chainA.Config().ChainID)
+
+	happyPathFile := filepath.Join(g.FixtureDir, "update_client_happy_path.json")
+	g.suite.Require().FileExists(happyPathFile)
+
+	validHex := g.extractHexFromHappyPathFixture(happyPathFile)
+
+	// Use the valid header but with wrong trusted height in metadata
+	wrongHeightUpdateMessage := map[string]interface{}{
+		"client_message_hex": validHex,
+		"type_url":           "/ibc.lightclients.tendermint.v1.Header",
+		"trusted_height":     tmClientState.LatestHeight.RevisionHeight + 100, // Wrong height
+		"new_height":         tmClientState.LatestHeight.RevisionHeight + 1,
+		"metadata":           g.createMetadata("Wrong trusted height - references non-existent consensus state"),
+	}
+
+	unifiedFixture := map[string]interface{}{
+		"scenario":                "wrong_trusted_height",
+		"client_state":            solanaClientState,
+		"trusted_consensus_state": solanaConsensusState,
+		"update_client_message":   wrongHeightUpdateMessage,
+		"metadata":                g.createUnifiedMetadata("wrong_trusted_height", tmClientState.ChainId),
+	}
+
+	filename := filepath.Join(g.FixtureDir, "update_client_wrong_trusted_height.json")
+	g.saveJsonFixture(filename, unifiedFixture)
+	g.suite.T().Logf("💾 Wrong trusted height scenario fixture saved: %s", filename)
+}
+
+
+// generateInvalidProtobufScenario creates a fixture with invalid protobuf bytes
+func (g *SolanaFixtureGenerator) generateInvalidProtobufScenario() {
+	g.suite.T().Log("🔧 Generating invalid protobuf scenario")
+
+	// Create completely invalid protobuf bytes
+	invalidProtobuf := "FFFFFFFF" // Invalid protobuf that can't be decoded
+
+	invalidUpdateMessage := map[string]interface{}{
+		"client_message_hex": invalidProtobuf,
+		"type_url":           "/ibc.lightclients.tendermint.v1.Header",
+		"trusted_height":     19,
+		"new_height":         20,
+		"metadata":           g.createMetadata("Invalid protobuf bytes - cannot be deserialized"),
+	}
+
+	// Use dummy client and consensus states
+	dummyClientState := map[string]interface{}{
+		"chain_id":                "test-chain",
+		"trust_level_numerator":   1,
+		"trust_level_denominator": 3,
+		"trusting_period":         1209600,
+		"unbonding_period":        1814400,
+		"max_clock_drift":         10,
+		"frozen_height":           0,
+		"latest_height":           19,
+		"metadata":                g.createMetadata("Dummy client state for invalid protobuf test"),
+	}
+
+	dummyConsensusState := map[string]interface{}{
+		"timestamp":           uint64(time.Now().Unix()),
+		"root":                hex.EncodeToString(make([]byte, 32)),
+		"next_validators_hash": hex.EncodeToString(make([]byte, 32)),
+		"metadata":            g.createMetadata("Dummy consensus state for invalid protobuf test"),
+	}
+
+	unifiedFixture := map[string]interface{}{
+		"scenario":                "invalid_protobuf",
+		"client_state":            dummyClientState,
+		"trusted_consensus_state": dummyConsensusState,
+		"update_client_message":   invalidUpdateMessage,
+		"metadata":                g.createUnifiedMetadata("invalid_protobuf", "test-chain"),
+	}
+
+	filename := filepath.Join(g.FixtureDir, "update_client_invalid_protobuf.json")
+	g.saveJsonFixture(filename, unifiedFixture)
+	g.suite.T().Logf("💾 Invalid protobuf scenario fixture saved: %s", filename)
+}
+
+// Helper functions for modifying headers
+
+func (g *SolanaFixtureGenerator) createExpiredHeader(validHex string, trustingPeriodSeconds int64) string {
+	headerBytes, _ := hex.DecodeString(validHex)
+	var header ibctmtypes.Header
+	proto.Unmarshal(headerBytes, &header)
+
+	// Set timestamp to be older than trusting period
+	expiredTime := time.Now().Add(-time.Duration(trustingPeriodSeconds+3600) * time.Second) // Add 1 hour buffer
+	header.SignedHeader.Header.Time = expiredTime
+
+	modifiedBytes, _ := proto.Marshal(&header)
+	return hex.EncodeToString(modifiedBytes)
+}
+
+func (g *SolanaFixtureGenerator) createFutureTimestampHeader(validHex string, maxClockDriftSeconds int64) string {
+	headerBytes, _ := hex.DecodeString(validHex)
+	var header ibctmtypes.Header
+	proto.Unmarshal(headerBytes, &header)
+
+	// Set timestamp to be in the future beyond max clock drift
+	futureTime := time.Now().Add(time.Duration(maxClockDriftSeconds+3600) * time.Second) // Add 1 hour buffer
+	header.SignedHeader.Header.Time = futureTime
+
+	modifiedBytes, _ := proto.Marshal(&header)
+	return hex.EncodeToString(modifiedBytes)
+}
+
