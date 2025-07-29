@@ -1,10 +1,10 @@
-# Contributing to solidity-ibc-eureka
+# Contributing to `solidity-ibc-eureka`
 
-Thank you for considering making contributions to solidity-ibc-eureka! 🎉👍
+Thank you for considering making contributions to `solidity-ibc-eureka`! 🎉👍
 
 ## Code of conduct
 
-This project and everyone participating in it is governed by solidity-ibc-eureka's [code of conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code
+This project and everyone participating in it is governed by `solidity-ibc-eureka`'s [code of conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code
 
 ## How can I contribute?
 
@@ -20,16 +20,16 @@ This is also true if you plan to fix the bug yourself and submit a PR. As a gene
 
 New features or improvements should be written in an issue using the [new feature template](https://github.com/cosmos/solidity-ibc-eureka/blob/main/.github/ISSUE_TEMPLATE/feature-request.md). Please include in the issue as many details as possible: what use case(s) would this new feature or improvement enable? Why are those use cases important or helpful? what user group would benefit? The team will evaluate and engage with you in a discussion of the proposal, which could have different outcomes:
 
-- the core solidity-ibc-eureka team deciding to implement this feature and adding it to their planning,
-- agreeing to support external contributors to implement it with the goal of merging it eventually in solidity-ibc-eureka,
-- discarding the suggestion if deemed not aligned with the objectives of solidity-ibc-eureka;
+- the core `solidity-ibc-eureka` team deciding to implement this feature and adding it to their planning,
+- agreeing to support external contributors to implement it with the goal of merging it eventually in `solidity-ibc-eureka`,
+- discarding the suggestion if deemed not aligned with the objectives of `solidity-ibc-eureka`;
 - or proposing (in the case of applications or light clients) to be developed and maintained in a separate repository.
 
 Unless the change is a minor bug fix with minor code changes, and you want to submit a pull request, please make sure to write a Github issue for it before opening the pull request.
 
 ### Architecture Decision Records (ADR)
 
-When proposing an architecture decision for the solidity-ibc-eureka, please create an [ADR](./docs/architecture/README.md) so further discussions can be made. We are following this process so all involved parties are in agreement before any party begins coding the proposed implementation. Please use the [ADR template](./docs/architecture/adr.template.md) to scaffold any new ADR. If you would like to see some examples of how these are written refer to solidity-ibc-eureka's [ADRs](./docs/architecture/). ADRs are solidified designs that will be implemented in solidity-ibc-eureka (and do not have a spec). They should document the architecture that will be built. Most design feedback should be gathered before the initial draft of the ADR. ADR's can/should be written for any design decisions we make which may be changed at some point in the future.
+When proposing an architecture decision for `solidity-ibc-eureka`, please create an ADR so further discussions can be made. We are following this process so all involved parties are in agreement before any party begins coding the proposed implementation. ADRs are solidified designs that will be implemented in `solidity-ibc-eureka` (and do not have a spec). They should document the architecture that will be built. Most design feedback should be gathered before the initial draft of the ADR. ADR's can/should be written for any design decisions we make which may be changed at some point in the future.
 
 ### Submitting pull requests
 
@@ -40,7 +40,7 @@ Unless you feel confident your change will be accepted (see [Unwanted pull reque
 
 Looking for a good place to start contributing? The issue tracker is always the first place to go. Issues are triaged to categorize them:
 
-- Check out some [`good first issue`s](https://github.com/cosmos/solidity-ibc-eureka/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22). These are issues whose scope of work should be pretty clearly specified and they are best suited for developers new to solidity-ibc-eureka (i.e. no deep knowledge of Cosmos SDK or solidity-ibc-eureka is required). For example, some of these issues may involve improving the logging, emitting new events or removing unused code.
+- Check out some [`good first issue`s](https://github.com/cosmos/solidity-ibc-eureka/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22). These are issues whose scope of work should be pretty clearly specified and they are best suited for developers new to `solidity-ibc-eureka` (i.e. no deep knowledge of Cosmos SDK or `solidity-ibc-eureka` is required). For example, some of these issues may involve improving the logging, emitting new events or removing unused code.
 - Or pick up a [`help wanted`](https://github.com/cosmos/solidity-ibc-eureka/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) issue. These issues should be a bit more involved than the good first issues and the developer working on them would benefit from some familiarity already with the codebase. These types of issues may involve adding new (or extending the functionality of existing) gRPC endpoints, bumping the version of Cosmos SDK or Tendermint or fixing bugs.
 
 If you would like to contribute, follow this process:
@@ -48,7 +48,7 @@ If you would like to contribute, follow this process:
 1. If the issue is a proposal, ensure that the proposal has been accepted.
 2. Ensure that nobody else has already begun working on this issue. If they have, make sure to contact them to collaborate.
 3. If nobody has been assigned for the issue and you would like to work on it, comment on the issue to inform the community of your intentions to begin work. Then we will be able to assign the issue to you, making it visible for others that this issue is being tackled. If you end up not creating a pull request for this issue, please comment on the issue as well, so that it can be assigned to somebody else.
-4. Follow standard GitHub best practices: fork the repo, branch from the HEAD of `main`, make some commits, and submit a PR to `main`. For core developers working within the solidity-ibc-eureka repo, branches must be named with the convention `{moniker}/{issue#}-branch-name` to ensure a clear ownership of branches.
+4. Follow standard GitHub best practices: fork the repo, branch from the HEAD of `main`, make some commits, and submit a PR to `main`. For core developers working within the `solidity-ibc-eureka` repo, branches must be named with the convention `{moniker}/{issue#}-branch-name` to ensure a clear ownership of branches.
 5. Feel free to submit the pull request in `Draft` mode, even if the work is not complete, as this indicates to the community you are working on something and allows them to provide comments early in the development process.
 6. When the code is complete it can be marked `Ready for Review`.
 7. Be sure to include a relevant changelog entry in the [Commit Message / Changelog Entry section of pull request description](https://github.com/cosmos/solidity-ibc-eureka/blob/main/.github/PULL_REQUEST_TEMPLATE.md#commit-message--changelog-entry) so that we can add changelog entry when merging the pull request. Please follow the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/) and use one of the commit types mentioned in the [Commit messages section of the pull request guidelines](./docs/dev/pull-requests.md#commit-messages).
