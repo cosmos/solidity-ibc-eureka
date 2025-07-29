@@ -41,15 +41,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-solana-
 
-      - name: Install Solana CLI
-        run: |
-          sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
-          echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-
-      - name: Install Anchor
-        run: |
-          cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_VERSION }} anchor-cli --locked
-          anchor --version
+      - uses: metadaoproject/setup-anchor@v3.1
+        with:
+          anchor-version: ${{ ANCHOR_VERSION }}
+          solana-cli-version: ${{ SOLANA_VERSION }}
+          node-version: '24.4.1'
 
       - name: Install just
         uses: extractions/setup-just@v2
