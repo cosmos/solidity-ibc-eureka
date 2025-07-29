@@ -43,8 +43,8 @@ jobs:
 
       - uses: metadaoproject/setup-anchor@v3.1
         with:
-          anchor-version: ${{ ANCHOR_VERSION }}
-          solana-cli-version: ${{ SOLANA_VERSION }}
+          anchor-version: ${{ env.ANCHOR_VERSION }}
+          solana-cli-version: ${{ env.SOLANA_VERSION }}
           node-version: '24.4.1'
 
       - name: Install just
