@@ -32,7 +32,7 @@ impl KVPair {
     }
 
     /// Check if this is a non-membership proof (empty value)
-    #[allow(clippy::missing_const_for_fn")]
+    #[allow(clippy::missing_const_for_fn)]
     #[must_use]
     pub fn is_non_membership(&self) -> bool {
         self.value.is_empty()
