@@ -25,4 +25,3 @@ pub struct MembershipMsg {
 
 // Include the auto-generated discriminators
 include!(concat!(env!("OUT_DIR"), "/discriminators.rs"));
-
