@@ -54,11 +54,14 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 
 	icChainSpecs := chainconfig.DefaultChainSpecs
 
+	s.logger = zaptest.NewLogger(s.T())
 	s.ethTestnetType = os.Getenv(testvalues.EnvKeyEthTestnetType)
 	switch s.ethTestnetType {
 	case testvalues.EthTestnetTypePoW:
+		s.logger.Info("eth pow")
 		icChainSpecs = append(icChainSpecs, &interchaintest.ChainSpec{ChainConfig: icethereum.DefaultEthereumAnvilChainConfig("ethereum")})
 	case testvalues.EthTestnetTypePoS:
+		s.logger.Info("eth pos")
 		kurtosisEthChain, err := chainconfig.SpinUpKurtosisEthPoS(ctx) // TODO: Run this in a goroutine and wait for it to be ready
 		s.Require().NoError(err)
 		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisEthChain.RPC, &kurtosisEthChain.BeaconApiClient, kurtosisEthChain.Faucet)
@@ -71,10 +74,13 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 			kurtosisEthChain.Destroy(ctx)
 		})
 	case testvalues.EthTestnetTypeOptimism:
+		s.logger.Info("spin up")
 		kurtosisOptimismChain, err := chainconfig.SpinUpKurtosisOptimism(ctx) // TODO: Run this in a goroutine and wait for it to be ready
 		s.Require().NoError(err)
-		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisOptimismChain.ConsensusRPC, nil, kurtosisOptimismChain.Faucet)
+		s.logger.Info("eth")
+		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisOptimismChain.ExecutionRPC, nil, kurtosisOptimismChain.Faucet)
 		s.Require().NoError(err)
+		s.logger.Info("clean up")
 		s.T().Cleanup(func() {
 			ctx := context.Background()
 			if s.T().Failed() {
@@ -83,6 +89,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 			kurtosisOptimismChain.Destroy(ctx)
 		})
 	case testvalues.EthTestnetTypeArbitrum:
+		s.logger.Info("arb")
 		arbitrumChain, err := chainconfig.SpinUpTestnodeArbitrum(ctx) // TODO: Run this in a goroutine and wait for it to be ready
 		s.Require().NoError(err)
 		s.EthChain, err = ethereum.NewEthereum(ctx, arbitrumChain.ExecutionRPC, nil, nil) // No faucet for Arbitrum testnode yet
@@ -96,26 +103,33 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		})
 	case testvalues.EthTestnetTypeNone:
 		// Do nothing
+		s.logger.Info("nothing")
 	default:
 		s.T().Fatalf("Unknown Ethereum testnet type: %s", s.ethTestnetType)
 	}
 
-	s.logger = zaptest.NewLogger(s.T())
+	s.logger.Info("docker")
 	s.dockerClient, s.network = interchaintest.DockerSetup(s.T())
 
+	s.logger.Info("factory")
 	cf := interchaintest.NewBuiltinChainFactory(s.logger, icChainSpecs)
 
+	s.logger.Info("chains")
 	chains, err := cf.Chains(s.T().Name())
 	s.Require().NoError(err)
+	s.T().Logf("Chains to build %s", chains)
 
+	s.logger.Info("interchain")
 	ic := interchaintest.NewInterchain()
 	for _, chain := range chains {
 		ic = ic.AddChain(chain)
 	}
 
+	s.logger.Info("relayer")
 	execRep := testreporter.NewNopReporter().RelayerExecReporter(s.T())
 
 	// TODO: Run this in a goroutine and wait for it to be ready
+	s.logger.Info("build")
 	s.Require().NoError(ic.Build(ctx, execRep, interchaintest.InterchainBuildOptions{
 		TestName:         s.T().Name(),
 		Client:           s.dockerClient,
@@ -123,6 +137,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		SkipPathCreation: true,
 	}))
 
+	s.logger.Info("pow")
 	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
 		anvil := chains[len(chains)-1].(*icethereum.EthereumChain)
 		faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
@@ -140,9 +155,11 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		s.CosmosChains = append(s.CosmosChains, cosmosChain)
 	}
 
+	s.logger.Info("rpc")
 	// map all query request types to their gRPC method paths for cosmos chains
 	s.Require().NoError(populateQueryReqToPath(ctx, s.CosmosChains[0]))
 
+	s.logger.Info("finish")
 	// Fund user accounts
 	for _, chain := range chains {
 		s.CosmosUsers = append(s.CosmosUsers, s.CreateAndFundCosmosUser(ctx, chain.(*cosmos.CosmosChain)))
