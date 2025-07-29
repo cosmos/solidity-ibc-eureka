@@ -61,9 +61,8 @@ pub struct Client {
 
 /// Client sequence tracking
 #[account]
+#[derive(InitSpace, Default)]
 pub struct ClientSequence {
-    /// The client identifier
-    pub client_id: String,
     /// Next sequence number for sending packets
     pub next_sequence_send: u64,
 }

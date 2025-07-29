@@ -1,5 +1,8 @@
 use crate::errors::RouterError;
-use crate::state::{Client, CounterpartyInfo, RouterState, CLIENT_SEED, ROUTER_STATE_SEED};
+use crate::state::{
+    Client, ClientSequence, CounterpartyInfo, RouterState, CLIENT_SEED, CLIENT_SEQUENCE_SEED,
+    ROUTER_STATE_SEED,
+};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -24,6 +27,15 @@ pub struct AddClient<'info> {
         bump,
     )]
     pub client: Account<'info, Client>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + ClientSequence::INIT_SPACE,
+        seeds = [CLIENT_SEQUENCE_SEED, client_id.as_bytes()],
+        bump,
+    )]
+    pub client_sequence: Account<'info, ClientSequence>,
 
     pub relayer: Signer<'info>,
 
@@ -64,6 +76,7 @@ pub fn add_client(
     counterparty_info: CounterpartyInfo,
 ) -> Result<()> {
     let client = &mut ctx.accounts.client;
+    let client_sequence = &mut ctx.accounts.client_sequence;
     let light_client_program = &ctx.accounts.light_client_program;
     let router_state = &ctx.accounts.router_state;
 
@@ -73,19 +86,19 @@ pub fn add_client(
     );
 
     require!(
-        !client_id.is_empty() && client_id.len() <= 64,
+        validate_custom_ibc_identifier(&client_id),
         RouterError::InvalidClientId
     );
 
-    // The program ID validation happens during verification when we check
-    // that the light client program matches what's stored in the client registry
+    // The client account creation with init constraint ensures the client doesn't already exist
+    // If it exists, the init will fail with "account already in use" error
 
     require!(
-        !counterparty_info.client_id.is_empty(),
+        !counterparty_info.connection_id.is_empty(),
         RouterError::InvalidCounterpartyInfo
     );
     require!(
-        !counterparty_info.connection_id.is_empty(),
+        !counterparty_info.merkle_prefix.is_empty(),
         RouterError::InvalidCounterpartyInfo
     );
 
@@ -94,6 +107,9 @@ pub fn add_client(
     client.counterparty_info = counterparty_info;
     client.authority = ctx.accounts.authority.key();
     client.active = true;
+
+    // ClientSequence is automatically initialized with Default trait (next_sequence_send = 0)
+    // The first packet will use sequence 1 (incremented before use)
 
     emit!(ClientAddedEvent {
         client_id: client.client_id.clone(),
@@ -121,6 +137,47 @@ pub fn update_client(ctx: Context<UpdateClient>, _client_id: String, active: boo
     });
 
     Ok(())
+}
+
+const CLIENT_ID_PREFIX: &str = "client-";
+const CHANNEL_ID_PREFIX: &str = "channel-";
+
+/// Validates a custom IBC identifier
+/// - Length must be between 4 and 128 characters
+/// - Must NOT start with "client-" or "channel-" (reserved prefixes)
+/// - Can only contain:
+///   - Alphanumeric characters (a-z, A-Z, 0-9)
+///   - Special characters: ., _, +, -, #, [, ], <, >
+pub fn validate_custom_ibc_identifier(custom_id: &str) -> bool {
+    if custom_id.trim().is_empty() {
+        return false;
+    }
+
+    let bytes = custom_id.as_bytes();
+
+    if bytes.len() < 4 || bytes.len() > 128 {
+        return false;
+    }
+
+    if custom_id.starts_with(CLIENT_ID_PREFIX) || custom_id.starts_with(CHANNEL_ID_PREFIX) {
+        return false;
+    }
+
+    for &c in bytes {
+        let valid = matches!(c,
+            b'a'..=b'z' |    // a-z
+            b'0'..=b'9' |    // 0-9
+            b'A'..=b'Z' |    // A-Z
+            b'.' | b'_' | b'+' | b'-' |    // ., _, +, -
+            b'#' | b'[' | b']' | b'<' | b'>'    // #, [, ], <, >
+        );
+
+        if !valid {
+            return false;
+        }
+    }
+
+    true
 }
 
 #[event]
@@ -247,6 +304,8 @@ mod tests {
         let (router_state_pda, router_state_data) = setup_router_state(authority);
         let (client_pda, _) =
             Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) =
+            Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED, client_id.as_bytes()], &crate::ID);
 
         let counterparty_info = CounterpartyInfo {
             client_id: "counterparty-client".to_string(),
@@ -265,6 +324,7 @@ mod tests {
                 AccountMeta::new(authority, true),
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new(client_pda, false),
+                AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -305,6 +365,16 @@ mod tests {
                 },
             ),
             (
+                client_sequence_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
                 light_client_program,
                 Account {
                     lamports: 0,
@@ -331,6 +401,9 @@ mod tests {
         let checks = vec![
             Check::success(),
             Check::account(&client_pda).owner(&crate::ID).build(),
+            Check::account(&client_sequence_pda)
+                .owner(&crate::ID)
+                .build(),
         ];
 
         let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
@@ -378,6 +451,183 @@ mod tests {
         assert_eq!(
             deserialized_client.counterparty_info.merkle_prefix,
             counterparty_info.merkle_prefix
+        );
+
+        // Verify ClientSequence account
+        let client_sequence_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &client_sequence_pda)
+            .map(|(_, account)| account)
+            .expect("ClientSequence account not found");
+
+        assert!(
+            client_sequence_account.lamports > 0,
+            "ClientSequence account should be rent-exempt"
+        );
+
+        let mut data_slice = &client_sequence_account.data[8..];
+        let deserialized_sequence: ClientSequence = ClientSequence::deserialize(&mut data_slice)
+            .expect("Failed to deserialize client sequence");
+
+        assert_eq!(deserialized_sequence.next_sequence_send, 0);
+    }
+
+    fn test_add_client_with_error(
+        client_id: &str,
+        counterparty_info: CounterpartyInfo,
+        expected_error: RouterError,
+    ) {
+        let authority = Pubkey::new_unique();
+        let relayer = authority;
+        let light_client_program = Pubkey::new_unique();
+
+        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (client_pda, _) =
+            Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) =
+            Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED, client_id.as_bytes()], &crate::ID);
+
+        let instruction_data = crate::instruction::AddClient {
+            client_id: client_id.to_string(),
+            counterparty_info,
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(authority, true),
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new(client_pda, false),
+                AccountMeta::new(client_sequence_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(light_client_program, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            (
+                authority,
+                Account {
+                    lamports: 10_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                router_state_pda,
+                Account {
+                    lamports: 1_000_000,
+                    data: router_state_data,
+                    owner: crate::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                client_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                client_sequence_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                light_client_program,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::ROUTER_PROGRAM_PATH);
+
+        let checks = vec![
+            Check::err(ProgramError::Custom(expected_error as u32)),
+        ];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_add_client_invalid_client_id_too_short() {
+        test_add_client_with_error(
+            "abc", // Too short, min is 4 chars
+            CounterpartyInfo {
+                client_id: "counterparty-client".to_string(),
+                connection_id: "connection-0".to_string(),
+                merkle_prefix: vec![0x01, 0x02, 0x03],
+            },
+            RouterError::InvalidClientId,
+        );
+    }
+
+    #[test]
+    fn test_add_client_invalid_client_id_reserved_prefix() {
+        test_add_client_with_error(
+            "client-123", // Invalid: uses reserved prefix
+            CounterpartyInfo {
+                client_id: "counterparty-client".to_string(),
+                connection_id: "connection-0".to_string(),
+                merkle_prefix: vec![0x01, 0x02, 0x03],
+            },
+            RouterError::InvalidClientId,
+        );
+    }
+
+    #[test]
+    fn test_add_client_invalid_client_id_invalid_chars() {
+        test_add_client_with_error(
+            "test@client", // Invalid character @
+            CounterpartyInfo {
+                client_id: "counterparty-client".to_string(),
+                connection_id: "connection-0".to_string(),
+                merkle_prefix: vec![0x01, 0x02, 0x03],
+            },
+            RouterError::InvalidClientId,
+        );
+    }
+
+    #[test]
+    fn test_add_client_invalid_counterparty_info() {
+        test_add_client_with_error(
+            "test-client-03",
+            CounterpartyInfo {
+                client_id: "counterparty-client".to_string(),
+                connection_id: "".to_string(), // Invalid: empty
+                merkle_prefix: vec![0x01, 0x02, 0x03],
+            },
+            RouterError::InvalidCounterpartyInfo,
         );
     }
 
