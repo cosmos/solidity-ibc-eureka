@@ -16,7 +16,7 @@ concurrency:
 
 env:
   SOLANA_VERSION: "2.1.17"
-  ANCHOR_VERSION: "0.31.2"
+  ANCHOR_VERSION: "0.31.1"
 
 jobs:
   build-and-test:
