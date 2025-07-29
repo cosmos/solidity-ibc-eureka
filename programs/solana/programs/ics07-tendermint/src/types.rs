@@ -32,7 +32,7 @@ impl ClientState {
         self.frozen_height.revision_height > 0
     }
 
-    pub const fn freeze(&mut self) {
+    pub fn freeze(&mut self) {
         self.frozen_height = self.latest_height;
     }
 }
