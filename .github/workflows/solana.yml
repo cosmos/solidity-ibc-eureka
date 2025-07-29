@@ -10,6 +10,10 @@ on:
       - '.github/workflows/solana.yml'
       - 'justfile'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   SOLANA_VERSION: "2.1.17"
   ANCHOR_VERSION: "0.31.2"
