@@ -89,7 +89,7 @@ pub struct SubmitMisbehaviour<'info> {
 #[program]
 pub mod ics07_tendermint {
     use super::*;
-    use crate::types::{ClientState, ConsensusState,  MisbehaviourMsg, UpdateClientMsg};
+    use crate::types::{ClientState, ConsensusState, MisbehaviourMsg, UpdateClientMsg};
 
     pub fn initialize(
         ctx: Context<Initialize>,
