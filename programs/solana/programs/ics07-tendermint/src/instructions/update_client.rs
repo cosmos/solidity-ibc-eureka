@@ -88,10 +88,8 @@ fn validate_and_load_trusted_state(
     require!(!account_data.is_empty(), ErrorCode::ConsensusStateNotFound);
 
     // Deserialize the consensus state (include discriminator for proper validation)
-    ConsensusStateStore::try_deserialize(&mut &account_data[..]).map_err(|e| {
-        msg!("Failed to deserialize consensus state: {:?}", e);
-        error!(ErrorCode::SerializationError)
-    })
+    ConsensusStateStore::try_deserialize(&mut &account_data[..])
+        .map_err(|_e| error!(ErrorCode::SerializationError))
 }
 
 fn check_timestamp_misbehaviour(
@@ -105,7 +103,6 @@ fn check_timestamp_misbehaviour(
 
     if new_consensus_state.timestamp <= trusted_timestamp {
         client_state.freeze();
-        msg!("Misbehaviour detected: non-increasing timestamp");
         return err!(ErrorCode::MisbehaviourNonIncreasingTime);
     }
 
@@ -118,7 +115,6 @@ fn verify_header_and_get_state(
     client_message: &[u8],
 ) -> Result<(Height, ConsensusState)> {
     let header = deserialize_header(client_message)?;
-    msg!("Header deserialized successfully");
 
     let update_client_state: UpdateClientState = client_state.clone().into();
     let trusted_consensus_state: IbcConsensusState = consensus_state.clone().into();
@@ -130,16 +126,12 @@ fn verify_header_and_get_state(
         header,
         current_time,
     )
-    .map_err(|e| {
-        match e {
-            tendermint_light_client_update_client::UpdateClientError::HeaderVerificationFailed => {
-                msg!("Header verification failed - cryptographic validation failed after successful deserialization");
-                error!(ErrorCode::HeaderVerificationFailed)
-            },
-            _ => {
-                msg!("Update client failed with error: {:?}", e);
-                error!(ErrorCode::UpdateClientFailed)
-            }
+    .map_err(|e| match e {
+        tendermint_light_client_update_client::UpdateClientError::HeaderVerificationFailed => {
+            error!(ErrorCode::HeaderVerificationFailed)
+        }
+        _ => {
+            error!(ErrorCode::UpdateClientFailed)
         }
     })?;
 
@@ -202,7 +194,6 @@ fn handle_consensus_state_storage<'info>(
         check_existing_consensus_state(
             new_consensus_state_store,
             new_consensus_state,
-            revision_height,
             client_state,
         )
     }
@@ -211,7 +202,6 @@ fn handle_consensus_state_storage<'info>(
 fn check_existing_consensus_state(
     new_consensus_state_store: &UncheckedAccount,
     new_consensus_state: &ConsensusState,
-    revision_height: u64,
     client_state: &mut ClientState,
 ) -> Result<UpdateResult> {
     let data = new_consensus_state_store.try_borrow_data()?;
@@ -220,18 +210,9 @@ fn check_existing_consensus_state(
 
     if &existing_store.consensus_state != new_consensus_state {
         client_state.freeze();
-        msg!(
-            "Misbehaviour detected: conflicting consensus state at height {}",
-            revision_height
-        );
-
         return err!(ErrorCode::MisbehaviourConflictingState);
     }
 
-    msg!(
-        "Consensus state already exists at height {}",
-        revision_height
-    );
     Ok(UpdateResult::NoOp)
 }
 
