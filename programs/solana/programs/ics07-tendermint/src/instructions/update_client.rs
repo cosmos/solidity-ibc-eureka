@@ -87,26 +87,6 @@ fn validate_and_load_trusted_state(
     let account_data = trusted_consensus_state_account.try_borrow_data()?;
     require!(!account_data.is_empty(), ErrorCode::ConsensusStateNotFound);
 
-    msg!(
-        "Loading trusted consensus state, account length: {}",
-        account_data.len()
-    );
-
-    // Validate discriminator
-    if account_data.len() >= 8 {
-        let actual_discriminator = &account_data[0..8];
-        let expected_discriminator = ConsensusStateStore::DISCRIMINATOR;
-
-        if actual_discriminator != expected_discriminator {
-            msg!(
-                "Discriminator mismatch - expected: {:?}, found: {:?}",
-                expected_discriminator,
-                actual_discriminator
-            );
-            return err!(ErrorCode::AccountValidationFailed);
-        }
-    }
-
     // Deserialize the consensus state (include discriminator for proper validation)
     ConsensusStateStore::try_deserialize(&mut &account_data[..]).map_err(|e| {
         msg!("Failed to deserialize consensus state: {:?}", e);
@@ -137,40 +117,12 @@ fn verify_header_and_get_state(
     consensus_state: &ConsensusState,
     client_message: &[u8],
 ) -> Result<(Height, ConsensusState)> {
-    msg!(
-        "Attempting to deserialize header from {} bytes",
-        client_message.len()
-    );
     let header = deserialize_header(client_message)?;
     msg!("Header deserialized successfully");
 
     let update_client_state: UpdateClientState = client_state.clone().into();
     let trusted_consensus_state: IbcConsensusState = consensus_state.clone().into();
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
-
-    msg!("Header verification inputs:");
-    msg!("  - Header trusted height: {:?}", header.trusted_height);
-    msg!(
-        "  - Header height: {:?}",
-        header.signed_header.header.height
-    );
-    msg!("  - Current time: {}", current_time);
-    msg!(
-        "  - Trusted consensus timestamp: {}",
-        trusted_consensus_state.timestamp.unix_timestamp()
-    );
-    msg!("  - Client chain_id: {}", update_client_state.chain_id);
-    msg!(
-        "  - Trust level: {}/{}",
-        update_client_state.trust_level.numerator,
-        update_client_state.trust_level.denominator
-    );
-
-    msg!("Calling tendermint light client verification...");
-    msg!(
-        "Header signed_header time: {:?}",
-        header.signed_header.header.time
-    );
 
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
@@ -307,12 +259,12 @@ fn validate_consensus_state_pda(
     let seeds = create_consensus_state_seeds(client_key, revision_height);
     let seeds_slices = seeds_as_slices(&seeds);
     let (expected_pda, bump) = Pubkey::find_program_address(&seeds_slices, program_id);
-    
+
     require!(
         expected_pda == consensus_state_account.key(),
         ErrorCode::AccountValidationFailed
     );
-    
+
     Ok(bump)
 }
 
@@ -376,12 +328,12 @@ fn initialize_consensus_state_store<'info>(
 ) -> Result<()> {
     let mut data = consensus_state_account.try_borrow_mut_data()?;
     let mut cursor = std::io::Cursor::new(&mut data[..]);
-    
+
     let consensus_state_store = ConsensusStateStore {
         height: revision_height,
         consensus_state: consensus_state.clone(),
     };
-    
+
     // Use try_serialize which handles both discriminator and data serialization
     consensus_state_store.try_serialize(&mut cursor)?;
     Ok(())
@@ -647,7 +599,6 @@ mod tests {
         }
     }
 
-
     fn setup_initialized_client() -> InitializedClientResult {
         // Load from primary fixtures efficiently (single JSON parse)
         let (client_state, consensus_state, update_fixture) = load_primary_fixtures();
@@ -906,7 +857,11 @@ mod tests {
         let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
 
         // Should fail with HeaderVerificationFailed (cryptographic validation failure)
-        assert_error_code(result, ErrorCode::HeaderVerificationFailed, "Malformed header");
+        assert_error_code(
+            result,
+            ErrorCode::HeaderVerificationFailed,
+            "Malformed header",
+        );
 
         println!("✅ Test passed: Malformed header failed cryptographic validation (not deserialization)");
     }
@@ -980,7 +935,11 @@ mod tests {
 
         let result = execute_update_client_instruction(&instruction, &accounts);
         // Should fail because account validation fails for wrong PDA
-        assert_error_code(result, ErrorCode::AccountValidationFailed, "Wrong trusted height");
+        assert_error_code(
+            result,
+            ErrorCode::AccountValidationFailed,
+            "Wrong trusted height",
+        );
     }
 
     #[test]
@@ -1003,7 +962,11 @@ mod tests {
 
         let result = execute_update_client_instruction(&scenario.instruction, &accounts);
         // Should fail with header verification failure due to expiry
-        assert_error_code(result, ErrorCode::HeaderVerificationFailed, "Expired header");
+        assert_error_code(
+            result,
+            ErrorCode::HeaderVerificationFailed,
+            "Expired header",
+        );
     }
 
     #[test]
@@ -1047,9 +1010,13 @@ mod tests {
 
         let scenario = setup_update_client_test_scenario(client_message, new_height, None);
         let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
-        
+
         // Should fail with header verification failure due to expiry
-        assert_error_code(result, ErrorCode::HeaderVerificationFailed, "Expired header fixture");
+        assert_error_code(
+            result,
+            ErrorCode::HeaderVerificationFailed,
+            "Expired header fixture",
+        );
     }
 
     #[test]
@@ -1061,9 +1028,13 @@ mod tests {
 
         let scenario = setup_update_client_test_scenario(client_message, new_height, None);
         let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
-        
+
         // Should fail with header verification failure due to future timestamp
-        assert_error_code(result, ErrorCode::HeaderVerificationFailed, "Future timestamp fixture");
+        assert_error_code(
+            result,
+            ErrorCode::HeaderVerificationFailed,
+            "Future timestamp fixture",
+        );
     }
 
     #[test]
@@ -1075,9 +1046,13 @@ mod tests {
 
         let scenario = setup_update_client_test_scenario(client_message, new_height, None);
         let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
-        
-        // Should fail because account validation fails for wrong PDA  
-        assert_error_code(result, ErrorCode::AccountValidationFailed, "Wrong trusted height fixture");
+
+        // Should fail because account validation fails for wrong PDA
+        assert_error_code(
+            result,
+            ErrorCode::AccountValidationFailed,
+            "Wrong trusted height fixture",
+        );
     }
 
     #[test]
@@ -1087,18 +1062,25 @@ mod tests {
         let new_height = scenario.update_message_fixture.new_height;
 
         // Execute first update to create initial consensus state
-        let first_result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
+        let first_result =
+            execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
         match first_result.program_result {
             mollusk_svm::result::ProgramResult::Success => {
-                println!("✅ First update succeeded, consensus state created at height {}", new_height);
+                println!(
+                    "✅ First update succeeded, consensus state created at height {}",
+                    new_height
+                );
             }
-            _ => panic!("First update should succeed: {:?}", first_result.program_result),
+            _ => panic!(
+                "First update should succeed: {:?}",
+                first_result.program_result
+            ),
         }
 
         // Now create a different consensus state by manually creating one with different data
         // We'll manually populate the consensus state account with different data at the same height
         let mut modified_accounts = first_result.resulting_accounts.clone();
-        
+
         // Find the consensus state account and modify its data to create a conflict
         for (pubkey, account) in modified_accounts.iter_mut() {
             if pubkey == &scenario.new_consensus_state_pda {
@@ -1121,10 +1103,15 @@ mod tests {
         }
 
         // Try to update again with the same valid message - should detect misbehaviour
-        let second_result = execute_update_client_instruction(&scenario.instruction, &modified_accounts);
+        let second_result =
+            execute_update_client_instruction(&scenario.instruction, &modified_accounts);
 
         // Should detect misbehaviour and fail
-        assert_error_code(second_result, ErrorCode::MisbehaviourConflictingState, "Conflicting consensus state");
+        assert_error_code(
+            second_result,
+            ErrorCode::MisbehaviourConflictingState,
+            "Conflicting consensus state",
+        );
     }
 
     #[test]
@@ -1136,8 +1123,8 @@ mod tests {
 
         let scenario = setup_update_client_test_scenario(client_message, new_height, None);
         let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
-        
-        // Should fail with InvalidHeader (protobuf parsing failure)  
+
+        // Should fail with InvalidHeader (protobuf parsing failure)
         assert_error_code(result, ErrorCode::InvalidHeader, "Invalid protobuf fixture");
     }
 }
