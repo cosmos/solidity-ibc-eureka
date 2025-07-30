@@ -88,19 +88,16 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     let packet_ack = &mut ctx.accounts.packet_ack;
     let clock = &ctx.accounts.clock;
 
-    // Check authority (relayer must be authorized)
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
         RouterError::UnauthorizedSender
     );
 
-    // Multi-payload check
     require!(
         msg.packet.payloads.len() == 1,
         RouterError::MultiPayloadPacketNotSupported
     );
 
-    // Validate timeout
     let current_timestamp = clock.unix_timestamp;
     require!(
         msg.packet.timeout_timestamp > current_timestamp,

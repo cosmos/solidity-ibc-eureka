@@ -100,11 +100,10 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     verify_membership_cpi(client, &light_client_verification, membership_msg)?;
 
     let expected_commitment = ics24::packet_commitment_bytes32(&msg.packet);
-    if packet_commitment.value != expected_commitment {
-        // No-op case - commitment doesn't exist or mismatch
-        emit!(NoopEvent {});
-        return Ok(());
-    }
+    require!(
+        packet_commitment.value == expected_commitment,
+        RouterError::PacketCommitmentMismatch
+    );
 
     // TODO: CPI to IBC app's onAcknowledgementPacket
 

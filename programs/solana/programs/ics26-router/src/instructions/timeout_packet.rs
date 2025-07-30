@@ -105,11 +105,10 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     );
 
     let expected_commitment = ics24::packet_commitment_bytes32(&msg.packet);
-    if packet_commitment.value != expected_commitment {
-        // No-op case - commitment doesn't exist or mismatch
-        emit!(NoopEvent {});
-        return Ok(());
-    }
+    require!(
+        packet_commitment.value == expected_commitment,
+        RouterError::PacketCommitmentMismatch
+    );
 
     // TODO: CPI to IBC app's onTimeoutPacket
 
