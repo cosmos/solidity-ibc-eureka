@@ -72,7 +72,7 @@ impl Aggregator for AggregatorService {
     async fn get_aggregate_attestation(
         &self,
         request: Request<AggregateRequest>,
-    ) -> std::result::Result<Response<AggregateResponse>, Status> {
+    ) -> Result<Response<AggregateResponse>, Status> {
         let min_height = request.into_inner().min_height;
 
         // Check cache first
