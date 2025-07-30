@@ -326,7 +326,7 @@ mod tests {
             ),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::ROUTER_PROGRAM_PATH);
+        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
 
         let checks = vec![
             Check::success(),
@@ -441,7 +441,7 @@ mod tests {
             ),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::ROUTER_PROGRAM_PATH);
+        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
 
         let checks = vec![Check::success()];
 
