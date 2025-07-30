@@ -157,7 +157,7 @@ impl AggregatorService {
             });
 
         attestator_data
-            .get_quorum(self.attestor_config.quorum_threshold)
+            .agg_quorumed_attestations(self.attestor_config.quorum_threshold)
             .ok_or(Status::failed_precondition("Quorum not met"))
     }
 }

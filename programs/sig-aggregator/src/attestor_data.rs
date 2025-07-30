@@ -1,6 +1,6 @@
 use crate::rpc::{AggregateResponse, Attestation, SigPubkeyPair};
 use alloy_primitives::FixedBytes;
-use anyhow::{Context, ensure as anyhow_ensure, Result};
+use anyhow::{ensure as anyhow_ensure, Context, Result};
 use std::collections::HashMap;
 
 pub const STATE_BYTE_LENGTH: usize = 12;
@@ -50,7 +50,7 @@ impl AttestatorData {
     }
 
     #[must_use]
-    pub fn get_quorum(&self, quorum: usize) -> Option<AggregateResponse> {
+    pub fn agg_quorumed_attestations(&self, quorum: usize) -> Option<AggregateResponse> {
         self.state_attestations
             .iter()
             .find(|(_, attestations)| attestations.len() >= quorum)
@@ -139,7 +139,7 @@ mod tests {
             })
             .unwrap();
 
-        let latest = attestator_data.get_quorum(2);
+        let latest = attestator_data.agg_quorumed_attestations(2);
         assert!(latest.is_none(), "Should not return a state below quorum");
     }
 
@@ -160,7 +160,7 @@ mod tests {
                 .unwrap();
         });
 
-        let latest = attestator_data.get_quorum(2);
+        let latest = attestator_data.agg_quorumed_attestations(2);
         assert!(latest.is_some(), "Should return a state meeting quorum");
 
         let latest = latest.unwrap();
