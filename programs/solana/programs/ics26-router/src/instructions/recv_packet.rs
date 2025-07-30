@@ -112,10 +112,9 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         consensus_state: ctx.accounts.consensus_state.clone(),
     };
 
-    let commitment_path = ics24::construct_commitment_path(
+    let commitment_path = ics24::packet_commitment_path(
+        &msg.packet.source_client,
         msg.packet.sequence,
-        &msg.packet.payloads[0].source_port,
-        &msg.packet.payloads[0].dest_port,
     );
 
     let expected_commitment = ics24::packet_commitment_bytes32(&msg.packet);
@@ -126,7 +125,7 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         delay_time_period: 0,
         delay_block_period: 0,
         proof: msg.proof_commitment.clone(),
-        path: commitment_path,
+        path: vec![commitment_path],
         value: expected_commitment.to_vec(),
     };
 

@@ -1,11 +1,9 @@
 use crate::errors::RouterError;
-use crate::instructions::light_client_cpi::{
-    verify_non_membership_cpi, LightClientVerification, NonMembershipMsg,
-};
-use crate::instructions::recv_packet::NoopEvent;
+use crate::instructions::light_client_cpi::{verify_non_membership_cpi, LightClientVerification};
 use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
+use solana_light_client_interface::MembershipMsg;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgTimeoutPacket)]
@@ -82,18 +80,16 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         consensus_state: ctx.accounts.consensus_state.clone(),
     };
 
-    let receipt_path = ics24::construct_receipt_path(
-        msg.packet.sequence,
-        &msg.packet.payloads[0].source_port,
-        &msg.packet.payloads[0].dest_port,
-    );
+    let receipt_path =
+        ics24::packet_receipt_commitment_path(&msg.packet.dest_client, msg.packet.sequence);
 
-    let non_membership_msg = NonMembershipMsg {
+    let non_membership_msg = MembershipMsg {
         height: msg.proof_height,
         delay_time_period: 0,
         delay_block_period: 0,
         proof: msg.proof_timeout.clone(),
-        path: receipt_path,
+        path: vec![receipt_path],
+        value: vec![], // Empty value for non-membership
     };
 
     let counterparty_timestamp =

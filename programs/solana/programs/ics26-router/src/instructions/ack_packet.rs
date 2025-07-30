@@ -1,6 +1,5 @@
 use crate::errors::RouterError;
 use crate::instructions::light_client_cpi::{verify_membership_cpi, LightClientVerification};
-use crate::instructions::recv_packet::NoopEvent;
 use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
@@ -82,10 +81,9 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         consensus_state: ctx.accounts.consensus_state.clone(),
     };
 
-    let ack_path = ics24::construct_ack_path(
+    let ack_path = ics24::packet_acknowledgement_commitment_path(
+        &msg.packet.dest_client,
         msg.packet.sequence,
-        &msg.packet.payloads[0].source_port,
-        &msg.packet.payloads[0].dest_port,
     );
 
     let membership_msg = MembershipMsg {
@@ -93,7 +91,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         delay_time_period: 0,
         delay_block_period: 0,
         proof: msg.proof_acked.clone(),
-        path: ack_path,
+        path: vec![ack_path],
         value: msg.acknowledgement.clone(),
     };
 
