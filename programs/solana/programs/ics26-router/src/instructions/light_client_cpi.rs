@@ -63,11 +63,6 @@ pub fn verify_membership_cpi(
 
     invoke(&ix, &account_infos)?;
 
-    emit!(MembershipVerifiedEvent {
-        client_id: client.client_id.clone(),
-        height: membership_msg.height,
-    });
-
     Ok(membership_msg.height)
 }
 
@@ -113,22 +108,7 @@ pub fn verify_non_membership_cpi(
 
     invoke(&ix, &account_infos)?;
 
-    emit!(NonMembershipVerifiedEvent {
-        client_id: client.client_id.clone(),
-        height: membership_msg.height,
-    });
 
     Ok(membership_msg.height)
 }
 
-#[event]
-pub struct MembershipVerifiedEvent {
-    pub client_id: String,
-    pub height: u64,
-}
-
-#[event]
-pub struct NonMembershipVerifiedEvent {
-    pub client_id: String,
-    pub height: u64,
-}
