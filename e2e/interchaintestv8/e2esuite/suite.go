@@ -3,7 +3,6 @@ package e2esuite
 import (
 	"context"
 	"os"
-	"time"
 
 	dockerclient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/suite"
@@ -57,10 +56,10 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 
 	s.logger = zaptest.NewLogger(s.T())
 	s.ethTestnetType = os.Getenv(testvalues.EnvKeyEthTestnetType)
-
 	s.T().Cleanup(func() {
 		s.logger.Info("SLEEEEEEEEEEEEEEEEEEEEPPPPPPP")
-		time.Sleep(time.Duration(time.Duration.Minutes(10)))
+		for {
+		}
 		s.logger.Info("AWAAAAAAAAAAAAAAAAAAAAAAAAKE")
 	})
 	switch s.ethTestnetType {
