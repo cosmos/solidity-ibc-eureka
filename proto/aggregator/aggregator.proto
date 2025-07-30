@@ -3,9 +3,22 @@ syntax = "proto3";
 package aggregator;
 
 // The Aggregator service definition.
-service Aggregator {
+service AggregatorService {
   // Queries the aggregator for an aggregated attestation.
   rpc GetAggregateAttestation(AggregateRequest) returns (AggregateResponse);
+
+  // Queries the attestor with a list of packets. Then used that attestation to
+  // get the state attestation.
+  rpc GetStateAttestation(GetStateAttestationRequest) returns (GetStateAttestationResponse);
+}
+
+// Request message for getting an attestation for a set of packets.
+// This request's parameters does not include a height at the moment, because
+// we are currently only attesting to the latest height, and using the returned
+// height to request a state attestation.
+message GetStateAttestationRequest {
+  // The packets to attest to
+  repeated bytes packets = 1;
 }
 
 // AggregateRequest is a request to the aggregator.
@@ -22,12 +35,22 @@ message SigPubkeyPair {
   bytes pubkey = 2; // 65 bytes
 }
 
+// GetStateAttestationResponse is a response from the aggregator.
+message GetStateAttestationResponse {
+  // A list of signature and public key pairs.
+  repeated SigPubkeyPair sig_pubkey_pairs = 1;
+  // The aggregated state. 12 bytes.
+  bytes state = 2;
+  // The height of the aggregated state.
+  uint64 height = 3;
+}
+
 // AggregateResponse is a response from the aggregator.
 message AggregateResponse {
   // A list of signature and public key pairs.
   repeated SigPubkeyPair sig_pubkey_pairs = 1;
-  // The aggregated state.
-  bytes state = 2; // 32 bytes
+  // The aggregated state. 12 bytes.
+  bytes state = 2;
   // The height of the aggregated state.
   uint64 height = 3;
 }

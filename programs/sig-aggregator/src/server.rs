@@ -1,12 +1,12 @@
 use crate::{
-    aggregator::AggregatorService,
+    aggregator::Aggregator,
     config::ServerConfig,
-    rpc::{aggregator_server::AggregatorServer, AGG_FILE_DESCRIPTOR},
+    rpc::{aggregator_service_server::AggregatorServiceServer, AGG_FILE_DESCRIPTOR},
 };
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 
 /// Starts the [AggregatorService] RPC server with the provided configuration.
-pub async fn start(service: AggregatorService, config: ServerConfig) -> anyhow::Result<()> {
+pub async fn start(service: Aggregator, config: ServerConfig) -> anyhow::Result<()> {
     tracing::info!("Starting aggregator server on {}", config.listener_addr);
 
     let socket_addr = config.listener_addr;
@@ -20,7 +20,7 @@ pub async fn start(service: AggregatorService, config: ServerConfig) -> anyhow::
                 .make_span_with(DefaultMakeSpan::new().include_headers(true))
                 .on_response(DefaultOnResponse::new().level(config.log_level())),
         )
-        .add_service(AggregatorServer::new(service))
+        .add_service(AggregatorServiceServer::new(service))
         .add_service(reflection_service)
         .serve(socket_addr)
         .await?;
@@ -34,7 +34,7 @@ mod tests {
     use crate::{
         config::{AttestorConfig, Config, ServerConfig},
         mock_attestor::setup_attestor_server,
-        rpc::{aggregator_client::AggregatorClient, AggregateRequest},
+        rpc::{aggregator_service_client::AggregatorServiceClient, AggregateRequest},
     };
     use tokio::time::{sleep, Duration};
     use tonic::Request;
@@ -57,9 +57,9 @@ mod tests {
             },
         };
 
-        let service = AggregatorService::from_attestor_config(config.attestor)
+        let service = Aggregator::from_attestor_config(config.attestor)
             .await
-            .expect("failed to build AggregatorService");
+            .expect("failed to build Aggregator");
 
         let server_handle = tokio::spawn({
             async move {
@@ -72,7 +72,7 @@ mod tests {
         sleep(Duration::from_millis(100)).await;
 
         let endpoint = format!("http://{listener_addr}");
-        let mut client = AggregatorClient::connect(endpoint)
+        let mut client = AggregatorServiceClient::connect(endpoint)
             .await
             .expect("client connect failed");
 

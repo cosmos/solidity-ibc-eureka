@@ -11,9 +11,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .compile_protos(
             &[
                 "../../proto/aggregator/aggregator.proto",
-                "../../proto/ibc-attestor/ibc-attestor.proto",
+                "../../proto/ibc_attestor/ibc_attestor.proto",
             ],
-            &["../../proto/aggregator", "../../proto/ibc-attestor"],
+            &["../../proto/aggregator", "../../proto/ibc_attestor"],
         )?;
     Ok(())
 }

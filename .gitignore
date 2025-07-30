@@ -29,6 +29,7 @@ broadcast/*/31337/
 *.iml
 CLAUDE.md
 *.code-workspace
+.vscode/
 
 # Rust
 target

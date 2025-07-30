@@ -2,8 +2,11 @@ use crate::{
     attestor_data::AttestatorData,
     config::AttestorConfig,
     rpc::{
-        aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient,
-        AggregateRequest, AggregateResponse, StateAttestationRequest, StateAttestationResponse,
+        aggregator_service_server::AggregatorService,
+        attestation_service_client::AttestationServiceClient, AggregateRequest, AggregateResponse,
+        Attestation, GetStateAttestationRequest, GetStateAttestationResponse,
+        PacketAttestationRequest, PacketAttestationResponse, StateAttestationRequest,
+        StateAttestationResponse,
     },
 };
 use futures::future::join_all;
@@ -16,13 +19,13 @@ use tonic::{transport::Channel, Request, Response, Status};
 use tracing::{error as tracing_error, instrument};
 
 #[derive(Debug)]
-pub struct AggregatorService {
+pub struct Aggregator {
     attestor_config: Arc<AttestorConfig>,
     attestor_clients: Vec<Mutex<AttestationServiceClient<Channel>>>,
     cached_response: RwLock<Option<AggregateResponse>>,
 }
 
-impl AggregatorService {
+impl Aggregator {
     pub async fn from_attestor_config(attestor_config: AttestorConfig) -> anyhow::Result<Self> {
         let attestor_clients = Self::create_clients(&attestor_config).await?;
 
@@ -67,7 +70,7 @@ impl AggregatorService {
 }
 
 #[tonic::async_trait]
-impl Aggregator for AggregatorService {
+impl AggregatorService for Aggregator {
     #[instrument(skip_all, fields(min_height = request.get_ref().min_height))]
     async fn get_aggregate_attestation(
         &self,
@@ -81,7 +84,14 @@ impl Aggregator for AggregatorService {
         }
 
         let responses = self.query_all_attestors(min_height).await?;
-        let aggregate_response = self.process_attestor_responses(responses).await?;
+        let aggregate_response = self
+            .process_attestor_responses(
+                responses
+                    .into_iter()
+                    .map(|r| Box::new(r) as Box<dyn ContainsAttestation + Send>)
+                    .collect(),
+            )
+            .await?;
 
         if aggregate_response.height < min_height {
             return Err(Status::not_found(format!(
@@ -92,9 +102,85 @@ impl Aggregator for AggregatorService {
         self.update_cache(&aggregate_response).await;
         Ok(Response::new(aggregate_response))
     }
+
+    async fn get_state_attestation(
+        &self,
+        request: Request<GetStateAttestationRequest>,
+    ) -> Result<Response<GetStateAttestationResponse>, Status> {
+        let packet_attestations = self
+            .get_packet_attestations(request.into_inner().packets)
+            .await?;
+        let height = self
+            .process_attestor_responses(
+                packet_attestations
+                    .into_iter()
+                    .map(|r| Box::new(r) as Box<dyn ContainsAttestation + Send>)
+                    .collect(),
+            )
+            .await?;
+
+        let height = height.height;
+        let state = self
+            .get_aggregate_attestation(Request::new(AggregateRequest { min_height: height }))
+            .await?;
+
+        let state = state.into_inner();
+        Ok(Response::new(GetStateAttestationResponse {
+            sig_pubkey_pairs: state.sig_pubkey_pairs,
+            state: state.state,
+            height: state.height,
+        }))
+    }
 }
 
-impl AggregatorService {
+impl Aggregator {
+    async fn get_packet_attestations(
+        &self,
+        packets: Vec<Vec<u8>>,
+    ) -> Result<Vec<PacketAttestationResponse>, Status> {
+        let timeout_duration =
+            Duration::from_millis(self.attestor_config.attestor_query_timeout_ms);
+
+        let query_futures = self.attestor_clients.iter().enumerate().map(|(i, client)| {
+            let endpoint = &self.attestor_config.attestor_endpoints[i];
+            let packets = packets.clone();
+            let request = Request::new(PacketAttestationRequest { packets });
+
+            async move {
+                let mut client = client.lock().await;
+                let response = timeout(timeout_duration, client.packet_attestation(request)).await;
+
+                let result = match response {
+                    Ok(Ok(response)) => Ok(response.into_inner()),
+                    Ok(Err(status)) => Err(status),
+                    Err(_) => Err(Status::deadline_exceeded(format!(
+                        "Request timed out after {timeout_duration:?}"
+                    ))),
+                };
+                (endpoint, result)
+            }
+        });
+
+        let results = join_all(query_futures).await;
+
+        let successful_responses = results
+            .into_iter()
+            .filter_map(|(endpoint, result)| match result {
+                Ok(response) => Some(response),
+                Err(e) => {
+                    tracing_error!(
+                        "Attestor [{endpoint}] failed, continuing with other responses: {e:?}"
+                    );
+                    None
+                }
+            })
+            .collect();
+
+        Ok(successful_responses)
+    }
+}
+
+impl Aggregator {
     /// Query all attestors concurrently and collect successful responses
     async fn query_all_attestors(
         &self,
@@ -143,13 +229,13 @@ impl AggregatorService {
     /// Process attestor responses and create an aggregate response
     async fn process_attestor_responses(
         &self,
-        responses: Vec<StateAttestationResponse>,
+        responses: Vec<Box<dyn ContainsAttestation + Send>>,
     ) -> Result<AggregateResponse, Status> {
         let mut attestator_data = AttestatorData::new();
 
         responses
             .into_iter()
-            .filter_map(|response| response.attestation)
+            .filter_map(|response| response.get_attestation())
             .for_each(|attestation| {
                 if let Err(e) = attestator_data.insert(attestation) {
                     tracing_error!("Invalid attestation, continuing with other responses: {e:#?}");
@@ -159,6 +245,22 @@ impl AggregatorService {
         attestator_data
             .agg_quorumed_attestations(self.attestor_config.quorum_threshold)
             .ok_or(Status::failed_precondition("Quorum not met"))
+    }
+}
+
+trait ContainsAttestation {
+    fn get_attestation(&self) -> Option<Attestation>;
+}
+
+impl ContainsAttestation for StateAttestationResponse {
+    fn get_attestation(&self) -> Option<Attestation> {
+        self.attestation.clone()
+    }
+}
+
+impl ContainsAttestation for PacketAttestationResponse {
+    fn get_attestation(&self) -> Option<Attestation> {
+        self.attestation.clone()
     }
 }
 
@@ -199,9 +301,7 @@ mod e2e_tests {
             ],
         );
 
-        let aggregator_service = AggregatorService::from_attestor_config(config)
-            .await
-            .unwrap();
+        let aggregator_service = Aggregator::from_attestor_config(config).await.unwrap();
 
         // 3. Execute: Query for an aggregated attestation
         let request = Request::new(AggregateRequest { min_height: 110 });
@@ -251,9 +351,7 @@ mod e2e_tests {
             ],
         );
 
-        let aggregator_service = AggregatorService::from_attestor_config(config)
-            .await
-            .unwrap();
+        let aggregator_service = Aggregator::from_attestor_config(config).await.unwrap();
 
         // 3. Execute: Query for an aggregated attestation
         let request = Request::new(AggregateRequest { min_height: 100 });
