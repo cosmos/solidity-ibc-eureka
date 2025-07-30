@@ -140,7 +140,7 @@ pub struct ClientStatusUpdatedEvent {
 mod tests {
     use super::*;
     use crate::state::RouterState;
-    use anchor_lang::{AnchorDeserialize, InstructionData};
+    use anchor_lang::{AnchorDeserialize, AnchorSerialize, Discriminator, InstructionData};
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
@@ -148,52 +148,21 @@ mod tests {
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::{native_loader, system_program};
 
-    fn create_account_data(
-        account_name: &str,
-        init_space: usize,
-        serialize_fn: impl FnOnce(&mut [u8]),
-    ) -> Vec<u8> {
-        let mut data = vec![0u8; 8 + init_space];
-
-        // Write discriminator
-        let discriminator: [u8; 8] =
-            anchor_lang::solana_program::hash::hash(format!("account:{account_name}").as_bytes())
-                .to_bytes()[..8]
-                .try_into()
-                .unwrap();
-        data[0..8].copy_from_slice(&discriminator);
-
-        // Serialize account data
-        serialize_fn(&mut data[8..]);
-
+    fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u8> {
+        let mut data = T::DISCRIMINATOR.to_vec();
+        account.serialize(&mut data).unwrap();
         data
-    }
-
-    fn serialize_string(data: &mut [u8], offset: &mut usize, value: &str) {
-        let bytes = value.as_bytes();
-        let len = bytes.len() as u32;
-        data[*offset..*offset + 4].copy_from_slice(&len.to_le_bytes());
-        *offset += 4;
-        data[*offset..*offset + bytes.len()].copy_from_slice(bytes);
-        *offset += bytes.len();
-    }
-
-    fn serialize_vec_u8(data: &mut [u8], offset: &mut usize, value: &[u8]) {
-        let len = value.len() as u32;
-        data[*offset..*offset + 4].copy_from_slice(&len.to_le_bytes());
-        *offset += 4;
-        data[*offset..*offset + value.len()].copy_from_slice(value);
-        *offset += value.len();
     }
 
     fn setup_router_state(authority: Pubkey) -> (Pubkey, Vec<u8>) {
         let (router_state_pda, _) = Pubkey::find_program_address(&[ROUTER_STATE_SEED], &crate::ID);
 
-        let router_state_data =
-            create_account_data("RouterState", RouterState::INIT_SPACE, |data| {
-                data[0..32].copy_from_slice(authority.as_ref()); // authority: Pubkey
-                data[32] = 1; // initialized: bool = true
-            });
+        let router_state = RouterState {
+            authority,
+            initialized: true,
+        };
+
+        let router_state_data = create_account_data(&router_state);
 
         (router_state_pda, router_state_data)
     }
@@ -207,32 +176,19 @@ mod tests {
         let (client_pda, _) =
             Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &crate::ID);
 
-        let client_data = create_account_data("Client", Client::INIT_SPACE, |data| {
-            let mut offset = 0;
+        let client = Client {
+            client_id: client_id.to_string(),
+            client_program_id: light_client_program,
+            counterparty_info: CounterpartyInfo {
+                client_id: "counterparty-client".to_string(),
+                connection_id: "connection-0".to_string(),
+                merkle_prefix: vec![0x01, 0x02, 0x03],
+            },
+            authority,
+            active,
+        };
 
-            // client_id: String
-            serialize_string(data, &mut offset, client_id);
-
-            // client_program_id: Pubkey (32 bytes)
-            data[offset..offset + 32].copy_from_slice(light_client_program.as_ref());
-            offset += 32;
-
-            // counterparty_info.client_id: String
-            serialize_string(data, &mut offset, "counterparty-client");
-
-            // counterparty_info.connection_id: String
-            serialize_string(data, &mut offset, "connection-0");
-
-            // counterparty_info.merkle_prefix: Vec<u8>
-            serialize_vec_u8(data, &mut offset, &[0x01, 0x02, 0x03]);
-
-            // authority: Pubkey (32 bytes)
-            data[offset..offset + 32].copy_from_slice(authority.as_ref());
-            offset += 32;
-
-            // active: bool (1 byte)
-            data[offset] = u8::from(active);
-        });
+        let client_data = create_account_data(&client);
 
         (client_pda, client_data)
     }
@@ -240,7 +196,7 @@ mod tests {
     #[test]
     fn test_add_client_happy_path() {
         let authority = Pubkey::new_unique();
-        let relayer = authority; // Same as authority for this test
+        let relayer = authority; // Relayer must be the same as authority
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client-01";
 
