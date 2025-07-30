@@ -43,9 +43,7 @@ impl ArbitrumClient {
             .await
             .map_err(|e| AdapterError::FinalizedBlockError(e.to_string()))?
             .ok_or_else(|| {
-                AdapterError::FinalizedBlockError(format!(
-                    "no Arbitrum block of kind {kind} found"
-                ))
+                AdapterError::FinalizedBlockError(format!("no Arbitrum block of kind {kind} found"))
             })?;
 
         Ok(block.header.into())

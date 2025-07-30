@@ -65,3 +65,16 @@ The setup includes:
 - **1 Sig-Aggregator** on port 8080 (requires 2/3 quorum)
 
 Configuration files are in the `config/` directory.
+
+### Health Checks
+
+The docker-compose setup includes reliable health checks:
+
+- **Attestor health checks**: Verify each attestor's gRPC server is listening and accepting connections
+- **Aggregator health check**: Verifies the aggregator's gRPC server is listening and accepting connections  
+- **Startup orchestration**: The aggregator only starts after all attestors are healthy
+- **Wait flag support**: Using `--wait` ensures the command only returns when all services are fully ready
+
+The health checks use basic TCP connectivity tests, which are reliable and fast. Functional testing is handled by the test script after startup.
+
+When `docker-compose up --wait` completes, all services are guaranteed to be ready for use.
