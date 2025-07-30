@@ -1,6 +1,6 @@
 use crate::rpc::{AggregateResponse, Attestation, SigPubkeyPair};
 use alloy_primitives::FixedBytes;
-use anyhow::{Context, Result};
+use anyhow::{Context, ensure as anyhow_ensure, Result};
 use std::collections::HashMap;
 
 pub const STATE_BYTE_LENGTH: usize = 12;
@@ -74,15 +74,15 @@ impl AttestatorData {
 
 // TODO: move this to a separate library IBC-138
 impl Attestation {
-    fn validate(&self) -> anyhow::Result<()> {
+    fn validate(&self) -> Result<()> {
         self.validate_pubkey()?;
         self.validate_attested_data()?;
         self.validate_signature()?;
         Ok(())
     }
 
-    fn validate_pubkey(&self) -> anyhow::Result<()> {
-        anyhow::ensure!(
+    fn validate_pubkey(&self) -> Result<()> {
+        anyhow_ensure!(
             self.public_key.len() == PUBKEY_BYTE_LENGTH,
             "Invalid pubkey length: {}",
             self.public_key.len()
@@ -94,8 +94,8 @@ impl Attestation {
         Ok(())
     }
 
-    fn validate_attested_data(&self) -> anyhow::Result<()> {
-        anyhow::ensure!(
+    fn validate_attested_data(&self) -> Result<()> {
+        anyhow_ensure!(
             self.attested_data.len() == STATE_BYTE_LENGTH,
             "Invalid attested_data length: {}",
             self.attested_data.len()
@@ -107,8 +107,8 @@ impl Attestation {
         Ok(())
     }
 
-    fn validate_signature(&self) -> anyhow::Result<()> {
-        anyhow::ensure!(
+    fn validate_signature(&self) -> Result<()> {
+        anyhow_ensure!(
             self.signature.len() == SIGNATURE_BYTE_LENGTH,
             "Invalid signature length: {}",
             self.signature.len()
