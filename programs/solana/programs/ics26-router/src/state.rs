@@ -11,8 +11,6 @@ pub const MAX_CLIENT_ID_LENGTH: usize = 64;
 pub struct RouterState {
     /// Authority that can perform restricted operations
     pub authority: Pubkey,
-    /// Whether the router is initialized
-    pub initialized: bool,
 }
 
 /// `IBCApp` mapping port IDs to IBC app program IDs

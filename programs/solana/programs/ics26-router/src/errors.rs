@@ -38,10 +38,6 @@ pub enum RouterError {
     InvalidMerklePrefix,
     #[msg("Client not found")]
     ClientNotFound,
-    #[msg("Already initialized")]
-    AlreadyInitialized,
-    #[msg("Router not initialized")]
-    RouterNotInitialized,
     #[msg("Unauthorized authority")]
     UnauthorizedAuthority,
     #[msg("Invalid client ID")]

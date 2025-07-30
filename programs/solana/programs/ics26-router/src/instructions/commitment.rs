@@ -98,7 +98,6 @@ mod tests {
         let router_state_data =
             create_account_data("RouterState", RouterState::INIT_SPACE, |data| {
                 data[0..32].copy_from_slice(authority.as_ref()); // authority: Pubkey
-                data[32] = 1; // initialized: bool = true
             });
 
         (router_state_pda, router_state_data)
