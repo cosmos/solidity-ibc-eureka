@@ -273,6 +273,7 @@ test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
+
 # Clean up the foundry cache and out directories
 [group('clean')]
 clean-foundry:
@@ -285,3 +286,41 @@ clean-cargo:
 	@echo "Cleaning up cargo target directory"
 	cargo clean
 	cd programs/sp1-programs && cargo clean
+
+# Spike related recipes below:
+
+run-optimism:
+	kurtosis run github.com/ethpandaops/optimism-package@1.3.0 --enclave local-optimism --args-file ./network-config.yaml
+
+teardown-optimism:
+	kurtosis enclave stop local-optimism
+	kurtosis enclave rm local-optimism
+
+run-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8
+	if [ ! -d "nitro-testnode" ]; then
+		git clone -b release --recurse-submodules https://github.com/OffchainLabs/nitro-testnode.git
+	else
+		cd nitro-testnode
+		git pull origin release
+		cd ..
+	fi
+	cd nitro-testnode
+	docker-compose down || true
+	./test-node.bash --init --no-simple --detach
+
+teardown-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8/nitro-testnode
+	docker-compose down || true
+
+[group('test')]
+test-e2e-l2-optimism testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2OptimismTestSuite/{{testname}}
+
+[group('test')]
+test-e2e-l2-arbitrum testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2ArbitrumTestSuite/{{testname}}
