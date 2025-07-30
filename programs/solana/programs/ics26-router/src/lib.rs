@@ -41,17 +41,6 @@ pub mod ics26_router {
         instructions::timeout_packet(ctx, msg)
     }
 
-    pub fn store_commitment(
-        ctx: Context<StoreCommitment>,
-        path_hash: [u8; 32],
-        commitment: [u8; 32],
-    ) -> Result<()> {
-        instructions::store_commitment(ctx, path_hash, commitment)
-    }
-
-    pub fn get_commitment(ctx: Context<GetCommitment>, path_hash: [u8; 32]) -> Result<[u8; 32]> {
-        instructions::get_commitment(ctx, path_hash)
-    }
 
     pub fn add_client(
         ctx: Context<AddClient>,
