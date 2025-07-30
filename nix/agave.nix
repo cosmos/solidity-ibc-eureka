@@ -99,6 +99,11 @@ let
         cp -r ${agave.src}/platform-tools-sdk/sbf/scripts/* $out/scripts/
         chmod +x $out/scripts/*.sh 2>/dev/null || true
       fi
+
+      # Create env.sh at the root to fix strip.sh script path
+      if [ -f "$out/sbf-sdk/env.sh" ]; then
+        ln -s $out/sbf-sdk/env.sh $out/env.sh
+      fi
     '';
 
     meta = with lib; {
@@ -277,6 +282,22 @@ let
       "$REAL_ANCHOR" test --skip-build "''${extra_args[@]}"
     }
 
+    # Function to run unit tests with cargo test
+    run_unit_test() {
+      local extra_args=("$@")
+
+      echo "🧪 Running unit tests..."
+
+      if ! run_build; then
+        return 1
+      fi
+
+      setup_nightly
+
+      echo "🧪 Running cargo test with nightly toolchain..."
+      cargo test "''${extra_args[@]}"
+    }
+
     # Main command dispatcher
     case "''${1:-}" in
       build)
@@ -289,13 +310,19 @@ let
         run_test "$@"
         ;;
 
+      unit-test)
+        shift
+        run_unit_test "$@"
+        ;;
+
       *)
         cat <<EOF
 anchor-nix: Anchor wrapper for Nix environments
 
 Usage:
-  anchor-nix build [options]  - Build program with Solana toolchain, generate IDL with nightly
-  anchor-nix test [options]   - Build and test program with optimized toolchain setup
+  anchor-nix build [options]      - Build program with Solana toolchain, generate IDL with nightly
+  anchor-nix test [options]       - Build and run anchor client tests
+  anchor-nix unit-test [options]  - Build program then run cargo test
 
 This wrapper automatically handles toolchain switching to provide:
   - Fast, deterministic builds with Solana/Agave toolchain

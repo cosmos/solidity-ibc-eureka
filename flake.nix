@@ -87,8 +87,9 @@
               echo "  anchor-nix  - Anchor wrapper for Nix environments"
               echo ""
               echo "Use 'anchor-nix' for optimized builds:"
-              echo "  anchor-nix build  - Build with Solana toolchain + generate IDL with nightly"
-              echo "  anchor-nix test   - Build and test with automatic toolchain switching"
+              echo "  anchor-nix build                - Build with Solana toolchain + generate IDL with nightly"
+              echo "  anchor-nix test                 - Build and run anchor client tests"
+              echo "  anchor-nix unit-test [options]  - Build program then run cargo test"
               echo ""
             '';
           };

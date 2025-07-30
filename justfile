@@ -262,22 +262,36 @@ test-e2e-solana testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaTestSuite/{{testname}}
 
-# Run the Solana Anchor tests
+# Run the Solana Anchor e2e tests
 [group('test')]
-test-solana *ARGS:
+test-anchor-solana *ARGS:
 	@echo "Copying all files from target/deploy to programs/solana/target/deploy (overwriting if needed)"
 	if [ -n "$(ls -A target/deploy 2>/dev/null)" ]; then \
 		mkdir -p programs/solana/target/deploy; \
 		cp -f target/deploy/* programs/solana/target/deploy/; \
 		echo "✅ Copied all files from target/deploy to programs/solana/target/deploy/ (overwriting if needed)"; \
 	fi
-	@echo "Running Solana Anchor tests (anchor-nix preferred) ..."
+	@echo "Running Solana Client Anchor tests (anchor-nix preferred) ..."
 	if command -v anchor-nix >/dev/null 2>&1; then \
 		echo "🦀 Using anchor-nix"; \
 		(cd programs/solana && anchor-nix test {{ARGS}}); \
 	else \
 		echo "🦀 Using anchor"; \
 		(cd programs/solana && anchor test {{ARGS}}); \
+	fi
+
+# Run Solana unit tests (unit tests + mollusk + litesvm)
+[group('test')]
+test-solana *ARGS:
+	@echo "Building and running Solana unit tests..."
+	if command -v anchor-nix >/dev/null 2>&1; then \
+		echo "🦀 Using anchor-nix"; \
+		(cd programs/solana && anchor-nix unit-test {{ARGS}}); \
+	else \
+		echo "🦀 Using anchor"; \
+		(cd programs/solana && anchor build) && \
+		echo "✅ Build successful, running cargo tests" && \
+		(cd programs/solana && cargo test {{ARGS}}); \
 	fi
 
 # Clean up the foundry cache and out directories

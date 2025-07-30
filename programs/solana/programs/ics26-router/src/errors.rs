@@ -57,4 +57,3 @@ pub enum RouterError {
     #[msg("Client not active")]
     ClientNotActive,
 }
-

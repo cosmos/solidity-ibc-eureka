@@ -59,4 +59,3 @@ pub fn store_commitment(
 pub fn get_commitment(ctx: Context<GetCommitment>, _path_hash: [u8; 32]) -> Result<[u8; 32]> {
     Ok(ctx.accounts.commitment.value)
 }
-

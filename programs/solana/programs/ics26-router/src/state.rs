@@ -15,7 +15,7 @@ pub struct RouterState {
     pub initialized: bool,
 }
 
-/// IBCApp mapping port IDs to IBC app program IDs
+/// `IBCApp` mapping port IDs to IBC app program IDs
 #[account]
 #[derive(InitSpace)]
 pub struct IBCApp {
