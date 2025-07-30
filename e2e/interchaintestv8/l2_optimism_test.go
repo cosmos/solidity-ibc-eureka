@@ -72,8 +72,6 @@ func TestWithOptimismTestSuite(t *testing.T) {
 
 // SetupSuite sets up the optimism chain and deploys IBC contracts
 func (s *OptimismTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType) {
-	chainconfig.DefaultChainSpecs = append(chainconfig.DefaultChainSpecs, chainconfig.IbcGoChainSpec("ibc-go-simd-2", "simd-2"))
-
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeOptimism)
 
 	s.TestSuite.SetupSuite(ctx)

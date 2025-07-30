@@ -39,6 +39,8 @@ func (s *L2TestSuite) SetupSuite(ctx context.Context) {
 
 	kurtosisOptimismChain, err := chainconfig.SpinUpKurtosisOptimism(ctx) // TODO: Run this in a goroutine and wait for it to be ready
 	s.Require().NoError(err)
+	fmt.Printf("spun up kurtosis")
+
 	s.kurtosisOptimismChain = kurtosisOptimismChain
 	fmt.Printf("Kurtosis Optimism Chain: %+v\n", kurtosisOptimismChain)
 	s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisOptimismChain.ExecutionRPC, nil, kurtosisOptimismChain.Faucet)
