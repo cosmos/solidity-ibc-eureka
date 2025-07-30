@@ -4,9 +4,6 @@ package aggregator;
 
 // The Aggregator service definition.
 service AggregatorService {
-  // Queries the aggregator for an aggregated attestation.
-  rpc GetAggregateAttestation(AggregateRequest) returns (AggregateResponse);
-
   // Queries the attestor with a list of packets. Then used that attestation to
   // get the state attestation.
   rpc GetStateAttestation(GetStateAttestationRequest) returns (GetStateAttestationResponse);
@@ -21,12 +18,6 @@ message GetStateAttestationRequest {
   repeated bytes packets = 1;
 }
 
-// AggregateRequest is a request to the aggregator.
-message AggregateRequest {
-  // The minimum height for the aggregated attestation.
-  uint64 min_height = 1;
-}
-
 // SigPubkeyPair is a pair of a signature and a public key.
 message SigPubkeyPair {
   // The signature.
@@ -37,16 +28,6 @@ message SigPubkeyPair {
 
 // GetStateAttestationResponse is a response from the aggregator.
 message GetStateAttestationResponse {
-  // A list of signature and public key pairs.
-  repeated SigPubkeyPair sig_pubkey_pairs = 1;
-  // The aggregated state. 12 bytes.
-  bytes state = 2;
-  // The height of the aggregated state.
-  uint64 height = 3;
-}
-
-// AggregateResponse is a response from the aggregator.
-message AggregateResponse {
   // A list of signature and public key pairs.
   repeated SigPubkeyPair sig_pubkey_pairs = 1;
   // The aggregated state. 12 bytes.

@@ -1,4 +1,4 @@
-use crate::rpc::{AggregateResponse, Attestation, SigPubkeyPair};
+use crate::rpc::{Attestation, GetStateAttestationResponse, SigPubkeyPair};
 use alloy_primitives::FixedBytes;
 use anyhow::{ensure as anyhow_ensure, Context, Result};
 use std::collections::HashMap;
@@ -63,7 +63,7 @@ impl AttestatorData {
                     })
                     .collect();
 
-                AggregateResponse {
+                GetStateAttestationResponse {
                     height: attestations[0].height,
                     state: state.to_vec(),
                     sig_pubkey_pairs,

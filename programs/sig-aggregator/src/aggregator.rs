@@ -3,10 +3,9 @@ use crate::{
     config::AttestorConfig,
     rpc::{
         aggregator_service_server::AggregatorService,
-        attestation_service_client::AttestationServiceClient, AggregateRequest, AggregateResponse,
-        Attestation, GetStateAttestationRequest, GetStateAttestationResponse,
-        PacketAttestationRequest, PacketAttestationResponse, StateAttestationRequest,
-        StateAttestationResponse,
+        attestation_service_client::AttestationServiceClient, Attestation,
+        GetStateAttestationRequest, GetStateAttestationResponse, PacketAttestationRequest,
+        PacketAttestationResponse, StateAttestationRequest, StateAttestationResponse,
     },
 };
 use futures::future::join_all;
@@ -16,13 +15,13 @@ use tokio::{
     time::{timeout, Duration},
 };
 use tonic::{transport::Channel, Request, Response, Status};
-use tracing::{error as tracing_error, instrument};
+use tracing::error as tracing_error;
 
 #[derive(Debug)]
 pub struct Aggregator {
     attestor_config: Arc<AttestorConfig>,
     attestor_clients: Vec<Mutex<AttestationServiceClient<Channel>>>,
-    cached_response: RwLock<Option<AggregateResponse>>,
+    state_cache: RwLock<Option<GetStateAttestationResponse>>,
 }
 
 impl Aggregator {
@@ -32,7 +31,7 @@ impl Aggregator {
         Ok(Self {
             attestor_config: Arc::new(attestor_config),
             attestor_clients,
-            cached_response: RwLock::new(None),
+            state_cache: RwLock::new(None),
         })
     }
 
@@ -52,17 +51,17 @@ impl Aggregator {
             .map_err(|e| anyhow::anyhow!("Failed to connect to attestor: {e}"))
     }
 
-    async fn get_cached_response(&self, min_height: u64) -> Option<AggregateResponse> {
-        self.cached_response
+    async fn get_cached_response(&self, height: u64) -> Option<GetStateAttestationResponse> {
+        self.state_cache
             .read()
             .await
             .as_ref()
-            .filter(|response| response.height >= min_height)
+            .filter(|response| response.height >= height)
             .cloned()
     }
 
-    async fn update_cache(&self, new_resp: &AggregateResponse) {
-        let mut cached = self.cached_response.write().await;
+    async fn update_cache(&self, new_resp: &GetStateAttestationResponse) {
+        let mut cached = self.state_cache.write().await;
         if cached.as_ref().is_none_or(|c| new_resp.height > c.height) {
             *cached = Some(new_resp.clone());
         }
@@ -71,38 +70,6 @@ impl Aggregator {
 
 #[tonic::async_trait]
 impl AggregatorService for Aggregator {
-    #[instrument(skip_all, fields(min_height = request.get_ref().min_height))]
-    async fn get_aggregate_attestation(
-        &self,
-        request: Request<AggregateRequest>,
-    ) -> std::result::Result<Response<AggregateResponse>, Status> {
-        let min_height = request.into_inner().min_height;
-
-        // Check cache first
-        if let Some(cached_response) = self.get_cached_response(min_height).await {
-            return Ok(Response::new(cached_response));
-        }
-
-        let responses = self.query_all_attestors(min_height).await?;
-        let aggregate_response = self
-            .process_attestor_responses(
-                responses
-                    .into_iter()
-                    .map(|r| Box::new(r) as Box<dyn ContainsAttestation + Send>)
-                    .collect(),
-            )
-            .await?;
-
-        if aggregate_response.height < min_height {
-            return Err(Status::not_found(format!(
-                "No valid attestations found for height >= {min_height}"
-            )));
-        }
-
-        self.update_cache(&aggregate_response).await;
-        Ok(Response::new(aggregate_response))
-    }
-
     async fn get_state_attestation(
         &self,
         request: Request<GetStateAttestationRequest>,
@@ -110,21 +77,21 @@ impl AggregatorService for Aggregator {
         let packet_attestations = self
             .get_packet_attestations(request.into_inner().packets)
             .await?;
-        let height = self
-            .process_attestor_responses(
-                packet_attestations
-                    .into_iter()
-                    .map(|r| Box::new(r) as Box<dyn ContainsAttestation + Send>)
-                    .collect(),
-            )
-            .await?;
 
-        let height = height.height;
+        let quorum = get_quorum(
+            self.attestor_config.quorum_threshold,
+            packet_attestations
+                .into_iter()
+                .map(|r| Box::new(r) as Box<dyn ContainsAttestation + Send>)
+                .collect(),
+        )
+        .await?;
+
         let state = self
-            .get_aggregate_attestation(Request::new(AggregateRequest { min_height: height }))
-            .await?;
+            .get_aggregate_attestation(quorum.height)
+            .await?
+            .into_inner();
 
-        let state = state.into_inner();
         Ok(Response::new(GetStateAttestationResponse {
             sig_pubkey_pairs: state.sig_pubkey_pairs,
             state: state.state,
@@ -134,6 +101,35 @@ impl AggregatorService for Aggregator {
 }
 
 impl Aggregator {
+    async fn get_aggregate_attestation(
+        &self,
+        height: u64,
+    ) -> std::result::Result<Response<GetStateAttestationResponse>, Status> {
+        // Check cache first
+        if let Some(cached_response) = self.get_cached_response(height).await {
+            return Ok(Response::new(cached_response));
+        }
+
+        let responses = self.query_all_attestors(height).await?;
+        let aggregate_response = get_quorum(
+            self.attestor_config.quorum_threshold,
+            responses
+                .into_iter()
+                .map(|r| Box::new(r) as Box<dyn ContainsAttestation + Send>)
+                .collect(),
+        )
+        .await?;
+
+        if aggregate_response.height < height {
+            return Err(Status::not_found(format!(
+                "No valid attestations found for height >= {height}"
+            )));
+        }
+
+        self.update_cache(&aggregate_response).await;
+        Ok(Response::new(aggregate_response))
+    }
+
     async fn get_packet_attestations(
         &self,
         packets: Vec<Vec<u8>>,
@@ -225,22 +221,23 @@ impl Aggregator {
 
         Ok(successful_responses)
     }
+}
 
-    /// Process attestor responses and create an aggregate response
-    async fn process_attestor_responses(
-        &self,
-        responses: Vec<Box<dyn ContainsAttestation + Send>>,
-    ) -> Result<AggregateResponse, Status> {
-        let mut attestator_data = AttestatorData::new();
+/// Process attestor responses and create an aggregate response where the quorum is met.
+async fn get_quorum(
+    quorum_threshold: usize,
+    responses: Vec<Box<dyn ContainsAttestation + Send>>,
+) -> Result<GetStateAttestationResponse, Status> {
+    let mut attestator_data = AttestatorData::new();
 
-        responses
-            .into_iter()
-            .filter_map(|response| response.get_attestation())
-            .for_each(|attestation| {
-                if let Err(e) = attestator_data.insert(attestation) {
-                    tracing_error!("Invalid attestation, continuing with other responses: {e:#?}");
-                }
-            });
+    responses
+        .into_iter()
+        .filter_map(|response| response.get_attestation())
+        .for_each(|attestation| {
+            if let Err(e) = attestator_data.insert(attestation) {
+                tracing_error!("Invalid attestation, continuing with other responses: {e:#?}");
+            }
+        });
 
         attestator_data
             .agg_quorumed_attestations(self.attestor_config.quorum_threshold)
@@ -304,9 +301,8 @@ mod e2e_tests {
         let aggregator_service = Aggregator::from_attestor_config(config).await.unwrap();
 
         // 3. Execute: Query for an aggregated attestation
-        let request = Request::new(AggregateRequest { min_height: 110 });
         let response = aggregator_service
-            .get_aggregate_attestation(request)
+            .get_aggregate_attestation(110)
             .await
             .unwrap();
 
@@ -354,8 +350,7 @@ mod e2e_tests {
         let aggregator_service = Aggregator::from_attestor_config(config).await.unwrap();
 
         // 3. Execute: Query for an aggregated attestation
-        let request = Request::new(AggregateRequest { min_height: 100 });
-        let response = aggregator_service.get_aggregate_attestation(request).await;
+        let response = aggregator_service.get_aggregate_attestation(100).await;
 
         // 4. Assert: Can not reach quorum due to timeouts
         assert!(response.is_err());

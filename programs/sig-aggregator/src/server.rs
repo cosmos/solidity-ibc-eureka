@@ -34,7 +34,7 @@ mod tests {
     use crate::{
         config::{AttestorConfig, Config, ServerConfig},
         mock_attestor::setup_attestor_server,
-        rpc::{aggregator_service_client::AggregatorServiceClient, AggregateRequest},
+        rpc::{aggregator_service_client::AggregatorServiceClient, GetStateAttestationRequest},
     };
     use tokio::time::{sleep, Duration};
     use tonic::Request;
@@ -76,9 +76,9 @@ mod tests {
             .await
             .expect("client connect failed");
 
-        let req = Request::new(AggregateRequest { min_height: 110 });
+        let req = Request::new(GetStateAttestationRequest { packets: vec![] });
         let resp = client
-            .get_aggregate_attestation(req)
+            .get_state_attestation(req)
             .await
             .expect("RPC failed")
             .into_inner();
