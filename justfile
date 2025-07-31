@@ -269,7 +269,7 @@ test-e2e-solana testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaTestSuite/{{testname}}
 
-# Run the Solana Anchor tests
+# Run the Solana Anchor e2e tests
 [group('test')]
 test-solana *ARGS:
 	@echo "Running Solana Anchor build and tests..."
@@ -294,6 +294,20 @@ test-solana-verbose *ARGS:
 	echo "🦀 Using $ANCHOR_CMD"; \
 	(cd programs/solana && $ANCHOR_CMD build); \
 	(cd programs/solana && cargo test --release -- --nocapture)
+
+# Run Solana unit tests (unit tests + mollusk + litesvm)
+[group('test')]
+test-solana *ARGS:
+	@echo "Building and running Solana unit tests..."
+	if command -v anchor-nix >/dev/null 2>&1; then \
+		echo "🦀 Using anchor-nix"; \
+		(cd programs/solana && anchor-nix unit-test {{ARGS}}); \
+	else \
+		echo "🦀 Using anchor"; \
+		(cd programs/solana && anchor build) && \
+		echo "✅ Build successful, running cargo tests" && \
+		(cd programs/solana && cargo test {{ARGS}}); \
+	fi
 
 # Clean up the foundry cache and out directories
 [group('clean')]
