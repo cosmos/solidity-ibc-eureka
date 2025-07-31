@@ -269,32 +269,6 @@ test-e2e-solana testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaTestSuite/{{testname}}
 
-# Run the Solana Anchor e2e tests
-[group('test')]
-test-solana *ARGS:
-	@echo "Running Solana Anchor build and tests..."
-	if command -v anchor-nix >/dev/null 2>&1; then \
-		ANCHOR_CMD=anchor-nix; \
-	else \
-		ANCHOR_CMD=anchor; \
-	fi; \
-	echo "🦀 Using $ANCHOR_CMD"; \
-	(cd programs/solana && $ANCHOR_CMD build {{ARGS}}); \
-	(cd programs/solana && cargo test --release {{ARGS}})
-
-# Run the Solana Anchor tests in verbose mode
-[group('test')]
-test-solana-verbose *ARGS:
-	@echo "Running Solana Anchor build and tests..."
-	if command -v anchor-nix >/dev/null 2>&1; then \
-		ANCHOR_CMD=anchor-nix; \
-	else \
-		ANCHOR_CMD=anchor; \
-	fi; \
-	echo "🦀 Using $ANCHOR_CMD"; \
-	(cd programs/solana && $ANCHOR_CMD build); \
-	(cd programs/solana && cargo test --release -- --nocapture)
-
 # Run Solana unit tests (unit tests + mollusk + litesvm)
 [group('test')]
 test-solana *ARGS:
