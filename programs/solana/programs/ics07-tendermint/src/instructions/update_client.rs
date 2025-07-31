@@ -10,6 +10,9 @@ use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use ibc_core_client_types::Height;
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
+/// Size of Anchor's account discriminator in bytes
+const ANCHOR_DISCRIMINATOR_SIZE: usize = 8;
+
 pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
@@ -191,11 +194,7 @@ fn handle_consensus_state_storage<'info>(
         Ok(UpdateResult::Update)
     } else {
         // Consensus state already exists at this height - check for misbehaviour
-        check_existing_consensus_state(
-            new_consensus_state_store,
-            new_consensus_state,
-            client_state,
-        )
+        check_existing_consensus_state(new_consensus_state_store, new_consensus_state, client_state)
     }
 }
 
@@ -225,9 +224,10 @@ fn create_consensus_state_seeds(client_key: &Pubkey, revision_height: u64) -> [V
     ]
 }
 
-/// Converts seed vectors to slices for PDA operations
-fn seeds_as_slices(seeds: &[Vec<u8>; 3]) -> [&[u8]; 3] {
-    [&seeds[0], &seeds[1], &seeds[2]]
+/// Generic function to convert seed vectors to slices
+#[inline]
+fn vecs_as_slices<const N: usize>(seeds: &[Vec<u8>; N]) -> [&[u8]; N] {
+    std::array::from_fn(|i| seeds[i].as_slice())
 }
 
 /// Validates that the provided account matches the expected PDA for consensus state storage
@@ -238,7 +238,7 @@ fn validate_consensus_state_pda(
     program_id: &Pubkey,
 ) -> Result<u8> {
     let seeds = create_consensus_state_seeds(client_key, revision_height);
-    let seeds_slices = seeds_as_slices(&seeds);
+    let seeds_slices = vecs_as_slices(&seeds);
     let (expected_pda, bump) = Pubkey::find_program_address(&seeds_slices, program_id);
 
     require!(
@@ -251,8 +251,7 @@ fn validate_consensus_state_pda(
 
 /// Calculates the required space and rent for a consensus state store account
 fn calculate_consensus_state_rent() -> Result<(usize, u64)> {
-    const DISCRIMINATOR_SIZE: usize = 8;
-    let space = DISCRIMINATOR_SIZE + ConsensusStateStore::INIT_SPACE;
+    let space = ANCHOR_DISCRIMINATOR_SIZE + ConsensusStateStore::INIT_SPACE;
     let rent = Rent::get()?.minimum_balance(space);
     Ok((space, rent))
 }
@@ -269,11 +268,6 @@ fn create_consensus_state_signer_seeds(
         revision_height.to_le_bytes().to_vec(),
         vec![bump],
     ]
-}
-
-/// Converts signer seed vectors to slices for signing operations
-fn signer_seeds_as_slices(seeds: &[Vec<u8>; 4]) -> [&[u8]; 4] {
-    [&seeds[0], &seeds[1], &seeds[2], &seeds[3]]
 }
 
 /// Helper function to create account using system program with PDA signing
@@ -343,7 +337,7 @@ fn create_consensus_state_account<'info>(
 
     // Prepare signing seeds for account creation
     let signer_seeds = create_consensus_state_signer_seeds(&client_key, revision_height, bump);
-    let signer_seeds_slices = signer_seeds_as_slices(&signer_seeds);
+    let signer_seeds_slices = vecs_as_slices(&signer_seeds);
     let signer_seeds_slice = [&signer_seeds_slices[..]];
 
     // Create the account with system program
@@ -480,11 +474,8 @@ mod tests {
         ));
 
         // Update payer lamports
-        for (pubkey, account) in accounts.iter_mut() {
-            if pubkey == &payer {
-                account.lamports = payer_lamports;
-                break;
-            }
+        if let Some((_, account)) = accounts.iter_mut().find(|(key, _)| *key == payer) {
+            account.lamports = payer_lamports;
         }
 
         accounts
@@ -713,7 +704,7 @@ mod tests {
 
         // Verify the client state was updated
         let client_state_account = find_account_in_result(&result, &scenario.client_state_pda);
-        let mut data_slice = &client_state_account.data[8..];
+        let mut data_slice = &client_state_account.data[ANCHOR_DISCRIMINATOR_SIZE..];
         let updated_client_state: ClientState =
             ClientState::deserialize(&mut data_slice).expect("Failed to deserialize client state");
 
@@ -749,7 +740,7 @@ mod tests {
         );
 
         // Verify the consensus state store structure
-        let mut data_slice = &new_consensus_state_account.data[8..];
+        let mut data_slice = &new_consensus_state_account.data[ANCHOR_DISCRIMINATOR_SIZE..];
         let new_consensus_store: ConsensusStateStore =
             ConsensusStateStore::deserialize(&mut data_slice)
                 .expect("Failed to deserialize new consensus state store");
@@ -934,11 +925,8 @@ mod tests {
 
         // Replace the clock account
         let mut accounts = scenario.accounts;
-        for (pubkey, account) in accounts.iter_mut() {
-            if pubkey == &clock_pubkey {
-                *account = clock_account;
-                break;
-            }
+        if let Some((_, acc)) = accounts.iter_mut().find(|(key, _)| *key == clock_pubkey) {
+            *acc = clock_account;
         }
 
         let result = execute_update_client_instruction(&scenario.instruction, &accounts);
@@ -1063,23 +1051,19 @@ mod tests {
         let mut modified_accounts = first_result.resulting_accounts.clone();
 
         // Find the consensus state account and modify its data to create a conflict
-        for (pubkey, account) in modified_accounts.iter_mut() {
-            if pubkey == &scenario.new_consensus_state_pda {
-                // Modify the consensus state data to create a conflict
-                // We'll change the root hash while keeping the same height
-                let mut data = account.data.clone();
-                if data.len() > 40 {
-                    // Modify bytes in the root hash (after discriminator + height)
-                    // Discriminator (8) + height (8) + timestamp (8) + root starts at byte 24
-                    for i in 24..32 {
-                        if i < data.len() {
-                            data[i] = data[i] ^ 0xFF; // Flip bits to create different root
-                        }
-                    }
-                    account.data = data;
-                    println!("✅ Modified consensus state data to create conflict");
+        if let Some((_, account)) = modified_accounts
+            .iter_mut()
+            .find(|(key, _)| *key == scenario.new_consensus_state_pda)
+        {
+            let data = &mut account.data;
+
+            if data.len() > 40 {
+                // Discriminator (8) + height (8) + timestamp (8) = 24 bytes, root starts at byte 24
+                let end_idx = data.len().min(32);
+                for byte in &mut data[24..end_idx] {
+                    *byte ^= 0xFF; // Flip bits to create different root
                 }
-                break;
+                println!("✅ Modified consensus state data to create conflict");
             }
         }
 

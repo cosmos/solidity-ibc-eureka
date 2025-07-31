@@ -154,7 +154,7 @@ pub mod fixtures {
     pub fn get_valid_clock_timestamp_for_header(fixture: &UpdateClientMessageFixture) -> i64 {
         let header_timestamp = get_header_timestamp_from_fixture(fixture);
         // Add 5 seconds buffer after header time to pass validation
-        header_timestamp + 5
+        header_timestamp.saturating_add(5)
     }
 
     /// Create a clock timestamp that's way in the future to simulate expired header
@@ -162,7 +162,8 @@ pub mod fixtures {
     pub fn get_expired_clock_timestamp_for_header(fixture: &UpdateClientMessageFixture) -> i64 {
         let header_timestamp = get_header_timestamp_from_fixture(fixture);
         // Add 1 year to make the header appear expired
-        header_timestamp + 86400 * 365
+        let one_year_in_seconds: i64 = 86400 * 365;
+        header_timestamp.saturating_add(one_year_in_seconds)
     }
 
     // Generic test helper functions
