@@ -15,14 +15,14 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	// ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	// clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	// clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
+	// ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 
@@ -31,10 +31,10 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
+	// "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	// "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
@@ -77,27 +77,8 @@ func (s *OptimismTestSuite) SetupSuite(ctx context.Context, proofType types.Supp
 
 	s.TestSuite.SetupSuite(ctx)
 
-	// s.Require().True(s.Run("Spin up Optimism chain", func() {
-	// 	kurtosisOptimismChain, err := chainconfig.SpinUpKurtosisOptimism(ctx)
-	// 	s.Require().NoError(err)
-	// 	s.kurtosisOptimismChain = kurtosisOptimismChain
-	// 	s.T().Logf("Kurtosis Optimism Chain: %+v", kurtosisOptimismChain)
-	//
-	// 	// Create an ethereum client instance for Optimism
-	// 	s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisOptimismChain.ExecutionRPC, nil, kurtosisOptimismChain.Faucet)
-	// 	s.Require().NoError(err)
-	//
-	// 	s.T().Cleanup(func() {
-	// 		if s.T().Failed() {
-	// 			_ = s.kurtosisOptimismChain.DumpLogs(ctx)
-	// 		}
-	// 		s.kurtosisOptimismChain.Destroy(ctx)
-	// 	})
-	// }))
-
-	eth, simd := s.EthChain, s.CosmosChains[0]
-
 	s.T().Logf("Setting up the Optimism test suite with proof type: %s", proofType.String())
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	var prover string
 	s.Require().True(s.Run("Set up environment", func() {
@@ -165,163 +146,166 @@ func (s *OptimismTestSuite) SetupSuite(ctx context.Context, proofType types.Supp
 		s.Require().NoError(err)
 	}))
 
-	var relayerProcess *os.Process
-	s.Require().True(s.Run("Start Relayer", func() {
-		// Optimism is an L2, so no beacon API client
-		beaconAPI := ""
+	// NOTE: This will only work once we have the relayer integrated as well as a mechanism to install
+	// the WASM attestor client on the op node
 
-		sp1Config := relayer.SP1ProverConfig{
-			Type:           prover,
-			PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
-		}
-
-		config := relayer.NewConfig(relayer.CreateEthCosmosModules(
-			relayer.EthCosmosConfigInfo{
-				EthChainID:     eth.ChainID.String(),
-				CosmosChainID:  simd.Config().ChainID,
-				TmRPC:          simd.GetHostRPCAddress(),
-				ICS26Address:   s.contractAddresses.Ics26Router,
-				EthRPC:         eth.RPC,
-				BeaconAPI:      beaconAPI,
-				SP1Config:      sp1Config,
-				SignerAddress:  s.SimdRelayerSubmitter.FormattedAddress(),
-				MockWasmClient: true, // Optimism is L2, so we use mock wasm client
-			}),
-		)
-
-		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
-		s.Require().NoError(err)
-
-		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
-		s.Require().NoError(err)
-
-		s.T().Cleanup(func() {
-			os.Remove(testvalues.RelayerConfigFilePath)
-		})
-	}))
-
-	s.T().Cleanup(func() {
-		if relayerProcess != nil {
-			err := relayerProcess.Kill()
-			if err != nil {
-				s.T().Logf("Failed to kill the relayer process: %v", err)
-			}
-		}
-	})
-
-	s.Require().True(s.Run("Create Relayer Client", func() {
-		var err error
-		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
-		s.Require().NoError(err)
-	}))
-
-	s.Require().True(s.Run("Deploy SP1 ICS07 contract on Optimism", func() {
-		var verfierAddress string
-		if prover == testvalues.EnvValueSp1Prover_Mock {
-			verfierAddress = s.contractAddresses.VerifierMock
-		} else {
-			switch proofType {
-			case types.ProofTypeGroth16:
-				verfierAddress = s.contractAddresses.VerifierGroth16
-			case types.ProofTypePlonk:
-				verfierAddress = s.contractAddresses.VerifierPlonk
-			default:
-				s.Require().Fail("invalid proof type: %s", proofType)
-			}
-		}
-
-		var createClientTxBz []byte
-		s.Require().True(s.Run("Retrieve create client tx", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
-				SrcChain: simd.Config().ChainID,
-				DstChain: eth.ChainID.String(),
-				Parameters: map[string]string{
-					testvalues.ParameterKey_Sp1Verifier: verfierAddress,
-					testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
-				},
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx)
-			s.Require().Empty(resp.Address)
-
-			createClientTxBz = resp.Tx
-		}))
-
-		s.Require().True(s.Run("Broadcast relay tx", func() {
-			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, nil, createClientTxBz)
-			s.Require().NoError(err)
-			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
-
-			s.sp1Ics07Address = receipt.ContractAddress
-			s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(s.sp1Ics07Address, eth.RPCClient)
-			s.Require().NoError(err)
-		}))
-	}))
-
-	s.Require().True(s.Run("Fund address with ERC20", func() {
-		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), testvalues.StartingERC20Balance)
-		s.Require().NoError(err)
-
-		_, err = eth.GetTxReciept(ctx, tx.Hash()) // wait for the tx to be mined
-		s.Require().NoError(err)
-	}))
-
-	s.Require().True(s.Run("Create ethereum light client on Cosmos chain", func() {
-		checksumHex := s.StoreEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter)
-		s.Require().NotEmpty(checksumHex)
-
-		var createClientTxBodyBz []byte
-		s.Require().True(s.Run("Retrieve create client tx", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
-				SrcChain: eth.ChainID.String(),
-				DstChain: simd.Config().ChainID,
-				Parameters: map[string]string{
-					testvalues.ParameterKey_ChecksumHex: checksumHex,
-				},
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx)
-			s.Require().Empty(resp.Address)
-
-			createClientTxBodyBz = resp.Tx
-		}))
-
-		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, createClientTxBodyBz)
-			clientId, err := cosmos.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
-			s.Require().NoError(err)
-			s.Require().Equal(testvalues.FirstWasmClientID, clientId)
-		}))
-	}))
-
-	s.Require().True(s.Run("Add client and counterparty on Optimism", func() {
-		counterpartyInfo := ics26router.IICS02ClientMsgsCounterpartyInfo{
-			ClientId:     testvalues.FirstWasmClientID,
-			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
-		}
-		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), testvalues.CustomClientID, counterpartyInfo, s.sp1Ics07Address)
-		s.Require().NoError(err)
-
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-		s.Require().NoError(err)
-
-		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
-		s.Require().NoError(err)
-		s.Require().Equal(testvalues.CustomClientID, event.ClientId)
-		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
-	}))
-
-	s.Require().True(s.Run("Register counterparty on Cosmos chain", func() {
-		merklePathPrefix := [][]byte{[]byte("")}
-
-		_, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
-			ClientId:                 testvalues.FirstWasmClientID,
-			CounterpartyMerklePrefix: merklePathPrefix,
-			CounterpartyClientId:     testvalues.CustomClientID,
-			Signer:                   s.SimdRelayerSubmitter.FormattedAddress(),
-		})
-		s.Require().NoError(err)
-	}))
+	// var relayerProcess *os.Process
+	// s.Require().True(s.Run("Start Relayer", func() {
+	// 	// Optimism is an L2, so no beacon API client
+	// 	beaconAPI := ""
+	//
+	// 	sp1Config := relayer.SP1ProverConfig{
+	// 		Type:           prover,
+	// 		PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
+	// 	}
+	//
+	// 	config := relayer.NewConfig(relayer.CreateEthCosmosModules(
+	// 		relayer.EthCosmosConfigInfo{
+	// 			EthChainID:     eth.ChainID.String(),
+	// 			CosmosChainID:  simd.Config().ChainID,
+	// 			TmRPC:          simd.GetHostRPCAddress(),
+	// 			ICS26Address:   s.contractAddresses.Ics26Router,
+	// 			EthRPC:         eth.RPC,
+	// 			BeaconAPI:      beaconAPI,
+	// 			SP1Config:      sp1Config,
+	// 			SignerAddress:  s.SimdRelayerSubmitter.FormattedAddress(),
+	// 			MockWasmClient: true, // Optimism is L2, so we use mock wasm client
+	// 		}),
+	// 	)
+	//
+	// 	err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+	// 	s.Require().NoError(err)
+	//
+	// 	relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+	// 	s.Require().NoError(err)
+	//
+	// 	s.T().Cleanup(func() {
+	// 		os.Remove(testvalues.RelayerConfigFilePath)
+	// 	})
+	// }))
+	//
+	// s.T().Cleanup(func() {
+	// 	if relayerProcess != nil {
+	// 		err := relayerProcess.Kill()
+	// 		if err != nil {
+	// 			s.T().Logf("Failed to kill the relayer process: %v", err)
+	// 		}
+	// 	}
+	// })
+	//
+	// s.Require().True(s.Run("Create Relayer Client", func() {
+	// 	var err error
+	// 	s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+	// 	s.Require().NoError(err)
+	// }))
+	//
+	// s.Require().True(s.Run("Deploy SP1 ICS07 contract on Optimism", func() {
+	// 	var verfierAddress string
+	// 	if prover == testvalues.EnvValueSp1Prover_Mock {
+	// 		verfierAddress = s.contractAddresses.VerifierMock
+	// 	} else {
+	// 		switch proofType {
+	// 		case types.ProofTypeGroth16:
+	// 			verfierAddress = s.contractAddresses.VerifierGroth16
+	// 		case types.ProofTypePlonk:
+	// 			verfierAddress = s.contractAddresses.VerifierPlonk
+	// 		default:
+	// 			s.Require().Fail("invalid proof type: %s", proofType)
+	// 		}
+	// 	}
+	//
+	// 	var createClientTxBz []byte
+	// 	s.Require().True(s.Run("Retrieve create client tx", func() {
+	// 		resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+	// 			SrcChain: simd.Config().ChainID,
+	// 			DstChain: eth.ChainID.String(),
+	// 			Parameters: map[string]string{
+	// 				testvalues.ParameterKey_Sp1Verifier: verfierAddress,
+	// 				testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
+	// 			},
+	// 		})
+	// 		s.Require().NoError(err)
+	// 		s.Require().NotEmpty(resp.Tx)
+	// 		s.Require().Empty(resp.Address)
+	//
+	// 		createClientTxBz = resp.Tx
+	// 	}))
+	//
+	// 	s.Require().True(s.Run("Broadcast relay tx", func() {
+	// 		receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, nil, createClientTxBz)
+	// 		s.Require().NoError(err)
+	// 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+	//
+	// 		s.sp1Ics07Address = receipt.ContractAddress
+	// 		s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(s.sp1Ics07Address, eth.RPCClient)
+	// 		s.Require().NoError(err)
+	// 	}))
+	// }))
+	//
+	// s.Require().True(s.Run("Fund address with ERC20", func() {
+	// 	tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), testvalues.StartingERC20Balance)
+	// 	s.Require().NoError(err)
+	//
+	// 	_, err = eth.GetTxReciept(ctx, tx.Hash()) // wait for the tx to be mined
+	// 	s.Require().NoError(err)
+	// }))
+	//
+	// s.Require().True(s.Run("Create ethereum light client on Cosmos chain", func() {
+	// 	checksumHex := s.StoreEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter)
+	// 	s.Require().NotEmpty(checksumHex)
+	//
+	// 	var createClientTxBodyBz []byte
+	// 	s.Require().True(s.Run("Retrieve create client tx", func() {
+	// 		resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+	// 			SrcChain: eth.ChainID.String(),
+	// 			DstChain: simd.Config().ChainID,
+	// 			Parameters: map[string]string{
+	// 				testvalues.ParameterKey_ChecksumHex: checksumHex,
+	// 			},
+	// 		})
+	// 		s.Require().NoError(err)
+	// 		s.Require().NotEmpty(resp.Tx)
+	// 		s.Require().Empty(resp.Address)
+	//
+	// 		createClientTxBodyBz = resp.Tx
+	// 	}))
+	//
+	// 	s.Require().True(s.Run("Broadcast relay tx", func() {
+	// 		resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, createClientTxBodyBz)
+	// 		clientId, err := cosmos.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
+	// 		s.Require().NoError(err)
+	// 		s.Require().Equal(testvalues.FirstWasmClientID, clientId)
+	// 	}))
+	// }))
+	//
+	// s.Require().True(s.Run("Add client and counterparty on Optimism", func() {
+	// 	counterpartyInfo := ics26router.IICS02ClientMsgsCounterpartyInfo{
+	// 		ClientId:     testvalues.FirstWasmClientID,
+	// 		MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+	// 	}
+	// 	tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), testvalues.CustomClientID, counterpartyInfo, s.sp1Ics07Address)
+	// 	s.Require().NoError(err)
+	//
+	// 	receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+	// 	s.Require().NoError(err)
+	//
+	// 	event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
+	// 	s.Require().NoError(err)
+	// 	s.Require().Equal(testvalues.CustomClientID, event.ClientId)
+	// 	s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
+	// }))
+	//
+	// s.Require().True(s.Run("Register counterparty on Cosmos chain", func() {
+	// 	merklePathPrefix := [][]byte{[]byte("")}
+	//
+	// 	_, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
+	// 		ClientId:                 testvalues.FirstWasmClientID,
+	// 		CounterpartyMerklePrefix: merklePathPrefix,
+	// 		CounterpartyClientId:     testvalues.CustomClientID,
+	// 		Signer:                   s.SimdRelayerSubmitter.FormattedAddress(),
+	// 	})
+	// 	s.Require().NoError(err)
+	// }))
 }
 
 func (s *OptimismTestSuite) Test_Deploy() {
@@ -333,11 +317,13 @@ func (s *OptimismTestSuite) Test_Deploy() {
 // DeployTest tests the deployment of the IBC contracts on Optimism
 func (s *OptimismTestSuite) DeployTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
+	s.kurtosisOptimismChain = s.TestSuite.OptimismChain
 
-	eth, simd := s.EthChain, s.CosmosChains[0]
+	eth, _ := s.EthChain, s.CosmosChains[0]
 
 	s.Require().True(s.Run("Verify Optimism chain properties", func() {
 		// Test connection to the Optimism RPC
+
 		consensusClient, err := ethclient.Dial(s.kurtosisOptimismChain.ConsensusRPC)
 		s.Require().NoError(err)
 		baseClient := client.NewBaseRPCClient(consensusClient.Client())
@@ -357,23 +343,6 @@ func (s *OptimismTestSuite) DeployTest(ctx context.Context, proofType types.Supp
 		s.T().Logf("Chain ID: %s", eth.ChainID.String())
 	}))
 
-	s.Require().True(s.Run("Verify SP1 Client on Optimism", func() {
-		clientState, err := s.sp1Ics07Contract.ClientState(nil)
-		s.Require().NoError(err)
-
-		stakingParams, err := simd.StakingQueryParams(ctx)
-		s.Require().NoError(err)
-
-		s.Require().Equal(simd.Config().ChainID, clientState.ChainId)
-		s.Require().Equal(uint8(testvalues.DefaultTrustLevel.Numerator), clientState.TrustLevel.Numerator)
-		s.Require().Equal(uint8(testvalues.DefaultTrustLevel.Denominator), clientState.TrustLevel.Denominator)
-		s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
-		s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
-		s.Require().False(clientState.IsFrozen)
-		s.Require().Equal(uint64(1), clientState.LatestHeight.RevisionNumber)
-		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint64(0))
-	}))
-
 	s.Require().True(s.Run("Verify ICS02 Client on Optimism", func() {
 		clientAddress, err := s.ics26Contract.GetClient(nil, testvalues.CustomClientID)
 		s.Require().NoError(err)
@@ -390,44 +359,62 @@ func (s *OptimismTestSuite) DeployTest(ctx context.Context, proofType types.Supp
 		s.Require().Equal(s.contractAddresses.Ics20Transfer, strings.ToLower(transferAddress.Hex()))
 	}))
 
-	s.Require().True(s.Run("Verify ERC20 Genesis on Optimism", func() {
-		userBalance, err := s.erc20Contract.BalanceOf(nil, crypto.PubkeyToAddress(s.key.PublicKey))
-		s.Require().NoError(err)
-		s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
-	}))
+	// s.Require().True(s.Run("Verify ERC20 Genesis on Optimism", func() {
+	// 	userBalance, err := s.erc20Contract.BalanceOf(nil, crypto.PubkeyToAddress(s.key.PublicKey))
+	// 	s.Require().NoError(err)
+	// 	s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
+	// }))
 
-	s.Require().True(s.Run("Verify Optimism light client on Cosmos", func() {
-		_, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
-			ClientId: testvalues.FirstWasmClientID,
-		})
-		s.Require().NoError(err)
+	//
+	// s.Require().True(s.Run("Verify SP1 Client on Optimism", func() {
+	// 	clientState, err := s.sp1Ics07Contract.ClientState(nil)
+	// 	s.Require().NoError(err)
+	//
+	// 	stakingParams, err := simd.StakingQueryParams(ctx)
+	// 	s.Require().NoError(err)
+	//
+	// 	s.Require().Equal(simd.Config().ChainID, clientState.ChainId)
+	// 	s.Require().Equal(uint8(testvalues.DefaultTrustLevel.Numerator), clientState.TrustLevel.Numerator)
+	// 	s.Require().Equal(uint8(testvalues.DefaultTrustLevel.Denominator), clientState.TrustLevel.Denominator)
+	// 	s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
+	// 	s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
+	// 	s.Require().False(clientState.IsFrozen)
+	// 	s.Require().Equal(uint64(1), clientState.LatestHeight.RevisionNumber)
+	// 	s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint64(0))
+	// }))
 
-		counterpartyInfoResp, err := e2esuite.GRPCQuery[clienttypesv2.QueryCounterpartyInfoResponse](ctx, simd, &clienttypesv2.QueryCounterpartyInfoRequest{
-			ClientId: testvalues.FirstWasmClientID,
-		})
-		s.Require().NoError(err)
-		s.Require().Equal(testvalues.CustomClientID, counterpartyInfoResp.CounterpartyInfo.ClientId)
-	}))
-
-	s.Require().True(s.Run("Verify Cosmos to Optimism Relayer Info", func() {
-		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
-			SrcChain: simd.Config().ChainID,
-			DstChain: eth.ChainID.String(),
-		})
-		s.Require().NoError(err)
-		s.Require().NotNil(info)
-		s.Require().Equal(simd.Config().ChainID, info.SourceChain.ChainId)
-		s.Require().Equal(eth.ChainID.String(), info.TargetChain.ChainId)
-	}))
-
-	s.Require().True(s.Run("Verify Optimism to Cosmos Relayer Info", func() {
-		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
-			SrcChain: eth.ChainID.String(),
-			DstChain: simd.Config().ChainID,
-		})
-		s.Require().NoError(err)
-		s.Require().NotNil(info)
-		s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
-		s.Require().Equal(simd.Config().ChainID, info.TargetChain.ChainId)
-	}))
+	// s.Require().True(s.Run("Verify Optimism light client on Cosmos", func() {
+	// 	_, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
+	// 		ClientId: testvalues.FirstWasmClientID,
+	// 	})
+	// 	s.Require().NoError(err)
+	//
+	// 	counterpartyInfoResp, err := e2esuite.GRPCQuery[clienttypesv2.QueryCounterpartyInfoResponse](ctx, simd, &clienttypesv2.QueryCounterpartyInfoRequest{
+	// 		ClientId: testvalues.FirstWasmClientID,
+	// 	})
+	// 	s.Require().NoError(err)
+	// 	s.Require().Equal(testvalues.CustomClientID, counterpartyInfoResp.CounterpartyInfo.ClientId)
+	// }))
+	//
+	// s.Require().True(s.Run("Verify Cosmos to Optimism Relayer Info", func() {
+	// 	info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+	// 		SrcChain: simd.Config().ChainID,
+	// 		DstChain: eth.ChainID.String(),
+	// 	})
+	// 	s.Require().NoError(err)
+	// 	s.Require().NotNil(info)
+	// 	s.Require().Equal(simd.Config().ChainID, info.SourceChain.ChainId)
+	// 	s.Require().Equal(eth.ChainID.String(), info.TargetChain.ChainId)
+	// }))
+	//
+	// s.Require().True(s.Run("Verify Optimism to Cosmos Relayer Info", func() {
+	// 	info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+	// 		SrcChain: eth.ChainID.String(),
+	// 		DstChain: simd.Config().ChainID,
+	// 	})
+	// 	s.Require().NoError(err)
+	// 	s.Require().NotNil(info)
+	// 	s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
+	// 	s.Require().Equal(simd.Config().ChainID, info.TargetChain.ChainId)
+	// }))
 }

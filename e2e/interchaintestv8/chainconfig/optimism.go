@@ -171,14 +171,6 @@ func SpinUpKurtosisOptimism(ctx context.Context) (KurtosisOptimismChain, error) 
 	consensusRPCPortSpec := consensusCtx.GetPublicPorts()["rpc"]
 	consensusRPC := fmt.Sprintf("http://localhost:%d", consensusRPCPortSpec.GetNumber())
 
-	// _, err = kurtosisEnclave.enclaveCtx.GetServiceContext("ethereum_package")
-	// if err != nil {
-	// 	return KurtosisOptimismChain{}, err
-	//
-	// }
-	// executionRPCPortSpec = executionCtx.GetPublicPorts()["rpc"]
-	// executionRPC = fmt.Sprintf("http://localhost:%d", executionRPCPortSpec.GetNumber())
-	//
 	faucet, err := crypto.ToECDSA(ethcommon.FromHex(optimismFaucetPrivateKey))
 	if err != nil {
 		return KurtosisOptimismChain{}, err

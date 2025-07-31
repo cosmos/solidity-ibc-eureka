@@ -30,6 +30,7 @@ type TestSuite struct {
 	suite.Suite
 
 	EthChain       ethereum.Ethereum
+	OptimismChain  chainconfig.KurtosisOptimismChain
 	ethTestnetType string
 	CosmosChains   []*cosmos.CosmosChain
 	CosmosUsers    []ibc.Wallet
@@ -73,6 +74,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		})
 	case testvalues.EthTestnetTypeOptimism:
 		kurtosisOptimismChain, err := chainconfig.SpinUpKurtosisOptimism(ctx) // TODO: Run this in a goroutine and wait for it to be ready
+		s.OptimismChain = kurtosisOptimismChain
 		s.Require().NoError(err)
 		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisOptimismChain.ExecutionRPC, nil, kurtosisOptimismChain.Faucet)
 		s.Require().NoError(err)
