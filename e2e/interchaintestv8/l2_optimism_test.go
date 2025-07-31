@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
@@ -102,6 +103,12 @@ func (s *OptimismTestSuite) SetupSuite(ctx context.Context, proofType types.Supp
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
+
+		// Wait for ETH node to be ready before attempting to create users
+		s.T().Logf("Waiting for ETH node to be ready...")
+		err = eth.WaitForNodeReady(context.Background(), time.Minute*3)
+		s.Require().NoError(err, "ETH node failed to become ready within timeout")
+		s.T().Logf("ETH node is ready for transactions")
 
 		s.key, err = eth.CreateAndFundUser()
 		s.Require().NoError(err)

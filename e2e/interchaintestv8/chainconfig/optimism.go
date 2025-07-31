@@ -44,7 +44,8 @@ const (
 	optimismFaucetPrivateKey  = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 	optimismChainName = "chain0"
-	optimismNodeName  = "node0"
+	optimismNodeName0 = "node0"
+	optimismNodeName1 = "node1"
 )
 
 type KurtosisOptimismChain struct {
@@ -71,8 +72,10 @@ type kurtosisOptimismChain struct {
 }
 
 type kurtosisOptimismParticipant struct {
-	EL *kurtosisOptimismEL `json:"el,omitempty"`
-	CL *kurtosisOptimismCL `json:"cl,omitempty"`
+	Sequencer       bool                `json:"sequencer"`
+	EL              *kurtosisOptimismEL `json:"el,omitempty"`
+	CL              *kurtosisOptimismCL `json:"cl,omitempty"`
+	ConductorParams map[string]bool     `json:"conductor_params"`
 }
 
 type kurtosisOptimismEL struct {
@@ -80,12 +83,15 @@ type kurtosisOptimismEL struct {
 }
 
 type kurtosisOptimismCL struct {
-	Type         string            `json:"type"`
-	ExtraEnvVars map[string]string `json:"extra_env_vars,omitempty"`
+	Type string `json:"type"`
 }
 
 type kustosisOptimismNetworkParams struct {
-	NetworkID uint64 `json:"network_id"`
+	NetworkID         uint64 `json:"network_id"`
+	Network           string `json:"network"`
+	SecondsPerSlot    uint64 `json:"seconds_per_slot"`
+	FjordTimeOffset   uint64 `json:"fjord_time_offset"`
+	GraniteTimeOffset uint64 `json:"granite_time_offset"`
 }
 
 func SpinUpKurtosisOptimism(ctx context.Context) (KurtosisOptimismChain, error) {
@@ -94,20 +100,38 @@ func SpinUpKurtosisOptimism(ctx context.Context) (KurtosisOptimismChain, error) 
 			Chains: map[string]kurtosisOptimismChain{
 				optimismChainName: {
 					Participants: map[string]kurtosisOptimismParticipant{
-						optimismNodeName: {
+						optimismNodeName0: {
+							Sequencer: true,
 							EL: &kurtosisOptimismEL{
 								Type: "op-geth",
 							},
 							CL: &kurtosisOptimismCL{
 								Type: "op-node",
-								ExtraEnvVars: map[string]string{
-									"OP_NODE_CONDUCTOR_ENABLED": "true",
-								},
+							},
+							ConductorParams: map[string]bool{
+								"enabled":   true,
+								"bootstrap": true,
+							},
+						},
+						optimismNodeName1: {
+							Sequencer: true,
+							EL: &kurtosisOptimismEL{
+								Type: "op-reth",
+							},
+							CL: &kurtosisOptimismCL{
+								Type: "op-node",
+							},
+							ConductorParams: map[string]bool{
+								"enabled": true,
 							},
 						},
 					},
 					NetworkParams: kustosisOptimismNetworkParams{
-						NetworkID: 12345,
+						NetworkID:         12345,
+						Network:           "kurtosis-optimism",
+						SecondsPerSlot:    2,
+						FjordTimeOffset:   0,
+						GraniteTimeOffset: 0,
 					},
 				},
 			},
@@ -117,14 +141,14 @@ func SpinUpKurtosisOptimism(ctx context.Context) (KurtosisOptimismChain, error) 
 	// Extract configuration from the new structure
 
 	chain := optimismConfig.OptimismPackage.Chains[optimismChainName]
-	participant := chain.Participants[optimismNodeName]
+	participant := chain.Participants[optimismNodeName0]
 	elType := participant.EL.Type
 	clType := participant.CL.Type
 	networkID := chain.NetworkParams.NetworkID
 
 	// Use default values for service naming since the new format doesn't include network params
-	executionService := fmt.Sprintf("op-el-%d-%s-%s", networkID, optimismNodeName, elType)
-	consensusService := fmt.Sprintf("op-cl-%d-%s-%s", networkID, optimismNodeName, clType)
+	executionService := fmt.Sprintf("op-el-%d-%s-%s", networkID, optimismNodeName0, elType)
+	consensusService := fmt.Sprintf("op-cl-%d-%s-%s", networkID, optimismNodeName0, clType)
 
 	kurtosisEnclave, err := spinUpKurtosisEnclave(ctx, "optimism-pos-testnet", kurtosisOptimismPackageId, optimismConfig)
 	if err != nil {
