@@ -45,9 +45,10 @@ pub trait Adapter: Sync + Send + 'static {
         height: u64,
     ) -> impl Future<Output = Result<UnsignedStateAttestation, AdapterError>> + Send;
 
-    fn get_latest_unsigned_packet_attestation(
+    fn get_unsigned_packet_attestation_at_height(
         &self,
         packet: &Packets,
+        height: u64,
     ) -> impl Future<Output = Result<UnsignedPacketAttestation, AdapterError>> + Send;
 }
 

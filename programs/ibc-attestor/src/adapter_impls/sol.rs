@@ -71,9 +71,10 @@ impl Adapter for SolanaClient {
     ) -> Result<UnsignedStateAttestation, AdapterError> {
         todo!()
     }
-    async fn get_latest_unsigned_packet_attestation(
+    async fn get_unsigned_packet_attestation_at_height(
         &self,
         packets: &Packets,
+        height: u64,
     ) -> Result<UnsignedPacketAttestation, AdapterError> {
         todo!()
     }

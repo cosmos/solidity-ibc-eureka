@@ -107,12 +107,12 @@ impl Adapter for OpConsensusClient {
             timestamp: ts,
         })
     }
-    async fn get_latest_unsigned_packet_attestation(
+    async fn get_unsigned_packet_attestation_at_height(
         &self,
         packets: &Packets,
+        height: u64,
     ) -> Result<UnsignedPacketAttestation, AdapterError> {
         let mut futures = FuturesUnordered::new();
-        let height = self.get_latest_block_number().await.unwrap();
 
         for p in packets.packets() {
             let packet: Packet = serde_json::from_slice(p).unwrap();

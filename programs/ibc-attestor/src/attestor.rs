@@ -65,10 +65,11 @@ where
     pub async fn get_latest_packet_attestation(
         &self,
         packets: &Packets,
+        height: u64,
     ) -> Result<Attestation, AdapterError> {
         let unsigned = self
             .adapter
-            .get_latest_unsigned_packet_attestation(&packets)
+            .get_unsigned_packet_attestation_at_height(&packets, height)
             .await?;
         let signed = self.signer.sign(unsigned);
         Ok(signed)
@@ -97,8 +98,9 @@ where
         &self,
         request: tonic::Request<PacketAttestationRequest>,
     ) -> Result<Response<PacketAttestationResponse>, Status> {
-        let packets = Packets::new(request.into_inner().packets);
-        let att = self.get_latest_packet_attestation(&packets).await?;
+        let request_inner = request.into_inner();
+        let packets = Packets::new(request_inner.packets);
+        let att = self.get_latest_packet_attestation(&packets, request_inner.height).await?;
         Ok(PacketAttestationResponse {
             attestation: Some(att),
         }
