@@ -3,6 +3,7 @@ package e2esuite
 import (
 	"context"
 	"os"
+	"slices"
 
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
@@ -30,8 +31,9 @@ func (s *TestSuite) getWasmLightClientBinary() *os.File {
 		s.Require().NoError(err, "Failed to get local Wasm light client binary")
 		return file
 	}
+	l2OrPos := []string{testvalues.EthTestnetTypePoS, testvalues.EthTestnetTypeArbitrum, testvalues.EthTestnetTypeOptimism}
 
-	s.Require().Equal(s.ethTestnetType, testvalues.EthTestnetTypePoS, "Invalid Ethereum testnet type")
+	s.Require().True(slices.Contains(l2OrPos, s.ethTestnetType))
 
 	// If it is empty or set to "local", we use the local Wasm light client binary
 	if s.WasmLightClientTag == "" || s.WasmLightClientTag == testvalues.EnvValueWasmLightClientTag_Local {
