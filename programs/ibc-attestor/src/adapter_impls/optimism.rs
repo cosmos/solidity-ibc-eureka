@@ -13,7 +13,7 @@ mod config;
 mod header;
 
 use attestor_packet_membership::Packets;
-pub use config::OpConsensusClientConfig;
+pub use config::OpClientConfig;
 use futures::{stream::FuturesUnordered, StreamExt};
 use ibc_eureka_solidity_types::ics26::{router::routerInstance, IICS26RouterMsgs::Packet};
 
@@ -23,14 +23,14 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct OpConsensusClient {
+pub struct OpClient {
     raw_client: ReqwestClient,
     client: RootProvider,
     router: routerInstance<RootProvider>,
 }
 
-impl OpConsensusClient {
-    pub fn from_config(config: &OpConsensusClientConfig) -> Self {
+impl OpClient {
+    pub fn from_config(config: &OpClientConfig) -> Self {
         let raw_client: ReqwestClient = ClientBuilder::default().http(config.url.parse().unwrap());
         let client = RootProvider::<Ethereum>::new_http(config.url.parse().unwrap());
 
@@ -96,7 +96,7 @@ impl OpConsensusClient {
     }
 }
 
-impl Adapter for OpConsensusClient {
+impl Adapter for OpClient {
     async fn get_unsigned_state_attestation_at_height(
         &self,
         height: u64,

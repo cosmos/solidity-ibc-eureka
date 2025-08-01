@@ -3,8 +3,6 @@ use std::{fmt::Debug, future::Future};
 use thiserror::Error;
 use tonic::{Code, Status};
 
-use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
-
 pub trait Signable: Sync + Send {
     fn to_serde_encoded_bytes(&self) -> Vec<u8>;
     fn height(&self) -> u64;

@@ -18,9 +18,8 @@ pub struct AttestorCli {
 /// The subcommands for the attestor.
 #[derive(Clone, Debug, Parser)]
 pub enum Commands {
-    /// The subcommand to run the attestor.
-    #[command(subcommand)]
-    Server(server::ServerKind),
+    /// The subcommand to run the server.
+    Server(server::Args),
 
     /// The subcommand to run key management program.
     #[command(subcommand)]
@@ -31,15 +30,7 @@ pub enum Commands {
 pub mod server {
     use super::Parser;
 
-    /// The subcommands for the attestor.
-    #[derive(Clone, Debug, Parser)]
-    pub enum ServerKind {
-        #[cfg(feature = "sol")]
-        /// The subcommand to run the solana attestor
-        Solana(Args),
-    }
-
-    /// The arguments for the start subcommand.
+    /// The arguments for the server subcommand.
     #[derive(Clone, Debug, Parser)]
     pub struct Args {
         /// The configuration file for the attestor.
