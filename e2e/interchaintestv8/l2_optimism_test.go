@@ -65,6 +65,9 @@ type OptimismTestSuite struct {
 	EthRelayerSubmitter  *ecdsa.PrivateKey
 
 	OptimismChain chainconfig.KurtosisOptimismChain
+
+	solidityFixtureGenerator *types.SolidityFixtureGenerator
+	wasmFixtureGenerator     *types.WasmFixtureGenerator
 }
 
 // TestWithOptimismTestSuite is the boilerplate code that allows the test suite to be run
@@ -132,6 +135,9 @@ func (s *OptimismTestSuite) SetupSuite(ctx context.Context, proofType types.Supp
 		os.Setenv(testvalues.EnvKeySp1Prover, prover)
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(operatorKey)))
 	}))
+
+	s.wasmFixtureGenerator = types.NewWasmFixtureGenerator(&s.Suite)
+	s.solidityFixtureGenerator = types.NewSolidityFixtureGenerator()
 
 	s.Require().True(s.Run("Deploy IBC contracts on Optimism", func() {
 		stdout, err := eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
@@ -267,6 +273,8 @@ func (s *OptimismTestSuite) SetupSuite(ctx context.Context, proofType types.Supp
 
 			createClientTxBodyBz = resp.Tx
 		}))
+		err := s.wasmFixtureGenerator.AddInitialStateStep(createClientTxBodyBz)
+		s.Require().NoError(err)
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
 			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, createClientTxBodyBz)
