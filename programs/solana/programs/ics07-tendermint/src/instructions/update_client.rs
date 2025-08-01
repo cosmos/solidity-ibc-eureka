@@ -216,7 +216,7 @@ fn check_existing_consensus_state(
 }
 
 /// Creates seeds for deriving consensus state store PDAs
-fn create_consensus_state_seeds(client_key: &Pubkey, revision_height: u64) -> [Vec<u8>; 3] {
+fn consensus_state_seeds(client_key: &Pubkey, revision_height: u64) -> [Vec<u8>; 3] {
     [
         b"consensus_state".to_vec(),
         client_key.as_ref().to_vec(),
@@ -237,7 +237,7 @@ fn validate_consensus_state_pda(
     revision_height: u64,
     program_id: &Pubkey,
 ) -> Result<u8> {
-    let seeds = create_consensus_state_seeds(client_key, revision_height);
+    let seeds = consensus_state_seeds(client_key, revision_height);
     let seeds_slices = vecs_as_slices(&seeds);
     let (expected_pda, bump) = Pubkey::find_program_address(&seeds_slices, program_id);
 
