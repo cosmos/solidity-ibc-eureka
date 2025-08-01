@@ -15,6 +15,11 @@ build-relayer:
 build-operator:
 	cargo build --bin operator --release --locked
 
+
+[group('build')]
+build-optimism-attestor:
+	cargo build --bin ibc_attestor --release --locked -F op
+
 # Build riscv elf files using `~/.sp1/bin/cargo-prove`
 [group('build')]
 build-sp1-programs:
@@ -75,6 +80,11 @@ install-operator:
 [group('install')]
 install-relayer:
 	cargo install --bin relayer --path programs/relayer --locked
+
+# Install the optimism using `cargo install`
+[group('install')]
+install-op-attestor:
+	cargo install --bin ibc_attestor --path programs/ibc-attestor --locked -F op
 
 # Run all linters
 [group('lint')]
