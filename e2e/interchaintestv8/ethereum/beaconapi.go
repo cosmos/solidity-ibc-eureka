@@ -3,6 +3,7 @@ package ethereum
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -245,7 +246,7 @@ func (b BeaconAPIClient) GetFinalizedBlocks() (BeaconBlocksResponseJSON, error) 
 		}
 
 		if !resp.Finalized {
-			return BeaconBlocksResponseJSON{}, fmt.Errorf("block is not finalized")
+			return BeaconBlocksResponseJSON{}, errors.New("block is not finalized")
 		}
 
 		return resp, nil
