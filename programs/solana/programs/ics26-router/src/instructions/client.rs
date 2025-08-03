@@ -414,7 +414,7 @@ mod tests {
         };
 
         let result = test_add_client(AddClientTestConfig {
-            client_id: &client_id,
+            client_id,
             counterparty_info: Some(counterparty_info.clone()),
             expected_error: None,
         });
