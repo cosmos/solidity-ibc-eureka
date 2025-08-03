@@ -57,7 +57,7 @@ jobs:
         run: just build-solana
 
       - name: Run Solana unit tests
-        run: just unit-test-solana
+        run: just test-solana
         env:
           RUST_BACKTRACE: 1
 
@@ -70,4 +70,3 @@ jobs:
         run: |
           cd programs/solana
           cargo clippy --all-targets --all-features -- -D warnings
-

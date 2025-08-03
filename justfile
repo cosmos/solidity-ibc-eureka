@@ -262,9 +262,9 @@ test-e2e-solana testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaTestSuite/{{testname}}
 
-# Run the Solana Client Anchor tests
+# Run the Solana Anchor e2e tests
 [group('test')]
-client-test-solana *ARGS:
+test-anchor-solana *ARGS:
 	@echo "Copying all files from target/deploy to programs/solana/target/deploy (overwriting if needed)"
 	if [ -n "$(ls -A target/deploy 2>/dev/null)" ]; then \
 		mkdir -p programs/solana/target/deploy; \
@@ -280,9 +280,9 @@ client-test-solana *ARGS:
 		(cd programs/solana && anchor test {{ARGS}}); \
 	fi
 
-# Run Solana unit tests
+# Run Solana unit tests (mollusk + litesvm)
 [group('test')]
-unit-test-solana *ARGS:
+test-solana *ARGS:
 	@echo "Building and running Solana unit tests..."
 	if command -v anchor-nix >/dev/null 2>&1; then \
 		echo "🦀 Using anchor-nix"; \

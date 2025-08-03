@@ -11,7 +11,15 @@ use state::{CounterpartyInfo, MsgAckPacket, MsgRecvPacket, MsgSendPacket, MsgTim
 declare_id!("HsCyuYgKgoN9wUPiJyNZvvWg2N1uyZhDjvJfKJFu3jvU");
 
 #[cfg(test)]
-pub const ROUTER_PROGRAM_PATH: &str = "../../target/deploy/ics26_router";
+pub fn get_router_program_path() -> &'static str {
+    use std::sync::OnceLock;
+    static PATH: OnceLock<String> = OnceLock::new();
+
+    PATH.get_or_init(|| {
+        std::env::var("ROUTER_PROGRAM_PATH")
+            .unwrap_or_else(|_| "../../target/deploy/ics26_router".to_string())
+    })
+}
 
 #[program]
 pub mod ics26_router {

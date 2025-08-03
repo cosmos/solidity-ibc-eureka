@@ -194,59 +194,27 @@ pub struct ClientStatusUpdatedEvent {
 mod tests {
     use super::*;
     use crate::state::RouterState;
-    use anchor_lang::{AnchorDeserialize, InstructionData};
+    use anchor_lang::{AnchorDeserialize, AnchorSerialize, Discriminator, InstructionData};
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
     use solana_sdk::instruction::{AccountMeta, Instruction};
+    use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::{native_loader, system_program};
 
-    fn create_account_data(
-        account_name: &str,
-        init_space: usize,
-        serialize_fn: impl FnOnce(&mut [u8]),
-    ) -> Vec<u8> {
-        let mut data = vec![0u8; 8 + init_space];
-
-        // Write discriminator
-        let discriminator: [u8; 8] =
-            anchor_lang::solana_program::hash::hash(format!("account:{account_name}").as_bytes())
-                .to_bytes()[..8]
-                .try_into()
-                .unwrap();
-        data[0..8].copy_from_slice(&discriminator);
-
-        // Serialize account data
-        serialize_fn(&mut data[8..]);
-
+    fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u8> {
+        let mut data = T::DISCRIMINATOR.to_vec();
+        account.serialize(&mut data).unwrap();
         data
-    }
-
-    fn serialize_string(data: &mut [u8], offset: &mut usize, value: &str) {
-        let bytes = value.as_bytes();
-        let len = bytes.len() as u32;
-        data[*offset..*offset + 4].copy_from_slice(&len.to_le_bytes());
-        *offset += 4;
-        data[*offset..*offset + bytes.len()].copy_from_slice(bytes);
-        *offset += bytes.len();
-    }
-
-    fn serialize_vec_u8(data: &mut [u8], offset: &mut usize, value: &[u8]) {
-        let len = value.len() as u32;
-        data[*offset..*offset + 4].copy_from_slice(&len.to_le_bytes());
-        *offset += 4;
-        data[*offset..*offset + value.len()].copy_from_slice(value);
-        *offset += value.len();
     }
 
     fn setup_router_state(authority: Pubkey) -> (Pubkey, Vec<u8>) {
         let (router_state_pda, _) = Pubkey::find_program_address(&[ROUTER_STATE_SEED], &crate::ID);
 
-        let router_state_data =
-            create_account_data("RouterState", RouterState::INIT_SPACE, |data| {
-                data[0..32].copy_from_slice(authority.as_ref()); // authority: Pubkey
-            });
+        let router_state = RouterState { authority };
+
+        let router_state_data = create_account_data(&router_state);
 
         (router_state_pda, router_state_data)
     }
@@ -260,139 +228,21 @@ mod tests {
         let (client_pda, _) =
             Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &crate::ID);
 
-        let client_data = create_account_data("Client", Client::INIT_SPACE, |data| {
-            let mut offset = 0;
-
-            // client_id: String
-            serialize_string(data, &mut offset, client_id);
-
-            // client_program_id: Pubkey (32 bytes)
-            data[offset..offset + 32].copy_from_slice(light_client_program.as_ref());
-            offset += 32;
-
-            // counterparty_info.client_id: String
-            serialize_string(data, &mut offset, "counterparty-client");
-
-            // counterparty_info.connection_id: String
-            serialize_string(data, &mut offset, "connection-0");
-
-            // counterparty_info.merkle_prefix: Vec<u8>
-            serialize_vec_u8(data, &mut offset, &[0x01, 0x02, 0x03]);
-
-            // authority: Pubkey (32 bytes)
-            data[offset..offset + 32].copy_from_slice(authority.as_ref());
-            offset += 32;
-
-            // active: bool (1 byte)
-            data[offset] = u8::from(active);
-        });
-
-        (client_pda, client_data)
-    }
-
-    #[test]
-    fn test_add_client_happy_path() {
-        let client_id = "test-client-01";
-        let counterparty_info = CounterpartyInfo {
-            client_id: "counterparty-client".to_string(),
-            connection_id: "connection-0".to_string(),
-            merkle_prefix: vec![0x01, 0x02, 0x03],
+        let client = Client {
+            client_id: client_id.to_string(),
+            client_program_id: light_client_program,
+            counterparty_info: CounterpartyInfo {
+                client_id: "counterparty-client".to_string(),
+                connection_id: "connection-0".to_string(),
+                merkle_prefix: vec![0x01, 0x02, 0x03],
+            },
+            authority,
+            active,
         };
 
-        let result = test_add_client(AddClientTestConfig {
-            client_id: &client_id,
-            counterparty_info: Some(counterparty_info.clone()),
-            expected_error: None,
-        });
+        let client_data = create_account_data(&client);
 
-        // Get the accounts from the result to verify everything worked
-        let authority = result
-            .resulting_accounts
-            .iter()
-            .find(|(_, account)| account.owner == system_program::ID && account.lamports > 1_000_000_000)
-            .map(|(pubkey, _)| *pubkey)
-            .expect("Authority account not found");
-
-        let (client_pda, _) =
-            Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &crate::ID);
-        let (client_sequence_pda, _) =
-            Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED, client_id.as_bytes()], &crate::ID);
-
-        // Verify authority paid for account creation
-        let authority_account = result
-            .resulting_accounts
-            .iter()
-            .find(|(pubkey, _)| pubkey == &authority)
-            .map(|(_, account)| account)
-            .expect("Authority account should exist");
-
-        // Authority should have less lamports after paying for account creation
-        assert!(
-            authority_account.lamports < 10_000_000_000,
-            "Authority should have paid for account creation"
-        );
-
-        // Verify Client account was created correctly
-        let client_account = result
-            .resulting_accounts
-            .iter()
-            .find(|(pubkey, _)| pubkey == &client_pda)
-            .map(|(_, account)| account)
-            .expect("Client account not found");
-
-        assert_eq!(client_account.owner, crate::ID, "Client account should be owned by program");
-        assert!(
-            client_account.lamports > 0,
-            "Client account should be rent-exempt"
-        );
-
-        let mut data_slice = &client_account.data[8..];
-        let deserialized_client: Client =
-            Client::deserialize(&mut data_slice).expect("Failed to deserialize client");
-
-        assert_eq!(deserialized_client.client_id, client_id);
-        assert_eq!(deserialized_client.authority, authority);
-        assert!(deserialized_client.active);
-        assert_eq!(
-            deserialized_client.counterparty_info.client_id,
-            counterparty_info.client_id
-        );
-        assert_eq!(
-            deserialized_client.counterparty_info.connection_id,
-            counterparty_info.connection_id
-        );
-        assert_eq!(
-            deserialized_client.counterparty_info.merkle_prefix,
-            counterparty_info.merkle_prefix
-        );
-        // Just verify that a light client program was set
-        assert_ne!(deserialized_client.client_program_id, Pubkey::default());
-
-        // Verify ClientSequence account was created correctly
-        let client_sequence_account = result
-            .resulting_accounts
-            .iter()
-            .find(|(pubkey, _)| pubkey == &client_sequence_pda)
-            .map(|(_, account)| account)
-            .expect("ClientSequence account not found");
-
-        assert_eq!(
-            client_sequence_account.owner, crate::ID,
-            "ClientSequence account should be owned by program"
-        );
-        assert!(
-            client_sequence_account.lamports > 0,
-            "ClientSequence account should be rent-exempt"
-        );
-
-        let mut data_slice = &client_sequence_account.data[8..];
-        let deserialized_sequence: ClientSequence = ClientSequence::deserialize(&mut data_slice)
-            .expect("Failed to deserialize client sequence");
-
-        assert_eq!(
-            deserialized_sequence.next_sequence_send, 0,
-            "Sequence should be initialized to 0"
-        );
+        (client_pda, client_data)
     }
 
     /// Anchor error code offset
@@ -414,7 +264,11 @@ mod tests {
             }
         }
 
-        fn with_counterparty_info(client_id: &'a str, info: CounterpartyInfo, error: RouterError) -> Self {
+        fn with_counterparty_info(
+            client_id: &'a str,
+            info: CounterpartyInfo,
+            error: RouterError,
+        ) -> Self {
             Self {
                 client_id,
                 counterparty_info: Some(info),
@@ -439,12 +293,16 @@ mod tests {
         let (router_state_pda, router_state_data) = setup_router_state(authority);
         let (client_pda, _) =
             Pubkey::find_program_address(&[CLIENT_SEED, config.client_id.as_bytes()], &crate::ID);
-        let (client_sequence_pda, _) =
-            Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED, config.client_id.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) = Pubkey::find_program_address(
+            &[CLIENT_SEQUENCE_SEED, config.client_id.as_bytes()],
+            &crate::ID,
+        );
 
         let instruction_data = crate::instruction::AddClient {
             client_id: config.client_id.to_string(),
-            counterparty_info: config.counterparty_info.unwrap_or_else(AddClientTestConfig::valid_counterparty_info),
+            counterparty_info: config
+                .counterparty_info
+                .unwrap_or_else(AddClientTestConfig::valid_counterparty_info),
         };
 
         let instruction = Instruction {
@@ -524,19 +382,138 @@ mod tests {
             ),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::ROUTER_PROGRAM_PATH);
+        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
 
-        let checks = if let Some(error) = config.expected_error {
-            vec![Check::err(ProgramError::Custom(ANCHOR_ERROR_OFFSET + error as u32))]
-        } else {
-            vec![
-                Check::success(),
-                Check::account(&client_pda).owner(&crate::ID).build(),
-                Check::account(&client_sequence_pda).owner(&crate::ID).build(),
-            ]
-        };
+        let checks = config.expected_error.map_or_else(
+            || {
+                vec![
+                    Check::success(),
+                    Check::account(&client_pda).owner(&crate::ID).build(),
+                    Check::account(&client_sequence_pda)
+                        .owner(&crate::ID)
+                        .build(),
+                ]
+            },
+            |error| {
+                vec![Check::err(ProgramError::Custom(
+                    ANCHOR_ERROR_OFFSET + error as u32,
+                ))]
+            },
+        );
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks)
+    }
+
+    #[test]
+    fn test_add_client_happy_path() {
+        let client_id = "test-client-01";
+        let counterparty_info = CounterpartyInfo {
+            client_id: "counterparty-client".to_string(),
+            connection_id: "connection-0".to_string(),
+            merkle_prefix: vec![0x01, 0x02, 0x03],
+        };
+
+        let result = test_add_client(AddClientTestConfig {
+            client_id: &client_id,
+            counterparty_info: Some(counterparty_info.clone()),
+            expected_error: None,
+        });
+
+        // Get the accounts from the result to verify everything worked
+        let authority = result
+            .resulting_accounts
+            .iter()
+            .find(|(_, account)| {
+                account.owner == system_program::ID && account.lamports > 1_000_000_000
+            })
+            .map(|(pubkey, _)| *pubkey)
+            .expect("Authority account not found");
+
+        let (client_pda, _) =
+            Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) =
+            Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED, client_id.as_bytes()], &crate::ID);
+
+        // Verify authority paid for account creation
+        let authority_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &authority)
+            .map(|(_, account)| account)
+            .expect("Authority account should exist");
+
+        // Authority should have less lamports after paying for account creation
+        assert!(
+            authority_account.lamports < 10_000_000_000,
+            "Authority should have paid for account creation"
+        );
+
+        // Verify Client account was created correctly
+        let client_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &client_pda)
+            .map(|(_, account)| account)
+            .expect("Client account not found");
+
+        assert_eq!(
+            client_account.owner,
+            crate::ID,
+            "Client account should be owned by program"
+        );
+        assert!(
+            client_account.lamports > 0,
+            "Client account should be rent-exempt"
+        );
+
+        let mut data_slice = &client_account.data[8..];
+        let deserialized_client: Client =
+            Client::deserialize(&mut data_slice).expect("Failed to deserialize client");
+
+        assert_eq!(deserialized_client.client_id, client_id);
+        assert_eq!(deserialized_client.authority, authority);
+        assert!(deserialized_client.active);
+        assert_eq!(
+            deserialized_client.counterparty_info.client_id,
+            counterparty_info.client_id
+        );
+        assert_eq!(
+            deserialized_client.counterparty_info.connection_id,
+            counterparty_info.connection_id
+        );
+        assert_eq!(
+            deserialized_client.counterparty_info.merkle_prefix,
+            counterparty_info.merkle_prefix
+        );
+        // Just verify that a light client program was set
+        assert_ne!(deserialized_client.client_program_id, Pubkey::default());
+
+        // Verify ClientSequence account was created correctly
+        let client_sequence_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &client_sequence_pda)
+            .map(|(_, account)| account)
+            .expect("ClientSequence account not found");
+
+        assert_eq!(
+            client_sequence_account.owner,
+            crate::ID,
+            "ClientSequence account should be owned by program"
+        );
+        assert!(
+            client_sequence_account.lamports > 0,
+            "ClientSequence account should be rent-exempt"
+        );
+
+        let mut data_slice = &client_sequence_account.data[8..];
+        let deserialized_sequence: ClientSequence = ClientSequence::deserialize(&mut data_slice)
+            .expect("Failed to deserialize client sequence");
+
+        assert_eq!(
+            deserialized_sequence.next_sequence_send, 0,
+            "Sequence should be initialized to 0"
+        );
     }
 
     #[test]
@@ -569,7 +546,7 @@ mod tests {
             "test-client-03",
             CounterpartyInfo {
                 client_id: "counterparty-client".to_string(),
-                connection_id: "".to_string(), // Invalid: empty
+                connection_id: String::new(), // Invalid: empty
                 merkle_prefix: vec![0x01, 0x02, 0x03],
             },
             RouterError::InvalidCounterpartyInfo,
@@ -649,7 +626,7 @@ mod tests {
             ),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::ROUTER_PROGRAM_PATH);
+        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
 
         let checks = vec![Check::success()];
 
