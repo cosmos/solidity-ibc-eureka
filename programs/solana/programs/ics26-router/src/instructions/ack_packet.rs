@@ -81,10 +81,8 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         consensus_state: ctx.accounts.consensus_state.clone(),
     };
 
-    let ack_path = ics24::packet_acknowledgement_commitment_path(
-        &msg.packet.dest_client,
-        msg.packet.sequence,
-    );
+    let ack_path =
+        ics24::packet_acknowledgement_commitment_path(&msg.packet.dest_client, msg.packet.sequence);
 
     let membership_msg = MembershipMsg {
         height: msg.proof_height,

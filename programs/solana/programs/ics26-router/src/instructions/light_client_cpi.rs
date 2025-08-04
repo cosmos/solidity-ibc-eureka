@@ -98,7 +98,5 @@ pub fn verify_non_membership_cpi(
 
     invoke(&ix, &account_infos)?;
 
-
     Ok(membership_msg.height)
 }
-

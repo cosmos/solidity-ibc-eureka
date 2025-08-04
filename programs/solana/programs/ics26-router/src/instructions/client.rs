@@ -300,7 +300,7 @@ mod tests {
         };
 
         let result = test_add_client(AddClientTestConfig {
-            client_id: &client_id,
+            client_id,
             counterparty_info: Some(counterparty_info.clone()),
             expected_error: None,
         });
@@ -309,7 +309,9 @@ mod tests {
         let authority = result
             .resulting_accounts
             .iter()
-            .find(|(_, account)| account.owner == system_program::ID && account.lamports > 1_000_000_000)
+            .find(|(_, account)| {
+                account.owner == system_program::ID && account.lamports > 1_000_000_000
+            })
             .map(|(pubkey, _)| *pubkey)
             .expect("Authority account not found");
 
@@ -340,7 +342,11 @@ mod tests {
             .map(|(_, account)| account)
             .expect("Client account not found");
 
-        assert_eq!(client_account.owner, crate::ID, "Client account should be owned by program");
+        assert_eq!(
+            client_account.owner,
+            crate::ID,
+            "Client account should be owned by program"
+        );
         assert!(
             client_account.lamports > 0,
             "Client account should be rent-exempt"
@@ -377,7 +383,8 @@ mod tests {
             .expect("ClientSequence account not found");
 
         assert_eq!(
-            client_sequence_account.owner, crate::ID,
+            client_sequence_account.owner,
+            crate::ID,
             "ClientSequence account should be owned by program"
         );
         assert!(
@@ -414,7 +421,11 @@ mod tests {
             }
         }
 
-        fn with_counterparty_info(client_id: &'a str, info: CounterpartyInfo, error: RouterError) -> Self {
+        fn with_counterparty_info(
+            client_id: &'a str,
+            info: CounterpartyInfo,
+            error: RouterError,
+        ) -> Self {
             Self {
                 client_id,
                 counterparty_info: Some(info),
@@ -439,12 +450,16 @@ mod tests {
         let (router_state_pda, router_state_data) = setup_router_state(authority);
         let (client_pda, _) =
             Pubkey::find_program_address(&[CLIENT_SEED, config.client_id.as_bytes()], &crate::ID);
-        let (client_sequence_pda, _) =
-            Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED, config.client_id.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) = Pubkey::find_program_address(
+            &[CLIENT_SEQUENCE_SEED, config.client_id.as_bytes()],
+            &crate::ID,
+        );
 
         let instruction_data = crate::instruction::AddClient {
             client_id: config.client_id.to_string(),
-            counterparty_info: config.counterparty_info.unwrap_or_else(AddClientTestConfig::valid_counterparty_info),
+            counterparty_info: config
+                .counterparty_info
+                .unwrap_or_else(AddClientTestConfig::valid_counterparty_info),
         };
 
         let instruction = Instruction {
@@ -526,15 +541,22 @@ mod tests {
 
         let mollusk = Mollusk::new(&crate::ID, crate::ROUTER_PROGRAM_PATH);
 
-        let checks = if let Some(error) = config.expected_error {
-            vec![Check::err(ProgramError::Custom(ANCHOR_ERROR_OFFSET + error as u32))]
-        } else {
-            vec![
-                Check::success(),
-                Check::account(&client_pda).owner(&crate::ID).build(),
-                Check::account(&client_sequence_pda).owner(&crate::ID).build(),
-            ]
-        };
+        let checks = config.expected_error.map_or_else(
+            || {
+                vec![
+                    Check::success(),
+                    Check::account(&client_pda).owner(&crate::ID).build(),
+                    Check::account(&client_sequence_pda)
+                        .owner(&crate::ID)
+                        .build(),
+                ]
+            },
+            |error| {
+                vec![Check::err(ProgramError::Custom(
+                    ANCHOR_ERROR_OFFSET + error as u32,
+                ))]
+            },
+        );
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks)
     }
