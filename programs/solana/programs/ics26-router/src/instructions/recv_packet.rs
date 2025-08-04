@@ -616,4 +616,108 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
+
+    #[test]
+    fn test_recv_packet_client_not_active() {
+        let authority = Pubkey::new_unique();
+        let relayer = authority;
+        let payer = authority;
+        let client_id = "test-client";
+        let source_client_id = "source-client";
+        let port_id = "test-port";
+        let light_client_program = Pubkey::new_unique();
+
+        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        // Create inactive client
+        let (client_pda, client_data) = setup_client(
+            client_id,
+            authority,
+            light_client_program,
+            source_client_id,
+            false, // Client is not active
+        );
+        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, Pubkey::new_unique());
+        let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 0);
+
+        let packet = create_test_packet(
+            1,
+            source_client_id,
+            client_id,
+            "source-port",
+            port_id,
+            1000,
+        );
+
+        let msg = MsgRecvPacket {
+            packet,
+            proof_commitment: vec![0u8; 32],
+            proof_height: 100,
+        };
+
+        let (packet_receipt_pda, _) = Pubkey::find_program_address(
+            &[
+                PACKET_RECEIPT_SEED,
+                msg.packet.dest_client.as_bytes(),
+                &msg.packet.sequence.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let (packet_ack_pda, _) = Pubkey::find_program_address(
+            &[
+                PACKET_ACK_SEED,
+                msg.packet.dest_client.as_bytes(),
+                &msg.packet.sequence.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let instruction_data = crate::instruction::RecvPacket { msg };
+
+        let client_state = Pubkey::new_unique();
+        let consensus_state = Pubkey::new_unique();
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(ibc_app_pda, false),
+                AccountMeta::new(client_sequence_pda, false),
+                AccountMeta::new(packet_receipt_pda, false),
+                AccountMeta::new(packet_ack_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(Clock::id(), false),
+                AccountMeta::new_readonly(client_pda, false),
+                AccountMeta::new_readonly(light_client_program, false),
+                AccountMeta::new_readonly(client_state, false),
+                AccountMeta::new_readonly(consensus_state, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(ibc_app_pda, ibc_app_data, crate::ID),
+            create_account(client_sequence_pda, client_sequence_data, crate::ID),
+            create_uninitialized_account(packet_receipt_pda),
+            create_uninitialized_account(packet_ack_pda),
+            create_system_account(payer),
+            create_program_account(system_program::ID),
+            create_clock_account(),
+            create_account(client_pda, client_data, crate::ID),
+            create_program_account(light_client_program),
+            create_account(client_state, vec![0u8; 100], light_client_program),
+            create_account(consensus_state, vec![0u8; 100], light_client_program),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::ClientNotActive as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }
