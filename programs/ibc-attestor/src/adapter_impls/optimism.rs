@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use alloy::{
     consensus::BlockHeader,
     eips::{BlockId, BlockNumberOrTag},
+    hex::FromHex,
 };
 use alloy_network::Ethereum;
 use alloy_primitives::{address, Address, FixedBytes};
@@ -34,7 +35,7 @@ impl OpClient {
         let raw_client: ReqwestClient = ClientBuilder::default().http(config.url.parse().unwrap());
         let client = RootProvider::<Ethereum>::new_http(config.url.parse().unwrap());
 
-        let address = Address::parse_checksummed(&config.router_address, None).unwrap();
+        let address = Address::from_hex(&config.router_address).unwrap();
         let router = routerInstance::new(address.into(), client.clone());
 
         Self {
