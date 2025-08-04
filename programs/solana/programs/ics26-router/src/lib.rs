@@ -41,7 +41,6 @@ pub mod ics26_router {
         instructions::timeout_packet(ctx, msg)
     }
 
-
     pub fn add_client(
         ctx: Context<AddClient>,
         client_id: String,
