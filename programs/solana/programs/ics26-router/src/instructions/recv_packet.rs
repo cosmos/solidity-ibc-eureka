@@ -112,10 +112,8 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         consensus_state: ctx.accounts.consensus_state.clone(),
     };
 
-    let commitment_path = ics24::packet_commitment_path(
-        &msg.packet.source_client,
-        msg.packet.sequence,
-    );
+    let commitment_path =
+        ics24::packet_commitment_path(&msg.packet.source_client, msg.packet.sequence);
 
     let expected_commitment = ics24::packet_commitment_bytes32(&msg.packet);
 
