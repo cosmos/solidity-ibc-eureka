@@ -4,6 +4,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::keccak::hash as keccak256;
 use sha2::{Digest, Sha256};
 
+// TODO: move to a shared crate
 pub fn packet_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
     let mut path = Vec::new();
     path.extend_from_slice(client_id.as_bytes());
