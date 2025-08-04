@@ -134,11 +134,20 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
 
     verify_membership_cpi(client, &light_client_verification, membership_msg)?;
 
-    // Check if receipt already exists (no-op case)
+    // Check if receipt already exists
     let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&msg.packet);
-    if packet_receipt.value == receipt_commitment {
-        emit!(NoopEvent {});
-        return Ok(());
+
+    // Check if packet was not created by anchor via init_if_needed
+    // I.e. it was already saved before
+    if packet_receipt.value != [0u8; 32] {
+        // Receipt already exists - verify it matches
+        if packet_receipt.value == receipt_commitment {
+            // No-op: already received with same commitment
+            emit!(NoopEvent {});
+            return Ok(());
+        }
+
+        return Err(RouterError::PacketReceiptMismatch.into());
     }
 
     packet_receipt.value = receipt_commitment;
