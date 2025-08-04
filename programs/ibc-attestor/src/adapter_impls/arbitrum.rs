@@ -72,10 +72,11 @@ impl ArbitrumClient {
         packet: &Packet,
         block_number: u64,
     ) -> Result<[u8; 32], AdapterError> {
-        let fixed: FixedBytes<32> = packet.commitment_path().as_slice().try_into().unwrap();
+        let commitment_path: FixedBytes<32> =
+            packet.commitment_path().as_slice().try_into().unwrap();
 
         self.router
-            .getCommitment(fixed)
+            .getCommitment(commitment_path)
             .block(BlockId::Number(BlockNumberOrTag::Number(block_number)))
             .call()
             .await
@@ -97,12 +98,12 @@ impl Adapter for ArbitrumClient {
             timestamp: ts,
         })
     }
-    async fn get_latest_unsigned_packet_attestation(
+    async fn get_unsigned_packet_attestation_at_height(
         &self,
         packets: &Packets,
+        height: u64,
     ) -> Result<UnsignedPacketAttestation, AdapterError> {
         let mut futures = FuturesUnordered::new();
-        let height = self.get_latest_block_number().await.unwrap();
 
         for p in packets.packets() {
             let packet: Packet = serde_json::from_slice(p).unwrap();
