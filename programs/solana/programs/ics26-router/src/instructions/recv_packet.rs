@@ -163,7 +163,7 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     emit!(WriteAcknowledgementEvent {
         client_id: msg.packet.dest_client.clone(),
         sequence: msg.packet.sequence,
-        packet_data: msg.packet.try_to_vec().unwrap(),
+        packet_data: msg.packet.try_to_vec()?,
         acknowledgements: acks,
     });
 

@@ -54,4 +54,6 @@ pub enum RouterError {
     ClientNotActive,
     #[msg("Invalid counterparty client")]
     InvalidCounterpartyClient,
+    #[msg("Arithmetic overflow")]
+    ArithmeticOverflow,
 }

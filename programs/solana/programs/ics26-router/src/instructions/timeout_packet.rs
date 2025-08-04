@@ -132,7 +132,7 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     let dest_starting_lamports = ctx.accounts.payer.lamports();
     **ctx.accounts.payer.lamports.borrow_mut() = dest_starting_lamports
         .checked_add(packet_commitment_account.lamports())
-        .unwrap();
+        .ok_or(RouterError::ArithmeticOverflow)?;
     **packet_commitment_account.lamports.borrow_mut() = 0;
 
     let mut data = packet_commitment_account.try_borrow_mut_data()?;
@@ -141,7 +141,7 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     emit!(TimeoutPacketEvent {
         client_id: msg.packet.source_client.clone(),
         sequence: msg.packet.sequence,
-        packet_data: msg.packet.try_to_vec().unwrap(),
+        packet_data: msg.packet.try_to_vec()?,
     });
 
     Ok(())

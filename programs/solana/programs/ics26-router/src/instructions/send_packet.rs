@@ -97,7 +97,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     emit!(SendPacketEvent {
         client_id: msg.source_client,
         sequence,
-        packet_data: packet.try_to_vec().unwrap(),
+        packet_data: packet.try_to_vec()?,
     });
 
     Ok(sequence)
