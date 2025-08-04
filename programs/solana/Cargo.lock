@@ -1949,6 +1949,7 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "bincode",
  "mollusk-svm",
  "mollusk-svm-bencher",
  "sha2 0.10.9",

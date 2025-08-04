@@ -194,60 +194,14 @@ pub struct ClientStatusUpdatedEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::RouterState;
-    use anchor_lang::{AnchorDeserialize, AnchorSerialize, Discriminator, InstructionData};
+    use crate::test_utils::*;
+    use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_sdk::account::Account;
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::{native_loader, system_program};
-
-    fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u8> {
-        let mut data = T::DISCRIMINATOR.to_vec();
-        account.serialize(&mut data).unwrap();
-        data
-    }
-
-    fn setup_router_state(authority: Pubkey) -> (Pubkey, Vec<u8>) {
-        let (router_state_pda, _) = Pubkey::find_program_address(&[ROUTER_STATE_SEED], &crate::ID);
-
-        let router_state = RouterState { authority };
-
-        let router_state_data = create_account_data(&router_state);
-
-        (router_state_pda, router_state_data)
-    }
-
-    fn setup_client(
-        client_id: &str,
-        light_client_program: Pubkey,
-        authority: Pubkey,
-        active: bool,
-    ) -> (Pubkey, Vec<u8>) {
-        let (client_pda, _) =
-            Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &crate::ID);
-
-        let client = Client {
-            client_id: client_id.to_string(),
-            client_program_id: light_client_program,
-            counterparty_info: CounterpartyInfo {
-                client_id: "counterparty-client".to_string(),
-                connection_id: "connection-0".to_string(),
-                merkle_prefix: vec![0x01, 0x02, 0x03],
-            },
-            authority,
-            active,
-        };
-
-        let client_data = create_account_data(&client);
-
-        (client_pda, client_data)
-    }
-
-    /// Anchor error code offset
-    const ANCHOR_ERROR_OFFSET: u32 = 6000;
+    use solana_sdk::system_program;
 
     /// Helper struct for test configuration
     struct AddClientTestConfig<'a> {
@@ -321,66 +275,12 @@ mod tests {
         };
 
         let accounts = vec![
-            (
-                authority,
-                Account {
-                    lamports: 10_000_000_000,
-                    data: vec![],
-                    owner: system_program::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                router_state_pda,
-                Account {
-                    lamports: 1_000_000,
-                    data: router_state_data,
-                    owner: crate::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                client_pda,
-                Account {
-                    lamports: 0,
-                    data: vec![],
-                    owner: system_program::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                client_sequence_pda,
-                Account {
-                    lamports: 0,
-                    data: vec![],
-                    owner: system_program::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                light_client_program,
-                Account {
-                    lamports: 0,
-                    data: vec![],
-                    owner: native_loader::ID,
-                    executable: true,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                system_program::ID,
-                Account {
-                    lamports: 0,
-                    data: vec![],
-                    owner: native_loader::ID,
-                    executable: true,
-                    rent_epoch: 0,
-                },
-            ),
+            create_system_account(authority),
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_uninitialized_account(client_pda),
+            create_uninitialized_account(client_sequence_pda),
+            create_program_account(light_client_program),
+            create_program_account(system_program::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
@@ -575,8 +475,13 @@ mod tests {
         let client_id = "test-client-02";
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
-        let (client_pda, client_data) =
-            setup_client(client_id, light_client_program, authority, true);
+        let (client_pda, client_data) = setup_client(
+            client_id,
+            authority,
+            light_client_program,
+            "counterparty-client",
+            true,
+        );
 
         let instruction_data = crate::instruction::UpdateClient {
             client_id: client_id.to_string(),
@@ -595,36 +500,9 @@ mod tests {
         };
 
         let accounts = vec![
-            (
-                authority,
-                Account {
-                    lamports: 10_000_000_000,
-                    data: vec![],
-                    owner: system_program::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                router_state_pda,
-                Account {
-                    lamports: 1_000_000,
-                    data: router_state_data,
-                    owner: crate::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                client_pda,
-                Account {
-                    lamports: 1_000_000,
-                    data: client_data,
-                    owner: crate::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
+            create_system_account(authority),
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(client_pda, client_data, crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
