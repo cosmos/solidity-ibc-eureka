@@ -639,14 +639,8 @@ mod tests {
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, Pubkey::new_unique());
         let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 0);
 
-        let packet = create_test_packet(
-            1,
-            source_client_id,
-            client_id,
-            "source-port",
-            port_id,
-            1000,
-        );
+        let packet =
+            create_test_packet(1, source_client_id, client_id, "source-port", port_id, 1000);
 
         let msg = MsgRecvPacket {
             packet,

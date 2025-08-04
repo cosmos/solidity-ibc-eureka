@@ -144,7 +144,9 @@ pub fn create_clock_account() -> (Pubkey, solana_sdk::account::Account) {
     )
 }
 
-pub fn create_clock_account_with_data(clock_data: Vec<u8>) -> (Pubkey, solana_sdk::account::Account) {
+pub fn create_clock_account_with_data(
+    clock_data: Vec<u8>,
+) -> (Pubkey, solana_sdk::account::Account) {
     (
         solana_sdk::sysvar::clock::ID,
         solana_sdk::account::Account {
@@ -157,7 +159,11 @@ pub fn create_clock_account_with_data(clock_data: Vec<u8>) -> (Pubkey, solana_sd
     )
 }
 
-pub fn create_account(pubkey: Pubkey, data: Vec<u8>, owner: Pubkey) -> (Pubkey, solana_sdk::account::Account) {
+pub fn create_account(
+    pubkey: Pubkey,
+    data: Vec<u8>,
+    owner: Pubkey,
+) -> (Pubkey, solana_sdk::account::Account) {
     (
         pubkey,
         solana_sdk::account::Account {

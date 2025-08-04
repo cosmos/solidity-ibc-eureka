@@ -3,9 +3,9 @@ use anchor_lang::prelude::*;
 pub mod errors;
 pub mod instructions;
 pub mod state;
-pub mod utils;
 #[cfg(test)]
 pub mod test_utils;
+pub mod utils;
 
 use instructions::*;
 use state::{CounterpartyInfo, MsgAckPacket, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket};
