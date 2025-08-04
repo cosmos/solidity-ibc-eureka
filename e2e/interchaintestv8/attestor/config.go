@@ -31,7 +31,7 @@ func DefaultAttestorConfig() *AttestorConfig {
 	return &AttestorConfig{
 		Server: ServerConfig{
 			Address:  "0.0.0.0",
-			Port:     9000,
+			Port:     2025,
 			LogLevel: "info",
 		},
 		OP: OpConfig{

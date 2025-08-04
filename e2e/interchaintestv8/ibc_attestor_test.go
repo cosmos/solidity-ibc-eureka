@@ -385,6 +385,46 @@ func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPa
 
 }
 
+func (s *IbcAttestorTestSuite) Test_OptimismAttestorAttestsToLocalNode() {
+	ctx := context.Background()
+	proofType := types.GetEnvProofType()
+	s.AttestorAttestsToLocalNode(ctx, proofType, types.OptimismBinary)
+
+}
+
+func (s *IbcAttestorTestSuite) AttestorAttestsToLocalNode(ctx context.Context, proofType types.SupportedProofType, binaryPath types.AttestorBinaryPath) {
+	s.SetupSuite(ctx, proofType)
+
+	s.Require().True(s.Run("Setup attestor", func() {
+		config := attestor.DefaultAttestorConfig()
+
+		config.OP.URL = s.EthChain.RPC
+
+		err := config.WriteTomlConfig(testvalues.AttestorConfigPath)
+		s.Require().NoError(err)
+		s.T().Cleanup(func() {
+			err := attestor.CleanupConfig(testvalues.AttestorConfigPath)
+			s.Require().NoError(err)
+		})
+
+		cmd, err := attestor.StartAttestor(testvalues.AttestorConfigPath, binaryPath)
+		s.Require().NoError(err)
+		s.T().Cleanup(func() {
+			if cmd.Process != nil {
+				cmd.Process.Kill()
+			}
+		})
+		client, err := attestor.GetAttestationServiceClient(config.GetServerAddress())
+		s.Require().NoError(err)
+
+		resp, err := attestor.GetStateAttestation(ctx, client, 1)
+		s.Require().NoError(err)
+
+		s.T().Logf("state sig %s", resp.GetAttestation().GetSignature())
+	}))
+
+}
+
 func (s *IbcAttestorTestSuite) Test_Deploy() {
 	ctx := context.Background()
 	proofType := types.GetEnvProofType()
