@@ -82,10 +82,11 @@ impl OpConsensusClient {
         packet: &Packet,
         block_number: u64,
     ) -> Result<[u8; 32], AdapterError> {
-        let fixed: FixedBytes<32> = packet.commitment_path().as_slice().try_into().unwrap();
+        let commitment_path: FixedBytes<32> =
+            packet.commitment_path().as_slice().try_into().unwrap();
 
         self.router
-            .getCommitment(fixed)
+            .getCommitment(commitment_path)
             .block(BlockId::Number(BlockNumberOrTag::Number(block_number)))
             .call()
             .await
