@@ -10,6 +10,8 @@ use std::{net::SocketAddr, time::Duration};
 use tokio::{net::TcpListener, time::sleep};
 use tonic::{transport::Server, Request, Response, Status};
 
+// TODO: Split mock for state and packet attestation.
+
 #[derive(Debug, Default)]
 pub struct MockAttestor {
     pub_key: Vec<u8>,
@@ -45,7 +47,19 @@ impl AttestationService for MockAttestor {
         &self,
         _request: Request<PacketAttestationRequest>,
     ) -> Result<Response<PacketAttestationResponse>, Status> {
-        todo!()
+        if self.delay_ms > 0 {
+            sleep(Duration::from_millis(self.delay_ms)).await;
+        }
+        let attestation = Attestation {
+            height: 110, // TODO: get height from request
+            attested_data: vec![1; STATE_BYTE_LENGTH],
+            signature: vec![2; SIGNATURE_BYTE_LENGTH],
+            public_key: self.pub_key.clone(),
+        };
+
+        Ok(Response::new(PacketAttestationResponse {
+            attestation: Some(attestation),
+        }))
     }
 
     async fn state_attestation(

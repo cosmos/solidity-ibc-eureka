@@ -9,9 +9,11 @@ use crate::{
     },
 };
 use futures::future::join_all;
+use moka::future::Cache;
+use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use tokio::{
-    sync::{Mutex, RwLock},
+    sync::Mutex,
     time::{timeout, Duration},
 };
 use tonic::{transport::Channel, Request, Response, Status};
@@ -21,7 +23,8 @@ use tracing::error as tracing_error;
 pub struct Aggregator {
     attestor_config: Arc<AttestorConfig>,
     attestor_clients: Vec<Mutex<AttestationServiceClient<Channel>>>,
-    state_cache: RwLock<Option<GetStateAttestationResponse>>,
+    state_cache: Cache<u64, GetStateAttestationResponse>,
+    packet_cache: Cache<Vec<u8>, GetStateAttestationResponse>,
 }
 
 impl Aggregator {
@@ -31,7 +34,9 @@ impl Aggregator {
         Ok(Self {
             attestor_config: Arc::new(attestor_config),
             attestor_clients,
-            state_cache: RwLock::new(None),
+            // TODO: Make these configurable
+            state_cache: Cache::new(1000),
+            packet_cache: Cache::new(1000),
         })
     }
 
@@ -50,22 +55,6 @@ impl Aggregator {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| anyhow::anyhow!("Failed to connect to attestor: {e}"))
     }
-
-    async fn get_cached_response(&self, height: u64) -> Option<GetStateAttestationResponse> {
-        self.state_cache
-            .read()
-            .await
-            .as_ref()
-            .filter(|response| response.height >= height)
-            .cloned()
-    }
-
-    async fn update_cache(&self, new_resp: &GetStateAttestationResponse) {
-        let mut cached = self.state_cache.write().await;
-        if cached.as_ref().is_none_or(|c| new_resp.height > c.height) {
-            *cached = Some(new_resp.clone());
-        }
-    }
 }
 
 #[tonic::async_trait]
@@ -74,63 +63,54 @@ impl AggregatorService for Aggregator {
         &self,
         request: Request<GetStateAttestationRequest>,
     ) -> Result<Response<GetStateAttestationResponse>, Status> {
-        let packet_attestations = self
-            .get_packet_attestations(request.into_inner().packets)
-            .await?;
+        let mut packets = request.into_inner().packets;
+        packets.sort();
 
-        let quorum = get_quorum(
-            self.attestor_config.quorum_threshold,
-            packet_attestations
-                .into_iter()
-                .map(|r| Box::new(r) as Box<dyn ContainsAttestation + Send>)
-                .collect(),
-        )
-        .await?;
+        let packet_cache_key = Self::make_packet_cache_key(&packets);
 
-        let state = self
-            .get_aggregate_attestation(quorum.height)
-            .await?
-            .into_inner();
+        let packet_agg = self
+            .packet_cache
+            .try_get_with(packet_cache_key, async {
+                let packet_attestations = self.query_packet_attestations(packets).await?;
 
-        Ok(Response::new(GetStateAttestationResponse {
-            sig_pubkey_pairs: state.sig_pubkey_pairs,
-            state: state.state,
-            height: state.height,
-        }))
+                let quorumed_aggregation = Self::agg_quorumed_attestations(
+                    self.attestor_config.quorum_threshold,
+                    packet_attestations
+                        .into_iter()
+                        .map(|r| Box::new(r) as Box<dyn ContainsAttestation + Send>)
+                        .collect(),
+                )
+                .await?;
+
+                Ok(quorumed_aggregation)
+            })
+            .await
+            .map_err(|e: Arc<Status>| (*e).clone())?;
+
+        let state_attestations = self
+            .state_cache
+            .try_get_with(packet_agg.height, async {
+                let state_attestations = self.query_state_attestations(packet_agg.height).await?;
+                let quorumed_aggregation = Self::agg_quorumed_attestations(
+                    self.attestor_config.quorum_threshold,
+                    state_attestations
+                        .into_iter()
+                        .map(|r| Box::new(r) as Box<dyn ContainsAttestation + Send>)
+                        .collect(),
+                )
+                .await?;
+
+                Ok(quorumed_aggregation)
+            })
+            .await
+            .map_err(|e: Arc<Status>| (*e).clone())?;
+
+        Ok(Response::new(state_attestations))
     }
 }
 
 impl Aggregator {
-    async fn get_aggregate_attestation(
-        &self,
-        height: u64,
-    ) -> std::result::Result<Response<GetStateAttestationResponse>, Status> {
-        // Check cache first
-        if let Some(cached_response) = self.get_cached_response(height).await {
-            return Ok(Response::new(cached_response));
-        }
-
-        let responses = self.query_all_attestors(height).await?;
-        let aggregate_response = get_quorum(
-            self.attestor_config.quorum_threshold,
-            responses
-                .into_iter()
-                .map(|r| Box::new(r) as Box<dyn ContainsAttestation + Send>)
-                .collect(),
-        )
-        .await?;
-
-        if aggregate_response.height < height {
-            return Err(Status::not_found(format!(
-                "No valid attestations found for height >= {height}"
-            )));
-        }
-
-        self.update_cache(&aggregate_response).await;
-        Ok(Response::new(aggregate_response))
-    }
-
-    async fn get_packet_attestations(
+    async fn query_packet_attestations(
         &self,
         packets: Vec<Vec<u8>>,
     ) -> Result<Vec<PacketAttestationResponse>, Status> {
@@ -139,8 +119,9 @@ impl Aggregator {
 
         let query_futures = self.attestor_clients.iter().enumerate().map(|(i, client)| {
             let endpoint = &self.attestor_config.attestor_endpoints[i];
-            let packets = packets.clone();
-            let request = Request::new(PacketAttestationRequest { packets });
+            let request = Request::new(PacketAttestationRequest {
+                packets: packets.clone(),
+            });
 
             async move {
                 let mut client = client.lock().await;
@@ -174,13 +155,10 @@ impl Aggregator {
 
         Ok(successful_responses)
     }
-}
 
-impl Aggregator {
-    /// Query all attestors concurrently and collect successful responses
-    async fn query_all_attestors(
+    async fn query_state_attestations(
         &self,
-        min_height: u64,
+        height: u64,
     ) -> Result<Vec<StateAttestationResponse>, Status> {
         let timeout_duration =
             Duration::from_millis(self.attestor_config.attestor_query_timeout_ms);
@@ -190,7 +168,7 @@ impl Aggregator {
 
             async move {
                 let mut client = client.lock().await;
-                let request = Request::new(StateAttestationRequest { height: min_height });
+                let request = Request::new(StateAttestationRequest { height });
                 let response = timeout(timeout_duration, client.state_attestation(request)).await;
 
                 let result = match response {
@@ -221,26 +199,35 @@ impl Aggregator {
 
         Ok(successful_responses)
     }
-}
 
-/// Process attestor responses and create an aggregate response where the quorum is met.
-async fn get_quorum(
-    quorum_threshold: usize,
-    responses: Vec<Box<dyn ContainsAttestation + Send>>,
-) -> Result<GetStateAttestationResponse, Status> {
-    let mut attestator_data = AttestatorData::new();
+    fn make_packet_cache_key(packets: &[Vec<u8>]) -> Vec<u8> {
+        let mut concatenated = Vec::new();
+        for packet in packets {
+            let mut hasher = Sha256::new();
+            hasher.update(packet);
+            concatenated.extend_from_slice(&hasher.finalize());
+        }
+        concatenated
+    }
 
-    responses
-        .into_iter()
-        .filter_map(|response| response.get_attestation())
-        .for_each(|attestation| {
-            if let Err(e) = attestator_data.insert(attestation) {
-                tracing_error!("Invalid attestation, continuing with other responses: {e:#?}");
-            }
-        });
+    /// Process attestor responses and create an aggregate response where the quorum is met.
+    async fn agg_quorumed_attestations(
+        quorum_threshold: usize,
+        responses: Vec<Box<dyn ContainsAttestation + Send>>,
+    ) -> Result<GetStateAttestationResponse, Status> {
+        let mut attestator_data = AttestatorData::new();
+
+        responses
+            .into_iter()
+            .filter_map(|response| response.get_attestation())
+            .for_each(|attestation| {
+                if let Err(e) = attestator_data.insert(attestation) {
+                    tracing_error!("Invalid attestation, continuing with other responses: {e:#?}");
+                }
+            });
 
         attestator_data
-            .agg_quorumed_attestations(self.attestor_config.quorum_threshold)
+            .agg_quorumed_attestations(quorum_threshold)
             .ok_or(Status::failed_precondition("Quorum not met"))
     }
 }
@@ -268,12 +255,19 @@ mod e2e_tests {
         attestor_data::STATE_BYTE_LENGTH, config::AttestorConfig,
         mock_attestor::setup_attestor_server,
     };
+    use std::net::SocketAddr;
 
-    fn default_attestor_config(timeout: u64, attestor_endpoints: Vec<String>) -> AttestorConfig {
+    fn default_attestor_config(
+        timeout: u64,
+        attestor_endpoints: Vec<SocketAddr>,
+    ) -> AttestorConfig {
         AttestorConfig {
             attestor_query_timeout_ms: timeout,
             quorum_threshold: 3,
-            attestor_endpoints,
+            attestor_endpoints: attestor_endpoints
+                .into_iter()
+                .map(|s| format!("http://{s}"))
+                .collect(),
         }
     }
 
@@ -281,49 +275,37 @@ mod e2e_tests {
     async fn get_aggregate_attestation_quorum_met() {
         let _ = tracing_subscriber::fmt::try_init();
 
-        // 1. Setup: Create 3 successful attestors and 1 failing attestor.
+        // 1. Setup: Create 3 successful attestors and 1 malicious attestor.
         let (addr_1, pk_1) = setup_attestor_server(false, 0, 1).await.unwrap();
         let (addr_2, pk_2) = setup_attestor_server(false, 0, 2).await.unwrap();
         let (addr_3, pk_3) = setup_attestor_server(false, 0, 3).await.unwrap();
         let (addr_4, _) = setup_attestor_server(true, 0, 4).await.unwrap(); // This one is malicious
 
         // 2. Setup: Create AggregatorService
-        let config = default_attestor_config(
-            5000,
-            vec![
-                format!("http://{addr_1}"),
-                format!("http://{addr_2}"),
-                format!("http://{addr_3}"),
-                format!("http://{addr_4}"),
-            ],
-        );
-
+        let config = default_attestor_config(5000, vec![addr_1, addr_2, addr_3, addr_4]);
         let aggregator_service = Aggregator::from_attestor_config(config).await.unwrap();
 
         // 3. Execute: Query for an aggregated attestation
         let response = aggregator_service
-            .get_aggregate_attestation(110)
+            .query_state_attestations(110)
             .await
             .unwrap();
 
         // 4. Assert: Check the response
-        let aggres = response.into_inner();
-        assert_eq!(aggres.height, 110);
-        assert_eq!(aggres.sig_pubkey_pairs.len(), 3);
-        assert!(aggres
-            .sig_pubkey_pairs
+        assert_eq!(response.len(), 4);
+        assert!(response
             .iter()
-            .any(|pair| pair.pubkey == pk_1));
-        assert!(aggres
-            .sig_pubkey_pairs
+            .any(|r| r.attestation.as_ref().unwrap().public_key == pk_1));
+        assert!(response
             .iter()
-            .any(|pair| pair.pubkey == pk_2));
-        assert!(aggres
-            .sig_pubkey_pairs
+            .any(|r| r.attestation.as_ref().unwrap().public_key == pk_2));
+        assert!(response
             .iter()
-            .any(|pair| pair.pubkey == pk_3));
+            .any(|r| r.attestation.as_ref().unwrap().public_key == pk_3));
 
-        assert_eq!(aggres.state.len(), STATE_BYTE_LENGTH);
+        assert!(response
+            .iter()
+            .all(|r| r.attestation.as_ref().unwrap().attested_data.len() == STATE_BYTE_LENGTH));
     }
 
     #[tokio::test]
@@ -331,31 +313,21 @@ mod e2e_tests {
         let _ = tracing_subscriber::fmt::try_init();
 
         // 1. Setup: Create 3 successful attestors and 1 malicious attestor.
+        // But successful attestors will be timeouted.
         let (addr_1, _) = setup_attestor_server(false, 1000, 1).await.unwrap();
         let (addr_2, _) = setup_attestor_server(false, 1000, 2).await.unwrap();
         let (addr_3, _) = setup_attestor_server(false, 1000, 3).await.unwrap();
         let (addr_4, _) = setup_attestor_server(true, 0, 4).await.unwrap(); // This one is malicious
 
         // 2. Setup: Create AggregatorService
-        let config = default_attestor_config(
-            100,
-            vec![
-                format!("http://{addr_1}"),
-                format!("http://{addr_2}"),
-                format!("http://{addr_3}"),
-                format!("http://{addr_4}"),
-            ],
-        );
-
+        let config = default_attestor_config(100, vec![addr_1, addr_2, addr_3, addr_4]);
         let aggregator_service = Aggregator::from_attestor_config(config).await.unwrap();
 
         // 3. Execute: Query for an aggregated attestation
-        let response = aggregator_service.get_aggregate_attestation(100).await;
+        let response = aggregator_service.query_state_attestations(100).await;
 
         // 4. Assert: Can not reach quorum due to timeouts
-        assert!(response.is_err());
-        let status = response.unwrap_err();
-        assert_eq!(status.code(), tonic::Code::FailedPrecondition);
-        assert!(status.message().contains("Quorum not met"));
+        let response = response.unwrap();
+        assert_eq!(response.len(), 1);
     }
 }

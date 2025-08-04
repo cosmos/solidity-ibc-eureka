@@ -50,7 +50,7 @@ impl AttestatorData {
     }
 
     #[must_use]
-    pub fn agg_quorumed_attestations(&self, quorum: usize) -> Option<AggregateResponse> {
+    pub fn agg_quorumed_attestations(&self, quorum: usize) -> Option<GetStateAttestationResponse> {
         self.state_attestations
             .iter()
             .find(|(_, attestations)| attestations.len() >= quorum)
