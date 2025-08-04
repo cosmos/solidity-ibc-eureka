@@ -86,6 +86,7 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     let router_state = &ctx.accounts.router_state;
     let packet_receipt = &mut ctx.accounts.packet_receipt;
     let packet_ack = &mut ctx.accounts.packet_ack;
+    let client = &ctx.accounts.client;
     let clock = &ctx.accounts.clock;
 
     require!(
@@ -98,6 +99,11 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         RouterError::MultiPayloadPacketNotSupported
     );
 
+    require!(
+        msg.packet.source_client == client.counterparty_info.client_id,
+        RouterError::InvalidCounterpartyClient
+    );
+
     let current_timestamp = clock.unix_timestamp;
     require!(
         msg.packet.timeout_timestamp > current_timestamp,
@@ -105,7 +111,6 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     );
 
     // Verify packet commitment on counterparty chain via light client
-    let client = &ctx.accounts.client;
     let light_client_verification = LightClientVerification {
         light_client_program: ctx.accounts.light_client_program.clone(),
         client_state: ctx.accounts.client_state.clone(),

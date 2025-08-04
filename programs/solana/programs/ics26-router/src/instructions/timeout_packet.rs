@@ -61,6 +61,7 @@ pub struct TimeoutPacket<'info> {
 pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Result<()> {
     let router_state = &ctx.accounts.router_state;
     let packet_commitment = &ctx.accounts.packet_commitment;
+    let client = &ctx.accounts.client;
 
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
@@ -70,6 +71,11 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     require!(
         msg.packet.payloads.len() == 1,
         RouterError::MultiPayloadPacketNotSupported
+    );
+
+    require!(
+        msg.packet.dest_client == client.counterparty_info.client_id,
+        RouterError::InvalidCounterpartyClient
     );
 
     // Verify non-membership proof on counterparty chain via light client

@@ -139,6 +139,7 @@ pub fn update_client(ctx: Context<UpdateClient>, _client_id: String, active: boo
 const CLIENT_ID_PREFIX: &str = "client-";
 const CHANNEL_ID_PREFIX: &str = "channel-";
 
+// TODO: move to another crate
 /// Validates a custom IBC identifier
 /// - Length must be between 4 and 128 characters
 /// - Must NOT start with "client-" or "channel-" (reserved prefixes)

@@ -62,6 +62,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     // TODO: Support multi-payload packets #602
     let router_state = &ctx.accounts.router_state;
     let packet_commitment = &ctx.accounts.packet_commitment;
+    let client = &ctx.accounts.client;
 
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
@@ -73,18 +74,20 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         RouterError::MultiPayloadPacketNotSupported
     );
 
+    require!(
+        msg.packet.dest_client == client.counterparty_info.client_id,
+        RouterError::InvalidCounterpartyClient
+    );
+
     // Verify acknowledgement proof on counterparty chain via light client
-    let client = &ctx.accounts.client;
     let light_client_verification = LightClientVerification {
         light_client_program: ctx.accounts.light_client_program.clone(),
         client_state: ctx.accounts.client_state.clone(),
         consensus_state: ctx.accounts.consensus_state.clone(),
     };
 
-    let ack_path = ics24::packet_acknowledgement_commitment_path(
-        &msg.packet.dest_client,
-        msg.packet.sequence,
-    );
+    let ack_path =
+        ics24::packet_acknowledgement_commitment_path(&msg.packet.dest_client, msg.packet.sequence);
 
     let membership_msg = MembershipMsg {
         height: msg.proof_height,

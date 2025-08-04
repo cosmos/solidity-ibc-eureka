@@ -52,4 +52,6 @@ pub enum RouterError {
     ClientAlreadyExists,
     #[msg("Client not active")]
     ClientNotActive,
+    #[msg("Invalid counterparty client")]
+    InvalidCounterpartyClient,
 }
