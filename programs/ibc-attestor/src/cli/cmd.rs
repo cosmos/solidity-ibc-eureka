@@ -1,14 +1,14 @@
 //! Defines the client interface for the attestor server.
 use clap::{command, Parser};
 
-/// The command line interface for the attestor.
 #[derive(Clone, Debug, Parser)]
 #[command(
-    name = "ibc-attestor",
+    name = "ibc_attestor",
     version,
     about = "IBC Attestor - Blockchain state attestation service",
     long_about = "A service for generating cryptographic attestations of blockchain state.\nSupports key management and running attestation servers."
 )]
+/// The command line interface for the attestor.
 pub struct AttestorCli {
     /// The subcommand to run.
     #[command(subcommand)]
@@ -46,7 +46,7 @@ pub mod key {
     /// The subcommands for the attestor.
     #[derive(Clone, Debug, Parser)]
     pub enum KeyCommands {
-        /// The subcommand to generate a key pair at `...`
+        /// The subcommand to generate a key pair at `~/.ibc-attestor/ibc-attestor.pem`
         Generate,
         /// The subcommand to show your private and public keys
         Show,

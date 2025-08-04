@@ -84,7 +84,11 @@ install-relayer:
 # Install the optimism using `cargo install`
 [group('install')]
 install-op-attestor:
-	cargo install --bin ibc_attestor --path programs/ibc-attestor --locked -F op
+	# For some reason `cargo install` removes the CLI help options
+	# so we build manually and mv it to the default `cargo install`
+	# location
+	cargo build --bin ibc_attestor --release --locked -F op &&\
+	mv target/release/ibc_attestor ~/.cargo/bin/
 
 # Run all linters
 [group('lint')]
