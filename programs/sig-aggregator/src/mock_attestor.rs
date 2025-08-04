@@ -10,8 +10,6 @@ use std::{net::SocketAddr, time::Duration};
 use tokio::{net::TcpListener, time::sleep};
 use tonic::{transport::Server, Request, Response, Status};
 
-// TODO: Split mock for state and packet attestation.
-
 #[derive(Debug, Default)]
 pub struct MockAttestor {
     pub_key: Vec<u8>,
@@ -30,10 +28,20 @@ impl MockAttestor {
         }
     }
 
-    pub fn get_attestation(&self, height: u64) -> Attestation {
+    pub fn get_state_attestation(&self, height: u64) -> Attestation {
         let value = if self.is_malicious { 0 } else { 42 };
         Attestation {
             height,
+            attested_data: vec![value; STATE_BYTE_LENGTH],
+            signature: vec![value; SIGNATURE_BYTE_LENGTH],
+            public_key: self.pub_key.clone(),
+        }
+    }
+
+    pub fn get_packet_attestation(&self, _packet: Vec<Vec<u8>>) -> Attestation {
+        let value = if self.is_malicious { 0 } else { 42 };
+        Attestation {
+            height: 110, // TODO: get height from request
             attested_data: vec![value; STATE_BYTE_LENGTH],
             signature: vec![value; SIGNATURE_BYTE_LENGTH],
             public_key: self.pub_key.clone(),
@@ -45,17 +53,12 @@ impl MockAttestor {
 impl AttestationService for MockAttestor {
     async fn packet_attestation(
         &self,
-        _request: Request<PacketAttestationRequest>,
+        request: Request<PacketAttestationRequest>,
     ) -> Result<Response<PacketAttestationResponse>, Status> {
         if self.delay_ms > 0 {
             sleep(Duration::from_millis(self.delay_ms)).await;
         }
-        let attestation = Attestation {
-            height: 110, // TODO: get height from request
-            attested_data: vec![1; STATE_BYTE_LENGTH],
-            signature: vec![2; SIGNATURE_BYTE_LENGTH],
-            public_key: self.pub_key.clone(),
-        };
+        let attestation = self.get_packet_attestation(request.into_inner().packets);
 
         Ok(Response::new(PacketAttestationResponse {
             attestation: Some(attestation),
@@ -70,7 +73,7 @@ impl AttestationService for MockAttestor {
             sleep(Duration::from_millis(self.delay_ms)).await;
         }
 
-        let attestation = self.get_attestation(request.into_inner().height);
+        let attestation = self.get_state_attestation(request.into_inner().height);
         Ok(Response::new(StateAttestationResponse {
             attestation: Some(attestation),
         }))

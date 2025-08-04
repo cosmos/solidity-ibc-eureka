@@ -1,6 +1,6 @@
 use crate::{
     attestor_data::AttestatorData,
-    config::AttestorConfig,
+    config::{AttestorConfig, Config},
     rpc::{
         aggregator_service_server::AggregatorService,
         attestation_service_client::AttestationServiceClient, Attestation,
@@ -18,9 +18,6 @@ use tokio::{
 };
 use tonic::{transport::Channel, Request, Response, Status};
 use tracing::error as tracing_error;
-
-const STATE_CACHE_CAPACITY: u64 = 100000;
-const PACKET_CACHE_CAPACITY: u64 = 100000;
 
 #[derive(Clone)]
 enum AttestationQuery {
@@ -84,14 +81,14 @@ pub struct Aggregator {
 }
 
 impl Aggregator {
-    pub async fn from_attestor_config(attestor_config: AttestorConfig) -> anyhow::Result<Self> {
-        let attestor_clients = Self::create_clients(&attestor_config).await?;
+    pub async fn from_config(config: Config) -> anyhow::Result<Self> {
+        let attestor_clients = Self::create_clients(&config.attestor).await?;
 
         Ok(Self {
-            attestor_config: Arc::new(attestor_config),
+            attestor_config: Arc::new(config.attestor),
             attestor_clients,
-            state_cache: Cache::new(STATE_CACHE_CAPACITY),
-            packet_cache: Cache::new(PACKET_CACHE_CAPACITY),
+            state_cache: Cache::new(config.cache.state_cache_capacity),
+            packet_cache: Cache::new(config.cache.packet_cache_capacity),
         })
     }
 
@@ -221,8 +218,8 @@ impl Aggregator {
                         Err(e) => Err(Status::internal(format!("Conversion failed: {e:?}"))),
                     },
                     Ok(Err(status)) => Err(status),
-                    Err(_) => Err(Status::deadline_exceeded(format!(
-                        "Request timed out after {timeout_duration:?}"
+                    Err(e) => Err(Status::deadline_exceeded(format!(
+                        "Request timed out after {timeout_duration:?} Elapsed: {e:?}"
                     ))),
                 };
                 (endpoint, result)
@@ -281,23 +278,31 @@ impl Aggregator {
 mod e2e_tests {
     use super::*;
     use crate::{
-        attestor_data::STATE_BYTE_LENGTH, config::AttestorConfig,
+        attestor_data::STATE_BYTE_LENGTH,
+        config::{AttestorConfig, Config, ServerConfig},
         mock_attestor::setup_attestor_server,
     };
     use std::net::SocketAddr;
 
-    fn default_attestor_config(
+    fn default_config(
         timeout: u64,
         quorum_threshold: usize,
         attestor_endpoints: Vec<SocketAddr>,
-    ) -> AttestorConfig {
-        AttestorConfig {
-            attestor_query_timeout_ms: timeout,
-            quorum_threshold,
-            attestor_endpoints: attestor_endpoints
-                .into_iter()
-                .map(|s| format!("http://{s}"))
-                .collect(),
+    ) -> Config {
+        Config {
+            server: ServerConfig {
+                listener_addr: "127.0.0.1:8080".parse().unwrap(),
+                log_level: "INFO".to_string(),
+            },
+            attestor: AttestorConfig {
+                attestor_query_timeout_ms: timeout,
+                quorum_threshold,
+                attestor_endpoints: attestor_endpoints
+                    .into_iter()
+                    .map(|s| format!("http://{s}"))
+                    .collect(),
+            },
+            cache: Default::default(),
         }
     }
 
@@ -312,8 +317,8 @@ mod e2e_tests {
         let (addr_4, _) = setup_attestor_server(true, 0, 4).await.unwrap(); // This one is malicious
 
         // 2. Setup: Create AggregatorService
-        let config = default_attestor_config(5000, 3, vec![addr_1, addr_2, addr_3, addr_4]);
-        let aggregator_service = Aggregator::from_attestor_config(config).await.unwrap();
+        let config = default_config(5000, 3, vec![addr_1, addr_2, addr_3, addr_4]);
+        let aggregator_service = Aggregator::from_config(config).await.unwrap();
 
         // 3. Execute: Query for an aggregated attestation
         let response = aggregator_service
@@ -350,8 +355,8 @@ mod e2e_tests {
         let (addr_4, _) = setup_attestor_server(true, 0, 4).await.unwrap(); // This one is malicious
 
         // 2. Setup: Create AggregatorService
-        let config = default_attestor_config(100, 3, vec![addr_1, addr_2, addr_3, addr_4]);
-        let aggregator_service = Aggregator::from_attestor_config(config).await.unwrap();
+        let config = default_config(100, 3, vec![addr_1, addr_2, addr_3, addr_4]);
+        let aggregator_service = Aggregator::from_config(config).await.unwrap();
 
         // 3. Execute: Query for an aggregated attestation
         let response = aggregator_service.query_state_attestations(100).await;

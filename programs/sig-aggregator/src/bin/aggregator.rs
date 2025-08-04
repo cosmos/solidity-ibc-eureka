@@ -33,6 +33,6 @@ async fn main() -> Result<()> {
         config.attestor.attestor_endpoints
     );
 
-    let aggregator = Aggregator::from_attestor_config(config.attestor).await?;
+    let aggregator = Aggregator::from_config(config.clone()).await?;
     start_server(aggregator, config.server).await
 }

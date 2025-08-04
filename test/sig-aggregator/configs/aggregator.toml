@@ -10,3 +10,7 @@ attestor_endpoints = [
     "http://ibc-attestor-2:9001",
     "http://ibc-attestor-3:9002",
 ]
+
+[cache]
+state_cache_capacity = 50000
+packet_cache_capacity = 50000

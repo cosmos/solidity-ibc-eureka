@@ -55,15 +55,17 @@ mod tests {
                 quorum_threshold: 2,
                 attestor_endpoints: vec![format!("http://{addr_1}"), format!("http://{addr_2}")],
             },
+            cache: Default::default(),
         };
 
-        let service = Aggregator::from_attestor_config(config.attestor)
+        let server_config = config.server.clone();
+        let service = Aggregator::from_config(config)
             .await
             .expect("failed to build Aggregator");
 
         let server_handle = tokio::spawn({
             async move {
-                start(service, config.server)
+                start(service, server_config)
                     .await
                     .expect("server start failed");
             }
