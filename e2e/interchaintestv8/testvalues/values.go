@@ -128,6 +128,8 @@ const (
 	ParameterKey_ZkAlgorithm = "zk_algorithm"
 	// Checksum hex parameter key for the relayer's ethereum light client creation.
 	ParameterKey_ChecksumHex = "checksum_hex"
+	// The tmp path used for programatically generated attestor configs
+	AttestorConfigPath = "/tmp/attestor.toml"
 )
 
 var (

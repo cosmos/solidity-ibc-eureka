@@ -75,6 +75,7 @@ test-aggregator-services *flags="":
 [group('install')]
 install-operator:
 	cargo install --bin operator --path programs/operator --locked
+	cargo install --bin operator --path programs/operator --locked
 
 # Install the relayer using `cargo install`
 [group('install')]
@@ -83,12 +84,20 @@ install-relayer:
 
 # Install the optimism using `cargo install`
 [group('install')]
-install-op-attestor:
+install-attestor:
+	# Clean up old keys
+	rm -rf ~/.ibc-attestor
+
 	# For some reason `cargo install` removes the CLI help options
 	# so we build manually and mv it to the default `cargo install`
 	# location
-	cargo build --bin ibc_attestor --release --locked -F op &&\
-	mv target/release/ibc_attestor ~/.cargo/bin/
+
+	# Optimism
+	cargo build --bin ibc_attestor --release --locked --no-default-features -F op &&\
+	mv target/release/ibc_attestor ~/.cargo/bin/ibc_op_attestor
+	# Arbitrum
+	cargo build --bin ibc_attestor --release --locked --no-default-features -F arbitrum &&\
+	mv target/release/ibc_attestor ~/.cargo/bin/ibc_arbitrum_attestor
 
 # Run all linters
 [group('lint')]
@@ -253,7 +262,7 @@ test-abigen:
 
 # Run any e2e test using the test's full name. For example, `just test-e2e TestWithIbcEurekaTestSuite/Test_Deploy`
 [group('test')]
-test-e2e testname: clean-foundry install-relayer
+test-e2e testname: clean-foundry install-relayer install-attestor
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 

@@ -5,7 +5,7 @@ use alloy::{
     eips::{BlockId, BlockNumberOrTag},
 };
 use alloy_network::Ethereum;
-use alloy_primitives::FixedBytes;
+use alloy_primitives::{address, Address, FixedBytes};
 use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_client::{ClientBuilder, ReqwestClient};
 
@@ -34,15 +34,9 @@ impl OpClient {
         let raw_client: ReqwestClient = ClientBuilder::default().http(config.url.parse().unwrap());
         let client = RootProvider::<Ethereum>::new_http(config.url.parse().unwrap());
 
-        let address: FixedBytes<20> = config
-            .router_address
-            .clone()
-            .into_bytes()
-            .as_slice()
-            .try_into()
-            .unwrap();
-
+        let address = Address::parse_checksummed(&config.router_address, None).unwrap();
         let router = routerInstance::new(address.into(), client.clone());
+
         Self {
             raw_client,
             client,

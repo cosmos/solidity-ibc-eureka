@@ -36,6 +36,7 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
@@ -349,6 +350,39 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 			membershipVkey, ucAndMembershipVkey, misbehaviourVkey,
 		)
 	}))
+}
+func (s *IbcAttestorTestSuite) Test_OptimismAttestorStartUp() {
+	ctx := context.Background()
+	s.AttestorStartUpTest(ctx, types.OptimismBinary)
+
+}
+
+func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPath types.AttestorBinaryPath) {
+	s.Require().True(s.Run("Setup attestor", func() {
+		config := attestor.DefaultAttestorConfig()
+		err := config.WriteTomlConfig(testvalues.AttestorConfigPath)
+		s.Require().NoError(err)
+		s.T().Cleanup(func() {
+			err := attestor.CleanupConfig(testvalues.AttestorConfigPath)
+			s.Require().NoError(err)
+		})
+
+		cmd, err := attestor.StartAttestor(testvalues.AttestorConfigPath, binaryPath)
+		s.Require().NoError(err)
+		s.T().Cleanup(func() {
+			if cmd.Process != nil {
+				cmd.Process.Kill()
+			}
+		})
+		client, err := attestor.GetAttestationServiceClient(config.GetServerAddress())
+		s.Require().NoError(err)
+
+		resp, err := attestor.GetStateAttestation(ctx, client, 12345)
+		s.Require().NoError(err)
+
+		s.T().Logf("state sig %s", resp.GetAttestation().GetSignature())
+	}))
+
 }
 
 func (s *IbcAttestorTestSuite) Test_Deploy() {

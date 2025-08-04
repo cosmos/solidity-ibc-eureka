@@ -20,14 +20,17 @@ async fn main() -> Result<(), anyhow::Error> {
         Commands::Server(args) => {
             let config = AttestorConfig::from_file(args.config)?;
 
-            if cfg!(feature = "sol") {
+            #[cfg(feature = "sol")]
+            {
                 ibc_attestor::server::run_solana_server(config).await
-            } else if cfg!(feature = "op") {
+            }
+            #[cfg(feature = "op")]
+            {
                 ibc_attestor::server::run_optimism_server(config).await
-            } else if cfg!(feature = "arbitrum") {
+            }
+            #[cfg(feature = "arbitrum")]
+            {
                 ibc_attestor::server::run_arbitrum_server(config).await
-            } else {
-                unreachable!("At least one blockchain feature must be enabled")
             }
         }
         Commands::Key(cmd) => {
