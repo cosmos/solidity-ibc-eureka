@@ -90,7 +90,7 @@ jobs:
           python3 -m pip install slither-analyzer
 
       - name: Run Slither analysis
-        run: just slither
+        run: slither . --config-file .slither.config.json
 
       - name: Add security summary
         run: |
