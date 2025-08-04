@@ -120,7 +120,9 @@ func (x *StateAttestationResponse) GetAttestation() *Attestation {
 type PacketAttestationRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The packets to attest to
-	Packets       [][]byte `protobuf:"bytes,1,rep,name=packets,proto3" json:"packets,omitempty"`
+	Packets [][]byte `protobuf:"bytes,1,rep,name=packets,proto3" json:"packets,omitempty"`
+	// The height to attest to the packets at
+	Height        uint64 `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -160,6 +162,13 @@ func (x *PacketAttestationRequest) GetPackets() [][]byte {
 		return x.Packets
 	}
 	return nil
+}
+
+func (x *PacketAttestationRequest) GetHeight() uint64 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
 }
 
 // Response message for getting an attestation for a set of packets.
@@ -216,9 +225,10 @@ const file_ibc_attestor_ibc_attestor_proto_rawDesc = "" +
 	"\x17StateAttestationRequest\x12\x16\n" +
 	"\x06height\x18\x01 \x01(\x04R\x06height\"W\n" +
 	"\x18StateAttestationResponse\x12;\n" +
-	"\vattestation\x18\x01 \x01(\v2\x19.ibc_attestor.AttestationR\vattestation\"4\n" +
+	"\vattestation\x18\x01 \x01(\v2\x19.ibc_attestor.AttestationR\vattestation\"L\n" +
 	"\x18PacketAttestationRequest\x12\x18\n" +
-	"\apackets\x18\x01 \x03(\fR\apackets\"X\n" +
+	"\apackets\x18\x01 \x03(\fR\apackets\x12\x16\n" +
+	"\x06height\x18\x02 \x01(\x04R\x06height\"X\n" +
 	"\x19PacketAttestationResponse\x12;\n" +
 	"\vattestation\x18\x01 \x01(\v2\x19.ibc_attestor.AttestationR\vattestation2\xdd\x01\n" +
 	"\x12AttestationService\x12a\n" +

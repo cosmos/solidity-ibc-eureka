@@ -1,6 +1,7 @@
 use alloy::{
     consensus::BlockHeader,
     eips::{BlockId, BlockNumberOrTag},
+    sol_types::SolValue,
 };
 use alloy_network::Ethereum;
 use alloy_primitives::FixedBytes;
@@ -106,7 +107,7 @@ impl Adapter for ArbitrumClient {
         let mut futures = FuturesUnordered::new();
 
         for p in packets.packets() {
-            let packet: Packet = serde_json::from_slice(p).unwrap();
+            let packet = Packet::abi_decode(p).unwrap();
             let validate_commitment = async move |packet: Packet, height: u64| {
                 let cmt = self
                     .get_historical_packet_commitment(&packet, height)

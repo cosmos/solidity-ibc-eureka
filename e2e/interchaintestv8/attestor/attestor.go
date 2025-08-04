@@ -61,9 +61,10 @@ func GetStateAttestation(ctx context.Context, client attestortypes.AttestationSe
 }
 
 // GetPacketAttestation is a simple wrapper for the PacketAttestation gRPC call.
-func GetPacketAttestation(ctx context.Context, client attestortypes.AttestationServiceClient, packets [][]byte) (*attestortypes.PacketAttestationResponse, error) {
+func GetPacketAttestation(ctx context.Context, client attestortypes.AttestationServiceClient, packets [][]byte, height uint64) (*attestortypes.PacketAttestationResponse, error) {
 	req := &attestortypes.PacketAttestationRequest{
 		Packets: packets,
+		Height:  height,
 	}
 	return client.PacketAttestation(ctx, req)
 }
