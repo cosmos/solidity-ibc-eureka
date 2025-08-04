@@ -135,3 +135,6 @@ pub const PACKET_ACK_SEED: &[u8] = b"packet_ack";
 
 /// Maximum timeout duration (1 day in seconds)
 pub const MAX_TIMEOUT_DURATION: i64 = 86400;
+
+#[event]
+pub struct NoopEvent {}

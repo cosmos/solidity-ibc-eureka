@@ -177,6 +177,3 @@ pub struct WriteAcknowledgementEvent {
     pub packet_data: Vec<u8>,
     pub acknowledgements: Vec<Vec<u8>>,
 }
-
-#[event]
-pub struct NoopEvent {}

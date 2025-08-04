@@ -27,10 +27,10 @@ pub struct TimeoutPacket<'info> {
             msg.packet.source_client.as_bytes(),
             &msg.packet.sequence.to_le_bytes()
         ],
-        bump,
-        close = payer
+        bump
     )]
-    pub packet_commitment: Account<'info, Commitment>,
+    /// CHECK: We manually verify this account and handle the case where it doesn't exist
+    pub packet_commitment: AccountInfo<'info>,
 
     pub relayer: Signer<'info>,
 
@@ -60,7 +60,7 @@ pub struct TimeoutPacket<'info> {
 
 pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Result<()> {
     let router_state = &ctx.accounts.router_state;
-    let packet_commitment = &ctx.accounts.packet_commitment;
+    let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;
 
     require!(
@@ -106,15 +106,37 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         RouterError::InvalidTimeoutTimestamp
     );
 
-    let expected_commitment = ics24::packet_commitment_bytes32(&msg.packet);
-    require!(
-        packet_commitment.value == expected_commitment,
-        RouterError::PacketCommitmentMismatch
-    );
+    // Check if packet commitment exists (no-op case)
+    // An uninitialized account will be owned by System Program
+    if packet_commitment_account.owner != &crate::ID || packet_commitment_account.data_is_empty() {
+        emit!(NoopEvent {});
+        return Ok(());
+    }
+
+    // Safe to deserialize since we know it's owned by our program
+    // Verify the commitment value
+    {
+        let data = packet_commitment_account.try_borrow_data()?;
+        let packet_commitment = Commitment::try_from_slice(&data[8..])?;
+        let expected_commitment = ics24::packet_commitment_bytes32(&msg.packet);
+        require!(
+            packet_commitment.value == expected_commitment,
+            RouterError::PacketCommitmentMismatch
+        );
+    }
 
     // TODO: CPI to IBC app's onTimeoutPacket
 
-    // The account will be closed automatically by Anchor due to close = payer
+    // Close the account and return rent to payer
+    // TODO: Find more idiomatic way since we can't use auto close of anchor due to noop
+    let dest_starting_lamports = ctx.accounts.payer.lamports();
+    **ctx.accounts.payer.lamports.borrow_mut() = dest_starting_lamports
+        .checked_add(packet_commitment_account.lamports())
+        .unwrap();
+    **packet_commitment_account.lamports.borrow_mut() = 0;
+
+    let mut data = packet_commitment_account.try_borrow_mut_data()?;
+    data.fill(0);
 
     emit!(TimeoutPacketEvent {
         client_id: msg.packet.source_client.clone(),
