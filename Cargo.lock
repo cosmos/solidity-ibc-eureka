@@ -4436,6 +4436,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "ibc-eureka-relayer-attested-to-cosmos",
  "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-cosmos-to-cosmos",
  "ibc-eureka-relayer-cosmos-to-eth",
@@ -4447,6 +4448,26 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "warp",
+]
+
+[[package]]
+name = "ibc-eureka-relayer-attested-to-cosmos"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "hex",
+ "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-lib 0.1.0",
+ "ibc-eureka-utils 0.1.0",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "prost",
+ "serde",
+ "serde_json",
+ "tendermint-rpc",
+ "tonic 0.13.1",
+ "tonic-build",
+ "tracing",
 ]
 
 [[package]]
