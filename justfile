@@ -15,6 +15,11 @@ build-relayer:
 build-operator:
 	cargo build --bin operator --release --locked
 
+
+[group('build')]
+build-optimism-attestor:
+	cargo build --bin ibc_attestor --release --locked -F op
+
 # Build riscv elf files using `~/.sp1/bin/cargo-prove`
 [group('build')]
 build-sp1-programs:
@@ -75,6 +80,23 @@ install-operator:
 [group('install')]
 install-relayer:
 	cargo install --bin relayer --path programs/relayer --locked
+
+# Install the optimism using `cargo install`
+[group('install')]
+install-attestor:
+	# Clean up old keys
+	rm -rf ~/.ibc-attestor
+
+	# For some reason `cargo install` removes the CLI help options
+	# so we build manually and mv it to the default `cargo install`
+	# location
+
+	# Optimism
+	cargo build --bin ibc_attestor --release --locked --no-default-features -F op &&\
+	mv target/release/ibc_attestor ~/.cargo/bin/ibc_op_attestor
+	# Arbitrum
+	cargo build --bin ibc_attestor --release --locked --no-default-features -F arbitrum &&\
+	mv target/release/ibc_attestor ~/.cargo/bin/ibc_arbitrum_attestor
 
 # Run all linters
 [group('lint')]
@@ -239,7 +261,7 @@ test-abigen:
 
 # Run any e2e test using the test's full name. For example, `just test-e2e TestWithIbcEurekaTestSuite/Test_Deploy`
 [group('test')]
-test-e2e testname: clean-foundry install-relayer
+test-e2e testname: clean-foundry install-relayer install-attestor
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 
@@ -273,6 +295,7 @@ test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
+
 # Clean up the foundry cache and out directories
 [group('clean')]
 clean-foundry:
@@ -285,3 +308,41 @@ clean-cargo:
 	@echo "Cleaning up cargo target directory"
 	cargo clean
 	cd programs/sp1-programs && cargo clean
+
+# Spike related recipes below:
+
+run-optimism:
+	kurtosis run github.com/ethpandaops/optimism-package@1.3.0 --enclave local-optimism --args-file ./network-config.yaml
+
+teardown-optimism:
+	kurtosis enclave stop local-optimism
+	kurtosis enclave rm local-optimism
+
+run-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8
+	if [ ! -d "nitro-testnode" ]; then
+		git clone -b release --recurse-submodules https://github.com/OffchainLabs/nitro-testnode.git
+	else
+		cd nitro-testnode
+		git pull origin release
+		cd ..
+	fi
+	cd nitro-testnode
+	docker-compose down || true
+	./test-node.bash --init --no-simple --detach
+
+teardown-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8/nitro-testnode
+	docker-compose down || true
+
+[group('test')]
+test-e2e-l2-optimism testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2OptimismTestSuite/{{testname}}
+
+[group('test')]
+test-e2e-l2-arbitrum testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2ArbitrumTestSuite/{{testname}}

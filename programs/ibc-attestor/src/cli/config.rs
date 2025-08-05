@@ -9,6 +9,11 @@ use std::{
 use thiserror::Error;
 use tracing::Level;
 
+#[cfg(feature = "op")]
+use crate::OpClientConfig;
+#[cfg(feature = "arbitrum")]
+use crate::ArbitrumClientConfig;
+
 pub const IBC_ATTESTOR_DIR: LazyCell<PathBuf> = LazyCell::new(|| {
     env::home_dir()
         .map(|home| home.join(".ibc-attestor"))
@@ -32,8 +37,16 @@ pub struct AttestorConfig {
     pub signer: Option<SignerConfig>,
 
     #[cfg(feature = "sol")]
-    /// The configuration for the attestor signer.
+    /// The configuration for the Solana client.
     pub solana: SolanaClientConfig,
+
+    #[cfg(feature = "op")]
+    /// The configuration for the Optimism client.
+    pub op: OpClientConfig,
+
+    #[cfg(feature = "arbitrum")]
+    /// The configuration for the Arbitrum client.
+    pub arbitrum: ArbitrumClientConfig,
 }
 
 impl AttestorConfig {

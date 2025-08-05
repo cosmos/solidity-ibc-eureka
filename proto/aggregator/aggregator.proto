@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package aggregator;
 
+option go_package = "types/attestor";
+
 // The Aggregator service definition.
 service AggregatorService {
   // Queries the attestor with a list of packets. Then used that attestation to
