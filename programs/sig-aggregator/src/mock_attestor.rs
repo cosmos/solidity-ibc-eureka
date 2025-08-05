@@ -58,7 +58,13 @@ impl AttestationService for MockAttestor {
         if self.delay_ms > 0 {
             sleep(Duration::from_millis(self.delay_ms)).await;
         }
-        let attestation = self.get_packet_attestation(request.into_inner().packets);
+
+        let request = request.into_inner();
+        if request.packets.is_empty() {
+            return Err(Status::invalid_argument("Packets cannot be empty"));
+        }
+
+        let attestation = self.get_packet_attestation(request.packets);
 
         Ok(Response::new(PacketAttestationResponse {
             attestation: Some(attestation),

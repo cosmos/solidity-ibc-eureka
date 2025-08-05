@@ -37,7 +37,7 @@ mod tests {
         rpc::{aggregator_service_client::AggregatorServiceClient, GetStateAttestationRequest},
     };
     use tokio::time::{sleep, Duration};
-    use tonic::Request;
+    use tonic::{Code as StatusCode, Request};
 
     #[tokio::test]
     async fn server_accepts_and_responds_to_rpc() {
@@ -79,6 +79,14 @@ mod tests {
             .expect("client connect failed");
 
         let req = Request::new(GetStateAttestationRequest { packets: vec![] });
+        let resp = client.get_state_attestation(req).await;
+        assert!(resp.is_err());
+        assert_eq!(resp.err().unwrap().code(), StatusCode::InvalidArgument);
+
+        let req = Request::new(GetStateAttestationRequest {
+            packets: vec![vec![1, 2, 3]],
+        });
+
         let resp = client
             .get_state_attestation(req)
             .await

@@ -71,6 +71,19 @@ impl AggregatorService for Aggregator {
         request: Request<GetStateAttestationRequest>,
     ) -> Result<Response<AggregatedAttestation>, Status> {
         let mut packets = request.into_inner().packets;
+
+        if packets.is_empty() {
+            return Err(Status::invalid_argument("Packets cannot be empty"));
+        }
+
+        for (index, packet) in packets.iter().enumerate() {
+            if packet.is_empty() {
+                return Err(Status::invalid_argument(format!(
+                    "Packet at index {index} cannot be empty"
+                )));
+            }
+        }
+
         packets.sort();
 
         let packet_cache_key = Self::make_packet_cache_key(&packets);
