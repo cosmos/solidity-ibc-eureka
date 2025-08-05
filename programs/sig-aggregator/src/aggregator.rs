@@ -80,12 +80,8 @@ impl AggregatorService for Aggregator {
             return Err(Status::invalid_argument("Packets cannot be empty"));
         }
 
-        for (index, packet) in packets.iter().enumerate() {
-            if packet.is_empty() {
-                return Err(Status::invalid_argument(format!(
-                    "Packet at index {index} cannot be empty"
-                )));
-            }
+        if packets.iter().any(|packet| packet.is_empty()) {
+            return Err(Status::invalid_argument("Packet cannot be empty"));
         }
 
         let mut sorted_packets = packets.clone();
@@ -195,13 +191,9 @@ impl Aggregator {
     }
 
     fn make_packet_cache_key(packets: &[Vec<u8>], height: u64) -> (Vec<u8>, u64) {
-        let mut concatenated = Vec::with_capacity(packets.len() * 32);
-        for packet in packets {
-            let mut hasher = Sha256::new();
-            hasher.update(packet);
-            concatenated.extend_from_slice(&hasher.finalize());
-        }
-        (concatenated, height)
+        let mut hasher = Sha256::new();
+        packets.iter().for_each(|p| hasher.update(p));
+        (hasher.finalize().to_vec(), height)
     }
 
     /// Process attestations and create an aggregate response if the quorum is met.
