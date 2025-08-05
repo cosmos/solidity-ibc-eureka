@@ -1,0 +1,17 @@
+[package]
+name        = "tendermint-light-client-misbehaviour"
+description = "Check for misbehaviour program for tendermint-light-client"
+version     = { workspace = true }
+edition     = { workspace = true }
+repository  = { workspace = true }
+license     = { workspace = true }
+
+[dependencies]
+tendermint-light-client-verifier      = { workspace = true }
+ibc-client-tendermint                 = { workspace = true, features = ["serde"] }
+ibc-core-host-types                   = { workspace = true }
+ibc-core-client-types                 = { workspace = true }
+sha2                                  = { workspace = true }
+tendermint-light-client-update-client = { workspace = true }
+thiserror                             = { workspace = true }
+

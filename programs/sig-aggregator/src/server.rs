@@ -6,13 +6,13 @@ use crate::{
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 
 /// Starts the [AggregatorService] RPC server with the provided configuration.
-pub async fn start(service: AggregatorService, config: ServerConfig) -> Result<(), anyhow::Error> {
-    tracing::info!("Starting Server With Config: {:?}", config);
+pub async fn start(service: AggregatorService, config: ServerConfig) -> anyhow::Result<()> {
+    tracing::info!("Starting aggregator server on {}", config.listener_addr);
+
     let socket_addr = config.listener_addr;
     let reflection_service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(AGG_FILE_DESCRIPTOR)
-        .build_v1()
-        .unwrap();
+        .build_v1()?;
 
     tonic::transport::Server::builder()
         .layer(
@@ -23,8 +23,9 @@ pub async fn start(service: AggregatorService, config: ServerConfig) -> Result<(
         .add_service(AggregatorServer::new(service))
         .add_service(reflection_service)
         .serve(socket_addr)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to start server: {}", e))
+        .await?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -40,8 +41,8 @@ mod tests {
 
     #[tokio::test]
     async fn server_accepts_and_responds_to_rpc() {
-        let (addr_1, pk_1) = setup_attestor_server(false, 0).await.unwrap();
-        let (addr_2, pk_2) = setup_attestor_server(false, 0).await.unwrap();
+        let (addr_1, pk_1) = setup_attestor_server(false, 0, 1).await.unwrap();
+        let (addr_2, pk_2) = setup_attestor_server(false, 0, 2).await.unwrap();
 
         let listener_addr: String = "127.0.0.1:50051".to_string();
         let config = Config {
@@ -56,7 +57,7 @@ mod tests {
             },
         };
 
-        let service = AggregatorService::from_config(config.clone())
+        let service = AggregatorService::from_attestor_config(config.attestor)
             .await
             .expect("failed to build AggregatorService");
 
@@ -75,7 +76,7 @@ mod tests {
             .await
             .expect("client connect failed");
 
-        let req = Request::new(AggregateRequest { min_height: 11 });
+        let req = Request::new(AggregateRequest { min_height: 110 });
         let resp = client
             .get_aggregate_attestation(req)
             .await

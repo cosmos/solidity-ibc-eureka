@@ -1,0 +1,13 @@
+[package]
+name        = "tendermint-light-client-membership"
+description = "Verify (non)membership program for tendermint-light-client"
+version     = { workspace = true }
+edition     = { workspace = true }
+repository  = { workspace = true }
+license     = { workspace = true }
+
+[dependencies]
+ibc-core-commitment-types     = { workspace = true }
+ibc-core-host-types           = { workspace = true }
+thiserror                     = { workspace = true }
+

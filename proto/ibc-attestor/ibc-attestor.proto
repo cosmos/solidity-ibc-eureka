@@ -9,12 +9,10 @@ option go_package = "types/attestor";
 // Service definition for retrieving attestations.
 service AttestationService {
   // Retrieves an attestation for a state at a given height.
-  rpc StateAttestation(StateAttestationRequest)
-    returns (StateAttestationResponse);
+  rpc StateAttestation(StateAttestationRequest) returns (StateAttestationResponse);
 
   // Retrieves an attestation for a set of packets.
-  rpc PacketAttestation(PacketAttestationRequest)
-    returns (PacketAttestationResponse);
+  rpc PacketAttestation(PacketAttestationRequest) returns (PacketAttestationResponse);
 }
 
 // Request message for getting an attestation for a state at a given height.

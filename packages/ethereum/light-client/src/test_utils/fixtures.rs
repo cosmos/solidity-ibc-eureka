@@ -6,7 +6,7 @@ use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     ibc::core::{
-        channel::v2::{MsgAcknowledgement, MsgRecvPacket, Packet},
+        channel::v2::{MsgAcknowledgement, MsgRecvPacket, MsgTimeout, Packet},
         client::v1::MsgUpdateClient,
     },
 };
@@ -62,13 +62,14 @@ impl RelayerMessages {
         Vec<MsgUpdateClient>,
         Vec<MsgRecvPacket>,
         Vec<MsgAcknowledgement>,
+        Vec<MsgTimeout>,
     ) {
         let tx_body_bz = hex::decode(self.relayer_tx_body.clone()).unwrap();
         let tx_body = TxBody::decode(tx_body_bz.as_slice()).unwrap();
 
         tx_body.messages.iter().fold(
-            (Vec::new(), Vec::new(), Vec::new()),
-            |(mut update_clients, mut recv_msgs, mut ack_msgs), msg| {
+            (Vec::new(), Vec::new(), Vec::new(), Vec::new()),
+            |(mut update_clients, mut recv_msgs, mut ack_msgs, mut timeout_msgs), msg| {
                 match msg.type_url.as_str() {
                     "/ibc.core.client.v1.MsgUpdateClient" => {
                         // Decode as MsgUpdateClient
@@ -82,9 +83,13 @@ impl RelayerMessages {
                         // Decode as MsgAcknowledgement
                         ack_msgs.push(MsgAcknowledgement::decode(msg.value.as_slice()).unwrap());
                     }
+                    "/ibc.core.channel.v2.MsgTimeout" => {
+                        // Decode as MsgTimeout
+                        timeout_msgs.push(MsgTimeout::decode(msg.value.as_slice()).unwrap());
+                    }
                     _ => panic!("Unknown message type: {}", msg.type_url),
                 }
-                (update_clients, recv_msgs, ack_msgs)
+                (update_clients, recv_msgs, ack_msgs, timeout_msgs)
             },
         )
     }
@@ -96,9 +101,13 @@ impl RelayerMessages {
 /// # Returns
 /// A tuple with the commitment path and value
 #[must_use]
-pub fn get_packet_proof(packet: Packet) -> (Vec<u8>, Vec<u8>) {
+pub fn get_packet_paths(packet: Packet) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
     let ics26_packet: IICS26RouterMsgs::Packet = packet.into();
-    (ics26_packet.commitment_path(), ics26_packet.commitment())
+    (
+        ics26_packet.commitment_path(),
+        ics26_packet.commitment(),
+        ics26_packet.receipt_commitment_path(),
+    )
 }
 
 impl StepsFixture {

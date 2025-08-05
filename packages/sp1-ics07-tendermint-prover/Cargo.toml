@@ -18,5 +18,4 @@ prost      = { workspace = true }
 tracing = { workspace = true }
 
 ibc-proto                   = { workspace = true }
-ibc-client-tendermint-types = { workspace = true, features = ["serde"] }
 ibc-core-commitment-types   = { workspace = true }
