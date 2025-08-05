@@ -23,15 +23,17 @@ pub type AggregatedAttestation = GetStateAttestationResponse;
 
 #[derive(Clone)]
 enum AttestationQuery {
-    Packet(Vec<Vec<u8>>, u64),
-    State(u64),
+    Packet(Vec<Vec<u8>>, u64), // packets, height
+    State(u64),                // height
 }
 
 #[derive(Debug)]
 pub struct Aggregator {
     attestor_config: Arc<AttestorConfig>,
     attestor_clients: Vec<Mutex<AttestationServiceClient<Channel>>>,
+    // height -> aggregated attestation
     state_cache: Cache<u64, AggregatedAttestation>,
+    // (packets, height) -> aggregated attestation
     packet_cache: Cache<(Vec<u8>, u64), AggregatedAttestation>,
 }
 

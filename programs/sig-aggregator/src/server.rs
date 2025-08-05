@@ -78,7 +78,7 @@ mod tests {
             .await
             .expect("client connect failed");
 
-        // Check validation is called on empty packets.
+        // Check validation fails on empty packets.
         let req = Request::new(GetStateAttestationRequest {
             packets: vec![],
             height: 110,
