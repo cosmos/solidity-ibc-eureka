@@ -1,22 +1,25 @@
 use alloy::{
     consensus::BlockHeader,
     eips::{BlockId, BlockNumberOrTag},
+    hex::FromHex,
     sol_types::SolValue,
 };
 use alloy_network::Ethereum;
-use alloy_primitives::{keccak256, FixedBytes};
+use alloy_primitives::{keccak256, Address, FixedBytes};
 use alloy_provider::{Provider, RootProvider};
+
+mod config;
+
 use attestor_packet_membership::Packets;
 use futures::{stream::FuturesUnordered, StreamExt};
 use ibc_eureka_solidity_types::ics26::{router::routerInstance, IICS26RouterMsgs::Packet};
 
-mod config;
+use crate::adapter_client::{
+    AttestationAdapter, UnsignedPacketAttestation, UnsignedStateAttestation,
+};
+use crate::AttestorError;
 
 pub use config::ArbitrumClientConfig;
-
-use crate::adapter_client::{
-    AdapterError, AttestationAdapter, UnsignedPacketAttestation, UnsignedStateAttestation,
-};
 
 #[derive(Debug)]
 pub struct ArbitrumClient {
@@ -25,45 +28,34 @@ pub struct ArbitrumClient {
 }
 
 impl ArbitrumClient {
-    pub fn from_config(config: &ArbitrumClientConfig) -> Self {
-        let client = RootProvider::<Ethereum>::new_http(config.url.parse().unwrap());
-        let address: FixedBytes<20> = config
-            .router_address
-            .clone()
-            .into_bytes()
-            .as_slice()
-            .try_into()
-            .unwrap();
+    pub fn from_config(config: &ArbitrumClientConfig) -> Result<Self, AttestorError> {
+        let url = config
+            .url
+            .parse()
+            // Manual map here as the underlying error
+            // cannot be imported and `parse` requires
+            // type notation
+            .map_err(|_| {
+                AttestorError::ClientConfigError(format!("url {} could not be parsed", config.url))
+            })?;
+
+        let client = RootProvider::<Ethereum>::new_http(url);
+
+        let address = Address::from_hex(&config.router_address)
+            .map_err(|e| AttestorError::ClientConfigError(e.to_string()))?;
 
         let router = routerInstance::new(address.into(), client.clone());
-        Self { client, router }
+
+        Ok(Self { client, router })
     }
 
-    async fn get_latest_block_number(&self) -> Result<u64, AdapterError> {
-        self.client
-            // https://docs.arbitrum.io/for-devs/troubleshooting-building#how-many-block-numbers-must-we-wait-for-in-arbitrum-before-we-can-confidently-state-that-the-transaction-has-reached-finality
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await
-            .map_err(|e| AdapterError::FinalizedBlockError(e.to_string()))?
-            .ok_or_else(|| {
-                AdapterError::FinalizedBlockError(format!(
-                    "no Arbitrum block of kind {} found",
-                    BlockNumberOrTag::Latest
-                ))
-            })
-            .map(|header| header.header.number())
-    }
-
-    async fn get_timestamp_for_block_at_height(&self, height: u64) -> Result<u64, AdapterError> {
+    async fn get_timestamp_for_block_at_height(&self, height: u64) -> Result<u64, AttestorError> {
         self.client
             .get_block_by_number(BlockNumberOrTag::Number(height))
             .await
-            .map_err(|e| AdapterError::FinalizedBlockError(e.to_string()))?
+            .map_err(|e| AttestorError::ClientError(e.to_string()))?
             .ok_or_else(|| {
-                AdapterError::FinalizedBlockError(format!(
-                    "no Arbitrum block of kind {} found",
-                    BlockNumberOrTag::Latest
-                ))
+                AttestorError::ClientError(format!("no Arbitrum block of kind {height} found"))
             })
             .map(|header| header.header.timestamp())
     }
@@ -72,22 +64,20 @@ impl ArbitrumClient {
         &self,
         hashed_path: FixedBytes<32>,
         block_number: u64,
-    ) -> Result<[u8; 32], AdapterError> {
+    ) -> Result<[u8; 32], AttestorError> {
         let cmt = self
             .router
             .getCommitment(hashed_path)
             .block(BlockId::Number(BlockNumberOrTag::Number(block_number)))
             .call()
             .await
-            .map_err(|e| {
-                AdapterError::FinalizedBlockError(format!("Failed to get commitment: {}", e))
-            })?;
+            .map_err(|e| AttestorError::ClientError(e.to_string()))?;
 
         // Array of 0s means not found
         let is_empty = cmt.iter().max() == Some(&0);
         if is_empty {
-            Err(AdapterError::FinalizedBlockError(format!(
-                "commitment path {:?} at height {block_number} not found",
+            Err(AttestorError::ClientError(format!(
+                "commitment path {:?} at height {block_number} not found in Arbitrum L2",
                 hashed_path
             )))
         } else {
@@ -100,23 +90,22 @@ impl AttestationAdapter for ArbitrumClient {
     async fn get_unsigned_state_attestation_at_height(
         &self,
         height: u64,
-    ) -> Result<UnsignedStateAttestation, AdapterError> {
+    ) -> Result<UnsignedStateAttestation, AttestorError> {
         let ts = self.get_timestamp_for_block_at_height(height).await?;
         Ok(UnsignedStateAttestation {
             height,
             timestamp: ts,
         })
     }
-
     async fn get_unsigned_packet_attestation_at_height(
         &self,
         packets: &Packets,
         height: u64,
-    ) -> Result<UnsignedPacketAttestation, AdapterError> {
+    ) -> Result<UnsignedPacketAttestation, AttestorError> {
         let mut futures = FuturesUnordered::new();
 
         for p in packets.packets() {
-            let packet = Packet::abi_decode(p).unwrap();
+            let packet = Packet::abi_decode(p).map_err(AttestorError::DecodePacket)?;
             let validate_commitment = async move |packet: Packet, height: u64| {
                 let commitment_path = packet.commitment_path();
                 let hashed = keccak256(&commitment_path);
@@ -125,10 +114,9 @@ impl AttestationAdapter for ArbitrumClient {
                     .await?;
 
                 if &packet.commitment() != &cmt {
-                    Err(AdapterError::FinalizedBlockError(format!(
-                        "hashed paths are not the same: hashed {:?}, received {:?}",
-                        *hashed, cmt
-                    )))
+                    Err(AttestorError::InvalidCommitment {
+                        reason: "requested and received packet commitments do not match".into(),
+                    })
                 } else {
                     Ok(cmt)
                 }

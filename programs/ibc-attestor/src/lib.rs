@@ -13,6 +13,7 @@ pub mod server;
 pub mod signer;
 
 mod adapter_impls;
+mod error;
 
 #[cfg(feature = "arbitrum")]
 pub use adapter_impls::arbitrum::*;
@@ -22,3 +23,5 @@ pub use adapter_impls::optimism::*;
 
 #[cfg(feature = "sol")]
 pub use adapter_impls::sol::*;
+
+pub use error::AttestorError;

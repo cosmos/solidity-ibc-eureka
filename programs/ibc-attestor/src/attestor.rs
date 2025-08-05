@@ -3,8 +3,9 @@ use std::sync::Arc;
 use attestor_packet_membership::Packets;
 use tonic::{Response, Status};
 
+use crate::AttestorError;
 use crate::{
-    adapter_client::{AdapterError, AttestationAdapter},
+    adapter_client::AttestationAdapter,
     api::{
         attestation_service_server::AttestationService, Attestation, PacketAttestationRequest,
         PacketAttestationResponse, StateAttestationRequest, StateAttestationResponse,
@@ -51,12 +52,12 @@ where
     pub async fn get_latest_state_attestation(
         &self,
         height: u64,
-    ) -> Result<Attestation, AdapterError> {
+    ) -> Result<Attestation, AttestorError> {
         let unsigned = self
             .adapter
             .get_unsigned_state_attestation_at_height(height)
             .await?;
-        let signed = self.signer.sign(unsigned);
+        let signed = self.signer.sign(unsigned)?;
         Ok(signed)
     }
 
@@ -66,12 +67,12 @@ where
         &self,
         packets: &Packets,
         height: u64,
-    ) -> Result<Attestation, AdapterError> {
+    ) -> Result<Attestation, AttestorError> {
         let unsigned = self
             .adapter
             .get_unsigned_packet_attestation_at_height(&packets, height)
             .await?;
-        let signed = self.signer.sign(unsigned);
+        let signed = self.signer.sign(unsigned)?;
         Ok(signed)
     }
 }
