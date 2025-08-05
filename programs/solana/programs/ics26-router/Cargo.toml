@@ -34,4 +34,4 @@ sha2 = "0.10"
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
 solana-sdk.workspace = true
-bincode = "1.3"
+bincode.workspace = true
