@@ -58,22 +58,6 @@ impl TryFrom<AttestationResponse> for StateAttestationResponse {
     }
 }
 
-trait ContainsAttestation {
-    fn get_attestation(&self) -> Option<Attestation>;
-}
-
-impl ContainsAttestation for StateAttestationResponse {
-    fn get_attestation(&self) -> Option<Attestation> {
-        self.attestation.clone()
-    }
-}
-
-impl ContainsAttestation for PacketAttestationResponse {
-    fn get_attestation(&self) -> Option<Attestation> {
-        self.attestation.clone()
-    }
-}
-
 #[derive(Debug)]
 pub struct Aggregator {
     attestor_config: Arc<AttestorConfig>,
@@ -131,7 +115,7 @@ impl AggregatorService for Aggregator {
                     self.attestor_config.quorum_threshold,
                     packet_attestations
                         .into_iter()
-                        .map(|r| Box::new(r) as Box<dyn ContainsAttestation + Send>)
+                        .map(|r| r.attestation)
                         .collect(),
                 )
                 .await?;
@@ -149,7 +133,7 @@ impl AggregatorService for Aggregator {
                     self.attestor_config.quorum_threshold,
                     state_attestations
                         .into_iter()
-                        .map(|r| Box::new(r) as Box<dyn ContainsAttestation + Send>)
+                        .map(|r| r.attestation)
                         .collect(),
                 )
                 .await?;
@@ -254,21 +238,18 @@ impl Aggregator {
         concatenated
     }
 
-    /// Process attestor responses and create an aggregate response if the quorum is met.
+    /// Process attestations and create an aggregate response if the quorum is met.
     async fn agg_quorumed_attestations(
         quorum_threshold: usize,
-        responses: Vec<Box<dyn ContainsAttestation + Send>>,
+        attestations: Vec<Option<Attestation>>,
     ) -> Result<AggregatedAttestation, Status> {
         let mut attestator_data = AttestatorData::new();
 
-        responses
-            .into_iter()
-            .filter_map(|response| response.get_attestation())
-            .for_each(|attestation| {
-                if let Err(e) = attestator_data.insert(attestation) {
-                    tracing_error!("Invalid attestation, continuing with other responses: {e:#?}");
-                }
-            });
+        attestations.into_iter().flatten().for_each(|attestation| {
+            if let Err(e) = attestator_data.insert(attestation) {
+                tracing_error!("Invalid attestation, continuing with other responses: {e:#?}");
+            }
+        });
 
         attestator_data
             .agg_quorumed_attestations(quorum_threshold)
