@@ -71,7 +71,7 @@ impl AggregatorService for Aggregator {
         &self,
         request: Request<GetStateAttestationRequest>,
     ) -> Result<Response<AggregatedAttestation>, Status> {
-        let mut packets = request.get_ref().packets.clone();
+        let packets = request.get_ref().packets.clone();
         let height = request.get_ref().height;
 
         if packets.is_empty() {
@@ -86,15 +86,15 @@ impl AggregatorService for Aggregator {
             }
         }
 
-        packets.sort();
-
-        let packet_cache_key = Self::make_packet_cache_key(&packets, height);
+        let mut sorted_packets = packets.clone();
+        sorted_packets.sort();
+        let packet_cache_key = Self::make_packet_cache_key(&sorted_packets, height);
 
         let packet_agg = self
             .packet_cache
             .try_get_with(packet_cache_key, async {
                 let packet_attestations = self
-                    .query_attestations(AttestationQuery::Packet(packets, height))
+                    .query_attestations(AttestationQuery::Packet(sorted_packets, height))
                     .await?;
 
                 let quorumed_aggregation = Self::agg_quorumed_attestations(
@@ -193,7 +193,7 @@ impl Aggregator {
     }
 
     fn make_packet_cache_key(packets: &[Vec<u8>], height: u64) -> (Vec<u8>, u64) {
-        let mut concatenated = Vec::new();
+        let mut concatenated = Vec::with_capacity(packets.len() * 32);
         for packet in packets {
             let mut hasher = Sha256::new();
             hasher.update(packet);
