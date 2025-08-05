@@ -8,6 +8,8 @@
 )]
 
 mod error;
+mod packets;
 
 pub mod verify_packet_membership;
 pub use error::PacketAttestationError;
+pub use packets::Packets;

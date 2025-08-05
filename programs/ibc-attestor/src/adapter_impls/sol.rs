@@ -1,13 +1,15 @@
 use std::str::FromStr;
-use std::time::Duration;
 
+use attestor_packet_membership::Packets;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 
 mod account_state;
 
-use crate::adapter_client::{Adapter, AdapterError, Signable};
+use crate::adapter_client::{
+    Adapter, AdapterError, Signable, UnsignedPacketAttestation, UnsignedStateAttestation,
+};
 use crate::cli::SolanaClientConfig;
 
 pub use account_state::AccountState;
@@ -15,8 +17,6 @@ pub use account_state::AccountState;
 /// Relevant chain peek options. For their Solana
 /// interpretation see [these docs](https://docs.arbitrum.io/for-devs/troubleshooting-building#how-many-block-numbers-must-we-wait-for-in-arbitrum-before-we-can-confidently-state-that-the-transaction-has-reached-finality)
 enum PeekKind {
-    /// Most recent confirmed L2 block on ETH L1
-    Finalized,
     /// Latest L2 block
     Latest,
 }
@@ -41,7 +41,6 @@ impl SolanaClient {
         peek_kind: &PeekKind,
     ) -> Result<AccountState, AdapterError> {
         let commitment = match peek_kind {
-            PeekKind::Finalized => CommitmentConfig::finalized(),
             PeekKind::Latest => CommitmentConfig::confirmed(),
         };
 
@@ -66,22 +65,17 @@ impl SolanaClient {
 }
 
 impl Adapter for SolanaClient {
-    async fn get_latest_finalized_block(&self) -> Result<impl Signable, AdapterError> {
-        let account_state = self
-            .get_account_info_by_slot_height(&PeekKind::Finalized)
-            .await?;
-
-        Ok(account_state)
+    async fn get_unsigned_state_attestation_at_height(
+        &self,
+        height: u64,
+    ) -> Result<UnsignedStateAttestation, AdapterError> {
+        todo!()
     }
-    async fn get_latest_unfinalized_block(&self) -> Result<impl Signable, AdapterError> {
-        let account_state = self
-            .get_account_info_by_slot_height(&PeekKind::Latest)
-            .await?;
-
-        Ok(account_state)
-    }
-
-    fn block_time(&self) -> Duration {
-        Duration::from_millis(400)
+    async fn get_unsigned_packet_attestation_at_height(
+        &self,
+        packets: &Packets,
+        height: u64,
+    ) -> Result<UnsignedPacketAttestation, AdapterError> {
+        todo!()
     }
 }

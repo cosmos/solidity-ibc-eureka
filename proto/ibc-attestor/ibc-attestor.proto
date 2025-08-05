@@ -4,6 +4,8 @@ package ibc_attestor;
 
 import "attestation.proto";
 
+option go_package = "types/attestor";
+
 // Service definition for retrieving attestations.
 service AttestationService {
   // Retrieves an attestation for a state at a given height.
@@ -32,6 +34,8 @@ message StateAttestationResponse {
 message PacketAttestationRequest {
   // The packets to attest to
   repeated bytes packets = 1;
+  // The height to attest to the packets at
+  uint64 height = 2;
 }
 
 // Response message for getting an attestation for a set of packets.
