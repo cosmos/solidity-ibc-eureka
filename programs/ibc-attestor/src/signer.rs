@@ -7,7 +7,7 @@ use thiserror::Error;
 use crate::cli::SignerConfig;
 use crate::{adapter_client::Signable, api::Attestation};
 
-/// Signs `borsh` encoded byte data using
+/// Signs `serde` encoded byte data using
 /// the `secp256k1` algorithm.
 pub struct Signer {
     skey: SecretKey,
@@ -21,7 +21,7 @@ impl Signer {
     }
 
     pub fn sign(&self, signable_data: impl Signable) -> Attestation {
-        let bytes = signable_data.to_encoded_bytes();
+        let bytes = signable_data.to_serde_encoded_bytes();
         let height = signable_data.height();
 
         let digest = sha256::Hash::hash(&bytes);
