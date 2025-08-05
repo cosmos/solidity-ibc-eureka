@@ -10,12 +10,18 @@ import (
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ibc-attestor"
 )
 
+type AttestorBinaryPath = string
+
+const (
+	OptimismBinary AttestorBinaryPath = "ibc_op_attestor"
+	ArbitrumBinary AttestorBinaryPath = "ibc_arbitrum_attestor"
+)
+
 // StartAttestor starts the attestor with the given config file.
-func StartAttestor(configPath string, binaryPath types.AttestorBinaryPath) (*exec.Cmd, error) {
+func StartAttestor(configPath string, binaryPath AttestorBinaryPath) (*exec.Cmd, error) {
 	config, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
