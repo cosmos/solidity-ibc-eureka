@@ -31,9 +31,9 @@ func (s *TestSuite) getWasmLightClientBinary() *os.File {
 		s.Require().NoError(err, "Failed to get local Wasm light client binary")
 		return file
 	}
-	l2OrPos := []string{testvalues.EthTestnetTypePoS, testvalues.EthTestnetTypeArbitrum, testvalues.EthTestnetTypeOptimism}
+	allNonPowEvmTestnets := []string{testvalues.EthTestnetTypePoS, testvalues.EthTestnetTypeArbitrum, testvalues.EthTestnetTypeOptimism}
 
-	s.Require().True(slices.Contains(l2OrPos, s.ethTestnetType))
+	s.Require().True(slices.Contains(allNonPowEvmTestnets, s.ethTestnetType))
 
 	// If it is empty or set to "local", we use the local Wasm light client binary
 	if s.WasmLightClientTag == "" || s.WasmLightClientTag == testvalues.EnvValueWasmLightClientTag_Local {
