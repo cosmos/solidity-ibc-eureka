@@ -141,6 +141,7 @@ impl Adapter for ArbitrumClient {
             match maybe_cmt {
                 Ok(cmt) => validated.push(cmt),
                 Err(e) => {
+                    // NOTE: Do we fail fast here?
                     tracing::error!(
                         "failed to retrieve packet commitment for due to {}",
                         e.to_string()
