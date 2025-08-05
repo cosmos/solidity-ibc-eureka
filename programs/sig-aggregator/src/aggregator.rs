@@ -44,8 +44,8 @@ impl Aggregator {
         Ok(Self {
             attestor_config: Arc::new(config.attestor),
             attestor_clients,
-            state_cache: Cache::new(config.cache.state_cache_capacity),
-            packet_cache: Cache::new(config.cache.packet_cache_capacity),
+            state_cache: Cache::new(config.cache.state_cache_max_entries),
+            packet_cache: Cache::new(config.cache.packet_cache_max_entries),
         })
     }
 

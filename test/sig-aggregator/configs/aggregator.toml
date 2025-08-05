@@ -12,5 +12,5 @@ attestor_endpoints = [
 ]
 
 [cache]
-state_cache_capacity = 50000
-packet_cache_capacity = 50000
+state_cache_max_entries = 50000
+packet_cache_max_entries = 50000
