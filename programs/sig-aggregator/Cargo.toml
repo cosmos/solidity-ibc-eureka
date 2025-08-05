@@ -8,7 +8,7 @@ license = { workspace = true }
 [dependencies]
 moka = { workspace = true, features = ["future"] }
 
-tokio-stream = "0.1"
+tokio-stream = { workspace = true }
 tokio        = { workspace = true, features = ["full"] }
 futures      = { workspace = true }
 
@@ -34,8 +34,6 @@ prost = { workspace = true, default-features = true }
 rand  = { workspace = true, default-features = true }
 
 sha2 = { workspace = true, default-features = true }
-
-attestor-packet-membership = { workspace = true, default-features = false }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }

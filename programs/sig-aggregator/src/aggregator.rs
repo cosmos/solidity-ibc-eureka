@@ -8,7 +8,6 @@ use crate::{
         StateAttestationRequest,
     },
 };
-use attestor_packet_membership::Packets;
 use futures::future::join_all;
 use moka::future::Cache;
 use sha2::{Digest, Sha256};
@@ -24,8 +23,8 @@ pub type AggregatedAttestation = GetStateAttestationResponse;
 
 #[derive(Clone)]
 enum AttestationQuery {
-    Packet(Packets, u64), // packets, height
-    State(u64),           // height
+    Packet(Vec<Vec<u8>>, u64), // packets, height
+    State(u64),                // height
 }
 
 #[derive(Debug)]
@@ -74,7 +73,7 @@ impl AggregatorService for Aggregator {
         &self,
         request: Request<GetStateAttestationRequest>,
     ) -> Result<Response<AggregatedAttestation>, Status> {
-        let packets = request.get_ref().packets;
+        let packets = request.get_ref().packets.clone();
         let height = request.get_ref().height;
 
         if packets.is_empty() {
@@ -85,7 +84,7 @@ impl AggregatorService for Aggregator {
             return Err(Status::invalid_argument("Packet cannot be empty"));
         }
 
-        let mut sorted_packets = Packets::new(packets);
+        let mut sorted_packets = packets;
         sorted_packets.sort();
 
         let packet_cache_key = Self::make_packet_cache_key(&sorted_packets, height);
@@ -190,9 +189,9 @@ impl Aggregator {
         Ok(successful_responses)
     }
 
-    fn make_packet_cache_key(packets: &Packets, height: u64) -> (Vec<u8>, u64) {
+    fn make_packet_cache_key(packets: &[Vec<u8>], height: u64) -> (Vec<u8>, u64) {
         let mut hasher = Sha256::new();
-        packets.packets().for_each(|p| hasher.update(p));
+        packets.iter().for_each(|p| hasher.update(p));
         (hasher.finalize().to_vec(), height)
     }
 
