@@ -1,0 +1,15 @@
+[package]
+name = "l2-adapter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+
+[dependencies]
+alloy = { workspace = true, default-features = false, features = ["consensus", "serde", "eips"] }
+alloy-rpc-client = { workspace = true, default-features = false, features = ["reqwest"] }
+alloy-network = { workspace = true, default-features = false }
+alloy-provider = { workspace = true, default-features = false, features = ["reqwest"] }
+serde            = { workspace = true, default-features = false, features = ["derive"] }
+thiserror        = { workspace = true, default-features = false }
