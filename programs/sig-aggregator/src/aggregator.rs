@@ -29,7 +29,7 @@ enum AttestationQuery {
 
 #[derive(Debug)]
 pub struct Aggregator {
-    attestor_config: Arc<AttestorConfig>,
+    attestor_config: AttestorConfig,
     attestor_clients: Vec<Mutex<AttestationServiceClient<Channel>>>,
     // height -> aggregated attestation
     state_cache: Cache<u64, AggregatedAttestation>,
@@ -42,7 +42,7 @@ impl Aggregator {
         let attestor_clients = Self::create_clients(&config.attestor).await?;
 
         Ok(Self {
-            attestor_config: Arc::new(config.attestor),
+            attestor_config: config.attestor,
             attestor_clients,
             state_cache: Cache::new(config.cache.state_cache_max_entries),
             packet_cache: Cache::new(config.cache.packet_cache_max_entries),
@@ -98,8 +98,7 @@ impl AggregatorService for Aggregator {
                 let quorumed_aggregation = Self::agg_quorumed_attestations(
                     self.attestor_config.quorum_threshold,
                     packet_attestations,
-                )
-                .await?;
+                )?;
 
                 Ok(quorumed_aggregation)
             })
@@ -116,8 +115,7 @@ impl AggregatorService for Aggregator {
                 let quorumed_aggregation = Self::agg_quorumed_attestations(
                     self.attestor_config.quorum_threshold,
                     state_attestations,
-                )
-                .await?;
+                )?;
 
                 Ok(quorumed_aggregation)
             })
@@ -197,7 +195,8 @@ impl Aggregator {
     }
 
     /// Process attestations and create an aggregate response if the quorum is met.
-    async fn agg_quorumed_attestations(
+    #[allow(clippy::result_large_err)]
+    fn agg_quorumed_attestations(
         quorum_threshold: usize,
         attestations: Vec<Option<Attestation>>,
     ) -> Result<AggregatedAttestation, Status> {
