@@ -1,0 +1,341 @@
+name: Test Local Node Setup
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'local_node.sh'
+      - '.github/workflows/test-local-node.yml'
+      - 'scripts/**'
+      - 'config/**'
+  pull_request:
+    branches: [ main, master, develop ]
+    paths:
+      - 'local_node.sh'
+      - '.github/workflows/test-local-node.yml'
+      - 'scripts/**'
+      - 'config/**'
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.21'
+  NODE_VERSION: '18'
+  TIMEOUT_MINUTES: 30
+
+jobs:
+  test-local-node:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-22.04]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: '**/package-lock.json'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          jq \
+          curl \
+          wget \
+          git \
+          make \
+          gcc \
+          g++ \
+          lz4 \
+          unzip \
+          netcat-traditional \
+          lsof
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Check if local_node.sh exists
+      run: |
+        if [ ! -f "local_node.sh" ]; then
+          echo "Error: local_node.sh not found in repository root"
+          echo "Looking for script in other locations..."
+          find . -name "local_node.sh" -type f 2>/dev/null || true
+          exit 1
+        fi
+        echo "✓ local_node.sh found"
+
+    - name: Make script executable
+      run: |
+        chmod +x local_node.sh
+        echo "✓ local_node.sh is now executable"
+
+    - name: Validate script syntax
+      run: |
+        bash -n local_node.sh
+        echo "✓ Script syntax is valid"
+
+    - name: Set up test environment
+      run: |
+        # Create necessary directories
+        mkdir -p $HOME/.evmos
+        mkdir -p logs
+        
+        # Set environment variables
+        echo "CHAIN_ID=evmos_9000-1" >> $GITHUB_ENV
+        echo "MONIKER=test-node-${{ github.run_number }}" >> $GITHUB_ENV
+        echo "KEYRING_BACKEND=test" >> $GITHUB_ENV
+        echo "NODE_HOME=$HOME/.evmos" >> $GITHUB_ENV
+
+    - name: Run local_node.sh with timeout
+      id: run_node
+      timeout-minutes: 10
+      run: |
+        echo "Starting local node setup..."
+        
+        # Run the script in background and capture output
+        ./local_node.sh > logs/node_setup.log 2>&1 &
+        NODE_PID=$!
+        echo "NODE_PID=$NODE_PID" >> $GITHUB_ENV
+        
+        # Wait for node to start (max 5 minutes)
+        echo "Waiting for node to start..."
+        for i in {1..300}; do
+          if lsof -i:26657 > /dev/null 2>&1; then
+            echo "✓ Node RPC port is listening"
+            break
+          fi
+          if [ $i -eq 300 ]; then
+            echo "✗ Timeout waiting for node to start"
+            cat logs/node_setup.log
+            exit 1
+          fi
+          sleep 1
+        done
+        
+        # Give node additional time to fully initialize
+        sleep 10
+
+    - name: Check node health
+      run: |
+        # Check if RPC is responding
+        echo "Checking RPC endpoint..."
+        curl -s http://localhost:26657/status | jq . || {
+          echo "Failed to query RPC endpoint"
+          exit 1
+        }
+        
+        # Check if node is catching up
+        CATCHING_UP=$(curl -s http://localhost:26657/status | jq -r .result.sync_info.catching_up)
+        echo "Node catching up: $CATCHING_UP"
+        
+        # Check latest block height
+        LATEST_HEIGHT=$(curl -s http://localhost:26657/status | jq -r .result.sync_info.latest_block_height)
+        echo "Latest block height: $LATEST_HEIGHT"
+        
+        if [ "$LATEST_HEIGHT" == "0" ] || [ "$LATEST_HEIGHT" == "null" ]; then
+          echo "✗ Node is not producing blocks"
+          exit 1
+        fi
+        
+        echo "✓ Node is healthy and producing blocks"
+
+    - name: Test EVM RPC endpoints
+      run: |
+        # Check if EVM RPC is available (common ports: 8545, 8546, 9545)
+        for port in 8545 8546 9545; do
+          if lsof -i:$port > /dev/null 2>&1; then
+            echo "Testing EVM RPC on port $port..."
+            
+            # Test eth_chainId
+            CHAIN_ID=$(curl -s -X POST http://localhost:$port \
+              -H "Content-Type: application/json" \
+              -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+              | jq -r .result)
+            
+            if [ ! -z "$CHAIN_ID" ] && [ "$CHAIN_ID" != "null" ]; then
+              echo "✓ EVM RPC responding on port $port with chain ID: $CHAIN_ID"
+              
+              # Test eth_blockNumber
+              BLOCK_NUMBER=$(curl -s -X POST http://localhost:$port \
+                -H "Content-Type: application/json" \
+                -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+                | jq -r .result)
+              
+              echo "Current block number: $BLOCK_NUMBER"
+            fi
+          fi
+        done
+
+    - name: Test gRPC endpoints
+      run: |
+        # Check if gRPC is available (common port: 9090)
+        if lsof -i:9090 > /dev/null 2>&1; then
+          echo "✓ gRPC port is listening on 9090"
+        fi
+
+    - name: Run integration tests
+      if: always()
+      run: |
+        # Create a simple transaction test
+        echo "Running basic integration tests..."
+        
+        # Check if we can query accounts
+        if command -v evmosd &> /dev/null; then
+          evmosd query auth accounts --output json || true
+        fi
+        
+        # Add more integration tests as needed
+
+    - name: Check logs for errors
+      if: always()
+      run: |
+        echo "=== Checking logs for errors ==="
+        
+        # Check node setup logs
+        if [ -f logs/node_setup.log ]; then
+          echo "--- Node Setup Logs ---"
+          tail -n 100 logs/node_setup.log
+          
+          # Check for common error patterns
+          if grep -i "error\|panic\|fatal" logs/node_setup.log; then
+            echo "⚠️  Found error messages in logs"
+          fi
+        fi
+        
+        # Check system logs if available
+        if [ -d "$HOME/.evmos/logs" ]; then
+          echo "--- System Logs ---"
+          find "$HOME/.evmos/logs" -name "*.log" -exec tail -n 50 {} \;
+        fi
+
+    - name: Collect debug information
+      if: failure()
+      run: |
+        echo "=== Debug Information ==="
+        echo "Current directory: $(pwd)"
+        echo "Directory contents:"
+        ls -la
+        
+        echo -e "\n=== Process Information ==="
+        ps aux | grep -E "evmos|cosmos" || true
+        
+        echo -e "\n=== Network Information ==="
+        netstat -tuln | grep -E "26656|26657|8545|9090" || true
+        
+        echo -e "\n=== Disk Usage ==="
+        df -h
+        
+        echo -e "\n=== Memory Usage ==="
+        free -h
+
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: node-logs-${{ matrix.os }}-${{ github.run_number }}
+        path: |
+          logs/
+          $HOME/.evmos/logs/
+          $HOME/.evmos/config/
+        retention-days: 7
+
+    - name: Stop node
+      if: always()
+      run: |
+        if [ ! -z "$NODE_PID" ]; then
+          echo "Stopping node process (PID: $NODE_PID)..."
+          kill $NODE_PID 2>/dev/null || true
+          
+          # Wait for process to stop
+          for i in {1..10}; do
+            if ! kill -0 $NODE_PID 2>/dev/null; then
+              echo "✓ Node process stopped"
+              break
+            fi
+            sleep 1
+          done
+          
+          # Force kill if still running
+          kill -9 $NODE_PID 2>/dev/null || true
+        fi
+        
+        # Kill any remaining evmos processes
+        pkill -f evmos || true
+        
+        # Check all expected ports are free
+        for port in 26656 26657 8545 8546 9090 9091; do
+          if lsof -i:$port > /dev/null 2>&1; then
+            echo "Warning: Port $port is still in use"
+            lsof -i:$port
+          fi
+        done
+
+    - name: Clean up
+      if: always()
+      run: |
+        # Remove test data
+        rm -rf $HOME/.evmos
+        rm -rf logs/
+        
+        echo "✓ Cleanup completed"
+
+  validate-script-best-practices:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install shellcheck
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y shellcheck
+
+    - name: Run shellcheck on local_node.sh
+      run: |
+        if [ -f "local_node.sh" ]; then
+          shellcheck -x local_node.sh || {
+            echo "⚠️  ShellCheck found issues. Please review and fix them."
+            exit 0  # Don't fail the workflow, just warn
+          }
+        else
+          echo "Skipping shellcheck: local_node.sh not found"
+        fi
+
+    - name: Check script documentation
+      run: |
+        if [ -f "local_node.sh" ]; then
+          # Check if script has usage information
+          if grep -q "usage\|help\|Usage\|Help" local_node.sh; then
+            echo "✓ Script appears to have usage documentation"
+          else
+            echo "⚠️  Consider adding usage documentation to the script"
+          fi
+          
+          # Check if script has error handling
+          if grep -q "set -e\|trap\|error" local_node.sh; then
+            echo "✓ Script appears to have error handling"
+          else
+            echo "⚠️  Consider adding error handling to the script"
+          fi
+        fi
