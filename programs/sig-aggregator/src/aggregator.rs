@@ -17,7 +17,7 @@ use tokio::{
     time::{timeout, Duration},
 };
 use tonic::{transport::Channel, Request, Response, Status};
-use tracing::error as tracing_error;
+use tracing::{error as tracing_error, instrument};
 
 pub type AggregatedAttestation = GetStateAttestationResponse;
 
@@ -66,6 +66,7 @@ impl Aggregator {
 
 #[tonic::async_trait]
 impl AggregatorService for Aggregator {
+    #[instrument(skip_all, fields(packets = ?request.get_ref().packets))]
     async fn get_state_attestation(
         &self,
         request: Request<GetStateAttestationRequest>,
