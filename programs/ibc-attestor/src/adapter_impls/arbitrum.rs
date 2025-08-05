@@ -4,7 +4,7 @@ use alloy::{
     sol_types::SolValue,
 };
 use alloy_network::Ethereum;
-use alloy_primitives::FixedBytes;
+use alloy_primitives::{keccak256, FixedBytes};
 use alloy_provider::{Provider, RootProvider};
 use attestor_packet_membership::Packets;
 use futures::{stream::FuturesUnordered, StreamExt};
@@ -70,21 +70,29 @@ impl ArbitrumClient {
 
     async fn get_historical_packet_commitment(
         &self,
-        packet: &Packet,
+        hashed_path: FixedBytes<32>,
         block_number: u64,
     ) -> Result<[u8; 32], AdapterError> {
-        let commitment_path: FixedBytes<32> =
-            packet.commitment_path().as_slice().try_into().unwrap();
-
-        self.router
-            .getCommitment(commitment_path)
+        let cmt = self
+            .router
+            .getCommitment(hashed_path)
             .block(BlockId::Number(BlockNumberOrTag::Number(block_number)))
             .call()
             .await
             .map_err(|e| {
                 AdapterError::FinalizedBlockError(format!("Failed to get commitment: {}", e))
-            })
-            .map(|commitment| commitment.into())
+            })?;
+
+        // Array of 0s means not found
+        let is_empty = cmt.iter().max() == Some(&0);
+        if is_empty {
+            Err(AdapterError::FinalizedBlockError(format!(
+                "commitment path {:?} at height {block_number} not found",
+                hashed_path
+            )))
+        } else {
+            Ok(*cmt)
+        }
     }
 }
 
@@ -99,6 +107,7 @@ impl Adapter for ArbitrumClient {
             timestamp: ts,
         })
     }
+
     async fn get_unsigned_packet_attestation_at_height(
         &self,
         packets: &Packets,
@@ -109,11 +118,17 @@ impl Adapter for ArbitrumClient {
         for p in packets.packets() {
             let packet = Packet::abi_decode(p).unwrap();
             let validate_commitment = async move |packet: Packet, height: u64| {
+                let commitment_path = packet.commitment_path();
+                let hashed = keccak256(&commitment_path);
                 let cmt = self
-                    .get_historical_packet_commitment(&packet, height)
+                    .get_historical_packet_commitment(hashed, height)
                     .await?;
-                if packet.commitment() != cmt {
-                    Err(AdapterError::FinalizedBlockError("something".into()))
+
+                if &packet.commitment() != &cmt {
+                    Err(AdapterError::FinalizedBlockError(format!(
+                        "hashed paths are not the same: hashed {:?}, received {:?}",
+                        *hashed, cmt
+                    )))
                 } else {
                     Ok(cmt)
                 }
