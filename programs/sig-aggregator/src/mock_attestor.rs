@@ -6,6 +6,7 @@ use crate::{
         StateAttestationResponse,
     },
 };
+use attestor_packet_membership::Packets;
 use std::{net::SocketAddr, time::Duration};
 use tokio::{net::TcpListener, time::sleep};
 use tonic::{transport::Server, Request, Response, Status};
@@ -40,7 +41,7 @@ impl MockAttestor {
 
     // For this mock attestor, we can ignore the packet data. We can return the same height as the
     // request.
-    pub fn get_packet_attestation(&self, height: u64, _packet: Vec<Vec<u8>>) -> Attestation {
+    pub fn get_packet_attestation(&self, height: u64, _packet: Packets) -> Attestation {
         let value = if self.is_malicious { 0 } else { 42 };
         Attestation {
             height,

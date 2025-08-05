@@ -35,5 +35,7 @@ rand  = { workspace = true, default-features = true }
 
 sha2 = { workspace = true, default-features = true }
 
+attestor-packet-membership = { workspace = true, default-features = false }
+
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }
