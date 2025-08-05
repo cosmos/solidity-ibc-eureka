@@ -185,12 +185,11 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_sdk::account::Account;
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::sysvar::SysvarId;
-    use solana_sdk::{clock::Clock, native_loader, system_program};
+    use solana_sdk::{clock::Clock, system_program};
 
     #[test]
     fn test_recv_packet_unauthorized_sender() {
@@ -370,126 +369,18 @@ mod tests {
         };
 
         let accounts = vec![
-            (
-                router_state_pda,
-                Account {
-                    lamports: 1_000_000,
-                    data: router_state_data,
-                    owner: crate::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                ibc_app_pda,
-                Account {
-                    lamports: 1_000_000,
-                    data: ibc_app_data,
-                    owner: crate::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                client_sequence_pda,
-                Account {
-                    lamports: 1_000_000,
-                    data: client_sequence_data,
-                    owner: crate::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                packet_receipt_pda,
-                Account {
-                    lamports: 0,
-                    data: vec![],
-                    owner: system_program::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                packet_ack_pda,
-                Account {
-                    lamports: 0,
-                    data: vec![],
-                    owner: system_program::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                payer,
-                Account {
-                    lamports: 10_000_000_000,
-                    data: vec![],
-                    owner: system_program::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                system_program::ID,
-                Account {
-                    lamports: 0,
-                    data: vec![],
-                    owner: native_loader::ID,
-                    executable: true,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                client_pda,
-                Account {
-                    lamports: 1_000_000,
-                    data: client_data,
-                    owner: crate::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                Clock::id(),
-                Account {
-                    lamports: 1,
-                    data: vec![1u8; Clock::size_of()],
-                    owner: solana_sdk::sysvar::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                light_client_program,
-                Account {
-                    lamports: 0,
-                    data: vec![],
-                    owner: native_loader::ID,
-                    executable: true,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                client_state,
-                Account {
-                    lamports: 1_000_000,
-                    data: vec![0u8; 100],
-                    owner: light_client_program,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                consensus_state,
-                Account {
-                    lamports: 1_000_000,
-                    data: vec![0u8; 100],
-                    owner: light_client_program,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(ibc_app_pda, ibc_app_data, crate::ID),
+            create_account(client_sequence_pda, client_sequence_data, crate::ID),
+            create_uninitialized_account(packet_receipt_pda),
+            create_uninitialized_account(packet_ack_pda),
+            create_system_account(payer),
+            create_program_account(system_program::ID),
+            create_clock_account(),
+            create_account(client_pda, client_data, crate::ID),
+            create_program_account(light_client_program),
+            create_account(client_state, vec![0u8; 100], light_client_program),
+            create_account(consensus_state, vec![0u8; 100], light_client_program),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
