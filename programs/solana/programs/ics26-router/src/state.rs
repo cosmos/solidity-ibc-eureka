@@ -11,8 +11,6 @@ pub const MAX_CLIENT_ID_LENGTH: usize = 64;
 pub struct RouterState {
     /// Authority that can perform restricted operations
     pub authority: Pubkey,
-    /// Whether the router is initialized
-    pub initialized: bool,
 }
 
 /// `IBCApp` mapping port IDs to IBC app program IDs
@@ -61,9 +59,8 @@ pub struct Client {
 
 /// Client sequence tracking
 #[account]
+#[derive(InitSpace, Default)]
 pub struct ClientSequence {
-    /// The client identifier
-    pub client_id: String,
     /// Next sequence number for sending packets
     pub next_sequence_send: u64,
 }
@@ -138,3 +135,6 @@ pub const PACKET_ACK_SEED: &[u8] = b"packet_ack";
 
 /// Maximum timeout duration (1 day in seconds)
 pub const MAX_TIMEOUT_DURATION: i64 = 86400;
+
+#[event]
+pub struct NoopEvent {}

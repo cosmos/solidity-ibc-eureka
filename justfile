@@ -280,7 +280,7 @@ test-anchor-solana *ARGS:
 		(cd programs/solana && anchor test {{ARGS}}); \
 	fi
 
-# Run Solana unit tests (unit tests + mollusk + litesvm)
+# Run Solana unit tests (mollusk + litesvm)
 [group('test')]
 test-solana *ARGS:
 	@echo "Building and running Solana unit tests..."

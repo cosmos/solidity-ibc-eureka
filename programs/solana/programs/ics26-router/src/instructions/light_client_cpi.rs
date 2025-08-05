@@ -5,16 +5,6 @@ use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::program::invoke;
 use solana_light_client_interface::{discriminators, MembershipMsg};
 
-/// Message structure for light client non-membership verification
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct NonMembershipMsg {
-    pub height: u64,
-    pub delay_time_period: u64,
-    pub delay_block_period: u64,
-    pub proof: Vec<u8>,
-    pub path: Vec<Vec<u8>>,
-}
-
 /// Accounts needed for light client verification via CPI
 #[derive(Accounts)]
 pub struct LightClientVerification<'info> {
@@ -63,18 +53,13 @@ pub fn verify_membership_cpi(
 
     invoke(&ix, &account_infos)?;
 
-    emit!(MembershipVerifiedEvent {
-        client_id: client.client_id.clone(),
-        height: membership_msg.height,
-    });
-
     Ok(membership_msg.height)
 }
 
 pub fn verify_non_membership_cpi(
     client: &Client,
     light_client_accounts: &LightClientVerification,
-    non_membership_msg: NonMembershipMsg,
+    non_membership_msg: MembershipMsg,
 ) -> Result<u64> {
     require!(
         light_client_accounts.light_client_program.key() == client.client_program_id,
@@ -113,22 +98,5 @@ pub fn verify_non_membership_cpi(
 
     invoke(&ix, &account_infos)?;
 
-    emit!(NonMembershipVerifiedEvent {
-        client_id: client.client_id.clone(),
-        height: membership_msg.height,
-    });
-
     Ok(membership_msg.height)
-}
-
-#[event]
-pub struct MembershipVerifiedEvent {
-    pub client_id: String,
-    pub height: u64,
-}
-
-#[event]
-pub struct NonMembershipVerifiedEvent {
-    pub client_id: String,
-    pub height: u64,
 }
