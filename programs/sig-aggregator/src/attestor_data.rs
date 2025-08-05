@@ -1,4 +1,7 @@
-use crate::rpc::{Attestation, GetStateAttestationResponse, SigPubkeyPair};
+use crate::{
+    aggregator::AggregatedAttestation,
+    rpc::{Attestation, SigPubkeyPair},
+};
 use alloy_primitives::FixedBytes;
 use anyhow::{ensure as anyhow_ensure, Context, Result};
 use std::collections::HashMap;
@@ -50,7 +53,7 @@ impl AttestatorData {
     }
 
     #[must_use]
-    pub fn agg_quorumed_attestations(&self, quorum: usize) -> Option<GetStateAttestationResponse> {
+    pub fn agg_quorumed_attestations(&self, quorum: usize) -> Option<AggregatedAttestation> {
         self.state_attestations
             .iter()
             .find(|(_, attestations)| attestations.len() >= quorum)
@@ -63,7 +66,7 @@ impl AttestatorData {
                     })
                     .collect();
 
-                GetStateAttestationResponse {
+                AggregatedAttestation {
                     height: attestations[0].height,
                     state: state.to_vec(),
                     sig_pubkey_pairs,

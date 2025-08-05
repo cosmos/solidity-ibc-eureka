@@ -19,6 +19,8 @@ use tokio::{
 use tonic::{transport::Channel, Request, Response, Status};
 use tracing::error as tracing_error;
 
+pub type AggregatedAttestation = GetStateAttestationResponse;
+
 #[derive(Clone)]
 enum AttestationQuery {
     Packet(Vec<Vec<u8>>),
@@ -31,27 +33,27 @@ enum AttestationResponse {
 }
 
 impl TryFrom<AttestationResponse> for PacketAttestationResponse {
-    type Error = anyhow::Error;
+    type Error = &'static str;
 
-    fn try_from(value: AttestationResponse) -> anyhow::Result<Self> {
+    fn try_from(value: AttestationResponse) -> Result<Self, Self::Error> {
         match value {
             AttestationResponse::Packet(response) => Ok(response),
-            AttestationResponse::State(_) => Err(anyhow::anyhow!(
-                "Expected packet attestation, got state attestation"
-            )),
+            AttestationResponse::State(_) => {
+                Err("Expected packet attestation, got state attestation")
+            }
         }
     }
 }
 
 impl TryFrom<AttestationResponse> for StateAttestationResponse {
-    type Error = anyhow::Error;
+    type Error = &'static str;
 
-    fn try_from(value: AttestationResponse) -> anyhow::Result<Self> {
+    fn try_from(value: AttestationResponse) -> Result<Self, Self::Error> {
         match value {
             AttestationResponse::State(response) => Ok(response),
-            AttestationResponse::Packet(_) => Err(anyhow::anyhow!(
-                "Expected state attestation, got packet attestation"
-            )),
+            AttestationResponse::Packet(_) => {
+                Err("Expected state attestation, got packet attestation")
+            }
         }
     }
 }
@@ -76,8 +78,8 @@ impl ContainsAttestation for PacketAttestationResponse {
 pub struct Aggregator {
     attestor_config: Arc<AttestorConfig>,
     attestor_clients: Vec<Mutex<AttestationServiceClient<Channel>>>,
-    state_cache: Cache<u64, GetStateAttestationResponse>,
-    packet_cache: Cache<Vec<u8>, GetStateAttestationResponse>,
+    state_cache: Cache<u64, AggregatedAttestation>,
+    packet_cache: Cache<Vec<u8>, AggregatedAttestation>,
 }
 
 impl Aggregator {
@@ -114,7 +116,7 @@ impl AggregatorService for Aggregator {
     async fn get_state_attestation(
         &self,
         request: Request<GetStateAttestationRequest>,
-    ) -> Result<Response<GetStateAttestationResponse>, Status> {
+    ) -> Result<Response<AggregatedAttestation>, Status> {
         let mut packets = request.into_inner().packets;
         packets.sort();
 
@@ -256,7 +258,7 @@ impl Aggregator {
     async fn agg_quorumed_attestations(
         quorum_threshold: usize,
         responses: Vec<Box<dyn ContainsAttestation + Send>>,
-    ) -> Result<GetStateAttestationResponse, Status> {
+    ) -> Result<AggregatedAttestation, Status> {
         let mut attestator_data = AttestatorData::new();
 
         responses
