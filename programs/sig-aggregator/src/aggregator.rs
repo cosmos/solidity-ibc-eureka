@@ -23,7 +23,7 @@ pub type AggregatedAttestation = GetStateAttestationResponse;
 
 #[derive(Clone)]
 enum AttestationQuery {
-    Packet(Vec<Vec<u8>>),
+    Packet(Vec<Vec<u8>>, u64),
     State(u64),
 }
 
@@ -32,7 +32,7 @@ pub struct Aggregator {
     attestor_config: Arc<AttestorConfig>,
     attestor_clients: Vec<Mutex<AttestationServiceClient<Channel>>>,
     state_cache: Cache<u64, AggregatedAttestation>,
-    packet_cache: Cache<Vec<u8>, AggregatedAttestation>,
+    packet_cache: Cache<(Vec<u8>, u64), AggregatedAttestation>,
 }
 
 impl Aggregator {
@@ -71,7 +71,8 @@ impl AggregatorService for Aggregator {
         &self,
         request: Request<GetStateAttestationRequest>,
     ) -> Result<Response<AggregatedAttestation>, Status> {
-        let mut packets = request.into_inner().packets;
+        let mut packets = request.get_ref().packets.clone();
+        let height = request.get_ref().height;
 
         if packets.is_empty() {
             return Err(Status::invalid_argument("Packets cannot be empty"));
@@ -87,13 +88,13 @@ impl AggregatorService for Aggregator {
 
         packets.sort();
 
-        let packet_cache_key = Self::make_packet_cache_key(&packets);
+        let packet_cache_key = Self::make_packet_cache_key(&packets, height);
 
         let packet_agg = self
             .packet_cache
             .try_get_with(packet_cache_key, async {
                 let packet_attestations = self
-                    .query_attestations(AttestationQuery::Packet(packets))
+                    .query_attestations(AttestationQuery::Packet(packets, height))
                     .await?;
 
                 let quorumed_aggregation = Self::agg_quorumed_attestations(
@@ -145,8 +146,9 @@ impl Aggregator {
                 let mut client = client.lock().await;
                 let response = timeout(timeout_duration, async {
                     match query {
-                        AttestationQuery::Packet(packets) => {
-                            let request = Request::new(PacketAttestationRequest { packets });
+                        AttestationQuery::Packet(packets, height) => {
+                            let request =
+                                Request::new(PacketAttestationRequest { packets, height });
                             client
                                 .packet_attestation(request)
                                 .await
@@ -190,14 +192,14 @@ impl Aggregator {
         Ok(successful_responses)
     }
 
-    fn make_packet_cache_key(packets: &[Vec<u8>]) -> Vec<u8> {
+    fn make_packet_cache_key(packets: &[Vec<u8>], height: u64) -> (Vec<u8>, u64) {
         let mut concatenated = Vec::new();
         for packet in packets {
             let mut hasher = Sha256::new();
             hasher.update(packet);
             concatenated.extend_from_slice(&hasher.finalize());
         }
-        concatenated
+        (concatenated, height)
     }
 
     /// Process attestations and create an aggregate response if the quorum is met.

@@ -78,13 +78,18 @@ mod tests {
             .await
             .expect("client connect failed");
 
-        let req = Request::new(GetStateAttestationRequest { packets: vec![] });
+        // Check validation is called on empty packets.
+        let req = Request::new(GetStateAttestationRequest {
+            packets: vec![],
+            height: 110,
+        });
         let resp = client.get_state_attestation(req).await;
         assert!(resp.is_err());
         assert_eq!(resp.err().unwrap().code(), StatusCode::InvalidArgument);
 
         let req = Request::new(GetStateAttestationRequest {
             packets: vec![vec![1, 2, 3]],
+            height: 110,
         });
 
         let resp = client

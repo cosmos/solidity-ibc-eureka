@@ -16,6 +16,8 @@ service AggregatorService {
 message GetStateAttestationRequest {
   // The packets to attest to
   repeated bytes packets = 1;
+  // The height to attest to the packets at
+  uint64 height = 2;
 }
 
 // SigPubkeyPair is a pair of a signature and a public key.
