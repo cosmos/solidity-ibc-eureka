@@ -100,9 +100,7 @@ where
     ) -> Result<Response<PacketAttestationResponse>, Status> {
         let request_inner = request.into_inner();
         let packets = Packets::new(request_inner.packets);
-        let att = self
-            .get_latest_packet_attestation(&packets, request_inner.height)
-            .await?;
+        let att = self.get_latest_packet_attestation(&packets, request_inner.height).await?;
         Ok(PacketAttestationResponse {
             attestation: Some(att),
         }
