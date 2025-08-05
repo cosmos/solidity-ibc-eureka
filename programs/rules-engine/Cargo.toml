@@ -1,0 +1,11 @@
+[package]
+name = "rules-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+
+[dependencies]
+chrono = "0.4"
+rand = "0.9.1"

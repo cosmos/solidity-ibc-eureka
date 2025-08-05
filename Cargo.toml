@@ -9,14 +9,16 @@ members = [
     "packages/relayer-lib",
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
-     "packages/l2-adapter",
+    "packages/l2-adapter",
     "packages/attestor-multi-sig",
-
     "programs/relayer",
     "programs/operator",
     "programs/cw-ics08-wasm-eth",
-    "programs/event-loop"
-, "programs/l2-node-reader"]
+    "programs/event-loop",
+    "programs/rules-engine",
+    "programs/event-loop",
+    "programs/l2-node-reader"
+]
 resolver = "2"
 
 [workspace.package]
