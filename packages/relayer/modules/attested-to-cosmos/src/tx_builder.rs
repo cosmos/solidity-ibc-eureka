@@ -32,7 +32,6 @@ pub mod aggregator_proto {
 pub type AggregatorClient = aggregator_proto::aggregator_client::AggregatorClient<Channel>;
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on attestations from the aggregator.
-#[allow(dead_code)]
 pub struct TxBuilder {
     /// The aggregator URL for fetching attestations.
     pub aggregator_url: String,

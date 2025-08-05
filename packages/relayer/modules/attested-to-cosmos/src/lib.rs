@@ -32,34 +32,33 @@ use ibc_eureka_relayer_core::{
 pub struct AttestedToCosmosRelayerModule;
 
 /// The `AttestedToCosmosRelayerModuleService` defines the relayer service from Attested to Cosmos.
-#[allow(dead_code)]
 struct AttestedToCosmosRelayerModuleService {
+    /// The source chain ID for the attested chain.
+    pub attested_chain_id: String,
     /// The target chain listener for Cosmos SDK.
-    pub target_listener: cosmos_sdk::ChainListener,
+    pub tm_listener: cosmos_sdk::ChainListener,
     /// The transaction builder from Attested to Cosmos.
     pub tx_builder: tx_builder::TxBuilder,
-    /// The source chain ID for the attested chain.
-    pub src_chain_id: String,
 }
 
 /// The configuration for the Attested to Cosmos relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct AttestedToCosmosConfig {
+    /// The source chain ID for the attested chain.
+    pub attested_chain_id: String,
     /// The aggregator service URL for fetching attestations.
     pub aggregator_url: String,
     /// The target tendermint RPC URL.
-    pub target_rpc_url: String,
+    pub tm_rpc_url: String,
     /// The address of the submitter.
     /// Required since cosmos messages require a signer address.
     pub signer_address: String,
-    /// The source chain ID for the attested chain.
-    pub chain_id: String,
 }
 
 impl AttestedToCosmosRelayerModuleService {
     fn new(config: AttestedToCosmosConfig) -> Self {
-        let target_client = HttpClient::from_rpc_url(&config.target_rpc_url);
-        let target_listener = cosmos_sdk::ChainListener::new(target_client.clone());
+        let target_client = HttpClient::from_rpc_url(&config.tm_rpc_url);
+        let tm_listener = cosmos_sdk::ChainListener::new(target_client.clone());
 
         let tx_builder = tx_builder::TxBuilder::new(
             config.aggregator_url.clone(),
@@ -68,9 +67,9 @@ impl AttestedToCosmosRelayerModuleService {
         );
 
         Self {
-            target_listener,
+            tm_listener,
             tx_builder,
-            src_chain_id: config.chain_id,
+            attested_chain_id: config.attested_chain_id,
         }
     }
 }
@@ -86,7 +85,7 @@ impl RelayerService for AttestedToCosmosRelayerModuleService {
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
-                    .target_listener
+                    .tm_listener
                     .chain_id()
                     .await
                     .map_err(|e| tonic::Status::from_error(e.into()))?,
@@ -94,7 +93,7 @@ impl RelayerService for AttestedToCosmosRelayerModuleService {
                 ibc_contract: String::new(),
             }),
             source_chain: Some(api::Chain {
-                chain_id: self.src_chain_id.clone(),
+                chain_id: self.attested_chain_id.clone(),
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
@@ -234,9 +233,9 @@ mod tests {
     fn test_config_serialization() {
         let config = AttestedToCosmosConfig {
             aggregator_url: "http://localhost:8080".to_string(),
-            target_rpc_url: "http://localhost:26657".to_string(),
+            tm_rpc_url: "http://localhost:26657".to_string(),
             signer_address: "cosmos1abc123".to_string(),
-            chain_id: "attested-chain-1".to_string(),
+            attested_chain_id: "attested-chain-1".to_string(),
         };
 
         let json = serde_json::to_string(&config).expect("Failed to serialize config");
@@ -244,8 +243,8 @@ mod tests {
             serde_json::from_str(&json).expect("Failed to deserialize config");
 
         assert_eq!(config.aggregator_url, deserialized.aggregator_url);
-        assert_eq!(config.target_rpc_url, deserialized.target_rpc_url);
+        assert_eq!(config.tm_rpc_url, deserialized.tm_rpc_url);
         assert_eq!(config.signer_address, deserialized.signer_address);
-        assert_eq!(config.chain_id, deserialized.chain_id);
+        assert_eq!(config.attested_chain_id, deserialized.attested_chain_id);
     }
 }
