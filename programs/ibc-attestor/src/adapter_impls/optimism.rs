@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use alloy::{
     consensus::BlockHeader,
     eips::{BlockId, BlockNumberOrTag},
@@ -9,54 +7,32 @@ use alloy::{
 use alloy_network::Ethereum;
 use alloy_primitives::{keccak256, Address, FixedBytes};
 use alloy_provider::{Provider, RootProvider};
-use alloy_rpc_client::{ClientBuilder, ReqwestClient};
 
 mod config;
-mod header;
 
 use attestor_packet_membership::Packets;
 pub use config::OpClientConfig;
 use futures::{stream::FuturesUnordered, StreamExt};
 use ibc_eureka_solidity_types::ics26::{router::routerInstance, IICS26RouterMsgs::Packet};
 
-use crate::{
-    adapter_client::{Adapter, AdapterError, UnsignedPacketAttestation, UnsignedStateAttestation},
-    adapter_impls::optimism::header::SyncHeader,
+use crate::adapter_client::{
+    Adapter, AdapterError, UnsignedPacketAttestation, UnsignedStateAttestation,
 };
 
 #[derive(Debug)]
 pub struct OpClient {
-    raw_client: ReqwestClient,
     client: RootProvider,
     router: routerInstance<RootProvider>,
 }
 
 impl OpClient {
     pub fn from_config(config: &OpClientConfig) -> Self {
-        let raw_client: ReqwestClient = ClientBuilder::default().http(config.url.parse().unwrap());
         let client = RootProvider::<Ethereum>::new_http(config.url.parse().unwrap());
 
         let address = Address::from_hex(&config.router_address).unwrap();
         let router = routerInstance::new(address.into(), client.clone());
 
-        Self {
-            raw_client,
-            client,
-            router,
-        }
-    }
-
-    async fn get_latest_block_number(&self) -> Result<u64, AdapterError> {
-        let sync_state: HashMap<String, SyncHeader> = self
-            .raw_client
-            .request_noparams("optimism_syncStatus")
-            .await
-            .map_err(|e| AdapterError::FinalizedBlockError(e.to_string()))?;
-
-        sync_state
-            .get("unsafe_l2")
-            .ok_or(AdapterError::UnfinalizedBlockError("no unsafe l2".into()))
-            .map(|block| block.height)
+        Self { client, router }
     }
 
     async fn get_timestamp_for_block_at_height(&self, height: u64) -> Result<u64, AdapterError> {
