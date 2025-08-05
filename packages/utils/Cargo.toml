@@ -16,7 +16,6 @@ ibc-eureka-solidity-types        = { workspace = true }
 ibc-core-commitment-types        = { workspace = true }
 ibc-core-client-types            = { workspace = true }
 ibc-core-host-types              = { workspace = true, features = ["std"] }
-ibc-proto-eureka                 = { workspace = true }
 tendermint-light-client-verifier = { workspace = true }
 tendermint-rpc                   = { workspace = true }
 tendermint                       = { workspace = true }

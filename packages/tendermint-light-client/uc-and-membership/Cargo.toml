@@ -1,0 +1,17 @@
+[package]
+name        = "tendermint-light-client-uc-and-membership"
+description = "Update client and verify (non)membership program for tendermint-light-client"
+version     = { workspace = true }
+edition     = { workspace = true }
+repository  = { workspace = true }
+license     = { workspace = true }
+
+[dependencies]
+ibc-core-commitment-types             = { workspace = true }
+ibc-client-tendermint                 = { workspace = true }
+tendermint-light-client-update-client = { workspace = true }
+tendermint-light-client-membership    = { workspace = true }
+thiserror                             = { workspace = true }
+
+[dev-dependencies]
+ibc-core-client-types = { workspace = true }
