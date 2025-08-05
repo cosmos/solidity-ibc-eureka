@@ -23,10 +23,10 @@ func CreateAttestedToCosmosModules(
 			SrcChain: configInfo.AttestedChainID,
 			DstChain: configInfo.CosmosChainID,
 			Config: AttestedToCosmosModuleConfig{
-				AggregatorUrl: configInfo.AggregatorUrl,
-				TargetRpcUrl:  configInfo.CosmosTmRPC,
-				SignerAddress: configInfo.CosmosSignerAddress,
-				ChainId:       configInfo.AttestedChainID,
+				AggregatorUrl:   configInfo.AggregatorUrl,
+				TmRpcUrl:        configInfo.CosmosTmRPC,
+				SignerAddress:   configInfo.CosmosSignerAddress,
+				AttestedChainId: configInfo.AttestedChainID,
 			},
 		},
 	}

@@ -3,7 +3,8 @@ use crate::{
     config::AttestorConfig,
     rpc::{
         aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient,
-        AggregateRequest, AggregateResponse, StateAttestationRequest, StateAttestationResponse,
+        AggregateRequest, AggregateResponse, GetStateAttestationRequest, GetStateAttestationResponse,
+        StateAttestationRequest, StateAttestationResponse,
     },
 };
 use futures::future::join_all;
@@ -91,6 +92,16 @@ impl Aggregator for AggregatorService {
 
         self.update_cache(&aggregate_response).await;
         Ok(Response::new(aggregate_response))
+    }
+
+    #[instrument(skip_all)]
+    async fn get_state_attestation(
+        &self,
+        _request: Request<GetStateAttestationRequest>,
+    ) -> Result<Response<GetStateAttestationResponse>, Status> {
+        // For now, this is a placeholder implementation
+        // TODO: Implement actual state attestation logic
+        Err(Status::unimplemented("get_state_attestation not yet implemented"))
     }
 }
 

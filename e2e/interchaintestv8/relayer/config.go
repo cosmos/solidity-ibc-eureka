@@ -125,8 +125,8 @@ type ethToCosmosConfig struct {
 
 // AttestedToCosmosModuleConfig represents the configuration for attested_to_cosmos module
 type AttestedToCosmosModuleConfig struct {
-	AggregatorUrl string `json:"aggregator_url"`
-	TargetRpcUrl  string `json:"target_rpc_url"`
-	SignerAddress string `json:"signer_address"`
-	ChainId       string `json:"chain_id"`
+	AggregatorUrl   string `json:"aggregator_url"`
+	TmRpcUrl        string `json:"tm_rpc_url"`
+	SignerAddress   string `json:"signer_address"`
+	AttestedChainId string `json:"attested_chain_id"`
 }

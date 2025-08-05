@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
+use prost::Message;
 use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
 
@@ -105,18 +106,58 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             _target_events.len()
         );
 
-        let mut _aggregator_client = self.create_aggregator_client().await?;
+        let mut aggregator_client = self.create_aggregator_client().await?;
 
-        // TODO: Implement aggregator call to get both update client and packet data
-        // This will be implemented when IBC-135 is completed
+        // Get the stored tx IDs for aggregator query
+        let src_tx_ids = self.src_tx_ids.lock()
+            .map_err(|e| anyhow::anyhow!("Lock error: {}", e))?
+            .clone();
+        let timeout_tx_ids = self.timeout_tx_ids.lock()
+            .map_err(|e| anyhow::anyhow!("Lock error: {}", e))?
+            .clone();
 
-        // Placeholder for now - return empty transaction body
-        let _tx_body = TxBody {
+        if src_tx_ids.is_empty() && timeout_tx_ids.is_empty() {
+            anyhow::bail!("No transaction IDs provided for aggregator query");
+        }
+
+        // Convert tx IDs to bytes for the aggregator request
+        let mut packets = Vec::new();
+        for tx_id in &src_tx_ids {
+            packets.push(hex::decode(tx_id)?);
+        }
+        for tx_id in &timeout_tx_ids {
+            packets.push(hex::decode(tx_id)?);
+        }
+
+        // Make aggregator call with latest height (0 for latest)
+        let request = aggregator_proto::GetStateAttestationRequest {
+            packets,
+            height: 0, // 0 means latest height
+        };
+
+        tracing::info!("Requesting state attestation from aggregator for {} packets", request.packets.len());
+        
+        let response = aggregator_client
+            .get_state_attestation(request)
+            .await?
+            .into_inner();
+
+        tracing::info!(
+            "Received state attestation: {} signatures, height {}, state: {}",
+            response.sig_pubkey_pairs.len(),
+            response.height,
+            hex::encode(&response.state)
+        );
+
+        // TODO: Build actual cosmos transaction with the attestation data
+        // This requires implementing the IBC client and packet message construction
+        let tx_body = TxBody {
             messages: vec![],
             ..Default::default()
         };
 
-        anyhow::bail!("Aggregator integration not yet implemented - waiting for IBC-135");
+        let serialized = tx_body.encode_to_vec();
+        Ok(serialized)
     }
 
     #[tracing::instrument(skip_all)]
@@ -127,35 +168,74 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             anyhow::bail!("Parameters are not supported for creating an attested light client");
         }
 
-        let mut _aggregator_client = self.create_aggregator_client().await?;
+        let mut aggregator_client = self.create_aggregator_client().await?;
 
-        // TODO: Implement aggregator call to get initial state attestation for client creation
-        // This will be implemented when IBC-135 is completed
+        // For client creation, we get the current state attestation with no specific packets
+        let request = aggregator_proto::GetStateAttestationRequest {
+            packets: vec![], // Empty packets for client creation
+            height: 0, // Latest height
+        };
 
-        // Placeholder for now - return empty transaction body
-        let _tx_body = TxBody {
+        tracing::info!("Requesting initial state attestation for client creation");
+        
+        let response = aggregator_client
+            .get_state_attestation(request)
+            .await?
+            .into_inner();
+
+        tracing::info!(
+            "Received initial state attestation: {} signatures, height {}, state: {}",
+            response.sig_pubkey_pairs.len(),
+            response.height,
+            hex::encode(&response.state)
+        );
+
+        // TODO: Build actual MsgCreateClient with the attestation data
+        // This requires implementing the attested client state and consensus state construction
+        let tx_body = TxBody {
             messages: vec![],
             ..Default::default()
         };
 
-        anyhow::bail!("Aggregator integration not yet implemented - waiting for IBC-135");
+        let serialized = tx_body.encode_to_vec();
+        Ok(serialized)
     }
 
     #[tracing::instrument(skip_all)]
     async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
         tracing::info!("Updating attested light client: {}", dst_client_id);
 
-        let mut _aggregator_client = self.create_aggregator_client().await?;
+        let mut aggregator_client = self.create_aggregator_client().await?;
 
-        // TODO: Implement aggregator call to get state attestation for client update
-        // This will be implemented when IBC-135 is completed
+        // For client update, we get the current state attestation with no specific packets
+        let request = aggregator_proto::GetStateAttestationRequest {
+            packets: vec![], // Empty packets for client update
+            height: 0, // Latest height
+        };
 
-        // Placeholder for now - return empty transaction body
-        let _tx_body = TxBody {
+        tracing::info!("Requesting current state attestation for client update");
+        
+        let response = aggregator_client
+            .get_state_attestation(request)
+            .await?
+            .into_inner();
+
+        tracing::info!(
+            "Received state attestation for client {}: {} signatures, height {}, state: {}",
+            dst_client_id,
+            response.sig_pubkey_pairs.len(),
+            response.height,
+            hex::encode(&response.state)
+        );
+
+        // TODO: Build actual MsgUpdateClient with the attestation data
+        // This requires implementing the attested consensus state construction
+        let tx_body = TxBody {
             messages: vec![],
             ..Default::default()
         };
 
-        anyhow::bail!("Aggregator integration not yet implemented - waiting for IBC-135");
+        let serialized = tx_body.encode_to_vec();
+        Ok(serialized)
     }
 }

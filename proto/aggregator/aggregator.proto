@@ -2,16 +2,43 @@ syntax = "proto3";
 
 package aggregator;
 
+option go_package = "types/attestor";
+
 // The Aggregator service definition.
 service Aggregator {
-  // Queries the aggregator for an aggregated attestation.
+  // Queries the attestor with a list of packets. Then used that attestation to
+  // get the state attestation.
+  rpc GetStateAttestation(GetStateAttestationRequest) returns (GetStateAttestationResponse);
+  
+  // Get aggregate attestation for a given minimum height
   rpc GetAggregateAttestation(AggregateRequest) returns (AggregateResponse);
 }
 
-// AggregateRequest is a request to the aggregator.
+// Request message for getting an aggregate attestation
 message AggregateRequest {
-  // The minimum height for the aggregated attestation.
+  // The minimum height to get attestations for
   uint64 min_height = 1;
+}
+
+// Response message for aggregate attestation
+message AggregateResponse {
+  // The height of the aggregated state
+  uint64 height = 1;
+  // The aggregated state. 12 bytes.
+  bytes state = 2;
+  // A list of signature and public key pairs.
+  repeated SigPubkeyPair sig_pubkey_pairs = 3;
+}
+
+// Request message for getting an attestation for a set of packets.
+// This request's parameters does not include a height at the moment, because
+// we are currently only attesting to the latest height, and using the returned
+// height to request a state attestation.
+message GetStateAttestationRequest {
+  // The packets to attest to
+  repeated bytes packets = 1;
+  // The height to attest to the packets at
+  uint64 height = 2;
 }
 
 // SigPubkeyPair is a pair of a signature and a public key.
@@ -22,12 +49,12 @@ message SigPubkeyPair {
   bytes pubkey = 2; // 65 bytes
 }
 
-// AggregateResponse is a response from the aggregator.
-message AggregateResponse {
+// GetStateAttestationResponse is a response from the aggregator.
+message GetStateAttestationResponse {
   // A list of signature and public key pairs.
   repeated SigPubkeyPair sig_pubkey_pairs = 1;
-  // The aggregated state.
-  bytes state = 2; // 32 bytes
+  // The aggregated state. 12 bytes.
+  bytes state = 2;
   // The height of the aggregated state.
   uint64 height = 3;
 }
