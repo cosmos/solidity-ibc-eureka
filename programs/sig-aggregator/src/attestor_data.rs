@@ -67,7 +67,7 @@ impl AttestatorData {
                     .collect();
 
                 AggregatedAttestation {
-                    height: attestations[0].height,
+                    height: attestations.first().unwrap().height,
                     state: state.to_vec(),
                     sig_pubkey_pairs,
                 }

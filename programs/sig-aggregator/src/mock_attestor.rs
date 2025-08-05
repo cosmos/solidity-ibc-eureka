@@ -41,7 +41,7 @@ impl MockAttestor {
     pub fn get_packet_attestation(&self, _packet: Vec<Vec<u8>>) -> Attestation {
         let value = if self.is_malicious { 0 } else { 42 };
         Attestation {
-            height: 110, // TODO: get height from request
+            height: 110, // TODO: get height from request. Blocked by IBC-148
             attested_data: vec![value; STATE_BYTE_LENGTH],
             signature: vec![value; SIGNATURE_BYTE_LENGTH],
             public_key: self.pub_key.clone(),
