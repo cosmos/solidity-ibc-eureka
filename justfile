@@ -75,7 +75,6 @@ test-aggregator-services *flags="":
 [group('install')]
 install-operator:
 	cargo install --bin operator --path programs/operator --locked
-	cargo install --bin operator --path programs/operator --locked
 
 # Install the relayer using `cargo install`
 [group('install')]
