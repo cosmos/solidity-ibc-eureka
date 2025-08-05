@@ -37,7 +37,7 @@ impl Signable for UnsignedPacketAttestation {
     }
 }
 
-pub trait Adapter: Sync + Send + 'static {
+pub trait AttestationAdapter: Sync + Send + 'static {
     fn get_unsigned_state_attestation_at_height(
         &self,
         height: u64,

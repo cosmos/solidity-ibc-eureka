@@ -4,7 +4,7 @@ use attestor_packet_membership::Packets;
 use tonic::{Response, Status};
 
 use crate::{
-    adapter_client::{Adapter, AdapterError},
+    adapter_client::{AdapterError, AttestationAdapter},
     api::{
         attestation_service_server::AttestationService, Attestation, PacketAttestationRequest,
         PacketAttestationResponse, StateAttestationRequest, StateAttestationResponse,
@@ -33,14 +33,14 @@ use crate::{
 ///
 /// These methods use internal types before converting them into
 /// RPC generated types in the [AttestationService] trait implementation.
-pub struct AttestorService<A: Adapter> {
+pub struct AttestorService<A: AttestationAdapter> {
     adapter: A,
     signer: Signer,
 }
 
 impl<A> AttestorService<A>
 where
-    A: Adapter,
+    A: AttestationAdapter,
 {
     pub fn new(adapter: A, signer: Signer) -> Self {
         Self { adapter, signer }
@@ -79,7 +79,7 @@ where
 #[tonic::async_trait]
 impl<A> AttestationService for Arc<AttestorService<A>>
 where
-    A: Adapter,
+    A: AttestationAdapter,
 {
     async fn state_attestation(
         &self,
@@ -100,7 +100,9 @@ where
     ) -> Result<Response<PacketAttestationResponse>, Status> {
         let request_inner = request.into_inner();
         let packets = Packets::new(request_inner.packets);
-        let att = self.get_latest_packet_attestation(&packets, request_inner.height).await?;
+        let att = self
+            .get_latest_packet_attestation(&packets, request_inner.height)
+            .await?;
         Ok(PacketAttestationResponse {
             attestation: Some(att),
         }

@@ -4,19 +4,19 @@ use tonic::transport::Server as TonicServer;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 
 use crate::{
-    adapter_client::Adapter,
+    adapter_client::AttestationAdapter,
     api::{self, attestation_service_server::AttestationServiceServer},
     attestor::AttestorService,
     cli::{AttestorConfig, ServerConfig},
     signer::Signer,
 };
 
-#[cfg(feature = "sol")]
-use crate::SolanaClient;
-#[cfg(feature = "op")]
-use crate::OpClient;
 #[cfg(feature = "arbitrum")]
 use crate::ArbitrumClient;
+#[cfg(feature = "op")]
+use crate::OpClient;
+#[cfg(feature = "sol")]
+use crate::SolanaClient;
 
 /// Simple server that accepts inbound RPC calls for [AttestationServiceServer]
 /// and periodically updates attestation state.
@@ -26,7 +26,7 @@ pub struct Server<A> {
 
 impl<A> Server<A>
 where
-    A: Adapter,
+    A: AttestationAdapter,
 {
     /// Starts the [AttestorService] RPC server and attestation store
     /// updates.
@@ -54,7 +54,7 @@ async fn run_rpc_inbound_server<A>(
     server_service: Arc<AttestorService<A>>,
     server_config: ServerConfig,
 ) where
-    A: Adapter,
+    A: AttestationAdapter,
 {
     let socket_addr = format!("{}:{}", server_config.address, server_config.port);
     tracing::info!(%socket_addr, "Starting relayer...");

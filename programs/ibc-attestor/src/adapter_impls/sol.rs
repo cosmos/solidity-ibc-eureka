@@ -8,7 +8,7 @@ use solana_sdk::pubkey::Pubkey;
 mod account_state;
 
 use crate::adapter_client::{
-    Adapter, AdapterError, Signable, UnsignedPacketAttestation, UnsignedStateAttestation,
+    AdapterError, AttestationAdapter, Signable, UnsignedPacketAttestation, UnsignedStateAttestation,
 };
 use crate::cli::SolanaClientConfig;
 
@@ -64,7 +64,7 @@ impl SolanaClient {
     }
 }
 
-impl Adapter for SolanaClient {
+impl AttestationAdapter for SolanaClient {
     async fn get_unsigned_state_attestation_at_height(
         &self,
         height: u64,

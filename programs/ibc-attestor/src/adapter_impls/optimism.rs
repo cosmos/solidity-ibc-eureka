@@ -16,7 +16,7 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use ibc_eureka_solidity_types::ics26::{router::routerInstance, IICS26RouterMsgs::Packet};
 
 use crate::adapter_client::{
-    Adapter, AdapterError, UnsignedPacketAttestation, UnsignedStateAttestation,
+    AdapterError, AttestationAdapter, UnsignedPacketAttestation, UnsignedStateAttestation,
 };
 
 #[derive(Debug)]
@@ -77,7 +77,7 @@ impl OpClient {
     }
 }
 
-impl Adapter for OpClient {
+impl AttestationAdapter for OpClient {
     async fn get_unsigned_state_attestation_at_height(
         &self,
         height: u64,

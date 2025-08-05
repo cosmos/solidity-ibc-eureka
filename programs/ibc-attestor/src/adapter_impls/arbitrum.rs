@@ -15,7 +15,7 @@ mod config;
 pub use config::ArbitrumClientConfig;
 
 use crate::adapter_client::{
-    Adapter, AdapterError, UnsignedPacketAttestation, UnsignedStateAttestation,
+    AdapterError, AttestationAdapter, UnsignedPacketAttestation, UnsignedStateAttestation,
 };
 
 #[derive(Debug)]
@@ -96,7 +96,7 @@ impl ArbitrumClient {
     }
 }
 
-impl Adapter for ArbitrumClient {
+impl AttestationAdapter for ArbitrumClient {
     async fn get_unsigned_state_attestation_at_height(
         &self,
         height: u64,
