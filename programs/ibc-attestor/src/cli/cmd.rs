@@ -1,14 +1,14 @@
 //! Defines the client interface for the attestor server.
 use clap::{command, Parser};
 
-/// The command line interface for the attestor.
 #[derive(Clone, Debug, Parser)]
 #[command(
-    name = "ibc-attestor",
+    name = "ibc_attestor",
     version,
     about = "IBC Attestor - Blockchain state attestation service",
     long_about = "A service for generating cryptographic attestations of blockchain state.\nSupports key management and running attestation servers."
 )]
+/// The command line interface for the attestor.
 pub struct AttestorCli {
     /// The subcommand to run.
     #[command(subcommand)]
@@ -18,9 +18,8 @@ pub struct AttestorCli {
 /// The subcommands for the attestor.
 #[derive(Clone, Debug, Parser)]
 pub enum Commands {
-    /// The subcommand to run the attestor.
-    #[command(subcommand)]
-    Server(server::ServerKind),
+    /// The subcommand to run the server.
+    Server(server::Args),
 
     /// The subcommand to run key management program.
     #[command(subcommand)]
@@ -31,15 +30,7 @@ pub enum Commands {
 pub mod server {
     use super::Parser;
 
-    /// The subcommands for the attestor.
-    #[derive(Clone, Debug, Parser)]
-    pub enum ServerKind {
-        #[cfg(feature = "sol")]
-        /// The subcommand to run the solana attestor
-        Solana(Args),
-    }
-
-    /// The arguments for the start subcommand.
+    /// The arguments for the server subcommand.
     #[derive(Clone, Debug, Parser)]
     pub struct Args {
         /// The configuration file for the attestor.
@@ -55,7 +46,7 @@ pub mod key {
     /// The subcommands for the attestor.
     #[derive(Clone, Debug, Parser)]
     pub enum KeyCommands {
-        /// The subcommand to generate a key pair at `...`
+        /// The subcommand to generate a key pair at `~/.ibc-attestor/ibc-attestor.pem`
         Generate,
         /// The subcommand to show your private and public keys
         Show,

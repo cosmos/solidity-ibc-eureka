@@ -1,66 +1,38 @@
-use std::collections::HashMap;
-
 use alloy::{
     consensus::BlockHeader,
     eips::{BlockId, BlockNumberOrTag},
+    hex::FromHex,
+    sol_types::SolValue,
 };
 use alloy_network::Ethereum;
-use alloy_primitives::FixedBytes;
+use alloy_primitives::{keccak256, Address, FixedBytes};
 use alloy_provider::{Provider, RootProvider};
-use alloy_rpc_client::{ClientBuilder, ReqwestClient};
 
 mod config;
-mod header;
 
 use attestor_packet_membership::Packets;
-pub use config::OpConsensusClientConfig;
+pub use config::OpClientConfig;
 use futures::{stream::FuturesUnordered, StreamExt};
 use ibc_eureka_solidity_types::ics26::{router::routerInstance, IICS26RouterMsgs::Packet};
 
-use crate::{
-    adapter_client::{Adapter, AdapterError, UnsignedPacketAttestation, UnsignedStateAttestation},
-    adapter_impls::optimism::header::SyncHeader,
+use crate::adapter_client::{
+    Adapter, AdapterError, UnsignedPacketAttestation, UnsignedStateAttestation,
 };
 
 #[derive(Debug)]
-pub struct OpConsensusClient {
-    raw_client: ReqwestClient,
+pub struct OpClient {
     client: RootProvider,
     router: routerInstance<RootProvider>,
 }
 
-impl OpConsensusClient {
-    pub fn from_config(config: &OpConsensusClientConfig) -> Self {
-        let raw_client: ReqwestClient = ClientBuilder::default().http(config.url.parse().unwrap());
+impl OpClient {
+    pub fn from_config(config: &OpClientConfig) -> Self {
         let client = RootProvider::<Ethereum>::new_http(config.url.parse().unwrap());
 
-        let address: FixedBytes<20> = config
-            .router_address
-            .clone()
-            .into_bytes()
-            .as_slice()
-            .try_into()
-            .unwrap();
-
+        let address = Address::from_hex(&config.router_address).unwrap();
         let router = routerInstance::new(address.into(), client.clone());
-        Self {
-            raw_client,
-            client,
-            router,
-        }
-    }
 
-    async fn get_latest_block_number(&self) -> Result<u64, AdapterError> {
-        let sync_state: HashMap<String, SyncHeader> = self
-            .raw_client
-            .request_noparams("optimism_syncStatus")
-            .await
-            .map_err(|e| AdapterError::FinalizedBlockError(e.to_string()))?;
-
-        sync_state
-            .get("unsafe_l2")
-            .ok_or(AdapterError::UnfinalizedBlockError("no unsafe l2".into()))
-            .map(|block| block.height)
+        Self { client, router }
     }
 
     async fn get_timestamp_for_block_at_height(&self, height: u64) -> Result<u64, AdapterError> {
@@ -79,25 +51,33 @@ impl OpConsensusClient {
 
     async fn get_historical_packet_commitment(
         &self,
-        packet: &Packet,
+        hashed_path: FixedBytes<32>,
         block_number: u64,
     ) -> Result<[u8; 32], AdapterError> {
-        let commitment_path: FixedBytes<32> =
-            packet.commitment_path().as_slice().try_into().unwrap();
-
-        self.router
-            .getCommitment(commitment_path)
+        let cmt = self
+            .router
+            .getCommitment(hashed_path)
             .block(BlockId::Number(BlockNumberOrTag::Number(block_number)))
             .call()
             .await
             .map_err(|e| {
                 AdapterError::FinalizedBlockError(format!("Failed to get commitment: {}", e))
-            })
-            .map(|commitment| commitment.into())
+            })?;
+
+        // Array of 0s means not found
+        let is_empty = cmt.iter().max() == Some(&0);
+        if is_empty {
+            Err(AdapterError::FinalizedBlockError(format!(
+                "commitment path {:?} at height {block_number} not found",
+                hashed_path
+            )))
+        } else {
+            Ok(*cmt)
+        }
     }
 }
 
-impl Adapter for OpConsensusClient {
+impl Adapter for OpClient {
     async fn get_unsigned_state_attestation_at_height(
         &self,
         height: u64,
@@ -116,13 +96,19 @@ impl Adapter for OpConsensusClient {
         let mut futures = FuturesUnordered::new();
 
         for p in packets.packets() {
-            let packet: Packet = serde_json::from_slice(p).unwrap();
+            let packet = Packet::abi_decode(p).unwrap();
             let validate_commitment = async move |packet: Packet, height: u64| {
+                let commitment_path = packet.commitment_path();
+                let hashed = keccak256(&commitment_path);
                 let cmt = self
-                    .get_historical_packet_commitment(&packet, height)
+                    .get_historical_packet_commitment(hashed, height)
                     .await?;
-                if packet.commitment() != cmt {
-                    Err(AdapterError::FinalizedBlockError("something".into()))
+
+                if &packet.commitment() != &cmt {
+                    Err(AdapterError::FinalizedBlockError(format!(
+                        "hashed paths are not the same: hashed {:?}, received {:?}",
+                        *hashed, cmt
+                    )))
                 } else {
                     Ok(cmt)
                 }
@@ -135,6 +121,7 @@ impl Adapter for OpConsensusClient {
             match maybe_cmt {
                 Ok(cmt) => validated.push(cmt),
                 Err(e) => {
+                    // NOTE: Do we fail fast here?
                     tracing::error!(
                         "failed to retrieve packet commitment for due to {}",
                         e.to_string()

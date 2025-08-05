@@ -1,39 +1,37 @@
 use std::fs;
 
 use clap::Parser;
-use ibc_attestor::{
-    attestor::AttestorService,
-    cli::{
-        key::KeyCommands, server::ServerKind, AttestorCli, AttestorConfig, Commands,
-        IBC_ATTESTOR_DIR, IBC_ATTESTOR_PATH,
-    },
-    server::Server,
-    signer::Signer,
-    SolanaClient,
+use ibc_attestor::cli::{
+    key::KeyCommands, AttestorCli, AttestorConfig, Commands, IBC_ATTESTOR_DIR, IBC_ATTESTOR_PATH,
 };
 use key_utils::{generate_secret_key, read_private_pem_to_string, read_public_key_to_string};
+
+// Compile-time check: ensure that exactly one blockchain feature is enabled
+#[cfg(not(any(feature = "sol", feature = "op", feature = "arbitrum")))]
+compile_error!(
+    "Please enable exactly one blockchain feature using --features sol, op, or arbitrum"
+);
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let cli = AttestorCli::parse();
 
     match cli.command {
-        Commands::Server(kind) => {
-            match kind {
-                #[cfg(feature = "sol")]
-                ServerKind::Solana(args) => {
-                    let config = AttestorConfig::from_file(args.config)?;
+        Commands::Server(args) => {
+            let config = AttestorConfig::from_file(args.config)?;
 
-                    let signer = Signer::from_config(config.signer.unwrap_or_default())?;
-
-                    let adapter = SolanaClient::from_config(config.solana);
-                    let attestor = AttestorService::new(adapter, signer);
-
-                    let server = Server::new(&config.server);
-                    let _ = server.start(attestor, config.server).await;
-                }
+            #[cfg(feature = "sol")]
+            {
+                ibc_attestor::server::run_solana_server(config).await
             }
-            Ok(())
+            #[cfg(feature = "op")]
+            {
+                ibc_attestor::server::run_optimism_server(config).await
+            }
+            #[cfg(feature = "arbitrum")]
+            {
+                ibc_attestor::server::run_arbitrum_server(config).await
+            }
         }
         Commands::Key(cmd) => {
             if !IBC_ATTESTOR_DIR.exists() {

@@ -7,8 +7,16 @@ use crate::{
     adapter_client::Adapter,
     api::{self, attestation_service_server::AttestationServiceServer},
     attestor::AttestorService,
-    cli::ServerConfig,
+    cli::{AttestorConfig, ServerConfig},
+    signer::Signer,
 };
+
+#[cfg(feature = "sol")]
+use crate::SolanaClient;
+#[cfg(feature = "op")]
+use crate::OpClient;
+#[cfg(feature = "arbitrum")]
+use crate::ArbitrumClient;
 
 /// Simple server that accepts inbound RPC calls for [AttestationServiceServer]
 /// and periodically updates attestation state.
@@ -69,4 +77,33 @@ async fn run_rpc_inbound_server<A>(
         .serve(socket_addr)
         .await
         .unwrap();
+}
+
+/// Blockchain-specific server startup functions
+
+#[cfg(feature = "sol")]
+pub async fn run_solana_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
+    let signer = Signer::from_config(config.signer.unwrap_or_default())?;
+    let adapter = SolanaClient::from_config(config.solana);
+    let attestor = AttestorService::new(adapter, signer);
+    let server = Server::new(&config.server);
+    server.start(attestor, config.server).await
+}
+
+#[cfg(feature = "op")]
+pub async fn run_optimism_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
+    let signer = Signer::from_config(config.signer.unwrap_or_default())?;
+    let adapter = OpClient::from_config(&config.op);
+    let attestor = AttestorService::new(adapter, signer);
+    let server = Server::new(&config.server);
+    server.start(attestor, config.server).await
+}
+
+#[cfg(feature = "arbitrum")]
+pub async fn run_arbitrum_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
+    let signer = Signer::from_config(config.signer.unwrap_or_default())?;
+    let adapter = ArbitrumClient::from_config(&config.arbitrum);
+    let attestor = AttestorService::new(adapter, signer);
+    let server = Server::new(&config.server);
+    server.start(attestor, config.server).await
 }
