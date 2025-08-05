@@ -1,9 +1,0 @@
-{
-    "protoc": {
-        "path": "protoc",
-        "compile_on_save": true,
-        "options": [
-            "--proto_path=proto"
-        ]
-    }
-}
