@@ -6,7 +6,7 @@ repository = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
-moka = { version = "0.12", features = ["future"] }
+moka = { workspace = true, features = ["future"] }
 
 tokio-stream = "0.1"
 tokio        = { workspace = true, features = ["full"] }
