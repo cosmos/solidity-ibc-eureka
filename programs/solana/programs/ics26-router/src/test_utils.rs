@@ -166,10 +166,14 @@ pub fn create_account(
     data: Vec<u8>,
     owner: Pubkey,
 ) -> (Pubkey, solana_sdk::account::Account) {
+    use solana_sdk::rent::Rent;
+
+    let rent = Rent::default().minimum_balance(data.len());
+
     (
         pubkey,
         solana_sdk::account::Account {
-            lamports: 1_000_000,
+            lamports: rent.max(1_000_000), // Use at least 1M lamports or rent-exempt amount
             data,
             owner,
             executable: false,

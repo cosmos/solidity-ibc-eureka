@@ -272,7 +272,6 @@ mod tests {
         timeout_offset: i64,
         source_client_id: &'static str,
         unauthorized_relayer: Option<Pubkey>,
-        existing_receipt: bool,
     }
 
     impl Default for RecvPacketTestParams {
@@ -282,7 +281,6 @@ mod tests {
                 timeout_offset: 1000,
                 source_client_id: "source-client",
                 unauthorized_relayer: None,
-                existing_receipt: false,
             }
         }
     }
@@ -368,26 +366,15 @@ mod tests {
             data: crate::instruction::RecvPacket { msg }.data(),
         };
 
-        let packet_receipt_account = if params.existing_receipt {
-            let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&packet);
-            let existing_receipt = Commitment {
-                value: receipt_commitment,
-            };
-            create_account(
-                packet_receipt_pda,
-                create_account_data(&existing_receipt),
-                crate::ID,
-            )
-        } else {
-            create_uninitialized_commitment_account(packet_receipt_pda)
-        };
+        let packet_receipt_account = create_uninitialized_commitment_account(packet_receipt_pda);
+        let packet_ack_account = create_uninitialized_commitment_account(packet_ack_pda);
 
         let accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             packet_receipt_account,
-            create_uninitialized_commitment_account(packet_ack_pda),
+            packet_ack_account,
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_clock_account_with_data(clock_data),
@@ -491,12 +478,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    fn test_recv_packet_duplicate_noop() {
-        let ctx = setup_recv_packet_test_with_params(RecvPacketTestParams {
-            existing_receipt: true,
-            ..Default::default()
-        });
+    fn test_recv_packet_duplicate_fails() {
+        let ctx = setup_recv_packet_test(true, 1000);
 
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
         mollusk.add_program(
@@ -505,9 +488,18 @@ mod tests {
             &solana_sdk::bpf_loader_upgradeable::ID,
         );
 
-        // This is expected to succeed with a no-op since the packet was already received
-        let checks = vec![Check::success()];
+        // First call should succeed and create the receipt/ack
+        let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
+        assert!(matches!(
+            result.program_result,
+            mollusk_svm::result::ProgramResult::Success
+        ));
 
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+        // Second call with the same packet should fail because packet_ack already exists
+        // and has init constraint
+        let updated_accounts = result.resulting_accounts;
+        let checks = vec![Check::err(ProgramError::Custom(0))]; // System program error for account already in use
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &updated_accounts, &checks);
     }
 }
