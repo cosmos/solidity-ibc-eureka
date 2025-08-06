@@ -45,7 +45,7 @@ pub struct Aggregator {
     attestor_timeout_duration: Duration,
     attestor_clients: Vec<AttestorClient>,
     state_cache: Cache<u64, AggregatedAttestation>,
-    packet_cache: Cache<(Vec<u8>, u64), AggregatedAttestation>,
+    packet_cache: Cache<([u8; 32], u64), AggregatedAttestation>,
 }
 
 impl Aggregator {
@@ -194,10 +194,10 @@ impl Aggregator {
         Ok(successful_responses)
     }
 
-    fn make_packet_cache_key(packets: &[Vec<u8>], height: u64) -> (Vec<u8>, u64) {
+    fn make_packet_cache_key(packets: &[Vec<u8>], height: u64) -> ([u8; 32], u64) {
         let mut hasher = Sha256::new();
         packets.iter().for_each(|p| hasher.update(p));
-        (hasher.finalize().to_vec(), height)
+        (hasher.finalize().into(), height)
     }
 }
 
