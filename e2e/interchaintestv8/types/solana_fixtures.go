@@ -14,6 +14,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
@@ -43,7 +44,7 @@ func NewSolanaFixtureGenerator(s *suite.Suite) *SolanaFixtureGenerator {
 		}
 		generator.FixtureDir = absPath
 
-		if err := os.MkdirAll(generator.FixtureDir, 0755); err != nil {
+		if err := os.MkdirAll(generator.FixtureDir, 0o755); err != nil {
 			s.T().Fatalf("Failed to create Solana fixture directory: %v", err)
 		}
 		s.T().Logf("📁 Solana fixtures will be saved to: %s", generator.FixtureDir)
@@ -326,7 +327,7 @@ func (g *SolanaFixtureGenerator) saveJsonFixture(filename string, data interface
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	g.suite.Require().NoError(err)
 
-	err = os.WriteFile(filename, jsonData, 0644)
+	err = os.WriteFile(filename, jsonData, 0o644)
 	g.suite.Require().NoError(err)
 }
 
@@ -364,7 +365,7 @@ func (g *SolanaFixtureGenerator) generateExpiredHeaderScenario(ctx context.Conte
 	g.suite.Require().FileExists(happyPathFile)
 
 	validHex := g.extractHexFromHappyPathFixture(happyPathFile)
-	
+
 	// Create an expired header by modifying the timestamp
 	expiredHex := g.createExpiredHeader(validHex, int64(tmClientState.TrustingPeriod.Seconds()))
 
@@ -403,7 +404,7 @@ func (g *SolanaFixtureGenerator) generateFutureTimestampScenario(ctx context.Con
 	g.suite.Require().FileExists(happyPathFile)
 
 	validHex := g.extractHexFromHappyPathFixture(happyPathFile)
-	
+
 	// Create a header with future timestamp (beyond max clock drift)
 	futureHex := g.createFutureTimestampHeader(validHex, int64(tmClientState.MaxClockDrift.Seconds()))
 
@@ -465,7 +466,6 @@ func (g *SolanaFixtureGenerator) generateWrongTrustedHeightScenario(ctx context.
 	g.suite.T().Logf("💾 Wrong trusted height scenario fixture saved: %s", filename)
 }
 
-
 // generateInvalidProtobufScenario creates a fixture with invalid protobuf bytes
 func (g *SolanaFixtureGenerator) generateInvalidProtobufScenario() {
 	g.suite.T().Log("🔧 Generating invalid protobuf scenario")
@@ -495,10 +495,10 @@ func (g *SolanaFixtureGenerator) generateInvalidProtobufScenario() {
 	}
 
 	dummyConsensusState := map[string]interface{}{
-		"timestamp":           uint64(time.Now().Unix()),
-		"root":                hex.EncodeToString(make([]byte, 32)),
+		"timestamp":            uint64(time.Now().Unix()),
+		"root":                 hex.EncodeToString(make([]byte, 32)),
 		"next_validators_hash": hex.EncodeToString(make([]byte, 32)),
-		"metadata":            g.createMetadata("Dummy consensus state for invalid protobuf test"),
+		"metadata":             g.createMetadata("Dummy consensus state for invalid protobuf test"),
 	}
 
 	unifiedFixture := map[string]interface{}{
@@ -541,4 +541,3 @@ func (g *SolanaFixtureGenerator) createFutureTimestampHeader(validHex string, ma
 	modifiedBytes, _ := proto.Marshal(&header)
 	return hex.EncodeToString(modifiedBytes)
 }
-
