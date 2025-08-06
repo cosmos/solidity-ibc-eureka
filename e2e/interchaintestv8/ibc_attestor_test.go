@@ -348,11 +348,11 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 }
 func (s *IbcAttestorTestSuite) Test_OptimismAttestorStartUp() {
 	ctx := context.Background()
-	s.AttestorStartUpTest(ctx, types.OptimismBinary)
+	s.AttestorStartUpTest(ctx, attestor.OptimismBinary)
 
 }
 
-func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPath types.AttestorBinaryPath) {
+func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPath attestor.AttestorBinaryPath) {
 	s.Require().True(s.Run("Setup attestor", func() {
 		config := attestor.DefaultAttestorConfig()
 		err := config.WriteTomlConfig(testvalues.AttestorConfigPath)
@@ -383,11 +383,11 @@ func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPa
 func (s *IbcAttestorTestSuite) Test_OptimismAttestorAttestsToLocalNode() {
 	ctx := context.Background()
 	proofType := types.GetEnvProofType()
-	s.AttestorAttestsToLocalNode(ctx, proofType, types.OptimismBinary)
+	s.AttestorAttestsToLocalNode(ctx, proofType, attestor.OptimismBinary)
 
 }
 
-func (s *IbcAttestorTestSuite) AttestorAttestsToLocalNode(ctx context.Context, proofType types.SupportedProofType, binaryPath types.AttestorBinaryPath) {
+func (s *IbcAttestorTestSuite) AttestorAttestsToLocalNode(ctx context.Context, proofType types.SupportedProofType, binaryPath attestor.AttestorBinaryPath) {
 	s.SetupSuite(ctx, proofType)
 
 	s.Require().True(s.Run("Setup attestor", func() {
@@ -423,12 +423,12 @@ func (s *IbcAttestorTestSuite) AttestorAttestsToLocalNode(ctx context.Context, p
 func (s *IbcAttestorTestSuite) Test_OptimismAttestToICS20PacketsOnEth() {
 	ctx := context.Background()
 	proofType := types.GetEnvProofType()
-	s.AttestToICS20TransferNativeCosmosCoinsToEthereumNoReturn(ctx, proofType, big.NewInt(testvalues.TransferAmount), types.OptimismBinary)
+	s.AttestToICS20TransferNativeCosmosCoinsToEthereumNoReturn(ctx, proofType, big.NewInt(testvalues.TransferAmount), attestor.OptimismBinary)
 }
 
 // ICS20TransferNativeCosmosCoinsToEthereumAndBackTest tests the ICS20 transfer functionality
 // by transferring native coins from a Cosmos chain to Ethereum and back
-func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumNoReturn(ctx context.Context, pt types.SupportedProofType, transferAmount *big.Int, binaryPath types.AttestorBinaryPath) {
+func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumNoReturn(ctx context.Context, pt types.SupportedProofType, transferAmount *big.Int, binaryPath attestor.AttestorBinaryPath) {
 	s.SetupSuite(ctx, pt)
 
 	numOfTransfers := 1
