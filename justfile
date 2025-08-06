@@ -269,9 +269,8 @@ test-e2e-solana testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaTestSuite/{{testname}}
 
-# Run Solana unit tests (unit tests + mollusk + litesvm)
 [group('test')]
-test-solana *ARGS:
+test-anchor-solana *ARGS:
 	@echo "Building and running Solana unit tests..."
 	if command -v anchor-nix >/dev/null 2>&1; then \
 		echo "🦀 Using anchor-nix"; \
@@ -295,3 +294,15 @@ clean-cargo:
 	@echo "Cleaning up cargo target directory"
 	cargo clean
 	cd programs/sp1-programs && cargo clean
+
+# Run Slither static analysis on contracts
+# - **unused-return**: Return values from `verifyMembership` and `tryParseAddress` are intentionally unused
+# - **reentrancy-no-eth**: Cross-function reentrancy patterns are acceptable in this IBC implementation
+# - **builtin-symbol-shadowing**: Variable name 'msg' follows IBC conventions
+# - **assembly**: Assembly usage is from trusted OpenZeppelin libraries
+# - **naming-convention**: Follows IBC standards over Solidity conventions
+# - **encode-packed-collision**: `abi.encodePacked` usage is correct for IBC denomination paths
+[group('security')]
+slither:
+	@echo "Running Slither static analysis..."
+	slither . --config-file .slither.config.json

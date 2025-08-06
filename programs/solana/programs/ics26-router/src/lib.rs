@@ -3,6 +3,8 @@ use anchor_lang::prelude::*;
 pub mod errors;
 pub mod instructions;
 pub mod state;
+#[cfg(test)]
+pub mod test_utils;
 pub mod utils;
 
 use instructions::*;
@@ -47,18 +49,6 @@ pub mod ics26_router {
 
     pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Result<()> {
         instructions::timeout_packet(ctx, msg)
-    }
-
-    pub fn store_commitment(
-        ctx: Context<StoreCommitment>,
-        path_hash: [u8; 32],
-        commitment: [u8; 32],
-    ) -> Result<()> {
-        instructions::store_commitment(ctx, path_hash, commitment)
-    }
-
-    pub fn get_commitment(ctx: Context<GetCommitment>, path_hash: [u8; 32]) -> Result<[u8; 32]> {
-        instructions::get_commitment(ctx, path_hash)
     }
 
     pub fn add_client(

@@ -70,4 +70,3 @@ jobs:
         run: |
           cd programs/solana
           cargo clippy --all-targets --all-features -- -D warnings
-

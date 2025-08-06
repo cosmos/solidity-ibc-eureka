@@ -1,4 +1,3 @@
-use crate::errors::RouterError;
 use crate::state::{RouterState, ROUTER_STATE_SEED};
 use anchor_lang::prelude::*;
 
@@ -21,12 +20,7 @@ pub struct Initialize<'info> {
 
 pub fn initialize(ctx: Context<Initialize>, authority: Pubkey) -> Result<()> {
     let router_state = &mut ctx.accounts.router_state;
-
-    require!(!router_state.initialized, RouterError::AlreadyInitialized);
-
     router_state.authority = authority;
-    router_state.initialized = true;
-
     Ok(())
 }
 
@@ -136,6 +130,5 @@ mod tests {
             RouterState::deserialize(&mut data_slice).expect("Failed to deserialize router state");
 
         assert_eq!(deserialized_router_state.authority, authority);
-        assert!(deserialized_router_state.initialized);
     }
 }

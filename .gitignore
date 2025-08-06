@@ -27,6 +27,7 @@ broadcast/*/31337/
 # ide files
 .idea/
 *.iml
+*.code-workspace
 CLAUDE.md
 
 # Rust
