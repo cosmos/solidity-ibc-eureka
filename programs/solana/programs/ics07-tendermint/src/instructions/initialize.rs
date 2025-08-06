@@ -67,7 +67,11 @@ mod tests {
 
     fn setup_test_accounts(chain_id: &str, latest_height: u64) -> TestAccounts {
         let payer = Pubkey::new_unique();
-        let chain_id_bytes = if chain_id.is_empty() { b"" } else { chain_id.as_bytes() };
+        let chain_id_bytes = if chain_id.is_empty() {
+            b""
+        } else {
+            chain_id.as_bytes()
+        };
         let (client_state_pda, _) =
             Pubkey::find_program_address(&[b"client", chain_id_bytes], &crate::ID);
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
@@ -161,10 +165,13 @@ mod tests {
     ) {
         let mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
         let result = mollusk.process_instruction(instruction, accounts);
-        
+
         match result.program_result {
             mollusk_svm::result::ProgramResult::Success => {
-                panic!("Expected instruction to fail with {:?}, but it succeeded", expected_error);
+                panic!(
+                    "Expected instruction to fail with {:?}, but it succeeded",
+                    expected_error
+                );
             }
             mollusk_svm::result::ProgramResult::Failure(error) => {
                 assert_eq!(
@@ -185,10 +192,14 @@ mod tests {
         expected_error: ErrorCode,
     ) {
         setup_invalid_state(&mut client_state);
-        
-        let test_accounts = setup_test_accounts(&client_state.chain_id, client_state.latest_height.revision_height);
-        let instruction = create_initialize_instruction(&test_accounts, &client_state, &consensus_state);
-        
+
+        let test_accounts = setup_test_accounts(
+            &client_state.chain_id,
+            client_state.latest_height.revision_height,
+        );
+        let instruction =
+            create_initialize_instruction(&test_accounts, &client_state, &consensus_state);
+
         assert_instruction_fails_with_error(&instruction, &test_accounts.accounts, expected_error);
     }
 
@@ -196,7 +207,7 @@ mod tests {
     fn test_initialize_happy_path() {
         // Load all fixtures efficiently (single JSON parse)
         let (client_state, consensus_state, _) = load_primary_fixtures();
-        
+
         let chain_id = &client_state.chain_id;
 
         let payer = Pubkey::new_unique();
@@ -399,7 +410,7 @@ mod tests {
     #[test]
     fn test_initialize_invalid_chain_id() {
         let (client_state, consensus_state, _) = load_primary_fixtures();
-        
+
         test_initialize_validation_failure(
             client_state,
             consensus_state,
@@ -411,7 +422,7 @@ mod tests {
     #[test]
     fn test_initialize_invalid_trust_level_zero_numerator() {
         let (client_state, consensus_state, _) = load_primary_fixtures();
-        
+
         test_initialize_validation_failure(
             client_state,
             consensus_state,
@@ -423,7 +434,7 @@ mod tests {
     #[test]
     fn test_initialize_invalid_trust_level_numerator_greater_than_denominator() {
         let (client_state, consensus_state, _) = load_primary_fixtures();
-        
+
         test_initialize_validation_failure(
             client_state,
             consensus_state,
@@ -438,7 +449,7 @@ mod tests {
     #[test]
     fn test_initialize_invalid_trust_level_zero_denominator() {
         let (client_state, consensus_state, _) = load_primary_fixtures();
-        
+
         test_initialize_validation_failure(
             client_state,
             consensus_state,
@@ -450,7 +461,7 @@ mod tests {
     #[test]
     fn test_initialize_invalid_periods_zero_trusting_period() {
         let (client_state, consensus_state, _) = load_primary_fixtures();
-        
+
         test_initialize_validation_failure(
             client_state,
             consensus_state,
@@ -462,7 +473,7 @@ mod tests {
     #[test]
     fn test_initialize_invalid_periods_zero_unbonding_period() {
         let (client_state, consensus_state, _) = load_primary_fixtures();
-        
+
         test_initialize_validation_failure(
             client_state,
             consensus_state,
@@ -474,7 +485,7 @@ mod tests {
     #[test]
     fn test_initialize_invalid_periods_trusting_greater_than_unbonding() {
         let (client_state, consensus_state, _) = load_primary_fixtures();
-        
+
         test_initialize_validation_failure(
             client_state,
             consensus_state,
@@ -489,7 +500,7 @@ mod tests {
     #[test]
     fn test_initialize_invalid_max_clock_drift() {
         let (client_state, consensus_state, _) = load_primary_fixtures();
-        
+
         test_initialize_validation_failure(
             client_state,
             consensus_state,
@@ -501,7 +512,7 @@ mod tests {
     #[test]
     fn test_initialize_invalid_height() {
         let (client_state, consensus_state, _) = load_primary_fixtures();
-        
+
         test_initialize_validation_failure(
             client_state,
             consensus_state,

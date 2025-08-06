@@ -46,12 +46,11 @@ pub mod fixtures {
         pub metadata: FixtureMetadata,
     }
 
-
     pub fn load_update_client_fixture(filename: &str) -> UpdateClientFixture {
         let fixture_path = format!("../../tests/fixtures/{}.json", filename);
         let fixture_content = std::fs::read_to_string(&fixture_path)
             .unwrap_or_else(|_| panic!("Failed to read fixture: {}", fixture_path));
-        
+
         serde_json::from_str(&fixture_content)
             .unwrap_or_else(|_| panic!("Failed to parse fixture: {}", fixture_path))
     }
@@ -174,27 +173,48 @@ pub mod fixtures {
         }
     }
 
-    pub fn assert_error_code(result: mollusk_svm::result::InstructionResult, expected_error: crate::error::ErrorCode, test_name: &str) {
+    pub fn assert_error_code(
+        result: mollusk_svm::result::InstructionResult,
+        expected_error: crate::error::ErrorCode,
+        test_name: &str,
+    ) {
         match result.program_result {
             mollusk_svm::result::ProgramResult::Success => {
-                panic!("Expected {} to fail with {:?}, but it succeeded", test_name, expected_error);
+                panic!(
+                    "Expected {} to fail with {:?}, but it succeeded",
+                    test_name, expected_error
+                );
             }
             mollusk_svm::result::ProgramResult::Failure(error) => {
                 if let Some(code) = get_error_code(&error) {
                     let expected_code = expected_error as u32 + 6000; // Anchor errors start at 6000
-                    assert_eq!(code, expected_code, 
-                        "Expected {:?} ({}), but got error code {}", 
-                        expected_error, expected_code, code);
-                    println!("✅ {} correctly failed with {:?} ({})", test_name, expected_error, expected_code);
+                    assert_eq!(
+                        code, expected_code,
+                        "Expected {:?} ({}), but got error code {}",
+                        expected_error, expected_code, code
+                    );
+                    println!(
+                        "✅ {} correctly failed with {:?} ({})",
+                        test_name, expected_error, expected_code
+                    );
                 } else {
-                    panic!("Expected custom error code for {}, got: {:?}", test_name, error);
+                    panic!(
+                        "Expected custom error code for {}, got: {:?}",
+                        test_name, error
+                    );
                 }
             }
-            _ => panic!("Unexpected program result for {}: {:?}", test_name, result.program_result),
+            _ => panic!(
+                "Unexpected program result for {}: {:?}",
+                test_name, result.program_result
+            ),
         }
     }
 
-    pub fn assert_instruction_failed(result: mollusk_svm::result::InstructionResult, test_name: &str) {
+    pub fn assert_instruction_failed(
+        result: mollusk_svm::result::InstructionResult,
+        test_name: &str,
+    ) {
         match result.program_result {
             mollusk_svm::result::ProgramResult::Success => {
                 panic!(
@@ -210,5 +230,4 @@ pub mod fixtures {
             }
         }
     }
-
 }
