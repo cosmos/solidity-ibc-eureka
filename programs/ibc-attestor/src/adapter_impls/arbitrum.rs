@@ -97,6 +97,7 @@ impl AttestationAdapter for ArbitrumClient {
             timestamp: ts,
         })
     }
+
     async fn get_unsigned_packet_attestation_at_height(
         &self,
         packets: &Packets,
