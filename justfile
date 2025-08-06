@@ -133,6 +133,13 @@ generate-fixtures-wasm: clean-foundry install-relayer
 	@echo "Generating multi-period client update fixtures..."
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithRelayerTestSuite/Test_MultiPeriodClientUpdateToCosmos$' -timeout 60m
 
+# Generate the fixtures for the Solana tests using the e2e tests
+[group('generate')]
+generate-fixtures-solana: clean-foundry install-relayer
+	@echo "Generating Solana fixtures... This may take a while."
+	@echo "Generating basic client state, consensus state, and update client fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_SOLANA_FIXTURES=true go test -v -run '^TestWithCosmosRelayerTestSuite/Test_UpdateClient$' -timeout 40m
+
 # Generate go types for the e2e tests from the etheruem light client code
 [group('generate')]
 generate-ethereum-types:
