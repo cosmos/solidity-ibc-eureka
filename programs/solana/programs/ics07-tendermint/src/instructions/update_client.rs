@@ -181,7 +181,7 @@ fn verify_consensus_state_pda(
 }
 
 fn handle_consensus_state_storage(
-    ctx: ConsensusStateStorageContext<'_, '_>,
+    ctx: ConsensusStateStorageContext,
     new_consensus_state: &ConsensusState,
     client_state: &mut ClientState,
 ) -> Result<UpdateResult> {
