@@ -5,6 +5,8 @@ use solana_sdk::sysvar::Sysvar;
 
 pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
 
+// TODO: Move to test helpers crate
+
 pub fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u8> {
     let mut data = T::DISCRIMINATOR.to_vec();
     account.serialize(&mut data).unwrap();
