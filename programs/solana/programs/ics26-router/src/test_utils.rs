@@ -270,8 +270,7 @@ pub fn get_account_data_from_mollusk_result(
     &account.data[DISCRIMINATOR_SIZE..]
 }
 
-/// Get account data by pubkey from mollusk result
-pub fn get_account_data_by_pubkey<'a>(
+pub fn get_account_data_from_mollusk<'a>(
     result: &'a mollusk_svm::result::InstructionResult,
     pubkey: &Pubkey,
 ) -> Option<&'a [u8]> {

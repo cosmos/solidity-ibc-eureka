@@ -473,7 +473,7 @@ mod tests {
 
         // Check packet receipt
         let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&ctx.packet);
-        let receipt_data = get_account_data_by_pubkey(&result, &ctx.packet_receipt_pubkey)
+        let receipt_data = get_account_data_from_mollusk(&result, &ctx.packet_receipt_pubkey)
             .expect("packet receipt account not found");
         assert_eq!(receipt_data[..32], receipt_commitment);
 
@@ -481,7 +481,7 @@ mod tests {
         let ack_data = b"packet received".to_vec();
         let expected_ack_commitment =
             ics24::packet_acknowledgement_commitment_bytes32(&[ack_data]).unwrap();
-        let ack_data = get_account_data_by_pubkey(&result, &ctx.packet_ack_pubkey)
+        let ack_data = get_account_data_from_mollusk(&result, &ctx.packet_ack_pubkey)
             .expect("packet ack account not found");
         assert_eq!(ack_data[..32], expected_ack_commitment);
     }
