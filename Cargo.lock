@@ -4458,6 +4458,7 @@ dependencies = [
 name = "ibc-eureka-relayer-attested-to-cosmos"
 version = "0.1.0"
 dependencies = [
+ "alloy-sol-types 1.2.1",
  "anyhow",
  "async-trait",
  "hex",

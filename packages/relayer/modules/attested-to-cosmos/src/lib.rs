@@ -112,25 +112,18 @@ impl RelayerService for AttestedToCosmosRelayerModuleService {
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
 
-        // Convert Vec<Vec<u8>> to Vec<String> for the aggregator queries
-        let src_tx_ids: Vec<String> = inner_req
+        let _src_tx_ids: Vec<String> = inner_req
             .source_tx_ids
             .into_iter()
             .map(hex::encode)
             .collect();
-        let timeout_tx_ids: Vec<String> = inner_req
+        let _timeout_tx_ids: Vec<String> = inner_req
             .timeout_tx_ids
             .into_iter()
             .map(hex::encode)
             .collect();
 
-        // Set the transaction IDs in the tx_builder for aggregator queries
-        self.tx_builder
-            .set_tx_ids(src_tx_ids, timeout_tx_ids)
-            .map_err(|e| tonic::Status::from_error(e.into()))?;
-
-        // For attested chain, we don't have actual events from source chain
-        // The tx_builder will use the stored tx IDs to query the aggregator
+        // TODO: Figure out how to get those fucking events, without hardcoding ethereum in here :/
         let src_events = vec![];
         let target_events = vec![];
 
