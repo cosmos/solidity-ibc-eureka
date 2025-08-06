@@ -1,5 +1,5 @@
 use crate::state::*;
-use anchor_lang::{AnchorSerialize, Discriminator};
+use anchor_lang::{AnchorSerialize, Discriminator, Space};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::sysvar::Sysvar;
 
@@ -202,11 +202,33 @@ pub fn create_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::A
     )
 }
 
-pub fn create_uninitialized_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::Account) {
+pub fn create_uninitialized_commitment_account(
+    pubkey: Pubkey,
+) -> (Pubkey, solana_sdk::account::Account) {
+    use solana_sdk::rent::Rent;
+
+    let account_size = 8 + Commitment::INIT_SPACE;
+
     (
         pubkey,
         solana_sdk::account::Account {
-            lamports: 0,
+            lamports: Rent::default().minimum_balance(account_size),
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+pub fn create_uninitialized_account(
+    pubkey: Pubkey,
+    lamports: u64,
+) -> (Pubkey, solana_sdk::account::Account) {
+    (
+        pubkey,
+        solana_sdk::account::Account {
+            lamports,
             data: vec![],
             owner: solana_sdk::system_program::ID,
             executable: false,
@@ -236,4 +258,26 @@ pub fn setup_packet_commitment(
     let commitment_data = create_account_data(&commitment);
 
     (packet_commitment_pda, commitment_data)
+}
+
+pub const DISCRIMINATOR_SIZE: usize = 8;
+
+pub fn get_account_data_from_mollusk_result(
+    result: &mollusk_svm::result::InstructionResult,
+    index: usize,
+) -> &[u8] {
+    let (_, account) = &result.resulting_accounts[index];
+    &account.data[DISCRIMINATOR_SIZE..]
+}
+
+/// Get account data by pubkey from mollusk result
+pub fn get_account_data_by_pubkey<'a>(
+    result: &'a mollusk_svm::result::InstructionResult,
+    pubkey: &Pubkey,
+) -> Option<&'a [u8]> {
+    result
+        .resulting_accounts
+        .iter()
+        .find(|(key, _)| key == pubkey)
+        .map(|(_, account)| &account.data[DISCRIMINATOR_SIZE..])
 }

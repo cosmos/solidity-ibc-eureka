@@ -104,7 +104,7 @@ mod tests {
 
         let accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
-            create_uninitialized_account(ibc_app_pda),
+            create_uninitialized_account(ibc_app_pda, 0),
             create_account(app_program, vec![], system_program::ID),
             create_system_account(payer),
             create_program_account(system_program::ID),
@@ -152,7 +152,7 @@ mod tests {
 
         let accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
-            create_uninitialized_account(ibc_app_pda),
+            create_uninitialized_account(ibc_app_pda, 0),
             create_account(app_program, vec![], system_program::ID),
             create_system_account(payer),
             create_program_account(system_program::ID),
@@ -198,7 +198,7 @@ mod tests {
 
         let accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
-            create_uninitialized_account(ibc_app_pda),
+            create_uninitialized_account(ibc_app_pda, 0),
             create_account(app_program, vec![], system_program::ID),
             create_system_account(payer),
             create_program_account(system_program::ID),

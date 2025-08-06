@@ -193,91 +193,10 @@ mod tests {
 
     #[test]
     fn test_recv_packet_unauthorized_sender() {
-        let authority = Pubkey::new_unique();
-        let unauthorized_relayer = Pubkey::new_unique(); // Different from authority
-        let payer = unauthorized_relayer;
-        let client_id = "test-client";
-        let source_client_id = "source-client";
-        let port_id = "test-port";
-        let light_client_program = Pubkey::new_unique();
-
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
-        let (client_pda, client_data) = setup_client(
-            client_id,
-            authority,
-            light_client_program,
-            source_client_id,
-            true,
-        );
-        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, Pubkey::new_unique());
-        let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 0);
-
-        let packet =
-            create_test_packet(1, source_client_id, client_id, "source-port", port_id, 1000);
-
-        let msg = MsgRecvPacket {
-            packet,
-            proof_commitment: vec![0u8; 32],
-            proof_height: 100,
-        };
-
-        let (packet_receipt_pda, _) = Pubkey::find_program_address(
-            &[
-                PACKET_RECEIPT_SEED,
-                msg.packet.dest_client.as_bytes(),
-                &msg.packet.sequence.to_le_bytes(),
-            ],
-            &crate::ID,
-        );
-
-        let (packet_ack_pda, _) = Pubkey::find_program_address(
-            &[
-                PACKET_ACK_SEED,
-                msg.packet.dest_client.as_bytes(),
-                &msg.packet.sequence.to_le_bytes(),
-            ],
-            &crate::ID,
-        );
-
-        let instruction_data = crate::instruction::RecvPacket { msg };
-
-        let client_state = Pubkey::new_unique();
-        let consensus_state = Pubkey::new_unique();
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new_readonly(router_state_pda, false),
-                AccountMeta::new_readonly(ibc_app_pda, false),
-                AccountMeta::new(client_sequence_pda, false),
-                AccountMeta::new(packet_receipt_pda, false),
-                AccountMeta::new(packet_ack_pda, false),
-                AccountMeta::new_readonly(unauthorized_relayer, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(Clock::id(), false),
-                AccountMeta::new_readonly(client_pda, false),
-                AccountMeta::new_readonly(light_client_program, false),
-                AccountMeta::new_readonly(client_state, false),
-                AccountMeta::new_readonly(consensus_state, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        let accounts = vec![
-            create_account(router_state_pda, router_state_data, crate::ID),
-            create_account(ibc_app_pda, ibc_app_data, crate::ID),
-            create_account(client_sequence_pda, client_sequence_data, crate::ID),
-            create_uninitialized_account(packet_receipt_pda),
-            create_uninitialized_account(packet_ack_pda),
-            create_system_account(payer),
-            create_program_account(system_program::ID),
-            create_clock_account(),
-            create_account(client_pda, client_data, crate::ID),
-            create_program_account(light_client_program),
-            create_account(client_state, vec![0u8; 100], light_client_program),
-            create_account(consensus_state, vec![0u8; 100], light_client_program),
-        ];
+        let ctx = setup_recv_packet_test_with_params(RecvPacketTestParams {
+            unauthorized_relayer: Some(Pubkey::new_unique()),
+            ..Default::default()
+        });
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
 
@@ -285,219 +204,34 @@ mod tests {
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
         ))];
 
-        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 
     #[test]
     fn test_recv_packet_invalid_counterparty() {
-        let authority = Pubkey::new_unique();
-        let relayer = authority;
-        let payer = authority;
-        let client_id = "test-client";
-        let port_id = "test-port";
-        let light_client_program = Pubkey::new_unique();
+        // Setup expects "source-client" but packet comes from "wrong-source-client"
+        let ctx = setup_recv_packet_test_with_params(RecvPacketTestParams {
+            source_client_id: "wrong-source-client",
+            ..Default::default()
+        });
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
-        // Client expects counterparty "expected-source-client"
-        let (client_pda, client_data) = setup_client(
-            client_id,
-            authority,
-            light_client_program,
-            "expected-source-client",
-            true,
+        let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        mollusk.add_program(
+            &mock_light_client::id(),
+            crate::get_mock_client_program_path(),
+            &solana_sdk::bpf_loader_upgradeable::ID,
         );
-        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, Pubkey::new_unique());
-        let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 0);
-
-        // But packet comes from "wrong-source-client"
-        let packet = create_test_packet(
-            1,
-            "wrong-source-client",
-            client_id,
-            "source-port",
-            port_id,
-            1000,
-        );
-
-        let msg = MsgRecvPacket {
-            packet,
-            proof_commitment: vec![0u8; 32],
-            proof_height: 100,
-        };
-
-        let (packet_receipt_pda, _) = Pubkey::find_program_address(
-            &[
-                PACKET_RECEIPT_SEED,
-                msg.packet.dest_client.as_bytes(),
-                &msg.packet.sequence.to_le_bytes(),
-            ],
-            &crate::ID,
-        );
-
-        let (packet_ack_pda, _) = Pubkey::find_program_address(
-            &[
-                PACKET_ACK_SEED,
-                msg.packet.dest_client.as_bytes(),
-                &msg.packet.sequence.to_le_bytes(),
-            ],
-            &crate::ID,
-        );
-
-        let instruction_data = crate::instruction::RecvPacket { msg };
-
-        let client_state = Pubkey::new_unique();
-        let consensus_state = Pubkey::new_unique();
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new_readonly(router_state_pda, false),
-                AccountMeta::new_readonly(ibc_app_pda, false),
-                AccountMeta::new(client_sequence_pda, false),
-                AccountMeta::new(packet_receipt_pda, false),
-                AccountMeta::new(packet_ack_pda, false),
-                AccountMeta::new_readonly(relayer, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(Clock::id(), false),
-                AccountMeta::new_readonly(client_pda, false),
-                AccountMeta::new_readonly(light_client_program, false),
-                AccountMeta::new_readonly(client_state, false),
-                AccountMeta::new_readonly(consensus_state, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        let accounts = vec![
-            create_account(router_state_pda, router_state_data, crate::ID),
-            create_account(ibc_app_pda, ibc_app_data, crate::ID),
-            create_account(client_sequence_pda, client_sequence_data, crate::ID),
-            create_uninitialized_account(packet_receipt_pda),
-            create_uninitialized_account(packet_ack_pda),
-            create_system_account(payer),
-            create_program_account(system_program::ID),
-            create_clock_account(),
-            create_account(client_pda, client_data, crate::ID),
-            create_program_account(light_client_program),
-            create_account(client_state, vec![0u8; 100], light_client_program),
-            create_account(consensus_state, vec![0u8; 100], light_client_program),
-        ];
-
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::InvalidCounterpartyClient as u32,
         ))];
 
-        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 
     #[test]
     fn test_recv_packet_timeout_expired() {
-        let authority = Pubkey::new_unique();
-        let relayer = authority;
-        let payer = authority;
-        let client_id = "test-client";
-        let source_client_id = "source-client";
-        let port_id = "test-port";
-        let light_client_program = Pubkey::new_unique();
-
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
-        let (client_pda, client_data) = setup_client(
-            client_id,
-            authority,
-            light_client_program,
-            source_client_id,
-            true,
-        );
-        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, Pubkey::new_unique());
-        let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 0);
-
-        // Create clock with current timestamp
-        let current_timestamp = 2000;
-        let mut clock_data = vec![0u8; Clock::size_of()];
-        let clock = Clock {
-            slot: 0,
-            epoch_start_timestamp: 0,
-            epoch: 0,
-            leader_schedule_epoch: 0,
-            unix_timestamp: current_timestamp,
-        };
-        bincode::serialize_into(&mut clock_data[..], &clock).unwrap();
-
-        // Packet with expired timeout
-        let packet = create_test_packet(
-            1,
-            source_client_id,
-            client_id,
-            "source-port",
-            port_id,
-            current_timestamp - 100, // Expired
-        );
-
-        let msg = MsgRecvPacket {
-            packet,
-            proof_commitment: vec![0u8; 32],
-            proof_height: 100,
-        };
-
-        let (packet_receipt_pda, _) = Pubkey::find_program_address(
-            &[
-                PACKET_RECEIPT_SEED,
-                msg.packet.dest_client.as_bytes(),
-                &msg.packet.sequence.to_le_bytes(),
-            ],
-            &crate::ID,
-        );
-
-        let (packet_ack_pda, _) = Pubkey::find_program_address(
-            &[
-                PACKET_ACK_SEED,
-                msg.packet.dest_client.as_bytes(),
-                &msg.packet.sequence.to_le_bytes(),
-            ],
-            &crate::ID,
-        );
-
-        let instruction_data = crate::instruction::RecvPacket { msg };
-
-        let client_state = Pubkey::new_unique();
-        let consensus_state = Pubkey::new_unique();
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new_readonly(router_state_pda, false),
-                AccountMeta::new_readonly(ibc_app_pda, false),
-                AccountMeta::new(client_sequence_pda, false),
-                AccountMeta::new(packet_receipt_pda, false),
-                AccountMeta::new(packet_ack_pda, false),
-                AccountMeta::new_readonly(relayer, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(Clock::id(), false),
-                AccountMeta::new_readonly(client_pda, false),
-                AccountMeta::new_readonly(light_client_program, false),
-                AccountMeta::new_readonly(client_state, false),
-                AccountMeta::new_readonly(consensus_state, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        let accounts = vec![
-            create_account(router_state_pda, router_state_data, crate::ID),
-            create_account(ibc_app_pda, ibc_app_data, crate::ID),
-            create_account(client_sequence_pda, client_sequence_data, crate::ID),
-            create_uninitialized_account(packet_receipt_pda),
-            create_uninitialized_account(packet_ack_pda),
-            create_system_account(payer),
-            create_program_account(system_program::ID),
-            create_clock_account_with_data(clock_data),
-            create_account(client_pda, client_data, crate::ID),
-            create_program_account(light_client_program),
-            create_account(client_state, vec![0u8; 100], light_client_program),
-            create_account(consensus_state, vec![0u8; 100], light_client_program),
-        ];
+        let ctx = setup_recv_packet_test(true, -100); // Expired timeout
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
 
@@ -505,36 +239,86 @@ mod tests {
             ANCHOR_ERROR_OFFSET + RouterError::InvalidTimeoutTimestamp as u32,
         ))];
 
-        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 
     #[test]
     fn test_recv_packet_client_not_active() {
+        let ctx = setup_recv_packet_test(false, 1000); // Inactive client
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::ClientNotActive as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    struct RecvPacketTestContext {
+        instruction: Instruction,
+        accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
+        packet: Packet,
+        packet_receipt_pubkey: Pubkey,
+        packet_ack_pubkey: Pubkey,
+    }
+
+    struct RecvPacketTestParams {
+        active_client: bool,
+        timeout_offset: i64,
+        source_client_id: &'static str,
+        unauthorized_relayer: Option<Pubkey>,
+        existing_receipt: bool,
+    }
+
+    impl Default for RecvPacketTestParams {
+        fn default() -> Self {
+            Self {
+                active_client: true,
+                timeout_offset: 1000,
+                source_client_id: "source-client",
+                unauthorized_relayer: None,
+                existing_receipt: false,
+            }
+        }
+    }
+
+    fn setup_recv_packet_test_with_params(params: RecvPacketTestParams) -> RecvPacketTestContext {
         let authority = Pubkey::new_unique();
-        let relayer = authority;
-        let payer = authority;
+        let relayer = params.unauthorized_relayer.unwrap_or(authority);
+        let payer = relayer;
         let client_id = "test-client";
-        let source_client_id = "source-client";
         let port_id = "test-port";
-        let light_client_program = Pubkey::new_unique();
+        let light_client_program = mock_light_client::id();
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
-        // Create inactive client
+
+        // Always setup client expecting "source-client" as counterparty
         let (client_pda, client_data) = setup_client(
             client_id,
             authority,
             light_client_program,
-            source_client_id,
-            false, // Client is not active
+            "source-client",
+            params.active_client,
         );
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, Pubkey::new_unique());
         let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 0);
 
-        let packet =
-            create_test_packet(1, source_client_id, client_id, "source-port", port_id, 1000);
+        let current_timestamp = 1000;
+        let clock_data = create_clock_data(current_timestamp);
+
+        // Packet uses the source_client_id from params (could be different)
+        let packet = create_test_packet(
+            1,
+            params.source_client_id,
+            client_id,
+            "source-port",
+            port_id,
+            current_timestamp + params.timeout_offset,
+        );
 
         let msg = MsgRecvPacket {
-            packet,
+            packet: packet.clone(),
             proof_commitment: vec![0u8; 32],
             proof_height: 100,
         };
@@ -557,8 +341,6 @@ mod tests {
             &crate::ID,
         );
 
-        let instruction_data = crate::instruction::RecvPacket { msg };
-
         let client_state = Pubkey::new_unique();
         let consensus_state = Pubkey::new_unique();
 
@@ -579,30 +361,149 @@ mod tests {
                 AccountMeta::new_readonly(client_state, false),
                 AccountMeta::new_readonly(consensus_state, false),
             ],
-            data: instruction_data.data(),
+            data: crate::instruction::RecvPacket { msg }.data(),
+        };
+
+        let packet_receipt_account = if params.existing_receipt {
+            let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&packet);
+            let existing_receipt = Commitment {
+                value: receipt_commitment,
+            };
+            create_account(
+                packet_receipt_pda,
+                create_account_data(&existing_receipt),
+                crate::ID,
+            )
+        } else {
+            create_uninitialized_commitment_account(packet_receipt_pda)
         };
 
         let accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
-            create_uninitialized_account(packet_receipt_pda),
-            create_uninitialized_account(packet_ack_pda),
+            packet_receipt_account,
+            create_uninitialized_commitment_account(packet_ack_pda),
             create_system_account(payer),
             create_program_account(system_program::ID),
-            create_clock_account(),
+            create_clock_account_with_data(clock_data),
             create_account(client_pda, client_data, crate::ID),
-            create_program_account(light_client_program),
+            create_bpf_program_account(light_client_program),
             create_account(client_state, vec![0u8; 100], light_client_program),
             create_account(consensus_state, vec![0u8; 100], light_client_program),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        RecvPacketTestContext {
+            instruction,
+            accounts,
+            packet,
+            packet_receipt_pubkey: packet_receipt_pda,
+            packet_ack_pubkey: packet_ack_pda,
+        }
+    }
 
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + RouterError::ClientNotActive as u32,
-        ))];
+    fn setup_recv_packet_test(active_client: bool, timeout_offset: i64) -> RecvPacketTestContext {
+        setup_recv_packet_test_with_params(RecvPacketTestParams {
+            active_client,
+            timeout_offset,
+            ..Default::default()
+        })
+    }
 
-        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    fn create_clock_data(timestamp: i64) -> Vec<u8> {
+        let mut clock_data = vec![0u8; Clock::size_of()];
+        let clock = Clock {
+            slot: 0,
+            epoch_start_timestamp: 0,
+            epoch: 0,
+            leader_schedule_epoch: 0,
+            unix_timestamp: timestamp,
+        };
+        bincode::serialize_into(&mut clock_data[..], &clock).unwrap();
+        clock_data
+    }
+
+    fn create_bpf_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::Account) {
+        (
+            pubkey,
+            solana_sdk::account::Account {
+                lamports: 0,
+                data: vec![],
+                owner: solana_sdk::bpf_loader_upgradeable::ID,
+                executable: true,
+                rent_epoch: 0,
+            },
+        )
+    }
+
+    #[test]
+    fn test_recv_packet_success() {
+        let ctx = setup_recv_packet_test(true, 1000);
+
+        let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        mollusk.add_program(
+            &mock_light_client::id(),
+            crate::get_mock_client_program_path(),
+            &solana_sdk::bpf_loader_upgradeable::ID,
+        );
+
+        // Calculate expected rent-exempt lamports for Commitment accounts
+        let commitment_rent = {
+            use solana_sdk::rent::Rent;
+            use anchor_lang::Space;
+            let account_size = 8 + Commitment::INIT_SPACE; // 8 (discriminator) + 32 (value) = 40 bytes
+            Rent::default().minimum_balance(account_size)
+        };
+
+        let checks = vec![
+            Check::success(),
+            Check::account(&ctx.packet_receipt_pubkey)
+                .lamports(commitment_rent)
+                .owner(&crate::ID)
+                .build(),
+            Check::account(&ctx.packet_ack_pubkey)
+                .lamports(commitment_rent)
+                .owner(&crate::ID)
+                .build(),
+        ];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+
+        let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
+
+        // Check packet receipt
+        let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&ctx.packet);
+        let receipt_data = get_account_data_by_pubkey(&result, &ctx.packet_receipt_pubkey)
+            .expect("packet receipt account not found");
+        assert_eq!(receipt_data[..32], receipt_commitment);
+
+        // Check acknowledgement
+        let ack_data = b"packet received".to_vec();
+        let expected_ack_commitment =
+            ics24::packet_acknowledgement_commitment_bytes32(&[ack_data]).unwrap();
+        let ack_data = get_account_data_by_pubkey(&result, &ctx.packet_ack_pubkey)
+            .expect("packet ack account not found");
+        assert_eq!(ack_data[..32], expected_ack_commitment);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_recv_packet_duplicate_noop() {
+        let ctx = setup_recv_packet_test_with_params(RecvPacketTestParams {
+            existing_receipt: true,
+            ..Default::default()
+        });
+
+        let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        mollusk.add_program(
+            &mock_light_client::id(),
+            crate::get_mock_client_program_path(),
+            &solana_sdk::bpf_loader_upgradeable::ID,
+        );
+
+        // This is expected to succeed with a no-op since the packet was already received
+        let checks = vec![Check::success()];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }

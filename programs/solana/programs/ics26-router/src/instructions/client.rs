@@ -277,8 +277,8 @@ mod tests {
         let accounts = vec![
             create_system_account(authority),
             create_account(router_state_pda, router_state_data, crate::ID),
-            create_uninitialized_account(client_pda),
-            create_uninitialized_account(client_sequence_pda),
+            create_uninitialized_account(client_pda, 0), // Will be initialized by instruction
+            create_uninitialized_account(client_sequence_pda, 0), // Will be initialized by instruction
             create_program_account(light_client_program),
             create_program_account(system_program::ID),
         ];
