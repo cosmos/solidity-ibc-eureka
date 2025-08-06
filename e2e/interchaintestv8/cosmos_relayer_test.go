@@ -32,6 +32,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	e2etypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
@@ -46,6 +47,9 @@ type CosmosRelayerTestSuite struct {
 	SimdBSubmitter ibc.Wallet
 
 	RelayerClient relayertypes.RelayerServiceClient
+
+	// Fixture generation
+	SolanaFixtures *e2etypes.SolanaFixtureGenerator
 }
 
 // TestWithIbcEurekaTestSuite is the boilerplate code that allows the test suite to be run
@@ -59,6 +63,9 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 	chainconfig.DefaultChainSpecs = append(chainconfig.DefaultChainSpecs, chainconfig.IbcGoChainSpec("ibc-go-simd-2", "simd-2"))
 
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
+
+	// Initialize fixture generation
+	s.SolanaFixtures = e2etypes.NewSolanaFixtureGenerator(&s.Suite)
 
 	s.TestSuite.SetupSuite(ctx)
 
@@ -563,6 +570,9 @@ func (s *CosmosRelayerTestSuite) Test_UpdateClient() {
 			s.Require().Empty(resp.Address)
 
 			updateTxBodyBz = resp.Tx
+
+			// Generate multiple Solana test scenarios if enabled
+			s.SolanaFixtures.GenerateMultipleUpdateClientScenarios(ctx, s.SimdA, updateTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Broadcast update client tx", func() {

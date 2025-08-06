@@ -133,6 +133,13 @@ generate-fixtures-wasm: clean-foundry install-relayer
 	@echo "Generating multi-period client update fixtures..."
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithRelayerTestSuite/Test_MultiPeriodClientUpdateToCosmos$' -timeout 60m
 
+# Generate the fixtures for the Solana tests using the e2e tests
+[group('generate')]
+generate-fixtures-solana: clean-foundry install-relayer
+	@echo "Generating Solana fixtures... This may take a while."
+	@echo "Generating basic client state, consensus state, and update client fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_SOLANA_FIXTURES=true go test -v -run '^TestWithCosmosRelayerTestSuite/Test_UpdateClient$' -timeout 40m
+
 # Generate go types for the e2e tests from the etheruem light client code
 [group('generate')]
 generate-ethereum-types:
@@ -265,12 +272,6 @@ test-e2e-solana testname:
 # Run the Solana Anchor e2e tests
 [group('test')]
 test-anchor-solana *ARGS:
-	@echo "Copying all files from target/deploy to programs/solana/target/deploy (overwriting if needed)"
-	if [ -n "$(ls -A target/deploy 2>/dev/null)" ]; then \
-		mkdir -p programs/solana/target/deploy; \
-		cp -f target/deploy/* programs/solana/target/deploy/; \
-		echo "✅ Copied all files from target/deploy to programs/solana/target/deploy/ (overwriting if needed)"; \
-	fi
 	@echo "Running Solana Client Anchor tests (anchor-nix preferred) ..."
 	if command -v anchor-nix >/dev/null 2>&1; then \
 		echo "🦀 Using anchor-nix"; \

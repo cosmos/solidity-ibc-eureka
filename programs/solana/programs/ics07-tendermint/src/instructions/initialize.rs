@@ -49,7 +49,7 @@ pub fn initialize(
 mod tests {
     use super::*;
     use crate::state::ConsensusStateStore;
-    use crate::types::IbcHeight;
+    use crate::test_helpers::fixtures::*;
     use anchor_lang::{AnchorDeserialize, InstructionData};
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
@@ -58,31 +58,154 @@ mod tests {
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::{native_loader, system_program};
 
-    #[test]
-    fn test_initialize_happy_path() {
-        let chain_id = "test-chain";
-        let client_state = ClientState {
-            chain_id: chain_id.to_string(),
-            trust_level_numerator: 1,
-            trust_level_denominator: 3,
-            trusting_period: 1000,
-            unbonding_period: 2000,
-            max_clock_drift: 5,
-            frozen_height: IbcHeight {
-                revision_number: 0,
-                revision_height: 0,
-            },
-            latest_height: IbcHeight {
-                revision_number: 0,
-                revision_height: 42,
-            },
+    struct TestAccounts {
+        payer: Pubkey,
+        client_state_pda: Pubkey,
+        consensus_state_store_pda: Pubkey,
+        accounts: Vec<(Pubkey, Account)>,
+    }
+
+    fn setup_test_accounts(chain_id: &str, latest_height: u64) -> TestAccounts {
+        let payer = Pubkey::new_unique();
+        let chain_id_bytes = if chain_id.is_empty() {
+            b""
+        } else {
+            chain_id.as_bytes()
+        };
+        let (client_state_pda, _) =
+            Pubkey::find_program_address(&[b"client", chain_id_bytes], &crate::ID);
+        let (consensus_state_store_pda, _) = Pubkey::find_program_address(
+            &[
+                b"consensus_state",
+                client_state_pda.as_ref(),
+                &latest_height.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let accounts = vec![
+            (
+                client_state_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                consensus_state_store_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: 10_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        TestAccounts {
+            payer,
+            client_state_pda,
+            consensus_state_store_pda,
+            accounts,
+        }
+    }
+
+    fn create_initialize_instruction(
+        test_accounts: &TestAccounts,
+        client_state: &ClientState,
+        consensus_state: &ConsensusState,
+    ) -> Instruction {
+        let instruction_data = crate::instruction::Initialize {
+            chain_id: client_state.chain_id.clone(),
+            latest_height: client_state.latest_height.revision_height,
+            client_state: client_state.clone(),
+            consensus_state: consensus_state.clone(),
         };
 
-        let consensus_state = ConsensusState {
-            timestamp: 123_456_789,
-            root: [0u8; 32],
-            next_validators_hash: [1u8; 32],
-        };
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(test_accounts.client_state_pda, false),
+                AccountMeta::new(test_accounts.consensus_state_store_pda, false),
+                AccountMeta::new(test_accounts.payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        }
+    }
+
+    fn assert_instruction_fails_with_error(
+        instruction: &Instruction,
+        accounts: &[(Pubkey, Account)],
+        expected_error: ErrorCode,
+    ) {
+        let mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
+        let result = mollusk.process_instruction(instruction, accounts);
+
+        match result.program_result {
+            mollusk_svm::result::ProgramResult::Success => {
+                panic!("Expected instruction to fail with {expected_error:?}, but it succeeded");
+            }
+            mollusk_svm::result::ProgramResult::Failure(error) => {
+                assert_eq!(
+                    error,
+                    anchor_lang::error::Error::from(expected_error).into()
+                );
+            }
+            mollusk_svm::result::ProgramResult::UnknownError(error) => {
+                panic!("Unknown error occurred: {error:?}");
+            }
+        }
+    }
+
+    fn test_initialize_validation_failure(
+        mut client_state: ClientState,
+        consensus_state: ConsensusState,
+        setup_invalid_state: impl FnOnce(&mut ClientState),
+        expected_error: ErrorCode,
+    ) {
+        setup_invalid_state(&mut client_state);
+
+        let test_accounts = setup_test_accounts(
+            &client_state.chain_id,
+            client_state.latest_height.revision_height,
+        );
+        let instruction =
+            create_initialize_instruction(&test_accounts, &client_state, &consensus_state);
+
+        assert_instruction_fails_with_error(&instruction, &test_accounts.accounts, expected_error);
+    }
+
+    #[test]
+    fn test_initialize_happy_path() {
+        // Load all fixtures efficiently (single JSON parse)
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        let chain_id = &client_state.chain_id;
 
         let payer = Pubkey::new_unique();
 
@@ -278,6 +401,120 @@ mod tests {
                 .consensus_state
                 .next_validators_hash,
             consensus_state.next_validators_hash
+        );
+    }
+
+    #[test]
+    fn test_initialize_invalid_chain_id() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        test_initialize_validation_failure(
+            client_state,
+            consensus_state,
+            |cs| cs.chain_id = String::new(),
+            ErrorCode::InvalidChainId,
+        );
+    }
+
+    #[test]
+    fn test_initialize_invalid_trust_level_zero_numerator() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        test_initialize_validation_failure(
+            client_state,
+            consensus_state,
+            |cs| cs.trust_level_numerator = 0,
+            ErrorCode::InvalidTrustLevel,
+        );
+    }
+
+    #[test]
+    fn test_initialize_invalid_trust_level_numerator_greater_than_denominator() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        test_initialize_validation_failure(
+            client_state,
+            consensus_state,
+            |cs| {
+                cs.trust_level_numerator = 5;
+                cs.trust_level_denominator = 3;
+            },
+            ErrorCode::InvalidTrustLevel,
+        );
+    }
+
+    #[test]
+    fn test_initialize_invalid_trust_level_zero_denominator() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        test_initialize_validation_failure(
+            client_state,
+            consensus_state,
+            |cs| cs.trust_level_denominator = 0,
+            ErrorCode::InvalidTrustLevel,
+        );
+    }
+
+    #[test]
+    fn test_initialize_invalid_periods_zero_trusting_period() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        test_initialize_validation_failure(
+            client_state,
+            consensus_state,
+            |cs| cs.trusting_period = 0,
+            ErrorCode::InvalidPeriods,
+        );
+    }
+
+    #[test]
+    fn test_initialize_invalid_periods_zero_unbonding_period() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        test_initialize_validation_failure(
+            client_state,
+            consensus_state,
+            |cs| cs.unbonding_period = 0,
+            ErrorCode::InvalidPeriods,
+        );
+    }
+
+    #[test]
+    fn test_initialize_invalid_periods_trusting_greater_than_unbonding() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        test_initialize_validation_failure(
+            client_state,
+            consensus_state,
+            |cs| {
+                cs.trusting_period = 1000;
+                cs.unbonding_period = 500;
+            },
+            ErrorCode::InvalidPeriods,
+        );
+    }
+
+    #[test]
+    fn test_initialize_invalid_max_clock_drift() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        test_initialize_validation_failure(
+            client_state,
+            consensus_state,
+            |cs| cs.max_clock_drift = 0,
+            ErrorCode::InvalidMaxClockDrift,
+        );
+    }
+
+    #[test]
+    fn test_initialize_invalid_height() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        test_initialize_validation_failure(
+            client_state,
+            consensus_state,
+            |cs| cs.latest_height.revision_height = 0,
+            ErrorCode::InvalidHeight,
         );
     }
 }

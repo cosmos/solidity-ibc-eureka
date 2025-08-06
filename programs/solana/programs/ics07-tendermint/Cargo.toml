@@ -48,4 +48,7 @@ time = { workspace = true, features = ["macros"] }
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
 solana-sdk.workspace = true
-
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+bincode.workspace = true
