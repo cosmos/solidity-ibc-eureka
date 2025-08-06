@@ -50,6 +50,7 @@
               jq
               parallel
               rust
+              anchor
               anchor-go
               protobuf
               buf
@@ -75,6 +76,7 @@
               openssl.dev
               pkg-config
               solana-agave
+              anchor-go
               protobuf
               just
             ];

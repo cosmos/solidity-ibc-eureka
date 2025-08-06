@@ -8,10 +8,10 @@ pkgs.buildGoModule rec {
     owner = "gagliardetto";
     repo = "anchor-go";
     rev = "v${version}";
-    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    sha256 = "sha256-Q7ZRuHvWTkDZl2D2AY/LdqdtFbrK4Rsiq+BhPr469YU=";
   };
 
-  vendorSha256 = "sha256-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+  vendorHash = "sha256-Q7ZRuHvWTkDZl2D2AY/LdqdtFbrK4Rsiq+BhPr469YU=";
 
   # optionally you can enable tests if needed
   doCheck = false;
