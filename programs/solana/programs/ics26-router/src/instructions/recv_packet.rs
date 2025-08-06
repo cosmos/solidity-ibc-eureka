@@ -192,7 +192,8 @@ mod tests {
     use solana_sdk::{clock::Clock, system_program};
 
     // Mock light client program ID - must match the ID in mock-light-client/src/lib.rs
-    const MOCK_LIGHT_CLIENT_ID: Pubkey = solana_sdk::pubkey!("4nFbkWTbUxKwXqKHzLdxkUfYZ9MrVkzJp7nXt8GY7JKp");
+    const MOCK_LIGHT_CLIENT_ID: Pubkey =
+        solana_sdk::pubkey!("4nFbkWTbUxKwXqKHzLdxkUfYZ9MrVkzJp7nXt8GY7JKp");
 
     #[test]
     fn test_recv_packet_unauthorized_sender() {
