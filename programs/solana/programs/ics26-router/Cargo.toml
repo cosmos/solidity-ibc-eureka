@@ -35,4 +35,3 @@ mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
 solana-sdk.workspace = true
 bincode.workspace = true
-mock-light-client.workspace = true

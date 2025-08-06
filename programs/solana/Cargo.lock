@@ -1954,7 +1954,6 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bincode",
- "mock-light-client",
  "mollusk-svm",
  "mollusk-svm-bencher",
  "sha2 0.10.9",

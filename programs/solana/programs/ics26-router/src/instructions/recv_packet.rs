@@ -191,6 +191,9 @@ mod tests {
     use solana_sdk::sysvar::SysvarId;
     use solana_sdk::{clock::Clock, system_program};
 
+    // Mock light client program ID - must match the ID in mock-light-client/src/lib.rs
+    const MOCK_LIGHT_CLIENT_ID: Pubkey = solana_sdk::pubkey!("4nFbkWTbUxKwXqKHzLdxkUfYZ9MrVkzJp7nXt8GY7JKp");
+
     #[test]
     fn test_recv_packet_unauthorized_sender() {
         let ctx = setup_recv_packet_test_with_params(RecvPacketTestParams {
@@ -217,7 +220,7 @@ mod tests {
 
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
         mollusk.add_program(
-            &mock_light_client::id(),
+            &MOCK_LIGHT_CLIENT_ID,
             crate::get_mock_client_program_path(),
             &solana_sdk::bpf_loader_upgradeable::ID,
         );
@@ -289,7 +292,7 @@ mod tests {
         let payer = relayer;
         let client_id = "test-client";
         let port_id = "test-port";
-        let light_client_program = mock_light_client::id();
+        let light_client_program = MOCK_LIGHT_CLIENT_ID;
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
 
@@ -442,7 +445,7 @@ mod tests {
 
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
         mollusk.add_program(
-            &mock_light_client::id(),
+            &MOCK_LIGHT_CLIENT_ID,
             crate::get_mock_client_program_path(),
             &solana_sdk::bpf_loader_upgradeable::ID,
         );
@@ -496,7 +499,7 @@ mod tests {
 
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
         mollusk.add_program(
-            &mock_light_client::id(),
+            &MOCK_LIGHT_CLIENT_ID,
             crate::get_mock_client_program_path(),
             &solana_sdk::bpf_loader_upgradeable::ID,
         );
