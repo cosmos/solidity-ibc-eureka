@@ -29,7 +29,7 @@ pub const IBC_ATTESTOR_PATH: LazyCell<PathBuf> = LazyCell::new(|| {
 });
 
 /// The top level configuration for the relayer.
-#[derive(Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub struct AttestorConfig {
     /// The configuration for the attestor server.
     pub server: ServerConfig,
@@ -106,7 +106,7 @@ impl ServerConfig {
 }
 
 #[cfg(feature = "sol")]
-#[derive(Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub struct SolanaClientConfig {
     pub url: String,
     pub account_key: String,
