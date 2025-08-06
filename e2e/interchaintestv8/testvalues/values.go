@@ -49,6 +49,8 @@ const (
 	EnvKeyGenerateSolidityFixtures = "GENERATE_SOLIDITY_FIXTURES"
 	// EnvKeyGenerateSolidityFixtures Generate fixtures for the solidity tests if set to true.
 	EnvKeyGenerateWasmFixtures = "GENERATE_WASM_FIXTURES"
+	// EnvKeyGenerateSolanaFixtures Generate fixtures for the solana tests if set to true.
+	EnvKeyGenerateSolanaFixtures = "GENERATE_SOLANA_FIXTURES"
 	// The log level for the Rust logger.
 	EnvKeyRustLog = "RUST_LOG"
 

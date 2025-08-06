@@ -32,7 +32,7 @@ type SolanaFixtureGenerator struct {
 
 func NewSolanaFixtureGenerator(s *suite.Suite) *SolanaFixtureGenerator {
 	generator := &SolanaFixtureGenerator{
-		Enabled: os.Getenv("GENERATE_SOLANA_FIXTURES") == "true",
+		Enabled: os.Getenv(testvalues.EnvKeyGenerateSolanaFixtures) == testvalues.EnvValueGenerateFixtures_True,
 		suite:   s,
 	}
 
