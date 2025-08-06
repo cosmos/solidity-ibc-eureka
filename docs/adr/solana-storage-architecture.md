@@ -213,6 +213,28 @@ Timeout: Verify → Clear bit → Close PDA → Reclaim rent
 - Temporary rent lock (~0.002 SOL per packet)
 - More accounts to manage
 
+## Caller Experience
+
+To simplify packet status queries, we provide view functions that abstract the storage complexity:
+
+**View Functions (Free RPC Calls)**:
+- `get_packet_status(sequence)` - Returns if packet is active
+- `get_packet_commitment(sequence)` - Returns commitment hash if exists
+- `get_window_info()` - Returns current window bounds and active count
+- `get_consensus_state(client_id, height)` - Returns consensus state if in window
+
+These abstract the storage layout from callers:
+- Check bitmap for quick status
+- Derive PDA only if commitment needed
+- Handle window boundaries transparently
+- No transaction fees (read-only)
+
+**Benefits**:
+- Single function call to check packet status
+- No need to understand storage layout
+- Consistent interface regardless of packet location
+- Free to call via RPC
+
 ## Security Considerations
 
 1. **Consensus State Availability**: Ensure pruning window > maximum packet lifetime
@@ -243,8 +265,10 @@ Per Channel:
 **Annual Operating Cost (1000 packets/day, 1000 consensus states/day):**
 ```
 Rent (rotating): ~0 (reclaimed)
-Transaction fees: 730,000 × 0.00001 = 7.3 SOL
-Total: ~7.3 SOL/year
+Transaction fees:
+  - Packets: 365,000 × 0.00001 = 3.65 SOL
+  - Consensus: 365,000 × 0.00001 = 3.65 SOL
+  - Total: ~7.3 SOL/year
 ```
 
 This is 200x cheaper than permanent storage approaches.
@@ -274,9 +298,14 @@ PRUNING_DELAY: 3600  // Seconds before pruning eligible
 4. **State Compression**: Not suitable for frequently accessed data
 5. **No Bitmap**: Would require PDA derivation for every lookup
 
+## Sum up
+
+- Rolling window for consensus states (100 states)
+- Bitmap + PDAs for packets
+
 ## References
 
-[IBC Packet Lifecycle](https://github.com/cosmos/ibc/tree/main/spec/core/ics-004-channel-and-packet-semantics)
+- [IBC Packet Lifecycle](https://github.com/cosmos/ibc/tree/main/spec/core/ics-004-channel-and-packet-semantics)
 - [Solana Account Model](https://solana.com/docs/core/accounts)
 - [Solana PDAs](https://solana.com/docs/core/pda)
 - [Solana Rent Economics](https://solana.com/docs/core/fees)
