@@ -449,9 +449,9 @@ mod tests {
 
         // Calculate expected rent-exempt lamports for Commitment accounts
         let commitment_rent = {
-            use solana_sdk::rent::Rent;
             use anchor_lang::Space;
-            let account_size = 8 + Commitment::INIT_SPACE; // 8 (discriminator) + 32 (value) = 40 bytes
+            use solana_sdk::rent::Rent;
+            let account_size = 8 + Commitment::INIT_SPACE;
             Rent::default().minimum_balance(account_size)
         };
 
