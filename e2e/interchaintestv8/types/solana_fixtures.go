@@ -229,8 +229,8 @@ func (g *SolanaFixtureGenerator) corruptSignatureInValidHeader(validHex string) 
 	corruptedHeader := tmHeader
 
 	// Corrupt signature data in the commit while preserving the protobuf structure
-	if corruptedHeader.SignedHeader != nil && corruptedHeader.SignedHeader.Commit != nil {
-		commit := corruptedHeader.SignedHeader.Commit
+	if corruptedHeader.SignedHeader != nil && corruptedHeader.Commit != nil {
+		commit := corruptedHeader.Commit
 
 		// Corrupt block signature if it exists
 		if len(commit.Signatures) > 0 {
@@ -238,7 +238,7 @@ func (g *SolanaFixtureGenerator) corruptSignatureInValidHeader(validHex string) 
 			if len(commit.Signatures[0].Signature) > 10 {
 				// Flip a byte in the middle of the signature
 				sigPos := len(commit.Signatures[0].Signature) / 2
-				commit.Signatures[0].Signature[sigPos] = commit.Signatures[0].Signature[sigPos] ^ 0xFF
+				commit.Signatures[0].Signature[sigPos] ^= 0xFF
 				g.suite.T().Logf("🔧 Corrupted signature byte at position %d in first commit signature", sigPos)
 			}
 		}
@@ -247,7 +247,7 @@ func (g *SolanaFixtureGenerator) corruptSignatureInValidHeader(validHex string) 
 		if len(commit.BlockID.Hash) > 0 {
 			// Flip one byte in the block hash
 			hashPos := len(commit.BlockID.Hash) / 2
-			commit.BlockID.Hash[hashPos] = commit.BlockID.Hash[hashPos] ^ 0xFF
+			commit.BlockID.Hash[hashPos] ^= 0xFF
 			g.suite.T().Logf("🔧 Corrupted block hash byte at position %d", hashPos)
 		}
 	}
@@ -327,7 +327,7 @@ func (g *SolanaFixtureGenerator) saveJsonFixture(filename string, data interface
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	g.suite.Require().NoError(err)
 
-	err = os.WriteFile(filename, jsonData, 0o644)
+	err = os.WriteFile(filename, jsonData, 0o600)
 	g.suite.Require().NoError(err)
 }
 
@@ -519,11 +519,13 @@ func (g *SolanaFixtureGenerator) generateInvalidProtobufScenario() {
 func (g *SolanaFixtureGenerator) createExpiredHeader(validHex string, trustingPeriodSeconds int64) string {
 	headerBytes, _ := hex.DecodeString(validHex)
 	var header ibctmtypes.Header
-	proto.Unmarshal(headerBytes, &header)
+	if err := proto.Unmarshal(headerBytes, &header); err != nil {
+		g.suite.T().Fatalf("Failed to unmarshal header: %v", err)
+	}
 
 	// Set timestamp to be older than trusting period
 	expiredTime := time.Now().Add(-time.Duration(trustingPeriodSeconds+3600) * time.Second) // Add 1 hour buffer
-	header.SignedHeader.Header.Time = expiredTime
+	header.Header.Time = expiredTime
 
 	modifiedBytes, _ := proto.Marshal(&header)
 	return hex.EncodeToString(modifiedBytes)
@@ -532,11 +534,13 @@ func (g *SolanaFixtureGenerator) createExpiredHeader(validHex string, trustingPe
 func (g *SolanaFixtureGenerator) createFutureTimestampHeader(validHex string, maxClockDriftSeconds int64) string {
 	headerBytes, _ := hex.DecodeString(validHex)
 	var header ibctmtypes.Header
-	proto.Unmarshal(headerBytes, &header)
+	if err := proto.Unmarshal(headerBytes, &header); err != nil {
+		g.suite.T().Fatalf("Failed to unmarshal header: %v", err)
+	}
 
 	// Set timestamp to be in the future beyond max clock drift
 	futureTime := time.Now().Add(time.Duration(maxClockDriftSeconds+3600) * time.Second) // Add 1 hour buffer
-	header.SignedHeader.Header.Time = futureTime
+	header.Header.Time = futureTime
 
 	modifiedBytes, _ := proto.Marshal(&header)
 	return hex.EncodeToString(modifiedBytes)
