@@ -27,7 +27,7 @@ enum AttestationQuery {
     State(u64),
 }
 
-type AttestorClient = (String, Mutex<AttestationServiceClient<Channel>>);
+type AttestorClient = (Arc<String>, Mutex<AttestationServiceClient<Channel>>);
 
 /// Signature aggregator service that collects and aggregates attestations from multiple attestors.
 /// # Architecture
@@ -67,7 +67,7 @@ impl Aggregator {
         let futures = config.attestor_endpoints.iter().map(|endpoint| async move {
             AttestationServiceClient::connect(endpoint.clone())
                 .await
-                .map(|client| (endpoint.clone(), Mutex::new(client)))
+                .map(|client| (Arc::new(endpoint.clone()), Mutex::new(client)))
         });
 
         join_all(futures)
