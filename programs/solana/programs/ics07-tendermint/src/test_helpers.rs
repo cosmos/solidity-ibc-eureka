@@ -47,12 +47,12 @@ pub mod fixtures {
     }
 
     pub fn load_update_client_fixture(filename: &str) -> UpdateClientFixture {
-        let fixture_path = format!("../../tests/fixtures/{}.json", filename);
+        let fixture_path = format!("../../tests/fixtures/{filename}.json");
         let fixture_content = std::fs::read_to_string(&fixture_path)
-            .unwrap_or_else(|_| panic!("Failed to read fixture: {}", fixture_path));
+            .unwrap_or_else(|_| panic!("Failed to read fixture: {fixture_path}"));
 
         serde_json::from_str(&fixture_content)
-            .unwrap_or_else(|_| panic!("Failed to parse fixture: {}", fixture_path))
+            .unwrap_or_else(|_| panic!("Failed to parse fixture: {fixture_path}"))
     }
 
     pub fn load_happy_path_fixture() -> UpdateClientFixture {
@@ -90,7 +90,7 @@ pub mod fixtures {
 
     // Helper to check if a fixture file exists
     pub fn fixture_exists(filename: &str) -> bool {
-        let fixture_path = format!("../../tests/fixtures/{}.json", filename);
+        let fixture_path = format!("../../tests/fixtures/{filename}.json");
         std::path::Path::new(&fixture_path).exists()
     }
 
@@ -110,8 +110,8 @@ pub mod fixtures {
     pub fn client_state_from_fixture(fixture: &ClientStateFixture) -> ClientState {
         ClientState {
             chain_id: fixture.chain_id.clone(),
-            trust_level_numerator: fixture.trust_level_numerator as u64,
-            trust_level_denominator: fixture.trust_level_denominator as u64,
+            trust_level_numerator: u64::from(fixture.trust_level_numerator),
+            trust_level_denominator: u64::from(fixture.trust_level_denominator),
             trusting_period: fixture.trusting_period,
             unbonding_period: fixture.unbonding_period,
             max_clock_drift: fixture.max_clock_drift,
@@ -180,31 +180,23 @@ pub mod fixtures {
     ) {
         match result.program_result {
             mollusk_svm::result::ProgramResult::Success => {
-                panic!(
-                    "Expected {} to fail with {:?}, but it succeeded",
-                    test_name, expected_error
-                );
+                panic!("Expected {test_name} to fail with {expected_error:?}, but it succeeded");
             }
             mollusk_svm::result::ProgramResult::Failure(error) => {
                 if let Some(code) = get_error_code(&error) {
                     let expected_code = expected_error as u32 + 6000; // Anchor errors start at 6000
                     assert_eq!(
                         code, expected_code,
-                        "Expected {:?} ({}), but got error code {}",
-                        expected_error, expected_code, code
+                        "Expected {expected_error:?} ({expected_code}), but got error code {code}"
                     );
                     println!(
-                        "✅ {} correctly failed with {:?} ({})",
-                        test_name, expected_error, expected_code
+                        "✅ {test_name} correctly failed with {expected_error:?} ({expected_code})"
                     );
                 } else {
-                    panic!(
-                        "Expected custom error code for {}, got: {:?}",
-                        test_name, error
-                    );
+                    panic!("Expected custom error code for {test_name}, got: {error:?}");
                 }
             }
-            _ => panic!(
+            mollusk_svm::result::ProgramResult::UnknownError(_) => panic!(
                 "Unexpected program result for {}: {:?}",
                 test_name, result.program_result
             ),
@@ -217,10 +209,7 @@ pub mod fixtures {
     ) {
         match result.program_result {
             mollusk_svm::result::ProgramResult::Success => {
-                panic!(
-                    "Expected instruction to fail for {}, but it succeeded",
-                    test_name
-                );
+                panic!("Expected instruction to fail for {test_name}, but it succeeded");
             }
             _ => {
                 println!(

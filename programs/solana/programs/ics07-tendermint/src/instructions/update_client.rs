@@ -13,6 +13,15 @@ use tendermint_light_client_update_client::ClientState as UpdateClientState;
 /// Size of Anchor's account discriminator in bytes
 const ANCHOR_DISCRIMINATOR_SIZE: usize = 8;
 
+struct ConsensusStateStorageContext<'info, 'a> {
+    new_consensus_state_store: &'a UncheckedAccount<'info>,
+    payer: &'a Signer<'info>,
+    system_program: &'a Program<'info, System>,
+    program_id: &'a Pubkey,
+    client_key: Pubkey,
+    revision_height: u64,
+}
+
 pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
@@ -47,16 +56,17 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
         ctx.program_id,
     )?;
 
-    let update_result = handle_consensus_state_storage(
-        &ctx.accounts.new_consensus_state_store,
-        &ctx.accounts.payer,
-        &ctx.accounts.system_program,
-        ctx.program_id,
-        client_state.key(),
-        new_height.revision_height(),
-        &new_consensus_state,
-        client_state,
-    )?;
+    let storage_context = ConsensusStateStorageContext {
+        new_consensus_state_store: &ctx.accounts.new_consensus_state_store,
+        payer: &ctx.accounts.payer,
+        system_program: &ctx.accounts.system_program,
+        program_id: ctx.program_id,
+        client_key: client_state.key(),
+        revision_height: new_height.revision_height(),
+    };
+
+    let update_result =
+        handle_consensus_state_storage(storage_context, &new_consensus_state, client_state)?;
 
     if update_result == UpdateResult::Update {
         client_state.latest_height = new_height.into();
@@ -170,31 +180,30 @@ fn verify_consensus_state_pda(
     Ok(())
 }
 
-fn handle_consensus_state_storage<'info>(
-    new_consensus_state_store: &UncheckedAccount<'info>,
-    payer: &Signer<'info>,
-    system_program: &Program<'info, System>,
-    program_id: &Pubkey,
-    client_key: Pubkey,
-    revision_height: u64,
+fn handle_consensus_state_storage(
+    ctx: ConsensusStateStorageContext<'_, '_>,
     new_consensus_state: &ConsensusState,
     client_state: &mut ClientState,
 ) -> Result<UpdateResult> {
-    if new_consensus_state_store.data_is_empty() {
+    if ctx.new_consensus_state_store.data_is_empty() {
         // Create new consensus state account
         create_consensus_state_account(
-            new_consensus_state_store,
-            payer,
-            system_program,
-            program_id,
-            client_key,
-            revision_height,
+            ctx.new_consensus_state_store,
+            ctx.payer,
+            ctx.system_program,
+            ctx.program_id,
+            ctx.client_key,
+            ctx.revision_height,
             new_consensus_state,
         )?;
         Ok(UpdateResult::Update)
     } else {
         // Consensus state already exists at this height - check for misbehaviour
-        check_existing_consensus_state(new_consensus_state_store, new_consensus_state, client_state)
+        check_existing_consensus_state(
+            ctx.new_consensus_state_store,
+            new_consensus_state,
+            client_state,
+        )
     }
 }
 
@@ -296,8 +305,8 @@ fn create_account_with_system_program<'info>(
 }
 
 /// Initializes the consensus state store with the provided data
-fn initialize_consensus_state_store<'info>(
-    consensus_state_account: &UncheckedAccount<'info>,
+fn initialize_consensus_state_store(
+    consensus_state_account: &UncheckedAccount<'_>,
     revision_height: u64,
     consensus_state: &ConsensusState,
 ) -> Result<()> {
@@ -498,8 +507,10 @@ mod tests {
             .resulting_accounts
             .iter()
             .find(|(pubkey, _)| pubkey == target_pubkey)
-            .map(|(_, account)| account)
-            .expect(&format!("Account {} not found", target_pubkey))
+            .map_or_else(
+                || panic!("Account {target_pubkey} not found"),
+                |(_, account)| account,
+            )
     }
 
     fn setup_update_client_test_scenario(
@@ -530,16 +541,17 @@ mod tests {
             client_message,
         );
 
-        let accounts = if let Some(custom_accounts) = custom_accounts {
-            custom_accounts
-        } else {
-            setup_test_accounts_with_new_consensus_state(
-                initialized_accounts,
-                new_consensus_state_pda,
-                payer,
-                100_000_000_000,
-            )
-        };
+        let accounts = custom_accounts.map_or_else(
+            || {
+                setup_test_accounts_with_new_consensus_state(
+                    initialized_accounts,
+                    new_consensus_state_pda,
+                    payer,
+                    100_000_000_000,
+                )
+            },
+            |custom_accounts| custom_accounts,
+        );
 
         UpdateClientTestScenario {
             client_state_pda,
@@ -797,7 +809,7 @@ mod tests {
 
         println!("✅ All state updates verified successfully:");
         println!("  - Client state latest height: {} -> {}", 19, new_height);
-        println!("  - New consensus state created at height: {}", new_height);
+        println!("  - New consensus state created at height: {new_height}");
         println!(
             "  - Consensus state timestamp: {}",
             consensus_state.timestamp
@@ -1036,8 +1048,7 @@ mod tests {
         match first_result.program_result {
             mollusk_svm::result::ProgramResult::Success => {
                 println!(
-                    "✅ First update succeeded, consensus state created at height {}",
-                    new_height
+                    "✅ First update succeeded, consensus state created at height {new_height}"
                 );
             }
             _ => panic!(
@@ -1048,7 +1059,7 @@ mod tests {
 
         // Now create a different consensus state by manually creating one with different data
         // We'll manually populate the consensus state account with different data at the same height
-        let mut modified_accounts = first_result.resulting_accounts.clone();
+        let mut modified_accounts = first_result.resulting_accounts;
 
         // Find the consensus state account and modify its data to create a conflict
         if let Some((_, account)) = modified_accounts

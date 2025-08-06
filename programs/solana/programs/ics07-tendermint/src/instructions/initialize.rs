@@ -168,10 +168,7 @@ mod tests {
 
         match result.program_result {
             mollusk_svm::result::ProgramResult::Success => {
-                panic!(
-                    "Expected instruction to fail with {:?}, but it succeeded",
-                    expected_error
-                );
+                panic!("Expected instruction to fail with {expected_error:?}, but it succeeded");
             }
             mollusk_svm::result::ProgramResult::Failure(error) => {
                 assert_eq!(
@@ -180,7 +177,7 @@ mod tests {
                 );
             }
             mollusk_svm::result::ProgramResult::UnknownError(error) => {
-                panic!("Unknown error occurred: {:?}", error);
+                panic!("Unknown error occurred: {error:?}");
             }
         }
     }
