@@ -11,7 +11,7 @@ pkgs.buildGoModule rec {
     sha256 = "sha256-Q7ZRuHvWTkDZl2D2AY/LdqdtFbrK4Rsiq+BhPr469YU=";
   };
 
-  vendorHash = "sha256-Q7ZRuHvWTkDZl2D2AY/LdqdtFbrK4Rsiq+BhPr469YU=";
+  vendorHash = "sha256-C8Ne0aHe3GW130tasJ7+x4eq8Yp2zo2GK0AbWEi93dE=";
 
   # optionally you can enable tests if needed
   doCheck = false;
