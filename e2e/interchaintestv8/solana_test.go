@@ -10,7 +10,11 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
+	sol "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
@@ -35,6 +39,23 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	var err error
 	s.SolanaUser, err = s.SolanaChain.CreateAndFundWallet()
 	s.Require().NoError(err)
+
+	s.Require().True(s.Run("Deploy contracts", func() {
+		_, err := s.SolanaChain.FundUser(sol.DeployerPubkey, 20*testvalues.InitialSolBalance)
+		s.Require().NoError(err)
+
+		ics07ProgramID, _, err := sol.AnchorDeploy(ctx, "../../programs/solana", "ics07_tendermint")
+		s.Require().NoError(err)
+
+		// Set the program ID in the ics07_tendermint package, in case it is not matched automatically
+		ics07_tendermint.ProgramID = ics07ProgramID
+
+		ics26RouterProgramID, _, err := sol.AnchorDeploy(ctx, "../../programs/solana", "ics26_router")
+		s.Require().NoError(err)
+
+		// Set the program ID in the ics26_router package, in case it is not matched automatically
+		ics26_router.ProgramID = ics26RouterProgramID
+	}))
 }
 
 func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
