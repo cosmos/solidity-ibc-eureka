@@ -2,8 +2,6 @@
 
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 
-use serde as _;
-
 pub mod ics26;
 pub mod msgs;
 pub mod sp1_ics07;
