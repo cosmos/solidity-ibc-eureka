@@ -120,6 +120,13 @@ generate-abi: build-contracts
 generate-abi-bytecode: build-contracts
 	cp out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json abi/bytecode
 
+# Generate the types for interacting with SVM contracts using 'anchor-go'
+[group('generate')]
+generate-svm-types:
+	@echo "Generating SVM types..."
+	anchor-go --idl ./programs/solana/target/idl/ics07_tendermint.json --output packages/go-anchor/ics07tendermint --no-go-mod
+	anchor-go --idl ./programs/solana/target/idl/ics26_router.json --output packages/go-anchor/ics26router --no-go-mod
+
 # Generate the fixtures for the wasm tests using the e2e tests
 [group('generate')]
 generate-fixtures-wasm: clean-foundry install-relayer
