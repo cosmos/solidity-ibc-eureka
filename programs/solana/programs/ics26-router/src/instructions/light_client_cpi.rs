@@ -2,7 +2,7 @@ use crate::errors::RouterError;
 use crate::state::Client;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
-use anchor_lang::solana_program::program::invoke;
+use anchor_lang::solana_program::program::{invoke, get_return_data};
 use solana_light_client_interface::{discriminators, MembershipMsg};
 
 /// Accounts needed for light client verification via CPI
@@ -53,6 +53,7 @@ pub fn verify_membership_cpi(
 
     invoke(&ix, &account_infos)?;
 
+    // Return the height for consistency
     Ok(membership_msg.height)
 }
 
@@ -98,5 +99,17 @@ pub fn verify_non_membership_cpi(
 
     invoke(&ix, &account_infos)?;
 
-    Ok(membership_msg.height)
+    // Get the return data from the light client
+    // Light client should return timestamp for non-membership verification
+    if let Some((_, return_data)) = get_return_data() {
+        if return_data.len() >= 8 {
+            let mut bytes = [0u8; 8];
+            bytes.copy_from_slice(&return_data[..8]);
+            return Ok(u64::from_le_bytes(bytes));
+        }
+    }
+
+    // If no return data, the light client is not compliant with the interface
+    // Real light clients MUST return timestamp for non-membership verification
+    Err(ProgramError::InvalidAccountData.into())
 }

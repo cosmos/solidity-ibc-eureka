@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::program::set_return_data;
 use solana_light_client_interface::MembershipMsg;
 
 declare_id!("4nFbkWTbUxKwXqKHzLdxkUfYZ9MrVkzJp7nXt8GY7JKp");
@@ -9,6 +10,11 @@ pub mod mock_light_client {
 
     pub fn verify_membership(_ctx: Context<VerifyMembership>, _msg: MembershipMsg) -> Result<()> {
         msg!("Mock light client: verify_membership always returns success");
+
+        // Return the height as bytes for membership verification
+        let height_bytes = _msg.height.to_le_bytes();
+        set_return_data(&height_bytes);
+
         Ok(())
     }
 
@@ -17,6 +23,13 @@ pub mod mock_light_client {
         _msg: MembershipMsg,
     ) -> Result<()> {
         msg!("Mock light client: verify_non_membership always returns success");
+
+        // For non-membership (timeout), return a timestamp value
+        // Using 2000 as a mock timestamp (greater than typical test timeout values)
+        let timestamp: u64 = 2000;
+        let timestamp_bytes = timestamp.to_le_bytes();
+        set_return_data(&timestamp_bytes);
+
         Ok(())
     }
 }
