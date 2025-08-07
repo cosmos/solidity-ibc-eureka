@@ -286,3 +286,53 @@ pub fn get_account_data_from_mollusk<'a>(
         .find(|(key, _)| key == pubkey)
         .map(|(_, account)| &account.data[DISCRIMINATOR_SIZE..])
 }
+
+pub fn get_client_sequence_from_result(result: &mollusk_svm::result::InstructionResult) -> u64 {
+    use anchor_lang::{AnchorDeserialize, Discriminator, Space};
+
+    // ClientSequence discriminator to verify account type
+    let expected_discriminator = ClientSequence::DISCRIMINATOR;
+    let account_size = 8 + ClientSequence::INIT_SPACE;
+
+    // Find the client_sequence account by checking discriminator, size and owner
+    let (_, sequence_account) = result
+        .resulting_accounts
+        .iter()
+        .find(|(_, account)| {
+            account.data.len() == account_size
+                && account.owner == crate::ID
+                && account.data.len() >= 8
+                && &account.data[..8] == expected_discriminator
+        })
+        .expect("client_sequence account not found");
+
+    // Deserialize the account properly
+    let mut account_data = &sequence_account.data[8..];
+    let client_sequence: ClientSequence = AnchorDeserialize::deserialize(&mut account_data)
+        .expect("Failed to deserialize ClientSequence");
+
+    client_sequence.next_sequence_send
+}
+
+pub fn get_client_sequence_from_result_by_pubkey(
+    result: &mollusk_svm::result::InstructionResult,
+    pubkey: &Pubkey,
+) -> Option<u64> {
+    use anchor_lang::{AnchorDeserialize, Discriminator};
+
+    result
+        .resulting_accounts
+        .iter()
+        .find(|(key, _)| key == pubkey)
+        .and_then(|(_, account)| {
+            // Verify it's a ClientSequence account
+            if account.data.len() >= 8 && &account.data[..8] == ClientSequence::DISCRIMINATOR {
+                let mut account_data = &account.data[8..];
+                let client_sequence: ClientSequence =
+                    AnchorDeserialize::deserialize(&mut account_data).ok()?;
+                Some(client_sequence.next_sequence_send)
+            } else {
+                None
+            }
+        })
+}
