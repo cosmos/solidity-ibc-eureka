@@ -191,9 +191,6 @@ mod tests {
     use solana_sdk::sysvar::SysvarId;
     use solana_sdk::{clock::Clock, system_program};
 
-    // Mock light client program ID - must match the ID in mock-light-client/src/lib.rs
-    const MOCK_LIGHT_CLIENT_ID: Pubkey =
-        solana_sdk::pubkey!("4nFbkWTbUxKwXqKHzLdxkUfYZ9MrVkzJp7nXt8GY7JKp");
 
     #[test]
     fn test_recv_packet_unauthorized_sender() {
@@ -414,18 +411,6 @@ mod tests {
         clock_data
     }
 
-    fn create_bpf_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::Account) {
-        (
-            pubkey,
-            solana_sdk::account::Account {
-                lamports: 0,
-                data: vec![],
-                owner: solana_sdk::bpf_loader_upgradeable::ID,
-                executable: true,
-                rent_epoch: 0,
-            },
-        )
-    }
 
     #[test]
     fn test_recv_packet_success() {

@@ -5,6 +5,10 @@ use solana_sdk::sysvar::Sysvar;
 
 pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
 
+// Mock light client program ID - must match the ID in mock-light-client/src/lib.rs
+pub const MOCK_LIGHT_CLIENT_ID: Pubkey =
+    solana_sdk::pubkey!("4nFbkWTbUxKwXqKHzLdxkUfYZ9MrVkzJp7nXt8GY7JKp");
+
 // TODO: Move to test helpers crate
 
 pub fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u8> {
@@ -335,4 +339,17 @@ pub fn get_client_sequence_from_result_by_pubkey(
                 None
             }
         })
+}
+
+pub fn create_bpf_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::Account) {
+    (
+        pubkey,
+        solana_sdk::account::Account {
+            lamports: 0,
+            data: vec![],
+            owner: solana_sdk::bpf_loader_upgradeable::ID,
+            executable: true,
+            rent_epoch: 0,
+        },
+    )
 }
