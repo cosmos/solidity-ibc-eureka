@@ -61,7 +61,7 @@ mod tests {
         let server_config = config.server.clone();
         let service = Aggregator::from_config(config)
             .await
-            .expect("failed to build Aggregator");
+            .expect("failed to build Aggregator Service");
 
         let server_handle = tokio::spawn({
             async move {

@@ -80,32 +80,30 @@ impl Aggregator {
 
 #[tonic::async_trait]
 impl AggregatorService for Aggregator {
-    #[instrument(skip_all, fields(packets = ?request.get_ref().packets))]
+    #[instrument(skip_all, fields(height = request.get_ref().height))]
     async fn get_state_attestation(
         &self,
         request: Request<GetStateAttestationRequest>,
     ) -> Result<Response<AggregatedAttestation>, Status> {
         let request = request.into_inner();
-        let packets = request.packets;
-        let height = request.height;
 
-        if packets.is_empty() {
+        if request.packets.is_empty() {
             return Err(Status::invalid_argument("Packets cannot be empty"));
         }
 
-        if packets.iter().any(|packet| packet.is_empty()) {
+        if request.packets.iter().any(|packet| packet.is_empty()) {
             return Err(Status::invalid_argument("Packet cannot be empty"));
         }
 
-        let mut sorted_packets = packets;
+        let mut sorted_packets = request.packets;
         sorted_packets.sort();
-        let packet_cache_key = Self::make_packet_cache_key(&sorted_packets, height);
+        let packet_cache_key = Self::make_packet_cache_key(&sorted_packets, request.height);
 
         let packet_agg = self
             .packet_cache
             .try_get_with(packet_cache_key, async {
                 let packet_attestations = self
-                    .query_attestations(AttestationQuery::Packet(sorted_packets, height))
+                    .query_attestations(AttestationQuery::Packet(sorted_packets, request.height))
                     .await?;
 
                 let quorumed_aggregation =
@@ -143,7 +141,6 @@ impl Aggregator {
         let timeout_duration = self.attestor_timeout_duration;
         let query_futures = self.attestor_clients.iter().map(|(endpoint, client)| {
             let query = query.clone();
-
             async move {
                 let mut client = client.lock().await;
                 let response = timeout(timeout_duration, async {
