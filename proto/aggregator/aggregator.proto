@@ -12,9 +12,6 @@ service AggregatorService {
 }
 
 // Request message for getting an attestation for a set of packets.
-// This request's parameters does not include a height at the moment, because
-// we are currently only attesting to the latest height, and using the returned
-// height to request a state attestation.
 message GetStateAttestationRequest {
   // The packets to attest to
   repeated bytes packets = 1;
