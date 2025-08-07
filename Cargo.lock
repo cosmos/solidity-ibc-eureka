@@ -4458,7 +4458,7 @@ dependencies = [
 name = "ibc-eureka-relayer-attested-to-cosmos"
 version = "0.1.0"
 dependencies = [
- "alloy-sol-types 1.2.1",
+ "alloy",
  "anyhow",
  "async-trait",
  "hex",
@@ -4469,6 +4469,7 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
+ "tendermint",
  "tendermint-rpc",
  "tonic 0.13.1",
  "tonic-build",

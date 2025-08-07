@@ -9,7 +9,7 @@ license    = { workspace = true }
 ibc-eureka-relayer-lib    = { workspace = true, default-features = false }
 ibc-eureka-relayer-core   = { workspace = true, default-features = false }
 ibc-eureka-utils          = { workspace = true }
-alloy-sol-types           = { workspace = true }
+alloy = { workspace = true, features = ["full", "node-bindings"] }
 
 serde      = { workspace = true, features = ["derive"] }
 prost      = { workspace = true, features = ["std"] }
@@ -20,6 +20,7 @@ async-trait   = { workspace = true }
 anyhow        = { workspace = true, features = ["std"] }
 tracing       = { workspace = true, default-features = true }
 
+tendermint = { workspace = true }
 tendermint-rpc = { workspace = true, features = ["http-client"] }
 hex            = { workspace = true }
 

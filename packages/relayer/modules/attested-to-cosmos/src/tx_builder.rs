@@ -3,12 +3,12 @@
 
 use std::collections::HashMap;
 
+use alloy::sol_types::SolValue;
 use anyhow::Result;
 use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
 use prost::Message;
 use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
-use alloy_sol_types::SolValue;
 
 use ibc_eureka_relayer_lib::{
     chain::{Chain, CosmosSdk},
@@ -97,7 +97,8 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
                 EurekaEvent::SendPacket(packet) => {
                     if packet.sourceClient == src_client_id
                         && packet.destClient == dst_client_id
-                        && (src_packet_seqs.is_empty() || src_packet_seqs.contains(&packet.sequence))
+                        && (src_packet_seqs.is_empty()
+                            || src_packet_seqs.contains(&packet.sequence))
                     {
                         send_events.push(event);
                     }
@@ -105,7 +106,8 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
                 EurekaEvent::WriteAcknowledgement(packet, _) => {
                     if packet.sourceClient == src_client_id
                         && packet.destClient == dst_client_id
-                        && (dst_packet_seqs.is_empty() || dst_packet_seqs.contains(&packet.sequence))
+                        && (dst_packet_seqs.is_empty()
+                            || dst_packet_seqs.contains(&packet.sequence))
                     {
                         ack_events.push(event);
                     }
@@ -136,8 +138,11 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             height: 0, // latest height
         };
 
-        tracing::info!("Requesting state attestation from aggregator for {} packets", request.packets.len());
-        
+        tracing::info!(
+            "Requesting state attestation from aggregator for {} packets",
+            request.packets.len()
+        );
+
         let response = aggregator_client
             .get_state_attestation(request)
             .await?
@@ -165,7 +170,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
     async fn create_client(&self, _parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         tracing::info!("Creating attested light client");
 
-        todo!() 
+        todo!()
     }
 
     #[tracing::instrument(skip_all)]
