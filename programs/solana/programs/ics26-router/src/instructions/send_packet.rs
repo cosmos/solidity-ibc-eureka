@@ -293,8 +293,9 @@ mod tests {
         assert_eq!(commitment_data[..32], expected_commitment);
 
         // Use the more reliable pubkey-based lookup
-        let next_sequence = get_client_sequence_from_result_by_pubkey(&result, &ctx.client_sequence_pubkey)
-            .expect("client_sequence not found");
+        let next_sequence =
+            get_client_sequence_from_result_by_pubkey(&result, &ctx.client_sequence_pubkey)
+                .expect("client_sequence not found");
         assert_eq!(next_sequence, 1); // Should be incremented from 0 to 1
     }
 
@@ -383,8 +384,9 @@ mod tests {
         assert_ne!(commitment_data[..32], [0u8; 32]); // Commitment should be set
 
         // Check sequence was incremented to 6
-        let next_sequence = get_client_sequence_from_result_by_pubkey(&result, &ctx.client_sequence_pubkey)
-            .expect("client_sequence not found");
+        let next_sequence =
+            get_client_sequence_from_result_by_pubkey(&result, &ctx.client_sequence_pubkey)
+                .expect("client_sequence not found");
         assert_eq!(next_sequence, 6);
     }
 
@@ -478,8 +480,9 @@ mod tests {
         let result_1 = mollusk.process_instruction(&instruction_1, &accounts_1);
 
         // Verify client 1 sequence was incremented from 10 to 11
-        let client_1_sequence = get_client_sequence_from_result_by_pubkey(&result_1, &client_sequence_pda_1)
-            .expect("client_1_sequence not found");
+        let client_1_sequence =
+            get_client_sequence_from_result_by_pubkey(&result_1, &client_sequence_pda_1)
+                .expect("client_1_sequence not found");
         assert_eq!(client_1_sequence, 11);
 
         // Test sending packet on client 2
@@ -534,8 +537,9 @@ mod tests {
         let result_2 = mollusk.process_instruction(&instruction_2, &accounts_2);
 
         // Verify client 2 sequence was incremented from 20 to 21
-        let client_2_sequence = get_client_sequence_from_result_by_pubkey(&result_2, &client_sequence_pda_2)
-            .expect("client_2_sequence not found");
+        let client_2_sequence =
+            get_client_sequence_from_result_by_pubkey(&result_2, &client_sequence_pda_2)
+                .expect("client_2_sequence not found");
         assert_eq!(client_2_sequence, 21);
 
         // Verify the sequences are independent (client 1 = 11, client 2 = 21)

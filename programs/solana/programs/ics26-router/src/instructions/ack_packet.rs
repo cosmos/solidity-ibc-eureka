@@ -161,7 +161,6 @@ mod tests {
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::system_program;
 
-
     struct AckPacketTestContext {
         instruction: Instruction,
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,

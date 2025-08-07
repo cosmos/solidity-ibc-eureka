@@ -191,7 +191,6 @@ mod tests {
     use solana_sdk::sysvar::SysvarId;
     use solana_sdk::{clock::Clock, system_program};
 
-
     #[test]
     fn test_recv_packet_unauthorized_sender() {
         let ctx = setup_recv_packet_test_with_params(RecvPacketTestParams {
@@ -410,7 +409,6 @@ mod tests {
         bincode::serialize_into(&mut clock_data[..], &clock).unwrap();
         clock_data
     }
-
 
     #[test]
     fn test_recv_packet_success() {

@@ -206,7 +206,9 @@ mod tests {
         }
     }
 
-    fn setup_timeout_packet_test_with_params(params: TimeoutPacketTestParams) -> TimeoutPacketTestContext {
+    fn setup_timeout_packet_test_with_params(
+        params: TimeoutPacketTestParams,
+    ) -> TimeoutPacketTestContext {
         let authority = Pubkey::new_unique();
         let relayer = params.unauthorized_relayer.unwrap_or(authority);
         let payer = relayer;
@@ -269,11 +271,8 @@ mod tests {
         };
 
         let packet_commitment_account = if params.with_existing_commitment {
-            let (_, data) = setup_packet_commitment(
-                params.source_client_id,
-                packet.sequence,
-                &packet,
-            );
+            let (_, data) =
+                setup_packet_commitment(params.source_client_id, packet.sequence, &packet);
             create_account(packet_commitment_pda, data, crate::ID)
         } else {
             create_uninitialized_account(packet_commitment_pda, 0)
@@ -495,5 +494,4 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
-
 }

@@ -25,7 +25,10 @@ pub fn verify_non_membership(ctx: Context<VerifyNonMembership>, msg: MembershipM
     })?;
 
     // Return the consensus state timestamp for timeout verification
-    let timestamp_bytes = consensus_state_store.consensus_state.timestamp.to_le_bytes();
+    let timestamp_bytes = consensus_state_store
+        .consensus_state
+        .timestamp
+        .to_le_bytes();
     set_return_data(&timestamp_bytes);
 
     Ok(())
