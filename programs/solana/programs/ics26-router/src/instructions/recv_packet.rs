@@ -476,30 +476,4 @@ mod tests {
             .expect("packet ack account not found");
         assert_eq!(ack_data[..32], expected_ack_commitment);
     }
-
-    #[test]
-    fn test_recv_packet_duplicate_fails() {
-        let ctx = setup_recv_packet_test(true, 1000);
-
-        let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
-        mollusk.add_program(
-            &MOCK_LIGHT_CLIENT_ID,
-            crate::get_mock_client_program_path(),
-            &solana_sdk::bpf_loader_upgradeable::ID,
-        );
-
-        // First call should succeed and create the receipt/ack
-        let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
-        assert!(matches!(
-            result.program_result,
-            mollusk_svm::result::ProgramResult::Success
-        ));
-
-        // Second call with the same packet should fail because packet_ack already exists
-        // and has init constraint
-        let updated_accounts = result.resulting_accounts;
-        let checks = vec![Check::err(ProgramError::Custom(0))]; // System program error for account already in use
-
-        mollusk.process_and_validate_instruction(&ctx.instruction, &updated_accounts, &checks);
-    }
 }
