@@ -15,6 +15,7 @@ use ibc_eureka_relayer_lib::{
     events::{EurekaEvent, EurekaEventWithHeight},
     tx_builder::TxBuilderService,
 };
+use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 
 /// Chain type for attested chains that get their state from the aggregator
 pub struct AttestedChain;
@@ -67,6 +68,21 @@ impl TxBuilder {
     }
 }
 
+fn encode_and_cyphon_packet_if_relevant(
+    packet: Packet,
+    cyphon: &mut Vec<Vec<u8>>,
+    src_client_id: &str,
+    dst_client_id: &str,
+    seqs: &[u64],
+) {
+    if packet.sourceClient == src_client_id
+        && packet.destClient == dst_client_id
+        && (seqs.is_empty() || seqs.contains(&packet.sequence))
+    {
+        cyphon.push(packet.abi_encode())
+    }
+}
+
 #[async_trait::async_trait]
 impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
     #[tracing::instrument(skip_all)]
@@ -87,51 +103,25 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
 
         let mut aggregator_client = self.create_aggregator_client().await?;
 
-        // TODO: Make this rust idiomatic - because dis ugly
-        // Split events by enum type and apply filtering
-        let mut send_events = Vec::new();
-        let mut ack_events = Vec::new();
+        let mut send_packets = Vec::new();
+        let mut ack_packets = Vec::new();
 
         for event in src_events {
-            match &event.event {
-                EurekaEvent::SendPacket(packet) => {
-                    if packet.sourceClient == src_client_id
-                        && packet.destClient == dst_client_id
-                        && (src_packet_seqs.is_empty()
-                            || src_packet_seqs.contains(&packet.sequence))
-                    {
-                        send_events.push(event);
-                    }
-                }
+            // Prepare cyphon and filtering params
+            let (packet, cyphon, seqs) = match event.event {
+                EurekaEvent::SendPacket(packet) => (packet, &mut send_packets, &src_packet_seqs),
                 EurekaEvent::WriteAcknowledgement(packet, _) => {
-                    if packet.sourceClient == src_client_id
-                        && packet.destClient == dst_client_id
-                        && (dst_packet_seqs.is_empty()
-                            || dst_packet_seqs.contains(&packet.sequence))
-                    {
-                        ack_events.push(event);
-                    }
+                    (packet, &mut ack_packets, &dst_packet_seqs)
                 }
-            }
+            };
+            encode_and_cyphon_packet_if_relevant(
+                packet,
+                cyphon,
+                &src_client_id,
+                &dst_client_id,
+                seqs,
+            );
         }
-
-        // Map out the packets from each event type
-        let send_packets: Vec<_> = send_events
-            .into_iter()
-            .map(|e| match e.event {
-                EurekaEvent::SendPacket(packet) => packet.abi_encode(),
-                _ => unreachable!("We only collected SendPacket events"),
-            })
-            .collect();
-
-        // TODO: Support ack packets
-        // let ack_packets: Vec<_> = ack_events
-        //     .into_iter()
-        //     .map(|e| match e.event {
-        //         EurekaEvent::WriteAcknowledgement(packet, _) => packet.abi_encode(),
-        //         _ => unreachable!("We only collected WriteAcknowledgement events"),
-        //     })
-        //     .collect();
 
         let request = aggregator_proto::GetStateAttestationRequest {
             packets: send_packets,
