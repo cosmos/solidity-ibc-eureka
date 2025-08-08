@@ -18,11 +18,12 @@ pub struct LightClientVerification<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
+/// Verifies membership (existence) of a value at a given path
 pub fn verify_membership_cpi(
     client: &Client,
     light_client_accounts: &LightClientVerification,
     membership_msg: MembershipMsg,
-) -> Result<u64> {
+) -> Result<()> {
     require!(
         light_client_accounts.light_client_program.key() == client.client_program_id,
         RouterError::InvalidLightClientProgram
@@ -53,10 +54,11 @@ pub fn verify_membership_cpi(
 
     invoke(&ix, &account_infos)?;
 
-    // Return the height for consistency
-    Ok(membership_msg.height)
+    Ok(())
 }
 
+/// Verifies non-membership (absence) of a value at a given path
+/// Returns the timestamp from the consensus state at the proof height
 pub fn verify_non_membership_cpi(
     client: &Client,
     light_client_accounts: &LightClientVerification,
