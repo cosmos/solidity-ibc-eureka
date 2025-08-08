@@ -17,7 +17,6 @@ hex       = { workspace = true, optional = true }
 time      = { workspace = true }
 sha2      = { workspace = true }
 thiserror = { workspace = true }
-serde     = { workspace = true, features = ["derive"] }
 
 ibc-proto-eureka                 = { workspace = true }
 tendermint-light-client-verifier = { workspace = true }
