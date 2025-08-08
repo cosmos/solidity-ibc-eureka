@@ -1,9 +1,9 @@
 [workspace]
 members = [
-    "programs/ics07-tendermint",
-    "programs/ics26-router",
-    "programs/mock-light-client",
-    "solana-light-client-interface",
+  "programs/ics07-tendermint",
+  "programs/ics26-router",
+  "programs/mock-light-client",
+  "solana-light-client-interface",
 ]
 resolver = "2"
 
@@ -42,21 +42,28 @@ dead_code = "allow"
 single_use_lifetimes = "allow"
 
 [workspace.package]
-version    = "0.1.0"
-edition    = "2021"
-license    = "MIT"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
 repository = "https://github.com/cosmos/solidity-ibc-eureka"
-keywords   = ["cosmos", "ibc", "solana", "tendermint", "bridge", "anchor", "eureka"]
+keywords = [
+  "cosmos",
+  "ibc",
+  "solana",
+  "tendermint",
+  "bridge",
+  "anchor",
+  "eureka",
+]
 
 [workspace.dependencies]
 anchor-lang = { version = "0.31.1", default-features = false }
 
-tendermint-light-client-update-client     = { path = "../../packages/tendermint-light-client/update-client", default-features = false }
-tendermint-light-client-membership        = { path = "../../packages/tendermint-light-client/membership", default-features = false }
-tendermint-light-client-misbehaviour      = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false }
+tendermint-light-client-update-client = { path = "../../packages/tendermint-light-client/update-client", default-features = false }
+tendermint-light-client-membership = { path = "../../packages/tendermint-light-client/membership", default-features = false }
+tendermint-light-client-misbehaviour = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false }
 tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-light-client/uc-and-membership", default-features = false }
-solana-light-client-interface             = { path = "./solana-light-client-interface", default-features = false }
-mock-light-client             = { path = "./programs/mock-light-client", default-features = false }
+solana-light-client-interface = { path = "./solana-light-client-interface", default-features = false }
 
 ibc-client-tendermint = { version = "0.57", default-features = false }
 ibc-core-client = { version = "0.57", default-features = false }
@@ -75,6 +82,7 @@ hex = { version = "0.4", default-features = false }
 prost = { version = "0.13", default-features = false }
 
 # Testing
+mock-light-client = { path = "./programs/mock-light-client", default-features = false }
 mollusk-svm = { version = "0.4.1", default-features = false }
 mollusk-svm-bencher = { version = "0.4.1", default-features = false }
 solana-sdk = { version = "2.3.1", default-features = false }
