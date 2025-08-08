@@ -1,11 +1,16 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Cosmos SDK chain from events received from an Attested chain via the aggregator.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use alloy::sol_types::SolValue;
 use anyhow::Result;
-use ibc_proto_eureka::{cosmos::tx::v1beta1::TxBody, google::protobuf::Any};
+use attestor_light_client::header::Header;
+use ibc_proto_eureka::{
+    cosmos::tx::v1beta1::TxBody,
+    google::protobuf::Any,
+    ibc::{core::client::v1::MsgUpdateClient, lightclients::wasm::v1::ClientMessage},
+};
 use prost::Message;
 use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
@@ -107,6 +112,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
 
         let mut ics26_send_packets = Vec::new();
         let mut ics26_ack_packets = Vec::new();
+        let mut heights = HashSet::new();
 
         for event in src_events.iter() {
             // Prepare cyphon and filtering params
@@ -118,6 +124,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
                     (packet, &mut ics26_ack_packets, &dst_packet_seqs)
                 }
             };
+            heights.insert(event.height);
             encode_and_cyphon_packet_if_relevant(
                 packet,
                 cyphon,
@@ -127,9 +134,10 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             );
         }
 
+        let query_height = *heights.iter().max().unwrap();
         let request = aggregator_proto::GetAttestationsRequest {
             packets: ics26_send_packets,
-            height: 0, // latest height
+            height: query_height, // latest height
         };
 
         tracing::info!(
@@ -151,13 +159,28 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
                 .packet_attestation
                 .ok_or(anyhow::anyhow!("No packets received"))?,
         );
-
         tracing::info!(
             "Received state attestation: {} signatures, height {}, state: {}",
             packets.signatures.len(),
             packets.height,
-            hex::encode(&state.attested_data)
+            hex::encode(&packets.attested_data)
         );
+
+        let header = Header::new(
+            state.height,
+            state.timestamp.unwrap(),
+            state.attested_data,
+            state.signatures,
+            state.public_keys,
+        );
+        let header_bz = serde_json::to_vec(&header)
+            .map_err(|_| anyhow::anyhow!("header could not be serialized"))?;
+
+        let update_msg = MsgUpdateClient {
+            client_id: dst_client_id.clone(),
+            client_message: Some(Any::from_msg(&ClientMessage { data: header_bz })?),
+            signer: self.signer_address.clone(),
+        };
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
@@ -191,6 +214,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             .map(|m| Any::from_msg(&m))
             .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
             .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .chain([Any::from_msg(&update_msg)])
             .collect::<Result<Vec<_>, _>>()?;
 
         let tx_body = TxBody {
