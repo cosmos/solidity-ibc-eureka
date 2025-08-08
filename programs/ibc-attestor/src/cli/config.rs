@@ -9,10 +9,10 @@ use std::{
 use thiserror::Error;
 use tracing::Level;
 
-#[cfg(feature = "op")]
-use crate::OpClientConfig;
 #[cfg(feature = "arbitrum")]
 use crate::ArbitrumClientConfig;
+#[cfg(feature = "op")]
+use crate::OpClientConfig;
 
 pub const IBC_ATTESTOR_DIR: LazyCell<PathBuf> = LazyCell::new(|| {
     env::home_dir()
@@ -70,6 +70,7 @@ pub struct SignerConfig {
 impl Default for SignerConfig {
     fn default() -> Self {
         SignerConfig {
+            // Unwrap safe as path defined with valid utf-8
             secret_key: IBC_ATTESTOR_PATH.to_str().unwrap().into(),
         }
     }
