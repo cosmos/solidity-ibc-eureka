@@ -35,7 +35,7 @@ impl ISP1Msgs::SP1Proof {
     /// Panics if the vkey is not a valid hex string, or if the bytes cannot be decoded.
     #[must_use]
     pub fn new(vkey: &str, proof: Vec<u8>, public_values: Vec<u8>) -> Self {
-        let stripped = vkey.strip_prefix("0x").expect("failed to strip prefix");
+        let stripped = vkey.strip_prefix("0x").unwrap_or(vkey);
         let vkey_bytes: [u8; 32] = hex::decode(stripped)
             .expect("failed to decode vkey")
             .try_into()

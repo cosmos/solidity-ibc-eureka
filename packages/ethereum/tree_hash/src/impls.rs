@@ -204,9 +204,7 @@ impl TreeHash for Bytes {
         let leaves = self.len().div_ceil(BYTES_PER_CHUNK);
 
         let mut hasher = MerkleHasher::with_leaves(leaves);
-        for item in self {
-            hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap();
-        }
+        hasher.write(self.as_ref()).unwrap();
 
         mix_in_length(&hasher.finish().unwrap(), self.len())
     }
@@ -229,9 +227,7 @@ impl TreeHash for Bloom {
         let leaves = self.len().div_ceil(BYTES_PER_CHUNK);
 
         let mut hasher = MerkleHasher::with_leaves(leaves);
-        for item in self {
-            hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap();
-        }
+        hasher.write(self.as_ref()).unwrap();
 
         hasher.finish().unwrap()
     }
@@ -251,11 +247,11 @@ impl TreeHash for [B256] {
     }
 
     fn tree_hash_root(&self) -> Hash256 {
-        let leaves = self.len().div_ceil(BYTES_PER_CHUNK);
+        let leaves = self.len();
 
         let mut hasher = MerkleHasher::with_leaves(leaves);
         for item in self {
-            hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap();
+            hasher.write(item.as_slice()).unwrap();
         }
 
         hasher.finish().unwrap()

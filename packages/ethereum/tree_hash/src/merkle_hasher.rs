@@ -199,7 +199,7 @@ impl MerkleHasher {
     /// == 2` can only accept 2 leaves. A tree of `depth == 14` can only accept 8,192 leaves.
     pub fn write(&mut self, bytes: &[u8]) -> Result<(), Error> {
         let mut ptr = 0;
-        while ptr <= bytes.len() {
+        while ptr < bytes.len() {
             let slice = &bytes[ptr..std::cmp::min(bytes.len(), ptr + HASHSIZE)];
 
             if self.buffer.is_empty() && slice.len() == HASHSIZE {
@@ -207,7 +207,7 @@ impl MerkleHasher {
                 ptr += HASHSIZE
             } else if self.buffer.len() + slice.len() < HASHSIZE {
                 self.buffer.extend_from_slice(slice);
-                ptr += HASHSIZE
+                ptr += slice.len()
             } else {
                 let buf_len = self.buffer.len();
                 let required = HASHSIZE - buf_len;
