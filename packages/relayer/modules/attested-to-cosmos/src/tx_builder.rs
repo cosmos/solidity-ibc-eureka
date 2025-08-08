@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use alloy::sol_types::SolValue;
 use anyhow::Result;
-use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
+use ibc_proto_eureka::{cosmos::tx::v1beta1::TxBody, google::protobuf::Any};
 use prost::Message;
 use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
@@ -14,6 +14,7 @@ use ibc_eureka_relayer_lib::{
     chain::{Chain, CosmosSdk},
     events::{EurekaEvent, EurekaEventWithHeight},
     tx_builder::TxBuilderService,
+    utils::cosmos,
 };
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 
@@ -32,7 +33,8 @@ pub mod aggregator_proto {
 }
 
 /// The aggregator client for fetching attestations.
-pub type AggregatorClient = aggregator_proto::aggregator_client::AggregatorClient<Channel>;
+pub type AggregatorClient =
+    aggregator_proto::aggregator_service_client::AggregatorServiceClient<Channel>;
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on attestations from the aggregator.
 pub struct TxBuilder {
@@ -69,7 +71,7 @@ impl TxBuilder {
 }
 
 fn encode_and_cyphon_packet_if_relevant(
-    packet: Packet,
+    packet: &Packet,
     cyphon: &mut Vec<Vec<u8>>,
     src_client_id: &str,
     dst_client_id: &str,
@@ -103,15 +105,17 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
 
         let mut aggregator_client = self.create_aggregator_client().await?;
 
-        let mut send_packets = Vec::new();
-        let mut ack_packets = Vec::new();
+        let mut ics26_send_packets = Vec::new();
+        let mut ics26_ack_packets = Vec::new();
 
-        for event in src_events {
+        for event in src_events.iter() {
             // Prepare cyphon and filtering params
             let (packet, cyphon, seqs) = match event.event {
-                EurekaEvent::SendPacket(packet) => (packet, &mut send_packets, &src_packet_seqs),
-                EurekaEvent::WriteAcknowledgement(packet, _) => {
-                    (packet, &mut ack_packets, &dst_packet_seqs)
+                EurekaEvent::SendPacket(ref packet) => {
+                    (packet, &mut ics26_send_packets, &src_packet_seqs)
+                }
+                EurekaEvent::WriteAcknowledgement(ref packet, _) => {
+                    (packet, &mut ics26_ack_packets, &dst_packet_seqs)
                 }
             };
             encode_and_cyphon_packet_if_relevant(
@@ -123,8 +127,8 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             );
         }
 
-        let request = aggregator_proto::GetStateAttestationRequest {
-            packets: send_packets,
+        let request = aggregator_proto::GetAttestationsRequest {
+            packets: ics26_send_packets,
             height: 0, // latest height
         };
 
@@ -132,28 +136,68 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             "Requesting state attestation from aggregator for {} packets",
             request.packets.len()
         );
-
+        // - We need update client with timestamp at height
+        // - We need MsgRecvPacket where proof is (key, value, height, signature)
         let response = aggregator_client
-            .get_state_attestation(request)
+            .get_attestations(request)
             .await?
             .into_inner();
 
-        tracing::info!(
-            "Received state attestation: {} signatures, height {}, state: {}",
-            response.sig_pubkey_pairs.len(),
-            response.height,
-            hex::encode(&response.state)
+        let (state, packets) = (
+            response
+                .state_attestation
+                .ok_or(anyhow::anyhow!("No state received"))?,
+            response
+                .packet_attestation
+                .ok_or(anyhow::anyhow!("No packets received"))?,
         );
 
-        // TODO: Build actual cosmos transaction with the attestation data
-        // This requires implementing the IBC client and packet message construction
+        tracing::info!(
+            "Received state attestation: {} signatures, height {}, state: {}",
+            packets.signatures.len(),
+            packets.height,
+            hex::encode(&state.attested_data)
+        );
+
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+
+        let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
+            target_events,
+            &src_client_id,
+            &dst_client_id,
+            &dst_packet_seqs,
+            &self.signer_address,
+            now_since_unix.as_secs(),
+        );
+
+        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+            src_events,
+            &src_client_id,
+            &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
+            &self.signer_address,
+            now_since_unix.as_secs(),
+        );
+
+        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
+        tracing::debug!("Recv messages: #{}", recv_msgs.len());
+        tracing::debug!("Ack messages: #{}", ack_msgs.len());
+
+        cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
+
+        let all_msgs = timeout_msgs
+            .into_iter()
+            .map(|m| Any::from_msg(&m))
+            .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .collect::<Result<Vec<_>, _>>()?;
+
         let tx_body = TxBody {
-            messages: vec![],
+            messages: all_msgs,
             ..Default::default()
         };
-
-        let serialized = tx_body.encode_to_vec();
-        Ok(serialized)
+        Ok(tx_body.encode_to_vec())
     }
 
     #[tracing::instrument(skip_all)]

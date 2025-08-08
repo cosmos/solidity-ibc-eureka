@@ -8,52 +8,36 @@ option go_package = "types/attestor";
 service AggregatorService {
   // Queries the attestor with a list of packets. Then used that attestation to
   // get the state attestation.
-  rpc GetStateAttestation(GetStateAttestationRequest) returns (GetStateAttestationResponse);
+  rpc GetAttestations(GetAttestationsRequest) returns (GetAttestationsResponse);
 }
 
 // Request message for getting an attestation for a set of packets.
-message GetStateAttestationRequest {
+message GetAttestationsRequest {
   // The packets to attest to
   repeated bytes packets = 1;
   // The height to attest to the packets at
   uint64 height = 2;
 }
 
-// Response message for aggregate attestation
-message AggregateResponse {
-  // The height of the aggregated state
+
+// One instance of an attestation with all signatures and public keys
+message AggregatedAttestation {
+  // The height of the attestation
   uint64 height = 1;
-  // The aggregated state. 12 bytes.
-  bytes state = 2;
-  // A list of signature and public key pairs.
-  repeated SigPubkeyPair sig_pubkey_pairs = 3;
-}
-
-// Request message for getting an attestation for a set of packets.
-// This request's parameters does not include a height at the moment, because
-// we are currently only attesting to the latest height, and using the returned
-// height to request a state attestation.
-message GetStateAttestationRequest {
-  // The packets to attest to
-  repeated bytes packets = 1;
-  // The height to attest to the packets at
-  uint64 height = 2;
-}
-
-// SigPubkeyPair is a pair of a signature and a public key.
-message SigPubkeyPair {
-  // The signature.
-  bytes sig = 1;
-  // The public key.
-  bytes pubkey = 2; // 65 bytes
+  // The timestamp of the block
+  optional uint64 timestamp = 2;
+  // The attested data
+  bytes attested_data = 3;
+  // The attestation signatures
+  repeated bytes signatures = 4;
+  // The attestation public key
+  repeated bytes public_keys = 5;
 }
 
 // GetStateAttestationResponse is a response from the aggregator.
-message GetStateAttestationResponse {
-  // A list of signature and public key pairs.
-  repeated SigPubkeyPair sig_pubkey_pairs = 1;
-  // The aggregated state. 12 bytes.
-  bytes state = 2;
-  // The height of the aggregated state.
-  uint64 height = 3;
+message GetAttestationsResponse {
+  // The attestation of the blockchain state
+   AggregatedAttestation state_attestation = 1;
+  // The attestation of the packet membership at the attested state
+   AggregatedAttestation packet_attestation = 2;
 }

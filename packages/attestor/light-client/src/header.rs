@@ -10,7 +10,7 @@ pub struct Header {
     pub new_height: u64,
     /// Timestamp of the new height
     pub timestamp: u64,
-    /// Opaque borsh-encoded data that was signed
+    /// Opaque serde-encoded data that was signed
     pub attestation_data: Vec<u8>,
     /// Signatures of the attestors
     pub signatures: Vec<Signature>,

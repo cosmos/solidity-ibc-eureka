@@ -34,7 +34,7 @@ mod tests {
     use crate::{
         config::{AttestorConfig, Config, ServerConfig},
         mock_attestor::setup_attestor_server,
-        rpc::{aggregator_service_client::AggregatorServiceClient, GetStateAttestationRequest},
+        rpc::{aggregator_service_client::AggregatorServiceClient, GetAttestationsRequest},
     };
     use tokio::time::{sleep, Duration};
     use tonic::{Code as StatusCode, Request};
@@ -79,29 +79,37 @@ mod tests {
             .expect("client connect failed");
 
         // Check validation fails on empty packets.
-        let req = Request::new(GetStateAttestationRequest {
+        let req = Request::new(GetAttestationsRequest {
             packets: vec![],
             height: 110,
         });
-        let resp = client.get_state_attestation(req).await;
+        let resp = client.get_attestations(req).await;
         assert!(resp.is_err());
         assert_eq!(resp.err().unwrap().code(), StatusCode::InvalidArgument);
 
-        let req = Request::new(GetStateAttestationRequest {
+        let req = Request::new(GetAttestationsRequest {
             packets: vec![vec![1, 2, 3]],
             height: 110,
         });
 
         let resp = client
-            .get_state_attestation(req)
+            .get_attestations(req)
             .await
             .expect("RPC failed")
             .into_inner();
 
-        assert_eq!(resp.height, 110);
-        assert_eq!(resp.sig_pubkey_pairs.len(), 2);
-        assert!(resp.sig_pubkey_pairs.iter().any(|pair| pair.pubkey == pk_1));
-        assert!(resp.sig_pubkey_pairs.iter().any(|pair| pair.pubkey == pk_2));
+        for att in [
+            resp.state_attestation.unwrap(),
+            resp.packet_attestation.unwrap(),
+        ] {
+            assert_eq!(att.height, 110);
+            assert_eq!(att.signatures.len(), 2);
+            assert_eq!(att.public_keys.len(), 2);
+            assert!(att
+                .public_keys
+                .iter()
+                .all(|pkey| pkey == &pk_1 || pkey == &pk_2));
+        }
         server_handle.abort();
     }
 }
