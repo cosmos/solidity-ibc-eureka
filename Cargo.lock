@@ -4475,6 +4475,7 @@ dependencies = [
  "alloy",
  "anyhow",
  "async-trait",
+ "attestor-light-client",
  "hex",
  "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-lib 0.1.0",

@@ -19,7 +19,7 @@ use ibc_eureka_relayer_lib::{
     chain::{Chain, CosmosSdk},
     events::{EurekaEvent, EurekaEventWithHeight},
     tx_builder::TxBuilderService,
-    utils::cosmos,
+    utils::{attestor, cosmos},
 };
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 
@@ -207,7 +207,11 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
+        attestor::inject_proofs(&mut recv_msgs, &packets.attested_data, packets.height);
+
+        // We don't want to use mock proofs for RecvMsg
+        let mut dummy = [];
+        cosmos::inject_mock_proofs(&dummy, &mut ack_msgs, &mut timeout_msgs);
 
         let all_msgs = timeout_msgs
             .into_iter()
