@@ -2,6 +2,7 @@ use crate::error::ErrorCode;
 use crate::helpers::{deserialize_merkle_proof, validate_proof_params};
 use crate::VerifyNonMembership;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::program::set_return_data;
 use solana_light_client_interface::MembershipMsg;
 use tendermint_light_client_membership::KVPair;
 
@@ -22,6 +23,13 @@ pub fn verify_non_membership(ctx: Context<VerifyNonMembership>, msg: MembershipM
         msg!("Non-membership verification failed: {:?}", e);
         error!(ErrorCode::NonMembershipVerificationFailed)
     })?;
+
+    // Return the consensus state timestamp for timeout verification
+    let timestamp_bytes = consensus_state_store
+        .consensus_state
+        .timestamp
+        .to_le_bytes();
+    set_return_data(&timestamp_bytes);
 
     Ok(())
 }

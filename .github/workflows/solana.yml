@@ -61,12 +61,5 @@ jobs:
         env:
           RUST_BACKTRACE: 1
 
-      - name: Run cargo fmt
-        run: |
-          cd programs/solana
-          cargo fmt --all -- --check
-
-      - name: Run cargo clippy
-        run: |
-          cd programs/solana
-          cargo clippy --all-targets --all-features -- -D warnings
+      - name: Run Solana linting
+        run: just lint-solana

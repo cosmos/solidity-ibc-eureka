@@ -67,6 +67,7 @@ lint:
 	just lint-go
 	just lint-buf
 	just lint-rust
+	just lint-solana
 
 # Lint the Solidity code using `forge fmt` and `bun:solhint`
 [group('lint')]
@@ -97,6 +98,13 @@ lint-rust:
 	cargo clippy --all-targets --all-features -- -D warnings
 	cd programs/sp1-programs && cargo fmt --all -- --check
 	cd programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
+
+# Lint the Solana code using `cargo fmt` and `cargo clippy`
+[group('lint')]
+lint-solana:
+	@echo "Linting the Solana code..."
+	cd programs/solana && cargo fmt --all -- --check
+	cd programs/solana && cargo clippy --all-targets --all-features -- -D warnings
 
 
 # Generate the (non-bytecode) ABI files for the contracts

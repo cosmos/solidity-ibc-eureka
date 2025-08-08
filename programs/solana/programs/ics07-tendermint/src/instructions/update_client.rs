@@ -604,7 +604,7 @@ mod tests {
         );
 
         let instruction_data = crate::instruction::Initialize {
-            chain_id: chain_id.to_string(),
+            chain_id: chain_id.clone(),
             latest_height,
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
