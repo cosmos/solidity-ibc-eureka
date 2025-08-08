@@ -51,5 +51,8 @@ Minimum list of correlation fields
 
 ## Rust
 
-TODO
+TODO:
+- Make sure we get all the "static" correlation fields wired up at service startup: environment, service name, service version
+  - We probably already have at least some of this set up (maybe all?), but need to verify and document here
+- Figure out how we get logging set up with the correct trace_id
 
