@@ -115,7 +115,7 @@ Timeout: Verify → Clear bit → Close PDA → Reclaim rent
 - Commitments can be closed after IBC challenge period
 - Typically 1-2 days retention sufficient
 
-### 5. Off-chain Archival System
+### 5. Off-chain Archival System (optional)
 
 **Rationale**: Historical packet data needed for debugging/compliance but not for protocol operation
 
