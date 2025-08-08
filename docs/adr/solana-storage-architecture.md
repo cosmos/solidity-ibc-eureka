@@ -50,7 +50,7 @@ Savings: 664x reduction
 
 ### 1. Tendermint Light Client Storage (Prunable PDAs)
 
-**Rationale**: IBC verification only requires recent consensus states. Older states can be pruned after packets referencing them are finalized.
+**Rationale**: IBC verification only requires recent consensus states. Older states can be pruned.
 
 **Structure:**
 - Client state PDA: `["client", client_id]` - tracks latest and earliest heights
