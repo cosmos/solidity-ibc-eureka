@@ -5,19 +5,18 @@ package aggregator;
 option go_package = "types/attestor";
 
 // The Aggregator service definition.
-service Aggregator {
+service AggregatorService {
   // Queries the attestor with a list of packets. Then used that attestation to
   // get the state attestation.
   rpc GetStateAttestation(GetStateAttestationRequest) returns (GetStateAttestationResponse);
-  
-  // Get aggregate attestation for a given minimum height
-  rpc GetAggregateAttestation(AggregateRequest) returns (AggregateResponse);
 }
 
-// Request message for getting an aggregate attestation
-message AggregateRequest {
-  // The minimum height to get attestations for
-  uint64 min_height = 1;
+// Request message for getting an attestation for a set of packets.
+message GetStateAttestationRequest {
+  // The packets to attest to
+  repeated bytes packets = 1;
+  // The height to attest to the packets at
+  uint64 height = 2;
 }
 
 // Response message for aggregate attestation

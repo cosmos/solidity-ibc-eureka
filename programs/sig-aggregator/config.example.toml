@@ -11,3 +11,7 @@ attestor_endpoints = [
     # "third attestor endpoint",
     # "and so on"
 ]
+
+[cache]
+state_cache_max_entries = 100000
+packet_cache_max_entries = 100000

@@ -2,15 +2,15 @@ use std::str::FromStr;
 
 use attestor_packet_membership::Packets;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 
 mod account_state;
 
 use crate::adapter_client::{
-    Adapter, AdapterError, Signable, UnsignedPacketAttestation, UnsignedStateAttestation,
+    AttestationAdapter, UnsignedPacketAttestation, UnsignedStateAttestation,
 };
 use crate::cli::SolanaClientConfig;
+use crate::AttestorError;
 
 pub use account_state::AccountState;
 
@@ -39,43 +39,23 @@ impl SolanaClient {
     async fn get_account_info_by_slot_height(
         &self,
         peek_kind: &PeekKind,
-    ) -> Result<AccountState, AdapterError> {
-        let commitment = match peek_kind {
-            PeekKind::Latest => CommitmentConfig::confirmed(),
-        };
-
-        let account_info = self
-            .client
-            .get_account_with_commitment(&self.account_key, commitment)
-            .await
-            .map(|r| (r.context.slot, r.value.map(|acc| acc.data)))
-            .map_err(|e| AdapterError::FinalizedBlockError(e.to_string()))?;
-
-        match account_info.1 {
-            Some(data) => Ok(AccountState {
-                slot: account_info.0,
-                data,
-            }),
-            None => Err(AdapterError::FinalizedBlockError(format!(
-                "no account found for {}",
-                self.account_key
-            ))),
-        }
+    ) -> Result<AccountState, AttestorError> {
+        todo!()
     }
 }
 
-impl Adapter for SolanaClient {
+impl AttestationAdapter for SolanaClient {
     async fn get_unsigned_state_attestation_at_height(
         &self,
         height: u64,
-    ) -> Result<UnsignedStateAttestation, AdapterError> {
+    ) -> Result<UnsignedStateAttestation, AttestorError> {
         todo!()
     }
     async fn get_unsigned_packet_attestation_at_height(
         &self,
         packets: &Packets,
         height: u64,
-    ) -> Result<UnsignedPacketAttestation, AdapterError> {
+    ) -> Result<UnsignedPacketAttestation, AttestorError> {
         todo!()
     }
 }

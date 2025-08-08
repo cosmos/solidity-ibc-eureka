@@ -9,6 +9,9 @@ pub struct Config {
     pub server: ServerConfig,
     /// The configuration for the attestor signer.
     pub attestor: AttestorConfig,
+    /// The configuration for caching behavior.
+    #[serde(default)]
+    pub cache: CacheConfig,
 }
 
 impl Config {
@@ -28,6 +31,7 @@ impl Config {
     pub fn validate(&self) -> Result<()> {
         self.server.validate()?;
         self.attestor.validate()?;
+        self.cache.validate()?;
         Ok(())
     }
 }
@@ -124,6 +128,43 @@ impl AttestorConfig {
     }
 }
 
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct CacheConfig {
+    #[serde(default = "defaults::default_state_cache_max_entries")]
+    pub state_cache_max_entries: u64,
+    #[serde(default = "defaults::default_packet_cache_max_entries")]
+    pub packet_cache_max_entries: u64,
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            state_cache_max_entries: defaults::DEFAULT_STATE_CACHE_MAX_ENTRIES,
+            packet_cache_max_entries: defaults::DEFAULT_PACKET_CACHE_MAX_ENTRIES,
+        }
+    }
+}
+
+impl CacheConfig {
+    fn validate(&self) -> Result<()> {
+        anyhow::ensure!(
+            self.state_cache_max_entries <= defaults::MAX_CACHE_ENTRIES,
+            "State cache max entries must be at most {}, got {}",
+            defaults::MAX_CACHE_ENTRIES,
+            self.state_cache_max_entries
+        );
+
+        anyhow::ensure!(
+            self.packet_cache_max_entries <= defaults::MAX_CACHE_ENTRIES,
+            "Packet cache max entries must be at most {}, got {}",
+            defaults::MAX_CACHE_ENTRIES,
+            self.packet_cache_max_entries
+        );
+
+        Ok(())
+    }
+}
+
 /// The configuration for the aggregator server.
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct ServerConfig {
@@ -163,7 +204,19 @@ mod defaults {
     pub const MAX_TIMEOUT_MS: u64 = 60_000;
     pub const MIN_QUORUM_THRESHOLD: usize = 1;
 
+    pub const DEFAULT_STATE_CACHE_MAX_ENTRIES: u64 = 100_000;
+    pub const DEFAULT_PACKET_CACHE_MAX_ENTRIES: u64 = 100_000;
+    pub const MAX_CACHE_ENTRIES: u64 = 100_000_000;
+
     pub fn default_log_level() -> String {
         DEFAULT_LOG_LEVEL.to_string().to_lowercase()
+    }
+
+    pub fn default_state_cache_max_entries() -> u64 {
+        DEFAULT_STATE_CACHE_MAX_ENTRIES
+    }
+
+    pub fn default_packet_cache_max_entries() -> u64 {
+        DEFAULT_PACKET_CACHE_MAX_ENTRIES
     }
 }
