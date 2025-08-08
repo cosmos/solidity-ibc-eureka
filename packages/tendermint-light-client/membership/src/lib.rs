@@ -4,8 +4,8 @@
     clippy::nursery,
     clippy::pedantic,
     warnings,
-    unused_crate_dependencies
 )]
+#![cfg_attr(not(test), deny(unused_crate_dependencies))]
 
 use ibc_core_commitment_types::{
     commitment::CommitmentRoot,
