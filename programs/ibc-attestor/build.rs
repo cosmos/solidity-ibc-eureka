@@ -7,8 +7,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .file_descriptor_set_path(&descriptor_path)
         .build_server(true)
         .compile_protos(
-            &["../../proto/ibc-attestor/ibc-attestor.proto"],
-            &["../../proto/ibc-attestor"],
+            &["../../proto/ibc_attestor/ibc_attestor.proto"],
+            &["../../proto/ibc_attestor"],
         )?;
     Ok(())
 }

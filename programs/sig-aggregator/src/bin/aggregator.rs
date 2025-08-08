@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use sig_aggregator::{
-    aggregator::AggregatorService,
+    aggregator::Aggregator,
     cli::{Cli, Commands},
     config::Config,
     server::start as start_server,
@@ -11,7 +11,6 @@ use tracing_subscriber::FmtSubscriber;
 fn init_logging(log_level: tracing::Level) -> Result<()> {
     let subscriber = FmtSubscriber::builder()
         .with_max_level(log_level)
-        .with_target(false)
         .with_thread_ids(true)
         .with_file(true)
         .with_line_number(true)
@@ -34,6 +33,6 @@ async fn main() -> Result<()> {
         config.attestor.attestor_endpoints
     );
 
-    let aggregator_service = AggregatorService::from_attestor_config(config.attestor).await?;
-    start_server(aggregator_service, config.server).await
+    let aggregator = Aggregator::from_config(config.clone()).await?;
+    start_server(aggregator, config.server).await
 }

@@ -1,12 +1,12 @@
 use crate::{
-    aggregator::AggregatorService,
+    aggregator::Aggregator,
     config::ServerConfig,
-    rpc::{aggregator_server::AggregatorServer, AGG_FILE_DESCRIPTOR},
+    rpc::{aggregator_service_server::AggregatorServiceServer, AGG_FILE_DESCRIPTOR},
 };
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 
 /// Starts the [AggregatorService] RPC server with the provided configuration.
-pub async fn start(service: AggregatorService, config: ServerConfig) -> anyhow::Result<()> {
+pub async fn start(service: Aggregator, config: ServerConfig) -> anyhow::Result<()> {
     tracing::info!("Starting aggregator server on {}", config.listener_addr);
 
     let socket_addr = config.listener_addr;
@@ -20,7 +20,7 @@ pub async fn start(service: AggregatorService, config: ServerConfig) -> anyhow::
                 .make_span_with(DefaultMakeSpan::new().include_headers(true))
                 .on_response(DefaultOnResponse::new().level(config.log_level())),
         )
-        .add_service(AggregatorServer::new(service))
+        .add_service(AggregatorServiceServer::new(service))
         .add_service(reflection_service)
         .serve(socket_addr)
         .await?;
@@ -34,10 +34,10 @@ mod tests {
     use crate::{
         config::{AttestorConfig, Config, ServerConfig},
         mock_attestor::setup_attestor_server,
-        rpc::{aggregator_client::AggregatorClient, AggregateRequest},
+        rpc::{aggregator_service_client::AggregatorServiceClient, GetStateAttestationRequest},
     };
     use tokio::time::{sleep, Duration};
-    use tonic::Request;
+    use tonic::{Code as StatusCode, Request};
 
     #[tokio::test]
     async fn server_accepts_and_responds_to_rpc() {
@@ -55,15 +55,17 @@ mod tests {
                 quorum_threshold: 2,
                 attestor_endpoints: vec![format!("http://{addr_1}"), format!("http://{addr_2}")],
             },
+            cache: Default::default(),
         };
 
-        let service = AggregatorService::from_attestor_config(config.attestor)
+        let server_config = config.server.clone();
+        let service = Aggregator::from_config(config)
             .await
-            .expect("failed to build AggregatorService");
+            .expect("failed to build Aggregator Service");
 
         let server_handle = tokio::spawn({
             async move {
-                start(service, config.server)
+                start(service, server_config)
                     .await
                     .expect("server start failed");
             }
@@ -72,13 +74,26 @@ mod tests {
         sleep(Duration::from_millis(100)).await;
 
         let endpoint = format!("http://{listener_addr}");
-        let mut client = AggregatorClient::connect(endpoint)
+        let mut client = AggregatorServiceClient::connect(endpoint)
             .await
             .expect("client connect failed");
 
-        let req = Request::new(AggregateRequest { min_height: 110 });
+        // Check validation fails on empty packets.
+        let req = Request::new(GetStateAttestationRequest {
+            packets: vec![],
+            height: 110,
+        });
+        let resp = client.get_state_attestation(req).await;
+        assert!(resp.is_err());
+        assert_eq!(resp.err().unwrap().code(), StatusCode::InvalidArgument);
+
+        let req = Request::new(GetStateAttestationRequest {
+            packets: vec![vec![1, 2, 3]],
+            height: 110,
+        });
+
         let resp = client
-            .get_aggregate_attestation(req)
+            .get_state_attestation(req)
             .await
             .expect("RPC failed")
             .into_inner();

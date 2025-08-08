@@ -86,6 +86,7 @@ pkcs8     = { version = "0.10.2", default-features = false }
 sec1      = { version = "0.7.3", default-features = false }
 
 tokio            = { version = "1.0", default-features = false }
+tokio-stream     = { version = "0.1", default-features = false }
 tower-http       = { version = "0.6.6", default-features = false }
 tonic            = { version = "0.13", default-features = false }
 tonic-build      = { version = "0.13", default-features = false }
@@ -149,6 +150,8 @@ solana-sdk = { version = "2.3.1", default-features = false }
 cosmwasm-schema = { version = "2.2", default-features = false }
 cosmwasm-std    = { version = "2.2", default-features = false }
 cw2             = { version = "2.0", default-features = false }
+
+moka = { version = "0.12", features = ["future"] }
 
 # The dependencies below are maintained by Sigma Prime (for use in Lighthouse (and the broader Ethereum ecosystem))
 ethereum_ssz        = { version = "0.9", default-features = false }

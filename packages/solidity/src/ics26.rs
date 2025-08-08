@@ -11,7 +11,7 @@ pub const ICS26_IBC_STORAGE_SLOT: [u8; 32] =
 #[cfg(feature = "rpc")]
 alloy_sol_types::sol!(
     #[sol(rpc)]
-    #[derive(Debug, PartialEq, Eq, serde::Deserialize)]
+    #[derive(Debug, PartialEq, Eq)]
     router,
     "../../abi/ICS26Router.json"
 );

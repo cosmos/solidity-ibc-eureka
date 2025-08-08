@@ -28,7 +28,19 @@ impl MockAttestor {
         }
     }
 
-    pub fn get_attestation(&self, height: u64) -> Attestation {
+    pub fn get_state_attestation(&self, height: u64) -> Attestation {
+        let value = if self.is_malicious { 0 } else { 42 };
+        Attestation {
+            height,
+            attested_data: vec![value; STATE_BYTE_LENGTH],
+            signature: vec![value; SIGNATURE_BYTE_LENGTH],
+            public_key: self.pub_key.clone(),
+        }
+    }
+
+    // For this mock attestor, we can ignore the packet data. We can return the same height as the
+    // request.
+    pub fn get_packet_attestation(&self, height: u64, _packet: Vec<Vec<u8>>) -> Attestation {
         let value = if self.is_malicious { 0 } else { 42 };
         Attestation {
             height,
@@ -43,9 +55,22 @@ impl MockAttestor {
 impl AttestationService for MockAttestor {
     async fn packet_attestation(
         &self,
-        _request: Request<PacketAttestationRequest>,
+        request: Request<PacketAttestationRequest>,
     ) -> Result<Response<PacketAttestationResponse>, Status> {
-        todo!()
+        if self.delay_ms > 0 {
+            sleep(Duration::from_millis(self.delay_ms)).await;
+        }
+
+        let request = request.into_inner();
+        if request.packets.is_empty() {
+            return Err(Status::invalid_argument("Packets cannot be empty"));
+        }
+
+        let attestation = self.get_packet_attestation(request.height, request.packets);
+
+        Ok(Response::new(PacketAttestationResponse {
+            attestation: Some(attestation),
+        }))
     }
 
     async fn state_attestation(
@@ -56,7 +81,7 @@ impl AttestationService for MockAttestor {
             sleep(Duration::from_millis(self.delay_ms)).await;
         }
 
-        let attestation = self.get_attestation(request.into_inner().height);
+        let attestation = self.get_state_attestation(request.into_inner().height);
         Ok(Response::new(StateAttestationResponse {
             attestation: Some(attestation),
         }))
