@@ -1916,6 +1916,7 @@ dependencies = [
  "ibc-proto",
  "mollusk-svm",
  "mollusk-svm-bencher",
+ "prost",
  "serde",
  "serde_json",
  "solana-light-client-interface",

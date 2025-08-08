@@ -49,7 +49,7 @@ type CosmosRelayerTestSuite struct {
 	RelayerClient relayertypes.RelayerServiceClient
 
 	// Fixture generation
-	SolanaFixtures *e2etypes.SolanaFixtureGenerator
+	TendermintLightClientFixtures *e2etypes.TendermintLightClientFixtureGenerator
 }
 
 // TestWithIbcEurekaTestSuite is the boilerplate code that allows the test suite to be run
@@ -65,7 +65,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
 
 	// Initialize fixture generation
-	s.SolanaFixtures = e2etypes.NewSolanaFixtureGenerator(&s.Suite)
+	s.TendermintLightClientFixtures = e2etypes.NewTendermintLightClientFixtureGenerator(&s.Suite)
 
 	s.TestSuite.SetupSuite(ctx)
 
@@ -571,12 +571,31 @@ func (s *CosmosRelayerTestSuite) Test_UpdateClient() {
 
 			updateTxBodyBz = resp.Tx
 
-			// Generate multiple Solana test scenarios if enabled
-			s.SolanaFixtures.GenerateMultipleUpdateClientScenarios(ctx, s.SimdA, updateTxBodyBz)
+			// Generate multiple Tendermint light client test scenarios if enabled
+			s.TendermintLightClientFixtures.GenerateMultipleUpdateClientScenarios(ctx, s.SimdA, updateTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Broadcast update client tx", func() {
 			_ = s.MustBroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, updateTxBodyBz)
+		}))
+
+		// Generate membership verification fixtures if enabled
+		s.Require().True(s.Run("Generate membership fixtures", func() {
+			if !s.TendermintLightClientFixtures.Enabled {
+				s.T().Skip("Skipping membership fixture generation (GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES not set)")
+				return
+			}
+
+			s.T().Log("🔧 Generating membership verification fixtures using predefined keys")
+
+			predefinedKeys := []e2etypes.KeyPath{
+				{Key: "clients/07-tendermint-0/clientState", Membership: true},    // membership: exists
+				{Key: "clients/07-tendermint-001/clientState", Membership: false}, // non-membership: doesn't exist
+			}
+
+			s.Require().Equal("clients/07-tendermint-0/clientState", "clients/"+ibctesting.FirstClientID+"/clientState", "we expect the first client to be clients/07-tendermint-0/clientState")
+
+			s.TendermintLightClientFixtures.GenerateMembershipVerificationScenariosWithPredefinedKeys(ctx, s.SimdA, predefinedKeys)
 		}))
 
 		s.Require().True(s.Run("Verify client update on Chain A", func() {
@@ -593,3 +612,5 @@ func (s *CosmosRelayerTestSuite) Test_UpdateClient() {
 		}))
 	}))
 }
+
+// queryPacketCommitmentWithProofABCI queries packet commitment using ABCI to get merkle proof
