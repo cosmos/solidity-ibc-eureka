@@ -3,8 +3,8 @@ use crate::{
     config::{AttestorConfig, Config},
     rpc::{
         aggregator_service_server::AggregatorService,
-        attestation_service_client::AttestationServiceClient, Attestation,
-        GetStateAttestationRequest, GetStateAttestationResponse, PacketAttestationRequest,
+        attestation_service_client::AttestationServiceClient, AggregatedAttestation, Attestation,
+        GetAttestationsRequest, GetAttestationsResponse, PacketAttestationRequest,
         StateAttestationRequest,
     },
 };
@@ -18,8 +18,6 @@ use tokio::{
 };
 use tonic::{transport::Channel, Request, Response, Status};
 use tracing::{error as tracing_error, instrument};
-
-pub type AggregatedAttestation = GetStateAttestationResponse;
 
 #[derive(Clone)]
 enum AttestationQuery {
@@ -81,10 +79,10 @@ impl Aggregator {
 #[tonic::async_trait]
 impl AggregatorService for Aggregator {
     #[instrument(skip_all, fields(height = request.get_ref().height))]
-    async fn get_state_attestation(
+    async fn get_attestations(
         &self,
-        request: Request<GetStateAttestationRequest>,
-    ) -> Result<Response<AggregatedAttestation>, Status> {
+        request: Request<GetAttestationsRequest>,
+    ) -> Result<Response<GetAttestationsResponse>, Status> {
         let request = request.into_inner();
 
         if request.packets.is_empty() {
@@ -99,7 +97,7 @@ impl AggregatorService for Aggregator {
         sorted_packets.sort();
         let packet_cache_key = Self::make_packet_cache_key(&sorted_packets, request.height);
 
-        let packet_agg = self
+        let packet_attestation = self
             .packet_cache
             .try_get_with(packet_cache_key, async {
                 let packet_attestations = self
@@ -107,29 +105,35 @@ impl AggregatorService for Aggregator {
                     .await?;
 
                 let quorumed_aggregation =
-                    agg_quorumed_attestations(self.quorum_threshold, packet_attestations)?;
+                    agg_quorumed_attestations(self.quorum_threshold, packet_attestations)
+                        .map_err(|e| Status::failed_precondition(e.to_string()))?;
 
                 Ok(quorumed_aggregation)
             })
             .await
             .map_err(|e: Arc<Status>| (*e).clone())?;
 
-        let state_attestations = self
+        let state_attestation = self
             .state_cache
-            .try_get_with(packet_agg.height, async {
+            .try_get_with(packet_attestation.height, async {
                 let state_attestations = self
-                    .query_attestations(AttestationQuery::State(packet_agg.height))
+                    .query_attestations(AttestationQuery::State(packet_attestation.height))
                     .await?;
 
                 let quorumed_aggregation =
-                    agg_quorumed_attestations(self.quorum_threshold, state_attestations)?;
+                    agg_quorumed_attestations(self.quorum_threshold, state_attestations)
+                        .map_err(|e| Status::failed_precondition(e.to_string()))?;
 
                 Ok(quorumed_aggregation)
             })
             .await
             .map_err(|e: Arc<Status>| (*e).clone())?;
 
-        Ok(Response::new(state_attestations))
+        let response = GetAttestationsResponse {
+            state_attestation: Some(state_attestation),
+            packet_attestation: Some(packet_attestation),
+        };
+        Ok(Response::new(response))
     }
 }
 
@@ -199,14 +203,10 @@ impl Aggregator {
 }
 
 /// Process attestations and create an aggregate response if the quorum is met.
-#[allow(
-    clippy::result_large_err,
-    reason = "Always returns Status, never gets too big"
-)]
 fn agg_quorumed_attestations(
     quorum_threshold: usize,
     attestations: Vec<Option<Attestation>>,
-) -> Result<AggregatedAttestation, Status> {
+) -> Result<AggregatedAttestation, anyhow::Error> {
     let mut attestator_data = AttestatorData::new();
 
     attestations.into_iter().flatten().for_each(|attestation| {
@@ -217,7 +217,7 @@ fn agg_quorumed_attestations(
 
     attestator_data
         .agg_quorumed_attestations(quorum_threshold)
-        .ok_or(Status::failed_precondition("Quorum not met"))
+        .ok_or(anyhow::anyhow!("Quorum not met"))
 }
 
 #[cfg(test)]

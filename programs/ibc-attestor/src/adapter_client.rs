@@ -6,6 +6,7 @@ use crate::AttestorError;
 pub trait Signable: Sync + Send {
     fn to_serde_encoded_bytes(&self) -> Result<Vec<u8>, serde_json::Error>;
     fn height(&self) -> u64;
+    fn timestamp(&self) -> Option<u64>;
 }
 
 pub struct UnsignedPacketAttestation {
@@ -26,6 +27,9 @@ impl Signable for UnsignedStateAttestation {
     fn height(&self) -> u64 {
         self.height
     }
+    fn timestamp(&self) -> Option<u64> {
+        Some(self.timestamp)
+    }
 }
 
 impl Signable for UnsignedPacketAttestation {
@@ -34,6 +38,9 @@ impl Signable for UnsignedPacketAttestation {
     }
     fn height(&self) -> u64 {
         self.height
+    }
+    fn timestamp(&self) -> Option<u64> {
+        None
     }
 }
 

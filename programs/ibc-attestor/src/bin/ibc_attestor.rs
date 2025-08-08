@@ -22,15 +22,15 @@ async fn main() -> Result<(), anyhow::Error> {
 
             #[cfg(feature = "sol")]
             {
-                ibc_attestor::server::run_solana_server(config).await
+                ibc_attestor::server::run_solana_server(config.clone()).await?
             }
             #[cfg(feature = "op")]
             {
-                ibc_attestor::server::run_optimism_server(config).await
+                ibc_attestor::server::run_optimism_server(config.clone()).await?
             }
             #[cfg(feature = "arbitrum")]
             {
-                ibc_attestor::server::run_arbitrum_server(config).await
+                ibc_attestor::server::run_arbitrum_server(config.clone()).await?
             }
         }
         Commands::Key(cmd) => {
@@ -49,7 +49,7 @@ async fn main() -> Result<(), anyhow::Error> {
                         "key successfully saved to {}",
                         IBC_ATTESTOR_PATH.to_str().unwrap()
                     );
-                    Ok(())
+                    Ok::<(), anyhow::Error>(())
                 }
                 KeyCommands::Show => {
                     let skey = read_private_pem_to_string(&*IBC_ATTESTOR_PATH).map_err(|_| {
@@ -68,9 +68,10 @@ async fn main() -> Result<(), anyhow::Error> {
                     })?;
                     println!("public key as hex string:\n{}", pkey);
 
-                    Ok(())
+                    Ok::<(), anyhow::Error>(())
                 }
-            }
+            }?
         }
     }
+    Ok(())
 }

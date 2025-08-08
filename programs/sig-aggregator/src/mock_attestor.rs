@@ -35,6 +35,7 @@ impl MockAttestor {
             attested_data: vec![value; STATE_BYTE_LENGTH],
             signature: vec![value; SIGNATURE_BYTE_LENGTH],
             public_key: self.pub_key.clone(),
+            timestamp: Some(123),
         }
     }
 
@@ -47,6 +48,7 @@ impl MockAttestor {
             attested_data: vec![value; STATE_BYTE_LENGTH],
             signature: vec![value; SIGNATURE_BYTE_LENGTH],
             public_key: self.pub_key.clone(),
+            timestamp: None,
         }
     }
 }
