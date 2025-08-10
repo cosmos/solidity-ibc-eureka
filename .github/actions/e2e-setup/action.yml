@@ -5,6 +5,10 @@ inputs:
     description: A Github PAT
     required: true
 
+env:
+  SOLANA_VERSION: "2.1.17"
+  ANCHOR_VERSION: "0.31.1"
+
 runs:
   using: composite
   steps:
@@ -69,8 +73,8 @@ runs:
         kurtosis analytics disable
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
 
-    - name: Setup Solana
-      shell: bash
-      run: |
-        sh -c "$(curl -sSfL https://release.anza.xyz/v2.2.14/install)"
-        echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+    - name: Setup Solana and Anchor
+      uses: solana-developers/github-actions/setup-all@v0.2.5
+      with:
+        anchor_version: ${{ env.ANCHOR_VERSION }}
+        solana_version: ${{ env.SOLANA_VERSION }}
