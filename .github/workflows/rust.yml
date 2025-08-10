@@ -90,7 +90,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: cargo-run-script cosmwasm-check
+          args: cosmwasm-check@^2
       - name: Install just
         uses: extractions/setup-just@v2
 
