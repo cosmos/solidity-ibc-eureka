@@ -48,13 +48,13 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		_, err := s.SolanaChain.FundUser(solana.DeployerPubkey, 20*testvalues.InitialSolBalance)
 		s.Require().NoError(err)
 
-		ics07ProgramID, _, err := solana.AnchorDeploy(ctx, "../../programs/solana", "ics07_tendermint")
+		ics07ProgramID, _, err := solana.AnchorDeploy(ctx, "../../programs/solana", "ics07_tendermint", "./solana/ics07_tendermint-keypair.json")
 		s.Require().NoError(err)
 
 		// Set the program ID in the ics07_tendermint package, in case it is not matched automatically
 		ics07_tendermint.ProgramID = ics07ProgramID
 
-		ics26RouterProgramID, _, err := solana.AnchorDeploy(ctx, "../../programs/solana", "ics26_router")
+		ics26RouterProgramID, _, err := solana.AnchorDeploy(ctx, "../../programs/solana", "ics26_router", "./solana/ics26_router-keypair.json")
 		s.Require().NoError(err)
 
 		// Set the program ID in the ics26_router package, in case it is not matched automatically
