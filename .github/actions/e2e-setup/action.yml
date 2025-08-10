@@ -35,7 +35,7 @@ runs:
         path: |
           ~/.cache/solana/
           ~/.local/share/solana/
-          ~/.cargo/bin/anchor/
+          ~/.cargo/bin/anchor
           ./programs/solana/target/deploy/
           ./programs/solana/target/sbpf-solana-solana/
         key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('programs/solana/**') }}
