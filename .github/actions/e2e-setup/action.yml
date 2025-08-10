@@ -69,14 +69,12 @@ runs:
         kurtosis analytics disable
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
 
-    # - name: Setup Solana
-    #   shell: bash
-    #   run: |
-    #     sh -c "$(curl -sSfL https://release.anza.xyz/v2.2.14/install)"
-    #     echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+    - name: Setup Solana
+      shell: bash
+      run: |
+        sh -c "$(curl -sSfL https://release.anza.xyz/v${SOLANA_VERSION}/install)"
+        echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
-    - name: Setup Solana and Anchor
-      uses: solana-developers/github-actions/setup-all@v0.2.5
-      with:
-        solana_version: ${{ env.SOLANA_VERSION }}
-        anchor_version: ${{ env.ANCHOR_VERSION }}
+    - name: Setup Anchor
+      shell: bash
+      run: cargo install --git https://github.com/coral-xyz/anchor --tag v${ANCHOR_VERSION} anchor-cli
