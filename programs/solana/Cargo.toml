@@ -50,6 +50,7 @@ keywords = [
   "cosmos",
   "ibc",
   "solana",
+  "svm",
   "tendermint",
   "bridge",
   "anchor",
