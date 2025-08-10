@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	solanago "github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
@@ -66,29 +65,34 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	time.Sleep(12 * time.Second)
 
 	s.Require().True(s.Run("Initialize Contracts", func() {
-		header, err := cosmos.FetchCosmosHeader(ctx, simd)
-		s.Require().NoError(err)
+		var (
+			initClientState    ics07_tendermint.ClientState
+			initConsensusState ics07_tendermint.ConsensusState
+		)
+		s.Require().True(s.Run("Get initial client and consensus states", func() {
+			header, err := cosmos.FetchCosmosHeader(ctx, simd)
+			s.Require().NoError(err)
+			stakingParams, err := simd.StakingQueryParams(ctx)
+			s.Require().NoError(err)
 
-		stakingParams, err := simd.StakingQueryParams(ctx)
-		s.Require().NoError(err)
+			initClientState = ics07_tendermint.ClientState{
+				ChainId:               simd.Config().ChainID,
+				TrustLevelNumerator:   testvalues.DefaultTrustLevel.Numerator,
+				TrustLevelDenominator: testvalues.DefaultTrustLevel.Denominator,
+				TrustingPeriod:        uint64(testvalues.DefaultTrustPeriod),
+				UnbondingPeriod:       uint64(stakingParams.UnbondingTime.Seconds()),
+				MaxClockDrift:         uint64(testvalues.DefaultMaxClockDrift),
+				LatestHeight: ics07_tendermint.IbcHeight{
+					RevisionNumber: 1,
+					RevisionHeight: uint64(header.Height)},
+			}
 
-		initClientState := ics07_tendermint.ClientState{
-			ChainId:               simd.Config().ChainID,
-			TrustLevelNumerator:   testvalues.DefaultTrustLevel.Numerator,
-			TrustLevelDenominator: testvalues.DefaultTrustLevel.Denominator,
-			TrustingPeriod:        uint64(testvalues.DefaultTrustPeriod),
-			UnbondingPeriod:       uint64(stakingParams.UnbondingTime.Seconds()),
-			MaxClockDrift:         15,
-			LatestHeight: ics07_tendermint.IbcHeight{
-				RevisionNumber: 1,
-				RevisionHeight: uint64(header.Height)},
-		}
-
-		initConsensusState := ics07_tendermint.ConsensusState{
-			Timestamp:          uint64(header.Time.UnixNano()),
-			Root:               [32]uint8(header.AppHash),
-			NextValidatorsHash: [32]uint8(header.NextValidatorsHash),
-		}
+			initConsensusState = ics07_tendermint.ConsensusState{
+				Timestamp:          uint64(header.Time.UnixNano()),
+				Root:               [32]uint8(header.AppHash),
+				NextValidatorsHash: [32]uint8(header.NextValidatorsHash),
+			}
+		}))
 
 		clientStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(simd.Config().ChainID)}, ics07_tendermint.ProgramID)
 		s.Require().NoError(err)
@@ -114,9 +118,28 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
-	res, err := s.SolanaChain.RPCClient.GetBalance(ctx, s.SolanaUser.PublicKey(), rpc.CommitmentConfirmed) // Ensure the user has a balance
-	s.Require().NoError(err)
-	s.Require().Equal(res.Value, testvalues.InitialSolBalance)
+	simd := s.CosmosChains[0]
+
+	s.Require().True(s.Run("Verify ics07-svm-tendermint", func() {
+		clientStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(simd.Config().ChainID)}, ics07_tendermint.ProgramID)
+		s.Require().NoError(err)
+
+		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
+		s.Require().NoError(err)
+
+		clientState, err := ics07_tendermint.ParseAccount_ClientState(accountInfo.Value.Data.GetBinary())
+		s.Require().NoError(err)
+
+		s.Require().Equal(simd.Config().ChainID, clientState.ChainId)
+		s.Require().Equal(testvalues.DefaultTrustLevel.Denominator, clientState.TrustLevelDenominator)
+		s.Require().Equal(testvalues.DefaultTrustLevel.Numerator, clientState.TrustLevelNumerator)
+		s.Require().Equal(uint64(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
+		s.Require().True(clientState.UnbondingPeriod > clientState.TrustingPeriod)
+		s.Require().Equal(uint64(testvalues.DefaultMaxClockDrift), clientState.MaxClockDrift)
+		s.Require().Equal(uint64(1), clientState.LatestHeight.RevisionNumber)
+		s.Require().Equal(uint64(0), clientState.FrozenHeight.RevisionNumber)
+		s.Require().Equal(uint64(0), clientState.FrozenHeight.RevisionHeight)
+	}))
 }
 
 func uint64ToLeBytes(val uint64) []byte {
