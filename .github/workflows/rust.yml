@@ -86,11 +86,14 @@ jobs:
         with:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
-      - name: Install cargo-run-script and cosmwasm-check
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-run-script cosmwasm-check
+
+      # TODO: re-enable once cosmwasm-check is updated
+      # - name: Install cargo-run-script and cosmwasm-check
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: install
+      #     args: cosmwasm-check
+
       - name: Install just
         uses: extractions/setup-just@v2
 
@@ -103,8 +106,10 @@ jobs:
         run: just build-cw-ics08-wasm-eth
         # checks that the wasm binary is a proper cosmwasm smart contract
         # it checks for things like memories, exports, imports, available capabilities, and non-determinism
-      - name: Check cosmwasm file
-        run: cosmwasm-check artifacts/cw_ics08_wasm_eth.wasm
+
+      # TODO: re-enable once cosmwasm-check is updated
+      # - name: Check cosmwasm file
+      #   run: cosmwasm-check artifacts/cw_ics08_wasm_eth.wasm
 
       - name: Verify built binary matches commited
         run: |
