@@ -2319,6 +2319,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mock-light-client"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "solana-light-client-interface",
+]
+
+[[package]]
 name = "mollusk-svm"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

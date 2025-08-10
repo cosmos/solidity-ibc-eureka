@@ -1,9 +1,15 @@
 use crate::state::*;
-use anchor_lang::{AnchorSerialize, Discriminator};
+use anchor_lang::{AnchorSerialize, Discriminator, Space};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::sysvar::Sysvar;
 
 pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
+
+// Mock light client program ID - must match the ID in mock-light-client/src/lib.rs
+pub const MOCK_LIGHT_CLIENT_ID: Pubkey =
+    solana_sdk::pubkey!("4nFbkWTbUxKwXqKHzLdxkUfYZ9MrVkzJp7nXt8GY7JKp");
+
+// TODO: Move to test helpers crate
 
 pub fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u8> {
     let mut data = T::DISCRIMINATOR.to_vec();
@@ -164,10 +170,14 @@ pub fn create_account(
     data: Vec<u8>,
     owner: Pubkey,
 ) -> (Pubkey, solana_sdk::account::Account) {
+    use solana_sdk::rent::Rent;
+
+    let rent = Rent::default().minimum_balance(data.len());
+
     (
         pubkey,
         solana_sdk::account::Account {
-            lamports: 1_000_000,
+            lamports: rent.max(1_000_000), // Use at least 1M lamports or rent-exempt amount
             data,
             owner,
             executable: false,
@@ -202,11 +212,33 @@ pub fn create_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::A
     )
 }
 
-pub fn create_uninitialized_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::Account) {
+pub fn create_uninitialized_commitment_account(
+    pubkey: Pubkey,
+) -> (Pubkey, solana_sdk::account::Account) {
+    use solana_sdk::rent::Rent;
+
+    let account_size = 8 + Commitment::INIT_SPACE;
+
     (
         pubkey,
         solana_sdk::account::Account {
-            lamports: 0,
+            lamports: Rent::default().minimum_balance(account_size),
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+pub fn create_uninitialized_account(
+    pubkey: Pubkey,
+    lamports: u64,
+) -> (Pubkey, solana_sdk::account::Account) {
+    (
+        pubkey,
+        solana_sdk::account::Account {
+            lamports,
             data: vec![],
             owner: solana_sdk::system_program::ID,
             executable: false,
@@ -236,4 +268,88 @@ pub fn setup_packet_commitment(
     let commitment_data = create_account_data(&commitment);
 
     (packet_commitment_pda, commitment_data)
+}
+
+pub const DISCRIMINATOR_SIZE: usize = 8;
+
+pub fn get_account_data_from_mollusk_result(
+    result: &mollusk_svm::result::InstructionResult,
+    index: usize,
+) -> &[u8] {
+    let (_, account) = &result.resulting_accounts[index];
+    &account.data[DISCRIMINATOR_SIZE..]
+}
+
+pub fn get_account_data_from_mollusk<'a>(
+    result: &'a mollusk_svm::result::InstructionResult,
+    pubkey: &Pubkey,
+) -> Option<&'a [u8]> {
+    result
+        .resulting_accounts
+        .iter()
+        .find(|(key, _)| key == pubkey)
+        .map(|(_, account)| &account.data[DISCRIMINATOR_SIZE..])
+}
+
+pub fn get_client_sequence_from_result(result: &mollusk_svm::result::InstructionResult) -> u64 {
+    use anchor_lang::{AnchorDeserialize, Discriminator, Space};
+
+    // ClientSequence discriminator to verify account type
+    let expected_discriminator = ClientSequence::DISCRIMINATOR;
+    let account_size = 8 + ClientSequence::INIT_SPACE;
+
+    // Find the client_sequence account by checking discriminator, size and owner
+    let (_, sequence_account) = result
+        .resulting_accounts
+        .iter()
+        .find(|(_, account)| {
+            account.data.len() == account_size
+                && account.owner == crate::ID
+                && account.data.len() >= 8
+                && &account.data[..8] == expected_discriminator
+        })
+        .expect("client_sequence account not found");
+
+    // Deserialize the account properly
+    let mut account_data = &sequence_account.data[8..];
+    let client_sequence: ClientSequence = AnchorDeserialize::deserialize(&mut account_data)
+        .expect("Failed to deserialize ClientSequence");
+
+    client_sequence.next_sequence_send
+}
+
+pub fn get_client_sequence_from_result_by_pubkey(
+    result: &mollusk_svm::result::InstructionResult,
+    pubkey: &Pubkey,
+) -> Option<u64> {
+    use anchor_lang::{AnchorDeserialize, Discriminator};
+
+    result
+        .resulting_accounts
+        .iter()
+        .find(|(key, _)| key == pubkey)
+        .and_then(|(_, account)| {
+            // Verify it's a ClientSequence account
+            if account.data.len() >= 8 && &account.data[..8] == ClientSequence::DISCRIMINATOR {
+                let mut account_data = &account.data[8..];
+                let client_sequence: ClientSequence =
+                    AnchorDeserialize::deserialize(&mut account_data).ok()?;
+                Some(client_sequence.next_sequence_send)
+            } else {
+                None
+            }
+        })
+}
+
+pub fn create_bpf_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::Account) {
+    (
+        pubkey,
+        solana_sdk::account::Account {
+            lamports: 0,
+            data: vec![],
+            owner: solana_sdk::bpf_loader_upgradeable::ID,
+            executable: true,
+            rent_epoch: 0,
+        },
+    )
 }
