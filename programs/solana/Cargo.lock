@@ -1906,6 +1906,8 @@ name = "ics07-tendermint"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "bincode",
+ "hex",
  "ibc-client-tendermint",
  "ibc-core-client-types",
  "ibc-core-commitment-types",
@@ -1914,6 +1916,8 @@ dependencies = [
  "ibc-proto",
  "mollusk-svm",
  "mollusk-svm-bencher",
+ "serde",
+ "serde_json",
  "solana-light-client-interface",
  "solana-sdk",
  "tendermint",
@@ -2312,6 +2316,14 @@ dependencies = [
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "mock-light-client"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "solana-light-client-interface",
 ]
 
 [[package]]

@@ -49,6 +49,8 @@ const (
 	EnvKeyGenerateSolidityFixtures = "GENERATE_SOLIDITY_FIXTURES"
 	// EnvKeyGenerateSolidityFixtures Generate fixtures for the solidity tests if set to true.
 	EnvKeyGenerateWasmFixtures = "GENERATE_WASM_FIXTURES"
+	// EnvKeyGenerateSolanaFixtures Generate fixtures for the solana tests if set to true.
+	EnvKeyGenerateSolanaFixtures = "GENERATE_SOLANA_FIXTURES"
 	// The log level for the Rust logger.
 	EnvKeyRustLog = "RUST_LOG"
 
@@ -115,6 +117,8 @@ const (
 	E2EDeployScriptPath = "scripts/E2ETestDeploy.s.sol:E2ETestDeploy"
 	// SolanaLedgerDir is the path to the Solana ledger directory.
 	SolanaLedgerDir = "test-ledger"
+	// SolanaFixturesDir is the directory where the Solana fixtures are stored.
+	SolanaFixturesDir = "programs/solana/tests/fixtures/"
 
 	// IbcCommitmentSlotHex is the storage slot in the IBC solidity contract for the IBC commitments.
 	IbcCommitmentSlotHex = ics26router.IbcStoreStorageSlot

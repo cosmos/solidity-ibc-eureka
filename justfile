@@ -67,6 +67,7 @@ lint:
 	just lint-go
 	just lint-buf
 	just lint-rust
+	just lint-solana
 
 # Lint the Solidity code using `forge fmt` and `bun:solhint`
 [group('lint')]
@@ -97,6 +98,13 @@ lint-rust:
 	cargo clippy --all-targets --all-features -- -D warnings
 	cd programs/sp1-programs && cargo fmt --all -- --check
 	cd programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
+
+# Lint the Solana code using `cargo fmt` and `cargo clippy`
+[group('lint')]
+lint-solana:
+	@echo "Linting the Solana code..."
+	cd programs/solana && cargo fmt --all -- --check
+	cd programs/solana && cargo clippy --all-targets --all-features -- -D warnings
 
 
 # Generate the (non-bytecode) ABI files for the contracts
@@ -139,6 +147,13 @@ generate-fixtures-wasm: clean-foundry install-relayer
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true E2E_PROOF_TYPE=groth16 go test -v -run '^TestWithIbcEurekaTestSuite/Test_TimeoutPacketFromCosmos$' -timeout 60m
 	@echo "Generating multi-period client update fixtures..."
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithRelayerTestSuite/Test_MultiPeriodClientUpdateToCosmos$' -timeout 60m
+
+# Generate the fixtures for the Solana tests using the e2e tests
+[group('generate')]
+generate-fixtures-solana: clean-foundry install-relayer
+	@echo "Generating Solana fixtures... This may take a while."
+	@echo "Generating basic client state, consensus state, and update client fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_SOLANA_FIXTURES=true go test -v -run '^TestWithCosmosRelayerTestSuite/Test_UpdateClient$' -timeout 40m
 
 # Generate go types for the e2e tests from the etheruem light client code
 [group('generate')]
@@ -272,12 +287,6 @@ test-e2e-solana testname:
 # Run the Solana Anchor e2e tests
 [group('test')]
 test-anchor-solana *ARGS:
-	@echo "Copying all files from target/deploy to programs/solana/target/deploy (overwriting if needed)"
-	if [ -n "$(ls -A target/deploy 2>/dev/null)" ]; then \
-		mkdir -p programs/solana/target/deploy; \
-		cp -f target/deploy/* programs/solana/target/deploy/; \
-		echo "✅ Copied all files from target/deploy to programs/solana/target/deploy/ (overwriting if needed)"; \
-	fi
 	@echo "Running Solana Client Anchor tests (anchor-nix preferred) ..."
 	if command -v anchor-nix >/dev/null 2>&1; then \
 		echo "🦀 Using anchor-nix"; \
