@@ -84,3 +84,7 @@ runs:
     - name: Setup Anchor
       shell: bash
       run: cargo install --git https://github.com/coral-xyz/anchor --tag v${ANCHOR_VERSION} anchor-cli
+
+    - name: Build SP1 Programs
+      shell: bash
+      run: just build-solana
