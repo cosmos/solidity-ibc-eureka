@@ -84,7 +84,8 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				MaxClockDrift:         uint64(testvalues.DefaultMaxClockDrift),
 				LatestHeight: ics07_tendermint.IbcHeight{
 					RevisionNumber: 1,
-					RevisionHeight: uint64(header.Height)},
+					RevisionHeight: uint64(header.Height),
+				},
 			}
 
 			initConsensusState = ics07_tendermint.ConsensusState{
@@ -100,6 +101,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		consensusStateSeed := [][]byte{[]byte("consensus_state"), clientStateAccount.Bytes(), uint64ToLeBytes(initClientState.LatestHeight.RevisionHeight)}
 
 		consensusStateAccount, _, err := solanago.FindProgramAddress(consensusStateSeed, ics07_tendermint.ProgramID)
+		s.Require().NoError(err)
 
 		initInstruction, err := ics07_tendermint.NewInitializeInstruction(
 			initClientState.ChainId, initClientState.LatestHeight.RevisionHeight, initClientState, initConsensusState, clientStateAccount, consensusStateAccount, s.SolanaUser.PublicKey(), solanago.SystemProgramID,

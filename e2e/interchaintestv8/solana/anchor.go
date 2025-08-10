@@ -65,10 +65,10 @@ func getProgramIDAndSignatureFromAnchorDeploy(stdout []byte) (solana.PublicKey, 
 	signatureMatch := signatureRe.FindStringSubmatch(outputStr)
 
 	if len(programIDMatch) < 2 {
-		return solana.PublicKey{}, solana.Signature{}, fmt.Errorf("Program Id not found")
+		return solana.PublicKey{}, solana.Signature{}, fmt.Errorf("program id not found")
 	}
 	if len(signatureMatch) < 2 {
-		return solana.PublicKey{}, solana.Signature{}, fmt.Errorf("Signature not found")
+		return solana.PublicKey{}, solana.Signature{}, fmt.Errorf("signature not found")
 	}
 
 	programID, err := solana.PublicKeyFromBase58(programIDMatch[1])
