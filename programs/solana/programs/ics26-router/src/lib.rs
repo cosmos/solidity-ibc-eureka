@@ -10,7 +10,7 @@ pub mod utils;
 use instructions::*;
 use state::{CounterpartyInfo, MsgAckPacket, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket};
 
-declare_id!("HsCyuYgKgoN9wUPiJyNZvvWg2N1uyZhDjvJfKJFu3jvU");
+declare_id!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx");
 
 #[cfg(test)]
 pub fn get_router_program_path() -> &'static str {

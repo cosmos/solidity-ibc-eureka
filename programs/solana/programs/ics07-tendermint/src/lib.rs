@@ -8,7 +8,7 @@ pub mod types;
 
 use crate::state::ConsensusStateStore;
 
-declare_id!("8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV");
+declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 
 pub use types::{
     ClientState, ConsensusState, IbcHeight, MisbehaviourMsg, UpdateClientMsg, UpdateResult,
