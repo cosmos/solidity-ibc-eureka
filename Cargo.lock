@@ -4483,6 +4483,7 @@ dependencies = [
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",
+ "secp256k1 0.31.1",
  "serde",
  "serde_json",
  "tendermint",
