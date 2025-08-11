@@ -36,10 +36,6 @@ pub enum IbcAttestorClientError {
         pubkey: PublicKey,
     },
 
-    /// Malformed public key
-    #[error("Malformed public key provided")]
-    MalformedPublicKeySubmitted,
-
     /// Cannot attest to data as malformed
     #[error("Invalid attested data: {reason}")]
     InvalidAttestedData {

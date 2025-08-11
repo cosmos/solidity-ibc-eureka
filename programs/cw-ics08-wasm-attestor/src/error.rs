@@ -73,7 +73,4 @@ pub enum ContractError {
 
     #[error("invalid client message")]
     InvalidClientMessage,
-
-    #[error("instatiating the client failed due to: {reason}")]
-    InstantiateClientFailed { reason: String },
 }

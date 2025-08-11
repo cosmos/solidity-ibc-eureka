@@ -1,7 +1,5 @@
 //! This module contains the instantiate helper functions
 
-use std::{env, fs};
-
 use attestor_light_client::{
     client_state::ClientState as AttestorClientState,
     consensus_state::ConsensusState as AttestorConsensusState,
@@ -20,9 +18,6 @@ use crate::{
     ContractError,
 };
 
-const PUB_KEYS_ENV: &str = "PUB_KEYS_PATH";
-const SECP_PUB_KEY_LEN: u8 = 33;
-
 /// Initializes the client state and initial consensus state
 /// # Errors
 /// Will return an error if the client state or consensus state cannot be deserialized.
@@ -31,27 +26,8 @@ const SECP_PUB_KEY_LEN: u8 = 33;
 #[allow(clippy::needless_pass_by_value)]
 pub fn client(storage: &mut dyn Storage, msg: InstantiateMsg) -> Result<(), ContractError> {
     let client_state_bz: Vec<u8> = msg.client_state.into();
-    let mut client_state: AttestorClientState = serde_json::from_slice(&client_state_bz)
+    let client_state: AttestorClientState = serde_json::from_slice(&client_state_bz)
         .map_err(ContractError::DeserializeClientStateFailed)?;
-
-    let key_path = env::var(PUB_KEYS_ENV).map_err(|_| ContractError::InstantiateClientFailed {
-        reason: "no env `PUB_KEYS_PATH` set".into(),
-    })?;
-
-    let keys: Vec<_> = fs::read(key_path.to_string())
-        .map_err(|e| ContractError::InstantiateClientFailed {
-            reason: e.to_string(),
-        })?
-        .chunks_exact(SECP_PUB_KEY_LEN as usize)
-        .map(|key_bytes| key_bytes.to_vec())
-        .collect();
-
-    let _ = client_state.replace_pub_keys(&keys).map_err(|e| {
-        ContractError::InstantiateClientFailed {
-            reason: e.to_string(),
-        }
-    })?;
-
     let wasm_client_state = WasmClientState {
         checksum: msg.checksum.into(),
         data: client_state_bz,

@@ -42,18 +42,3 @@ pub const SIGS: LazyCell<Vec<Signature>> = LazyCell::new(|| {
 
     sigs
 });
-
-/// Returns all test public keys in compressed SEC1 format as a single contiguous byte blob.
-/// Keys are concatenated in the same order as in KEYS, each 33 bytes long.
-pub fn compressed_pubkeys_blob() -> Vec<u8> {
-    let mut buf = Vec::with_capacity(33 * KEYS.len());
-    for k in KEYS.iter() {
-        buf.extend_from_slice(&k.serialize());
-    }
-    buf
-}
-
-/// Returns all test public keys in compressed SEC1 format as a vector of 33-byte arrays
-pub fn compressed_pubkeys_vec() -> Vec<[u8; 33]> {
-    KEYS.iter().map(|k| k.serialize()).collect()
-}
