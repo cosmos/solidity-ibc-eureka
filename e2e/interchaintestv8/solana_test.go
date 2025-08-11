@@ -50,69 +50,70 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 		ics07ProgramID, _, err := solana.AnchorDeploy(ctx, "../../programs/solana", "ics07_tendermint", "./solana/ics07_tendermint-keypair.json")
 		s.Require().NoError(err)
+		s.Require().Equal(ics07_tendermint.ProgramID, ics07ProgramID)
 
 		// Set the program ID in the ics07_tendermint package, in case it is not matched automatically
 		ics07_tendermint.ProgramID = ics07ProgramID
 
 		ics26RouterProgramID, _, err := solana.AnchorDeploy(ctx, "../../programs/solana", "ics26_router", "./solana/ics26_router-keypair.json")
 		s.Require().NoError(err)
-
-		// Set the program ID in the ics26_router package, in case it is not matched automatically
-		ics26_router.ProgramID = ics26RouterProgramID
+		s.Require().Equal(ics26_router.ProgramID, ics26RouterProgramID)
 	}))
 
 	// Wait for finality
 	time.Sleep(12 * time.Second)
 
 	s.Require().True(s.Run("Initialize Contracts", func() {
-		var (
-			initClientState    ics07_tendermint.ClientState
-			initConsensusState ics07_tendermint.ConsensusState
-		)
-		s.Require().True(s.Run("Get initial client and consensus states", func() {
-			header, err := cosmos.FetchCosmosHeader(ctx, simd)
-			s.Require().NoError(err)
-			stakingParams, err := simd.StakingQueryParams(ctx)
+		s.Require().True(s.Run("Initialize ICS07 Tendermint", func() {
+			var (
+				initClientState    ics07_tendermint.ClientState
+				initConsensusState ics07_tendermint.ConsensusState
+			)
+			s.Require().True(s.Run("Get initial client and consensus states", func() {
+				header, err := cosmos.FetchCosmosHeader(ctx, simd)
+				s.Require().NoError(err)
+				stakingParams, err := simd.StakingQueryParams(ctx)
+				s.Require().NoError(err)
+
+				initClientState = ics07_tendermint.ClientState{
+					ChainId:               simd.Config().ChainID,
+					TrustLevelNumerator:   testvalues.DefaultTrustLevel.Numerator,
+					TrustLevelDenominator: testvalues.DefaultTrustLevel.Denominator,
+					TrustingPeriod:        uint64(testvalues.DefaultTrustPeriod),
+					UnbondingPeriod:       uint64(stakingParams.UnbondingTime.Seconds()),
+					MaxClockDrift:         uint64(testvalues.DefaultMaxClockDrift),
+					LatestHeight: ics07_tendermint.IbcHeight{
+						RevisionNumber: 1,
+						RevisionHeight: uint64(header.Height),
+					},
+				}
+
+				initConsensusState = ics07_tendermint.ConsensusState{
+					Timestamp:          uint64(header.Time.UnixNano()),
+					Root:               [32]uint8(header.AppHash),
+					NextValidatorsHash: [32]uint8(header.NextValidatorsHash),
+				}
+			}))
+
+			clientStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(simd.Config().ChainID)}, ics07_tendermint.ProgramID)
 			s.Require().NoError(err)
 
-			initClientState = ics07_tendermint.ClientState{
-				ChainId:               simd.Config().ChainID,
-				TrustLevelNumerator:   testvalues.DefaultTrustLevel.Numerator,
-				TrustLevelDenominator: testvalues.DefaultTrustLevel.Denominator,
-				TrustingPeriod:        uint64(testvalues.DefaultTrustPeriod),
-				UnbondingPeriod:       uint64(stakingParams.UnbondingTime.Seconds()),
-				MaxClockDrift:         uint64(testvalues.DefaultMaxClockDrift),
-				LatestHeight: ics07_tendermint.IbcHeight{
-					RevisionNumber: 1,
-					RevisionHeight: uint64(header.Height),
-				},
-			}
+			consensusStateSeed := [][]byte{[]byte("consensus_state"), clientStateAccount.Bytes(), uint64ToLeBytes(initClientState.LatestHeight.RevisionHeight)}
 
-			initConsensusState = ics07_tendermint.ConsensusState{
-				Timestamp:          uint64(header.Time.UnixNano()),
-				Root:               [32]uint8(header.AppHash),
-				NextValidatorsHash: [32]uint8(header.NextValidatorsHash),
-			}
+			consensusStateAccount, _, err := solanago.FindProgramAddress(consensusStateSeed, ics07_tendermint.ProgramID)
+			s.Require().NoError(err)
+
+			initInstruction, err := ics07_tendermint.NewInitializeInstruction(
+				initClientState.ChainId, initClientState.LatestHeight.RevisionHeight, initClientState, initConsensusState, clientStateAccount, consensusStateAccount, s.SolanaUser.PublicKey(), solanago.SystemProgramID,
+			)
+			s.Require().NoError(err)
+
+			tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
+			s.Require().NoError(err)
+
+			_, err = s.SolanaChain.SignAndBroadcastTx(ctx, tx, s.SolanaUser)
+			s.Require().NoError(err)
 		}))
-
-		clientStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(simd.Config().ChainID)}, ics07_tendermint.ProgramID)
-		s.Require().NoError(err)
-
-		consensusStateSeed := [][]byte{[]byte("consensus_state"), clientStateAccount.Bytes(), uint64ToLeBytes(initClientState.LatestHeight.RevisionHeight)}
-
-		consensusStateAccount, _, err := solanago.FindProgramAddress(consensusStateSeed, ics07_tendermint.ProgramID)
-		s.Require().NoError(err)
-
-		initInstruction, err := ics07_tendermint.NewInitializeInstruction(
-			initClientState.ChainId, initClientState.LatestHeight.RevisionHeight, initClientState, initConsensusState, clientStateAccount, consensusStateAccount, s.SolanaUser.PublicKey(), solanago.SystemProgramID,
-		)
-		s.Require().NoError(err)
-
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
-		s.Require().NoError(err)
-
-		_, err = s.SolanaChain.SignAndBroadcastTx(ctx, tx, s.SolanaUser)
-		s.Require().NoError(err)
 	}))
 }
 
