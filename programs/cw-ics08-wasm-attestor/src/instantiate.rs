@@ -21,6 +21,7 @@ use crate::{
 };
 
 const PUB_KEYS_ENV: &str = "PUB_KEYS_PATH";
+const SECP_PUB_KEY_LEN: u8 = 33;
 
 /// Initializes the client state and initial consensus state
 /// # Errors
@@ -41,7 +42,7 @@ pub fn client(storage: &mut dyn Storage, msg: InstantiateMsg) -> Result<(), Cont
         .map_err(|e| ContractError::InstantiateClientFailed {
             reason: e.to_string(),
         })?
-        .chunks_exact(33)
+        .chunks_exact(SECP_PUB_KEY_LEN as usize)
         .map(|key_bytes| key_bytes.to_vec())
         .collect();
 
