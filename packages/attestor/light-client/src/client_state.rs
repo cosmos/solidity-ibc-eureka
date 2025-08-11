@@ -23,10 +23,14 @@ impl ClientState {
     /// Replaces the public keys for a client using
     /// compressed by representations of public keys
     #[must_use]
-    pub fn replace_pub_keys(&mut self, keys: &[Vec<u8>]) -> Result<(), IbcAttestorClientError> {
+
+    pub fn replace_pub_keys<K: AsRef<[u8]>>(
+        &mut self,
+        keys: &[K],
+    ) -> Result<(), IbcAttestorClientError> {
         let serialized = keys
             .iter()
-            .map(|k| PublicKey::from_slice(k))
+            .map(|k| PublicKey::from_slice(k.as_ref()))
             .collect::<Result<Vec<PublicKey>, _>>()
             .map_err(|_| IbcAttestorClientError::MalformedPublicKeySubmitted)?;
 
