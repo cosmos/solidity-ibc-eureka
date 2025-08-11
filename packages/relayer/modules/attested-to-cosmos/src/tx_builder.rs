@@ -5,19 +5,11 @@ use std::collections::{HashMap, HashSet};
 
 use alloy::sol_types::SolValue;
 use anyhow::Result;
-use attestor_light_client::{
-    client_state::ClientState as AttestorClientState,
-    consensus_state::ConsensusState as AttestorConsensusState, header::Header,
-};
+use attestor_light_client::header::Header;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
-    ibc::{
-        core::client::v1::{Height, MsgCreateClient, MsgUpdateClient},
-        lightclients::wasm::v1::{
-            ClientMessage, ClientState as WasmClientState, ConsensusState as WasmConsensusState,
-        },
-    },
+    ibc::{core::client::v1::MsgUpdateClient, lightclients::wasm::v1::ClientMessage},
 };
 use prost::Message;
 use tendermint_rpc::HttpClient;
@@ -97,11 +89,6 @@ fn encode_and_cyphon_packet_if_relevant(
         cyphon.push(packet.abi_encode())
     }
 }
-
-const CHECKSUM_HEX: &str = "checksum_hex";
-const MIN_REQUIRED_SIGS: &str = "min_required_sigs";
-const HEIGHT: &str = "height";
-const TIMESTAMP: &str = "timestamp";
 
 #[async_trait::async_trait]
 impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
@@ -242,62 +229,10 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
-        let checksum_hex = parameters
-            .get(CHECKSUM_HEX)
-            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{CHECKSUM_HEX}` parameter")))?;
-        let checksum = alloy::hex::decode(checksum_hex)?;
-
-        let min_required_sigs: u8 = parameters
-            .get(MIN_REQUIRED_SIGS)
-            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{MIN_REQUIRED_SIGS}` parameter")))?
-            .parse()?;
-
-        let height: u64 = parameters
-            .get(HEIGHT)
-            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{HEIGHT}` parameter")))?
-            .parse()?;
-
-        let timestamp: u64 = parameters
-            .get(TIMESTAMP)
-            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{TIMESTAMP}` parameter")))?
-            .parse()?;
-
-        let client_state = AttestorClientState {
-            // This handled in the client itself
-            pub_keys: Vec::new(),
-            min_required_sigs,
-            latest_height: height,
-            is_frozen: false,
-        };
-        let consensus_state = AttestorConsensusState { height, timestamp };
-
-        let client_state_bz = serde_json::to_vec(&client_state)?;
-        let consensus_state_bz = serde_json::to_vec(&consensus_state)?;
-
-        let wasm_client_state = WasmClientState {
-            data: client_state_bz,
-            checksum,
-            latest_height: Some(Height {
-                revision_number: 0,
-                revision_height: height,
-            }),
-        };
-        let wasm_consensus_state = WasmConsensusState {
-            data: consensus_state_bz,
-        };
-
-        let msg = MsgCreateClient {
-            client_state: Some(Any::from_msg(&wasm_client_state)?),
-            consensus_state: Some(Any::from_msg(&wasm_consensus_state)?),
-            signer: self.signer_address.clone(),
-        };
-
-        Ok(TxBody {
-            messages: vec![Any::from_msg(&msg)?],
-            ..Default::default()
-        }
-        .encode_to_vec())
+    async fn create_client(&self, _parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        tracing::info!("Creating attested light client");
+        // TODO: IBC-163
+        todo!()
     }
 
     #[tracing::instrument(skip_all)]
