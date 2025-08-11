@@ -58,6 +58,10 @@ pub enum ErrorCode {
     #[msg("Time and block delay must be zero")]
     NonZeroDelay,
 
+    // Client state errors (additional)
+    #[msg("Client state not found")]
+    ClientStateNotFound,
+
     // Consensus state errors
     #[msg("Consensus state not found at the specified height")]
     ConsensusStateNotFound,

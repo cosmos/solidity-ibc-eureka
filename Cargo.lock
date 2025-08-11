@@ -7781,8 +7781,13 @@ dependencies = [
 name = "tendermint-light-client-membership"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "ibc-core-commitment-types",
  "ibc-core-host-types",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prost",
+ "serde",
+ "serde_json",
  "thiserror 2.0.12",
 ]
 
@@ -7815,12 +7820,18 @@ dependencies = [
 name = "tendermint-light-client-update-client"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "ibc-client-tendermint",
  "ibc-core-client",
  "ibc-core-client-types",
+ "ibc-core-commitment-types",
  "ibc-core-host-types",
  "ibc-primitives",
+ "prost",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
+ "tendermint",
  "tendermint-light-client-verifier",
  "thiserror 2.0.12",
 ]

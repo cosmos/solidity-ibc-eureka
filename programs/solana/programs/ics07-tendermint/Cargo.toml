@@ -43,6 +43,7 @@ ibc-primitives.workspace = true
 ibc-proto.workspace = true
 tendermint.workspace = true
 time = { workspace = true, features = ["macros"] }
+prost.workspace = true
 
 [dev-dependencies]
 mollusk-svm.workspace = true
@@ -52,3 +53,4 @@ serde.workspace = true
 serde_json.workspace = true
 hex.workspace = true
 bincode.workspace = true
+tendermint.workspace = true
