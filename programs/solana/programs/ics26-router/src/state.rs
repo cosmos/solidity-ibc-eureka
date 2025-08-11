@@ -32,12 +32,9 @@ pub struct CounterpartyInfo {
     /// Client ID on the counterparty chain
     #[max_len(MAX_CLIENT_ID_LENGTH)]
     pub client_id: String,
-    /// Connection ID on the counterparty chain
-    #[max_len(MAX_CLIENT_ID_LENGTH)]
-    pub connection_id: String,
     /// Merkle prefix for proof verification
-    #[max_len(128)]
-    pub merkle_prefix: Vec<u8>,
+    #[max_len(16, 128)]
+    pub merkle_prefix: Vec<Vec<u8>>,
 }
 
 /// Client mapping client IDs to light client program IDs
