@@ -209,7 +209,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
 
         attestor::inject_proofs(&mut recv_msgs, &packets.attested_data, packets.height);
 
-        // We don't want to use mock proofs for RecvMsg
+        // We don't want to use mock roofs for RecvMsg
         let mut dummy = [];
         cosmos::inject_mock_proofs(&dummy, &mut ack_msgs, &mut timeout_msgs);
 
@@ -236,14 +236,14 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
     #[tracing::instrument(skip_all)]
     async fn create_client(&self, _parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         tracing::info!("Creating attested light client");
-
+        // TODO: IBC-163
         todo!()
     }
 
     #[tracing::instrument(skip_all)]
     async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
         tracing::info!("Updating attested light client: {}", dst_client_id);
-
+        // TODO: IBC-164
         todo!()
     }
 }
