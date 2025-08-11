@@ -137,15 +137,14 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         let query_height = *heights.iter().max().unwrap();
         let request = aggregator_proto::GetAttestationsRequest {
             packets: ics26_send_packets,
-            height: query_height, // latest height
+            height: query_height,
         };
 
         tracing::info!(
             "Requesting state attestation from aggregator for {} packets",
             request.packets.len()
         );
-        // - We need update client with timestamp at height
-        // - We need MsgRecvPacket where proof is (key, value, height, signature)
+
         let response = aggregator_client
             .get_attestations(request)
             .await?
@@ -208,10 +207,6 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
         attestor::inject_proofs(&mut recv_msgs, &packets.attested_data, packets.height);
-
-        // We don't want to use mock roofs for RecvMsg
-        let mut dummy = [];
-        cosmos::inject_mock_proofs(&dummy, &mut ack_msgs, &mut timeout_msgs);
 
         let all_msgs = timeout_msgs
             .into_iter()
