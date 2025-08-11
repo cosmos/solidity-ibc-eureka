@@ -432,18 +432,6 @@ mod tests {
     }
 
     #[test]
-    fn test_add_client_invalid_counterparty_info_empty_connection() {
-        test_add_client(AddClientTestConfig::with_counterparty_info(
-            "test-client-03",
-            CounterpartyInfo {
-                client_id: "counterparty-client".to_string(),
-                merkle_prefix: vec![vec![0x01, 0x02, 0x03]],
-            },
-            RouterError::InvalidCounterpartyInfo,
-        ));
-    }
-
-    #[test]
     fn test_add_client_invalid_counterparty_info_empty_merkle_prefix() {
         test_add_client(AddClientTestConfig::with_counterparty_info(
             "test-client-04",
