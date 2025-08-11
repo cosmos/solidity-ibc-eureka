@@ -33,7 +33,7 @@ pub struct CounterpartyInfo {
     #[max_len(MAX_CLIENT_ID_LENGTH)]
     pub client_id: String,
     /// Merkle prefix for proof verification
-    #[max_len(16, 128)]
+    #[max_len(8, 128)]
     pub merkle_prefix: Vec<Vec<u8>>,
 }
 
