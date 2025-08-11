@@ -160,7 +160,7 @@ mod tests {
                 tests::{client_state, consensus, make_instatiate_msg},
             },
             state::{consensus_db_key, HOST_CLIENT_STATE_KEY},
-            test::helpers::mk_deps,
+            test::helpers::{mk_deps, setup_pubkeys_env},
         };
 
         #[test]
@@ -172,6 +172,8 @@ mod tests {
             let client_state = client_state();
             let consensus_state = consensus();
             let msg = make_instatiate_msg(&client_state, &consensus_state);
+
+            setup_pubkeys_env();
 
             let res = instantiate(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
             assert_eq!(0, res.messages.len());
@@ -236,7 +238,7 @@ mod tests {
                 Height, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
                 VerifyClientMessageMsg, VerifyMembershipMsg,
             },
-            test::helpers::mk_deps,
+            test::helpers::{mk_deps, setup_pubkeys_env},
             ContractError,
         };
 
@@ -249,6 +251,8 @@ mod tests {
             let client_state = client_state();
             let consensus_state = consensus();
             let msg = make_instatiate_msg(&client_state, &consensus_state);
+
+            setup_pubkeys_env();
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -370,6 +374,8 @@ mod tests {
             let consensus_state = consensus();
             let msg = make_instatiate_msg(&client_state, &consensus_state);
 
+            setup_pubkeys_env();
+
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
             for i in 1..6 {
@@ -414,6 +420,8 @@ mod tests {
             let client_state = client_state();
             let consensus_state = consensus();
             let msg = make_instatiate_msg(&client_state, &consensus_state);
+
+            setup_pubkeys_env();
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -540,6 +548,8 @@ mod tests {
             let consensus_state = consensus();
             let msg = make_instatiate_msg(&client_state, &consensus_state);
 
+            setup_pubkeys_env();
+
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
             // Add some even states
@@ -621,6 +631,8 @@ mod tests {
             let consensus_state = consensus();
             let msg = make_instatiate_msg(&client_state, &consensus_state);
 
+            setup_pubkeys_env();
+
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
             let mut header_with_different_ts_for_existing_height = header(&consensus_state);
@@ -659,6 +671,8 @@ mod tests {
             let consensus_state = consensus();
             let msg = make_instatiate_msg(&client_state, &consensus_state);
 
+            setup_pubkeys_env();
+
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
             let mut header_with_random_data = header(&consensus_state);
@@ -692,6 +706,8 @@ mod tests {
 
             let consensus_state = consensus();
             let msg = make_instatiate_msg(&client_state, &consensus_state);
+
+            setup_pubkeys_env();
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
