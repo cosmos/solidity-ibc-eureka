@@ -64,6 +64,7 @@ pub struct AttestedToCosmosConfig {
     pub attested_chain_id: String,
     /// The aggregator service URL for fetching attestations.
     pub aggregator_url: String,
+    // TODO: Make this chain agnostic, see IBC-162
     /// The EVM RPC URL.
     pub eth_rpc_url: String,
     /// ICS26 address
