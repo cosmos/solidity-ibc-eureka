@@ -221,10 +221,15 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             .chain([Any::from_msg(&update_msg)])
             .collect::<Result<Vec<_>, _>>()?;
 
+        tracing::debug!("Total messages: #{}", all_msgs.len());
+
         let tx_body = TxBody {
             messages: all_msgs,
             ..Default::default()
         };
+
+        tracing::debug!("TX to send {:?}", tx_body);
+
         Ok(tx_body.encode_to_vec())
     }
 
