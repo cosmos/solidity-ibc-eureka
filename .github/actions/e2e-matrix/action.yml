@@ -18,6 +18,4 @@ runs:
     - name: Generate Test Matrix
       id: generate-matrix
       shell: bash
-      run: |
-        cd ${{ github.workspace }}
-        echo "matrix=$(go run programs/go-test-matrix/main.go -skip='${{ inputs.skip-tests }}')" >> $GITHUB_OUTPUT
+      run: echo "matrix=$(go run programs/go-test-matrix/main.go -skip='${{ inputs.skip-tests }}')" >> $GITHUB_OUTPUT

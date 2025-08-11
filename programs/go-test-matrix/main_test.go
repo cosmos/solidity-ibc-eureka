@@ -5,22 +5,17 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetGithubActionMatrixForTests(t *testing.T) {
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+func TestGetGitHubActionMatrixForTests(t *testing.T) {
+	e2eDir := filepath.Clean(filepath.Join("..", "..", "e2e", "interchaintestv8"))
 
-	err = os.Chdir("../..")
-	require.NoError(t, err)
-
-	matrix, err := getGithubActionMatrixForTests("e2e/interchaintestv8", "", "", nil)
+	matrix, err := getGitHubActionMatrixForTests(e2eDir, "", nil)
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, matrix.Include, "Should discover tests")
@@ -33,7 +28,7 @@ func TestGetGithubActionMatrixForTests(t *testing.T) {
 
 	expectedTests := []string{
 		"TestWithIbcEurekaTestSuite/Test_Deploy",
-		"TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth", 
+		"TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth",
 		"TestWithSP1ICS07TendermintTestSuite/Test_UpdateClient",
 	}
 
@@ -42,39 +37,25 @@ func TestGetGithubActionMatrixForTests(t *testing.T) {
 	}
 }
 
-func TestFilterByTestName(t *testing.T) {
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+func TestFilterBySuiteEntrypoint(t *testing.T) {
+	e2eDir := filepath.Clean(filepath.Join("..", "..", "e2e", "interchaintestv8"))
 
-	err = os.Chdir("../..")
-	require.NoError(t, err)
-
-	matrix, err := getGithubActionMatrixForTests("e2e/interchaintestv8", "Test_UpdateClient", "", nil)
+	suiteName := "TestWithSP1ICS07TendermintTestSuite"
+	matrix, err := getGitHubActionMatrixForTests(e2eDir, suiteName, nil)
 	require.NoError(t, err)
 
-	assert.True(t, len(matrix.Include) >= 1, "Should have at least 1 test when filtering")
-	
-	hasCorrectTest := false
+	assert.True(t, len(matrix.Include) >= 1, "Should have at least 1 test when filtering by suite")
+
 	for _, test := range matrix.Include {
-		if test.Test == "Test_UpdateClient" {
-			hasCorrectTest = true
-			break
-		}
+		assert.Equal(t, suiteName, test.EntryPoint, "All tests should be from the selected suite")
 	}
-	assert.True(t, hasCorrectTest, "Should find the specific test we're looking for")
 }
 
 func TestFilterByExclusions(t *testing.T) {
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-
-	err = os.Chdir("../..")
-	require.NoError(t, err)
+	e2eDir := filepath.Clean(filepath.Join("..", "..", "e2e", "interchaintestv8"))
 
 	excludedSuites := []string{"TestWithRelayerTestSuite"}
-	matrix, err := getGithubActionMatrixForTests("e2e/interchaintestv8", "", "", excludedSuites)
+	matrix, err := getGitHubActionMatrixForTests(e2eDir, "", excludedSuites)
 	require.NoError(t, err)
 
 	for _, test := range matrix.Include {
@@ -83,30 +64,30 @@ func TestFilterByExclusions(t *testing.T) {
 }
 
 func TestJSONOutput(t *testing.T) {
-	testPairs := []TestSuitePair{
+	testPairs := []testSuitePair{
 		{Test: "Test_Deploy", EntryPoint: "TestWithIbcEurekaTestSuite"},
 		{Test: "Test_UpdateClient", EntryPoint: "TestWithSP1ICS07TendermintTestSuite"},
 	}
 
-	matrix := GithubActionTestMatrix{Include: testPairs}
+	matrix := actionTestMatrix{Include: testPairs}
 	output, err := json.Marshal(matrix)
 	require.NoError(t, err)
 
-	var result GithubActionTestMatrix
+	var result actionTestMatrix
 	err = json.Unmarshal(output, &result)
 	require.NoError(t, err)
 
 	assert.Equal(t, testPairs, result.Include)
 }
 
-func TestIsTestSuiteMethod(t *testing.T) {
+func TestIsSuiteEntrypoint(t *testing.T) {
 	tests := []struct {
 		name     string
 		code     string
 		expected bool
 	}{
 		{
-			name: "valid test suite method",
+			name: "valid suite entrypoint",
 			code: `package main
 import "testing"
 func TestSomething(t *testing.T) {
@@ -115,7 +96,7 @@ func TestSomething(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "test method without suite.Run call",
+			name: "test function without suite.Run call",
 			code: `package main
 import "testing"
 func TestSomething(t *testing.T) {
@@ -165,13 +146,13 @@ func TestSomething() {
 			}
 			require.NotNil(t, funcDecl, "function not found")
 
-			result := isTestSuiteMethod(funcDecl)
+			result := isSuiteEntrypoint(funcDecl)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-func TestIsTestFunction(t *testing.T) {
+func TestIsSuiteTest(t *testing.T) {
 	tests := []struct {
 		name     string
 		code     string
@@ -228,7 +209,7 @@ func (s *MyStruct) TestSomething() {}`,
 			}
 			require.NotNil(t, funcDecl, "function not found")
 
-			result := isTestFunction(funcDecl)
+			result := isSuiteTest(funcDecl)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

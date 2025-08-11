@@ -19,106 +19,84 @@ const (
 	testNamePrefix     = "Test"
 	testFileNameSuffix = "_test.go"
 	e2eTestDirectory   = "e2e/interchaintestv8"
-	testEntryPointEnv  = "TEST_ENTRYPOINT"
-	testExclusionsEnv  = "TEST_EXCLUSIONS"
-	testNameEnv        = "TEST_NAME"
+
+	// testEntryPointEnv is an optional env variable that can be used to only return tests for a specific suite
+	testEntryPointEnv = "TEST_ENTRYPOINT"
+
+	// testExclusionsEnv is an optional env variable that can be used to exclude tests, or entire suites, from the output
+	testExclusionsEnv = "TEST_EXCLUSIONS"
 )
 
-type GithubActionTestMatrix struct {
-	Include []TestSuitePair `json:"include"`
+type actionTestMatrix struct {
+	Include []testSuitePair `json:"include"`
 }
 
-type TestSuitePair struct {
+type testSuitePair struct {
 	Test       string `json:"test"`
 	EntryPoint string `json:"entrypoint"`
 }
 
 func main() {
-	githubActionMatrix, err := getGithubActionMatrixForTests(e2eTestDirectory, getTestToRun(), getTestEntrypointToRun(), getExcludedTestFunctions())
+	suite := os.Getenv(testEntryPointEnv)
+	var excludedItems []string
+	if exclusions, ok := os.LookupEnv(testExclusionsEnv); ok {
+		excludedItems = strings.Split(exclusions, ",")
+	}
+
+	matrix, err := getGitHubActionMatrixForTests(e2eTestDirectory, suite, excludedItems)
 	if err != nil {
-		fmt.Printf("error generating github action json: %s", err)
+		fmt.Fprintln(os.Stderr, "error generating GitHub Action JSON:", err)
 		os.Exit(1)
 	}
 
-	ghBytes, err := json.Marshal(githubActionMatrix)
-	if err != nil {
-		fmt.Printf("error marshalling github action json: %s", err)
+	if err := json.NewEncoder(os.Stdout).Encode(matrix); err != nil {
+		fmt.Fprintln(os.Stderr, "error writing JSON:", err)
 		os.Exit(1)
 	}
-	fmt.Println(string(ghBytes))
 }
 
-func getTestEntrypointToRun() string {
-	testSuite, ok := os.LookupEnv(testEntryPointEnv)
-	if !ok {
-		return ""
-	}
-	return testSuite
-}
-
-func getTestToRun() string {
-	testName, ok := os.LookupEnv(testNameEnv)
-	if !ok {
-		return ""
-	}
-	return testName
-}
-
-func getExcludedTestFunctions() []string {
-	exclusions, ok := os.LookupEnv(testExclusionsEnv)
-	if !ok {
-		return nil
-	}
-	return strings.Split(exclusions, ",")
-}
-
-func getGithubActionMatrixForTests(e2eRootDirectory, testName string, suite string, excludedItems []string) (GithubActionTestMatrix, error) {
+func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems []string) (actionTestMatrix, error) {
 	testSuiteMapping := map[string][]string{}
-	fset := token.NewFileSet()
-	err := filepath.Walk(e2eRootDirectory, func(path string, info fs.FileInfo, err error) error {
+	fileSet := token.NewFileSet()
+	err := filepath.WalkDir(e2eRootDirectory, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("error walking e2e directory: %w", err)
+			return fmt.Errorf("walk e2e: %w", err)
 		}
 
-		if !strings.HasSuffix(path, testFileNameSuffix) {
+		if d.IsDir() || !strings.HasSuffix(path, testFileNameSuffix) {
 			return nil
 		}
 
-		f, err := parser.ParseFile(fset, path, nil, 0)
+		astFile, err := parser.ParseFile(fileSet, path, nil, 0)
 		if err != nil {
-			return fmt.Errorf("failed parsing file: %w", err)
+			return fmt.Errorf("parse file: %w", err)
 		}
 
-		suiteNameForFile, testCases, err := extractSuiteAndTestNames(f)
+		suiteName, suiteTestCases, err := extractSuiteAndTestNames(astFile)
 		if err != nil {
 			return nil
 		}
 
-		if testName != "" && slices.Contains(testCases, testName) {
-			testCases = []string{testName}
-		}
-
-		if slices.Contains(excludedItems, suiteNameForFile) {
+		if slices.Contains(excludedItems, suiteName) {
 			return nil
 		}
 
-		if suite == "" || suiteNameForFile == suite {
-			testSuiteMapping[suiteNameForFile] = testCases
+		if suite == "" || suiteName == suite {
+			testSuiteMapping[suiteName] = suiteTestCases
 		}
 
 		return nil
 	})
 	if err != nil {
-		return GithubActionTestMatrix{}, err
+		return actionTestMatrix{}, err
 	}
 
-	gh := GithubActionTestMatrix{
-		Include: []TestSuitePair{},
+	gh := actionTestMatrix{
+		Include: []testSuitePair{},
 	}
-
 	for testSuiteName, testCases := range testSuiteMapping {
 		for _, testCaseName := range testCases {
-			gh.Include = append(gh.Include, TestSuitePair{
+			gh.Include = append(gh.Include, testSuitePair{
 				Test:       testCaseName,
 				EntryPoint: testSuiteName,
 			})
@@ -126,96 +104,136 @@ func getGithubActionMatrixForTests(e2eRootDirectory, testName string, suite stri
 	}
 
 	if len(gh.Include) == 0 {
-		return GithubActionTestMatrix{}, errors.New("no test cases found")
+		return actionTestMatrix{}, errors.New("no test cases found")
 	}
 
-	sort.SliceStable(gh.Include, func(i, j int) bool {
-		return gh.Include[i].Test < gh.Include[j].Test
+	sort.Slice(gh.Include, func(i, j int) bool {
+		if gh.Include[i].EntryPoint == gh.Include[j].EntryPoint {
+			return gh.Include[i].Test < gh.Include[j].Test
+		}
+		return gh.Include[i].EntryPoint < gh.Include[j].EntryPoint
 	})
-
 
 	return gh, nil
 }
 
+// extractSuiteAndTestNames extracts the suite name and test names from a Go file by parsing the AST.
 func extractSuiteAndTestNames(file *ast.File) (string, []string, error) {
-	var suiteNameForFile string
-	var testCases []string
+	suiteName := ""
+	testNames := []string{}
 
-	for _, d := range file.Decls {
-		if f, ok := d.(*ast.FuncDecl); ok {
-			functionName := f.Name.Name
-			if isTestSuiteMethod(f) {
-				if suiteNameForFile != "" {
-					return "", nil, fmt.Errorf("found a second test function: %s when %s was already found", f.Name.Name, suiteNameForFile)
-				}
-				suiteNameForFile = functionName
-				continue
+	for _, declaration := range file.Decls {
+		fn, ok := declaration.(*ast.FuncDecl)
+		if !ok {
+			continue
+		}
+
+		fnName := fn.Name.Name
+
+		switch {
+		case isSuiteEntrypoint(fn):
+			if suiteName != "" {
+				return "", nil, fmt.Errorf("multiple suite entrypoints found: %s and %s", suiteName, fnName)
 			}
-			if isTestFunction(f) {
-				testCases = append(testCases, functionName)
-			}
+			suiteName = fnName
+		case isSuiteTest(fn):
+			testNames = append(testNames, fnName)
 		}
 	}
-	if suiteNameForFile == "" {
-		return "", nil, fmt.Errorf("file %s had no test suite test case", file.Name.Name)
+
+	if suiteName == "" {
+		return "", nil, fmt.Errorf("file %s has no suite entrypoint", file.Name.Name)
 	}
-	return suiteNameForFile, testCases, nil
+
+	return suiteName, testNames, nil
 }
 
-func isTestSuiteMethod(f *ast.FuncDecl) bool {
-	if !strings.HasPrefix(f.Name.Name, testNamePrefix) || len(f.Type.Params.List) != 1 {
+func isSuiteEntrypoint(f *ast.FuncDecl) bool {
+	if !isTestFunction(f) {
 		return false
 	}
-	
-	param := f.Type.Params.List[0]
-	if len(param.Names) != 1 {
+
+	return callsTestifySuiteRun(f)
+}
+
+func isTestFunction(fn *ast.FuncDecl) bool {
+	if !strings.HasPrefix(fn.Name.Name, testNamePrefix) {
 		return false
 	}
-	
-	if starExpr, ok := param.Type.(*ast.StarExpr); ok {
-		if selectorExpr, ok := starExpr.X.(*ast.SelectorExpr); ok {
-			if ident, ok := selectorExpr.X.(*ast.Ident); ok && ident.Name == "testing" && selectorExpr.Sel.Name == "T" {
-				return containsSuiteRunCall(f)
-			}
+	if len(fn.Type.Params.List) != 1 {
+		return false
+	}
+	paramField := fn.Type.Params.List[0]
+	pointerType, ok := paramField.Type.(*ast.StarExpr)
+	if !ok {
+		return false
+	}
+	selectorType, ok := pointerType.X.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	pkgIdent, ok := selectorType.X.(*ast.Ident)
+	if !ok {
+		return false
+	}
+	if pkgIdent.Name != "testing" || selectorType.Sel.Name != "T" {
+		return false
+	}
+
+	return true
+}
+
+func callsTestifySuiteRun(fn *ast.FuncDecl) bool {
+	if fn.Body == nil {
+		return false
+	}
+
+	for _, statement := range fn.Body.List {
+		exprStatement, ok := statement.(*ast.ExprStmt)
+		if !ok {
+			continue
+		}
+
+		callExpression, ok := exprStatement.X.(*ast.CallExpr)
+		if !ok {
+			continue
+		}
+
+		selectorExpression, ok := callExpression.Fun.(*ast.SelectorExpr)
+		if !ok {
+			continue
+		}
+
+		receiverIdent, ok := selectorExpression.X.(*ast.Ident)
+		if !ok {
+			continue
+		}
+
+		if receiverIdent.Name == "suite" && selectorExpression.Sel.Name == "Run" {
+			return true
 		}
 	}
-	
+
 	return false
 }
 
-func isTestFunction(f *ast.FuncDecl) bool {
-	if !strings.HasPrefix(f.Name.Name, testNamePrefix) || f.Recv == nil || len(f.Recv.List) != 1 {
+func isSuiteTest(fn *ast.FuncDecl) bool {
+	if !strings.HasPrefix(fn.Name.Name, testNamePrefix) {
 		return false
 	}
-	
-	receiver := f.Recv.List[0]
-	if starExpr, ok := receiver.Type.(*ast.StarExpr); ok {
-		if ident, ok := starExpr.X.(*ast.Ident); ok {
-			return strings.HasSuffix(ident.Name, "TestSuite") || strings.HasSuffix(ident.Name, "Suite")
-		}
-	}
-	
-	return false
-}
-
-func containsSuiteRunCall(f *ast.FuncDecl) bool {
-	if f.Body == nil {
+	if fn.Recv == nil || len(fn.Recv.List) != 1 {
 		return false
 	}
-	
-	for _, stmt := range f.Body.List {
-		if exprStmt, ok := stmt.(*ast.ExprStmt); ok {
-			if callExpr, ok := exprStmt.X.(*ast.CallExpr); ok {
-				if selectorExpr, ok := callExpr.Fun.(*ast.SelectorExpr); ok {
-					if ident, ok := selectorExpr.X.(*ast.Ident); ok && ident.Name == "suite" && selectorExpr.Sel.Name == "Run" {
-						return true
-					}
-				}
-			}
-		}
+
+	receiverField := fn.Recv.List[0]
+	pointerType, ok := receiverField.Type.(*ast.StarExpr)
+	if !ok {
+		return false
 	}
-	
-	return false
+	receiverIdent, ok := pointerType.X.(*ast.Ident)
+	if !ok {
+		return false
+	}
+
+	return strings.HasSuffix(receiverIdent.Name, "TestSuite") || strings.HasSuffix(receiverIdent.Name, "Suite")
 }
-
-
