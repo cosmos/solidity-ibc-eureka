@@ -22,6 +22,7 @@ pub struct ClientState {
 impl ClientState {
     /// Replaces the public keys for a client using
     /// compressed by representations of public keys
+    #[must_use]
     pub fn replace_pub_keys(&mut self, keys: &[Vec<u8>]) -> Result<(), IbcAttestorClientError> {
         let serialized = keys
             .iter()
