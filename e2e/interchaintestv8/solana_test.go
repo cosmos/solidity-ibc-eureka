@@ -114,6 +114,22 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			_, err = s.SolanaChain.SignAndBroadcastTx(ctx, tx, s.SolanaUser)
 			s.Require().NoError(err)
 		}))
+
+		s.Require().True(s.Run("Initialize ICS26 Router", func() {
+			routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
+			s.Require().NoError(err)
+			initInstruction, err := ics26_router.NewInitializeInstruction(s.SolanaUser.PublicKey(), routerStateAccount, s.SolanaUser.PublicKey(), solanago.SystemProgramID)
+			s.Require().NoError(err)
+
+			tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
+			s.Require().NoError(err)
+			_, err = s.SolanaChain.SignAndBroadcastTx(ctx, tx, s.SolanaUser)
+			s.Require().NoError(err)
+		}))
+
+		// s.Require().True(s.Run("Wire the contracts", func() {
+		// 	addClientInstruction, err := ics26_router.NewAddClientInstruction(testvalues.CustomClientID, ics26_router.CounterpartyInfo{})
+		// }))
 	}))
 }
 
