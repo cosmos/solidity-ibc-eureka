@@ -1,0 +1,61 @@
+{
+  "client_state": {
+    "chain_id": "simd-2",
+    "frozen_height": 0,
+    "latest_height": 40,
+    "max_clock_drift": 15,
+    "metadata": {
+      "description": "Client state for simd-2 captured from simd-1",
+      "generated_at": "2025-08-11T13:56:06Z",
+      "source": "real_cosmos_chain"
+    },
+    "trust_level_denominator": 3,
+    "trust_level_numerator": 1,
+    "trusting_period": 1209600,
+    "unbonding_period": 1814400
+  },
+  "consensus_state": {
+    "metadata": {
+      "description": "Consensus state at height 40 (app hash from block 41)",
+      "generated_at": "2025-08-11T13:56:06Z",
+      "source": "real_cosmos_chain"
+    },
+    "next_validators_hash": "abf5a0c70d5fa79e18e2165ec88a7f4730ce0cea694e2bd8ea41b5946fb4841f",
+    "root": "249f8c11f60a2a90c01df9578902fd7e78c0e3ea2b23bf947a87a57d64d6fdb3",
+    "timestamp": 1754920549803419801
+  },
+  "key_info": {
+    "description": "IBC key: clients/07-tendermint-001/clientState (non-membership)",
+    "path": "clients/07-tendermint-001/clientState",
+    "proof_type": "non-membership",
+    "value_size": 0
+  },
+  "membership_msg": {
+    "delay_block_period": 0,
+    "delay_time_period": 0,
+    "height": 40,
+    "metadata": {
+      "description": "Valid non-membership proof for key: clients/07-tendermint-001/clientState",
+      "generated_at": "2025-08-11T13:56:06Z",
+      "proof_conversion": "Converted from ABCI ProofOps to IBC MerkleProof format",
+      "proof_format": "hex-encoded protobuf",
+      "proof_size_bytes": 800,
+      "proof_type_details": "ibc.core.commitment.v1.MerkleProof",
+      "source": "real_cosmos_chain"
+    },
+    "path": [
+      "ibc",
+      "clients/07-tendermint-001/clientState"
+    ],
+    "proof": "0a9c041299040a25636c69656e74732f30372d74656e6465726d696e742d3030312f636c69656e7453746174651295020a3e636c69656e74732f30372d74656e6465726d696e742d302f69746572617465436f6e73656e737573537461746573000000000000000200000000000000141214636f6e73656e7375735374617465732f322d32301a0b0801180120012a0300022a222b0801120402042a201a212067b76c7b82d60ebee7f41dd11a02534c1a16efa70c217310356230dfd5ad0c20222b08011204040836201a2120bf7bdd95cfe8a9223b5fc12fc040296ac894c5667166f714f9ee52c1949d8538222b08011204060e36201a21201298a57e9215cdef8008ea8c66c7cc808292f02227c327f5abbb0c2f6e930525222908011225081c36208d1b570fc3f302e1b0ff99ef9085952210d8a2eed20ad87def36d0c2167a872d201ad7010a10636f6e6e656374696f6e506172616d7312060880d88ee16f1a0b0801180120012a0300020222290801122502042a20634caf6c4a2389b8511d0c1ad2ef3c765e355ed584566e70decd5d40385fd3c220222b08011204040836201a2120bf7bdd95cfe8a9223b5fc12fc040296ac894c5667166f714f9ee52c1949d8538222b08011204060e36201a21201298a57e9215cdef8008ea8c66c7cc808292f02227c327f5abbb0c2f6e930525222908011225081c36208d1b570fc3f302e1b0ff99ef9085952210d8a2eed20ad87def36d0c2167a872d200afe010afb010a03696263122007a20aba95ea0b76986738182f6faed94826301a46b40d0a84f7ba444e92a5b41a090801180120012a0100222708011201011a202cd8b50700950546180ad979135a8708c2ea2098fff6ade31b7e40eb5dcf7c05222708011201011a206b582aa889d4867fd8f67c09464e9d385e281b40e5bccfd28182f23a54a98cc52225080112210145200ede8ef052cfbedfe67fec7543b9613b67fc4db486f35d7e476d74726b1822250801122101d9af171237a4e337a3e852db1ee12df97c9d94cd6ae36c57e8d92c8a2ad3d5a7222708011201011a202c0bf690cbb876b766ee87439a05679b687e1c271e1662fbd3f1e8d0cbba12ba",
+    "value": ""
+  },
+  "metadata": {
+    "chain_id": "simd-1",
+    "description": "Unified tendermint light client fixture for scenario: non-membership_key_1",
+    "generated_at": "2025-08-11T13:56:06Z",
+    "scenario": "non-membership_key_1",
+    "source": "real_cosmos_chain"
+  },
+  "scenario": "non-membership_key_1"
+}

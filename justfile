@@ -28,7 +28,7 @@ build-sp1-programs:
 [group('build')]
 build-cw-ics08-wasm-eth:
 	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.17.0 ./programs/cw-ics08-wasm-eth
-	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm 
+	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
 	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
 # Build the relayer docker image
@@ -121,6 +121,13 @@ generate-fixtures-wasm: clean-foundry install-relayer
 	@echo "Generating multi-period client update fixtures..."
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithRelayerTestSuite/Test_MultiPeriodClientUpdateToCosmos$' -timeout 60m
 
+# Generate the fixtures for the Tendermint light client tests using the e2e tests
+[group('generate')]
+generate-fixtures-tendermint-light-client: clean-foundry install-relayer
+	@echo "Generating Tendermint light client fixtures... This may take a while."
+	@echo "Generating basic client state, consensus state, and update client fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES=true go test -v -run '^TestWithCosmosRelayerTestSuite/Test_UpdateClient$' -timeout 40m
+
 # Generate go types for the e2e tests from the etheruem light client code
 [group('generate')]
 generate-ethereum-types:
@@ -201,6 +208,15 @@ test-benchmark testname=".\\*":
 [group('test')]
 test-cargo testname="--all":
 	cargo test {{testname}} --locked --no-fail-fast -- --nocapture
+
+# Run the tendermint light client tests
+[group('test')]
+test-tendermint-light-client testname="":
+	@echo "Running tendermint light client tests..."
+	cargo test --package tendermint-light-client-update-client {{testname}} --locked --no-fail-fast -- --nocapture
+	cargo test --package tendermint-light-client-membership {{testname}} --locked --no-fail-fast -- --nocapture
+	cargo test --package tendermint-light-client-misbehaviour {{testname}} --locked --no-fail-fast -- --nocapture
+	cargo test --package tendermint-light-client-uc-and-membership {{testname}} --locked --no-fail-fast -- --nocapture
 
 # Run the tests in abigen
 [group('test')]

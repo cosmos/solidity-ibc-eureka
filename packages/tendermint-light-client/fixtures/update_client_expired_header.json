@@ -1,0 +1,46 @@
+{
+  "client_state": {
+    "chain_id": "simd-2",
+    "frozen_height": 0,
+    "latest_height": 20,
+    "max_clock_drift": 15,
+    "metadata": {
+      "description": "Client state for simd-2 captured from simd-1",
+      "generated_at": "2025-08-11T13:55:52Z",
+      "source": "real_cosmos_chain"
+    },
+    "trust_level_denominator": 3,
+    "trust_level_numerator": 1,
+    "trusting_period": 1209600,
+    "unbonding_period": 1814400
+  },
+  "metadata": {
+    "chain_id": "simd-1",
+    "description": "Unified tendermint light client fixture for scenario: expired_header",
+    "generated_at": "2025-08-11T13:55:52Z",
+    "scenario": "expired_header",
+    "source": "real_cosmos_chain"
+  },
+  "scenario": "expired_header",
+  "trusted_consensus_state": {
+    "metadata": {
+      "description": "Consensus state captured from simd-1",
+      "generated_at": "2025-08-11T13:55:52Z",
+      "source": "real_cosmos_chain"
+    },
+    "next_validators_hash": "abf5a0c70d5fa79e18e2165ec88a7f4730ce0cea694e2bd8ea41b5946fb4841f",
+    "root": "ec4301f007fa244d982af9317a637f3c5cec67fc1fb5afb94c1471597d77ad5d",
+    "timestamp": 1754920503371923627
+  },
+  "update_client_message": {
+    "client_message_hex": "0ab1050a8c030a02080b120673696d642d321828220c08d8e69dc40610b8db89aa012a480a2088dee2b12efd1c2a030d6b06814229b66aee0a346e3326de488b7fca9e017fca122408011220409da1514fd69c0010428769497e7d18eaedc1c600b1f656bb30b292ee138f4f322079ff8adabd54c655cbf4b07046a027dbc2b28fe03746cf79bc0107405807aa323a20e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8554220abf5a0c70d5fa79e18e2165ec88a7f4730ce0cea694e2bd8ea41b5946fb4841f4a20abf5a0c70d5fa79e18e2165ec88a7f4730ce0cea694e2bd8ea41b5946fb4841f5220048091bc7ddc283f77bfbf91d73c44da58c3df8a9cbc867405d8b7f3daada22f5a2088ebc7a3300d51cbf03985e3240a1c3f5006adc520e92c86838f9a13356f51ec6220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8556a20e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8557214fbebf6c8d76ef6bee994759ad58defe25ffd140d129f0208281a480a2018e1e798e586d2d263e83f407d80b00ca63f4df92b6d2db92d0e4f64002772b9122408011220e006367a80000591a15a03a1c9a3b485d62d552d265927910e66f07c9b7f84022267080212147757616da9ea7f6128838920d0374e6386c1ffbc1a0b08e8ece7c406109395d16422404c420057c9e3e5306bc07d6033d548b92797d621b7b38f30143e83350bad816f41b6670c5a6c439bc98a5c0bdcdc28cbd9278b13ba7a53327d08f0578f891b0d226808021214fbebf6c8d76ef6bee994759ad58defe25ffd140d1a0c08e8ece7c40610c8a9b6940122409e49e4723f9844d2e5c5e06715d60492049a2f91e55965c7006188bd059237ea05c8934edf0c73e3c4f6e69e08de541d7228f87f38c9a8c1087d9a54b971e40112c8010a3f0a147757616da9ea7f6128838920d0374e6386c1ffbc12220a2068e103cb735b4ff106e0e4e66916b2ee4aa79f2e546e692381d760f343d1aa9e18c096b1020a3f0a14fbebf6c8d76ef6bee994759ad58defe25ffd140d12220a20d794ad68176d43131f99f3c1f23b8700b45f0a5671d257d94be7d0459c4756c418c096b102123f0a14fbebf6c8d76ef6bee994759ad58defe25ffd140d12220a20d794ad68176d43131f99f3c1f23b8700b45f0a5671d257d94be7d0459c4756c418c096b1021880ade2041a040802101422c8010a3f0a147757616da9ea7f6128838920d0374e6386c1ffbc12220a2068e103cb735b4ff106e0e4e66916b2ee4aa79f2e546e692381d760f343d1aa9e18c096b1020a3f0a14fbebf6c8d76ef6bee994759ad58defe25ffd140d12220a20d794ad68176d43131f99f3c1f23b8700b45f0a5671d257d94be7d0459c4756c418c096b102123f0a14fbebf6c8d76ef6bee994759ad58defe25ffd140d12220a20d794ad68176d43131f99f3c1f23b8700b45f0a5671d257d94be7d0459c4756c418c096b1021880ade204",
+    "metadata": {
+      "description": "Expired header - timestamp beyond trusting period",
+      "generated_at": "2025-08-11T13:55:52Z",
+      "source": "real_cosmos_chain"
+    },
+    "new_height": 21,
+    "trusted_height": 20,
+    "type_url": "/ibc.lightclients.tendermint.v1.Header"
+  }
+}

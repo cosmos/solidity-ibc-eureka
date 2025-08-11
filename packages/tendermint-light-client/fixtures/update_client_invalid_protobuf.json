@@ -1,0 +1,46 @@
+{
+  "client_state": {
+    "chain_id": "test-chain",
+    "frozen_height": 0,
+    "latest_height": 19,
+    "max_clock_drift": 10,
+    "metadata": {
+      "description": "Dummy client state for invalid protobuf test",
+      "generated_at": "2025-08-11T13:55:52Z",
+      "source": "real_cosmos_chain"
+    },
+    "trust_level_denominator": 3,
+    "trust_level_numerator": 1,
+    "trusting_period": 1209600,
+    "unbonding_period": 1814400
+  },
+  "metadata": {
+    "chain_id": "test-chain",
+    "description": "Unified tendermint light client fixture for scenario: invalid_protobuf",
+    "generated_at": "2025-08-11T13:55:52Z",
+    "scenario": "invalid_protobuf",
+    "source": "real_cosmos_chain"
+  },
+  "scenario": "invalid_protobuf",
+  "trusted_consensus_state": {
+    "metadata": {
+      "description": "Dummy consensus state for invalid protobuf test",
+      "generated_at": "2025-08-11T13:55:52Z",
+      "source": "real_cosmos_chain"
+    },
+    "next_validators_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "root": "0000000000000000000000000000000000000000000000000000000000000000",
+    "timestamp": 1754920552
+  },
+  "update_client_message": {
+    "client_message_hex": "FFFFFFFF",
+    "metadata": {
+      "description": "Invalid protobuf bytes - cannot be deserialized",
+      "generated_at": "2025-08-11T13:55:52Z",
+      "source": "real_cosmos_chain"
+    },
+    "new_height": 20,
+    "trusted_height": 19,
+    "type_url": "/ibc.lightclients.tendermint.v1.Header"
+  }
+}
