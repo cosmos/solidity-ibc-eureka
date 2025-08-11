@@ -99,7 +99,6 @@ fn encode_and_cyphon_packet_if_relevant(
 }
 
 const CHECKSUM_HEX: &str = "checksum_hex";
-const PUB_KEYS: &str = "pub_keys";
 const MIN_REQUIRED_SIGS: &str = "min_required_sigs";
 const HEIGHT: &str = "height";
 const TIMESTAMP: &str = "timestamp";
@@ -158,8 +157,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             "Requesting state attestation from aggregator for {} packets",
             request.packets.len()
         );
-        // - We need update client with timestamp at height
-        // - We need MsgRecvPacket where proof is (key, value, height, signature)
+
         let response = aggregator_client
             .get_attestations(request)
             .await?
@@ -198,7 +196,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
-        let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
+        let timeout_msgs = cosmos::target_events_to_timeout_msgs(
             target_events,
             &src_client_id,
             &dst_client_id,
@@ -207,7 +205,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             now_since_unix.as_secs(),
         );
 
-        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+        let (mut recv_msgs, ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
             &src_client_id,
             &dst_client_id,
@@ -222,10 +220,6 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
         attestor::inject_proofs(&mut recv_msgs, &packets.attested_data, packets.height);
-
-        // We don't want to use mock roofs for RecvMsg
-        let mut dummy = Vec::new();
-        cosmos::inject_mock_proofs(&mut dummy, &mut ack_msgs, &mut timeout_msgs);
 
         let all_msgs = timeout_msgs
             .into_iter()
