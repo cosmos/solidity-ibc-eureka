@@ -34,5 +34,6 @@ where
     anyhow::bail!("Timeout exceeded waiting for condition")
 }
 
+pub mod attestor;
 pub mod cosmos;
 pub mod eth_eureka;

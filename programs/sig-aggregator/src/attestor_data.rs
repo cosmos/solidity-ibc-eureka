@@ -1,7 +1,4 @@
-use crate::{
-    aggregator::AggregatedAttestation,
-    rpc::{Attestation, SigPubkeyPair},
-};
+use crate::rpc::{AggregatedAttestation, Attestation};
 use alloy_primitives::FixedBytes;
 use anyhow::{ensure as anyhow_ensure, Context, Result};
 use std::collections::HashMap;
@@ -57,19 +54,23 @@ impl AttestatorData {
         self.state_attestations
             .iter()
             .find(|(_, attestations)| attestations.len() >= quorum)
-            .map(|(state, attestations)| {
-                let sig_pubkey_pairs = attestations
+            .map(|(_, attestations)| {
+                // Safe to unwrap as quorum lookup ensures non-zero vecs
+                let (att, h, ts) = attestations
+                    .first()
+                    .map(|att| (att.attested_data.clone(), att.height, att.timestamp))
+                    .unwrap();
+                let (sigs, pkeys): (Vec<_>, Vec<_>) = attestations
                     .iter()
-                    .map(|a| SigPubkeyPair {
-                        sig: a.signature.clone(),
-                        pubkey: a.public_key.clone(),
-                    })
+                    .map(|att| (att.signature.clone(), att.public_key.clone()))
                     .collect();
 
                 AggregatedAttestation {
-                    height: attestations.first().unwrap().height,
-                    state: state.to_vec(),
-                    sig_pubkey_pairs,
+                    height: h,
+                    timestamp: ts,
+                    attested_data: att,
+                    signatures: sigs,
+                    public_keys: pkeys,
                 }
             })
     }
@@ -138,6 +139,7 @@ mod tests {
                 attested_data: vec![1; STATE_BYTE_LENGTH],
                 public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
                 height: 100,
+                timestamp: Some(100),
                 signature: vec![0x04; SIGNATURE_BYTE_LENGTH],
             })
             .unwrap();
@@ -149,15 +151,16 @@ mod tests {
     #[test]
     fn state_meeting_quorum() {
         let mut attestator_data = AttestatorData::new();
-        let state = vec![0xAA; STATE_BYTE_LENGTH];
+        let attestation = vec![0xAA; STATE_BYTE_LENGTH];
         let height = 123;
 
         [0x21, 0x22].iter().for_each(|&pubkey_byte| {
             attestator_data
                 .insert(Attestation {
-                    attested_data: state.clone(),
+                    attested_data: attestation.clone(),
                     public_key: vec![pubkey_byte; PUBKEY_BYTE_LENGTH],
                     height,
+                    timestamp: Some(height),
                     signature: vec![0x11; SIGNATURE_BYTE_LENGTH],
                 })
                 .unwrap();
@@ -168,17 +171,11 @@ mod tests {
 
         let latest = latest.unwrap();
         assert_eq!(latest.height, height);
-        assert_eq!(latest.state, state);
-        // Should have two SigPubkeyPair entries
-        assert_eq!(latest.sig_pubkey_pairs.len(), 2);
+        assert_eq!(latest.attested_data, attestation);
+        assert_eq!(latest.signatures.len(), 2);
+        assert_eq!(latest.public_keys.len(), 2);
 
-        let pubkeys: Vec<_> = latest
-            .sig_pubkey_pairs
-            .into_iter()
-            .map(|p| p.pubkey)
-            .collect();
-
-        assert!(pubkeys.contains(&vec![0x21; PUBKEY_BYTE_LENGTH]));
-        assert!(pubkeys.contains(&vec![0x22; PUBKEY_BYTE_LENGTH]));
+        assert!(latest.public_keys.contains(&vec![0x21; PUBKEY_BYTE_LENGTH]));
+        assert!(latest.public_keys.contains(&vec![0x22; PUBKEY_BYTE_LENGTH]));
     }
 }
