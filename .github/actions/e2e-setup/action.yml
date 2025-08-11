@@ -104,7 +104,7 @@ runs:
       shell: bash
       run: cargo install --git https://github.com/coral-xyz/anchor --tag v${ANCHOR_VERSION} anchor-cli
 
-    - name: Build SP1 Programs
+    - name: Build Solana Programs
       if: steps.cache-solana.outputs.cache-hit != 'true'
       shell: bash
       run: just build-solana
