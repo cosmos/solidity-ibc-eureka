@@ -293,11 +293,13 @@ func (g *MembershipFixtureGenerator) saveFixture(
 	consensusState := g.buildConsensusState(proofCtx)
 
 	scenarioName := fmt.Sprintf("%s_key_%d", proofType, index)
+	appHashHex := hex.EncodeToString(proofCtx.ActualAppHash)
 	fixture := g.assembleFixture(
 		scenarioName,
 		clientState,
 		consensusState,
 		membershipMsg,
+		appHashHex,
 	)
 
 	filename := filepath.Join(g.fixtureDir,
@@ -341,11 +343,13 @@ func (g *MembershipFixtureGenerator) assembleFixture(
 	clientStateHex string,
 	consensusStateHex string,
 	membershipMsg map[string]interface{},
+	appHashHex string,
 ) map[string]interface{} {
 	return map[string]interface{}{
 		"client_state_hex":    clientStateHex,
 		"consensus_state_hex": consensusStateHex,
 		"membership_msg":      membershipMsg,
+		"app_hash_hex":        appHashHex,
 		"metadata":            g.createMetadata(fmt.Sprintf("Tendermint light client fixture for scenario: %s", scenarioName)),
 	}
 }

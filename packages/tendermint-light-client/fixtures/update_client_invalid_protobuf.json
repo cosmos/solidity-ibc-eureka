@@ -3,14 +3,14 @@
   "consensus_state_hex": "cafebabe",
   "metadata": {
     "description": "Tendermint light client fixture for scenario: invalid_protobuf",
-    "generated_at": "2025-08-12T10:37:09Z",
+    "generated_at": "2025-08-12T11:02:04Z",
     "source": "local_cosmos_chain"
   },
   "update_client_message": {
     "client_message_hex": "FFFFFFFF",
     "metadata": {
       "description": "Invalid protobuf bytes - cannot be deserialized",
-      "generated_at": "2025-08-12T10:37:09Z",
+      "generated_at": "2025-08-12T11:02:04Z",
       "source": "local_cosmos_chain"
     },
     "new_height": 20,
