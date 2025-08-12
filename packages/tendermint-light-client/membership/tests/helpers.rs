@@ -76,25 +76,17 @@ pub struct TestContext {
 }
 
 /// Set up test context from fixture
-pub fn setup_test_context(fixture: MembershipVerificationFixture) -> Option<TestContext> {
+pub fn setup_test_context(fixture: MembershipVerificationFixture) -> TestContext {
     // Decode the app hash that was used for the proof
-    let app_hash_bytes = match hex::decode(&fixture.app_hash_hex) {
-        Ok(bytes) => bytes,
-        Err(e) => {
-            println!("⚠️  Could not decode app_hash_hex from fixture: {}", e);
-            println!("✅ Test structure validated for fixture");
-            return None;
-        }
-    };
+    let app_hash_bytes =
+        hex::decode(&fixture.app_hash_hex).expect("Failed to decode app_hash_hex from fixture");
 
-    if app_hash_bytes.len() != 32 {
-        println!(
-            "⚠️  App hash wrong length: {} bytes, expected 32",
-            app_hash_bytes.len()
-        );
-        println!("✅ Test structure validated for fixture");
-        return None;
-    }
+    assert_eq!(
+        app_hash_bytes.len(),
+        32,
+        "App hash wrong length: {} bytes, expected 32",
+        app_hash_bytes.len()
+    );
 
     let mut app_hash = [0u8; 32];
     app_hash.copy_from_slice(&app_hash_bytes);
@@ -102,11 +94,11 @@ pub fn setup_test_context(fixture: MembershipVerificationFixture) -> Option<Test
     let kv_pair = KVPair::from(&fixture.membership_msg);
     let merkle_proof = hex_to_merkle_proof(&fixture.membership_msg.proof);
 
-    Some(TestContext {
+    TestContext {
         app_hash,
         kv_pair,
         merkle_proof,
-    })
+    }
 }
 
 /// Execute membership verification with the test context
@@ -173,59 +165,53 @@ pub fn assert_membership_succeeds(ctx: &TestContext, test_description: &str) {
 }
 
 /// Helper to create a test context with wrong app hash
-pub fn create_context_with_wrong_app_hash(
-    fixture: MembershipVerificationFixture,
-) -> Option<TestContext> {
-    let mut ctx = setup_test_context(fixture)?;
+pub fn create_context_with_wrong_app_hash(fixture: MembershipVerificationFixture) -> TestContext {
+    let mut ctx = setup_test_context(fixture);
     ctx.app_hash = [0xFF; 32]; // Use a completely different app hash
-    Some(ctx)
+    ctx
 }
 
 /// Helper to create a test context with empty proof
-pub fn create_context_with_empty_proof(
-    fixture: MembershipVerificationFixture,
-) -> Option<TestContext> {
-    let mut ctx = setup_test_context(fixture)?;
+pub fn create_context_with_empty_proof(fixture: MembershipVerificationFixture) -> TestContext {
+    let mut ctx = setup_test_context(fixture);
     ctx.merkle_proof = MerkleProof { proofs: vec![] };
-    Some(ctx)
+    ctx
 }
 
 /// Helper to create a test context with mismatched path
 pub fn create_context_with_mismatched_path(
     fixture: MembershipVerificationFixture,
     new_path: Vec<Vec<u8>>,
-) -> Option<TestContext> {
-    let mut ctx = setup_test_context(fixture)?;
+) -> TestContext {
+    let mut ctx = setup_test_context(fixture);
     ctx.kv_pair.path = new_path;
-    Some(ctx)
+    ctx
 }
 
 /// Helper to create a test context with tampered value
-pub fn create_context_with_tampered_value(
-    fixture: MembershipVerificationFixture,
-) -> Option<TestContext> {
-    let mut ctx = setup_test_context(fixture)?;
+pub fn create_context_with_tampered_value(fixture: MembershipVerificationFixture) -> TestContext {
+    let mut ctx = setup_test_context(fixture);
     ctx.kv_pair.value.push(0xFF); // Tamper with the value
-    Some(ctx)
+    ctx
 }
 
 /// Helper to create a test context where membership is treated as non-membership
 pub fn create_context_membership_as_non_membership(
     fixture: MembershipVerificationFixture,
-) -> Option<TestContext> {
-    let mut ctx = setup_test_context(fixture)?;
+) -> TestContext {
+    let mut ctx = setup_test_context(fixture);
     ctx.kv_pair.value.clear(); // Clear value to make it look like non-membership
-    Some(ctx)
+    ctx
 }
 
 /// Helper to create a test context where non-membership is treated as membership
 pub fn create_context_non_membership_as_membership(
     fixture: MembershipVerificationFixture,
     fake_value: Vec<u8>,
-) -> Option<TestContext> {
-    let mut ctx = setup_test_context(fixture)?;
+) -> TestContext {
+    let mut ctx = setup_test_context(fixture);
     ctx.kv_pair.value = fake_value; // Add fake value to make it look like membership
-    Some(ctx)
+    ctx
 }
 
 /// Helper to create a test context with different proof
@@ -256,10 +242,8 @@ fn create_malformed_proof_hex(original_hex: &str) -> String {
 }
 
 /// Helper to create a test context with a malformed proof (corrupted hex)
-pub fn create_context_with_malformed_proof(
-    fixture: MembershipVerificationFixture,
-) -> Option<TestContext> {
-    let mut ctx = setup_test_context(fixture.clone())?;
+pub fn create_context_with_malformed_proof(fixture: MembershipVerificationFixture) -> TestContext {
+    let mut ctx = setup_test_context(fixture.clone());
 
     // Create malformed proof by corrupting one hex character
     let malformed_hex = create_malformed_proof_hex(&fixture.membership_msg.proof);
@@ -291,5 +275,5 @@ pub fn create_context_with_malformed_proof(
         }
     }
 
-    Some(ctx)
+    ctx
 }

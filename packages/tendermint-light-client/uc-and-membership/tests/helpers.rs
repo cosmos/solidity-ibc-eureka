@@ -190,30 +190,15 @@ pub struct TestContext {
 }
 
 /// Set up test context from fixture
-pub fn setup_test_context(fixture: UcAndMembershipFixture) -> Option<TestContext> {
-    let client_state = match client_state_from_hex(&fixture.client_state_hex) {
-        Ok(cs) => cs,
-        Err(_) => {
-            // Failed to create client state - return None for test to handle
-            return None;
-        }
-    };
+pub fn setup_test_context(fixture: UcAndMembershipFixture) -> TestContext {
+    let client_state = client_state_from_hex(&fixture.client_state_hex)
+        .expect("Failed to create client state from fixture");
 
-    let trusted_consensus_state = match consensus_state_from_hex(&fixture.consensus_state_hex) {
-        Ok(cs) => cs,
-        Err(_) => {
-            // Failed to create consensus state - return None for test to handle
-            return None;
-        }
-    };
+    let trusted_consensus_state = consensus_state_from_hex(&fixture.consensus_state_hex)
+        .expect("Failed to create consensus state from fixture");
 
-    let proposed_header = match hex_to_header(&fixture.update_client_message.client_message_hex) {
-        Ok(header) => header,
-        Err(_) => {
-            // Failed to parse header - return None for test to handle
-            return None;
-        }
-    };
+    let proposed_header = hex_to_header(&fixture.update_client_message.client_message_hex)
+        .expect("Failed to parse header from fixture");
 
     let kv_pair = KVPair::from(&fixture.membership_msg);
     let merkle_proof = hex_to_merkle_proof(&fixture.membership_msg.proof);
@@ -223,7 +208,7 @@ pub fn setup_test_context(fixture: UcAndMembershipFixture) -> Option<TestContext
         .unwrap()
         .as_nanos();
 
-    Some(TestContext {
+    TestContext {
         fixture,
         client_state,
         trusted_consensus_state,
@@ -231,7 +216,7 @@ pub fn setup_test_context(fixture: UcAndMembershipFixture) -> Option<TestContext
         kv_pair,
         merkle_proof,
         current_time,
-    })
+    }
 }
 
 /// Execute update_client_and_membership with the test context
@@ -315,24 +300,24 @@ pub fn assert_uc_and_membership_failure_with_error(
 }
 
 /// Generic helper to create a modified test context
-fn create_modified_context<F>(fixture: UcAndMembershipFixture, modifier: F) -> Option<TestContext>
+fn create_modified_context<F>(fixture: UcAndMembershipFixture, modifier: F) -> TestContext
 where
     F: FnOnce(&mut TestContext),
 {
-    let mut ctx = setup_test_context(fixture)?;
+    let mut ctx = setup_test_context(fixture);
     modifier(&mut ctx);
-    Some(ctx)
+    ctx
 }
 
 /// Helper to create a context with empty proof
-pub fn create_context_with_empty_proof(fixture: UcAndMembershipFixture) -> Option<TestContext> {
+pub fn create_context_with_empty_proof(fixture: UcAndMembershipFixture) -> TestContext {
     create_modified_context(fixture, |ctx| {
         ctx.merkle_proof = MerkleProof { proofs: vec![] };
     })
 }
 
 /// Helper to create a context with tampered value
-pub fn create_context_with_tampered_value(fixture: UcAndMembershipFixture) -> Option<TestContext> {
+pub fn create_context_with_tampered_value(fixture: UcAndMembershipFixture) -> TestContext {
     create_modified_context(fixture, |ctx| {
         ctx.kv_pair.value.push(0xFF); // Tamper with the value
     })
@@ -342,37 +327,10 @@ pub fn create_context_with_tampered_value(fixture: UcAndMembershipFixture) -> Op
 pub fn create_context_with_mismatched_path(
     fixture: UcAndMembershipFixture,
     new_path: Vec<Vec<u8>>,
-) -> Option<TestContext> {
+) -> TestContext {
     create_modified_context(fixture, |ctx| {
         ctx.kv_pair.path = new_path;
     })
-}
-
-/// Helper to simulate malformed header by using invalid protobuf data
-pub fn create_context_with_malformed_header(
-    fixture: UcAndMembershipFixture,
-) -> Option<TestContext> {
-    // For malformed header, we'll try to modify the fixture before parsing
-    let mut modified_fixture = fixture;
-
-    // Corrupt the hex string to make it invalid
-    let mut corrupted_hex = modified_fixture.update_client_message.client_message_hex;
-    if let Some(first_char) = corrupted_hex.chars().next() {
-        let corrupted_char = match first_char {
-            '0' => '1',
-            '1' => '0',
-            'a' => 'b',
-            'b' => 'a',
-            'f' => 'e',
-            'e' => 'f',
-            _ => '0',
-        };
-        corrupted_hex.replace_range(0..1, &corrupted_char.to_string());
-    }
-    modified_fixture.update_client_message.client_message_hex = corrupted_hex;
-
-    // This should fail during setup, which is expected behavior
-    setup_test_context(modified_fixture)
 }
 
 /// Generic function to combine update client and membership fixtures

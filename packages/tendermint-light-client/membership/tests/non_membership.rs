@@ -9,9 +9,7 @@ use tendermint_light_client_membership::MembershipError;
 fn test_verify_non_membership_happy_path() {
     let fixture = load_non_membership_fixture_data();
 
-    let Some(ctx) = setup_test_context(fixture) else {
-        return;
-    };
+    let ctx = setup_test_context(fixture);
 
     assert_membership_succeeds(&ctx, "non-membership happy path");
 }
@@ -21,9 +19,7 @@ fn test_verify_non_membership_with_membership_proof() {
     let non_membership_fixture = load_non_membership_fixture_data();
     let membership_fixture = load_membership_fixture_data();
 
-    let Some(ctx) = setup_test_context(non_membership_fixture) else {
-        return;
-    };
+    let ctx = setup_test_context(non_membership_fixture);
 
     let ctx = create_context_with_different_proof(ctx, membership_fixture);
     assert_membership_fails_with(
@@ -37,9 +33,7 @@ fn test_verify_non_membership_with_membership_proof() {
 fn test_verify_non_membership_wrong_app_hash() {
     let fixture = load_non_membership_fixture_data();
 
-    let Some(ctx) = create_context_with_wrong_app_hash(fixture) else {
-        return;
-    };
+    let ctx = create_context_with_wrong_app_hash(fixture);
 
     assert_membership_fails_with(
         &ctx,
@@ -52,10 +46,7 @@ fn test_verify_non_membership_wrong_app_hash() {
 fn test_verify_non_membership_as_membership() {
     let fixture = load_non_membership_fixture_data();
 
-    let Some(ctx) = create_context_non_membership_as_membership(fixture, b"fake_value".to_vec())
-    else {
-        return;
-    };
+    let ctx = create_context_non_membership_as_membership(fixture, b"fake_value".to_vec());
 
     assert_membership_fails_with(
         &ctx,
@@ -68,9 +59,7 @@ fn test_verify_non_membership_as_membership() {
 fn test_verify_non_membership_empty_proof() {
     let fixture = load_non_membership_fixture_data();
 
-    let Some(ctx) = create_context_with_empty_proof(fixture) else {
-        return;
-    };
+    let ctx = create_context_with_empty_proof(fixture);
 
     assert_membership_fails_with(
         &ctx,
@@ -83,12 +72,10 @@ fn test_verify_non_membership_empty_proof() {
 fn test_verify_non_membership_mismatched_path() {
     let fixture = load_non_membership_fixture_data();
 
-    let Some(ctx) = create_context_with_mismatched_path(
+    let ctx = create_context_with_mismatched_path(
         fixture,
         vec![b"different".to_vec(), b"nonexistent".to_vec()],
-    ) else {
-        return;
-    };
+    );
 
     assert_membership_fails_with(
         &ctx,
@@ -101,9 +88,7 @@ fn test_verify_non_membership_mismatched_path() {
 fn test_verify_non_membership_malformed_proof() {
     let fixture = load_non_membership_fixture_data();
 
-    let Some(ctx) = create_context_with_malformed_proof(fixture) else {
-        return;
-    };
+    let ctx = create_context_with_malformed_proof(fixture);
 
     assert_membership_fails_with(
         &ctx,
