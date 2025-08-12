@@ -1,7 +1,7 @@
 # Logging and best practices
 
 ## Key principles
-Keep logs simple, structured, and useful for on-call debugging. This page captures only the essentials so teams can adopt a consistent approach quickly.
+Keep logs simple, structured, and valuable for on-call debugging. This page captures only the essentials so teams can adopt a consistent approach quickly.
 
 
 - Purpose: logs exist to explain what happened and why, especially when something fails. Optimize for on-call readability and machine parsing.
@@ -18,7 +18,7 @@ Keep logs simple, structured, and useful for on-call debugging. This page captur
 ## Correlation
 Correlation fields are what we use to find related information. 
 It can be any information that identifies an area we care about, such as a specific request, module, environment, etc.
-It let's us pull together logs and metrics for one or more attributes that help us narrow down search for information or signal.
+It enables us to compile logs and metrics for one or more attributes, helping us narrow down the search for information or a signal.
 
 ### Traces vs spans
 A trace is the entire journey of a request as it flows through multiple services, components, and operations.
@@ -26,18 +26,18 @@ Typically identified by an initiating request ID.
 
 Spans are sub-sections _in_ a span is more like a single unit of work — it represents one operation in your system.
 Example: A database query, an HTTP request to another service, or a function execution.
-Super useful if you want to figure out where time is being spent in a request to find performance bottlenecks or other issues related to timing.
+Super helpful if you want to figure out where time is being spent in a request to find performance bottlenecks or other issues related to timing.
 
 ### Correlation fields
 
-To make this possible, we need to always include any available correlation fields.
-To the extent it is possible, they should be either set up on launch of the service (such as environment, service name, service versions, etc) or automated by the framework/language.
+To make this possible, we need always to include any available correlation fields.
+To the extent possible, they should be either set up on launch of the service (such as environment, service name, service versions, etc) or automated by the framework/language.
 
 Minimum list of correlation fields
-- trace_id: the request ID (e.g. a specific gPRC request's ID)
+- trace_id: the request ID (e.g., a specific gPRC request's ID)
 - timestamp: RFC 3339 UTC
 - environment: dev/prod
-- service_name: name of the current service (e.g. relayer_api)
+- service_name: name of the current service (e.g,. relayer_api)
 - service_version: the deployed version of the code
 - span_id: when available
 
@@ -47,8 +47,8 @@ Minimum list of correlation fields
 - Include correlation fields and basic resource fields (service.name, service.version, environment).
 - Use RFC 3339 UTC timestamps and disable ANSI colors in production logs.
 
-# Language specific guides
+## Language-specific guides
 
-## Rust
+### Rust
 
-TODO: IBC-145 Add Rust specific instructions on -ow to do logging correctly in our repo
+TODO: IBC-145 Add Rust-specific instructions for how to do logging correctly in our repo
