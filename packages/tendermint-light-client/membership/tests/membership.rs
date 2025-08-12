@@ -85,7 +85,6 @@ fn test_verify_multiple_kv_pairs() {
         ),
     ];
 
-    // Both should have the same app hash for this test to be valid
     let result = membership(membership_ctx.app_hash, &request);
 
     match result {
@@ -93,11 +92,7 @@ fn test_verify_multiple_kv_pairs() {
             println!("✅ Multiple KV pairs verification succeeded");
         }
         Err(e) => {
-            // This might fail if the fixtures have different app hashes
-            println!(
-                "⚠️  Multiple KV pairs verification failed (possibly different app hashes): {:?}",
-                e
-            );
+            panic!("❌ Multiple KV pairs verification failed: {:?}", e);
         }
     }
 }
