@@ -35,8 +35,9 @@ func NewTendermintLightClientFixtureGenerator(s *suite.Suite) *TendermintLightCl
 
 	if generator.Enabled {
 		generator.initializeFixtureDirectory(s)
-		generator.initializeSubmodules(s)
 	}
+
+	generator.initializeSubmodules(s)
 
 	return generator
 }
