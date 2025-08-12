@@ -425,12 +425,12 @@ func (g *UpdateClientFixtureGenerator) createUpdateMessageWithCustomHex(
 
 func (g *UpdateClientFixtureGenerator) createDummyClientStateForTesting() string {
 	// Create a minimal dummy client state as hex
-	return "deadbeef" // Placeholder hex for invalid protobuf test
+	return "deadbeef"
 }
 
 func (g *UpdateClientFixtureGenerator) createDummyConsensusStateForTesting() string {
 	// Create a minimal dummy consensus state as hex
-	return "cafebabe" // Placeholder hex for invalid protobuf test
+	return "cafebabe"
 }
 
 func (g *UpdateClientFixtureGenerator) createUpdateClientFixture(
@@ -453,10 +453,6 @@ func (g *UpdateClientFixtureGenerator) saveFixtureToFile(fixture map[string]inte
 	g.suite.T().Logf("💾 Fixture saved: %s", fullPath)
 }
 
-// Utility methods
-
-// File operations
-
 func (g *UpdateClientFixtureGenerator) saveJsonFixture(filename string, data interface{}) {
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	g.suite.Require().NoError(err)
@@ -464,8 +460,6 @@ func (g *UpdateClientFixtureGenerator) saveJsonFixture(filename string, data int
 	err = os.WriteFile(filename, jsonData, 0o600)
 	g.suite.Require().NoError(err)
 }
-
-// Query methods
 
 func (g *UpdateClientFixtureGenerator) queryTendermintClientState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ClientState {
 	resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, chainA, &clienttypes.QueryClientStateRequest{
@@ -496,8 +490,6 @@ func (g *UpdateClientFixtureGenerator) queryTendermintConsensusState(ctx context
 	return &tmConsensusState
 }
 
-// Conversion methods
-
 func (g *UpdateClientFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState) string {
 	clientStateBytes, err := proto.Marshal(tmClientState)
 	g.suite.Require().NoError(err)
@@ -511,8 +503,6 @@ func (g *UpdateClientFixtureGenerator) convertConsensusStateToFixtureFormat(tmCo
 
 	return hex.EncodeToString(consensusStateBytes)
 }
-
-// Metadata creation
 
 func (g *UpdateClientFixtureGenerator) createMetadata(description string) map[string]interface{} {
 	return map[string]interface{}{

@@ -354,10 +354,6 @@ func (g *MembershipFixtureGenerator) assembleFixture(
 	}
 }
 
-// Utility methods
-
-// File operations
-
 func (g *MembershipFixtureGenerator) saveJsonFixture(filename string, data interface{}) {
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	g.suite.Require().NoError(err)
@@ -365,8 +361,6 @@ func (g *MembershipFixtureGenerator) saveJsonFixture(filename string, data inter
 	err = os.WriteFile(filename, jsonData, 0o600)
 	g.suite.Require().NoError(err)
 }
-
-// Query methods
 
 func (g *MembershipFixtureGenerator) queryTendermintClientState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ClientState {
 	resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, chainA, &clienttypes.QueryClientStateRequest{
@@ -382,16 +376,12 @@ func (g *MembershipFixtureGenerator) queryTendermintClientState(ctx context.Cont
 	return &tmClientState
 }
 
-// Conversion methods
-
 func (g *MembershipFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState) string {
 	clientStateBytes, err := proto.Marshal(tmClientState)
 	g.suite.Require().NoError(err)
 
 	return hex.EncodeToString(clientStateBytes)
 }
-
-// Metadata creation
 
 func (g *MembershipFixtureGenerator) createMetadata(description string) map[string]interface{} {
 	return map[string]interface{}{
