@@ -263,11 +263,11 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 				SrcChain: eth.ChainID.String(),
 				DstChain: simd.Config().ChainID,
 				Parameters: map[string]string{
-					testvalues.ParameterKey_ChecksumHex: checksumHex,
-					"pub_keys":                          hex.EncodeToString(crypto.CompressPubkey(&s.key.PublicKey)),
-					"min_required_sigs":                 "1",
-					"height":                            "0",
-					"timestamp":                         "123456789",
+					testvalues.ParameterKey_ChecksumHex:     checksumHex,
+					testvalues.ParameterKey_Pubkeys:         hex.EncodeToString(crypto.CompressPubkey(&s.key.PublicKey)),
+					testvalues.ParameterKey_MinRequiredSigs: "1",
+					testvalues.ParameterKey_height:          "0",
+					testvalues.ParameterKey_timestamp:       "123456789",
 				},
 			})
 			s.Require().NoError(err)
