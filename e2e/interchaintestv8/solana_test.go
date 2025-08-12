@@ -126,10 +126,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			_, err = s.SolanaChain.SignAndBroadcastTx(ctx, tx, s.SolanaUser)
 			s.Require().NoError(err)
 		}))
-
-		// s.Require().True(s.Run("Wire the contracts", func() {
-		// 	addClientInstruction, err := ics26_router.NewAddClientInstruction(testvalues.CustomClientID, ics26_router.CounterpartyInfo{})
-		// }))
 	}))
 }
 
