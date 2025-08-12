@@ -257,7 +257,7 @@ func (g *UpdateClientFixtureGenerator) fetchAndFormatClientState(
 	ctx context.Context,
 	chain *cosmos.CosmosChain,
 	clientId string,
-) map[string]interface{} {
+) string {
 	tmClientState := g.queryTendermintClientState(ctx, chain, clientId)
 	return g.convertClientStateToFixtureFormat(tmClientState)
 }
@@ -266,7 +266,7 @@ func (g *UpdateClientFixtureGenerator) fetchAndFormatConsensusState(
 	ctx context.Context,
 	chain *cosmos.CosmosChain,
 	clientId string,
-) map[string]interface{} {
+) string {
 	tmConsensusState := g.queryTendermintConsensusState(ctx, chain, clientId)
 	return g.convertConsensusStateToFixtureFormat(tmConsensusState)
 }
@@ -423,41 +423,27 @@ func (g *UpdateClientFixtureGenerator) createUpdateMessageWithCustomHex(
 	}
 }
 
-func (g *UpdateClientFixtureGenerator) createDummyClientStateForTesting() map[string]interface{} {
-	return map[string]interface{}{
-		"chain_id":                "test-chain",
-		"trust_level_numerator":   1,
-		"trust_level_denominator": 3,
-		"trusting_period":         1209600,
-		"unbonding_period":        1814400,
-		"max_clock_drift":         10,
-		"frozen_height":           0,
-		"latest_height":           19,
-		"metadata":                g.createMetadata("Dummy client state for invalid protobuf test"),
-	}
+func (g *UpdateClientFixtureGenerator) createDummyClientStateForTesting() string {
+	// Create a minimal dummy client state as hex
+	return "deadbeef" // Placeholder hex for invalid protobuf test
 }
 
-func (g *UpdateClientFixtureGenerator) createDummyConsensusStateForTesting() map[string]interface{} {
-	return map[string]interface{}{
-		"timestamp":            uint64(time.Now().Unix()),
-		"root":                 hex.EncodeToString(make([]byte, 32)),
-		"next_validators_hash": hex.EncodeToString(make([]byte, 32)),
-		"metadata":             g.createMetadata("Dummy consensus state for invalid protobuf test"),
-	}
+func (g *UpdateClientFixtureGenerator) createDummyConsensusStateForTesting() string {
+	// Create a minimal dummy consensus state as hex
+	return "cafebabe" // Placeholder hex for invalid protobuf test
 }
 
 func (g *UpdateClientFixtureGenerator) createUpdateClientFixture(
 	scenario string,
-	clientState map[string]interface{},
-	consensusState map[string]interface{},
+	clientStateHex string,
+	consensusStateHex string,
 	updateMessage map[string]interface{},
 ) map[string]interface{} {
 	return map[string]interface{}{
-		"scenario":                scenario,
-		"client_state":            clientState,
-		"trusted_consensus_state": consensusState,
-		"update_client_message":   updateMessage,
-		"metadata":                g.createMetadata(fmt.Sprintf("Tendermint light client fixture for scenario: %s", scenario)),
+		"client_state_hex":      clientStateHex,
+		"consensus_state_hex":   consensusStateHex,
+		"update_client_message": updateMessage,
+		"metadata":              g.createMetadata(fmt.Sprintf("Tendermint light client fixture for scenario: %s", scenario)),
 	}
 }
 
@@ -512,24 +498,18 @@ func (g *UpdateClientFixtureGenerator) queryTendermintConsensusState(ctx context
 
 // Conversion methods
 
-func (g *UpdateClientFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState) map[string]interface{} {
+func (g *UpdateClientFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState) string {
 	clientStateBytes, err := proto.Marshal(tmClientState)
 	g.suite.Require().NoError(err)
 
-	return map[string]interface{}{
-		"client_state_hex": hex.EncodeToString(clientStateBytes),
-		"metadata":         g.createMetadata(fmt.Sprintf("Client state for %s", tmClientState.ChainId)),
-	}
+	return hex.EncodeToString(clientStateBytes)
 }
 
-func (g *UpdateClientFixtureGenerator) convertConsensusStateToFixtureFormat(tmConsensusState *ibctmtypes.ConsensusState) map[string]interface{} {
+func (g *UpdateClientFixtureGenerator) convertConsensusStateToFixtureFormat(tmConsensusState *ibctmtypes.ConsensusState) string {
 	consensusStateBytes, err := proto.Marshal(tmConsensusState)
 	g.suite.Require().NoError(err)
 
-	return map[string]interface{}{
-		"consensus_state_hex": hex.EncodeToString(consensusStateBytes),
-		"metadata":            g.createMetadata("Consensus state"),
-	}
+	return hex.EncodeToString(consensusStateBytes)
 }
 
 // Metadata creation

@@ -89,4 +89,3 @@ func (g *TendermintLightClientFixtureGenerator) GenerateMembershipVerificationSc
 ) {
 	g.membershipGenerator.GenerateMembershipVerificationScenarios(ctx, chainA, keyPaths, clientId)
 }
-

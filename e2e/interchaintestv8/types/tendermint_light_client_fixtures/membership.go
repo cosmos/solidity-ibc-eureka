@@ -288,7 +288,7 @@ func (g *MembershipFixtureGenerator) saveFixture(
 ) {
 	proofType := g.proofTypeNameFor(proofCtx.ExpectMembership)
 
-	membershipMsg := g.buildMembershipMessage(proofCtx, proofBytes, proofType)
+	membershipMsg := g.buildMembershipMessage(proofCtx, proofBytes)
 	clientState := g.buildClientState(ctx, chain, clientId)
 	consensusState := g.buildConsensusState(proofCtx)
 
@@ -298,8 +298,6 @@ func (g *MembershipFixtureGenerator) saveFixture(
 		clientState,
 		consensusState,
 		membershipMsg,
-		proofCtx,
-		proofType,
 	)
 
 	filename := filepath.Join(g.fixtureDir,
@@ -311,15 +309,7 @@ func (g *MembershipFixtureGenerator) saveFixture(
 func (g *MembershipFixtureGenerator) buildMembershipMessage(
 	proofCtx *ProofContext,
 	proofBytes []byte,
-	proofType string,
 ) map[string]interface{} {
-	metadata := g.createMetadata(
-		fmt.Sprintf("Valid %s proof for key: %s", proofType, proofCtx.KeyPath))
-	metadata["proof_format"] = "hex-encoded protobuf"
-	metadata["proof_type_details"] = "ibc.core.commitment.v1.MerkleProof"
-	metadata["proof_conversion"] = "Converted from ABCI ProofOps to IBC MerkleProof format"
-	metadata["proof_size_bytes"] = len(proofBytes)
-
 	return map[string]interface{}{
 		"height":             proofCtx.ProofHeight,
 		"delay_time_period":  0,
@@ -327,7 +317,6 @@ func (g *MembershipFixtureGenerator) buildMembershipMessage(
 		"proof":              hex.EncodeToString(proofBytes),
 		"path":               []string{string(ibcexported.StoreKey), proofCtx.KeyPath},
 		"value":              hex.EncodeToString(proofCtx.ABCIResponse.Value),
-		"metadata":           metadata,
 	}
 }
 
@@ -335,42 +324,29 @@ func (g *MembershipFixtureGenerator) buildClientState(
 	ctx context.Context,
 	chain *cosmos.CosmosChain,
 	clientId string,
-) map[string]interface{} {
+) string {
 	tmClientState := g.queryTendermintClientState(ctx, chain, clientId)
 	return g.convertClientStateToFixtureFormat(tmClientState)
 }
 
-func (g *MembershipFixtureGenerator) buildConsensusState(proofCtx *ProofContext) map[string]interface{} {
+func (g *MembershipFixtureGenerator) buildConsensusState(proofCtx *ProofContext) string {
 	consensusStateBytes, err := proto.Marshal(proofCtx.ConsensusState)
 	g.suite.Require().NoError(err)
 
-	return map[string]interface{}{
-		"consensus_state_hex": hex.EncodeToString(consensusStateBytes),
-		"metadata": g.createMetadata(
-			fmt.Sprintf("Consensus state at height %d", proofCtx.ProofHeight)),
-	}
+	return hex.EncodeToString(consensusStateBytes)
 }
 
 func (g *MembershipFixtureGenerator) assembleFixture(
 	scenarioName string,
-	clientState map[string]interface{},
-	consensusState map[string]interface{},
+	clientStateHex string,
+	consensusStateHex string,
 	membershipMsg map[string]interface{},
-	proofCtx *ProofContext,
-	proofType string,
 ) map[string]interface{} {
 	return map[string]interface{}{
-		"scenario":        scenarioName,
-		"client_state":    clientState,
-		"consensus_state": consensusState,
-		"membership_msg":  membershipMsg,
-		"key_info": map[string]interface{}{
-			"path":        proofCtx.KeyPath,
-			"value_size":  len(proofCtx.ABCIResponse.Value),
-			"description": fmt.Sprintf("IBC key: %s (%s)", proofCtx.KeyPath, proofType),
-			"proof_type":  proofType,
-		},
-		"metadata": g.createMetadata(fmt.Sprintf("Tendermint light client fixture for scenario: %s", scenarioName)),
+		"client_state_hex":    clientStateHex,
+		"consensus_state_hex": consensusStateHex,
+		"membership_msg":      membershipMsg,
+		"metadata":            g.createMetadata(fmt.Sprintf("Tendermint light client fixture for scenario: %s", scenarioName)),
 	}
 }
 
@@ -404,14 +380,11 @@ func (g *MembershipFixtureGenerator) queryTendermintClientState(ctx context.Cont
 
 // Conversion methods
 
-func (g *MembershipFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState) map[string]interface{} {
+func (g *MembershipFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState) string {
 	clientStateBytes, err := proto.Marshal(tmClientState)
 	g.suite.Require().NoError(err)
 
-	return map[string]interface{}{
-		"client_state_hex": hex.EncodeToString(clientStateBytes),
-		"metadata":         g.createMetadata(fmt.Sprintf("Client state for %s", tmClientState.ChainId)),
-	}
+	return hex.EncodeToString(clientStateBytes)
 }
 
 // Metadata creation
