@@ -89,8 +89,9 @@ func (g *TendermintLightClientFixtureGenerator) GenerateMembershipVerificationSc
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
 	keyPaths []KeyPath,
+	clientId string,
 ) {
-	g.membershipGenerator.GenerateMembershipVerificationScenariosWithPredefinedKeys(ctx, chainA, keyPaths)
+	g.membershipGenerator.GenerateMembershipVerificationScenariosWithPredefinedKeys(ctx, chainA, keyPaths, clientId)
 }
 
 // Delegated Logging Operations
@@ -144,15 +145,17 @@ func (g *TendermintLightClientFixtureGenerator) SaveJsonFixture(filename string,
 func (g *TendermintLightClientFixtureGenerator) QueryTendermintClientState(
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
+	clientId string,
 ) *ibctmtypes.ClientState {
-	return g.utils.QueryTendermintClientState(ctx, chainA)
+	return g.utils.QueryTendermintClientState(ctx, chainA, clientId)
 }
 
 func (g *TendermintLightClientFixtureGenerator) QueryTendermintConsensusState(
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
+	clientId string,
 ) *ibctmtypes.ConsensusState {
-	return g.utils.QueryTendermintConsensusState(ctx, chainA)
+	return g.utils.QueryTendermintConsensusState(ctx, chainA, clientId)
 }
 
 // Delegated Data Conversions

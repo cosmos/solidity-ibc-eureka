@@ -31,8 +31,8 @@ type FixtureGeneratorInterface interface {
 	SaveJsonFixture(filename string, data interface{})
 
 	// Query methods
-	QueryTendermintClientState(ctx context.Context, chainA *cosmos.CosmosChain) *ibctmtypes.ClientState
-	QueryTendermintConsensusState(ctx context.Context, chainA *cosmos.CosmosChain) *ibctmtypes.ConsensusState
+	QueryTendermintClientState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ClientState
+	QueryTendermintConsensusState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ConsensusState
 
 	// Conversion methods
 	ConvertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState, chainID string) map[string]interface{}

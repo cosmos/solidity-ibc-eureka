@@ -18,7 +18,6 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 
@@ -54,6 +53,7 @@ func (g *MembershipFixtureGenerator) GenerateMembershipVerificationScenariosWith
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
 	keyPaths []KeyPath,
+	clientId string,
 ) {
 	if !g.generator.IsEnabled() {
 		return
@@ -64,7 +64,7 @@ func (g *MembershipFixtureGenerator) GenerateMembershipVerificationScenariosWith
 	for i, keySpec := range keyPaths {
 		proofType := g.proofTypeNameFor(keySpec.Membership)
 		g.generator.LogInfof("🔍 Processing predefined key path: %s (%s)", keySpec.Key, proofType)
-		g.generateFixtureForKeyPath(ctx, chainA, keySpec.Key, i, keySpec.Membership)
+		g.generateFixtureForKeyPath(ctx, chainA, keySpec.Key, i, keySpec.Membership, clientId)
 	}
 
 	g.generator.LogInfo("✅ Predefined key membership scenarios generated successfully")
@@ -76,11 +76,12 @@ func (g *MembershipFixtureGenerator) generateFixtureForKeyPath(
 	keyPath string,
 	index int,
 	expectMembership bool,
+	clientId string,
 ) {
 	proofType := g.proofTypeNameFor(expectMembership)
 	g.generator.LogInfof("🔧 Generating %s fixture for key: %s", proofType, keyPath)
 
-	proofHeight, latestConsensusState := g.getLatestConsensusStateHeight(ctx, chainA)
+	proofHeight, latestConsensusState := g.getLatestConsensusStateHeight(ctx, chainA, clientId)
 	g.generator.LogInfof("📊 Using latest consensus state at height %d for proof generation", proofHeight)
 
 	blockHeight, actualAppHash := g.getAppHashFromBlock(ctx, chainA, proofHeight)
@@ -101,7 +102,7 @@ func (g *MembershipFixtureGenerator) generateFixtureForKeyPath(
 		ConsensusState:   tmConsensusState,
 	}
 
-	g.saveFixture(ctx, chainA, proofCtx, merkleProofBytes, index)
+	g.saveFixture(ctx, chainA, proofCtx, merkleProofBytes, index, clientId)
 }
 
 func (g *MembershipFixtureGenerator) proofTypeNameFor(isMembership bool) string {
@@ -111,15 +112,17 @@ func (g *MembershipFixtureGenerator) proofTypeNameFor(isMembership bool) string 
 	return "non-membership"
 }
 
+
 func (g *MembershipFixtureGenerator) getLatestConsensusStateHeight(
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
+	clientId string,
 ) (uint64, *clienttypes.ConsensusStateWithHeight) {
 	allStatesResp, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStatesResponse](
 		ctx,
 		chainA,
 		&clienttypes.QueryConsensusStatesRequest{
-			ClientId: ibctesting.FirstClientID,
+			ClientId: clientId,
 		},
 	)
 	g.generator.RequireNoError(err)
@@ -274,11 +277,12 @@ func (g *MembershipFixtureGenerator) saveFixture(
 	proofCtx *ProofContext,
 	proofBytes []byte,
 	index int,
+	clientId string,
 ) {
 	proofType := g.proofTypeNameFor(proofCtx.ExpectMembership)
 
 	membershipMsg := g.buildMembershipMessage(proofCtx, proofBytes, proofType)
-	clientState := g.buildClientState(ctx, chainA)
+	clientState := g.buildClientState(ctx, chainA, clientId)
 	consensusState := g.buildConsensusState(proofCtx)
 
 	scenarioName := fmt.Sprintf("%s_key_%d", proofType, index)
@@ -324,8 +328,9 @@ func (g *MembershipFixtureGenerator) buildMembershipMessage(
 func (g *MembershipFixtureGenerator) buildClientState(
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
+	clientId string,
 ) map[string]interface{} {
-	tmClientState := g.generator.QueryTendermintClientState(ctx, chainA)
+	tmClientState := g.generator.QueryTendermintClientState(ctx, chainA, clientId)
 	return g.generator.ConvertClientStateToFixtureFormat(tmClientState, chainA.Config().ChainID)
 }
 

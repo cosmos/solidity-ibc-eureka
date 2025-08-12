@@ -13,7 +13,6 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 
@@ -92,9 +91,9 @@ func (u *FixtureGeneratorUtils) SaveJsonFixture(filename string, data interface{
 
 // Query methods
 
-func (u *FixtureGeneratorUtils) QueryTendermintClientState(ctx context.Context, chainA *cosmos.CosmosChain) *ibctmtypes.ClientState {
+func (u *FixtureGeneratorUtils) QueryTendermintClientState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ClientState {
 	resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, chainA, &clienttypes.QueryClientStateRequest{
-		ClientId: ibctesting.FirstClientID,
+		ClientId: clientId,
 	})
 	u.suite.Require().NoError(err)
 	u.suite.Require().NotNil(resp.ClientState)
@@ -106,12 +105,10 @@ func (u *FixtureGeneratorUtils) QueryTendermintClientState(ctx context.Context, 
 	return &tmClientState
 }
 
-func (u *FixtureGeneratorUtils) QueryTendermintConsensusState(ctx context.Context, chainA *cosmos.CosmosChain) *ibctmtypes.ConsensusState {
+func (u *FixtureGeneratorUtils) QueryTendermintConsensusState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ConsensusState {
 	resp, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, chainA, &clienttypes.QueryConsensusStateRequest{
-		ClientId:       ibctesting.FirstClientID,
-		RevisionNumber: 1,
-		RevisionHeight: 1,
-		LatestHeight:   true,
+		ClientId:     clientId,
+		LatestHeight: true,
 	})
 	u.suite.Require().NoError(err)
 	u.suite.Require().NotNil(resp.ConsensusState)
@@ -159,11 +156,8 @@ func (u *FixtureGeneratorUtils) CreateMetadata(description string) map[string]in
 }
 
 func (u *FixtureGeneratorUtils) CreateUnifiedMetadata(scenarioName, chainID string) map[string]interface{} {
-	return map[string]interface{}{
-		"generated_at": time.Now().UTC().Format(time.RFC3339),
-		"source":       "local_cosmos_chain",
-		"description":  fmt.Sprintf("Unified tendermint light client fixture for scenario: %s", scenarioName),
-		"scenario":     scenarioName,
-		"chain_id":     chainID,
-	}
+	metadata := u.CreateMetadata(fmt.Sprintf("Unified tendermint light client fixture for scenario: %s", scenarioName))
+	metadata["scenario"] = scenarioName
+	metadata["chain_id"] = chainID
+	return metadata
 }

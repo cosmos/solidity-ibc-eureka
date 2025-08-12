@@ -41,13 +41,14 @@ func (g *UpdateClientFixtureGenerator) GenerateMultipleUpdateClientScenarios(
 	g.generator.LogInfo("🔧 Generating multiple update client scenarios")
 
 	msgUpdateClient := g.extractSingleUpdateClientMessageFromTransaction(updateTxBodyBz)
-	g.generator.LogInfof("📊 Found MsgUpdateClient for client: %s", msgUpdateClient.ClientId)
+	clientId := msgUpdateClient.ClientId
+	g.generator.LogInfof("📊 Found MsgUpdateClient for client: %s", clientId)
 
-	g.generateHappyPathScenarioFromRealTransaction(ctx, chainA, msgUpdateClient.ClientMessage)
-	g.generateScenarioWithCorruptedSignature(ctx, chainA)
-	g.generateScenarioWithExpiredHeader(ctx, chainA)
-	g.generateScenarioWithFutureTimestamp(ctx, chainA)
-	g.generateScenarioWithNonExistentTrustedHeight(ctx, chainA)
+	g.generateHappyPathScenarioFromRealTransaction(ctx, chainA, msgUpdateClient.ClientMessage, clientId)
+	g.generateScenarioWithCorruptedSignature(ctx, chainA, clientId)
+	g.generateScenarioWithExpiredHeader(ctx, chainA, clientId)
+	g.generateScenarioWithFutureTimestamp(ctx, chainA, clientId)
+	g.generateScenarioWithNonExistentTrustedHeight(ctx, chainA, clientId)
 	g.generateScenarioWithUnparseableProtobuf()
 
 	g.generator.LogInfo("✅ Multiple update client scenarios generated successfully")
@@ -71,11 +72,12 @@ func (g *UpdateClientFixtureGenerator) generateHappyPathScenarioFromRealTransact
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
 	clientMessage *types.Any,
+	clientId string,
 ) {
 	g.generator.LogInfo("🔧 Generating happy path scenario")
 
-	clientState := g.fetchAndFormatClientState(ctx, chainA)
-	consensusState := g.fetchAndFormatConsensusState(ctx, chainA)
+	clientState := g.fetchAndFormatClientState(ctx, chainA, clientId)
+	consensusState := g.fetchAndFormatConsensusState(ctx, chainA, clientId)
 	updateMessage := g.formatClientMessageForFixture(clientMessage)
 
 	fixture := g.createUpdateClientFixture(
@@ -92,11 +94,12 @@ func (g *UpdateClientFixtureGenerator) generateHappyPathScenarioFromRealTransact
 func (g *UpdateClientFixtureGenerator) generateScenarioWithCorruptedSignature(
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
+	clientId string,
 ) {
 	g.generator.LogInfo("🔧 Generating malformed client message scenario")
 
-	clientState := g.fetchAndFormatClientState(ctx, chainA)
-	consensusState := g.fetchAndFormatConsensusState(ctx, chainA)
+	clientState := g.fetchAndFormatClientState(ctx, chainA, clientId)
+	consensusState := g.fetchAndFormatConsensusState(ctx, chainA, clientId)
 
 	validHex := g.loadHexFromExistingHappyPathFixture()
 	corruptedHex := g.corruptSignaturesWhilePreservingProtobufStructure(validHex)
@@ -121,12 +124,13 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithCorruptedSignature(
 func (g *UpdateClientFixtureGenerator) generateScenarioWithExpiredHeader(
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
+	clientId string,
 ) {
 	g.generator.LogInfo("🔧 Generating expired header scenario")
 
-	tmClientState := g.generator.QueryTendermintClientState(ctx, chainA)
-	clientState := g.fetchAndFormatClientState(ctx, chainA)
-	consensusState := g.fetchAndFormatConsensusState(ctx, chainA)
+	tmClientState := g.generator.QueryTendermintClientState(ctx, chainA, clientId)
+	clientState := g.fetchAndFormatClientState(ctx, chainA, clientId)
+	consensusState := g.fetchAndFormatConsensusState(ctx, chainA, clientId)
 
 	validHex := g.loadHexFromExistingHappyPathFixture()
 	expiredHex := g.modifyHeaderTimestampToPast(
@@ -154,12 +158,13 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithExpiredHeader(
 func (g *UpdateClientFixtureGenerator) generateScenarioWithFutureTimestamp(
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
+	clientId string,
 ) {
 	g.generator.LogInfo("🔧 Generating future timestamp scenario")
 
-	tmClientState := g.generator.QueryTendermintClientState(ctx, chainA)
-	clientState := g.fetchAndFormatClientState(ctx, chainA)
-	consensusState := g.fetchAndFormatConsensusState(ctx, chainA)
+	tmClientState := g.generator.QueryTendermintClientState(ctx, chainA, clientId)
+	clientState := g.fetchAndFormatClientState(ctx, chainA, clientId)
+	consensusState := g.fetchAndFormatConsensusState(ctx, chainA, clientId)
 
 	validHex := g.loadHexFromExistingHappyPathFixture()
 	futureHex := g.modifyHeaderTimestampToFuture(
@@ -187,11 +192,12 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithFutureTimestamp(
 func (g *UpdateClientFixtureGenerator) generateScenarioWithNonExistentTrustedHeight(
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
+	clientId string,
 ) {
 	g.generator.LogInfo("🔧 Generating wrong trusted height scenario")
 
-	clientState := g.fetchAndFormatClientState(ctx, chainA)
-	consensusState := g.fetchAndFormatConsensusState(ctx, chainA)
+	clientState := g.fetchAndFormatClientState(ctx, chainA, clientId)
+	consensusState := g.fetchAndFormatConsensusState(ctx, chainA, clientId)
 	validHex := g.loadHexFromExistingHappyPathFixture()
 
 	latestHeight := clientState["latest_height"].(uint64)
@@ -246,16 +252,18 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithUnparseableProtobuf()
 func (g *UpdateClientFixtureGenerator) fetchAndFormatClientState(
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
+	clientId string,
 ) map[string]interface{} {
-	tmClientState := g.generator.QueryTendermintClientState(ctx, chainA)
+	tmClientState := g.generator.QueryTendermintClientState(ctx, chainA, clientId)
 	return g.generator.ConvertClientStateToFixtureFormat(tmClientState, chainA.Config().ChainID)
 }
 
 func (g *UpdateClientFixtureGenerator) fetchAndFormatConsensusState(
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
+	clientId string,
 ) map[string]interface{} {
-	tmConsensusState := g.generator.QueryTendermintConsensusState(ctx, chainA)
+	tmConsensusState := g.generator.QueryTendermintConsensusState(ctx, chainA, clientId)
 	return g.generator.ConvertConsensusStateToFixtureFormat(tmConsensusState, chainA.Config().ChainID)
 }
 
