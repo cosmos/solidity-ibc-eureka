@@ -93,7 +93,6 @@ func (g *UpdateClientFixtureGenerator) generateHappyPathScenarioFromRealTransact
 		clientState,
 		consensusState,
 		updateMessage,
-		chain.Config().ChainID,
 	)
 
 	g.saveFixtureToFile(fixture, "update_client_happy_path.json")
@@ -106,6 +105,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithCorruptedSignature(
 ) {
 	g.suite.T().Log("🔧 Generating malformed client message scenario")
 
+	tmClientState := g.queryTendermintClientState(ctx, chain, clientId)
 	clientState := g.fetchAndFormatClientState(ctx, chain, clientId)
 	consensusState := g.fetchAndFormatConsensusState(ctx, chain, clientId)
 
@@ -114,7 +114,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithCorruptedSignature(
 
 	malformedMessage := g.createUpdateMessageWithCustomHex(
 		corruptedHex,
-		clientState["latest_height"].(uint64),
+		tmClientState.LatestHeight.RevisionHeight,
 		"Intentionally malformed Tendermint header for unhappy path testing (signature corruption in valid protobuf structure)",
 	)
 
@@ -123,7 +123,6 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithCorruptedSignature(
 		clientState,
 		consensusState,
 		malformedMessage,
-		chain.Config().ChainID,
 	)
 
 	g.saveFixtureToFile(fixture, "update_client_malformed_client_message.json")
@@ -148,7 +147,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithExpiredHeader(
 
 	expiredMessage := g.createUpdateMessageWithCustomHex(
 		expiredHex,
-		clientState["latest_height"].(uint64),
+		tmClientState.LatestHeight.RevisionHeight,
 		"Expired header - timestamp beyond trusting period",
 	)
 
@@ -157,7 +156,6 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithExpiredHeader(
 		clientState,
 		consensusState,
 		expiredMessage,
-		chain.Config().ChainID,
 	)
 
 	g.saveFixtureToFile(fixture, "update_client_expired_header.json")
@@ -182,7 +180,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithFutureTimestamp(
 
 	futureMessage := g.createUpdateMessageWithCustomHex(
 		futureHex,
-		clientState["latest_height"].(uint64),
+		tmClientState.LatestHeight.RevisionHeight,
 		"Future timestamp - beyond max clock drift",
 	)
 
@@ -191,7 +189,6 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithFutureTimestamp(
 		clientState,
 		consensusState,
 		futureMessage,
-		chain.Config().ChainID,
 	)
 
 	g.saveFixtureToFile(fixture, "update_client_future_timestamp.json")
@@ -204,11 +201,12 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithNonExistentTrustedHei
 ) {
 	g.suite.T().Log("🔧 Generating wrong trusted height scenario")
 
+	tmClientState := g.queryTendermintClientState(ctx, chain, clientId)
 	clientState := g.fetchAndFormatClientState(ctx, chain, clientId)
 	consensusState := g.fetchAndFormatConsensusState(ctx, chain, clientId)
 	validHex := g.loadHexFromExistingHappyPathFixture()
 
-	latestHeight := clientState["latest_height"].(uint64)
+	latestHeight := tmClientState.LatestHeight.RevisionHeight
 	nonExistentHeight := latestHeight + 100
 
 	wrongHeightMessage := map[string]interface{}{
@@ -224,7 +222,6 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithNonExistentTrustedHei
 		clientState,
 		consensusState,
 		wrongHeightMessage,
-		chain.Config().ChainID,
 	)
 
 	g.saveFixtureToFile(fixture, "update_client_wrong_trusted_height.json")
@@ -251,7 +248,6 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithUnparseableProtobuf()
 		clientState,
 		consensusState,
 		invalidMessage,
-		"test-chain",
 	)
 
 	g.saveFixtureToFile(fixture, "update_client_invalid_protobuf.json")
@@ -263,7 +259,7 @@ func (g *UpdateClientFixtureGenerator) fetchAndFormatClientState(
 	clientId string,
 ) map[string]interface{} {
 	tmClientState := g.queryTendermintClientState(ctx, chain, clientId)
-	return g.convertClientStateToFixtureFormat(tmClientState, chain.Config().ChainID)
+	return g.convertClientStateToFixtureFormat(tmClientState)
 }
 
 func (g *UpdateClientFixtureGenerator) fetchAndFormatConsensusState(
@@ -272,7 +268,7 @@ func (g *UpdateClientFixtureGenerator) fetchAndFormatConsensusState(
 	clientId string,
 ) map[string]interface{} {
 	tmConsensusState := g.queryTendermintConsensusState(ctx, chain, clientId)
-	return g.convertConsensusStateToFixtureFormat(tmConsensusState, chain.Config().ChainID)
+	return g.convertConsensusStateToFixtureFormat(tmConsensusState)
 }
 
 func (g *UpdateClientFixtureGenerator) formatClientMessageForFixture(clientMessage *types.Any) map[string]interface{} {
@@ -455,7 +451,6 @@ func (g *UpdateClientFixtureGenerator) createUpdateClientFixture(
 	clientState map[string]interface{},
 	consensusState map[string]interface{},
 	updateMessage map[string]interface{},
-	chainID string,
 ) map[string]interface{} {
 	return map[string]interface{}{
 		"scenario":                scenario,
@@ -517,26 +512,23 @@ func (g *UpdateClientFixtureGenerator) queryTendermintConsensusState(ctx context
 
 // Conversion methods
 
-func (g *UpdateClientFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState, chainID string) map[string]interface{} {
+func (g *UpdateClientFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState) map[string]interface{} {
+	clientStateBytes, err := proto.Marshal(tmClientState)
+	g.suite.Require().NoError(err)
+
 	return map[string]interface{}{
-		"chain_id":                tmClientState.ChainId,
-		"trust_level_numerator":   tmClientState.TrustLevel.Numerator,
-		"trust_level_denominator": tmClientState.TrustLevel.Denominator,
-		"trusting_period":         tmClientState.TrustingPeriod.Seconds(),
-		"unbonding_period":        tmClientState.UnbondingPeriod.Seconds(),
-		"max_clock_drift":         tmClientState.MaxClockDrift.Seconds(),
-		"frozen_height":           tmClientState.FrozenHeight.RevisionHeight,
-		"latest_height":           tmClientState.LatestHeight.RevisionHeight,
-		"metadata":                g.createMetadata(fmt.Sprintf("Client state for %s captured from %s", tmClientState.ChainId, chainID)),
+		"client_state_hex": hex.EncodeToString(clientStateBytes),
+		"metadata":         g.createMetadata(fmt.Sprintf("Client state for %s", tmClientState.ChainId)),
 	}
 }
 
-func (g *UpdateClientFixtureGenerator) convertConsensusStateToFixtureFormat(tmConsensusState *ibctmtypes.ConsensusState, chainID string) map[string]interface{} {
+func (g *UpdateClientFixtureGenerator) convertConsensusStateToFixtureFormat(tmConsensusState *ibctmtypes.ConsensusState) map[string]interface{} {
+	consensusStateBytes, err := proto.Marshal(tmConsensusState)
+	g.suite.Require().NoError(err)
+
 	return map[string]interface{}{
-		"timestamp":            tmConsensusState.Timestamp.UnixNano(),
-		"root":                 hex.EncodeToString(tmConsensusState.Root.GetHash()),
-		"next_validators_hash": hex.EncodeToString(tmConsensusState.NextValidatorsHash),
-		"metadata":             g.createMetadata(fmt.Sprintf("Consensus state captured from %s", chainID)),
+		"consensus_state_hex": hex.EncodeToString(consensusStateBytes),
+		"metadata":            g.createMetadata("Consensus state"),
 	}
 }
 

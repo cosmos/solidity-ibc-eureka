@@ -337,17 +337,17 @@ func (g *MembershipFixtureGenerator) buildClientState(
 	clientId string,
 ) map[string]interface{} {
 	tmClientState := g.queryTendermintClientState(ctx, chain, clientId)
-	return g.convertClientStateToFixtureFormat(tmClientState, chain.Config().ChainID)
+	return g.convertClientStateToFixtureFormat(tmClientState)
 }
 
 func (g *MembershipFixtureGenerator) buildConsensusState(proofCtx *ProofContext) map[string]interface{} {
+	consensusStateBytes, err := proto.Marshal(proofCtx.ConsensusState)
+	g.suite.Require().NoError(err)
+
 	return map[string]interface{}{
-		"timestamp":            proofCtx.ConsensusState.Timestamp.UnixNano(),
-		"root":                 hex.EncodeToString(proofCtx.ActualAppHash),
-		"next_validators_hash": hex.EncodeToString(proofCtx.ConsensusState.NextValidatorsHash),
+		"consensus_state_hex": hex.EncodeToString(consensusStateBytes),
 		"metadata": g.createMetadata(
-			fmt.Sprintf("Consensus state at height %d (app hash from block %d)",
-				proofCtx.ProofHeight, proofCtx.BlockHeight)),
+			fmt.Sprintf("Consensus state at height %d", proofCtx.ProofHeight)),
 	}
 }
 
@@ -404,17 +404,13 @@ func (g *MembershipFixtureGenerator) queryTendermintClientState(ctx context.Cont
 
 // Conversion methods
 
-func (g *MembershipFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState, chainID string) map[string]interface{} {
+func (g *MembershipFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState) map[string]interface{} {
+	clientStateBytes, err := proto.Marshal(tmClientState)
+	g.suite.Require().NoError(err)
+
 	return map[string]interface{}{
-		"chain_id":                tmClientState.ChainId,
-		"trust_level_numerator":   tmClientState.TrustLevel.Numerator,
-		"trust_level_denominator": tmClientState.TrustLevel.Denominator,
-		"trusting_period":         tmClientState.TrustingPeriod.Seconds(),
-		"unbonding_period":        tmClientState.UnbondingPeriod.Seconds(),
-		"max_clock_drift":         tmClientState.MaxClockDrift.Seconds(),
-		"frozen_height":           tmClientState.FrozenHeight.RevisionHeight,
-		"latest_height":           tmClientState.LatestHeight.RevisionHeight,
-		"metadata":                g.createMetadata(fmt.Sprintf("Client state for %s captured from %s", tmClientState.ChainId, chainID)),
+		"client_state_hex": hex.EncodeToString(clientStateBytes),
+		"metadata":         g.createMetadata(fmt.Sprintf("Client state for %s", tmClientState.ChainId)),
 	}
 }
 
