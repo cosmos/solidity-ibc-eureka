@@ -125,7 +125,7 @@ generate-fixtures-wasm: clean-foundry install-relayer
 [group('generate')]
 generate-fixtures-tendermint-light-client: install-relayer
 	@echo "Generating Tendermint light client fixtures... This may take a while."
-	@echo "Generating basic client state, consensus state, and update client fixtures..."
+	@echo "Generating basic membership and update client fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES=true go test -v -run '^TestWithCosmosRelayerTestSuite/Test_UpdateClient$' -timeout 40m
 
 # Generate go types for the e2e tests from the etheruem light client code
@@ -209,14 +209,6 @@ test-benchmark testname=".\\*":
 test-cargo testname="--all":
 	cargo test {{testname}} --locked --no-fail-fast -- --nocapture
 
-# Run the tendermint light client tests
-[group('test')]
-test-tendermint-light-client testname="":
-	@echo "Running tendermint light client tests..."
-	cargo test --package tendermint-light-client-update-client {{testname}} --locked --no-fail-fast -- --nocapture
-	cargo test --package tendermint-light-client-membership {{testname}} --locked --no-fail-fast -- --nocapture
-	cargo test --package tendermint-light-client-misbehaviour {{testname}} --locked --no-fail-fast -- --nocapture
-	cargo test --package tendermint-light-client-uc-and-membership {{testname}} --locked --no-fail-fast -- --nocapture
 
 # Run the tests in abigen
 [group('test')]

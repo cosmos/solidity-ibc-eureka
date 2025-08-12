@@ -48,15 +48,13 @@ func isFixtureGenerationEnabled() bool {
 
 func (g *TendermintLightClientFixtureGenerator) initializeFixtureDirectory(s *suite.Suite) {
 	absPath, err := filepath.Abs(filepath.Join("../..", testvalues.TendermintLightClientFixturesDir))
-	if err != nil {
-		s.T().Fatalf("Failed to get absolute path for fixtures: %v", err)
-	}
+	s.Require().NoErrorf(err, "failed to get absolute path for fixtures")
 
 	g.FixtureDir = absPath
 
-	if err := os.MkdirAll(g.FixtureDir, 0o755); err != nil {
-		s.T().Fatalf("Failed to create Tendermint light client fixture directory: %v", err)
-	}
+	// Does nothing if already exists
+	err = os.MkdirAll(g.FixtureDir, 0o755) // does nothing if already exists
+	s.Require().NoErrorf(err, "failed to create Tendermint light client fixture directory")
 
 	s.T().Logf("📁 Tendermint light client fixtures will be saved to: %s", g.FixtureDir)
 }

@@ -153,7 +153,7 @@ func (u *FixtureGeneratorUtils) ConvertConsensusStateToFixtureFormat(tmConsensus
 func (u *FixtureGeneratorUtils) CreateMetadata(description string) map[string]interface{} {
 	return map[string]interface{}{
 		"generated_at": time.Now().UTC().Format(time.RFC3339),
-		"source":       "real_cosmos_chain",
+		"source":       "local_cosmos_chain",
 		"description":  description,
 	}
 }
@@ -161,7 +161,7 @@ func (u *FixtureGeneratorUtils) CreateMetadata(description string) map[string]in
 func (u *FixtureGeneratorUtils) CreateUnifiedMetadata(scenarioName, chainID string) map[string]interface{} {
 	return map[string]interface{}{
 		"generated_at": time.Now().UTC().Format(time.RFC3339),
-		"source":       "real_cosmos_chain",
+		"source":       "local_cosmos_chain",
 		"description":  fmt.Sprintf("Unified tendermint light client fixture for scenario: %s", scenarioName),
 		"scenario":     scenarioName,
 		"chain_id":     chainID,
