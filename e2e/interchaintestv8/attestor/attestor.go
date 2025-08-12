@@ -1,10 +1,12 @@
 package attestor
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	grpc "google.golang.org/grpc"
@@ -21,7 +23,7 @@ const (
 )
 
 // StartAttestor starts the attestor with the given config file.
-func StartAttestor(configPath string, binaryPath AttestorBinaryPath) (*exec.Cmd, error) {
+func StartAttestor(configPath string, binaryPath AttestorBinaryPath) (*os.Process, error) {
 	config, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
@@ -43,9 +45,21 @@ func StartAttestor(configPath string, binaryPath AttestorBinaryPath) (*exec.Cmd,
 		return nil, err
 	}
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
-	return cmd, nil
+	return cmd.Process, nil
+}
+
+func ReadAttestorPubKey(binaryPath AttestorBinaryPath) (string, error) {
+	cmd := exec.Command(binaryPath, "key", "show", "--hide-private")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to read attestor pubkey: %v: %s", err, stderr.String())
+	}
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 // GetAttestationServiceClient returns an AttestationServiceClient for the attestor.

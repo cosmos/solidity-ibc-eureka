@@ -6,9 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"net/rpc"
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -70,7 +68,7 @@ type IbcAttestorTestSuite struct {
 	SimdRelayerSubmitter ibc.Wallet
 	EthRelayerSubmitter  *ecdsa.PrivateKey
 
-	AttestorClient *rpc.Client
+	AttestorClient attestortypes.AttestationServiceClient
 }
 
 // TestWithIbcAttestorTestSuite is the boilerplate code that allows the test suite to be run
@@ -80,7 +78,7 @@ func TestWithIbcAttestorTestSuite(t *testing.T) {
 
 // SetupSuite calls the underlying IbcAttestorTestSuite's SetupSuite method
 // and deploys the IbcEureka contract
-func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType) {
+func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType, attestorType attestor.AttestorBinaryPath) {
 	s.TestSuite.SetupSuite(ctx)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -154,6 +152,36 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 		s.Require().NoError(err)
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), eth.RPCClient)
 		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Setup attestor", func() {
+		config := attestor.DefaultAttestorConfig()
+
+		config.OP.URL = s.EthChain.RPC
+
+		err := config.WriteTomlConfig(testvalues.AttestorConfigPath)
+		s.Require().NoError(err)
+		s.T().Cleanup(func() {
+			err := attestor.CleanupConfig(testvalues.AttestorConfigPath)
+			s.Require().NoError(err)
+		})
+
+		cmd, err := attestor.StartAttestor(testvalues.AttestorConfigPath, attestorType)
+		s.Require().NoError(err)
+		s.T().Cleanup(func() {
+			if cmd != nil {
+				cmd.Kill()
+			}
+		})
+		client, err := attestor.GetAttestationServiceClient(config.GetServerAddress())
+		s.Require().NoError(err)
+
+		resp, err := attestor.GetStateAttestation(ctx, client, 1)
+		s.Require().NoError(err)
+
+		s.T().Logf("state sig %s", resp.GetAttestation().GetSignature())
+
+		s.AttestorClient = client
 	}))
 
 	var relayerProcess *os.Process
@@ -258,13 +286,15 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 		s.Require().NotEmpty(checksumHex)
 
 		var createClientTxBodyBz []byte
+		attestorPubkey, err := attestor.ReadAttestorPubKey(attestor.OptimismBinary)
+		s.Require().NoError(err)
 		s.Require().True(s.Run("Retrieve create client tx", func() {
 			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
 				SrcChain: eth.ChainID.String(),
 				DstChain: simd.Config().ChainID,
 				Parameters: map[string]string{
 					testvalues.ParameterKey_ChecksumHex:     checksumHex,
-					testvalues.ParameterKey_Pubkeys:         hex.EncodeToString(crypto.CompressPubkey(&s.key.PublicKey)),
+					testvalues.ParameterKey_Pubkeys:         attestorPubkey,
 					testvalues.ParameterKey_MinRequiredSigs: "1",
 					testvalues.ParameterKey_height:          "0",
 					testvalues.ParameterKey_timestamp:       "123456789",
@@ -277,7 +307,7 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 			createClientTxBodyBz = resp.Tx
 		}))
 
-		err := s.wasmFixtureGenerator.AddInitialStateStep(createClientTxBodyBz)
+		err = s.wasmFixtureGenerator.AddInitialStateStep(createClientTxBodyBz)
 		s.Require().NoError(err)
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
@@ -362,8 +392,8 @@ func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPa
 		cmd, err := attestor.StartAttestor(testvalues.AttestorConfigPath, binaryPath)
 		s.Require().NoError(err)
 		s.T().Cleanup(func() {
-			if cmd.Process != nil {
-				cmd.Process.Kill()
+			if cmd != nil {
+				cmd.Kill()
 			}
 		})
 		client, err := attestor.GetAttestationServiceClient(config.GetServerAddress())
@@ -385,35 +415,7 @@ func (s *IbcAttestorTestSuite) Test_OptimismAttestorAttestsToLocalNode() {
 }
 
 func (s *IbcAttestorTestSuite) AttestorAttestsToLocalNode(ctx context.Context, proofType types.SupportedProofType, binaryPath attestor.AttestorBinaryPath) {
-	s.SetupSuite(ctx, proofType)
-
-	s.Require().True(s.Run("Setup attestor", func() {
-		config := attestor.DefaultAttestorConfig()
-
-		config.OP.URL = s.EthChain.RPC
-
-		err := config.WriteTomlConfig(testvalues.AttestorConfigPath)
-		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			err := attestor.CleanupConfig(testvalues.AttestorConfigPath)
-			s.Require().NoError(err)
-		})
-
-		cmd, err := attestor.StartAttestor(testvalues.AttestorConfigPath, binaryPath)
-		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			if cmd.Process != nil {
-				cmd.Process.Kill()
-			}
-		})
-		client, err := attestor.GetAttestationServiceClient(config.GetServerAddress())
-		s.Require().NoError(err)
-
-		resp, err := attestor.GetStateAttestation(ctx, client, 1)
-		s.Require().NoError(err)
-
-		s.T().Logf("state sig %s", resp.GetAttestation().GetSignature())
-	}))
+	s.SetupSuite(ctx, proofType, binaryPath)
 
 }
 
@@ -426,40 +428,9 @@ func (s *IbcAttestorTestSuite) Test_OptimismAttestToICS20PacketsOnEth() {
 // ICS20TransferNativeCosmosCoinsToEthereumAndBackTest tests the ICS20 transfer functionality
 // by transferring native coins from a Cosmos chain to Ethereum and back
 func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumNoReturn(ctx context.Context, pt types.SupportedProofType, transferAmount *big.Int, binaryPath attestor.AttestorBinaryPath) {
-	s.SetupSuite(ctx, pt)
+	s.SetupSuite(ctx, pt, binaryPath)
 
 	numOfTransfers := 1
-
-	var attesterService attestortypes.AttestationServiceClient
-	var attestorProcess *exec.Cmd
-	s.Require().True(s.Run("Setup attestor", func() {
-		attestorConfig := attestor.DefaultAttestorConfig()
-
-		attestorConfig.OP.URL = s.EthChain.RPC
-		attestorConfig.OP.RouterAddress = s.contractAddresses.Ics26Router
-
-		err := attestorConfig.WriteTomlConfig(testvalues.AttestorConfigPath)
-		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			err := attestor.CleanupConfig(testvalues.AttestorConfigPath)
-			s.Require().NoError(err)
-		})
-
-		attestorProcess, err = attestor.StartAttestor(testvalues.AttestorConfigPath, binaryPath)
-		s.Require().NoError(err)
-		attesterService, err = attestor.GetAttestationServiceClient(attestorConfig.GetServerAddress())
-		s.Require().NoError(err)
-
-		resp, err := attestor.GetStateAttestation(ctx, attesterService, 1)
-		s.Require().NoError(err)
-
-		s.T().Logf("state sig %s", resp.GetAttestation().GetSignature())
-	}))
-	s.T().Cleanup(func() {
-		if attestorProcess.Process != nil {
-			attestorProcess.Process.Kill()
-		}
-	})
 
 	eth := s.EthChain
 
@@ -551,14 +522,14 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 	}))
 
 	s.True(s.Run("Attest to packets", func() {
-		_, err = attestor.GetStateAttestation(ctx, attesterService, blockHeightOfTransfer)
+		_, err = attestor.GetStateAttestation(ctx, s.AttestorClient, blockHeightOfTransfer)
 		s.Require().NoError(err)
 
 		encoded, err := types.AbiEncodePacket(sendPacket)
 		s.Require().NoError(err)
 
 		packet_to_arr := [][]byte{encoded}
-		att, err := attestor.GetPacketAttestation(ctx, attesterService, packet_to_arr, blockHeightOfTransfer)
+		att, err := attestor.GetPacketAttestation(ctx, s.AttestorClient, packet_to_arr, blockHeightOfTransfer)
 		s.Require().NoError(err)
 
 		s.True(att.Attestation.GetHeight() == blockHeightOfTransfer)
