@@ -61,15 +61,6 @@ func (g *TendermintLightClientFixtureGenerator) initializeSubmodules(s *suite.Su
 	g.membershipGenerator = tendermint_light_client_fixtures.NewMembershipFixtureGenerator(g.Enabled, g.FixtureDir, s)
 }
 
-// Core Interface Implementation
-
-func (g *TendermintLightClientFixtureGenerator) IsEnabled() bool {
-	return g.Enabled
-}
-
-func (g *TendermintLightClientFixtureGenerator) GetFixtureDir() string {
-	return g.FixtureDir
-}
 
 // Public API - Main Fixture Generation Methods
 
