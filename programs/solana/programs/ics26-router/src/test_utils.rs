@@ -39,8 +39,7 @@ pub fn setup_client(
         client_program_id: light_client_program,
         counterparty_info: CounterpartyInfo {
             client_id: counterparty_client_id.to_string(),
-            connection_id: "connection-0".to_string(),
-            merkle_prefix: vec![0x01, 0x02, 0x03],
+            merkle_prefix: vec![vec![0x01, 0x02, 0x03]],
         },
         authority,
         active,

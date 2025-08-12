@@ -91,10 +91,6 @@ pub fn add_client(
     // If it exists, the init will fail with "account already in use" error
 
     require!(
-        !counterparty_info.connection_id.is_empty(),
-        RouterError::InvalidCounterpartyInfo
-    );
-    require!(
         !counterparty_info.merkle_prefix.is_empty(),
         RouterError::InvalidCounterpartyInfo
     );
@@ -234,8 +230,7 @@ mod tests {
         fn valid_counterparty_info() -> CounterpartyInfo {
             CounterpartyInfo {
                 client_id: "counterparty-client".to_string(),
-                connection_id: "connection-0".to_string(),
-                merkle_prefix: vec![0x01, 0x02, 0x03],
+                merkle_prefix: vec![vec![0x01, 0x02, 0x03]],
             }
         }
     }
@@ -310,8 +305,7 @@ mod tests {
         let client_id = "test-client-01";
         let counterparty_info = CounterpartyInfo {
             client_id: "counterparty-client".to_string(),
-            connection_id: "connection-0".to_string(),
-            merkle_prefix: vec![0x01, 0x02, 0x03],
+            merkle_prefix: vec![vec![0x01, 0x02, 0x03]],
         };
 
         let result = test_add_client(AddClientTestConfig {
@@ -379,10 +373,6 @@ mod tests {
             counterparty_info.client_id
         );
         assert_eq!(
-            deserialized_client.counterparty_info.connection_id,
-            counterparty_info.connection_id
-        );
-        assert_eq!(
             deserialized_client.counterparty_info.merkle_prefix,
             counterparty_info.merkle_prefix
         );
@@ -442,25 +432,11 @@ mod tests {
     }
 
     #[test]
-    fn test_add_client_invalid_counterparty_info_empty_connection() {
-        test_add_client(AddClientTestConfig::with_counterparty_info(
-            "test-client-03",
-            CounterpartyInfo {
-                client_id: "counterparty-client".to_string(),
-                connection_id: String::new(), // Invalid: empty
-                merkle_prefix: vec![0x01, 0x02, 0x03],
-            },
-            RouterError::InvalidCounterpartyInfo,
-        ));
-    }
-
-    #[test]
     fn test_add_client_invalid_counterparty_info_empty_merkle_prefix() {
         test_add_client(AddClientTestConfig::with_counterparty_info(
             "test-client-04",
             CounterpartyInfo {
                 client_id: "counterparty-client".to_string(),
-                connection_id: "connection-0".to_string(),
                 merkle_prefix: vec![], // Invalid: empty
             },
             RouterError::InvalidCounterpartyInfo,
