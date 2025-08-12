@@ -434,11 +434,8 @@ type CounterpartyInfo struct {
 	// Client ID on the counterparty chain
 	ClientId string `json:"clientId"`
 
-	// Connection ID on the counterparty chain
-	ConnectionId string `json:"connectionId"`
-
 	// Merkle prefix for proof verification
-	MerklePrefix []byte `json:"merklePrefix"`
+	MerklePrefix [][]byte `json:"merklePrefix"`
 }
 
 func (obj CounterpartyInfo) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -446,11 +443,6 @@ func (obj CounterpartyInfo) MarshalWithEncoder(encoder *binary.Encoder) (err err
 	err = encoder.Encode(obj.ClientId)
 	if err != nil {
 		return errors.NewField("ClientId", err)
-	}
-	// Serialize `ConnectionId`:
-	err = encoder.Encode(obj.ConnectionId)
-	if err != nil {
-		return errors.NewField("ConnectionId", err)
 	}
 	// Serialize `MerklePrefix`:
 	err = encoder.Encode(obj.MerklePrefix)
@@ -475,11 +467,6 @@ func (obj *CounterpartyInfo) UnmarshalWithDecoder(decoder *binary.Decoder) (err 
 	err = decoder.Decode(&obj.ClientId)
 	if err != nil {
 		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `ConnectionId`:
-	err = decoder.Decode(&obj.ConnectionId)
-	if err != nil {
-		return errors.NewField("ConnectionId", err)
 	}
 	// Deserialize `MerklePrefix`:
 	err = decoder.Decode(&obj.MerklePrefix)
