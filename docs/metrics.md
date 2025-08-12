@@ -93,7 +93,7 @@ Bad examples:
 
 - Never expose sensitive data
   - No private keys, passwords, or internal IPs in metrics
-- Always use seconds for time** - Not milliseconds, not minutes. Seconds.
+- Always use seconds for time - Not milliseconds, not minutes. Seconds.
 - Counters only go up
   - Never reset a counter to zero. Let Prometheus handle resets.
 - One metric, one meaning
