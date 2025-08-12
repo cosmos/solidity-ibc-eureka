@@ -175,63 +175,31 @@ pub fn execute_update_client(
 
 /// Helper for tests expecting success
 pub fn assert_update_success(ctx: &TestContext, scenario_name: &str) {
-    match execute_update_client(ctx) {
-        Ok(output) => {
-            println!("✅ Update client succeeded for {}", scenario_name);
-            println!("   New height: {:?}", output.latest_height);
-            println!("   Trusted height: {:?}", output.trusted_height);
-            assert!(
-                output.latest_height.revision_height() > output.trusted_height.revision_height(),
-                "New height should be greater than trusted height"
-            );
-        }
-        Err(e) => {
-            panic!(
-                "❌ Expected success but failed for {}: {:?}",
-                scenario_name, e
-            );
-        }
-    }
+    let output = execute_update_client(ctx).expect(&format!(
+        "Expected success but failed for {}",
+        scenario_name
+    ));
+
+    assert!(
+        output.latest_height.revision_height() > output.trusted_height.revision_height(),
+        "New height should be greater than trusted height"
+    );
 }
 
 /// Helper for tests expecting failure
 pub fn assert_update_failure(ctx: &TestContext, scenario_name: &str) {
-    match execute_update_client(ctx) {
-        Ok(_) => {
-            panic!("❌ Expected failure but succeeded for {}", scenario_name);
-        }
-        Err(e) => {
-            println!(
-                "✅ Update client correctly failed for {} with: {:?}",
-                scenario_name, e
-            );
-        }
-    }
+    execute_update_client(ctx).expect_err(&format!(
+        "Expected failure but succeeded for {}",
+        scenario_name
+    ));
 }
 
 /// Helper for malformed message test with specific error handling
 pub fn assert_malformed_failure(ctx: &TestContext, scenario_name: &str) {
-    match execute_update_client(ctx) {
-        Ok(_) => {
-            panic!(
-                "❌ Malformed message test should have failed but succeeded for {}",
-                scenario_name
-            );
-        }
-        Err(UpdateClientError::HeaderVerificationFailed) => {
-            println!(
-                "✅ Update client correctly failed with HeaderVerificationFailed for {}",
-                scenario_name
-            );
-        }
-        Err(e) => {
-            println!(
-                "✅ Update client failed for {} with: {:?}",
-                scenario_name, e
-            );
-            // Other errors are also acceptable for malformed messages
-        }
-    }
+    execute_update_client(ctx).expect_err(&format!(
+        "Malformed message test should have failed but succeeded for {}",
+        scenario_name
+    ));
 }
 
 /// Load the happy path fixture

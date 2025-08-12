@@ -39,17 +39,12 @@ fn test_verify_non_membership_wrong_app_hash() {
     // Use a completely different app hash
     ctx.app_hash = [0xFF; 32];
 
-    match execute_membership(&ctx) {
-        Ok(()) => {
-            panic!("❌ Non-membership verification should have failed with wrong app hash");
-        }
-        Err(MembershipError::NonMembershipVerificationFailed) => {
-            println!("✅ Non-membership verification correctly failed with wrong app hash");
-        }
-        Err(e) => {
-            panic!("❌ Unexpected error type: {:?}", e);
-        }
-    }
+    let error = execute_membership(&ctx)
+        .expect_err("Non-membership verification should have failed with wrong app hash");
+    assert!(matches!(
+        error,
+        MembershipError::NonMembershipVerificationFailed
+    ));
 }
 
 #[test]
@@ -85,16 +80,8 @@ fn test_verify_multiple_kv_pairs() {
         ),
     ];
 
-    let result = membership(membership_ctx.app_hash, &request);
-
-    match result {
-        Ok(()) => {
-            println!("✅ Multiple KV pairs verification succeeded");
-        }
-        Err(e) => {
-            panic!("❌ Multiple KV pairs verification failed: {:?}", e);
-        }
-    }
+    membership(membership_ctx.app_hash, &request)
+        .expect("Multiple KV pairs verification should succeed");
 }
 
 #[test]

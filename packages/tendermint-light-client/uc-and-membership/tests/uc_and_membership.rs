@@ -23,26 +23,17 @@ fn test_uc_and_membership_happy_path_with_empty_membership() {
     );
 
     // This should succeed - update client validation passes, empty membership is valid
-    match result {
-        Ok(output) => {
-            assert!(
-                output.update_output.latest_height.revision_height()
-                    > output.update_output.trusted_height.revision_height(),
-                "New height should be greater than trusted height"
-            );
-            assert_eq!(
-                output.update_output.latest_height.revision_number(),
-                output.update_output.trusted_height.revision_number(),
-                "Revision number should remain consistent"
-            );
-        }
-        Err(e) => {
-            panic!(
-                "❌ Happy path with empty membership should succeed: {:?}",
-                e
-            );
-        }
-    }
+    let output = result.expect("Happy path with empty membership should succeed");
+    assert!(
+        output.update_output.latest_height.revision_height()
+            > output.update_output.trusted_height.revision_height(),
+        "New height should be greater than trusted height"
+    );
+    assert_eq!(
+        output.update_output.latest_height.revision_number(),
+        output.update_output.trusted_height.revision_number(),
+        "Revision number should remain consistent"
+    );
 }
 
 #[test]
@@ -101,7 +92,7 @@ fn test_uc_and_membership_multiple_kv_pairs() {
         &request,
     );
 
-    // Since we're combining fixtures with different app hashes, expect membership failure
+    // Since we're combining fixtures with different app hashes, expect membership failure or success
     match result {
         Ok(output) => {
             // If it succeeds, validate the output
@@ -116,12 +107,7 @@ fn test_uc_and_membership_multiple_kv_pairs() {
         )) => {
             // Expected - app hash mismatch between fixtures
         }
-        Err(e) => {
-            panic!(
-                "❌ Unexpected error type for multiple KV pairs test: {:?}",
-                e
-            );
-        }
+        Err(e) => panic!("Unexpected error type for multiple KV pairs test: {:?}", e),
     }
 }
 
@@ -158,9 +144,7 @@ fn test_uc_and_membership_empty_request() {
         Err(tendermint_light_client_uc_and_membership::UcAndMembershipError::UpdateClient(_)) => {
             // Update client failure is acceptable for this test
         }
-        Err(e) => {
-            panic!("❌ Unexpected error for empty membership request: {:?}", e);
-        }
+        Err(e) => panic!("Unexpected error for empty membership request: {:?}", e),
     }
 }
 
@@ -181,27 +165,22 @@ fn test_uc_and_membership_sequence_validation() {
         ctx.current_time,
     );
 
-    if uc_result.is_err() {
-        panic!("❌ Expected update client to succeed");
-    }
+    uc_result.expect("Expected update client to succeed");
 
     // Now test the combined operation - should fail at membership step
-    match execute_uc_and_membership(&ctx) {
-        Ok(_) => {
-            panic!("❌ Expected failure due to invalid membership");
-        }
-        Err(UcAndMembershipError::Membership(
-            tendermint_light_client_membership::MembershipError::MembershipVerificationFailed,
-        )) => {
-            // Expected - membership validation should fail after update client succeeds
-        }
-        Err(e) => {
-            panic!(
-                "❌ Expected Membership::MembershipVerificationFailed but got: {:?}",
-                e
-            );
-        }
-    }
+    let error =
+        execute_uc_and_membership(&ctx).expect_err("Expected failure due to invalid membership");
+
+    assert!(
+        matches!(
+            error,
+            UcAndMembershipError::Membership(
+                tendermint_light_client_membership::MembershipError::MembershipVerificationFailed,
+            )
+        ),
+        "Expected Membership::MembershipVerificationFailed but got: {:?}",
+        error
+    );
 }
 
 #[test]
@@ -210,22 +189,19 @@ fn test_uc_and_membership_update_client_error_type() {
     let expired_fixture = load_combined_expired_header_fixture();
     let ctx = setup_test_context(expired_fixture);
 
-    match execute_uc_and_membership(&ctx) {
-        Err(UcAndMembershipError::UpdateClient(
-            tendermint_light_client_update_client::UpdateClientError::HeaderVerificationFailed,
-        )) => {
-            // Expected - expired header should fail with HeaderVerificationFailed
-        }
-        Err(e) => {
-            panic!(
-                "❌ Expected UpdateClient::HeaderVerificationFailed but got: {:?}",
-                e
-            );
-        }
-        Ok(_) => {
-            panic!("❌ Expected UpdateClient error but succeeded");
-        }
-    }
+    let error =
+        execute_uc_and_membership(&ctx).expect_err("Expected UpdateClient error but succeeded");
+
+    assert!(
+        matches!(
+            error,
+            UcAndMembershipError::UpdateClient(
+                tendermint_light_client_update_client::UpdateClientError::HeaderVerificationFailed,
+            )
+        ),
+        "Expected UpdateClient::HeaderVerificationFailed but got: {:?}",
+        error
+    );
 }
 
 #[test]
@@ -247,20 +223,17 @@ fn test_uc_and_membership_membership_error_type() {
         return;
     }
 
-    match execute_uc_and_membership(&ctx) {
-        Err(UcAndMembershipError::Membership(
-            tendermint_light_client_membership::MembershipError::MembershipVerificationFailed,
-        )) => {
-            // Expected - empty proof should fail with MembershipVerificationFailed
-        }
-        Err(e) => {
-            panic!(
-                "❌ Expected Membership::MembershipVerificationFailed but got: {:?}",
-                e
-            );
-        }
-        Ok(_) => {
-            panic!("❌ Expected Membership error but succeeded");
-        }
-    }
+    let error =
+        execute_uc_and_membership(&ctx).expect_err("Expected Membership error but succeeded");
+
+    assert!(
+        matches!(
+            error,
+            UcAndMembershipError::Membership(
+                tendermint_light_client_membership::MembershipError::MembershipVerificationFailed,
+            )
+        ),
+        "Expected Membership::MembershipVerificationFailed but got: {:?}",
+        error
+    );
 }

@@ -107,55 +107,26 @@ pub fn assert_membership_fails_with(
     expected_error: MembershipError,
     test_description: &str,
 ) {
-    match execute_membership(ctx) {
-        Ok(()) => {
-            panic!(
-                "❌ Membership verification should have failed for: {}",
-                test_description
-            );
-        }
-        Err(actual_error) => match (expected_error, actual_error) {
-            (
-                MembershipError::MembershipVerificationFailed,
-                MembershipError::MembershipVerificationFailed,
-            ) => {
-                println!(
-                    "✅ Membership verification correctly failed: {}",
-                    test_description
-                );
-            }
-            (
-                MembershipError::NonMembershipVerificationFailed,
-                MembershipError::NonMembershipVerificationFailed,
-            ) => {
-                println!(
-                    "✅ Non-membership verification correctly failed: {}",
-                    test_description
-                );
-            }
-            (expected, actual) => {
-                panic!(
-                    "❌ Expected {:?} but got {:?} for: {}",
-                    expected, actual, test_description
-                );
-            }
-        },
-    }
+    let actual_error = execute_membership(ctx).expect_err(&format!(
+        "Membership verification should have failed for: {}",
+        test_description
+    ));
+
+    assert!(
+        std::mem::discriminant(&expected_error) == std::mem::discriminant(&actual_error),
+        "Expected {:?} but got {:?} for: {}",
+        expected_error,
+        actual_error,
+        test_description
+    );
 }
 
 /// Helper to assert that membership verification should succeed
 pub fn assert_membership_succeeds(ctx: &TestContext, test_description: &str) {
-    match execute_membership(ctx) {
-        Ok(()) => {
-            println!("✅ Membership verification succeeded: {}", test_description);
-        }
-        Err(e) => {
-            panic!(
-                "❌ Membership verification failed for {}: {:?}",
-                test_description, e
-            );
-        }
-    }
+    execute_membership(ctx).expect(&format!(
+        "Membership verification failed for {}",
+        test_description
+    ));
 }
 
 /// Helper to create a test context with wrong app hash
