@@ -130,6 +130,8 @@ const (
 	ParameterKey_ChecksumHex = "checksum_hex"
 	// The tmp path used for programatically generated attestor configs
 	AttestorConfigPath = "/tmp/attestor.toml"
+	// The RPC endpoint for the aggregator service
+	AggregatorRpcPath = "http://localhost:8080"
 )
 
 var (

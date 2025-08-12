@@ -158,30 +158,23 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
-		beaconAPI := ""
-		// The BeaconAPIClient is nil when the testnet is `pow`
-		if eth.BeaconAPIClient != nil {
-			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
-		}
-
 		sp1Config := relayer.SP1ProverConfig{
 			Type:           prover,
 			PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
 		}
-
-		config := relayer.NewConfig(relayer.CreateEthCosmosModules(
-			relayer.EthCosmosConfigInfo{
-				EthChainID:     eth.ChainID.String(),
-				CosmosChainID:  simd.Config().ChainID,
-				TmRPC:          simd.GetHostRPCAddress(),
-				ICS26Address:   s.contractAddresses.Ics26Router,
-				EthRPC:         eth.RPC,
-				BeaconAPI:      beaconAPI,
-				SP1Config:      sp1Config,
-				SignerAddress:  s.SimdRelayerSubmitter.FormattedAddress(),
-				MockWasmClient: os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+		config := relayer.NewConfig(relayer.CreateAttestedToCosmosModules(
+			relayer.AttestedToCosmosConfigInfo{
+				AttestedChainID:     eth.ChainID.String(),
+				AggregatorUrl:       testvalues.AggregatorRpcPath,
+				AttestedRpcUrl:      eth.RPC,
+				Ics26Address:        s.contractAddresses.Ics26Router,
+				TmRpcUrl:            simd.GetHostRPCAddress(),
+				CosmosSignerAddress: s.SimdRelayerSubmitter.FormattedAddress(),
+				CosmosChainID:       simd.Config().ChainID,
+				SP1Config:           sp1Config,
 			}),
 		)
+		s.T().Logf("relayer config %v", config)
 
 		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
@@ -271,6 +264,10 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 				DstChain: simd.Config().ChainID,
 				Parameters: map[string]string{
 					testvalues.ParameterKey_ChecksumHex: checksumHex,
+					"pub_keys":                          hex.EncodeToString(crypto.CompressPubkey(&s.key.PublicKey)),
+					"min_required_sigs":                 "1",
+					"height":                            "0",
+					"timestamp":                         "123456789",
 				},
 			})
 			s.Require().NoError(err)
