@@ -8,25 +8,20 @@ use tendermint_light_client_membership::{membership, MembershipError};
 #[test]
 fn test_verify_membership_happy_path() {
     let fixture = load_membership_fixture_data();
-
     let ctx = setup_test_context(fixture);
-
     assert_membership_succeeds(&ctx, "membership happy path");
 }
 
 #[test]
 fn test_verify_non_membership_happy_path() {
     let fixture = load_non_membership_fixture_data();
-
     let ctx = setup_test_context(fixture);
-
     assert_membership_succeeds(&ctx, "membership happy path");
 }
 
 #[test]
 fn test_verify_membership_wrong_app_hash() {
     let fixture = load_membership_fixture_data();
-
     let ctx = create_context_with_wrong_app_hash(fixture);
 
     assert_membership_fails_with(
@@ -39,7 +34,6 @@ fn test_verify_membership_wrong_app_hash() {
 #[test]
 fn test_verify_non_membership_wrong_app_hash() {
     let fixture = load_non_membership_fixture_data();
-
     let mut ctx = setup_test_context(fixture);
 
     // Use a completely different app hash
@@ -62,9 +56,7 @@ fn test_verify_non_membership_wrong_app_hash() {
 fn test_verify_membership_with_non_membership_proof() {
     let membership_fixture = load_membership_fixture_data();
     let non_membership_fixture = load_non_membership_fixture_data();
-
     let ctx = setup_test_context(membership_fixture);
-
     let ctx = create_context_with_different_proof(ctx, non_membership_fixture);
     assert_membership_fails_with(
         &ctx,
@@ -78,9 +70,7 @@ fn test_verify_multiple_kv_pairs() {
     // Test verifying multiple key-value pairs in a single call
     let membership_fixture = load_membership_fixture_data();
     let non_membership_fixture = load_non_membership_fixture_data();
-
     let membership_ctx = setup_test_context(membership_fixture);
-
     let non_membership_ctx = setup_test_context(non_membership_fixture);
 
     // Create a request with both membership and non-membership proofs
@@ -115,9 +105,7 @@ fn test_verify_multiple_kv_pairs() {
 #[test]
 fn test_verify_membership_empty_proof() {
     let fixture = load_membership_fixture_data();
-
     let ctx = create_context_with_empty_proof(fixture);
-
     assert_membership_fails_with(
         &ctx,
         MembershipError::MembershipVerificationFailed,
@@ -128,10 +116,8 @@ fn test_verify_membership_empty_proof() {
 #[test]
 fn test_verify_membership_mismatched_path() {
     let fixture = load_membership_fixture_data();
-
     let ctx =
         create_context_with_mismatched_path(fixture, vec![b"different".to_vec(), b"path".to_vec()]);
-
     assert_membership_fails_with(
         &ctx,
         MembershipError::MembershipVerificationFailed,
@@ -141,10 +127,8 @@ fn test_verify_membership_mismatched_path() {
 
 #[test]
 fn test_verify_membership_tampered_value() {
-    let fixture = load_membership_fixture_data();
-
+    let fixture: MembershipVerificationFixture = load_membership_fixture_data();
     let ctx = create_context_with_tampered_value(fixture);
-
     assert_membership_fails_with(
         &ctx,
         MembershipError::MembershipVerificationFailed,
@@ -155,9 +139,7 @@ fn test_verify_membership_tampered_value() {
 #[test]
 fn test_verify_membership_as_non_membership() {
     let fixture = load_membership_fixture_data();
-
     let ctx = create_context_membership_as_non_membership(fixture);
-
     assert_membership_fails_with(
         &ctx,
         MembershipError::NonMembershipVerificationFailed,
@@ -168,9 +150,7 @@ fn test_verify_membership_as_non_membership() {
 #[test]
 fn test_verify_membership_malformed_proof() {
     let fixture = load_membership_fixture_data();
-
     let ctx = create_context_with_malformed_proof(fixture);
-
     assert_membership_fails_with(
         &ctx,
         MembershipError::MembershipVerificationFailed,
