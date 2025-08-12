@@ -462,7 +462,7 @@ func (g *UpdateClientFixtureGenerator) createUpdateClientFixture(
 		"client_state":            clientState,
 		"trusted_consensus_state": consensusState,
 		"update_client_message":   updateMessage,
-		"metadata":                g.createUnifiedMetadata(scenario, chainID),
+		"metadata":                g.createMetadata(fmt.Sprintf("Tendermint light client fixture for scenario: %s", scenario)),
 	}
 }
 
@@ -540,7 +540,7 @@ func (g *UpdateClientFixtureGenerator) convertConsensusStateToFixtureFormat(tmCo
 	}
 }
 
-// Metadata creation methods
+// Metadata creation
 
 func (g *UpdateClientFixtureGenerator) createMetadata(description string) map[string]interface{} {
 	return map[string]interface{}{
@@ -548,11 +548,4 @@ func (g *UpdateClientFixtureGenerator) createMetadata(description string) map[st
 		"source":       "local_cosmos_chain",
 		"description":  description,
 	}
-}
-
-func (g *UpdateClientFixtureGenerator) createUnifiedMetadata(scenarioName, chainID string) map[string]interface{} {
-	metadata := g.createMetadata(fmt.Sprintf("Unified tendermint light client fixture for scenario: %s", scenarioName))
-	metadata["scenario"] = scenarioName
-	metadata["chain_id"] = chainID
-	return metadata
 }

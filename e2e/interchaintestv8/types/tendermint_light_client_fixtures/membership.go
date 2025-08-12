@@ -300,7 +300,6 @@ func (g *MembershipFixtureGenerator) saveFixture(
 		membershipMsg,
 		proofCtx,
 		proofType,
-		chain.Config().ChainID,
 	)
 
 	filename := filepath.Join(g.fixtureDir,
@@ -359,7 +358,6 @@ func (g *MembershipFixtureGenerator) assembleFixture(
 	membershipMsg map[string]interface{},
 	proofCtx *ProofContext,
 	proofType string,
-	chainID string,
 ) map[string]interface{} {
 	return map[string]interface{}{
 		"scenario":        scenarioName,
@@ -372,7 +370,7 @@ func (g *MembershipFixtureGenerator) assembleFixture(
 			"description": fmt.Sprintf("IBC key: %s (%s)", proofCtx.KeyPath, proofType),
 			"proof_type":  proofType,
 		},
-		"metadata": g.createUnifiedMetadata(scenarioName, chainID),
+		"metadata": g.createMetadata(fmt.Sprintf("Tendermint light client fixture for scenario: %s", scenarioName)),
 	}
 }
 
@@ -404,21 +402,6 @@ func (g *MembershipFixtureGenerator) queryTendermintClientState(ctx context.Cont
 	return &tmClientState
 }
 
-func (g *MembershipFixtureGenerator) queryTendermintConsensusState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ConsensusState {
-	resp, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, chainA, &clienttypes.QueryConsensusStateRequest{
-		ClientId:     clientId,
-		LatestHeight: true,
-	})
-	g.suite.Require().NoError(err)
-	g.suite.Require().NotNil(resp.ConsensusState)
-
-	var tmConsensusState ibctmtypes.ConsensusState
-	err = proto.Unmarshal(resp.ConsensusState.Value, &tmConsensusState)
-	g.suite.Require().NoError(err)
-
-	return &tmConsensusState
-}
-
 // Conversion methods
 
 func (g *MembershipFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState, chainID string) map[string]interface{} {
@@ -435,16 +418,7 @@ func (g *MembershipFixtureGenerator) convertClientStateToFixtureFormat(tmClientS
 	}
 }
 
-func (g *MembershipFixtureGenerator) convertConsensusStateToFixtureFormat(tmConsensusState *ibctmtypes.ConsensusState, chainID string) map[string]interface{} {
-	return map[string]interface{}{
-		"timestamp":            tmConsensusState.Timestamp.UnixNano(),
-		"root":                 hex.EncodeToString(tmConsensusState.Root.GetHash()),
-		"next_validators_hash": hex.EncodeToString(tmConsensusState.NextValidatorsHash),
-		"metadata":             g.createMetadata(fmt.Sprintf("Consensus state captured from %s", chainID)),
-	}
-}
-
-// Metadata creation methods
+// Metadata creation
 
 func (g *MembershipFixtureGenerator) createMetadata(description string) map[string]interface{} {
 	return map[string]interface{}{
@@ -452,11 +426,4 @@ func (g *MembershipFixtureGenerator) createMetadata(description string) map[stri
 		"source":       "local_cosmos_chain",
 		"description":  description,
 	}
-}
-
-func (g *MembershipFixtureGenerator) createUnifiedMetadata(scenarioName, chainID string) map[string]interface{} {
-	metadata := g.createMetadata(fmt.Sprintf("Unified tendermint light client fixture for scenario: %s", scenarioName))
-	metadata["scenario"] = scenarioName
-	metadata["chain_id"] = chainID
-	return metadata
 }
