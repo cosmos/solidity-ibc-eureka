@@ -83,6 +83,7 @@ lint-go:
 	@echo "Linting the Go code..."
 	cd e2e/interchaintestv8 && golangci-lint run
 	cd packages/go-abigen && golangci-lint run
+	cd packages/go-anchor && golangci-lint run
 
 # Lint the Protobuf files using `buf lint`
 [group('lint')]
