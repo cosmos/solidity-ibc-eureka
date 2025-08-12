@@ -41,6 +41,11 @@ Minimum list of correlation fields
 - service_version: the deployed version of the code
 - span_id: when available
 
+## Logging errors
+
+It is important to only handle errors once. Errors can become overly distracting if they are handled multiple times (logging an error and returning an error both count as handling the error).
+Typically an error should be logged only when it is decided that the error will either be returned to the client (client here means an external api client, not returning to a calling function kind of client), or when it is decided that the error will be discarded (e.g. a goroutine that does not return errors to the parent function).
+
 ## Rules
 - Use structured logging (JSON) to stdout/stderr; avoid multiline messages.
 - Use OpenTelemetry semantic conventions where applicable and keep field names consistent across services.
