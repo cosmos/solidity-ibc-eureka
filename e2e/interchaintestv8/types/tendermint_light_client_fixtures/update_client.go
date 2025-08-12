@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -17,15 +19,21 @@ import (
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 )
 
 type UpdateClientFixtureGenerator struct {
-	generator FixtureGeneratorInterface
+	enabled    bool
+	fixtureDir string
+	suite      *suite.Suite
 }
 
-func NewUpdateClientFixtureGenerator(generator FixtureGeneratorInterface) *UpdateClientFixtureGenerator {
+func NewUpdateClientFixtureGenerator(enabled bool, fixtureDir string, s *suite.Suite) *UpdateClientFixtureGenerator {
 	return &UpdateClientFixtureGenerator{
-		generator: generator,
+		enabled:    enabled,
+		fixtureDir: fixtureDir,
+		suite:      s,
 	}
 }
 
@@ -34,15 +42,15 @@ func (g *UpdateClientFixtureGenerator) GenerateMultipleUpdateClientScenarios(
 	chain *cosmos.CosmosChain,
 	updateTxBodyBz []byte,
 ) {
-	if !g.generator.IsEnabled() {
+	if !g.enabled {
 		return
 	}
 
-	g.generator.LogInfo("🔧 Generating multiple update client scenarios")
+	g.suite.T().Log("🔧 Generating multiple update client scenarios")
 
 	msgUpdateClient := g.extractSingleUpdateClientMessageFromTransaction(updateTxBodyBz)
 	clientId := msgUpdateClient.ClientId
-	g.generator.LogInfof("📊 Found MsgUpdateClient for client: %s", clientId)
+	g.suite.T().Logf("📊 Found MsgUpdateClient for client: %s", clientId)
 
 	g.generateHappyPathScenarioFromRealTransaction(ctx, chain, msgUpdateClient.ClientMessage, clientId)
 	g.generateScenarioWithCorruptedSignature(ctx, chain, clientId)
@@ -51,19 +59,19 @@ func (g *UpdateClientFixtureGenerator) GenerateMultipleUpdateClientScenarios(
 	g.generateScenarioWithNonExistentTrustedHeight(ctx, chain, clientId)
 	g.generateScenarioWithUnparseableProtobuf()
 
-	g.generator.LogInfo("✅ Multiple update client scenarios generated successfully")
+	g.suite.T().Log("✅ Multiple update client scenarios generated successfully")
 }
 
 func (g *UpdateClientFixtureGenerator) extractSingleUpdateClientMessageFromTransaction(txBodyBz []byte) *clienttypes.MsgUpdateClient {
 	var txBody txtypes.TxBody
 	err := proto.Unmarshal(txBodyBz, &txBody)
-	g.generator.RequireNoError(err)
-	g.generator.RequireLen(txBody.Messages, 1, "Expected exactly one message in update client tx")
+	g.suite.Require().NoError(err)
+	g.suite.Require().Len(txBody.Messages, 1, "Expected exactly one message in update client tx")
 
 	var msgUpdateClient clienttypes.MsgUpdateClient
 	err = proto.Unmarshal(txBody.Messages[0].Value, &msgUpdateClient)
-	g.generator.RequireNoError(err)
-	g.generator.RequireNotNil(msgUpdateClient.ClientMessage)
+	g.suite.Require().NoError(err)
+	g.suite.Require().NotNil(msgUpdateClient.ClientMessage)
 
 	return &msgUpdateClient
 }
@@ -74,7 +82,7 @@ func (g *UpdateClientFixtureGenerator) generateHappyPathScenarioFromRealTransact
 	clientMessage *types.Any,
 	clientId string,
 ) {
-	g.generator.LogInfo("🔧 Generating happy path scenario")
+	g.suite.T().Log("🔧 Generating happy path scenario")
 
 	clientState := g.fetchAndFormatClientState(ctx, chain, clientId)
 	consensusState := g.fetchAndFormatConsensusState(ctx, chain, clientId)
@@ -96,7 +104,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithCorruptedSignature(
 	chain *cosmos.CosmosChain,
 	clientId string,
 ) {
-	g.generator.LogInfo("🔧 Generating malformed client message scenario")
+	g.suite.T().Log("🔧 Generating malformed client message scenario")
 
 	clientState := g.fetchAndFormatClientState(ctx, chain, clientId)
 	consensusState := g.fetchAndFormatConsensusState(ctx, chain, clientId)
@@ -126,9 +134,9 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithExpiredHeader(
 	chain *cosmos.CosmosChain,
 	clientId string,
 ) {
-	g.generator.LogInfo("🔧 Generating expired header scenario")
+	g.suite.T().Log("🔧 Generating expired header scenario")
 
-	tmClientState := g.generator.QueryTendermintClientState(ctx, chain, clientId)
+	tmClientState := g.queryTendermintClientState(ctx, chain, clientId)
 	clientState := g.fetchAndFormatClientState(ctx, chain, clientId)
 	consensusState := g.fetchAndFormatConsensusState(ctx, chain, clientId)
 
@@ -160,9 +168,9 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithFutureTimestamp(
 	chain *cosmos.CosmosChain,
 	clientId string,
 ) {
-	g.generator.LogInfo("🔧 Generating future timestamp scenario")
+	g.suite.T().Log("🔧 Generating future timestamp scenario")
 
-	tmClientState := g.generator.QueryTendermintClientState(ctx, chain, clientId)
+	tmClientState := g.queryTendermintClientState(ctx, chain, clientId)
 	clientState := g.fetchAndFormatClientState(ctx, chain, clientId)
 	consensusState := g.fetchAndFormatConsensusState(ctx, chain, clientId)
 
@@ -194,7 +202,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithNonExistentTrustedHei
 	chain *cosmos.CosmosChain,
 	clientId string,
 ) {
-	g.generator.LogInfo("🔧 Generating wrong trusted height scenario")
+	g.suite.T().Log("🔧 Generating wrong trusted height scenario")
 
 	clientState := g.fetchAndFormatClientState(ctx, chain, clientId)
 	consensusState := g.fetchAndFormatConsensusState(ctx, chain, clientId)
@@ -208,7 +216,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithNonExistentTrustedHei
 		"type_url":           "/ibc.lightclients.tendermint.v1.Header",
 		"trusted_height":     nonExistentHeight,
 		"new_height":         latestHeight + 1,
-		"metadata":           g.generator.CreateMetadata("Wrong trusted height - references non-existent consensus state"),
+		"metadata":           g.createMetadata("Wrong trusted height - references non-existent consensus state"),
 	}
 
 	fixture := g.createUpdateClientFixture(
@@ -223,7 +231,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithNonExistentTrustedHei
 }
 
 func (g *UpdateClientFixtureGenerator) generateScenarioWithUnparseableProtobuf() {
-	g.generator.LogInfo("🔧 Generating invalid protobuf scenario")
+	g.suite.T().Log("🔧 Generating invalid protobuf scenario")
 
 	invalidProtobufBytes := "FFFFFFFF"
 
@@ -232,7 +240,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithUnparseableProtobuf()
 		"type_url":           "/ibc.lightclients.tendermint.v1.Header",
 		"trusted_height":     19,
 		"new_height":         20,
-		"metadata":           g.generator.CreateMetadata("Invalid protobuf bytes - cannot be deserialized"),
+		"metadata":           g.createMetadata("Invalid protobuf bytes - cannot be deserialized"),
 	}
 
 	clientState := g.createDummyClientStateForTesting()
@@ -254,8 +262,8 @@ func (g *UpdateClientFixtureGenerator) fetchAndFormatClientState(
 	chain *cosmos.CosmosChain,
 	clientId string,
 ) map[string]interface{} {
-	tmClientState := g.generator.QueryTendermintClientState(ctx, chain, clientId)
-	return g.generator.ConvertClientStateToFixtureFormat(tmClientState, chain.Config().ChainID)
+	tmClientState := g.queryTendermintClientState(ctx, chain, clientId)
+	return g.convertClientStateToFixtureFormat(tmClientState, chain.Config().ChainID)
 }
 
 func (g *UpdateClientFixtureGenerator) fetchAndFormatConsensusState(
@@ -263,8 +271,8 @@ func (g *UpdateClientFixtureGenerator) fetchAndFormatConsensusState(
 	chain *cosmos.CosmosChain,
 	clientId string,
 ) map[string]interface{} {
-	tmConsensusState := g.generator.QueryTendermintConsensusState(ctx, chain, clientId)
-	return g.generator.ConvertConsensusStateToFixtureFormat(tmConsensusState, chain.Config().ChainID)
+	tmConsensusState := g.queryTendermintConsensusState(ctx, chain, clientId)
+	return g.convertConsensusStateToFixtureFormat(tmConsensusState, chain.Config().ChainID)
 }
 
 func (g *UpdateClientFixtureGenerator) formatClientMessageForFixture(clientMessage *types.Any) map[string]interface{} {
@@ -276,43 +284,43 @@ func (g *UpdateClientFixtureGenerator) formatClientMessageForFixture(clientMessa
 		"type_url":           clientMessage.TypeUrl,
 		"trusted_height":     tmHeader.TrustedHeight.RevisionHeight,
 		"new_height":         tmHeader.Header.Height,
-		"metadata":           g.generator.CreateMetadata("Protobuf-encoded Tendermint header for update client"),
+		"metadata":           g.createMetadata("Protobuf-encoded Tendermint header for update client"),
 	}
 }
 
 func (g *UpdateClientFixtureGenerator) parseAndValidateTendermintHeader(headerBytes []byte) *ibctmtypes.Header {
 	var tmHeader ibctmtypes.Header
 	err := proto.Unmarshal(headerBytes, &tmHeader)
-	g.generator.RequireNoError(err, "Failed to parse header for height extraction - fixture generation cannot continue")
+	g.suite.Require().NoError(err, "Failed to parse header for height extraction - fixture generation cannot continue")
 
 	trustedHeight := tmHeader.TrustedHeight.RevisionHeight
 	newHeight := tmHeader.Header.Height
 
-	g.generator.RequireGreater(newHeight, int64(0), "New height must be greater than 0")
-	g.generator.RequireGreater(trustedHeight, uint64(0), "Trusted height must be greater than 0")
-	g.generator.RequireGreater(newHeight, int64(trustedHeight), "New height must be greater than trusted height")
+	g.suite.Require().Greater(newHeight, int64(0), "New height must be greater than 0")
+	g.suite.Require().Greater(trustedHeight, uint64(0), "Trusted height must be greater than 0")
+	g.suite.Require().Greater(newHeight, int64(trustedHeight), "New height must be greater than trusted height")
 
 	return &tmHeader
 }
 
 func (g *UpdateClientFixtureGenerator) loadHexFromExistingHappyPathFixture() string {
-	happyPathFile := filepath.Join(g.generator.GetFixtureDir(), "update_client_happy_path.json")
-	g.generator.RequireFileExists(happyPathFile, "Happy path fixture must exist before generating malformed fixture")
+	happyPathFile := filepath.Join(g.fixtureDir, "update_client_happy_path.json")
+	g.suite.Require().FileExists(happyPathFile, "Happy path fixture must exist before generating malformed fixture")
 
-	g.generator.LogInfo("📖 Loading happy path fixture to create modified version")
+	g.suite.T().Log("📖 Loading happy path fixture to create modified version")
 
 	data, err := os.ReadFile(happyPathFile)
-	g.generator.RequireNoError(err, "Failed to read happy path fixture")
+	g.suite.Require().NoError(err, "Failed to read happy path fixture")
 
 	var fixture map[string]interface{}
 	err = json.Unmarshal(data, &fixture)
-	g.generator.RequireNoError(err, "Failed to parse happy path fixture JSON")
+	g.suite.Require().NoError(err, "Failed to parse happy path fixture JSON")
 
 	updateMessage, ok := fixture["update_client_message"].(map[string]interface{})
-	g.generator.RequireTrue(ok, "update_client_message not found in happy path fixture")
+	g.suite.Require().True(ok, "update_client_message not found in happy path fixture")
 
 	hexString, ok := updateMessage["client_message_hex"].(string)
-	g.generator.RequireTrue(ok, "client_message_hex not found in happy path fixture")
+	g.suite.Require().True(ok, "client_message_hex not found in happy path fixture")
 
 	return hexString
 }
@@ -320,13 +328,13 @@ func (g *UpdateClientFixtureGenerator) loadHexFromExistingHappyPathFixture() str
 func (g *UpdateClientFixtureGenerator) corruptSignaturesWhilePreservingProtobufStructure(validHex string) string {
 	headerBytes, err := hex.DecodeString(validHex)
 	if err != nil {
-		g.generator.Fatalf("Failed to decode valid header hex: %v", err)
+		g.suite.T().Fatalf("Failed to decode valid header hex: %v", err)
 	}
 
 	var tmHeader ibctmtypes.Header
 	err = proto.Unmarshal(headerBytes, &tmHeader)
 	if err != nil {
-		g.generator.Fatalf("Failed to parse header for corruption: %v", err)
+		g.suite.T().Fatalf("Failed to parse header for corruption: %v", err)
 	}
 
 	corruptedHeader := tmHeader
@@ -335,11 +343,11 @@ func (g *UpdateClientFixtureGenerator) corruptSignaturesWhilePreservingProtobufS
 
 	corruptedBytes, err := proto.Marshal(&corruptedHeader)
 	if err != nil {
-		g.generator.Fatalf("Failed to marshal corrupted header: %v", err)
+		g.suite.T().Fatalf("Failed to marshal corrupted header: %v", err)
 	}
 
 	g.ensureHeaderStillParseable(corruptedBytes)
-	g.generator.LogInfo("🔧 Header corrupted successfully - still deserializable but signatures are invalid")
+	g.suite.T().Log("🔧 Header corrupted successfully - still deserializable but signatures are invalid")
 
 	return hex.EncodeToString(corruptedBytes)
 }
@@ -353,7 +361,7 @@ func (g *UpdateClientFixtureGenerator) flipBytesInCommitSignatures(header *ibctm
 	if len(commit.Signatures) > 0 && len(commit.Signatures[0].Signature) > 10 {
 		sigPos := len(commit.Signatures[0].Signature) / 2
 		commit.Signatures[0].Signature[sigPos] ^= 0xFF
-		g.generator.LogInfof("🔧 Corrupted signature byte at position %d in first commit signature", sigPos)
+		g.suite.T().Logf("🔧 Corrupted signature byte at position %d in first commit signature", sigPos)
 	}
 }
 
@@ -364,14 +372,14 @@ func (g *UpdateClientFixtureGenerator) flipBytesInBlockHash(header *ibctmtypes.H
 
 	hashPos := len(header.Commit.BlockID.Hash) / 2
 	header.Commit.BlockID.Hash[hashPos] ^= 0xFF
-	g.generator.LogInfof("🔧 Corrupted block hash byte at position %d", hashPos)
+	g.suite.T().Logf("🔧 Corrupted block hash byte at position %d", hashPos)
 }
 
 func (g *UpdateClientFixtureGenerator) ensureHeaderStillParseable(headerBytes []byte) {
 	var testHeader ibctmtypes.Header
 	err := proto.Unmarshal(headerBytes, &testHeader)
 	if err != nil {
-		g.generator.Fatalf("Corrupted header failed to parse - corruption was too aggressive: %v", err)
+		g.suite.T().Fatalf("Corrupted header failed to parse - corruption was too aggressive: %v", err)
 	}
 }
 
@@ -379,7 +387,7 @@ func (g *UpdateClientFixtureGenerator) modifyHeaderTimestampToPast(validHex stri
 	headerBytes, _ := hex.DecodeString(validHex)
 	var header ibctmtypes.Header
 	if err := proto.Unmarshal(headerBytes, &header); err != nil {
-		g.generator.Fatalf("Failed to unmarshal header: %v", err)
+		g.suite.T().Fatalf("Failed to unmarshal header: %v", err)
 	}
 
 	oneHourBuffer := int64(3600)
@@ -394,7 +402,7 @@ func (g *UpdateClientFixtureGenerator) modifyHeaderTimestampToFuture(validHex st
 	headerBytes, _ := hex.DecodeString(validHex)
 	var header ibctmtypes.Header
 	if err := proto.Unmarshal(headerBytes, &header); err != nil {
-		g.generator.Fatalf("Failed to unmarshal header: %v", err)
+		g.suite.T().Fatalf("Failed to unmarshal header: %v", err)
 	}
 
 	oneHourBuffer := int64(3600)
@@ -415,7 +423,7 @@ func (g *UpdateClientFixtureGenerator) createUpdateMessageWithCustomHex(
 		"type_url":           "/ibc.lightclients.tendermint.v1.Header",
 		"trusted_height":     trustedHeight,
 		"new_height":         trustedHeight + 1,
-		"metadata":           g.generator.CreateMetadata(description),
+		"metadata":           g.createMetadata(description),
 	}
 }
 
@@ -429,7 +437,7 @@ func (g *UpdateClientFixtureGenerator) createDummyClientStateForTesting() map[st
 		"max_clock_drift":         10,
 		"frozen_height":           0,
 		"latest_height":           19,
-		"metadata":                g.generator.CreateMetadata("Dummy client state for invalid protobuf test"),
+		"metadata":                g.createMetadata("Dummy client state for invalid protobuf test"),
 	}
 }
 
@@ -438,7 +446,7 @@ func (g *UpdateClientFixtureGenerator) createDummyConsensusStateForTesting() map
 		"timestamp":            uint64(time.Now().Unix()),
 		"root":                 hex.EncodeToString(make([]byte, 32)),
 		"next_validators_hash": hex.EncodeToString(make([]byte, 32)),
-		"metadata":             g.generator.CreateMetadata("Dummy consensus state for invalid protobuf test"),
+		"metadata":             g.createMetadata("Dummy consensus state for invalid protobuf test"),
 	}
 }
 
@@ -454,12 +462,97 @@ func (g *UpdateClientFixtureGenerator) createUpdateClientFixture(
 		"client_state":            clientState,
 		"trusted_consensus_state": consensusState,
 		"update_client_message":   updateMessage,
-		"metadata":                g.generator.CreateUnifiedMetadata(scenario, chainID),
+		"metadata":                g.createUnifiedMetadata(scenario, chainID),
 	}
 }
 
 func (g *UpdateClientFixtureGenerator) saveFixtureToFile(fixture map[string]interface{}, filename string) {
-	fullPath := filepath.Join(g.generator.GetFixtureDir(), filename)
-	g.generator.SaveJsonFixture(fullPath, fixture)
-	g.generator.LogInfof("💾 Fixture saved: %s", fullPath)
+	fullPath := filepath.Join(g.fixtureDir, filename)
+	g.saveJsonFixture(fullPath, fixture)
+	g.suite.T().Logf("💾 Fixture saved: %s", fullPath)
+}
+
+// Utility methods
+
+// File operations
+
+func (g *UpdateClientFixtureGenerator) saveJsonFixture(filename string, data interface{}) {
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	g.suite.Require().NoError(err)
+
+	err = os.WriteFile(filename, jsonData, 0o600)
+	g.suite.Require().NoError(err)
+}
+
+// Query methods
+
+func (g *UpdateClientFixtureGenerator) queryTendermintClientState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ClientState {
+	resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, chainA, &clienttypes.QueryClientStateRequest{
+		ClientId: clientId,
+	})
+	g.suite.Require().NoError(err)
+	g.suite.Require().NotNil(resp.ClientState)
+
+	var tmClientState ibctmtypes.ClientState
+	err = proto.Unmarshal(resp.ClientState.Value, &tmClientState)
+	g.suite.Require().NoError(err)
+
+	return &tmClientState
+}
+
+func (g *UpdateClientFixtureGenerator) queryTendermintConsensusState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ConsensusState {
+	resp, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, chainA, &clienttypes.QueryConsensusStateRequest{
+		ClientId:     clientId,
+		LatestHeight: true,
+	})
+	g.suite.Require().NoError(err)
+	g.suite.Require().NotNil(resp.ConsensusState)
+
+	var tmConsensusState ibctmtypes.ConsensusState
+	err = proto.Unmarshal(resp.ConsensusState.Value, &tmConsensusState)
+	g.suite.Require().NoError(err)
+
+	return &tmConsensusState
+}
+
+// Conversion methods
+
+func (g *UpdateClientFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState, chainID string) map[string]interface{} {
+	return map[string]interface{}{
+		"chain_id":                tmClientState.ChainId,
+		"trust_level_numerator":   tmClientState.TrustLevel.Numerator,
+		"trust_level_denominator": tmClientState.TrustLevel.Denominator,
+		"trusting_period":         tmClientState.TrustingPeriod.Seconds(),
+		"unbonding_period":        tmClientState.UnbondingPeriod.Seconds(),
+		"max_clock_drift":         tmClientState.MaxClockDrift.Seconds(),
+		"frozen_height":           tmClientState.FrozenHeight.RevisionHeight,
+		"latest_height":           tmClientState.LatestHeight.RevisionHeight,
+		"metadata":                g.createMetadata(fmt.Sprintf("Client state for %s captured from %s", tmClientState.ChainId, chainID)),
+	}
+}
+
+func (g *UpdateClientFixtureGenerator) convertConsensusStateToFixtureFormat(tmConsensusState *ibctmtypes.ConsensusState, chainID string) map[string]interface{} {
+	return map[string]interface{}{
+		"timestamp":            tmConsensusState.Timestamp.UnixNano(),
+		"root":                 hex.EncodeToString(tmConsensusState.Root.GetHash()),
+		"next_validators_hash": hex.EncodeToString(tmConsensusState.NextValidatorsHash),
+		"metadata":             g.createMetadata(fmt.Sprintf("Consensus state captured from %s", chainID)),
+	}
+}
+
+// Metadata creation methods
+
+func (g *UpdateClientFixtureGenerator) createMetadata(description string) map[string]interface{} {
+	return map[string]interface{}{
+		"generated_at": time.Now().UTC().Format(time.RFC3339),
+		"source":       "local_cosmos_chain",
+		"description":  description,
+	}
+}
+
+func (g *UpdateClientFixtureGenerator) createUnifiedMetadata(scenarioName, chainID string) map[string]interface{} {
+	metadata := g.createMetadata(fmt.Sprintf("Unified tendermint light client fixture for scenario: %s", scenarioName))
+	metadata["scenario"] = scenarioName
+	metadata["chain_id"] = chainID
+	return metadata
 }

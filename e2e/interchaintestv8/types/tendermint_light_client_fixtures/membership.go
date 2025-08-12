@@ -3,11 +3,15 @@ package tendermint_light_client_fixtures
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/cosmos/gogoproto/proto"
 	ics23 "github.com/cosmos/ics23/go"
+	"github.com/stretchr/testify/suite"
 
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 
@@ -40,34 +44,38 @@ type ProofContext struct {
 }
 
 type MembershipFixtureGenerator struct {
-	generator FixtureGeneratorInterface
+	enabled    bool
+	fixtureDir string
+	suite      *suite.Suite
 }
 
-func NewMembershipFixtureGenerator(generator FixtureGeneratorInterface) *MembershipFixtureGenerator {
+func NewMembershipFixtureGenerator(enabled bool, fixtureDir string, s *suite.Suite) *MembershipFixtureGenerator {
 	return &MembershipFixtureGenerator{
-		generator: generator,
+		enabled:    enabled,
+		fixtureDir: fixtureDir,
+		suite:      s,
 	}
 }
 
-func (g *MembershipFixtureGenerator) GenerateMembershipVerificationScenariosWithPredefinedKeys(
+func (g *MembershipFixtureGenerator) GenerateMembershipVerificationScenarios(
 	ctx context.Context,
 	chain *cosmos.CosmosChain,
 	keyPaths []KeyPath,
 	clientId string,
 ) {
-	if !g.generator.IsEnabled() {
+	if !g.enabled {
 		return
 	}
 
-	g.generator.LogInfo("🔧 Generating membership verification scenarios with predefined keys")
+	g.suite.T().Log("🔧 Generating membership verification scenarios with predefined keys")
 
 	for i, keySpec := range keyPaths {
 		proofType := g.proofTypeNameFor(keySpec.Membership)
-		g.generator.LogInfof("🔍 Processing predefined key path: %s (%s)", keySpec.Key, proofType)
+		g.suite.T().Logf("🔍 Processing predefined key path: %s (%s)", keySpec.Key, proofType)
 		g.generateFixtureForKeyPath(ctx, chain, keySpec.Key, i, keySpec.Membership, clientId)
 	}
 
-	g.generator.LogInfo("✅ Predefined key membership scenarios generated successfully")
+	g.suite.T().Log("✅ Predefined key membership scenarios generated successfully")
 }
 
 func (g *MembershipFixtureGenerator) generateFixtureForKeyPath(
@@ -79,10 +87,10 @@ func (g *MembershipFixtureGenerator) generateFixtureForKeyPath(
 	clientId string,
 ) {
 	proofType := g.proofTypeNameFor(expectMembership)
-	g.generator.LogInfof("🔧 Generating %s fixture for key: %s", proofType, keyPath)
+	g.suite.T().Logf("🔧 Generating %s fixture for key: %s", proofType, keyPath)
 
 	proofHeight, latestConsensusState := g.getLatestConsensusStateHeight(ctx, chain, clientId)
-	g.generator.LogInfof("📊 Using latest consensus state at height %d for proof generation", proofHeight)
+	g.suite.T().Logf("📊 Using latest consensus state at height %d for proof generation", proofHeight)
 
 	blockHeight, actualAppHash := g.getAppHashFromBlock(ctx, chain, proofHeight)
 	abciResp := g.queryStateProofForKey(ctx, chain, keyPath, proofHeight)
@@ -124,9 +132,9 @@ func (g *MembershipFixtureGenerator) getLatestConsensusStateHeight(
 			ClientId: clientId,
 		},
 	)
-	g.generator.RequireNoError(err)
-	g.generator.RequireNotNil(allStatesResp.ConsensusStates, "No consensus states found for client")
-	g.generator.RequireGreater(len(allStatesResp.ConsensusStates), 0, "No consensus states found for client")
+	g.suite.Require().NoError(err)
+	g.suite.Require().NotNil(allStatesResp.ConsensusStates, "No consensus states found for client")
+	g.suite.Require().Greater(len(allStatesResp.ConsensusStates), 0, "No consensus states found for client")
 
 	latest := g.findHighestRevisionHeight(allStatesResp.ConsensusStates)
 	return latest.Height.RevisionHeight, latest
@@ -151,7 +159,7 @@ func (g *MembershipFixtureGenerator) getAppHashFromBlock(
 	proofHeight uint64,
 ) (uint64, []byte) {
 	blockHeight := proofHeight + 1
-	g.generator.LogInfof("🔍 Fetching block at height %d to get app hash for state at height %d", blockHeight, proofHeight)
+	g.suite.T().Logf("🔍 Fetching block at height %d to get app hash for state at height %d", blockHeight, proofHeight)
 
 	blockResp, err := e2esuite.GRPCQuery[cmtservice.GetBlockByHeightResponse](
 		ctx,
@@ -160,10 +168,10 @@ func (g *MembershipFixtureGenerator) getAppHashFromBlock(
 			Height: int64(blockHeight),
 		},
 	)
-	g.generator.RequireNoError(err)
+	g.suite.Require().NoError(err)
 
 	appHash := blockResp.Block.Header.AppHash
-	g.generator.LogInfof("📦 Block %d app hash: %s", blockHeight, hex.EncodeToString(appHash))
+	g.suite.T().Logf("📦 Block %d app hash: %s", blockHeight, hex.EncodeToString(appHash))
 
 	return blockHeight, appHash
 }
@@ -183,11 +191,11 @@ func (g *MembershipFixtureGenerator) queryStateProofForKey(
 		Prove:  true,
 	}
 
-	g.generator.LogInfof("📡 ABCI Query: path=%s, data=%s, height=%d, prove=true",
+	g.suite.T().Logf("📡 ABCI Query: path=%s, data=%s, height=%d, prove=true",
 		storePath, keyPath, abciReq.Height)
 
 	abciResp, err := e2esuite.ABCIQuery(ctx, chain, abciReq)
-	g.generator.RequireNoError(err)
+	g.suite.Require().NoError(err)
 
 	return abciResp
 }
@@ -200,24 +208,24 @@ func (g *MembershipFixtureGenerator) ensureProofMatchesExpectation(
 	hasValue := len(abciResp.Value) > 0
 
 	if expectMembership && !hasValue {
-		g.generator.Fatalf("❌ Expected membership proof for key %s but value is empty", keyPath)
+		g.suite.T().Fatalf("❌ Expected membership proof for key %s but value is empty", keyPath)
 	}
 	if !expectMembership && hasValue {
-		g.generator.Fatalf("❌ Expected non-membership proof for key %s but value exists (length: %d)",
+		g.suite.T().Fatalf("❌ Expected non-membership proof for key %s but value exists (length: %d)",
 			keyPath, len(abciResp.Value))
 	}
 
 	proofType := g.proofTypeNameFor(expectMembership)
 	if hasValue {
-		g.generator.LogInfof("✅ ABCI query successful - %s case: value length: %d, proof ops: %d",
+		g.suite.T().Logf("✅ ABCI query successful - %s case: value length: %d, proof ops: %d",
 			proofType, len(abciResp.Value), len(abciResp.ProofOps.Ops))
 	} else {
-		g.generator.LogInfof("✅ ABCI query successful - %s case: empty value, proof ops: %d",
+		g.suite.T().Logf("✅ ABCI query successful - %s case: empty value, proof ops: %d",
 			proofType, len(abciResp.ProofOps.Ops))
 	}
 
 	if len(abciResp.ProofOps.Ops) == 0 {
-		g.generator.Fatalf("❌ ABCI proof is empty for key: %s", keyPath)
+		g.suite.T().Fatalf("❌ ABCI proof is empty for key: %s", keyPath)
 	}
 }
 
@@ -227,10 +235,10 @@ func (g *MembershipFixtureGenerator) unmarshalConsensusState(
 ) *ibctmtypes.ConsensusState {
 	var tmConsensusState ibctmtypes.ConsensusState
 	err := proto.Unmarshal(consensusStateWithHeight.ConsensusState.Value, &tmConsensusState)
-	g.generator.RequireNoError(err)
+	g.suite.Require().NoError(err)
 
-	g.generator.LogInfof("📊 Original consensus state root: %s", hex.EncodeToString(tmConsensusState.Root.GetHash()))
-	g.generator.LogInfof("📊 Actual app hash from block: %s", hex.EncodeToString(actualAppHash))
+	g.suite.T().Logf("📊 Original consensus state root: %s", hex.EncodeToString(tmConsensusState.Root.GetHash()))
+	g.suite.T().Logf("📊 Actual app hash from block: %s", hex.EncodeToString(actualAppHash))
 
 	return &tmConsensusState
 }
@@ -240,9 +248,9 @@ func (g *MembershipFixtureGenerator) convertToIBCMerkleProof(proofOps *cmtcrypto
 	merkleProof := &commitmenttypes.MerkleProof{Proofs: commitmentProofs}
 
 	proofBytes, err := proto.Marshal(merkleProof)
-	g.generator.RequireNoError(err)
+	g.suite.Require().NoError(err)
 
-	g.generator.LogInfof("🔄 Converted %d ABCI ProofOps to IBC MerkleProof (%d bytes)",
+	g.suite.T().Logf("🔄 Converted %d ABCI ProofOps to IBC MerkleProof (%d bytes)",
 		len(proofOps.Ops), len(proofBytes))
 
 	return proofBytes
@@ -255,7 +263,7 @@ func (g *MembershipFixtureGenerator) extractCommitmentProofs(proofOps *cmtcrypto
 		var commitmentProof ics23.CommitmentProof
 		err := proto.Unmarshal(op.Data, &commitmentProof)
 		if err != nil {
-			g.generator.Fatalf("Failed to unmarshal CommitmentProof from ProofOp[%d]: %v", i, err)
+			g.suite.T().Fatalf("Failed to unmarshal CommitmentProof from ProofOp[%d]: %v", i, err)
 		}
 		commitmentProofs[i] = &commitmentProof
 	}
@@ -265,7 +273,7 @@ func (g *MembershipFixtureGenerator) extractCommitmentProofs(proofOps *cmtcrypto
 
 func (g *MembershipFixtureGenerator) ensureHeightMatches(actualHeight int64, expectedHeight uint64) {
 	if uint64(actualHeight) != expectedHeight {
-		g.generator.Fatalf("❌ ABCI returned unexpected height: got %d, expected %d",
+		g.suite.T().Fatalf("❌ ABCI returned unexpected height: got %d, expected %d",
 			actualHeight, expectedHeight)
 	}
 }
@@ -295,10 +303,10 @@ func (g *MembershipFixtureGenerator) saveFixture(
 		chain.Config().ChainID,
 	)
 
-	filename := filepath.Join(g.generator.GetFixtureDir(),
+	filename := filepath.Join(g.fixtureDir,
 		fmt.Sprintf("verify_%s_key_%d.json", proofType, index))
-	g.generator.SaveJsonFixture(filename, fixture)
-	g.generator.LogInfof("💾 %s fixture saved: %s", proofType, filename)
+	g.saveJsonFixture(filename, fixture)
+	g.suite.T().Logf("💾 %s fixture saved: %s", proofType, filename)
 }
 
 func (g *MembershipFixtureGenerator) buildMembershipMessage(
@@ -306,7 +314,7 @@ func (g *MembershipFixtureGenerator) buildMembershipMessage(
 	proofBytes []byte,
 	proofType string,
 ) map[string]interface{} {
-	metadata := g.generator.CreateMetadata(
+	metadata := g.createMetadata(
 		fmt.Sprintf("Valid %s proof for key: %s", proofType, proofCtx.KeyPath))
 	metadata["proof_format"] = "hex-encoded protobuf"
 	metadata["proof_type_details"] = "ibc.core.commitment.v1.MerkleProof"
@@ -329,8 +337,8 @@ func (g *MembershipFixtureGenerator) buildClientState(
 	chain *cosmos.CosmosChain,
 	clientId string,
 ) map[string]interface{} {
-	tmClientState := g.generator.QueryTendermintClientState(ctx, chain, clientId)
-	return g.generator.ConvertClientStateToFixtureFormat(tmClientState, chain.Config().ChainID)
+	tmClientState := g.queryTendermintClientState(ctx, chain, clientId)
+	return g.convertClientStateToFixtureFormat(tmClientState, chain.Config().ChainID)
 }
 
 func (g *MembershipFixtureGenerator) buildConsensusState(proofCtx *ProofContext) map[string]interface{} {
@@ -338,7 +346,7 @@ func (g *MembershipFixtureGenerator) buildConsensusState(proofCtx *ProofContext)
 		"timestamp":            proofCtx.ConsensusState.Timestamp.UnixNano(),
 		"root":                 hex.EncodeToString(proofCtx.ActualAppHash),
 		"next_validators_hash": hex.EncodeToString(proofCtx.ConsensusState.NextValidatorsHash),
-		"metadata": g.generator.CreateMetadata(
+		"metadata": g.createMetadata(
 			fmt.Sprintf("Consensus state at height %d (app hash from block %d)",
 				proofCtx.ProofHeight, proofCtx.BlockHeight)),
 	}
@@ -364,6 +372,91 @@ func (g *MembershipFixtureGenerator) assembleFixture(
 			"description": fmt.Sprintf("IBC key: %s (%s)", proofCtx.KeyPath, proofType),
 			"proof_type":  proofType,
 		},
-		"metadata": g.generator.CreateUnifiedMetadata(scenarioName, chainID),
+		"metadata": g.createUnifiedMetadata(scenarioName, chainID),
 	}
+}
+
+// Utility methods
+
+// File operations
+
+func (g *MembershipFixtureGenerator) saveJsonFixture(filename string, data interface{}) {
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	g.suite.Require().NoError(err)
+
+	err = os.WriteFile(filename, jsonData, 0o600)
+	g.suite.Require().NoError(err)
+}
+
+// Query methods
+
+func (g *MembershipFixtureGenerator) queryTendermintClientState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ClientState {
+	resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, chainA, &clienttypes.QueryClientStateRequest{
+		ClientId: clientId,
+	})
+	g.suite.Require().NoError(err)
+	g.suite.Require().NotNil(resp.ClientState)
+
+	var tmClientState ibctmtypes.ClientState
+	err = proto.Unmarshal(resp.ClientState.Value, &tmClientState)
+	g.suite.Require().NoError(err)
+
+	return &tmClientState
+}
+
+func (g *MembershipFixtureGenerator) queryTendermintConsensusState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ConsensusState {
+	resp, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, chainA, &clienttypes.QueryConsensusStateRequest{
+		ClientId:     clientId,
+		LatestHeight: true,
+	})
+	g.suite.Require().NoError(err)
+	g.suite.Require().NotNil(resp.ConsensusState)
+
+	var tmConsensusState ibctmtypes.ConsensusState
+	err = proto.Unmarshal(resp.ConsensusState.Value, &tmConsensusState)
+	g.suite.Require().NoError(err)
+
+	return &tmConsensusState
+}
+
+// Conversion methods
+
+func (g *MembershipFixtureGenerator) convertClientStateToFixtureFormat(tmClientState *ibctmtypes.ClientState, chainID string) map[string]interface{} {
+	return map[string]interface{}{
+		"chain_id":                tmClientState.ChainId,
+		"trust_level_numerator":   tmClientState.TrustLevel.Numerator,
+		"trust_level_denominator": tmClientState.TrustLevel.Denominator,
+		"trusting_period":         tmClientState.TrustingPeriod.Seconds(),
+		"unbonding_period":        tmClientState.UnbondingPeriod.Seconds(),
+		"max_clock_drift":         tmClientState.MaxClockDrift.Seconds(),
+		"frozen_height":           tmClientState.FrozenHeight.RevisionHeight,
+		"latest_height":           tmClientState.LatestHeight.RevisionHeight,
+		"metadata":                g.createMetadata(fmt.Sprintf("Client state for %s captured from %s", tmClientState.ChainId, chainID)),
+	}
+}
+
+func (g *MembershipFixtureGenerator) convertConsensusStateToFixtureFormat(tmConsensusState *ibctmtypes.ConsensusState, chainID string) map[string]interface{} {
+	return map[string]interface{}{
+		"timestamp":            tmConsensusState.Timestamp.UnixNano(),
+		"root":                 hex.EncodeToString(tmConsensusState.Root.GetHash()),
+		"next_validators_hash": hex.EncodeToString(tmConsensusState.NextValidatorsHash),
+		"metadata":             g.createMetadata(fmt.Sprintf("Consensus state captured from %s", chainID)),
+	}
+}
+
+// Metadata creation methods
+
+func (g *MembershipFixtureGenerator) createMetadata(description string) map[string]interface{} {
+	return map[string]interface{}{
+		"generated_at": time.Now().UTC().Format(time.RFC3339),
+		"source":       "local_cosmos_chain",
+		"description":  description,
+	}
+}
+
+func (g *MembershipFixtureGenerator) createUnifiedMetadata(scenarioName, chainID string) map[string]interface{} {
+	metadata := g.createMetadata(fmt.Sprintf("Unified tendermint light client fixture for scenario: %s", scenarioName))
+	metadata["scenario"] = scenarioName
+	metadata["chain_id"] = chainID
+	return metadata
 }

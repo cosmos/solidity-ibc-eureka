@@ -589,7 +589,7 @@ func (s *CosmosRelayerTestSuite) Test_UpdateClient() {
 
 			s.Require().Equal(string(ibchost.FullClientStateKey("07-tendermint-0")), string(ibchost.FullClientStateKey(ibctesting.FirstClientID)), "we expect the first client to be 07-tendermint-0")
 
-			s.TendermintLightClientFixtures.GenerateMembershipVerificationScenariosWithPredefinedKeys(ctx, s.SimdA, predefinedKeys, ibctesting.FirstClientID)
+			s.TendermintLightClientFixtures.GenerateMembershipVerificationScenarios(ctx, s.SimdA, predefinedKeys, ibctesting.FirstClientID)
 		}))
 
 		s.Require().True(s.Run("Verify client update on Chain A", func() {
