@@ -20,6 +20,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
+	ibchost "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
@@ -579,12 +580,14 @@ func (s *CosmosRelayerTestSuite) Test_UpdateClient() {
 		}))
 
 		s.Require().True(s.Run("Generate membership fixtures", func() {
+			nonExistingClientID := "07-tendermint-001"
+
 			predefinedKeys := []e2etypes.KeyPath{
-				{Key: "clients/07-tendermint-0/clientState", Membership: true},    // membership: exists
-				{Key: "clients/07-tendermint-001/clientState", Membership: false}, // non-membership: doesn't exist
+				{Key: string(ibchost.FullClientStateKey(ibctesting.FirstClientID)), Membership: true}, // membership: exists
+				{Key: string(ibchost.FullClientStateKey(nonExistingClientID)), Membership: false},     // non-membership: doesn't exist
 			}
 
-			s.Require().Equal("clients/07-tendermint-0/clientState", "clients/"+ibctesting.FirstClientID+"/clientState", "we expect the first client to be clients/07-tendermint-0/clientState")
+			s.Require().Equal(string(ibchost.FullClientStateKey("07-tendermint-0")), string(ibchost.FullClientStateKey(ibctesting.FirstClientID)), "we expect the first client to be 07-tendermint-0")
 
 			s.TendermintLightClientFixtures.GenerateMembershipVerificationScenariosWithPredefinedKeys(ctx, s.SimdA, predefinedKeys)
 		}))
