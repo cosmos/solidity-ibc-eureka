@@ -267,7 +267,7 @@ func (g *UpdateClientFixtureGenerator) fetchAndFormatConsensusState(
 	chain *cosmos.CosmosChain,
 	clientId string,
 ) string {
-	tmConsensusState := g.queryTendermintConsensusState(ctx, chain, clientId)
+	tmConsensusState := g.queryTendermintLatestConsensusState(ctx, chain, clientId)
 	return g.convertConsensusStateToFixtureFormat(tmConsensusState)
 }
 
@@ -475,7 +475,7 @@ func (g *UpdateClientFixtureGenerator) queryTendermintClientState(ctx context.Co
 	return &tmClientState
 }
 
-func (g *UpdateClientFixtureGenerator) queryTendermintConsensusState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ConsensusState {
+func (g *UpdateClientFixtureGenerator) queryTendermintLatestConsensusState(ctx context.Context, chainA *cosmos.CosmosChain, clientId string) *ibctmtypes.ConsensusState {
 	resp, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, chainA, &clienttypes.QueryConsensusStateRequest{
 		ClientId:     clientId,
 		LatestHeight: true,

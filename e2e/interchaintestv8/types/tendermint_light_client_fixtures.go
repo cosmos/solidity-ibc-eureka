@@ -61,7 +61,6 @@ func (g *TendermintLightClientFixtureGenerator) initializeSubmodules(s *suite.Su
 	g.membershipGenerator = tendermint_light_client_fixtures.NewMembershipFixtureGenerator(g.Enabled, g.FixtureDir, s)
 }
 
-
 // Public API - Main Fixture Generation Methods
 
 func (g *TendermintLightClientFixtureGenerator) GenerateMultipleUpdateClientScenarios(
