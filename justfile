@@ -123,7 +123,7 @@ generate-fixtures-wasm: clean-foundry install-relayer
 
 # Generate the fixtures for the Tendermint light client tests using the e2e tests
 [group('generate')]
-generate-fixtures-tendermint-light-client: clean-foundry install-relayer
+generate-fixtures-tendermint-light-client: install-relayer
 	@echo "Generating Tendermint light client fixtures... This may take a while."
 	@echo "Generating basic client state, consensus state, and update client fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES=true go test -v -run '^TestWithCosmosRelayerTestSuite/Test_UpdateClient$' -timeout 40m

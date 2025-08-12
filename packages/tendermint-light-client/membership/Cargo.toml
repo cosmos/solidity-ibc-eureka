@@ -17,4 +17,3 @@ hex                           = { workspace = true }
 serde_json                    = { workspace = true, features = ["std"] }
 prost                         = { workspace = true }
 ibc-proto                     = { workspace = true }
-
