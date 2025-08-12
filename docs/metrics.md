@@ -38,10 +38,10 @@ The particular goals we aim to achieve, and that you should keep in mind while i
   - Track whether your service can talk to what it needs to: internal services, 3rd party services, RPC nodes, databases. 
   - Include connection state, latency to dependencies, and time until critical resources expire (like IBC clients).
 - Error patterns
-  - Group errors into categories that make sense for debugging - timeout errors, validation failures, insufficient funds, network issues. 
+  - Group errors into categories that make sense for debugging: timeout errors, validation failures, insufficient funds, and network issues. 
   - You want to spot patterns, not track every unique error message.
 - Performance bottlenecks
-  - Request latencies at different stages of processing, queue depths, batch sizes, throughput rates. 
+  - Request latencies at different stages of processing, queue depths, batch sizes, and throughput rates. 
   - Focus on the operations that directly impact user experience or system stability.
 - Resource consumption
   - Memory usage, CPU utilization, goroutines/threads, file descriptors.
@@ -52,7 +52,7 @@ The particular goals we aim to achieve, and that you should keep in mind while i
 ### Add metrics when:
 - You're implementing a new critical path that could fail
 - You've had an incident and realized you were flying blind
-- Yoe need to validate a critical performance assumptions
+- You need to validate a critical performance assumption
 - You're adding SLAs or need to track service level objectives
 - There's a resource that could be exhausted (connections, memory, etc.)
 
@@ -79,8 +79,8 @@ Bad examples:
 
 ### Labels
 
-> _Cardinality_ is about how many unique values a metric’s labels (or dimensions) can take.
-> For example: if you have a metric for http requests with the labels `status_code` and `method`,
+> _Cardinality_ is about how many unique values a metric's labels (or dimensions) can take.
+> For example: if you have a metric for HTTP requests with the labels `status_code` and `method`,
 > and `status_code` has 5 possible values and `method` has 3 possible values, the cardinality for those combined labels is 5 × 3 = 15 unique combinations.
 
 - Labels should have bounded, predictable values:
@@ -101,32 +101,32 @@ Bad examples:
 - Base units only
   - Bytes not kilobytes, seconds not milliseconds
 - Keep cardinality under 100 per instance
-  - More than that, and it'll just be a mess
+  - Any more than that, and it'll just be a mess
 
 ## Metric types
 
 ### Counter
 A number that only goes up. Perfect for counting things that happen - requests, errors, bytes processed. You'll usually query these with `rate()` or `increase()`.
 
-When to use: Total requests served, packets sent, errors encountered, bytes transferred
+When to use: Total requests served, packets sent, errors encountered, and bytes transferred.
 
 ### Gauge
-A value that can go up or down. Current state of something - active connections, queue depth, temperature, available memory.
+A value that can go up or down. Current state of something - active connections, queue depth, temperature, and available memory.
 
-When to use: Active connections, queue sizes, current memory usage, last successful run timestamp
+When to use: Active connections, queue sizes, current memory usage, and last successful run timestamp.
 
 ### Histogram
-Samples observations and counts them in buckets. Great for latencies and sizes where you care about percentiles. More expensive than counters and gauges.
+Sample observations and count them in buckets. Great for latencies and sizes where you care about percentiles. More expensive than counters and gauges.
 
-When to use: Request durations, response sizes, processing times - anything where you need percentiles
+When to use: Request durations, response sizes, processing times - anything where you need percentiles.
 
 ### Summary
-Similar to histogram but calculates quantiles on the client side. Generally, histograms are preferred because you can aggregate them.
+Similar to a histogram, but calculates quantiles on the client side. Generally, histograms are preferred because they can be aggregated.
 
-When to use: Almost never. Use histograms instead unless you have a specific reason.
+When to use: Rarely. You can use histograms instead unless you have a specific reason.
 
-## Language specific guides
+## Language-specific guides
 
 ### Rust
 
-TODO: Write the Rust-specific guide in IBC-143
+TODO: IBC-143 Write the Rust-specific guide
