@@ -18,27 +18,6 @@ use tendermint_light_client_uc_and_membership::{
 };
 use tendermint_light_client_update_client::{ClientState, TrustThreshold};
 
-/// Client state fixture structure from JSON
-#[derive(Debug, Deserialize)]
-pub struct ClientStateFixture {
-    pub chain_id: String,
-    pub frozen_height: u64,
-    pub latest_height: u64,
-    pub max_clock_drift: u64,
-    pub trust_level_denominator: u32,
-    pub trust_level_numerator: u32,
-    pub trusting_period: u64,
-    pub unbonding_period: u64,
-}
-
-/// Consensus state fixture structure from JSON
-#[derive(Debug, Deserialize)]
-pub struct ConsensusStateFixture {
-    pub next_validators_hash: String,
-    pub root: String,
-    pub timestamp: u64,
-}
-
 /// Update client message fixture structure from JSON
 #[derive(Debug, Deserialize, Clone)]
 pub struct UpdateClientMessageFixture {
@@ -53,31 +32,30 @@ pub struct MembershipMsgFixture {
     pub value: String,
 }
 
-/// Combined update client and membership fixture from JSON
+/// Update client fixture structure from JSON
+#[derive(Debug, Deserialize)]
+struct UpdateClientFixture {
+    client_state_hex: String,
+    consensus_state_hex: String,
+    update_client_message: UpdateClientMessageFixture,
+}
+
+/// Membership verification fixture structure from JSON
+#[derive(Debug, Deserialize)]
+struct MembershipFixture {
+    client_state_hex: String,
+    consensus_state_hex: String,
+    membership_msg: MembershipMsgFixture,
+}
+
+/// Combined update client and membership fixture (created by merging separate fixtures)
 #[derive(Debug, Deserialize)]
 pub struct UcAndMembershipFixture {
     pub scenario: String,
-    pub client_state: ClientStateFixture,
-    pub trusted_consensus_state: ConsensusStateFixture,
+    pub client_state_hex: String,
+    pub consensus_state_hex: String,
     pub update_client_message: UpdateClientMessageFixture,
     pub membership_msg: MembershipMsgFixture,
-}
-
-impl From<&ClientStateFixture> for ClientState {
-    fn from(fixture: &ClientStateFixture) -> Self {
-        Self {
-            chain_id: fixture.chain_id.clone(),
-            trust_level: TrustThreshold::new(
-                fixture.trust_level_numerator as u64,
-                fixture.trust_level_denominator as u64,
-            ),
-            trusting_period_seconds: fixture.trusting_period,
-            unbonding_period_seconds: fixture.unbonding_period,
-            max_clock_drift_seconds: fixture.max_clock_drift,
-            is_frozen: fixture.frozen_height > 0,
-            latest_height: Height::new(0, fixture.latest_height).expect("valid height"),
-        }
-    }
 }
 
 impl From<&MembershipMsgFixture> for KVPair {
@@ -89,32 +67,79 @@ impl From<&MembershipMsgFixture> for KVPair {
     }
 }
 
-/// Create a consensus state from fixture
-pub fn consensus_state_from_fixture(
-    fixture: &ConsensusStateFixture,
-) -> Result<ConsensusState, Box<dyn std::error::Error>> {
-    let root_bytes =
-        hex::decode(&fixture.root).map_err(|e| format!("Failed to decode root hex: {}", e))?;
-    let next_validators_hash_bytes = hex::decode(&fixture.next_validators_hash)
-        .map_err(|e| format!("Failed to decode next_validators_hash hex: {}", e))?;
+/// Parse a client state from hex-encoded protobuf
+pub fn client_state_from_hex(hex_str: &str) -> Result<ClientState, Box<dyn std::error::Error>> {
+    let bytes =
+        hex::decode(hex_str).map_err(|e| format!("Failed to decode client state hex: {}", e))?;
 
-    let timestamp = tendermint::Time::from_unix_timestamp(
-        (fixture.timestamp / 1_000_000_000) as i64,
-        (fixture.timestamp % 1_000_000_000) as u32,
-    )
-    .map_err(|e| format!("Failed to create timestamp: {}", e))?;
+    let proto_client_state =
+        ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
+            .map_err(|e| format!("Failed to decode protobuf client state: {}", e))?;
+
+    // Parse protobuf fields
+    let trust_level = proto_client_state
+        .trust_level
+        .ok_or("Missing trust level in client state")?;
+
+    let trusting_period = proto_client_state
+        .trusting_period
+        .ok_or("Missing trusting period in client state")?;
+    let unbonding_period = proto_client_state
+        .unbonding_period
+        .ok_or("Missing unbonding period in client state")?;
+    let max_clock_drift = proto_client_state
+        .max_clock_drift
+        .ok_or("Missing max clock drift in client state")?;
+
+    let latest_height = proto_client_state
+        .latest_height
+        .ok_or("Missing latest height in client state")?;
+
+    Ok(ClientState {
+        chain_id: proto_client_state.chain_id,
+        trust_level: TrustThreshold::new(trust_level.numerator, trust_level.denominator),
+        trusting_period_seconds: trusting_period.seconds as u64,
+        unbonding_period_seconds: unbonding_period.seconds as u64,
+        max_clock_drift_seconds: max_clock_drift.seconds as u64,
+        is_frozen: proto_client_state.frozen_height.is_some(),
+        latest_height: Height::new(latest_height.revision_number, latest_height.revision_height)
+            .map_err(|e| format!("Invalid height: {}", e))?,
+    })
+}
+
+/// Parse a consensus state from hex-encoded protobuf
+pub fn consensus_state_from_hex(
+    hex_str: &str,
+) -> Result<ConsensusState, Box<dyn std::error::Error>> {
+    let bytes =
+        hex::decode(hex_str).map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
+
+    let proto_consensus_state =
+        ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
+            .map_err(|e| format!("Failed to decode protobuf consensus state: {}", e))?;
+
+    let timestamp = proto_consensus_state
+        .timestamp
+        .ok_or("Missing timestamp in consensus state")?;
+    let root = proto_consensus_state
+        .root
+        .ok_or("Missing root in consensus state")?;
+
+    let tm_timestamp =
+        tendermint::Time::from_unix_timestamp(timestamp.seconds, timestamp.nanos as u32)
+            .map_err(|e| format!("Failed to create timestamp: {}", e))?;
 
     let next_validators_hash = tendermint::Hash::from_bytes(
         tendermint::hash::Algorithm::Sha256,
-        &next_validators_hash_bytes,
+        &proto_consensus_state.next_validators_hash,
     )
     .map_err(|e| format!("Failed to create next_validators_hash: {}", e))?;
 
-    let commitment_root = CommitmentRoot::from_bytes(&root_bytes);
+    let commitment_root = CommitmentRoot::from_bytes(&root.hash);
 
     Ok(ConsensusState::new(
         commitment_root,
-        timestamp,
+        tm_timestamp,
         next_validators_hash,
     ))
 }
@@ -166,16 +191,21 @@ pub struct TestContext {
 
 /// Set up test context from fixture
 pub fn setup_test_context(fixture: UcAndMembershipFixture) -> Option<TestContext> {
-    let client_state = ClientState::from(&fixture.client_state);
+    let client_state = match client_state_from_hex(&fixture.client_state_hex) {
+        Ok(cs) => cs,
+        Err(_) => {
+            // Failed to create client state - return None for test to handle
+            return None;
+        }
+    };
 
-    let trusted_consensus_state =
-        match consensus_state_from_fixture(&fixture.trusted_consensus_state) {
-            Ok(cs) => cs,
-            Err(_) => {
-                // Failed to create consensus state - return None for test to handle
-                return None;
-            }
-        };
+    let trusted_consensus_state = match consensus_state_from_hex(&fixture.consensus_state_hex) {
+        Ok(cs) => cs,
+        Err(_) => {
+            // Failed to create consensus state - return None for test to handle
+            return None;
+        }
+    };
 
     let proposed_header = match hex_to_header(&fixture.update_client_message.client_message_hex) {
         Ok(header) => header,
@@ -219,7 +249,7 @@ pub fn execute_uc_and_membership(
 }
 
 /// Helper for tests expecting success
-pub fn assert_uc_and_membership_success(ctx: &TestContext) {
+pub fn assert_uc_and_membership_success(ctx: &TestContext, scenario_name: &str) {
     match execute_uc_and_membership(ctx) {
         Ok(output) => {
             assert!(
@@ -236,20 +266,17 @@ pub fn assert_uc_and_membership_success(ctx: &TestContext) {
         Err(e) => {
             panic!(
                 "❌ Expected success but failed for {}: {:?}",
-                ctx.fixture.scenario, e
+                scenario_name, e
             );
         }
     }
 }
 
 /// Helper for tests expecting failure
-pub fn assert_uc_and_membership_failure(ctx: &TestContext) {
+pub fn assert_uc_and_membership_failure(ctx: &TestContext, scenario_name: &str) {
     match execute_uc_and_membership(ctx) {
         Ok(_) => {
-            panic!(
-                "❌ Expected failure but succeeded for {}",
-                ctx.fixture.scenario
-            );
+            panic!("❌ Expected failure but succeeded for {}", scenario_name);
         }
         Err(_) => {
             // Expected failure - test passes
@@ -371,20 +398,19 @@ fn load_combined_fixture(
         )
     });
 
-    let update_client_fixture: serde_json::Value = serde_json::from_str(&update_client_content)
+    let update_client_fixture: UpdateClientFixture = serde_json::from_str(&update_client_content)
         .expect("Failed to parse update client fixture");
-    let membership_fixture: serde_json::Value =
+    let membership_fixture: MembershipFixture =
         serde_json::from_str(&membership_content).expect("Failed to parse membership fixture");
 
-    let combined = serde_json::json!({
-        "scenario": scenario_name,
-        "client_state": update_client_fixture["client_state"],
-        "trusted_consensus_state": update_client_fixture["trusted_consensus_state"],
-        "update_client_message": update_client_fixture["update_client_message"],
-        "membership_msg": membership_fixture["membership_msg"]
-    });
-
-    serde_json::from_value(combined).expect("Failed to deserialize combined fixture")
+    // Use the update client fixture's client and consensus state (they should be consistent)
+    UcAndMembershipFixture {
+        scenario: scenario_name.to_string(),
+        client_state_hex: update_client_fixture.client_state_hex,
+        consensus_state_hex: update_client_fixture.consensus_state_hex,
+        update_client_message: update_client_fixture.update_client_message,
+        membership_msg: membership_fixture.membership_msg,
+    }
 }
 
 /// Load the combined update client and membership fixture for happy path

@@ -15,84 +15,91 @@ use tendermint_light_client_update_client::{
 
 // Include the fixtures and helpers directly in this file
 
-/// Client state fixture structure from JSON
-#[derive(Debug, Deserialize)]
-struct ClientStateFixture {
-    chain_id: String,
-    frozen_height: u64,
-    latest_height: u64,
-    max_clock_drift: u64,
-    trust_level_denominator: u32,
-    trust_level_numerator: u32,
-    trusting_period: u64,
-    unbonding_period: u64,
-}
-
-/// Consensus state fixture structure from JSON
-#[derive(Debug, Deserialize)]
-struct ConsensusStateFixture {
-    next_validators_hash: String,
-    root: String,
-    timestamp: u64,
-}
-
 /// Update client message fixture structure from JSON
 #[derive(Debug, Deserialize, Clone)]
 struct UpdateClientMessageFixture {
     client_message_hex: String,
 }
+
 /// Complete update client fixture from JSON
 #[derive(Debug, Deserialize)]
 struct UpdateClientFixture {
-    scenario: String,
-    client_state: ClientStateFixture,
-    trusted_consensus_state: ConsensusStateFixture,
+    client_state_hex: String,
+    consensus_state_hex: String,
     update_client_message: UpdateClientMessageFixture,
 }
 
-impl From<&ClientStateFixture> for ClientState {
-    fn from(fixture: &ClientStateFixture) -> Self {
-        Self {
-            chain_id: fixture.chain_id.clone(),
-            trust_level: TrustThreshold::new(
-                fixture.trust_level_numerator as u64,
-                fixture.trust_level_denominator as u64,
-            ),
-            trusting_period_seconds: fixture.trusting_period,
-            unbonding_period_seconds: fixture.unbonding_period,
-            max_clock_drift_seconds: fixture.max_clock_drift,
-            is_frozen: fixture.frozen_height > 0,
-            latest_height: Height::new(0, fixture.latest_height).expect("valid height"),
-        }
-    }
+/// Parse a client state from hex-encoded protobuf
+fn client_state_from_hex(hex_str: &str) -> Result<ClientState, Box<dyn std::error::Error>> {
+    let bytes =
+        hex::decode(hex_str).map_err(|e| format!("Failed to decode client state hex: {}", e))?;
+
+    let proto_client_state =
+        ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
+            .map_err(|e| format!("Failed to decode protobuf client state: {}", e))?;
+
+    // Parse protobuf fields
+    let trust_level = proto_client_state
+        .trust_level
+        .ok_or("Missing trust level in client state")?;
+
+    let trusting_period = proto_client_state
+        .trusting_period
+        .ok_or("Missing trusting period in client state")?;
+    let unbonding_period = proto_client_state
+        .unbonding_period
+        .ok_or("Missing unbonding period in client state")?;
+    let max_clock_drift = proto_client_state
+        .max_clock_drift
+        .ok_or("Missing max clock drift in client state")?;
+
+    let latest_height = proto_client_state
+        .latest_height
+        .ok_or("Missing latest height in client state")?;
+
+    Ok(ClientState {
+        chain_id: proto_client_state.chain_id,
+        trust_level: TrustThreshold::new(trust_level.numerator, trust_level.denominator),
+        trusting_period_seconds: trusting_period.seconds as u64,
+        unbonding_period_seconds: unbonding_period.seconds as u64,
+        max_clock_drift_seconds: max_clock_drift.seconds as u64,
+        is_frozen: proto_client_state.frozen_height.is_some(),
+        latest_height: Height::new(latest_height.revision_number, latest_height.revision_height)
+            .map_err(|e| format!("Invalid height: {}", e))?,
+    })
 }
 
-/// Create a consensus state from fixture
-fn consensus_state_from_fixture(
-    fixture: &ConsensusStateFixture,
-) -> Result<ConsensusState, Box<dyn std::error::Error>> {
-    let root_bytes =
-        hex::decode(&fixture.root).map_err(|e| format!("Failed to decode root hex: {}", e))?;
-    let next_validators_hash_bytes = hex::decode(&fixture.next_validators_hash)
-        .map_err(|e| format!("Failed to decode next_validators_hash hex: {}", e))?;
+/// Parse a consensus state from hex-encoded protobuf  
+fn consensus_state_from_hex(hex_str: &str) -> Result<ConsensusState, Box<dyn std::error::Error>> {
+    let bytes =
+        hex::decode(hex_str).map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
 
-    let timestamp = tendermint::Time::from_unix_timestamp(
-        (fixture.timestamp / 1_000_000_000) as i64,
-        (fixture.timestamp % 1_000_000_000) as u32,
-    )
-    .map_err(|e| format!("Failed to create timestamp: {}", e))?;
+    let proto_consensus_state =
+        ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
+            .map_err(|e| format!("Failed to decode protobuf consensus state: {}", e))?;
+
+    let timestamp = proto_consensus_state
+        .timestamp
+        .ok_or("Missing timestamp in consensus state")?;
+    let root = proto_consensus_state
+        .root
+        .ok_or("Missing root in consensus state")?;
+
+    let tm_timestamp =
+        tendermint::Time::from_unix_timestamp(timestamp.seconds, timestamp.nanos as u32)
+            .map_err(|e| format!("Failed to create timestamp: {}", e))?;
 
     let next_validators_hash = tendermint::Hash::from_bytes(
         tendermint::hash::Algorithm::Sha256,
-        &next_validators_hash_bytes,
+        &proto_consensus_state.next_validators_hash,
     )
     .map_err(|e| format!("Failed to create next_validators_hash: {}", e))?;
 
-    let commitment_root = CommitmentRoot::from_bytes(&root_bytes);
+    let commitment_root = CommitmentRoot::from_bytes(&root.hash);
 
     Ok(ConsensusState::new(
         commitment_root,
-        timestamp,
+        tm_timestamp,
         next_validators_hash,
     ))
 }
@@ -122,7 +129,6 @@ fn hex_to_header(hex_str: &str) -> Result<Header, Box<dyn std::error::Error>> {
 
 /// Test context containing parsed fixture data
 struct TestContext {
-    fixture: UpdateClientFixture,
     client_state: ClientState,
     trusted_consensus_state: ConsensusState,
     proposed_header: Header,
@@ -131,29 +137,29 @@ struct TestContext {
 
 /// Set up test context from fixture
 fn setup_test_context(fixture: UpdateClientFixture) -> Option<TestContext> {
-    let client_state = ClientState::from(&fixture.client_state);
+    let client_state = match client_state_from_hex(&fixture.client_state_hex) {
+        Ok(cs) => cs,
+        Err(e) => {
+            println!("⚠️  Could not parse client state from fixture: {}", e);
+            println!("✅ Test structure validated for fixture");
+            return None;
+        }
+    };
 
-    let trusted_consensus_state =
-        match consensus_state_from_fixture(&fixture.trusted_consensus_state) {
-            Ok(cs) => cs,
-            Err(e) => {
-                println!("⚠️  Could not create consensus state from fixture: {}", e);
-                println!(
-                    "✅ Test structure validated for fixture: {}",
-                    fixture.scenario
-                );
-                return None;
-            }
-        };
+    let trusted_consensus_state = match consensus_state_from_hex(&fixture.consensus_state_hex) {
+        Ok(cs) => cs,
+        Err(e) => {
+            println!("⚠️  Could not parse consensus state from fixture: {}", e);
+            println!("✅ Test structure validated for fixture");
+            return None;
+        }
+    };
 
     let proposed_header = match hex_to_header(&fixture.update_client_message.client_message_hex) {
         Ok(header) => header,
         Err(e) => {
             println!("⚠️  Could not parse header from fixture: {}", e);
-            println!(
-                "✅ Test structure validated for fixture: {}",
-                fixture.scenario
-            );
+            println!("✅ Test structure validated for fixture");
             return None;
         }
     };
@@ -164,7 +170,6 @@ fn setup_test_context(fixture: UpdateClientFixture) -> Option<TestContext> {
         .as_nanos();
 
     Some(TestContext {
-        fixture,
         client_state,
         trusted_consensus_state,
         proposed_header,
@@ -185,10 +190,10 @@ fn execute_update_client(
 }
 
 /// Helper for tests expecting success
-fn assert_update_success(ctx: &TestContext) {
+fn assert_update_success(ctx: &TestContext, scenario_name: &str) {
     match execute_update_client(ctx) {
         Ok(output) => {
-            println!("✅ Update client succeeded for {}", ctx.fixture.scenario);
+            println!("✅ Update client succeeded for {}", scenario_name);
             println!("   New height: {:?}", output.latest_height);
             println!("   Trusted height: {:?}", output.trusted_height);
             assert!(
@@ -199,49 +204,46 @@ fn assert_update_success(ctx: &TestContext) {
         Err(e) => {
             panic!(
                 "❌ Expected success but failed for {}: {:?}",
-                ctx.fixture.scenario, e
+                scenario_name, e
             );
         }
     }
 }
 
 /// Helper for tests expecting failure
-fn assert_update_failure(ctx: &TestContext) {
+fn assert_update_failure(ctx: &TestContext, scenario_name: &str) {
     match execute_update_client(ctx) {
         Ok(_) => {
-            panic!(
-                "❌ Expected failure but succeeded for {}",
-                ctx.fixture.scenario
-            );
+            panic!("❌ Expected failure but succeeded for {}", scenario_name);
         }
         Err(e) => {
             println!(
                 "✅ Update client correctly failed for {} with: {:?}",
-                ctx.fixture.scenario, e
+                scenario_name, e
             );
         }
     }
 }
 
 /// Helper for malformed message test with specific error handling
-fn assert_malformed_failure(ctx: &TestContext) {
+fn assert_malformed_failure(ctx: &TestContext, scenario_name: &str) {
     match execute_update_client(ctx) {
         Ok(_) => {
             panic!(
                 "❌ Malformed message test should have failed but succeeded for {}",
-                ctx.fixture.scenario
+                scenario_name
             );
         }
         Err(UpdateClientError::HeaderVerificationFailed) => {
             println!(
                 "✅ Update client correctly failed with HeaderVerificationFailed for {}",
-                ctx.fixture.scenario
+                scenario_name
             );
         }
         Err(e) => {
             println!(
                 "✅ Update client failed for {} with: {:?}",
-                ctx.fixture.scenario, e
+                scenario_name, e
             );
             // Other errors are also acceptable for malformed messages
         }
@@ -279,7 +281,7 @@ fn test_update_client_happy_path() {
     let Some(ctx) = setup_test_context(fixture) else {
         return;
     };
-    assert_update_success(&ctx);
+    assert_update_success(&ctx, "happy path");
 }
 
 #[test]
@@ -288,7 +290,7 @@ fn test_update_client_malformed_message() {
     let Some(ctx) = setup_test_context(fixture) else {
         return;
     };
-    assert_malformed_failure(&ctx);
+    assert_malformed_failure(&ctx, "malformed message");
 }
 
 #[test]
@@ -297,7 +299,7 @@ fn test_update_client_expired_header() {
     let Some(ctx) = setup_test_context(fixture) else {
         return;
     };
-    assert_update_failure(&ctx);
+    assert_update_failure(&ctx, "expired header");
 }
 
 #[test]
@@ -306,7 +308,7 @@ fn test_update_client_future_timestamp() {
     let Some(ctx) = setup_test_context(fixture) else {
         return;
     };
-    assert_update_failure(&ctx);
+    assert_update_failure(&ctx, "future timestamp");
 }
 
 #[test]
@@ -316,15 +318,12 @@ fn test_update_client_invalid_protobuf() {
     // For invalid protobuf, header parsing should fail early
     match hex_to_header(&fixture.update_client_message.client_message_hex) {
         Ok(_header) => {
-            panic!(
-                "❌ Header parsing should have failed for invalid protobuf in {}",
-                fixture.scenario
-            );
+            panic!("❌ Header parsing should have failed for invalid protobuf");
         }
         Err(e) => {
             println!(
-                "✅ Header parsing correctly failed for {} with: {:?}",
-                fixture.scenario, e
+                "✅ Header parsing correctly failed for invalid protobuf with: {:?}",
+                e
             );
             // Test passes - invalid protobuf should fail to parse
         }

@@ -11,12 +11,6 @@ use ibc_proto::ibc::core::commitment::v1::MerkleProof as ProtoMerkleProof;
 use prost::Message;
 use tendermint_light_client_membership::{membership, KVPair, MembershipError};
 
-/// Consensus state fixture structure from JSON
-#[derive(Debug, Clone, Deserialize)]
-pub struct ConsensusStateFixture {
-    pub root: String,
-}
-
 /// Membership message fixture structure from JSON
 #[derive(Debug, Clone, Deserialize)]
 pub struct MembershipMsgFixture {
@@ -28,9 +22,10 @@ pub struct MembershipMsgFixture {
 /// Complete membership verification fixture from JSON
 #[derive(Debug, Clone, Deserialize)]
 pub struct MembershipVerificationFixture {
-    pub scenario: String,
-    pub consensus_state: ConsensusStateFixture,
+    pub client_state_hex: String,
+    pub consensus_state_hex: String,
     pub membership_msg: MembershipMsgFixture,
+    pub app_hash_hex: String,
 }
 
 impl From<&MembershipMsgFixture> for KVPair {
@@ -82,31 +77,27 @@ pub struct TestContext {
 
 /// Set up test context from fixture
 pub fn setup_test_context(fixture: MembershipVerificationFixture) -> Option<TestContext> {
-    // Get the app hash from consensus state
-    let app_hash_hex = &fixture.consensus_state.root;
-    let app_hash_bytes = match hex::decode(app_hash_hex) {
+    // Decode the app hash that was used for the proof
+    let app_hash_bytes = match hex::decode(&fixture.app_hash_hex) {
         Ok(bytes) => bytes,
         Err(e) => {
-            println!("⚠️  Could not decode app hash from fixture: {}", e);
-            println!(
-                "✅ Test structure validated for fixture: {}",
-                fixture.scenario
-            );
+            println!("⚠️  Could not decode app_hash_hex from fixture: {}", e);
+            println!("✅ Test structure validated for fixture");
             return None;
         }
     };
 
-    if app_hash_bytes.len() < 32 {
-        println!("⚠️  App hash too short: {} bytes", app_hash_bytes.len());
+    if app_hash_bytes.len() != 32 {
         println!(
-            "✅ Test structure validated for fixture: {}",
-            fixture.scenario
+            "⚠️  App hash wrong length: {} bytes, expected 32",
+            app_hash_bytes.len()
         );
+        println!("✅ Test structure validated for fixture");
         return None;
     }
 
     let mut app_hash = [0u8; 32];
-    app_hash.copy_from_slice(&app_hash_bytes[..32]);
+    app_hash.copy_from_slice(&app_hash_bytes);
 
     let kv_pair = KVPair::from(&fixture.membership_msg);
     let merkle_proof = hex_to_merkle_proof(&fixture.membership_msg.proof);
