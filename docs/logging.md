@@ -34,7 +34,7 @@ To make this possible, we need always to include any available correlation field
 To the extent possible, they should be either set up on launch of the service (such as environment, service name, service versions, etc) or automated by the framework/language.
 
 Minimum list of correlation fields
-- trace_id: the request ID (e.g., a specific gPRC request's ID)
+- trace_id: the request ID (e.g., a specific gRPC request's ID)
 - timestamp: RFC 3339 UTC
 - environment: dev/prod
 - service_name: name of the current service (e.g,. relayer_api)
