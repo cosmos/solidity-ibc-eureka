@@ -51,7 +51,7 @@ func NewMembershipFixtureGenerator(generator FixtureGeneratorInterface) *Members
 
 func (g *MembershipFixtureGenerator) GenerateMembershipVerificationScenariosWithPredefinedKeys(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	keyPaths []KeyPath,
 	clientId string,
 ) {
@@ -64,7 +64,7 @@ func (g *MembershipFixtureGenerator) GenerateMembershipVerificationScenariosWith
 	for i, keySpec := range keyPaths {
 		proofType := g.proofTypeNameFor(keySpec.Membership)
 		g.generator.LogInfof("🔍 Processing predefined key path: %s (%s)", keySpec.Key, proofType)
-		g.generateFixtureForKeyPath(ctx, chainA, keySpec.Key, i, keySpec.Membership, clientId)
+		g.generateFixtureForKeyPath(ctx, chain, keySpec.Key, i, keySpec.Membership, clientId)
 	}
 
 	g.generator.LogInfo("✅ Predefined key membership scenarios generated successfully")
@@ -72,7 +72,7 @@ func (g *MembershipFixtureGenerator) GenerateMembershipVerificationScenariosWith
 
 func (g *MembershipFixtureGenerator) generateFixtureForKeyPath(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	keyPath string,
 	index int,
 	expectMembership bool,
@@ -81,11 +81,11 @@ func (g *MembershipFixtureGenerator) generateFixtureForKeyPath(
 	proofType := g.proofTypeNameFor(expectMembership)
 	g.generator.LogInfof("🔧 Generating %s fixture for key: %s", proofType, keyPath)
 
-	proofHeight, latestConsensusState := g.getLatestConsensusStateHeight(ctx, chainA, clientId)
+	proofHeight, latestConsensusState := g.getLatestConsensusStateHeight(ctx, chain, clientId)
 	g.generator.LogInfof("📊 Using latest consensus state at height %d for proof generation", proofHeight)
 
-	blockHeight, actualAppHash := g.getAppHashFromBlock(ctx, chainA, proofHeight)
-	abciResp := g.queryStateProofForKey(ctx, chainA, keyPath, proofHeight)
+	blockHeight, actualAppHash := g.getAppHashFromBlock(ctx, chain, proofHeight)
+	abciResp := g.queryStateProofForKey(ctx, chain, keyPath, proofHeight)
 	g.ensureProofMatchesExpectation(abciResp, keyPath, expectMembership)
 	tmConsensusState := g.unmarshalConsensusState(latestConsensusState, actualAppHash)
 	merkleProofBytes := g.convertToIBCMerkleProof(abciResp.ProofOps)
@@ -102,7 +102,7 @@ func (g *MembershipFixtureGenerator) generateFixtureForKeyPath(
 		ConsensusState:   tmConsensusState,
 	}
 
-	g.saveFixture(ctx, chainA, proofCtx, merkleProofBytes, index, clientId)
+	g.saveFixture(ctx, chain, proofCtx, merkleProofBytes, index, clientId)
 }
 
 func (g *MembershipFixtureGenerator) proofTypeNameFor(isMembership bool) string {
@@ -112,15 +112,14 @@ func (g *MembershipFixtureGenerator) proofTypeNameFor(isMembership bool) string 
 	return "non-membership"
 }
 
-
 func (g *MembershipFixtureGenerator) getLatestConsensusStateHeight(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	clientId string,
 ) (uint64, *clienttypes.ConsensusStateWithHeight) {
 	allStatesResp, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStatesResponse](
 		ctx,
-		chainA,
+		chain,
 		&clienttypes.QueryConsensusStatesRequest{
 			ClientId: clientId,
 		},
@@ -148,7 +147,7 @@ func (g *MembershipFixtureGenerator) findHighestRevisionHeight(
 
 func (g *MembershipFixtureGenerator) getAppHashFromBlock(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	proofHeight uint64,
 ) (uint64, []byte) {
 	blockHeight := proofHeight + 1
@@ -156,7 +155,7 @@ func (g *MembershipFixtureGenerator) getAppHashFromBlock(
 
 	blockResp, err := e2esuite.GRPCQuery[cmtservice.GetBlockByHeightResponse](
 		ctx,
-		chainA,
+		chain,
 		&cmtservice.GetBlockByHeightRequest{
 			Height: int64(blockHeight),
 		},
@@ -171,7 +170,7 @@ func (g *MembershipFixtureGenerator) getAppHashFromBlock(
 
 func (g *MembershipFixtureGenerator) queryStateProofForKey(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	keyPath string,
 	proofHeight uint64,
 ) *abci.ResponseQuery {
@@ -187,7 +186,7 @@ func (g *MembershipFixtureGenerator) queryStateProofForKey(
 	g.generator.LogInfof("📡 ABCI Query: path=%s, data=%s, height=%d, prove=true",
 		storePath, keyPath, abciReq.Height)
 
-	abciResp, err := e2esuite.ABCIQuery(ctx, chainA, abciReq)
+	abciResp, err := e2esuite.ABCIQuery(ctx, chain, abciReq)
 	g.generator.RequireNoError(err)
 
 	return abciResp
@@ -273,7 +272,7 @@ func (g *MembershipFixtureGenerator) ensureHeightMatches(actualHeight int64, exp
 
 func (g *MembershipFixtureGenerator) saveFixture(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	proofCtx *ProofContext,
 	proofBytes []byte,
 	index int,
@@ -282,7 +281,7 @@ func (g *MembershipFixtureGenerator) saveFixture(
 	proofType := g.proofTypeNameFor(proofCtx.ExpectMembership)
 
 	membershipMsg := g.buildMembershipMessage(proofCtx, proofBytes, proofType)
-	clientState := g.buildClientState(ctx, chainA, clientId)
+	clientState := g.buildClientState(ctx, chain, clientId)
 	consensusState := g.buildConsensusState(proofCtx)
 
 	scenarioName := fmt.Sprintf("%s_key_%d", proofType, index)
@@ -293,7 +292,7 @@ func (g *MembershipFixtureGenerator) saveFixture(
 		membershipMsg,
 		proofCtx,
 		proofType,
-		chainA.Config().ChainID,
+		chain.Config().ChainID,
 	)
 
 	filename := filepath.Join(g.generator.GetFixtureDir(),
@@ -327,11 +326,11 @@ func (g *MembershipFixtureGenerator) buildMembershipMessage(
 
 func (g *MembershipFixtureGenerator) buildClientState(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	clientId string,
 ) map[string]interface{} {
-	tmClientState := g.generator.QueryTendermintClientState(ctx, chainA, clientId)
-	return g.generator.ConvertClientStateToFixtureFormat(tmClientState, chainA.Config().ChainID)
+	tmClientState := g.generator.QueryTendermintClientState(ctx, chain, clientId)
+	return g.generator.ConvertClientStateToFixtureFormat(tmClientState, chain.Config().ChainID)
 }
 
 func (g *MembershipFixtureGenerator) buildConsensusState(proofCtx *ProofContext) map[string]interface{} {

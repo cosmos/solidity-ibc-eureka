@@ -31,7 +31,7 @@ func NewUpdateClientFixtureGenerator(generator FixtureGeneratorInterface) *Updat
 
 func (g *UpdateClientFixtureGenerator) GenerateMultipleUpdateClientScenarios(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	updateTxBodyBz []byte,
 ) {
 	if !g.generator.IsEnabled() {
@@ -44,11 +44,11 @@ func (g *UpdateClientFixtureGenerator) GenerateMultipleUpdateClientScenarios(
 	clientId := msgUpdateClient.ClientId
 	g.generator.LogInfof("📊 Found MsgUpdateClient for client: %s", clientId)
 
-	g.generateHappyPathScenarioFromRealTransaction(ctx, chainA, msgUpdateClient.ClientMessage, clientId)
-	g.generateScenarioWithCorruptedSignature(ctx, chainA, clientId)
-	g.generateScenarioWithExpiredHeader(ctx, chainA, clientId)
-	g.generateScenarioWithFutureTimestamp(ctx, chainA, clientId)
-	g.generateScenarioWithNonExistentTrustedHeight(ctx, chainA, clientId)
+	g.generateHappyPathScenarioFromRealTransaction(ctx, chain, msgUpdateClient.ClientMessage, clientId)
+	g.generateScenarioWithCorruptedSignature(ctx, chain, clientId)
+	g.generateScenarioWithExpiredHeader(ctx, chain, clientId)
+	g.generateScenarioWithFutureTimestamp(ctx, chain, clientId)
+	g.generateScenarioWithNonExistentTrustedHeight(ctx, chain, clientId)
 	g.generateScenarioWithUnparseableProtobuf()
 
 	g.generator.LogInfo("✅ Multiple update client scenarios generated successfully")
@@ -70,14 +70,14 @@ func (g *UpdateClientFixtureGenerator) extractSingleUpdateClientMessageFromTrans
 
 func (g *UpdateClientFixtureGenerator) generateHappyPathScenarioFromRealTransaction(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	clientMessage *types.Any,
 	clientId string,
 ) {
 	g.generator.LogInfo("🔧 Generating happy path scenario")
 
-	clientState := g.fetchAndFormatClientState(ctx, chainA, clientId)
-	consensusState := g.fetchAndFormatConsensusState(ctx, chainA, clientId)
+	clientState := g.fetchAndFormatClientState(ctx, chain, clientId)
+	consensusState := g.fetchAndFormatConsensusState(ctx, chain, clientId)
 	updateMessage := g.formatClientMessageForFixture(clientMessage)
 
 	fixture := g.createUpdateClientFixture(
@@ -85,7 +85,7 @@ func (g *UpdateClientFixtureGenerator) generateHappyPathScenarioFromRealTransact
 		clientState,
 		consensusState,
 		updateMessage,
-		chainA.Config().ChainID,
+		chain.Config().ChainID,
 	)
 
 	g.saveFixtureToFile(fixture, "update_client_happy_path.json")
@@ -93,13 +93,13 @@ func (g *UpdateClientFixtureGenerator) generateHappyPathScenarioFromRealTransact
 
 func (g *UpdateClientFixtureGenerator) generateScenarioWithCorruptedSignature(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	clientId string,
 ) {
 	g.generator.LogInfo("🔧 Generating malformed client message scenario")
 
-	clientState := g.fetchAndFormatClientState(ctx, chainA, clientId)
-	consensusState := g.fetchAndFormatConsensusState(ctx, chainA, clientId)
+	clientState := g.fetchAndFormatClientState(ctx, chain, clientId)
+	consensusState := g.fetchAndFormatConsensusState(ctx, chain, clientId)
 
 	validHex := g.loadHexFromExistingHappyPathFixture()
 	corruptedHex := g.corruptSignaturesWhilePreservingProtobufStructure(validHex)
@@ -115,7 +115,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithCorruptedSignature(
 		clientState,
 		consensusState,
 		malformedMessage,
-		chainA.Config().ChainID,
+		chain.Config().ChainID,
 	)
 
 	g.saveFixtureToFile(fixture, "update_client_malformed_client_message.json")
@@ -123,14 +123,14 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithCorruptedSignature(
 
 func (g *UpdateClientFixtureGenerator) generateScenarioWithExpiredHeader(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	clientId string,
 ) {
 	g.generator.LogInfo("🔧 Generating expired header scenario")
 
-	tmClientState := g.generator.QueryTendermintClientState(ctx, chainA, clientId)
-	clientState := g.fetchAndFormatClientState(ctx, chainA, clientId)
-	consensusState := g.fetchAndFormatConsensusState(ctx, chainA, clientId)
+	tmClientState := g.generator.QueryTendermintClientState(ctx, chain, clientId)
+	clientState := g.fetchAndFormatClientState(ctx, chain, clientId)
+	consensusState := g.fetchAndFormatConsensusState(ctx, chain, clientId)
 
 	validHex := g.loadHexFromExistingHappyPathFixture()
 	expiredHex := g.modifyHeaderTimestampToPast(
@@ -149,7 +149,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithExpiredHeader(
 		clientState,
 		consensusState,
 		expiredMessage,
-		chainA.Config().ChainID,
+		chain.Config().ChainID,
 	)
 
 	g.saveFixtureToFile(fixture, "update_client_expired_header.json")
@@ -157,14 +157,14 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithExpiredHeader(
 
 func (g *UpdateClientFixtureGenerator) generateScenarioWithFutureTimestamp(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	clientId string,
 ) {
 	g.generator.LogInfo("🔧 Generating future timestamp scenario")
 
-	tmClientState := g.generator.QueryTendermintClientState(ctx, chainA, clientId)
-	clientState := g.fetchAndFormatClientState(ctx, chainA, clientId)
-	consensusState := g.fetchAndFormatConsensusState(ctx, chainA, clientId)
+	tmClientState := g.generator.QueryTendermintClientState(ctx, chain, clientId)
+	clientState := g.fetchAndFormatClientState(ctx, chain, clientId)
+	consensusState := g.fetchAndFormatConsensusState(ctx, chain, clientId)
 
 	validHex := g.loadHexFromExistingHappyPathFixture()
 	futureHex := g.modifyHeaderTimestampToFuture(
@@ -183,7 +183,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithFutureTimestamp(
 		clientState,
 		consensusState,
 		futureMessage,
-		chainA.Config().ChainID,
+		chain.Config().ChainID,
 	)
 
 	g.saveFixtureToFile(fixture, "update_client_future_timestamp.json")
@@ -191,13 +191,13 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithFutureTimestamp(
 
 func (g *UpdateClientFixtureGenerator) generateScenarioWithNonExistentTrustedHeight(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	clientId string,
 ) {
 	g.generator.LogInfo("🔧 Generating wrong trusted height scenario")
 
-	clientState := g.fetchAndFormatClientState(ctx, chainA, clientId)
-	consensusState := g.fetchAndFormatConsensusState(ctx, chainA, clientId)
+	clientState := g.fetchAndFormatClientState(ctx, chain, clientId)
+	consensusState := g.fetchAndFormatConsensusState(ctx, chain, clientId)
 	validHex := g.loadHexFromExistingHappyPathFixture()
 
 	latestHeight := clientState["latest_height"].(uint64)
@@ -216,7 +216,7 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithNonExistentTrustedHei
 		clientState,
 		consensusState,
 		wrongHeightMessage,
-		chainA.Config().ChainID,
+		chain.Config().ChainID,
 	)
 
 	g.saveFixtureToFile(fixture, "update_client_wrong_trusted_height.json")
@@ -251,20 +251,20 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithUnparseableProtobuf()
 
 func (g *UpdateClientFixtureGenerator) fetchAndFormatClientState(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	clientId string,
 ) map[string]interface{} {
-	tmClientState := g.generator.QueryTendermintClientState(ctx, chainA, clientId)
-	return g.generator.ConvertClientStateToFixtureFormat(tmClientState, chainA.Config().ChainID)
+	tmClientState := g.generator.QueryTendermintClientState(ctx, chain, clientId)
+	return g.generator.ConvertClientStateToFixtureFormat(tmClientState, chain.Config().ChainID)
 }
 
 func (g *UpdateClientFixtureGenerator) fetchAndFormatConsensusState(
 	ctx context.Context,
-	chainA *cosmos.CosmosChain,
+	chain *cosmos.CosmosChain,
 	clientId string,
 ) map[string]interface{} {
-	tmConsensusState := g.generator.QueryTendermintConsensusState(ctx, chainA, clientId)
-	return g.generator.ConvertConsensusStateToFixtureFormat(tmConsensusState, chainA.Config().ChainID)
+	tmConsensusState := g.generator.QueryTendermintConsensusState(ctx, chain, clientId)
+	return g.generator.ConvertConsensusStateToFixtureFormat(tmConsensusState, chain.Config().ChainID)
 }
 
 func (g *UpdateClientFixtureGenerator) formatClientMessageForFixture(clientMessage *types.Any) map[string]interface{} {
