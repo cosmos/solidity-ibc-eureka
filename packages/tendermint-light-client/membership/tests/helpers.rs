@@ -219,55 +219,22 @@ pub fn create_context_with_different_proof(
 
 /// Helper to create a malformed proof by corrupting one character in the hex string
 fn create_malformed_proof_hex(original_hex: &str) -> String {
-    let mut corrupted_hex = original_hex.to_string();
-    if let Some(first_char) = corrupted_hex.chars().next() {
-        let corrupted_char = match first_char {
-            '0' => '1',
-            '1' => '0',
-            'a' => 'b',
-            'b' => 'a',
-            'f' => 'e',
-            'e' => 'f',
-            _ => '0',
-        };
-        corrupted_hex.replace_range(0..1, &corrupted_char.to_string());
-    }
-    corrupted_hex
+    let mut s = original_hex.to_string();
+    s.replace_range(0..1, if &s[0..1] == "0" { "1" } else { "0" });
+    s
 }
 
 /// Helper to create a test context with a malformed proof (corrupted hex)
 pub fn create_context_with_malformed_proof(fixture: MembershipVerificationFixture) -> TestContext {
     let mut ctx = setup_test_context(fixture.clone());
 
-    // Create malformed proof by corrupting one hex character
     let malformed_hex = create_malformed_proof_hex(&fixture.membership_msg.proof);
 
-    // Try to decode the malformed proof - this should fail during hex decoding or protobuf parsing
-    // If hex decoding fails, we'll create an empty proof instead to test protobuf validation
-    match hex::decode(&malformed_hex) {
-        Ok(bytes) => {
-            // If hex decoding succeeds, try to parse as protobuf (this should fail)
-            match ProtoMerkleProof::decode(bytes.as_slice()) {
-                Ok(proto_proof) => {
-                    // If protobuf parsing somehow succeeds, try the final conversion
-                    if let Ok(merkle_proof) = proto_proof.try_into() {
-                        ctx.merkle_proof = merkle_proof;
-                    } else {
-                        // Conversion failed - use empty proof to force an error
-                        ctx.merkle_proof = MerkleProof { proofs: vec![] };
-                    }
-                }
-                Err(_) => {
-                    // Protobuf parsing failed - use empty proof to force an error
-                    ctx.merkle_proof = MerkleProof { proofs: vec![] };
-                }
-            }
-        }
-        Err(_) => {
-            // Hex decoding failed - use empty proof to force an error
-            ctx.merkle_proof = MerkleProof { proofs: vec![] };
-        }
-    }
+    ctx.merkle_proof = hex::decode(&malformed_hex)
+        .ok()
+        .and_then(|bytes| ProtoMerkleProof::decode(bytes.as_slice()).ok())
+        .and_then(|proto| proto.try_into().ok())
+        .unwrap_or_else(|| MerkleProof { proofs: vec![] });
 
     ctx
 }
