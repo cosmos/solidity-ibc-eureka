@@ -81,15 +81,9 @@ pub fn setup_test_context(fixture: MembershipVerificationFixture) -> TestContext
     let app_hash_bytes =
         hex::decode(&fixture.app_hash_hex).expect("Failed to decode app_hash_hex from fixture");
 
-    assert_eq!(
-        app_hash_bytes.len(),
-        32,
-        "App hash wrong length: {} bytes, expected 32",
-        app_hash_bytes.len()
-    );
-
-    let mut app_hash = [0u8; 32];
-    app_hash.copy_from_slice(&app_hash_bytes);
+    let app_hash: [u8; 32] = app_hash_bytes
+        .try_into()
+        .expect("App hash must be exactly 32 bytes");
 
     let kv_pair = KVPair::from(&fixture.membership_msg);
     let merkle_proof = hex_to_merkle_proof(&fixture.membership_msg.proof);
