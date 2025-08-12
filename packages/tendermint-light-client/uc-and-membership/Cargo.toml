@@ -16,8 +16,8 @@ thiserror                             = { workspace = true }
 [dev-dependencies]
 ibc-core-client-types = { workspace = true }
 serde                 = { workspace = true }
-serde_json           = { workspace = true }
-hex                  = { workspace = true }
-prost                = { workspace = true }
-ibc-proto            = { workspace = true }
-tendermint           = { workspace = true }
+serde_json            = { workspace = true }
+hex                   = { workspace = true }
+prost                 = { workspace = true }
+ibc-proto             = { workspace = true }
+tendermint            = { workspace = true }
