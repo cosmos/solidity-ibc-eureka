@@ -22,8 +22,8 @@ pub(crate) fn verify_attestation(
     signatures: &[Signature],
     pubkeys: &[PublicKey],
 ) -> Result<(), IbcAttestorClientError> {
-    let unique_sigs: HashSet<Signature> = signatures.iter().copied().collect();
-    let unique_pubkeys: HashSet<PublicKey> = pubkeys.iter().copied().collect();
+    let unique_sigs: HashSet<&Signature> = signatures.iter().collect();
+    let unique_pubkeys: HashSet<&PublicKey> = pubkeys.iter().collect();
 
     if unique_sigs.len() != signatures.len()
         || unique_sigs.len() < client_state.min_required_sigs as usize

@@ -1,3 +1,4 @@
+//! This mod
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Cosmos SDK chain from events received from an Attested chain via the aggregator.
 
@@ -5,13 +6,22 @@ use std::collections::{HashMap, HashSet};
 
 use alloy::sol_types::SolValue;
 use anyhow::Result;
-use attestor_light_client::header::Header;
+use attestor_light_client::{
+    client_state::ClientState as AttestorClientState,
+    consensus_state::ConsensusState as AttestorConsensusState, header::Header,
+};
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
-    ibc::{core::client::v1::MsgUpdateClient, lightclients::wasm::v1::ClientMessage},
+    ibc::{
+        core::client::v1::{Height, MsgCreateClient, MsgUpdateClient},
+        lightclients::wasm::v1::{
+            ClientMessage, ClientState as WasmClientState, ConsensusState as WasmConsensusState,
+        },
+    },
 };
 use prost::Message;
+use secp256k1::PublicKey;
 use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
 
@@ -90,6 +100,12 @@ fn encode_and_cyphon_packet_if_relevant(
     }
 }
 
+const CHECKSUM_HEX: &str = "checksum_hex";
+const PUB_KEYS: &str = "pub_keys";
+const MIN_REQUIRED_SIGS: &str = "min_required_sigs";
+const HEIGHT: &str = "height";
+const TIMESTAMP: &str = "timestamp";
+
 #[async_trait::async_trait]
 impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
     #[tracing::instrument(skip_all)]
@@ -137,14 +153,15 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         let query_height = *heights.iter().max().unwrap();
         let request = aggregator_proto::GetAttestationsRequest {
             packets: ics26_send_packets,
-            height: query_height,
+            height: query_height, // latest height
         };
 
         tracing::info!(
             "Requesting state attestation from aggregator for {} packets",
             request.packets.len()
         );
-
+        // - We need update client with timestamp at height
+        // - We need MsgRecvPacket where proof is (key, value, height, signature)
         let response = aggregator_client
             .get_attestations(request)
             .await?
@@ -183,7 +200,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
-        let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
+        let timeout_msgs = cosmos::target_events_to_timeout_msgs(
             target_events,
             &src_client_id,
             &dst_client_id,
@@ -192,7 +209,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             now_since_unix.as_secs(),
         );
 
-        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+        let (mut recv_msgs, ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
             &src_client_id,
             &dst_client_id,
@@ -229,10 +246,75 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn create_client(&self, _parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
-        tracing::info!("Creating attested light client");
-        // TODO: IBC-163
-        todo!()
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        let checksum_hex = parameters
+            .get(CHECKSUM_HEX)
+            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{CHECKSUM_HEX}` parameter")))?;
+        let checksum = alloy::hex::decode(checksum_hex)?;
+
+        let min_required_sigs: u8 = parameters
+            .get(MIN_REQUIRED_SIGS)
+            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{MIN_REQUIRED_SIGS}` parameter")))?
+            .parse()?;
+
+        let height: u64 = parameters
+            .get(HEIGHT)
+            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{HEIGHT}` parameter")))?
+            .parse()?;
+
+        let timestamp: u64 = parameters
+            .get(TIMESTAMP)
+            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{TIMESTAMP}` parameter")))?
+            .parse()?;
+
+        let pub_keys_hex = parameters
+            .get(PUB_KEYS)
+            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{PUB_KEYS}` parameter")))?;
+        let pub_keys_bytes = alloy::hex::decode(pub_keys_hex)?;
+        anyhow::ensure!(
+            pub_keys_bytes.len() % 33 == 0,
+            "`{PUB_KEYS}` must be a hex-encoded concatenation of 33-byte compressed pubkeys"
+        );
+        let pub_keys: Vec<PublicKey> = pub_keys_bytes
+            .chunks_exact(33)
+            .map(|chunk| PublicKey::from_slice(chunk))
+            .collect::<Result<_, _>>()
+            .map_err(|_| anyhow::anyhow!("failed to parse compressed secp256k1 pubkey"))?;
+
+        let client_state = AttestorClientState {
+            pub_keys,
+            min_required_sigs,
+            latest_height: height,
+            is_frozen: false,
+        };
+        let consensus_state = AttestorConsensusState { height, timestamp };
+
+        let client_state_bz = serde_json::to_vec(&client_state)?;
+        let consensus_state_bz = serde_json::to_vec(&consensus_state)?;
+
+        let wasm_client_state = WasmClientState {
+            data: client_state_bz,
+            checksum,
+            latest_height: Some(Height {
+                revision_number: 0,
+                revision_height: height,
+            }),
+        };
+        let wasm_consensus_state = WasmConsensusState {
+            data: consensus_state_bz,
+        };
+
+        let msg = MsgCreateClient {
+            client_state: Some(Any::from_msg(&wasm_client_state)?),
+            consensus_state: Some(Any::from_msg(&wasm_consensus_state)?),
+            signer: self.signer_address.clone(),
+        };
+
+        Ok(TxBody {
+            messages: vec![Any::from_msg(&msg)?],
+            ..Default::default()
+        }
+        .encode_to_vec())
     }
 
     #[tracing::instrument(skip_all)]
