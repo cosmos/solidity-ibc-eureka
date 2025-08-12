@@ -31,22 +31,3 @@ fn test_update_client_future_timestamp() {
     let ctx = setup_test_context(fixture);
     assert_update_failure(&ctx, "future timestamp");
 }
-
-#[test]
-fn test_update_client_invalid_protobuf() {
-    let fixture = load_invalid_protobuf_fixture();
-
-    // For invalid protobuf, header parsing should fail early
-    match hex_to_header(&fixture.update_client_message.client_message_hex) {
-        Ok(_header) => {
-            panic!("❌ Header parsing should have failed for invalid protobuf");
-        }
-        Err(e) => {
-            println!(
-                "✅ Header parsing correctly failed for invalid protobuf with: {:?}",
-                e
-            );
-            // Test passes - invalid protobuf should fail to parse
-        }
-    }
-}

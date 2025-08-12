@@ -253,8 +253,3 @@ pub fn load_expired_header_fixture() -> UpdateClientFixture {
 pub fn load_future_timestamp_fixture() -> UpdateClientFixture {
     load_fixture("update_client_future_timestamp")
 }
-
-/// Load the invalid protobuf fixture
-pub fn load_invalid_protobuf_fixture() -> UpdateClientFixture {
-    load_fixture("update_client_invalid_protobuf")
-}

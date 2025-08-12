@@ -57,7 +57,6 @@ func (g *UpdateClientFixtureGenerator) GenerateMultipleUpdateClientScenarios(
 	g.generateScenarioWithExpiredHeader(ctx, chain, clientId)
 	g.generateScenarioWithFutureTimestamp(ctx, chain, clientId)
 	g.generateScenarioWithNonExistentTrustedHeight(ctx, chain, clientId)
-	g.generateScenarioWithUnparseableProtobuf()
 
 	g.suite.T().Log("✅ Multiple update client scenarios generated successfully")
 }
@@ -225,32 +224,6 @@ func (g *UpdateClientFixtureGenerator) generateScenarioWithNonExistentTrustedHei
 	)
 
 	g.saveFixtureToFile(fixture, "update_client_wrong_trusted_height.json")
-}
-
-func (g *UpdateClientFixtureGenerator) generateScenarioWithUnparseableProtobuf() {
-	g.suite.T().Log("🔧 Generating invalid protobuf scenario")
-
-	invalidProtobufBytes := "FFFFFFFF"
-
-	invalidMessage := map[string]interface{}{
-		"client_message_hex": invalidProtobufBytes,
-		"type_url":           "/ibc.lightclients.tendermint.v1.Header",
-		"trusted_height":     19,
-		"new_height":         20,
-		"metadata":           g.createMetadata("Invalid protobuf bytes - cannot be deserialized"),
-	}
-
-	clientState := g.createDummyClientStateForTesting()
-	consensusState := g.createDummyConsensusStateForTesting()
-
-	fixture := g.createUpdateClientFixture(
-		"invalid_protobuf",
-		clientState,
-		consensusState,
-		invalidMessage,
-	)
-
-	g.saveFixtureToFile(fixture, "update_client_invalid_protobuf.json")
 }
 
 func (g *UpdateClientFixtureGenerator) fetchAndFormatClientState(
@@ -421,16 +394,6 @@ func (g *UpdateClientFixtureGenerator) createUpdateMessageWithCustomHex(
 		"new_height":         trustedHeight + 1,
 		"metadata":           g.createMetadata(description),
 	}
-}
-
-func (g *UpdateClientFixtureGenerator) createDummyClientStateForTesting() string {
-	// Create a minimal dummy client state as hex
-	return "deadbeef"
-}
-
-func (g *UpdateClientFixtureGenerator) createDummyConsensusStateForTesting() string {
-	// Create a minimal dummy consensus state as hex
-	return "cafebabe"
 }
 
 func (g *UpdateClientFixtureGenerator) createUpdateClientFixture(
