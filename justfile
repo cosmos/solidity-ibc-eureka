@@ -239,7 +239,7 @@ generate-fixtures-sp1-ics07: clean-foundry install-operator install-relayer
 # Generate the code from pritibuf using `buf generate`. (Only used for relayer testing at the moment)
 [group('generate')]
 generate-buf:
-    @echo "Generating Protobuf files for relayer"
+    @echo "Generating Protobuf files"
     buf generate --template buf.gen.yaml
 
 shadowfork := if env("ETH_RPC_URL", "") == "" { "--no-match-path test/shadowfork/*" } else { "" }

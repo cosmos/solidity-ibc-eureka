@@ -37,7 +37,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ibc-attestor"
+	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ibc_attestor"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
@@ -154,10 +154,12 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 		s.Require().NoError(err)
 	}))
 
+	var attestorProcess *os.Process
 	s.Require().True(s.Run("Setup attestor", func() {
 		config := attestor.DefaultAttestorConfig()
 
 		config.OP.URL = s.EthChain.RPC
+		config.OP.RouterAddress = s.contractAddresses.Ics26Router
 
 		err := config.WriteTomlConfig(testvalues.AttestorConfigPath)
 		s.Require().NoError(err)
@@ -166,13 +168,8 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 			s.Require().NoError(err)
 		})
 
-		cmd, err := attestor.StartAttestor(testvalues.AttestorConfigPath, attestorType)
+		attestorProcess, err = attestor.StartAttestor(testvalues.AttestorConfigPath, attestorType)
 		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			if cmd != nil {
-				cmd.Kill()
-			}
-		})
 		client, err := attestor.GetAttestationServiceClient(config.GetServerAddress())
 		s.Require().NoError(err)
 
@@ -183,6 +180,12 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 
 		s.AttestorClient = client
 	}))
+
+	s.T().Cleanup(func() {
+		if attestorProcess != nil {
+			attestorProcess.Kill()
+		}
+	})
 
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
@@ -529,10 +532,12 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 		s.Require().NoError(err)
 
 		packet_to_arr := [][]byte{encoded}
+		s.True(len(packet_to_arr) > 0)
 		att, err := attestor.GetPacketAttestation(ctx, s.AttestorClient, packet_to_arr, blockHeightOfTransfer)
 		s.Require().NoError(err)
 
 		s.True(att.Attestation.GetHeight() == blockHeightOfTransfer)
+		s.True(len(att.Attestation.AttestedData) > 0)
 
 	}))
 
