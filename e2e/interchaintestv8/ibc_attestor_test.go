@@ -29,6 +29,7 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/aggregator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -380,37 +381,82 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 	}))
 }
 
-func (s *IbcAttestorTestSuite) Test_OptimismAttestorStartUp() {
+func (s *IbcAttestorTestSuite) Test_AggregatorStartUp() {
 	ctx := context.Background()
-	s.AttestorStartUpTest(ctx, attestor.OptimismBinary)
+	s.AggregatorStartUpTest(ctx, attestor.OptimismBinary)
 }
 
-func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPath attestor.AttestorBinaryPath) {
-	// Manual setup okay for now, we may want to drop this
-	// as it is implicitly tested with all remaining tests
-	s.Require().True(s.Run("Setup attestor", func() {
-		config := attestor.DefaultAttestorConfig()
-		err := config.WriteTomlConfig(testvalues.AttestorConfigPath)
+func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binaryPath attestor.AttestorBinaryPath) {
+	numAttestors := 2
+	var attestorProcesses []*os.Process
+	var attestorEndpoints []string
+
+	// Start multiple attestor instances
+	s.Require().True(s.Run("Setup multiple attestors", func() {
+		for i := range numAttestors {
+			port := 9000 + i
+			attestorConfig := attestor.DefaultAttestorConfig()
+			attestorConfig.Server.Port = port
+
+			configPath := fmt.Sprintf("/tmp/attestor_%d.toml", i)
+			err := attestorConfig.WriteTomlConfig(configPath)
+			s.Require().NoError(err)
+			s.T().Cleanup(func() {
+				err := attestor.CleanupConfig(configPath)
+				s.Require().NoError(err)
+			})
+
+			attestorProcess, err := attestor.StartAttestor(configPath, binaryPath)
+			s.Require().NoError(err)
+			attestorProcesses = append(attestorProcesses, attestorProcess)
+
+			serverAddr := fmt.Sprintf("127.0.0.1:%d", port)
+			attestorEndpoints = append(attestorEndpoints, fmt.Sprintf("http://%s", serverAddr))
+
+			// Verify each attestor is working
+			attesterService, err := attestor.GetAttestationServiceClient(serverAddr)
+			s.Require().NoError(err)
+
+			resp, err := attestor.GetStateAttestation(ctx, attesterService, 12345)
+			s.Require().NoError(err)
+			s.T().Logf("Attestor %d state sig: %s", i, resp.GetAttestation().GetSignature())
+		}
+	}))
+
+	s.T().Cleanup(func() {
+		for _, attestorProcess := range attestorProcesses {
+			if attestorProcess != nil {
+				s.Require().NoError(attestorProcess.Kill())
+			}
+		}
+	})
+
+	// Start aggregator service
+	var aggregatorProcess *os.Process
+	s.Require().True(s.Run("Setup aggregator", func() {
+		aggregatorConfig := aggregator.NewAggregatorConfigWithEndpoints(attestorEndpoints, numAttestors)
+		err := aggregatorConfig.WriteTomlConfig(testvalues.AggregatorConfigPath)
 		s.Require().NoError(err)
 		s.T().Cleanup(func() {
-			err := attestor.CleanupConfig(testvalues.AttestorConfigPath)
+			err := aggregator.CleanupConfig(testvalues.AggregatorConfigPath)
 			s.Require().NoError(err)
 		})
 
-		cmd, err := attestor.StartAttestor(testvalues.AttestorConfigPath, binaryPath)
+		aggregatorProcess, err = aggregator.StartAggregator(testvalues.AggregatorConfigPath, aggregator.AggregatorBinary)
 		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			if cmd != nil {
-				s.Require().NoError(cmd.Kill(), "could not stop attestor")
-			}
-		})
-		client, err := attestor.GetAttestationServiceClient(config.GetServerAddress())
+	}))
+
+	s.T().Cleanup(func() {
+		if aggregatorProcess != nil {
+			aggregatorProcess.Kill()
+		}
+	})
+
+	// Test that aggregator can communicate with attestors
+	s.Require().True(s.Run("Test aggregator communication", func() {
+		_, err := aggregator.GetAggregatorServiceClient("127.0.0.1:8080")
 		s.Require().NoError(err)
 
-		resp, err := attestor.GetStateAttestation(ctx, client, 12345)
-		s.Require().NoError(err)
-
-		s.T().Logf("state sig %s", resp.GetAttestation().GetSignature())
 	}))
 }
 

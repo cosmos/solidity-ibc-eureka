@@ -138,6 +138,8 @@ const (
 	ParameterKey_timestamp = "timestamp"
 	// The tmp path used for programatically generated attestor configs
 	AttestorConfigPath = "/tmp/attestor.toml"
+	// The tmp path used for programatically generated aggregator configs
+	AggregatorConfigPath = "/tmp/aggregator.toml"
 	// The RPC endpoint for the aggregator service
 	AggregatorRpcPath = "http://localhost:8080"
 )
