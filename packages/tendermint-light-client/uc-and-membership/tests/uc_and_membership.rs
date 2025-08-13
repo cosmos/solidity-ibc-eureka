@@ -127,25 +127,34 @@ fn test_uc_and_membership_empty_request() {
         &empty_request,
     );
 
-    match result {
-        Ok(output) => {
-            // Empty membership request should succeed - only update client is validated
-            assert!(
-                output.update_output.latest_height.revision_height()
-                    > output.update_output.trusted_height.revision_height(),
-                "New height should be greater than trusted height"
-            );
-            assert_eq!(
-                output.update_output.latest_height.revision_number(),
-                output.update_output.trusted_height.revision_number(),
-                "Revision number should remain consistent"
-            );
-        }
-        Err(tendermint_light_client_uc_and_membership::UcAndMembershipError::UpdateClient(_)) => {
-            // Update client failure is acceptable for this test
-        }
-        Err(e) => panic!("Unexpected error for empty membership request: {:?}", e),
-    }
+    let output =
+        result.expect("Empty membership request with valid update client should always succeed");
+
+    // Validate that update client actually progressed properly
+    assert_eq!(
+        output.update_output.latest_height.revision_height(),
+        ctx.proposed_header.height().revision_height(),
+        "Latest height should match proposed header height exactly"
+    );
+    assert_eq!(
+        output.update_output.latest_height.revision_number(),
+        ctx.proposed_header.height().revision_number(),
+        "Latest revision should match proposed header revision exactly"
+    );
+    assert_eq!(
+        output.update_output.trusted_height.revision_height(),
+        ctx.client_state.latest_height.revision_height(),
+        "Trusted height should match original client state height exactly"
+    );
+
+    // Ensure meaningful progression occurred
+    assert!(
+        output.update_output.latest_height.revision_height()
+            > output.update_output.trusted_height.revision_height(),
+        "Update must represent actual height progression: {} > {}",
+        output.update_output.latest_height.revision_height(),
+        output.update_output.trusted_height.revision_height()
+    );
 }
 
 #[test]
@@ -218,10 +227,7 @@ fn test_uc_and_membership_membership_error_type() {
         ctx.current_time,
     );
 
-    if uc_result.is_err() {
-        // Skip this test if update client itself fails - we want to test membership errors
-        return;
-    }
+    uc_result.expect("Update client must succeed for this test - membership errors should only be tested when update client works");
 
     let error =
         execute_uc_and_membership(&ctx).expect_err("Expected Membership error but succeeded");
