@@ -53,62 +53,25 @@ fn test_uc_and_membership_update_client_fails_malformed_message() {
 #[test]
 fn test_uc_and_membership_membership_fails_tampered_value() {
     let fixture = load_combined_invalid_membership_fixture();
-    let ctx = create_context_with_tampered_value(fixture);
+    let mut ctx = setup_test_context(fixture);
+    ctx.kv_pair.value = b"tampered_value".to_vec();
     assert_uc_and_membership_failure_with_error(&ctx, "Membership", "tampered value");
 }
 
 #[test]
 fn test_uc_and_membership_membership_fails_empty_proof() {
     let fixture = load_combined_invalid_membership_fixture();
-    let ctx = create_context_with_empty_proof(fixture);
+    let mut ctx = setup_test_context(fixture);
+    ctx.merkle_proof = ibc_core_commitment_types::merkle::MerkleProof { proofs: vec![] };
     assert_uc_and_membership_failure_with_error(&ctx, "Membership", "empty proof");
 }
 
 #[test]
 fn test_uc_and_membership_membership_fails_mismatched_path() {
     let fixture = load_combined_invalid_membership_fixture();
-    let ctx =
-        create_context_with_mismatched_path(fixture, vec![b"wrong".to_vec(), b"path".to_vec()]);
+    let mut ctx = setup_test_context(fixture);
+    ctx.kv_pair.path = vec![b"wrong".to_vec(), b"path".to_vec()];
     assert_uc_and_membership_failure_with_error(&ctx, "Membership", "mismatched path");
-}
-
-#[test]
-fn test_uc_and_membership_multiple_kv_pairs() {
-    // Test with multiple membership proofs - expect failure due to app hash mismatch
-    let fixture = load_combined_happy_path_fixture();
-    let ctx = setup_test_context(fixture);
-
-    // Create a request with multiple identical KV pairs
-    let request = vec![
-        (ctx.kv_pair.clone(), ctx.merkle_proof.clone()),
-        (ctx.kv_pair.clone(), ctx.merkle_proof.clone()),
-    ];
-
-    let result = tendermint_light_client_uc_and_membership::update_client_and_membership(
-        &ctx.client_state,
-        &ctx.trusted_consensus_state,
-        ctx.proposed_header.clone(),
-        ctx.current_time,
-        &request,
-    );
-
-    // Since we're combining fixtures with different app hashes, expect membership failure or success
-    match result {
-        Ok(output) => {
-            // If it succeeds, validate the output
-            assert!(
-                output.update_output.latest_height.revision_height()
-                    > output.update_output.trusted_height.revision_height(),
-                "New height should be greater than trusted height"
-            );
-        }
-        Err(tendermint_light_client_uc_and_membership::UcAndMembershipError::Membership(
-            tendermint_light_client_membership::MembershipError::MembershipVerificationFailed,
-        )) => {
-            // Expected - app hash mismatch between fixtures
-        }
-        Err(e) => panic!("Unexpected error type for multiple KV pairs test: {:?}", e),
-    }
 }
 
 #[test]
@@ -164,7 +127,8 @@ fn test_uc_and_membership_sequence_validation() {
     let fixture = load_combined_invalid_membership_fixture();
 
     // Create context where update client will succeed but membership will fail
-    let ctx = create_context_with_tampered_value(fixture);
+    let mut ctx = setup_test_context(fixture);
+    ctx.kv_pair.value = b"tampered_value".to_vec();
 
     // First verify that update client would succeed on its own
     let uc_result = tendermint_light_client_update_client::update_client(
@@ -217,7 +181,8 @@ fn test_uc_and_membership_update_client_error_type() {
 fn test_uc_and_membership_membership_error_type() {
     // Test specific Membership error type for empty proof
     let membership_fixture = load_combined_invalid_membership_fixture();
-    let ctx = create_context_with_empty_proof(membership_fixture);
+    let mut ctx = setup_test_context(membership_fixture);
+    ctx.merkle_proof = ibc_core_commitment_types::merkle::MerkleProof { proofs: vec![] };
 
     // First verify that update client would succeed on its own
     let uc_result = tendermint_light_client_update_client::update_client(

@@ -271,35 +271,6 @@ pub fn assert_uc_and_membership_failure_with_error(
     }
 }
 
-fn create_modified_context<F>(fixture: UcAndMembershipFixture, modifier: F) -> TestContext
-where
-    F: FnOnce(&mut TestContext),
-{
-    let mut ctx = setup_test_context(fixture);
-    modifier(&mut ctx);
-    ctx
-}
-
-pub fn create_context_with_empty_proof(fixture: UcAndMembershipFixture) -> TestContext {
-    create_modified_context(fixture, |ctx| {
-        ctx.merkle_proof = MerkleProof { proofs: vec![] };
-    })
-}
-
-pub fn create_context_with_tampered_value(fixture: UcAndMembershipFixture) -> TestContext {
-    create_modified_context(fixture, |ctx| {
-        ctx.kv_pair.value.push(0xFF);
-    })
-}
-
-pub fn create_context_with_mismatched_path(
-    fixture: UcAndMembershipFixture,
-    new_path: Vec<Vec<u8>>,
-) -> TestContext {
-    create_modified_context(fixture, |ctx| {
-        ctx.kv_pair.path = new_path;
-    })
-}
 
 fn load_combined_fixture(
     update_client_filename: &str,
