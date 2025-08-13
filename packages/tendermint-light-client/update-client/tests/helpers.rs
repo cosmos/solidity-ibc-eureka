@@ -25,8 +25,9 @@ pub struct UpdateClientFixture {
     pub update_client_message: UpdateClientMessageFixture,
 }
 
-/// Parse a client state from proto
-fn client_state_from_proto(proto: ibc_client_tendermint::types::proto::v1::ClientState) -> Result<ClientState, Box<dyn std::error::Error>> {
+fn client_state_from_proto(
+    proto: ibc_client_tendermint::types::proto::v1::ClientState,
+) -> Result<ClientState, Box<dyn std::error::Error>> {
     let trust_level = proto
         .trust_level
         .ok_or("Missing trust level in client state")?;
@@ -57,7 +58,6 @@ fn client_state_from_proto(proto: ibc_client_tendermint::types::proto::v1::Clien
     })
 }
 
-/// Extension trait for parsing from hex
 trait ParseFromHex: Sized {
     fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>>;
 }
@@ -66,30 +66,30 @@ impl ParseFromHex for ClientState {
     fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let bytes = hex::decode(hex_str)
             .map_err(|e| format!("Failed to decode client state hex: {}", e))?;
-        
-        let proto_client_state = ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
-            .map_err(|e| format!("Failed to decode protobuf client state: {}", e))?;
-        
+
+        let proto_client_state =
+            ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
+                .map_err(|e| format!("Failed to decode protobuf client state: {}", e))?;
+
         client_state_from_proto(proto_client_state)
     }
 }
 
-/// Parse a client state from hex-encoded protobuf (backward compatibility wrapper)
 pub fn client_state_from_hex(hex_str: &str) -> Result<ClientState, Box<dyn std::error::Error>> {
     ClientState::from_hex(hex_str)
 }
 
-/// Parse a consensus state from proto
-fn consensus_state_from_proto(proto: ibc_client_tendermint::types::proto::v1::ConsensusState) -> Result<ConsensusState, Box<dyn std::error::Error>> {
+fn consensus_state_from_proto(
+    proto: ibc_client_tendermint::types::proto::v1::ConsensusState,
+) -> Result<ConsensusState, Box<dyn std::error::Error>> {
     let timestamp = proto
         .timestamp
         .ok_or("Missing timestamp in consensus state")?;
-    let root = proto
-        .root
-        .ok_or("Missing root in consensus state")?;
+    let root = proto.root.ok_or("Missing root in consensus state")?;
 
-    let tm_timestamp = tendermint::Time::from_unix_timestamp(timestamp.seconds, timestamp.nanos as u32)
-        .map_err(|e| format!("Failed to create timestamp: {}", e))?;
+    let tm_timestamp =
+        tendermint::Time::from_unix_timestamp(timestamp.seconds, timestamp.nanos as u32)
+            .map_err(|e| format!("Failed to create timestamp: {}", e))?;
 
     let next_validators_hash = tendermint::Hash::from_bytes(
         tendermint::hash::Algorithm::Sha256,
@@ -111,19 +111,20 @@ impl ParseFromHex for ConsensusState {
         let bytes = hex::decode(hex_str)
             .map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
 
-        let proto_consensus_state = ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
-            .map_err(|e| format!("Failed to decode protobuf consensus state: {}", e))?;
+        let proto_consensus_state =
+            ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
+                .map_err(|e| format!("Failed to decode protobuf consensus state: {}", e))?;
 
         consensus_state_from_proto(proto_consensus_state)
     }
 }
 
-/// Parse a consensus state from hex-encoded protobuf (backward compatibility wrapper)
-pub fn consensus_state_from_hex(hex_str: &str) -> Result<ConsensusState, Box<dyn std::error::Error>> {
+pub fn consensus_state_from_hex(
+    hex_str: &str,
+) -> Result<ConsensusState, Box<dyn std::error::Error>> {
     ConsensusState::from_hex(hex_str)
 }
 
-/// Load a fixture from the fixtures directory
 pub fn load_fixture(filename: &str) -> UpdateClientFixture {
     let fixture_path = Path::new("../fixtures").join(format!("{}.json", filename));
     let fixture_content = fs::read_to_string(&fixture_path)
@@ -135,8 +136,8 @@ pub fn load_fixture(filename: &str) -> UpdateClientFixture {
 
 impl ParseFromHex for Header {
     fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let bytes = hex::decode(hex_str)
-            .map_err(|e| format!("Failed to decode header hex: {}", e))?;
+        let bytes =
+            hex::decode(hex_str).map_err(|e| format!("Failed to decode header hex: {}", e))?;
 
         let proto_header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
             .map_err(|e| format!("Failed to decode protobuf header: {}", e))?;
@@ -146,12 +147,10 @@ impl ParseFromHex for Header {
     }
 }
 
-/// Convert hex string to Header (backward compatibility wrapper)
 pub fn hex_to_header(hex_str: &str) -> Result<Header, Box<dyn std::error::Error>> {
     Header::from_hex(hex_str)
 }
 
-/// Test context containing parsed fixture data
 pub struct TestContext {
     pub client_state: ClientState,
     pub trusted_consensus_state: ConsensusState,
@@ -159,7 +158,6 @@ pub struct TestContext {
     pub current_time: u128,
 }
 
-/// Set up test context from fixture
 pub fn setup_test_context(fixture: UpdateClientFixture) -> TestContext {
     let client_state = client_state_from_hex(&fixture.client_state_hex)
         .expect("Failed to create client state from fixture");
@@ -183,7 +181,6 @@ pub fn setup_test_context(fixture: UpdateClientFixture) -> TestContext {
     }
 }
 
-/// Execute update_client with the test context
 pub fn execute_update_client(
     ctx: &TestContext,
 ) -> Result<tendermint_light_client_update_client::UpdateClientOutput, UpdateClientError> {
@@ -195,22 +192,18 @@ pub fn execute_update_client(
     )
 }
 
-/// Load the happy path fixture
 pub fn load_happy_path_fixture() -> UpdateClientFixture {
     load_fixture("update_client_happy_path")
 }
 
-/// Load the malformed client message fixture
 pub fn load_malformed_client_message_fixture() -> UpdateClientFixture {
     load_fixture("update_client_malformed_client_message")
 }
 
-/// Load the expired header fixture
 pub fn load_expired_header_fixture() -> UpdateClientFixture {
     load_fixture("update_client_expired_header")
 }
 
-/// Load the future timestamp fixture
 pub fn load_future_timestamp_fixture() -> UpdateClientFixture {
     load_fixture("update_client_future_timestamp")
 }

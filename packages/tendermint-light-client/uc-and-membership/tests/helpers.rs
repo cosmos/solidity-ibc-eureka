@@ -1,7 +1,6 @@
 //! Common test utilities and fixtures for uc-and-membership tests
 
 use serde::Deserialize;
-use std::convert::TryFrom;
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -17,13 +16,11 @@ use tendermint_light_client_uc_and_membership::{
 };
 use tendermint_light_client_update_client::{ClientState, TrustThreshold};
 
-/// Update client message fixture structure from JSON
 #[derive(Debug, Deserialize, Clone)]
 pub struct UpdateClientMessageFixture {
     pub client_message_hex: String,
 }
 
-/// Membership message fixture structure from JSON
 #[derive(Debug, Clone, Deserialize)]
 pub struct MembershipMsgFixture {
     pub path: Vec<String>,
@@ -31,7 +28,6 @@ pub struct MembershipMsgFixture {
     pub value: String,
 }
 
-/// Update client fixture structure from JSON
 #[derive(Debug, Deserialize)]
 struct UpdateClientFixture {
     client_state_hex: String,
@@ -39,13 +35,11 @@ struct UpdateClientFixture {
     update_client_message: UpdateClientMessageFixture,
 }
 
-/// Membership verification fixture structure from JSON
 #[derive(Debug, Deserialize)]
 struct MembershipFixture {
     membership_msg: MembershipMsgFixture,
 }
 
-/// Combined update client and membership fixture (created by merging separate fixtures)
 #[derive(Debug, Deserialize)]
 pub struct UcAndMembershipFixture {
     pub client_state_hex: String,
@@ -63,8 +57,9 @@ impl From<&MembershipMsgFixture> for KVPair {
     }
 }
 
-/// Parse a client state from proto
-fn client_state_from_proto(proto: ibc_client_tendermint::types::proto::v1::ClientState) -> Result<ClientState, Box<dyn std::error::Error>> {
+fn client_state_from_proto(
+    proto: ibc_client_tendermint::types::proto::v1::ClientState,
+) -> Result<ClientState, Box<dyn std::error::Error>> {
     let trust_level = proto
         .trust_level
         .ok_or("Missing trust level in client state")?;
@@ -95,7 +90,6 @@ fn client_state_from_proto(proto: ibc_client_tendermint::types::proto::v1::Clien
     })
 }
 
-/// Extension trait for parsing from hex
 trait ParseFromHex: Sized {
     fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>>;
 }
@@ -104,30 +98,30 @@ impl ParseFromHex for ClientState {
     fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let bytes = hex::decode(hex_str)
             .map_err(|e| format!("Failed to decode client state hex: {}", e))?;
-        
-        let proto_client_state = ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
-            .map_err(|e| format!("Failed to decode protobuf client state: {}", e))?;
-        
+
+        let proto_client_state =
+            ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
+                .map_err(|e| format!("Failed to decode protobuf client state: {}", e))?;
+
         client_state_from_proto(proto_client_state)
     }
 }
 
-/// Parse a client state from hex-encoded protobuf (wrapper for backward compatibility)
 pub fn client_state_from_hex(hex_str: &str) -> Result<ClientState, Box<dyn std::error::Error>> {
     ClientState::from_hex(hex_str)
 }
 
-/// Parse a consensus state from proto
-fn consensus_state_from_proto(proto: ibc_client_tendermint::types::proto::v1::ConsensusState) -> Result<ConsensusState, Box<dyn std::error::Error>> {
+fn consensus_state_from_proto(
+    proto: ibc_client_tendermint::types::proto::v1::ConsensusState,
+) -> Result<ConsensusState, Box<dyn std::error::Error>> {
     let timestamp = proto
         .timestamp
         .ok_or("Missing timestamp in consensus state")?;
-    let root = proto
-        .root
-        .ok_or("Missing root in consensus state")?;
+    let root = proto.root.ok_or("Missing root in consensus state")?;
 
-    let tm_timestamp = tendermint::Time::from_unix_timestamp(timestamp.seconds, timestamp.nanos as u32)
-        .map_err(|e| format!("Failed to create timestamp: {}", e))?;
+    let tm_timestamp =
+        tendermint::Time::from_unix_timestamp(timestamp.seconds, timestamp.nanos as u32)
+            .map_err(|e| format!("Failed to create timestamp: {}", e))?;
 
     let next_validators_hash = tendermint::Hash::from_bytes(
         tendermint::hash::Algorithm::Sha256,
@@ -149,17 +143,24 @@ impl ParseFromHex for ConsensusState {
         let bytes = hex::decode(hex_str)
             .map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
 
-        let proto_consensus_state = ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
-            .map_err(|e| format!("Failed to decode protobuf consensus state: {}", e))?;
+        let proto_consensus_state =
+            ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
+                .map_err(|e| format!("Failed to decode protobuf consensus state: {}", e))?;
 
         consensus_state_from_proto(proto_consensus_state)
     }
 }
 
+pub fn consensus_state_from_hex(
+    hex_str: &str,
+) -> Result<ConsensusState, Box<dyn std::error::Error>> {
+    ConsensusState::from_hex(hex_str)
+}
+
 impl ParseFromHex for Header {
     fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let bytes = hex::decode(hex_str)
-            .map_err(|e| format!("Failed to decode header hex: {}", e))?;
+        let bytes =
+            hex::decode(hex_str).map_err(|e| format!("Failed to decode header hex: {}", e))?;
 
         let proto_header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
             .map_err(|e| format!("Failed to decode protobuf header: {}", e))?;
@@ -169,12 +170,6 @@ impl ParseFromHex for Header {
     }
 }
 
-/// Parse a consensus state from hex-encoded protobuf (wrapper for backward compatibility)
-pub fn consensus_state_from_hex(hex_str: &str) -> Result<ConsensusState, Box<dyn std::error::Error>> {
-    ConsensusState::from_hex(hex_str)
-}
-
-/// Convert hex string to Header (wrapper for backward compatibility)
 pub fn hex_to_header(hex_str: &str) -> Result<Header, Box<dyn std::error::Error>> {
     Header::from_hex(hex_str)
 }
@@ -186,19 +181,17 @@ impl ParseFromHex for MerkleProof {
 
         let proto_merkle_proof = ProtoMerkleProof::decode(bytes.as_slice())
             .map_err(|e| format!("Failed to decode protobuf merkle proof: {}", e))?;
-        
-        proto_merkle_proof.try_into()
+
+        proto_merkle_proof
+            .try_into()
             .map_err(|e| format!("Failed to convert merkle proof: {:?}", e).into())
     }
 }
 
-/// Convert hex string to MerkleProof (wrapper for backward compatibility)
 pub fn hex_to_merkle_proof(hex_str: &str) -> MerkleProof {
     MerkleProof::from_hex(hex_str).expect("valid merkle proof")
 }
 
-
-/// Test context containing parsed fixture data
 pub struct TestContext {
     pub client_state: ClientState,
     pub trusted_consensus_state: ConsensusState,
@@ -208,7 +201,6 @@ pub struct TestContext {
     pub current_time: u128,
 }
 
-/// Set up test context from fixture
 pub fn setup_test_context(fixture: UcAndMembershipFixture) -> TestContext {
     let client_state = client_state_from_hex(&fixture.client_state_hex)
         .expect("Failed to create client state from fixture");
@@ -237,7 +229,6 @@ pub fn setup_test_context(fixture: UcAndMembershipFixture) -> TestContext {
     }
 }
 
-/// Execute update_client_and_membership with the test context
 pub fn execute_uc_and_membership(
     ctx: &TestContext,
 ) -> Result<UcAndMembershipOutput, UcAndMembershipError> {
@@ -251,7 +242,6 @@ pub fn execute_uc_and_membership(
     )
 }
 
-/// Helper for tests expecting specific error types
 pub fn assert_uc_and_membership_failure_with_error(
     ctx: &TestContext,
     expected_error_type: &str,
@@ -281,7 +271,6 @@ pub fn assert_uc_and_membership_failure_with_error(
     }
 }
 
-/// Generic helper to create a modified test context
 fn create_modified_context<F>(fixture: UcAndMembershipFixture, modifier: F) -> TestContext
 where
     F: FnOnce(&mut TestContext),
@@ -291,21 +280,18 @@ where
     ctx
 }
 
-/// Helper to create a context with empty proof
 pub fn create_context_with_empty_proof(fixture: UcAndMembershipFixture) -> TestContext {
     create_modified_context(fixture, |ctx| {
         ctx.merkle_proof = MerkleProof { proofs: vec![] };
     })
 }
 
-/// Helper to create a context with tampered value
 pub fn create_context_with_tampered_value(fixture: UcAndMembershipFixture) -> TestContext {
     create_modified_context(fixture, |ctx| {
-        ctx.kv_pair.value.push(0xFF); // Tamper with the value
+        ctx.kv_pair.value.push(0xFF);
     })
 }
 
-/// Helper to create a context with mismatched path
 pub fn create_context_with_mismatched_path(
     fixture: UcAndMembershipFixture,
     new_path: Vec<Vec<u8>>,
@@ -315,7 +301,6 @@ pub fn create_context_with_mismatched_path(
     })
 }
 
-/// Generic function to combine update client and membership fixtures
 fn load_combined_fixture(
     update_client_filename: &str,
     membership_filename: &str,
@@ -342,7 +327,6 @@ fn load_combined_fixture(
     let membership_fixture: MembershipFixture =
         serde_json::from_str(&membership_content).expect("Failed to parse membership fixture");
 
-    // Use the update client fixture's client and consensus state (they should be consistent)
     UcAndMembershipFixture {
         client_state_hex: update_client_fixture.client_state_hex,
         consensus_state_hex: update_client_fixture.consensus_state_hex,
@@ -351,17 +335,14 @@ fn load_combined_fixture(
     }
 }
 
-/// Load the combined update client and membership fixture for happy path
 pub fn load_combined_happy_path_fixture() -> UcAndMembershipFixture {
     load_combined_fixture("update_client_happy_path", "verify_membership_key_0")
 }
 
-/// Load the combined fixture for expired header test
 pub fn load_combined_expired_header_fixture() -> UcAndMembershipFixture {
     load_combined_fixture("update_client_expired_header", "verify_membership_key_0")
 }
 
-/// Load the combined fixture for malformed client message test
 pub fn load_combined_malformed_message_fixture() -> UcAndMembershipFixture {
     load_combined_fixture(
         "update_client_malformed_client_message",
@@ -369,7 +350,6 @@ pub fn load_combined_malformed_message_fixture() -> UcAndMembershipFixture {
     )
 }
 
-/// Load combined fixture with valid update but invalid membership
 pub fn load_combined_invalid_membership_fixture() -> UcAndMembershipFixture {
     load_combined_fixture("update_client_happy_path", "verify_membership_key_0")
 }

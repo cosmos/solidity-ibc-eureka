@@ -9,7 +9,6 @@ use ibc_proto::ibc::core::commitment::v1::MerkleProof as ProtoMerkleProof;
 use prost::Message;
 use tendermint_light_client_membership::{membership, KVPair, MembershipError};
 
-/// Membership message fixture structure from JSON
 #[derive(Debug, Clone, Deserialize)]
 pub struct MembershipMsgFixture {
     pub path: Vec<String>,
@@ -17,7 +16,6 @@ pub struct MembershipMsgFixture {
     pub value: String,
 }
 
-/// Complete membership verification fixture from JSON
 #[derive(Debug, Clone, Deserialize)]
 pub struct MembershipVerificationFixture {
     pub membership_msg: MembershipMsgFixture,
@@ -33,7 +31,6 @@ impl From<&MembershipMsgFixture> for KVPair {
     }
 }
 
-/// Extension trait for parsing from hex
 trait ParseFromHex: Sized {
     fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>>;
 }
@@ -45,18 +42,17 @@ impl ParseFromHex for MerkleProof {
 
         let proto_merkle_proof = ProtoMerkleProof::decode(bytes.as_slice())
             .map_err(|e| format!("Failed to decode protobuf merkle proof: {}", e))?;
-        
-        proto_merkle_proof.try_into()
+
+        proto_merkle_proof
+            .try_into()
             .map_err(|e| format!("Failed to convert merkle proof: {:?}", e).into())
     }
 }
 
-/// Convert hex string to MerkleProof (backward compatibility wrapper)
 pub fn hex_to_merkle_proof(hex_str: &str) -> MerkleProof {
     MerkleProof::from_hex(hex_str).expect("valid merkle proof")
 }
 
-/// Load a membership fixture from the fixtures directory
 pub fn load_membership_fixture(filename: &str) -> MembershipVerificationFixture {
     let fixture_path = Path::new("../fixtures").join(format!("{}.json", filename));
     let fixture_content = fs::read_to_string(&fixture_path)
@@ -66,26 +62,21 @@ pub fn load_membership_fixture(filename: &str) -> MembershipVerificationFixture 
         .unwrap_or_else(|_| panic!("Failed to parse fixture: {}", fixture_path.display()))
 }
 
-/// Load the membership fixture
 pub fn load_membership_fixture_data() -> MembershipVerificationFixture {
     load_membership_fixture("verify_membership_key_0")
 }
 
-/// Load the non-membership fixture
 pub fn load_non_membership_fixture_data() -> MembershipVerificationFixture {
     load_membership_fixture("verify_non-membership_key_1")
 }
 
-/// Test context containing parsed fixture data
 pub struct TestContext {
     pub app_hash: [u8; 32],
     pub kv_pair: KVPair,
     pub merkle_proof: MerkleProof,
 }
 
-/// Set up test context from fixture
 pub fn setup_test_context(fixture: MembershipVerificationFixture) -> TestContext {
-    // Decode the app hash that was used for the proof
     let app_hash_bytes =
         hex::decode(&fixture.app_hash_hex).expect("Failed to decode app_hash_hex from fixture");
 
@@ -103,13 +94,11 @@ pub fn setup_test_context(fixture: MembershipVerificationFixture) -> TestContext
     }
 }
 
-/// Execute membership verification with the test context
 pub fn execute_membership(ctx: &TestContext) -> Result<(), MembershipError> {
     let request = vec![(ctx.kv_pair.clone(), ctx.merkle_proof.clone())];
     membership(ctx.app_hash, &request)
 }
 
-/// Helper to assert that membership verification should fail with a specific error
 pub fn assert_membership_fails_with(
     ctx: &TestContext,
     expected_error: MembershipError,
@@ -129,7 +118,6 @@ pub fn assert_membership_fails_with(
     );
 }
 
-/// Helper to assert that membership verification should succeed
 pub fn assert_membership_succeeds(ctx: &TestContext, test_description: &str) {
     execute_membership(ctx).expect(&format!(
         "Membership verification failed for {}",
@@ -137,21 +125,18 @@ pub fn assert_membership_succeeds(ctx: &TestContext, test_description: &str) {
     ));
 }
 
-/// Helper to create a test context with wrong app hash
 pub fn create_context_with_wrong_app_hash(fixture: MembershipVerificationFixture) -> TestContext {
     let mut ctx = setup_test_context(fixture);
-    ctx.app_hash = [0xFF; 32]; // Use a completely different app hash
+    ctx.app_hash = [0xFF; 32];
     ctx
 }
 
-/// Helper to create a test context with empty proof
 pub fn create_context_with_empty_proof(fixture: MembershipVerificationFixture) -> TestContext {
     let mut ctx = setup_test_context(fixture);
     ctx.merkle_proof = MerkleProof { proofs: vec![] };
     ctx
 }
 
-/// Helper to create a test context with mismatched path
 pub fn create_context_with_mismatched_path(
     fixture: MembershipVerificationFixture,
     new_path: Vec<Vec<u8>>,
@@ -161,7 +146,6 @@ pub fn create_context_with_mismatched_path(
     ctx
 }
 
-/// Helper to create a test context with different proof
 pub fn create_context_with_different_proof(
     mut ctx: TestContext,
     other_fixture: MembershipVerificationFixture,
@@ -170,14 +154,12 @@ pub fn create_context_with_different_proof(
     ctx
 }
 
-/// Helper to create a malformed proof by corrupting one character in the hex string
 fn create_malformed_proof_hex(original_hex: &str) -> String {
     let mut s = original_hex.to_string();
     s.replace_range(0..1, if &s[0..1] == "0" { "1" } else { "0" });
     s
 }
 
-/// Helper to create a test context with a malformed proof (corrupted hex)
 pub fn create_context_with_malformed_proof(fixture: MembershipVerificationFixture) -> TestContext {
     let mut ctx = setup_test_context(fixture.clone());
 
@@ -191,4 +173,3 @@ pub fn create_context_with_malformed_proof(fixture: MembershipVerificationFixtur
 
     ctx
 }
-
