@@ -66,7 +66,7 @@ pub struct AttestedToCosmosConfig {
     pub aggregator_url: String,
     // TODO: Make this chain agnostic, see IBC-162
     /// The EVM RPC URL.
-    pub eth_rpc_url: String,
+    pub attested_rpc_url: String,
     /// ICS26 address
     pub ics26_address: Address,
     /// The target tendermint RPC URL.
@@ -83,7 +83,7 @@ impl
 {
     pub async fn new(config: AttestedToCosmosConfig) -> Self {
         let provider = RootProvider::builder()
-            .connect(&config.eth_rpc_url)
+            .connect(&config.attested_rpc_url)
             .await
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
         let attestor_listener = eth_eureka::ChainListener::new(config.ics26_address, provider);
@@ -291,7 +291,7 @@ mod tests {
         let config = AttestedToCosmosConfig {
             aggregator_url: "http://localhost:8080".to_string(),
             ics26_address: Address(hex!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").into()),
-            eth_rpc_url: "http://localhost:8080".to_string(),
+            attested_rpc_url: "http://localhost:8080".to_string(),
             tm_rpc_url: "http://localhost:26657".to_string(),
             signer_address: "cosmos1abc123".to_string(),
             attested_chain_id: "attested-chain-1".to_string(),

@@ -128,8 +128,18 @@ const (
 	ParameterKey_RoleManager = "role_manager"
 	// Checksum hex parameter key for the relayer's ethereum light client creation.
 	ParameterKey_ChecksumHex = "checksum_hex"
+	// Min sigs parameter for the attestor light client creation.
+	ParameterKey_MinRequiredSigs = "min_required_sigs"
+	// Pub keys parameter for the attestor light client creation.
+	ParameterKey_Pubkeys = "pub_keys"
+	// Height parameter for the attestor light client creation.
+	ParameterKey_height = "height"
+	// Timestamp parameter for the attestor light client creation.
+	ParameterKey_timestamp = "timestamp"
 	// The tmp path used for programatically generated attestor configs
 	AttestorConfigPath = "/tmp/attestor.toml"
+	// The RPC endpoint for the aggregator service
+	AggregatorRpcPath = "http://localhost:8080"
 )
 
 var (

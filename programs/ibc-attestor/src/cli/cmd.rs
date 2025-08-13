@@ -43,12 +43,17 @@ pub mod server {
 pub mod key {
     use super::Parser;
 
-    /// The subcommands for the attestor.
     #[derive(Clone, Debug, Parser)]
     pub enum KeyCommands {
-        /// The subcommand to generate a key pair at `~/.ibc-attestor/ibc-attestor.pem`
         Generate,
-        /// The subcommand to show your private and public keys
-        Show,
+        Show(ShowArgs),
+    }
+
+    #[derive(Clone, Debug, Parser)]
+    pub struct ShowArgs {
+        #[clap(long)]
+        pub hide_private: bool,
+        #[clap(long)]
+        pub hide_public: bool,
     }
 }

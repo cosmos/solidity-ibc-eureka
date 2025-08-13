@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        (unknown)
-// source: ibc-attestor/ibc-attestor.proto
+// source: ibc_attestor/ibc_attestor.proto
 
 package attestor
 
@@ -221,7 +221,7 @@ var File_ibc_attestor_ibc_attestor_proto protoreflect.FileDescriptor
 
 const file_ibc_attestor_ibc_attestor_proto_rawDesc = "" +
 	"\n" +
-	"\x1fibc-attestor/ibc-attestor.proto\x12\fibc_attestor\x1a\x1eibc-attestor/attestation.proto\"1\n" +
+	"\x1fibc_attestor/ibc_attestor.proto\x12\fibc_attestor\x1a\x1eibc_attestor/attestation.proto\"1\n" +
 	"\x17StateAttestationRequest\x12\x16\n" +
 	"\x06height\x18\x01 \x01(\x04R\x06height\"W\n" +
 	"\x18StateAttestationResponse\x12;\n" +
