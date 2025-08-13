@@ -29,7 +29,7 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/aggregator"
+	aggregator "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/aggregator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -607,19 +607,20 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 		}))
 	}))
 
-	s.True(s.Run("Attest to packets", func() {
-		_, err = attestor.GetStateAttestation(ctx, s.AttestorClient, blockHeightOfTransfer)
-		s.Require().NoError(err)
-
+	s.True(s.Run("Attest to packets via aggregator", func() {
+		agg, err := aggregator.GetAggregatorServiceClient("127.0.0.1:8080")
 		encoded, err := types.AbiEncodePacket(sendPacket)
 		s.Require().NoError(err)
 
 		packet_to_arr := [][]byte{encoded}
-		s.True(len(packet_to_arr) > 0)
-		att, err := attestor.GetPacketAttestation(ctx, s.AttestorClient, packet_to_arr, blockHeightOfTransfer)
+
+		atts, err := aggregator.GetAttestations(ctx, agg, packet_to_arr, blockHeightOfTransfer)
 		s.Require().NoError(err)
 
-		s.True(att.Attestation.GetHeight() == blockHeightOfTransfer)
-		s.True(len(att.Attestation.AttestedData) > 0)
+		s.True(atts.StateAttestation.Height == blockHeightOfTransfer)
+		s.True(atts.PacketAttestation.Height == blockHeightOfTransfer)
+
+		s.True(len(atts.PacketAttestation.AttestedData) > 0)
+		s.True(len(atts.StateAttestation.AttestedData) > 0)
 	}))
 }
