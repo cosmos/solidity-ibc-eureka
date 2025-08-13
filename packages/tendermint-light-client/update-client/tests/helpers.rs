@@ -25,71 +25,75 @@ pub struct UpdateClientFixture {
     pub update_client_message: UpdateClientMessageFixture,
 }
 
-/// Parse a client state from hex-encoded protobuf
-pub fn client_state_from_hex(hex_str: &str) -> Result<ClientState, Box<dyn std::error::Error>> {
-    let bytes =
-        hex::decode(hex_str).map_err(|e| format!("Failed to decode client state hex: {}", e))?;
-
-    let proto_client_state =
-        ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
-            .map_err(|e| format!("Failed to decode protobuf client state: {}", e))?;
-
-    // Parse protobuf fields
-    let trust_level = proto_client_state
+/// Parse a client state from proto
+fn client_state_from_proto(proto: ibc_client_tendermint::types::proto::v1::ClientState) -> Result<ClientState, Box<dyn std::error::Error>> {
+    let trust_level = proto
         .trust_level
         .ok_or("Missing trust level in client state")?;
 
-    let trusting_period = proto_client_state
+    let trusting_period = proto
         .trusting_period
         .ok_or("Missing trusting period in client state")?;
-    let unbonding_period = proto_client_state
+    let unbonding_period = proto
         .unbonding_period
         .ok_or("Missing unbonding period in client state")?;
-    let max_clock_drift = proto_client_state
+    let max_clock_drift = proto
         .max_clock_drift
         .ok_or("Missing max clock drift in client state")?;
 
-    let latest_height = proto_client_state
+    let latest_height = proto
         .latest_height
         .ok_or("Missing latest height in client state")?;
 
     Ok(ClientState {
-        chain_id: proto_client_state.chain_id,
+        chain_id: proto.chain_id,
         trust_level: TrustThreshold::new(trust_level.numerator, trust_level.denominator),
         trusting_period_seconds: trusting_period.seconds as u64,
         unbonding_period_seconds: unbonding_period.seconds as u64,
         max_clock_drift_seconds: max_clock_drift.seconds as u64,
-        is_frozen: proto_client_state.frozen_height.is_some(),
+        is_frozen: proto.frozen_height.is_some(),
         latest_height: Height::new(latest_height.revision_number, latest_height.revision_height)
             .map_err(|e| format!("Invalid height: {}", e))?,
     })
 }
 
-/// Parse a consensus state from hex-encoded protobuf
-pub fn consensus_state_from_hex(
-    hex_str: &str,
-) -> Result<ConsensusState, Box<dyn std::error::Error>> {
-    let bytes =
-        hex::decode(hex_str).map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
+/// Extension trait for parsing from hex
+trait ParseFromHex: Sized {
+    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>>;
+}
 
-    let proto_consensus_state =
-        ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
-            .map_err(|e| format!("Failed to decode protobuf consensus state: {}", e))?;
+impl ParseFromHex for ClientState {
+    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let bytes = hex::decode(hex_str)
+            .map_err(|e| format!("Failed to decode client state hex: {}", e))?;
+        
+        let proto_client_state = ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
+            .map_err(|e| format!("Failed to decode protobuf client state: {}", e))?;
+        
+        client_state_from_proto(proto_client_state)
+    }
+}
 
-    let timestamp = proto_consensus_state
+/// Parse a client state from hex-encoded protobuf (backward compatibility wrapper)
+pub fn client_state_from_hex(hex_str: &str) -> Result<ClientState, Box<dyn std::error::Error>> {
+    ClientState::from_hex(hex_str)
+}
+
+/// Parse a consensus state from proto
+fn consensus_state_from_proto(proto: ibc_client_tendermint::types::proto::v1::ConsensusState) -> Result<ConsensusState, Box<dyn std::error::Error>> {
+    let timestamp = proto
         .timestamp
         .ok_or("Missing timestamp in consensus state")?;
-    let root = proto_consensus_state
+    let root = proto
         .root
         .ok_or("Missing root in consensus state")?;
 
-    let tm_timestamp =
-        tendermint::Time::from_unix_timestamp(timestamp.seconds, timestamp.nanos as u32)
-            .map_err(|e| format!("Failed to create timestamp: {}", e))?;
+    let tm_timestamp = tendermint::Time::from_unix_timestamp(timestamp.seconds, timestamp.nanos as u32)
+        .map_err(|e| format!("Failed to create timestamp: {}", e))?;
 
     let next_validators_hash = tendermint::Hash::from_bytes(
         tendermint::hash::Algorithm::Sha256,
-        &proto_consensus_state.next_validators_hash,
+        &proto.next_validators_hash,
     )
     .map_err(|e| format!("Failed to create next_validators_hash: {}", e))?;
 
@@ -102,6 +106,23 @@ pub fn consensus_state_from_hex(
     ))
 }
 
+impl ParseFromHex for ConsensusState {
+    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let bytes = hex::decode(hex_str)
+            .map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
+
+        let proto_consensus_state = ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
+            .map_err(|e| format!("Failed to decode protobuf consensus state: {}", e))?;
+
+        consensus_state_from_proto(proto_consensus_state)
+    }
+}
+
+/// Parse a consensus state from hex-encoded protobuf (backward compatibility wrapper)
+pub fn consensus_state_from_hex(hex_str: &str) -> Result<ConsensusState, Box<dyn std::error::Error>> {
+    ConsensusState::from_hex(hex_str)
+}
+
 /// Load a fixture from the fixtures directory
 pub fn load_fixture(filename: &str) -> UpdateClientFixture {
     let fixture_path = Path::new("../fixtures").join(format!("{}.json", filename));
@@ -112,17 +133,22 @@ pub fn load_fixture(filename: &str) -> UpdateClientFixture {
         .unwrap_or_else(|_| panic!("Failed to parse fixture: {}", fixture_path.display()))
 }
 
-/// Convert hex string to Header by deserializing protobuf bytes
+impl ParseFromHex for Header {
+    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let bytes = hex::decode(hex_str)
+            .map_err(|e| format!("Failed to decode header hex: {}", e))?;
+
+        let proto_header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
+            .map_err(|e| format!("Failed to decode protobuf header: {}", e))?;
+
+        Header::try_from(proto_header)
+            .map_err(|e| format!("Failed to convert header: {}", e).into())
+    }
+}
+
+/// Convert hex string to Header (backward compatibility wrapper)
 pub fn hex_to_header(hex_str: &str) -> Result<Header, Box<dyn std::error::Error>> {
-    let bytes = hex::decode(hex_str).map_err(|e| format!("Failed to decode header hex: {}", e))?;
-
-    let proto_header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
-        .map_err(|e| format!("Failed to decode protobuf header: {}", e))?;
-
-    let header =
-        Header::try_from(proto_header).map_err(|e| format!("Failed to convert header: {}", e))?;
-
-    Ok(header)
+    Header::from_hex(hex_str)
 }
 
 /// Test context containing parsed fixture data

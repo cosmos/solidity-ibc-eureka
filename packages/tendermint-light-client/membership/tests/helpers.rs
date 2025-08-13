@@ -33,15 +33,27 @@ impl From<&MembershipMsgFixture> for KVPair {
     }
 }
 
-/// Convert hex string to MerkleProof using proper protobuf deserialization
-pub fn hex_to_merkle_proof(hex_str: &str) -> MerkleProof {
-    let bytes = hex::decode(hex_str).expect("valid hex");
+/// Extension trait for parsing from hex
+trait ParseFromHex: Sized {
+    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>>;
+}
 
-    let proto_merkle_proof =
-        ProtoMerkleProof::decode(bytes.as_slice()).expect("valid proto MerkleProof");
-    proto_merkle_proof
-        .try_into()
-        .expect("valid conversion to MerkleProof")
+impl ParseFromHex for MerkleProof {
+    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let bytes = hex::decode(hex_str)
+            .map_err(|e| format!("Failed to decode merkle proof hex: {}", e))?;
+
+        let proto_merkle_proof = ProtoMerkleProof::decode(bytes.as_slice())
+            .map_err(|e| format!("Failed to decode protobuf merkle proof: {}", e))?;
+        
+        proto_merkle_proof.try_into()
+            .map_err(|e| format!("Failed to convert merkle proof: {:?}", e).into())
+    }
+}
+
+/// Convert hex string to MerkleProof (backward compatibility wrapper)
+pub fn hex_to_merkle_proof(hex_str: &str) -> MerkleProof {
+    MerkleProof::from_hex(hex_str).expect("valid merkle proof")
 }
 
 /// Load a membership fixture from the fixtures directory
