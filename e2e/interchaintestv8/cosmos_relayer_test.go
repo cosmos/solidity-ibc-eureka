@@ -582,12 +582,12 @@ func (s *CosmosRelayerTestSuite) Test_UpdateClient() {
 		s.Require().True(s.Run("Generate membership fixtures", func() {
 			nonExistingClientID := "07-tendermint-001"
 
-			predefinedKeys := []e2etypes.KeyPath{
+			keyPaths := []e2etypes.KeyPath{
 				{Key: string(ibchost.FullClientStateKey(ibctesting.FirstClientID)), Membership: true},
 				{Key: string(ibchost.FullClientStateKey(nonExistingClientID)), Membership: false},
 			}
 
-			s.TendermintLightClientFixtures.GenerateMembershipVerificationScenarios(ctx, s.SimdA, predefinedKeys, ibctesting.FirstClientID)
+			s.TendermintLightClientFixtures.GenerateMembershipVerificationScenarios(ctx, s.SimdA, keyPaths, ibctesting.FirstClientID)
 		}))
 
 		s.Require().True(s.Run("Verify client update on Chain A", func() {
