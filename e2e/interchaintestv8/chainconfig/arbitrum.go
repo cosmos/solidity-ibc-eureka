@@ -69,7 +69,7 @@ expect eof
 
 	// Write the expect script to a temporary file
 	scriptPath := "./run-testnode.exp"
-	if err := os.WriteFile(scriptPath, []byte(expectScript), 0755); err != nil {
+	if err := os.WriteFile(scriptPath, []byte(expectScript), 0o600); err != nil {
 		dockerComposeDown(ctx, nitroTestnodeDir)
 		return TestnodeArbitrumChain{}, fmt.Errorf("failed to write expect script: %w", err)
 	}
@@ -86,7 +86,7 @@ expect eof
 
 	fmt.Println("test-node.bash completed successfully")
 
-	// TODO: Not entierly sure which one is the correct one to use for execution and consensus here
+	// TODO: Not entirely sure which one is the correct one to use for execution and consensus here
 	consensusRPC := "http://localhost:8547"
 	executionRPC := "http://localhost:8547"
 

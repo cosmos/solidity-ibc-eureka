@@ -41,7 +41,6 @@ func spinUpKurtosisEnclave(ctx context.Context, enclaveName string, packageId st
 	}
 
 	packageParamJSON, err := json.Marshal(packageParams)
-
 	if err != nil {
 		return KurtosisEnclave{}, err
 	}

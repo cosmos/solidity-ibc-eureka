@@ -183,7 +183,10 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 
 	s.T().Cleanup(func() {
 		if attestorProcess != nil {
-			attestorProcess.Kill()
+			err := attestorProcess.Kill()
+			if err != nil {
+				s.T().Logf("Failed to kill the attestor process: %v", err)
+			}
 		}
 	})
 
@@ -376,10 +379,10 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 		)
 	}))
 }
+
 func (s *IbcAttestorTestSuite) Test_OptimismAttestorStartUp() {
 	ctx := context.Background()
 	s.AttestorStartUpTest(ctx, attestor.OptimismBinary)
-
 }
 
 func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPath attestor.AttestorBinaryPath) {
@@ -396,7 +399,7 @@ func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPa
 		s.Require().NoError(err)
 		s.T().Cleanup(func() {
 			if cmd != nil {
-				cmd.Kill()
+				s.Require().NoError(cmd.Kill(), "could not stop attestor")
 			}
 		})
 		client, err := attestor.GetAttestationServiceClient(config.GetServerAddress())
@@ -407,19 +410,16 @@ func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPa
 
 		s.T().Logf("state sig %s", resp.GetAttestation().GetSignature())
 	}))
-
 }
 
 func (s *IbcAttestorTestSuite) Test_OptimismAttestorAttestsToLocalNode() {
 	ctx := context.Background()
 	proofType := types.GetEnvProofType()
 	s.AttestorAttestsToLocalNode(ctx, proofType, attestor.OptimismBinary)
-
 }
 
 func (s *IbcAttestorTestSuite) AttestorAttestsToLocalNode(ctx context.Context, proofType types.SupportedProofType, binaryPath attestor.AttestorBinaryPath) {
 	s.SetupSuite(ctx, proofType, binaryPath)
-
 }
 
 func (s *IbcAttestorTestSuite) Test_OptimismAttestToICS20PacketsOnEth() {
@@ -538,7 +538,5 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 
 		s.True(att.Attestation.GetHeight() == blockHeightOfTransfer)
 		s.True(len(att.Attestation.AttestedData) > 0)
-
 	}))
-
 }

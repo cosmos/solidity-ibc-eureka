@@ -48,4 +48,3 @@ func CreateAttestedToCosmosModules(
 		},
 	}
 }
-
