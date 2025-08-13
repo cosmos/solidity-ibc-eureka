@@ -41,7 +41,7 @@ jobs:
         uses: ./.github/actions/foundry-setup
 
       - name: Install just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v3
       - name: Run unit tests
         run: just test-cargo
         env:
@@ -95,7 +95,7 @@ jobs:
       #     args: cosmwasm-check
 
       - name: Install just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v3
 
       - name: Compute SHA-256 of commited binary
         id: commited_sha256
