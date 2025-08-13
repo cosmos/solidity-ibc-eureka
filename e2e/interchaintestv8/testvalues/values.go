@@ -24,6 +24,9 @@ const (
 	// TransferAmount is the default transfer amount
 	TransferAmount int64 = 1_000_000_000
 
+	// NumAttestors is the number of attestor instances to start in tests
+	NumAttestors int = 2
+
 	// EnvKeyTendermintRPC Tendermint RPC URL.
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"
 	// EnvKeyEthRPC Ethereum RPC URL.

@@ -155,39 +155,74 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 		s.Require().NoError(err)
 	}))
 
-	var attestorProcess *os.Process
-	s.Require().True(s.Run("Setup attestor", func() {
-		config := attestor.DefaultAttestorConfig()
+	var attestorProcesses []*os.Process
+	var attestorEndpoints []string
 
-		config.OP.URL = s.EthChain.RPC
-		config.OP.RouterAddress = s.contractAddresses.Ics26Router
+	// Setup multiple attestors
+	s.Require().True(s.Run("Setup multiple attestors", func() {
+		for i := 0; i < testvalues.NumAttestors; i++ {
+			port := 9000 + i
+			attestorConfig := attestor.DefaultAttestorConfig()
+			attestorConfig.OP.URL = s.EthChain.RPC
+			attestorConfig.OP.RouterAddress = s.contractAddresses.Ics26Router
+			attestorConfig.Server.Port = port
 
-		err := config.WriteTomlConfig(testvalues.AttestorConfigPath)
-		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			err := attestor.CleanupConfig(testvalues.AttestorConfigPath)
+			configPath := fmt.Sprintf("/tmp/attestor_%d.toml", i)
+			err := attestorConfig.WriteTomlConfig(configPath)
 			s.Require().NoError(err)
-		})
+			s.T().Cleanup(func() {
+				err := attestor.CleanupConfig(configPath)
+				s.Require().NoError(err)
+			})
 
-		attestorProcess, err = attestor.StartAttestor(testvalues.AttestorConfigPath, attestorType)
-		s.Require().NoError(err)
-		client, err := attestor.GetAttestationServiceClient(config.GetServerAddress())
-		s.Require().NoError(err)
+			attestorProcess, err := attestor.StartAttestor(configPath, attestorType)
+			s.Require().NoError(err)
+			attestorProcesses = append(attestorProcesses, attestorProcess)
 
-		resp, err := attestor.GetStateAttestation(ctx, client, 1)
-		s.Require().NoError(err)
+			serverAddr := fmt.Sprintf("127.0.0.1:%d", port)
+			attestorEndpoints = append(attestorEndpoints, fmt.Sprintf("http://%s", serverAddr))
 
-		s.T().Logf("state sig %s", resp.GetAttestation().GetSignature())
+			// Verify each attestor is working
+			attesterService, err := attestor.GetAttestationServiceClient(serverAddr)
+			s.Require().NoError(err)
 
-		s.AttestorClient = client
+			resp, err := attestor.GetStateAttestation(ctx, attesterService, 1)
+			s.Require().NoError(err)
+			s.T().Logf("Attestor %d state sig: %s", i, resp.GetAttestation().GetSignature())
+
+			// Set the first attestor as the default client for backwards compatibility
+			if i == 0 {
+				s.AttestorClient = attesterService
+			}
+		}
 	}))
 
 	s.T().Cleanup(func() {
-		if attestorProcess != nil {
-			err := attestorProcess.Kill()
-			if err != nil {
-				s.T().Logf("Failed to kill the attestor process: %v", err)
+		for _, attestorProcess := range attestorProcesses {
+			if attestorProcess != nil {
+				attestorProcess.Kill()
 			}
+		}
+	})
+
+	// Setup aggregator
+	var aggregatorProcess *os.Process
+	s.Require().True(s.Run("Setup aggregator", func() {
+		aggregatorConfig := aggregator.NewAggregatorConfigWithEndpoints(attestorEndpoints, 1)
+		err := aggregatorConfig.WriteTomlConfig(testvalues.AggregatorConfigPath)
+		s.Require().NoError(err)
+		s.T().Cleanup(func() {
+			err := aggregator.CleanupConfig(testvalues.AggregatorConfigPath)
+			s.Require().NoError(err)
+		})
+
+		aggregatorProcess, err = aggregator.StartAggregator(testvalues.AggregatorConfigPath, aggregator.AggregatorBinary)
+		s.Require().NoError(err)
+	}))
+
+	s.T().Cleanup(func() {
+		if aggregatorProcess != nil {
+			aggregatorProcess.Kill()
 		}
 	})
 
