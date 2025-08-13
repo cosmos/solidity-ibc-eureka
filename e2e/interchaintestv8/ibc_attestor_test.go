@@ -386,6 +386,8 @@ func (s *IbcAttestorTestSuite) Test_OptimismAttestorStartUp() {
 }
 
 func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPath attestor.AttestorBinaryPath) {
+	// Manual setup okay for now, we may want to drop this
+	// as it is implicitly tested with all remaining tests
 	s.Require().True(s.Run("Setup attestor", func() {
 		config := attestor.DefaultAttestorConfig()
 		err := config.WriteTomlConfig(testvalues.AttestorConfigPath)
