@@ -100,8 +100,6 @@ Bad examples:
   - Don't reuse the same metric name for different things
 - Base units only
   - Bytes not kilobytes, seconds not milliseconds
-- Keep cardinality under 100 per instance
-  - Any more than that, and it'll just be a mess
 
 ## Metric types
 
