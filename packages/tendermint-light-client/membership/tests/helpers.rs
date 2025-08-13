@@ -1,7 +1,5 @@
 //! Common test utilities and fixtures
 
-#![allow(dead_code)] // Allow unused helper functions for future test expansion
-
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
@@ -22,8 +20,6 @@ pub struct MembershipMsgFixture {
 /// Complete membership verification fixture from JSON
 #[derive(Debug, Clone, Deserialize)]
 pub struct MembershipVerificationFixture {
-    pub client_state_hex: String,
-    pub consensus_state_hex: String,
     pub membership_msg: MembershipMsgFixture,
     pub app_hash_hex: String,
 }
@@ -153,32 +149,6 @@ pub fn create_context_with_mismatched_path(
     ctx
 }
 
-/// Helper to create a test context with tampered value
-pub fn create_context_with_tampered_value(fixture: MembershipVerificationFixture) -> TestContext {
-    let mut ctx = setup_test_context(fixture);
-    ctx.kv_pair.value.push(0xFF); // Tamper with the value
-    ctx
-}
-
-/// Helper to create a test context where membership is treated as non-membership
-pub fn create_context_membership_as_non_membership(
-    fixture: MembershipVerificationFixture,
-) -> TestContext {
-    let mut ctx = setup_test_context(fixture);
-    ctx.kv_pair.value.clear(); // Clear value to make it look like non-membership
-    ctx
-}
-
-/// Helper to create a test context where non-membership is treated as membership
-pub fn create_context_non_membership_as_membership(
-    fixture: MembershipVerificationFixture,
-    fake_value: Vec<u8>,
-) -> TestContext {
-    let mut ctx = setup_test_context(fixture);
-    ctx.kv_pair.value = fake_value; // Add fake value to make it look like membership
-    ctx
-}
-
 /// Helper to create a test context with different proof
 pub fn create_context_with_different_proof(
     mut ctx: TestContext,
@@ -209,3 +179,4 @@ pub fn create_context_with_malformed_proof(fixture: MembershipVerificationFixtur
 
     ctx
 }
+

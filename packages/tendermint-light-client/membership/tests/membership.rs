@@ -5,6 +5,22 @@ mod helpers;
 use helpers::*;
 use tendermint_light_client_membership::{membership, MembershipError};
 
+/// Helper to create a test context with tampered value
+fn create_context_with_tampered_value(fixture: MembershipVerificationFixture) -> TestContext {
+    let mut ctx = setup_test_context(fixture);
+    ctx.kv_pair.value.push(0xFF); // Tamper with the value
+    ctx
+}
+
+/// Helper to create a test context where membership is treated as non-membership
+fn create_context_membership_as_non_membership(
+    fixture: MembershipVerificationFixture,
+) -> TestContext {
+    let mut ctx = setup_test_context(fixture);
+    ctx.kv_pair.value.clear(); // Clear value to make it look like non-membership
+    ctx
+}
+
 #[test]
 fn test_verify_membership_happy_path() {
     let fixture = load_membership_fixture_data();

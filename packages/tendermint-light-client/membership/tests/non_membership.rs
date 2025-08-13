@@ -5,6 +5,16 @@ mod helpers;
 use helpers::*;
 use tendermint_light_client_membership::MembershipError;
 
+/// Helper to create a test context where non-membership is treated as membership
+fn create_context_non_membership_as_membership(
+    fixture: MembershipVerificationFixture,
+    fake_value: Vec<u8>,
+) -> TestContext {
+    let mut ctx = setup_test_context(fixture);
+    ctx.kv_pair.value = fake_value; // Add fake value to make it look like membership
+    ctx
+}
+
 #[test]
 fn test_verify_non_membership_happy_path() {
     let fixture = load_non_membership_fixture_data();

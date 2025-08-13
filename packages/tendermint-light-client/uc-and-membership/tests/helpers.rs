@@ -1,7 +1,5 @@
 //! Common test utilities and fixtures for uc-and-membership tests
 
-#![allow(dead_code)] // Allow unused helper functions for future test expansion
-
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
@@ -43,15 +41,12 @@ struct UpdateClientFixture {
 /// Membership verification fixture structure from JSON
 #[derive(Debug, Deserialize)]
 struct MembershipFixture {
-    client_state_hex: String,
-    consensus_state_hex: String,
     membership_msg: MembershipMsgFixture,
 }
 
 /// Combined update client and membership fixture (created by merging separate fixtures)
 #[derive(Debug, Deserialize)]
 pub struct UcAndMembershipFixture {
-    pub scenario: String,
     pub client_state_hex: String,
     pub consensus_state_hex: String,
     pub update_client_message: UpdateClientMessageFixture,
@@ -168,19 +163,9 @@ pub fn hex_to_merkle_proof(hex_str: &str) -> MerkleProof {
         .expect("valid conversion to MerkleProof")
 }
 
-/// Load a fixture from the fixtures directory
-pub fn load_fixture(filename: &str) -> UcAndMembershipFixture {
-    let fixture_path = Path::new("../fixtures").join(format!("{}.json", filename));
-    let fixture_content = fs::read_to_string(&fixture_path)
-        .unwrap_or_else(|_| panic!("Failed to read fixture: {}", fixture_path.display()));
-
-    serde_json::from_str(&fixture_content)
-        .unwrap_or_else(|_| panic!("Failed to parse fixture: {}", fixture_path.display()))
-}
 
 /// Test context containing parsed fixture data
 pub struct TestContext {
-    pub fixture: UcAndMembershipFixture,
     pub client_state: ClientState,
     pub trusted_consensus_state: ConsensusState,
     pub proposed_header: Header,
@@ -209,7 +194,6 @@ pub fn setup_test_context(fixture: UcAndMembershipFixture) -> TestContext {
         .as_nanos();
 
     TestContext {
-        fixture,
         client_state,
         trusted_consensus_state,
         proposed_header,
@@ -231,42 +215,6 @@ pub fn execute_uc_and_membership(
         ctx.current_time,
         &request,
     )
-}
-
-/// Helper for tests expecting success
-pub fn assert_uc_and_membership_success(ctx: &TestContext, scenario_name: &str) {
-    match execute_uc_and_membership(ctx) {
-        Ok(output) => {
-            assert!(
-                output.update_output.latest_height.revision_height()
-                    > output.update_output.trusted_height.revision_height(),
-                "New height should be greater than trusted height"
-            );
-            assert_eq!(
-                output.update_output.latest_height.revision_number(),
-                output.update_output.trusted_height.revision_number(),
-                "Revision number should remain consistent"
-            );
-        }
-        Err(e) => {
-            panic!(
-                "❌ Expected success but failed for {}: {:?}",
-                scenario_name, e
-            );
-        }
-    }
-}
-
-/// Helper for tests expecting failure
-pub fn assert_uc_and_membership_failure(ctx: &TestContext, scenario_name: &str) {
-    match execute_uc_and_membership(ctx) {
-        Ok(_) => {
-            panic!("❌ Expected failure but succeeded for {}", scenario_name);
-        }
-        Err(_) => {
-            // Expected failure - test passes
-        }
-    }
 }
 
 /// Helper for tests expecting specific error types
@@ -337,7 +285,6 @@ pub fn create_context_with_mismatched_path(
 fn load_combined_fixture(
     update_client_filename: &str,
     membership_filename: &str,
-    scenario_name: &str,
 ) -> UcAndMembershipFixture {
     let update_client_path =
         Path::new("../fixtures").join(format!("{}.json", update_client_filename));
@@ -363,7 +310,6 @@ fn load_combined_fixture(
 
     // Use the update client fixture's client and consensus state (they should be consistent)
     UcAndMembershipFixture {
-        scenario: scenario_name.to_string(),
         client_state_hex: update_client_fixture.client_state_hex,
         consensus_state_hex: update_client_fixture.consensus_state_hex,
         update_client_message: update_client_fixture.update_client_message,
@@ -373,20 +319,12 @@ fn load_combined_fixture(
 
 /// Load the combined update client and membership fixture for happy path
 pub fn load_combined_happy_path_fixture() -> UcAndMembershipFixture {
-    load_combined_fixture(
-        "update_client_happy_path",
-        "verify_membership_key_0",
-        "uc_and_membership_happy_path",
-    )
+    load_combined_fixture("update_client_happy_path", "verify_membership_key_0")
 }
 
 /// Load the combined fixture for expired header test
 pub fn load_combined_expired_header_fixture() -> UcAndMembershipFixture {
-    load_combined_fixture(
-        "update_client_expired_header",
-        "verify_membership_key_0",
-        "uc_and_membership_expired_header",
-    )
+    load_combined_fixture("update_client_expired_header", "verify_membership_key_0")
 }
 
 /// Load the combined fixture for malformed client message test
@@ -394,15 +332,10 @@ pub fn load_combined_malformed_message_fixture() -> UcAndMembershipFixture {
     load_combined_fixture(
         "update_client_malformed_client_message",
         "verify_membership_key_0",
-        "uc_and_membership_malformed_message",
     )
 }
 
 /// Load combined fixture with valid update but invalid membership
 pub fn load_combined_invalid_membership_fixture() -> UcAndMembershipFixture {
-    load_combined_fixture(
-        "update_client_happy_path",
-        "verify_membership_key_0",
-        "uc_and_membership_invalid_membership",
-    )
+    load_combined_fixture("update_client_happy_path", "verify_membership_key_0")
 }

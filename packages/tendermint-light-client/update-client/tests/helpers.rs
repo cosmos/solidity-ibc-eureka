@@ -1,7 +1,5 @@
 //! Common test utilities and fixtures for update client tests
 
-#![allow(dead_code)] // Allow unused helper functions for future test expansion
-
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
@@ -15,13 +13,11 @@ use tendermint_light_client_update_client::{
     update_client, ClientState, TrustThreshold, UpdateClientError,
 };
 
-/// Update client message fixture structure from JSON
 #[derive(Debug, Deserialize, Clone)]
 pub struct UpdateClientMessageFixture {
     pub client_message_hex: String,
 }
 
-/// Complete update client fixture from JSON
 #[derive(Debug, Deserialize)]
 pub struct UpdateClientFixture {
     pub client_state_hex: String,
