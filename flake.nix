@@ -30,6 +30,7 @@
         solana-agave = pkgs.callPackage ./nix/agave.nix {
           inherit (pkgs) rust-bin anchor;
         };
+        anchor-go = pkgs.callPackage ./nix/anchor-go.nix {};
       in
       {
         devShells = {
@@ -49,6 +50,8 @@
               jq
               parallel
               rust
+              anchor
+              anchor-go
               protobuf
               buf
               protoc-gen-go
@@ -73,6 +76,7 @@
               openssl.dev
               pkg-config
               solana-agave
+              anchor-go
               protobuf
               just
             ];

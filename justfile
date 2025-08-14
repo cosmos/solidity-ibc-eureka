@@ -83,6 +83,7 @@ lint-go:
 	@echo "Linting the Go code..."
 	cd e2e/interchaintestv8 && golangci-lint run
 	cd packages/go-abigen && golangci-lint run
+	cd packages/go-anchor && golangci-lint run
 
 # Lint the Protobuf files using `buf lint`
 [group('lint')]
@@ -127,6 +128,13 @@ generate-abi: build-contracts
 [group('generate')]
 generate-abi-bytecode: build-contracts
 	cp out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json abi/bytecode
+
+# Generate the types for interacting with SVM contracts using 'anchor-go'
+[group('generate')]
+generate-solana-types: build-solana
+	@echo "Generating SVM types..."
+	anchor-go --idl ./programs/solana/target/idl/ics07_tendermint.json --output packages/go-anchor/ics07tendermint --no-go-mod
+	anchor-go --idl ./programs/solana/target/idl/ics26_router.json --output packages/go-anchor/ics26router --no-go-mod
 
 # Generate the fixtures for the wasm tests using the e2e tests
 [group('generate')]
