@@ -13,13 +13,13 @@ import (
 	"github.com/gagliardetto/solana-go"
 )
 
+// deployerAddress must match `deployer_wallet.json`
 const deployerAddress = "8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z"
 
 // DeployerPubkey is the public key of the deployer wallet used for deploying Anchor programs.
 var DeployerPubkey = solana.MustPublicKeyFromBase58(deployerAddress)
 
 func AnchorDeploy(ctx context.Context, dir, programName, programKeypairFile string, args ...string) (solana.PublicKey, solana.Signature, error) {
-	// Convert walletFile to an absolute path
 	absWalletFile, err := filepath.Abs("./solana/deployer_wallet.json")
 	if err != nil {
 		return solana.PublicKey{}, solana.Signature{}, fmt.Errorf("failed to get absolute path for wallet file: %w", err)
@@ -40,14 +40,11 @@ func AnchorDeploy(ctx context.Context, dir, programName, programKeypairFile stri
 
 	var stdoutBuf bytes.Buffer
 
-	// Create a MultiWriter to write to both os.Stdout and the buffer
 	multiWriter := io.MultiWriter(os.Stdout, &stdoutBuf)
 
-	// Set the command's stdout to the MultiWriter
 	cmd.Stdout = multiWriter
 	cmd.Stderr = os.Stderr
 
-	// Run the command
 	if err := cmd.Run(); err != nil {
 		fmt.Println("Error deploy command", cmd.Args, err)
 		return solana.PublicKey{}, solana.Signature{}, err
