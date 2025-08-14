@@ -21,7 +21,7 @@ use ibc_proto_eureka::{
     },
 };
 use prost::Message;
-use secp256k1::PublicKey;
+use k256::ecdsa::VerifyingKey;
 use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
 
@@ -275,9 +275,9 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             pub_keys_bytes.len() % 33 == 0,
             "`{PUB_KEYS}` must be a hex-encoded concatenation of 33-byte compressed pubkeys"
         );
-        let pub_keys: Vec<PublicKey> = pub_keys_bytes
+        let pub_keys: Vec<VerifyingKey> = pub_keys_bytes
             .chunks_exact(33)
-            .map(|chunk| PublicKey::from_slice(chunk))
+            .map(|chunk| VerifyingKey::from_sec1_bytes(chunk))
             .collect::<Result<_, _>>()
             .map_err(|_| anyhow::anyhow!("failed to parse compressed secp256k1 pubkey"))?;
 
