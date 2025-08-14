@@ -56,4 +56,8 @@ pub enum RouterError {
     InvalidCounterpartyClient,
     #[msg("Arithmetic overflow")]
     ArithmeticOverflow,
+    #[msg("Invalid response from IBC app")]
+    InvalidAppResponse,
+    #[msg("IBC app not found")]
+    IbcAppNotFound,
 }

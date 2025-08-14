@@ -3,7 +3,9 @@ members = [
   "programs/ics07-tendermint",
   "programs/ics26-router",
   "programs/mock-light-client",
-  "solana-light-client-interface",
+  "programs/dummy-ibc-app",
+  "interfaces/ibc-app",
+  "interfaces/light-client",
 ]
 resolver = "2"
 
@@ -63,7 +65,8 @@ tendermint-light-client-update-client = { path = "../../packages/tendermint-ligh
 tendermint-light-client-membership = { path = "../../packages/tendermint-light-client/membership", default-features = false }
 tendermint-light-client-misbehaviour = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false }
 tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-light-client/uc-and-membership", default-features = false }
-solana-light-client-interface = { path = "./solana-light-client-interface", default-features = false }
+solana-light-client-interface = { path = "./interfaces/light-client", default-features = false }
+solana-ibc-app-interface = { path = "./interfaces/ibc-app", default-features = false }
 
 ibc-client-tendermint = { version = "0.57", default-features = false }
 ibc-core-client = { version = "0.57", default-features = false }

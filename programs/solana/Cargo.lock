@@ -1142,6 +1142,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dummy-ibc-app"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "solana-ibc-app-interface",
+]
+
+[[package]]
 name = "eager"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1954,9 +1962,11 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bincode",
+ "dummy-ibc-app",
  "mollusk-svm",
  "mollusk-svm-bencher",
  "sha2 0.10.9",
+ "solana-ibc-app-interface",
  "solana-light-client-interface",
  "solana-sdk",
 ]
@@ -3764,6 +3774,13 @@ dependencies = [
  "solana-atomic-u64",
  "solana-sanitize",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "solana-ibc-app-interface"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
 ]
 
 [[package]]

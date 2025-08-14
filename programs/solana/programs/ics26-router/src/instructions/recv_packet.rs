@@ -1,5 +1,5 @@
+use crate::cpi_helpers::{on_recv_packet_cpi, verify_membership_cpi, LightClientVerification};
 use crate::errors::RouterError;
-use crate::instructions::light_client_cpi::{verify_membership_cpi, LightClientVerification};
 use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
@@ -79,6 +79,16 @@ pub struct RecvPacket<'info> {
 
     /// CHECK: Consensus state account, owned by light client program
     pub consensus_state: AccountInfo<'info>,
+
+    // IBC app accounts for CPI
+    /// CHECK: IBC app program, validated against `IBCApp` account
+    #[account(
+        constraint = ibc_app_program.key() == ibc_app.app_program_id @ RouterError::IbcAppNotFound
+    )]
+    pub ibc_app_program: AccountInfo<'info>,
+
+    /// CHECK: IBC app state account, owned by IBC app program
+    pub ibc_app_state: AccountInfo<'info>,
 }
 
 pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
@@ -152,11 +162,17 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
 
     packet_receipt.value = receipt_commitment;
 
-    // TODO: CPI to IBC app's onRecvPacket
-    // For now, we'll create a simple acknowledgement
-    let ack_data = b"packet received".to_vec();
+    // CPI to IBC app's onRecvPacket
+    let acknowledgement = on_recv_packet_cpi(
+        &ctx.accounts.ibc_app_program,
+        &ctx.accounts.ibc_app_state,
+        &ctx.accounts.system_program,
+        &msg.packet,
+        &msg.packet.payloads[0],
+        &ctx.accounts.relayer.key(),
+    )?;
 
-    let acks = vec![ack_data];
+    let acks = vec![acknowledgement];
     let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&acks)?;
     packet_ack.value = ack_commitment;
 
@@ -215,12 +231,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
-        mollusk.add_program(
-            &MOCK_LIGHT_CLIENT_ID,
-            crate::get_mock_client_program_path(),
-            &solana_sdk::bpf_loader_upgradeable::ID,
-        );
+        let mollusk = setup_mollusk_with_light_client();
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::InvalidCounterpartyClient as u32,
@@ -261,6 +272,7 @@ mod tests {
         packet: Packet,
         packet_receipt_pubkey: Pubkey,
         packet_ack_pubkey: Pubkey,
+        dummy_app_state_pubkey: Pubkey,
     }
 
     struct RecvPacketTestParams {
@@ -268,6 +280,7 @@ mod tests {
         timeout_offset: i64,
         source_client_id: &'static str,
         unauthorized_relayer: Option<Pubkey>,
+        app_program_id: Option<Pubkey>,
     }
 
     impl Default for RecvPacketTestParams {
@@ -277,6 +290,7 @@ mod tests {
                 timeout_offset: 1000,
                 source_client_id: "source-client",
                 unauthorized_relayer: None,
+                app_program_id: None,
             }
         }
     }
@@ -299,7 +313,12 @@ mod tests {
             "source-client",
             params.active_client,
         );
-        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, Pubkey::new_unique());
+        let app_program_id = params.app_program_id.unwrap_or(DUMMY_IBC_APP_PROGRAM_ID);
+        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, app_program_id);
+
+        // Create dummy IBC app state account for CPI calls
+        let (dummy_app_state_pda, dummy_app_state_data) =
+            setup_dummy_ibc_app_state(&app_program_id, authority);
         let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 0);
 
         let current_timestamp = 1000;
@@ -358,6 +377,8 @@ mod tests {
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(client_state, false),
                 AccountMeta::new_readonly(consensus_state, false),
+                AccountMeta::new_readonly(app_program_id, false),
+                AccountMeta::new(dummy_app_state_pda, false),
             ],
             data: crate::instruction::RecvPacket { msg }.data(),
         };
@@ -378,6 +399,8 @@ mod tests {
             create_bpf_program_account(light_client_program),
             create_account(client_state, vec![0u8; 100], light_client_program),
             create_account(consensus_state, vec![0u8; 100], light_client_program),
+            create_bpf_program_account(app_program_id),
+            create_account(dummy_app_state_pda, dummy_app_state_data, app_program_id),
         ];
 
         RecvPacketTestContext {
@@ -386,6 +409,7 @@ mod tests {
             packet,
             packet_receipt_pubkey: packet_receipt_pda,
             packet_ack_pubkey: packet_ack_pda,
+            dummy_app_state_pubkey: dummy_app_state_pda,
         }
     }
 
@@ -414,12 +438,7 @@ mod tests {
     fn test_recv_packet_success() {
         let ctx = setup_recv_packet_test(true, 1000);
 
-        let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
-        mollusk.add_program(
-            &MOCK_LIGHT_CLIENT_ID,
-            crate::get_mock_client_program_path(),
-            &solana_sdk::bpf_loader_upgradeable::ID,
-        );
+        let mollusk = setup_mollusk_with_programs();
 
         // Calculate expected rent-exempt lamports for Commitment accounts
         let commitment_rent = {
@@ -458,5 +477,8 @@ mod tests {
         let ack_data = get_account_data_from_mollusk(&result, &ctx.packet_ack_pubkey)
             .expect("packet ack account not found");
         assert_eq!(ack_data[..32], expected_ack_commitment);
+
+        // Check dummy IBC app state was updated via CPI
+        assert_packets_received_counter(&result, &ctx.dummy_app_state_pubkey, 1);
     }
 }

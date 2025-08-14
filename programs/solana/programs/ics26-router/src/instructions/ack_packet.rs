@@ -1,5 +1,7 @@
+use crate::cpi_helpers::{
+    on_acknowledgement_packet_cpi, verify_membership_cpi, LightClientVerification,
+};
 use crate::errors::RouterError;
-use crate::instructions::light_client_cpi::{verify_membership_cpi, LightClientVerification};
 use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
@@ -56,6 +58,16 @@ pub struct AckPacket<'info> {
 
     /// CHECK: Consensus state account, owned by light client program
     pub consensus_state: AccountInfo<'info>,
+
+    // IBC app accounts for CPI
+    /// CHECK: IBC app program, validated against `IBCApp` account
+    #[account(
+        constraint = ibc_app_program.key() == ibc_app.app_program_id @ RouterError::IbcAppNotFound
+    )]
+    pub ibc_app_program: AccountInfo<'info>,
+
+    /// CHECK: IBC app state account, owned by IBC app program
+    pub ibc_app_state: AccountInfo<'info>,
 }
 
 pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
@@ -119,7 +131,16 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         );
     }
 
-    // TODO: CPI to IBC app's onAcknowledgementPacket
+    // CPI to IBC app's onAcknowledgementPacket
+    on_acknowledgement_packet_cpi(
+        &ctx.accounts.ibc_app_program,
+        &ctx.accounts.ibc_app_state,
+        &ctx.accounts.system_program,
+        &msg.packet,
+        &msg.packet.payloads[0],
+        &msg.acknowledgement,
+        &ctx.accounts.relayer.key(),
+    )?;
 
     // Close the account and return rent to payer
     let dest_starting_lamports = ctx.accounts.payer.lamports();
@@ -155,7 +176,6 @@ mod tests {
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
-    use mollusk_svm::Mollusk;
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
@@ -166,6 +186,7 @@ mod tests {
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
         packet_commitment_pubkey: Pubkey,
         packet: Packet,
+        dummy_app_state_pubkey: Pubkey,
     }
 
     struct AckPacketTestParams {
@@ -204,7 +225,7 @@ mod tests {
         let authority = Pubkey::new_unique();
         let relayer = params.unauthorized_relayer.unwrap_or(authority);
         let payer = relayer;
-        let app_program_id = params.app_program_id.unwrap_or_else(Pubkey::new_unique);
+        let app_program_id = params.app_program_id.unwrap_or(DUMMY_IBC_APP_PROGRAM_ID);
         let light_client_program = MOCK_LIGHT_CLIENT_ID;
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
@@ -216,6 +237,10 @@ mod tests {
             params.active_client,
         );
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(params.port_id, app_program_id);
+
+        // Create dummy IBC app state account for CPI calls
+        let (dummy_app_state_pda, dummy_app_state_data) =
+            setup_dummy_ibc_app_state(&app_program_id, authority);
 
         let packet_dest_client = params.wrong_dest_client.unwrap_or(params.dest_client_id);
         let packet = create_test_packet(
@@ -259,6 +284,8 @@ mod tests {
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(client_state, false),
                 AccountMeta::new_readonly(consensus_state, false),
+                AccountMeta::new_readonly(app_program_id, false),
+                AccountMeta::new(dummy_app_state_pda, false),
             ],
             data: crate::instruction::AckPacket { msg }.data(),
         };
@@ -281,6 +308,8 @@ mod tests {
             create_bpf_program_account(light_client_program),
             create_account(client_state, vec![0u8; 100], light_client_program),
             create_account(consensus_state, vec![0u8; 100], light_client_program),
+            create_bpf_program_account(app_program_id),
+            create_account(dummy_app_state_pda, dummy_app_state_data, app_program_id),
         ];
 
         AckPacketTestContext {
@@ -288,6 +317,7 @@ mod tests {
             accounts,
             packet_commitment_pubkey: packet_commitment_pda,
             packet,
+            dummy_app_state_pubkey: dummy_app_state_pda,
         }
     }
 
@@ -295,12 +325,7 @@ mod tests {
     fn test_ack_packet_success() {
         let ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
 
-        let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
-        mollusk.add_program(
-            &MOCK_LIGHT_CLIENT_ID,
-            crate::get_mock_client_program_path(),
-            &solana_sdk::bpf_loader_upgradeable::ID,
-        );
+        let mollusk = setup_mollusk_with_programs();
 
         let payer_pubkey = ctx.accounts[3].0; // Payer is at index 3
         let initial_payer_lamports = ctx.accounts[3].1.lamports;
@@ -319,6 +344,10 @@ mod tests {
         ];
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+
+        // Also check that dummy IBC app state was updated via CPI
+        let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
+        assert_packets_acknowledged_counter(&result, &ctx.dummy_app_state_pubkey, 1);
     }
 
     #[test]
@@ -328,12 +357,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
-        mollusk.add_program(
-            &MOCK_LIGHT_CLIENT_ID,
-            crate::get_mock_client_program_path(),
-            &solana_sdk::bpf_loader_upgradeable::ID,
-        );
+        let mollusk = setup_mollusk_with_programs();
 
         // When packet commitment doesn't exist, it should succeed (noop)
         let checks = vec![Check::success()];
@@ -348,7 +372,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = setup_mollusk_with_programs();
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
@@ -364,7 +388,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = setup_mollusk_with_programs();
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::InvalidCounterpartyClient as u32,
@@ -380,7 +404,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = setup_mollusk_with_programs();
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::ClientNotActive as u32,
