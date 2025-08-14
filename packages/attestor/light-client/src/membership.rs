@@ -1,6 +1,6 @@
 //! Membership proof verification for attestor client
 
-use secp256k1::{ecdsa::Signature, PublicKey};
+use k256::ecdsa::{Signature, VerifyingKey};
 use serde::Deserialize;
 
 use attestor_packet_membership::verify_packet_membership;
@@ -19,7 +19,7 @@ pub struct Verifyable {
     /// Signatures of the attestors
     pub signatures: Vec<Signature>,
     /// Public keys of the attestors submitting attestations
-    pub pubkeys: Vec<PublicKey>,
+    pub pubkeys: Vec<VerifyingKey>,
 }
 
 /// Verify membership proof - only works for heights that exist in consensus state

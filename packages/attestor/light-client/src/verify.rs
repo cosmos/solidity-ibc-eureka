@@ -85,7 +85,8 @@ pub fn verify_header(
 #[cfg(test)]
 mod verify_header {
     use crate::test_utils::{KEYS, PACKET_COMMITMENTS_ENCODED, SIGS};
-    use secp256k1::{hashes::Hash, Message, PublicKey, SecretKey};
+    use k256::ecdsa::{signature::Signer, SigningKey};
+    use sha2::{Digest, Sha256};
 
     use super::*;
 
@@ -183,12 +184,13 @@ mod verify_header {
             timestamp: 123456789,
         };
 
-        let rogue_sig =
-            SecretKey::from_byte_array([0x04; 32]).expect("32 bytes, within curve order");
+        let rogue_skey =
+            SigningKey::from_bytes(&[0x04; 32].into()).expect("32 bytes, within curve order");
 
-        let digest = secp256k1::hashes::sha256::Hash::hash(&PACKET_COMMITMENTS_ENCODED);
-        let message = Message::from_digest(digest.to_byte_array());
-        let rogue_sig = rogue_sig.sign_ecdsa(message);
+        let mut hasher = Sha256::new();
+        hasher.update(&*PACKET_COMMITMENTS_ENCODED);
+        let hash_result = hasher.finalize();
+        let rogue_sig = rogue_skey.sign(&hash_result);
 
         let mut bad_sigs = SIGS.clone();
         bad_sigs[0] = rogue_sig;
@@ -219,16 +221,17 @@ mod verify_header {
         };
 
         let rogue_key =
-            SecretKey::from_byte_array([0x04; 32]).expect("32 bytes, within curve order");
-        let digest = secp256k1::hashes::sha256::Hash::hash(&PACKET_COMMITMENTS_ENCODED);
-        let message = Message::from_digest(digest.to_byte_array());
-        let rogue_sig = rogue_key.sign_ecdsa(message);
+            SigningKey::from_bytes(&[0x04; 32].into()).expect("32 bytes, within curve order");
+        let mut hasher = Sha256::new();
+        hasher.update(&*PACKET_COMMITMENTS_ENCODED);
+        let hash_result = hasher.finalize();
+        let rogue_sig = rogue_key.sign(&hash_result);
         let mut valid_sigs_with_rogue_signer = SIGS.clone();
         valid_sigs_with_rogue_signer[4] = rogue_sig;
 
-        let rogue_pkey = PublicKey::from_secret_key_global(&rogue_key);
+        let rogue_pkey = rogue_key.verifying_key().clone();
         let mut rogue_keys = KEYS.clone();
-        rogue_keys[4] = rogue_pkey;
+        rogue_keys[4] = rogue_pkey.clone();
 
         let no_sig = Header {
             new_height: cns.height,

@@ -1399,9 +1399,10 @@ name = "attestor-light-client"
 version = "0.1.0"
 dependencies = [
  "attestor-packet-membership",
- "secp256k1 0.31.1",
+ "k256",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "thiserror 2.0.12",
 ]
 
@@ -2477,10 +2478,10 @@ dependencies = [
  "cw2",
  "hex",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "k256",
  "prost",
  "serde",
  "serde_json",
- "solana-sdk",
  "thiserror 2.0.12",
 ]
 
@@ -7722,7 +7723,6 @@ dependencies = [
  "bitcoin_hashes",
  "rand 0.9.1",
  "secp256k1-sys 0.11.0",
- "serde",
 ]
 
 [[package]]
