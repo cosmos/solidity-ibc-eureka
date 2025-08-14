@@ -324,7 +324,7 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 	}))
 
 	s.Require().True(s.Run("Create ethereum light client on Cosmos chain", func() {
-		checksumHex := s.StoreEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter)
+		checksumHex := s.StoreAttestorLightClient(ctx, simd, s.SimdRelayerSubmitter)
 		s.Require().NotEmpty(checksumHex)
 
 		var createClientTxBodyBz []byte
