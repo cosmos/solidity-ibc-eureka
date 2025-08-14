@@ -37,8 +37,8 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
+	aggregatortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/aggregator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ibc_attestor"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
@@ -69,7 +69,7 @@ type IbcAttestorTestSuite struct {
 	SimdRelayerSubmitter ibc.Wallet
 	EthRelayerSubmitter  *ecdsa.PrivateKey
 
-	AttestorClient attestortypes.AttestationServiceClient
+	AggregatorClient aggregatortypes.AggregatorServiceClient
 }
 
 // TestWithIbcAttestorTestSuite is the boilerplate code that allows the test suite to be run
@@ -190,10 +190,6 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 			s.Require().NoError(err)
 			s.T().Logf("Attestor %d state sig: %s", i, resp.GetAttestation().GetSignature())
 
-			// Set the first attestor as the default client for backwards compatibility
-			if i == 0 {
-				s.AttestorClient = attesterService
-			}
 		}
 	}))
 
@@ -218,6 +214,10 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 
 		aggregatorProcess, err = aggregator.StartAggregator(testvalues.AggregatorConfigPath, aggregator.AggregatorBinary)
 		s.Require().NoError(err)
+
+		agg, err := aggregator.GetAggregatorServiceClient("127.0.0.1:8080")
+		s.Require().NoError(err)
+		s.AggregatorClient = agg
 	}))
 
 	s.T().Cleanup(func() {
@@ -608,13 +608,12 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 	}))
 
 	s.True(s.Run("Attest to packets via aggregator", func() {
-		agg, err := aggregator.GetAggregatorServiceClient("127.0.0.1:8080")
 		encoded, err := types.AbiEncodePacket(sendPacket)
 		s.Require().NoError(err)
 
 		packet_to_arr := [][]byte{encoded}
 
-		atts, err := aggregator.GetAttestations(ctx, agg, packet_to_arr, blockHeightOfTransfer)
+		atts, err := aggregator.GetAttestations(ctx, s.AggregatorClient, packet_to_arr, blockHeightOfTransfer)
 		s.Require().NoError(err)
 
 		s.True(atts.StateAttestation.Height == blockHeightOfTransfer)
