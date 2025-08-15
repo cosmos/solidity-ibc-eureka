@@ -91,7 +91,9 @@ mod tests {
         client_state::ClientState,
         consensus_state::ConsensusState,
         header::Header,
-        test_utils::{KEYS, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS},
+        test_utils::{
+            packet_encoded_bytes, KEYS, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS,
+        },
     };
     use cosmwasm_std::Binary;
 
@@ -122,7 +124,7 @@ mod tests {
         Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
+            attestation_data: packet_encoded_bytes(),
             signatures: SIGS.to_vec(),
             pubkeys: KEYS.to_vec(),
         }
@@ -217,7 +219,8 @@ mod tests {
     }
 
     mod integration_tests {
-        use attestor_light_client::{error::IbcAttestorClientError, membership::Verifyable};
+        use attestor_light_client::{error::IbcAttestorClientError, membership::MembershipProof};
+        use attestor_packet_membership::Packets;
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
@@ -280,8 +283,8 @@ mod tests {
 
             // Verify membership for the added state
             let env = mock_env();
-            let verifyable = Verifyable {
-                attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
+            let verifyable = MembershipProof {
+                attestation_data: (*PACKET_COMMITMENTS_ENCODED).clone(),
                 signatures: SIGS.to_vec(),
                 pubkeys: KEYS.to_vec(),
             };
@@ -315,8 +318,8 @@ mod tests {
 
             // Non existent height fails
             let env = mock_env();
-            let value = Verifyable {
-                attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
+            let value = MembershipProof {
+                attestation_data: (*PACKET_COMMITMENTS_ENCODED).clone(),
                 signatures: SIGS.to_vec(),
                 pubkeys: KEYS.to_vec(),
             };
@@ -335,9 +338,9 @@ mod tests {
 
             // Bad attestation fails
             let env = mock_env();
-            let bad_data = [254].to_vec();
-            let value = Verifyable {
-                attestation_data: bad_data,
+            let bad_data = [[254].to_vec()].to_vec();
+            let value = MembershipProof {
+                attestation_data: Packets::new(bad_data),
                 signatures: SIGS.to_vec(),
                 pubkeys: KEYS.to_vec(),
             };
@@ -493,8 +496,8 @@ mod tests {
             for i in 1..6 {
                 let env = mock_env();
 
-                let value = Verifyable {
-                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
+                let value = MembershipProof {
+                    attestation_data: (*PACKET_COMMITMENTS_ENCODED).clone(),
                     signatures: SIGS.to_vec(),
                     pubkeys: KEYS.to_vec(),
                 };
@@ -510,8 +513,8 @@ mod tests {
                 let res = sudo(deps.as_mut(), env.clone(), msg);
                 assert!(res.is_ok());
 
-                let value = Verifyable {
-                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
+                let value = MembershipProof {
+                    attestation_data: (*PACKET_COMMITMENTS_ENCODED).clone(),
                     signatures: SIGS.to_vec(),
                     pubkeys: KEYS.to_vec(),
                 };

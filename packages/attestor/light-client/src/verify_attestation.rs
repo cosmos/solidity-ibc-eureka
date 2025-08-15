@@ -3,7 +3,8 @@
 
 use std::collections::HashSet;
 
-use secp256k1::{ecdsa::Signature, hashes::Hash, Message, PublicKey};
+use k256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
+use sha2::{Digest, Sha256};
 
 use crate::{client_state::ClientState, error::IbcAttestorClientError};
 
@@ -20,10 +21,11 @@ pub(crate) fn verify_attestation(
     client_state: &ClientState,
     attestation_data: &[u8],
     signatures: &[Signature],
-    pubkeys: &[PublicKey],
+    pubkeys: &[VerifyingKey],
 ) -> Result<(), IbcAttestorClientError> {
-    let unique_sigs: HashSet<&Signature> = signatures.iter().collect();
-    let unique_pubkeys: HashSet<&PublicKey> = pubkeys.iter().collect();
+    let unique_sigs: HashSet<Vec<u8>> = signatures.iter().map(|s| s.to_bytes().to_vec()).collect();
+    let unique_pubkeys: HashSet<Vec<u8>> =
+        pubkeys.iter().map(|s| s.to_sec1_bytes().to_vec()).collect();
 
     if unique_sigs.len() != signatures.len()
         || unique_sigs.len() < client_state.min_required_sigs as usize
@@ -47,13 +49,17 @@ pub(crate) fn verify_attestation(
 
     for (att_key, att_sig) in pubkeys.iter().zip(signatures) {
         if let Some(lc_key) = client_state.pub_keys.iter().find(|k| k == &att_key) {
-            let digest = secp256k1::hashes::sha256::Hash::hash(attestation_data);
-            let message = Message::from_digest(digest.to_byte_array());
-            att_sig
-                .verify(message, lc_key)
+            let mut hasher = Sha256::new();
+            hasher.update(attestation_data);
+            let hash_result = hasher.finalize();
+
+            lc_key
+                .verify(&hash_result, att_sig)
                 .map_err(|_| IbcAttestorClientError::InvalidSignature)?;
         } else {
-            return Err(IbcAttestorClientError::UnknownPublicKeySubmitted { pubkey: *att_key });
+            return Err(IbcAttestorClientError::UnknownPublicKeySubmitted {
+                pubkey: att_key.clone(),
+            });
         }
     }
 

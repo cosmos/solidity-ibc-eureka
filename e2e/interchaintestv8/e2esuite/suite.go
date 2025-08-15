@@ -44,6 +44,10 @@ type TestSuite struct {
 	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
 	// otherwise, it will download the version from the github release with the given tag
 	WasmLightClientTag string
+	// WasmAttestorLightClientTag decides which version of the attestor light client to use.
+	// Either an empty string, or 'local', means it will use the local binary in the repo
+	// otherwise, it will download the version from the github release with the given tag
+	WasmAttestorLightClientTag string
 }
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
@@ -51,6 +55,9 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	// To let the download version be overridden by a calling test
 	if s.WasmLightClientTag == "" {
 		s.WasmLightClientTag = os.Getenv(testvalues.EnvKeyE2EWasmLightClientTag)
+	}
+	if s.WasmAttestorLightClientTag == "" {
+		s.WasmAttestorLightClientTag = os.Getenv(testvalues.EnvKeyE2EWasmAttestorLightClientTag)
 	}
 
 	icChainSpecs := chainconfig.DefaultChainSpecs

@@ -1,6 +1,6 @@
 //! Attestor client state for IBC light client
 
-use secp256k1::PublicKey;
+use k256::ecdsa::VerifyingKey;
 use serde::{Deserialize, Serialize};
 
 /// Minimal attestor client state for IBC light client
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientState {
     /// Attestor public keys
-    pub pub_keys: Vec<PublicKey>,
+    pub pub_keys: Vec<VerifyingKey>,
     /// Minimum required signatures
     pub min_required_sigs: u8,
     /// Latest height for tracking progression

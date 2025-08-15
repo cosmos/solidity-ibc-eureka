@@ -15,7 +15,7 @@ arbitrum = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:allo
 
 
 [dependencies]
-alloy				= { workspace = true, default-features = false, features = ["consensus", "serde", "eips"], optional = true }
+alloy				= { workspace = true, default-features = false, features = ["consensus", "serde", "eips", "sol-types"], optional = true }
 alloy-primitives		= { workspace = true, default-features = false }
 alloy-rpc-client		= { workspace = true, default-features = false, features = ["reqwest"], optional = true }
 alloy-network			= { workspace = true, default-features = false, optional = true }
@@ -25,7 +25,8 @@ alloy-contract			= { workspace = true, default-features = false, optional = true
 borsh				= { workspace = true, default-features = false, features = ["derive"] }
 serde      			= { workspace = true, features = ["derive"] }
 serde_json 			= { workspace = true, default-features = true }
-secp256k1			= { workspace = true, default-features = false, features = ["hashes", "global-context", "rand"] }
+k256				= { workspace = true, default-features = false, features = ["ecdsa", "sha2"] }
+sha2				= { workspace = true, default-features = false }
 toml 				= { workspace = true, default-features = true }
 
 solana-client			= { workspace = true, default-features = false, optional = true }

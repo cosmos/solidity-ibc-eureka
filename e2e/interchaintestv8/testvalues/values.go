@@ -24,6 +24,9 @@ const (
 	// TransferAmount is the default transfer amount
 	TransferAmount int64 = 1_000_000_000
 
+	// NumAttestors is the number of attestor instances to start in tests
+	NumAttestors int = 1
+
 	// EnvKeyTendermintRPC Tendermint RPC URL.
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"
 	// EnvKeyEthRPC Ethereum RPC URL.
@@ -78,6 +81,8 @@ const (
 	EthTestnetTypeArbitrum = "arbitrum"
 	// EthTestnetTypeNone is the Ethereum testnet type for using no chain.
 	EthTestnetTypeNone = "none"
+	// AttestorTestnetType is the testnet type for using attestor chains.
+	AttestorTestnetType = "attestor"
 	// EnvKeyEthTestnetType The Ethereum testnet type (pow|pos).
 	EnvKeyEthTestnetType = "ETH_TESTNET_TYPE"
 	// EnvE2EFacuetAddress The address of the faucet
@@ -91,6 +96,10 @@ const (
 	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
 	// otherwise, it will download the version from the github release with the given tag
 	EnvKeyE2EWasmLightClientTag = "E2E_WASM_LIGHT_CLIENT_TAG"
+	// EnvKeyE2EWasmAttestorLightClientTag is the environment variable name to configure the attestor light client version.
+	// Either an empty string, or 'local', means it will use the local binary in the repo
+	// otherwise, it will download the version from the github release with the given tag
+	EnvKeyE2EWasmAttestorLightClientTag = "E2E_WASM_ATTESTOR_LIGHT_CLIENT_TAG"
 
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
@@ -138,6 +147,8 @@ const (
 	ParameterKey_timestamp = "timestamp"
 	// The tmp path used for programatically generated attestor configs
 	AttestorConfigPath = "/tmp/attestor.toml"
+	// The tmp path used for programatically generated aggregator configs
+	AggregatorConfigPath = "/tmp/aggregator.toml"
 	// The RPC endpoint for the aggregator service
 	AggregatorRpcPath = "http://localhost:8080"
 )

@@ -224,7 +224,6 @@ fn agg_quorumed_attestations(
 mod e2e_tests {
     use super::*;
     use crate::{
-        attestor_data::STATE_BYTE_LENGTH,
         config::{AttestorConfig, Config, ServerConfig},
         mock_attestor::setup_attestor_server,
     };
@@ -283,10 +282,6 @@ mod e2e_tests {
         assert!(response
             .iter()
             .any(|r| r.as_ref().unwrap().public_key == pk_3));
-
-        assert!(response
-            .iter()
-            .all(|r| r.as_ref().unwrap().attested_data.len() == STATE_BYTE_LENGTH));
     }
 
     #[tokio::test]

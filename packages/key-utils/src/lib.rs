@@ -1,6 +1,7 @@
+use k256::{ecdsa::SigningKey, ecdsa::VerifyingKey, SecretKey};
 use pem::parse as parse_pem;
 use pkcs8::PrivateKeyInfo;
-use secp256k1::{rand, PublicKey, SecretKey, SECP256K1};
+use rand_core::OsRng;
 use std::{fs, path::Path};
 
 use pkcs8::{ObjectIdentifier, SecretDocument};
@@ -42,14 +43,15 @@ pub fn read_private_pem_to_secret<P: AsRef<Path>>(path: P) -> Result<SecretKey, 
         .try_into()
         .map_err(|_| anyhow::anyhow!("SEC1 privateKey OCTET STRING must be 32 bytes"))?;
 
-    SecretKey::from_byte_array(arr).map_err(|e| anyhow::anyhow!("{e}"))
+    SecretKey::from_bytes(&arr.into()).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 pub fn generate_secret_key<P: AsRef<Path>>(path: &P) -> Result<(), anyhow::Error> {
-    let (secret_key, _) = SECP256K1.generate_keypair(&mut rand::rng());
+    let signing_key = SigningKey::random(&mut OsRng);
+    let secret_key = signing_key.as_nonzero_scalar();
 
     let ec_priv = EcPrivateKey {
-        private_key: &secret_key.secret_bytes(),
+        private_key: &secret_key.to_bytes(),
         parameters: Some(EcParameters::NamedCurve(
             ObjectIdentifier::new("1.3.132.0.10").unwrap(),
         )),
@@ -73,8 +75,9 @@ pub fn read_private_pem_to_string<P: AsRef<Path>>(path: P) -> Result<String, any
 /// Read a secp256k1 private key from PEM (PKCS#8 or SEC1) and return a String.
 pub fn read_public_key_to_string<P: AsRef<Path>>(path: P) -> Result<String, anyhow::Error> {
     let secret = read_private_pem_to_secret(&path)?;
-    let pkey = secret.public_key(SECP256K1);
-    Ok(pkey.to_string())
+    let signing_key = SigningKey::from(secret);
+    let verifying_key = signing_key.verifying_key();
+    Ok(hex::encode(verifying_key.to_encoded_point(true).as_bytes()))
 }
 
 /// Parse a compressed (33-byte) public key from a byte slice.
@@ -82,8 +85,9 @@ pub fn read_public_key_to_string<P: AsRef<Path>>(path: P) -> Result<String, anyh
 /// # Errors
 /// Returns an Error if the slice is not exactly 33 bytes
 /// or not a valid public key encoding.
-pub fn parse_public_key(bytes: &[u8]) -> Result<PublicKey, anyhow::Error> {
-    PublicKey::from_slice(bytes).map_err(|e| e.into())
+pub fn parse_public_key(bytes: &[u8]) -> Result<VerifyingKey, anyhow::Error> {
+    VerifyingKey::from_sec1_bytes(bytes)
+        .map_err(|e| anyhow::anyhow!("Failed to parse public key: {}", e))
 }
 
 #[cfg(test)]
@@ -130,17 +134,16 @@ mod read_private_key_pem {
 
     use super::*;
     use pkcs8::{ObjectIdentifier, SecretDocument};
+    use rand_core::RngCore;
     use sec1::{
         pem::{LineEnding, PemLabel},
         EcParameters, EcPrivateKey,
     };
-    use secp256k1::rand::{rng, RngCore};
     use std::{env, fs, path::PathBuf};
 
     fn create_random_private_key() -> PathBuf {
-        let mut rng = rng();
         let mut raw = [0u8; 32];
-        rng.fill_bytes(&mut raw);
+        OsRng.fill_bytes(&mut raw);
         let ec_priv = EcPrivateKey {
             private_key: &raw,
             parameters: Some(EcParameters::NamedCurve(
@@ -191,28 +194,27 @@ MFECAQAwBQYDK2VwBCIEIw==
 #[cfg(test)]
 mod parse_public_key {
     use super::*;
-    use secp256k1::rand::rng;
-    use secp256k1::Secp256k1;
 
     #[test]
     fn succeeds_on_valid_pkey() {
-        let secp = Secp256k1::new();
-        let mut rng = rng();
-        let (_, pk) = secp.generate_keypair(&mut rng);
+        let signing_key = SigningKey::random(&mut OsRng);
+        let verifying_key = signing_key.verifying_key();
 
-        let comp = pk.serialize();
+        let comp = verifying_key.to_encoded_point(true).as_bytes().to_vec();
 
         let pk2 = parse_public_key(&comp).unwrap();
-        assert_eq!(pk, pk2);
+        assert_eq!(
+            verifying_key.to_encoded_point(true),
+            pk2.to_encoded_point(true)
+        );
     }
 
     #[test]
     fn fails_on_wrong_size() {
-        let secp = Secp256k1::new();
-        let mut rng = rng();
-        let (_, pk) = secp.generate_keypair(&mut rng);
+        let signing_key = SigningKey::random(&mut OsRng);
+        let verifying_key = signing_key.verifying_key();
 
-        let mut comp = pk.serialize().to_vec();
+        let mut comp = verifying_key.to_encoded_point(true).as_bytes().to_vec();
         comp.push(8);
 
         let failed = parse_public_key(&comp);

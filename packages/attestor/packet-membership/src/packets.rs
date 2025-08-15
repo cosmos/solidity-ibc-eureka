@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Wrapper type that represents the serde byte-encoded
 /// list of packets.
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Packets(Vec<Vec<u8>>);
 
 impl Packets {
