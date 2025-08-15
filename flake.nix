@@ -53,6 +53,7 @@
               anchor
               anchor-go
               protobuf
+              slither-analyzer
               buf
               protoc-gen-go
               protoc-gen-go-grpc
