@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+pub use solana_ibc_app_interface::Payload;
 
 pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
@@ -78,16 +79,6 @@ pub struct Packet {
     pub dest_client: String,
     pub timeout_timestamp: i64,
     pub payloads: Vec<Payload>,
-}
-
-/// Payload structure
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct Payload {
-    pub source_port: String,
-    pub dest_port: String,
-    pub version: String,
-    pub encoding: String,
-    pub value: Vec<u8>,
 }
 
 /// Message structures for instructions

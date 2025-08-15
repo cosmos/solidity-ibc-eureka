@@ -27,6 +27,7 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 solana-light-client-interface.workspace = true
+solana-ibc-app-interface = { path = "../../interfaces/ibc-app" }
 anchor-spl = "0.31"
 sha2 = "0.10"
 
@@ -35,3 +36,4 @@ mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
 solana-sdk.workspace = true
 bincode.workspace = true
+dummy-ibc-app = { path = "../dummy-ibc-app" }
