@@ -12,18 +12,13 @@ use crate::Packets;
 /// - The value does not exist in the proof
 #[allow(clippy::module_name_repetitions, clippy::needless_pass_by_value)]
 pub fn verify_packet_membership(
-    proof: Vec<u8>,
+    proof: Packets,
     value: Vec<u8>,
 ) -> Result<(), PacketAttestationError> {
-    let proof_packets: Packets = serde_json::from_slice(&proof)
-        .map_err(PacketAttestationError::SerdeDeserializationError)?;
     let value_packet: Vec<u8> = serde_json::from_slice(&value)
         .map_err(PacketAttestationError::SerdeDeserializationError)?;
 
-    if proof_packets
-        .packets()
-        .any(|packet| *packet == value_packet)
-    {
+    if proof.packets().any(|packet| *packet == value_packet) {
         Ok(())
     } else {
         Err(PacketAttestationError::VerificiationFailed {
@@ -42,7 +37,7 @@ mod verify_packet_membership {
         let data = [b"cosmos rules", b"so does rust", b"hear, hear!!"];
         let packets: Vec<Vec<u8>> = data.into_iter().map(|d| d.to_vec()).collect();
 
-        let proof = serde_json::to_vec(&packets).unwrap();
+        let proof = Packets::new(packets);
         let value = serde_json::to_vec(b"hear, hear!!".as_slice()).unwrap();
 
         let res = verify_packet_membership(proof, value);
@@ -55,7 +50,7 @@ mod verify_packet_membership {
 
         let packets: Vec<Vec<u8>> = data.into_iter().map(|d| d.to_vec()).collect();
 
-        let proof = serde_json::to_vec(&packets).unwrap();
+        let proof = Packets::new(packets);
         let value = serde_json::to_vec(b"this does not exist".as_slice()).unwrap();
 
         let res = verify_packet_membership(proof, value);

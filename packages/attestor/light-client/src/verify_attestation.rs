@@ -53,6 +53,7 @@ pub(crate) fn verify_attestation(
             hasher.update(attestation_data);
             let hash_result = hasher.finalize();
 
+            // TODO: Fix
             lc_key
                 .verify(&hash_result, att_sig)
                 .map_err(|_| IbcAttestorClientError::InvalidSignature)?;

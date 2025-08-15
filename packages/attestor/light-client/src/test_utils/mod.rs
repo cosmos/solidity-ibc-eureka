@@ -1,5 +1,6 @@
 //! Test utilities for Attestor light client
 
+use attestor_packet_membership::Packets;
 use k256::ecdsa::{signature::Signer, Signature, SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
 use std::cell::LazyCell;
@@ -7,8 +8,8 @@ use std::cell::LazyCell;
 #[allow(missing_docs)]
 pub const PACKET_COMMITMENTS: [&[u8; 12]; 3] = [b"cosmos rules", b"so does rust", b"hear, hear!!"];
 #[allow(missing_docs)]
-pub const PACKET_COMMITMENTS_ENCODED: LazyCell<Vec<u8>> =
-    LazyCell::new(|| serde_json::to_vec(&PACKET_COMMITMENTS).unwrap());
+pub const PACKET_COMMITMENTS_ENCODED: LazyCell<Packets> =
+    LazyCell::new(|| Packets::new(PACKET_COMMITMENTS.iter().map(|p| p.to_vec()).collect()));
 #[allow(missing_docs)]
 pub const S_KEYS: LazyCell<[SigningKey; 5]> = LazyCell::new(|| {
     [
@@ -36,7 +37,12 @@ pub const SIGS: LazyCell<Vec<Signature>> = LazyCell::new(|| {
         .iter()
         .map(|skey| {
             let mut hasher = Sha256::new();
-            hasher.update(&*PACKET_COMMITMENTS_ENCODED);
+            let bytes: Vec<u8> = PACKET_COMMITMENTS_ENCODED
+                .packets()
+                .flatten()
+                .copied()
+                .collect();
+            hasher.update(&bytes);
             let hash_result = hasher.finalize();
             skey.sign(&hash_result)
         })
@@ -44,3 +50,12 @@ pub const SIGS: LazyCell<Vec<Signature>> = LazyCell::new(|| {
 
     sigs
 });
+
+#[allow(missing_docs)]
+pub fn packet_encoded_bytes() -> Vec<u8> {
+    PACKET_COMMITMENTS_ENCODED
+        .packets()
+        .flatten()
+        .map(|p| p.clone())
+        .collect()
+}

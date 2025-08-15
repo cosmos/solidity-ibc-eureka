@@ -9,7 +9,9 @@ use anyhow::Result;
 use attestor_light_client::{
     client_state::ClientState as AttestorClientState,
     consensus_state::ConsensusState as AttestorConsensusState, header::Header,
+    membership::MembershipProof,
 };
+use attestor_packet_membership::Packets;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -20,8 +22,8 @@ use ibc_proto_eureka::{
         },
     },
 };
+use k256::ecdsa::{Signature, VerifyingKey};
 use prost::Message;
-use k256::ecdsa::VerifyingKey;
 use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
 
@@ -175,6 +177,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
                 .packet_attestation
                 .ok_or(anyhow::anyhow!("No packets received"))?,
         );
+
         tracing::info!(
             "Received state attestation: {} signatures, height {}, state: {}",
             packets.signatures.len(),
@@ -223,14 +226,37 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        attestor::inject_proofs(&mut recv_msgs, &packets.attested_data, packets.height);
+        let proof = {
+            let raw_packets: Vec<Vec<u8>> = serde_json::from_slice(&packets.attested_data)
+                .map_err(|_| anyhow::anyhow!("packets could not be deserialized"))?;
+            tracing::info!("raw packets: {:?}", raw_packets);
 
-        let all_msgs = timeout_msgs
+            let structured = MembershipProof {
+                attestation_data: Packets::new(raw_packets),
+                signatures: packets
+                    .signatures
+                    .iter()
+                    .map(|sig| Signature::from_slice(sig).unwrap())
+                    .collect(),
+                pubkeys: packets
+                    .public_keys
+                    .iter()
+                    .map(|pkey| VerifyingKey::from_sec1_bytes(pkey).unwrap())
+                    .collect(),
+            };
+            serde_json::to_vec(&structured)
+                .map_err(|_| anyhow::anyhow!("proof could not be serialized"))?
+        };
+        attestor::inject_proofs(&mut recv_msgs, &proof, packets.height);
+
+        // NOTE: UpdateMsg must come first otherwise
+        // client state may not contain the needed
+        // height for the RecvMsgs
+        let all_msgs = [Any::from_msg(&update_msg)]
             .into_iter()
-            .map(|m| Any::from_msg(&m))
             .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .chain(timeout_msgs.into_iter().map(|m| Any::from_msg(&m)))
             .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
-            .chain([Any::from_msg(&update_msg)])
             .collect::<Result<Vec<_>, _>>()?;
 
         tracing::debug!("Total messages: #{}", all_msgs.len());

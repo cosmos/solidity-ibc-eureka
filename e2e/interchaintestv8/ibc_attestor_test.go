@@ -18,6 +18,8 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
@@ -82,6 +84,11 @@ func TestWithIbcAttestorTestSuite(t *testing.T) {
 func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType, attestorType attestor.AttestorBinaryPath) {
 	s.TestSuite.SetupSuite(ctx)
 
+	if os.Getenv(testvalues.EnvKeyRustLog) == "" {
+		os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
+		// os.Setenv(testvalues.EnvKeyRustLog, "debug")
+	}
+
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	s.T().Logf("Setting up the test suite with proof type: %s", proofType.String())
@@ -128,9 +135,6 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
 
-		if os.Getenv(testvalues.EnvKeyRustLog) == "" {
-			os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
-		}
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.RPC)
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeySp1Prover, prover)
@@ -160,7 +164,7 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 
 	// Setup multiple attestors
 	s.Require().True(s.Run("Setup multiple attestors", func() {
-		for i := 0; i < testvalues.NumAttestors; i++ {
+		for i := range testvalues.NumAttestors {
 			port := 9000 + i
 			attestorConfig := attestor.DefaultAttestorConfig()
 			attestorConfig.OP.URL = s.EthChain.RPC
@@ -422,13 +426,12 @@ func (s *IbcAttestorTestSuite) Test_AggregatorStartUp() {
 }
 
 func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binaryPath attestor.AttestorBinaryPath) {
-	numAttestors := 2
 	var attestorProcesses []*os.Process
 	var attestorEndpoints []string
 
 	// Start multiple attestor instances
 	s.Require().True(s.Run("Setup multiple attestors", func() {
-		for i := range numAttestors {
+		for i := range testvalues.NumAttestors {
 			port := 9000 + i
 			attestorConfig := attestor.DefaultAttestorConfig()
 			attestorConfig.Server.Port = port
@@ -469,7 +472,7 @@ func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binary
 	// Start aggregator service
 	var aggregatorProcess *os.Process
 	s.Require().True(s.Run("Setup aggregator", func() {
-		aggregatorConfig := aggregator.NewAggregatorConfigWithEndpoints(attestorEndpoints, numAttestors)
+		aggregatorConfig := aggregator.NewAggregatorConfigWithEndpoints(attestorEndpoints, testvalues.NumAttestors)
 		err := aggregatorConfig.WriteTomlConfig(testvalues.AggregatorConfigPath)
 		s.Require().NoError(err)
 		s.T().Cleanup(func() {
@@ -518,7 +521,7 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 
 	numOfTransfers := 1
 
-	eth := s.EthChain
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
@@ -548,6 +551,7 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 		sendPacket            ics26router.IICS26RouterMsgsPacket
 		escrowAddress         ethcommon.Address
 		blockHeightOfTransfer uint64
+		ethSendTxHash         []byte
 	)
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
@@ -572,6 +576,7 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 		s.Require().NoError(err)
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
 		blockHeightOfTransfer = receipt.BlockNumber.Uint64()
+		ethSendTxHash = tx.Hash().Bytes()
 
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
@@ -621,5 +626,92 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 
 		s.True(len(atts.PacketAttestation.AttestedData) > 0)
 		s.True(len(atts.StateAttestation.AttestedData) > 0)
+	}))
+
+	var (
+		denomOnCosmos transfertypes.Denom
+		ackTxHash     []byte
+	)
+	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
+		var relayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{ethSendTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			relayTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, relayTxBodyBz)
+
+			var err error
+			ackTxHash, err = hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(ackTxHash)
+		}))
+
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			denomOnCosmos = transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
+
+			// User balance on Cosmos chain
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: cosmosUserAddress,
+				Denom:   denomOnCosmos.IBCDenom(),
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(totalTransferAmount, resp.Balance.Amount.BigInt())
+			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
+		}))
+	}))
+
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	s.Require().True(s.Run("Acknowledge packets on Ethereum", func() {
+		var ackRelayTx []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{ackTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
+
+			ackRelayTx = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Submit relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, &ics26Address, ackRelayTx)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+			s.T().Logf("Ack %d packets gas used: %d", numOfTransfers, receipt.GasUsed)
+
+			// Verify the ack packet event exists
+			_, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseAckPacket)
+			s.Require().NoError(err)
+		}))
+
+		s.Require().True(s.Run("Verify final balances on Ethereum", func() {
+			// User balance on Ethereum should remain the same (tokens were transferred)
+			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
+
+			// ICS20 contract balance on Ethereum should still hold the escrowed tokens
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(totalTransferAmount, escrowBalance)
+		}))
 	}))
 }
