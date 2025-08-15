@@ -41,12 +41,8 @@ pub fn verify_membership(
         });
     }
 
-    let hashable_bytes: Vec<u8> = attested_state
-        .attestation_data
-        .packets()
-        .flatten()
-        .cloned()
-        .collect();
+    let hashable_bytes: Vec<u8> = serde_json::to_vec(&attested_state.attestation_data)
+        .map_err(IbcAttestorClientError::DeserializeMembershipProofFailed)?;
     verify_attestation::verify_attestation(
         client_state,
         &hashable_bytes,

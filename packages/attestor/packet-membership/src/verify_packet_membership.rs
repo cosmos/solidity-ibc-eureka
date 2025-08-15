@@ -15,10 +15,7 @@ pub fn verify_packet_membership(
     proof: Packets,
     value: Vec<u8>,
 ) -> Result<(), PacketAttestationError> {
-    let value_packet: Vec<u8> = serde_json::from_slice(&value)
-        .map_err(PacketAttestationError::SerdeDeserializationError)?;
-
-    if proof.packets().any(|packet| *packet == value_packet) {
+    if proof.packets().any(|packet| *packet == value) {
         Ok(())
     } else {
         Err(PacketAttestationError::VerificiationFailed {
