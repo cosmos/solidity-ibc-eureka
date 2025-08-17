@@ -18,6 +18,8 @@ use crate::ArbitrumClient;
 use crate::OpClient;
 #[cfg(feature = "sol")]
 use crate::SolanaClient;
+#[cfg(feature = "eth")]
+use crate::EthClient;
 
 /// Simple server that accepts inbound RPC calls for [AttestationServiceServer]
 /// and periodically updates attestation state.
@@ -108,6 +110,15 @@ pub async fn run_optimism_server(config: AttestorConfig) -> Result<(), anyhow::E
 pub async fn run_arbitrum_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
     let signer = Signer::from_config(config.signer.unwrap_or_default())?;
     let adapter = ArbitrumClient::from_config(&config.arbitrum)?;
+    let attestor = AttestorService::new(adapter, signer);
+    let server = Server::new(&config.server);
+    server.start(attestor, config.server).await
+}
+
+#[cfg(feature = "eth")]
+pub async fn run_ethereum_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
+    let signer = Signer::from_config(config.signer.unwrap_or_default())?;
+    let adapter = EthClient::from_config(&config.ethereum)?;
     let attestor = AttestorService::new(adapter, signer);
     let server = Server::new(&config.server);
     server.start(attestor, config.server).await

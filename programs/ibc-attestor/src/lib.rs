@@ -24,4 +24,7 @@ pub use adapter_impls::optimism::*;
 #[cfg(feature = "sol")]
 pub use adapter_impls::sol::*;
 
+#[cfg(feature = "eth")]
+pub use adapter_impls::ethereum::*;
+
 pub use error::AttestorError;

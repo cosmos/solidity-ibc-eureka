@@ -13,6 +13,8 @@ use tracing::Level;
 use crate::ArbitrumClientConfig;
 #[cfg(feature = "op")]
 use crate::OpClientConfig;
+#[cfg(feature = "eth")]
+use crate::EthClientConfig;
 
 pub const IBC_ATTESTOR_DIR: LazyCell<PathBuf> = LazyCell::new(|| {
     env::home_dir()
@@ -47,6 +49,10 @@ pub struct AttestorConfig {
     #[cfg(feature = "arbitrum")]
     /// The configuration for the Arbitrum client.
     pub arbitrum: ArbitrumClientConfig,
+
+    #[cfg(feature = "eth")]
+    /// The configuration for the Ethereum client.
+    pub ethereum: EthClientConfig,
 }
 
 impl AttestorConfig {
