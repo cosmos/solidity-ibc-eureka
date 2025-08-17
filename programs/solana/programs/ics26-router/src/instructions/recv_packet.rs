@@ -1,3 +1,4 @@
+use crate::cpi::on_recv_packet_cpi;
 use crate::errors::RouterError;
 use crate::instructions::light_client_cpi::{verify_membership_cpi, LightClientVerification};
 use crate::state::*;
@@ -52,6 +53,16 @@ pub struct RecvPacket<'info> {
         bump
     )]
     pub packet_ack: Account<'info, Commitment>,
+
+    // IBC app accounts for CPI
+    /// CHECK: IBC app program, validated against `IBCApp` account
+    #[account(
+        constraint = ibc_app_program.key() == ibc_app.app_program_id @ RouterError::IbcAppNotFound
+    )]
+    pub ibc_app_program: AccountInfo<'info>,
+
+    /// CHECK: IBC app state account, owned by IBC app program
+    pub ibc_app_state: AccountInfo<'info>,
 
     pub relayer: Signer<'info>,
 
@@ -152,11 +163,16 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
 
     packet_receipt.value = receipt_commitment;
 
-    // TODO: CPI to IBC app's onRecvPacket
-    // For now, we'll create a simple acknowledgement
-    let ack_data = b"packet received".to_vec();
+    let acknowledgement = on_recv_packet_cpi(
+        &ctx.accounts.ibc_app_program,
+        &ctx.accounts.ibc_app_state,
+        &ctx.accounts.system_program,
+        &msg.packet,
+        &msg.packet.payloads[0],
+        &ctx.accounts.relayer.key(),
+    )?;
 
-    let acks = vec![ack_data];
+    let acks = vec![acknowledgement];
     let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&acks)?;
     packet_ack.value = ack_commitment;
 
@@ -215,12 +231,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
-        mollusk.add_program(
-            &MOCK_LIGHT_CLIENT_ID,
-            crate::get_mock_client_program_path(),
-            &solana_sdk::bpf_loader_upgradeable::ID,
-        );
+        let mollusk = setup_mollusk_with_programs();
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::InvalidCounterpartyClient as u32,
@@ -414,12 +425,7 @@ mod tests {
     fn test_recv_packet_success() {
         let ctx = setup_recv_packet_test(true, 1000);
 
-        let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
-        mollusk.add_program(
-            &MOCK_LIGHT_CLIENT_ID,
-            crate::get_mock_client_program_path(),
-            &solana_sdk::bpf_loader_upgradeable::ID,
-        );
+        let mollusk = setup_mollusk_with_programs();
 
         // Calculate expected rent-exempt lamports for Commitment accounts
         let commitment_rent = {

@@ -1,8 +1,9 @@
 use crate::errors::RouterError;
-use crate::state::{Packet, Payload};
+use crate::state::Packet;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::keccak::hash as keccak256;
 use sha2::{Digest, Sha256};
+use solana_ibc_app_interface::Payload;
 
 // TODO: move to a shared crate
 pub fn packet_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
@@ -115,7 +116,6 @@ fn sha256(data: &[u8]) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::Payload;
 
     #[test]
     fn test_packet_commitment_path() {

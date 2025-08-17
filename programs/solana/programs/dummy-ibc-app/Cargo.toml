@@ -1,0 +1,29 @@
+[package]
+name = "dummy-ibc-app"
+version = "0.1.0"
+description = "Dummy IBC Application for testing Solana IBC Router"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/cosmos/solidity-ibc-eureka"
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "test", "anchor"]
+categories = ["cryptography", "blockchain"]
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "dummy_ibc_app"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build"]
+default = []
+
+[dependencies]
+anchor-lang.workspace = true
+solana-ibc-app-interface.workspace = true

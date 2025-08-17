@@ -1,5 +1,9 @@
 use crate::state::*;
 use anchor_lang::{AnchorSerialize, Discriminator, Space};
+use dummy_ibc_app::{
+    PACKETS_ACKNOWLEDGED_OFFSET, PACKETS_RECEIVED_OFFSET, PACKETS_TIMED_OUT_OFFSET,
+};
+use solana_ibc_app_interface::Payload;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::sysvar::Sysvar;
 
@@ -8,6 +12,10 @@ pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
 // Mock light client program ID - must match the ID in mock-light-client/src/lib.rs
 pub const MOCK_LIGHT_CLIENT_ID: Pubkey =
     solana_sdk::pubkey!("4nFbkWTbUxKwXqKHzLdxkUfYZ9MrVkzJp7nXt8GY7JKp");
+
+// Dummy IBC app program ID - must match the ID in dummy-ibc-app/src/lib.rs
+pub const DUMMY_IBC_APP_PROGRAM_ID: Pubkey =
+    solana_sdk::pubkey!("5E73beFMq9QZvbwPN5i84psh2WcyJ9PgqF4avBaRDgCC");
 
 // TODO: Move to test helpers crate
 
@@ -338,6 +346,126 @@ pub fn get_client_sequence_from_result_by_pubkey(
                 None
             }
         })
+}
+
+/// Create dummy IBC app state account for testing
+pub fn setup_dummy_ibc_app_state(app_program_id: &Pubkey, authority: Pubkey) -> (Pubkey, Vec<u8>) {
+    use dummy_ibc_app::state::{DummyIbcAppState, APP_STATE_SEED};
+
+    let (dummy_app_state_pda, _) = Pubkey::find_program_address(&[APP_STATE_SEED], app_program_id);
+
+    let dummy_app_state = DummyIbcAppState {
+        authority,
+        packets_received: 0,
+        packets_acknowledged: 0,
+        packets_timed_out: 0,
+    };
+
+    let account_data = create_account_data(&dummy_app_state);
+
+    (dummy_app_state_pda, account_data)
+}
+
+/// Setup mollusk with standard IBC programs for testing
+///
+/// This adds the router, mock light client, and dummy IBC app programs to mollusk
+pub fn setup_mollusk_with_programs() -> mollusk_svm::Mollusk {
+    use mollusk_svm::Mollusk;
+
+    let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+    mollusk.add_program(
+        &MOCK_LIGHT_CLIENT_ID,
+        crate::get_mock_client_program_path(),
+        &solana_sdk::bpf_loader_upgradeable::ID,
+    );
+    mollusk.add_program(
+        &DUMMY_IBC_APP_PROGRAM_ID,
+        crate::get_dummy_ibc_app_program_path(),
+        &solana_sdk::bpf_loader_upgradeable::ID,
+    );
+    mollusk
+}
+
+/// Setup mollusk with just the mock light client for testing scenarios that don't need IBC apps
+///
+/// This adds the router and mock light client programs to mollusk
+pub fn setup_mollusk_with_light_client() -> mollusk_svm::Mollusk {
+    use mollusk_svm::Mollusk;
+
+    let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+    mollusk.add_program(
+        &MOCK_LIGHT_CLIENT_ID,
+        crate::get_mock_client_program_path(),
+        &solana_sdk::bpf_loader_upgradeable::ID,
+    );
+    mollusk
+}
+
+fn assert_dummy_app_counter(
+    result: &mollusk_svm::result::InstructionResult,
+    dummy_app_state_pubkey: &Pubkey,
+    offset: usize,
+    expected_count: u64,
+    counter_name: &str,
+) {
+    let dummy_app_state_data = get_account_data_from_mollusk(result, dummy_app_state_pubkey)
+        .expect("dummy app state account not found");
+
+    let actual_count = u64::from_le_bytes(
+        dummy_app_state_data[offset..offset + std::mem::size_of::<u64>()]
+            .try_into()
+            .unwrap(),
+    );
+
+    assert_eq!(
+        actual_count, expected_count,
+        "dummy IBC app {counter_name} counter should be {expected_count} after CPI call"
+    );
+}
+
+/// Assert that the dummy IBC app `packets_received` counter has the expected value
+pub fn assert_packets_received_counter(
+    result: &mollusk_svm::result::InstructionResult,
+    dummy_app_state_pubkey: &Pubkey,
+    expected_count: u64,
+) {
+    assert_dummy_app_counter(
+        result,
+        dummy_app_state_pubkey,
+        PACKETS_RECEIVED_OFFSET,
+        expected_count,
+        "packets_received",
+    );
+}
+
+/// Assert that the dummy IBC app `packets_acknowledged` counter has the expected value
+pub fn assert_packets_acknowledged_counter(
+    result: &mollusk_svm::result::InstructionResult,
+    dummy_app_state_pubkey: &Pubkey,
+    expected_count: u64,
+) {
+    assert_dummy_app_counter(
+        result,
+        dummy_app_state_pubkey,
+        PACKETS_ACKNOWLEDGED_OFFSET,
+        expected_count,
+        "packets_acknowledged",
+    );
+}
+
+/// Assert that the dummy IBC app `packets_timed_out` counter has the expected value
+pub fn assert_packets_timed_out_counter(
+    result: &mollusk_svm::result::InstructionResult,
+    dummy_app_state_pubkey: &Pubkey,
+    expected_count: u64,
+) {
+    assert_dummy_app_counter(
+        result,
+        dummy_app_state_pubkey,
+        PACKETS_TIMED_OUT_OFFSET,
+        expected_count,
+        "packets_timed_out",
+    );
 }
 
 pub fn create_bpf_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::Account) {
