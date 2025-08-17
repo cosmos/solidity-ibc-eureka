@@ -13,6 +13,7 @@ sol = ["dep:solana-client", "dep:solana-commitment-config", "dep:solana-sdk", ]
 op = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider" ]
 arbitrum = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider", "dep:alloy-contract" ]
 eth = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider" ]
+cosmos = [ "dep:ibc-eureka-utils", "dep:tendermint-rpc", "dep:alloy" ]
 
 
 [dependencies]
@@ -54,6 +55,10 @@ key-utils			= { workspace = true, default-features = false }
 
 attestor-packet-membership      = { workspace = true, default-features = false }
 ibc-eureka-solidity-types       = { workspace = true, default-features = true, features = ["rpc"] }
+ibc-eureka-utils               = { workspace = true, optional = true }
+tendermint-rpc                 = { workspace = true, optional = true, features = ["http-client"] }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }
+
+[dev-dependencies]

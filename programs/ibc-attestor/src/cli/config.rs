@@ -15,6 +15,8 @@ use crate::ArbitrumClientConfig;
 use crate::OpClientConfig;
 #[cfg(feature = "eth")]
 use crate::EthClientConfig;
+#[cfg(feature = "cosmos")]
+use crate::CosmosClientConfig;
 
 pub const IBC_ATTESTOR_DIR: LazyCell<PathBuf> = LazyCell::new(|| {
     env::home_dir()
@@ -53,6 +55,10 @@ pub struct AttestorConfig {
     #[cfg(feature = "eth")]
     /// The configuration for the Ethereum client.
     pub ethereum: EthClientConfig,
+
+    #[cfg(feature = "cosmos")]
+    /// The configuration for the Cosmos client.
+    pub cosmos: CosmosClientConfig,
 }
 
 impl AttestorConfig {
@@ -118,3 +124,5 @@ pub struct SolanaClientConfig {
     pub url: String,
     pub account_key: String,
 }
+
+// CosmosClientConfig is defined in `adapter_impls::cosmos::config` and re-exported at crate root.

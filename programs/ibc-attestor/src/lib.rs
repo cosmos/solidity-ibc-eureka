@@ -27,4 +27,7 @@ pub use adapter_impls::sol::*;
 #[cfg(feature = "eth")]
 pub use adapter_impls::ethereum::*;
 
+#[cfg(feature = "cosmos")]
+pub use adapter_impls::cosmos::*;
+
 pub use error::AttestorError;

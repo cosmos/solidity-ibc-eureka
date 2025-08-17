@@ -20,6 +20,8 @@ use crate::OpClient;
 use crate::SolanaClient;
 #[cfg(feature = "eth")]
 use crate::EthClient;
+#[cfg(feature = "cosmos")]
+use crate::CosmosClient;
 
 /// Simple server that accepts inbound RPC calls for [AttestationServiceServer]
 /// and periodically updates attestation state.
@@ -119,6 +121,15 @@ pub async fn run_arbitrum_server(config: AttestorConfig) -> Result<(), anyhow::E
 pub async fn run_ethereum_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
     let signer = Signer::from_config(config.signer.unwrap_or_default())?;
     let adapter = EthClient::from_config(&config.ethereum)?;
+    let attestor = AttestorService::new(adapter, signer);
+    let server = Server::new(&config.server);
+    server.start(attestor, config.server).await
+}
+
+#[cfg(feature = "cosmos")]
+pub async fn run_cosmos_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
+    let signer = Signer::from_config(config.signer.unwrap_or_default())?;
+    let adapter = CosmosClient::from_config(&config.cosmos)?;
     let attestor = AttestorService::new(adapter, signer);
     let server = Server::new(&config.server);
     server.start(attestor, config.server).await

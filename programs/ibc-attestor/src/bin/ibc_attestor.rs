@@ -7,9 +7,9 @@ use ibc_attestor::cli::{
 use key_utils::{generate_secret_key, read_private_pem_to_string, read_public_key_to_string};
 
 // Compile-time check: ensure that exactly one blockchain feature is enabled
-#[cfg(not(any(feature = "sol", feature = "op", feature = "arbitrum", feature = "eth")))]
+#[cfg(not(any(feature = "sol", feature = "op", feature = "arbitrum", feature = "eth", feature = "cosmos")))]
 compile_error!(
-    "Please enable exactly one blockchain feature using --features sol, op, arbitrum, or eth"
+    "Please enable exactly one blockchain feature using --features sol, op, arbitrum, eth, or cosmos"
 );
 
 #[tokio::main]
@@ -35,6 +35,10 @@ async fn main() -> Result<(), anyhow::Error> {
             #[cfg(feature = "eth")]
             {
                 ibc_attestor::server::run_ethereum_server(config.clone()).await?
+            }
+            #[cfg(feature = "cosmos")]
+            {
+                ibc_attestor::server::run_cosmos_server(config.clone()).await?
             }
         }
         Commands::Key(cmd) => {

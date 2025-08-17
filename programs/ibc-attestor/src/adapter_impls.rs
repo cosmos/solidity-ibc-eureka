@@ -8,3 +8,5 @@ pub mod optimism;
 pub mod sol;
 #[cfg(feature = "eth")]
 pub mod ethereum;
+#[cfg(feature = "cosmos")]
+pub mod cosmos;
