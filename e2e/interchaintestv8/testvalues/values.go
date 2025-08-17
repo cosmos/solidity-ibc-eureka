@@ -162,6 +162,9 @@ var (
 	// 129600 seconds = 14 days
 	DefaultTrustPeriod = 1209600
 
+	// DefaultMaxClockDrift is the default maximum clock drift used by ICS07Tendermint (in seconds).
+	DefaultMaxClockDrift = 15
+
 	// MaxUint256 is the maximum value for a uint256.
 	MaxUint256 = uint256.MustFromHex("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 

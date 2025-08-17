@@ -1,8 +1,6 @@
 module github.com/srdtrk/solidity-ibc-eureka/e2e/v8
 
-go 1.23.8
-
-toolchain go1.24.3
+go 1.24.3
 
 require (
 	cosmossdk.io/api v0.9.2
@@ -17,9 +15,10 @@ require (
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.3.0
 	github.com/cosmos/ibc-go/v10 v10.3.0
 	github.com/cosmos/solidity-ibc-eureka/packages/go-abigen v0.0.0
+	github.com/cosmos/solidity-ibc-eureka/packages/go-anchor v0.0.0
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/ethereum/go-ethereum v1.15.11
-	github.com/gagliardetto/solana-go v1.12.0
+	github.com/gagliardetto/solana-go v1.13.0
 	github.com/holiman/uint256 v1.3.2
 	github.com/kurtosis-tech/kurtosis/api/golang v1.8.1
 	github.com/rs/zerolog v1.34.0
@@ -48,6 +47,7 @@ require (
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
+	github.com/gagliardetto/anchor-go v0.3.2 // indirect
 	github.com/gagliardetto/binary v0.8.0 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
@@ -313,6 +313,8 @@ require (
 )
 
 replace github.com/cosmos/solidity-ibc-eureka/packages/go-abigen => ../../packages/go-abigen
+
+replace github.com/cosmos/solidity-ibc-eureka/packages/go-anchor => ../../packages/go-anchor
 
 replace github.com/strangelove-ventures/interchaintest/v8 => github.com/gjermundgaraba/interchaintest/v8 v8.0.0-20250215185800-7e1ec6907f6e
 

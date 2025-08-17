@@ -28,6 +28,18 @@ runs:
           ./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
         key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'packages/**', 'programs/**', 'abi/**') }}
 
+    - name: Cache Solana
+      id: cache-solana
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/solana/
+          ~/.local/share/solana/
+          ~/.cargo/bin/anchor
+          ./programs/solana/target/deploy/
+          ./programs/solana/target/sbpf-solana-solana/
+        key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('programs/solana/**') }}
+
     - name: Install SP1 toolchain
       if: (steps.cache-relayer.outputs.cache-hit != 'true')
       shell: bash
@@ -51,8 +63,8 @@ runs:
         args: --bin relayer --path programs/relayer --locked
 
     - name: Install just
-      if: (steps.cache-relayer.outputs.cache-hit != 'true')
       uses: extractions/setup-just@v2
+
     - name: Build SP1 Programs
       if: (steps.cache-relayer.outputs.cache-hit != 'true')
       shell: bash
@@ -69,8 +81,30 @@ runs:
         kurtosis analytics disable
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
 
-    - name: Setup Solana
+    - name: Setup Solana Dependencies
+      if: steps.cache-solana.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        sh -c "$(curl -sSfL https://release.anza.xyz/v2.2.14/install)"
+        sudo apt-get update
+        sudo apt-get install -y build-essential pkg-config libudev-dev llvm libclang-dev protobuf-compiler libssl-dev
+
+    - name: Setup Solana
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        sh -c "$(curl -sSfL https://release.anza.xyz/v${SOLANA_VERSION}/install)"
+
+    - name: Add Solana to PATH
+      shell: bash
+      run: |
         echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+    - name: Setup Anchor
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      shell: bash
+      run: cargo install --git https://github.com/coral-xyz/anchor --tag v${ANCHOR_VERSION} anchor-cli
+
+    - name: Build Solana Programs
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      shell: bash
+      run: just build-solana

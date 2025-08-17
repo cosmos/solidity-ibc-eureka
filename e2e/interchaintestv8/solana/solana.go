@@ -40,6 +40,20 @@ func NewLocalnetSolana(faucet *solana.Wallet) (Solana, error) {
 	return NewSolana(rpc.LocalNet.RPC, rpc.LocalNet.WS, faucet)
 }
 
+// NewTransactionFromInstructions creates a new tx from the given transactions
+func (s *Solana) NewTransactionFromInstructions(payerPubKey solana.PublicKey, instructions ...solana.Instruction) (*solana.Transaction, error) {
+	recent, err := s.RPCClient.GetLatestBlockhash(context.TODO(), rpc.CommitmentFinalized)
+	if err != nil {
+		return nil, err
+	}
+
+	return solana.NewTransaction(
+		instructions,
+		recent.Value.Blockhash,
+		solana.TransactionPayer(payerPubKey),
+	)
+}
+
 // SignTx signs a transaction with the provided signers, broadcasts it, and confirms it.
 func (s *Solana) SignAndBroadcastTx(ctx context.Context, tx *solana.Transaction, signers ...*solana.Wallet) (solana.Signature, error) {
 	_, err := s.SignTx(ctx, tx, signers...)
