@@ -2479,7 +2479,6 @@ dependencies = [
  "cw2",
  "hex",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "k256",
  "prost",
  "serde",
  "serde_json",

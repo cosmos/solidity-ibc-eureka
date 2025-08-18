@@ -12,8 +12,6 @@ ibc-proto = { workspace = true }
 attestor-light-client = { workspace = true }
 attestor-packet-membership = { workspace = true }
 
-k256      = { version = "0.13.4", default-features = false }
-
 cosmwasm-std = { workspace = true, features = ["std"] }
 cosmwasm-schema = { workspace = true }
 cw2 = { workspace = true }
