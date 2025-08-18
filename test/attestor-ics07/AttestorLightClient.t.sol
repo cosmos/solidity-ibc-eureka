@@ -55,19 +55,23 @@ contract AttestorLightClientTest is Test {
         bytes[] memory sigs = new bytes[](2);
         sigs[0] = _sig(p1, digest);
         sigs[1] = _sig(p2, digest);
+        address[] memory signers = new address[](2);
+        signers[0] = a1;
+        signers[1] = a2;
 
         // Update
         IAttestorMsgs.MsgUpdateClient memory umsg = IAttestorMsgs.MsgUpdateClient({
             newHeight: 101,
             timestamp: 1_100,
             packets: packets,
+            signers: signers,
             signatures: sigs
         });
         ILightClientMsgs.UpdateResult res = lc.updateClient(abi.encode(umsg));
         assertEq(uint8(res), uint8(ILightClientMsgs.UpdateResult.Update));
 
         // Membership with full proof
-        IAttestorMsgs.MembershipProof memory proof = IAttestorMsgs.MembershipProof({ packets: packets, signatures: sigs });
+        IAttestorMsgs.MembershipProof memory proof = IAttestorMsgs.MembershipProof({ attestation_data: abi.encode(packets), signers: signers, signatures: sigs });
         uint256 ts = lc.verifyMembership(
             ILightClientMsgs.MsgVerifyMembership({
                 proof: abi.encode(proof),
@@ -97,12 +101,16 @@ contract AttestorLightClientTest is Test {
         bytes[] memory sigs = new bytes[](2);
         sigs[0] = _sig(p1, digest);
         sigs[1] = _sig(p2, digest);
+        address[] memory signers = new address[](2);
+        signers[0] = a1;
+        signers[1] = a2;
 
         // First update at 101
         IAttestorMsgs.MsgUpdateClient memory u1 = IAttestorMsgs.MsgUpdateClient({
             newHeight: 101,
             timestamp: 1_100,
             packets: packets,
+            signers: signers,
             signatures: sigs
         });
         lc.updateClient(abi.encode(u1));
@@ -121,11 +129,15 @@ contract AttestorLightClientTest is Test {
         bytes[] memory sigs = new bytes[](2);
         sigs[0] = _sig(p1, digest);
         sigs[1] = _sig(p2, digest);
+        address[] memory signers = new address[](2);
+        signers[0] = a1;
+        signers[1] = a2;
 
         IAttestorMsgs.MsgUpdateClient memory umsg = IAttestorMsgs.MsgUpdateClient({
             newHeight: 101,
             timestamp: 1_100,
             packets: packets,
+            signers: signers,
             signatures: sigs
         });
 

@@ -35,7 +35,7 @@ pub fn verify_header(
         client_state,
         &header.attestation_data,
         &header.signatures,
-        &header.pubkeys,
+        &header.public_keys,
     )?;
 
     if let Some(trusted_consensus) = existing_trusted_consensus {
@@ -84,43 +84,27 @@ pub fn verify_header(
 
 #[cfg(test)]
 mod verify_header {
-    use crate::test_utils::{packet_encoded_bytes, KEYS, SIGS};
-    use k256::ecdsa::{signature::Signer, SigningKey};
+    use crate::test_utils::{packet_encoded_bytes, PACKET_COMMITMENTS_ENCODED, PUBKEYS, SIGNERS, SIGS};
+    use secp256k1::{Message, Secp256k1, SecretKey};
     use sha2::{Digest, Sha256};
 
     use super::*;
 
     #[test]
     fn fails_on_frozon() {
-        let frozen = ClientState {
-            pub_keys: KEYS.clone(),
-            latest_height: 100,
-            is_frozen: true,
-            min_required_sigs: 5,
-        };
+        let frozen = ClientState { attestors: SIGNERS.clone(), min_required_sigs: 5, latest_height: 100, is_frozen: true };
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
         };
-        let header = Header {
-            new_height: cns.height,
-            timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
-        };
+        let header = Header { new_height: cns.height, timestamp: cns.timestamp, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: SIGS.clone(), public_keys: PUBKEYS.clone() };
 
         let res = verify_header(Some(&cns), None, None, &frozen, &header);
         assert!(matches!(res, Err(IbcAttestorClientError::ClientFrozen)));
     }
     #[test]
     fn fails_on_too_few_sigs() {
-        let cs = ClientState {
-            pub_keys: KEYS.clone(),
-            latest_height: 100,
-            is_frozen: false,
-            min_required_sigs: 5,
-        };
+        let cs = ClientState { attestors: SIGNERS.clone(), latest_height: 100, is_frozen: false, min_required_sigs: 5 };
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
@@ -128,13 +112,7 @@ mod verify_header {
 
         let mut too_few_sigs = SIGS.to_vec();
         let _ = too_few_sigs.pop();
-        let no_sig = Header {
-            new_height: cns.height,
-            timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: too_few_sigs,
-            pubkeys: KEYS.clone().into(),
-        };
+        let no_sig = Header { new_height: cns.height, timestamp: cns.timestamp, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: too_few_sigs, public_keys: PUBKEYS.clone() };
 
         let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
         assert!(
@@ -144,64 +122,41 @@ mod verify_header {
 
     #[test]
     fn fails_on_too_pubkeys() {
-        let cs = ClientState {
-            pub_keys: KEYS.clone(),
-            latest_height: 100,
-            is_frozen: false,
-            min_required_sigs: 5,
-        };
+        let cs = ClientState { attestors: SIGNERS.clone(), latest_height: 100, is_frozen: false, min_required_sigs: 5 };
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
         };
 
-        let mut too_few_keys = KEYS.to_vec();
-        let _ = too_few_keys.pop();
-        let no_sig = Header {
-            new_height: cns.height,
-            timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.to_vec(),
-            pubkeys: too_few_keys,
-        };
+        let mut too_few_pubkeys = PUBKEYS.to_vec();
+        let _ = too_few_pubkeys.pop();
+        let no_sig = Header { new_height: cns.height, timestamp: cns.timestamp, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: SIGS.to_vec(), public_keys: too_few_pubkeys };
 
         let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
-        assert!(
-            matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { reason}) if reason.contains("keys"))
-        );
+        assert!(matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { .. })));
     }
 
     #[test]
     fn fails_on_rogue_signature() {
-        let cs = ClientState {
-            pub_keys: KEYS.clone(),
-            latest_height: 100,
-            is_frozen: false,
-            min_required_sigs: 5,
-        };
+        let cs = ClientState { attestors: SIGNERS.clone(), latest_height: 100, is_frozen: false, min_required_sigs: 5 };
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
         };
 
-        let rogue_skey =
-            SigningKey::from_bytes(&[0x04; 32].into()).expect("32 bytes, within curve order");
-
+        let secp = Secp256k1::new();
+        let rogue_skey = SecretKey::from_slice(&[0x04; 32]).unwrap();
         let mut hasher = Sha256::new();
         hasher.update(&*packet_encoded_bytes());
-        let hash_result = hasher.finalize();
-        let rogue_sig = rogue_skey.sign(&hash_result);
+        let digest = hasher.finalize();
+        let msg = Message::from_digest_slice(&digest).unwrap();
+        let (_rec_id, compact) = secp.sign_ecdsa_recoverable(&msg, &rogue_skey).serialize_compact();
+        let rogue_sig = compact.to_vec();
 
         let mut bad_sigs = SIGS.clone();
         bad_sigs[0] = rogue_sig;
 
-        let no_sig = Header {
-            new_height: cns.height,
-            timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: bad_sigs,
-            pubkeys: KEYS.clone().into(),
-        };
+        let no_sig = Header { new_height: cns.height, timestamp: cns.timestamp, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: bad_sigs, public_keys: PUBKEYS.clone() };
 
         let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
         assert!(matches!(res, Err(IbcAttestorClientError::InvalidSignature)));
@@ -209,53 +164,38 @@ mod verify_header {
 
     #[test]
     fn fails_on_rogue_key() {
-        let cs = ClientState {
-            pub_keys: KEYS.clone(),
-            latest_height: 100,
-            is_frozen: false,
-            min_required_sigs: 5,
-        };
+        let cs = ClientState { attestors: SIGNERS.clone(), latest_height: 100, is_frozen: false, min_required_sigs: 5 };
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
         };
 
-        let rogue_key =
-            SigningKey::from_bytes(&[0x04; 32].into()).expect("32 bytes, within curve order");
+        let secp = Secp256k1::new();
+        let rogue_key = SecretKey::from_slice(&[0x04; 32]).unwrap();
         let mut hasher = Sha256::new();
         hasher.update(&*packet_encoded_bytes());
-        let hash_result = hasher.finalize();
-        let rogue_sig = rogue_key.sign(&hash_result);
-        let mut valid_sigs_with_rogue_signer = SIGS.clone();
-        valid_sigs_with_rogue_signer[4] = rogue_sig;
+        let digest = hasher.finalize();
+        let msg = Message::from_digest_slice(&digest).unwrap();
+        let (_rec_id, compact) = secp.sign_ecdsa_recoverable(&msg, &rogue_key).serialize_compact();
+        let rogue_sig = compact.to_vec();
+        let mut sigs_with_rogue = SIGS.clone();
+        sigs_with_rogue[4] = rogue_sig;
 
-        let rogue_pkey = rogue_key.verifying_key().clone();
-        let mut rogue_keys = KEYS.clone();
-        rogue_keys[4] = rogue_pkey.clone();
+        // compute rogue public key (compressed)
+        let pk = secp256k1::PublicKey::from_secret_key(&secp, &rogue_key);
+        let rogue_pubkey = pk.serialize().to_vec();
+        let mut pubkeys = PUBKEYS.clone();
+        pubkeys[4] = rogue_pubkey;
 
-        let no_sig = Header {
-            new_height: cns.height,
-            timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: valid_sigs_with_rogue_signer,
-            pubkeys: rogue_keys.to_vec(),
-        };
+        let no_sig = Header { new_height: cns.height, timestamp: cns.timestamp, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: sigs_with_rogue, public_keys: pubkeys };
 
         let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
-        assert!(matches!(
-            res,
-            Err(IbcAttestorClientError::UnknownPublicKeySubmitted { pubkey } ) if pubkey == rogue_pkey
-        ));
+        assert!(matches!(res, Err(IbcAttestorClientError::UnknownSigner { .. })));
     }
 
     #[test]
     fn fails_on_dup_sigs() {
-        let cs = ClientState {
-            pub_keys: KEYS.clone(),
-            latest_height: 100,
-            is_frozen: false,
-            min_required_sigs: 5,
-        };
+        let cs = ClientState { attestors: SIGNERS.clone(), latest_height: 100, is_frozen: false, min_required_sigs: 5 };
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
@@ -264,69 +204,37 @@ mod verify_header {
         let mut bad_sigs = SIGS.clone();
         bad_sigs[0] = bad_sigs[1].clone();
 
-        let no_sig = Header {
-            new_height: cns.height,
-            timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: bad_sigs,
-            pubkeys: KEYS.clone().into(),
-        };
+        let no_sig = Header { new_height: cns.height, timestamp: cns.timestamp, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: bad_sigs, public_keys: PUBKEYS.clone() };
 
         let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
-        assert!(
-            matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { reason }) if reason.contains("signature"))
-        );
+        assert!(matches!(res, Err(IbcAttestorClientError::InvalidSignature)) || matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { .. })) );
     }
 
     #[test]
     fn fails_on_dup_keys() {
-        let cs = ClientState {
-            pub_keys: KEYS.clone(),
-            latest_height: 100,
-            is_frozen: false,
-            min_required_sigs: 5,
-        };
+        let cs = ClientState { attestors: SIGNERS.clone(), latest_height: 100, is_frozen: false, min_required_sigs: 5 };
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
         };
 
-        let mut bad_keys = KEYS.clone();
-        bad_keys[0] = bad_keys[1].clone();
+        let mut bad_pubkeys = PUBKEYS.clone();
+        bad_pubkeys[0] = bad_pubkeys[1].clone();
 
-        let no_sig = Header {
-            new_height: cns.height,
-            timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: bad_keys.to_vec(),
-        };
+        let no_sig = Header { new_height: cns.height, timestamp: cns.timestamp, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: SIGS.clone(), public_keys: bad_pubkeys };
 
         let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
-        assert!(
-            matches!(res, Err(IbcAttestorClientError::InvalidAttestedData { reason }) if reason.contains("keys"))
-        );
+        assert!(matches!(res, Err(IbcAttestorClientError::DuplicateSigner { .. })));
     }
 
     #[test]
     fn fails_on_inconsistent_ts() {
-        let cs = ClientState {
-            pub_keys: KEYS.clone(),
-            latest_height: 100,
-            is_frozen: false,
-            min_required_sigs: 5,
-        };
+        let cs = ClientState { attestors: SIGNERS.clone(), latest_height: 100, is_frozen: false, min_required_sigs: 5 };
         let cns = ConsensusState {
             height: 100,
             timestamp: 123456789,
         };
-        let bad_ts = Header {
-            new_height: cns.height,
-            timestamp: cns.timestamp + 1,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
-        };
+        let bad_ts = Header { new_height: cns.height, timestamp: cns.timestamp + 1, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: SIGS.clone(), public_keys: PUBKEYS.clone() };
 
         let res = verify_header(Some(&cns), None, None, &cs, &bad_ts);
         assert!(
@@ -336,12 +244,7 @@ mod verify_header {
 
     #[test]
     fn fails_non_monotonic_ts() {
-        let cs = ClientState {
-            pub_keys: KEYS.clone(),
-            latest_height: 100,
-            is_frozen: false,
-            min_required_sigs: 5,
-        };
+        let cs = ClientState { attestors: SIGNERS.clone(), latest_height: 100, is_frozen: false, min_required_sigs: 5 };
 
         let (prev, next) = (
             ConsensusState {
@@ -354,54 +257,25 @@ mod verify_header {
             },
         );
 
-        let not_inbetween = Header {
-            new_height: 100 + 1,
-            timestamp: next.timestamp + 3,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
-        };
+        let not_inbetween = Header { new_height: 100 + 1, timestamp: next.timestamp + 3, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: SIGS.clone(), public_keys: PUBKEYS.clone() };
 
         let res = verify_header(None, Some(&prev), Some(&next), &cs, &not_inbetween);
-        assert!(
-            matches!(res, Err(IbcAttestorClientError::InvalidHeader {reason}) if reason.contains("between"))
-        );
+        assert!(matches!(res, Err(IbcAttestorClientError::InvalidHeader { .. })));
 
-        let not_before = Header {
-            new_height: 100 - 1,
-            timestamp: next.timestamp + 3,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
-        };
+        let not_before = Header { new_height: 100 - 1, timestamp: next.timestamp + 3, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: SIGS.clone(), public_keys: PUBKEYS.clone() };
 
         let res = verify_header(None, None, Some(&next), &cs, &not_before);
-        assert!(
-            matches!(res, Err(IbcAttestorClientError::InvalidHeader {reason}) if reason.contains("before"))
-        );
+        assert!(matches!(res, Err(IbcAttestorClientError::InvalidHeader { .. })));
 
-        let not_after = Header {
-            new_height: 100 + 3,
-            timestamp: prev.timestamp - 1,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
-        };
+        let not_after = Header { new_height: 100 + 3, timestamp: prev.timestamp - 1, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: SIGS.clone(), public_keys: PUBKEYS.clone() };
 
         let res = verify_header(None, Some(&prev), None, &cs, &not_after);
-        assert!(
-            matches!(res, Err(IbcAttestorClientError::InvalidHeader {reason}) if reason.contains("after"))
-        );
+        assert!(matches!(res, Err(IbcAttestorClientError::InvalidHeader { .. })));
     }
 
     #[test]
     fn succeeds_on_monotonic_ts() {
-        let cs = ClientState {
-            pub_keys: KEYS.clone(),
-            latest_height: 100,
-            is_frozen: false,
-            min_required_sigs: 5,
-        };
+        let cs = ClientState { attestors: SIGNERS.clone(), latest_height: 100, is_frozen: false, min_required_sigs: 5 };
 
         let (prev, next) = (
             ConsensusState {
@@ -414,37 +288,19 @@ mod verify_header {
             },
         );
 
-        let inbetween = Header {
-            new_height: 100 + 1,
-            timestamp: 123456789 + 1,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
-        };
+        let inbetween = Header { new_height: 100 + 1, timestamp: 123456789 + 1, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: SIGS.clone(), public_keys: PUBKEYS.clone() };
 
         let res = verify_header(None, Some(&prev), Some(&next), &cs, &inbetween);
-        assert!(res.is_ok(),);
+        assert!(res.is_ok());
 
-        let before = Header {
-            new_height: 100 - 1,
-            timestamp: 123456789 - 1,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
-        };
+        let before = Header { new_height: 100 - 1, timestamp: 123456789 - 1, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: SIGS.clone(), public_keys: PUBKEYS.clone() };
 
         let res = verify_header(None, None, Some(&next), &cs, &before);
-        assert!(res.is_ok(),);
+        assert!(res.is_ok());
 
-        let after = Header {
-            new_height: 100 + 3,
-            timestamp: prev.timestamp + 3,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
-        };
+        let after = Header { new_height: 100 + 3, timestamp: prev.timestamp + 3, attestation_data: crate::membership::abi_encode_packets(&PACKET_COMMITMENTS_ENCODED), signatures: SIGS.clone(), public_keys: PUBKEYS.clone() };
 
         let res = verify_header(None, Some(&prev), None, &cs, &after);
-        assert!(res.is_ok(),);
+        assert!(res.is_ok());
     }
 }

@@ -20,14 +20,16 @@ interface IAttestorMsgs {
         uint64 newHeight; // attested height
         uint64 timestamp; // unix seconds
         bytes[] packets;  // attested packets (opaque bytes)
+        address[] signers; // EVM addresses corresponding 1:1 with signatures
         bytes[] signatures; // 65-byte ECDSA signatures (r,s,v)
     }
 
     /// @notice Membership proof used by verifyMembership
-    /// @dev Signatures must be 65-byte ECDSA (r,s,v) over sha256(abi.encode(packets))
+    /// @dev Signatures must be 65-byte ECDSA (r,s,v) over sha256(attestation_data), where attestation_data = abi.encode(packets)
     struct MembershipProof {
-        bytes[] packets;    // attested packets (opaque bytes)
-        bytes[] signatures; // 65-byte ECDSA signatures (r,s,v)
+        bytes attestation_data; // abi.encode(packets)
+        address[] signers;      // EVM addresses corresponding 1:1 with signatures
+        bytes[] signatures;     // 65-byte ECDSA signatures (r,s,v)
     }
 }
 

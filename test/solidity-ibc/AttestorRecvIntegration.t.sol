@@ -111,17 +111,21 @@ contract AttestorRecvIntegration is Test {
         bytes[] memory sigs = new bytes[](2);
         sigs[0] = _sig(p1, digest);
         sigs[1] = _sig(p2, digest);
+        address[] memory signers = new address[](2);
+        signers[0] = a1;
+        signers[1] = a2;
         IAttestorMsgs.MsgUpdateClient memory umsg = IAttestorMsgs.MsgUpdateClient({
             newHeight: 101,
             timestamp: uint64(block.timestamp),
             packets: packets,
+            signers: signers,
             signatures: sigs
         });
         vm.prank(address(router));
         lc.updateClient(abi.encode(umsg));
 
         // Encode membership proof for router->LC
-        IAttestorMsgs.MembershipProof memory proof = IAttestorMsgs.MembershipProof({ packets: packets, signatures: sigs });
+        IAttestorMsgs.MembershipProof memory proof = IAttestorMsgs.MembershipProof({ attestation_data: abi.encode(packets), signers: signers, signatures: sigs });
 
         // Build recv packet msg
         IICS26RouterMsgs.MsgRecvPacket memory msgRecv = IICS26RouterMsgs.MsgRecvPacket({

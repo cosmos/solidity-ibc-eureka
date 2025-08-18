@@ -7,6 +7,11 @@
     unused_crate_dependencies
 )]
 
+#[allow(unused_imports)]
+use alloy_sol_types as _;
+#[allow(unused_imports)]
+use k256 as _;
+
 pub mod client_state;
 pub mod consensus_state;
 pub mod error;

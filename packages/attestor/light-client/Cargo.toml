@@ -13,7 +13,10 @@ attestor-packet-membership = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-k256 = { workspace = true, features = ["alloc", "ecdsa", "serde", "pem"] }
 sha2 = "0.10"
+alloy-primitives = { workspace = true }
+alloy-sol-types = { workspace = true }
+secp256k1 = { version = "0.28", default-features = false, features = ["alloc", "recovery", "std"] }
+k256 = { workspace = true, features = ["alloc", "ecdsa", "serde", "pem"] }
 
 

@@ -13,6 +13,9 @@
     clippy::missing_errors_doc
 )]
 
+#[allow(unused_imports)]
+use k256 as _;
+
 pub mod tx_builder;
 mod tx_listener;
 

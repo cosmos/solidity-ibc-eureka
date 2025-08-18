@@ -1,7 +1,6 @@
 //! Error types for attestor light client
 
 use attestor_packet_membership::PacketAttestationError;
-use k256::ecdsa::VerifyingKey;
 use thiserror::Error;
 
 /// Main error type for attestor IBC operations
@@ -29,11 +28,18 @@ pub enum IbcAttestorClientError {
     #[error("Membership proof failed: {0}")]
     MembershipProofFailed(#[from] PacketAttestationError),
 
-    /// Unregistered public key
-    #[error("Unknown public key submitted {pubkey:?}")]
-    UnknownPublicKeySubmitted {
-        /// Bad key
-        pubkey: VerifyingKey,
+    /// Unregistered signer address
+    #[error("Unknown signer submitted {address:?}")]
+    UnknownSigner {
+        /// Bad address
+        address: [u8; 20],
+    },
+
+    /// Duplicate signer address
+    #[error("Duplicate signer submitted {address:?}")]
+    DuplicateSigner {
+        /// Duplicate address
+        address: [u8; 20],
     },
 
     /// Cannot attest to data as malformed

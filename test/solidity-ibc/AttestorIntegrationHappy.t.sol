@@ -50,6 +50,9 @@ contract AttestorIntegrationHappy is Test {
         bytes[] memory sigs = new bytes[](2);
         sigs[0] = _sig(p1, digest);
         sigs[1] = _sig(p2, digest);
+        address[] memory signers = new address[](2);
+        signers[0] = a1;
+        signers[1] = a2;
 
         // role manager is router; call via router using standard IICS26 flow shape
         // First, update light client directly (router would typically send this)
@@ -57,6 +60,7 @@ contract AttestorIntegrationHappy is Test {
             newHeight: 101,
             timestamp: 1_234,
             packets: packets,
+            signers: signers,
             signatures: sigs
         });
         vm.prank(address(router));

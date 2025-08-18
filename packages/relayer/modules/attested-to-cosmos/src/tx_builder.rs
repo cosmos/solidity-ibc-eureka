@@ -22,7 +22,6 @@ use ibc_proto_eureka::{
         },
     },
 };
-use k256::ecdsa::{Signature, VerifyingKey};
 use prost::Message;
 use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
@@ -103,7 +102,7 @@ fn encode_and_cyphon_packet_if_relevant(
 }
 
 const CHECKSUM_HEX: &str = "checksum_hex";
-const PUB_KEYS: &str = "pub_keys";
+const PUB_KEYS: &str = "pub_keys"; // kept key name for compatibility, now interpreted as EVM addresses hex
 const MIN_REQUIRED_SIGS: &str = "min_required_sigs";
 const HEIGHT: &str = "height";
 const TIMESTAMP: &str = "timestamp";
@@ -154,7 +153,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
 
         let query_height = *heights.iter().max().unwrap();
         let request = aggregator_proto::GetAttestationsRequest {
-            packets: ics26_send_packets,
+            packets: ics26_send_packets.clone(),
             height: query_height, // latest height
         };
 
@@ -185,13 +184,13 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             hex::encode(&packets.attested_data)
         );
 
-        let header = Header::new(
-            state.height,
-            state.timestamp.unwrap(),
-            state.attested_data,
-            state.signatures,
-            state.public_keys,
-        );
+        let header = Header {
+            new_height: state.height,
+            timestamp: state.timestamp.unwrap(),
+            attestation_data: state.attested_data,
+            signatures: state.signatures,
+            public_keys: state.public_keys,
+        };
         let header_bz = serde_json::to_vec(&header)
             .map_err(|_| anyhow::anyhow!("header could not be serialized"))?;
 
@@ -227,22 +226,16 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
         let proof = {
-            let raw_packets: Vec<Vec<u8>> = serde_json::from_slice(&packets.attested_data)
-                .map_err(|_| anyhow::anyhow!("packets could not be deserialized"))?;
+            // Aggregator currently provides `attestation_data = abi.encode(packets)`;
+            // we use the filtered ICS26 packets we already collected for membership input.
+            let raw_packets: Vec<Vec<u8>> = ics26_send_packets.clone();
             tracing::info!("raw packets: {:?}", raw_packets);
 
             let structured = MembershipProof {
-                attestation_data: Packets::new(raw_packets),
-                signatures: packets
-                    .signatures
-                    .iter()
-                    .map(|sig| Signature::from_slice(sig).unwrap())
-                    .collect(),
-                pubkeys: packets
-                    .public_keys
-                    .iter()
-                    .map(|pkey| VerifyingKey::from_sec1_bytes(pkey).unwrap())
-                    .collect(),
+                attestation_data: packets.attested_data,
+                packets: Packets::new(raw_packets),
+                signatures: packets.signatures,
+                public_keys: packets.public_keys,
             };
             serde_json::to_vec(&structured)
                 .map_err(|_| anyhow::anyhow!("proof could not be serialized"))?
@@ -298,17 +291,20 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             .ok_or_else(|| anyhow::anyhow!(format!("Missing `{PUB_KEYS}` parameter")))?;
         let pub_keys_bytes = alloy::hex::decode(pub_keys_hex)?;
         anyhow::ensure!(
-            pub_keys_bytes.len() % 33 == 0,
-            "`{PUB_KEYS}` must be a hex-encoded concatenation of 33-byte compressed pubkeys"
+            pub_keys_bytes.len() % 20 == 0,
+            "`{PUB_KEYS}` must be a hex-encoded concatenation of 20-byte EVM addresses"
         );
-        let pub_keys: Vec<VerifyingKey> = pub_keys_bytes
-            .chunks_exact(33)
-            .map(|chunk| VerifyingKey::from_sec1_bytes(chunk))
-            .collect::<Result<_, _>>()
-            .map_err(|_| anyhow::anyhow!("failed to parse compressed secp256k1 pubkey"))?;
+        let attestors: Vec<[u8; 20]> = pub_keys_bytes
+            .chunks_exact(20)
+            .map(|chunk| {
+                let mut a = [0u8; 20];
+                a.copy_from_slice(chunk);
+                a
+            })
+            .collect();
 
         let client_state = AttestorClientState {
-            pub_keys,
+            attestors,
             min_required_sigs,
             latest_height: height,
             is_frozen: false,

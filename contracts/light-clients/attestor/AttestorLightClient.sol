@@ -59,7 +59,7 @@ contract AttestorLightClient is ILightClient, IAttestorErrors, AccessControl {
     {
         IAttestorMsgs.MsgUpdateClient memory msg_ = abi.decode(updateMsg, (IAttestorMsgs.MsgUpdateClient));
 
-        _verifySignatures(msg_.packets, msg_.signatures);
+        _verifySignatures(msg_.packets, msg_.signatures, msg_.signers);
 
         // Timestamp rules mirroring CosmWasm
         uint64 existingTs = _timestampAtHeight[msg_.newHeight];
@@ -70,7 +70,7 @@ contract AttestorLightClient is ILightClient, IAttestorErrors, AccessControl {
         }
 
         // Monotonicity vs neighbors
-        (bool hasPrev, uint64 prevH, uint64 prevTs, bool hasNext, uint64 nextH, uint64 nextTs) = _findNeighbors(
+        (bool hasPrev, , uint64 prevTs, bool hasNext, , uint64 nextTs) = _findNeighbors(
             msg_.newHeight
         );
         if (hasPrev && hasNext) {
@@ -96,6 +96,7 @@ contract AttestorLightClient is ILightClient, IAttestorErrors, AccessControl {
 
     function verifyMembership(ILightClientMsgs.MsgVerifyMembership calldata msg_)
         external
+        view
         notFrozen
         onlyProofSubmitter
         returns (uint256)
@@ -113,12 +114,14 @@ contract AttestorLightClient is ILightClient, IAttestorErrors, AccessControl {
         }
 
         IAttestorMsgs.MembershipProof memory proof = abi.decode(msg_.proof, (IAttestorMsgs.MembershipProof));
-        _verifySignatures(proof.packets, proof.signatures);
+        // Decode packets from attestation_data (which must be abi.encode(packets))
+        bytes[] memory packets = abi.decode(proof.attestation_data, (bytes[]));
+        _verifySignatures(packets, proof.signatures, proof.signers);
 
         // membership by byte equality
         bool found;
-        for (uint256 i = 0; i < proof.packets.length; i++) {
-            if (proof.packets[i].length == msg_.value.length && keccak256(proof.packets[i]) == keccak256(msg_.value)) {
+        for (uint256 i = 0; i < packets.length; i++) {
+            if (packets[i].length == msg_.value.length && keccak256(packets[i]) == keccak256(msg_.value)) {
                 found = true;
                 break;
             }
@@ -151,24 +154,29 @@ contract AttestorLightClient is ILightClient, IAttestorErrors, AccessControl {
     }
 
     // Helpers
-    function _verifySignatures(bytes[] memory packets, bytes[] memory signatures) private view {
+    function _verifySignatures(bytes[] memory packets, bytes[] memory signatures, address[] memory signers)
+        private
+        view
+    {
         // digest = sha256(abi.encode(packets))
         bytes32 digest = sha256(abi.encode(packets));
 
         uint256 sigs = signatures.length;
         if (sigs < clientState.minRequiredSigs) revert InsufficientSignatures(sigs, clientState.minRequiredSigs);
+        if (sigs != signers.length) revert InvalidSignature();
 
         // track uniqueness
         // Use a memory mapping via hashing (small sets expected)
         address[] memory seen = new address[](sigs);
         for (uint256 i = 0; i < sigs; i++) {
             address signer = _recover(digest, signatures[i]);
-            if (!_isAttestor[signer]) revert UnknownSigner(signer);
+            if (signer != signers[i]) revert InvalidSignature();
+            if (!_isAttestor[signers[i]]) revert UnknownSigner(signers[i]);
             // check duplicate
             for (uint256 j = 0; j < i; j++) {
-                if (seen[j] == signer) revert DuplicateSigner(signer);
+                if (seen[j] == signers[i]) revert DuplicateSigner(signers[i]);
             }
-            seen[i] = signer;
+            seen[i] = signers[i];
         }
     }
 

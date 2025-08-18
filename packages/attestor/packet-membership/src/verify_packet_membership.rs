@@ -35,7 +35,7 @@ mod verify_packet_membership {
         let packets: Vec<Vec<u8>> = data.into_iter().map(|d| d.to_vec()).collect();
 
         let proof = Packets::new(packets);
-        let value = serde_json::to_vec(b"hear, hear!!".as_slice()).unwrap();
+        let value = b"hear, hear!!".to_vec();
 
         let res = verify_packet_membership(proof, value);
         assert!(res.is_ok());
