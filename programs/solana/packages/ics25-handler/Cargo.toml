@@ -1,8 +1,12 @@
 [package]
 name = "ics25-handler"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "ICS-25 Vector Commitments handler for IBC light clients on Solana"
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories = ["cryptography", "blockchain"]
 
 [dependencies]
 anchor-lang.workspace = true

@@ -1,7 +1,11 @@
 [package]
 name = "mock-ibc-app"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+description = "Mock IBC Application for testing Solana IBC Router"
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
 
 [lints]
 workspace = true
