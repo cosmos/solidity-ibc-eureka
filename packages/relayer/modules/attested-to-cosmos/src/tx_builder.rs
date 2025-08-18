@@ -162,8 +162,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             "Requesting state attestation from aggregator for {} packets",
             request.packets.len()
         );
-        // - We need update client with timestamp at height
-        // - We need MsgRecvPacket where proof is (key, value, height, signature)
+
         let response = aggregator_client
             .get_attestations(request)
             .await?
@@ -187,6 +186,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
 
         let header = Header::new(
             state.height,
+            // Unwrap safe as state attestation must contain ts
             state.timestamp.unwrap(),
             state.attested_data,
             state.signatures,
@@ -236,13 +236,13 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
                 signatures: packets
                     .signatures
                     .iter()
-                    .map(|sig| Signature::from_slice(sig).unwrap())
-                    .collect(),
+                    .map(|sig| Signature::from_slice(sig))
+                    .collect::<Result<Vec<Signature>, _>>()?,
                 pubkeys: packets
                     .public_keys
                     .iter()
-                    .map(|pkey| VerifyingKey::from_sec1_bytes(pkey).unwrap())
-                    .collect(),
+                    .map(|pkey| VerifyingKey::from_sec1_bytes(pkey))
+                    .collect::<Result<Vec<VerifyingKey>, _>>()?,
             };
             serde_json::to_vec(&structured)
                 .map_err(|_| anyhow::anyhow!("proof could not be serialized"))?
