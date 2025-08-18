@@ -17,6 +17,10 @@ pub const MOCK_LIGHT_CLIENT_ID: Pubkey =
 pub const DUMMY_IBC_APP_PROGRAM_ID: Pubkey =
     solana_sdk::pubkey!("5E73beFMq9QZvbwPN5i84psh2WcyJ9PgqF4avBaRDgCC");
 
+// Mock IBC app program ID - must match the ID in mock-ibc-app/src/lib.rs
+pub const MOCK_IBC_APP_PROGRAM_ID: Pubkey =
+    solana_sdk::pubkey!("9qnEj3T1NsaGkN3Sj7hgJZiKrVbKVBNmVphJ6PW1PDAB");
+
 // TODO: Move to test helpers crate
 
 pub fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u8> {
@@ -381,6 +385,26 @@ pub fn setup_mollusk_with_programs() -> mollusk_svm::Mollusk {
     mollusk.add_program(
         &DUMMY_IBC_APP_PROGRAM_ID,
         crate::get_dummy_ibc_app_program_path(),
+        &solana_sdk::bpf_loader_upgradeable::ID,
+    );
+    mollusk
+}
+
+/// Setup mollusk with mock programs for testing
+///
+/// This adds the router, mock light client, and mock IBC app programs to mollusk
+pub fn setup_mollusk_with_mock_programs() -> mollusk_svm::Mollusk {
+    use mollusk_svm::Mollusk;
+
+    let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+    mollusk.add_program(
+        &MOCK_LIGHT_CLIENT_ID,
+        crate::get_mock_client_program_path(),
+        &solana_sdk::bpf_loader_upgradeable::ID,
+    );
+    mollusk.add_program(
+        &MOCK_IBC_APP_PROGRAM_ID,
+        crate::get_mock_ibc_app_program_path(),
         &solana_sdk::bpf_loader_upgradeable::ID,
     );
     mollusk

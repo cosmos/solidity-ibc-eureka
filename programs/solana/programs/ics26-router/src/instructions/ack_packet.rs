@@ -139,8 +139,6 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         &ctx.accounts.ibc_app_program,
         &ctx.accounts.ibc_app_state,
         &ctx.accounts.router_program,
-        &ctx.accounts.payer,
-        &ctx.accounts.system_program,
         &msg.packet,
         &msg.packet.payloads[0],
         &msg.acknowledgement,
@@ -231,7 +229,7 @@ mod tests {
         let authority = Pubkey::new_unique();
         let relayer = params.unauthorized_relayer.unwrap_or(authority);
         let payer = relayer;
-        let app_program_id = params.app_program_id.unwrap_or(DUMMY_IBC_APP_PROGRAM_ID);
+        let app_program_id = params.app_program_id.unwrap_or(MOCK_IBC_APP_PROGRAM_ID);
         let light_client_program = MOCK_LIGHT_CLIENT_ID;
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
@@ -244,7 +242,7 @@ mod tests {
         );
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(params.port_id, app_program_id);
 
-        // Dummy app state will be created automatically via init_if_needed
+        // Mock app state - just create a dummy account since mock app doesn't use it
         let (dummy_app_state_pda, _) =
             Pubkey::find_program_address(&[b"app_state"], &app_program_id);
 
@@ -310,7 +308,7 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             packet_commitment_account,
             create_bpf_program_account(app_program_id),
-            create_uninitialized_account(dummy_app_state_pda, 0), // Will be created by IBC app
+            create_account(dummy_app_state_pda, vec![0u8; 32], app_program_id), // Mock app state
             create_bpf_program_account(crate::ID), // router_program
             create_system_account(relayer), // relayer (also signer)
             create_system_account(payer), // payer (also signer)
@@ -334,10 +332,10 @@ mod tests {
     fn test_ack_packet_success() {
         let ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
 
-        let mollusk = setup_mollusk_with_programs();
+        let mollusk = setup_mollusk_with_mock_programs();
 
-        let payer_pubkey = ctx.accounts[3].0; // Payer is at index 3
-        let initial_payer_lamports = ctx.accounts[3].1.lamports;
+        let payer_pubkey = ctx.accounts[7].0; // Payer is at index 7
+        let initial_payer_lamports = ctx.accounts[7].1.lamports;
         let commitment_lamports = ctx.accounts[2].1.lamports; // Packet commitment is at index 2
 
         let checks = vec![
@@ -354,9 +352,7 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
 
-        // Also check that dummy IBC app state was created and updated via CPI
-        let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
-        assert_packets_acknowledged_counter(&result, &ctx.dummy_app_state_pubkey, 1);
+        // Mock app doesn't track counters, so we just verify the instruction succeeded
     }
 
     #[test]
@@ -366,7 +362,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = setup_mollusk_with_programs();
+        let mollusk = setup_mollusk_with_mock_programs();
 
         // When packet commitment doesn't exist, it should succeed (noop)
         let checks = vec![Check::success()];

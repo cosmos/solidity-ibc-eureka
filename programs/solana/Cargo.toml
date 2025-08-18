@@ -3,6 +3,7 @@ members = [
   "programs/ics07-tendermint",
   "programs/ics26-router",
   "programs/mock-light-client",
+  "programs/mock-ibc-app",
   "programs/dummy-ibc-app",
   "interfaces/ibc-app",
   "interfaces/light-client",

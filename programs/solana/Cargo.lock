@@ -2329,6 +2329,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mock-ibc-app"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "solana-ibc-app-interface",
+]
+
+[[package]]
 name = "mock-light-client"
 version = "0.1.0"
 dependencies = [
