@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	basePath                       = "e2e/interchaintestv8/wasm/"
-	dummyLightClientFileName       = "cw_dummy_light_client.wasm.gz"
-	wasmEthLightClientFileName     = "cw_ics08_wasm_eth.wasm.gz"
+	basePath                        = "e2e/interchaintestv8/wasm/"
+	dummyLightClientFileName        = "cw_dummy_light_client.wasm.gz"
+	wasmEthLightClientFileName      = "cw_ics08_wasm_eth.wasm.gz"
 	wasmAttestorLightClientFileName = "cw_ics08_wasm_attestor.wasm.gz"
 )
 
@@ -26,8 +26,8 @@ func GetLocalWasmAttestorLightClient() (*os.File, error) {
 	return os.Open(basePath + wasmAttestorLightClientFileName)
 }
 
-func DownloadWasmEthLightClientRelease(release Release) (*os.File, error) {
-	downloadUrl := fmt.Sprintf("%s/%s", release.BaseDownloadURL(), wasmEthLightClientFileName)
+func DownloadWasmLightClientRelease(release Release) (*os.File, error) {
+	downloadUrl := fmt.Sprintf("%s/%s", release.BaseDownloadURL())
 
 	resp, err := http.Get(downloadUrl) //nolint:gosec
 	if err != nil {
@@ -36,38 +36,6 @@ func DownloadWasmEthLightClientRelease(release Release) (*os.File, error) {
 	defer resp.Body.Close()
 
 	downloadFile, err := os.CreateTemp("", "eth-light-client-download")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = io.Copy(downloadFile, resp.Body)
-	if err != nil {
-		downloadFile.Close()
-		os.Remove(downloadFile.Name())
-		return nil, err
-	}
-
-	// Seek to the beginning of the file before returning
-	_, err = downloadFile.Seek(0, io.SeekStart)
-	if err != nil {
-		downloadFile.Close()
-		os.Remove(downloadFile.Name())
-		return nil, err
-	}
-
-	return downloadFile, nil
-}
-
-func DownloadWasmAttestorLightClientRelease(release Release) (*os.File, error) {
-	downloadUrl := fmt.Sprintf("%s/%s", release.BaseDownloadURL(), wasmAttestorLightClientFileName)
-
-	resp, err := http.Get(downloadUrl) //nolint:gosec
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	downloadFile, err := os.CreateTemp("", "attestor-light-client-download")
 	if err != nil {
 		return nil, err
 	}
