@@ -572,7 +572,7 @@ func (s *CosmosRelayerTestSuite) Test_UpdateClient() {
 
 			updateTxBodyBz = resp.Tx
 
-			s.TendermintLightClientFixtures.GenerateMultipleUpdateClientScenarios(ctx, s.SimdA, updateTxBodyBz)
+			s.TendermintLightClientFixtures.GenerateUpdateClientHappyPath(ctx, s.SimdA, updateTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Broadcast update client tx", func() {

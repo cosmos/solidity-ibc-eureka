@@ -63,12 +63,12 @@ func (g *TendermintLightClientFixtureGenerator) initializeSubmodules(s *suite.Su
 
 // Public API - Main Fixture Generation Methods
 
-func (g *TendermintLightClientFixtureGenerator) GenerateMultipleUpdateClientScenarios(
+func (g *TendermintLightClientFixtureGenerator) GenerateUpdateClientHappyPath(
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
 	updateTxBodyBz []byte,
 ) {
-	g.updateClientGenerator.GenerateMultipleUpdateClientScenarios(ctx, chainA, updateTxBodyBz)
+	g.updateClientGenerator.GenerateUpdateClientHappyPath(ctx, chainA, updateTxBodyBz)
 }
 
 func (g *TendermintLightClientFixtureGenerator) GenerateMembershipVerificationScenarios(

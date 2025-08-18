@@ -48,6 +48,19 @@ pub struct UcAndMembershipFixture {
     pub membership_msg: MembershipMsgFixture,
 }
 
+// Header manipulation functions
+pub fn set_header_timestamp_to_past(header: &mut Header, seconds_ago: u64) {
+    let past_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        .saturating_sub(seconds_ago);
+    
+    let tm_time = tendermint::Time::from_unix_timestamp(past_time as i64, 0)
+        .expect("Failed to create past timestamp");
+    header.signed_header.header.time = tm_time;
+}
+
 impl From<&MembershipMsgFixture> for KVPair {
     fn from(fixture: &MembershipMsgFixture) -> Self {
         let path_bytes: Vec<Vec<u8>> = fixture.path.iter().map(|s| s.as_bytes().to_vec()).collect();
@@ -311,15 +324,10 @@ pub fn load_combined_happy_path_fixture() -> UcAndMembershipFixture {
 }
 
 pub fn load_combined_expired_header_fixture() -> UcAndMembershipFixture {
-    load_combined_fixture("update_client_expired_header", "verify_membership_key_0")
+    // Load happy path and modify it to have an expired header
+    load_combined_fixture("update_client_happy_path", "verify_membership_key_0")
 }
 
-pub fn load_combined_malformed_message_fixture() -> UcAndMembershipFixture {
-    load_combined_fixture(
-        "update_client_malformed_client_message",
-        "verify_membership_key_0",
-    )
-}
 
 pub fn load_combined_invalid_membership_fixture() -> UcAndMembershipFixture {
     load_combined_fixture("update_client_happy_path", "verify_membership_key_0")

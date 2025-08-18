@@ -196,14 +196,60 @@ pub fn load_happy_path_fixture() -> UpdateClientFixture {
     load_fixture("update_client_happy_path")
 }
 
-pub fn load_malformed_client_message_fixture() -> UpdateClientFixture {
-    load_fixture("update_client_malformed_client_message")
+pub fn corrupt_header_signature(header: &mut Header) {
+    use tendermint::block::CommitSig;
+    
+    // Find the first signature and corrupt a single byte
+    for sig in header.signed_header.commit.signatures.iter_mut() {
+        let signature = match sig {
+            CommitSig::BlockIdFlagCommit { signature, .. } |
+            CommitSig::BlockIdFlagNil { signature, .. } => signature,
+            _ => continue,
+        };
+        
+        if let Some(sig_opt) = signature {
+            let mut sig_bytes = sig_opt.as_bytes().to_vec();
+            if !sig_bytes.is_empty() {
+                // Flip a single bit in the middle of the signature
+                let mid_pos = sig_bytes.len() / 2;
+                sig_bytes[mid_pos] ^= 0x01;
+                
+                if let Ok(corrupted_sig) = tendermint::Signature::try_from(sig_bytes.as_slice()) {
+                    *signature = Some(corrupted_sig);
+                    break; // Only corrupt the first signature found
+                }
+            }
+        }
+    }
 }
 
-pub fn load_expired_header_fixture() -> UpdateClientFixture {
-    load_fixture("update_client_expired_header")
+pub fn set_header_timestamp_to_past(header: &mut Header, seconds_ago: u64) {
+    let past_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        .saturating_sub(seconds_ago);
+    
+    let tm_time = tendermint::Time::from_unix_timestamp(past_time as i64, 0)
+        .expect("Failed to create past timestamp");
+    header.signed_header.header.time = tm_time;
 }
 
-pub fn load_future_timestamp_fixture() -> UpdateClientFixture {
-    load_fixture("update_client_future_timestamp")
+pub fn set_header_timestamp_to_future(header: &mut Header, seconds_ahead: u64) {
+    let future_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + seconds_ahead;
+    
+    let tm_time = tendermint::Time::from_unix_timestamp(future_time as i64, 0)
+        .expect("Failed to create future timestamp");
+    header.signed_header.header.time = tm_time;
+}
+
+pub fn set_wrong_trusted_height(header: &mut Header, wrong_height: u64) {
+    header.trusted_height = Height::new(
+        header.trusted_height.revision_number(),
+        wrong_height,
+    ).expect("Failed to create wrong trusted height");
 }
