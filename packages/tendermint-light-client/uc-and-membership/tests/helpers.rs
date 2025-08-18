@@ -55,7 +55,7 @@ pub fn set_header_timestamp_to_past(header: &mut Header, seconds_ago: u64) {
         .unwrap()
         .as_secs()
         .saturating_sub(seconds_ago);
-    
+
     let tm_time = tendermint::Time::from_unix_timestamp(past_time as i64, 0)
         .expect("Failed to create past timestamp");
     header.signed_header.header.time = tm_time;
@@ -104,8 +104,8 @@ fn client_state_from_proto(
 }
 
 pub fn client_state_from_hex(hex_str: &str) -> Result<ClientState, Box<dyn std::error::Error>> {
-    let bytes = hex::decode(hex_str)
-        .map_err(|e| format!("Failed to decode client state hex: {}", e))?;
+    let bytes =
+        hex::decode(hex_str).map_err(|e| format!("Failed to decode client state hex: {}", e))?;
 
     let proto_client_state =
         ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
@@ -144,8 +144,8 @@ fn consensus_state_from_proto(
 pub fn consensus_state_from_hex(
     hex_str: &str,
 ) -> Result<ConsensusState, Box<dyn std::error::Error>> {
-    let bytes = hex::decode(hex_str)
-        .map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
+    let bytes =
+        hex::decode(hex_str).map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
 
     let proto_consensus_state =
         ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
@@ -155,14 +155,12 @@ pub fn consensus_state_from_hex(
 }
 
 pub fn hex_to_header(hex_str: &str) -> Result<Header, Box<dyn std::error::Error>> {
-    let bytes =
-        hex::decode(hex_str).map_err(|e| format!("Failed to decode header hex: {}", e))?;
+    let bytes = hex::decode(hex_str).map_err(|e| format!("Failed to decode header hex: {}", e))?;
 
     let proto_header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
         .map_err(|e| format!("Failed to decode protobuf header: {}", e))?;
 
-    Header::try_from(proto_header)
-        .map_err(|e| format!("Failed to convert header: {}", e).into())
+    Header::try_from(proto_header).map_err(|e| format!("Failed to convert header: {}", e).into())
 }
 
 pub fn hex_to_merkle_proof(hex_str: &str) -> MerkleProof {
@@ -259,7 +257,6 @@ pub fn assert_uc_and_membership_failure_with_error(
     }
 }
 
-
 fn load_combined_fixture(
     update_client_filename: &str,
     membership_filename: &str,
@@ -302,7 +299,6 @@ pub fn load_combined_expired_header_fixture() -> UcAndMembershipFixture {
     // Load happy path and modify it to have an expired header
     load_combined_fixture("update_client_happy_path", "verify_membership_key_0")
 }
-
 
 pub fn load_combined_invalid_membership_fixture() -> UcAndMembershipFixture {
     load_combined_fixture("update_client_happy_path", "verify_membership_key_0")

@@ -59,8 +59,8 @@ fn client_state_from_proto(
 }
 
 pub fn client_state_from_hex(hex_str: &str) -> Result<ClientState, Box<dyn std::error::Error>> {
-    let bytes = hex::decode(hex_str)
-        .map_err(|e| format!("Failed to decode client state hex: {}", e))?;
+    let bytes =
+        hex::decode(hex_str).map_err(|e| format!("Failed to decode client state hex: {}", e))?;
 
     let proto_client_state =
         ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
@@ -99,8 +99,8 @@ fn consensus_state_from_proto(
 pub fn consensus_state_from_hex(
     hex_str: &str,
 ) -> Result<ConsensusState, Box<dyn std::error::Error>> {
-    let bytes = hex::decode(hex_str)
-        .map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
+    let bytes =
+        hex::decode(hex_str).map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
 
     let proto_consensus_state =
         ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
@@ -119,14 +119,12 @@ pub fn load_fixture(filename: &str) -> UpdateClientFixture {
 }
 
 pub fn hex_to_header(hex_str: &str) -> Result<Header, Box<dyn std::error::Error>> {
-    let bytes =
-        hex::decode(hex_str).map_err(|e| format!("Failed to decode header hex: {}", e))?;
+    let bytes = hex::decode(hex_str).map_err(|e| format!("Failed to decode header hex: {}", e))?;
 
     let proto_header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
         .map_err(|e| format!("Failed to decode protobuf header: {}", e))?;
 
-    Header::try_from(proto_header)
-        .map_err(|e| format!("Failed to convert header: {}", e).into())
+    Header::try_from(proto_header).map_err(|e| format!("Failed to convert header: {}", e).into())
 }
 
 pub struct TestContext {
@@ -176,22 +174,22 @@ pub fn load_happy_path_fixture() -> UpdateClientFixture {
 
 pub fn corrupt_header_signature(header: &mut Header) {
     use tendermint::block::CommitSig;
-    
+
     // Find the first signature and corrupt a single byte
     for sig in header.signed_header.commit.signatures.iter_mut() {
         let signature = match sig {
-            CommitSig::BlockIdFlagCommit { signature, .. } |
-            CommitSig::BlockIdFlagNil { signature, .. } => signature,
+            CommitSig::BlockIdFlagCommit { signature, .. }
+            | CommitSig::BlockIdFlagNil { signature, .. } => signature,
             _ => continue,
         };
-        
+
         if let Some(sig_opt) = signature {
             let mut sig_bytes = sig_opt.as_bytes().to_vec();
             if !sig_bytes.is_empty() {
                 // Flip a single bit in the middle of the signature
                 let mid_pos = sig_bytes.len() / 2;
                 sig_bytes[mid_pos] ^= 0x01;
-                
+
                 if let Ok(corrupted_sig) = tendermint::Signature::try_from(sig_bytes.as_slice()) {
                     *signature = Some(corrupted_sig);
                     break; // Only corrupt the first signature found
@@ -207,7 +205,7 @@ pub fn set_header_timestamp_to_past(header: &mut Header, seconds_ago: u64) {
         .unwrap()
         .as_secs()
         .saturating_sub(seconds_ago);
-    
+
     let tm_time = tendermint::Time::from_unix_timestamp(past_time as i64, 0)
         .expect("Failed to create past timestamp");
     header.signed_header.header.time = tm_time;
@@ -219,15 +217,13 @@ pub fn set_header_timestamp_to_future(header: &mut Header, seconds_ahead: u64) {
         .unwrap()
         .as_secs()
         + seconds_ahead;
-    
+
     let tm_time = tendermint::Time::from_unix_timestamp(future_time as i64, 0)
         .expect("Failed to create future timestamp");
     header.signed_header.header.time = tm_time;
 }
 
 pub fn set_wrong_trusted_height(header: &mut Header, wrong_height: u64) {
-    header.trusted_height = Height::new(
-        header.trusted_height.revision_number(),
-        wrong_height,
-    ).expect("Failed to create wrong trusted height");
+    header.trusted_height = Height::new(header.trusted_height.revision_number(), wrong_height)
+        .expect("Failed to create wrong trusted height");
 }
