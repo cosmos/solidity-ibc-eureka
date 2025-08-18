@@ -139,6 +139,8 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         &ctx.accounts.ibc_app_program,
         &ctx.accounts.ibc_app_state,
         &ctx.accounts.router_program,
+        &ctx.accounts.payer,
+        &ctx.accounts.system_program,
         &msg.packet,
         &msg.packet.payloads[0],
         &msg.acknowledgement,
@@ -242,8 +244,9 @@ mod tests {
         );
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(params.port_id, app_program_id);
 
-        let (dummy_app_state_pda, dummy_app_state_data) =
-            setup_dummy_ibc_app_state(&app_program_id, authority);
+        // Dummy app state will be created automatically via init_if_needed
+        let (dummy_app_state_pda, _) =
+            Pubkey::find_program_address(&[b"app_state"], &app_program_id);
 
         let packet_dest_client = params.wrong_dest_client.unwrap_or(params.dest_client_id);
         let packet = create_test_packet(
@@ -307,7 +310,7 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             packet_commitment_account,
             create_bpf_program_account(app_program_id),
-            create_account(dummy_app_state_pda, dummy_app_state_data, app_program_id),
+            create_uninitialized_account(dummy_app_state_pda, 0), // Will be created by IBC app
             create_bpf_program_account(crate::ID), // router_program
             create_system_account(relayer), // relayer (also signer)
             create_system_account(payer), // payer (also signer)
@@ -351,7 +354,7 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
 
-        // Also check that dummy IBC app state was updated via CPI
+        // Also check that dummy IBC app state was created and updated via CPI
         let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
         assert_packets_acknowledged_counter(&result, &ctx.dummy_app_state_pubkey, 1);
     }

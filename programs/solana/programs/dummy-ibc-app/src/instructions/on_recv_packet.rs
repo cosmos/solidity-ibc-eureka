@@ -10,7 +10,9 @@ pub const ICS26_ROUTER_ID: Pubkey = pubkey!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBch
 #[instruction(msg: OnRecvPacketMsg)]
 pub struct OnRecvPacket<'info> {
     #[account(
-        mut,
+        init_if_needed,
+        payer = payer,
+        space = 8 + DummyIbcAppState::INIT_SPACE,
         seeds = [APP_STATE_SEED],
         bump
     )]
@@ -19,6 +21,12 @@ pub struct OnRecvPacket<'info> {
     /// The IBC router program that's calling us
     /// CHECK: Verified to be the ICS26 Router program
     pub router_program: AccountInfo<'info>,
+
+    /// Payer for account creation if needed
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Result<()> {
@@ -30,6 +38,11 @@ pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Resul
     );
 
     let app_state = &mut ctx.accounts.app_state;
+
+    // Initialize authority if this is the first time (account was just created)
+    if app_state.authority == Pubkey::default() {
+        app_state.authority = ctx.accounts.payer.key();
+    }
 
     // Increment packet received counter
     app_state.packets_received = app_state.packets_received.saturating_add(1);

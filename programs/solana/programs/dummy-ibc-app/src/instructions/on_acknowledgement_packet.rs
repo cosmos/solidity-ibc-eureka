@@ -9,7 +9,9 @@ pub const ICS26_ROUTER_ID: Pubkey = pubkey!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBch
 #[instruction(msg: OnAcknowledgementPacketMsg)]
 pub struct OnAcknowledgementPacket<'info> {
     #[account(
-        mut,
+        init_if_needed,
+        payer = payer,
+        space = 8 + DummyIbcAppState::INIT_SPACE,
         seeds = [APP_STATE_SEED],
         bump
     )]
@@ -18,6 +20,12 @@ pub struct OnAcknowledgementPacket<'info> {
     /// The IBC router program that's calling us
     /// CHECK: Verified to be the ICS26 Router program
     pub router_program: AccountInfo<'info>,
+
+    /// Payer for account creation if needed
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 pub fn on_acknowledgement_packet(
@@ -32,6 +40,11 @@ pub fn on_acknowledgement_packet(
     );
 
     let app_state = &mut ctx.accounts.app_state;
+
+    // Initialize authority if this is the first time (account was just created)
+    if app_state.authority == Pubkey::default() {
+        app_state.authority = ctx.accounts.payer.key();
+    }
 
     // Increment packet acknowledged counter
     app_state.packets_acknowledged = app_state.packets_acknowledged.saturating_add(1);

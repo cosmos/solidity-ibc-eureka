@@ -172,6 +172,8 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         &ctx.accounts.ibc_app_program,
         &ctx.accounts.ibc_app_state,
         &ctx.accounts.router_program,
+        &ctx.accounts.payer,
+        &ctx.accounts.system_program,
         &msg.packet,
         &msg.packet.payloads[0],
         &ctx.accounts.relayer.key(),

@@ -13,6 +13,8 @@ pub fn on_recv_packet_cpi<'a>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
     router_program: &AccountInfo<'a>,
+    payer: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
     packet: &Packet,
     payload: &Payload,
     relayer: &Pubkey,
@@ -29,6 +31,8 @@ pub fn on_recv_packet_cpi<'a>(
         ibc_app_program,
         app_state,
         router_program,
+        payer,
+        system_program,
         "global:on_recv_packet",
         msg,
     )?;
@@ -50,6 +54,8 @@ pub fn on_acknowledgement_packet_cpi<'a>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
     router_program: &AccountInfo<'a>,
+    payer: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
     packet: &Packet,
     payload: &Payload,
     acknowledgement: &[u8],
@@ -68,6 +74,8 @@ pub fn on_acknowledgement_packet_cpi<'a>(
         ibc_app_program,
         app_state,
         router_program,
+        payer,
+        system_program,
         "global:on_acknowledgement_packet",
         msg,
     )
@@ -78,6 +86,8 @@ pub fn on_timeout_packet_cpi<'a>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
     router_program: &AccountInfo<'a>,
+    payer: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
     packet: &Packet,
     payload: &Payload,
     relayer: &Pubkey,
@@ -94,6 +104,8 @@ pub fn on_timeout_packet_cpi<'a>(
         ibc_app_program,
         app_state,
         router_program,
+        payer,
+        system_program,
         "global:on_timeout_packet",
         msg,
     )
@@ -104,6 +116,8 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
     router_program: &AccountInfo<'a>,
+    payer: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
     discriminator: &str,
     msg: T,
 ) -> Result<()> {
@@ -120,6 +134,8 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
         accounts: vec![
             AccountMeta::new(*app_state.key, false),
             AccountMeta::new_readonly(*router_program.key, false), // router_program account
+            AccountMeta::new(*payer.key, true),                    // payer as signer
+            AccountMeta::new_readonly(*system_program.key, false), // system program
         ],
         data: instruction_data,
     };
@@ -128,6 +144,8 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
     let account_infos = &[
         app_state.clone(),
         router_program.clone(), // Pass the router program for auth check
+        payer.clone(),
+        system_program.clone(),
     ];
     invoke(&instruction, account_infos)?;
 
