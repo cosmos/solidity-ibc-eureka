@@ -13,8 +13,17 @@ pub mod mock_ibc_app {
     use super::*;
     use anchor_lang::solana_program::program::set_return_data;
 
-    pub fn on_recv_packet(_ctx: Context<OnRecvPacket>, _msg: OnRecvPacketMsg) -> Result<()> {
-        // Return the expected acknowledgement for tests
+    pub fn on_recv_packet(_ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Result<()> {
+        // Check for special test scenarios based on the packet data
+        if let Some(data) = msg.payload.value.get(0..16) {
+            if data == b"RETURN_ERROR_ACK" {
+                // Return the universal error acknowledgement
+                set_return_data(b"error");
+                return Ok(());
+            }
+        }
+
+        // Default: Return the expected acknowledgement for tests
         set_return_data(b"packet received");
         Ok(())
     }

@@ -503,4 +503,65 @@ mod tests {
         // Verify the acknowledgement commitment is not empty (all zeros)
         assert_ne!(ack_data[..32], [0u8; 32], "acknowledgement should be set");
     }
+
+    #[test]
+    fn test_recv_packet_app_returns_universal_error_ack() {
+        // Create packet with special data that triggers error ack from mock app
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Modify packet data to trigger error acknowledgement
+        let packet = &mut ctx.packet;
+        packet.payloads[0].value = b"RETURN_ERROR_ACK_test_data".to_vec();
+
+        // Update the instruction with modified packet
+        let msg = MsgRecvPacket {
+            packet: packet.clone(),
+            proof_commitment: vec![0u8; 32],
+            proof_height: 100,
+        };
+
+        ctx.instruction.data = crate::instruction::RecvPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        // Calculate expected rent-exempt lamports for Commitment accounts
+        let commitment_rent = {
+            use anchor_lang::Space;
+            use solana_sdk::rent::Rent;
+            let account_size = 8 + Commitment::INIT_SPACE;
+            Rent::default().minimum_balance(account_size)
+        };
+
+        let checks = vec![
+            Check::success(), // Should still succeed even with error ack
+            Check::account(&ctx.packet_receipt_pubkey)
+                .lamports(commitment_rent)
+                .owner(&crate::ID)
+                .build(),
+            Check::account(&ctx.packet_ack_pubkey)
+                .lamports(commitment_rent)
+                .owner(&crate::ID)
+                .build(),
+        ];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+
+        let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
+
+        // Check acknowledgement contains universal error ack
+        let ack_data = get_account_data_from_mollusk(&result, &ctx.packet_ack_pubkey)
+            .expect("packet ack account not found");
+
+        // The ack commitment should be the keccak256 of the acks vector containing b"error"
+        let expected_acks = vec![b"error".to_vec()];
+        let expected_ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&expected_acks)
+            .expect("failed to compute ack commitment");
+
+        assert_eq!(ack_data[..32], expected_ack_commitment, "acknowledgement should be universal error ack");
+    }
+
+    // Note: Testing CPI failures in mollusk is challenging because the test environment
+    // propagates CPI errors differently than real Solana runtime. In production,
+    // the router would catch CPI failures and use universal error acknowledgement.
+    // This behavior is covered by the implementation but not easily testable in mollusk.
 }
