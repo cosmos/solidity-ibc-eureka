@@ -2,8 +2,8 @@ use anchor_lang::prelude::*;
 
 pub mod constants;
 pub mod errors;
-pub mod router_cpi;
 pub mod instructions;
+pub mod router_cpi;
 pub mod state;
 #[cfg(test)]
 pub mod test_utils;
