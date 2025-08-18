@@ -9,11 +9,6 @@ use solana_ibc_app_interface::Payload;
 /// This is the keccak256 hash of the string "error"
 pub const UNIVERSAL_ERROR_ACK: &[u8] = b"error";
 
-/// Get the keccak256 hash of the universal error acknowledgement
-pub fn universal_error_ack_hash() -> [u8; 32] {
-    keccak256(UNIVERSAL_ERROR_ACK).to_bytes()
-}
-
 // TODO: move to a shared crate
 pub fn packet_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
     let mut path = Vec::new();

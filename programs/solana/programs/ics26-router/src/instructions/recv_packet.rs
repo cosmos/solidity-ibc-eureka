@@ -182,15 +182,8 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
                 RouterError::AsyncAcknowledgementNotSupported
             );
 
-            // Check if it's the universal error acknowledgement
-            let ack_hash = anchor_lang::solana_program::keccak::hash(&ack).to_bytes();
-            let universal_error_hash = ics24::universal_error_ack_hash();
-
-            require!(
-                ack_hash != universal_error_hash,
-                RouterError::UniversalErrorAcknowledgement
-            );
-
+            // If the app returns the universal error acknowledgement, we accept it
+            // (don't revert, just use it as the acknowledgement)
             ack
         }
         Err(e) => {
@@ -201,7 +194,6 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
 
             msg!("IBC app recv packet callback error: {:?}", e);
 
-            // Use universal error acknowledgement
             ics24::UNIVERSAL_ERROR_ACK.to_vec()
         }
     };
