@@ -139,7 +139,15 @@ let
     };
   };
 
-  agave = rustPlatform.buildRustPackage {
+  # Use Rust nightly version that's compatible with Agave version
+  rustForAgave = rust-bin.nightly."2024-11-15".default.override {
+    extensions = [ "rust-src" ];
+  };
+
+  agave = rustPlatform.buildRustPackage.override {
+    rustc = rustForAgave;
+    cargo = rustForAgave;
+  } {
     pname = "agave";
     version = versions.agave;
 
