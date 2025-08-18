@@ -33,10 +33,17 @@ The Attestor Service monitors blockchain networks and provides cryptographically
 
 - **Adapter Client** (`src/adapter_client.rs`): Generic interface for blockchain interaction
 - **Chain Adapters** (`src/adapter_impls/`): Network-specific implementations
-- **Signer** (`src/signer.rs`): secp256k1 cryptographic signing
+- **Signer** (`src/signer.rs`): k256 cryptographic signing
 - **gRPC Server** (`src/server.rs`): API, used primarily by aggregator
 
+#### Key Features
+
+- **Modular Design**: Adapter pattern enables easy addition of new chains
+- **Serde Encoding**: JSON serialization for cross-language compatibility
+
 #### Attestation Types
+
+From an RPC perspective we only have one attestation type. The proto definition for this type includes on optional field, timestamp. Conceptually there are, however, two attestation types: state attestations and height attestations.
 
 **State Attestations:**
 - Attest to blockchain state at specific block heights
@@ -47,10 +54,21 @@ The Attestor Service monitors blockchain networks and provides cryptographically
 - Validate packet commitments existence by querying a local/trusted node
 - Concurrent validation of multiple packets per request
 
-#### Key Features
+#### Signing attestations
 
-- **Modular Design**: Adapter pattern enables easy addition of new chains
-- **Serde Encoding**: JSON serialization for cross-language compatibility
+The algorithm for signing attestations is the same for any type that implements the `Signable` trait. What differs between signatures is which data is included in the `to_serde_encoded_bytes`. In the attestor service we use explicit `Unsigned` types that implement the `Signable` trait. This ensures that new adapters do not have to care about the details of signing.
+
+One current limitation to note here is that the hashing of the data before signing cannot easily be shared across applications in the attestor stack. This should be refactored to reduce implicit coupling between signing and signature validation.
+
+#### Writing new adapters
+
+To extend the attestor with a new adapter, you will need to:
+- Create a new feature-flagging `adapter_impl/<adapter_name>` model
+- Implement a config based client instantiation
+- Implement the `Adapter` trait
+- Extend the `bin` to accept and run a server for the new adapter.
+
+We have decided to refactor the use of feature flags in the near future so that they are composable. This is more closely aligned with rust best practices.
 
 ### 2. Aggregator Service (`programs/sig-aggregator`)
 
@@ -66,7 +84,11 @@ The Aggregator Service collects attestations from multiple attestors and enforce
 
 ### 3. Light Client
 
-The Light Client verifies aggregated attestations and integrates with IBC protocol.
+The light client verifies aggregated attestations and integrates with IBC protocol.
+
+In its current form the light client copies wherever possible the style and implementation of the ethereum light client. The ethereum light client was implemented with the ethereum spec in mind in order to improve the auditablity of the code. Unfortunately this design decision leaked unknownly into the design of the attestor light client. In the future our attestor client should focus leveraging rust's type system in its design.
+
+The primary difference between the light client library and the CosmWasm program is that the former is functional, operating on arguments, while the latter is stateful. This separation makes testing the library much easier. Testing the program requires more complex integration tests that leverage CosmWasm testing utils.
 
 #### Components
 
@@ -82,6 +104,18 @@ The Light Client verifies aggregated attestations and integrates with IBC protoc
 - **Packet Membership** (`packages/attestor/packet-membership/`):
   - Packet membership types and logic
   - Verify packet inclusion in attested data (i.e., not from native blockchain proof)
+
+#### CosmWasm state management
+
+The attestor 08-wasm client manages state in a similar way to as the ethereum light client. The primary difference is that the attestor client can and should have multiple states. This is because there is no guarantee around request ordinality. In other words, packet attestations at height 100 may be received by the light client after an attestation at a later height. One complication of storing multiple heights is that we need to ensure that the following be true:
+
+```
+... < timestamp(height - 1) < timestamp(height) < timestamp(height + 1) < ...
+```
+
+This implies that whenever we add a new height we need to know the nearest neighbours to assert the above formula. The naive solution is, upon insertion, to iterate over all existing heights to find the nearest neighbour. This means lookups become incrementally more expensive with time at a rate on O(n).
+
+The chosen solution to this takes inspiration from ibc-go. We use a second state map to store all the `(height, timestamp)` pairs in ascending order. This can make use of binary search to reduce the increase in lookup times to O(log(n)). We also leverage CosmWasm methods to do the binary search lookup.
 
 #### Verification Process
 
