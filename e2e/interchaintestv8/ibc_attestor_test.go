@@ -198,8 +198,9 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 
 	s.T().Cleanup(func() {
 		for _, attestorProcess := range attestorProcesses {
-			if attestorProcess != nil {
-				attestorProcess.Kill()
+			err := attestorProcess.Kill()
+			if err != nil {
+				s.T().Logf("Failed to kill the attestor process: %v", err)
 			}
 		}
 	})
@@ -218,14 +219,17 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 		aggregatorProcess, err = aggregator.StartAggregator(testvalues.AggregatorConfigPath)
 		s.Require().NoError(err)
 
-		agg, err := aggregator.GetAggregatorServiceClient("127.0.0.1:8080")
+		agg, err := aggregator.GetAggregatorServiceClient(aggregatorConfig.Server.ListenerAddr)
 		s.Require().NoError(err)
 		s.AggregatorClient = agg
 	}))
 
 	s.T().Cleanup(func() {
 		if aggregatorProcess != nil {
-			aggregatorProcess.Kill()
+			err := aggregatorProcess.Kill()
+			if err != nil {
+				s.T().Logf("Failed to kill the aggregator process: %v", err)
+			}
 		}
 	})
 
