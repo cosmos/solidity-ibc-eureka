@@ -33,12 +33,12 @@ type SolanaFixtureGenerator struct {
 
 func NewSolanaFixtureGenerator(s *suite.Suite) *SolanaFixtureGenerator {
 	generator := &SolanaFixtureGenerator{
-		Enabled: os.Getenv(testvalues.EnvKeyGenerateSolanaFixtures) == testvalues.EnvValueGenerateFixtures_True,
+		Enabled: os.Getenv(testvalues.EnvKeyGenerateTendermintLightClientFixtures) == testvalues.EnvValueGenerateFixtures_True,
 		suite:   s,
 	}
 
 	if generator.Enabled {
-		absPath, err := filepath.Abs(filepath.Join("../..", testvalues.SolanaFixturesDir))
+		absPath, err := filepath.Abs(filepath.Join("../..", testvalues.TendermintLightClientFixturesDir))
 		if err != nil {
 			s.T().Fatalf("Failed to get absolute path for fixtures: %v", err)
 		}
