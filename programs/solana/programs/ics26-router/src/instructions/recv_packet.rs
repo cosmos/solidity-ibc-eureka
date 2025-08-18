@@ -168,14 +168,43 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
 
     packet_receipt.value = receipt_commitment;
 
-    let acknowledgement = on_recv_packet_cpi(
+    let acknowledgement = match on_recv_packet_cpi(
         &ctx.accounts.ibc_app_program,
         &ctx.accounts.ibc_app_state,
         &ctx.accounts.router_program,
         &msg.packet,
         &msg.packet.payloads[0],
         &ctx.accounts.relayer.key(),
-    )?;
+    ) {
+        Ok(ack) => {
+            require!(
+                !ack.is_empty(),
+                RouterError::AsyncAcknowledgementNotSupported
+            );
+
+            // Check if it's the universal error acknowledgement
+            let ack_hash = anchor_lang::solana_program::keccak::hash(&ack).to_bytes();
+            let universal_error_hash = ics24::universal_error_ack_hash();
+
+            require!(
+                ack_hash != universal_error_hash,
+                RouterError::UniversalErrorAcknowledgement
+            );
+
+            ack
+        }
+        Err(e) => {
+            // If the CPI fails, use universal error ack
+            // In Solana, we can't easily check if it's OOG vs other errors,
+            // but we do check that we got an error (not empty)
+            require!(!e.to_string().is_empty(), RouterError::FailedCallback);
+
+            msg!("IBC app recv packet callback error: {:?}", e);
+
+            // Use universal error acknowledgement
+            ics24::UNIVERSAL_ERROR_ACK.to_vec()
+        }
+    };
 
     let acks = vec![acknowledgement];
     let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&acks)?;
@@ -386,7 +415,10 @@ mod tests {
         let packet_receipt_account = create_uninitialized_commitment_account(packet_receipt_pda);
         let packet_ack_account = create_uninitialized_commitment_account(packet_ack_pda);
 
-        // Must match the exact order in instruction.accounts
+        // Create signer account (relayer and payer are the same)
+        let signer_account = create_system_account(relayer);
+
+        // Accounts must be in the exact order of the instruction
         let accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
@@ -396,8 +428,8 @@ mod tests {
             create_bpf_program_account(ibc_app_program_id),
             create_account(ibc_app_state, vec![0u8; 100], ibc_app_program_id),
             create_bpf_program_account(crate::ID), // router_program
-            create_system_account(relayer), // relayer (also signer)
-            create_system_account(payer), // payer (also signer)
+            signer_account.clone(),                // relayer
+            signer_account,                        // payer (same account as relayer)
             create_program_account(system_program::ID),
             create_clock_account_with_data(clock_data),
             create_account(client_pda, client_data, crate::ID),
