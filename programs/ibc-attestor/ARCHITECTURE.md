@@ -65,7 +65,7 @@ One current limitation to note here is that the hashing of the data before signi
 To extend the attestor with a new adapter, you will need to:
 - Create a new feature-flagging `adapter_impl/<adapter_name>` model
 - Implement a config based client instantiation
-- Implement the `Adapter` trait
+- Implement the `AttestationAdapter` trait
 - Extend the `bin` to accept and run a server for the new adapter.
 
 We have decided to refactor the use of feature flags in the near future so that they are composable. This is more closely aligned with rust best practices.
