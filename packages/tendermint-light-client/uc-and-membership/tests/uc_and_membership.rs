@@ -5,6 +5,8 @@ mod helpers;
 use helpers::*;
 use tendermint_light_client_uc_and_membership::UcAndMembershipError;
 
+const ONE_HOUR_IN_SECONDS: u64 = 3600;
+
 #[test]
 fn test_uc_and_membership_happy_path_with_empty_membership() {
     // Test with empty membership request - this should succeed as a true happy path
@@ -40,14 +42,14 @@ fn test_uc_and_membership_happy_path_with_empty_membership() {
 fn test_uc_and_membership_update_client_fails_expired_header() {
     let fixture = load_combined_expired_header_fixture();
     let mut ctx = setup_test_context(fixture);
-    
+
     // Set the header to be expired
-    let trusting_period_plus_buffer = ctx.client_state.trusting_period_seconds + 3600;
+    let trusting_period_plus_buffer =
+        ctx.client_state.trusting_period_seconds + ONE_HOUR_IN_SECONDS;
     set_header_timestamp_to_past(&mut ctx.proposed_header, trusting_period_plus_buffer);
-    
+
     assert_uc_and_membership_failure_with_error(&ctx, "UpdateClient", "expired header");
 }
-
 
 #[test]
 fn test_uc_and_membership_membership_fails_tampered_value() {
@@ -160,9 +162,10 @@ fn test_uc_and_membership_update_client_error_type() {
     // Test specific UpdateClient error type for expired header
     let expired_fixture = load_combined_expired_header_fixture();
     let mut ctx = setup_test_context(expired_fixture);
-    
+
     // Set the header to be expired
-    let trusting_period_plus_buffer = ctx.client_state.trusting_period_seconds + 3600;
+    let trusting_period_plus_buffer =
+        ctx.client_state.trusting_period_seconds + ONE_HOUR_IN_SECONDS;
     set_header_timestamp_to_past(&mut ctx.proposed_header, trusting_period_plus_buffer);
 
     let error =

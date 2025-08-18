@@ -103,25 +103,15 @@ fn client_state_from_proto(
     })
 }
 
-trait ParseFromHex: Sized {
-    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>>;
-}
-
-impl ParseFromHex for ClientState {
-    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let bytes = hex::decode(hex_str)
-            .map_err(|e| format!("Failed to decode client state hex: {}", e))?;
-
-        let proto_client_state =
-            ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
-                .map_err(|e| format!("Failed to decode protobuf client state: {}", e))?;
-
-        client_state_from_proto(proto_client_state)
-    }
-}
-
 pub fn client_state_from_hex(hex_str: &str) -> Result<ClientState, Box<dyn std::error::Error>> {
-    ClientState::from_hex(hex_str)
+    let bytes = hex::decode(hex_str)
+        .map_err(|e| format!("Failed to decode client state hex: {}", e))?;
+
+    let proto_client_state =
+        ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
+            .map_err(|e| format!("Failed to decode protobuf client state: {}", e))?;
+
+    client_state_from_proto(proto_client_state)
 }
 
 fn consensus_state_from_proto(
@@ -151,58 +141,43 @@ fn consensus_state_from_proto(
     ))
 }
 
-impl ParseFromHex for ConsensusState {
-    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let bytes = hex::decode(hex_str)
-            .map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
-
-        let proto_consensus_state =
-            ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
-                .map_err(|e| format!("Failed to decode protobuf consensus state: {}", e))?;
-
-        consensus_state_from_proto(proto_consensus_state)
-    }
-}
-
 pub fn consensus_state_from_hex(
     hex_str: &str,
 ) -> Result<ConsensusState, Box<dyn std::error::Error>> {
-    ConsensusState::from_hex(hex_str)
-}
+    let bytes = hex::decode(hex_str)
+        .map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
 
-impl ParseFromHex for Header {
-    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let bytes =
-            hex::decode(hex_str).map_err(|e| format!("Failed to decode header hex: {}", e))?;
+    let proto_consensus_state =
+        ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
+            .map_err(|e| format!("Failed to decode protobuf consensus state: {}", e))?;
 
-        let proto_header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
-            .map_err(|e| format!("Failed to decode protobuf header: {}", e))?;
-
-        Header::try_from(proto_header)
-            .map_err(|e| format!("Failed to convert header: {}", e).into())
-    }
+    consensus_state_from_proto(proto_consensus_state)
 }
 
 pub fn hex_to_header(hex_str: &str) -> Result<Header, Box<dyn std::error::Error>> {
-    Header::from_hex(hex_str)
-}
+    let bytes =
+        hex::decode(hex_str).map_err(|e| format!("Failed to decode header hex: {}", e))?;
 
-impl ParseFromHex for MerkleProof {
-    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let bytes = hex::decode(hex_str)
-            .map_err(|e| format!("Failed to decode merkle proof hex: {}", e))?;
+    let proto_header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
+        .map_err(|e| format!("Failed to decode protobuf header: {}", e))?;
 
-        let proto_merkle_proof = ProtoMerkleProof::decode(bytes.as_slice())
-            .map_err(|e| format!("Failed to decode protobuf merkle proof: {}", e))?;
-
-        proto_merkle_proof
-            .try_into()
-            .map_err(|e| format!("Failed to convert merkle proof: {:?}", e).into())
-    }
+    Header::try_from(proto_header)
+        .map_err(|e| format!("Failed to convert header: {}", e).into())
 }
 
 pub fn hex_to_merkle_proof(hex_str: &str) -> MerkleProof {
-    MerkleProof::from_hex(hex_str).expect("valid merkle proof")
+    let bytes = hex::decode(hex_str)
+        .map_err(|e| format!("Failed to decode merkle proof hex: {}", e))
+        .expect("valid hex");
+
+    let proto_merkle_proof = ProtoMerkleProof::decode(bytes.as_slice())
+        .map_err(|e| format!("Failed to decode protobuf merkle proof: {}", e))
+        .expect("valid protobuf");
+
+    proto_merkle_proof
+        .try_into()
+        .map_err(|e| format!("Failed to convert merkle proof: {:?}", e))
+        .expect("valid merkle proof")
 }
 
 pub struct TestContext {

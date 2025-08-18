@@ -31,26 +31,19 @@ impl From<&MembershipMsgFixture> for KVPair {
     }
 }
 
-trait ParseFromHex: Sized {
-    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>>;
-}
-
-impl ParseFromHex for MerkleProof {
-    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let bytes = hex::decode(hex_str)
-            .map_err(|e| format!("Failed to decode merkle proof hex: {}", e))?;
-
-        let proto_merkle_proof = ProtoMerkleProof::decode(bytes.as_slice())
-            .map_err(|e| format!("Failed to decode protobuf merkle proof: {}", e))?;
-
-        proto_merkle_proof
-            .try_into()
-            .map_err(|e| format!("Failed to convert merkle proof: {:?}", e).into())
-    }
-}
-
 pub fn hex_to_merkle_proof(hex_str: &str) -> MerkleProof {
-    MerkleProof::from_hex(hex_str).expect("valid merkle proof")
+    let bytes = hex::decode(hex_str)
+        .map_err(|e| format!("Failed to decode merkle proof hex: {}", e))
+        .expect("valid hex");
+
+    let proto_merkle_proof = ProtoMerkleProof::decode(bytes.as_slice())
+        .map_err(|e| format!("Failed to decode protobuf merkle proof: {}", e))
+        .expect("valid protobuf");
+
+    proto_merkle_proof
+        .try_into()
+        .map_err(|e| format!("Failed to convert merkle proof: {:?}", e))
+        .expect("valid merkle proof")
 }
 
 pub fn load_membership_fixture(filename: &str) -> MembershipVerificationFixture {

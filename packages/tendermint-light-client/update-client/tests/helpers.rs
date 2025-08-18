@@ -58,25 +58,15 @@ fn client_state_from_proto(
     })
 }
 
-trait ParseFromHex: Sized {
-    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>>;
-}
-
-impl ParseFromHex for ClientState {
-    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let bytes = hex::decode(hex_str)
-            .map_err(|e| format!("Failed to decode client state hex: {}", e))?;
-
-        let proto_client_state =
-            ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
-                .map_err(|e| format!("Failed to decode protobuf client state: {}", e))?;
-
-        client_state_from_proto(proto_client_state)
-    }
-}
-
 pub fn client_state_from_hex(hex_str: &str) -> Result<ClientState, Box<dyn std::error::Error>> {
-    ClientState::from_hex(hex_str)
+    let bytes = hex::decode(hex_str)
+        .map_err(|e| format!("Failed to decode client state hex: {}", e))?;
+
+    let proto_client_state =
+        ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
+            .map_err(|e| format!("Failed to decode protobuf client state: {}", e))?;
+
+    client_state_from_proto(proto_client_state)
 }
 
 fn consensus_state_from_proto(
@@ -106,23 +96,17 @@ fn consensus_state_from_proto(
     ))
 }
 
-impl ParseFromHex for ConsensusState {
-    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let bytes = hex::decode(hex_str)
-            .map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
-
-        let proto_consensus_state =
-            ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
-                .map_err(|e| format!("Failed to decode protobuf consensus state: {}", e))?;
-
-        consensus_state_from_proto(proto_consensus_state)
-    }
-}
-
 pub fn consensus_state_from_hex(
     hex_str: &str,
 ) -> Result<ConsensusState, Box<dyn std::error::Error>> {
-    ConsensusState::from_hex(hex_str)
+    let bytes = hex::decode(hex_str)
+        .map_err(|e| format!("Failed to decode consensus state hex: {}", e))?;
+
+    let proto_consensus_state =
+        ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
+            .map_err(|e| format!("Failed to decode protobuf consensus state: {}", e))?;
+
+    consensus_state_from_proto(proto_consensus_state)
 }
 
 pub fn load_fixture(filename: &str) -> UpdateClientFixture {
@@ -134,21 +118,15 @@ pub fn load_fixture(filename: &str) -> UpdateClientFixture {
         .unwrap_or_else(|_| panic!("Failed to parse fixture: {}", fixture_path.display()))
 }
 
-impl ParseFromHex for Header {
-    fn from_hex(hex_str: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let bytes =
-            hex::decode(hex_str).map_err(|e| format!("Failed to decode header hex: {}", e))?;
-
-        let proto_header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
-            .map_err(|e| format!("Failed to decode protobuf header: {}", e))?;
-
-        Header::try_from(proto_header)
-            .map_err(|e| format!("Failed to convert header: {}", e).into())
-    }
-}
-
 pub fn hex_to_header(hex_str: &str) -> Result<Header, Box<dyn std::error::Error>> {
-    Header::from_hex(hex_str)
+    let bytes =
+        hex::decode(hex_str).map_err(|e| format!("Failed to decode header hex: {}", e))?;
+
+    let proto_header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
+        .map_err(|e| format!("Failed to decode protobuf header: {}", e))?;
+
+    Header::try_from(proto_header)
+        .map_err(|e| format!("Failed to convert header: {}", e).into())
 }
 
 pub struct TestContext {
