@@ -23,14 +23,6 @@ func (s *TestSuite) StoreLightClient(ctx context.Context, cosmosChain *cosmos.Co
 	return checksum
 }
 
-// ClientType represents the type of light client
-type ClientType string
-
-const (
-	EthereumClient ClientType = "ethereum"
-	AttestorClient ClientType = "attestor"
-)
-
 func (s *TestSuite) getWasmLightClientBinary() *os.File {
 	// For PoW testnets, we use the dummy light client
 	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
