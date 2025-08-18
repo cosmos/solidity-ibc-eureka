@@ -12,7 +12,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/wasm"
 )
 
-// StoreLightClient stores the Ethereum light client on the given Cosmos chain and returns the hex-encoded checksum of the light client.
+// StoreLightClient stores the light client on the given Cosmos chain and returns the hex-encoded checksum of the light client.
 func (s *TestSuite) StoreLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet) string {
 	wasmBinary := s.getWasmLightClientBinary()
 	checksum := s.PushNewWasmClientProposal(ctx, cosmosChain, simdRelayerUser, wasmBinary)
@@ -56,6 +56,6 @@ func (s *TestSuite) getWasmLightClientBinary() *os.File {
 	file, err := wasm.DownloadWasmLightClientRelease(wasm.Release{
 		TagName: s.WasmLightClientTag,
 	})
-	s.Require().NoError(err, "Failed to download Wasm Ethereum light client binary from release")
+	s.Require().NoError(err, "Failed to download Wasm light client binary from release")
 	return file
 }
