@@ -121,7 +121,7 @@ mod tests {
 
         attestator_data
             .insert(Attestation {
-                attested_data: vec![1; 10],
+                attested_data: vec![1],
                 public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
                 height: 100,
                 timestamp: Some(100),
@@ -136,7 +136,7 @@ mod tests {
     #[test]
     fn state_meeting_quorum() {
         let mut attestator_data = AttestatorData::new();
-        let attestation = vec![0xAA; 100];
+        let attestation = vec![0xAA];
         let height = 123;
 
         [0x21, 0x22].iter().for_each(|&pubkey_byte| {
