@@ -350,26 +350,6 @@ pub fn get_client_sequence_from_result_by_pubkey(
         })
 }
 
-/// Setup mollusk with standard IBC programs for testing
-///
-/// This adds the router, mock light client, and dummy IBC app programs to mollusk
-pub fn setup_mollusk_with_programs() -> mollusk_svm::Mollusk {
-    use mollusk_svm::Mollusk;
-
-    let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
-    mollusk.add_program(
-        &MOCK_LIGHT_CLIENT_ID,
-        crate::get_mock_client_program_path(),
-        &solana_sdk::bpf_loader_upgradeable::ID,
-    );
-    mollusk.add_program(
-        &DUMMY_IBC_APP_PROGRAM_ID,
-        crate::get_dummy_ibc_app_program_path(),
-        &solana_sdk::bpf_loader_upgradeable::ID,
-    );
-    mollusk
-}
-
 /// Setup mollusk with mock programs for testing
 ///
 /// This adds the router, mock light client, and mock IBC app programs to mollusk
