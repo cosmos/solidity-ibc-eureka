@@ -113,7 +113,7 @@ pub fn assert_membership_fails_with(
 
 pub fn assert_membership_succeeds(ctx: &TestContext, test_description: &str) {
     execute_membership(ctx)
-        .unwrap_or_else(|_| panic!("Membership verification failed for {}", test_description));
+        .unwrap_or_else(|_| panic!("Membership verification failed for {test_description}"));
 }
 
 pub fn create_context_with_wrong_app_hash(fixture: MembershipVerificationFixture) -> TestContext {
