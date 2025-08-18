@@ -10,6 +10,6 @@ pub const ANCHOR_DISCRIMINATOR_SIZE: usize = 8;
 /// - Sequence: 8 bytes
 /// - Payload with ports/version/data: ~50-100 bytes
 /// - Pubkey: 32 bytes
-/// Total: ~150-200 bytes typical
-/// Using 200 to avoid reallocation in most cases
+/// - Total: ~150-200 bytes typical
+///   Using 200 to avoid reallocation in most cases
 pub const IBC_CPI_INSTRUCTION_CAPACITY: usize = 200;
