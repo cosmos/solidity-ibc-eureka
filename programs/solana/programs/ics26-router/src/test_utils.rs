@@ -1,3 +1,4 @@
+use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::state::*;
 use anchor_lang::{AnchorSerialize, Discriminator, Space};
 use dummy_ibc_app::{
@@ -316,13 +317,13 @@ pub fn get_client_sequence_from_result(result: &mollusk_svm::result::Instruction
         .find(|(_, account)| {
             account.data.len() == account_size
                 && account.owner == crate::ID
-                && account.data.len() >= 8
-                && &account.data[..8] == expected_discriminator
+                && account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE
+                && &account.data[..ANCHOR_DISCRIMINATOR_SIZE] == expected_discriminator
         })
         .expect("client_sequence account not found");
 
     // Deserialize the account properly
-    let mut account_data = &sequence_account.data[8..];
+    let mut account_data = &sequence_account.data[ANCHOR_DISCRIMINATOR_SIZE..];
     let client_sequence: ClientSequence = AnchorDeserialize::deserialize(&mut account_data)
         .expect("Failed to deserialize ClientSequence");
 
@@ -341,8 +342,8 @@ pub fn get_client_sequence_from_result_by_pubkey(
         .find(|(key, _)| key == pubkey)
         .and_then(|(_, account)| {
             // Verify it's a ClientSequence account
-            if account.data.len() >= 8 && &account.data[..8] == ClientSequence::DISCRIMINATOR {
-                let mut account_data = &account.data[8..];
+            if account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE && &account.data[..ANCHOR_DISCRIMINATOR_SIZE] == ClientSequence::DISCRIMINATOR {
+                let mut account_data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
                 let client_sequence: ClientSequence =
                     AnchorDeserialize::deserialize(&mut account_data).ok()?;
                 Some(client_sequence.next_sequence_send)

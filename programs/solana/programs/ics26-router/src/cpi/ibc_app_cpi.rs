@@ -1,3 +1,4 @@
+use crate::constants::{ANCHOR_DISCRIMINATOR_SIZE, IBC_CPI_INSTRUCTION_CAPACITY};
 use crate::errors::RouterError;
 use crate::state::Packet;
 use anchor_lang::prelude::*;
@@ -107,10 +108,10 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
     discriminator: &str,
     msg: T,
 ) -> Result<()> {
-    // Encode the instruction data using Anchor's discriminator
-    let mut instruction_data = Vec::with_capacity(256);
+    let mut instruction_data = Vec::with_capacity(IBC_CPI_INSTRUCTION_CAPACITY);
     instruction_data.extend_from_slice(
-        &anchor_lang::solana_program::hash::hash(discriminator.as_bytes()).to_bytes()[..8],
+        &anchor_lang::solana_program::hash::hash(discriminator.as_bytes()).to_bytes()
+            [..ANCHOR_DISCRIMINATOR_SIZE],
     );
     msg.serialize(&mut instruction_data)?;
 
