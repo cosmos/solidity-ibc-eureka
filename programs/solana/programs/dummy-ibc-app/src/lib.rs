@@ -1,13 +1,16 @@
 use anchor_lang::prelude::*;
+use ics24_host_solana::{OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg};
 
 declare_id!("5E73beFMq9QZvbwPN5i84psh2WcyJ9PgqF4avBaRDgCC");
+
+/// The ICS26 Router program ID that is authorized to call this instruction
+pub const ICS26_ROUTER_ID: Pubkey = pubkey!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx");
 
 pub mod errors;
 pub mod instructions;
 pub mod state;
 
 use instructions::*;
-use state::*;
 pub use state::{PACKETS_ACKNOWLEDGED_OFFSET, PACKETS_RECEIVED_OFFSET, PACKETS_TIMED_OUT_OFFSET};
 
 /// Dummy IBC Application Program

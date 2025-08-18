@@ -1,10 +1,6 @@
-use crate::errors::DummyIbcAppError;
-use crate::state::*;
+use crate::{state::*, ICS26_ROUTER_ID};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
-
-/// The ICS26 Router program ID that is authorized to call this instruction
-pub const ICS26_ROUTER_ID: Pubkey = pubkey!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx");
 
 #[derive(Accounts)]
 #[instruction(msg: OnRecvPacketMsg)]
@@ -30,7 +26,6 @@ pub struct OnRecvPacket<'info> {
 }
 
 pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Result<()> {
-    // Verify that the caller is the ICS26 Router program
     require_keys_eq!(
         ctx.accounts.router_program.key(),
         ICS26_ROUTER_ID,
