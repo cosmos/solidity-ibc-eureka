@@ -96,11 +96,6 @@ const (
 	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
 	// otherwise, it will download the version from the github release with the given tag
 	EnvKeyE2EWasmLightClientTag = "E2E_WASM_LIGHT_CLIENT_TAG"
-	// EnvKeyE2EWasmAttestorLightClientTag is the environment variable name to configure the attestor light client version.
-	// Either an empty string, or 'local', means it will use the local binary in the repo
-	// otherwise, it will download the version from the github release with the given tag
-	EnvKeyE2EWasmAttestorLightClientTag = "E2E_WASM_ATTESTOR_LIGHT_CLIENT_TAG"
-
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
 	Sp1GenesisFilePath = "scripts/genesis.json"
