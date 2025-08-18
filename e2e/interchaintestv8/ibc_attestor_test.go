@@ -86,7 +86,6 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 
 	if os.Getenv(testvalues.EnvKeyRustLog) == "" {
 		os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
-		// os.Setenv(testvalues.EnvKeyRustLog, "debug")
 	}
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
