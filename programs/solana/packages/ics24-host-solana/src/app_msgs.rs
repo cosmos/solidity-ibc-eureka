@@ -1,3 +1,8 @@
+//! Message types for IBC application callbacks on Solana
+//!
+//! These types define the standard interface for IBC applications to handle
+//! packet lifecycle events (receive, acknowledgement, timeout).
+
 use anchor_lang::prelude::*;
 
 /// Payload structure shared between router and IBC apps
@@ -10,7 +15,8 @@ pub struct Payload {
     pub value: Vec<u8>,
 }
 
-/// IBC App callback message structures
+/// Message for onRecvPacket callback
+/// Sent from router to IBC app when a packet is received
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct OnRecvPacketMsg {
     pub source_client: String,
@@ -21,6 +27,7 @@ pub struct OnRecvPacketMsg {
 }
 
 /// Message for onAcknowledgementPacket callback
+/// Sent from router to IBC app when an acknowledgement is received
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct OnAcknowledgementPacketMsg {
     pub source_client: String,
@@ -32,6 +39,7 @@ pub struct OnAcknowledgementPacketMsg {
 }
 
 /// Message for onTimeoutPacket callback
+/// Sent from router to IBC app when a packet times out
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct OnTimeoutPacketMsg {
     pub source_client: String,

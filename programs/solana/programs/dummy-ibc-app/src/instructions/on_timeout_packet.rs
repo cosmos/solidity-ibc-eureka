@@ -33,7 +33,7 @@ pub fn on_timeout_packet(ctx: Context<OnTimeoutPacket>, msg: OnTimeoutPacketMsg)
     require_keys_eq!(
         ctx.accounts.router_program.key(),
         ICS26_ROUTER_ID,
-        DummyIbcAppError::UnauthorizedCaller
+        IBCAppError::UnauthorizedCaller
     );
 
     let app_state = &mut ctx.accounts.app_state;

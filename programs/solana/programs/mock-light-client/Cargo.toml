@@ -26,4 +26,4 @@ idl-build = ["anchor-lang/idl-build"]
 
 [dependencies]
 anchor-lang.workspace = true
-solana-light-client-interface.workspace = true
+ics25-handler.workspace = true

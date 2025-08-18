@@ -1,7 +1,10 @@
-//! Shared interface for IBC light client implementations on Solana
+//! ICS-25 Vector Commitments for IBC light clients on Solana
 //!
 //! This crate defines the standard interface that all IBC light clients must implement
-//! to be compatible with the ICS26 router.
+//! to be compatible with the ICS-26 router for membership and non-membership verification.
+//!
+//! ICS-25 specifies the interface for vector commitment schemes used in IBC to verify
+//! inclusion or non-inclusion of values at specific paths in a commitment root.
 
 use anchor_lang::prelude::*;
 
@@ -23,5 +26,5 @@ pub struct MembershipMsg {
     pub value: Vec<u8>,
 }
 
-// Include the auto-generated discriminators
+// Include the auto-generated discriminators for light client instructions
 include!(concat!(env!("OUT_DIR"), "/discriminators.rs"));

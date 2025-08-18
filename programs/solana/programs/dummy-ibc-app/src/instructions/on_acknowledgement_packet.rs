@@ -36,7 +36,7 @@ pub fn on_acknowledgement_packet(
     require_keys_eq!(
         ctx.accounts.router_program.key(),
         ICS26_ROUTER_ID,
-        DummyIbcAppError::UnauthorizedCaller
+        IBCAppError::UnauthorizedCaller
     );
 
     let app_state = &mut ctx.accounts.app_state;

@@ -2,7 +2,7 @@ use crate::error::ErrorCode;
 use crate::helpers::{deserialize_merkle_proof, validate_proof_params};
 use crate::VerifyMembership;
 use anchor_lang::prelude::*;
-use solana_light_client_interface::MembershipMsg;
+use ics25_handler::MembershipMsg;
 use tendermint_light_client_membership::KVPair;
 
 pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {

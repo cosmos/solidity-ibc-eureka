@@ -1146,7 +1146,7 @@ name = "dummy-ibc-app"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
- "solana-ibc-app-interface",
+ "ics24-host-solana",
 ]
 
 [[package]]
@@ -1922,11 +1922,11 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-primitives",
  "ibc-proto",
+ "ics25-handler",
  "mollusk-svm",
  "mollusk-svm-bencher",
  "serde",
  "serde_json",
- "solana-light-client-interface",
  "solana-sdk",
  "tendermint",
  "tendermint-light-client-membership",
@@ -1956,6 +1956,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ics24-host-solana"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+]
+
+[[package]]
+name = "ics25-handler"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "ics26-router"
 version = "0.1.0"
 dependencies = [
@@ -1963,11 +1978,11 @@ dependencies = [
  "anchor-spl",
  "bincode",
  "dummy-ibc-app",
+ "ics24-host-solana",
+ "ics25-handler",
  "mollusk-svm",
  "mollusk-svm-bencher",
  "sha2 0.10.9",
- "solana-ibc-app-interface",
- "solana-light-client-interface",
  "solana-sdk",
 ]
 
@@ -2333,7 +2348,7 @@ name = "mock-ibc-app"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
- "solana-ibc-app-interface",
+ "ics24-host-solana",
 ]
 
 [[package]]
@@ -2341,7 +2356,7 @@ name = "mock-light-client"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
- "solana-light-client-interface",
+ "ics25-handler",
 ]
 
 [[package]]
@@ -3785,13 +3800,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "solana-ibc-app-interface"
-version = "0.1.0"
-dependencies = [
- "anchor-lang",
-]
-
-[[package]]
 name = "solana-inflation"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3859,14 +3867,6 @@ dependencies = [
  "solana-sdk-ids",
  "solana-sdk-macro",
  "solana-sysvar-id",
-]
-
-[[package]]
-name = "solana-light-client-interface"
-version = "0.1.0"
-dependencies = [
- "anchor-lang",
- "sha2 0.10.9",
 ]
 
 [[package]]

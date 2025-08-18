@@ -3,7 +3,7 @@ use crate::state::Client;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::program::{get_return_data, invoke};
-use solana_light_client_interface::{discriminators, MembershipMsg};
+use ics25_handler::{discriminators, MembershipMsg};
 
 /// Accounts needed for light client verification via CPI
 #[derive(Accounts)]

@@ -1,0 +1,14 @@
+[package]
+name = "ics25-handler"
+version = "0.1.0"
+edition = "2021"
+description = "ICS-25 Vector Commitments handler for IBC light clients on Solana"
+
+[dependencies]
+anchor-lang.workspace = true
+
+[build-dependencies]
+sha2 = "0.10"
+
+[lib]
+crate-type = ["cdylib", "lib"]

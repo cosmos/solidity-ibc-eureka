@@ -3,7 +3,7 @@ use anchor_lang::{AnchorSerialize, Discriminator, Space};
 use dummy_ibc_app::{
     PACKETS_ACKNOWLEDGED_OFFSET, PACKETS_RECEIVED_OFFSET, PACKETS_TIMED_OUT_OFFSET,
 };
-use solana_ibc_app_interface::Payload;
+use ics24_host_solana::Payload;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::sysvar::Sysvar;
 

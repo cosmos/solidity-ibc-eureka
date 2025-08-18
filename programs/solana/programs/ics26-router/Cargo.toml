@@ -26,8 +26,8 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
-solana-light-client-interface.workspace = true
-solana-ibc-app-interface.workspace = true
+ics24-host-solana.workspace = true
+ics25-handler.workspace = true
 anchor-spl = "0.31"
 sha2 = "0.10"
 

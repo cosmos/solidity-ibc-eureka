@@ -4,7 +4,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
 use anchor_lang::solana_program::program::get_return_data;
 use anchor_lang::solana_program::program::invoke;
-use solana_ibc_app_interface::{
+use ics24_host_solana::{
     OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload,
 };
 

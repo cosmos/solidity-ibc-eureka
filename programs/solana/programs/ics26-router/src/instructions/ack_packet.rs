@@ -4,7 +4,7 @@ use crate::instructions::light_client_cpi::{verify_membership_cpi, LightClientVe
 use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
-use solana_light_client_interface::MembershipMsg;
+use ics25_handler::MembershipMsg;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgAckPacket)]

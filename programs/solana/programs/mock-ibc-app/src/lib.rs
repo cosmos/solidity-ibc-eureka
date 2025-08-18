@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use solana_ibc_app_interface::{OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg};
+use ics24_host_solana::{OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg};
 
 declare_id!("9qnEj3T1NsaGkN3Sj7hgJZiKrVbKVBNmVphJ6PW1PDAB");
 

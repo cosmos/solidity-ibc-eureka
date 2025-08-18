@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-pub use solana_ibc_app_interface::*;
+pub use ics24_host_solana::{IBCAppError, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg};
 
 /// Dummy IBC App state
 #[account]

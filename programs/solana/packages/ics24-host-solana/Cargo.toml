@@ -1,0 +1,12 @@
+[package]
+name = "ics24-host-solana"
+version = "0.1.0"
+edition = "2021"
+description = "ICS-24 host chain interface types and messages for IBC on Solana"
+
+[dependencies]
+anchor-lang.workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+

@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use solana_ibc_app_interface::Payload;
+use ics24_host_solana::Payload;
 
 pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;

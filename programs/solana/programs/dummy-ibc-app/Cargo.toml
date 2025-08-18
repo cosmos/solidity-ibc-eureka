@@ -25,5 +25,5 @@ idl-build = ["anchor-lang/idl-build"]
 default = []
 
 [dependencies]
-anchor-lang.workspace = true
-solana-ibc-app-interface.workspace = true
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+ics24-host-solana.workspace = true
