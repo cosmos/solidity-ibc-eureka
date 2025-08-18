@@ -43,6 +43,11 @@ pub struct AckPacket<'info> {
     /// CHECK: IBC app state account, owned by IBC app program
     pub ibc_app_state: AccountInfo<'info>,
 
+    /// The router program account (this program)
+    /// CHECK: This will be verified in the CPI as the calling program
+    #[account(address = crate::ID)]
+    pub router_program: AccountInfo<'info>,
+
     pub relayer: Signer<'info>,
 
     #[account(mut)]
@@ -133,7 +138,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     on_acknowledgement_packet_cpi(
         &ctx.accounts.ibc_app_program,
         &ctx.accounts.ibc_app_state,
-        &ctx.accounts.system_program,
+        &ctx.accounts.router_program,
         &msg.packet,
         &msg.packet.payloads[0],
         &msg.acknowledgement,
@@ -275,6 +280,9 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(packet_commitment_pda, false),
+                AccountMeta::new_readonly(app_program_id, false),
+                AccountMeta::new(dummy_app_state_pda, false),
+                AccountMeta::new_readonly(crate::ID, false), // router_program
                 AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -282,8 +290,6 @@ mod tests {
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(client_state, false),
                 AccountMeta::new_readonly(consensus_state, false),
-                AccountMeta::new_readonly(app_program_id, false),
-                AccountMeta::new(dummy_app_state_pda, false),
             ],
             data: crate::instruction::AckPacket { msg }.data(),
         };
@@ -300,14 +306,16 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             packet_commitment_account,
-            create_system_account(payer),
+            create_bpf_program_account(app_program_id),
+            create_account(dummy_app_state_pda, dummy_app_state_data, app_program_id),
+            create_bpf_program_account(crate::ID), // router_program
+            create_system_account(relayer), // relayer (also signer)
+            create_system_account(payer), // payer (also signer)
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
             create_bpf_program_account(light_client_program),
             create_account(client_state, vec![0u8; 100], light_client_program),
             create_account(consensus_state, vec![0u8; 100], light_client_program),
-            create_bpf_program_account(app_program_id),
-            create_account(dummy_app_state_pda, dummy_app_state_data, app_program_id),
         ];
 
         AckPacketTestContext {

@@ -1,3 +1,4 @@
+use crate::cpi::on_timeout_packet_cpi;
 use crate::errors::RouterError;
 use crate::instructions::light_client_cpi::{verify_non_membership_cpi, LightClientVerification};
 use crate::state::*;
@@ -31,6 +32,21 @@ pub struct TimeoutPacket<'info> {
     )]
     /// CHECK: We manually verify this account and handle the case where it doesn't exist
     pub packet_commitment: AccountInfo<'info>,
+
+    // IBC app accounts for CPI
+    /// CHECK: IBC app program, validated against `IBCApp` account
+    #[account(
+        constraint = ibc_app_program.key() == ibc_app.app_program_id @ RouterError::IbcAppNotFound
+    )]
+    pub ibc_app_program: AccountInfo<'info>,
+
+    /// CHECK: IBC app state account, owned by IBC app program
+    pub ibc_app_state: AccountInfo<'info>,
+
+    /// The router program account (this program)
+    /// CHECK: This will be verified in the CPI as the calling program
+    #[account(address = crate::ID)]
+    pub router_program: AccountInfo<'info>,
 
     pub relayer: Signer<'info>,
 
@@ -126,7 +142,15 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         );
     }
 
-    // TODO: CPI to IBC app's onTimeoutPacket
+    // CPI to IBC app's onTimeoutPacket
+    on_timeout_packet_cpi(
+        &ctx.accounts.ibc_app_program,
+        &ctx.accounts.ibc_app_state,
+        &ctx.accounts.router_program,
+        &msg.packet,
+        &msg.packet.payloads[0],
+        &ctx.accounts.relayer.key(),
+    )?;
 
     // Close the account and return rent to payer
     // TODO: Find more idiomatic way since we can't use auto close of anchor due to noop
@@ -264,6 +288,9 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(packet_commitment_pda, false),
+                AccountMeta::new_readonly(app_program_id, false),
+                AccountMeta::new(dummy_app_state_pda, false),
+                AccountMeta::new_readonly(crate::ID, false), // router_program
                 AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -271,8 +298,6 @@ mod tests {
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(client_state, false),
                 AccountMeta::new_readonly(consensus_state, false),
-                AccountMeta::new_readonly(app_program_id, false),
-                AccountMeta::new(dummy_app_state_pda, false),
             ],
             data: crate::instruction::TimeoutPacket { msg }.data(),
         };
@@ -289,14 +314,16 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             packet_commitment_account,
-            create_system_account(payer),
+            create_bpf_program_account(app_program_id),
+            create_account(dummy_app_state_pda, dummy_app_state_data, app_program_id),
+            create_bpf_program_account(crate::ID), // router_program
+            create_system_account(relayer), // relayer (also signer)
+            create_system_account(payer), // payer (also signer)
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
             create_bpf_program_account(light_client_program),
             create_account(client_state, vec![0u8; 100], light_client_program),
             create_account(consensus_state, vec![0u8; 100], light_client_program),
-            create_bpf_program_account(app_program_id),
-            create_account(dummy_app_state_pda, dummy_app_state_data, app_program_id),
         ];
 
         TimeoutPacketTestContext {

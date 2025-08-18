@@ -64,6 +64,11 @@ pub struct RecvPacket<'info> {
     /// CHECK: IBC app state account, owned by IBC app program
     pub ibc_app_state: AccountInfo<'info>,
 
+    /// The router program account (this program)
+    /// CHECK: This will be verified in the CPI as the calling program
+    #[account(address = crate::ID)]
+    pub router_program: AccountInfo<'info>,
+
     pub relayer: Signer<'info>,
 
     #[account(mut)]
@@ -166,7 +171,7 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     let acknowledgement = on_recv_packet_cpi(
         &ctx.accounts.ibc_app_program,
         &ctx.accounts.ibc_app_state,
-        &ctx.accounts.system_program,
+        &ctx.accounts.router_program,
         &msg.packet,
         &msg.packet.payloads[0],
         &ctx.accounts.relayer.key(),
@@ -310,7 +315,9 @@ mod tests {
             "source-client",
             params.active_client,
         );
-        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, Pubkey::new_unique());
+        let ibc_app_program_id = DUMMY_IBC_APP_PROGRAM_ID;
+        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, ibc_app_program_id);
+        let ibc_app_state = Pubkey::new_unique();
         let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 0);
 
         let current_timestamp = 1000;
@@ -361,6 +368,9 @@ mod tests {
                 AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new(packet_receipt_pda, false),
                 AccountMeta::new(packet_ack_pda, false),
+                AccountMeta::new_readonly(ibc_app_program_id, false),
+                AccountMeta::new(ibc_app_state, false),
+                AccountMeta::new_readonly(crate::ID, false), // router_program
                 AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -376,13 +386,18 @@ mod tests {
         let packet_receipt_account = create_uninitialized_commitment_account(packet_receipt_pda);
         let packet_ack_account = create_uninitialized_commitment_account(packet_ack_pda);
 
+        // Must match the exact order in instruction.accounts
         let accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             packet_receipt_account,
             packet_ack_account,
-            create_system_account(payer),
+            create_bpf_program_account(ibc_app_program_id),
+            create_account(ibc_app_state, vec![0u8; 100], ibc_app_program_id),
+            create_bpf_program_account(crate::ID), // router_program
+            create_system_account(relayer), // relayer (also signer)
+            create_system_account(payer), // payer (also signer)
             create_program_account(system_program::ID),
             create_clock_account_with_data(clock_data),
             create_account(client_pda, client_data, crate::ID),

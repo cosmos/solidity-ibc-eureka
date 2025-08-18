@@ -12,7 +12,7 @@ use solana_ibc_app_interface::{
 pub fn on_recv_packet_cpi<'a>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
-    system_program: &AccountInfo<'a>,
+    router_program: &AccountInfo<'a>,
     packet: &Packet,
     payload: &Payload,
     relayer: &Pubkey,
@@ -28,7 +28,7 @@ pub fn on_recv_packet_cpi<'a>(
     call_ibc_app_cpi(
         ibc_app_program,
         app_state,
-        system_program,
+        router_program,
         "global:on_recv_packet",
         msg,
     )?;
@@ -49,7 +49,7 @@ pub fn on_recv_packet_cpi<'a>(
 pub fn on_acknowledgement_packet_cpi<'a>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
-    system_program: &AccountInfo<'a>,
+    router_program: &AccountInfo<'a>,
     packet: &Packet,
     payload: &Payload,
     acknowledgement: &[u8],
@@ -67,7 +67,7 @@ pub fn on_acknowledgement_packet_cpi<'a>(
     call_ibc_app_cpi(
         ibc_app_program,
         app_state,
-        system_program,
+        router_program,
         "global:on_acknowledgement_packet",
         msg,
     )
@@ -77,7 +77,7 @@ pub fn on_acknowledgement_packet_cpi<'a>(
 pub fn on_timeout_packet_cpi<'a>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
-    system_program: &AccountInfo<'a>,
+    router_program: &AccountInfo<'a>,
     packet: &Packet,
     payload: &Payload,
     relayer: &Pubkey,
@@ -93,7 +93,7 @@ pub fn on_timeout_packet_cpi<'a>(
     call_ibc_app_cpi(
         ibc_app_program,
         app_state,
-        system_program,
+        router_program,
         "global:on_timeout_packet",
         msg,
     )
@@ -103,7 +103,7 @@ pub fn on_timeout_packet_cpi<'a>(
 fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
-    system_program: &AccountInfo<'a>,
+    router_program: &AccountInfo<'a>,
     discriminator: &str,
     msg: T,
 ) -> Result<()> {
@@ -119,13 +119,16 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
         program_id: *ibc_app_program.key,
         accounts: vec![
             AccountMeta::new(*app_state.key, false),
-            AccountMeta::new_readonly(*system_program.key, false),
+            AccountMeta::new_readonly(*router_program.key, false), // router_program account
         ],
         data: instruction_data,
     };
 
     // Invoke the CPI
-    let account_infos = &[app_state.clone(), system_program.clone()];
+    let account_infos = &[
+        app_state.clone(), 
+        router_program.clone(), // Pass the router program for auth check
+    ];
     invoke(&instruction, account_infos)?;
 
     Ok(())
