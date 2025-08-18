@@ -50,6 +50,10 @@ fn compute_discriminator(namespace: &str, name: &str) -> [u8; ANCHOR_DISCRIMINAT
     let hash_result = hasher.finalize();
 
     let mut discriminator = [0u8; ANCHOR_DISCRIMINATOR_SIZE];
-    discriminator.copy_from_slice(hash_result.get(..ANCHOR_DISCRIMINATOR_SIZE).expect("Hash result too short"));
+    discriminator.copy_from_slice(
+        hash_result
+            .get(..ANCHOR_DISCRIMINATOR_SIZE)
+            .expect("Hash result too short"),
+    );
     discriminator
 }

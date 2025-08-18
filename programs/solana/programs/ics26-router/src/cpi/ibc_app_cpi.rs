@@ -5,9 +5,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
 use anchor_lang::solana_program::program::get_return_data;
 use anchor_lang::solana_program::program::invoke;
-use ics24_host_solana::{
-    OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload,
-};
+use ics24_host_solana::{OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload};
 
 /// CPI helper for calling IBC app's `on_recv_packet` instruction
 pub fn on_recv_packet_cpi<'a>(

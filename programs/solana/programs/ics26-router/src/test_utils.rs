@@ -339,7 +339,9 @@ pub fn get_client_sequence_from_result_by_pubkey(
         .find(|(key, _)| key == pubkey)
         .and_then(|(_, account)| {
             // Verify it's a ClientSequence account
-            if account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE && &account.data[..ANCHOR_DISCRIMINATOR_SIZE] == ClientSequence::DISCRIMINATOR {
+            if account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE
+                && &account.data[..ANCHOR_DISCRIMINATOR_SIZE] == ClientSequence::DISCRIMINATOR
+            {
                 let mut account_data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
                 let client_sequence: ClientSequence =
                     AnchorDeserialize::deserialize(&mut account_data).ok()?;
@@ -406,7 +408,6 @@ fn assert_dummy_app_counter(
         "dummy IBC app {counter_name} counter should be {expected_count} after CPI call"
     );
 }
-
 
 pub fn create_bpf_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::Account) {
     (

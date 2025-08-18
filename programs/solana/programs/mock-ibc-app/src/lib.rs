@@ -69,4 +69,3 @@ pub struct OnTimeoutPacket<'info> {
     /// CHECK: Mock app doesn't validate the router
     pub router_program: AccountInfo<'info>,
 }
-

@@ -309,9 +309,9 @@ mod tests {
             packet_commitment_account,
             create_bpf_program_account(app_program_id),
             create_account(dummy_app_state_pda, vec![0u8; 32], app_program_id), // Mock app state
-            create_bpf_program_account(crate::ID), // router_program
+            create_bpf_program_account(crate::ID),                              // router_program
             create_system_account(relayer), // relayer (also signer)
-            create_system_account(payer), // payer (also signer)
+            create_system_account(payer),   // payer (also signer)
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
             create_bpf_program_account(light_client_program),

@@ -8,5 +8,6 @@
 pub mod app_msgs;
 
 // Re-export commonly used types
-pub use app_msgs::{IBCAppError, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload};
-
+pub use app_msgs::{
+    IBCAppError, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload,
+};

@@ -554,10 +554,15 @@ mod tests {
 
         // The ack commitment should be the keccak256 of the acks vector containing b"error"
         let expected_acks = vec![b"error".to_vec()];
-        let expected_ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&expected_acks)
-            .expect("failed to compute ack commitment");
+        let expected_ack_commitment =
+            ics24::packet_acknowledgement_commitment_bytes32(&expected_acks)
+                .expect("failed to compute ack commitment");
 
-        assert_eq!(ack_data[..32], expected_ack_commitment, "acknowledgement should be universal error ack");
+        assert_eq!(
+            ack_data[..32],
+            expected_ack_commitment,
+            "acknowledgement should be universal error ack"
+        );
     }
 
     // Note: Testing CPI failures in mollusk is challenging because the test environment

@@ -7,3 +7,4 @@ pub enum DummyIbcAppError {
     #[msg("Invalid packet data")]
     InvalidPacketData,
 }
+
