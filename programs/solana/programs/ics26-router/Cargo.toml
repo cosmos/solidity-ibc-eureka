@@ -1,10 +1,11 @@
 [package]
 name = "ics26-router"
-version = "0.1.0"
-description = "ICS26 Router program for Solana"
+version.workspace = true
+description = "ICS-26 Routing Module for IBC on Solana"
 edition.workspace = true
 license.workspace = true
-repository = "https://github.com/cosmos/solidity-ibc-eureka"
+repository.workspace = true
+readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "router", "anchor"]
 categories = ["cryptography", "blockchain"]
 

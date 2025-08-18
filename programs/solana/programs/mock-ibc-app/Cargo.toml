@@ -5,7 +5,9 @@ edition.workspace = true
 description = "Mock IBC Application for testing Solana IBC Router"
 license.workspace = true
 repository.workspace = true
-keywords.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "test", "mock"]
+categories = ["development-tools::testing"]
 
 [lints]
 workspace = true

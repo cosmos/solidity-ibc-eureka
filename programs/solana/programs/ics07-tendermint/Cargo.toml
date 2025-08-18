@@ -1,10 +1,11 @@
 [package]
 name = "ics07-tendermint"
-version = "0.1.0"
-description = "Created with Anchor"
+version.workspace = true
+description = "ICS-07 Tendermint light client for IBC on Solana"
 edition.workspace = true
 license.workspace = true
-repository = "https://github.com/cosmos/solidity-ibc-eureka"
+repository.workspace = true
+readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "tendermint", "anchor"]
 categories = ["cryptography", "blockchain"]
 

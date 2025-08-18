@@ -1,12 +1,13 @@
 [package]
 name = "mock-light-client"
-version = "0.1.0"
+version.workspace = true
 description = "Mock light client for testing IBC router"
 edition.workspace = true
 license.workspace = true
-repository = "https://github.com/cosmos/solidity-ibc-eureka"
+repository.workspace = true
+readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "test", "mock"]
-categories = ["cryptography", "blockchain"]
+categories = ["development-tools::testing"]
 
 [lints]
 workspace = true

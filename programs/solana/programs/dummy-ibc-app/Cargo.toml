@@ -5,7 +5,8 @@ description = "Dummy IBC Application for testing Solana IBC Router"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "test", "anchor"]
 categories = ["cryptography", "blockchain"]
 
 [lints]

@@ -5,7 +5,9 @@ edition.workspace = true
 description = "ICS-24 host chain interface types and messages for IBC on Solana"
 license.workspace = true
 repository.workspace = true
-keywords.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "host", "ics24"]
+categories = ["cryptography", "blockchain"]
 
 [dependencies]
 anchor-lang.workspace = true
