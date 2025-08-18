@@ -1,5 +1,5 @@
-use crate::cpi::on_timeout_packet_cpi;
-use crate::cpi::{verify_non_membership_cpi, LightClientVerification};
+use crate::router_cpi::on_timeout_packet_cpi;
+use crate::router_cpi::{verify_non_membership_cpi, LightClientVerification};
 use crate::errors::RouterError;
 use crate::state::*;
 use crate::utils::ics24;
