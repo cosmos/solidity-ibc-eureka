@@ -70,7 +70,6 @@ tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-
 ics24-host-solana = { path = "./packages/ics24-host-solana", default-features = false }
 ics25-handler = { path = "./packages/ics25-handler", default-features = false }
 
-
 ibc-client-tendermint = { version = "0.57", default-features = false }
 ibc-core-client = { version = "0.57", default-features = false }
 ibc-core-client-types = { version = "0.57", default-features = false }
@@ -88,8 +87,6 @@ hex = { version = "0.4", default-features = false }
 prost = { version = "0.13", default-features = false }
 
 # Testing
-mock-light-client = { path = "./programs/mock-light-client", default-features = false }
-dummy-ibc-app = { path = "./programs/dummy-ibc-app", default-features = false }
 mollusk-svm = { version = "0.4.1", default-features = false }
 mollusk-svm-bencher = { version = "0.4.1", default-features = false }
 solana-sdk = { version = "2.3.1", default-features = false }
