@@ -216,7 +216,7 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 			s.Require().NoError(err)
 		})
 
-		aggregatorProcess, err = aggregator.StartAggregator(testvalues.AggregatorConfigPath, aggregator.AggregatorBinary)
+		aggregatorProcess, err = aggregator.StartAggregator(testvalues.AggregatorConfigPath)
 		s.Require().NoError(err)
 
 		agg, err := aggregator.GetAggregatorServiceClient("127.0.0.1:8080")
@@ -480,7 +480,7 @@ func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binary
 			s.Require().NoError(err)
 		})
 
-		aggregatorProcess, err = aggregator.StartAggregator(testvalues.AggregatorConfigPath, aggregator.AggregatorBinary)
+		aggregatorProcess, err = aggregator.StartAggregator(testvalues.AggregatorConfigPath)
 		s.Require().NoError(err)
 	}))
 

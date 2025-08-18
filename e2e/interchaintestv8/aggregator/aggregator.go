@@ -13,21 +13,20 @@ import (
 	aggregatortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/aggregator"
 )
 
-type AggregatorBinaryPath = string
-
-const (
-	AggregatorBinary AggregatorBinaryPath = "aggregator"
-)
+// binaryPath returns the path to the relayer binary.
+func binaryPath() string {
+	return "aggregator"
+}
 
 // StartAggregator starts the aggregator with the given config file and attestor endpoints
-func StartAggregator(configPath string, binaryPath AggregatorBinaryPath) (*os.Process, error) {
+func StartAggregator(configPath string) (*os.Process, error) {
 	config, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
 	fmt.Printf("Starting aggregator with config:\n%s\n", config)
 
-	cmd := exec.Command(binaryPath, "server", "--config", configPath)
+	cmd := exec.Command(binaryPath(), "server", "--config", configPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
