@@ -126,7 +126,7 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
 
     // Invoke the CPI
     let account_infos = &[
-        app_state.clone(), 
+        app_state.clone(),
         router_program.clone(), // Pass the router program for auth check
     ];
     invoke(&instruction, account_infos)?;
