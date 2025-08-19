@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -18,7 +19,6 @@ import (
 const (
 	testNamePrefix     = "Test"
 	testFileNameSuffix = "_test.go"
-	e2eTestDirectory   = "e2e/interchaintestv8"
 
 	// testEntryPointEnv is an optional env variable that can be used to only return tests for a specific suite
 	testEntryPointEnv = "TEST_ENTRYPOINT"
@@ -37,13 +37,29 @@ type testSuitePair struct {
 }
 
 func main() {
+	var testDir string
+	flag.StringVar(&testDir, "dir", "", "Path to the test directory (required)")
+	flag.Parse()
+
+	if testDir == "" {
+		fmt.Fprintln(os.Stderr, "error: -dir flag is required")
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	suite := os.Getenv(testEntryPointEnv)
 	var excludedItems []string
 	if exclusions, ok := os.LookupEnv(testExclusionsEnv); ok {
 		excludedItems = strings.Split(exclusions, ",")
 	}
 
-	matrix, err := getGitHubActionMatrixForTests(e2eTestDirectory, suite, excludedItems)
+	// Verify the test directory exists
+	if _, err := os.Stat(testDir); err != nil {
+		fmt.Fprintf(os.Stderr, "error: test directory '%s' does not exist: %v\n", testDir, err)
+		os.Exit(1)
+	}
+
+	matrix, err := getGitHubActionMatrixForTests(testDir, suite, excludedItems)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error generating GitHub Action JSON:", err)
 		os.Exit(1)
@@ -96,6 +112,12 @@ func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems
 	}
 	for testSuiteName, testCases := range testSuiteMapping {
 		for _, testCaseName := range testCases {
+			// Check if this specific test is excluded
+			fullTestName := fmt.Sprintf("%s/%s", testSuiteName, testCaseName)
+			if slices.Contains(excludedItems, fullTestName) {
+				continue
+			}
+			
 			gh.Include = append(gh.Include, testSuitePair{
 				Test:       testCaseName,
 				EntryPoint: testSuiteName,
