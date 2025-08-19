@@ -12,7 +12,7 @@ import (
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
 
-	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ibc_attestor"
+	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/attestor"
 )
 
 type AttestorBinaryPath = string
@@ -51,7 +51,7 @@ func StartAttestor(configPath string, binaryPath AttestorBinaryPath) (*os.Proces
 }
 
 func ReadAttestorPubKey(binaryPath AttestorBinaryPath) (string, error) {
-	cmd := exec.Command(binaryPath, "key", "show", "--hide-private")
+	cmd := exec.Command(binaryPath, "key", "show")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout

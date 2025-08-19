@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package ibc_attestor;
 
-import "attestation.proto";
+import "ibc_attestor/attestation.proto";
 
 option go_package = "types/attestor";
 

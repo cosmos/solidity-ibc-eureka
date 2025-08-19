@@ -12,7 +12,7 @@ type AttestedToCosmosConfigInfo struct {
 	SP1Config           SP1ProverConfig
 }
 
-func CreateAttestedToCosmosModules(
+func CreateAttestedCosmosModules(
 	configInfo AttestedToCosmosConfigInfo,
 ) []ModuleConfig {
 	return []ModuleConfig{

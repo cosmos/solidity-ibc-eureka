@@ -40,6 +40,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	aggregatortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/aggregator"
+	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
@@ -239,7 +240,7 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 			Type:           prover,
 			PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
 		}
-		config := relayer.NewConfig(relayer.CreateAttestedToCosmosModules(
+		config := relayer.NewConfig(relayer.CreateAttestedCosmosModules(
 			relayer.AttestedToCosmosConfigInfo{
 				AttestedChainID:     eth.ChainID.String(),
 				AggregatorUrl:       testvalues.AggregatorRpcPath,
@@ -499,16 +500,6 @@ func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binary
 		s.Require().NoError(err)
 
 	}))
-}
-
-func (s *IbcAttestorTestSuite) Test_OptimismAttestorAttestsToLocalNode() {
-	ctx := context.Background()
-	proofType := types.GetEnvProofType()
-	s.AttestorAttestsToLocalNode(ctx, proofType, attestor.OptimismBinary)
-}
-
-func (s *IbcAttestorTestSuite) AttestorAttestsToLocalNode(ctx context.Context, proofType types.SupportedProofType, binaryPath attestor.AttestorBinaryPath) {
-	s.SetupSuite(ctx, proofType, binaryPath)
 }
 
 func (s *IbcAttestorTestSuite) Test_OptimismAttestToICS20PacketsOnEth() {
