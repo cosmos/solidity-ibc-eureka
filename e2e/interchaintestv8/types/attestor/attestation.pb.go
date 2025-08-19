@@ -107,7 +107,7 @@ var File_ibc_attestor_attestation_proto protoreflect.FileDescriptor
 
 const file_ibc_attestor_attestation_proto_rawDesc = "" +
 	"\n" +
-	"\x1eibc_attestor/attestation.proto\x12\battestor\"\xb8\x01\n" +
+	"\x1eibc_attestor/attestation.proto\x12\fibc_attestor\"\xb8\x01\n" +
 	"\vAttestation\x12\x16\n" +
 	"\x06height\x18\x01 \x01(\x04R\x06height\x12!\n" +
 	"\ttimestamp\x18\x02 \x01(\x04H\x00R\ttimestamp\x88\x01\x01\x12#\n" +
@@ -116,8 +116,8 @@ const file_ibc_attestor_attestation_proto_rawDesc = "" +
 	"\n" +
 	"public_key\x18\x05 \x01(\fR\tpublicKeyB\f\n" +
 	"\n" +
-	"_timestampBp\n" +
-	"\fcom.attestorB\x10AttestationProtoP\x01Z\x0etypes/attestor\xa2\x02\x03AXX\xaa\x02\bAttestor\xca\x02\bAttestor\xe2\x02\x14Attestor\\GPBMetadata\xea\x02\bAttestorb\x06proto3"
+	"_timestampB\x80\x01\n" +
+	"\x10com.ibc_attestorB\x10AttestationProtoP\x01Z\x0etypes/attestor\xa2\x02\x03IXX\xaa\x02\vIbcAttestor\xca\x02\vIbcAttestor\xe2\x02\x17IbcAttestor\\GPBMetadata\xea\x02\vIbcAttestorb\x06proto3"
 
 var (
 	file_ibc_attestor_attestation_proto_rawDescOnce sync.Once
@@ -133,7 +133,7 @@ func file_ibc_attestor_attestation_proto_rawDescGZIP() []byte {
 
 var file_ibc_attestor_attestation_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_ibc_attestor_attestation_proto_goTypes = []any{
-	(*Attestation)(nil), // 0: attestor.Attestation
+	(*Attestation)(nil), // 0: ibc_attestor.Attestation
 }
 var file_ibc_attestor_attestation_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

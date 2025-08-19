@@ -221,20 +221,20 @@ var File_ibc_attestor_ibc_attestor_proto protoreflect.FileDescriptor
 
 const file_ibc_attestor_ibc_attestor_proto_rawDesc = "" +
 	"\n" +
-	"\x1fibc_attestor/ibc_attestor.proto\x12\battestor\x1a\x1eibc_attestor/attestation.proto\"1\n" +
+	"\x1fibc_attestor/ibc_attestor.proto\x12\fibc_attestor\x1a\x1eibc_attestor/attestation.proto\"1\n" +
 	"\x17StateAttestationRequest\x12\x16\n" +
-	"\x06height\x18\x01 \x01(\x04R\x06height\"S\n" +
-	"\x18StateAttestationResponse\x127\n" +
-	"\vattestation\x18\x01 \x01(\v2\x15.attestor.AttestationR\vattestation\"L\n" +
+	"\x06height\x18\x01 \x01(\x04R\x06height\"W\n" +
+	"\x18StateAttestationResponse\x12;\n" +
+	"\vattestation\x18\x01 \x01(\v2\x19.ibc_attestor.AttestationR\vattestation\"L\n" +
 	"\x18PacketAttestationRequest\x12\x18\n" +
 	"\apackets\x18\x01 \x03(\fR\apackets\x12\x16\n" +
-	"\x06height\x18\x02 \x01(\x04R\x06height\"T\n" +
-	"\x19PacketAttestationResponse\x127\n" +
-	"\vattestation\x18\x01 \x01(\v2\x15.attestor.AttestationR\vattestation2\xcd\x01\n" +
-	"\x12AttestationService\x12Y\n" +
-	"\x10StateAttestation\x12!.attestor.StateAttestationRequest\x1a\".attestor.StateAttestationResponse\x12\\\n" +
-	"\x11PacketAttestation\x12\".attestor.PacketAttestationRequest\x1a#.attestor.PacketAttestationResponseBp\n" +
-	"\fcom.attestorB\x10IbcAttestorProtoP\x01Z\x0etypes/attestor\xa2\x02\x03AXX\xaa\x02\bAttestor\xca\x02\bAttestor\xe2\x02\x14Attestor\\GPBMetadata\xea\x02\bAttestorb\x06proto3"
+	"\x06height\x18\x02 \x01(\x04R\x06height\"X\n" +
+	"\x19PacketAttestationResponse\x12;\n" +
+	"\vattestation\x18\x01 \x01(\v2\x19.ibc_attestor.AttestationR\vattestation2\xdd\x01\n" +
+	"\x12AttestationService\x12a\n" +
+	"\x10StateAttestation\x12%.ibc_attestor.StateAttestationRequest\x1a&.ibc_attestor.StateAttestationResponse\x12d\n" +
+	"\x11PacketAttestation\x12&.ibc_attestor.PacketAttestationRequest\x1a'.ibc_attestor.PacketAttestationResponseB\x80\x01\n" +
+	"\x10com.ibc_attestorB\x10IbcAttestorProtoP\x01Z\x0etypes/attestor\xa2\x02\x03IXX\xaa\x02\vIbcAttestor\xca\x02\vIbcAttestor\xe2\x02\x17IbcAttestor\\GPBMetadata\xea\x02\vIbcAttestorb\x06proto3"
 
 var (
 	file_ibc_attestor_ibc_attestor_proto_rawDescOnce sync.Once
@@ -250,19 +250,19 @@ func file_ibc_attestor_ibc_attestor_proto_rawDescGZIP() []byte {
 
 var file_ibc_attestor_ibc_attestor_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_ibc_attestor_ibc_attestor_proto_goTypes = []any{
-	(*StateAttestationRequest)(nil),   // 0: attestor.StateAttestationRequest
-	(*StateAttestationResponse)(nil),  // 1: attestor.StateAttestationResponse
-	(*PacketAttestationRequest)(nil),  // 2: attestor.PacketAttestationRequest
-	(*PacketAttestationResponse)(nil), // 3: attestor.PacketAttestationResponse
-	(*Attestation)(nil),               // 4: attestor.Attestation
+	(*StateAttestationRequest)(nil),   // 0: ibc_attestor.StateAttestationRequest
+	(*StateAttestationResponse)(nil),  // 1: ibc_attestor.StateAttestationResponse
+	(*PacketAttestationRequest)(nil),  // 2: ibc_attestor.PacketAttestationRequest
+	(*PacketAttestationResponse)(nil), // 3: ibc_attestor.PacketAttestationResponse
+	(*Attestation)(nil),               // 4: ibc_attestor.Attestation
 }
 var file_ibc_attestor_ibc_attestor_proto_depIdxs = []int32{
-	4, // 0: attestor.StateAttestationResponse.attestation:type_name -> attestor.Attestation
-	4, // 1: attestor.PacketAttestationResponse.attestation:type_name -> attestor.Attestation
-	0, // 2: attestor.AttestationService.StateAttestation:input_type -> attestor.StateAttestationRequest
-	2, // 3: attestor.AttestationService.PacketAttestation:input_type -> attestor.PacketAttestationRequest
-	1, // 4: attestor.AttestationService.StateAttestation:output_type -> attestor.StateAttestationResponse
-	3, // 5: attestor.AttestationService.PacketAttestation:output_type -> attestor.PacketAttestationResponse
+	4, // 0: ibc_attestor.StateAttestationResponse.attestation:type_name -> ibc_attestor.Attestation
+	4, // 1: ibc_attestor.PacketAttestationResponse.attestation:type_name -> ibc_attestor.Attestation
+	0, // 2: ibc_attestor.AttestationService.StateAttestation:input_type -> ibc_attestor.StateAttestationRequest
+	2, // 3: ibc_attestor.AttestationService.PacketAttestation:input_type -> ibc_attestor.PacketAttestationRequest
+	1, // 4: ibc_attestor.AttestationService.StateAttestation:output_type -> ibc_attestor.StateAttestationResponse
+	3, // 5: ibc_attestor.AttestationService.PacketAttestation:output_type -> ibc_attestor.PacketAttestationResponse
 	4, // [4:6] is the sub-list for method output_type
 	2, // [2:4] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name

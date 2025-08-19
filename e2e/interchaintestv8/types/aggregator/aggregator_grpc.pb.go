@@ -4,7 +4,7 @@
 // - protoc             (unknown)
 // source: aggregator/aggregator.proto
 
-package attestor
+package aggregator
 
 import (
 	context "context"

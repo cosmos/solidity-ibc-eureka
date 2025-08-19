@@ -19,8 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AttestationService_StateAttestation_FullMethodName  = "/attestor.AttestationService/StateAttestation"
-	AttestationService_PacketAttestation_FullMethodName = "/attestor.AttestationService/PacketAttestation"
+	AttestationService_StateAttestation_FullMethodName  = "/ibc_attestor.AttestationService/StateAttestation"
+	AttestationService_PacketAttestation_FullMethodName = "/ibc_attestor.AttestationService/PacketAttestation"
 )
 
 // AttestationServiceClient is the client API for AttestationService service.
@@ -150,7 +150,7 @@ func _AttestationService_PacketAttestation_Handler(srv interface{}, ctx context.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AttestationService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "attestor.AttestationService",
+	ServiceName: "ibc_attestor.AttestationService",
 	HandlerType: (*AttestationServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

@@ -4,7 +4,7 @@
 // 	protoc        (unknown)
 // source: aggregator/aggregator.proto
 
-package attestor
+package aggregator
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -237,8 +237,8 @@ const file_aggregator_aggregator_proto_rawDesc = "" +
 	"\x11state_attestation\x18\x01 \x01(\v2!.aggregator.AggregatedAttestationR\x10stateAttestation\x12P\n" +
 	"\x12packet_attestation\x18\x02 \x01(\v2!.aggregator.AggregatedAttestationR\x11packetAttestation2o\n" +
 	"\x11AggregatorService\x12Z\n" +
-	"\x0fGetAttestations\x12\".aggregator.GetAttestationsRequest\x1a#.aggregator.GetAttestationsResponseBy\n" +
-	"\x0ecom.aggregatorB\x0fAggregatorProtoP\x01Z\x0etypes/attestor\xa2\x02\x03AXX\xaa\x02\n" +
+	"\x0fGetAttestations\x12\".aggregator.GetAttestationsRequest\x1a#.aggregator.GetAttestationsResponseB{\n" +
+	"\x0ecom.aggregatorB\x0fAggregatorProtoP\x01Z\x10types/aggregator\xa2\x02\x03AXX\xaa\x02\n" +
 	"Aggregator\xca\x02\n" +
 	"Aggregator\xe2\x02\x16Aggregator\\GPBMetadata\xea\x02\n" +
 	"Aggregatorb\x06proto3"
