@@ -94,8 +94,8 @@ mod verify_membership {
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let value = serde_json::to_vec(PACKET_COMMITMENTS[0]).unwrap();
-        let res = verify_membership(&cns, &cs, height, as_bytes, value);
+        let value = PACKET_COMMITMENTS[0].clone();
+        let res = verify_membership(&cns, &cs, height, as_bytes, value.to_vec());
         println!("{:?}", res);
         assert!(res.is_ok());
     }

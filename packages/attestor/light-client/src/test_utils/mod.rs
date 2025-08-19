@@ -37,11 +37,7 @@ pub const SIGS: LazyCell<Vec<Signature>> = LazyCell::new(|| {
         .iter()
         .map(|skey| {
             let mut hasher = Sha256::new();
-            let bytes: Vec<u8> = PACKET_COMMITMENTS_ENCODED
-                .packets()
-                .flatten()
-                .copied()
-                .collect();
+            let bytes: Vec<u8> = serde_json::to_vec(&(*PACKET_COMMITMENTS_ENCODED)).unwrap();
             hasher.update(&bytes);
             let hash_result = hasher.finalize();
             skey.sign(&hash_result)
@@ -53,9 +49,5 @@ pub const SIGS: LazyCell<Vec<Signature>> = LazyCell::new(|| {
 
 #[allow(missing_docs)]
 pub fn packet_encoded_bytes() -> Vec<u8> {
-    PACKET_COMMITMENTS_ENCODED
-        .packets()
-        .flatten()
-        .map(|p| p.clone())
-        .collect()
+    serde_json::to_vec(&(*PACKET_COMMITMENTS_ENCODED)).unwrap()
 }

@@ -100,8 +100,7 @@ mod tests {
     use crate::msg::InstantiateMsg;
 
     pub fn membership_value() -> Binary {
-        let value = serde_json::to_vec(PACKET_COMMITMENTS[0]).unwrap();
-        value.into()
+        PACKET_COMMITMENTS[0].to_vec().into()
     }
 
     pub fn consensus() -> ConsensusState {
@@ -219,7 +218,10 @@ mod tests {
     }
 
     mod integration_tests {
-        use attestor_light_client::{error::IbcAttestorClientError, membership::MembershipProof};
+        use attestor_light_client::{
+            error::IbcAttestorClientError, membership::MembershipProof,
+            test_utils::PACKET_COMMITMENTS,
+        };
         use attestor_packet_membership::Packets;
         use cosmwasm_std::{
             coins,

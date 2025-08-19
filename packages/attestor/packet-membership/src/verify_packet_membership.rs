@@ -7,8 +7,6 @@ use crate::Packets;
 /// Verifies that the provided `value` exists in the `proof`.
 ///
 /// # Errors
-/// - Individual packets cannot be deserialized
-/// - The value cannot be deserialized
 /// - The value does not exist in the proof
 #[allow(clippy::module_name_repetitions, clippy::needless_pass_by_value)]
 pub fn verify_packet_membership(
