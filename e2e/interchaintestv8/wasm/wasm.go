@@ -27,7 +27,7 @@ func GetLocalWasmAttestorLightClient() (*os.File, error) {
 }
 
 func DownloadWasmLightClientRelease(release Release) (*os.File, error) {
-	downloadUrl := fmt.Sprintf("%s/%s", release.BaseDownloadURL())
+	downloadUrl := fmt.Sprint(release.BaseDownloadURL())
 
 	resp, err := http.Get(downloadUrl) //nolint:gosec
 	if err != nil {

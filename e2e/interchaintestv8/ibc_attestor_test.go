@@ -489,7 +489,8 @@ func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binary
 
 	s.T().Cleanup(func() {
 		if aggregatorProcess != nil {
-			aggregatorProcess.Kill()
+			err := aggregatorProcess.Kill()
+			s.Require().NoError(err)
 		}
 	})
 
@@ -497,7 +498,6 @@ func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binary
 	s.Require().True(s.Run("Test aggregator communication", func() {
 		_, err := aggregator.GetAggregatorServiceClient("127.0.0.1:8080")
 		s.Require().NoError(err)
-
 	}))
 }
 

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/BurntSushi/toml"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
