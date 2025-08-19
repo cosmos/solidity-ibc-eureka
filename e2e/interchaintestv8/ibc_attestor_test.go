@@ -173,10 +173,8 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 		client, err := attestor.GetAttestationServiceClient(config.GetServerAddress())
 		s.Require().NoError(err)
 
-		resp, err := attestor.GetStateAttestation(ctx, client, 1)
+		_, err = attestor.GetStateAttestation(ctx, client, 1)
 		s.Require().NoError(err)
-
-		s.T().Logf("state sig %s", resp.GetAttestation().GetSignature())
 
 		s.AttestorClient = client
 	}))
