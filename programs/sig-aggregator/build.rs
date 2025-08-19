@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "../../proto/aggregator/aggregator.proto",
                 "../../proto/ibc_attestor/ibc_attestor.proto",
             ],
-            &["../../proto/aggregator", "../../proto/ibc_attestor"],
+            &["../../proto"],
         )?;
     Ok(())
 }

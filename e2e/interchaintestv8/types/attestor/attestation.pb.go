@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        (unknown)
-// source: ibc-attestor/attestation.proto
+// source: ibc_attestor/attestation.proto
 
 package attestor
 
@@ -26,12 +26,14 @@ type Attestation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The height of the attestation
 	Height uint64 `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	// The timestamp of the block
+	Timestamp *uint64 `protobuf:"varint,2,opt,name=timestamp,proto3,oneof" json:"timestamp,omitempty"`
 	// The attested data
-	AttestedData []byte `protobuf:"bytes,2,opt,name=attested_data,json=attestedData,proto3" json:"attested_data,omitempty"`
+	AttestedData []byte `protobuf:"bytes,3,opt,name=attested_data,json=attestedData,proto3" json:"attested_data,omitempty"`
 	// The attestation signature
-	Signature []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	Signature []byte `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
 	// The attestation public key
-	PublicKey     []byte `protobuf:"bytes,4,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	PublicKey     []byte `protobuf:"bytes,5,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -73,6 +75,13 @@ func (x *Attestation) GetHeight() uint64 {
 	return 0
 }
 
+func (x *Attestation) GetTimestamp() uint64 {
+	if x != nil && x.Timestamp != nil {
+		return *x.Timestamp
+	}
+	return 0
+}
+
 func (x *Attestation) GetAttestedData() []byte {
 	if x != nil {
 		return x.AttestedData
@@ -98,13 +107,16 @@ var File_ibc_attestor_attestation_proto protoreflect.FileDescriptor
 
 const file_ibc_attestor_attestation_proto_rawDesc = "" +
 	"\n" +
-	"\x1eibc-attestor/attestation.proto\x12\fibc_attestor\"\x87\x01\n" +
+	"\x1eibc_attestor/attestation.proto\x12\fibc_attestor\"\xb8\x01\n" +
 	"\vAttestation\x12\x16\n" +
-	"\x06height\x18\x01 \x01(\x04R\x06height\x12#\n" +
-	"\rattested_data\x18\x02 \x01(\fR\fattestedData\x12\x1c\n" +
-	"\tsignature\x18\x03 \x01(\fR\tsignature\x12\x1d\n" +
+	"\x06height\x18\x01 \x01(\x04R\x06height\x12!\n" +
+	"\ttimestamp\x18\x02 \x01(\x04H\x00R\ttimestamp\x88\x01\x01\x12#\n" +
+	"\rattested_data\x18\x03 \x01(\fR\fattestedData\x12\x1c\n" +
+	"\tsignature\x18\x04 \x01(\fR\tsignature\x12\x1d\n" +
 	"\n" +
-	"public_key\x18\x04 \x01(\fR\tpublicKeyB\x80\x01\n" +
+	"public_key\x18\x05 \x01(\fR\tpublicKeyB\f\n" +
+	"\n" +
+	"_timestampB\x80\x01\n" +
 	"\x10com.ibc_attestorB\x10AttestationProtoP\x01Z\x0etypes/attestor\xa2\x02\x03IXX\xaa\x02\vIbcAttestor\xca\x02\vIbcAttestor\xe2\x02\x17IbcAttestor\\GPBMetadata\xea\x02\vIbcAttestorb\x06proto3"
 
 var (
@@ -136,6 +148,7 @@ func file_ibc_attestor_attestation_proto_init() {
 	if File_ibc_attestor_attestation_proto != nil {
 		return
 	}
+	file_ibc_attestor_attestation_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

@@ -104,6 +104,11 @@ impl AttestationAdapter for OpClient {
     ) -> Result<UnsignedPacketAttestation, AttestorError> {
         let mut futures = FuturesUnordered::new();
 
+        tracing::debug!(
+            "Total optimism packets received: {}",
+            packets.packets().count()
+        );
+
         for p in packets.packets() {
             let packet = Packet::abi_decode(p).map_err(AttestorError::DecodePacket)?;
             let validate_commitment = async move |packet: Packet, height: u64| {
@@ -114,9 +119,9 @@ impl AttestationAdapter for OpClient {
                     .await?;
 
                 if &packet.commitment() != &cmt {
-                    Err(AttestorError::InvalidCommitment {
+                    return Err(AttestorError::InvalidCommitment {
                         reason: "requested and received packet commitments do not match".into(),
-                    })
+                    });
                 } else {
                     Ok(cmt)
                 }
@@ -128,15 +133,11 @@ impl AttestationAdapter for OpClient {
         while let Some(maybe_cmt) = futures.next().await {
             match maybe_cmt {
                 Ok(cmt) => validated.push(cmt),
-                Err(e) => {
-                    // NOTE: Do we fail fast here?
-                    tracing::error!(
-                        "failed to retrieve packet commitment for due to {}",
-                        e.to_string()
-                    );
-                }
+                Err(e) => return Err(e),
             }
         }
+
+        tracing::debug!("Total optimism packets validated : {}", validated.len());
 
         Ok(UnsignedPacketAttestation {
             height,

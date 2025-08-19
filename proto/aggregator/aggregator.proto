@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package aggregator;
 
-option go_package = "types/attestor";
+option go_package = "types/aggregator";
 
 // The Aggregator service definition.
 service AggregatorService {

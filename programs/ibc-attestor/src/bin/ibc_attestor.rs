@@ -51,22 +51,38 @@ async fn main() -> Result<(), anyhow::Error> {
                     );
                     Ok::<(), anyhow::Error>(())
                 }
-                KeyCommands::Show => {
-                    let skey = read_private_pem_to_string(&*IBC_ATTESTOR_PATH).map_err(|_| {
-                        anyhow::anyhow!(
-                            "no key found at {}, please run `ibc_attestor key generate`",
-                            IBC_ATTESTOR_PATH.to_str().unwrap()
-                        )
-                    })?;
-                    println!("secret key:\n{}", skey);
+                KeyCommands::Show(args) => {
+                    let mut printed_any = false;
 
-                    let pkey = read_public_key_to_string(&*IBC_ATTESTOR_PATH).map_err(|_| {
-                        anyhow::anyhow!(
-                            "no key found at {}, please run `ibc_attestor key generate`",
-                            IBC_ATTESTOR_PATH.to_str().unwrap()
-                        )
-                    })?;
-                    println!("public key as hex string:\n{}", pkey);
+                    if args.show_private {
+                        let skey =
+                            read_private_pem_to_string(&*IBC_ATTESTOR_PATH).map_err(|_| {
+                                anyhow::anyhow!(
+                                    "no key found at {}, please run `key generate`",
+                                    IBC_ATTESTOR_PATH.to_str().unwrap()
+                                )
+                            })?;
+                        let skey = skey.trim_end_matches('\n');
+                        print!("{}", skey);
+                        printed_any = true;
+                    }
+
+                    // Separate by newline
+                    if printed_any {
+                        println!("\n");
+                    }
+
+                    if args.show_public {
+                        let pkey =
+                            read_public_key_to_string(&*IBC_ATTESTOR_PATH).map_err(|_| {
+                                anyhow::anyhow!(
+                                    "no key found at {}, please run `ibc_attestor key generate`",
+                                    IBC_ATTESTOR_PATH.to_str().unwrap()
+                                )
+                            })?;
+                        let pkey = pkey.trim_end_matches('\n');
+                        print!("{}", pkey);
+                    }
 
                     Ok::<(), anyhow::Error>(())
                 }

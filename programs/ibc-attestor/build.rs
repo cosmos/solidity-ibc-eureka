@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_server(true)
         .compile_protos(
             &["../../proto/ibc_attestor/ibc_attestor.proto"],
-            &["../../proto/ibc_attestor"],
+            &["../../proto"],
         )?;
     Ok(())
 }

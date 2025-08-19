@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: ibc-attestor/ibc-attestor.proto
+// source: ibc_attestor/ibc_attestor.proto
 
 package attestor
 
@@ -163,5 +163,5 @@ var AttestationService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "ibc-attestor/ibc-attestor.proto",
+	Metadata: "ibc_attestor/ibc_attestor.proto",
 }

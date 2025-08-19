@@ -4,7 +4,7 @@
 // - protoc             (unknown)
 // source: aggregator/aggregator.proto
 
-package attestor
+package aggregator
 
 import (
 	context "context"
@@ -19,107 +19,109 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Aggregator_GetAggregateAttestation_FullMethodName = "/aggregator.Aggregator/GetAggregateAttestation"
+	AggregatorService_GetAttestations_FullMethodName = "/aggregator.AggregatorService/GetAttestations"
 )
 
-// AggregatorClient is the client API for Aggregator service.
+// AggregatorServiceClient is the client API for AggregatorService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // The Aggregator service definition.
-type AggregatorClient interface {
-	// Queries the aggregator for an aggregated attestation.
-	GetAggregateAttestation(ctx context.Context, in *AggregateRequest, opts ...grpc.CallOption) (*AggregateResponse, error)
+type AggregatorServiceClient interface {
+	// Queries the attestor with a list of packets. Then used that attestation to
+	// get the state attestation.
+	GetAttestations(ctx context.Context, in *GetAttestationsRequest, opts ...grpc.CallOption) (*GetAttestationsResponse, error)
 }
 
-type aggregatorClient struct {
+type aggregatorServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewAggregatorClient(cc grpc.ClientConnInterface) AggregatorClient {
-	return &aggregatorClient{cc}
+func NewAggregatorServiceClient(cc grpc.ClientConnInterface) AggregatorServiceClient {
+	return &aggregatorServiceClient{cc}
 }
 
-func (c *aggregatorClient) GetAggregateAttestation(ctx context.Context, in *AggregateRequest, opts ...grpc.CallOption) (*AggregateResponse, error) {
+func (c *aggregatorServiceClient) GetAttestations(ctx context.Context, in *GetAttestationsRequest, opts ...grpc.CallOption) (*GetAttestationsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(AggregateResponse)
-	err := c.cc.Invoke(ctx, Aggregator_GetAggregateAttestation_FullMethodName, in, out, cOpts...)
+	out := new(GetAttestationsResponse)
+	err := c.cc.Invoke(ctx, AggregatorService_GetAttestations_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// AggregatorServer is the server API for Aggregator service.
-// All implementations must embed UnimplementedAggregatorServer
+// AggregatorServiceServer is the server API for AggregatorService service.
+// All implementations must embed UnimplementedAggregatorServiceServer
 // for forward compatibility.
 //
 // The Aggregator service definition.
-type AggregatorServer interface {
-	// Queries the aggregator for an aggregated attestation.
-	GetAggregateAttestation(context.Context, *AggregateRequest) (*AggregateResponse, error)
-	mustEmbedUnimplementedAggregatorServer()
+type AggregatorServiceServer interface {
+	// Queries the attestor with a list of packets. Then used that attestation to
+	// get the state attestation.
+	GetAttestations(context.Context, *GetAttestationsRequest) (*GetAttestationsResponse, error)
+	mustEmbedUnimplementedAggregatorServiceServer()
 }
 
-// UnimplementedAggregatorServer must be embedded to have
+// UnimplementedAggregatorServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedAggregatorServer struct{}
+type UnimplementedAggregatorServiceServer struct{}
 
-func (UnimplementedAggregatorServer) GetAggregateAttestation(context.Context, *AggregateRequest) (*AggregateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAggregateAttestation not implemented")
+func (UnimplementedAggregatorServiceServer) GetAttestations(context.Context, *GetAttestationsRequest) (*GetAttestationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAttestations not implemented")
 }
-func (UnimplementedAggregatorServer) mustEmbedUnimplementedAggregatorServer() {}
-func (UnimplementedAggregatorServer) testEmbeddedByValue()                    {}
+func (UnimplementedAggregatorServiceServer) mustEmbedUnimplementedAggregatorServiceServer() {}
+func (UnimplementedAggregatorServiceServer) testEmbeddedByValue()                           {}
 
-// UnsafeAggregatorServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to AggregatorServer will
+// UnsafeAggregatorServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AggregatorServiceServer will
 // result in compilation errors.
-type UnsafeAggregatorServer interface {
-	mustEmbedUnimplementedAggregatorServer()
+type UnsafeAggregatorServiceServer interface {
+	mustEmbedUnimplementedAggregatorServiceServer()
 }
 
-func RegisterAggregatorServer(s grpc.ServiceRegistrar, srv AggregatorServer) {
-	// If the following call pancis, it indicates UnimplementedAggregatorServer was
+func RegisterAggregatorServiceServer(s grpc.ServiceRegistrar, srv AggregatorServiceServer) {
+	// If the following call pancis, it indicates UnimplementedAggregatorServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&Aggregator_ServiceDesc, srv)
+	s.RegisterService(&AggregatorService_ServiceDesc, srv)
 }
 
-func _Aggregator_GetAggregateAttestation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AggregateRequest)
+func _AggregatorService_GetAttestations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAttestationsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AggregatorServer).GetAggregateAttestation(ctx, in)
+		return srv.(AggregatorServiceServer).GetAttestations(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Aggregator_GetAggregateAttestation_FullMethodName,
+		FullMethod: AggregatorService_GetAttestations_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AggregatorServer).GetAggregateAttestation(ctx, req.(*AggregateRequest))
+		return srv.(AggregatorServiceServer).GetAttestations(ctx, req.(*GetAttestationsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// Aggregator_ServiceDesc is the grpc.ServiceDesc for Aggregator service.
+// AggregatorService_ServiceDesc is the grpc.ServiceDesc for AggregatorService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Aggregator_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "aggregator.Aggregator",
-	HandlerType: (*AggregatorServer)(nil),
+var AggregatorService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "aggregator.AggregatorService",
+	HandlerType: (*AggregatorServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetAggregateAttestation",
-			Handler:    _Aggregator_GetAggregateAttestation_Handler,
+			MethodName: "GetAttestations",
+			Handler:    _AggregatorService_GetAttestations_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

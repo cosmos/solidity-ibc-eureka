@@ -4,7 +4,7 @@
 // 	protoc        (unknown)
 // source: aggregator/aggregator.proto
 
-package attestor
+package aggregator
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -21,29 +21,31 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// AggregateRequest is a request to the aggregator.
-type AggregateRequest struct {
+// Request message for getting an attestation for a set of packets.
+type GetAttestationsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The minimum height for the aggregated attestation.
-	MinHeight     uint64 `protobuf:"varint,1,opt,name=min_height,json=minHeight,proto3" json:"min_height,omitempty"`
+	// The packets to attest to
+	Packets [][]byte `protobuf:"bytes,1,rep,name=packets,proto3" json:"packets,omitempty"`
+	// The height to attest to the packets at
+	Height        uint64 `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AggregateRequest) Reset() {
-	*x = AggregateRequest{}
+func (x *GetAttestationsRequest) Reset() {
+	*x = GetAttestationsRequest{}
 	mi := &file_aggregator_aggregator_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AggregateRequest) String() string {
+func (x *GetAttestationsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AggregateRequest) ProtoMessage() {}
+func (*GetAttestationsRequest) ProtoMessage() {}
 
-func (x *AggregateRequest) ProtoReflect() protoreflect.Message {
+func (x *GetAttestationsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_aggregator_aggregator_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -55,135 +57,160 @@ func (x *AggregateRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AggregateRequest.ProtoReflect.Descriptor instead.
-func (*AggregateRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetAttestationsRequest.ProtoReflect.Descriptor instead.
+func (*GetAttestationsRequest) Descriptor() ([]byte, []int) {
 	return file_aggregator_aggregator_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *AggregateRequest) GetMinHeight() uint64 {
+func (x *GetAttestationsRequest) GetPackets() [][]byte {
 	if x != nil {
-		return x.MinHeight
-	}
-	return 0
-}
-
-// SigPubkeyPair is a pair of a signature and a public key.
-type SigPubkeyPair struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The signature.
-	Sig []byte `protobuf:"bytes,1,opt,name=sig,proto3" json:"sig,omitempty"`
-	// The public key.
-	Pubkey        []byte `protobuf:"bytes,2,opt,name=pubkey,proto3" json:"pubkey,omitempty"` // 65 bytes
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SigPubkeyPair) Reset() {
-	*x = SigPubkeyPair{}
-	mi := &file_aggregator_aggregator_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SigPubkeyPair) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SigPubkeyPair) ProtoMessage() {}
-
-func (x *SigPubkeyPair) ProtoReflect() protoreflect.Message {
-	mi := &file_aggregator_aggregator_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SigPubkeyPair.ProtoReflect.Descriptor instead.
-func (*SigPubkeyPair) Descriptor() ([]byte, []int) {
-	return file_aggregator_aggregator_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *SigPubkeyPair) GetSig() []byte {
-	if x != nil {
-		return x.Sig
+		return x.Packets
 	}
 	return nil
 }
 
-func (x *SigPubkeyPair) GetPubkey() []byte {
-	if x != nil {
-		return x.Pubkey
-	}
-	return nil
-}
-
-// AggregateResponse is a response from the aggregator.
-type AggregateResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// A list of signature and public key pairs.
-	SigPubkeyPairs []*SigPubkeyPair `protobuf:"bytes,1,rep,name=sig_pubkey_pairs,json=sigPubkeyPairs,proto3" json:"sig_pubkey_pairs,omitempty"`
-	// The aggregated state.
-	State []byte `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"` // 32 bytes
-	// The height of the aggregated state.
-	Height        uint64 `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AggregateResponse) Reset() {
-	*x = AggregateResponse{}
-	mi := &file_aggregator_aggregator_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AggregateResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AggregateResponse) ProtoMessage() {}
-
-func (x *AggregateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_aggregator_aggregator_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AggregateResponse.ProtoReflect.Descriptor instead.
-func (*AggregateResponse) Descriptor() ([]byte, []int) {
-	return file_aggregator_aggregator_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *AggregateResponse) GetSigPubkeyPairs() []*SigPubkeyPair {
-	if x != nil {
-		return x.SigPubkeyPairs
-	}
-	return nil
-}
-
-func (x *AggregateResponse) GetState() []byte {
-	if x != nil {
-		return x.State
-	}
-	return nil
-}
-
-func (x *AggregateResponse) GetHeight() uint64 {
+func (x *GetAttestationsRequest) GetHeight() uint64 {
 	if x != nil {
 		return x.Height
 	}
 	return 0
+}
+
+// One instance of an attestation with all signatures and public keys
+type AggregatedAttestation struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The height of the attestation
+	Height uint64 `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	// The timestamp of the block
+	Timestamp *uint64 `protobuf:"varint,2,opt,name=timestamp,proto3,oneof" json:"timestamp,omitempty"`
+	// The attested data
+	AttestedData []byte `protobuf:"bytes,3,opt,name=attested_data,json=attestedData,proto3" json:"attested_data,omitempty"`
+	// The attestation signatures
+	Signatures [][]byte `protobuf:"bytes,4,rep,name=signatures,proto3" json:"signatures,omitempty"`
+	// The attestation public key
+	PublicKeys    [][]byte `protobuf:"bytes,5,rep,name=public_keys,json=publicKeys,proto3" json:"public_keys,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AggregatedAttestation) Reset() {
+	*x = AggregatedAttestation{}
+	mi := &file_aggregator_aggregator_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AggregatedAttestation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AggregatedAttestation) ProtoMessage() {}
+
+func (x *AggregatedAttestation) ProtoReflect() protoreflect.Message {
+	mi := &file_aggregator_aggregator_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AggregatedAttestation.ProtoReflect.Descriptor instead.
+func (*AggregatedAttestation) Descriptor() ([]byte, []int) {
+	return file_aggregator_aggregator_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *AggregatedAttestation) GetHeight() uint64 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *AggregatedAttestation) GetTimestamp() uint64 {
+	if x != nil && x.Timestamp != nil {
+		return *x.Timestamp
+	}
+	return 0
+}
+
+func (x *AggregatedAttestation) GetAttestedData() []byte {
+	if x != nil {
+		return x.AttestedData
+	}
+	return nil
+}
+
+func (x *AggregatedAttestation) GetSignatures() [][]byte {
+	if x != nil {
+		return x.Signatures
+	}
+	return nil
+}
+
+func (x *AggregatedAttestation) GetPublicKeys() [][]byte {
+	if x != nil {
+		return x.PublicKeys
+	}
+	return nil
+}
+
+// GetStateAttestationResponse is a response from the aggregator.
+type GetAttestationsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The attestation of the blockchain state
+	StateAttestation *AggregatedAttestation `protobuf:"bytes,1,opt,name=state_attestation,json=stateAttestation,proto3" json:"state_attestation,omitempty"`
+	// The attestation of the packet membership at the attested state
+	PacketAttestation *AggregatedAttestation `protobuf:"bytes,2,opt,name=packet_attestation,json=packetAttestation,proto3" json:"packet_attestation,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *GetAttestationsResponse) Reset() {
+	*x = GetAttestationsResponse{}
+	mi := &file_aggregator_aggregator_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAttestationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAttestationsResponse) ProtoMessage() {}
+
+func (x *GetAttestationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_aggregator_aggregator_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAttestationsResponse.ProtoReflect.Descriptor instead.
+func (*GetAttestationsResponse) Descriptor() ([]byte, []int) {
+	return file_aggregator_aggregator_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *GetAttestationsResponse) GetStateAttestation() *AggregatedAttestation {
+	if x != nil {
+		return x.StateAttestation
+	}
+	return nil
+}
+
+func (x *GetAttestationsResponse) GetPacketAttestation() *AggregatedAttestation {
+	if x != nil {
+		return x.PacketAttestation
+	}
+	return nil
 }
 
 var File_aggregator_aggregator_proto protoreflect.FileDescriptor
@@ -191,21 +218,27 @@ var File_aggregator_aggregator_proto protoreflect.FileDescriptor
 const file_aggregator_aggregator_proto_rawDesc = "" +
 	"\n" +
 	"\x1baggregator/aggregator.proto\x12\n" +
-	"aggregator\"1\n" +
-	"\x10AggregateRequest\x12\x1d\n" +
+	"aggregator\"J\n" +
+	"\x16GetAttestationsRequest\x12\x18\n" +
+	"\apackets\x18\x01 \x03(\fR\apackets\x12\x16\n" +
+	"\x06height\x18\x02 \x01(\x04R\x06height\"\xc6\x01\n" +
+	"\x15AggregatedAttestation\x12\x16\n" +
+	"\x06height\x18\x01 \x01(\x04R\x06height\x12!\n" +
+	"\ttimestamp\x18\x02 \x01(\x04H\x00R\ttimestamp\x88\x01\x01\x12#\n" +
+	"\rattested_data\x18\x03 \x01(\fR\fattestedData\x12\x1e\n" +
 	"\n" +
-	"min_height\x18\x01 \x01(\x04R\tminHeight\"9\n" +
-	"\rSigPubkeyPair\x12\x10\n" +
-	"\x03sig\x18\x01 \x01(\fR\x03sig\x12\x16\n" +
-	"\x06pubkey\x18\x02 \x01(\fR\x06pubkey\"\x86\x01\n" +
-	"\x11AggregateResponse\x12C\n" +
-	"\x10sig_pubkey_pairs\x18\x01 \x03(\v2\x19.aggregator.SigPubkeyPairR\x0esigPubkeyPairs\x12\x14\n" +
-	"\x05state\x18\x02 \x01(\fR\x05state\x12\x16\n" +
-	"\x06height\x18\x03 \x01(\x04R\x06height2d\n" +
+	"signatures\x18\x04 \x03(\fR\n" +
+	"signatures\x12\x1f\n" +
+	"\vpublic_keys\x18\x05 \x03(\fR\n" +
+	"publicKeysB\f\n" +
 	"\n" +
-	"Aggregator\x12V\n" +
-	"\x17GetAggregateAttestation\x12\x1c.aggregator.AggregateRequest\x1a\x1d.aggregator.AggregateResponseBy\n" +
-	"\x0ecom.aggregatorB\x0fAggregatorProtoP\x01Z\x0etypes/attestor\xa2\x02\x03AXX\xaa\x02\n" +
+	"_timestamp\"\xbb\x01\n" +
+	"\x17GetAttestationsResponse\x12N\n" +
+	"\x11state_attestation\x18\x01 \x01(\v2!.aggregator.AggregatedAttestationR\x10stateAttestation\x12P\n" +
+	"\x12packet_attestation\x18\x02 \x01(\v2!.aggregator.AggregatedAttestationR\x11packetAttestation2o\n" +
+	"\x11AggregatorService\x12Z\n" +
+	"\x0fGetAttestations\x12\".aggregator.GetAttestationsRequest\x1a#.aggregator.GetAttestationsResponseB{\n" +
+	"\x0ecom.aggregatorB\x0fAggregatorProtoP\x01Z\x10types/aggregator\xa2\x02\x03AXX\xaa\x02\n" +
 	"Aggregator\xca\x02\n" +
 	"Aggregator\xe2\x02\x16Aggregator\\GPBMetadata\xea\x02\n" +
 	"Aggregatorb\x06proto3"
@@ -224,19 +257,20 @@ func file_aggregator_aggregator_proto_rawDescGZIP() []byte {
 
 var file_aggregator_aggregator_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_aggregator_aggregator_proto_goTypes = []any{
-	(*AggregateRequest)(nil),  // 0: aggregator.AggregateRequest
-	(*SigPubkeyPair)(nil),     // 1: aggregator.SigPubkeyPair
-	(*AggregateResponse)(nil), // 2: aggregator.AggregateResponse
+	(*GetAttestationsRequest)(nil),  // 0: aggregator.GetAttestationsRequest
+	(*AggregatedAttestation)(nil),   // 1: aggregator.AggregatedAttestation
+	(*GetAttestationsResponse)(nil), // 2: aggregator.GetAttestationsResponse
 }
 var file_aggregator_aggregator_proto_depIdxs = []int32{
-	1, // 0: aggregator.AggregateResponse.sig_pubkey_pairs:type_name -> aggregator.SigPubkeyPair
-	0, // 1: aggregator.Aggregator.GetAggregateAttestation:input_type -> aggregator.AggregateRequest
-	2, // 2: aggregator.Aggregator.GetAggregateAttestation:output_type -> aggregator.AggregateResponse
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 0: aggregator.GetAttestationsResponse.state_attestation:type_name -> aggregator.AggregatedAttestation
+	1, // 1: aggregator.GetAttestationsResponse.packet_attestation:type_name -> aggregator.AggregatedAttestation
+	0, // 2: aggregator.AggregatorService.GetAttestations:input_type -> aggregator.GetAttestationsRequest
+	2, // 3: aggregator.AggregatorService.GetAttestations:output_type -> aggregator.GetAttestationsResponse
+	3, // [3:4] is the sub-list for method output_type
+	2, // [2:3] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_aggregator_aggregator_proto_init() }
@@ -244,6 +278,7 @@ func file_aggregator_aggregator_proto_init() {
 	if File_aggregator_aggregator_proto != nil {
 		return
 	}
+	file_aggregator_aggregator_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
