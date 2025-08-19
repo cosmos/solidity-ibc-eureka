@@ -6,17 +6,13 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-# Note: Not using ibc-eureka-relayer-lib to avoid SP1 dependencies
-# We don't need SP1 for Solana since it uses Proof of History
 ibc-eureka-relayer-core = { workspace = true, default-features = false }
 ibc-eureka-utils.workspace = true
 
 serde = { workspace = true, features = ["derive"] }
-# prost = { workspace = true, features = ["std"] } # Not used
 serde_json.workspace = true
 
 tonic = { workspace = true, default-features = true }
-# async-trait.workspace = true # Not used
 anyhow = { workspace = true, features = ["std"] }
 tracing = { workspace = true, default-features = true }
 
@@ -27,11 +23,7 @@ tendermint-rpc = { workspace = true, features = ["http-client"] }
 solana-client.workspace = true
 solana-sdk.workspace = true
 solana-transaction-status.workspace = true
-# anchor-lang not needed for relayer client code
-# borsh.workspace = true # Not used
 bincode.workspace = true
 hex.workspace = true
 
 ibc-proto-eureka.workspace = true
-# ibc-core-host-types.workspace = true # Not used
-# ics23.workspace = true # Not used

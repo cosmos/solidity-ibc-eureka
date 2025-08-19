@@ -66,7 +66,7 @@ pub enum CosmosIbcEvent {
 pub struct TxBuilder {
     /// The source Cosmos HTTP client.
     pub source_tm_client: HttpClient,
-    /// The Solana RPC client (wrapped in Arc since RpcClient doesn't implement Clone in 2.0).
+    /// The Solana RPC client (wrapped in Arc since `RpcClient` doesn't implement Clone in 2.0).
     pub solana_client: Arc<RpcClient>,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: Pubkey,
@@ -78,20 +78,27 @@ pub struct TxBuilder {
 
 impl TxBuilder {
     /// Creates a new `TxBuilder`.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if:
+    /// - Failed to read wallet file
+    /// - Failed to parse wallet JSON
+    /// - Failed to create keypair from wallet
     pub fn new(
         source_tm_client: HttpClient,
         solana_client: Arc<RpcClient>,
         solana_ics26_program_id: Pubkey,
         solana_ics07_program_id: Pubkey,
-        wallet_path: String,
+        wallet_path: &str,
     ) -> Result<Self> {
         // Load wallet keypair from file
-        let wallet_json = std::fs::read_to_string(&wallet_path)
-            .map_err(|e| anyhow::anyhow!("Failed to read wallet file: {}", e))?;
+        let wallet_json = std::fs::read_to_string(wallet_path)
+            .map_err(|e| anyhow::anyhow!("Failed to read wallet file: {e}"))?;
         let wallet_bytes: Vec<u8> = serde_json::from_str(&wallet_json)
-            .map_err(|e| anyhow::anyhow!("Failed to parse wallet JSON: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to parse wallet JSON: {e}"))?;
         let wallet_keypair = Keypair::try_from(wallet_bytes.as_slice())
-            .map_err(|e| anyhow::anyhow!("Failed to create keypair: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to create keypair: {e}"))?;
 
         Ok(Self {
             source_tm_client,
@@ -103,6 +110,10 @@ impl TxBuilder {
     }
 
     /// Fetch events from Cosmos transactions
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if failed to fetch Cosmos transaction
     pub async fn fetch_cosmos_events(&self, tx_hashes: Vec<Hash>) -> Result<Vec<CosmosIbcEvent>> {
         let mut events = Vec::new();
 
@@ -111,7 +122,7 @@ impl TxBuilder {
             let tx_result = self.source_tm_client
                 .tx(tx_hash, false)
                 .await
-                .map_err(|e| anyhow::anyhow!("Failed to fetch Cosmos transaction: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Failed to fetch Cosmos transaction: {e}"))?;
 
             // Parse IBC events from transaction result
             for event in tx_result.tx_result.events {
@@ -182,7 +193,11 @@ impl TxBuilder {
     }
 
     /// Fetch timeout events from Solana transactions
-    pub async fn fetch_solana_timeout_events(
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if failed to fetch Solana transaction
+    pub fn fetch_solana_timeout_events(
         &self,
         tx_signatures: Vec<Signature>,
     ) -> Result<Vec<CosmosIbcEvent>> {
@@ -192,7 +207,7 @@ impl TxBuilder {
             let tx = self
                 .solana_client
                 .get_transaction(&signature, UiTransactionEncoding::Json)
-                .map_err(|e| anyhow::anyhow!("Failed to fetch Solana transaction: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Failed to fetch Solana transaction: {e}"))?;
 
             // Parse timeout events from Solana transaction logs
             if let Some(_meta) = tx.transaction.meta {
@@ -207,6 +222,14 @@ impl TxBuilder {
     }
 
     /// Build a Solana transaction from IBC events
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if:
+    /// - Failed to build update client instruction
+    /// - No instructions to execute
+    /// - Failed to get latest blockhash
+    #[allow(clippy::cognitive_complexity)]
     pub async fn build_solana_tx(
         &self,
         src_events: Vec<CosmosIbcEvent>,
@@ -221,6 +244,7 @@ impl TxBuilder {
         // Process source events from Cosmos
         for event in src_events {
             match event {
+                #[allow(clippy::used_underscore_binding)]
                 CosmosIbcEvent::SendPacket { 
                     sequence,
                     source_port,
@@ -234,14 +258,14 @@ impl TxBuilder {
                     // Build RecvPacket instruction for Solana
                     let recv_packet_ix = self.build_recv_packet_instruction(
                         sequence,
-                        source_port,
-                        source_channel,
-                        destination_port,
-                        destination_channel,
-                        data,
+                        &source_port,
+                        &source_channel,
+                        &destination_port,
+                        &destination_channel,
+                        &data,
                         _timeout_height,
                         timeout_timestamp,
-                    )?;
+                    );
                     instructions.push(recv_packet_ix);
                 }
                 CosmosIbcEvent::AcknowledgePacket { .. } => {
@@ -267,7 +291,7 @@ impl TxBuilder {
         // Get recent blockhash
         let recent_blockhash = self.solana_client
             .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
         // Create and sign transaction
         let tx = Transaction::new_signed_with_payer(
@@ -281,16 +305,22 @@ impl TxBuilder {
     }
 
     /// Build instruction to update Tendermint light client on Solana
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if:
+    /// - Failed to get latest block from Cosmos
+    /// - Failed to serialize header
     async fn build_update_client_instruction(&self) -> Result<Instruction> {
         // Get latest block from Cosmos
         let latest_block = self.source_tm_client
             .latest_block()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to get latest block: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
 
         // Serialize the header and validators for the update
         let header_bytes = bincode::serialize(&latest_block.block.header)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize header: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to serialize header: {e}"))?;
 
         // Build the instruction data
         let mut instruction_data = vec![0]; // Instruction discriminator for UpdateClient
@@ -306,18 +336,23 @@ impl TxBuilder {
         })
     }
 
-    /// Build instruction for RecvPacket on Solana
+    /// Build instruction for `RecvPacket` on Solana
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if packet data cannot be serialized
+    #[allow(clippy::too_many_arguments, clippy::used_underscore_binding)]
     fn build_recv_packet_instruction(
         &self,
         sequence: u64,
-        source_port: String,
-        source_channel: String,
-        destination_port: String,
-        destination_channel: String,
-        data: Vec<u8>,
+        source_port: &str,
+        source_channel: &str,
+        destination_port: &str,
+        destination_channel: &str,
+        data: &[u8],
         _timeout_height: Height,
         timeout_timestamp: u64,
-    ) -> Result<Instruction> {
+    ) -> Instruction {
         // Build the instruction data for RecvPacket
         let mut instruction_data = vec![1]; // Instruction discriminator for RecvPacket
         instruction_data.extend_from_slice(&sequence.to_le_bytes());
@@ -325,20 +360,27 @@ impl TxBuilder {
         instruction_data.extend_from_slice(source_channel.as_bytes());
         instruction_data.extend_from_slice(destination_port.as_bytes());
         instruction_data.extend_from_slice(destination_channel.as_bytes());
-        instruction_data.extend_from_slice(&data);
+        instruction_data.extend_from_slice(data);
         instruction_data.extend_from_slice(&timeout_timestamp.to_le_bytes());
 
-        Ok(Instruction {
+        Instruction {
             program_id: self.solana_ics26_program_id,
             accounts: vec![
                 AccountMeta::new(self.wallet_keypair.pubkey(), true), // Signer
                 // Add other required accounts for packet reception
             ],
             data: instruction_data,
-        })
+        }
     }
 
     /// Build a create client transaction for Solana
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if:
+    /// - Failed to get genesis block
+    /// - Failed to serialize header
+    /// - Failed to get latest blockhash
     pub async fn build_create_client_tx(
         &self,
         parameters: HashMap<String, String>,
@@ -350,14 +392,14 @@ impl TxBuilder {
             .unwrap_or(1);
 
         let genesis_block = self.source_tm_client
-            .block(genesis_height as u32)
+            .block(u32::try_from(genesis_height).unwrap_or(1))
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to get genesis block: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to get genesis block: {e}"))?;
 
         // Build instruction data for creating Tendermint light client
         let mut instruction_data = vec![2]; // Instruction discriminator for CreateClient
         let header_bytes = bincode::serialize(&genesis_block.block.header)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize header: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to serialize header: {e}"))?;
         instruction_data.extend_from_slice(&header_bytes);
 
         let instruction = Instruction {
@@ -372,7 +414,7 @@ impl TxBuilder {
         // Get recent blockhash
         let recent_blockhash = self.solana_client
             .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
         // Create and sign transaction
         let tx = Transaction::new_signed_with_payer(
@@ -386,6 +428,13 @@ impl TxBuilder {
     }
 
     /// Build an update client transaction for Solana
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if:
+    /// - Failed to get latest block
+    /// - Failed to serialize header
+    /// - Failed to get latest blockhash
     pub async fn build_update_client_tx(&self, client_id: String) -> Result<Transaction> {
         tracing::info!("Building update client transaction for client {}", client_id);
 
@@ -393,13 +442,13 @@ impl TxBuilder {
         let latest_block = self.source_tm_client
             .latest_block()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to get latest block: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
 
         // Build instruction data
         let mut instruction_data = vec![3]; // Instruction discriminator for UpdateClient
         instruction_data.extend_from_slice(client_id.as_bytes());
         let header_bytes = bincode::serialize(&latest_block.block.header)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize header: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to serialize header: {e}"))?;
         instruction_data.extend_from_slice(&header_bytes);
 
         let instruction = Instruction {
@@ -414,7 +463,7 @@ impl TxBuilder {
         // Get recent blockhash
         let recent_blockhash = self.solana_client
             .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
         // Create and sign transaction
         let tx = Transaction::new_signed_with_payer(

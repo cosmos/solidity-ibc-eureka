@@ -1,8 +1,4 @@
 //! This is a one-sided relayer module from Solana to a Cosmos SDK chain.
-//!
-//! Note: This module does not use SP1 proofs since Solana uses Proof of History,
-//! not Tendermint consensus. Instead, it would use a WASM light client on Cosmos
-//! to verify Solana's `PoH` consensus.
 
 #![deny(
     clippy::nursery,
@@ -18,6 +14,7 @@ pub mod tx_builder;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use anyhow::Context;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::signature::Signature;
@@ -70,7 +67,7 @@ impl SolanaToCosmosRelayerModuleService {
         let solana_ics26_program_id = config
             .solana_ics26_program_id
             .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid Solana program ID: {}", e))?;
+            .context("Invalid Solana program ID")?
 
         let tx_builder = tx_builder::TxBuilder::new(
             Arc::clone(&solana_client),
@@ -156,7 +153,6 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         let src_events = self
             .tx_builder
             .fetch_solana_events(src_txs)
-            .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::debug!(solana_src_events = ?src_events, "Fetched source Solana events.");
@@ -176,7 +172,6 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         let tx = self
             .tx_builder
             .build_relay_tx(src_events, target_events)
-            .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!(
@@ -201,7 +196,6 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         let tx = self
             .tx_builder
             .build_create_client_tx(inner_req.parameters)
-            .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         Ok(Response::new(api::CreateClientResponse {
@@ -221,7 +215,6 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         let tx = self
             .tx_builder
             .build_update_client_tx(inner_req.dst_client_id)
-            .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         Ok(Response::new(api::UpdateClientResponse {

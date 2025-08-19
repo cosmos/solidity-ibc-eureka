@@ -60,7 +60,7 @@ pub struct CosmosToSolanaConfig {
 }
 
 impl CosmosToSolanaRelayerModuleService {
-    fn new(config: CosmosToSolanaConfig) -> anyhow::Result<Self> {
+    fn new(config: &CosmosToSolanaConfig) -> anyhow::Result<Self> {
         let source_client = HttpClient::from_rpc_url(&config.source_rpc_url);
         let solana_client = Arc::new(RpcClient::new(config.solana_rpc_url.clone()));
 
@@ -79,7 +79,7 @@ impl CosmosToSolanaRelayerModuleService {
             solana_client.clone(),
             solana_ics26_program_id,
             solana_ics07_program_id,
-            config.solana_wallet_path,
+            &config.solana_wallet_path,
         )?;
 
         Ok(Self {
@@ -106,7 +106,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .source_tm_client
             .status()
             .await
-            .map_err(|e| tonic::Status::internal(format!("Failed to get chain ID: {}", e)))?;
+            .map_err(|e| tonic::Status::internal(format!("Failed to get chain ID: {e}")))?;
 
         Ok(Response::new(api::InfoResponse {
             source_chain: Some(api::Chain {
@@ -173,7 +173,6 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         let target_events = self
             .tx_builder
             .fetch_solana_timeout_events(target_txs)
-            .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::debug!(solana_target_events = ?target_events, "Fetched target Solana events.");
@@ -262,8 +261,7 @@ impl RelayerModule for CosmosToSolanaRelayerModule {
         config: serde_json::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
         let config: CosmosToSolanaConfig = serde_json::from_value(config)?;
-        let service = CosmosToSolanaRelayerModuleService::new(config)?;
+        let service = CosmosToSolanaRelayerModuleService::new(&config)?;
         Ok(Box::new(service))
     }
 }
-

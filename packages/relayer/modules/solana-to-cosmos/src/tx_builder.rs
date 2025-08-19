@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::Context;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -103,25 +103,26 @@ impl TxBuilder {
     }
 
     /// Fetch events from Solana transactions
-    pub async fn fetch_solana_events(
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to fetch Solana transaction
+    /// - Transaction deserialization fails
+    pub fn fetch_solana_events(
         &self,
         tx_signatures: Vec<Signature>,
-    ) -> Result<Vec<SolanaIbcEvent>> {
+    ) -> anyhow::Result<Vec<SolanaIbcEvent>> {
         let events = Vec::new();
 
         for signature in tx_signatures {
             let tx = self
                 .solana_client
                 .get_transaction(&signature, UiTransactionEncoding::Json)
-                .map_err(|e| anyhow::anyhow!("Failed to fetch Solana transaction: {}", e))?;
+                .context("Failed to fetch Solana transaction")?;
 
             // Check if transaction was successful
-            if tx
-                .transaction
-                .meta
-                .as_ref()
-                .map_or(true, |m| m.err.is_some())
-            {
+            if tx.transaction.meta.as_ref().is_none_or(|m| m.err.is_some()) {
                 continue; // Skip failed transactions
             }
 
@@ -138,15 +139,22 @@ impl TxBuilder {
     }
 
     /// Build a relay transaction for Cosmos
-    pub async fn build_relay_tx(
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to build update client message
+    /// - No messages to relay
+    #[allow(clippy::cognitive_complexity)]
+    pub fn build_relay_tx(
         &self,
         src_events: Vec<SolanaIbcEvent>,
         target_events: Vec<SolanaIbcEvent>, // Timeout events from target
-    ) -> Result<TxBody> {
+    ) -> anyhow::Result<TxBody> {
         let mut messages = Vec::new();
 
         // First, update the Solana light client on Cosmos
-        let update_msg = self.build_update_client_msg().await?;
+        let update_msg = self.build_update_client_msg()?;
         messages.push(Any::from_msg(&update_msg)?);
 
         // Process source events from Solana
@@ -185,14 +193,18 @@ impl TxBuilder {
     }
 
     /// Build an update client message for the Solana light client on Cosmos
-    async fn build_update_client_msg(&self) -> Result<MsgUpdateClient> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if failed to get Solana slot
+    fn build_update_client_msg(&self) -> anyhow::Result<MsgUpdateClient> {
         // Get latest Solana slot/block information
         let slot = self
             .solana_client
             .get_slot()
-            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {}", e))?;
+            .context("Failed to get Solana slot")?;
 
-        tracing::info!("Updating Solana client at slot {}", slot);
+        tracing::info!(slot, "Updating Solana client");
 
         // Create update message with latest Solana state
         // This would include proof-of-history verification data
@@ -207,10 +219,16 @@ impl TxBuilder {
     }
 
     /// Build a create client transaction
-    pub async fn build_create_client_tx(
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to get Solana slot
+    /// - Failed to serialize client state
+    pub fn build_create_client_tx(
         &self,
         _parameters: HashMap<String, String>,
-    ) -> Result<TxBody> {
+    ) -> anyhow::Result<TxBody> {
         // For Solana, we would create a WASM light client on Cosmos
         // that can verify Solana's proof-of-history consensus
 
@@ -220,7 +238,7 @@ impl TxBuilder {
         let slot = self
             .solana_client
             .get_slot()
-            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
+            .context("failed to get Solana slot")?;
 
         // Create WASM client state for Solana verification
         // This would contain the Solana validator set and consensus parameters
@@ -251,14 +269,20 @@ impl TxBuilder {
     }
 
     /// Build an update client transaction
-    pub async fn build_update_client_tx(&self, client_id: String) -> Result<TxBody> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to get Solana slot
+    /// - Failed to serialize update message
+    pub fn build_update_client_tx(&self, client_id: String) -> anyhow::Result<TxBody> {
         // Get latest Solana slot/block information
         let slot = self
             .solana_client
             .get_slot()
-            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
+            .context("Failed to get Solana slot")?;
 
-        tracing::info!("Updating Solana client {client_id} at slot {slot}");
+        tracing::info!(client_id, slot, "Updating Solana client");
 
         // Create update message with latest Solana state
         // This would include proof-of-history verification data
