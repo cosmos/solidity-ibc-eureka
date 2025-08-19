@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-small-strings
+
 import { Test } from "forge-std/Test.sol";
 
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";

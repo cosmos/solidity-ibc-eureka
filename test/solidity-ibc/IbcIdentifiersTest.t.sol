@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// solhint-disable max-line-length,gas-custom-errors
+// solhint-disable max-line-length,gas-custom-errors,gas-small-strings
 
 import { Test } from "forge-std/Test.sol";
 import { IBCIdentifiers } from "../../contracts/utils/IBCIdentifiers.sol";
@@ -50,7 +50,7 @@ contract IBCIdentifiersTest is Test {
             expPass: true
         });
 
-        for (uint256 i = 0; i < testCases.length; i++) {
+        for (uint256 i = 0; i < testCases.length; ++i) {
             ValidateCustomIBCIdentifierTestCase memory tc = testCases[i];
             bool res = IBCIdentifiers.validateCustomIBCIdentifier(bytes(tc.id));
             if (tc.expPass) {

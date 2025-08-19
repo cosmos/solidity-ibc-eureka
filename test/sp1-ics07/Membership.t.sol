@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-small-strings
+
 // solhint-disable-next-line no-global-import
 import "forge-std/console.sol";
 import { MembershipTest } from "./MembershipTest.sol";
@@ -25,7 +27,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
     function test_ValidateFixtures() public {
         FixtureTestCase[] memory testCases = fixtureTestCases();
 
-        for (uint256 i = 0; i < testCases.length; i++) {
+        for (uint256 i = 0; i < testCases.length; ++i) {
             FixtureTestCase memory tc = testCases[i];
             setUpMembershipTestWithFixture(tc.fileName);
 
@@ -44,7 +46,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
     function test_ValidVerifyMembership() public {
         FixtureTestCase[] memory testCases = fixtureTestCases();
 
-        for (uint256 i = 0; i < testCases.length; i++) {
+        for (uint256 i = 0; i < testCases.length; ++i) {
             FixtureTestCase memory tc = testCases[i];
             setUpMembershipTestWithFixture(tc.fileName);
 
@@ -65,7 +67,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
     function test_ValidVerifyNonMembership() public {
         FixtureTestCase[] memory testCases = fixtureTestCases();
 
-        for (uint256 i = 0; i < testCases.length; i++) {
+        for (uint256 i = 0; i < testCases.length; ++i) {
             FixtureTestCase memory tc = testCases[i];
             setUpMembershipTestWithFixture(tc.fileName);
 
@@ -131,7 +133,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
     function test_Invalid_VerifyMembership() public {
         FixtureTestCase[] memory testCases = fixtureTestCases();
 
-        for (uint256 i = 0; i < testCases.length; i++) {
+        for (uint256 i = 0; i < testCases.length; ++i) {
             FixtureTestCase memory tc = testCases[i];
             setUpMembershipTestWithFixture(tc.fileName);
 
@@ -152,6 +154,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
         }
     }
 
+    // solhint-disable-next-line function-max-lines
     function test_Invalid_MockMembership() public {
         // It doesn't matter which fixture we use, as we use mock verifier
         setUpMembershipTestWithFixture("memberships_fixture-plonk.json");
@@ -249,7 +252,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
             expPass: false
         });
 
-        for (uint256 i = 0; i < testCases.length; i++) {
+        for (uint256 i = 0; i < testCases.length; ++i) {
             MockInvalidMembershipTestCase memory tc = testCases[i];
 
             SP1MembershipProof memory proofMsg = proof;
@@ -301,6 +304,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
         }
     }
 
+    // solhint-disable-next-line gas-struct-packing
     struct MockInvalidMembershipTestCase {
         string name;
         SP1Proof sp1Proof;
