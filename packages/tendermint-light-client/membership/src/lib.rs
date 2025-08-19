@@ -1,11 +1,6 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-membership` program.
-#![deny(
-    missing_docs,
-    clippy::nursery,
-    clippy::pedantic,
-    warnings,
-    unused_crate_dependencies
-)]
+#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings)]
+#![cfg_attr(not(test), deny(unused_crate_dependencies))]
 
 use ibc_core_commitment_types::{
     commitment::CommitmentRoot,

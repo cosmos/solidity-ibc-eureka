@@ -50,6 +50,7 @@
             parallel
             rust
             protobuf
+            slither-analyzer
             buf
             protoc-gen-go
             protoc-gen-go-grpc
