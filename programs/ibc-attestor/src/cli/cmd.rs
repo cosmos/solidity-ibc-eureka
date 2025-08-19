@@ -51,9 +51,9 @@ pub mod key {
 
     #[derive(Clone, Debug, Parser)]
     pub struct ShowArgs {
-        #[clap(long)]
-        pub hide_private: bool,
-        #[clap(long)]
-        pub hide_public: bool,
+        #[clap(long, default_value = "false")]
+        pub show_private: bool,
+        #[clap(long, default_value = "true")]
+        pub show_public: bool,
     }
 }

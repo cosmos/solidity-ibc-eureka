@@ -51,7 +51,7 @@ func StartAttestor(configPath string, binaryPath AttestorBinaryPath) (*os.Proces
 }
 
 func ReadAttestorPubKey(binaryPath AttestorBinaryPath) (string, error) {
-	cmd := exec.Command(binaryPath, "key", "show", "--hide-private")
+	cmd := exec.Command(binaryPath, "key", "show")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout

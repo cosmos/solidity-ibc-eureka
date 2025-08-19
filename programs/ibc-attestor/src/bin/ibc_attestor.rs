@@ -54,11 +54,11 @@ async fn main() -> Result<(), anyhow::Error> {
                 KeyCommands::Show(args) => {
                     let mut printed_any = false;
 
-                    if !args.hide_private {
+                    if args.show_private {
                         let skey =
                             read_private_pem_to_string(&*IBC_ATTESTOR_PATH).map_err(|_| {
                                 anyhow::anyhow!(
-                                    "no key found at {}, please run `ibc_attestor key generate`",
+                                    "no key found at {}, please run `key generate`",
                                     IBC_ATTESTOR_PATH.to_str().unwrap()
                                 )
                             })?;
@@ -72,7 +72,7 @@ async fn main() -> Result<(), anyhow::Error> {
                         println!("\n");
                     }
 
-                    if !args.hide_public {
+                    if args.show_public {
                         let pkey =
                             read_public_key_to_string(&*IBC_ATTESTOR_PATH).map_err(|_| {
                                 anyhow::anyhow!(
