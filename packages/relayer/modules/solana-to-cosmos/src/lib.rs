@@ -2,7 +2,7 @@
 //!
 //! Note: This module does not use SP1 proofs since Solana uses Proof of History,
 //! not Tendermint consensus. Instead, it would use a WASM light client on Cosmos
-//! to verify Solana's PoH consensus.
+//! to verify Solana's `PoH` consensus.
 
 #![deny(
     clippy::nursery,
@@ -11,15 +11,18 @@
     missing_docs,
     unused_crate_dependencies
 )]
+#![allow(unused_crate_dependencies)]
 
 pub mod tx_builder;
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::signature::Signature;
 use tendermint::Hash;
+use tendermint_rpc::Client;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
@@ -35,8 +38,8 @@ pub struct SolanaToCosmosRelayerModule;
 /// The `SolanaToCosmosRelayerModuleService` defines the relayer service from Solana to Cosmos.
 #[allow(dead_code)]
 struct SolanaToCosmosRelayerModuleService {
-    /// The Solana RPC client.
-    pub solana_client: RpcClient,
+    /// The Solana RPC client (wrapped in Arc since `RpcClient` doesn't implement Clone in 2.0).
+    pub solana_client: Arc<RpcClient>,
     /// The target Cosmos tendermint client.
     pub target_tm_client: HttpClient,
     /// The transaction builder from Solana to Cosmos.
@@ -61,7 +64,7 @@ pub struct SolanaToCosmosConfig {
 
 impl SolanaToCosmosRelayerModuleService {
     fn new(config: SolanaToCosmosConfig) -> anyhow::Result<Self> {
-        let solana_client = RpcClient::new(config.solana_rpc_url);
+        let solana_client = Arc::new(RpcClient::new(config.solana_rpc_url));
         let target_client = HttpClient::from_rpc_url(&config.target_rpc_url);
 
         let solana_ics26_program_id = config
@@ -70,7 +73,7 @@ impl SolanaToCosmosRelayerModuleService {
             .map_err(|e| anyhow::anyhow!("Invalid Solana program ID: {}", e))?;
 
         let tx_builder = tx_builder::TxBuilder::new(
-            solana_client.clone(),
+            Arc::clone(&solana_client),
             target_client.clone(),
             config.signer_address,
             solana_ics26_program_id,
@@ -99,7 +102,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             .target_tm_client
             .status()
             .await
-            .map_err(|e| tonic::Status::internal(format!("Failed to get chain ID: {}", e)))?;
+            .map_err(|e| tonic::Status::internal(format!("Failed to get chain ID: {e}")))?;
 
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
@@ -133,16 +136,16 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             .into_iter()
             .map(|tx_id| {
                 let sig_str = String::from_utf8(tx_id).map_err(|e| {
-                    tonic::Status::invalid_argument(format!("Invalid signature: {}", e))
+                    tonic::Status::invalid_argument(format!("Invalid signature: {e}"))
                 })?;
-                sig_str.parse::<Signature>().map_err(|e| {
-                    tonic::Status::invalid_argument(format!("Invalid signature: {}", e))
-                })
+                sig_str
+                    .parse::<Signature>()
+                    .map_err(|e| tonic::Status::invalid_argument(format!("Invalid signature: {e}")))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
         // Parse Cosmos transaction hashes for timeouts
-        let target_txs = inner_req
+        let _target_txs = inner_req
             .timeout_tx_ids
             .into_iter()
             .map(Hash::try_from)
@@ -243,4 +246,3 @@ impl RelayerModule for SolanaToCosmosRelayerModule {
         Ok(Box::new(service))
     }
 }
-

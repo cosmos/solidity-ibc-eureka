@@ -2,11 +2,10 @@
 //! Solana from events received from a Cosmos SDK chain.
 
 use std::collections::HashMap;
-use std::str::FromStr;
 
 use anyhow::Result;
-use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::ibc::core::client::v1::Height;
+use std::sync::Arc;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
@@ -15,9 +14,9 @@ use solana_sdk::{
     signer::Signer,
     transaction::Transaction,
 };
-use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
+use solana_transaction_status::UiTransactionEncoding;
 use tendermint::Hash;
-use tendermint_rpc::HttpClient;
+use tendermint_rpc::{Client, HttpClient};
 
 /// IBC event types from Cosmos
 #[derive(Debug, Clone)]
@@ -37,7 +36,7 @@ pub enum CosmosIbcEvent {
         /// Packet data
         data: Vec<u8>,
         /// Timeout height
-        timeout_height: Height,
+        _timeout_height: Height,
         /// Timeout timestamp
         timeout_timestamp: u64,
     },
@@ -67,8 +66,8 @@ pub enum CosmosIbcEvent {
 pub struct TxBuilder {
     /// The source Cosmos HTTP client.
     pub source_tm_client: HttpClient,
-    /// The Solana RPC client.
-    pub solana_client: RpcClient,
+    /// The Solana RPC client (wrapped in Arc since RpcClient doesn't implement Clone in 2.0).
+    pub solana_client: Arc<RpcClient>,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: Pubkey,
     /// The Solana ICS07 Tendermint light client program ID.
@@ -81,7 +80,7 @@ impl TxBuilder {
     /// Creates a new `TxBuilder`.
     pub fn new(
         source_tm_client: HttpClient,
-        solana_client: RpcClient,
+        solana_client: Arc<RpcClient>,
         solana_ics26_program_id: Pubkey,
         solana_ics07_program_id: Pubkey,
         wallet_path: String,
@@ -91,7 +90,7 @@ impl TxBuilder {
             .map_err(|e| anyhow::anyhow!("Failed to read wallet file: {}", e))?;
         let wallet_bytes: Vec<u8> = serde_json::from_str(&wallet_json)
             .map_err(|e| anyhow::anyhow!("Failed to parse wallet JSON: {}", e))?;
-        let wallet_keypair = Keypair::from_bytes(&wallet_bytes)
+        let wallet_keypair = Keypair::try_from(wallet_bytes.as_slice())
             .map_err(|e| anyhow::anyhow!("Failed to create keypair: {}", e))?;
 
         Ok(Self {
@@ -125,7 +124,7 @@ impl TxBuilder {
                         let mut destination_port = String::new();
                         let mut destination_channel = String::new();
                         let mut data = Vec::new();
-                        let mut timeout_height = Height::default();
+                        let timeout_height = Height::default();
                         let mut timeout_timestamp = 0u64;
 
                         for attr in event.attributes {
@@ -162,7 +161,7 @@ impl TxBuilder {
                             destination_port,
                             destination_channel,
                             data,
-                            timeout_height,
+                            _timeout_height: timeout_height,
                             timeout_timestamp,
                         });
                     }
@@ -187,7 +186,7 @@ impl TxBuilder {
         &self,
         tx_signatures: Vec<Signature>,
     ) -> Result<Vec<CosmosIbcEvent>> {
-        let mut events = Vec::new();
+        let events = Vec::new();
 
         for signature in tx_signatures {
             let tx = self
@@ -196,13 +195,11 @@ impl TxBuilder {
                 .map_err(|e| anyhow::anyhow!("Failed to fetch Solana transaction: {}", e))?;
 
             // Parse timeout events from Solana transaction logs
-            if let Some(meta) = tx.transaction.meta {
-                for log in meta.log_messages.unwrap_or_default() {
-                    if log.contains("IBC TimeoutPacket") {
-                        tracing::debug!("Found timeout event in Solana logs");
-                        // Parse timeout event details
-                    }
-                }
+            if let Some(_meta) = tx.transaction.meta {
+                // In Solana 2.0, log_messages is serialized differently
+                // In production, you'd parse the actual instruction data instead of logs
+                // For now, this is a placeholder implementation
+                tracing::debug!("Processing Solana transaction metadata for timeouts");
             }
         }
 
@@ -231,7 +228,7 @@ impl TxBuilder {
                     destination_port,
                     destination_channel,
                     data,
-                    timeout_height,
+                    _timeout_height,
                     timeout_timestamp,
                 } => {
                     // Build RecvPacket instruction for Solana
@@ -242,7 +239,7 @@ impl TxBuilder {
                         destination_port,
                         destination_channel,
                         data,
-                        timeout_height,
+                        _timeout_height,
                         timeout_timestamp,
                     )?;
                     instructions.push(recv_packet_ix);
@@ -318,7 +315,7 @@ impl TxBuilder {
         destination_port: String,
         destination_channel: String,
         data: Vec<u8>,
-        timeout_height: Height,
+        _timeout_height: Height,
         timeout_timestamp: u64,
     ) -> Result<Instruction> {
         // Build the instruction data for RecvPacket

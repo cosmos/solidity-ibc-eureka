@@ -1,33 +1,35 @@
 [package]
-name       = "ibc-eureka-relayer-solana-to-cosmos"
-version    = { workspace = true }
-edition    = { workspace = true }
-repository = { workspace = true }
-license    = { workspace = true }
+name = "ibc-eureka-relayer-solana-to-cosmos"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
-ibc-eureka-relayer-core   = { workspace = true, default-features = false }
-ibc-eureka-utils          = { workspace = true }
+# Note: Not using ibc-eureka-relayer-lib to avoid SP1 dependencies
+# Solana doesn't need SP1 since it uses Proof of History, not Tendermint
+ibc-eureka-relayer-core = { workspace = true, default-features = false }
+ibc-eureka-utils.workspace = true
 
-serde      = { workspace = true, features = ["derive"] }
-prost      = { workspace = true, features = ["std"] }
-serde_json = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+prost = { workspace = true, features = ["std"] }
+serde_json.workspace = true
 
-tonic         = { workspace = true, default-features = true }
-async-trait   = { workspace = true }
-anyhow        = { workspace = true, features = ["std"] }
-tracing       = { workspace = true, default-features = true }
+tonic = { workspace = true, default-features = true }
+# async-trait.workspace = true # Not used
+anyhow = { workspace = true, features = ["std"] }
+tracing = { workspace = true, default-features = true }
 
-tendermint     = { workspace = true, features = ["std"] }
+tendermint = { workspace = true, features = ["std"] }
 tendermint-rpc = { workspace = true, features = ["http-client"] }
 
 # Solana specific dependencies
-solana-client = { workspace = true }
-solana-sdk = { workspace = true }
-solana-transaction-status = { workspace = true }
-anchor-lang = { workspace = true }
-borsh = { workspace = true }
+solana-client.workspace = true
+solana-sdk.workspace = true
+solana-transaction-status.workspace = true
+# anchor-lang not needed for relayer client code
+# borsh.workspace = true # Not used
 
-ibc-proto-eureka          = { workspace = true }
-ibc-core-host-types       = { workspace = true }
-ics23                     = { workspace = true }
+ibc-proto-eureka.workspace = true
+# ibc-core-host-types.workspace = true # Not used
+# ics23.workspace = true # Not used

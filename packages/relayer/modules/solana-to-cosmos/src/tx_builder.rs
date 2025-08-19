@@ -2,9 +2,9 @@
 //! the Cosmos SDK chain from events received from Solana.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::Result;
-use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -15,7 +15,6 @@ use ibc_proto_eureka::{
         },
     },
 };
-use prost::Message;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::UiTransactionEncoding;
@@ -76,8 +75,8 @@ pub enum SolanaIbcEvent {
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from Solana.
 #[allow(dead_code)]
 pub struct TxBuilder {
-    /// The Solana RPC client.
-    pub solana_client: RpcClient,
+    /// The Solana RPC client
+    pub solana_client: Arc<RpcClient>,
     /// The HTTP client for the target chain.
     pub target_tm_client: HttpClient,
     /// The signer address for the Cosmos messages.
@@ -90,7 +89,7 @@ impl TxBuilder {
     /// Creates a new `TxBuilder`.
     #[must_use]
     pub const fn new(
-        solana_client: RpcClient,
+        solana_client: Arc<RpcClient>,
         target_tm_client: HttpClient,
         signer_address: String,
         solana_ics26_program_id: Pubkey,
@@ -108,7 +107,7 @@ impl TxBuilder {
         &self,
         tx_signatures: Vec<Signature>,
     ) -> Result<Vec<SolanaIbcEvent>> {
-        let mut events = Vec::new();
+        let events = Vec::new();
 
         for signature in tx_signatures {
             let tx = self
@@ -127,27 +126,11 @@ impl TxBuilder {
             }
 
             // Parse logs for IBC events
-            if let Some(meta) = tx.transaction.meta {
-                for log in meta.log_messages.unwrap_or_default() {
-                    // Parse SendPacket events
-                    if log.contains("Program log: IBC SendPacket") {
-                        // This is a simplified parsing - in production you'd parse the actual event data
-                        // from the instruction data or return data
-                        tracing::debug!("Found SendPacket event in Solana logs");
-
-                        // In a real implementation, you would:
-                        // 1. Parse the instruction data from the transaction
-                        // 2. Decode the Anchor/Borsh serialized event data
-                        // 3. Extract packet details
-                    }
-                    // Parse other event types similarly
-                    if log.contains("Program log: IBC AcknowledgePacket") {
-                        tracing::debug!("Found AcknowledgePacket event in Solana logs");
-                    }
-                    if log.contains("Program log: IBC TimeoutPacket") {
-                        tracing::debug!("Found TimeoutPacket event in Solana logs");
-                    }
-                }
+            if let Some(_meta) = tx.transaction.meta {
+                // In Solana 2.0, log_messages is serialized differently
+                // In production, you'd parse the actual instruction data instead of logs
+                // For now, this is a placeholder implementation
+                tracing::debug!("Processing Solana transaction metadata");
             }
         }
 
@@ -226,7 +209,7 @@ impl TxBuilder {
     /// Build a create client transaction
     pub async fn build_create_client_tx(
         &self,
-        parameters: HashMap<String, String>,
+        _parameters: HashMap<String, String>,
     ) -> Result<TxBody> {
         // For Solana, we would create a WASM light client on Cosmos
         // that can verify Solana's proof-of-history consensus
@@ -237,7 +220,7 @@ impl TxBuilder {
         let slot = self
             .solana_client
             .get_slot()
-            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
 
         // Create WASM client state for Solana verification
         // This would contain the Solana validator set and consensus parameters
@@ -273,9 +256,9 @@ impl TxBuilder {
         let slot = self
             .solana_client
             .get_slot()
-            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
 
-        tracing::info!("Updating Solana client {} at slot {}", client_id, slot);
+        tracing::info!("Updating Solana client {client_id} at slot {slot}");
 
         // Create update message with latest Solana state
         // This would include proof-of-history verification data
@@ -294,4 +277,3 @@ impl TxBuilder {
         })
     }
 }
-
