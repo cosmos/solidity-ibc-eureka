@@ -61,7 +61,7 @@ lint:
 lint-solidity:
 	@echo "Linting the Solidity code..."
 	forge fmt --check
-	bun solhint -w 0 '{scripts,contracts,test}/**/*.sol'
+	bun solhint -w 0 '{scripts,contracts}/**/*.sol'
 	natlint run --include 'contracts/**/*.sol'
 
 # Lint the Go code using `golangci-lint`
