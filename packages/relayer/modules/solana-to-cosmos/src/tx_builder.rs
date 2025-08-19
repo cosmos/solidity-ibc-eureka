@@ -4,7 +4,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::Context;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -119,7 +118,7 @@ impl TxBuilder {
             let tx = self
                 .solana_client
                 .get_transaction(&signature, UiTransactionEncoding::Json)
-                .context("Failed to fetch Solana transaction")?;
+                .map_err(|e| anyhow::anyhow!("Failed to fetch Solana transaction: {e}"))?;
 
             // Check if transaction was successful
             if tx.transaction.meta.as_ref().is_none_or(|m| m.err.is_some()) {
@@ -202,7 +201,7 @@ impl TxBuilder {
         let slot = self
             .solana_client
             .get_slot()
-            .context("Failed to get Solana slot")?;
+            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
 
         tracing::info!(slot, "Updating Solana client");
 
@@ -238,7 +237,7 @@ impl TxBuilder {
         let slot = self
             .solana_client
             .get_slot()
-            .context("failed to get Solana slot")?;
+            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
 
         // Create WASM client state for Solana verification
         // This would contain the Solana validator set and consensus parameters
@@ -280,7 +279,7 @@ impl TxBuilder {
         let slot = self
             .solana_client
             .get_slot()
-            .context("Failed to get Solana slot")?;
+            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
 
         tracing::info!(client_id, slot, "Updating Solana client");
 

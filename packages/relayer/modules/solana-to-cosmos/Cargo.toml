@@ -24,5 +24,8 @@ tendermint-rpc = { workspace = true, features = ["http-client"] }
 solana-client.workspace = true
 solana-sdk.workspace = true
 solana-transaction-status.workspace = true
+anchor-lang.workspace = true
+anchor-client.workspace = true
+borsh.workspace = true
 
 ibc-proto-eureka.workspace = true

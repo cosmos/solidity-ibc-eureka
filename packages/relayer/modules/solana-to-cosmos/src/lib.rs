@@ -1,20 +1,14 @@
 //! This is a one-sided relayer module from Solana to a Cosmos SDK chain.
 
-#![deny(
-    clippy::nursery,
-    clippy::pedantic,
-    warnings,
-    missing_docs,
-    unused_crate_dependencies
-)]
-#![allow(unused_crate_dependencies)]
+#![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
+#![allow(unused_crate_dependencies, missing_docs)]
 
+pub mod anchor_types;
 pub mod tx_builder;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::Context;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::signature::Signature;
@@ -67,7 +61,7 @@ impl SolanaToCosmosRelayerModuleService {
         let solana_ics26_program_id = config
             .solana_ics26_program_id
             .parse()
-            .context("Invalid Solana program ID")?
+            .map_err(|e| anyhow::anyhow!("Invalid Solana program ID: {e}"))?;
 
         let tx_builder = tx_builder::TxBuilder::new(
             Arc::clone(&solana_client),

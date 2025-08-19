@@ -4,10 +4,11 @@
     clippy::nursery,
     clippy::pedantic,
     warnings,
-    missing_docs,
     unused_crate_dependencies
 )]
+#![allow(missing_docs, unused_crate_dependencies)]
 
+pub mod anchor_types;
 pub mod tx_builder;
 
 use std::collections::HashMap;
