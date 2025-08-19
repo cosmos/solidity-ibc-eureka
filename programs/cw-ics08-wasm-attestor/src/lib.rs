@@ -19,3 +19,8 @@ pub mod sudo;
 pub mod test;
 
 pub use error::ContractError;
+
+// Unused crate dependencies - imported to satisfy linter
+use attestor_packet_membership as _;
+use hex as _;
+use serde as _;

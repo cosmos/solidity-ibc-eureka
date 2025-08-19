@@ -2,7 +2,7 @@
 
 use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
 
-use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, SudoMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg};
 use crate::{instantiate, query};
 use crate::{sudo, ContractError};
 
@@ -80,11 +80,6 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractErr
     }
 }
 
-#[allow(clippy::needless_pass_by_value)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
-    todo!()
-}
-
 #[cfg(test)]
 mod tests {
     use attestor_light_client::{
@@ -106,7 +101,7 @@ mod tests {
     pub fn consensus() -> ConsensusState {
         ConsensusState {
             height: 42,
-            timestamp: 1234567890,
+            timestamp: 1_234_567_890,
         }
     }
 
@@ -218,10 +213,7 @@ mod tests {
     }
 
     mod integration_tests {
-        use attestor_light_client::{
-            error::IbcAttestorClientError, membership::MembershipProof,
-            test_utils::PACKET_COMMITMENTS,
-        };
+        use attestor_light_client::{error::IbcAttestorClientError, membership::MembershipProof};
         use attestor_packet_membership::Packets;
         use cosmwasm_std::{
             coins,

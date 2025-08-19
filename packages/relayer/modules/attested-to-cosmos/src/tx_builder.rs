@@ -98,7 +98,7 @@ fn encode_and_cyphon_packet_if_relevant(
         && packet.destClient == dst_client_id
         && (seqs.is_empty() || seqs.contains(&packet.sequence))
     {
-        cyphon.push(packet.abi_encode())
+        cyphon.push(packet.abi_encode());
     }
 }
 
@@ -132,7 +132,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         let mut ics26_ack_packets = Vec::new();
         let mut heights = HashSet::new();
 
-        for event in src_events.iter() {
+        for event in &src_events {
             // Prepare cyphon and filtering params
             let (packet, cyphon, seqs) = match event.event {
                 EurekaEvent::SendPacket(ref packet) => {
@@ -171,10 +171,10 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         let (state, packets) = (
             response
                 .state_attestation
-                .ok_or(anyhow::anyhow!("No state received"))?,
+                .ok_or_else(|| anyhow::anyhow!("No state received"))?,
             response
                 .packet_attestation
-                .ok_or(anyhow::anyhow!("No packets received"))?,
+                .ok_or_else(|| anyhow::anyhow!("No packets received"))?,
         );
 
         tracing::info!(
@@ -252,8 +252,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         // NOTE: UpdateMsg must come first otherwise
         // client state may not contain the needed
         // height for the RecvMsgs
-        let all_msgs = [Any::from_msg(&update_msg)]
-            .into_iter()
+        let all_msgs = std::iter::once(Any::from_msg(&update_msg))
             .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
             .chain(timeout_msgs.into_iter().map(|m| Any::from_msg(&m)))
             .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
@@ -303,7 +302,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         );
         let pub_keys: Vec<VerifyingKey> = pub_keys_bytes
             .chunks_exact(33)
-            .map(|chunk| VerifyingKey::from_sec1_bytes(chunk))
+            .map(VerifyingKey::from_sec1_bytes)
             .collect::<Result<_, _>>()
             .map_err(|_| anyhow::anyhow!("failed to parse compressed secp256k1 pubkey"))?;
 

@@ -14,6 +14,7 @@ pub use account_state::AccountState;
 
 /// Relevant chain peek options. For their Solana
 /// interpretation see [these docs](https://docs.arbitrum.io/for-devs/troubleshooting-building#how-many-block-numbers-must-we-wait-for-in-arbitrum-before-we-can-confidently-state-that-the-transaction-has-reached-finality)
+#[allow(dead_code)]
 enum PeekKind {
     /// Latest L2 block
     Latest,
@@ -29,6 +30,7 @@ impl SolanaClient {
         todo!()
     }
 
+    #[allow(dead_code)]
     async fn get_account_info_by_slot_height(
         &self,
         _peek_kind: &PeekKind,
