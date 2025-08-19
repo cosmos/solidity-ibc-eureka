@@ -414,16 +414,6 @@ func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPa
 	}))
 }
 
-func (s *IbcAttestorTestSuite) Test_OptimismAttestorAttestsToLocalNode() {
-	ctx := context.Background()
-	proofType := types.GetEnvProofType()
-	s.AttestorAttestsToLocalNode(ctx, proofType, attestor.OptimismBinary)
-}
-
-func (s *IbcAttestorTestSuite) AttestorAttestsToLocalNode(ctx context.Context, proofType types.SupportedProofType, binaryPath attestor.AttestorBinaryPath) {
-	s.SetupSuite(ctx, proofType, binaryPath)
-}
-
 func (s *IbcAttestorTestSuite) Test_OptimismAttestToICS20PacketsOnEth() {
 	ctx := context.Background()
 	proofType := types.GetEnvProofType()
