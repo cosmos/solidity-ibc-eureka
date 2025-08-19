@@ -12,7 +12,7 @@ import (
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
 
-	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ibc_attestor"
+	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/attestor"
 )
 
 type AttestorBinaryPath = string

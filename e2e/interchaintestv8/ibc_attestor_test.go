@@ -36,8 +36,8 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
+	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ibc_attestor"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
