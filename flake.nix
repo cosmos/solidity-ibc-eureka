@@ -80,9 +80,10 @@
               anchor-go
               protobuf
               just
+              rust
             ];
             shellHook = ''
-              # Add Solana tools to PATH
+              export RUST_SRC_PATH="${rust}/lib/rustlib/src/rust/library"
               export PATH="${solana-agave}/bin:$PATH"
               echo ""
               echo "Solana development shell activated"
