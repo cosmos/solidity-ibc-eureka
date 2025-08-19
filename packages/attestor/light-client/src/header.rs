@@ -21,6 +21,8 @@ pub struct Header {
 impl Header {
     /// Create a new [Header] using encoded signatures and
     /// public keys.
+    #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn new(
         new_height: u64,
         timestamp: u64,

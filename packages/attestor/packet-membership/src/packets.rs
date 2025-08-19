@@ -7,12 +7,13 @@ pub struct Packets(Vec<Vec<u8>>);
 
 impl Packets {
     /// Create a new intances of [Packets]
-    pub fn new(packets: Vec<Vec<u8>>) -> Self {
+    #[must_use]
+    pub const fn new(packets: Vec<Vec<u8>>) -> Self {
         Self(packets)
     }
 
     /// Iterate over each individual packet
     pub fn packets(&self) -> impl Iterator<Item = &[u8]> {
-        self.0.iter().map(|p| p.as_slice())
+        self.0.iter().map(std::vec::Vec::as_slice)
     }
 }

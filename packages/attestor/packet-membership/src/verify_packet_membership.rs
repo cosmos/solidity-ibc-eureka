@@ -23,7 +23,7 @@ pub fn verify_packet_membership(
 }
 
 #[cfg(test)]
-#[allow(clippy::module_name_repetitions)]
+#[allow(clippy::module_inception)]
 mod verify_packet_membership {
     use super::*;
 

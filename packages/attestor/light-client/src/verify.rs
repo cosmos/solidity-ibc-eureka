@@ -100,7 +100,7 @@ mod verify_header {
         };
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
         let header = Header {
             new_height: cns.height,
@@ -123,7 +123,7 @@ mod verify_header {
         };
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
 
         let mut too_few_sigs = SIGS.to_vec();
@@ -152,7 +152,7 @@ mod verify_header {
         };
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
 
         let mut too_few_keys = KEYS.to_vec();
@@ -181,7 +181,7 @@ mod verify_header {
         };
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
 
         let rogue_skey =
@@ -217,7 +217,7 @@ mod verify_header {
         };
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
 
         let rogue_key =
@@ -229,9 +229,9 @@ mod verify_header {
         let mut valid_sigs_with_rogue_signer = SIGS.clone();
         valid_sigs_with_rogue_signer[4] = rogue_sig;
 
-        let rogue_pkey = rogue_key.verifying_key().clone();
+        let rogue_public_key = rogue_key.verifying_key().clone();
         let mut rogue_keys = KEYS.clone();
-        rogue_keys[4] = rogue_pkey.clone();
+        rogue_keys[4] = rogue_public_key.clone();
 
         let no_sig = Header {
             new_height: cns.height,
@@ -244,7 +244,7 @@ mod verify_header {
         let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
         assert!(matches!(
             res,
-            Err(IbcAttestorClientError::UnknownPublicKeySubmitted { pubkey } ) if pubkey == rogue_pkey
+            Err(IbcAttestorClientError::UnknownPublicKeySubmitted { pubkey } ) if pubkey == rogue_public_key
         ));
     }
 
@@ -258,7 +258,7 @@ mod verify_header {
         };
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
 
         let mut bad_sigs = SIGS.clone();
@@ -288,7 +288,7 @@ mod verify_header {
         };
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
 
         let mut bad_keys = KEYS.clone();
@@ -318,7 +318,7 @@ mod verify_header {
         };
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
         let bad_ts = Header {
             new_height: cns.height,
@@ -346,11 +346,11 @@ mod verify_header {
         let (prev, next) = (
             ConsensusState {
                 height: 100,
-                timestamp: 123456789,
+                timestamp: 123,
             },
             ConsensusState {
                 height: 100 + 2,
-                timestamp: 123456789 + 2,
+                timestamp: 123 + 2,
             },
         );
 
@@ -406,17 +406,17 @@ mod verify_header {
         let (prev, next) = (
             ConsensusState {
                 height: 100,
-                timestamp: 123456789,
+                timestamp: 123,
             },
             ConsensusState {
                 height: 100 + 2,
-                timestamp: 123456789 + 2,
+                timestamp: 123 + 2,
             },
         );
 
         let inbetween = Header {
             new_height: 100 + 1,
-            timestamp: 123456789 + 1,
+            timestamp: 123 + 1,
             attestation_data: packet_encoded_bytes().clone().into(),
             signatures: SIGS.clone(),
             pubkeys: KEYS.clone().into(),
@@ -427,7 +427,7 @@ mod verify_header {
 
         let before = Header {
             new_height: 100 - 1,
-            timestamp: 123456789 - 1,
+            timestamp: 123 - 1,
             attestation_data: packet_encoded_bytes().clone().into(),
             signatures: SIGS.clone(),
             pubkeys: KEYS.clone().into(),

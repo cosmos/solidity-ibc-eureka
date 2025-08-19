@@ -57,9 +57,7 @@ pub(crate) fn verify_attestation(
                 .verify(&hash_result, att_sig)
                 .map_err(|_| IbcAttestorClientError::InvalidSignature)?;
         } else {
-            return Err(IbcAttestorClientError::UnknownPublicKeySubmitted {
-                pubkey: att_key.clone(),
-            });
+            return Err(IbcAttestorClientError::UnknownPublicKeySubmitted { pubkey: *att_key });
         }
     }
 

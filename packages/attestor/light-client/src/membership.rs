@@ -77,7 +77,7 @@ mod verify_membership {
     fn succeeds() {
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
         let cs = ClientState {
             pub_keys: KEYS.clone(),
@@ -104,7 +104,7 @@ mod verify_membership {
     fn fails_if_height_is_incorrect() {
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
         let cs = ClientState {
             pub_keys: KEYS.clone(),
@@ -132,7 +132,7 @@ mod verify_membership {
     fn fails_if_proof_bad() {
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
         let cs = ClientState {
             pub_keys: KEYS.clone(),
@@ -161,7 +161,7 @@ mod verify_membership {
         bad_keys.pop();
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
         let cs = ClientState {
             pub_keys: KEYS.clone(),

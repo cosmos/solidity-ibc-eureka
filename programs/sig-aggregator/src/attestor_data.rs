@@ -37,8 +37,7 @@ impl AttestatorData {
     pub fn insert(&mut self, attestation: Attestation) -> Result<()> {
         attestation.validate().context("Invalid attestation")?;
 
-        let attested_data = State::try_from(attestation.attested_data.as_slice())
-            .context("Failed to convert attested_data to State")?;
+        let attested_data = State::from(attestation.attested_data.as_slice());
 
         self.state_attestations
             .entry(attested_data)

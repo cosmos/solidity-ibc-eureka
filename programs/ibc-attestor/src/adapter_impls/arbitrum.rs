@@ -44,7 +44,7 @@ impl ArbitrumClient {
         let address = Address::from_hex(&config.router_address)
             .map_err(|e| AttestorError::ClientConfigError(e.to_string()))?;
 
-        let router = routerInstance::new(address.into(), client.clone());
+        let router = routerInstance::new(address, client.clone());
 
         Ok(Self { client, router })
     }
@@ -77,8 +77,7 @@ impl ArbitrumClient {
         let is_empty = cmt.iter().max() == Some(&0);
         if is_empty {
             Err(AttestorError::ClientError(format!(
-                "commitment path {:?} at height {block_number} not found in Arbitrum L2",
-                hashed_path
+                "commitment path {hashed_path} at height {block_number} not found in Arbitrum L2",
             )))
         } else {
             Ok(*cmt)
@@ -114,7 +113,7 @@ impl AttestationAdapter for ArbitrumClient {
                     .get_historical_packet_commitment(hashed, height)
                     .await?;
 
-                if &packet.commitment() != &cmt {
+                if packet.commitment() != cmt {
                     Err(AttestorError::InvalidCommitment {
                         reason: "requested and received packet commitments do not match".into(),
                     })
