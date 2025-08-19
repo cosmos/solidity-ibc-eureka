@@ -42,7 +42,7 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable {
     }
 
     /// @inheritdoc IIBCERC20
-    function initialize(address ics20_, address escrow_, string memory fullDenomPath_) external initializer {
+    function initialize(address ics20_, address escrow_, string calldata fullDenomPath_) external initializer {
         __ERC20_init(fullDenomPath_, fullDenomPath_);
 
         IBCERC20Storage storage $ = _getIBCERC20Storage();

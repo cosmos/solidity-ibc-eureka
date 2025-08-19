@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-small-strings
+
 // solhint-disable-next-line no-global-import
 import "forge-std/console.sol";
 import { stdJson } from "forge-std/StdJson.sol";
@@ -34,7 +36,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
     function test_Valid_UpdateClientAndVerifyMembership() public {
         FixtureTestCase[] memory testCases = fixtureTestCases();
 
-        for (uint256 i = 0; i < testCases.length; i++) {
+        for (uint256 i = 0; i < testCases.length; ++i) {
             setUpUcAndMemTestWithFixtures(testCases[i].fileName);
 
             UcAndMembershipOutput memory output = abi.decode(proof.sp1Proof.publicValues, (UcAndMembershipOutput));
@@ -69,7 +71,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
     function test_Valid_UpdateClientAndVerifyNonMembership() public {
         FixtureTestCase[] memory testCases = fixtureTestCases();
 
-        for (uint256 i = 0; i < testCases.length; i++) {
+        for (uint256 i = 0; i < testCases.length; ++i) {
             setUpUcAndMemTestWithFixtures(testCases[i].fileName);
 
             UcAndMembershipOutput memory output = abi.decode(proof.sp1Proof.publicValues, (UcAndMembershipOutput));
