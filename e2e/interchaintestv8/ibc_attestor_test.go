@@ -196,7 +196,7 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 			Type:           prover,
 			PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
 		}
-		config := relayer.NewConfig(relayer.CreateAttestedToCosmosModules(
+		config := relayer.NewConfig(relayer.CreateAttestedCosmosModules(
 			relayer.AttestedToCosmosConfigInfo{
 				AttestedChainID:     eth.ChainID.String(),
 				AggregatorUrl:       testvalues.AggregatorRpcPath,
