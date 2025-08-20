@@ -52,7 +52,7 @@ impl<P> ChainListenerService<EthEureka> for ChainListener<P>
 where
     P: Provider,
 {
-    #[instrument(skip(self), fields(tx_count = tx_ids.len()))]
+    #[instrument(skip(self), fields(tx_count = tx_ids.len()), err(Debug))]
     async fn fetch_tx_events(&self, tx_ids: Vec<TxHash>) -> Result<Vec<EurekaEventWithHeight>> {
         Ok(
             future::try_join_all(tx_ids.into_iter().map(|tx_id| async move {
@@ -88,7 +88,7 @@ where
         )
     }
 
-    #[instrument(skip(self), fields(block_range = format!("{}..={}", start_height, end_height)))]
+    #[instrument(skip(self), fields(block_range = format!("{}..={}", start_height, end_height)), err(Debug))]
     async fn fetch_events(
         &self,
         start_height: u64,

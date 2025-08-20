@@ -1,4 +1,4 @@
-//! This is a one-sided relayer module from Ethereum to a Cosmos SDK chain.
+//! This is a one-sided relayer module from an Attested chain to a Cosmos SDK chain.
 
 #![deny(
     clippy::nursery,
@@ -7,8 +7,14 @@
     missing_docs,
     unused_crate_dependencies
 )]
+#![allow(
+    clippy::doc_markdown,
+    clippy::derive_partial_eq_without_eq,
+    clippy::missing_errors_doc
+)]
 
 pub mod tx_builder;
+mod tx_listener;
 
 use std::collections::HashMap;
 
@@ -17,7 +23,6 @@ use alloy::{
     providers::{Provider, RootProvider},
 };
 use ibc_eureka_relayer_lib::{
-    events::EurekaEventWithHeight,
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::TxBuilderService,
 };
@@ -31,73 +36,70 @@ use ibc_eureka_relayer_core::{
     modules::RelayerModule,
 };
 
-/// The `EthToCosmosRelayerModule` struct defines the Ethereum to Cosmos relayer module.
+use crate::tx_listener::{TxAdapter, TxListener};
+
+/// The `AttestedToCosmosRelayerModule` struct defines the Attested to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
-pub struct EthToCosmosRelayerModule;
+pub struct AttestedToCosmosRelayerModule;
 
-/// The `EthereumToCosmosRelayerModuleService` defines the relayer service from Ethereum to Cosmos.
-struct EthToCosmosRelayerModuleService {
+/// The `AttestedToCosmosRelayerModuleService` defines the relayer service from Attested to Cosmos.
+struct AttestedToCosmosRelayerModuleService<T>
+where
+    T: TxListener,
+{
+    /// The source chain ID for the attested chain.
+    pub attested_chain_id: String,
     /// The chain listener for `EthEureka`.
-    pub eth_listener: eth_eureka::ChainListener<RootProvider>,
-    /// The chain listener for Cosmos SDK.
+    pub attestor_listener: T,
+    /// The target chain listener for Cosmos SDK.
     pub tm_listener: cosmos_sdk::ChainListener,
-    /// The transaction builder for Ethereum to Cosmos.
-    pub tx_builder: EthToCosmosTxBuilder,
+    /// The transaction builder from Attested to Cosmos.
+    pub tx_builder: tx_builder::TxBuilder,
 }
 
-enum EthToCosmosTxBuilder {
-    Real(tx_builder::TxBuilder<RootProvider>),
-    Mock(tx_builder::MockTxBuilder<RootProvider>),
-}
-
-/// The configuration for the Ethereum to Cosmos relayer module.
+/// The configuration for the Attested to Cosmos relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub struct EthToCosmosConfig {
-    /// The ICS26 address.
-    pub ics26_address: Address,
-    /// The tendermint RPC URL.
-    pub tm_rpc_url: String,
+pub struct AttestedToCosmosConfig {
+    /// The source chain ID for the attested chain.
+    pub attested_chain_id: String,
+    /// The aggregator service URL for fetching attestations.
+    pub aggregator_url: String,
+    // TODO: Make this chain agnostic, see IBC-162
     /// The EVM RPC URL.
-    pub eth_rpc_url: String,
-    /// The Ethereum Beacon API URL
-    pub eth_beacon_api_url: String,
+    pub attested_rpc_url: String,
+    /// ICS26 address
+    pub ics26_address: Address,
+    /// The target tendermint RPC URL.
+    pub tm_rpc_url: String,
     /// The address of the submitter.
     /// Required since cosmos messages require a signer address.
     pub signer_address: String,
-    /// Whether to run in mock mode.
-    #[serde(default)]
-    pub mock: bool,
 }
 
-impl EthToCosmosRelayerModuleService {
-    async fn new(config: EthToCosmosConfig) -> Self {
+impl
+    AttestedToCosmosRelayerModuleService<
+        eth_eureka::ChainListener<RootProvider<alloy::network::Ethereum>>,
+    >
+{
+    pub async fn new(config: AttestedToCosmosConfig) -> Self {
         let provider = RootProvider::builder()
-            .connect(&config.eth_rpc_url)
+            .connect(&config.attested_rpc_url)
             .await
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
-        let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
+        let attestor_listener = eth_eureka::ChainListener::new(config.ics26_address, provider);
 
-        let tm_client = HttpClient::from_rpc_url(&config.tm_rpc_url);
-        let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
+        let target_client = HttpClient::from_rpc_url(&config.tm_rpc_url);
+        let tm_listener = cosmos_sdk::ChainListener::new(target_client.clone());
 
-        let tx_builder = if config.mock {
-            EthToCosmosTxBuilder::Mock(tx_builder::MockTxBuilder::new(
-                config.ics26_address,
-                provider,
-                config.signer_address,
-            ))
-        } else {
-            EthToCosmosTxBuilder::Real(tx_builder::TxBuilder::new(
-                config.ics26_address,
-                provider,
-                config.eth_beacon_api_url,
-                tm_client,
-                config.signer_address,
-            ))
-        };
+        let tx_builder = tx_builder::TxBuilder::new(
+            config.aggregator_url.clone(),
+            target_client,
+            config.signer_address,
+        );
 
         Self {
-            eth_listener,
+            attested_chain_id: config.attested_chain_id,
+            attestor_listener,
             tm_listener,
             tx_builder,
         }
@@ -105,13 +107,16 @@ impl EthToCosmosRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerService for EthToCosmosRelayerModuleService {
+impl<T> RelayerService for AttestedToCosmosRelayerModuleService<T>
+where
+    T: TxListener,
+{
     #[tracing::instrument(skip_all, err(Debug))]
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::info!("Handling info request for Eth to Cosmos...");
+        tracing::info!("Handling info request for Attested to Cosmos...");
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
@@ -123,13 +128,9 @@ impl RelayerService for EthToCosmosRelayerModuleService {
                 ibc_contract: String::new(),
             }),
             source_chain: Some(api::Chain {
-                chain_id: self
-                    .eth_listener
-                    .chain_id()
-                    .await
-                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+                chain_id: self.attested_chain_id.clone(),
                 ibc_version: "2".to_string(),
-                ibc_contract: self.tx_builder.ics26_router_address().to_string(),
+                ibc_contract: String::new(),
             }),
             metadata: HashMap::default(),
         }))
@@ -140,16 +141,18 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request for Eth to Cosmos...");
+        tracing::info!("Handling relay by tx request for Attested to Cosmos...");
 
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
-        let eth_txs = inner_req
+
+        let src_txs = inner_req
             .source_tx_ids
             .into_iter()
             .map(TryInto::<[u8; 32]>::try_into)
             .map(|tx_hash| tx_hash.map(TxHash::from))
+            .map(|maybe_hashed| maybe_hashed.map(TxAdapter::from))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|tx| tonic::Status::from_error(format!("invalid tx hash: {tx:?}").into()))?;
 
@@ -160,14 +163,17 @@ impl RelayerService for EthToCosmosRelayerModuleService {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        let eth_events = self
-            .eth_listener
-            .fetch_tx_events(eth_txs)
+        let attested_events = self
+            .attestor_listener
+            .fetch_tx_events(src_txs)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
-        tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
+        tracing::debug!(attested_events = ?attested_events, "Fetched attested events.");
+        tracing::info!(
+            "Fetched {} eureka events from attested chain.",
+            attested_events.len()
+        );
 
         let cosmos_events = self
             .tm_listener
@@ -184,7 +190,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         let tx = self
             .tx_builder
             .relay_events(
-                eth_events,
+                attested_events,
                 cosmos_events,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
@@ -207,7 +213,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         &self,
         request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
-        tracing::info!("Handling create client request for Eth to Cosmos...");
+        tracing::info!("Handling create client request for Attested to Cosmos...");
 
         let inner_req = request.into_inner();
         let tx = self
@@ -229,7 +235,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         &self,
         request: Request<api::UpdateClientRequest>,
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
-        tracing::info!("Handling update client request for Eth to Cosmos...");
+        tracing::info!("Handling update client request for Attested to Cosmos...");
 
         let inner_req = request.into_inner();
         let tx = self
@@ -248,9 +254,9 @@ impl RelayerService for EthToCosmosRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerModule for EthToCosmosRelayerModule {
+impl RelayerModule for AttestedToCosmosRelayerModule {
     fn name(&self) -> &'static str {
-        "eth_to_cosmos"
+        "attested_to_cosmos"
     }
 
     #[tracing::instrument(skip_all, err(Debug))]
@@ -258,68 +264,46 @@ impl RelayerModule for EthToCosmosRelayerModule {
         &self,
         config: serde_json::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
-        let config = serde_json::from_value::<EthToCosmosConfig>(config)
+        let config = serde_json::from_value::<AttestedToCosmosConfig>(config)
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
-        tracing::info!("Starting Ethereum to Cosmos relayer server.");
-        Ok(Box::new(EthToCosmosRelayerModuleService::new(config).await))
+        tracing::info!("Starting Attested to Cosmos relayer server.");
+        Ok(Box::new(
+            AttestedToCosmosRelayerModuleService::new(config).await,
+        ))
     }
 }
 
-impl EthToCosmosTxBuilder {
-    async fn relay_events(
-        &self,
-        src_events: Vec<EurekaEventWithHeight>,
-        target_events: Vec<EurekaEventWithHeight>,
-        src_client_id: String,
-        dst_client_id: String,
-        src_packet_seqs: Vec<u64>,
-        dst_packet_seqs: Vec<u64>,
-    ) -> anyhow::Result<Vec<u8>> {
-        match self {
-            Self::Real(tb) => {
-                tb.relay_events(
-                    src_events,
-                    target_events,
-                    src_client_id,
-                    dst_client_id,
-                    src_packet_seqs,
-                    dst_packet_seqs,
-                )
-                .await
-            }
-            Self::Mock(tb) => {
-                tb.relay_events(
-                    src_events,
-                    target_events,
-                    src_client_id,
-                    dst_client_id,
-                    src_packet_seqs,
-                    dst_packet_seqs,
-                )
-                .await
-            }
-        }
+#[cfg(test)]
+mod tests {
+    use alloy::hex;
+
+    use super::*;
+
+    #[test]
+    fn test_module_name() {
+        let module = AttestedToCosmosRelayerModule;
+        assert_eq!(module.name(), "attested_to_cosmos");
     }
 
-    async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
-        match self {
-            Self::Real(tb) => tb.create_client(parameters).await,
-            Self::Mock(tb) => tb.create_client(parameters).await,
-        }
-    }
+    #[test]
+    fn test_config_serialization() {
+        let config = AttestedToCosmosConfig {
+            aggregator_url: "http://localhost:8080".to_string(),
+            ics26_address: Address(hex!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").into()),
+            attested_rpc_url: "http://localhost:8080".to_string(),
+            tm_rpc_url: "http://localhost:26657".to_string(),
+            signer_address: "cosmos1abc123".to_string(),
+            attested_chain_id: "attested-chain-1".to_string(),
+        };
 
-    async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
-        match self {
-            Self::Real(tb) => tb.update_client(dst_client_id).await,
-            Self::Mock(tb) => tb.update_client(dst_client_id).await,
-        }
-    }
+        let json = serde_json::to_string(&config).expect("Failed to serialize config");
+        let deserialized: AttestedToCosmosConfig =
+            serde_json::from_str(&json).expect("Failed to deserialize config");
 
-    const fn ics26_router_address(&self) -> &Address {
-        match self {
-            Self::Real(tb) => tb.ics26_router.address(),
-            Self::Mock(tb) => tb.ics26_router.address(),
-        }
+        assert_eq!(config.aggregator_url, deserialized.aggregator_url);
+        assert_eq!(config.tm_rpc_url, deserialized.tm_rpc_url);
+        assert_eq!(config.signer_address, deserialized.signer_address);
+        assert_eq!(config.attested_chain_id, deserialized.attested_chain_id);
     }
 }
