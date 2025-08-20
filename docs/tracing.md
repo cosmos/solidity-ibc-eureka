@@ -6,7 +6,7 @@ Subscribers do the heavy lifting.
 
 Subscriber should be global Static. But on rare occasion, we can have case specific subscriber. Most common is std out with combination with Otel compatible subscriber.
 
-Every sisngle trace has to have a unique identifier to it. TraceID (16 bytes Otel) or CCID (Corealtion Context Identifier)
+Every single trace has to have a unique identifier to it. TraceID (16 bytes Otel) or CCID (Correlation Context Identifier)
 
 Span = smallest unit in a trace.
 Span = a period of time in the program.
