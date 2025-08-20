@@ -13,6 +13,9 @@ pub struct RelayerConfig {
     pub modules: Vec<ModuleConfig>,
     /// The configuration for the relayer server.
     pub server: ServerConfig,
+    /// The configuration for tracing and observability.
+    #[serde(default)]
+    pub tracing: TracingConfig,
 }
 
 /// The configuration for the relayer modules.
@@ -42,9 +45,6 @@ pub struct ServerConfig {
     pub address: String,
     /// The port to bind the server to.
     pub port: u16,
-    /// The log level for the server.
-    #[serde(default)]
-    pub log_level: String,
 }
 
 /// Returns true, used as a default value for boolean fields.
@@ -52,10 +52,39 @@ const fn default_true() -> bool {
     true
 }
 
-impl ServerConfig {
-    /// Returns the log level for the server.
+
+/// Configuration for tracing and observability.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(default)]
+pub struct TracingConfig {
+    /// The log level to use.
+    pub level: String,
+    /// Whether to include file paths in logs.
+    pub with_file: bool,
+    /// Whether to use OpenTelemetry for distributed tracing.
+    pub use_otel: bool,
+    /// The service name to use for OpenTelemetry.
+    pub service_name: String,
+    /// The OpenTelemetry collector endpoint.
+    pub otel_endpoint: Option<String>,
+}
+
+impl Default for TracingConfig {
+    fn default() -> Self {
+        Self {
+            level: "info".to_string(),
+            with_file: true,
+            use_otel: false,
+            service_name: "ibc-eureka-relayer".to_string(),
+            otel_endpoint: None,
+        }
+    }
+}
+
+impl TracingConfig {
+    /// Returns the log level as a `tracing::Level`.
     #[must_use]
-    pub fn log_level(&self) -> Level {
-        Level::from_str(&self.log_level).unwrap_or(Level::INFO)
+    pub fn level(&self) -> Level {
+        Level::from_str(&self.level).unwrap_or(Level::INFO)
     }
 }

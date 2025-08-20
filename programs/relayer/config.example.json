@@ -1,8 +1,14 @@
 {
   "server": {
-    "log_level": "info",
     "address": "127.0.0.1",
     "port": 3000
+  },
+  "tracing": {
+    "level": "info",
+    "with_file": true,
+    "use_otel": false,
+    "service_name": "ibc-eureka-relayer",
+    "otel_endpoint": null
   },
   "modules": [
     {
