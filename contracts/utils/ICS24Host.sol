@@ -114,7 +114,7 @@ library ICS24Host {
     /// @return The commitment bytes
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
         bytes memory appBytes = "";
-        for (uint256 i = 0; i < packet.payloads.length; i++) {
+        for (uint256 i = 0; i < packet.payloads.length; ++i) {
             appBytes = abi.encodePacked(appBytes, hashPayload(packet.payloads[i]));
         }
 
@@ -153,7 +153,7 @@ library ICS24Host {
     function packetAcknowledgementCommitmentBytes32(bytes[] memory acks) internal pure returns (bytes32) {
         require(acks.length > 0, IICS24HostErrors.NoAcknowledgements());
         bytes memory ackBytes = "";
-        for (uint256 i = 0; i < acks.length; i++) {
+        for (uint256 i = 0; i < acks.length; ++i) {
             ackBytes = abi.encodePacked(ackBytes, sha256(acks[i]));
         }
 

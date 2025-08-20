@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -18,13 +19,17 @@ import (
 const (
 	testNamePrefix     = "Test"
 	testFileNameSuffix = "_test.go"
-	e2eTestDirectory   = "e2e/interchaintestv8"
 
 	// testEntryPointEnv is an optional env variable that can be used to only return tests for a specific suite
 	testEntryPointEnv = "TEST_ENTRYPOINT"
 
 	// testExclusionsEnv is an optional env variable that can be used to exclude tests, or entire suites, from the output
 	testExclusionsEnv = "TEST_EXCLUSIONS"
+)
+
+var (
+	ErrNoSuiteEntrypoint       = errors.New("no suite entrypoint found")
+	ErrMultipleSuiteEntrypoint = errors.New("multiple suite entrypoints found")
 )
 
 type actionTestMatrix struct {
@@ -37,13 +42,29 @@ type testSuitePair struct {
 }
 
 func main() {
+	var testDir string
+	flag.StringVar(&testDir, "dir", "", "Path to the test directory (required)")
+	flag.Parse()
+
+	if testDir == "" {
+		fmt.Fprintln(os.Stderr, "error: -dir flag is required")
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	suite := os.Getenv(testEntryPointEnv)
 	var excludedItems []string
 	if exclusions, ok := os.LookupEnv(testExclusionsEnv); ok {
 		excludedItems = strings.Split(exclusions, ",")
 	}
 
-	matrix, err := getGitHubActionMatrixForTests(e2eTestDirectory, suite, excludedItems)
+	// Verify the test directory exists
+	if _, err := os.Stat(testDir); err != nil {
+		fmt.Fprintf(os.Stderr, "error: test directory '%s' does not exist: %v\n", testDir, err)
+		os.Exit(1)
+	}
+
+	matrix, err := getGitHubActionMatrixForTests(testDir, suite, excludedItems)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error generating GitHub Action JSON:", err)
 		os.Exit(1)
@@ -74,7 +95,12 @@ func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems
 
 		suiteName, suiteTestCases, err := extractSuiteAndTestNames(astFile)
 		if err != nil {
-			return nil
+			// Ignore files without suite entrypoints (regular test files)
+			if errors.Is(err, ErrNoSuiteEntrypoint) {
+				return nil
+			}
+			// Propagate all other errors (like multiple suite entrypoints)
+			return fmt.Errorf("in file %s: %w", path, err)
 		}
 
 		if slices.Contains(excludedItems, suiteName) {
@@ -96,6 +122,12 @@ func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems
 	}
 	for testSuiteName, testCases := range testSuiteMapping {
 		for _, testCaseName := range testCases {
+			// Check if this specific test is excluded
+			fullTestName := fmt.Sprintf("%s/%s", testSuiteName, testCaseName)
+			if slices.Contains(excludedItems, fullTestName) {
+				continue
+			}
+			
 			gh.Include = append(gh.Include, testSuitePair{
 				Test:       testCaseName,
 				EntryPoint: testSuiteName,
@@ -133,7 +165,7 @@ func extractSuiteAndTestNames(file *ast.File) (string, []string, error) {
 		switch {
 		case isSuiteEntrypoint(fn):
 			if suiteName != "" {
-				return "", nil, fmt.Errorf("multiple suite entrypoints found: %s and %s", suiteName, fnName)
+				return "", nil, fmt.Errorf("%w: %s and %s", ErrMultipleSuiteEntrypoint, suiteName, fnName)
 			}
 			suiteName = fnName
 		case isSuiteTest(fn):
@@ -142,7 +174,7 @@ func extractSuiteAndTestNames(file *ast.File) (string, []string, error) {
 	}
 
 	if suiteName == "" {
-		return "", nil, fmt.Errorf("file %s has no suite entrypoint", file.Name.Name)
+		return "", nil, fmt.Errorf("%w in file %s", ErrNoSuiteEntrypoint, file.Name.Name)
 	}
 
 	return suiteName, testNames, nil

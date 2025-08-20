@@ -44,8 +44,9 @@ library IBCIdentifiers {
         if (hasPrefix(customId, bytes(CHANNEL_ID_PREFIX)) || hasPrefix(customId, bytes(CLIENT_ID_PREFIX))) {
             return false;
         }
+        /* solhint-disable gas-strict-inequalities */
         unchecked {
-            for (uint256 i = 0; i < customId.length; i++) {
+            for (uint256 i = 0; i < customId.length; ++i) {
                 uint256 c = uint256(uint8(customId[i]));
                 if (
                     // a-z
@@ -62,6 +63,7 @@ library IBCIdentifiers {
                 return false;
             }
         }
+        /* solhint-enable gas-strict-inequalities */
         return true;
     }
 }

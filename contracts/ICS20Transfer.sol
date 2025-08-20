@@ -299,6 +299,7 @@ contract ICS20Transfer is
     // NOTE: Reentrancy disabled for this function via the `nonReentrant` modifier.
     // slither-disable-next-line reentrancy-no-eth
     function onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback calldata msg_)
+        // solhint-disable-previous-line function-max-lines
         external
         onlyRouter
         nonReentrant

@@ -18,4 +18,4 @@ runs:
     - name: Generate Test Matrix
       id: generate-matrix
       shell: bash
-      run: echo "matrix=$(TEST_EXCLUSIONS='${{ inputs.skip-tests }}' go run scripts/go-test-matrix/main.go)" >> $GITHUB_OUTPUT
+      run: echo "matrix=$(TEST_EXCLUSIONS='${{ inputs.skip-tests }}' go run scripts/go-test-matrix/main.go -dir e2e/interchaintestv8)" >> $GITHUB_OUTPUT
