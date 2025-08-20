@@ -131,7 +131,7 @@ where
     P: Provider + Clone,
     C: SP1ProverComponents,
 {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
@@ -208,7 +208,7 @@ where
         Ok(multicall_tx.abi_encode())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         // Check if parameters only include correct keys
         parameters
@@ -291,7 +291,7 @@ where
         .to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 

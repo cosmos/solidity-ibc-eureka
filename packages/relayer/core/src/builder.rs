@@ -10,7 +10,7 @@ use crate::{
     config::RelayerConfig,
 };
 use tonic::{transport::Server, Request, Response};
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, instrument};
 
 use super::modules::RelayerModule;
 
@@ -43,7 +43,7 @@ impl RelayerBuilder {
     pub fn add_module<T: RelayerModule>(&mut self, module: T) {
         let module_name = module.name();
         if self.modules.contains_key(module_name) {
-            warn!(%module_name, "Attempted to add already existing module");
+            error!(%module_name, "Attempted to add already existing module");
             panic!("Relayer module already added");
         }
 
@@ -161,7 +161,7 @@ impl RelayerService for Relayer {
                     })
                 }
                 Err(status) => {
-                    warn!(status = %status, "Module not found for info request");
+                    error!(status = %status, "Module not found for info request");
                     Err(status)
                 }
             }
@@ -198,7 +198,7 @@ impl RelayerService for Relayer {
                     })
                 }
                 Err(status) => {
-                    warn!(status = %status, "Module not found for relay_by_tx request");
+                    error!(status = %status, "Module not found for relay_by_tx request");
                     Err(status)
                 }
             }
@@ -236,7 +236,7 @@ impl RelayerService for Relayer {
                     })
                 }
                 Err(status) => {
-                    warn!(status = %status, "Module not found for create_client request");
+                    error!(status = %status, "Module not found for create_client request");
                     Err(status)
                 }
             }
@@ -274,7 +274,7 @@ impl RelayerService for Relayer {
                     })
                 }
                 Err(status) => {
-                    warn!(status = %status, "Module not found for update_client request");
+                    error!(status = %status, "Module not found for update_client request");
                     Err(status)
                 }
             }

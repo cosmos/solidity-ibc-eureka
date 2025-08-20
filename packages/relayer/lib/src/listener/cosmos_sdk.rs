@@ -49,7 +49,7 @@ impl ChainListener {
 
 #[async_trait::async_trait]
 impl ChainListenerService<CosmosSdk> for ChainListener {
-    #[instrument(skip(self), fields(tx_count = tx_ids.len()), err)]
+    #[instrument(skip(self), fields(tx_count = tx_ids.len()), err(Debug))]
     async fn fetch_tx_events(&self, tx_ids: Vec<Hash>) -> Result<Vec<EurekaEventWithHeight>> {
         Ok(
             future::try_join_all(tx_ids.into_iter().map(|tx_id| async move {
@@ -72,7 +72,7 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
         )
     }
 
-    #[instrument(skip(self), fields(block_range = format!("{}..={}", start_height, end_height)), err)]
+    #[instrument(skip(self), fields(block_range = format!("{}..={}", start_height, end_height)), err(Debug))]
     async fn fetch_events(
         &self,
         start_height: u64,
