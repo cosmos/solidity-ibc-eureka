@@ -59,7 +59,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
-    name: ${{ matrix.test }}
+    name: ${{ matrix.entrypoint }}/${{ matrix.test }}
     runs-on: depot-ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -73,4 +73,4 @@ jobs:
           NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
         run: |
           cd e2e/interchaintestv8
-          go test -v -mod=readonly . -run "^${{ matrix.test }}$" -timeout 40m
+          go test -v -mod=readonly . -run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -timeout 40m
