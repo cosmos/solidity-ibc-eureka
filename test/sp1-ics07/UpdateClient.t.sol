@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-small-strings
+
 // solhint-disable-next-line no-global-import
 import "forge-std/console.sol";
 import { stdJson } from "forge-std/StdJson.sol";
@@ -46,7 +48,7 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
     function test_ValidUpdateClient() public {
         FixtureTestCase[] memory testCases = fixtureTestCases();
 
-        for (uint256 i = 0; i < testCases.length; i++) {
+        for (uint256 i = 0; i < testCases.length; ++i) {
             setUpTestWithFixture(testCases[i].fileName);
 
             // set a correct timestamp

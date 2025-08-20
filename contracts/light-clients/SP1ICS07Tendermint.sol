@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-strict-inequalities
+
 import { IICS07TendermintMsgs } from "./msgs/IICS07TendermintMsgs.sol";
 import { IUpdateClientMsgs } from "./msgs/IUpdateClientMsgs.sol";
 import { IMembershipMsgs } from "./msgs/IMembershipMsgs.sol";
@@ -262,7 +264,7 @@ contract SP1ICS07Tendermint is
         {
             // loop through the key-value pairs and validate them
             bool found = false;
-            for (uint256 i = 0; i < output.kvPairs.length; i++) {
+            for (uint256 i = 0; i < output.kvPairs.length; ++i) {
                 if (!Paths.equal(output.kvPairs[i].path, kvPath)) {
                     continue;
                 }
@@ -297,7 +299,7 @@ contract SP1ICS07Tendermint is
     /// @param kvPath The path of the key-value pair.
     /// @param kvValue The value of the key-value pair.
     /// @return The timestamp of the new consensus state.
-    // solhint-disable-next-line code-complexity
+    // solhint-disable-next-line code-complexity,function-max-lines
     function _handleSP1UpdateClientAndMembership(
         IICS02ClientMsgs.Height calldata proofHeight,
         bytes memory proofBytes,
@@ -357,7 +359,7 @@ contract SP1ICS07Tendermint is
         // loop through the key-value pairs and validate them
         {
             bool found = false;
-            for (uint256 i = 0; i < output.kvPairs.length; i++) {
+            for (uint256 i = 0; i < output.kvPairs.length; ++i) {
                 if (!Paths.equal(output.kvPairs[i].path, kvPath)) {
                     continue;
                 }
@@ -541,7 +543,7 @@ contract SP1ICS07Tendermint is
     /// @dev WARNING: Transient store is not reverted even if a message within a transaction reverts.
     /// @dev WARNING: This function must be called after all proof and validation checks.
     function _cacheKvPairs(uint64 proofHeight, IMembershipMsgs.KVPair[] memory kvPairs, uint256 timestamp) private {
-        for (uint256 i = 0; i < kvPairs.length; i++) {
+        for (uint256 i = 0; i < kvPairs.length; ++i) {
             bytes32 kvPairHash = keccak256(abi.encode(proofHeight, kvPairs[i]));
             kvPairHash.asUint256().tstore(timestamp);
         }
