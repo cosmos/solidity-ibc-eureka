@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
-use solana_light_client_interface::MembershipMsg;
+use ics25_handler::MembershipMsg;
 
 declare_id!("4nFbkWTbUxKwXqKHzLdxkUfYZ9MrVkzJp7nXt8GY7JKp");
 

@@ -1,7 +1,9 @@
 use anchor_lang::prelude::*;
 
+pub mod constants;
 pub mod errors;
 pub mod instructions;
+pub mod router_cpi;
 pub mod state;
 #[cfg(test)]
 pub mod test_utils;
@@ -31,6 +33,17 @@ pub fn get_mock_client_program_path() -> &'static str {
     PATH.get_or_init(|| {
         std::env::var("MOCK_CLIENT_PROGRAM_PATH")
             .unwrap_or_else(|_| "../../target/deploy/mock_light_client".to_string())
+    })
+}
+
+#[cfg(test)]
+pub fn get_mock_ibc_app_program_path() -> &'static str {
+    use std::sync::OnceLock;
+    static PATH: OnceLock<String> = OnceLock::new();
+
+    PATH.get_or_init(|| {
+        std::env::var("MOCK_IBC_APP_PROGRAM_PATH")
+            .unwrap_or_else(|_| "../../target/deploy/mock_ibc_app".to_string())
     })
 }
 

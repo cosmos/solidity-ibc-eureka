@@ -1,5 +1,7 @@
+use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::state::*;
 use anchor_lang::{AnchorSerialize, Discriminator, Space};
+use ics24_host_solana::Payload;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::sysvar::Sysvar;
 
@@ -8,6 +10,14 @@ pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
 // Mock light client program ID - must match the ID in mock-light-client/src/lib.rs
 pub const MOCK_LIGHT_CLIENT_ID: Pubkey =
     solana_sdk::pubkey!("4nFbkWTbUxKwXqKHzLdxkUfYZ9MrVkzJp7nXt8GY7JKp");
+
+// Dummy IBC app program ID - must match the ID in dummy-ibc-app/src/lib.rs
+pub const DUMMY_IBC_APP_PROGRAM_ID: Pubkey =
+    solana_sdk::pubkey!("5E73beFMq9QZvbwPN5i84psh2WcyJ9PgqF4avBaRDgCC");
+
+// Mock IBC app program ID - must match the ID in mock-ibc-app/src/lib.rs
+pub const MOCK_IBC_APP_PROGRAM_ID: Pubkey =
+    solana_sdk::pubkey!("9qnEj3T1NsaGkN3Sj7hgJZiKrVbKVBNmVphJ6PW1PDAB");
 
 // TODO: Move to test helpers crate
 
@@ -304,13 +314,13 @@ pub fn get_client_sequence_from_result(result: &mollusk_svm::result::Instruction
         .find(|(_, account)| {
             account.data.len() == account_size
                 && account.owner == crate::ID
-                && account.data.len() >= 8
-                && &account.data[..8] == expected_discriminator
+                && account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE
+                && &account.data[..ANCHOR_DISCRIMINATOR_SIZE] == expected_discriminator
         })
         .expect("client_sequence account not found");
 
     // Deserialize the account properly
-    let mut account_data = &sequence_account.data[8..];
+    let mut account_data = &sequence_account.data[ANCHOR_DISCRIMINATOR_SIZE..];
     let client_sequence: ClientSequence = AnchorDeserialize::deserialize(&mut account_data)
         .expect("Failed to deserialize ClientSequence");
 
@@ -329,8 +339,10 @@ pub fn get_client_sequence_from_result_by_pubkey(
         .find(|(key, _)| key == pubkey)
         .and_then(|(_, account)| {
             // Verify it's a ClientSequence account
-            if account.data.len() >= 8 && &account.data[..8] == ClientSequence::DISCRIMINATOR {
-                let mut account_data = &account.data[8..];
+            if account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE
+                && &account.data[..ANCHOR_DISCRIMINATOR_SIZE] == ClientSequence::DISCRIMINATOR
+            {
+                let mut account_data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
                 let client_sequence: ClientSequence =
                     AnchorDeserialize::deserialize(&mut account_data).ok()?;
                 Some(client_sequence.next_sequence_send)
@@ -338,6 +350,63 @@ pub fn get_client_sequence_from_result_by_pubkey(
                 None
             }
         })
+}
+
+/// Setup mollusk with mock programs for testing
+///
+/// This adds the router, mock light client, and mock IBC app programs to mollusk
+pub fn setup_mollusk_with_mock_programs() -> mollusk_svm::Mollusk {
+    use mollusk_svm::Mollusk;
+
+    let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+    mollusk.add_program(
+        &MOCK_LIGHT_CLIENT_ID,
+        crate::get_mock_client_program_path(),
+        &solana_sdk::bpf_loader_upgradeable::ID,
+    );
+    mollusk.add_program(
+        &MOCK_IBC_APP_PROGRAM_ID,
+        crate::get_mock_ibc_app_program_path(),
+        &solana_sdk::bpf_loader_upgradeable::ID,
+    );
+    mollusk
+}
+
+/// Setup mollusk with just the mock light client for testing scenarios that don't need IBC apps
+///
+/// This adds the router and mock light client programs to mollusk
+pub fn setup_mollusk_with_light_client() -> mollusk_svm::Mollusk {
+    use mollusk_svm::Mollusk;
+
+    let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+    mollusk.add_program(
+        &MOCK_LIGHT_CLIENT_ID,
+        crate::get_mock_client_program_path(),
+        &solana_sdk::bpf_loader_upgradeable::ID,
+    );
+    mollusk
+}
+
+fn assert_dummy_app_counter(
+    result: &mollusk_svm::result::InstructionResult,
+    dummy_app_state_pubkey: &Pubkey,
+    offset: usize,
+    expected_count: u64,
+    counter_name: &str,
+) {
+    let dummy_app_state_data = get_account_data_from_mollusk(result, dummy_app_state_pubkey)
+        .expect("dummy app state account not found");
+
+    let actual_count = u64::from_le_bytes(
+        dummy_app_state_data[offset..offset + std::mem::size_of::<u64>()]
+            .try_into()
+            .unwrap(),
+    );
+
+    assert_eq!(
+        actual_count, expected_count,
+        "dummy IBC app {counter_name} counter should be {expected_count} after CPI call"
+    );
 }
 
 pub fn create_bpf_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::Account) {

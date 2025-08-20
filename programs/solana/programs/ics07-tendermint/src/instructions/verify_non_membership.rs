@@ -3,7 +3,7 @@ use crate::helpers::{deserialize_merkle_proof, validate_proof_params};
 use crate::VerifyNonMembership;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
-use solana_light_client_interface::MembershipMsg;
+use ics25_handler::MembershipMsg;
 use tendermint_light_client_membership::KVPair;
 
 pub fn verify_non_membership(ctx: Context<VerifyNonMembership>, msg: MembershipMsg) -> Result<()> {

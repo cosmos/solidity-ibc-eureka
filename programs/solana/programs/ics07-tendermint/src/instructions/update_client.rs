@@ -410,7 +410,7 @@ mod tests {
         pub payer: Pubkey,
         pub instruction: Instruction,
         pub accounts: Vec<(Pubkey, Account)>,
-        pub update_message_fixture: UpdateClientMessageFixture,
+        pub update_message: UpdateClientMessage,
     }
 
     fn create_clock_account(unix_timestamp: i64) -> (Pubkey, Account) {
@@ -565,10 +565,9 @@ mod tests {
 
     // Helper function to setup a standard happy path test scenario
     fn setup_happy_path_test_scenario() -> HappyPathTestScenario {
-        let fixture = load_happy_path_fixture();
-        let update_message_fixture = fixture.update_client_message;
-        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
-        let new_height = update_message_fixture.new_height;
+        let update_message = load_update_client_message("update_client_happy_path");
+        let client_message = hex_to_bytes(&update_message.client_message_hex);
+        let new_height = update_message.new_height;
 
         let test_scenario = setup_update_client_test_scenario(client_message, new_height, None);
 
@@ -579,13 +578,13 @@ mod tests {
             payer: test_scenario.payer,
             instruction: test_scenario.instruction,
             accounts: test_scenario.accounts,
-            update_message_fixture,
+            update_message,
         }
     }
 
     fn setup_initialized_client() -> InitializedClientResult {
         // Load from primary fixtures efficiently (single JSON parse)
-        let (client_state, consensus_state, update_fixture) = load_primary_fixtures();
+        let (client_state, consensus_state, update_message) = load_primary_fixtures();
 
         let chain_id = &client_state.chain_id;
         let payer = Pubkey::new_unique();
@@ -624,7 +623,7 @@ mod tests {
         let payer_lamports = 10_000_000_000;
 
         // Create clock account with timestamp based on fixture data
-        let clock_timestamp = get_valid_clock_timestamp_for_header(&update_fixture);
+        let clock_timestamp = get_valid_clock_timestamp_for_header(&update_message);
         let (clock_pubkey, clock_account) = create_clock_account(clock_timestamp);
 
         let accounts = vec![
@@ -698,7 +697,7 @@ mod tests {
     fn test_update_client_happy_path() {
         let scenario = setup_happy_path_test_scenario();
 
-        let new_height = scenario.update_message_fixture.new_height;
+        let new_height = scenario.update_message.new_height;
         let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
 
         // Check if the instruction succeeded
@@ -797,12 +796,12 @@ mod tests {
 
         // Verify account discriminators are correct
         assert_eq!(
-            &client_state_account.data[0..8],
+            &client_state_account.data[0..ANCHOR_DISCRIMINATOR_SIZE],
             crate::types::ClientState::DISCRIMINATOR,
             "Client state should have correct discriminator"
         );
         assert_eq!(
-            &new_consensus_state_account.data[0..8],
+            &new_consensus_state_account.data[0..ANCHOR_DISCRIMINATOR_SIZE],
             ConsensusStateStore::DISCRIMINATOR,
             "New consensus state should have correct discriminator"
         );
@@ -822,12 +821,10 @@ mod tests {
 
     #[test]
     fn test_update_client_with_malformed_header() {
-        // Use malformed client message from fixture - this should deserialize successfully
-        // but fail during cryptographic verification
-        let malformed_fixture = load_malformed_client_message_fixture();
-        let malformed_message =
-            hex_to_bytes(&malformed_fixture.update_client_message.client_message_hex);
-        let new_height = malformed_fixture.update_client_message.new_height;
+        // Load happy path and corrupt the signature
+        let update_message = load_update_client_message("update_client_happy_path");
+        let malformed_message = corrupt_header_signature(&update_message.client_message_hex);
+        let new_height = update_message.new_height;
 
         // CRITICAL TEST: Verify that the malformed message can be deserialized
         // This proves we're testing cryptographic validation, not protobuf parsing
@@ -869,26 +866,25 @@ mod tests {
 
     #[test]
     fn test_update_client_with_wrong_trusted_height() {
-        let fixture = load_happy_path_fixture();
-        let update_message_fixture = fixture.update_client_message;
-        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
-        let new_height = update_message_fixture.new_height;
+        let update_message = load_update_client_message("update_client_happy_path");
+
+        // Manipulate the header to have wrong trusted height
+        let wrong_height = update_message.trusted_height.saturating_add(100);
+        let client_message = create_message_with_wrong_trusted_height(
+            &update_message.client_message_hex,
+            wrong_height,
+        );
+        let new_height = update_message.new_height;
 
         let scenario = setup_update_client_test_scenario(client_message.clone(), new_height, None);
         let mut accounts = scenario.accounts;
 
-        // Use wrong trusted consensus state (height differs from fixture)
-        let wrong_trusted_height = if update_message_fixture.trusted_height > 1 {
-            update_message_fixture.trusted_height - 1
-        } else {
-            update_message_fixture.trusted_height + 10
-        };
-
+        // Use wrong trusted consensus state PDA
         let (wrong_trusted_consensus_state_pda, _) = Pubkey::find_program_address(
             &[
                 b"consensus_state",
                 scenario.client_state_pda.as_ref(),
-                &wrong_trusted_height.to_le_bytes(),
+                &wrong_height.to_le_bytes(),
             ],
             &crate::ID,
         );
@@ -918,10 +914,10 @@ mod tests {
         ));
 
         let result = execute_update_client_instruction(&instruction, &accounts);
-        // Should fail because account validation fails for wrong PDA
+        // Should fail because consensus state doesn't exist at wrong height
         assert_error_code(
             result,
-            ErrorCode::AccountValidationFailed,
+            ErrorCode::ConsensusStateNotFound,
             "Wrong trusted height",
         );
     }
@@ -931,8 +927,7 @@ mod tests {
         let scenario = setup_happy_path_test_scenario();
 
         // Use a clock time that's way in the future to make header appear expired
-        let future_timestamp =
-            get_expired_clock_timestamp_for_header(&scenario.update_message_fixture);
+        let future_timestamp = get_expired_clock_timestamp_for_header(&scenario.update_message);
         let (clock_pubkey, clock_account) = create_clock_account(future_timestamp);
 
         // Replace the clock account
@@ -983,64 +978,10 @@ mod tests {
     }
 
     #[test]
-    fn test_update_client_with_expired_header_fixture() {
-        let fixture = load_expired_header_fixture();
-        let update_message_fixture = fixture.update_client_message;
-        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
-        let new_height = update_message_fixture.new_height;
-
-        let scenario = setup_update_client_test_scenario(client_message, new_height, None);
-        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
-
-        // Should fail with header verification failure due to expiry
-        assert_error_code(
-            result,
-            ErrorCode::HeaderVerificationFailed,
-            "Expired header fixture",
-        );
-    }
-
-    #[test]
-    fn test_update_client_with_future_timestamp_fixture() {
-        let fixture = load_future_timestamp_fixture();
-        let update_message_fixture = fixture.update_client_message;
-        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
-        let new_height = update_message_fixture.new_height;
-
-        let scenario = setup_update_client_test_scenario(client_message, new_height, None);
-        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
-
-        // Should fail with header verification failure due to future timestamp
-        assert_error_code(
-            result,
-            ErrorCode::HeaderVerificationFailed,
-            "Future timestamp fixture",
-        );
-    }
-
-    #[test]
-    fn test_update_client_with_wrong_trusted_height_fixture() {
-        let fixture = load_wrong_trusted_height_fixture();
-        let update_message_fixture = fixture.update_client_message;
-        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
-        let new_height = update_message_fixture.new_height;
-
-        let scenario = setup_update_client_test_scenario(client_message, new_height, None);
-        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
-
-        // Should fail because account validation fails for wrong PDA
-        assert_error_code(
-            result,
-            ErrorCode::AccountValidationFailed,
-            "Wrong trusted height fixture",
-        );
-    }
-
-    #[test]
     fn test_update_client_with_conflicting_consensus_state() {
         // Use happy path to create first consensus state
         let scenario = setup_happy_path_test_scenario();
-        let new_height = scenario.update_message_fixture.new_height;
+        let new_height = scenario.update_message.new_height;
 
         // Execute first update to create initial consensus state
         let first_result =
@@ -1088,19 +1029,5 @@ mod tests {
             ErrorCode::MisbehaviourConflictingState,
             "Conflicting consensus state",
         );
-    }
-
-    #[test]
-    fn test_update_client_with_invalid_protobuf_fixture() {
-        let fixture = load_invalid_protobuf_fixture();
-        let update_message_fixture = fixture.update_client_message;
-        let client_message = hex_to_bytes(&update_message_fixture.client_message_hex);
-        let new_height = update_message_fixture.new_height;
-
-        let scenario = setup_update_client_test_scenario(client_message, new_height, None);
-        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
-
-        // Should fail with InvalidHeader (protobuf parsing failure)
-        assert_error_code(result, ErrorCode::InvalidHeader, "Invalid protobuf fixture");
     }
 }
