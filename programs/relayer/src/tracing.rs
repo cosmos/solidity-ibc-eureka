@@ -3,6 +3,7 @@
 //! Stdout logging + optional OpenTelemetry OTLP export.
 
 use anyhow::{Context, Result};
+use ibc_eureka_relayer_core::config::TracingConfig;
 use opentelemetry::{trace::TracerProvider as _, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
@@ -10,41 +11,10 @@ use opentelemetry_sdk::{
     trace::{Sampler, SdkTracerProvider, SpanExporter, Tracer},
 };
 use std::env;
-use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
 
 /// Default environment variable for controlling the log level.
 const RUST_LOG: &str = "RUST_LOG";
-
-/// Default service name for OpenTelemetry.
-const DEFAULT_SERVICE_NAME: &str = "ibc-eureka-relayer";
-
-/// Configuration for the tracing subscriber.
-#[derive(Debug, Clone)]
-pub struct TracingConfig {
-    /// The log level to use.
-    pub level: Level,
-    /// Whether to include file paths in logs.
-    pub with_file: bool,
-    /// Whether to use OpenTelemetry for distributed tracing.
-    pub use_otel: bool,
-    /// The service name to use for OpenTelemetry.
-    pub service_name: String,
-    /// The OpenTelemetry collector endpoint.
-    pub otel_endpoint: Option<String>,
-}
-
-impl Default for TracingConfig {
-    fn default() -> Self {
-        Self {
-            level: Level::INFO,
-            with_file: true,
-            use_otel: false,
-            service_name: DEFAULT_SERVICE_NAME.to_string(),
-            otel_endpoint: None,
-        }
-    }
-}
 
 /// Guard that shuts down OpenTelemetry on drop (if enabled).
 pub struct TracingGuard {
@@ -65,7 +35,7 @@ impl Drop for TracingGuard {
 /// clean OpenTelemetry shutdown.
 pub fn init_subscriber(config: TracingConfig) -> Result<TracingGuard> {
     if env::var_os(RUST_LOG).is_none() {
-        env::set_var(RUST_LOG, config.level.as_str().to_lowercase());
+        env::set_var(RUST_LOG, config.level().as_str().to_lowercase());
     }
 
     let otel_provider = if config.use_otel {
@@ -76,7 +46,7 @@ pub fn init_subscriber(config: TracingConfig) -> Result<TracingGuard> {
                 let subscriber =
                     Registry::default()
                         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                            EnvFilter::new(config.level.as_str().to_lowercase())
+                            EnvFilter::new(config.level().as_str().to_lowercase())
                         }))
                         .with(
                             fmt::layer()
@@ -103,7 +73,7 @@ pub fn init_subscriber(config: TracingConfig) -> Result<TracingGuard> {
         let subscriber = Registry::default()
             .with(
                 EnvFilter::try_from_default_env()
-                    .unwrap_or_else(|_| EnvFilter::new(config.level.as_str().to_lowercase())),
+                    .unwrap_or_else(|_| EnvFilter::new(config.level().as_str().to_lowercase())),
             )
             .with(
                 fmt::layer()

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use ibc_eureka_relayer::cli::{Commands, RelayerCli};
-use ibc_eureka_relayer::tracing::{init_subscriber, TracingConfig};
+use ibc_eureka_relayer::tracing::init_subscriber;
 use ibc_eureka_relayer_attested_to_cosmos::AttestedToCosmosRelayerModule;
 use ibc_eureka_relayer_core::{builder::RelayerBuilder, config::RelayerConfig};
 use ibc_eureka_relayer_cosmos_to_cosmos::CosmosToCosmosRelayerModule;
@@ -24,13 +24,9 @@ async fn main() -> anyhow::Result<()> {
             let config_bz = std::fs::read(config_path)?;
             let config: RelayerConfig = serde_json::from_slice(&config_bz)?;
 
-            // Initialize the tracing subscriber with the configured log level
-            let _guard = init_subscriber(TracingConfig::default())?;
+            let _guard = init_subscriber(config.tracing.clone())?;
 
-            info!(
-                "Tracing initialized with level: {}",
-                config.server.log_level()
-            );
+            info!("Tracing initialized with level: {}", config.tracing.level());
 
             // Build the relayer server.
             let mut relayer_builder = RelayerBuilder::default();
