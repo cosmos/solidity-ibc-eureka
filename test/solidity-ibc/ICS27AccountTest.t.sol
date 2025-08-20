@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// solhint-disable custom-errors,max-line-length,no-inline-assembly
+// solhint-disable custom-errors,max-line-length,no-inline-assembly,gas-small-strings
 
 import { Test } from "forge-std/Test.sol";
 
@@ -166,7 +166,7 @@ contract ICS27AccountTest is Test {
         // Prepare calls
         IICS27AccountMsgs.Call[] memory calls = new IICS27AccountMsgs.Call[](numCalls);
         uint256 valuePerCall = totalValue / numCalls;
-        for (uint256 i = 0; i < numCalls; i++) {
+        for (uint256 i = 0; i < numCalls; ++i) {
             calls[i] = IICS27AccountMsgs.Call({ target: target, data: data, value: valuePerCall });
 
             expResp[i] = abi.encode("mockedResponse");
@@ -197,7 +197,7 @@ contract ICS27AccountTest is Test {
         bytes memory data = abi.encodeCall(TestCallContract.payableCall, ());
 
         IICS27AccountMsgs.Call[] memory calls = new IICS27AccountMsgs.Call[](numCalls);
-        for (uint256 i = 0; i < numCalls; i++) {
+        for (uint256 i = 0; i < numCalls; ++i) {
             calls[i] = IICS27AccountMsgs.Call({ target: target, data: data, value: totalValue / numCalls });
         }
 

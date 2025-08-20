@@ -63,7 +63,7 @@ contract ICS27Account is IICS27Errors, IICS27Account, ContextUpgradeable {
     /// @inheritdoc IICS27Account
     function executeBatch(IICS27AccountMsgs.Call[] calldata calls) external onlySelf returns (bytes[] memory) {
         bytes[] memory results = new bytes[](calls.length);
-        for (uint256 i = 0; i < calls.length; i++) {
+        for (uint256 i = 0; i < calls.length; ++i) {
             IICS27AccountMsgs.Call calldata call = calls[i];
             results[i] = Address.functionCallWithValue(call.target, call.data, call.value);
         }
