@@ -10,11 +10,7 @@ use opentelemetry_sdk::{
     resource::Resource,
     trace::{Sampler, SdkTracerProvider, SpanExporter, Tracer},
 };
-use std::env;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
-
-/// Default environment variable for controlling the log level.
-const RUST_LOG: &str = "RUST_LOG";
 
 /// Guard that shuts down OpenTelemetry on drop (if enabled).
 pub struct TracingGuard {
@@ -31,36 +27,29 @@ impl Drop for TracingGuard {
 
 /// Initialize the global tracing subscriber.
 ///
-/// Keep the returned guard alive for the program’s lifetime to ensure a
+/// Keep the returned guard alive for the program's lifetime to ensure a
 /// clean OpenTelemetry shutdown.
 pub fn init_subscriber(config: TracingConfig) -> Result<TracingGuard> {
-    if env::var_os(RUST_LOG).is_none() {
-        env::set_var(RUST_LOG, config.level().as_str().to_lowercase());
-    }
+    // Using a closure instead of a function allows Rust to infer the correct
+    // return type for each usage, avoiding type system constraints that would
+    // arise from specifying a concrete return type like `fmt::Layer<Registry>`.
+    let create_fmt_layer = || {
+        fmt::layer()
+            .pretty()
+            .with_target(true)
+            .with_line_number(true)
+            .with_file(config.with_file)
+    };
 
     let otel_provider = if config.use_otel {
         match setup_otlp_tracer(&config) {
             Ok((tracer, provider)) => {
-                let layer = tracing_opentelemetry::layer().with_tracer(tracer);
+                let subscriber = Registry::default()
+                    .with(EnvFilter::new(config.level().as_str().to_lowercase()))
+                    .with(create_fmt_layer())
+                    .with(tracing_opentelemetry::layer().with_tracer(tracer));
 
-                let subscriber =
-                    Registry::default()
-                        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                            EnvFilter::new(config.level().as_str().to_lowercase())
-                        }))
-                        .with(
-                            fmt::layer()
-                                .pretty()
-                                .with_target(true)
-                                .with_line_number(true)
-                                .with_file(config.with_file),
-                        )
-                        .with(layer);
-
-                subscriber
-                    .try_init()
-                    .context("Failed to set global default subscriber")?;
-
+                try_init_subscriber(subscriber)?;
                 Some(provider)
             }
             Err(e) => {
@@ -71,29 +60,24 @@ pub fn init_subscriber(config: TracingConfig) -> Result<TracingGuard> {
     } else {
         // Create a fmt subscriber without OpenTelemetry
         let subscriber = Registry::default()
-            .with(
-                EnvFilter::try_from_default_env()
-                    .unwrap_or_else(|_| EnvFilter::new(config.level().as_str().to_lowercase())),
-            )
-            .with(
-                fmt::layer()
-                    .pretty()
-                    .with_target(true)
-                    .with_line_number(true)
-                    .with_file(config.with_file),
-            );
+            .with(EnvFilter::new(config.level().as_str().to_lowercase()))
+            .with(create_fmt_layer());
 
-        subscriber
-            .try_init()
-            .context("Failed to set global default subscriber")?;
-
+        try_init_subscriber(subscriber)?;
         None
     };
 
     Ok(TracingGuard { otel_provider })
 }
 
-/// Build an OTLP tracer + gRPC provider
+/// Initialize the subscriber and handle errors.
+fn try_init_subscriber(subscriber: impl SubscriberInitExt) -> Result<()> {
+    subscriber
+        .try_init()
+        .context("Failed to set global default subscriber")
+}
+
+/// Build an OTLP tracer and a gRPC provider
 fn setup_otlp_tracer(config: &TracingConfig) -> Result<(Tracer, SdkTracerProvider)> {
     let resource = Resource::builder()
         .with_attributes(vec![
