@@ -145,6 +145,8 @@ Always use line number
 
 Never leak credentials.
 
+Libraries should only rely on the tracing crate and use the provided macros and types to collect whatever information might be useful to downstream consumers.Ref: [https://github.com/tokio-rs/tracing]
+
 ```rust
 #[instrument(skip(self, credential), fields(username = %credential.username))]
 ```
