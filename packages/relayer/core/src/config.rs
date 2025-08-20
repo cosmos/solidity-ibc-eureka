@@ -52,7 +52,6 @@ const fn default_true() -> bool {
     true
 }
 
-
 /// Configuration for tracing and observability.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(default)]

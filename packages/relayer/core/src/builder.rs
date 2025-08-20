@@ -56,9 +56,9 @@ impl RelayerBuilder {
     /// Returns an error if the server fails to start.
     #[instrument(
         skip(self, config),
-        err(Debug),
         name = "relayer_start",
-        fields(socket_addr)
+        fields(socket_addr),
+        err(Debug)
     )]
     pub async fn start(&self, config: RelayerConfig) -> anyhow::Result<()> {
         let socket_addr = format!("{}:{}", config.server.address, config.server.port);
