@@ -27,6 +27,11 @@ const (
 	testExclusionsEnv = "TEST_EXCLUSIONS"
 )
 
+var (
+	ErrNoSuiteEntrypoint       = errors.New("no suite entrypoint found")
+	ErrMultipleSuiteEntrypoint = errors.New("multiple suite entrypoints found")
+)
+
 type actionTestMatrix struct {
 	Include []testSuitePair `json:"include"`
 }
@@ -90,7 +95,12 @@ func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems
 
 		suiteName, suiteTestCases, err := extractSuiteAndTestNames(astFile)
 		if err != nil {
-			return nil
+			// Ignore files without suite entrypoints (regular test files)
+			if errors.Is(err, ErrNoSuiteEntrypoint) {
+				return nil
+			}
+			// Propagate all other errors (like multiple suite entrypoints)
+			return fmt.Errorf("in file %s: %w", path, err)
 		}
 
 		if slices.Contains(excludedItems, suiteName) {
@@ -155,7 +165,7 @@ func extractSuiteAndTestNames(file *ast.File) (string, []string, error) {
 		switch {
 		case isSuiteEntrypoint(fn):
 			if suiteName != "" {
-				return "", nil, fmt.Errorf("multiple suite entrypoints found: %s and %s", suiteName, fnName)
+				return "", nil, fmt.Errorf("%w: %s and %s", ErrMultipleSuiteEntrypoint, suiteName, fnName)
 			}
 			suiteName = fnName
 		case isSuiteTest(fn):
@@ -164,7 +174,7 @@ func extractSuiteAndTestNames(file *ast.File) (string, []string, error) {
 	}
 
 	if suiteName == "" {
-		return "", nil, fmt.Errorf("file %s has no suite entrypoint", file.Name.Name)
+		return "", nil, fmt.Errorf("%w in file %s", ErrNoSuiteEntrypoint, file.Name.Name)
 	}
 
 	return suiteName, testNames, nil

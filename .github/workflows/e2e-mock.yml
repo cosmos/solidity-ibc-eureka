@@ -59,7 +59,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
-    name: ${{ matrix.test }}
+    name: ${{ matrix.entrypoint }}/${{ matrix.test }}
     runs-on: depot-ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
