@@ -7,7 +7,7 @@ use ibc_core_commitment_types::merkle::MerkleProof;
 use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
 use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
-use solana_light_client_interface::MembershipMsg;
+use ics25_handler::MembershipMsg;
 
 pub fn deserialize_header(bytes: &[u8]) -> Result<Header> {
     <Header as Protobuf<RawHeader>>::decode_vec(bytes).map_err(|_| error!(ErrorCode::InvalidHeader))

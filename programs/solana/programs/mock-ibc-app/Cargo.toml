@@ -1,8 +1,8 @@
 [package]
-name = "mock-light-client"
+name = "mock-ibc-app"
 version.workspace = true
-description = "Mock light client for testing IBC router"
 edition.workspace = true
+description = "Mock IBC Application for testing Solana IBC Router"
 license.workspace = true
 repository.workspace = true
 readme = "../../../README.md"
@@ -14,16 +14,16 @@ workspace = true
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "mock_light_client"
+name = "mock_ibc_app"
 
 [features]
-default = []
-cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
 idl-build = ["anchor-lang/idl-build"]
 
 [dependencies]
 anchor-lang.workspace = true
-ics25-handler.workspace = true
+ics24-host-solana.workspace = true

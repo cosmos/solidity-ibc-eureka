@@ -16,7 +16,7 @@ pub use types::{
     ClientState, ConsensusState, IbcHeight, MisbehaviourMsg, UpdateClientMsg, UpdateResult,
 };
 
-pub use solana_light_client_interface::MembershipMsg;
+pub use ics25_handler::MembershipMsg;
 
 #[derive(Accounts)]
 #[instruction(chain_id: String, latest_height: u64, client_state: ClientState)]

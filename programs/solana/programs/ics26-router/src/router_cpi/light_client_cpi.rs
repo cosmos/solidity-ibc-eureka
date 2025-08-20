@@ -1,9 +1,10 @@
+use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::errors::RouterError;
 use crate::state::Client;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::program::{get_return_data, invoke};
-use solana_light_client_interface::{discriminators, MembershipMsg};
+use ics25_handler::{discriminators, MembershipMsg};
 
 /// Accounts needed for light client verification via CPI
 #[derive(Accounts)]
@@ -103,10 +104,11 @@ pub fn verify_non_membership_cpi(
 
     // Get the return data from the light client
     // Light client should return timestamp for non-membership verification
-    if let Some((_, return_data)) = get_return_data() {
-        if return_data.len() >= 8 {
+    if let Some((program_id, return_data)) = get_return_data() {
+        if program_id == client.client_program_id && return_data.len() >= ANCHOR_DISCRIMINATOR_SIZE
+        {
             let mut bytes = [0u8; 8];
-            bytes.copy_from_slice(&return_data[..8]);
+            bytes.copy_from_slice(&return_data[..ANCHOR_DISCRIMINATOR_SIZE]);
             return Ok(u64::from_le_bytes(bytes));
         }
     }

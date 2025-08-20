@@ -796,12 +796,12 @@ mod tests {
 
         // Verify account discriminators are correct
         assert_eq!(
-            &client_state_account.data[0..8],
+            &client_state_account.data[0..ANCHOR_DISCRIMINATOR_SIZE],
             crate::types::ClientState::DISCRIMINATOR,
             "Client state should have correct discriminator"
         );
         assert_eq!(
-            &new_consensus_state_account.data[0..8],
+            &new_consensus_state_account.data[0..ANCHOR_DISCRIMINATOR_SIZE],
             ConsensusStateStore::DISCRIMINATOR,
             "New consensus state should have correct discriminator"
         );

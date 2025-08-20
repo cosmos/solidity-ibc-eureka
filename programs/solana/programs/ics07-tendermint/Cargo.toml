@@ -1,10 +1,10 @@
 [package]
 name = "ics07-tendermint"
-version = "0.1.0"
-description = "Created with Anchor"
-edition = "2021"
-license = "MIT"
-repository = "https://github.com/cosmos/solidity-ibc-eureka"
+version.workspace = true
+description = "ICS-07 Tendermint light client for IBC on Solana"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "tendermint", "anchor"]
 categories = ["cryptography", "blockchain"]
@@ -27,7 +27,7 @@ idl-build = ["anchor-lang/idl-build"]
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
-solana-light-client-interface.workspace = true
+ics25-handler.workspace = true
 
 tendermint-light-client-update-client.workspace = true
 tendermint-light-client-membership.workspace = true

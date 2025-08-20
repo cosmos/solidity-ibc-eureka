@@ -1,9 +1,10 @@
 use crate::errors::RouterError;
-use crate::instructions::light_client_cpi::{verify_non_membership_cpi, LightClientVerification};
+use crate::router_cpi::on_timeout_packet_cpi;
+use crate::router_cpi::{verify_non_membership_cpi, LightClientVerification};
 use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
-use solana_light_client_interface::MembershipMsg;
+use ics25_handler::MembershipMsg;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgTimeoutPacket)]
@@ -31,6 +32,21 @@ pub struct TimeoutPacket<'info> {
     )]
     /// CHECK: We manually verify this account and handle the case where it doesn't exist
     pub packet_commitment: AccountInfo<'info>,
+
+    // IBC app accounts for CPI
+    /// CHECK: IBC app program, validated against `IBCApp` account
+    #[account(
+        constraint = ibc_app_program.key() == ibc_app.app_program_id @ RouterError::IbcAppNotFound
+    )]
+    pub ibc_app_program: AccountInfo<'info>,
+
+    /// CHECK: IBC app state account, owned by IBC app program
+    pub ibc_app_state: AccountInfo<'info>,
+
+    /// The router program account (this program)
+    /// CHECK: This will be verified in the CPI as the calling program
+    #[account(address = crate::ID)]
+    pub router_program: AccountInfo<'info>,
 
     pub relayer: Signer<'info>,
 
@@ -126,7 +142,15 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         );
     }
 
-    // TODO: CPI to IBC app's onTimeoutPacket
+    // CPI to IBC app's onTimeoutPacket
+    on_timeout_packet_cpi(
+        &ctx.accounts.ibc_app_program,
+        &ctx.accounts.ibc_app_state,
+        &ctx.accounts.router_program,
+        &msg.packet,
+        &msg.packet.payloads[0],
+        &ctx.accounts.relayer.key(),
+    )?;
 
     // Close the account and return rent to payer
     // TODO: Find more idiomatic way since we can't use auto close of anchor due to noop
@@ -173,6 +197,7 @@ mod tests {
         packet_commitment_pubkey: Pubkey,
         payer_pubkey: Pubkey,
         packet: Packet,
+        dummy_app_state_pubkey: Pubkey,
     }
 
     struct TimeoutPacketTestParams {
@@ -213,7 +238,7 @@ mod tests {
         let authority = Pubkey::new_unique();
         let relayer = params.unauthorized_relayer.unwrap_or(authority);
         let payer = relayer;
-        let app_program_id = params.app_program_id.unwrap_or_else(Pubkey::new_unique);
+        let app_program_id = params.app_program_id.unwrap_or(MOCK_IBC_APP_PROGRAM_ID);
         let light_client_program = MOCK_LIGHT_CLIENT_ID;
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
@@ -225,6 +250,10 @@ mod tests {
             params.active_client,
         );
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(params.port_id, app_program_id);
+
+        // Mock app state - just create a dummy account since mock app doesn't use it
+        let (dummy_app_state_pda, _) =
+            Pubkey::find_program_address(&[b"app_state"], &app_program_id);
 
         let packet_dest_client = params.wrong_dest_client.unwrap_or(params.dest_client_id);
         let packet = create_test_packet(
@@ -260,6 +289,9 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(packet_commitment_pda, false),
+                AccountMeta::new_readonly(app_program_id, false),
+                AccountMeta::new(dummy_app_state_pda, false),
+                AccountMeta::new_readonly(crate::ID, false), // router_program
                 AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -283,7 +315,11 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             packet_commitment_account,
-            create_system_account(payer),
+            create_bpf_program_account(app_program_id),
+            create_account(dummy_app_state_pda, vec![0u8; 32], app_program_id), // Mock app state
+            create_bpf_program_account(crate::ID),                              // router_program
+            create_system_account(relayer), // relayer (also signer)
+            create_system_account(payer),   // payer (also signer)
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
             create_bpf_program_account(light_client_program),
@@ -297,6 +333,7 @@ mod tests {
             packet_commitment_pubkey: packet_commitment_pda,
             payer_pubkey: payer,
             packet,
+            dummy_app_state_pubkey: dummy_app_state_pda,
         }
     }
 
@@ -304,12 +341,7 @@ mod tests {
     fn test_timeout_packet_success() {
         let ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
 
-        let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
-        mollusk.add_program(
-            &MOCK_LIGHT_CLIENT_ID,
-            crate::get_mock_client_program_path(),
-            &solana_sdk::bpf_loader_upgradeable::ID,
-        );
+        let mollusk = setup_mollusk_with_mock_programs();
 
         // Get initial lamports for verification
         let initial_payer_lamports = ctx
@@ -339,6 +371,8 @@ mod tests {
         ];
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+
+        // Mock app doesn't track counters, so we just verify the instruction succeeded
     }
 
     #[test]
@@ -348,12 +382,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
-        mollusk.add_program(
-            &MOCK_LIGHT_CLIENT_ID,
-            crate::get_mock_client_program_path(),
-            &solana_sdk::bpf_loader_upgradeable::ID,
-        );
+        let mollusk = setup_mollusk_with_mock_programs();
 
         // When packet commitment doesn't exist, it should succeed (noop)
         let checks = vec![Check::success()];
