@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-struct-packing
+
 /// @title Transfer Messages
 /// @notice Interface defining ICS20 transfer messages
 interface IICS20TransferMsgs {

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-struct-packing
+
 import { IICS02ClientMsgs } from "./IICS02ClientMsgs.sol";
 
 /// @title Router Messages
