@@ -236,7 +236,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         address sender,
         string calldata receiver,
         bytes calldata payload,
-        bytes memory salt
+        bytes calldata salt
     )
         external
         returns (IICS26RouterMsgs.Packet memory)
@@ -249,8 +249,8 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         address sender,
         string calldata receiver,
         bytes calldata payload,
-        bytes memory salt,
-        string memory memo
+        bytes calldata salt,
+        string calldata memo
     )
         external
         returns (IICS26RouterMsgs.Packet memory)

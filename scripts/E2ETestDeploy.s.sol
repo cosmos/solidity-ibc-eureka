@@ -14,7 +14,6 @@ import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07Tend
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { ICS27GMP } from "../contracts/ICS27GMP.sol";
-import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
