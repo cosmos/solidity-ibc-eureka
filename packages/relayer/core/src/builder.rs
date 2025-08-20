@@ -43,7 +43,6 @@ impl RelayerBuilder {
     pub fn add_module<T: RelayerModule>(&mut self, module: T) {
         let module_name = module.name();
         if self.modules.contains_key(module_name) {
-            error!(%module_name, "Attempted to add already existing module");
             panic!("Relayer module already added");
         }
 
