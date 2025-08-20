@@ -1,14 +1,6 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-uc-and-membership` program.
-#![deny(
-    missing_docs,
-    clippy::nursery,
-    clippy::pedantic,
-    warnings,
-    unused_crate_dependencies
-)]
-
-#[cfg(test)]
-use ibc_core_client_types as _;
+#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings)]
+#![cfg_attr(not(test), deny(unused_crate_dependencies))]
 
 use ibc_client_tendermint::types::{ConsensusState, Header};
 use ibc_core_commitment_types::merkle::MerkleProof;

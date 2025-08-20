@@ -46,7 +46,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 
 - `contracts/`: Contains the Solidity contracts.
 - `test/`: Contains the Solidity tests.
-- `scripts/`: Contains the Solidity scripts.
+- `scripts/`: Contains Solidity scripts and tools.
 - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 - `programs/`: Contains the Rust programs for the project.

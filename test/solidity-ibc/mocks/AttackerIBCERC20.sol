@@ -15,7 +15,7 @@ contract AttackerIBCERC20 is IIBCERC20, ERC20 {
     }
 
     /// @inheritdoc IIBCERC20
-    function initialize(address, address, string memory) external { }
+    function initialize(address, address, string calldata) external { }
 
     /// @inheritdoc IIBCERC20
     function fullDenomPath() public pure returns (string memory) {

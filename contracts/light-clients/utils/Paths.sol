@@ -12,7 +12,7 @@ library Paths {
         if (a.length != b.length) {
             return false;
         }
-        for (uint256 i = 0; i < a.length; i++) {
+        for (uint256 i = 0; i < a.length; ++i) {
             if (a[i].length != b[i].length) {
                 return false;
             }

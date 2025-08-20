@@ -4,50 +4,22 @@ pub mod fixtures {
     use serde::Deserialize;
 
     #[derive(Deserialize)]
-    pub struct ClientStateFixture {
-        pub chain_id: String,
-        pub frozen_height: u64,
-        pub latest_height: u64,
-        pub max_clock_drift: u64,
-        pub trust_level_denominator: u32,
-        pub trust_level_numerator: u32,
-        pub trusting_period: u64,
-        pub unbonding_period: u64,
+    pub struct UpdateClientFixture {
+        pub client_state_hex: String,
+        pub consensus_state_hex: String,
+        pub update_client_message: UpdateClientMessage,
     }
 
     #[derive(Deserialize)]
-    pub struct ConsensusStateFixture {
-        pub next_validators_hash: String,
-        pub root: String,
-        pub timestamp: u64,
-    }
-
-    #[derive(Deserialize, Clone)]
-    pub struct UpdateClientMessageFixture {
+    pub struct UpdateClientMessage {
         pub client_message_hex: String,
-        pub type_url: String,
         pub trusted_height: u64,
         pub new_height: u64,
     }
 
-    #[derive(Deserialize)]
-    pub struct FixtureMetadata {
-        pub description: String,
-        pub generated_at: String,
-        pub source: String,
-    }
-
-    #[derive(Deserialize)]
-    pub struct UpdateClientFixture {
-        pub scenario: String,
-        pub client_state: ClientStateFixture,
-        pub trusted_consensus_state: ConsensusStateFixture,
-        pub update_client_message: UpdateClientMessageFixture,
-        pub metadata: FixtureMetadata,
-    }
-
-    pub fn load_update_client_fixture(filename: &str) -> UpdateClientFixture {
-        let fixture_path = format!("../../tests/fixtures/{filename}.json");
+    fn load_fixture(filename: &str) -> UpdateClientFixture {
+        let fixture_path =
+            format!("../../../../packages/tendermint-light-client/fixtures/{filename}.json");
         let fixture_content = std::fs::read_to_string(&fixture_path)
             .unwrap_or_else(|_| panic!("Failed to read fixture: {fixture_path}"));
 
@@ -55,51 +27,95 @@ pub mod fixtures {
             .unwrap_or_else(|_| panic!("Failed to parse fixture: {fixture_path}"))
     }
 
-    pub fn load_happy_path_fixture() -> UpdateClientFixture {
-        load_update_client_fixture("update_client_happy_path")
+    pub fn load_update_client_message(filename: &str) -> UpdateClientMessage {
+        let fixture = load_fixture(filename);
+        fixture.update_client_message
     }
 
-    pub fn load_malformed_client_message_fixture() -> UpdateClientFixture {
-        load_update_client_fixture("update_client_malformed_client_message")
-    }
-
-    pub fn load_expired_header_fixture() -> UpdateClientFixture {
-        load_update_client_fixture("update_client_expired_header")
-    }
-
-    pub fn load_future_timestamp_fixture() -> UpdateClientFixture {
-        load_update_client_fixture("update_client_future_timestamp")
-    }
-
-    pub fn load_wrong_trusted_height_fixture() -> UpdateClientFixture {
-        load_update_client_fixture("update_client_wrong_trusted_height")
-    }
-
-    pub fn load_invalid_protobuf_fixture() -> UpdateClientFixture {
-        load_update_client_fixture("update_client_invalid_protobuf")
-    }
-
-    pub fn load_primary_fixtures() -> (ClientState, ConsensusState, UpdateClientMessageFixture) {
-        let fixture = load_happy_path_fixture();
+    pub fn load_primary_fixtures() -> (ClientState, ConsensusState, UpdateClientMessage) {
+        let fixture = load_fixture("update_client_happy_path");
         (
-            client_state_from_fixture(&fixture.client_state),
-            consensus_state_from_fixture(&fixture.trusted_consensus_state),
-            fixture.update_client_message.clone(),
+            decode_client_state(&fixture.client_state_hex),
+            decode_consensus_state(&fixture.consensus_state_hex),
+            fixture.update_client_message,
         )
+    }
+
+    fn decode_client_state(client_state_hex: &str) -> ClientState {
+        use prost::Message;
+
+        let bytes = hex_to_bytes(client_state_hex);
+        let proto = ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
+            .expect("Failed to decode client state");
+
+        let trust_level = proto
+            .trust_level
+            .expect("Missing trust_level in client state");
+        let trusting_period = proto
+            .trusting_period
+            .expect("Missing trusting_period in client state");
+        let unbonding_period = proto
+            .unbonding_period
+            .expect("Missing unbonding_period in client state");
+        let max_clock_drift = proto
+            .max_clock_drift
+            .expect("Missing max_clock_drift in client state");
+        let latest_height = proto
+            .latest_height
+            .expect("Missing latest_height in client state");
+
+        ClientState {
+            chain_id: proto.chain_id,
+            trust_level_numerator: trust_level.numerator as u64,
+            trust_level_denominator: trust_level.denominator as u64,
+            trusting_period: trusting_period.seconds as u64,
+            unbonding_period: unbonding_period.seconds as u64,
+            max_clock_drift: max_clock_drift.seconds as u64,
+            frozen_height: proto
+                .frozen_height
+                .map_or_else(IbcHeight::default, |frozen_height| IbcHeight {
+                    revision_number: frozen_height.revision_number,
+                    revision_height: frozen_height.revision_height,
+                }),
+            latest_height: IbcHeight {
+                revision_number: latest_height.revision_number,
+                revision_height: latest_height.revision_height,
+            },
+        }
+    }
+
+    fn decode_consensus_state(consensus_state_hex: &str) -> ConsensusState {
+        use prost::Message;
+
+        let bytes = hex_to_bytes(consensus_state_hex);
+        let proto = ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
+            .expect("Failed to decode consensus state");
+
+        let timestamp = proto
+            .timestamp
+            .expect("Missing timestamp in consensus state");
+        let root = proto.root.expect("Missing root in consensus state");
+
+        ConsensusState {
+            timestamp: timestamp_to_nanoseconds(timestamp.seconds, timestamp.nanos),
+            root: root
+                .hash
+                .as_slice()
+                .try_into()
+                .expect("Invalid root hash length"),
+            next_validators_hash: proto
+                .next_validators_hash
+                .as_slice()
+                .try_into()
+                .expect("Invalid next_validators_hash length"),
+        }
     }
 
     // Helper to check if a fixture file exists
     pub fn fixture_exists(filename: &str) -> bool {
-        let fixture_path = format!("../../tests/fixtures/{filename}.json");
+        let fixture_path =
+            format!("../../../../packages/tendermint-light-client/fixtures/{filename}.json");
         std::path::Path::new(&fixture_path).exists()
-    }
-
-    pub fn hex_to_bytes32(hex_str: &str) -> [u8; 32] {
-        let hex_str = hex_str.trim_start_matches("0x");
-        let bytes = hex::decode(hex_str).expect("Invalid hex string");
-        let mut array = [0u8; 32];
-        array.copy_from_slice(&bytes[..32]);
-        array
     }
 
     pub fn hex_to_bytes(hex_str: &str) -> Vec<u8> {
@@ -107,39 +123,18 @@ pub mod fixtures {
         hex::decode(hex_str).expect("Invalid hex string")
     }
 
-    pub fn client_state_from_fixture(fixture: &ClientStateFixture) -> ClientState {
-        ClientState {
-            chain_id: fixture.chain_id.clone(),
-            trust_level_numerator: u64::from(fixture.trust_level_numerator),
-            trust_level_denominator: u64::from(fixture.trust_level_denominator),
-            trusting_period: fixture.trusting_period,
-            unbonding_period: fixture.unbonding_period,
-            max_clock_drift: fixture.max_clock_drift,
-            frozen_height: IbcHeight {
-                revision_number: 0,
-                revision_height: fixture.frozen_height,
-            },
-            latest_height: IbcHeight {
-                revision_number: 0,
-                revision_height: fixture.latest_height,
-            },
-        }
+    /// Convert protobuf Timestamp to nanoseconds since Unix epoch
+    fn timestamp_to_nanoseconds(seconds: i64, nanos: i32) -> u64 {
+        const NANOS_PER_SECOND: u64 = 1_000_000_000;
+        (seconds as u64) * NANOS_PER_SECOND + (nanos as u64)
     }
 
-    pub fn consensus_state_from_fixture(fixture: &ConsensusStateFixture) -> ConsensusState {
-        ConsensusState {
-            timestamp: fixture.timestamp,
-            root: hex_to_bytes32(&fixture.root),
-            next_validators_hash: hex_to_bytes32(&fixture.next_validators_hash),
-        }
-    }
-
-    /// Extract header timestamp from update client message fixture
+    /// Extract header timestamp from update client message
     /// Returns the header time as Unix timestamp in seconds (suitable for Clock sysvar)
-    pub fn get_header_timestamp_from_fixture(fixture: &UpdateClientMessageFixture) -> i64 {
+    pub fn get_header_timestamp_from_message(message: &UpdateClientMessage) -> i64 {
         use crate::helpers::deserialize_header;
 
-        let client_message = hex_to_bytes(&fixture.client_message_hex);
+        let client_message = hex_to_bytes(&message.client_message_hex);
         let header =
             deserialize_header(&client_message).expect("Failed to deserialize header from fixture");
 
@@ -150,19 +145,74 @@ pub mod fixtures {
 
     /// Create a clock timestamp that's valid for the given header
     /// This adds a small buffer to the header time to pass clock drift validation
-    pub fn get_valid_clock_timestamp_for_header(fixture: &UpdateClientMessageFixture) -> i64 {
-        let header_timestamp = get_header_timestamp_from_fixture(fixture);
+    pub fn get_valid_clock_timestamp_for_header(message: &UpdateClientMessage) -> i64 {
+        let header_timestamp = get_header_timestamp_from_message(message);
         // Add 5 seconds buffer after header time to pass validation
         header_timestamp.saturating_add(5)
     }
 
     /// Create a clock timestamp that's way in the future to simulate expired header
     /// This is used for testing header expiration scenarios
-    pub fn get_expired_clock_timestamp_for_header(fixture: &UpdateClientMessageFixture) -> i64 {
-        let header_timestamp = get_header_timestamp_from_fixture(fixture);
+    pub fn get_expired_clock_timestamp_for_header(message: &UpdateClientMessage) -> i64 {
+        let header_timestamp = get_header_timestamp_from_message(message);
         // Add 1 year to make the header appear expired
         let one_year_in_seconds: i64 = 86400 * 365;
         header_timestamp.saturating_add(one_year_in_seconds)
+    }
+
+    /// Corrupt the header signature in the client message bytes
+    /// Returns the corrupted bytes
+    pub fn corrupt_header_signature(client_message_hex: &str) -> Vec<u8> {
+        use prost::Message;
+
+        let bytes = hex_to_bytes(client_message_hex);
+        let mut header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
+            .expect("Failed to decode header");
+
+        // Corrupt the first signature we find
+        if let Some(signed_header) = &mut header.signed_header {
+            if let Some(commit) = &mut signed_header.commit {
+                for sig in &mut commit.signatures {
+                    if !sig.signature.is_empty() {
+                        // Flip a bit in the middle of the signature
+                        let mid_pos = sig.signature.len() / 2;
+                        sig.signature[mid_pos] ^= 0x01;
+                        break; // Only corrupt the first signature found
+                    }
+                }
+            }
+        }
+
+        // Re-encode the corrupted header
+        let mut buf = Vec::new();
+        header.encode(&mut buf).expect("Failed to encode header");
+        buf
+    }
+
+    /// Create client message bytes with wrong trusted height
+    /// This modifies the `trusted_height` field in the protobuf
+    pub fn create_message_with_wrong_trusted_height(
+        client_message_hex: &str,
+        wrong_height: u64,
+    ) -> Vec<u8> {
+        use prost::Message;
+
+        let bytes = hex_to_bytes(client_message_hex);
+
+        // Decode the header
+        let mut header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
+            .expect("Failed to decode header from test fixture");
+
+        // Update the trusted height
+        header.trusted_height = Some(ibc_proto::ibc::core::client::v1::Height {
+            revision_number: 0,
+            revision_height: wrong_height,
+        });
+
+        // Re-encode
+        let mut buf = Vec::new();
+        header.encode(&mut buf).expect("Failed to encode header");
+        buf
     }
 
     // Generic test helper functions
