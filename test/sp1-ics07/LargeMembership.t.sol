@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// solhint-disable gas-custom-errors
+// solhint-disable gas-custom-errors,gas-small-strings
 
 // solhint-disable-next-line no-global-import
 import "forge-std/console.sol";
@@ -38,7 +38,7 @@ contract SP1ICS07LargeMembershipTest is MembershipTest {
 
         bytes[] memory multicallData = new bytes[](n);
 
-        for (uint32 i = 0; i < n; i++) {
+        for (uint32 i = 0; i < n; ++i) {
             bytes memory proofBz = bytes("");
             if (i == 0) {
                 proofBz = abi.encode(fixture.membershipProof);
