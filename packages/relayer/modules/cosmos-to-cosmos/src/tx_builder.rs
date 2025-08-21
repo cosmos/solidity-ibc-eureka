@@ -20,10 +20,8 @@ use tendermint_rpc::HttpClient;
 
 use ibc_eureka_relayer_lib::{
     chain::CosmosSdk,
-    cosmos_tx_builder::{
-        build_tendermint_client_state, default_max_clock_drift, default_trust_level,
-    },
     events::EurekaEventWithHeight,
+    tendermint_client::build_tendermint_client_state,
     tx_builder::TxBuilderService,
     utils::cosmos,
 };
@@ -174,8 +172,6 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             revision_number: chain_id.revision_number(),
             revision_height: latest_light_block.height().value(),
         };
-        let trust_level = default_trust_level();
-        let max_clock_drift = default_max_clock_drift();
         let unbonding_period = self
             .source_tm_client
             .sdk_staking_params()
@@ -193,15 +189,8 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             height,
             trusting_period,
             unbonding_period,
+            vec![ics23::iavl_spec(), ics23::tendermint_spec()],
         );
-
-        // Override trust level and clock drift with our defaults
-        let client_state = ClientState {
-            trust_level: Some(trust_level),
-            max_clock_drift: Some(max_clock_drift),
-            proof_specs: vec![ics23::iavl_spec(), ics23::tendermint_spec()],
-            ..client_state
-        };
 
         let consensus_state = latest_light_block.to_consensus_state();
 

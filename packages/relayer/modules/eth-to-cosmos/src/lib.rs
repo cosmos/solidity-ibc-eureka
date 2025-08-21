@@ -143,10 +143,10 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
-        let eth_tx_hashes = parse_eth_tx_hashes(inner_req.source_tx_ids).map_err(|e| *e)?;
+        let eth_tx_hashes = parse_eth_tx_hashes(inner_req.source_tx_ids)?;
         let eth_txs = eth_tx_hashes.into_iter().map(TxHash::from).collect();
 
-        let cosmos_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids).map_err(|e| *e)?;
+        let cosmos_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
 
         let eth_events = self
             .eth_listener

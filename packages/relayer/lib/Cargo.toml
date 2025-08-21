@@ -10,6 +10,7 @@ ibc-eureka-solidity-types = { workspace = true, features = ["rpc"] }
 ibc-eureka-utils          = { workspace = true }
 
 sp1-ics07-tendermint-prover   = { workspace = true }
+ics23                         = { workspace = true }
 
 ethereum-apis = { workspace = true }
 ethereum-light-client = { workspace = true }
