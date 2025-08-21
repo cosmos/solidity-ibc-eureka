@@ -30,5 +30,5 @@ anchor-client.workspace = true
 borsh.workspace = true
 
 ibc-proto-eureka.workspace = true
-solana-ibc-types = { path = "../../../../programs/solana/packages/solana-ibc-types" }
+solana-ibc-types.workspace = true
 solana-ibc-constants.workspace = true
