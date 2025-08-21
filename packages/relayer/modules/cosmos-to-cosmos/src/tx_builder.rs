@@ -6,7 +6,6 @@ use std::{collections::HashMap, str::FromStr};
 use anyhow::Result;
 use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
-use ics23;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::{Any, Duration},
@@ -15,6 +14,7 @@ use ibc_proto_eureka::{
         lightclients::tendermint::v1::ClientState,
     },
 };
+use ics23;
 use prost::Message;
 use tendermint_rpc::HttpClient;
 
