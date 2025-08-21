@@ -25,14 +25,14 @@ func (s *TestSuite) StoreLightClient(ctx context.Context, cosmosChain *cosmos.Co
 
 func (s *TestSuite) getWasmLightClientBinary() *os.File {
 	// For PoW testnets, we use the dummy light client
-	if s.ethTestnetType == testvalues.EthTestnetTypePoW && s.ethWasmType == testvalues.EthWasmTypeDummy {
+	if s.ethTestnetType == testvalues.EthTestnetTypePoW && s.EthWasmType == testvalues.EthWasmTypeDummy {
 		s.T().Log("Using dummy Wasm light client for PoW testnet")
 		file, err := wasm.GetLocalWasmAttestorLightClient()
 		s.Require().NoError(err, "Failed to get local Wasm light client binary")
 		return file
 	}
 	// For PoW testnets using attestors
-	if s.ethTestnetType == testvalues.EthTestnetTypePoW && s.ethWasmType == testvalues.EthWasmTypeAttestor {
+	if s.ethTestnetType == testvalues.EthTestnetTypePoW && s.EthWasmType == testvalues.EthWasmTypeAttestor {
 		s.T().Log("Using attestor Wasm light client for PoW testnet")
 		file, err := wasm.GetLocalWasmAttestorLightClient()
 		s.Require().NoError(err, "Failed to get local Wasm light client binary")
@@ -43,7 +43,7 @@ func (s *TestSuite) getWasmLightClientBinary() *os.File {
 	s.Require().True(slices.Contains(allNonPowEvmTestnets, s.ethTestnetType))
 
 	acceptedWasmKinds := []string{testvalues.EthWasmTypeFull, testvalues.EthWasmTypeAttestor}
-	s.Require().True(slices.Contains(acceptedWasmKinds, s.ethWasmType))
+	s.Require().True(slices.Contains(acceptedWasmKinds, s.EthWasmType))
 
 	// If it is empty or set to "local", we use the local Wasm light client binary
 	// NOTE: We ignore the wasm kind here because we don't care about

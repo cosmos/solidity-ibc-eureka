@@ -32,7 +32,7 @@ type TestSuite struct {
 	EthChain       ethereum.Ethereum
 	OptimismChain  chainconfig.KurtosisOptimismChain
 	ethTestnetType string
-	ethWasmType    string
+	EthWasmType    string
 	CosmosChains   []*cosmos.CosmosChain
 	CosmosUsers    []ibc.Wallet
 	dockerClient   *dockerclient.Client
@@ -54,9 +54,9 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		s.WasmLightClientTag = os.Getenv(testvalues.EnvKeyE2EWasmLightClientTag)
 	}
 
-	if s.ethWasmType == "" {
-		s.ethWasmType = os.Getenv(testvalues.EnvKeyE2EEthWasmType)
-		s.T().Logf("wasm type %s", s.ethWasmType)
+	if s.EthWasmType == "" {
+		s.EthWasmType = os.Getenv(testvalues.EnvKeyE2EEthWasmType)
+		s.T().Logf("wasm type %s", s.EthWasmType)
 
 	}
 
