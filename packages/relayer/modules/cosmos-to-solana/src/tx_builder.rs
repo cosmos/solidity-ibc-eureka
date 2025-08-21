@@ -423,11 +423,11 @@ impl TxBuilder {
             }],
         };
 
-        // Create the message
+        // Create the message with mock proofs for now
         let msg = MsgRecvPacket {
             packet,
-            proof_commitment: vec![], // Would include actual proof
-            proof_height: 0,          // Would include actual height
+            proof_commitment: b"mock".to_vec(), // Mock proof for testing
+            proof_height: 1,                    // Mock height for testing
         };
 
         // Derive all required PDAs
@@ -583,6 +583,204 @@ impl TxBuilder {
             &[update_ix],
             Some(&self.wallet_keypair.pubkey()),
             &[&self.wallet_keypair],
+            recent_blockhash,
+        );
+
+        Ok(tx)
+    }
+}
+
+/// Mock `TxBuilder` for testing that uses mock proofs instead of real ones
+pub struct MockTxBuilder {
+    /// The underlying real `TxBuilder`
+    pub inner: TxBuilder,
+}
+
+impl MockTxBuilder {
+    /// Creates a new `MockTxBuilder`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the inner `TxBuilder` creation fails
+    pub fn new(
+        source_tm_client: HttpClient,
+        solana_client: Arc<RpcClient>,
+        solana_ics26_program_id: Pubkey,
+        solana_ics07_program_id: Pubkey,
+        wallet_path: &str,
+    ) -> Result<Self> {
+        Ok(Self {
+            inner: TxBuilder::new(
+                source_tm_client,
+                solana_client,
+                solana_ics26_program_id,
+                solana_ics07_program_id,
+                wallet_path,
+            )?,
+        })
+    }
+
+    /// Build instruction for `RecvPacket` on Solana with mock proofs
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if packet data cannot be serialized
+    fn build_recv_packet_instruction_mock(&self, params: &RecvPacketParams) -> Result<Instruction> {
+        // Build the packet structure
+        let packet = Packet {
+            sequence: params.sequence,
+            source_client: params.source_client.to_string(),
+            dest_client: params.destination_client.to_string(),
+            timeout_timestamp: i64::try_from(params.timeout_timestamp).unwrap_or(i64::MAX),
+            payloads: vec![Payload {
+                source_port: params.source_port.to_string(),
+                dest_port: params.destination_port.to_string(),
+                version: "ics20-1".to_string(),
+                encoding: "json".to_string(),
+                value: params.data.to_vec(),
+            }],
+        };
+
+        // Create the message with mock proofs
+        let msg = MsgRecvPacket {
+            packet,
+            proof_commitment: b"mock".to_vec(), // Mock proof
+            proof_height: 1,                    // Mock height
+        };
+
+        // Derive all required PDAs
+        let (router_state, _) = derive_router_state(&self.inner.solana_ics26_program_id);
+        let (ibc_app, _) =
+            derive_ibc_app(params.destination_port, &self.inner.solana_ics26_program_id);
+        let (client_sequence, _) = derive_client_sequence(
+            params.destination_client,
+            &self.inner.solana_ics26_program_id,
+        );
+        let (packet_receipt, _) = derive_packet_receipt(
+            params.destination_client,
+            params.sequence,
+            &self.inner.solana_ics26_program_id,
+        );
+        let (packet_ack, _) = derive_packet_ack(
+            params.destination_client,
+            params.sequence,
+            &self.inner.solana_ics26_program_id,
+        );
+        let (client, _) = derive_client(
+            params.destination_client,
+            &self.inner.solana_ics26_program_id,
+        );
+
+        // For light client verification, we also need ICS07 accounts
+        let (client_state, _) =
+            derive_ics07_client_state(params.source_client, &self.inner.solana_ics07_program_id);
+        let (consensus_state, _) =
+            derive_ics07_consensus_state(&client_state, 0, &self.inner.solana_ics07_program_id);
+
+        // Build accounts list
+        let accounts = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(ibc_app, false),
+            AccountMeta::new(client_sequence, false),
+            AccountMeta::new(packet_receipt, false),
+            AccountMeta::new(packet_ack, false),
+            AccountMeta::new_readonly(self.inner.wallet_keypair.pubkey(), true), // relayer
+            AccountMeta::new(self.inner.wallet_keypair.pubkey(), true),          // payer
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(sysvar::clock::id(), false),
+            AccountMeta::new_readonly(client, false),
+            AccountMeta::new_readonly(self.inner.solana_ics07_program_id, false), // light client program
+            AccountMeta::new_readonly(client_state, false),
+            AccountMeta::new_readonly(consensus_state, false),
+        ];
+
+        // Build instruction data
+        let discriminator = get_instruction_discriminator("recv_packet");
+        let mut data = discriminator.to_vec();
+        data.extend_from_slice(&msg.try_to_vec()?);
+
+        Ok(Instruction {
+            program_id: self.inner.solana_ics26_program_id,
+            accounts,
+            data,
+        })
+    }
+
+    /// Build a Solana transaction from IBC events using mock proofs
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to build update client instruction
+    /// - No instructions to execute
+    /// - Failed to get latest blockhash
+    #[allow(clippy::cognitive_complexity)]
+    pub async fn build_solana_tx_mock(
+        &self,
+        src_events: Vec<CosmosIbcEvent>,
+        target_events: Vec<CosmosIbcEvent>,
+    ) -> Result<Transaction> {
+        let mut instructions = Vec::new();
+
+        // First, update the Tendermint light client on Solana
+        let update_client_ix = self.inner.build_update_client_instruction().await?;
+        instructions.push(update_client_ix);
+
+        // Process source events from Cosmos with mock proofs
+        for event in src_events {
+            match event {
+                #[allow(clippy::used_underscore_binding)]
+                CosmosIbcEvent::SendPacket {
+                    sequence,
+                    source_port,
+                    source_client,
+                    destination_port,
+                    destination_client,
+                    data,
+                    _timeout_height,
+                    timeout_timestamp,
+                } => {
+                    let recv_packet_ix =
+                        self.build_recv_packet_instruction_mock(&RecvPacketParams {
+                            sequence,
+                            source_port: &source_port,
+                            source_client: &source_client,
+                            destination_port: &destination_port,
+                            destination_client: &destination_client,
+                            data: &data,
+                            timeout_timestamp,
+                        })?;
+                    instructions.push(recv_packet_ix);
+                }
+                CosmosIbcEvent::AcknowledgePacket { .. } => {
+                    tracing::debug!("Building acknowledgement instruction with mock proof");
+                }
+                CosmosIbcEvent::TimeoutPacket { .. } => {
+                    tracing::debug!("Building timeout instruction with mock proof");
+                }
+            }
+        }
+
+        for event in target_events {
+            tracing::debug!(?event, "Processing timeout event with mock proof");
+        }
+
+        if instructions.is_empty() {
+            anyhow::bail!("No instructions to execute on Solana");
+        }
+
+        // Get recent blockhash
+        let recent_blockhash = self
+            .inner
+            .solana_client
+            .get_latest_blockhash()
+            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
+
+        // Create and sign transaction
+        let tx = Transaction::new_signed_with_payer(
+            &instructions,
+            Some(&self.inner.wallet_keypair.pubkey()),
+            &[&self.inner.wallet_keypair],
             recent_blockhash,
         );
 
