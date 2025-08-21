@@ -29,6 +29,17 @@ use solana_ibc_types::{
 
 use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
 
+/// Parameters for building a `RecvPacket` instruction
+struct RecvPacketParams<'a> {
+    sequence: u64,
+    source_port: &'a str,
+    source_client: &'a str,
+    destination_port: &'a str,
+    destination_client: &'a str,
+    data: &'a [u8],
+    timeout_timestamp: u64,
+}
+
 /// IBC event types from Cosmos
 #[derive(Debug, Clone)]
 pub enum CosmosIbcEvent {
@@ -184,8 +195,8 @@ impl TxBuilder {
 
                         // Map channel to client (in Solana, we use client IDs instead of channels)
                         // This is a simplification - in production, you'd map properly
-                        let source_client = format!("cosmos-{}", source_channel);
-                        let destination_client = format!("solana-{}", destination_channel);
+                        let source_client = format!("cosmos-{source_channel}");
+                        let destination_client = format!("solana-{destination_channel}");
 
                         events.push(CosmosIbcEvent::SendPacket {
                             sequence,
@@ -255,7 +266,7 @@ impl TxBuilder {
     /// - Failed to build update client instruction
     /// - No instructions to execute
     /// - Failed to get latest blockhash
-    #[allow(clippy::cognitive_complexity)]
+    #[allow(clippy::cognitive_complexity)] // TODO: Refactor when all event types are fully implemented
     pub async fn build_solana_tx(
         &self,
         src_events: Vec<CosmosIbcEvent>,
@@ -282,15 +293,15 @@ impl TxBuilder {
                     timeout_timestamp,
                 } => {
                     // Build RecvPacket instruction for Solana
-                    let recv_packet_ix = self.build_recv_packet_instruction(
+                    let recv_packet_ix = self.build_recv_packet_instruction(&RecvPacketParams {
                         sequence,
-                        &source_port,
-                        &source_client,
-                        &destination_port,
-                        &destination_client,
-                        &data,
+                        source_port: &source_port,
+                        source_client: &source_client,
+                        destination_port: &destination_port,
+                        destination_client: &destination_client,
+                        data: &data,
                         timeout_timestamp,
-                    )?;
+                    })?;
                     instructions.push(recv_packet_ix);
                 }
                 CosmosIbcEvent::AcknowledgePacket { .. } => {
@@ -306,7 +317,7 @@ impl TxBuilder {
 
         // Process timeout events from Solana
         for event in target_events {
-            tracing::debug!("Processing timeout event: {:?}", event);
+            tracing::debug!(?event, "Processing timeout event");
         }
 
         if instructions.is_empty() {
@@ -400,52 +411,49 @@ impl TxBuilder {
     /// # Errors
     ///
     /// Returns an error if packet data cannot be serialized
-    fn build_recv_packet_instruction(
-        &self,
-        sequence: u64,
-        source_port: &str,
-        source_client: &str,
-        destination_port: &str,
-        destination_client: &str,
-        data: &[u8],
-        timeout_timestamp: u64,
-    ) -> Result<Instruction> {
+    fn build_recv_packet_instruction(&self, params: &RecvPacketParams) -> Result<Instruction> {
         // Build the packet structure
         let packet = Packet {
-            sequence,
-            source_client: source_client.to_string(),
-            dest_client: destination_client.to_string(),
-            timeout_timestamp: timeout_timestamp as i64,
+            sequence: params.sequence,
+            source_client: params.source_client.to_string(),
+            dest_client: params.destination_client.to_string(),
+            timeout_timestamp: i64::try_from(params.timeout_timestamp).unwrap_or(i64::MAX),
             payloads: vec![Payload {
-                source_port: source_port.to_string(),
-                dest_port: destination_port.to_string(),
+                source_port: params.source_port.to_string(),
+                dest_port: params.destination_port.to_string(),
                 version: "ics20-1".to_string(), // Default version
                 encoding: "json".to_string(),
-                value: data.to_vec(),
+                value: params.data.to_vec(),
             }],
         };
 
         // Create the message
         let msg = MsgRecvPacket {
-            packet: packet.clone(),
+            packet,
             proof_commitment: vec![], // Would include actual proof
             proof_height: 0,          // Would include actual height
         };
 
         // Derive all required PDAs
         let (router_state, _) = derive_router_state(&self.solana_ics26_program_id);
-        let (ibc_app, _) = derive_ibc_app(destination_port, &self.solana_ics26_program_id);
+        let (ibc_app, _) = derive_ibc_app(params.destination_port, &self.solana_ics26_program_id);
         let (client_sequence, _) =
-            derive_client_sequence(destination_client, &self.solana_ics26_program_id);
-        let (packet_receipt, _) =
-            derive_packet_receipt(destination_client, sequence, &self.solana_ics26_program_id);
-        let (packet_ack, _) =
-            derive_packet_ack(destination_client, sequence, &self.solana_ics26_program_id);
-        let (client, _) = derive_client(destination_client, &self.solana_ics26_program_id);
+            derive_client_sequence(params.destination_client, &self.solana_ics26_program_id);
+        let (packet_receipt, _) = derive_packet_receipt(
+            params.destination_client,
+            params.sequence,
+            &self.solana_ics26_program_id,
+        );
+        let (packet_ack, _) = derive_packet_ack(
+            params.destination_client,
+            params.sequence,
+            &self.solana_ics26_program_id,
+        );
+        let (client, _) = derive_client(params.destination_client, &self.solana_ics26_program_id);
 
         // For light client verification, we also need ICS07 accounts
         let (client_state, _) =
-            derive_ics07_client_state(source_client, &self.solana_ics07_program_id);
+            derive_ics07_client_state(params.source_client, &self.solana_ics07_program_id);
         let (consensus_state, _) =
             derive_ics07_consensus_state(&client_state, 0, &self.solana_ics07_program_id); // Use appropriate height
 
