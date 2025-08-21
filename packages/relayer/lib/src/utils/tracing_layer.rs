@@ -1,10 +1,45 @@
 //! Tonic interceptor for automatic trace context extraction and trace ID recording.
 
-use super::correlation::MetadataExtractor;
 use opentelemetry::trace::TraceContextExt;
-use tonic::{Request, Status};
+use tonic::{metadata::MetadataMap, Request, Status};
 use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+/// OpenTelemetry injector for gRPC metadata.
+pub struct MetadataInjector<'a>(pub &'a mut MetadataMap);
+
+impl opentelemetry::propagation::Injector for MetadataInjector<'_> {
+    fn set(&mut self, key: &str, value: String) {
+        match tonic::metadata::MetadataKey::from_bytes(key.as_bytes()) {
+            Ok(key) => match tonic::metadata::MetadataValue::try_from(&value) {
+                Ok(value) => {
+                    self.0.insert(key, value);
+                }
+                Err(error) => tracing::warn!(value, error = %error, "parse metadata value"),
+            },
+            Err(error) => tracing::warn!(key, error = %error, "parse metadata key"),
+        }
+    }
+}
+
+/// OpenTelemetry extractor for gRPC metadata.
+pub struct MetadataExtractor<'a>(pub &'a MetadataMap);
+
+impl opentelemetry::propagation::Extractor for MetadataExtractor<'_> {
+    fn get(&self, key: &str) -> Option<&str> {
+        self.0.get(key)?.to_str().ok()
+    }
+
+    fn keys(&self) -> Vec<&str> {
+        self.0
+            .keys()
+            .map(|k| match k {
+                tonic::metadata::KeyRef::Ascii(key) => key.as_str(),
+                tonic::metadata::KeyRef::Binary(key) => key.as_str(),
+            })
+            .collect()
+    }
+}
 
 /// Tonic interceptor function that automatically extracts trace context and records trace ID.
 /// This can be used with `.interceptor()` on tonic services.
