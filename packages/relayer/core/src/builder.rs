@@ -1,7 +1,6 @@
 //! Defines the [`RelayerBuilder`] struct that is used to build the relayer server.
 
-use std::collections::HashMap;
-
+use super::modules::RelayerModule;
 use crate::{
     api::{
         self,
@@ -9,12 +8,10 @@ use crate::{
     },
     config::RelayerConfig,
 };
+use ibc_eureka_relayer_lib::utils::correlation;
+use std::collections::HashMap;
 use tonic::{transport::Server, Request, Response};
 use tracing::{error, info, instrument};
-
-use ibc_eureka_relayer_lib::utils::correlation;
-
-use super::modules::RelayerModule;
 
 /// The `RelayerBuilder` struct is used to build the relayer.
 #[derive(Default)]
@@ -43,13 +40,13 @@ impl RelayerBuilder {
     /// Panics if the module has already been added.
     #[instrument(skip(self, module), fields(module_name = %module.name()))]
     pub fn add_module<T: RelayerModule>(&mut self, module: T) {
-        let module_name = module.name();
-        if self.modules.contains_key(module_name) {
-            panic!("Relayer module already added");
-        }
+        assert!(
+            !self.modules.contains_key(module.name()),
+            "Relayer module already added"
+        );
 
         self.modules
-            .insert(module_name.to_string(), Box::new(module));
+            .insert(module.name().to_string(), Box::new(module));
     }
 
     /// Start the relayer server.
@@ -78,18 +75,12 @@ impl RelayerBuilder {
                     anyhow::anyhow!("Module {} not found in relayer builder", c.name)
                 })?;
 
-            match module.create_service(c.config).await {
-                Ok(service) => {
-                    info!(
-                        module_name = %c.name,
-                        src_chain = %c.src_chain,
-                        dst_chain = %c.dst_chain,
-                        "Module service created successfully"
-                    );
-                    relayer.add_module(c.src_chain, c.dst_chain, service);
-                }
-                Err(e) => return Err(e),
-            }
+            relayer.add_module(
+                c.src_chain,
+                c.dst_chain,
+                module.create_service(c.config).await?,
+            );
+            info!(module_name = %c.name, "Service added successfully");
         }
 
         // Start the gRPC server
@@ -151,23 +142,15 @@ impl RelayerService for Relayer {
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
 
-        info!("Received info request");
-
         crate::metrics::track_metrics("info", &src_chain, &dst_chain, || async move {
             let inner_request = request.get_ref();
-            match self.get_module(&inner_request.src_chain, &inner_request.dst_chain) {
-                Ok(module) => {
-                    info!("Forwarding info request to module");
-                    module.info(request).await.map_err(|e| {
-                        error!(error = %e, "Info request failed");
-                        tonic::Status::internal("Failed to get info. See logs for more details.")
-                    })
-                }
-                Err(status) => {
-                    error!(status = %status, "Module not found for info request");
-                    Err(status)
-                }
-            }
+            self.get_module(&inner_request.src_chain, &inner_request.dst_chain)?
+                .info(request)
+                .await
+                .map_err(|e| {
+                    error!(error = %e, "Info request failed");
+                    tonic::Status::internal("Failed to get info. See logs for more details.")
+                })
         })
         .await
     }
@@ -189,23 +172,15 @@ impl RelayerService for Relayer {
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
 
-        info!("Received relay_by_tx request");
-
         crate::metrics::track_metrics("relay_by_tx", &src_chain, &dst_chain, || async move {
             let inner_request = request.get_ref();
-            match self.get_module(&inner_request.src_chain, &inner_request.dst_chain) {
-                Ok(module) => {
-                    info!("Forwarding relay_by_tx request to module");
-                    module.relay_by_tx(request).await.map_err(|e| {
-                        error!(error = %e, "Relay by tx request failed");
-                        tonic::Status::internal("Failed to relay by tx. See logs for more details.")
-                    })
-                }
-                Err(status) => {
-                    error!(status = %status, "Module not found for relay_by_tx request");
-                    Err(status)
-                }
-            }
+            self.get_module(&inner_request.src_chain, &inner_request.dst_chain)?
+                .relay_by_tx(request)
+                .await
+                .map_err(|e| {
+                    error!(error = %e, "Relay by tx request failed");
+                    tonic::Status::internal("Failed to relay by tx. See logs for more details.")
+                })
         })
         .await
     }
@@ -227,25 +202,15 @@ impl RelayerService for Relayer {
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
 
-        info!("Received create_client request");
-
         crate::metrics::track_metrics("create_client", &src_chain, &dst_chain, || async move {
             let inner_request = request.get_ref();
-            match self.get_module(&inner_request.src_chain, &inner_request.dst_chain) {
-                Ok(module) => {
-                    info!("Forwarding create_client request to module");
-                    module.create_client(request).await.map_err(|e| {
-                        error!(error = %e, "Create client request failed");
-                        tonic::Status::internal(
-                            "Failed to create client. See logs for more details.",
-                        )
-                    })
-                }
-                Err(status) => {
-                    error!(status = %status, "Module not found for create_client request");
-                    Err(status)
-                }
-            }
+            self.get_module(&inner_request.src_chain, &inner_request.dst_chain)?
+                .create_client(request)
+                .await
+                .map_err(|e| {
+                    error!(error = %e, "Create client request failed");
+                    tonic::Status::internal("Failed to create client. See logs for more details.")
+                })
         })
         .await
     }
@@ -267,25 +232,15 @@ impl RelayerService for Relayer {
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
 
-        info!("Received update_client request");
-
         crate::metrics::track_metrics("update_client", &src_chain, &dst_chain, || async move {
             let inner_request = request.get_ref();
-            match self.get_module(&inner_request.src_chain, &inner_request.dst_chain) {
-                Ok(module) => {
-                    info!("Forwarding update_client request to module");
-                    module.update_client(request).await.map_err(|e| {
-                        error!(error = %e, "Update client request failed");
-                        tonic::Status::internal(
-                            "Failed to update client. See logs for more details.",
-                        )
-                    })
-                }
-                Err(status) => {
-                    error!(status = %status, "Module not found for update_client request");
-                    Err(status)
-                }
-            }
+            self.get_module(&inner_request.src_chain, &inner_request.dst_chain)?
+                .update_client(request)
+                .await
+                .map_err(|e| {
+                    error!(error = %e, "Update client request failed");
+                    tonic::Status::internal("Failed to update client. See logs for more details.")
+                })
         })
         .await
     }
