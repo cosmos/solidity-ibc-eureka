@@ -4,9 +4,10 @@
 
 use anyhow::{Context, Result};
 use ibc_eureka_relayer_core::config::TracingConfig;
-use opentelemetry::{trace::TracerProvider as _, KeyValue};
+use opentelemetry::{global, trace::TracerProvider as _, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
+    propagation::TraceContextPropagator,
     resource::Resource,
     trace::{Sampler, SdkTracerProvider, SpanExporter, Tracer},
 };
@@ -30,6 +31,9 @@ impl Drop for TracingGuard {
 /// Keep the returned guard alive for the program's lifetime to ensure a
 /// clean OpenTelemetry shutdown.
 pub fn init_subscriber(config: TracingConfig) -> Result<TracingGuard> {
+    // Set up global propagator for context propagation
+    global::set_text_map_propagator(TraceContextPropagator::new());
+
     // Using a closure instead of a function allows Rust to infer the correct
     // return type for each usage, avoiding type system constraints that would
     // arise from specifying a concrete return type like `fmt::Layer<Registry>`.

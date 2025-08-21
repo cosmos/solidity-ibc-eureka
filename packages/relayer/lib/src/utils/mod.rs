@@ -34,5 +34,8 @@ where
     anyhow::bail!("Timeout exceeded waiting for condition")
 }
 
+/// Utils useful for type conversions for attestor clients
+pub mod attestor;
+pub mod correlation;
 pub mod cosmos;
 pub mod eth_eureka;

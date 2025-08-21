@@ -24,7 +24,10 @@ anyhow        = { workspace = true, features = ["std"] }
 futures       = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 
-tracing = { workspace = true, default-features = true, features = ["attributes", "std"] }
+tonic                 = { workspace = true, default-features = true }
+tracing               = { workspace = true, default-features = true, features = ["attributes", "std"] }
+opentelemetry         = { workspace = true, default-features = true, features = ["trace"] }
+tracing-opentelemetry = { workspace = true, default-features = true }
 
 tendermint                       = { workspace = true, features = ["std"] }
 tendermint-rpc                   = { workspace = true, features = ["http-client"] }
