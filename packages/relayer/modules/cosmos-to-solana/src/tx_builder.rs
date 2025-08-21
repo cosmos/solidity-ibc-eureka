@@ -292,7 +292,6 @@ impl TxBuilder {
                     _timeout_height,
                     timeout_timestamp,
                 } => {
-                    // Build RecvPacket instruction for Solana
                     let recv_packet_ix = self.build_recv_packet_instruction(&RecvPacketParams {
                         sequence,
                         source_port: &source_port,
@@ -305,17 +304,14 @@ impl TxBuilder {
                     instructions.push(recv_packet_ix);
                 }
                 CosmosIbcEvent::AcknowledgePacket { .. } => {
-                    // Build Acknowledgement instruction
                     tracing::debug!("Building acknowledgement instruction");
                 }
                 CosmosIbcEvent::TimeoutPacket { .. } => {
-                    // Build Timeout instruction
                     tracing::debug!("Building timeout instruction");
                 }
             }
         }
 
-        // Process timeout events from Solana
         for event in target_events {
             tracing::debug!(?event, "Processing timeout event");
         }
