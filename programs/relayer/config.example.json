@@ -5,7 +5,6 @@
   },
   "tracing": {
     "level": "info",
-    "with_file": true,
     "use_otel": false,
     "service_name": "ibc-eureka-relayer",
     "otel_endpoint": null

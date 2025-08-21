@@ -15,7 +15,6 @@ use tracing::{info, instrument};
 use warp::Filter;
 
 #[tokio::main]
-#[instrument(skip_all, name = "relayer_main")]
 async fn main() -> anyhow::Result<()> {
     let cli = RelayerCli::parse();
     match cli.command {

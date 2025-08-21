@@ -30,7 +30,8 @@ impl Drop for TracingGuard {
 ///
 /// Keep the returned guard alive for the program's lifetime to ensure a
 /// clean OpenTelemetry shutdown.
-pub fn init_subscriber(config: TracingConfig) -> Result<TracingGuard> {
+#[allow(clippy::missing_errors_doc)]
+pub fn init_subscriber(config: &TracingConfig) -> Result<TracingGuard> {
     // Set up global propagator for context propagation
     global::set_text_map_propagator(TraceContextPropagator::new());
 
@@ -42,11 +43,11 @@ pub fn init_subscriber(config: TracingConfig) -> Result<TracingGuard> {
             .pretty()
             .with_target(true)
             .with_line_number(true)
-            .with_file(config.with_file)
+            .with_file(true)
     };
 
     let otel_provider = if config.use_otel {
-        match setup_otlp_tracer(&config) {
+        match setup_otlp_tracer(config) {
             Ok((tracer, provider)) => {
                 let subscriber = Registry::default()
                     .with(EnvFilter::new(config.level().as_str().to_lowercase()))
@@ -57,7 +58,7 @@ pub fn init_subscriber(config: TracingConfig) -> Result<TracingGuard> {
                 Some(provider)
             }
             Err(e) => {
-                warn!("OpenTelemetry disabled: {e}");
+                tracing::warn!("OpenTelemetry disabled: {e}");
                 None
             }
         }

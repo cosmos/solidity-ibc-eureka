@@ -58,8 +58,6 @@ const fn default_true() -> bool {
 pub struct TracingConfig {
     /// The log level to use.
     pub level: String,
-    /// Whether to include file paths in logs.
-    pub with_file: bool,
     /// Whether to use OpenTelemetry for distributed tracing.
     pub use_otel: bool,
     /// The service name to use for OpenTelemetry.
@@ -72,7 +70,6 @@ impl Default for TracingConfig {
     fn default() -> Self {
         Self {
             level: "info".to_string(),
-            with_file: true,
             use_otel: false,
             service_name: "ibc-eureka-relayer".to_string(),
             otel_endpoint: None,
