@@ -1,14 +1,8 @@
 //! This is a one-sided relayer module from a Cosmos SDK chain to Solana.
 
-#![deny(
-    clippy::nursery,
-    clippy::pedantic,
-    warnings,
-    unused_crate_dependencies
-)]
+#![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 #![allow(missing_docs, unused_crate_dependencies)]
 
-pub mod anchor_types;
 pub mod tx_builder;
 
 use std::collections::HashMap;

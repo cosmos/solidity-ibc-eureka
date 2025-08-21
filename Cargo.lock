@@ -5081,6 +5081,8 @@ dependencies = [
  "serde",
  "serde_json",
  "solana-client",
+ "solana-ibc-constants",
+ "solana-ibc-types",
  "solana-sdk",
  "solana-transaction-status",
  "tendermint",
@@ -5163,6 +5165,7 @@ name = "ibc-eureka-relayer-lib"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "anchor-lang",
  "anyhow",
  "async-trait",
  "ethereum-apis 0.1.0",
@@ -5177,12 +5180,14 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
+ "solana-sdk",
  "sp1-ics07-tendermint-prover 0.1.0",
  "sp1-prover",
  "sp1-sdk",
  "tendermint",
  "tendermint-light-client-verifier",
  "tendermint-rpc",
+ "tonic 0.13.1",
  "tracing",
 ]
 
@@ -5230,6 +5235,7 @@ dependencies = [
  "serde",
  "serde_json",
  "solana-client",
+ "solana-ibc-types",
  "solana-sdk",
  "solana-transaction-status",
  "tendermint",
@@ -9268,6 +9274,18 @@ dependencies = [
  "solana-atomic-u64",
  "solana-sanitize",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "solana-ibc-constants"
+version = "0.1.0"
+
+[[package]]
+name = "solana-ibc-types"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "solana-ibc-constants",
 ]
 
 [[package]]

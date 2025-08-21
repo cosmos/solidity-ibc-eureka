@@ -28,6 +28,9 @@ tracing       = { workspace = true, default-features = true }
 tendermint     = { workspace = true, features = ["std"] }
 tendermint-rpc = { workspace = true, features = ["http-client"] }
 tendermint-light-client-verifier = { workspace = true }
+tonic = { workspace = true }
+anchor-lang = { workspace = true }
+solana-sdk = { workspace = true }
 
 ibc-proto-eureka          = { workspace = true }
 ibc-core-commitment-types = { workspace = true }

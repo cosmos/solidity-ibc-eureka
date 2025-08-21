@@ -2,10 +2,11 @@
 //! Solana from events received from a Cosmos SDK chain.
 
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
-use anyhow::Result;
 use anchor_lang::AnchorSerialize;
+use anyhow::Result;
 use ibc_proto_eureka::ibc::core::client::v1::Height;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
@@ -20,12 +21,13 @@ use solana_sdk::{
 use tendermint::Hash;
 use tendermint_rpc::{Client, HttpClient};
 
-use crate::anchor_types::{
+use solana_ibc_types::{
     derive_client, derive_client_sequence, derive_ibc_app, derive_ics07_client_state,
     derive_ics07_consensus_state, derive_packet_ack, derive_packet_receipt, derive_router_state,
-    get_instruction_discriminator, ics07_program_id, ics26_program_id, MsgRecvPacket, Packet,
-    Payload, UpdateClientMsg,
+    get_instruction_discriminator, MsgRecvPacket, Packet, Payload, UpdateClientMsg,
 };
+
+use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
 
 /// IBC event types from Cosmos
 #[derive(Debug, Clone)]
@@ -112,8 +114,10 @@ impl TxBuilder {
         Ok(Self {
             source_tm_client,
             solana_client,
-            solana_ics26_program_id: ics26_program_id(),
-            solana_ics07_program_id: ics07_program_id(),
+            solana_ics26_program_id: Pubkey::from_str(ICS26_ROUTER_ID)
+                .map_err(|e| anyhow::anyhow!("Invalid ICS26 program ID: {e}"))?,
+            solana_ics07_program_id: Pubkey::from_str(ICS07_TENDERMINT_ID)
+                .map_err(|e| anyhow::anyhow!("Invalid ICS07 program ID: {e}"))?,
             wallet_keypair,
         })
     }
@@ -163,7 +167,8 @@ impl TxBuilder {
                                     destination_port = attr.value_str().unwrap_or("").to_string();
                                 }
                                 "packet_dst_channel" => {
-                                    destination_channel = attr.value_str().unwrap_or("").to_string();
+                                    destination_channel =
+                                        attr.value_str().unwrap_or("").to_string();
                                 }
                                 "packet_data_hex" => {
                                     data = hex::decode(attr.value_str().unwrap_or(""))
@@ -351,15 +356,23 @@ impl TxBuilder {
 
         // Get the chain ID for PDA derivation
         let chain_id = latest_block.block.header.chain_id.to_string();
-        let (client_state_pda, _) = derive_ics07_client_state(&chain_id);
+        let (client_state_pda, _) =
+            derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
 
         // Derive consensus state PDAs for trusted and new heights
         let trusted_height = latest_block.block.header.height.value() - 1; // Previous height
         let new_height = latest_block.block.header.height.value();
 
-        let (trusted_consensus_state, _) =
-            derive_ics07_consensus_state(&client_state_pda, trusted_height);
-        let (new_consensus_state, _) = derive_ics07_consensus_state(&client_state_pda, new_height);
+        let (trusted_consensus_state, _) = derive_ics07_consensus_state(
+            &client_state_pda,
+            trusted_height,
+            &self.solana_ics07_program_id,
+        );
+        let (new_consensus_state, _) = derive_ics07_consensus_state(
+            &client_state_pda,
+            new_height,
+            &self.solana_ics07_program_id,
+        );
 
         // Build the instruction
         let accounts = vec![
@@ -416,20 +429,25 @@ impl TxBuilder {
         let msg = MsgRecvPacket {
             packet: packet.clone(),
             proof_commitment: vec![], // Would include actual proof
-            proof_height: 0,           // Would include actual height
+            proof_height: 0,          // Would include actual height
         };
 
         // Derive all required PDAs
-        let (router_state, _) = derive_router_state();
-        let (ibc_app, _) = derive_ibc_app(destination_port);
-        let (client_sequence, _) = derive_client_sequence(destination_client);
-        let (packet_receipt, _) = derive_packet_receipt(destination_client, sequence);
-        let (packet_ack, _) = derive_packet_ack(destination_client, sequence);
-        let (client, _) = derive_client(destination_client);
+        let (router_state, _) = derive_router_state(&self.solana_ics26_program_id);
+        let (ibc_app, _) = derive_ibc_app(destination_port, &self.solana_ics26_program_id);
+        let (client_sequence, _) =
+            derive_client_sequence(destination_client, &self.solana_ics26_program_id);
+        let (packet_receipt, _) =
+            derive_packet_receipt(destination_client, sequence, &self.solana_ics26_program_id);
+        let (packet_ack, _) =
+            derive_packet_ack(destination_client, sequence, &self.solana_ics26_program_id);
+        let (client, _) = derive_client(destination_client, &self.solana_ics26_program_id);
 
         // For light client verification, we also need ICS07 accounts
-        let (client_state, _) = derive_ics07_client_state(source_client);
-        let (consensus_state, _) = derive_ics07_consensus_state(&client_state, 0); // Use appropriate height
+        let (client_state, _) =
+            derive_ics07_client_state(source_client, &self.solana_ics07_program_id);
+        let (consensus_state, _) =
+            derive_ics07_consensus_state(&client_state, 0, &self.solana_ics07_program_id); // Use appropriate height
 
         // Build accounts list
         let accounts = vec![
@@ -490,8 +508,13 @@ impl TxBuilder {
         let latest_height = genesis_block.block.header.height.value();
 
         // Derive PDAs
-        let (client_state_pda, _) = derive_ics07_client_state(&chain_id);
-        let (consensus_state_pda, _) = derive_ics07_consensus_state(&client_state_pda, latest_height);
+        let (client_state_pda, _) =
+            derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
+        let (consensus_state_pda, _) = derive_ics07_consensus_state(
+            &client_state_pda,
+            latest_height,
+            &self.solana_ics07_program_id,
+        );
 
         // Build initialization instruction for ICS07
         let accounts = vec![
@@ -538,7 +561,10 @@ impl TxBuilder {
     /// - Failed to serialize header
     /// - Failed to get latest blockhash
     pub async fn build_update_client_tx(&self, client_id: String) -> Result<Transaction> {
-        tracing::info!("Building update client transaction for client {}", client_id);
+        tracing::info!(
+            "Building update client transaction for client {}",
+            client_id
+        );
 
         let update_ix = self.build_update_client_instruction().await?;
 

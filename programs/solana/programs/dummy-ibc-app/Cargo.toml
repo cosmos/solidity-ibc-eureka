@@ -26,4 +26,4 @@ default = []
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
-ics24-host-solana.workspace = true
+solana-ibc-types.workspace = true

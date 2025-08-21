@@ -3,7 +3,6 @@
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 #![allow(unused_crate_dependencies, missing_docs)]
 
-pub mod anchor_types;
 pub mod tx_builder;
 
 use std::collections::HashMap;

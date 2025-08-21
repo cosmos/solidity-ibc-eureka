@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-pub use ics24_host_solana::{
+pub use solana_ibc_types::{
     IBCAppError, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg,
 };
 

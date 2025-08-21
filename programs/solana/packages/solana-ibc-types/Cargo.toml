@@ -1,0 +1,18 @@
+[package]
+name = "solana-ibc-types"
+version.workspace = true
+edition.workspace = true
+description = "IBC types and utilities for Solana programs"
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "types", "anchor"]
+categories = ["cryptography", "blockchain"]
+
+[dependencies]
+anchor-lang.workspace = true
+solana-ibc-constants = { path = "../solana-ibc-constants" }
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
