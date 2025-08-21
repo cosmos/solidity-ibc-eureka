@@ -8,14 +8,12 @@ import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS27GMPMsgs } from "../../contracts/msgs/IICS27GMPMsgs.sol";
 import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
-// import { IICS27AccountMsgs } from "../../contracts/msgs/IICS27AccountMsgs.sol";
-// import { IICS27Errors } from "../../contracts/errors/IICS27Errors.sol";
+import { IICS27Errors } from "../../contracts/errors/IICS27Errors.sol";
 
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ICS27Account } from "../../contracts/utils/ICS27Account.sol";
-// import { Errors } from "@openzeppelin-contracts/utils/Errors.sol";
 import { ICS27GMP } from "../../contracts/ICS27GMP.sol";
 import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
@@ -104,17 +102,75 @@ contract ICS27GMPTest is Test {
     }
 
     function testFuzz_success_onRecvPacket(uint16 saltLen, uint16 payloadLen, uint64 seq) public {
-        vm.assume(seq > 0);
+        vm.assume(seq > 0 && payloadLen > 0);
 
         address relayer = makeAddr("relayer");
         address receiver = makeAddr("receiver");
         bytes memory salt = vm.randomBytes(saltLen);
         string memory sender = th.randomString();
+        string memory memo = th.randomString();
         bytes memory payload = vm.randomBytes(payloadLen);
 
         bytes memory mockResp = bytes("mockResp");
         bytes memory expAck = ICS27Lib.acknowledgement(mockResp);
 
+        vm.mockCall(receiver, payload, mockResp);
+
+        IIBCAppCallbacks.OnRecvPacketCallback memory msg_ = IIBCAppCallbacks.OnRecvPacketCallback({
+            sourceClient: th.FIRST_CLIENT_ID(),
+            destinationClient: th.SECOND_CLIENT_ID(),
+            sequence: seq,
+            payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                destPort: ICS27Lib.DEFAULT_PORT_ID,
+                version: ICS27Lib.ICS27_VERSION,
+                encoding: ICS27Lib.ICS27_ENCODING,
+                value: abi.encode(
+                    IICS27GMPMsgs.GMPPacketData({
+                        sender: sender,
+                        receiver: Strings.toHexString(receiver),
+                        salt: salt,
+                        payload: payload,
+                        memo: memo
+                    })
+                )
+            }),
+            relayer: relayer
+        });
+
+        IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
+            clientId: msg_.destinationClient,
+            sender: sender,
+            salt: salt
+        });
+
+        address predeterminedAccount = ics27Gmp.getOrComputeAccountAddress(accountId);
+        assertTrue(predeterminedAccount != address(0), "Predetermined account address should not be zero");
+
+        vm.expectCall(receiver, payload);
+        vm.prank(mockIcs26);
+        bytes memory ack = ics27Gmp.onRecvPacket(msg_);
+        assertEq(ack, expAck, "Acknowledgement mismatch");
+
+        address actualAccount = ics27Gmp.getOrComputeAccountAddress(accountId);
+        assertEq(actualAccount, predeterminedAccount, "Account address mismatch");
+    }
+
+    function testFuzz_failure_onRecvPacket(uint16 saltLen, uint16 payloadLen, uint64 seq) public {
+        vm.assume(seq > 0 && payloadLen > 0);
+
+        address relayer = makeAddr("relayer");
+        address receiver = makeAddr("receiver");
+        bytes memory salt = vm.randomBytes(saltLen);
+        string memory sender = th.randomString();
+
+        bytes memory errPayload = bytes("errPayload");
+        bytes memory mockErr = bytes("mockErr");
+
+        bytes memory payload = vm.randomBytes(payloadLen);
+        bytes memory mockResp = bytes("mockResp");
+
+        vm.mockCallRevert(receiver, errPayload, mockErr);
         vm.mockCall(receiver, payload, mockResp);
 
         IIBCAppCallbacks.OnRecvPacketCallback memory msg_ = IIBCAppCallbacks.OnRecvPacketCallback({
@@ -139,21 +195,74 @@ contract ICS27GMPTest is Test {
             relayer: relayer
         });
 
-        IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
-            clientId: msg_.destinationClient,
-            sender: sender,
-            salt: salt
-        });
-
-        address predeterminedAccount = ics27Gmp.getOrComputeAccountAddress(accountId);
-        assertTrue(predeterminedAccount != address(0), "Predetermined account address should not be zero");
-
-        vm.expectCall(receiver, payload);
+        // ===== Case 1: Incorrect Source Port =====
+        msg_.payload.sourcePort = th.INVALID_ID();
+        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidPort.selector, ICS27Lib.DEFAULT_PORT_ID, msg_.payload.sourcePort));
         vm.prank(mockIcs26);
-        bytes memory ack = ics27Gmp.onRecvPacket(msg_);
-        assertEq(ack, expAck, "Acknowledgement mismatch");
+        ics27Gmp.onRecvPacket(msg_);
+        msg_.payload.sourcePort = ICS27Lib.DEFAULT_PORT_ID;
 
-        address actualAccount = ics27Gmp.getOrComputeAccountAddress(accountId);
-        assertEq(actualAccount, predeterminedAccount, "Account address mismatch");
+        // ===== Case 2: Incorrect Dest Port =====
+        msg_.payload.destPort = th.INVALID_ID();
+        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidPort.selector, ICS27Lib.DEFAULT_PORT_ID, msg_.payload.destPort));
+        vm.prank(mockIcs26);
+        ics27Gmp.onRecvPacket(msg_);
+        msg_.payload.destPort = ICS27Lib.DEFAULT_PORT_ID;
+
+        // ===== Case 3: Incorrect Version =====
+        msg_.payload.version = th.INVALID_ID();
+        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27UnexpectedVersion.selector, ICS27Lib.ICS27_VERSION, msg_.payload.version));
+        vm.prank(mockIcs26);
+        ics27Gmp.onRecvPacket(msg_);
+        msg_.payload.version = ICS27Lib.ICS27_VERSION;
+
+        // ===== Case 4: Incorrect Encoding =====
+        msg_.payload.encoding = th.INVALID_ID();
+        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27UnexpectedEncoding.selector, ICS27Lib.ICS27_ENCODING, msg_.payload.encoding));
+        vm.prank(mockIcs26);
+        ics27Gmp.onRecvPacket(msg_);
+        msg_.payload.encoding = ICS27Lib.ICS27_ENCODING;
+
+        // ===== Case 5: Empty Payload =====
+        msg_.payload.value = abi.encode(
+            IICS27GMPMsgs.GMPPacketData({
+                sender: sender,
+                receiver: Strings.toHexString(receiver),
+                salt: salt,
+                payload: bytes(""),
+                memo: ""
+            })
+        );
+        vm.expectRevert(IICS27Errors.ICS27PayloadEmpty.selector);
+        vm.prank(mockIcs26);
+        ics27Gmp.onRecvPacket(msg_);
+
+        // ===== Case 6: Call reverts with the mock error =====
+        msg_.payload.value = abi.encode(
+            IICS27GMPMsgs.GMPPacketData({
+                sender: sender,
+                receiver: Strings.toHexString(receiver),
+                salt: salt,
+                payload: errPayload,
+                memo: ""
+            })
+        );
+        vm.prank(mockIcs26);
+        vm.expectRevert();
+        ics27Gmp.onRecvPacket(msg_);
+
+        // ===== Case 7: Invalid Receiver =====
+        msg_.payload.value = abi.encode(
+            IICS27GMPMsgs.GMPPacketData({
+                sender: sender,
+                receiver: th.INVALID_ID(),
+                salt: salt,
+                payload: payload,
+                memo: ""
+            })
+        );
+        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidReceiver.selector, th.INVALID_ID()));
+        vm.prank(mockIcs26);
+        ics27Gmp.onRecvPacket(msg_);
     }
 }

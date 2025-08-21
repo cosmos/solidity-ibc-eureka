@@ -80,6 +80,8 @@ contract ICS27GMP is
 
     /// @inheritdoc IICS27GMP
     function sendCall(IICS27GMPMsgs.SendCallMsg calldata msg_) external nonReentrant returns (uint64) {
+        require(msg_.payload.length != 0, ICS27PayloadEmpty());
+
         IICS27GMPMsgs.GMPPacketData memory packetData = IICS27GMPMsgs.GMPPacketData({
             sender: Strings.toHexString(_msgSender()),
             receiver: msg_.receiver,
@@ -128,6 +130,7 @@ contract ICS27GMP is
         );
 
         IICS27GMPMsgs.GMPPacketData memory packetData = abi.decode(msg_.payload.value, (IICS27GMPMsgs.GMPPacketData));
+        require(packetData.payload.length != 0, ICS27PayloadEmpty());
 
         IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
             clientId: msg_.destinationClient,

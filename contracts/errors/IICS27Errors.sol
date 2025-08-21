@@ -35,4 +35,7 @@ interface IICS27Errors {
     /// @notice Invalid sender
     /// @param sender The sender of the packet
     error ICS27InvalidSender(string sender);
+
+    /// @notice Payload is empty
+    error ICS27PayloadEmpty();
 }
