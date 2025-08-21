@@ -99,7 +99,6 @@ fn setup_otlp_tracer(config: &TracingConfig) -> Result<(Tracer, SdkTracerProvide
         .with_batch_exporter(exporter)
         .build();
 
-    // Use the trait method `.tracer(...)`
     let tracer = provider.tracer(config.service_name.clone());
 
     Ok((tracer, provider))
