@@ -1,6 +1,6 @@
 //! Attestor header types for IBC light client
 
-use secp256k1::{ecdsa::Signature, PublicKey};
+use k256::ecdsa::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
 /// Minimal attestor header for client updates
@@ -15,12 +15,14 @@ pub struct Header {
     /// Signatures of the attestors
     pub signatures: Vec<Signature>,
     /// Public keys of the attestors submitting attestations
-    pub pubkeys: Vec<PublicKey>,
+    pub pubkeys: Vec<VerifyingKey>,
 }
 
 impl Header {
     /// Create a new [Header] using encoded signatures and
     /// public keys.
+    #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn new(
         new_height: u64,
         timestamp: u64,
@@ -35,11 +37,11 @@ impl Header {
             // TODO: Make this fallable
             signatures: signatures
                 .into_iter()
-                .map(|bytes| Signature::from_compact(&bytes).unwrap())
+                .map(|bytes| Signature::try_from(bytes.as_slice()).unwrap())
                 .collect(),
             pubkeys: pubkeys
                 .into_iter()
-                .map(|bytes| PublicKey::from_slice(&bytes).unwrap())
+                .map(|bytes| VerifyingKey::from_sec1_bytes(&bytes).unwrap())
                 .collect(),
         }
     }

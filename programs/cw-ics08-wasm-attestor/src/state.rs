@@ -89,6 +89,11 @@ pub fn get_consensus_state(
     Ok(serde_json::from_slice(&wasm_consensus_state.data)?)
 }
 
+/// Get the previous attestor consensus state at a given height
+/// # Errors
+/// Returns an error if the consensus state is not found or cannot be deserialized
+/// # Returns
+/// The attestor previous consensus state
 pub fn get_previous_consensus_state(
     storage: &dyn Storage,
     height: u64,
@@ -112,6 +117,11 @@ pub fn get_previous_consensus_state(
     }
 }
 
+/// Get the next attestor consensus state at a given height
+/// # Errors
+/// Returns an error if the consensus state is not found or cannot be deserialized
+/// # Returns
+/// The attestor next consensus state
 pub fn get_next_consensus_state(
     storage: &dyn Storage,
     height: u64,

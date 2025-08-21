@@ -81,8 +81,9 @@ borsh           = { version = "1.5.7", default-features = false }
 
 sha2      = { version = "0.10", default-features = false }
 sha3      = { version = "0.10", default-features = false }
-secp256k1 = { version = "0.31.1", default-features = false }
+k256      = { version = "0.13.4", default-features = false }
 rand      = { version = "0.9", default-features = false }
+rand_core = { version = "0.6", default-features = false }
 pem       = { version = "3.0.5", default-features = false }
 pkcs8     = { version = "0.10.2", default-features = false }
 sec1      = { version = "0.7.3", default-features = false }

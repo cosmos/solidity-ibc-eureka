@@ -32,6 +32,7 @@ type TestSuite struct {
 	EthChain       ethereum.Ethereum
 	OptimismChain  chainconfig.KurtosisOptimismChain
 	ethTestnetType string
+	EthWasmType    string
 	CosmosChains   []*cosmos.CosmosChain
 	CosmosUsers    []ibc.Wallet
 	dockerClient   *dockerclient.Client
@@ -51,6 +52,12 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	// To let the download version be overridden by a calling test
 	if s.WasmLightClientTag == "" {
 		s.WasmLightClientTag = os.Getenv(testvalues.EnvKeyE2EWasmLightClientTag)
+	}
+
+	if s.EthWasmType == "" {
+		s.EthWasmType = os.Getenv(testvalues.EnvKeyE2EEthWasmType)
+		s.T().Logf("wasm type %s", s.EthWasmType)
+
 	}
 
 	icChainSpecs := chainconfig.DefaultChainSpecs

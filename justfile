@@ -105,6 +105,13 @@ install-attestor:
 	cargo build --bin ibc_attestor --release --locked --no-default-features -F arbitrum &&\
 	mv target/release/ibc_attestor ~/.cargo/bin/ibc_arbitrum_attestor
 
+# Install the sig-aggregator using `cargo install`
+[group('install')]
+install-aggregator:
+	cargo build --bin aggregator --release --locked &&\
+	mv target/release/aggregator ~/.cargo/bin/aggregator
+
+
 # Run all linters
 [group('lint')]
 lint:
@@ -268,7 +275,7 @@ test-abigen:
 
 # Run any e2e test using the test's full name. For example, `just test-e2e TestWithIbcEurekaTestSuite/Test_Deploy`
 [group('test')]
-test-e2e testname: clean-foundry install-relayer install-attestor
+test-e2e testname: clean-foundry install-relayer install-attestor install-aggregator
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 

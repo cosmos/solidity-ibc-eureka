@@ -3,8 +3,7 @@ use alloy_primitives::FixedBytes;
 use anyhow::{ensure as anyhow_ensure, Context, Result};
 use std::collections::HashMap;
 
-pub const STATE_BYTE_LENGTH: usize = 12;
-type State = FixedBytes<STATE_BYTE_LENGTH>;
+type State = Vec<u8>;
 
 // https://docs.rs/secp256k1/latest/secp256k1/ecdsa/struct.Signature.html#method.serialize_compact
 pub const SIGNATURE_BYTE_LENGTH: usize = 64;
@@ -38,8 +37,7 @@ impl AttestatorData {
     pub fn insert(&mut self, attestation: Attestation) -> Result<()> {
         attestation.validate().context("Invalid attestation")?;
 
-        let attested_data = State::try_from(attestation.attested_data.as_slice())
-            .context("Failed to convert attested_data to State")?;
+        let attested_data = State::from(attestation.attested_data.as_slice());
 
         self.state_attestations
             .entry(attested_data)
@@ -80,7 +78,6 @@ impl AttestatorData {
 impl Attestation {
     fn validate(&self) -> Result<()> {
         self.validate_pubkey()?;
-        self.validate_attested_data()?;
         self.validate_signature()?;
         Ok(())
     }
@@ -94,19 +91,6 @@ impl Attestation {
 
         Pubkey::try_from(self.public_key.as_slice())
             .with_context(|| format!("Invalid pubkey: {:?}", self.public_key))?;
-
-        Ok(())
-    }
-
-    fn validate_attested_data(&self) -> Result<()> {
-        anyhow_ensure!(
-            self.attested_data.len() == STATE_BYTE_LENGTH,
-            "Invalid attested_data length: {}",
-            self.attested_data.len()
-        );
-
-        State::try_from(self.attested_data.as_slice())
-            .with_context(|| format!("Invalid attested_data: {:#?}", self.attested_data))?;
 
         Ok(())
     }
@@ -136,7 +120,7 @@ mod tests {
 
         attestator_data
             .insert(Attestation {
-                attested_data: vec![1; STATE_BYTE_LENGTH],
+                attested_data: vec![1],
                 public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
                 height: 100,
                 timestamp: Some(100),
@@ -151,7 +135,7 @@ mod tests {
     #[test]
     fn state_meeting_quorum() {
         let mut attestator_data = AttestatorData::new();
-        let attestation = vec![0xAA; STATE_BYTE_LENGTH];
+        let attestation = vec![0xAA];
         let height = 123;
 
         [0x21, 0x22].iter().for_each(|&pubkey_byte| {
