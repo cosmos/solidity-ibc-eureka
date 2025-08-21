@@ -5,6 +5,7 @@ use tendermint::Hash;
 use tonic::Status;
 
 /// Convert `anyhow::Error` to `tonic::Status`
+#[inline]
 #[must_use]
 pub fn to_tonic_status(err: anyhow::Error) -> Status {
     Status::from_error(err.into())
@@ -15,6 +16,8 @@ pub fn to_tonic_status(err: anyhow::Error) -> Status {
 /// # Errors
 ///
 /// Returns a `Status` error if any transaction ID cannot be parsed as a valid hash
+#[inline]
+#[allow(clippy::result_large_err)]
 pub fn parse_cosmos_tx_hashes(tx_ids: Vec<Vec<u8>>) -> Result<Vec<Hash>, Status> {
     tx_ids
         .into_iter()
@@ -28,6 +31,8 @@ pub fn parse_cosmos_tx_hashes(tx_ids: Vec<Vec<u8>>) -> Result<Vec<Hash>, Status>
 /// # Errors
 ///
 /// Returns a `Status` error if any transaction ID is not exactly 32 bytes
+#[inline]
+#[allow(clippy::result_large_err)]
 pub fn parse_eth_tx_hashes(tx_ids: Vec<Vec<u8>>) -> Result<Vec<[u8; 32]>, Status> {
     tx_ids
         .into_iter()
