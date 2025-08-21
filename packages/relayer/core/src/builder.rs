@@ -164,6 +164,7 @@ impl RelayerService for Relayer {
             src_chain = %request.get_ref().src_chain,
             dst_chain = %request.get_ref().dst_chain,
             src_client_id = %request.get_ref().src_client_id,
+            trace_id = tracing::field::Empty,
         )
     )]
     async fn relay_by_tx(
