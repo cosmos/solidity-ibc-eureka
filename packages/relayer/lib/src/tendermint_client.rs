@@ -1,5 +1,5 @@
-//! Shared utilities for building Cosmos SDK transactions
-//! This module provides common functionality for creating Tendermint client states
+//! Utilities for Tendermint light client configuration
+//! This module provides common functionality for creating and configuring Tendermint client states
 
 use ibc_proto_eureka::{
     google::protobuf::Duration,
