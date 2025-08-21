@@ -84,7 +84,7 @@ pub fn verify_header(
 
 #[cfg(test)]
 mod verify_header {
-    use crate::test_utils::{packet_encoded_bytes, KEYS, SIGS};
+    use crate::test_utils::{keys as test_keys, packet_encoded_bytes, sigs as test_sigs};
     use k256::ecdsa::{signature::Signer, SigningKey};
     use sha2::{Digest, Sha256};
 
@@ -92,8 +92,11 @@ mod verify_header {
 
     #[test]
     fn fails_on_frozon() {
+        let keys = test_keys();
+        let sigs = test_sigs();
+
         let frozen = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys.clone(),
             latest_height: 100,
             is_frozen: true,
             min_required_sigs: 5,
@@ -105,9 +108,9 @@ mod verify_header {
         let header = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
+            attestation_data: packet_encoded_bytes(),
+            signatures: sigs,
+            pubkeys: keys,
         };
 
         let res = verify_header(Some(&cns), None, None, &frozen, &header);
@@ -115,8 +118,10 @@ mod verify_header {
     }
     #[test]
     fn fails_on_too_few_sigs() {
+        let keys = test_keys();
+
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys.clone(),
             latest_height: 100,
             is_frozen: false,
             min_required_sigs: 5,
@@ -126,14 +131,14 @@ mod verify_header {
             timestamp: 123,
         };
 
-        let mut too_few_sigs = SIGS.to_vec();
+        let mut too_few_sigs = test_sigs();
         let _ = too_few_sigs.pop();
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
+            attestation_data: packet_encoded_bytes(),
             signatures: too_few_sigs,
-            pubkeys: KEYS.clone().into(),
+            pubkeys: keys,
         };
 
         let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
@@ -144,8 +149,11 @@ mod verify_header {
 
     #[test]
     fn fails_on_too_pubkeys() {
+        let keys = test_keys();
+        let sigs = test_sigs();
+
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys.clone(),
             latest_height: 100,
             is_frozen: false,
             min_required_sigs: 5,
@@ -155,13 +163,13 @@ mod verify_header {
             timestamp: 123,
         };
 
-        let mut too_few_keys = KEYS.to_vec();
+        let mut too_few_keys = keys;
         let _ = too_few_keys.pop();
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.to_vec(),
+            attestation_data: packet_encoded_bytes(),
+            signatures: sigs,
             pubkeys: too_few_keys,
         };
 
@@ -173,8 +181,10 @@ mod verify_header {
 
     #[test]
     fn fails_on_rogue_signature() {
+        let keys = test_keys();
+
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys.clone(),
             latest_height: 100,
             is_frozen: false,
             min_required_sigs: 5,
@@ -192,15 +202,15 @@ mod verify_header {
         let hash_result = hasher.finalize();
         let rogue_sig = rogue_skey.sign(&hash_result);
 
-        let mut bad_sigs = SIGS.clone();
+        let mut bad_sigs = test_sigs();
         bad_sigs[0] = rogue_sig;
 
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
+            attestation_data: packet_encoded_bytes(),
             signatures: bad_sigs,
-            pubkeys: KEYS.clone().into(),
+            pubkeys: keys,
         };
 
         let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
@@ -209,8 +219,10 @@ mod verify_header {
 
     #[test]
     fn fails_on_rogue_key() {
+        let keys = test_keys();
+
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys.clone(),
             latest_height: 100,
             is_frozen: false,
             min_required_sigs: 5,
@@ -226,19 +238,19 @@ mod verify_header {
         hasher.update(&*packet_encoded_bytes());
         let hash_result = hasher.finalize();
         let rogue_sig = rogue_key.sign(&hash_result);
-        let mut valid_sigs_with_rogue_signer = SIGS.clone();
+        let mut valid_sigs_with_rogue_signer = test_sigs();
         valid_sigs_with_rogue_signer[4] = rogue_sig;
 
-        let rogue_public_key = rogue_key.verifying_key().clone();
-        let mut rogue_keys = KEYS.clone();
-        rogue_keys[4] = rogue_public_key.clone();
+        let rogue_public_key = *rogue_key.verifying_key();
+        let mut rogue_keys = keys;
+        rogue_keys[4] = rogue_public_key;
 
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
+            attestation_data: packet_encoded_bytes(),
             signatures: valid_sigs_with_rogue_signer,
-            pubkeys: rogue_keys.to_vec(),
+            pubkeys: rogue_keys,
         };
 
         let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
@@ -250,8 +262,10 @@ mod verify_header {
 
     #[test]
     fn fails_on_dup_sigs() {
+        let keys = test_keys();
+
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys.clone(),
             latest_height: 100,
             is_frozen: false,
             min_required_sigs: 5,
@@ -261,15 +275,15 @@ mod verify_header {
             timestamp: 123,
         };
 
-        let mut bad_sigs = SIGS.clone();
-        bad_sigs[0] = bad_sigs[1].clone();
+        let mut bad_sigs = test_sigs();
+        bad_sigs[0] = bad_sigs[1];
 
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
+            attestation_data: packet_encoded_bytes(),
             signatures: bad_sigs,
-            pubkeys: KEYS.clone().into(),
+            pubkeys: keys,
         };
 
         let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
@@ -280,8 +294,10 @@ mod verify_header {
 
     #[test]
     fn fails_on_dup_keys() {
+        let keys = test_keys();
+
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys.clone(),
             latest_height: 100,
             is_frozen: false,
             min_required_sigs: 5,
@@ -291,15 +307,15 @@ mod verify_header {
             timestamp: 123,
         };
 
-        let mut bad_keys = KEYS.clone();
-        bad_keys[0] = bad_keys[1].clone();
+        let mut bad_keys = keys;
+        bad_keys[0] = bad_keys[1];
 
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: bad_keys.to_vec(),
+            attestation_data: packet_encoded_bytes(),
+            signatures: test_sigs(),
+            pubkeys: bad_keys,
         };
 
         let res = verify_header(Some(&cns), None, None, &cs, &no_sig);
@@ -310,8 +326,10 @@ mod verify_header {
 
     #[test]
     fn fails_on_inconsistent_ts() {
+        let keys = test_keys();
+
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys.clone(),
             latest_height: 100,
             is_frozen: false,
             min_required_sigs: 5,
@@ -323,9 +341,9 @@ mod verify_header {
         let bad_ts = Header {
             new_height: cns.height,
             timestamp: cns.timestamp + 1,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
+            attestation_data: packet_encoded_bytes(),
+            signatures: test_sigs(),
+            pubkeys: keys,
         };
 
         let res = verify_header(Some(&cns), None, None, &cs, &bad_ts);
@@ -336,8 +354,10 @@ mod verify_header {
 
     #[test]
     fn fails_non_monotonic_ts() {
+        let keys = test_keys();
+
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys.clone(),
             latest_height: 100,
             is_frozen: false,
             min_required_sigs: 5,
@@ -357,9 +377,9 @@ mod verify_header {
         let not_inbetween = Header {
             new_height: 100 + 1,
             timestamp: next.timestamp + 3,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
+            attestation_data: packet_encoded_bytes(),
+            signatures: test_sigs(),
+            pubkeys: keys.clone(),
         };
 
         let res = verify_header(None, Some(&prev), Some(&next), &cs, &not_inbetween);
@@ -370,9 +390,9 @@ mod verify_header {
         let not_before = Header {
             new_height: 100 - 1,
             timestamp: next.timestamp + 3,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
+            attestation_data: packet_encoded_bytes(),
+            signatures: test_sigs(),
+            pubkeys: keys.clone(),
         };
 
         let res = verify_header(None, None, Some(&next), &cs, &not_before);
@@ -383,9 +403,9 @@ mod verify_header {
         let not_after = Header {
             new_height: 100 + 3,
             timestamp: prev.timestamp - 1,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
+            attestation_data: packet_encoded_bytes(),
+            signatures: test_sigs(),
+            pubkeys: keys,
         };
 
         let res = verify_header(None, Some(&prev), None, &cs, &not_after);
@@ -396,8 +416,10 @@ mod verify_header {
 
     #[test]
     fn succeeds_on_monotonic_ts() {
+        let keys = test_keys();
+
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys.clone(),
             latest_height: 100,
             is_frozen: false,
             min_required_sigs: 5,
@@ -417,9 +439,9 @@ mod verify_header {
         let inbetween = Header {
             new_height: 100 + 1,
             timestamp: 123 + 1,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
+            attestation_data: packet_encoded_bytes(),
+            signatures: test_sigs(),
+            pubkeys: keys.clone(),
         };
 
         let res = verify_header(None, Some(&prev), Some(&next), &cs, &inbetween);
@@ -428,9 +450,9 @@ mod verify_header {
         let before = Header {
             new_height: 100 - 1,
             timestamp: 123 - 1,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
+            attestation_data: packet_encoded_bytes(),
+            signatures: test_sigs(),
+            pubkeys: keys.clone(),
         };
 
         let res = verify_header(None, None, Some(&next), &cs, &before);
@@ -439,9 +461,9 @@ mod verify_header {
         let after = Header {
             new_height: 100 + 3,
             timestamp: prev.timestamp + 3,
-            attestation_data: packet_encoded_bytes().clone().into(),
-            signatures: SIGS.clone(),
-            pubkeys: KEYS.clone().into(),
+            attestation_data: packet_encoded_bytes(),
+            signatures: test_sigs(),
+            pubkeys: keys,
         };
 
         let res = verify_header(None, Some(&prev), None, &cs, &after);

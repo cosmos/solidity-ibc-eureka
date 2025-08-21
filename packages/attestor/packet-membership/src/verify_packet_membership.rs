@@ -33,7 +33,7 @@ mod verify_packet_membership {
         let packets: Vec<Vec<u8>> = data.into_iter().map(|d| d.to_vec()).collect();
 
         let proof = Packets::new(packets);
-        let value = serde_json::to_vec(b"hear, hear!!".as_slice()).unwrap();
+        let value = b"hear, hear!!".to_vec();
 
         let res = verify_packet_membership(proof, value);
         assert!(res.is_ok());
@@ -46,11 +46,11 @@ mod verify_packet_membership {
         let packets: Vec<Vec<u8>> = data.into_iter().map(|d| d.to_vec()).collect();
 
         let proof = Packets::new(packets);
-        let value = serde_json::to_vec(b"this does not exist".as_slice()).unwrap();
+        let value = b"this does not exist".to_vec();
 
         let res = verify_packet_membership(proof, value);
         assert!(
-            matches!(res, Err(PacketAttestationError::VerificiationFailed { reason }) if reason.contains("not exist") )
+            matches!(res, Err(PacketAttestationError::VerificiationFailed { reason }) if reason.contains("not exist"))
         );
     }
 }
