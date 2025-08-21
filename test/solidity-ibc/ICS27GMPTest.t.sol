@@ -138,11 +138,8 @@ contract ICS27GMPTest is Test {
             relayer: relayer
         });
 
-        IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
-            clientId: msg_.destinationClient,
-            sender: sender,
-            salt: salt
-        });
+        IICS27GMPMsgs.AccountIdentifier memory accountId =
+            IICS27GMPMsgs.AccountIdentifier({ clientId: msg_.destinationClient, sender: sender, salt: salt });
 
         address predeterminedAccount = ics27Gmp.getOrComputeAccountAddress(accountId);
         assertTrue(predeterminedAccount != address(0), "Predetermined account address should not be zero");
@@ -197,28 +194,44 @@ contract ICS27GMPTest is Test {
 
         // ===== Case 1: Incorrect Source Port =====
         msg_.payload.sourcePort = th.INVALID_ID();
-        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidPort.selector, ICS27Lib.DEFAULT_PORT_ID, msg_.payload.sourcePort));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IICS27Errors.ICS27InvalidPort.selector, ICS27Lib.DEFAULT_PORT_ID, msg_.payload.sourcePort
+            )
+        );
         vm.prank(mockIcs26);
         ics27Gmp.onRecvPacket(msg_);
         msg_.payload.sourcePort = ICS27Lib.DEFAULT_PORT_ID;
 
         // ===== Case 2: Incorrect Dest Port =====
         msg_.payload.destPort = th.INVALID_ID();
-        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidPort.selector, ICS27Lib.DEFAULT_PORT_ID, msg_.payload.destPort));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IICS27Errors.ICS27InvalidPort.selector, ICS27Lib.DEFAULT_PORT_ID, msg_.payload.destPort
+            )
+        );
         vm.prank(mockIcs26);
         ics27Gmp.onRecvPacket(msg_);
         msg_.payload.destPort = ICS27Lib.DEFAULT_PORT_ID;
 
         // ===== Case 3: Incorrect Version =====
         msg_.payload.version = th.INVALID_ID();
-        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27UnexpectedVersion.selector, ICS27Lib.ICS27_VERSION, msg_.payload.version));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IICS27Errors.ICS27UnexpectedVersion.selector, ICS27Lib.ICS27_VERSION, msg_.payload.version
+            )
+        );
         vm.prank(mockIcs26);
         ics27Gmp.onRecvPacket(msg_);
         msg_.payload.version = ICS27Lib.ICS27_VERSION;
 
         // ===== Case 4: Incorrect Encoding =====
         msg_.payload.encoding = th.INVALID_ID();
-        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27UnexpectedEncoding.selector, ICS27Lib.ICS27_ENCODING, msg_.payload.encoding));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IICS27Errors.ICS27UnexpectedEncoding.selector, ICS27Lib.ICS27_ENCODING, msg_.payload.encoding
+            )
+        );
         vm.prank(mockIcs26);
         ics27Gmp.onRecvPacket(msg_);
         msg_.payload.encoding = ICS27Lib.ICS27_ENCODING;
