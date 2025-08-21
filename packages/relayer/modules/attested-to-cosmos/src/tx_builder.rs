@@ -9,7 +9,9 @@ use anyhow::Result;
 use attestor_light_client::{
     client_state::ClientState as AttestorClientState,
     consensus_state::ConsensusState as AttestorConsensusState, header::Header,
+    membership::MembershipProof,
 };
+use attestor_packet_membership::Packets;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -20,8 +22,8 @@ use ibc_proto_eureka::{
         },
     },
 };
+use k256::ecdsa::{Signature, VerifyingKey};
 use prost::Message;
-use secp256k1::PublicKey;
 use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
 
@@ -96,7 +98,7 @@ fn encode_and_cyphon_packet_if_relevant(
         && packet.destClient == dst_client_id
         && (seqs.is_empty() || seqs.contains(&packet.sequence))
     {
-        cyphon.push(packet.abi_encode())
+        cyphon.push(packet.abi_encode());
     }
 }
 
@@ -130,7 +132,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         let mut ics26_ack_packets = Vec::new();
         let mut heights = HashSet::new();
 
-        for event in src_events.iter() {
+        for event in &src_events {
             // Prepare cyphon and filtering params
             let (packet, cyphon, seqs) = match event.event {
                 EurekaEvent::SendPacket(ref packet) => {
@@ -160,8 +162,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             "Requesting state attestation from aggregator for {} packets",
             request.packets.len()
         );
-        // - We need update client with timestamp at height
-        // - We need MsgRecvPacket where proof is (key, value, height, signature)
+
         let response = aggregator_client
             .get_attestations(request)
             .await?
@@ -170,11 +171,12 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         let (state, packets) = (
             response
                 .state_attestation
-                .ok_or(anyhow::anyhow!("No state received"))?,
+                .ok_or_else(|| anyhow::anyhow!("No state received"))?,
             response
                 .packet_attestation
-                .ok_or(anyhow::anyhow!("No packets received"))?,
+                .ok_or_else(|| anyhow::anyhow!("No packets received"))?,
         );
+
         tracing::info!(
             "Received state attestation: {} signatures, height {}, state: {}",
             packets.signatures.len(),
@@ -184,6 +186,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
 
         let header = Header::new(
             state.height,
+            // Unwrap safe as state attestation must contain ts
             state.timestamp.unwrap(),
             state.attested_data,
             state.signatures,
@@ -223,14 +226,36 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        attestor::inject_proofs(&mut recv_msgs, &packets.attested_data, packets.height);
+        let proof = {
+            let raw_packets: Vec<Vec<u8>> = serde_json::from_slice(&packets.attested_data)
+                .map_err(|_| anyhow::anyhow!("packets could not be deserialized"))?;
+            tracing::info!("raw packets: {:?}", raw_packets);
 
-        let all_msgs = timeout_msgs
-            .into_iter()
-            .map(|m| Any::from_msg(&m))
+            let structured = MembershipProof {
+                attestation_data: Packets::new(raw_packets),
+                signatures: packets
+                    .signatures
+                    .iter()
+                    .map(|sig| Signature::from_slice(sig))
+                    .collect::<Result<Vec<Signature>, _>>()?,
+                pubkeys: packets
+                    .public_keys
+                    .iter()
+                    .map(|pkey| VerifyingKey::from_sec1_bytes(pkey))
+                    .collect::<Result<Vec<VerifyingKey>, _>>()?,
+            };
+            serde_json::to_vec(&structured)
+                .map_err(|_| anyhow::anyhow!("proof could not be serialized"))?
+        };
+        attestor::inject_proofs(&mut recv_msgs, &proof, packets.height);
+
+        // NOTE: UpdateMsg must come first otherwise
+        // client state may not contain the needed
+        // height for the RecvMsgs
+        let all_msgs = std::iter::once(Any::from_msg(&update_msg))
             .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .chain(timeout_msgs.into_iter().map(|m| Any::from_msg(&m)))
             .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
-            .chain([Any::from_msg(&update_msg)])
             .collect::<Result<Vec<_>, _>>()?;
 
         tracing::debug!("Total messages: #{}", all_msgs.len());
@@ -275,9 +300,9 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             pub_keys_bytes.len() % 33 == 0,
             "`{PUB_KEYS}` must be a hex-encoded concatenation of 33-byte compressed pubkeys"
         );
-        let pub_keys: Vec<PublicKey> = pub_keys_bytes
+        let pub_keys: Vec<VerifyingKey> = pub_keys_bytes
             .chunks_exact(33)
-            .map(|chunk| PublicKey::from_slice(chunk))
+            .map(VerifyingKey::from_sec1_bytes)
             .collect::<Result<_, _>>()
             .map_err(|_| anyhow::anyhow!("failed to parse compressed secp256k1 pubkey"))?;
 

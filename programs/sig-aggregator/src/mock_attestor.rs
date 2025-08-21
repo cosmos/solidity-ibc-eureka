@@ -1,5 +1,5 @@
 use crate::{
-    attestor_data::{PUBKEY_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH, STATE_BYTE_LENGTH},
+    attestor_data::{PUBKEY_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH},
     rpc::{
         attestation_service_server::{AttestationService, AttestationServiceServer},
         Attestation, PacketAttestationRequest, PacketAttestationResponse, StateAttestationRequest,
@@ -32,7 +32,7 @@ impl MockAttestor {
         let value = if self.is_malicious { 0 } else { 42 };
         Attestation {
             height,
-            attested_data: vec![value; STATE_BYTE_LENGTH],
+            attested_data: vec![value; 10],
             signature: vec![value; SIGNATURE_BYTE_LENGTH],
             public_key: self.pub_key.clone(),
             timestamp: Some(123),
@@ -45,7 +45,7 @@ impl MockAttestor {
         let value = if self.is_malicious { 0 } else { 42 };
         Attestation {
             height,
-            attested_data: vec![value; STATE_BYTE_LENGTH],
+            attested_data: vec![value; 10],
             signature: vec![value; SIGNATURE_BYTE_LENGTH],
             public_key: self.pub_key.clone(),
             timestamp: None,

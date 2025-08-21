@@ -51,12 +51,12 @@ pub enum QueryMsg {
 
 /// The message to migrate the contract
 #[cw_serde]
-pub struct MigrateMsg {
+struct MigrateMsg {
     pub migration: Migration,
 }
 
 #[cw_serde]
-pub enum Migration {}
+enum Migration {}
 
 /// Update state message
 #[cw_serde]

@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 // ServerConfig represents the server configuration section
@@ -32,7 +34,7 @@ func DefaultAttestorConfig() *AttestorConfig {
 		Server: ServerConfig{
 			Address:  "0.0.0.0",
 			Port:     2025,
-			LogLevel: "info",
+			LogLevel: os.Getenv(testvalues.EnvKeyRustLog),
 		},
 		OP: OpConfig{
 			URL:           "https://api.tatum.io/v3/blockchain/node/ethereum-mainnet",

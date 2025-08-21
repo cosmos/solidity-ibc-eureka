@@ -13,6 +13,7 @@ attestor-packet-membership = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-secp256k1 = { workspace = true, features = ["global-context", "hashes", "serde"] }
+k256 = { workspace = true, features = ["alloc", "ecdsa", "serde", "pem"] }
+sha2 = { workspace = true }
 
 

@@ -89,7 +89,7 @@ where
 #[cfg(feature = "sol")]
 pub async fn run_solana_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
     let signer = Signer::from_config(config.signer.unwrap_or_default())?;
-    let adapter = SolanaClient::from_config(config.solana);
+    let adapter = SolanaClient::_from_config(config.solana);
     let attestor = AttestorService::new(adapter, signer);
     let server = Server::new(&config.server);
     server.start(attestor, config.server).await

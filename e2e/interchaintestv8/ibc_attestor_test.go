@@ -18,6 +18,8 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
@@ -29,6 +31,7 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
+	aggregator "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/aggregator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -36,7 +39,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
-	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/attestor"
+	aggregatortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/aggregator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
@@ -68,7 +71,7 @@ type IbcAttestorTestSuite struct {
 	SimdRelayerSubmitter ibc.Wallet
 	EthRelayerSubmitter  *ecdsa.PrivateKey
 
-	AttestorClient attestortypes.AttestationServiceClient
+	AggregatorClient aggregatortypes.AggregatorServiceClient
 }
 
 // TestWithIbcAttestorTestSuite is the boilerplate code that allows the test suite to be run
@@ -79,7 +82,20 @@ func TestWithIbcAttestorTestSuite(t *testing.T) {
 // SetupSuite calls the underlying IbcAttestorTestSuite's SetupSuite method
 // and deploys the IbcEureka contract
 func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType, attestorType attestor.AttestorBinaryPath) {
+	if s.TestSuite.EthWasmType == "" {
+		s.TestSuite.EthWasmType = os.Getenv(testvalues.EnvKeyE2EEthWasmType)
+		if s.TestSuite.EthWasmType != testvalues.EthWasmTypeAttestor {
+			s.T().Fatalf("attestor tests must use attestor wasm type, found %s", s.TestSuite.EthWasmType)
+		}
+		s.T().Logf("wasm type %s", s.TestSuite.EthWasmType)
+
+	}
+
 	s.TestSuite.SetupSuite(ctx)
+
+	if os.Getenv(testvalues.EnvKeyRustLog) == "" {
+		os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
+	}
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
@@ -127,9 +143,6 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
 
-		if os.Getenv(testvalues.EnvKeyRustLog) == "" {
-			os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
-		}
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.RPC)
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeySp1Prover, prover)
@@ -154,36 +167,77 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 		s.Require().NoError(err)
 	}))
 
-	var attestorProcess *os.Process
-	s.Require().True(s.Run("Setup attestor", func() {
-		config := attestor.DefaultAttestorConfig()
+	var attestorProcesses []*os.Process
+	var attestorEndpoints []string
 
-		config.OP.URL = s.EthChain.RPC
-		config.OP.RouterAddress = s.contractAddresses.Ics26Router
+	// Setup multiple attestors
+	s.Require().True(s.Run("Setup multiple attestors", func() {
+		for i := range testvalues.NumAttestors {
+			port := 9000 + i
+			attestorConfig := attestor.DefaultAttestorConfig()
+			attestorConfig.OP.URL = s.EthChain.RPC
+			attestorConfig.OP.RouterAddress = s.contractAddresses.Ics26Router
+			attestorConfig.Server.Port = port
 
-		err := config.WriteTomlConfig(testvalues.AttestorConfigPath)
-		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			err := attestor.CleanupConfig(testvalues.AttestorConfigPath)
+			configPath := fmt.Sprintf("/tmp/attestor_%d.toml", i)
+			err := attestorConfig.WriteTomlConfig(configPath)
 			s.Require().NoError(err)
-		})
+			s.T().Cleanup(func() {
+				err := attestor.CleanupConfig(configPath)
+				s.Require().NoError(err)
+			})
 
-		attestorProcess, err = attestor.StartAttestor(testvalues.AttestorConfigPath, attestorType)
-		s.Require().NoError(err)
-		client, err := attestor.GetAttestationServiceClient(config.GetServerAddress())
-		s.Require().NoError(err)
+			attestorProcess, err := attestor.StartAttestor(configPath, attestorType)
+			s.Require().NoError(err)
+			attestorProcesses = append(attestorProcesses, attestorProcess)
 
-		_, err = attestor.GetStateAttestation(ctx, client, 1)
-		s.Require().NoError(err)
+			serverAddr := fmt.Sprintf("127.0.0.1:%d", port)
+			attestorEndpoints = append(attestorEndpoints, fmt.Sprintf("http://%s", serverAddr))
 
-		s.AttestorClient = client
+			// Verify each attestor is working
+			attesterService, err := attestor.GetAttestationServiceClient(serverAddr)
+			s.Require().NoError(err)
+
+			resp, err := attestor.GetStateAttestation(ctx, attesterService, 1)
+			s.Require().NoError(err)
+			s.T().Logf("Attestor %d state sig: %s", i, resp.GetAttestation().GetSignature())
+
+		}
 	}))
 
 	s.T().Cleanup(func() {
-		if attestorProcess != nil {
+		for _, attestorProcess := range attestorProcesses {
 			err := attestorProcess.Kill()
 			if err != nil {
 				s.T().Logf("Failed to kill the attestor process: %v", err)
+			}
+		}
+	})
+
+	// Setup aggregator
+	var aggregatorProcess *os.Process
+	s.Require().True(s.Run("Setup aggregator", func() {
+		aggregatorConfig := aggregator.NewAggregatorConfigWithEndpoints(attestorEndpoints, 1)
+		err := aggregatorConfig.WriteTomlConfig(testvalues.AggregatorConfigPath)
+		s.Require().NoError(err)
+		s.T().Cleanup(func() {
+			err := aggregator.CleanupConfig(testvalues.AggregatorConfigPath)
+			s.Require().NoError(err)
+		})
+
+		aggregatorProcess, err = aggregator.StartAggregator(testvalues.AggregatorConfigPath)
+		s.Require().NoError(err)
+
+		agg, err := aggregator.GetAggregatorServiceClient(aggregatorConfig.Server.ListenerAddr)
+		s.Require().NoError(err)
+		s.AggregatorClient = agg
+	}))
+
+	s.T().Cleanup(func() {
+		if aggregatorProcess != nil {
+			err := aggregatorProcess.Kill()
+			if err != nil {
+				s.T().Logf("Failed to kill the aggregator process: %v", err)
 			}
 		}
 	})
@@ -286,7 +340,7 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 	}))
 
 	s.Require().True(s.Run("Create ethereum light client on Cosmos chain", func() {
-		checksumHex := s.StoreEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter)
+		checksumHex := s.StoreLightClient(ctx, simd, s.SimdRelayerSubmitter)
 		s.Require().NotEmpty(checksumHex)
 
 		var createClientTxBodyBz []byte
@@ -378,37 +432,81 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 	}))
 }
 
-func (s *IbcAttestorTestSuite) Test_OptimismAttestorStartUp() {
+func (s *IbcAttestorTestSuite) Test_AggregatorStartUp() {
 	ctx := context.Background()
-	s.AttestorStartUpTest(ctx, attestor.OptimismBinary)
+	s.AggregatorStartUpTest(ctx, attestor.OptimismBinary)
 }
 
-func (s *IbcAttestorTestSuite) AttestorStartUpTest(ctx context.Context, binaryPath attestor.AttestorBinaryPath) {
-	// Manual setup okay for now, we may want to drop this
-	// as it is implicitly tested with all remaining tests
-	s.Require().True(s.Run("Setup attestor", func() {
-		config := attestor.DefaultAttestorConfig()
-		err := config.WriteTomlConfig(testvalues.AttestorConfigPath)
+func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binaryPath attestor.AttestorBinaryPath) {
+	var attestorProcesses []*os.Process
+	var attestorEndpoints []string
+
+	// Start multiple attestor instances
+	s.Require().True(s.Run("Setup multiple attestors", func() {
+		for i := range testvalues.NumAttestors {
+			port := 9000 + i
+			attestorConfig := attestor.DefaultAttestorConfig()
+			attestorConfig.Server.Port = port
+
+			configPath := fmt.Sprintf("/tmp/attestor_%d.toml", i)
+			err := attestorConfig.WriteTomlConfig(configPath)
+			s.Require().NoError(err)
+			s.T().Cleanup(func() {
+				err := attestor.CleanupConfig(configPath)
+				s.Require().NoError(err)
+			})
+
+			attestorProcess, err := attestor.StartAttestor(configPath, binaryPath)
+			s.Require().NoError(err)
+			attestorProcesses = append(attestorProcesses, attestorProcess)
+
+			serverAddr := fmt.Sprintf("127.0.0.1:%d", port)
+			attestorEndpoints = append(attestorEndpoints, fmt.Sprintf("http://%s", serverAddr))
+
+			// Verify each attestor is working
+			attesterService, err := attestor.GetAttestationServiceClient(serverAddr)
+			s.Require().NoError(err)
+
+			resp, err := attestor.GetStateAttestation(ctx, attesterService, 12345)
+			s.Require().NoError(err)
+			s.T().Logf("Attestor %d state sig: %s", i, resp.GetAttestation().GetSignature())
+		}
+	}))
+
+	s.T().Cleanup(func() {
+		for _, attestorProcess := range attestorProcesses {
+			if attestorProcess != nil {
+				s.Require().NoError(attestorProcess.Kill())
+			}
+		}
+	})
+
+	// Start aggregator service
+	var aggregatorProcess *os.Process
+	s.Require().True(s.Run("Setup aggregator", func() {
+		aggregatorConfig := aggregator.NewAggregatorConfigWithEndpoints(attestorEndpoints, testvalues.NumAttestors)
+		err := aggregatorConfig.WriteTomlConfig(testvalues.AggregatorConfigPath)
 		s.Require().NoError(err)
 		s.T().Cleanup(func() {
-			err := attestor.CleanupConfig(testvalues.AttestorConfigPath)
+			err := aggregator.CleanupConfig(testvalues.AggregatorConfigPath)
 			s.Require().NoError(err)
 		})
 
-		cmd, err := attestor.StartAttestor(testvalues.AttestorConfigPath, binaryPath)
+		aggregatorProcess, err = aggregator.StartAggregator(testvalues.AggregatorConfigPath)
 		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			if cmd != nil {
-				s.Require().NoError(cmd.Kill(), "could not stop attestor")
-			}
-		})
-		client, err := attestor.GetAttestationServiceClient(config.GetServerAddress())
-		s.Require().NoError(err)
+	}))
 
-		resp, err := attestor.GetStateAttestation(ctx, client, 12345)
-		s.Require().NoError(err)
+	s.T().Cleanup(func() {
+		if aggregatorProcess != nil {
+			err := aggregatorProcess.Kill()
+			s.Require().NoError(err)
+		}
+	})
 
-		s.T().Logf("state sig %s", resp.GetAttestation().GetSignature())
+	// Test that aggregator can communicate with attestors
+	s.Require().True(s.Run("Test aggregator communication", func() {
+		_, err := aggregator.GetAggregatorServiceClient("127.0.0.1:8080")
+		s.Require().NoError(err)
 	}))
 }
 
@@ -425,7 +523,7 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 
 	numOfTransfers := 1
 
-	eth := s.EthChain
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
@@ -455,6 +553,7 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 		sendPacket            ics26router.IICS26RouterMsgsPacket
 		escrowAddress         ethcommon.Address
 		blockHeightOfTransfer uint64
+		ethSendTxHash         []byte
 	)
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
@@ -479,6 +578,7 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 		s.Require().NoError(err)
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
 		blockHeightOfTransfer = receipt.BlockNumber.Uint64()
+		ethSendTxHash = tx.Hash().Bytes()
 
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
@@ -514,19 +614,106 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 		}))
 	}))
 
-	s.True(s.Run("Attest to packets", func() {
-		_, err = attestor.GetStateAttestation(ctx, s.AttestorClient, blockHeightOfTransfer)
-		s.Require().NoError(err)
-
+	s.True(s.Run("Attest to packets via aggregator", func() {
 		encoded, err := types.AbiEncodePacket(sendPacket)
 		s.Require().NoError(err)
 
 		packet_to_arr := [][]byte{encoded}
-		s.True(len(packet_to_arr) > 0)
-		att, err := attestor.GetPacketAttestation(ctx, s.AttestorClient, packet_to_arr, blockHeightOfTransfer)
+
+		atts, err := aggregator.GetAttestations(ctx, s.AggregatorClient, packet_to_arr, blockHeightOfTransfer)
 		s.Require().NoError(err)
 
-		s.True(att.Attestation.GetHeight() == blockHeightOfTransfer)
-		s.True(len(att.Attestation.AttestedData) > 0)
+		s.True(atts.StateAttestation.Height == blockHeightOfTransfer)
+		s.True(atts.PacketAttestation.Height == blockHeightOfTransfer)
+
+		s.True(len(atts.PacketAttestation.AttestedData) > 0)
+		s.True(len(atts.StateAttestation.AttestedData) > 0)
+	}))
+
+	var (
+		denomOnCosmos transfertypes.Denom
+		ackTxHash     []byte
+	)
+	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
+		var relayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{ethSendTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			relayTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, relayTxBodyBz)
+
+			var err error
+			ackTxHash, err = hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(ackTxHash)
+		}))
+
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			denomOnCosmos = transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
+
+			// User balance on Cosmos chain
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: cosmosUserAddress,
+				Denom:   denomOnCosmos.IBCDenom(),
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(totalTransferAmount, resp.Balance.Amount.BigInt())
+			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
+		}))
+	}))
+
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	s.Require().True(s.Run("Acknowledge packets on Ethereum", func() {
+		var ackRelayTx []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{ackTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
+
+			ackRelayTx = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Submit relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, &ics26Address, ackRelayTx)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+			s.T().Logf("Ack %d packets gas used: %d", numOfTransfers, receipt.GasUsed)
+
+			// Verify the ack packet event exists
+			_, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseAckPacket)
+			s.Require().NoError(err)
+		}))
+
+		s.Require().True(s.Run("Verify final balances on Ethereum", func() {
+			// User balance on Ethereum should remain the same (tokens were transferred)
+			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
+
+			// ICS20 contract balance on Ethereum should still hold the escrowed tokens
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(totalTransferAmount, escrowBalance)
+		}))
 	}))
 }

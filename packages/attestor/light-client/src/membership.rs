@@ -1,9 +1,9 @@
 //! Membership proof verification for attestor client
 
-use secp256k1::{ecdsa::Signature, PublicKey};
-use serde::Deserialize;
+use k256::ecdsa::{Signature, VerifyingKey};
+use serde::{Deserialize, Serialize};
 
-use attestor_packet_membership::verify_packet_membership;
+use attestor_packet_membership::{verify_packet_membership, Packets};
 
 use crate::{
     client_state::ClientState, consensus_state::ConsensusState, error::IbcAttestorClientError,
@@ -11,15 +11,14 @@ use crate::{
 };
 
 /// Data structure that can be verified cryptographically
-#[cfg_attr(any(test, feature = "test-utils"), derive(serde::Serialize))]
-#[derive(Deserialize)]
-pub struct Verifyable {
+#[derive(Deserialize, Serialize)]
+pub struct MembershipProof {
     /// Opaque serde-encoded data that was signed
-    pub attestation_data: Vec<u8>,
+    pub attestation_data: Packets,
     /// Signatures of the attestors
     pub signatures: Vec<Signature>,
     /// Public keys of the attestors submitting attestations
-    pub pubkeys: Vec<PublicKey>,
+    pub pubkeys: Vec<VerifyingKey>,
 }
 
 /// Verify membership proof - only works for heights that exist in consensus state
@@ -33,7 +32,7 @@ pub fn verify_membership(
     proof: Vec<u8>,
     value: Vec<u8>,
 ) -> Result<(), IbcAttestorClientError> {
-    let attested_state: Verifyable = serde_json::from_slice(&proof)
+    let attested_state: MembershipProof = serde_json::from_slice(&proof)
         .map_err(IbcAttestorClientError::DeserializeMembershipProofFailed)?;
 
     if consensus_state.height != height {
@@ -42,9 +41,11 @@ pub fn verify_membership(
         });
     }
 
+    let hashable_bytes: Vec<u8> = serde_json::to_vec(&attested_state.attestation_data)
+        .map_err(IbcAttestorClientError::DeserializeMembershipProofFailed)?;
     verify_attestation::verify_attestation(
         client_state,
-        &attested_state.attestation_data,
+        &hashable_bytes,
         &attested_state.signatures,
         &attested_state.pubkeys,
     )?;
@@ -76,7 +77,7 @@ mod verify_membership {
     fn succeeds() {
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
         let cs = ClientState {
             pub_keys: KEYS.clone(),
@@ -86,15 +87,15 @@ mod verify_membership {
         };
 
         let height = cns.height;
-        let attestation = Verifyable {
+        let attestation = MembershipProof {
             attestation_data: PACKET_COMMITMENTS_ENCODED.clone(),
             pubkeys: KEYS.clone(),
             signatures: SIGS.clone(),
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let value = serde_json::to_vec(PACKET_COMMITMENTS[0]).unwrap();
-        let res = verify_membership(&cns, &cs, height, as_bytes, value);
+        let value = PACKET_COMMITMENTS[0].clone();
+        let res = verify_membership(&cns, &cs, height, as_bytes, value.to_vec());
         println!("{:?}", res);
         assert!(res.is_ok());
     }
@@ -103,7 +104,7 @@ mod verify_membership {
     fn fails_if_height_is_incorrect() {
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
         let cs = ClientState {
             pub_keys: KEYS.clone(),
@@ -113,8 +114,8 @@ mod verify_membership {
         };
 
         let bad_height = cns.height + 1;
-        let attestation = Verifyable {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
+        let attestation = MembershipProof {
+            attestation_data: (*PACKET_COMMITMENTS_ENCODED).clone(),
             pubkeys: KEYS.clone(),
             signatures: SIGS.clone(),
         };
@@ -131,7 +132,7 @@ mod verify_membership {
     fn fails_if_proof_bad() {
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
         let cs = ClientState {
             pub_keys: KEYS.clone(),
@@ -160,7 +161,7 @@ mod verify_membership {
         bad_keys.pop();
         let cns = ConsensusState {
             height: 100,
-            timestamp: 123456789,
+            timestamp: 123,
         };
         let cs = ClientState {
             pub_keys: KEYS.clone(),
@@ -170,8 +171,8 @@ mod verify_membership {
         };
 
         let height = cns.height;
-        let attestation = Verifyable {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_vec(),
+        let attestation = MembershipProof {
+            attestation_data: PACKET_COMMITMENTS_ENCODED.clone(),
             pubkeys: bad_keys,
             signatures: SIGS.clone(),
         };

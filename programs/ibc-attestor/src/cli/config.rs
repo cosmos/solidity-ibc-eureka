@@ -14,6 +14,11 @@ use crate::ArbitrumClientConfig;
 #[cfg(feature = "op")]
 use crate::OpClientConfig;
 
+// Without LazyCell we can't use paths under the hood
+#[allow(
+    clippy::borrow_interior_mutable_const,
+    clippy::declare_interior_mutable_const
+)]
 pub const IBC_ATTESTOR_DIR: LazyCell<PathBuf> = LazyCell::new(|| {
     env::home_dir()
         .map(|home| home.join(".ibc-attestor"))
@@ -22,6 +27,11 @@ pub const IBC_ATTESTOR_DIR: LazyCell<PathBuf> = LazyCell::new(|| {
 
 const IBC_ATTESTOR_FILE: &str = "ibc-attestor.pem";
 
+// Without LazyCell we can't use paths under the hood
+#[allow(
+    clippy::borrow_interior_mutable_const,
+    clippy::declare_interior_mutable_const
+)]
 pub const IBC_ATTESTOR_PATH: LazyCell<PathBuf> = LazyCell::new(|| {
     env::home_dir()
         .map(|home| home.join(&*IBC_ATTESTOR_DIR).join(IBC_ATTESTOR_FILE))
@@ -68,6 +78,11 @@ pub struct SignerConfig {
 }
 
 impl Default for SignerConfig {
+    // Without LazyCell we can't use paths under the hood
+    #[allow(
+        clippy::borrow_interior_mutable_const,
+        clippy::declare_interior_mutable_const
+    )]
     fn default() -> Self {
         SignerConfig {
             // Unwrap safe as path defined with valid utf-8

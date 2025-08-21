@@ -70,7 +70,7 @@ where
     ) -> Result<Attestation, AttestorError> {
         let unsigned = self
             .adapter
-            .get_unsigned_packet_attestation_at_height(&packets, height)
+            .get_unsigned_packet_attestation_at_height(packets, height)
             .await?;
         let signed = self.signer.sign(unsigned)?;
         Ok(signed)

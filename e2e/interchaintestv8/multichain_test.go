@@ -287,7 +287,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdA", func() {
-		checksumHex := s.StoreEthereumLightClient(ctx, simdA, s.SimdARelayerSubmitter)
+		checksumHex := s.StoreLightClient(ctx, simdA, s.SimdARelayerSubmitter)
 		s.Require().NotEmpty(checksumHex)
 
 		var createClientTxBodyBz []byte
@@ -332,7 +332,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdB", func() {
-		checksumHex := s.StoreEthereumLightClient(ctx, simdB, s.SimdBRelayerSubmitter)
+		checksumHex := s.StoreLightClient(ctx, simdB, s.SimdBRelayerSubmitter)
 		s.Require().NotEmpty(checksumHex)
 
 		var createClientTxBodyBz []byte
