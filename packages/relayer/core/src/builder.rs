@@ -53,15 +53,10 @@ impl RelayerBuilder {
     /// Start the relayer server.
     /// # Errors
     /// Returns an error if the server fails to start.
-    #[instrument(
-        skip(self, config),
-        name = "relayer_start",
-        fields(socket_addr),
-        err(Debug)
-    )]
+    #[instrument(skip(self, config), name = "relayer_start", err(Debug))]
     pub async fn start(&self, config: RelayerConfig) -> anyhow::Result<()> {
         let socket_addr = format!("{}:{}", config.server.address, config.server.port);
-        tracing::Span::current().record("socket_addr", &socket_addr);
+        info!(%socket_addr, "Starting relayer server...");
         let socket_addr = socket_addr.parse::<std::net::SocketAddr>()?;
 
         let reflection_service = tonic_reflection::server::Builder::configure()
