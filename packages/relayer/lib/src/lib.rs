@@ -13,9 +13,9 @@ use solana_sdk as _;
 use tonic as _;
 
 pub mod chain;
-pub mod common_service;
 pub mod cosmos_tx_builder;
 pub mod events;
 pub mod listener;
+pub mod service_utils;
 pub mod tx_builder;
 pub mod utils;

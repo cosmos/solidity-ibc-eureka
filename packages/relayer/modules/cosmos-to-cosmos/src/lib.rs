@@ -16,8 +16,8 @@ pub mod tx_builder;
 use std::collections::HashMap;
 
 use ibc_eureka_relayer_lib::{
-    common_service::{parse_cosmos_tx_hashes, to_tonic_status},
     listener::{cosmos_sdk, ChainListenerService},
+    service_utils::{parse_cosmos_tx_hashes, to_tonic_status},
     tx_builder::TxBuilderService,
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;

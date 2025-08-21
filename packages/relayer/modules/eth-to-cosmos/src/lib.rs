@@ -19,9 +19,9 @@ use alloy::{
     providers::{Provider, RootProvider},
 };
 use ibc_eureka_relayer_lib::{
-    common_service::{parse_cosmos_tx_hashes, parse_eth_tx_hashes, to_tonic_status},
     events::EurekaEventWithHeight,
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
+    service_utils::{parse_cosmos_tx_hashes, parse_eth_tx_hashes, to_tonic_status},
     tx_builder::TxBuilderService,
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
