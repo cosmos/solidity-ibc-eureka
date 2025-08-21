@@ -34,14 +34,16 @@ pub const fn default_max_clock_drift() -> Duration {
 /// * `height` - The latest height
 /// * `trusting_period` - The trusting period
 /// * `unbonding_period` - The unbonding period
+/// * `proof_specs` - The proof specifications for ICS23
 ///
-/// Returns a `ClientState` with default trust level, max clock drift, and proof specs
+/// Returns a `ClientState` with default trust level, max clock drift, and the provided proof specs
 #[must_use]
 pub fn build_tendermint_client_state(
     chain_id: String,
     height: Height,
     trusting_period: Duration,
     unbonding_period: Duration,
+    proof_specs: Vec<ics23::ProofSpec>,
 ) -> ClientState {
     ClientState {
         chain_id,
@@ -50,7 +52,7 @@ pub fn build_tendermint_client_state(
         unbonding_period: Some(unbonding_period),
         max_clock_drift: Some(default_max_clock_drift()),
         latest_height: Some(height),
-        proof_specs: vec![],
+        proof_specs,
         upgrade_path: vec!["upgrade".to_string(), "upgradedIBCState".to_string()],
         ..Default::default()
     }

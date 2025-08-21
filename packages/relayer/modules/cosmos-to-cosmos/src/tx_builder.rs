@@ -18,11 +18,8 @@ use prost::Message;
 use tendermint_rpc::HttpClient;
 
 use ibc_eureka_relayer_lib::{
-    chain::CosmosSdk,
-    events::EurekaEventWithHeight,
-    tendermint_client::build_tendermint_client_state,
-    tx_builder::TxBuilderService,
-    utils::cosmos,
+    chain::CosmosSdk, events::EurekaEventWithHeight,
+    tendermint_client::build_tendermint_client_state, tx_builder::TxBuilderService, utils::cosmos,
 };
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`CosmosSdk`].
@@ -177,23 +174,22 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             .await?
             .unbonding_time
             .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
+
         // Defaults to the recommended 2/3 of the UnbondingPeriod
         let trusting_period = Duration {
             seconds: 2 * (unbonding_period.seconds / 3),
             nanos: 0,
         };
 
+        let proof_specs = vec![ics23::iavl_spec(), ics23::tendermint_spec()];
+
         let client_state = build_tendermint_client_state(
             chain_id.to_string(),
             height,
             trusting_period,
             unbonding_period,
+            proof_specs,
         );
-
-        let client_state = ClientState {
-            proof_specs: vec![ics23::iavl_spec(), ics23::tendermint_spec()],
-            ..client_state
-        };
 
         let consensus_state = latest_light_block.to_consensus_state();
 
