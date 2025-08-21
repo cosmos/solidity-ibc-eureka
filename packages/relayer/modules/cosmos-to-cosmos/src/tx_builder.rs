@@ -6,20 +6,26 @@ use std::{collections::HashMap, str::FromStr};
 use anyhow::Result;
 use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
+use ics23;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::{Any, Duration},
     ibc::{
         core::client::v1::{Height, MsgCreateClient, MsgUpdateClient},
-        lightclients::tendermint::v1::{ClientState, Fraction},
+        lightclients::tendermint::v1::ClientState,
     },
 };
 use prost::Message;
 use tendermint_rpc::HttpClient;
 
 use ibc_eureka_relayer_lib::{
-    chain::CosmosSdk, cosmos_tx_builder::build_tendermint_client_state,
-    events::EurekaEventWithHeight, tx_builder::TxBuilderService, utils::cosmos,
+    chain::CosmosSdk,
+    cosmos_tx_builder::{
+        build_tendermint_client_state, default_max_clock_drift, default_trust_level,
+    },
+    events::EurekaEventWithHeight,
+    tx_builder::TxBuilderService,
+    utils::cosmos,
 };
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`CosmosSdk`].
@@ -168,15 +174,8 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             revision_number: chain_id.revision_number(),
             revision_height: latest_light_block.height().value(),
         };
-        // Use shared default values
-        let trust_level = Fraction {
-            numerator: 1,
-            denominator: 3,
-        };
-        let max_clock_drift = Duration {
-            seconds: 15,
-            nanos: 0,
-        };
+        let trust_level = default_trust_level();
+        let max_clock_drift = default_max_clock_drift();
         let unbonding_period = self
             .source_tm_client
             .sdk_staking_params()
@@ -189,7 +188,6 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             nanos: 0,
         };
 
-        // Use shared client state builder
         let client_state = build_tendermint_client_state(
             chain_id.to_string(),
             height,
@@ -197,10 +195,11 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             unbonding_period,
         );
 
-        // Override trust level if needed
+        // Override trust level and clock drift with our defaults
         let client_state = ClientState {
             trust_level: Some(trust_level),
             max_clock_drift: Some(max_clock_drift),
+            proof_specs: vec![ics23::iavl_spec(), ics23::tendermint_spec()],
             ..client_state
         };
 

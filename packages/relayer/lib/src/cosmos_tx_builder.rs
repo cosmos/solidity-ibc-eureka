@@ -14,7 +14,7 @@ use ibc_proto_eureka::{
 #[must_use]
 pub const fn default_trust_level() -> Fraction {
     Fraction {
-        numerator: 2,
+        numerator: 1,
         denominator: 3,
     }
 }
@@ -23,7 +23,7 @@ pub const fn default_trust_level() -> Fraction {
 #[must_use]
 pub const fn default_max_clock_drift() -> Duration {
     Duration {
-        seconds: 10,
+        seconds: 15,
         nanos: 0,
     }
 }
