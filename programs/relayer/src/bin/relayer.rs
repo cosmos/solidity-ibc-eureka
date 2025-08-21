@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use clap::Parser;
 use ibc_eureka_relayer::cli::{Commands, RelayerCli};
 use ibc_eureka_relayer::tracing::init_subscriber;
-use ibc_eureka_relayer_attested_to_cosmos::AttestedToCosmosRelayerModule;
 use ibc_eureka_relayer_core::{builder::RelayerBuilder, config::RelayerConfig};
 use ibc_eureka_relayer_cosmos_to_cosmos::CosmosToCosmosRelayerModule;
 use ibc_eureka_relayer_cosmos_to_eth::CosmosToEthRelayerModule;
@@ -11,7 +10,7 @@ use ibc_eureka_relayer_eth_to_cosmos::EthToCosmosRelayerModule;
 use ibc_eureka_relayer_eth_to_cosmos_compat::EthToCosmosCompatRelayerModule;
 
 use prometheus::{Encoder, TextEncoder};
-use tracing::{info, instrument};
+use tracing::info;
 use warp::Filter;
 
 #[tokio::main]
@@ -23,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
             let config_bz = std::fs::read(config_path)?;
             let config: RelayerConfig = serde_json::from_slice(&config_bz)?;
 
-            let _guard = init_subscriber(config.tracing.clone())?;
+            let _guard = init_subscriber(&config.tracing)?;
 
             info!("Tracing initialized with level: {}", config.tracing.level());
 

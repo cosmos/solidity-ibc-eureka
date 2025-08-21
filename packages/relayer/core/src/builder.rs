@@ -8,7 +8,7 @@ use crate::{
     },
     config::RelayerConfig,
 };
-use ibc_eureka_relayer_lib::utils::correlation;
+use ibc_eureka_relayer_lib::utils::tracing_layer::tracing_interceptor;
 use std::collections::HashMap;
 use tonic::{transport::Server, Request, Response};
 use tracing::{error, info, instrument};
@@ -38,6 +38,7 @@ impl RelayerBuilder {
     /// Add a relayer module to the relayer binary.
     /// # Panics
     /// Panics if the module has already been added.
+    #[allow(clippy::missing_errors_doc)]
     #[instrument(skip(self, module), fields(module_name = %module.name()))]
     pub fn add_module<T: RelayerModule>(&mut self, module: T) {
         assert!(
@@ -86,7 +87,10 @@ impl RelayerBuilder {
         // Start the gRPC server
         info!(%socket_addr, "Starting gRPC server");
         Server::builder()
-            .add_service(RelayerServiceServer::new(relayer))
+            .add_service(RelayerServiceServer::with_interceptor(
+                relayer,
+                tracing_interceptor,
+            ))
             .add_service(reflection_service)
             .serve(socket_addr)
             .await?;
@@ -137,7 +141,6 @@ impl RelayerService for Relayer {
         &self,
         request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        correlation::server_interceptor(&request)?;
         let inner_request = request.get_ref();
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
@@ -167,7 +170,6 @@ impl RelayerService for Relayer {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        correlation::server_interceptor(&request)?;
         let inner_request = request.get_ref();
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
@@ -197,7 +199,6 @@ impl RelayerService for Relayer {
         &self,
         request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
-        correlation::server_interceptor(&request)?;
         let inner_request = request.get_ref();
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
@@ -227,7 +228,6 @@ impl RelayerService for Relayer {
         &self,
         request: Request<api::UpdateClientRequest>,
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
-        correlation::server_interceptor(&request)?;
         let inner_request = request.get_ref();
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
