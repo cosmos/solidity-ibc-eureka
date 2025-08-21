@@ -80,7 +80,7 @@ abstract contract SP1ICS07MockTest is Test {
             abi.decode(ics07Tendermint.getClientState(), (IICS07TendermintMsgs.ClientState));
         IICS02ClientMsgs.Height memory trustedHeight =
             IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: clientState.latestHeight.revisionHeight });
-        clientState.latestHeight.revisionHeight++;
+        ++clientState.latestHeight.revisionHeight;
 
         IUpdateClientMsgs.UpdateClientOutput memory output = IUpdateClientMsgs.UpdateClientOutput({
             clientState: clientState,
