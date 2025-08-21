@@ -7,6 +7,7 @@ import { Test } from "forge-std/Test.sol";
 
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS27GMPMsgs } from "../../contracts/msgs/IICS27GMPMsgs.sol";
+import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
 // import { IICS27AccountMsgs } from "../../contracts/msgs/IICS27AccountMsgs.sol";
 // import { IICS27Errors } from "../../contracts/errors/IICS27Errors.sol";
 
@@ -100,5 +101,59 @@ contract ICS27GMPTest is Test {
         vm.stopPrank();
 
         assertEq(sequence, seq, "Sequence mismatch");
+    }
+
+    function testFuzz_success_onRecvPacket(uint16 saltLen, uint16 payloadLen, uint64 seq) public {
+        vm.assume(seq > 0);
+
+        address relayer = makeAddr("relayer");
+        address receiver = makeAddr("receiver");
+        bytes memory salt = vm.randomBytes(saltLen);
+        string memory sender = th.randomString();
+        bytes memory payload = vm.randomBytes(payloadLen);
+
+        bytes memory mockResp = bytes("mockResp");
+        bytes memory expAck = ICS27Lib.acknowledgement(mockResp);
+
+        vm.mockCall(receiver, payload, mockResp);
+
+        IIBCAppCallbacks.OnRecvPacketCallback memory msg_ = IIBCAppCallbacks.OnRecvPacketCallback({
+            sourceClient: th.FIRST_CLIENT_ID(),
+            destinationClient: th.SECOND_CLIENT_ID(),
+            sequence: seq,
+            payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                destPort: ICS27Lib.DEFAULT_PORT_ID,
+                version: ICS27Lib.ICS27_VERSION,
+                encoding: ICS27Lib.ICS27_ENCODING,
+                value: abi.encode(
+                    IICS27GMPMsgs.GMPPacketData({
+                        sender: sender,
+                        receiver: Strings.toHexString(receiver),
+                        salt: salt,
+                        payload: payload,
+                        memo: ""
+                    })
+                )
+            }),
+            relayer: relayer
+        });
+
+        IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
+            clientId: msg_.destinationClient,
+            sender: sender,
+            salt: salt
+        });
+
+        address predeterminedAccount = ics27Gmp.getOrComputeAccountAddress(accountId);
+        assertTrue(predeterminedAccount != address(0), "Predetermined account address should not be zero");
+
+        vm.expectCall(receiver, payload);
+        vm.prank(mockIcs26);
+        bytes memory ack = ics27Gmp.onRecvPacket(msg_);
+        assertEq(ack, expAck, "Acknowledgement mismatch");
+
+        address actualAccount = ics27Gmp.getOrComputeAccountAddress(accountId);
+        assertEq(actualAccount, predeterminedAccount, "Account address mismatch");
     }
 }
