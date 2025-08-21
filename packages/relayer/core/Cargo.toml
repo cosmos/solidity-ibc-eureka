@@ -1,11 +1,13 @@
 [package]
-name       = "ibc-eureka-relayer-core"
-version    = { workspace = true }
-edition    = { workspace = true }
+name = "ibc-eureka-relayer-core"
+version = { workspace = true }
+edition = { workspace = true }
 repository = { workspace = true }
-license    = { workspace = true }
+license = { workspace = true }
 
 [dependencies]
+ibc-eureka-relayer-lib = { workspace = true, default-features = false }
+
 tonic            = { workspace = true, default-features = true }
 tonic-reflection = { workspace = true, default-features = true }
 
@@ -14,7 +16,7 @@ anyhow     = { workspace = true, default-features = true, features = ["backtrace
 
 tracing = { workspace = true, default-features = true, features = ["attributes", "std"] }
 
-serde      = { workspace = true, default-features = true }
+serde      = { workspace = true, default-features = true, features = ["derive"] }
 serde_json = { workspace = true, default-features = true }
 prost      = { workspace = true, default-features = true }
 

@@ -12,6 +12,8 @@ use crate::{
 use tonic::{transport::Server, Request, Response};
 use tracing::{error, info, instrument};
 
+use ibc_eureka_relayer_lib::utils::correlation;
+
 use super::modules::RelayerModule;
 
 /// The `RelayerBuilder` struct is used to build the relayer.
@@ -136,13 +138,15 @@ impl RelayerService for Relayer {
         skip(self, request),
         fields(
             src_chain = %request.get_ref().src_chain,
-            dst_chain = %request.get_ref().dst_chain
+            dst_chain = %request.get_ref().dst_chain,
+            trace_id = tracing::field::Empty
         )
     )]
     async fn info(
         &self,
         request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
+        correlation::server_interceptor(&request)?;
         let inner_request = request.get_ref();
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
@@ -180,6 +184,7 @@ impl RelayerService for Relayer {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
+        correlation::server_interceptor(&request)?;
         let inner_request = request.get_ref();
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
@@ -209,13 +214,15 @@ impl RelayerService for Relayer {
         skip(self, request),
         fields(
             src_chain = %request.get_ref().src_chain,
-            dst_chain = %request.get_ref().dst_chain
+            dst_chain = %request.get_ref().dst_chain,
+            trace_id = tracing::field::Empty
         )
     )]
     async fn create_client(
         &self,
         request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
+        correlation::server_interceptor(&request)?;
         let inner_request = request.get_ref();
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
@@ -247,13 +254,15 @@ impl RelayerService for Relayer {
         skip(self, request),
         fields(
             src_chain = %request.get_ref().src_chain,
-            dst_chain = %request.get_ref().dst_chain
+            dst_chain = %request.get_ref().dst_chain,
+            trace_id = tracing::field::Empty
         )
     )]
     async fn update_client(
         &self,
         request: Request<api::UpdateClientRequest>,
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
+        correlation::server_interceptor(&request)?;
         let inner_request = request.get_ref();
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
