@@ -12,9 +12,8 @@ tonic            = { workspace = true, default-features = true }
 tonic-reflection = { workspace = true, default-features = true }
 
 prometheus = { workspace = true, default-features = true }
+tracing    = { workspace = true, default-features = true, features = ["attributes", "std"] }
 anyhow     = { workspace = true, default-features = true, features = ["backtrace"] }
-
-tracing = { workspace = true, default-features = true, features = ["attributes", "std"] }
 
 serde      = { workspace = true, default-features = true, features = ["derive"] }
 serde_json = { workspace = true, default-features = true }
