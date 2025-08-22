@@ -1,161 +1,300 @@
-# Tracing
+# Tracing and Distributed Observability
 
-Tracing is a framework for instrumenting Rust programs to collect structured, event-based diagnostic information.
+Tracing is a framework for instrumenting Rust programs to collect structured, event-based diagnostic information across distributed systems. It enables developers to understand request flows and failure patterns in microservice architectures.
 
-Subscribers do the heavy lifting.
+## Core Concepts
 
-Subscriber should be global Static. But on rare occasion, we can have case specific subscriber. Most common is std out with combination with Otel compatible subscriber.
+### Tracing Fundamentals
 
-Every single trace has to have a unique identifier to it. TraceID (16 bytes Otel) or CCID (Correlation Context Identifier)
+**Tracing** enables you to follow a single request as it flows through multiple services, providing end-to-end visibility into distributed operations.
 
-Span = smallest unit in a trace.
-Span = a period of time in the program.
+**Subscribers** handle the collection and processing of trace data. A subscriber should typically be a global static instance, though case-specific subscribers can be used when needed. The most common pattern combines stdout output with OpenTelemetry-compatible subscribers.
 
-Inject = Taking the current span context, serializing it and sending it to the child call.
-Extract = Discover the span context, and create a child span using that data.
-Context can add up. Be mindful of it.
+**Unique Identification**: Every trace must have a unique identifier - either a TraceID (16-byte OpenTelemetry standard) or CCID (Correlation Context Identifier).
 
-A well-traced microservice should attach relevant semantic attributes (such as the OpenTelemetry span.kind attribute) to the spans that it generates.
+### Spans and Context
 
-Distributed request tracing works best when the entire traced operation takes place in a fairly short (minutes) time span.
+- **Span**: The smallest unit in a trace, representing a period of time and work in the program
+- **Inject**: Taking the current span context, serializing it, and sending it to downstream calls
+- **Extract**: Discovering the span context from incoming requests and creating child spans
+- **Context Accumulation**: Context can accumulate across service boundaries - be mindful of payload size
 
-- data retention periods for trace analyzers and sampling considerations
-If you are trying to trace operations with an extremely long execution time, don’t fret,
-there are options to address those use cases.
+### OpenTelemetry Integration
 
-Open telemetry API provides three major things:
+OpenTelemetry provides three major capabilities:
 
-- Distributed context propagation
-- Application tracing
-- Application metrics
+- **Distributed context propagation** - Traces across service boundaries
+- **Application tracing** - Internal operation visibility
+- **Application metrics** - Quantitative performance data
 
-Span Context:
+#### Span Context Components
 
-- TraceID: 16 byte array.
-- SpanID: 8 byte array.
-- TraceFlags: Detail about the trace
-- IsRemote: A boolean flag shown if the context was propagated from a remote parent.
+- **TraceID**: 16-byte array uniquely identifying the entire trace
+- **SpanID**: 8-byte array uniquely identifying this span within the trace
+- **TraceFlags**: Metadata about trace sampling and processing
+- **IsRemote**: Boolean indicating if context was propagated from a remote parent
 
-They help you build a relational graph of sorts, showing you what happened
-(through names) and why it happened (through tags). Logs could be thought of as the
-how it happened piece of this puzzle
+### Trace Narrative Structure
 
-```md
+Traces help build a relational graph showing the complete story of a request:
+
+```
 Span name: What happened
-Span tags: Why happened
-Span Logs: How happened
+Span tags: Why it happened
+Span logs: How it happened
 ```
 
-If every service emits one span with some basic attributes that require no run‐
-time overhead (i.e., string values that can be precalculated at service initialization)
-then the total added overhead to each request is simply the propagation of trace con‐
-text headers, a task that adds 25 bytes on the wire and a negligible amount of cycles to
-decode afterwards.
+## Performance Considerations
 
-## Instrument Checklist
+**Distributed request tracing** works best when operations complete within a reasonable timeframe (typically minutes). For longer-running operations, consider alternative approaches or sampling strategies.
 
-- Make sure all the spans are created are also finished, even if unrecoverable errors. [if possible]
-- Egress and ingress spans have SpanKind set.
-- Spans should include identifying underlying infra
-  - Hostname / Applicatioin instance
-  - App server version
-  - Region/Availability zone
-- Attributes are namespaced
-- **Attrbutes with numeric values should include the unit of measurement in the key name. Ex: `payload_size_kb` is good `payload_size` is bad.**
-- Version attributes are extremely important
+**Overhead**: If every service emits spans with basic attributes that require no runtime overhead (pre-calculated string values), the total overhead per request is minimal - approximately 25 bytes for context headers and negligible CPU cycles for decoding.
 
-TODO: In rust instrument, can I make some variables show or skip based on if there were any error occurred or not?
+## Instrumentation Checklist
 
-Every time you trace, you have to keep in mind what unknown-unknown I need to know and how this tracing would affct the performance.
+### Essential Requirements
 
-## Rust
+- **Span Lifecycle**: Ensure all created spans are properly finished, even during unrecoverable errors
+- **Span Kinds**: Set appropriate `SpanKind` for egress and ingress operations
+- **Infrastructure Context**: Include identifying information about the underlying infrastructure:
+  - Hostname or application instance ID
+  - Application server version
+  - Region or availability zone
+- **Namespace Attributes**: Use consistent namespacing for attributes
+- **Unit Specification**: Attributes with numeric values must include units in the key name
+  - ✅ Good: `payload_size_bytes`, `latency_seconds`
+  - ❌ Bad: `payload_size`, `latency`
+- **Version Tracking**: Version attributes are critical for debugging across deployments
 
-Necessary carets
+### Debugging Considerations
 
-- tracing – to instrument our Rust code.
-- tracing-subscriber – allows us to listen for tracing events and define how they are filtered and exported.
-- tracing-log - Allowes us to collect all log's event to our subscriber. This is useful when we want to collect 3rd party logs. `LogTracer::init().expect("Failed to set logger");`
-- opentelemetry – OpenTelemetry’s API-level view of tracing, spans, etc.
-- opentelemetry_sdk – Implements the OpenTelemetry APIs 2.
-- tracing-opentelemetry – provides a compatibility layer between the two.
-- opentelemetry-otlp – the protocol implementation to export data to Jaeger or some other backend.
+When implementing tracing, consider:
 
-Any trace events generated outside the context of a subscriber will not be collected.
-Instrumentation only works if a subscriber is set.
+- **Unknown unknowns**: What information might be needed during incident response?
+- **Performance impact**: How will this instrumentation affect production performance?
+- **Error context**: What information is needed when things go wrong?
 
-**Libraries should NOT install a subscriber by using a method that calls set_global_default(), as this will cause conflicts when executables try to set the default later.**
+> **Conditional Instrumentation**: In Rust, you can use conditional fields in the `#[instrument]` macro based on error conditions by leveraging the `err` parameter and field visibility controls.
 
-We can change the tracing filters (during runtime) [https://docs.rs/tracing-subscriber/latest/tracing_subscriber/reload/index.html]
+## Rust Implementation Guide
 
-### Span
+### Essential Dependencies
 
-A span is a cheap handle (ID + reference to the current subscriber). Conceptually, it's a key to subscriber's storage.
-Creation process:
+The following crates provide a complete tracing solution:
 
-1. macro build a static metadata
-2. Calls `Subscriber::new_span(&Attributes)
-3. Layers called `on_new_span` with the Attributes
-4. A `tracing::Span` handler is returned, which holds that `Id` and cloned `Dispatch`
+- **`tracing`** - Core instrumentation framework for Rust code
+- **`tracing-subscriber`** - Event listening, filtering, and export configuration
+- **`tracing-log`** - Collects log events from third-party libraries into your subscriber
 
-**A span does not become cueent until it's entered.**
+  ```rust
+  LogTracer::init().expect("Failed to set logger");
+  ```
 
-We can manually create `span`
+- **`opentelemetry`** - OpenTelemetry API-level interfaces for tracing and spans
+- **`opentelemetry_sdk`** - OpenTelemetry SDK implementation
+- **`tracing-opentelemetry`** - Compatibility layer between tracing and OpenTelemetry
+- **`opentelemetry-otlp`** - OTLP protocol implementation for exporting to Jaeger and other backends
+
+### Critical Setup Rules
+
+⚠️ **Important**: Any trace events generated outside an active subscriber context will be lost.
+
+⚠️ **Library Constraint**: Libraries should **never** install a global subscriber using `set_global_default()`. This will cause conflicts when executables attempt to configure their own subscribers.
+
+💡 **Runtime Configuration**: Tracing filters can be changed during runtime using the [reload functionality](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/reload/index.html).
+
+## gRPC Tracing Implementation
+
+### Automatic Trace Context Propagation
+
+For gRPC services, implement automatic trace context extraction using interceptors rather than manual calls in each service method.
+
+#### Server-Side Implementation
+
+```rust
+use opentelemetry::trace::TraceContextExt;
+use tonic::{metadata::MetadataMap, Request, Status};
+use tracing::Span;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+/// Automatic gRPC server interceptor for trace context extraction
+pub fn tracing_interceptor<T>(request: Request<T>) -> Result<Request<T>, Status> {
+    // Extract parent context from gRPC metadata
+    let parent_context = opentelemetry::global::get_text_map_propagator(|propagator| {
+        propagator.extract(&MetadataExtractor(request.metadata()))
+    });
+
+    // Set parent context for current span
+    Span::current().set_parent(parent_context);
+
+    // Extract and record trace ID
+    let span = Span::current();
+    let context = span.context();
+    let otel_span = context.span();
+    let trace_id = otel_span.span_context().trace_id();
+    Span::current().record("trace_id", trace_id.to_string());
+
+    Ok(request)
+}
+```
+
+#### Server Configuration
+
+```rust
+// Apply interceptor automatically to all gRPC methods
+Server::builder()
+    .add_service(
+        RelayerServiceServer::with_interceptor(relayer, tracing_interceptor)
+    )
+    .serve(socket_addr)
+    .await?;
+```
+
+#### Service Method Declaration
+
+```rust
+#[instrument(
+    skip(self, request),
+    fields(
+        src_chain = %request.get_ref().src_chain,
+        dst_chain = %request.get_ref().dst_chain,
+        trace_id = tracing::field::Empty  // Reserved for interceptor population
+    )
+)]
+async fn my_service_method(&self, request: Request<MyRequest>) -> Result<Response<MyResponse>, Status> {
+    // No manual trace extraction needed - handled by interceptor
+    let inner_request = request.get_ref();
+    // ... business logic
+}
+```
+
+### Benefits of Interceptor Pattern
+
+- **Consistency**: Impossible to forget trace context extraction
+- **Clean Code**: Service methods focus on business logic
+- **Single Source of Truth**: Centralized trace handling logic
+- **Automatic Propagation**: Works for all gRPC methods without manual intervention
+
+### Span Deep Dive
+
+A span is a lightweight handle consisting of an ID and reference to the current subscriber. Conceptually, it serves as a key to the subscriber's internal storage.
+
+#### Span Creation Process
+
+1. **Metadata Generation**: The macro builds static metadata for the span
+2. **Subscriber Interaction**: Calls `Subscriber::new_span(&Attributes)`
+3. **Layer Processing**: All layers receive `on_new_span` callbacks with the attributes
+4. **Handle Return**: A `tracing::Span` handle is returned containing the span ID and cloned dispatch
+
+⚠️ **Important**: A span does not become current until it's explicitly entered.
+
+#### Manual Span Creation
 
 ```rust
 pub async fn subscribe(/* */) -> HttpResponse {
     let request_id = Uuid::new_v4();
     let request_span = tracing::info_span!(
-        "Adding a new subscriber.",
+        "Adding a new subscriber",
         %request_id,
         subscriber_email = %form.email,
         subscriber_name = %form.name
     );
-    // Using `enter` in an async function is a recipe for disaster!
+    // ⚠️ Using `enter()` in async functions is dangerous!
     let _guard = request_span.enter();
 }
 ```
 
-`span.enter()` pushes it on top of the current span stack.
-The stack of entered spans are thread local. (Or task local if you use `#[instrument]`)
+#### Span Stack and Threading
 
-Spans are itself **not thread local**. `tracing::Span` is `Send + Sync`.
-But the `current_span` is thread local.
+- **Stack Behavior**: `span.enter()` pushes the span onto the current span stack
+- **Scope**: The stack of entered spans is thread-local (or task-local with `#[instrument]`)
+- **Thread Safety**: `tracing::Span` itself is `Send + Sync`, but `current_span()` is thread-local
+- **Async Caution**: Manually entering spans in async functions can lead to incorrect context if the future migrates between threads
 
-Manually entering a span in a future does not gurantee
+#### Span Lifecycle
 
-You can enter or exit a span multiple times. Once you close, that's final.
+- **Multiple Entry/Exit**: You can enter or exit a span multiple times during its lifetime
+- **Final Closure**: Once a span is closed, it cannot be reopened
+- **Automatic Management**: Use `#[instrument]` to avoid manual span management in async code
 
-### Subscriber
+### Subscriber Architecture
 
-`tracing::Subscriber` is the trait. Implemented by the `Registry`
-`tracing-subscriber` has some basic implementations.
+The `tracing::Subscriber` trait defines the core interface for trace collection. The `Registry` is the primary implementation provided by `tracing-subscriber`.
 
-`tokio-console` is a subscriber used for debugging and profiling for async rust applicactions. But this requires tokio-unstable enabled.
+**Key Implementations:**
 
-### Registry
+- **Registry**: Standard subscriber for collecting and organizing spans
+- **tokio-console**: Specialized subscriber for debugging and profiling async applications (requires `tokio-unstable` feature)
 
-- Does not record the traces itself.
-- Stores span metadata
-- Record relationship between spans
-- Track which spans are active and which are closed.
+### Registry Responsibilities
 
-### Best Practices
+The Registry acts as the foundation layer that:
 
-Always use line number
+- **Metadata Storage**: Maintains span metadata and attributes
+- **Relationship Tracking**: Records parent-child relationships between spans
+- **Lifecycle Management**: Tracks which spans are active, entered, and closed
+- **Delegation**: Routes events to appropriate layers for processing
 
-Never leak credentials.
+**Note**: The Registry itself does not record traces - it coordinates with layers that handle the actual recording and export.
 
-Libraries should only rely on the tracing crate and use the provided macros and types to collect whatever information might be useful to downstream consumers.Ref: [https://github.com/tokio-rs/tracing]
+## Best Practices
+
+### Code Instrumentation
+
+**Always include line numbers** in trace output for easier debugging:
+
+```rust
+fmt::layer()
+    .with_line_number(true)
+    .with_file(true)
+```
+
+**Never leak credentials** in trace data:
 
 ```rust
 #[instrument(skip(self, credential), fields(username = %credential.username))]
+async fn authenticate(&self, credential: &Credentials) -> Result<User, AuthError> {
+    // credential details are skipped, only username is recorded
+}
 ```
 
-Use `secrecy::Secret` crate to mask your secrets (pw, key etc)
+**Use `secrecy::Secret`** to automatically mask sensitive data:
 
-Understand how to use `tracing::field::Empty`
+```rust
+use secrecy::Secret;
+let password: Secret<String> = Secret::new("sensitive_data".to_string());
+```
 
-Using tracing-error with eyre can produce rich, understandable errors.
+### Library Guidelines
+
+Libraries should:
+
+- **Only use the `tracing` crate** for instrumentation
+- **Provide useful information** to downstream consumers through structured spans
+- **Never install global subscribers** - leave that to the application binary
+
+Reference: [Tracing Library Guidelines](https://github.com/tokio-rs/tracing)
+
+### Advanced Patterns
+
+**Deferred Field Population** using `tracing::field::Empty`:
+
+This is helpful for context propagation.
+
+```rust
+#[instrument(fields(
+    trace_id = tracing::field::Empty,
+    result = tracing::field::Empty
+))]
+async fn process_request() -> Result<String, Error> {
+    // Fields get populated later by interceptors or during execution
+    let result = do_work().await?;
+    Span::current().record("result", &result);
+    Ok(result)
+}
+```
+
+**Rich Error Context** with `tracing-error` and `eyre`:
 
 ```rust
 tracing_subscriber::registry()
@@ -167,92 +306,121 @@ tracing_subscriber::registry()
 color_eyre::install()?;
 ```
 
-If you want human readable well formatted traces use `.pretty()`
-`fmt::layer().pretty()`
-
-### Antipatterns
-
-When in doubt, make a new span rather than a new logging statement. [Put reference]
-
-If unsure, skip self from instrumentation.
-
-Turn off time from tracing if not in production.
-
-When in doubt, make a new span rather than a new logging statement.
-
-If we have a failable function we can print out the error automaticaly with a tracing setting
-This is anti the idea that error should be handled once.
+**Human-Readable Development Traces**:
 
 ```rust
-#[instrument(level = "trace", err)]
+fmt::layer()
+    .pretty()
+    .with_target(true)
+    .with_line_number(true)
 ```
 
-Use color-eyre crate: [https://docs.rs/color-eyre/0.6.5/color_eyre/]
+## Anti-patterns
 
-#### Simple tracing library
+### Common Mistakes to Avoid
+
+#### ❌ Over-logging instead of spanning
+
+- When in doubt, create a new span rather than additional log statements
+- Spans provide structure and timing information that logs cannot
+
+#### ❌ Including `self` in instrumentation unnecessarily
+
+- Skip `self` from instrumentation unless the instance provides meaningful context
+- Use `skip(self)` to avoid noise in traces
+
+#### ❌ Timestamp overhead in development
+
+- Disable timestamp generation in non-production environments for uncluttered logs
+- Enable only when needed for debugging
+
+#### ❌ Double error handling
+
+- Automatic error logging can violate the "handle errors once" principle:
+
+```rust
+// ❌ This automatically logs errors, potentially duplicating error handling
+#[instrument(level = "trace", err(Debug/Display))]
+async fn risky_operation() -> Result<(), Error> {
+    // If this fails, it gets logged automatically AND returned
+}
+```
+
+### Development Tools Consideration
+
+**Enhanced Error Reporting**: Use [`color-eyre`](https://docs.rs/color-eyre/0.6.5/color_eyre/) for rich error context in development.
+Eyre is a fork of `anyhow` and `color-eyre` gives nice looking error messages.
+
+## Implementation Examples
+
+### Basic Subscriber Setup
 
 ```rust
 pub fn get_subscriber(
     name: String,
-    env_filter: String
+    env_filter: String,
     sink: Sink,
 ) -> impl Subscriber + Send + Sync
-    where
-        Sink: for<'a> MakeWriter<'a> + Send + Sync + 'static,
+where
+    Sink: for<'a> MakeWriter<'a> + Send + Sync + 'static,
 {
     let env_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new(env_filter));
-    let formatting_layer = BunyanFormattingLayer::new(name, sink); // Maybe Otel
+    let formatting_layer = BunyanFormattingLayer::new(name, sink);
     Registry::default()
         .with(env_filter)
         .with(JsonStorageLayer)
         .with(formatting_layer)
 }
-```
 
-```rust
 pub fn init_subscriber(subscriber: impl Subscriber + Send + Sync) {
     LogTracer::init().expect("Failed to set logger");
     set_global_default(subscriber).expect("Failed to set subscriber");
 }
-```
 
-```rust
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    let subscriber = get_subscriber("name".into(), "info".into(), std::io::stdout);
+    let subscriber = get_subscriber("my_service".into(), "info".into(), std::io::stdout);
     init_subscriber(subscriber);
+    // Application logic here
 }
 ```
 
-For testing
+### Test Environment Setup
 
 ```rust
 use once_cell::sync::Lazy;
 
-// Ensure that the `tracing` stack is only initialised once using `once_cell`
+// Ensure tracing is initialized only once across tests
 static TRACING: Lazy<()> = Lazy::new(|| {
     let default_filter_level = "info".to_string();
     let subscriber_name = "test".to_string();
 
-    if std::env::var("MUTE_TEST_LOG").is_ok() {
-        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::sink);
-        init_subscriber(subscriber);
-
+    let sink = if std::env::var("MUTE_TEST_LOG").is_ok() {
+        std::io::sink()
     } else {
-        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::stdout);
-        init_subscriber(subscriber);
+        std::io::stdout()
     };
+
+    let subscriber = get_subscriber(subscriber_name, default_filter_level, sink);
+    init_subscriber(subscriber);
 });
 
-pub struct TestApp {
-    pub address: String,
-    pub db_pool: PgPool,
-}
-
-async fn test_app() -> TestApp {
-    // The first time `initialize` is invoked the code in `TRACING` is executed.
-    // All other invocations will instead skip execution.
+pub fn init_test_tracing() {
     Lazy::force(&TRACING);
 }
+
+#[tokio::test]
+async fn my_test() {
+    init_test_tracing();
+    // Test logic with tracing enabled
+}
 ```
+
+## Reference Implementation
+
+For a complete example of production-ready tracing setup, see:
+
+- `programs/relayer/src/tracing.rs` - Production subscriber configuration
+- `packages/relayer/lib/src/utils/tracing_layer.rs` - gRPC trace propagation
+- `packages/relayer/core/src/builder.rs` - Automatic interceptor integration
