@@ -4554,11 +4554,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "ibc-eureka-relayer-attested-to-cosmos",
  "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-cosmos-to-cosmos",
  "ibc-eureka-relayer-cosmos-to-eth",
+ "ibc-eureka-relayer-cosmos-to-eth-attested",
  "ibc-eureka-relayer-eth-to-cosmos 0.1.0",
+ "ibc-eureka-relayer-eth-to-cosmos-attested",
  "ibc-eureka-relayer-eth-to-cosmos-compat",
  "prometheus",
  "serde_json",
@@ -4670,6 +4671,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-eureka-relayer-cosmos-to-eth-attested"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "async-trait",
+ "attestor-light-client",
+ "attestor-packet-membership",
+ "hex",
+ "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-lib 0.1.0",
+ "ibc-eureka-solidity-types 0.1.0",
+ "ibc-eureka-utils 0.1.0",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "k256",
+ "prost",
+ "serde",
+ "serde_json",
+ "tendermint",
+ "tendermint-rpc",
+ "tonic 0.13.1",
+ "tonic-build",
+ "tracing",
+]
+
+[[package]]
 name = "ibc-eureka-relayer-eth-to-cosmos"
 version = "0.1.0"
 dependencies = [
@@ -4715,6 +4742,32 @@ dependencies = [
  "tendermint",
  "tendermint-rpc",
  "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
+name = "ibc-eureka-relayer-eth-to-cosmos-attested"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "async-trait",
+ "attestor-light-client",
+ "attestor-packet-membership",
+ "hex",
+ "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-lib 0.1.0",
+ "ibc-eureka-solidity-types 0.1.0",
+ "ibc-eureka-utils 0.1.0",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "k256",
+ "prost",
+ "serde",
+ "serde_json",
+ "tendermint",
+ "tendermint-rpc",
+ "tonic 0.13.1",
+ "tonic-build",
  "tracing",
 ]
 
