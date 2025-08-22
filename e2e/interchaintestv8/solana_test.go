@@ -350,7 +350,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SrcChain:    "solana-localnet", // Solana chain identifier
 				DstChain:    simd.Config().ChainID,
-				SourceTxIds: [][]byte{solanaTxSig[:]}, // Solana transaction signature
+				SourceTxIds: [][]byte{[]byte(solanaTxSig.String())}, // Solana transaction signature as base58 string
 				SrcClientId: clientID,         // Solana client on source
 				DstClientId: "08-wasm-0",       // Wasm client on Cosmos for Solana
 			})
