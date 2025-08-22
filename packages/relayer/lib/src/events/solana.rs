@@ -38,11 +38,9 @@ pub fn parse_events_from_logs(logs: &[String]) -> Vec<IbcEvent> {
             // Skip invalid base64 data
             if let Ok(data) = BASE64.decode(data_str) {
                 if data.len() >= 8 {
-                    // Extract discriminator that Anchor already included
                     let discriminator = &data[..8];
                     let event_data = &data[8..];
 
-                    // Match against the discriminators and deserialize the event
                     let event = match discriminator {
                         disc if disc == SendPacketEvent::DISCRIMINATOR => {
                             SendPacketEvent::try_from_slice(event_data)
