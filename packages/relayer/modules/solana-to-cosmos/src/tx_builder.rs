@@ -49,6 +49,12 @@ pub enum SolanaIbcEvent {
         sequence: u64,
         /// Source client ID
         source_client: String,
+        /// Destination client ID
+        destination_client: String,
+        /// Packet payloads
+        payloads: Vec<Vec<u8>>,
+        /// Timeout timestamp
+        timeout_timestamp: u64,
         /// Acknowledgement data (one per payload)
         acknowledgements: Vec<Vec<u8>>,
     },
@@ -58,6 +64,12 @@ pub enum SolanaIbcEvent {
         sequence: u64,
         /// Source client ID
         source_client: String,
+        /// Destination client ID
+        destination_client: String,
+        /// Packet payloads
+        payloads: Vec<Vec<u8>>,
+        /// Timeout timestamp
+        timeout_timestamp: u64,
     },
 }
 
@@ -168,11 +180,16 @@ impl TxBuilder {
                     }
                 }
                 IbcEvent::AckPacket(ack_event) => {
-                    // For acknowledge packet, we need the source client from the packet
+                    // For acknowledge packet, we need the full packet data
                     if let Ok(packet) = SolanaPacket::try_from_slice(&ack_event.packet_data) {
+                        let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
+
                         events.push(SolanaIbcEvent::AcknowledgePacket {
                             sequence: ack_event.sequence,
                             source_client: packet.source_client,
+                            destination_client: packet.dest_client,
+                            payloads,
+                            timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
                             acknowledgements: vec![ack_event.acknowledgement],
                         });
 
@@ -184,24 +201,37 @@ impl TxBuilder {
                     }
                 }
                 IbcEvent::TimeoutPacket(timeout_event) => {
-                    events.push(SolanaIbcEvent::TimeoutPacket {
-                        sequence: timeout_event.sequence,
-                        source_client: timeout_event.client_id.clone(),
-                    });
+                    // For timeout packet, we need the full packet data
+                    if let Ok(packet) = SolanaPacket::try_from_slice(&timeout_event.packet_data) {
+                        let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
 
-                    tracing::debug!(
-                        "Parsed TimeoutPacket event: seq={}, client={}",
-                        timeout_event.sequence,
-                        timeout_event.client_id
-                    );
+                        events.push(SolanaIbcEvent::TimeoutPacket {
+                            sequence: timeout_event.sequence,
+                            source_client: packet.source_client,
+                            destination_client: packet.dest_client,
+                            payloads,
+                            timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
+                        });
+
+                        tracing::debug!(
+                            "Parsed TimeoutPacket event: seq={}, client={}",
+                            timeout_event.sequence,
+                            timeout_event.client_id
+                        );
+                    }
                 }
                 IbcEvent::WriteAcknowledgement(write_ack_event) => {
                     // WriteAcknowledgement is emitted when Solana receives a packet from Cosmos
                     // and writes an acknowledgement. We need to relay this ack back to Cosmos.
                     if let Ok(packet) = SolanaPacket::try_from_slice(&write_ack_event.packet_data) {
+                        let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
+
                         events.push(SolanaIbcEvent::AcknowledgePacket {
                             sequence: write_ack_event.sequence,
                             source_client: packet.source_client,
+                            destination_client: packet.dest_client,
+                            payloads,
+                            timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
                             acknowledgements: vec![write_ack_event.acknowledgements],
                         });
 
@@ -281,16 +311,29 @@ impl TxBuilder {
                 SolanaIbcEvent::AcknowledgePacket {
                     sequence,
                     source_client,
+                    destination_client,
+                    payloads,
+                    timeout_timestamp,
                     acknowledgements,
                 } => {
-                    // Create Acknowledgement message for Cosmos
-                    // Note: We need the original packet data - this is simplified
+                    // Create Acknowledgement message for Cosmos with full packet data
+                    let ibc_payloads = payloads
+                        .into_iter()
+                        .map(|value| Payload {
+                            source_port: "transfer".to_string(), // Default for ICS20
+                            destination_port: "transfer".to_string(),
+                            version: "ics20-1".to_string(),
+                            encoding: "json".to_string(),
+                            value,
+                        })
+                        .collect();
+
                     let packet = Packet {
                         sequence,
-                        source_client: source_client.clone(),
-                        destination_client: source_client, // Simplified - should get from original packet
-                        timeout_timestamp: 0,              // Should get from original packet
-                        payloads: vec![],                  // Should get from original packet
+                        source_client,
+                        destination_client,
+                        timeout_timestamp,
+                        payloads: ibc_payloads,
                     };
 
                     let ack = Acknowledgement {
@@ -311,15 +354,28 @@ impl TxBuilder {
                 SolanaIbcEvent::TimeoutPacket {
                     sequence,
                     source_client,
+                    destination_client,
+                    payloads,
+                    timeout_timestamp,
                 } => {
-                    // Create Timeout message for Cosmos
-                    // Note: We need the original packet data - this is simplified
+                    // Create Timeout message for Cosmos with full packet data
+                    let ibc_payloads = payloads
+                        .into_iter()
+                        .map(|value| Payload {
+                            source_port: "transfer".to_string(), // Default for ICS20
+                            destination_port: "transfer".to_string(),
+                            version: "ics20-1".to_string(),
+                            encoding: "json".to_string(),
+                            value,
+                        })
+                        .collect();
+
                     let packet = Packet {
                         sequence,
-                        source_client: source_client.clone(),
-                        destination_client: source_client, // Simplified - should get from original packet
-                        timeout_timestamp: 0,              // Should get from original packet
-                        payloads: vec![],                  // Should get from original packet
+                        source_client,
+                        destination_client,
+                        timeout_timestamp,
+                        payloads: ibc_payloads,
                     };
 
                     let msg = MsgTimeout {
