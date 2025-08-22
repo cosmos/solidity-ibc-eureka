@@ -50,8 +50,8 @@ pub struct CosmosToSolanaConfig {
     pub solana_ics26_program_id: String,
     /// The Solana ICS07 Tendermint light client program ID.
     pub solana_ics07_program_id: String,
-    /// The Solana wallet keypair path (for signing transactions).
-    pub solana_wallet_path: String,
+    /// The Solana fee payer address.
+    pub solana_fee_payer: String,
 }
 
 impl CosmosToSolanaRelayerModuleService {
@@ -69,12 +69,17 @@ impl CosmosToSolanaRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {}", e))?;
 
+        let fee_payer = config
+            .solana_fee_payer
+            .parse()
+            .map_err(|e| anyhow::anyhow!("Invalid fee payer address: {}", e))?;
+
         let tx_builder = tx_builder::TxBuilder::new(
             source_client.clone(),
             solana_client.clone(),
             solana_ics26_program_id,
             solana_ics07_program_id,
-            &config.solana_wallet_path,
+            fee_payer,
         )?;
 
         Ok(Self {
@@ -184,6 +189,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         tracing::info!("Built Solana transaction for Cosmos to Solana relay.");
 
+        // Serialize the unsigned transaction
         let tx_bytes = bincode::serialize(&tx).map_err(|e| {
             tonic::Status::internal(format!("Failed to serialize transaction: {e}"))
         })?;

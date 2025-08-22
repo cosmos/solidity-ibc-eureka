@@ -13,8 +13,7 @@ use solana_sdk::{
     commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
-    signature::{Keypair, Signature},
-    signer::Signer,
+    signature::Signature,
     sysvar,
     transaction::Transaction,
 };
@@ -80,8 +79,8 @@ pub struct TxBuilder {
     pub solana_ics26_program_id: Pubkey,
     /// The Solana ICS07 Tendermint light client program ID.
     pub solana_ics07_program_id: Pubkey,
-    /// The Solana wallet keypair for signing transactions.
-    pub wallet_keypair: Keypair,
+    /// The fee payer address for transactions.
+    pub fee_payer: Pubkey,
 }
 
 impl TxBuilder {
@@ -90,24 +89,14 @@ impl TxBuilder {
     /// # Errors
     ///
     /// Returns an error if:
-    /// - Failed to read wallet file
-    /// - Failed to parse wallet JSON
-    /// - Failed to create keypair from wallet
+    /// - Failed to parse program IDs
     pub fn new(
         source_tm_client: HttpClient,
         solana_client: Arc<RpcClient>,
         _solana_ics26_program_id: Pubkey, // Use hardcoded for now
         _solana_ics07_program_id: Pubkey, // Use hardcoded for now
-        wallet_path: &str,
+        fee_payer: Pubkey,
     ) -> Result<Self> {
-        // Load wallet keypair from file
-        let wallet_json = std::fs::read_to_string(wallet_path)
-            .map_err(|e| anyhow::anyhow!("Failed to read wallet file: {e}"))?;
-        let wallet_bytes: Vec<u8> = serde_json::from_str(&wallet_json)
-            .map_err(|e| anyhow::anyhow!("Failed to parse wallet JSON: {e}"))?;
-        let wallet_keypair = Keypair::try_from(wallet_bytes.as_slice())
-            .map_err(|e| anyhow::anyhow!("Failed to create keypair: {e}"))?;
-
         Ok(Self {
             source_tm_client,
             solana_client,
@@ -115,7 +104,7 @@ impl TxBuilder {
                 .map_err(|e| anyhow::anyhow!("Invalid ICS26 program ID: {e}"))?,
             solana_ics07_program_id: Pubkey::from_str(ICS07_TENDERMINT_ID)
                 .map_err(|e| anyhow::anyhow!("Invalid ICS07 program ID: {e}"))?,
-            wallet_keypair,
+            fee_payer,
         })
     }
 
@@ -239,7 +228,6 @@ impl TxBuilder {
     /// Returns an error if:
     /// - Failed to build update client instruction
     /// - No instructions to execute
-    /// - Failed to get latest blockhash
     #[allow(clippy::cognitive_complexity)] // TODO: Refactor when all event types are fully implemented
     pub async fn build_solana_tx(
         &self,
@@ -288,19 +276,16 @@ impl TxBuilder {
             anyhow::bail!("No instructions to execute on Solana");
         }
 
-        // Get recent blockhash
+        // Create unsigned transaction
+        let mut tx = Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
+
+        // Get recent blockhash for the transaction
         let recent_blockhash = self
             .solana_client
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
-        // Create and sign transaction
-        let tx = Transaction::new_signed_with_payer(
-            &instructions,
-            Some(&self.wallet_keypair.pubkey()),
-            &[&self.wallet_keypair],
-            recent_blockhash,
-        );
+        tx.message.recent_blockhash = recent_blockhash;
 
         Ok(tx)
     }
@@ -354,7 +339,7 @@ impl TxBuilder {
             AccountMeta::new(client_state_pda, false),
             AccountMeta::new_readonly(trusted_consensus_state, false),
             AccountMeta::new(new_consensus_state, false),
-            AccountMeta::new(self.wallet_keypair.pubkey(), true),
+            AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
@@ -444,8 +429,8 @@ impl TxBuilder {
             AccountMeta::new(client_sequence, false),
             AccountMeta::new(packet_receipt, false),
             AccountMeta::new(packet_ack, false),
-            AccountMeta::new_readonly(self.wallet_keypair.pubkey(), true), // relayer
-            AccountMeta::new(self.wallet_keypair.pubkey(), true),          // payer
+            AccountMeta::new_readonly(self.fee_payer, true), // relayer
+            AccountMeta::new(self.fee_payer, true),          // payer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(sysvar::clock::id(), false),
             AccountMeta::new_readonly(client, false),
@@ -473,7 +458,6 @@ impl TxBuilder {
     /// Returns an error if:
     /// - Failed to get genesis block
     /// - Failed to serialize header
-    /// - Failed to get latest blockhash
     pub async fn build_create_client_tx(
         &self,
         parameters: HashMap<String, String>,
@@ -508,7 +492,7 @@ impl TxBuilder {
         let accounts = vec![
             AccountMeta::new(client_state_pda, false),
             AccountMeta::new(consensus_state_pda, false),
-            AccountMeta::new(self.wallet_keypair.pubkey(), true),
+            AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
@@ -523,19 +507,16 @@ impl TxBuilder {
             data,
         };
 
+        // Create unsigned transaction
+        let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
+
         // Get recent blockhash
         let recent_blockhash = self
             .solana_client
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
-        // Create and sign transaction
-        let tx = Transaction::new_signed_with_payer(
-            &[instruction],
-            Some(&self.wallet_keypair.pubkey()),
-            &[&self.wallet_keypair],
-            recent_blockhash,
-        );
+        tx.message.recent_blockhash = recent_blockhash;
 
         Ok(tx)
     }
@@ -547,7 +528,6 @@ impl TxBuilder {
     /// Returns an error if:
     /// - Failed to get latest block
     /// - Failed to serialize header
-    /// - Failed to get latest blockhash
     pub async fn build_update_client_tx(&self, client_id: String) -> Result<Transaction> {
         tracing::info!(
             "Building update client transaction for client {}",
@@ -556,19 +536,16 @@ impl TxBuilder {
 
         let update_ix = self.build_update_client_instruction().await?;
 
+        // Create unsigned transaction
+        let mut tx = Transaction::new_with_payer(&[update_ix], Some(&self.fee_payer));
+
         // Get recent blockhash
         let recent_blockhash = self
             .solana_client
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
-        // Create and sign transaction
-        let tx = Transaction::new_signed_with_payer(
-            &[update_ix],
-            Some(&self.wallet_keypair.pubkey()),
-            &[&self.wallet_keypair],
-            recent_blockhash,
-        );
+        tx.message.recent_blockhash = recent_blockhash;
 
         Ok(tx)
     }
@@ -591,7 +568,7 @@ impl MockTxBuilder {
         solana_client: Arc<RpcClient>,
         solana_ics26_program_id: Pubkey,
         solana_ics07_program_id: Pubkey,
-        wallet_path: &str,
+        fee_payer: Pubkey,
     ) -> Result<Self> {
         Ok(Self {
             inner: TxBuilder::new(
@@ -599,7 +576,7 @@ impl MockTxBuilder {
                 solana_client,
                 solana_ics26_program_id,
                 solana_ics07_program_id,
-                wallet_path,
+                fee_payer,
             )?,
         })
     }
@@ -681,8 +658,8 @@ impl MockTxBuilder {
             AccountMeta::new(client_sequence, false),
             AccountMeta::new(packet_receipt, false),
             AccountMeta::new(packet_ack, false),
-            AccountMeta::new_readonly(self.inner.wallet_keypair.pubkey(), true), // relayer
-            AccountMeta::new(self.inner.wallet_keypair.pubkey(), true),          // payer
+            AccountMeta::new_readonly(self.inner.fee_payer, true), // relayer
+            AccountMeta::new(self.inner.fee_payer, true),          // payer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(sysvar::clock::id(), false),
             AccountMeta::new_readonly(client, false),
@@ -710,7 +687,6 @@ impl MockTxBuilder {
     /// Returns an error if:
     /// - Failed to build update client instruction
     /// - No instructions to execute
-    /// - Failed to get latest blockhash
     #[allow(clippy::cognitive_complexity)]
     pub async fn build_solana_tx_mock(
         &self,
@@ -760,6 +736,9 @@ impl MockTxBuilder {
             anyhow::bail!("No instructions to execute on Solana");
         }
 
+        // Create unsigned transaction
+        let mut tx = Transaction::new_with_payer(&instructions, Some(&self.inner.fee_payer));
+
         // Get recent blockhash
         let recent_blockhash = self
             .inner
@@ -767,13 +746,7 @@ impl MockTxBuilder {
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
-        // Create and sign transaction
-        let tx = Transaction::new_signed_with_payer(
-            &instructions,
-            Some(&self.inner.wallet_keypair.pubkey()),
-            &[&self.inner.wallet_keypair],
-            recent_blockhash,
-        );
+        tx.message.recent_blockhash = recent_blockhash;
 
         Ok(tx)
     }
