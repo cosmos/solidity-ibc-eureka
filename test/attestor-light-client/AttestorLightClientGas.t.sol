@@ -12,6 +12,8 @@ contract AttestorLightClientGas is Test {
     uint64 internal constant INITIAL_HEIGHT = 100;
     uint64 internal constant INITIAL_TS = 1_700_000_000;
 
+    error NeedAtLeastOneCommitment();
+
     function testGas_VerifyMembership_1of1_1Commit() public {
         _runScenario({ quorum: 1, attestorCount: 1, commitmentCount: 1, label: "verifyMembership 1of1 - 1 commitment" });
     }
@@ -21,7 +23,12 @@ contract AttestorLightClientGas is Test {
     }
 
     function testGas_VerifyMembership_1of1_20Commits() public {
-        _runScenario({ quorum: 1, attestorCount: 1, commitmentCount: 20, label: "verifyMembership 1of1 - 20 commitments" });
+        _runScenario({
+            quorum: 1,
+            attestorCount: 1,
+            commitmentCount: 20,
+            label: "verifyMembership 1of1 - 20 commitments"
+        });
     }
 
     function testGas_VerifyMembership_3of5_1Commit() public {
@@ -33,7 +40,12 @@ contract AttestorLightClientGas is Test {
     }
 
     function testGas_VerifyMembership_3of5_20Commits() public {
-        _runScenario({ quorum: 3, attestorCount: 5, commitmentCount: 20, label: "verifyMembership 3of5 - 20 commitments" });
+        _runScenario({
+            quorum: 3,
+            attestorCount: 5,
+            commitmentCount: 20,
+            label: "verifyMembership 3of5 - 20 commitments"
+        });
     }
 
     function testGas_VerifyMembership_5of7_1Commit() public {
@@ -45,7 +57,12 @@ contract AttestorLightClientGas is Test {
     }
 
     function testGas_VerifyMembership_5of7_20Commits() public {
-        _runScenario({ quorum: 5, attestorCount: 7, commitmentCount: 20, label: "verifyMembership 5of7 - 20 commitments" });
+        _runScenario({
+            quorum: 5,
+            attestorCount: 7,
+            commitmentCount: 20,
+            label: "verifyMembership 5of7 - 20 commitments"
+        });
     }
 
     function _runScenario(uint8 quorum, uint256 attestorCount, uint256 commitmentCount, string memory label) internal {
@@ -59,10 +76,8 @@ contract AttestorLightClientGas is Test {
         });
 
         (bytes32[] memory commitments, bytes32 target) = _makeCommitments(commitmentCount);
-        IAttestorMsgs.PacketAttestation memory p = IAttestorMsgs.PacketAttestation({
-            height: INITIAL_HEIGHT,
-            packets: commitments
-        });
+        IAttestorMsgs.PacketAttestation memory p =
+            IAttestorMsgs.PacketAttestation({ height: INITIAL_HEIGHT, packets: commitments });
         bytes memory attestationData = abi.encode(p);
         bytes32 digest = sha256(attestationData);
 
@@ -71,10 +86,8 @@ contract AttestorLightClientGas is Test {
             signatures[i] = _sig(attestorPrivs[i], digest);
         }
 
-        IAttestorMsgs.AttestationProof memory proof = IAttestorMsgs.AttestationProof({
-            attestationData: attestationData,
-            signatures: signatures
-        });
+        IAttestorMsgs.AttestationProof memory proof =
+            IAttestorMsgs.AttestationProof({ attestationData: attestationData, signatures: signatures });
 
         ILightClientMsgs.MsgVerifyMembership memory msgVerify;
         msgVerify.proof = abi.encode(proof);
@@ -102,7 +115,7 @@ contract AttestorLightClientGas is Test {
     }
 
     function _makeCommitments(uint256 k) internal pure returns (bytes32[] memory commits, bytes32 target) {
-        require(k >= 1, "need >=1 commitments");
+        if (k < 1) revert NeedAtLeastOneCommitment();
         commits = new bytes32[](k);
         for (uint256 i = 0; i < k - 1; i++) {
             commits[i] = keccak256(abi.encodePacked("packet-", i));
@@ -116,5 +129,3 @@ contract AttestorLightClientGas is Test {
         return abi.encodePacked(r, s, v);
     }
 }
-
-

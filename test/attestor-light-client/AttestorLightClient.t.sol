@@ -65,7 +65,8 @@ contract AttestorLightClientTest is Test {
         uint256[] memory signers = new uint256[](2);
         signers[0] = attestorPrivKey1;
         signers[1] = attestorPrivKey2;
-        (bytes memory attestationData, bytes[] memory signatures) = _stateAttestation(INITIAL_HEIGHT, INITIAL_TS, signers);
+        (bytes memory attestationData, bytes[] memory signatures) =
+            _stateAttestation(INITIAL_HEIGHT, INITIAL_TS, signers);
 
         IAttestorMsgs.AttestationProof memory proof =
             IAttestorMsgs.AttestationProof({ attestationData: attestationData, signatures: signatures });
@@ -121,7 +122,8 @@ contract AttestorLightClientTest is Test {
     }
 
     function test_updateClient_revert_duplicate_signer() public {
-        bytes memory attestationData = abi.encode(IAttestorMsgs.StateAttestation({ height: INITIAL_HEIGHT + 1, timestamp: INITIAL_TS + 1 }));
+        bytes memory attestationData =
+            abi.encode(IAttestorMsgs.StateAttestation({ height: INITIAL_HEIGHT + 1, timestamp: INITIAL_TS + 1 }));
         bytes32 digest = sha256(attestationData);
 
         bytes[] memory signatures = new bytes[](2);
@@ -135,7 +137,8 @@ contract AttestorLightClientTest is Test {
     }
 
     function test_updateClient_revert_unknown_signer() public {
-        bytes memory attestationData = abi.encode(IAttestorMsgs.StateAttestation({ height: INITIAL_HEIGHT + 1, timestamp: INITIAL_TS + 1 }));
+        bytes memory attestationData =
+            abi.encode(IAttestorMsgs.StateAttestation({ height: INITIAL_HEIGHT + 1, timestamp: INITIAL_TS + 1 }));
         bytes32 digest = sha256(attestationData);
 
         uint256 badPriv = 0xDEADBEEF;
@@ -159,8 +162,7 @@ contract AttestorLightClientTest is Test {
         signers[0] = attestorPrivKey1;
         signers[1] = attestorPrivKey2;
 
-        (bytes memory attestationData, bytes[] memory signatures) =
-            _attestation(INITIAL_HEIGHT, commitments, signers);
+        (bytes memory attestationData, bytes[] memory signatures) = _attestation(INITIAL_HEIGHT, commitments, signers);
         IAttestorMsgs.AttestationProof memory proof =
             IAttestorMsgs.AttestationProof({ attestationData: attestationData, signatures: signatures });
 
@@ -197,8 +199,7 @@ contract AttestorLightClientTest is Test {
         uint256[] memory signers = new uint256[](2);
         signers[0] = attestorPrivKey2;
         signers[1] = attestorPrivKey3;
-        (bytes memory attestationData, bytes[] memory signatures) =
-            _attestation(INITIAL_HEIGHT, commitments, signers);
+        (bytes memory attestationData, bytes[] memory signatures) = _attestation(INITIAL_HEIGHT, commitments, signers);
 
         IAttestorMsgs.AttestationProof memory proof =
             IAttestorMsgs.AttestationProof({ attestationData: attestationData, signatures: signatures });
@@ -259,7 +260,9 @@ contract AttestorLightClientTest is Test {
         msgVerify.path = new bytes[](0);
         msgVerify.value = abi.encode(bytes32("y"));
 
-        vm.expectRevert(abi.encodeWithSelector(IAttestorLightClientErrors.HeightMismatch.selector, INITIAL_HEIGHT, attestedHeight));
+        vm.expectRevert(
+            abi.encodeWithSelector(IAttestorLightClientErrors.HeightMismatch.selector, INITIAL_HEIGHT, attestedHeight)
+        );
         client.verifyMembership(msgVerify);
     }
 
@@ -293,7 +296,8 @@ contract AttestorLightClientTest is Test {
         pure
         returns (bytes memory attestationData, bytes[] memory signatures)
     {
-        IAttestorMsgs.PacketAttestation memory p = IAttestorMsgs.PacketAttestation({ height: height, packets: commitments });
+        IAttestorMsgs.PacketAttestation memory p =
+            IAttestorMsgs.PacketAttestation({ height: height, packets: commitments });
         attestationData = abi.encode(p);
         bytes32 digest = sha256(attestationData);
         signatures = new bytes[](signers.length);
@@ -306,7 +310,11 @@ contract AttestorLightClientTest is Test {
         uint64 height,
         uint64 timestamp,
         uint256[] memory signers
-    ) internal pure returns (bytes memory attestationData, bytes[] memory signatures) {
+    )
+        internal
+        pure
+        returns (bytes memory attestationData, bytes[] memory signatures)
+    {
         IAttestorMsgs.StateAttestation memory s =
             IAttestorMsgs.StateAttestation({ height: height, timestamp: timestamp });
         attestationData = abi.encode(s);
