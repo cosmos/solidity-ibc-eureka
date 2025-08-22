@@ -232,7 +232,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::debug!("Recv & ack messages: #{}", recv_and_ack_msgs.len());
 
         let proof = build_membership_proof_bytes(packets.attested_data, packets.signatures)?;
-        attestor::inject_proofs(&mut recv_msgs, &proof, packets.height);
+        attestor::inject_proofs_for_evm_msg(&mut recv_and_ack_msgs, &proof);
 
         // NOTE: UpdateMsg must come first otherwise
         // client state may not contain the needed
