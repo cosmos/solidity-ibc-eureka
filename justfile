@@ -367,6 +367,7 @@ test-e2e-l2-optimism testname:
 test-e2e-l2-arbitrum testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithL2ArbitrumTestSuite/{{testname}}
+
 # Run Slither static analysis on contracts
 # - **unused-return**: Return values from `verifyMembership` and `tryParseAddress` are intentionally unused
 # - **reentrancy-no-eth**: Cross-function reentrancy patterns are acceptable in this IBC implementation
