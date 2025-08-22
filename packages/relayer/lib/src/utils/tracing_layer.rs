@@ -15,9 +15,9 @@ impl opentelemetry::propagation::Injector for MetadataInjector<'_> {
                 Ok(value) => {
                     self.0.insert(key, value);
                 }
-                Err(error) => tracing::warn!(value, error = %error, "parse metadata value"),
+                Err(error) => tracing::debug!(value, error = %error, "parse metadata value"),
             },
-            Err(error) => tracing::warn!(key, error = %error, "parse metadata key"),
+            Err(error) => tracing::debug!(key, error = %error, "parse metadata key"),
         }
     }
 }
