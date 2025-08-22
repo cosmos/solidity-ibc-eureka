@@ -51,7 +51,5 @@ pub enum IbcAttestorClientError {
     #[error("Client is frozen")]
     ClientFrozen,
 
-    /// Height not found in consensus state
-    #[error("Height {0} not found in consensus state")]
-    HeightNotFound(u64),
+    
 }

@@ -33,10 +33,7 @@ pub enum EthereumIBCError {
     #[error("unsupported fork version, must be electra or later")]
     MustBeElectraOrLater,
 
-    #[error(
-        "execution payload header must have blob_gas_used and excess_blog_gas set after deneb"
-    )]
-    MissingBlobGas,
+    
 
     #[error(transparent)]
     InvalidMerkleBranch(#[from] Box<InvalidMerkleBranch>), // boxed to decrease enum size

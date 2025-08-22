@@ -22,8 +22,6 @@ interface IAttestorLightClientErrors {
     /// @param storedTimestamp The previously stored timestamp.
     /// @param providedTimestamp The new, conflicting timestamp.
     error ConflictingTimestamp(uint64 height, uint64 storedTimestamp, uint64 providedTimestamp);
-    /// @notice Generic length mismatch error.
-    error LengthMismatch();
     /// @notice ECDSA signature at `index` has an invalid length.
     /// @param index Index of the invalid signature in the provided array.
     error InvalidSignatureLength(uint256 index);

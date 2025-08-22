@@ -10,6 +10,5 @@ default = []
 [dependencies]
 alloy-sol-types = { workspace = true, default-features = false, features = ["json"] }
 alloy-primitives = { workspace = true, default-features = false }
-serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
