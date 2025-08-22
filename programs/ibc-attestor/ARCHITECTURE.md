@@ -2,11 +2,11 @@
 
 ## Overview
 
-The IBC Attestation system is a modular, multisig-based light client solution designed to enable rapid cross-chain integration with Ethereum L2s (Arbitrum, Base), Solana and any other network that can be attested to by an off-chain actor. It provides cryptographically signed attestations, from a set of trusted attestors, of blockchain state that can be used for secure, time-sensitive cross-chain communication.
+The IBC Attestation system is a modular, multisig-based light client solution designed to enable rapid cross-chain integration with Ethereum L2s (Arbitrum, Optimism/Base), Solana (WIP) and any other network that can be attested to by an off-chain actor. It provides cryptographically signed attestations, from a set of trusted attestors, of blockchain state that can be used for secure, time-sensitive cross-chain communication.
 
 **Key Features:**
 - **Rapid Integration**: Deploy connections to supported ecosystems quickly
-- **Multi-chain Support**: Extensible adapter pattern for different ecosystems
+- **Multi-chain Support**: Extensible adapter pattern for different ecosystems (e.g., Arbitrum, Optimism, Solana WIP)
 - **Security**: m-of-n signature verification with trusted attestor set
 - **Performance**: Concurrent processing and caching for low-latency operations
 
@@ -32,8 +32,8 @@ The Attestor Service monitors blockchain networks and provides cryptographically
 #### Core Components
 
 - **Adapter Client** (`src/adapter_client.rs`): Generic interface for blockchain interaction
-- **Chain Adapters** (`src/adapter_impls/`): Network-specific implementations
-- **Signer** (`src/signer.rs`): secp256k1 cryptographic signing
+- **Chain Adapters** (`src/adapter_impls/`): Network-specific implementations (Arbitrum, Optimism/Base; Solana WIP)
+- **Signer** (`src/signer.rs`): secp256k1 cryptographic signing that produces 65-byte Ethereum-style recoverable signatures (r||s||v) and includes the signer Ethereum address (derived from the public key)
 - **gRPC Server** (`src/server.rs`): API, used primarily by aggregator
 
 #### Attestation Types
@@ -46,11 +46,12 @@ The Attestor Service monitors blockchain networks and provides cryptographically
 **Packet Attestations:**
 - Validate packet commitments existence by querying a local/trusted node
 - Concurrent validation of multiple packets per request
+- Requests include both the list of packets and the target height
 
 #### Key Features
 
 - **Modular Design**: Adapter pattern enables easy addition of new chains
-- **Serde Encoding**: JSON serialization for cross-language compatibility
+- **ABI Encoding**: Attested messages are encoded via Solidity ABI (see `IAttestorMsgs`), then hashed (SHA-256) before signing for cross-language compatibility. Public keys are not propagated; addresses are recovered from signatures.
 
 ### 2. Aggregator Service (`programs/sig-aggregator`)
 
@@ -58,11 +59,11 @@ The Aggregator Service collects attestations from multiple attestors and enforce
 
 #### Core Functionality
 
-- **Quorum Validation**: Requires m-of-n signatures (typically 2/3 threshold)
+- **Quorum Validation**: Requires m-of-n signatures (threshold configured)
 - **Concurrent Queries**: Simultaneous requests to all configured attestors
 - **Timeout Handling**: Graceful degradation when attestors are unavailable
 - **Caching**: In-memory cache for recently aggregated attestations
-- **Height Selection**: Returns highest common height meeting quorum
+- **Height Handling**: The aggregator queries packet attestations for a specified height, then queries state attestations at the height returned by the packet aggregation
 
 ### 3. Light Client
 
@@ -74,7 +75,7 @@ The Light Client verifies aggregated attestations and integrates with IBC protoc
   - Stateless implementation of light client logic
   - Client state logic
   - Consensus state logic
-  - Signature verification
+  - Header verification in `verify.rs` and attestation signature checks in `verify_attestation.rs`
 - **CosmWasm Integration** (`programs/cw-ics08-wasm-attestor`):
   - Smart contract deployable to ibc-go's 08-wasm module
   - Implements the Light Client Module interface
@@ -85,7 +86,7 @@ The Light Client verifies aggregated attestations and integrates with IBC protoc
 
 #### Verification Process
 
-1. **Signature Verification**: Validate m-of-n signatures from trusted attestor set
+1. **Signature Verification**: Validate m-of-n signatures from trusted attestor set (65-byte recoverable ECDSA over SHA-256 of ABI-encoded data)
 2. **Height Validation**: Ensure attestation height meets minimum requirements  
 3. **State Updates**: Update consensus state with new blockchain data
 4. **Packet Verification**: Verify packet existence through attestor signatures
@@ -130,6 +131,9 @@ The Light Client verifies aggregated attestations and integrates with IBC protoc
 ### Key Files
 
 - `programs/ibc-attestor/src/attestor.rs`: Core attestor service logic
+- `programs/ibc-attestor/src/server.rs`: gRPC server wiring for attestor
 - `programs/sig-aggregator/src/aggregator.rs`: Signature aggregation logic  
-- `packages/attestor/light-client/src/verify.rs`: Signature verification
+- `programs/sig-aggregator/src/attestor_data.rs`: Aggregation and validation helpers
+- `packages/attestor/light-client/src/verify.rs`: Header checks
+- `packages/attestor/light-client/src/verify_attestation.rs`: Signature verification
 - `packages/attestor/packet-membership/src/verify_packet_membership.rs`: Packet validation

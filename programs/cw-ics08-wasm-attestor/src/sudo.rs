@@ -7,6 +7,8 @@ use ibc_proto::ibc::{
     lightclients::wasm::v1::ConsensusState as WasmConsensusState,
 };
 
+// Keep module compiled without direct usage
+
 use crate::{
     msg::{
         Height, UpdateStateMsg, UpdateStateOnMisbehaviourMsg, UpdateStateResult,

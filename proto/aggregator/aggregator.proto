@@ -30,8 +30,6 @@ message AggregatedAttestation {
   bytes attested_data = 3;
   // The attestation signatures
   repeated bytes signatures = 4;
-  // The attestation public key
-  repeated bytes public_keys = 5;
 }
 
 // GetStateAttestationResponse is a response from the aggregator.

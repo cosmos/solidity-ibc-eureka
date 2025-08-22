@@ -5,14 +5,13 @@ use std::collections::HashMap;
 
 type State = Vec<u8>;
 
-// https://docs.rs/secp256k1/latest/secp256k1/ecdsa/struct.Signature.html#method.serialize_compact
-pub const SIGNATURE_BYTE_LENGTH: usize = 64;
+// 65-byte recoverable ECDSA signature: r (32) || s (32) || v (1)
+pub const SIGNATURE_BYTE_LENGTH: usize = 65;
 type Signature = FixedBytes<SIGNATURE_BYTE_LENGTH>;
 
-// Compressed public key length
-// https://docs.rs/secp256k1/latest/secp256k1/struct.PublicKey.html#method.serialize
-pub const PUBKEY_BYTE_LENGTH: usize = 33;
-type Pubkey = FixedBytes<PUBKEY_BYTE_LENGTH>;
+// Ethereum address length (20 bytes)
+pub const ADDRESS_BYTE_LENGTH: usize = 20;
+type Address = FixedBytes<ADDRESS_BYTE_LENGTH>;
 
 /// Maps attested_data -> list of attestations
 ///
@@ -58,18 +57,12 @@ impl AttestatorData {
                     .first()
                     .map(|att| (att.attested_data.clone(), att.height, att.timestamp))
                     .unwrap();
-                let (sigs, pkeys): (Vec<_>, Vec<_>) = attestations
+                let sigs: Vec<_> = attestations
                     .iter()
-                    .map(|att| (att.signature.clone(), att.public_key.clone()))
+                    .map(|att| att.signature.clone())
                     .collect();
 
-                AggregatedAttestation {
-                    height: h,
-                    timestamp: ts,
-                    attested_data: att,
-                    signatures: sigs,
-                    public_keys: pkeys,
-                }
+                AggregatedAttestation { height: h, timestamp: ts, attested_data: att, signatures: sigs }
             })
     }
 }
@@ -77,20 +70,20 @@ impl AttestatorData {
 // TODO: move this to a separate library IBC-138
 impl Attestation {
     fn validate(&self) -> Result<()> {
-        self.validate_pubkey()?;
+        self.validate_address()?;
         self.validate_signature()?;
         Ok(())
     }
 
-    fn validate_pubkey(&self) -> Result<()> {
+    fn validate_address(&self) -> Result<()> {
         anyhow_ensure!(
-            self.public_key.len() == PUBKEY_BYTE_LENGTH,
-            "Invalid pubkey length: {}",
-            self.public_key.len()
+            self.address.len() == ADDRESS_BYTE_LENGTH,
+            "Invalid address length: {}",
+            self.address.len()
         );
 
-        Pubkey::try_from(self.public_key.as_slice())
-            .with_context(|| format!("Invalid pubkey: {:?}", self.public_key))?;
+        Address::try_from(self.address.as_slice())
+            .with_context(|| format!("Invalid address: {:?}", self.address))?;
 
         Ok(())
     }
@@ -113,6 +106,46 @@ impl Attestation {
 mod tests {
     use super::*;
 
+    fn create_valid_65_byte_signature() -> Vec<u8> {
+        let mut sig = vec![0x11; 64]; // r and s components
+        sig.push(27); // v component (27 or 28 for Ethereum compatibility)
+        sig
+    }
+
+    #[test]
+    fn accepts_65_byte_signatures() {
+        let mut attestator_data = AttestatorData::new();
+        
+        let result = attestator_data.insert(Attestation {
+            attested_data: vec![1],
+            address: vec![0x03; ADDRESS_BYTE_LENGTH],
+            height: 100,
+            timestamp: Some(100),
+            signature: create_valid_65_byte_signature(),
+        });
+        
+        assert!(result.is_ok(), "Should accept 65-byte signatures");
+    }
+
+    #[test]
+    fn rejects_64_byte_signatures() {
+        let mut attestator_data = AttestatorData::new();
+        
+        let result = attestator_data.insert(Attestation {
+            attested_data: vec![1],
+            address: vec![0x03; ADDRESS_BYTE_LENGTH],
+            height: 100,
+            timestamp: Some(100),
+            signature: vec![0x04; 64], // Old 64-byte format
+        });
+        
+        assert!(result.is_err(), "Should reject 64-byte signatures");
+        // The error is wrapped by context, so we just verify it's an error
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Invalid attestation"), 
+            "Should be an invalid attestation error, got: {}", err_msg);
+    }
+
     #[test]
     fn ignores_states_below_quorum() {
         // We have a height 100 but only 1 signature < quorum 2
@@ -121,10 +154,10 @@ mod tests {
         attestator_data
             .insert(Attestation {
                 attested_data: vec![1],
-                public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
+                address: vec![0x03; ADDRESS_BYTE_LENGTH],
                 height: 100,
                 timestamp: Some(100),
-                signature: vec![0x04; SIGNATURE_BYTE_LENGTH],
+                signature: create_valid_65_byte_signature(),
             })
             .unwrap();
 
@@ -138,14 +171,14 @@ mod tests {
         let attestation = vec![0xAA];
         let height = 123;
 
-        [0x21, 0x22].iter().for_each(|&pubkey_byte| {
+        [0x21, 0x22].iter().for_each(|&addr_byte| {
             attestator_data
                 .insert(Attestation {
                     attested_data: attestation.clone(),
-                    public_key: vec![pubkey_byte; PUBKEY_BYTE_LENGTH],
+                    address: vec![addr_byte; ADDRESS_BYTE_LENGTH],
                     height,
                     timestamp: Some(height),
-                    signature: vec![0x11; SIGNATURE_BYTE_LENGTH],
+                    signature: create_valid_65_byte_signature(),
                 })
                 .unwrap();
         });
@@ -157,9 +190,5 @@ mod tests {
         assert_eq!(latest.height, height);
         assert_eq!(latest.attested_data, attestation);
         assert_eq!(latest.signatures.len(), 2);
-        assert_eq!(latest.public_keys.len(), 2);
-
-        assert!(latest.public_keys.contains(&vec![0x21; PUBKEY_BYTE_LENGTH]));
-        assert!(latest.public_keys.contains(&vec![0x22; PUBKEY_BYTE_LENGTH]));
     }
 }

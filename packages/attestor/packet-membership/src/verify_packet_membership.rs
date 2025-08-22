@@ -13,7 +13,18 @@ pub fn verify_packet_membership(
     proof: Packets,
     value: Vec<u8>,
 ) -> Result<(), PacketAttestationError> {
-    if proof.packets().any(|packet| *packet == value) {
+    if value.len() == 32 {
+        let mut arr = [0u8; 32];
+        arr.copy_from_slice(&value);
+        if proof.packets().any(|packet| packet.as_slice() == arr) {
+            return Ok(());
+        }
+    }
+
+    if proof
+        .packets()
+        .any(|packet| packet.as_slice() == value.as_slice())
+    {
         Ok(())
     } else {
         Err(PacketAttestationError::VerificiationFailed {
@@ -26,14 +37,15 @@ pub fn verify_packet_membership(
 #[allow(clippy::module_inception)]
 mod verify_packet_membership {
     use super::*;
+    use alloy_primitives::FixedBytes;
 
     #[test]
     fn succeeds() {
-        let data = [b"cosmos rules", b"so does rust", b"hear, hear!!"];
-        let packets: Vec<Vec<u8>> = data.into_iter().map(|d| d.to_vec()).collect();
+        let data: Vec<[u8; 32]> = vec![[7u8; 32], [8u8; 32], [9u8; 32]];
+        let packets: Vec<FixedBytes<32>> = data.iter().map(|d| (*d).into()).collect();
 
         let proof = Packets::new(packets);
-        let value = serde_json::to_vec(b"hear, hear!!".as_slice()).unwrap();
+        let value = [9u8; 32].to_vec();
 
         let res = verify_packet_membership(proof, value);
         assert!(res.is_ok());
@@ -41,12 +53,11 @@ mod verify_packet_membership {
 
     #[test]
     fn fails_on_missing() {
-        let data = [b"cosmos rules", b"so does rust", b"hear, hear!!"];
-
-        let packets: Vec<Vec<u8>> = data.into_iter().map(|d| d.to_vec()).collect();
+        let data: Vec<[u8; 32]> = vec![[7u8; 32], [8u8; 32], [9u8; 32]];
+        let packets: Vec<FixedBytes<32>> = data.iter().map(|d| (*d).into()).collect();
 
         let proof = Packets::new(packets);
-        let value = serde_json::to_vec(b"this does not exist".as_slice()).unwrap();
+        let value = [0u8; 32].to_vec();
 
         let res = verify_packet_membership(proof, value);
         assert!(

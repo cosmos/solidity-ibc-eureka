@@ -10,14 +10,14 @@ use alloy_provider::{Provider, RootProvider};
 
 mod config;
 
-use attestor_packet_membership::Packets;
 use futures::{stream::FuturesUnordered, StreamExt};
 use ibc_eureka_solidity_types::ics26::{router::routerInstance, IICS26RouterMsgs::Packet};
 
 use crate::adapter_client::{
-    AttestationAdapter, UnsignedPacketAttestation, UnsignedStateAttestation,
+    AttestationAdapter,
 };
 use crate::AttestorError;
+use ibc_eureka_solidity_types::msgs::IAttestorMsgs;
 
 pub use config::ArbitrumClientConfig;
 
@@ -89,22 +89,19 @@ impl AttestationAdapter for ArbitrumClient {
     async fn get_unsigned_state_attestation_at_height(
         &self,
         height: u64,
-    ) -> Result<UnsignedStateAttestation, AttestorError> {
+    ) -> Result<IAttestorMsgs::StateAttestation, AttestorError> {
         let ts = self.get_timestamp_for_block_at_height(height).await?;
-        Ok(UnsignedStateAttestation {
-            height,
-            timestamp: ts,
-        })
+        Ok(IAttestorMsgs::StateAttestation { height, timestamp: ts })
     }
 
     async fn get_unsigned_packet_attestation_at_height(
         &self,
-        packets: &Packets,
+        packets: &[Vec<u8>],
         height: u64,
-    ) -> Result<UnsignedPacketAttestation, AttestorError> {
+    ) -> Result<IAttestorMsgs::PacketAttestation, AttestorError> {
         let mut futures = FuturesUnordered::new();
 
-        for p in packets.packets() {
+        for p in packets.iter() {
             let packet = Packet::abi_decode(p).map_err(AttestorError::DecodePacket)?;
             let validate_commitment = async move |packet: Packet, height: u64| {
                 let commitment_path = packet.commitment_path();
@@ -138,9 +135,10 @@ impl AttestationAdapter for ArbitrumClient {
             }
         }
 
-        Ok(UnsignedPacketAttestation {
-            height,
-            packets: validated,
-        })
+        let packets: Vec<FixedBytes<32>> = validated
+            .into_iter()
+            .map(FixedBytes::<32>::from)
+            .collect();
+        Ok(IAttestorMsgs::PacketAttestation { height, packets })
     }
 }

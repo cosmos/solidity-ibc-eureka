@@ -1,5 +1,5 @@
 use crate::{
-    attestor_data::{PUBKEY_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH},
+    attestor_data::{ADDRESS_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH},
     rpc::{
         attestation_service_server::{AttestationService, AttestationServiceServer},
         Attestation, PacketAttestationRequest, PacketAttestationResponse, StateAttestationRequest,
@@ -22,7 +22,7 @@ pub struct MockAttestor {
 impl MockAttestor {
     pub fn new(malicious: bool, delay_ms: u64, id: u8) -> Self {
         Self {
-            pub_key: vec![id; PUBKEY_BYTE_LENGTH],
+            pub_key: vec![id; ADDRESS_BYTE_LENGTH],
             is_malicious: malicious,
             delay_ms,
         }
@@ -34,7 +34,7 @@ impl MockAttestor {
             height,
             attested_data: vec![value; 10],
             signature: vec![value; SIGNATURE_BYTE_LENGTH],
-            public_key: self.pub_key.clone(),
+            address: self.pub_key.clone(),
             timestamp: Some(123),
         }
     }
@@ -47,7 +47,7 @@ impl MockAttestor {
             height,
             attested_data: vec![value; 10],
             signature: vec![value; SIGNATURE_BYTE_LENGTH],
-            public_key: self.pub_key.clone(),
+            address: self.pub_key.clone(),
             timestamp: None,
         }
     }
