@@ -9,14 +9,19 @@ use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
     ibc::{
-        core::client::v1::{Height, MsgCreateClient, MsgUpdateClient},
+        core::{
+            channel::v2::{
+                Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout, Packet, Payload,
+            },
+            client::v1::{Height, MsgCreateClient, MsgUpdateClient},
+        },
         lightclients::wasm::v1::{
             ClientState as WasmClientState, ConsensusState as WasmConsensusState,
         },
     },
 };
 use solana_client::rpc_client::RpcClient;
-use solana_ibc_types::{parse_events_from_logs, IbcEvent, Packet};
+use solana_ibc_types::{parse_events_from_logs, IbcEvent, Packet as SolanaPacket};
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use tendermint_rpc::HttpClient;
@@ -142,7 +147,7 @@ impl TxBuilder {
             match event {
                 IbcEvent::SendPacket(send_event) => {
                     // Deserialize the packet to get full details
-                    if let Ok(packet) = Packet::try_from_slice(&send_event.packet_data) {
+                    if let Ok(packet) = SolanaPacket::try_from_slice(&send_event.packet_data) {
                         let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
 
                         events.push(SolanaIbcEvent::SendPacket {
@@ -163,7 +168,7 @@ impl TxBuilder {
                 }
                 IbcEvent::AckPacket(ack_event) => {
                     // For acknowledge packet, we need the source client from the packet
-                    if let Ok(packet) = Packet::try_from_slice(&ack_event.packet_data) {
+                    if let Ok(packet) = SolanaPacket::try_from_slice(&ack_event.packet_data) {
                         events.push(SolanaIbcEvent::AcknowledgePacket {
                             sequence: ack_event.sequence,
                             source_client: packet.source_client,
@@ -226,18 +231,97 @@ impl TxBuilder {
         // Process source events from Solana
         for event in src_events {
             match event {
-                SolanaIbcEvent::SendPacket { .. } => {
+                SolanaIbcEvent::SendPacket {
+                    sequence,
+                    source_client,
+                    destination_client,
+                    payloads,
+                    timeout_timestamp,
+                } => {
                     // Create RecvPacket message for Cosmos
-                    // This would involve creating the proper message type with proofs
-                    tracing::debug!("Processing SendPacket event from Solana");
+                    // Convert Solana payloads to IBC v2 Payload format
+                    let ibc_payloads = payloads
+                        .into_iter()
+                        .map(|value| Payload {
+                            source_port: "transfer".to_string(), // Default for ICS20
+                            destination_port: "transfer".to_string(),
+                            version: "ics20-1".to_string(),
+                            encoding: "json".to_string(),
+                            value,
+                        })
+                        .collect();
+
+                    let packet = Packet {
+                        sequence,
+                        source_client,
+                        destination_client,
+                        timeout_timestamp,
+                        payloads: ibc_payloads,
+                    };
+
+                    let msg = MsgRecvPacket {
+                        packet: Some(packet),
+                        proof_height: None, // Will be filled by proof injection
+                        proof_commitment: vec![], // Mock proof for now
+                        signer: self.signer_address.clone(),
+                    };
+
+                    messages.push(Any::from_msg(&msg)?);
+                    tracing::debug!("Created RecvPacket message for sequence {}", sequence);
                 }
-                SolanaIbcEvent::AcknowledgePacket { .. } => {
+                SolanaIbcEvent::AcknowledgePacket {
+                    sequence,
+                    source_client,
+                    acknowledgements,
+                } => {
                     // Create Acknowledgement message for Cosmos
-                    tracing::debug!("Processing AcknowledgePacket event from Solana");
+                    // Note: We need the original packet data - this is simplified
+                    let packet = Packet {
+                        sequence,
+                        source_client: source_client.clone(),
+                        destination_client: source_client, // Simplified - should get from original packet
+                        timeout_timestamp: 0,              // Should get from original packet
+                        payloads: vec![],                  // Should get from original packet
+                    };
+
+                    let ack = Acknowledgement {
+                        app_acknowledgements: acknowledgements,
+                    };
+
+                    let msg = MsgAcknowledgement {
+                        packet: Some(packet),
+                        acknowledgement: Some(ack),
+                        proof_height: None,  // Will be filled by proof injection
+                        proof_acked: vec![], // Mock proof for now
+                        signer: self.signer_address.clone(),
+                    };
+
+                    messages.push(Any::from_msg(&msg)?);
+                    tracing::debug!("Created Acknowledgement message for sequence {}", sequence);
                 }
-                SolanaIbcEvent::TimeoutPacket { .. } => {
+                SolanaIbcEvent::TimeoutPacket {
+                    sequence,
+                    source_client,
+                } => {
                     // Create Timeout message for Cosmos
-                    tracing::debug!("Processing TimeoutPacket event from Solana");
+                    // Note: We need the original packet data - this is simplified
+                    let packet = Packet {
+                        sequence,
+                        source_client: source_client.clone(),
+                        destination_client: source_client, // Simplified - should get from original packet
+                        timeout_timestamp: 0,              // Should get from original packet
+                        payloads: vec![],                  // Should get from original packet
+                    };
+
+                    let msg = MsgTimeout {
+                        packet: Some(packet),
+                        proof_height: None, // Will be filled by proof injection
+                        proof_unreceived: vec![], // Mock proof for now
+                        signer: self.signer_address.clone(),
+                    };
+
+                    messages.push(Any::from_msg(&msg)?);
+                    tracing::debug!("Created Timeout message for sequence {}", sequence);
                 }
             }
         }
@@ -245,11 +329,13 @@ impl TxBuilder {
         // Process target events from Cosmos (for timeouts)
         for event in target_events {
             tracing::debug!("Processing timeout event from Cosmos: {:?}", event);
-            // Process timeout events
+            // These would be timeouts detected on Cosmos that need to be relayed back to Solana
+            // This would be handled by the cosmos-to-solana module instead
         }
 
-        if messages.is_empty() {
-            anyhow::bail!("No messages to relay to Cosmos");
+        if messages.len() == 1 {
+            // Only contains the update client message
+            anyhow::bail!("No IBC messages to relay to Cosmos");
         }
 
         Ok(TxBody {
