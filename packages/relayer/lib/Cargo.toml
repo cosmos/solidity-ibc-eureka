@@ -19,6 +19,7 @@ ethereum-types = { workspace = true }
 serde      = { workspace = true, features = ["derive"] }
 prost      = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
+base64     = { workspace = true }
 
 async-trait   = { workspace = true }
 anyhow        = { workspace = true, features = ["std"] }
@@ -32,6 +33,7 @@ tendermint-light-client-verifier = { workspace = true }
 tonic = { workspace = true }
 anchor-lang = { workspace = true }
 solana-sdk = { workspace = true }
+solana-ibc-types = { workspace = true }
 
 ibc-proto-eureka          = { workspace = true }
 ibc-core-commitment-types = { workspace = true }

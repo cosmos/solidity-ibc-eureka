@@ -2,5 +2,6 @@
 
 pub mod cosmos_sdk;
 mod eureka;
+pub mod solana;
 
 pub use eureka::{EurekaEvent, EurekaEventWithHeight};

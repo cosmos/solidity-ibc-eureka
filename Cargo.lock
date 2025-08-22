@@ -5170,6 +5170,7 @@ dependencies = [
  "anchor-lang",
  "anyhow",
  "async-trait",
+ "base64 0.22.1",
  "ethereum-apis 0.1.0",
  "ethereum-light-client 0.1.0",
  "ethereum-types 0.1.0",
@@ -5183,6 +5184,7 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
+ "solana-ibc-types",
  "solana-sdk",
  "sp1-ics07-tendermint-prover 0.1.0",
  "sp1-prover",
@@ -5233,6 +5235,7 @@ dependencies = [
  "base64 0.22.1",
  "borsh 1.5.7",
  "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-lib 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",
@@ -9289,7 +9292,6 @@ name = "solana-ibc-types"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
- "base64 0.22.1",
  "solana-ibc-constants",
 ]
 

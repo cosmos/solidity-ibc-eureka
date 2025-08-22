@@ -3801,7 +3801,6 @@ name = "solana-ibc-types"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
- "base64 0.22.1",
  "solana-ibc-constants",
 ]
 

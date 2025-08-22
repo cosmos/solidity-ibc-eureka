@@ -28,7 +28,6 @@ pub use ics07::{
 pub use pda::*;
 
 pub use events::{
-    parse_events_from_logs, AckPacketEvent, ClientAddedEvent, ClientStatusUpdatedEvent,
-    IBCAppAdded, IbcEvent, NoopEvent, SendPacketEvent, TimeoutPacketEvent,
-    WriteAcknowledgementEvent,
+    AckPacketEvent, ClientAddedEvent, ClientStatusUpdatedEvent, IBCAppAdded, NoopEvent,
+    SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
 };

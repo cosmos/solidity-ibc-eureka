@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anchor_lang::prelude::*;
+use ibc_eureka_relayer_lib::events::solana::{parse_events_from_logs, IbcEvent};
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -21,7 +22,7 @@ use ibc_proto_eureka::{
     },
 };
 use solana_client::rpc_client::RpcClient;
-use solana_ibc_types::{parse_events_from_logs, IbcEvent, Packet as SolanaPacket};
+use solana_ibc_types::Packet as SolanaPacket;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use tendermint_rpc::HttpClient;
@@ -195,13 +196,8 @@ impl TxBuilder {
                     );
                 }
                 IbcEvent::WriteAcknowledgement(_) => {
-                    // This is emitted when a packet is received and acknowledgement is written
-                    // For relaying purposes, we might want to handle this differently
+                    // TODO: implement handling
                     tracing::trace!("Found WriteAcknowledgementEvent");
-                }
-                _ => {
-                    // Other events like ClientAdded, ClientStatusUpdated, etc.
-                    tracing::trace!("Ignoring event: {:?}", event);
                 }
             }
         }
