@@ -14,9 +14,9 @@ on:
 
 jobs:
   lint:
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -33,9 +33,9 @@ jobs:
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
   build:
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -49,9 +49,9 @@ jobs:
 
   test:
     needs: [lint, build]
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -75,11 +75,33 @@ jobs:
           echo "## Tests result" >> $GITHUB_STEP_SUMMARY
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
+  security:
+    needs: [build]
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up environment
+        uses: ./.github/actions/foundry-setup
+
+      - name: Install Python and Slither
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip
+          python3 -m pip install slither-analyzer
+
+      - name: Run Slither analysis
+        run: slither . --config-file .slither.config.json
+
+      - name: Add security summary
+        run: |
+          echo "## Security Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Slither analysis passed" >> $GITHUB_STEP_SUMMARY
+
   coverage:
     needs: [test]
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 

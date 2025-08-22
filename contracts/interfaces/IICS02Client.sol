@@ -15,7 +15,7 @@ interface IICS02ClientAccessControlled {
     /// @param client The address of the client contract
     /// @return The client identifier
     function addClient(
-        string memory clientId,
+        string calldata clientId,
         IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
         address client
     )
@@ -40,7 +40,7 @@ interface IICS02ClientAccessControlled {
     /// @param counterpartyInfo The new counterparty client information
     /// @param client The address of the new client contract
     function migrateClient(
-        string memory clientId,
+        string calldata clientId,
         IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
         address client
     )

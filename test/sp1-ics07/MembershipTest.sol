@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-small-strings
+
 // solhint-disable-next-line no-global-import
 import "forge-std/console.sol";
 import { stdJson } from "forge-std/StdJson.sol";

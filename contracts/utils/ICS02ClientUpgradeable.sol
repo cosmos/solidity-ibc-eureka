@@ -54,6 +54,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     function nextClientId() private returns (string memory) {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
         // initial client sequence should be 0, hence we use x++ instead of ++x
+        // solhint-disable-next-line gas-increment-by-one
         return string.concat(IBCIdentifiers.CLIENT_ID_PREFIX, Strings.toString($.nextClientSeq++));
     }
 
