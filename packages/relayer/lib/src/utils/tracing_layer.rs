@@ -59,7 +59,7 @@ pub fn tracing_interceptor<T>(request: Request<T>) -> Result<Request<T>, Status>
     let context = span.context();
     let otel_span = context.span();
     let trace_id = otel_span.span_context().trace_id();
-    Span::current().record("trace_id", trace_id.to_string());
+    span.record("trace_id", trace_id.to_string());
 
     Ok(request)
 }
