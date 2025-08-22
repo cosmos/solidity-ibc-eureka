@@ -145,10 +145,10 @@ jobs:
 
       - name: Build optimized wasm binary
         run: just build-cw-ics08-wasm-attestor
-        # checks that the wasm binary is a proper cosmwasm smart contract
-        # it checks for things like memories, exports, imports, available capabilities, and non-determinism
-      - name: Check cosmwasm file
-        run: cosmwasm-check artifacts/cw_ics08_wasm_attestor.wasm
+
+      # TODO: re-enable once cosmwasm-check is updated
+      # - name: Check cosmwasm file
+      #   run: cosmwasm-check artifacts/cw_ics08_wasm_attestor.wasm
 
       - name: Verify built binary matches commited
         run: |
