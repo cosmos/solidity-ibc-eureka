@@ -1,6 +1,6 @@
 use crate::{errors::DummyIbcAppError, state::*};
 use anchor_lang::prelude::*;
-use ics24_host_solana::Payload;
+use solana_ibc_types::Payload;
 use ics26_router::cpi as router_cpi;
 use ics26_router::program::Ics26Router;
 use ics26_router::{

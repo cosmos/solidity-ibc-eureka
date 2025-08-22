@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"text/template"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
@@ -75,14 +76,45 @@ func NewConfig(modules []ModuleConfig) Config {
 
 // GenerateConfig creates a config from the template
 func (c *Config) GenerateConfigFile(filePath string) error {
-	tmpl, err := template.ParseFiles("e2e/interchaintestv8/relayer/config.tmpl")
+	// Debug logging to understand working directory and file path resolution
+	cwd, err := os.Getwd()
 	if err != nil {
+		fmt.Printf("WARNING: Failed to get current working directory: %v\n", err)
+	} else {
+		fmt.Printf("DEBUG: Current working directory: %s\n", cwd)
+	}
+	
+	templatePath := "relayer/config.tmpl"
+	fmt.Printf("DEBUG: Attempting to parse template file: %s\n", templatePath)
+	
+	// Check if template file exists
+	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
+		fmt.Printf("DEBUG: Template file does not exist at: %s\n", templatePath)
+		return fmt.Errorf("template file not found at: %s", templatePath)
+	} else {
+		fmt.Printf("DEBUG: Template file exists at: %s\n", templatePath)
+	}
+	
+	tmpl, err := template.ParseFiles(templatePath)
+	if err != nil {
+		fmt.Printf("DEBUG: Failed to parse template file '%s': %v\n", templatePath, err)
 		return err
 	}
 
+	// Ensure the directory exists before creating the file
+	dir := filepath.Dir(filePath)
+	fmt.Printf("DEBUG: Creating directory if needed: %s\n", dir)
+	err = os.MkdirAll(dir, 0755)
+	if err != nil {
+		fmt.Printf("DEBUG: Failed to create directory '%s': %v\n", dir, err)
+		return fmt.Errorf("failed to create directory '%s': %w", dir, err)
+	}
+	
+	fmt.Printf("DEBUG: Creating config file at: %s\n", filePath)
 	f, err := os.Create(filePath)
 	if err != nil {
-		return err
+		fmt.Printf("DEBUG: Failed to create config file '%s': %v\n", filePath, err)
+		return fmt.Errorf("failed to create config file '%s': %w", filePath, err)
 	}
 	defer f.Close()
 

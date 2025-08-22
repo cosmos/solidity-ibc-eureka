@@ -119,6 +119,8 @@ const (
 	SolanaLedgerDir = "test-ledger"
 	// TendermintLightClientFixturesDir is the directory where the Tendermint light client fixtures are stored.
 	TendermintLightClientFixturesDir = "packages/tendermint-light-client/fixtures/"
+	// SolanaRelayerWalletPath is the path to the Solana wallet file used by the relayer.
+	SolanaRelayerWalletPath = "/tmp/solana-relayer-wallet.json"
 
 	// IbcCommitmentSlotHex is the storage slot in the IBC solidity contract for the IBC commitments.
 	IbcCommitmentSlotHex = ics26router.IbcStoreStorageSlot

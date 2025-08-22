@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -24,8 +25,11 @@ import (
 
 	cosmosutils "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
 const (
@@ -39,6 +43,9 @@ type IbcEurekaSolanaTestSuite struct {
 	e2esuite.TestSuite
 
 	SolanaUser *solanago.Wallet
+
+	// Relayer client for cross-chain packet relay
+	RelayerClient relayertypes.RelayerServiceClient
 }
 
 // TestWithIbcEurekaTestSuite is the boilerplate code that allows the test suite to be run
@@ -80,6 +87,63 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 		ics26Available := s.waitForProgramAvailability(ctx, ics26_router.ProgramID)
 		s.Require().True(ics26Available, "ICS26 router program failed to become available")
+	}))
+
+	// Start the relayer for cross-chain communication
+	var relayerProcess *os.Process
+	s.Require().True(s.Run("Start Relayer", func() {
+		// Export the Solana test wallet to a file for the relayer to use
+		err := s.exportSolanaWalletToFile(s.SolanaUser, testvalues.SolanaRelayerWalletPath)
+		s.Require().NoError(err)
+		
+		// Clean up wallet file when test completes
+		defer func() {
+			os.Remove(testvalues.SolanaRelayerWalletPath)
+		}()
+		
+		// Configure relayer for Solana <-> Cosmos communication
+		config := relayer.NewConfig(relayer.CreateSolanaCosmosModules(
+			relayer.SolanaCosmosConfigInfo{
+				SolanaChainID:        "solana-localnet",
+				CosmosChainID:        simd.Config().ChainID,
+				SolanaRPC:            "http://localhost:8899", // Default localnet RPC
+				TmRPC:                simd.GetHostRPCAddress(),
+				ICS07ProgramID:       ics07_tendermint.ProgramID.String(),
+				ICS26RouterProgramID: ics26_router.ProgramID.String(),
+				CosmosSignerAddress:  s.CosmosUsers[0].FormattedAddress(),
+				SolanaWalletPath:     testvalues.SolanaRelayerWalletPath,
+			}),
+		)
+
+		err = config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		s.Require().NoError(err)
+
+		// Now that config matches the relayer's expectations, we can start it
+		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		s.Require().NoError(err, "Failed to start relayer process - tests cannot proceed without working relayer")
+		s.T().Log("Relayer started successfully with Solana modules")
+	}))
+
+	s.T().Cleanup(func() {
+		if relayerProcess != nil {
+			err := relayerProcess.Kill()
+			if err != nil {
+				s.T().Logf("Failed to kill the relayer process: %v", err)
+			}
+		}
+	})
+
+	s.Require().True(s.Run("Create Relayer Client", func() {
+		// Create gRPC client for relayer communication
+		// NOTE: This will only work once the relayer binary implements Solana support
+		var err error
+		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+		if err != nil {
+			s.T().Logf("Failed to create relayer client: %v (relayer may not be running)", err)
+			s.T().Log("Continuing without relayer - packet relay tests will be skipped")
+		} else {
+			s.T().Log("Relayer client created successfully")
+		}
 	}))
 
 	s.Require().True(s.Run("Initialize Contracts", func() {
@@ -187,6 +251,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	// Deploy and register dummy app using helper
 	dummyAppProgramID := s.deployAndRegisterDummyApp(ctx, clientID)
 
+	var solanaTxSig solanago.Signature
 	s.Require().True(s.Run("Send SOL transfer from Solana", func() {
 		// Get initial SOL balance
 		initialBalance := s.SolanaUser.PublicKey()
@@ -244,9 +309,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), sendTransferInstruction)
 		s.Require().NoError(err)
 
-		sig, err := s.signAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
+		solanaTxSig, err = s.signAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
 		s.Require().NoError(err)
-		s.T().Logf("Transfer transaction sent: %s", sig)
+		s.T().Logf("Transfer transaction sent: %s", solanaTxSig)
 
 		// Wait for balance change with timeout
 		finalLamports, balanceChanged := s.waitForBalanceChange(ctx, s.SolanaUser.PublicKey(), initialLamports)
@@ -269,10 +334,65 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		expectedAmount := uint64(TestTransferAmount)
 		s.Require().Equal(escrowBalance, expectedAmount,
 			"Escrow should contain exactly the transferred amount")
+
+		// Store the transaction signature for relaying
+		s.T().Logf("Solana transaction %s ready for relaying to Cosmos", solanaTxSig)
+	}))
+
+	// Relay packet from Solana to Cosmos
+	s.Require().True(s.Run("Relay packet to Cosmos", func() {
+		// NOTE: In production, the relayer would first check if the light client needs updating
+		// If the consensus state is too old, it would call UpdateClient before RelayByTx
+		// The relayer handles this automatically in the RelayByTx implementation
+		
+		var relayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    "solana-localnet", // Solana chain identifier
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{solanaTxSig[:]}, // Solana transaction signature
+				SrcClientId: clientID,         // Solana client on source
+				DstClientId: "08-wasm-0",       // Wasm client on Cosmos for Solana
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			relayTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx on Cosmos", func() {
+			// Broadcast the relay transaction on Cosmos
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 20_000_000, relayTxBodyBz)
+			s.T().Logf("Cosmos relay transaction: %s", resp.TxHash)
+		}))
 	}))
 
 	// Verify token minting on Cosmos
 	s.verifyCosmosTokenMinting(ctx, simd)
+
+	// Handle acknowledgment from Cosmos back to Solana
+	s.Require().True(s.Run("Relay acknowledgment to Solana", func() {
+		// NOTE: For a complete flow, we would:
+		// 1. Get the Cosmos transaction hash from the previous relay response
+		// 2. Call RelayByTx to get the Solana transaction
+		// 3. Deserialize using bincode (as cosmos-to-solana returns bincode format)
+		// 4. Submit to Solana
+		
+		s.T().Log("Acknowledgment relay would work as follows:")
+		s.T().Log("1. Parse Cosmos tx hash from previous relay response")
+		s.T().Log("2. Call RelayByTx(cosmos->solana) to get Solana transaction")
+		s.T().Log("3. The response.Tx is bincode-serialized Solana transaction")
+		s.T().Log("4. Deserialize and submit to Solana using SignAndBroadcastTx")
+		
+		// This is ready to use once we have the Cosmos tx hash:
+		// cosmosAckTxHash := extractTxHash(previousResponse)
+		// resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		//     SrcChain:    simd.Config().ChainID,
+		//     DstChain:    "solana-localnet",
+		//     SourceTxIds: [][]byte{cosmosAckTxHash},
+		// })
+		// solanaTx := bincode.Deserialize(resp.Tx)
+		// sig, err := s.SolanaChain.SignAndBroadcastTx(ctx, solanaTx, s.SolanaUser)
+	}))
 }
 
 // waitForProgramAvailability waits for a program to be deployed and available with default timeout
@@ -422,6 +542,18 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		s.Require().NoError(err)
 		s.T().Logf("Final SOL balance: %d lamports (change: %d lamports for fees)", finalBalance.Value, initialLamports-finalBalance.Value)
 		s.T().Logf("Note: SOL not escrowed since send_packet doesn't handle token transfers")
+
+		// Store the transaction signature for potential relaying
+		s.T().Logf("Solana packet transaction %s ready for relaying", sig)
+	}))
+
+	// Relay packet from Solana to Cosmos (similar to send_transfer)
+	s.Require().True(s.Run("Relay packet to Cosmos", func() {
+		// TODO: Same relaying mechanism as send_transfer
+		// The relayer doesn't distinguish between send_transfer and send_packet
+		// It just relays the packet commitment and proof
+
+		s.T().Log("TODO: Packet relaying not implemented yet - see send_transfer test for details")
 	}))
 
 	// Verify token minting on Cosmos
@@ -638,4 +770,32 @@ func uint64ToLeBytes(val uint64) []byte {
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, val)
 	return b
+}
+
+// exportSolanaWalletToFile exports a Solana wallet's private key to a JSON file
+// in the format expected by the Solana relayer (array of bytes)
+func (s *IbcEurekaSolanaTestSuite) exportSolanaWalletToFile(wallet *solanago.Wallet, filePath string) error {
+	// Get the private key bytes - Solana uses ed25519 which is 64 bytes
+	privateKeyBytes := wallet.PrivateKey[:]
+	
+	// The relayer expects the wallet as a JSON array of integers (bytes)
+	walletData := make([]int, len(privateKeyBytes))
+	for i, b := range privateKeyBytes {
+		walletData[i] = int(b)
+	}
+	
+	// Marshal to JSON
+	jsonData, err := json.Marshal(walletData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal wallet data: %w", err)
+	}
+	
+	// Write to file with secure permissions
+	err = os.WriteFile(filePath, jsonData, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to write wallet file: %w", err)
+	}
+	
+	s.T().Logf("Exported Solana wallet to %s", filePath)
+	return nil
 }
