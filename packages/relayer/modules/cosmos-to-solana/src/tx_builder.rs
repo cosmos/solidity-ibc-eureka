@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use anchor_lang::AnchorSerialize;
 use anyhow::Result;
-use ibc_proto_eureka::ibc::core::client::v1::Height;
+use ibc_eureka_relayer_lib::events::EurekaEvent;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -32,54 +32,40 @@ use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
 /// Parameters for building a `RecvPacket` instruction
 struct RecvPacketParams<'a> {
     sequence: u64,
-    source_port: &'a str,
     source_client: &'a str,
-    destination_port: &'a str,
     destination_client: &'a str,
-    data: &'a [u8],
+    payloads: &'a [Vec<u8>],
     timeout_timestamp: u64,
 }
 
-/// IBC event types from Cosmos
+// TODO: Move out?
+/// IBC Eureka event types from Cosmos
 #[derive(Debug, Clone)]
 pub enum CosmosIbcEvent {
-    /// Send packet event
     SendPacket {
         /// Packet sequence
         sequence: u64,
-        /// Source port
-        source_port: String,
-        /// Source channel (maps to client in Solana)
+        /// Source client ID
         source_client: String,
-        /// Destination port
-        destination_port: String,
-        /// Destination channel (maps to client in Solana)
+        /// Destination client ID
         destination_client: String,
-        /// Packet data
-        data: Vec<u8>,
-        /// Timeout height
-        _timeout_height: Height,
+        /// Packet payloads
+        payloads: Vec<Vec<u8>>,
         /// Timeout timestamp
         timeout_timestamp: u64,
     },
-    /// Acknowledge packet event
     AcknowledgePacket {
         /// Packet sequence
         sequence: u64,
-        /// Source port
-        source_port: String,
-        /// Source channel
+        /// Source client ID
         source_client: String,
-        /// Acknowledgement data
-        acknowledgement: Vec<u8>,
+        /// Acknowledgement data (one per payload)
+        acknowledgements: Vec<Vec<u8>>,
     },
-    /// Timeout packet event
     TimeoutPacket {
         /// Packet sequence
         sequence: u64,
-        /// Source port
-        source_port: String,
-        /// Source channel
+        /// Source client ID
         source_client: String,
     },
 }
@@ -138,6 +124,7 @@ impl TxBuilder {
     /// # Errors
     ///
     /// Returns an error if failed to fetch Cosmos transaction
+    #[allow(clippy::cognitive_complexity)] // Event parsing is inherently complex
     pub async fn fetch_cosmos_events(&self, tx_hashes: Vec<Hash>) -> Result<Vec<CosmosIbcEvent>> {
         let mut events = Vec::new();
 
@@ -149,75 +136,62 @@ impl TxBuilder {
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to fetch Cosmos transaction: {e}"))?;
 
-            // Parse IBC events from transaction result
-            for event in tx_result.tx_result.events {
-                match event.kind.as_str() {
-                    "send_packet" => {
-                        // Parse SendPacket event attributes
-                        let mut sequence = 0u64;
-                        let mut source_port = String::new();
-                        let mut source_channel = String::new();
-                        let mut destination_port = String::new();
-                        let mut destination_channel = String::new();
-                        let mut data = Vec::new();
-                        let timeout_height = Height::default();
-                        let mut timeout_timestamp = 0u64;
+            let _height = tx_result.height.value();
 
-                        for attr in event.attributes {
-                            match attr.key_str().unwrap_or("") {
-                                "packet_sequence" => {
-                                    sequence = attr.value_str().unwrap_or("0").parse().unwrap_or(0);
-                                }
-                                "packet_src_port" => {
-                                    source_port = attr.value_str().unwrap_or("").to_string();
-                                }
-                                "packet_src_channel" => {
-                                    source_channel = attr.value_str().unwrap_or("").to_string();
-                                }
-                                "packet_dst_port" => {
-                                    destination_port = attr.value_str().unwrap_or("").to_string();
-                                }
-                                "packet_dst_channel" => {
-                                    destination_channel =
-                                        attr.value_str().unwrap_or("").to_string();
-                                }
-                                "packet_data_hex" => {
-                                    data = hex::decode(attr.value_str().unwrap_or(""))
-                                        .unwrap_or_default();
-                                }
-                                "packet_timeout_timestamp" => {
-                                    timeout_timestamp =
-                                        attr.value_str().unwrap_or("0").parse().unwrap_or(0);
-                                }
-                                _ => {}
-                            }
+            for tm_event in tx_result.tx_result.events {
+                if let Ok(eureka_event) = EurekaEvent::try_from(tm_event.clone()) {
+                    match eureka_event {
+                        EurekaEvent::SendPacket(packet) => {
+                            tracing::debug!(
+                                "Parsed send_packet: seq={}, src={}, dst={}",
+                                packet.sequence,
+                                packet.sourceClient,
+                                packet.destClient
+                            );
+
+                            // Convert payloads to Vec<Vec<u8>>
+                            let payloads = packet
+                                .payloads
+                                .into_iter()
+                                .map(|p| p.value.to_vec())
+                                .collect();
+
+                            events.push(CosmosIbcEvent::SendPacket {
+                                sequence: packet.sequence,
+                                source_client: packet.sourceClient,
+                                destination_client: packet.destClient,
+                                payloads,
+                                timeout_timestamp: packet.timeoutTimestamp,
+                            });
                         }
+                        EurekaEvent::WriteAcknowledgement(packet, _acks) => {
+                            tracing::debug!(
+                                "Parsed write_acknowledgement: seq={}, src={}",
+                                packet.sequence,
+                                packet.sourceClient
+                            );
 
-                        // Map channel to client (in Solana, we use client IDs instead of channels)
-                        // This is a simplification - in production, you'd map properly
-                        let source_client = format!("cosmos-{source_channel}");
-                        let destination_client = format!("solana-{destination_channel}");
-
-                        events.push(CosmosIbcEvent::SendPacket {
-                            sequence,
-                            source_port,
-                            source_client,
-                            destination_port,
-                            destination_client,
-                            data,
-                            _timeout_height: timeout_height,
-                            timeout_timestamp,
-                        });
+                            // For now, we'll skip WriteAck as it's not the same as AcknowledgePacket
+                            // WriteAck is when the destination writes an ack,
+                            // AcknowledgePacket is when source processes the ack
+                        }
                     }
-                    "acknowledge_packet" => {
-                        // Parse AcknowledgePacket event
-                        tracing::debug!("Found acknowledge_packet event");
+                } else {
+                    // Handle events not yet supported by EurekaEvent
+                    // For now, just log them
+                    match tm_event.kind.as_str() {
+                        "acknowledge_packet" => {
+                            tracing::debug!("Found acknowledge_packet event (not yet implemented in EurekaEvent)");
+                            // TODO: When EurekaEvent supports AcknowledgePacket, handle it
+                        }
+                        "timeout_packet" => {
+                            tracing::debug!(
+                                "Found timeout_packet event (not yet implemented in EurekaEvent)"
+                            );
+                            // TODO: When EurekaEvent supports TimeoutPacket, handle it
+                        }
+                        _ => {}
                     }
-                    "timeout_packet" => {
-                        // Parse TimeoutPacket event
-                        tracing::debug!("Found timeout_packet event");
-                    }
-                    _ => {}
                 }
             }
         }
@@ -281,24 +255,18 @@ impl TxBuilder {
         // Process source events from Cosmos
         for event in src_events {
             match event {
-                #[allow(clippy::used_underscore_binding)]
                 CosmosIbcEvent::SendPacket {
                     sequence,
-                    source_port,
                     source_client,
-                    destination_port,
                     destination_client,
-                    data,
-                    _timeout_height,
+                    payloads,
                     timeout_timestamp,
                 } => {
                     let recv_packet_ix = self.build_recv_packet_instruction(&RecvPacketParams {
                         sequence,
-                        source_port: &source_port,
                         source_client: &source_client,
-                        destination_port: &destination_port,
                         destination_client: &destination_client,
-                        data: &data,
+                        payloads: &payloads,
                         timeout_timestamp,
                     })?;
                     instructions.push(recv_packet_ix);
@@ -408,19 +376,35 @@ impl TxBuilder {
     ///
     /// Returns an error if packet data cannot be serialized
     fn build_recv_packet_instruction(&self, params: &RecvPacketParams) -> Result<Instruction> {
-        // Build the packet structure
+        // Build the packet structure (IBC v2)
+        // For now, we'll handle single payload case (ICS20 transfer)
+        // TODO: Handle multiple payloads properly
+        let payloads = if params.payloads.is_empty() {
+            vec![]
+        } else {
+            // Extract the first payload and assume it's an ICS20 transfer
+            vec![Payload {
+                source_port: "transfer".to_string(), // Default ICS20 port
+                dest_port: "transfer".to_string(),
+                version: "ics20-1".to_string(),
+                encoding: "json".to_string(),
+                value: params.payloads[0].clone(),
+            }]
+        };
+
+        // Get dest_port for PDA derivation before moving packet
+        let dest_port = if payloads.is_empty() {
+            "transfer".to_string()
+        } else {
+            payloads[0].dest_port.clone()
+        };
+
         let packet = Packet {
             sequence: params.sequence,
             source_client: params.source_client.to_string(),
             dest_client: params.destination_client.to_string(),
             timeout_timestamp: i64::try_from(params.timeout_timestamp).unwrap_or(i64::MAX),
-            payloads: vec![Payload {
-                source_port: params.source_port.to_string(),
-                dest_port: params.destination_port.to_string(),
-                version: "ics20-1".to_string(), // Default version
-                encoding: "json".to_string(),
-                value: params.data.to_vec(),
-            }],
+            payloads,
         };
 
         // Create the message with mock proofs for now
@@ -432,7 +416,7 @@ impl TxBuilder {
 
         // Derive all required PDAs
         let (router_state, _) = derive_router_state(&self.solana_ics26_program_id);
-        let (ibc_app, _) = derive_ibc_app(params.destination_port, &self.solana_ics26_program_id);
+        let (ibc_app, _) = derive_ibc_app(&dest_port, &self.solana_ics26_program_id);
         let (client_sequence, _) =
             derive_client_sequence(params.destination_client, &self.solana_ics26_program_id);
         let (packet_receipt, _) = derive_packet_receipt(
@@ -626,19 +610,33 @@ impl MockTxBuilder {
     ///
     /// Returns an error if packet data cannot be serialized
     fn build_recv_packet_instruction_mock(&self, params: &RecvPacketParams) -> Result<Instruction> {
-        // Build the packet structure
+        // Build the packet structure (IBC v2)
+        let payloads = if params.payloads.is_empty() {
+            vec![]
+        } else {
+            // Extract the first payload and assume it's an ICS20 transfer
+            vec![Payload {
+                source_port: "transfer".to_string(), // Default ICS20 port
+                dest_port: "transfer".to_string(),
+                version: "ics20-1".to_string(),
+                encoding: "json".to_string(),
+                value: params.payloads[0].clone(),
+            }]
+        };
+
+        // Get dest_port for PDA derivation before moving packet
+        let dest_port = if payloads.is_empty() {
+            "transfer".to_string()
+        } else {
+            payloads[0].dest_port.clone()
+        };
+
         let packet = Packet {
             sequence: params.sequence,
             source_client: params.source_client.to_string(),
             dest_client: params.destination_client.to_string(),
             timeout_timestamp: i64::try_from(params.timeout_timestamp).unwrap_or(i64::MAX),
-            payloads: vec![Payload {
-                source_port: params.source_port.to_string(),
-                dest_port: params.destination_port.to_string(),
-                version: "ics20-1".to_string(),
-                encoding: "json".to_string(),
-                value: params.data.to_vec(),
-            }],
+            payloads,
         };
 
         // Create the message with mock proofs
@@ -650,8 +648,7 @@ impl MockTxBuilder {
 
         // Derive all required PDAs
         let (router_state, _) = derive_router_state(&self.inner.solana_ics26_program_id);
-        let (ibc_app, _) =
-            derive_ibc_app(params.destination_port, &self.inner.solana_ics26_program_id);
+        let (ibc_app, _) = derive_ibc_app(&dest_port, &self.inner.solana_ics26_program_id);
         let (client_sequence, _) = derive_client_sequence(
             params.destination_client,
             &self.inner.solana_ics26_program_id,
@@ -729,25 +726,19 @@ impl MockTxBuilder {
         // Process source events from Cosmos with mock proofs
         for event in src_events {
             match event {
-                #[allow(clippy::used_underscore_binding)]
                 CosmosIbcEvent::SendPacket {
                     sequence,
-                    source_port,
                     source_client,
-                    destination_port,
                     destination_client,
-                    data,
-                    _timeout_height,
+                    payloads,
                     timeout_timestamp,
                 } => {
                     let recv_packet_ix =
                         self.build_recv_packet_instruction_mock(&RecvPacketParams {
                             sequence,
-                            source_port: &source_port,
                             source_client: &source_client,
-                            destination_port: &destination_port,
                             destination_client: &destination_client,
-                            data: &data,
+                            payloads: &payloads,
                             timeout_timestamp,
                         })?;
                     instructions.push(recv_packet_ix);

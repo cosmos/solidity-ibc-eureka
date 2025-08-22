@@ -19,11 +19,8 @@ use prost::Message;
 use tendermint_rpc::HttpClient;
 
 use ibc_eureka_relayer_lib::{
-    chain::CosmosSdk,
-    events::EurekaEventWithHeight,
-    tendermint_client::build_tendermint_client_state,
-    tx_builder::TxBuilderService,
-    utils::cosmos,
+    chain::CosmosSdk, events::EurekaEventWithHeight,
+    tendermint_client::build_tendermint_client_state, tx_builder::TxBuilderService, utils::cosmos,
 };
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`CosmosSdk`].

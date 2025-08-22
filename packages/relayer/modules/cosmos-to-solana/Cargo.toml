@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 ibc-eureka-relayer-core = { workspace = true, default-features = false }
+ibc-eureka-relayer-lib.workspace = true
 ibc-eureka-utils.workspace = true
 
 serde = { workspace = true, features = ["derive"] }
@@ -30,5 +31,6 @@ anchor-client.workspace = true
 borsh.workspace = true
 
 ibc-proto-eureka.workspace = true
+prost.workspace = true
 solana-ibc-types.workspace = true
 solana-ibc-constants.workspace = true

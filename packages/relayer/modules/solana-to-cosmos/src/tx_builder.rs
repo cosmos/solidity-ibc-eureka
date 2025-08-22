@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use anchor_lang::prelude::*;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -15,59 +16,42 @@ use ibc_proto_eureka::{
     },
 };
 use solana_client::rpc_client::RpcClient;
+use solana_ibc_types::{parse_events_from_logs, IbcEvent, Packet};
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
-use solana_transaction_status::UiTransactionEncoding;
+use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use tendermint_rpc::HttpClient;
 
-/// IBC event types emitted by Solana programs
+/// IBC Eureka (v2) event types emitted by Solana programs
 #[derive(Debug, Clone)]
 pub enum SolanaIbcEvent {
-    /// Send packet event
+    /// Send packet event (IBC v2)
     SendPacket {
         /// Packet sequence
         sequence: u64,
-        /// Source port
-        source_port: String,
-        /// Source channel
-        source_channel: String,
-        /// Destination port
-        destination_port: String,
-        /// Destination channel
-        destination_channel: String,
-        /// Packet data
-        data: Vec<u8>,
-        /// Timeout height
-        timeout_height: Height,
+        /// Source client ID
+        source_client: String,
+        /// Destination client ID
+        destination_client: String,
+        /// Packet payloads (IBC v2 supports multiple payloads)
+        payloads: Vec<Vec<u8>>,
         /// Timeout timestamp
         timeout_timestamp: u64,
     },
-    /// Acknowledge packet event
+    /// Acknowledge packet event (IBC v2)
     AcknowledgePacket {
         /// Packet sequence
         sequence: u64,
-        /// Source port
-        source_port: String,
-        /// Source channel
-        source_channel: String,
-        /// Destination port
-        destination_port: String,
-        /// Destination channel
-        destination_channel: String,
-        /// Acknowledgement data
-        acknowledgement: Vec<u8>,
+        /// Source client ID
+        source_client: String,
+        /// Acknowledgement data (one per payload)
+        acknowledgements: Vec<Vec<u8>>,
     },
-    /// Timeout packet event
+    /// Timeout packet event (IBC v2)
     TimeoutPacket {
         /// Packet sequence
         sequence: u64,
-        /// Source port
-        source_port: String,
-        /// Source channel
-        source_channel: String,
-        /// Destination port
-        destination_port: String,
-        /// Destination channel
-        destination_channel: String,
+        /// Source client ID
+        source_client: String,
     },
 }
 
@@ -108,11 +92,12 @@ impl TxBuilder {
     /// Returns an error if:
     /// - Failed to fetch Solana transaction
     /// - Transaction deserialization fails
+    /// - Event parsing fails
     pub fn fetch_solana_events(
         &self,
         tx_signatures: Vec<Signature>,
     ) -> anyhow::Result<Vec<SolanaIbcEvent>> {
-        let events = Vec::new();
+        let mut events = Vec::new();
 
         for signature in tx_signatures {
             let tx = self
@@ -126,15 +111,97 @@ impl TxBuilder {
             }
 
             // Parse logs for IBC events
-            if let Some(_meta) = tx.transaction.meta {
-                // In Solana 2.0, log_messages is serialized differently
-                // In production, you'd parse the actual instruction data instead of logs
-                // For now, this is a placeholder implementation
-                tracing::debug!("Processing Solana transaction metadata");
+            if let Some(ref meta) = tx.transaction.meta {
+                // Parse events from transaction logs
+                let parsed_events = Self::parse_events_from_logs(&tx, meta);
+                events.extend(parsed_events);
             }
         }
 
         Ok(events)
+    }
+
+    /// Parse IBC events from Solana transaction logs
+    ///
+    /// Uses the shared event parsing utilities from solana-ibc-types
+    #[allow(clippy::cognitive_complexity)] // Event parsing is inherently complex
+    fn parse_events_from_logs(
+        _tx: &EncodedConfirmedTransactionWithStatusMeta,
+        meta: &solana_transaction_status::UiTransactionStatusMeta,
+    ) -> Vec<SolanaIbcEvent> {
+        let mut events = Vec::new();
+
+        // Get logs from the transaction
+        let empty_logs = vec![];
+        let logs = meta.log_messages.as_ref().unwrap_or(&empty_logs);
+
+        // Use the shared event parser - it now returns fully decoded events
+        let parsed_events = parse_events_from_logs(logs);
+
+        for event in parsed_events {
+            match event {
+                IbcEvent::SendPacket(send_event) => {
+                    // Deserialize the packet to get full details
+                    if let Ok(packet) = Packet::try_from_slice(&send_event.packet_data) {
+                        let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
+
+                        events.push(SolanaIbcEvent::SendPacket {
+                            sequence: send_event.sequence,
+                            source_client: packet.source_client.clone(),
+                            destination_client: packet.dest_client.clone(),
+                            payloads,
+                            timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
+                        });
+
+                        tracing::debug!(
+                            "Parsed SendPacket event: seq={}, src={}, dst={}",
+                            send_event.sequence,
+                            packet.source_client,
+                            packet.dest_client
+                        );
+                    }
+                }
+                IbcEvent::AckPacket(ack_event) => {
+                    // For acknowledge packet, we need the source client from the packet
+                    if let Ok(packet) = Packet::try_from_slice(&ack_event.packet_data) {
+                        events.push(SolanaIbcEvent::AcknowledgePacket {
+                            sequence: ack_event.sequence,
+                            source_client: packet.source_client,
+                            acknowledgements: vec![ack_event.acknowledgement],
+                        });
+
+                        tracing::debug!(
+                            "Parsed AcknowledgePacket event: seq={}, client={}",
+                            ack_event.sequence,
+                            ack_event.client_id
+                        );
+                    }
+                }
+                IbcEvent::TimeoutPacket(timeout_event) => {
+                    events.push(SolanaIbcEvent::TimeoutPacket {
+                        sequence: timeout_event.sequence,
+                        source_client: timeout_event.client_id.clone(),
+                    });
+
+                    tracing::debug!(
+                        "Parsed TimeoutPacket event: seq={}, client={}",
+                        timeout_event.sequence,
+                        timeout_event.client_id
+                    );
+                }
+                IbcEvent::WriteAcknowledgement(_) => {
+                    // This is emitted when a packet is received and acknowledgement is written
+                    // For relaying purposes, we might want to handle this differently
+                    tracing::trace!("Found WriteAcknowledgementEvent");
+                }
+                _ => {
+                    // Other events like ClientAdded, ClientStatusUpdated, etc.
+                    tracing::trace!("Ignoring event: {:?}", event);
+                }
+            }
+        }
+
+        events
     }
 
     /// Build a relay transaction for Cosmos

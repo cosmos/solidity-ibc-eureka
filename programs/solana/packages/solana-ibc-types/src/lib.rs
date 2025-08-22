@@ -5,6 +5,7 @@
 //! light client types (ICS07), and Solana-specific PDA utilities.
 
 pub mod app_msgs;
+pub mod events;
 pub mod ics07;
 pub mod pda;
 pub mod router;
@@ -25,3 +26,9 @@ pub use ics07::{
 };
 
 pub use pda::*;
+
+pub use events::{
+    parse_events_from_logs, AckPacketEvent, ClientAddedEvent, ClientStatusUpdatedEvent,
+    IBCAppAdded, IbcEvent, NoopEvent, SendPacketEvent, TimeoutPacketEvent,
+    WriteAcknowledgementEvent,
+};
