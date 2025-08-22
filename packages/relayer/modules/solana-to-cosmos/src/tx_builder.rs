@@ -195,9 +195,22 @@ impl TxBuilder {
                         timeout_event.client_id
                     );
                 }
-                IbcEvent::WriteAcknowledgement(_) => {
-                    // TODO: implement handling
-                    tracing::trace!("Found WriteAcknowledgementEvent");
+                IbcEvent::WriteAcknowledgement(write_ack_event) => {
+                    // WriteAcknowledgement is emitted when Solana receives a packet from Cosmos
+                    // and writes an acknowledgement. We need to relay this ack back to Cosmos.
+                    if let Ok(packet) = SolanaPacket::try_from_slice(&write_ack_event.packet_data) {
+                        events.push(SolanaIbcEvent::AcknowledgePacket {
+                            sequence: write_ack_event.sequence,
+                            source_client: packet.source_client,
+                            acknowledgements: vec![write_ack_event.acknowledgements],
+                        });
+
+                        tracing::debug!(
+                            "Parsed WriteAcknowledgement event: seq={}, client={}",
+                            write_ack_event.sequence,
+                            write_ack_event.client_id
+                        );
+                    }
                 }
             }
         }

@@ -5,8 +5,7 @@
 use anchor_lang::prelude::*;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use solana_ibc_types::{
-    AckPacketEvent, ClientAddedEvent, ClientStatusUpdatedEvent, IBCAppAdded, NoopEvent,
-    SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
+    AckPacketEvent, SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
 };
 
 /// Parsed IBC event from Solana transaction logs
@@ -65,27 +64,7 @@ pub fn parse_events_from_logs(logs: &[String]) -> Vec<IbcEvent> {
                                 .ok()
                                 .map(IbcEvent::TimeoutPacket)
                         }
-                        disc if disc == ClientAddedEvent::DISCRIMINATOR => {
-                            ClientAddedEvent::try_from_slice(event_data)
-                                .ok()
-                                .map(IbcEvent::ClientAdded)
-                        }
-                        disc if disc == ClientStatusUpdatedEvent::DISCRIMINATOR => {
-                            ClientStatusUpdatedEvent::try_from_slice(event_data)
-                                .ok()
-                                .map(IbcEvent::ClientStatusUpdated)
-                        }
-                        disc if disc == IBCAppAdded::DISCRIMINATOR => {
-                            IBCAppAdded::try_from_slice(event_data)
-                                .ok()
-                                .map(IbcEvent::IbcAppAdded)
-                        }
-                        disc if disc == NoopEvent::DISCRIMINATOR => {
-                            NoopEvent::try_from_slice(event_data)
-                                .ok()
-                                .map(IbcEvent::Noop)
-                        }
-                        _ => None, // Unknown events are skipped
+                        _ => None, // Non-packet events and unknown events are skipped
                     };
 
                     if let Some(e) = event {
