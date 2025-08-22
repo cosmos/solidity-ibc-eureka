@@ -27,10 +27,10 @@ use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use tendermint_rpc::HttpClient;
 
-/// IBC Eureka (v2) event types emitted by Solana programs
+/// IBC event types emitted by Solana programs
 #[derive(Debug, Clone)]
 pub enum SolanaIbcEvent {
-    /// Send packet event (IBC v2)
+    /// Send packet event
     SendPacket {
         /// Packet sequence
         sequence: u64,
@@ -43,7 +43,7 @@ pub enum SolanaIbcEvent {
         /// Timeout timestamp
         timeout_timestamp: u64,
     },
-    /// Acknowledge packet event (IBC v2)
+    /// Acknowledge packet event
     AcknowledgePacket {
         /// Packet sequence
         sequence: u64,
@@ -52,7 +52,7 @@ pub enum SolanaIbcEvent {
         /// Acknowledgement data (one per payload)
         acknowledgements: Vec<Vec<u8>>,
     },
-    /// Timeout packet event (IBC v2)
+    /// Timeout packet event
     TimeoutPacket {
         /// Packet sequence
         sequence: u64,
