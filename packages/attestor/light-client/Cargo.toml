@@ -10,10 +10,13 @@ test-utils = []
 
 [dependencies]
 attestor-packet-membership = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false, features = ["k256"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-k256 = { workspace = true, features = ["alloc", "ecdsa", "serde", "pem"] }
+k256 = { workspace = true, features = ["alloc", "ecdsa", "pem"] }
 sha2 = { workspace = true }
+sha3 = { workspace = true }
 
-
+[dev-dependencies]
+rand = "0.8"

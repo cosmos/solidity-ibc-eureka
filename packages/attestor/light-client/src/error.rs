@@ -29,11 +29,18 @@ pub enum IbcAttestorClientError {
     #[error("Membership proof failed: {0}")]
     MembershipProofFailed(#[from] PacketAttestationError),
 
-    /// Unregistered public key
+    /// Unregistered public key (deprecated - use UnknownAddressRecovered)
     #[error("Unknown public key submitted {pubkey:?}")]
     UnknownPublicKeySubmitted {
         /// Bad key
         pubkey: VerifyingKey,
+    },
+
+    /// Unregistered address recovered from signature
+    #[error("Unknown address recovered from signature: {address:02x?}")]
+    UnknownAddressRecovered {
+        /// Recovered address that is not in the trusted set
+        address: [u8; 20],
     },
 
     /// Cannot attest to data as malformed

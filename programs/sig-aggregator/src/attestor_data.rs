@@ -5,8 +5,8 @@ use std::collections::HashMap;
 
 type State = Vec<u8>;
 
-// https://docs.rs/secp256k1/latest/secp256k1/ecdsa/struct.Signature.html#method.serialize_compact
-pub const SIGNATURE_BYTE_LENGTH: usize = 64;
+// 65-byte recoverable ECDSA signature: r (32) || s (32) || v (1)
+pub const SIGNATURE_BYTE_LENGTH: usize = 65;
 type Signature = FixedBytes<SIGNATURE_BYTE_LENGTH>;
 
 // Compressed public key length
@@ -113,6 +113,46 @@ impl Attestation {
 mod tests {
     use super::*;
 
+    fn create_valid_65_byte_signature() -> Vec<u8> {
+        let mut sig = vec![0x11; 64]; // r and s components
+        sig.push(27); // v component (27 or 28 for Ethereum compatibility)
+        sig
+    }
+
+    #[test]
+    fn accepts_65_byte_signatures() {
+        let mut attestator_data = AttestatorData::new();
+        
+        let result = attestator_data.insert(Attestation {
+            attested_data: vec![1],
+            public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
+            height: 100,
+            timestamp: Some(100),
+            signature: create_valid_65_byte_signature(),
+        });
+        
+        assert!(result.is_ok(), "Should accept 65-byte signatures");
+    }
+
+    #[test]
+    fn rejects_64_byte_signatures() {
+        let mut attestator_data = AttestatorData::new();
+        
+        let result = attestator_data.insert(Attestation {
+            attested_data: vec![1],
+            public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
+            height: 100,
+            timestamp: Some(100),
+            signature: vec![0x04; 64], // Old 64-byte format
+        });
+        
+        assert!(result.is_err(), "Should reject 64-byte signatures");
+        // The error is wrapped by context, so we just verify it's an error
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Invalid attestation"), 
+            "Should be an invalid attestation error, got: {}", err_msg);
+    }
+
     #[test]
     fn ignores_states_below_quorum() {
         // We have a height 100 but only 1 signature < quorum 2
@@ -124,7 +164,7 @@ mod tests {
                 public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
                 height: 100,
                 timestamp: Some(100),
-                signature: vec![0x04; SIGNATURE_BYTE_LENGTH],
+                signature: create_valid_65_byte_signature(),
             })
             .unwrap();
 
@@ -145,7 +185,7 @@ mod tests {
                     public_key: vec![pubkey_byte; PUBKEY_BYTE_LENGTH],
                     height,
                     timestamp: Some(height),
-                    signature: vec![0x11; SIGNATURE_BYTE_LENGTH],
+                    signature: create_valid_65_byte_signature(),
                 })
                 .unwrap();
         });

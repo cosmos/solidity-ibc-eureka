@@ -82,6 +82,7 @@ borsh           = { version = "1.5.7", default-features = false }
 sha2      = { version = "0.10", default-features = false }
 sha3      = { version = "0.10", default-features = false }
 k256      = { version = "0.13.4", default-features = false }
+secp256k1 = { version = "0.31.1", default-features = false, features = ["recovery"] }
 rand      = { version = "0.9", default-features = false }
 rand_core = { version = "0.6", default-features = false }
 pem       = { version = "3.0.5", default-features = false }
@@ -110,6 +111,9 @@ thiserror          = { version = "2.0", default-features = false }
 reqwest            = { version = "0.12", default-features = false }
 reqwest_0_11       = { package = "reqwest", version = "0.11", default-features = false }
 indexmap           = { version = "2.10.0", default-features = false }
+
+# Ensure `alloc` is enabled for ed25519-zebra so cosmwasm-crypto can import its batch module
+ed25519-zebra      = { version = "4.1.0", default-features = false, features = ["alloc"] }
 
 tendermint                       = { version = "0.40", default-features = false }
 tendermint-rpc                   = { version = "0.40", default-features = false }

@@ -1,11 +1,13 @@
 #![doc = "Attestor light client for IBC"]
 #![deny(
-    clippy::nursery,
-    clippy::pedantic,
-    warnings,
-    missing_docs,
-    unused_crate_dependencies
+	clippy::nursery,
+	clippy::pedantic,
+	warnings,
+	missing_docs,
+	unused_crate_dependencies
 )]
+
+use sha3 as _;
 
 pub mod client_state;
 pub mod consensus_state;

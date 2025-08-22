@@ -13,6 +13,10 @@
     clippy::missing_errors_doc
 )]
 
+// Satisfy unused_crate_dependencies for transitive-only crates in this module
+use alloy_primitives as _;
+use attestor_packet_membership as _;
+
 pub mod tx_builder;
 mod tx_listener;
 

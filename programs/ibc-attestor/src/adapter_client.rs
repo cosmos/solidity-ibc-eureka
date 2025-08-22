@@ -1,28 +1,20 @@
-use attestor_packet_membership::Packets;
 use std::future::Future;
+use alloy_sol_types::SolType;
 
 use crate::AttestorError;
+use ibc_eureka_solidity_types::msgs::IAttestorMsgs;
 
 pub trait Signable: Sync + Send {
-    fn to_serde_encoded_bytes(&self) -> Result<Vec<u8>, serde_json::Error>;
+    fn to_abi_encoded_bytes(&self) -> Result<Vec<u8>, alloy_sol_types::Error>;
     fn height(&self) -> u64;
     fn timestamp(&self) -> Option<u64>;
 }
 
-pub struct UnsignedPacketAttestation {
-    pub height: u64,
-    pub packets: Vec<[u8; 32]>,
-}
+// Removed UnsignedPacketAttestation in favor of using IAttestorMsgs::PacketAttestation directly
 
-#[derive(serde::Serialize)]
-pub struct UnsignedStateAttestation {
-    pub height: u64,
-    pub timestamp: u64,
-}
-
-impl Signable for UnsignedStateAttestation {
-    fn to_serde_encoded_bytes(&self) -> Result<Vec<u8>, serde_json::Error> {
-        serde_json::to_vec(self)
+impl Signable for IAttestorMsgs::StateAttestation {
+    fn to_abi_encoded_bytes(&self) -> Result<Vec<u8>, alloy_sol_types::Error> {
+        Ok(IAttestorMsgs::StateAttestation::abi_encode(self))
     }
     fn height(&self) -> u64 {
         self.height
@@ -32,9 +24,9 @@ impl Signable for UnsignedStateAttestation {
     }
 }
 
-impl Signable for UnsignedPacketAttestation {
-    fn to_serde_encoded_bytes(&self) -> Result<Vec<u8>, serde_json::Error> {
-        serde_json::to_vec(&self.packets)
+impl Signable for IAttestorMsgs::PacketAttestation {
+    fn to_abi_encoded_bytes(&self) -> Result<Vec<u8>, alloy_sol_types::Error> {
+        Ok(IAttestorMsgs::PacketAttestation::abi_encode(self))
     }
     fn height(&self) -> u64 {
         self.height
@@ -48,11 +40,11 @@ pub trait AttestationAdapter: Sync + Send + 'static {
     fn get_unsigned_state_attestation_at_height(
         &self,
         height: u64,
-    ) -> impl Future<Output = Result<UnsignedStateAttestation, AttestorError>> + Send;
+    ) -> impl Future<Output = Result<IAttestorMsgs::StateAttestation, AttestorError>> + Send;
 
     fn get_unsigned_packet_attestation_at_height(
         &self,
-        packet: &Packets,
+        packets: &[Vec<u8>],
         height: u64,
-    ) -> impl Future<Output = Result<UnsignedPacketAttestation, AttestorError>> + Send;
+    ) -> impl Future<Output = Result<IAttestorMsgs::PacketAttestation, AttestorError>> + Send;
 }
