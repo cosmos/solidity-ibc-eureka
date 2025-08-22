@@ -255,7 +255,6 @@ impl TxBuilder {
     /// Returns an error if:
     /// - Failed to build update client message
     /// - No messages to relay
-    #[allow(clippy::cognitive_complexity)]
     pub fn build_relay_tx(
         &self,
         src_events: Vec<SolanaIbcEvent>,
@@ -269,126 +268,8 @@ impl TxBuilder {
 
         // Process source events from Solana
         for event in src_events {
-            match event {
-                SolanaIbcEvent::SendPacket {
-                    sequence,
-                    source_client,
-                    destination_client,
-                    payloads,
-                    timeout_timestamp,
-                } => {
-                    // Create RecvPacket message for Cosmos
-                    // Convert Solana payloads to IBC v2 Payload format
-                    let ibc_payloads = payloads
-                        .into_iter()
-                        .map(|value| Payload {
-                            source_port: "transfer".to_string(), // Default for ICS20
-                            destination_port: "transfer".to_string(),
-                            version: "ics20-1".to_string(),
-                            encoding: "json".to_string(),
-                            value,
-                        })
-                        .collect();
-
-                    let packet = Packet {
-                        sequence,
-                        source_client,
-                        destination_client,
-                        timeout_timestamp,
-                        payloads: ibc_payloads,
-                    };
-
-                    let msg = MsgRecvPacket {
-                        packet: Some(packet),
-                        proof_height: None, // Will be filled by proof injection
-                        proof_commitment: vec![], // Mock proof for now
-                        signer: self.signer_address.clone(),
-                    };
-
-                    messages.push(Any::from_msg(&msg)?);
-                    tracing::debug!("Created RecvPacket message for sequence {}", sequence);
-                }
-                SolanaIbcEvent::AcknowledgePacket {
-                    sequence,
-                    source_client,
-                    destination_client,
-                    payloads,
-                    timeout_timestamp,
-                    acknowledgements,
-                } => {
-                    // Create Acknowledgement message for Cosmos with full packet data
-                    let ibc_payloads = payloads
-                        .into_iter()
-                        .map(|value| Payload {
-                            source_port: "transfer".to_string(), // Default for ICS20
-                            destination_port: "transfer".to_string(),
-                            version: "ics20-1".to_string(),
-                            encoding: "json".to_string(),
-                            value,
-                        })
-                        .collect();
-
-                    let packet = Packet {
-                        sequence,
-                        source_client,
-                        destination_client,
-                        timeout_timestamp,
-                        payloads: ibc_payloads,
-                    };
-
-                    let ack = Acknowledgement {
-                        app_acknowledgements: acknowledgements,
-                    };
-
-                    let msg = MsgAcknowledgement {
-                        packet: Some(packet),
-                        acknowledgement: Some(ack),
-                        proof_height: None,  // Will be filled by proof injection
-                        proof_acked: vec![], // Mock proof for now
-                        signer: self.signer_address.clone(),
-                    };
-
-                    messages.push(Any::from_msg(&msg)?);
-                    tracing::debug!("Created Acknowledgement message for sequence {}", sequence);
-                }
-                SolanaIbcEvent::TimeoutPacket {
-                    sequence,
-                    source_client,
-                    destination_client,
-                    payloads,
-                    timeout_timestamp,
-                } => {
-                    // Create Timeout message for Cosmos with full packet data
-                    let ibc_payloads = payloads
-                        .into_iter()
-                        .map(|value| Payload {
-                            source_port: "transfer".to_string(), // Default for ICS20
-                            destination_port: "transfer".to_string(),
-                            version: "ics20-1".to_string(),
-                            encoding: "json".to_string(),
-                            value,
-                        })
-                        .collect();
-
-                    let packet = Packet {
-                        sequence,
-                        source_client,
-                        destination_client,
-                        timeout_timestamp,
-                        payloads: ibc_payloads,
-                    };
-
-                    let msg = MsgTimeout {
-                        packet: Some(packet),
-                        proof_height: None, // Will be filled by proof injection
-                        proof_unreceived: vec![], // Mock proof for now
-                        signer: self.signer_address.clone(),
-                    };
-
-                    messages.push(Any::from_msg(&msg)?);
-                    tracing::debug!("Created Timeout message for sequence {}", sequence);
-                }
-            }
+            let msg = self.build_message_from_event(event)?;
+            messages.push(msg);
         }
 
         // Process target events from Cosmos (for timeouts)
@@ -407,6 +288,157 @@ impl TxBuilder {
             messages,
             ..Default::default()
         })
+    }
+
+    /// Build a Cosmos message from a Solana IBC event
+    fn build_message_from_event(&self, event: SolanaIbcEvent) -> anyhow::Result<Any> {
+        match event {
+            SolanaIbcEvent::SendPacket {
+                sequence,
+                source_client,
+                destination_client,
+                payloads,
+                timeout_timestamp,
+            } => self.build_recv_packet_msg(
+                sequence,
+                source_client,
+                destination_client,
+                payloads,
+                timeout_timestamp,
+            ),
+            SolanaIbcEvent::AcknowledgePacket {
+                sequence,
+                source_client,
+                destination_client,
+                payloads,
+                timeout_timestamp,
+                acknowledgements,
+            } => self.build_acknowledgement_msg(
+                sequence,
+                source_client,
+                destination_client,
+                payloads,
+                timeout_timestamp,
+                acknowledgements,
+            ),
+            SolanaIbcEvent::TimeoutPacket {
+                sequence,
+                source_client,
+                destination_client,
+                payloads,
+                timeout_timestamp,
+            } => self.build_timeout_msg(
+                sequence,
+                source_client,
+                destination_client,
+                payloads,
+                timeout_timestamp,
+            ),
+        }
+    }
+
+    /// Convert Solana payloads to IBC v2 Payload format
+    fn convert_payloads_to_ibc(payloads: Vec<Vec<u8>>) -> Vec<Payload> {
+        payloads
+            .into_iter()
+            .map(|value| Payload {
+                source_port: "transfer".to_string(), // Default for ICS20
+                destination_port: "transfer".to_string(),
+                version: "ics20-1".to_string(),
+                encoding: "json".to_string(),
+                value,
+            })
+            .collect()
+    }
+
+    /// Build a `RecvPacket` message for Cosmos
+    fn build_recv_packet_msg(
+        &self,
+        sequence: u64,
+        source_client: String,
+        destination_client: String,
+        payloads: Vec<Vec<u8>>,
+        timeout_timestamp: u64,
+    ) -> anyhow::Result<Any> {
+        let packet = Packet {
+            sequence,
+            source_client,
+            destination_client,
+            timeout_timestamp,
+            payloads: Self::convert_payloads_to_ibc(payloads),
+        };
+
+        let msg = MsgRecvPacket {
+            packet: Some(packet),
+            proof_height: None,       // Will be filled by proof injection
+            proof_commitment: vec![], // Mock proof for now
+            signer: self.signer_address.clone(),
+        };
+
+        tracing::debug!("Created RecvPacket message for sequence {}", sequence);
+        Any::from_msg(&msg).map_err(Into::into)
+    }
+
+    /// Build an Acknowledgement message for Cosmos
+    fn build_acknowledgement_msg(
+        &self,
+        sequence: u64,
+        source_client: String,
+        destination_client: String,
+        payloads: Vec<Vec<u8>>,
+        timeout_timestamp: u64,
+        acknowledgements: Vec<Vec<u8>>,
+    ) -> anyhow::Result<Any> {
+        let packet = Packet {
+            sequence,
+            source_client,
+            destination_client,
+            timeout_timestamp,
+            payloads: Self::convert_payloads_to_ibc(payloads),
+        };
+
+        let ack = Acknowledgement {
+            app_acknowledgements: acknowledgements,
+        };
+
+        let msg = MsgAcknowledgement {
+            packet: Some(packet),
+            acknowledgement: Some(ack),
+            proof_height: None,  // Will be filled by proof injection
+            proof_acked: vec![], // Mock proof for now
+            signer: self.signer_address.clone(),
+        };
+
+        tracing::debug!("Created Acknowledgement message for sequence {}", sequence);
+        Any::from_msg(&msg).map_err(Into::into)
+    }
+
+    /// Build a Timeout message for Cosmos
+    fn build_timeout_msg(
+        &self,
+        sequence: u64,
+        source_client: String,
+        destination_client: String,
+        payloads: Vec<Vec<u8>>,
+        timeout_timestamp: u64,
+    ) -> anyhow::Result<Any> {
+        let packet = Packet {
+            sequence,
+            source_client,
+            destination_client,
+            timeout_timestamp,
+            payloads: Self::convert_payloads_to_ibc(payloads),
+        };
+
+        let msg = MsgTimeout {
+            packet: Some(packet),
+            proof_height: None,       // Will be filled by proof injection
+            proof_unreceived: vec![], // Mock proof for now
+            signer: self.signer_address.clone(),
+        };
+
+        tracing::debug!("Created Timeout message for sequence {}", sequence);
+        Any::from_msg(&msg).map_err(Into::into)
     }
 
     /// Build an update client message for the Solana light client on Cosmos
