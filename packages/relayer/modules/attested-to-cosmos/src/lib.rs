@@ -16,6 +16,7 @@
 // Satisfy unused_crate_dependencies for transitive-only crates in this module
 use alloy_primitives as _;
 use attestor_packet_membership as _;
+use k256 as _;
 
 pub mod tx_builder;
 mod tx_listener;

@@ -6,6 +6,7 @@ use ethereum_keys::signer_local::read_from_keystore;
 use crate::cli::SignerConfig;
 use crate::AttestorError;
 use crate::{adapter_client::Signable, api::Attestation};
+use sha3::Keccak256;
 
 /// Signs `serde` encoded byte data using
 /// the `secp256k1` algorithm.
