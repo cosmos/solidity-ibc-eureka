@@ -8,9 +8,9 @@
     "@uniswap/permit2": "github:Uniswap/permit2"
   },
   "devDependencies": {
+    "@defi-wonderland/xerc20": "https://github.com/srdtrk/xERC20#26675c401c7dc93af0826c6f50c207b5ac4b6616",
     "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.7",
-    "xerc20": "https://github.com/defi-wonderland/xERC20#v1.0.0",
     "solhint": "^6.0.0",
     "quicktype": "^23.2.6"
   },

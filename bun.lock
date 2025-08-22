@@ -9,11 +9,11 @@
         "@uniswap/permit2": "github:Uniswap/permit2",
       },
       "devDependencies": {
+        "@defi-wonderland/xerc20": "https://github.com/srdtrk/xERC20#26675c401c7dc93af0826c6f50c207b5ac4b6616",
         "forge-std": "github:foundry-rs/forge-std#v1.9.7",
         "quicktype": "^23.2.6",
         "solhint": "^6.0.0",
         "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0",
-        "xerc20": "https://github.com/defi-wonderland/xERC20#v1.0.0",
       },
     },
   },
@@ -23,6 +23,8 @@
     "@babel/helper-validator-identifier": ["@babel/helper-validator-identifier@7.27.1", "", {}, "sha512-D2hP9eA+Sqx1kBZgzxZh0y1trbuU+JoDkiEwqhQ36nodYqJwyEIhPSdMNd7lOm/4io72luTPWH20Yda0xOuUow=="],
 
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
+
+    "@defi-wonderland/xerc20": ["xerc20@github:srdtrk/xERC20#26675c4", {}, "srdtrk-xERC20-26675c4"],
 
     "@glideapps/ts-necessities": ["@glideapps/ts-necessities@2.4.0", "", {}, "sha512-mDC+qosuNa4lxR3ioMBb6CD0XLRsQBplU+zRPUYiMLXKeVPZ6UYphdNG/EGReig0YyfnVlBKZEXl1wzTotYmPA=="],
 
@@ -387,8 +389,6 @@
     "wrap-ansi": ["wrap-ansi@7.0.0", "", { "dependencies": { "ansi-styles": "^4.0.0", "string-width": "^4.1.0", "strip-ansi": "^6.0.0" } }, "sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q=="],
 
     "wrappy": ["wrappy@1.0.2", "", {}, "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ=="],
-
-    "xerc20": ["xerc20@github:defi-wonderland/xERC20#da2afab", {}, "defi-wonderland-xERC20-da2afab"],
 
     "y18n": ["y18n@5.0.8", "", {}, "sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA=="],
 
