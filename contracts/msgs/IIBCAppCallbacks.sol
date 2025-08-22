@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-struct-packing
+
 import { IICS26RouterMsgs } from "./IICS26RouterMsgs.sol";
 
 /// @title IBC Application Callbacks

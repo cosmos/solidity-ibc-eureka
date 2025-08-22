@@ -20,6 +20,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
+	ibchost "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
@@ -32,6 +33,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	e2etypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
@@ -46,6 +48,9 @@ type CosmosRelayerTestSuite struct {
 	SimdBSubmitter ibc.Wallet
 
 	RelayerClient relayertypes.RelayerServiceClient
+
+	// Fixture generation
+	TendermintLightClientFixtures *e2etypes.TendermintLightClientFixtureGenerator
 }
 
 // TestWithIbcEurekaTestSuite is the boilerplate code that allows the test suite to be run
@@ -59,6 +64,9 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 	chainconfig.DefaultChainSpecs = append(chainconfig.DefaultChainSpecs, chainconfig.IbcGoChainSpec("ibc-go-simd-2", "simd-2"))
 
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
+
+	// Initialize fixture generation
+	s.TendermintLightClientFixtures = e2etypes.NewTendermintLightClientFixtureGenerator(&s.Suite)
 
 	s.TestSuite.SetupSuite(ctx)
 
@@ -563,10 +571,23 @@ func (s *CosmosRelayerTestSuite) Test_UpdateClient() {
 			s.Require().Empty(resp.Address)
 
 			updateTxBodyBz = resp.Tx
+
+			s.TendermintLightClientFixtures.GenerateUpdateClientHappyPath(ctx, s.SimdA, updateTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Broadcast update client tx", func() {
 			_ = s.MustBroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, updateTxBodyBz)
+		}))
+
+		s.Require().True(s.Run("Generate membership fixtures", func() {
+			nonExistingClientID := "07-tendermint-001"
+
+			keyPaths := []e2etypes.KeyPath{
+				{Key: string(ibchost.FullClientStateKey(ibctesting.FirstClientID)), Membership: true},
+				{Key: string(ibchost.FullClientStateKey(nonExistingClientID)), Membership: false},
+			}
+
+			s.TendermintLightClientFixtures.GenerateMembershipVerificationScenarios(ctx, s.SimdA, keyPaths, ibctesting.FirstClientID)
 		}))
 
 		s.Require().True(s.Run("Verify client update on Chain A", func() {

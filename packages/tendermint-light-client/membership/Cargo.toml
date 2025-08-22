@@ -11,3 +11,9 @@ ibc-core-commitment-types     = { workspace = true }
 ibc-core-host-types           = { workspace = true }
 thiserror                     = { workspace = true }
 
+[dev-dependencies]
+serde                         = { workspace = true, features = ["derive"] }
+hex                           = { workspace = true }
+serde_json                    = { workspace = true, features = ["std"] }
+prost                         = { workspace = true }
+ibc-proto                     = { workspace = true }

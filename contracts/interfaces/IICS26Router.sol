@@ -60,6 +60,7 @@ interface IICS26Router is IICS26RouterAccessControlled {
     /// @notice Emitted when an IBC application is added to the router
     /// @param portId The port identifier
     /// @param app The address of the IBC application contract
+    // solhint-disable-next-line gas-indexed-events
     event IBCAppAdded(string portId, address app);
     /// @notice Emitted when an error occurs during the IBC application's recvPacket callback
     /// @param reason The error message
