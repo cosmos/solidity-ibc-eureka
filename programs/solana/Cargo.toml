@@ -69,6 +69,7 @@ tendermint-light-client-misbehaviour = { path = "../../packages/tendermint-light
 tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-light-client/uc-and-membership", default-features = false }
 ics24-host-solana = { path = "./packages/ics24-host-solana", default-features = false }
 ics25-handler = { path = "./packages/ics25-handler", default-features = false }
+ics26-router = { path = "./programs/ics26-router", default-features = false }
 
 ibc-client-tendermint = { version = "0.57", default-features = false }
 ibc-core-client = { version = "0.57", default-features = false }

@@ -1057,7 +1057,7 @@ func UnmarshalPacket(buf []byte) (*Packet, error) {
 	return obj, nil
 }
 
-// Payload structure
+// Payload structure shared between router and IBC apps
 type Payload struct {
 	SourcePort string `json:"sourcePort"`
 	DestPort   string `json:"destPort"`

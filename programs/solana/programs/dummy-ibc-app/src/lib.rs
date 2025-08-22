@@ -19,6 +19,9 @@ pub use state::{PACKETS_ACKNOWLEDGED_OFFSET, PACKETS_RECEIVED_OFFSET, PACKETS_TI
 ///
 /// It provides:
 ///
+/// - `initialize`: Initialize the dummy IBC app
+/// - `send_transfer`: Send a transfer packet via IBC (for testing)
+/// - `send_packet`: Send an arbitrary packet via IBC (for flexible testing)
 /// - `on_recv_packet`: Handles incoming packets and returns acknowledgements
 /// - `on_acknowledgement_packet`: Handles packet acknowledgements
 /// - `on_timeout_packet`: Handles packet timeouts
@@ -30,6 +33,16 @@ pub mod dummy_ibc_app {
     /// Initialize the dummy IBC app
     pub fn initialize(ctx: Context<Initialize>, authority: Pubkey) -> Result<()> {
         instructions::initialize(ctx, authority)
+    }
+
+    /// Send a transfer packet via IBC
+    pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result<()> {
+        instructions::send_transfer(ctx, msg)
+    }
+
+    /// Send an arbitrary packet via IBC
+    pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
+        instructions::send_packet(ctx, msg)
     }
 
     /// Handle incoming packet
