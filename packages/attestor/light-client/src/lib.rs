@@ -8,7 +8,10 @@
 )]
 #![cfg_attr(test, allow(clippy::borrow_interior_mutable_const))]
 
+// Keep sha3 as an unused crate dependency to satisfy workspace feature constraints
 use sha3 as _;
+// Ensure k256 is considered used for test utils and features
+use k256 as _;
 
 pub mod client_state;
 pub mod consensus_state;
