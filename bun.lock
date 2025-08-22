@@ -13,6 +13,7 @@
         "quicktype": "^23.2.6",
         "solhint": "^6.0.0",
         "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0",
+        "xerc20": "https://github.com/defi-wonderland/xERC20#v1.0.0",
       },
     },
   },
@@ -386,6 +387,8 @@
     "wrap-ansi": ["wrap-ansi@7.0.0", "", { "dependencies": { "ansi-styles": "^4.0.0", "string-width": "^4.1.0", "strip-ansi": "^6.0.0" } }, "sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q=="],
 
     "wrappy": ["wrappy@1.0.2", "", {}, "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ=="],
+
+    "xerc20": ["xerc20@github:defi-wonderland/xERC20#da2afab", {}, "defi-wonderland-xERC20-da2afab"],
 
     "y18n": ["y18n@5.0.8", "", {}, "sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA=="],
 

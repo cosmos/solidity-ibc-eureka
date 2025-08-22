@@ -10,6 +10,7 @@
   "devDependencies": {
     "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.7",
+    "xerc20": "https://github.com/defi-wonderland/xERC20#v1.0.0",
     "solhint": "^6.0.0",
     "quicktype": "^23.2.6"
   },
