@@ -1,9 +1,9 @@
 use std::future::Future;
 
-use alloy::{network::Ethereum, primitives::FixedBytes, providers::RootProvider};
+use alloy::primitives::FixedBytes;
 use ibc_eureka_relayer_lib::{
     events::EurekaEventWithHeight,
-    listener::{eth_eureka, ChainListenerService},
+    listener::{cosmos_sdk, ChainListenerService},
 };
 
 pub struct TxAdapter([u8; 32]);
@@ -26,6 +26,12 @@ impl From<[u8; 32]> for TxAdapter {
     }
 }
 
+impl From<TxAdapter> for tendermint::Hash {
+    fn from(value: TxAdapter) -> Self {
+        tendermint::Hash::Sha256(value.0)
+    }
+}
+
 pub trait TxListener: Send + Sync + 'static {
     fn fetch_tx_events(
         &self,
@@ -33,14 +39,14 @@ pub trait TxListener: Send + Sync + 'static {
     ) -> impl Future<Output = Result<Vec<EurekaEventWithHeight>, anyhow::Error>> + Send;
 }
 
-impl TxListener for eth_eureka::ChainListener<RootProvider<Ethereum>> {
+impl TxListener for cosmos_sdk::ChainListener {
     async fn fetch_tx_events(
         &self,
         tx_ids: Vec<TxAdapter>,
     ) -> Result<Vec<EurekaEventWithHeight>, anyhow::Error> {
         ChainListenerService::fetch_tx_events(
             self,
-            tx_ids.into_iter().map(|tx| tx.0.into()).collect(),
+            tx_ids.into_iter().map(|tx| tx.into()).collect(),
         )
         .await
     }

@@ -1,5 +1,5 @@
 [package]
-name       = "ibc-eureka-relayer-attested-to-cosmos"
+name       = "ibc-eureka-relayer-cosmos-to-eth-attested"
 version    = { workspace = true }
 edition    = { workspace = true }
 repository = { workspace = true }

@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use ibc_eureka_relayer::cli::{Commands, RelayerCli};
-use ibc_eureka_relayer_attested_to_cosmos::AttestedToCosmosRelayerModule;
 use ibc_eureka_relayer_core::{builder::RelayerBuilder, config::RelayerConfig};
 use ibc_eureka_relayer_cosmos_to_cosmos::CosmosToCosmosRelayerModule;
 use ibc_eureka_relayer_cosmos_to_eth::CosmosToEthRelayerModule;
 use ibc_eureka_relayer_eth_to_cosmos::EthToCosmosRelayerModule;
+use ibc_eureka_relayer_eth_to_cosmos_attested::EthToCosmosAttestedRelayerModule;
 use ibc_eureka_relayer_eth_to_cosmos_compat::EthToCosmosCompatRelayerModule;
 
 use prometheus::{Encoder, TextEncoder};
@@ -32,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
             relayer_builder.add_module(CosmosToCosmosRelayerModule);
             relayer_builder.add_module(EthToCosmosRelayerModule);
             relayer_builder.add_module(EthToCosmosCompatRelayerModule);
-            relayer_builder.add_module(AttestedToCosmosRelayerModule);
+            relayer_builder.add_module(EthToCosmosAttestedRelayerModule);
 
             // Start the metrics server.
             tokio::spawn(async {
