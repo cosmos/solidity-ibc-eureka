@@ -29,16 +29,9 @@ pub struct RouterState {
     pub migration_in_progress: bool,
     pub _reserved: [u8; 256], // Critical: Reserve space for future fields
 }
-
-#[account]
-pub struct ClientState {
-    pub version: u8,
-    pub client_type: [u8; 32],
-    pub frozen: bool,
-    pub latest_height: Height,
-    pub _reserved: [u8; 512], // More space for complex client evolution
-}
 ```
+
+**Note on Light Clients**: Light clients (like `ClientState`) don't require upgradability or reserved space since they are fully swapped out when updating. Instead of upgrading light client logic in place, the router can be updated to support new light client types by registering entirely new client implementations. This approach provides cleaner separation and avoids complex migration paths for consensus-critical code.
 
 ### 2. Migration State Machine
 
@@ -210,7 +203,7 @@ pub fn handle_legacy_instruction(
 ## Governance Integration
 
 ### What is Squads Protocol
-Squads Protocol is Solana's leading multisig wallet infrastructure, serving as the standard for secure program upgrade management and treasury operations. It enables teams to collectively manage on-chain assets and program authorities through multi-signature wallets requiring M-of-N approvals.
+[Squads Protocol](https://squads.xyz/) ([GitHub](https://github.com/Squads-Protocol/v4)) is Solana's leading multisig wallet infrastructure, serving as the standard for secure program upgrade management and treasury operations. It enables teams to collectively manage on-chain assets and program authorities through multi-signature wallets requiring M-of-N approvals.
 Key capabilities for IBC:
 
 - Program Upgrade Management: Securely control upgrade authorities with multiple signers
@@ -223,7 +216,7 @@ Why Squads for IBC Router:
 - Battle-tested security (manages billions in TVL across Solana)
 - Industry standard (used by Jupiter, Drift, Marinade)
 - No custom multisig code needed
-- Clean UI at app.squads.so for non-technical operators
+- Clean UI at [app.squads.so](https://app.squads.so) for non-technical operators
 - Active support and regular updates
 
 ### Squads Protocol Setup
