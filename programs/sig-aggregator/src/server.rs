@@ -104,11 +104,6 @@ mod tests {
         ] {
             assert_eq!(att.height, 110);
             assert_eq!(att.signatures.len(), 2);
-            assert_eq!(att.public_keys.len(), 2);
-            assert!(att
-                .public_keys
-                .iter()
-                .all(|pkey| pkey == &pk_1 || pkey == &pk_2));
         }
         server_handle.abort();
     }

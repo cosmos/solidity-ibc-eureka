@@ -52,6 +52,7 @@ This document specifies how the Solidity light client for IBC Attestations works
 - The `attestationData` payload is one of the following ABI-encoded structs, depending on the operation:
   - `StateAttestation { uint64 height; uint64 timestamp; }` — used by `updateClient`.
   - `PacketAttestation { uint64 height; bytes32[] packets; }` — used by `verifyMembership`.
+- Public keys are not propagated anywhere on chain; addresses are inferred by recovering from signatures.
 - This enables efficient on-chain decoding and membership checks.
 - TODO: Update/align the CosmWasm attestor client to use ABI-equivalent payloads so both clients are wire-compatible at the attested-data level.
 

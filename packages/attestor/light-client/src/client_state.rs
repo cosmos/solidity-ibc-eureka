@@ -18,35 +18,10 @@ pub struct ClientState {
 }
 
 impl ClientState {
-    /// Construct a new client state from a list of public keys.
-    ///
-    /// Note: public keys are not stored directly in the client state; callers should convert
-    /// them to addresses for verification elsewhere. This helper initializes a minimal state.
+    /// Construct a new client state from a list of attestor addresses and quorum/height metadata.
     #[must_use]
-    pub fn new_from_pubkeys(
-        pub_keys: Vec<k256::ecdsa::VerifyingKey>,
-        min_required_sigs: u8,
-        latest_height: u64,
-    ) -> Self {
-        // Derive Ethereum addresses from the provided public keys
-        let attestor_addresses = pub_keys
-            .into_iter()
-            .map(|pk| {
-                use sha3::{Digest as Sha3Digest, Keccak256};
-                let uncompressed = pk.to_encoded_point(false);
-                let hash = Keccak256::digest(&uncompressed.as_bytes()[1..]);
-                let mut addr_bytes = [0u8; 20];
-                addr_bytes.copy_from_slice(&hash[12..]);
-                Address::from(addr_bytes)
-            })
-            .collect();
-
-        Self {
-            attestor_addresses,
-            min_required_sigs,
-            latest_height,
-            is_frozen: false,
-        }
+    pub fn new(attestor_addresses: Vec<Address>, min_required_sigs: u8, latest_height: u64) -> Self {
+        Self { attestor_addresses, min_required_sigs, latest_height, is_frozen: false }
     }
 }
 
@@ -54,42 +29,15 @@ impl ClientState {
 mod tests {
     use super::ClientState;
     use alloy_primitives::Address;
-    use k256::ecdsa::SigningKey;
-    use sha3::{Digest as Sha3Digest, Keccak256};
-
-    fn expected_eth_address_from_signing_key(skey: &SigningKey) -> Address {
-        let vk = skey.verifying_key();
-        let uncompressed = vk.to_encoded_point(false);
-        let hash = Keccak256::digest(&uncompressed.as_bytes()[1..]);
-        let mut addr_bytes = [0u8; 20];
-        addr_bytes.copy_from_slice(&hash[12..]);
-        Address::from(addr_bytes)
-    }
 
     #[test]
-    fn address_derivation_from_pubkey_matches_keccak_last20() {
-        let skey = SigningKey::from_bytes(&[0xcd; 32].into()).expect("valid key");
-        let expected = expected_eth_address_from_signing_key(&skey);
-
-        let client_state = ClientState::new_from_pubkeys(vec![skey.verifying_key().clone()], 1, 1);
-        assert_eq!(client_state.attestor_addresses.len(), 1);
-        assert_eq!(client_state.attestor_addresses[0], expected);
-    }
-
-    #[test]
-    fn client_state_populates_addresses_from_multiple_pubkeys() {
-        let keys = [
-            SigningKey::from_bytes(&[0xcd; 32].into()).expect("k1"),
-            SigningKey::from_bytes(&[0x02; 32].into()).expect("k2"),
-            SigningKey::from_bytes(&[0x1F; 32].into()).expect("k3"),
+    fn client_state_new_from_addresses() {
+        let addrs = vec![
+            Address::from([0x11u8; 20]),
+            Address::from([0x22u8; 20]),
         ];
-
-        let expected: Vec<Address> = keys.iter().map(expected_eth_address_from_signing_key).collect();
-
-        let pubkeys = keys.iter().map(|k| k.verifying_key().clone()).collect();
-        let client_state = ClientState::new_from_pubkeys(pubkeys, 2, 42);
-
-        assert_eq!(client_state.attestor_addresses, expected);
+        let client_state = ClientState::new(addrs.clone(), 2, 42);
+        assert_eq!(client_state.attestor_addresses, addrs);
         assert_eq!(client_state.min_required_sigs, 2);
         assert_eq!(client_state.latest_height, 42);
         assert!(!client_state.is_frozen);

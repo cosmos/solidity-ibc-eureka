@@ -76,9 +76,7 @@ contract AttestorLightClient is IAttestorLightClient, IAttestorLightClientErrors
 
     /// @inheritdoc IAttestorLightClient
     function getConsensusTimestamp(uint64 revisionHeight) external view returns (uint64) {
-        uint64 ts = _consensusTimestampAtHeight[revisionHeight];
-        if (ts == 0) revert ConsensusTimestampNotFound(revisionHeight);
-        return ts;
+        return _consensusTimestampAtHeight[revisionHeight];
     }
 
     /// @inheritdoc ILightClient

@@ -9,10 +9,9 @@ type State = Vec<u8>;
 pub const SIGNATURE_BYTE_LENGTH: usize = 65;
 type Signature = FixedBytes<SIGNATURE_BYTE_LENGTH>;
 
-// Compressed public key length
-// https://docs.rs/secp256k1/latest/secp256k1/struct.PublicKey.html#method.serialize
-pub const PUBKEY_BYTE_LENGTH: usize = 33;
-type Pubkey = FixedBytes<PUBKEY_BYTE_LENGTH>;
+// Ethereum address length (20 bytes)
+pub const ADDRESS_BYTE_LENGTH: usize = 20;
+type Address = FixedBytes<ADDRESS_BYTE_LENGTH>;
 
 /// Maps attested_data -> list of attestations
 ///
@@ -58,18 +57,12 @@ impl AttestatorData {
                     .first()
                     .map(|att| (att.attested_data.clone(), att.height, att.timestamp))
                     .unwrap();
-                let (sigs, pkeys): (Vec<_>, Vec<_>) = attestations
+                let sigs: Vec<_> = attestations
                     .iter()
-                    .map(|att| (att.signature.clone(), att.public_key.clone()))
+                    .map(|att| att.signature.clone())
                     .collect();
 
-                AggregatedAttestation {
-                    height: h,
-                    timestamp: ts,
-                    attested_data: att,
-                    signatures: sigs,
-                    public_keys: pkeys,
-                }
+                AggregatedAttestation { height: h, timestamp: ts, attested_data: att, signatures: sigs }
             })
     }
 }
@@ -77,20 +70,20 @@ impl AttestatorData {
 // TODO: move this to a separate library IBC-138
 impl Attestation {
     fn validate(&self) -> Result<()> {
-        self.validate_pubkey()?;
+        self.validate_address()?;
         self.validate_signature()?;
         Ok(())
     }
 
-    fn validate_pubkey(&self) -> Result<()> {
+    fn validate_address(&self) -> Result<()> {
         anyhow_ensure!(
-            self.public_key.len() == PUBKEY_BYTE_LENGTH,
-            "Invalid pubkey length: {}",
-            self.public_key.len()
+            self.address.len() == ADDRESS_BYTE_LENGTH,
+            "Invalid address length: {}",
+            self.address.len()
         );
 
-        Pubkey::try_from(self.public_key.as_slice())
-            .with_context(|| format!("Invalid pubkey: {:?}", self.public_key))?;
+        Address::try_from(self.address.as_slice())
+            .with_context(|| format!("Invalid address: {:?}", self.address))?;
 
         Ok(())
     }
@@ -125,7 +118,7 @@ mod tests {
         
         let result = attestator_data.insert(Attestation {
             attested_data: vec![1],
-            public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
+            address: vec![0x03; ADDRESS_BYTE_LENGTH],
             height: 100,
             timestamp: Some(100),
             signature: create_valid_65_byte_signature(),
@@ -140,7 +133,7 @@ mod tests {
         
         let result = attestator_data.insert(Attestation {
             attested_data: vec![1],
-            public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
+            address: vec![0x03; ADDRESS_BYTE_LENGTH],
             height: 100,
             timestamp: Some(100),
             signature: vec![0x04; 64], // Old 64-byte format
@@ -161,7 +154,7 @@ mod tests {
         attestator_data
             .insert(Attestation {
                 attested_data: vec![1],
-                public_key: vec![0x03; PUBKEY_BYTE_LENGTH],
+                address: vec![0x03; ADDRESS_BYTE_LENGTH],
                 height: 100,
                 timestamp: Some(100),
                 signature: create_valid_65_byte_signature(),
@@ -178,11 +171,11 @@ mod tests {
         let attestation = vec![0xAA];
         let height = 123;
 
-        [0x21, 0x22].iter().for_each(|&pubkey_byte| {
+        [0x21, 0x22].iter().for_each(|&addr_byte| {
             attestator_data
                 .insert(Attestation {
                     attested_data: attestation.clone(),
-                    public_key: vec![pubkey_byte; PUBKEY_BYTE_LENGTH],
+                    address: vec![addr_byte; ADDRESS_BYTE_LENGTH],
                     height,
                     timestamp: Some(height),
                     signature: create_valid_65_byte_signature(),
@@ -197,9 +190,5 @@ mod tests {
         assert_eq!(latest.height, height);
         assert_eq!(latest.attested_data, attestation);
         assert_eq!(latest.signatures.len(), 2);
-        assert_eq!(latest.public_keys.len(), 2);
-
-        assert!(latest.public_keys.contains(&vec![0x21; PUBKEY_BYTE_LENGTH]));
-        assert!(latest.public_keys.contains(&vec![0x22; PUBKEY_BYTE_LENGTH]));
     }
 }

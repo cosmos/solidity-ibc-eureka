@@ -33,7 +33,7 @@ The Attestor Service monitors blockchain networks and provides cryptographically
 
 - **Adapter Client** (`src/adapter_client.rs`): Generic interface for blockchain interaction
 - **Chain Adapters** (`src/adapter_impls/`): Network-specific implementations (Arbitrum, Optimism/Base; Solana WIP)
-- **Signer** (`src/signer.rs`): secp256k1 cryptographic signing that produces 65-byte Ethereum-style recoverable signatures (r||s||v)
+- **Signer** (`src/signer.rs`): secp256k1 cryptographic signing that produces 65-byte Ethereum-style recoverable signatures (r||s||v) and includes the signer Ethereum address (derived from the public key)
 - **gRPC Server** (`src/server.rs`): API, used primarily by aggregator
 
 #### Attestation Types
@@ -51,7 +51,7 @@ The Attestor Service monitors blockchain networks and provides cryptographically
 #### Key Features
 
 - **Modular Design**: Adapter pattern enables easy addition of new chains
-- **ABI Encoding**: Attested messages are encoded via Solidity ABI (see `IAttestorMsgs`), then hashed (SHA-256) before signing for cross-language compatibility
+- **ABI Encoding**: Attested messages are encoded via Solidity ABI (see `IAttestorMsgs`), then hashed (SHA-256) before signing for cross-language compatibility. Public keys are not propagated; addresses are recovered from signatures.
 
 ### 2. Aggregator Service (`programs/sig-aggregator`)
 

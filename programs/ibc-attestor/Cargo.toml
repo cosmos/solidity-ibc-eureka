@@ -28,6 +28,7 @@ serde      			= { workspace = true, features = ["derive"] }
 serde_json 			= { workspace = true, default-features = true }
 k256				= { workspace = true, default-features = false, features = ["ecdsa", "sha2"] }
 sha2				= { workspace = true, default-features = false }
+sha3                = { workspace = true, default-features = false }
 toml 				= { workspace = true, default-features = true }
 
 solana-client			= { workspace = true, default-features = false, optional = true }

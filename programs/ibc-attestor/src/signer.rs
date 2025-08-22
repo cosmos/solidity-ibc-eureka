@@ -5,6 +5,7 @@ use sha2::{Digest, Sha256};
 use crate::cli::SignerConfig;
 use crate::AttestorError;
 use crate::{adapter_client::Signable, api::Attestation};
+use sha3::Keccak256;
 
 /// Signs `serde` encoded byte data using
 /// the `secp256k1` algorithm.
@@ -43,22 +44,15 @@ impl Signer {
         // Add recovery id as v (27 + rec_id for Ethereum compatibility)
         sig65.push(27 + rec_id.to_byte());
 
-        Ok(Attestation {
-            height,
-            timestamp,
-            attested_data: bytes,
-            public_key: self.get_pubkey(),
-            signature: sig65,
-        })
+        // Derive Ethereum address from the verifying key (last 20 bytes of keccak(uncompressed_pk[1..]))
+        let verifying_key = self.signing_key.verifying_key();
+        let uncompressed = verifying_key.to_encoded_point(false);
+        let hash = Keccak256::digest(&uncompressed.as_bytes()[1..]);
+        let address = hash[12..].to_vec(); // 20 bytes
+
+        Ok(Attestation { height, timestamp, attested_data: bytes, signature: sig65, address })
     }
 
-    pub fn get_pubkey(&self) -> Vec<u8> {
-        self.signing_key
-            .verifying_key()
-            .to_encoded_point(true)
-            .as_bytes()
-            .to_vec()
-    }
 }
 
 #[cfg(test)]

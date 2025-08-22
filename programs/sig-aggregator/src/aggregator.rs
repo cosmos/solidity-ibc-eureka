@@ -275,13 +275,13 @@ mod e2e_tests {
         assert_eq!(response.len(), 4);
         assert!(response
             .iter()
-            .any(|r| r.as_ref().unwrap().public_key == pk_1));
+            .any(|r| r.as_ref().unwrap().address == pk_1));
         assert!(response
             .iter()
-            .any(|r| r.as_ref().unwrap().public_key == pk_2));
+            .any(|r| r.as_ref().unwrap().address == pk_2));
         assert!(response
             .iter()
-            .any(|r| r.as_ref().unwrap().public_key == pk_3));
+            .any(|r| r.as_ref().unwrap().address == pk_3));
     }
 
     #[tokio::test]

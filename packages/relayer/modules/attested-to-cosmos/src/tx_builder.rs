@@ -21,7 +21,7 @@ use ibc_proto_eureka::{
         },
     },
 };
-use k256::ecdsa::VerifyingKey;
+use alloy_primitives::Address;
 use prost::Message;
 use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
@@ -114,7 +114,7 @@ fn encode_and_cyphon_packet_if_relevant(
 }
 
 const CHECKSUM_HEX: &str = "checksum_hex";
-const PUB_KEYS: &str = "pub_keys";
+const ATTESTOR_ADDRESSES: &str = "attestor_addresses";
 const MIN_REQUIRED_SIGS: &str = "min_required_sigs";
 const HEIGHT: &str = "height";
 const TIMESTAMP: &str = "timestamp";
@@ -282,21 +282,18 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             .ok_or_else(|| anyhow::anyhow!(format!("Missing `{TIMESTAMP}` parameter")))?
             .parse()?;
 
-        let pub_keys_hex = parameters
-            .get(PUB_KEYS)
-            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{PUB_KEYS}` parameter")))?;
-        let pub_keys_bytes = alloy::hex::decode(pub_keys_hex)?;
-        anyhow::ensure!(
-            pub_keys_bytes.len() % 33 == 0,
-            "`{PUB_KEYS}` must be a hex-encoded concatenation of 33-byte compressed pubkeys"
-        );
-        let pub_keys: Vec<VerifyingKey> = pub_keys_bytes
-            .chunks_exact(33)
-            .map(VerifyingKey::from_sec1_bytes)
+        let addrs_hex = parameters
+            .get(ATTESTOR_ADDRESSES)
+            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{ATTESTOR_ADDRESSES}` parameter")))?;
+        // Accept comma- or space-separated list of 0x addresses
+        let attestor_addresses: Vec<Address> = addrs_hex
+            .split(|c| c == ',' || c == ' ')
+            .filter(|s| !s.is_empty())
+            .map(|s| Address::parse_checksummed(s, None))
             .collect::<Result<_, _>>()
-            .map_err(|_| anyhow::anyhow!("failed to parse compressed secp256k1 pubkey"))?;
+            .map_err(|_| anyhow::anyhow!("failed to parse ethereum address list"))?;
 
-        let client_state = AttestorClientState::new_from_pubkeys(pub_keys, min_required_sigs, height);
+        let client_state = AttestorClientState::new(attestor_addresses, min_required_sigs, height);
         let consensus_state = AttestorConsensusState { height, timestamp };
 
         let client_state_bz = serde_json::to_vec(&client_state)?;
