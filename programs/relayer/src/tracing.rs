@@ -58,7 +58,7 @@ pub fn init_subscriber(config: &TracingConfig) -> Result<TracingGuard> {
                 Some(provider)
             }
             Err(e) => {
-                tracing::warn!("OpenTelemetry disabled: {e}");
+                eprintln!("OpenTelemetry disabled: {e}");
                 None
             }
         }
