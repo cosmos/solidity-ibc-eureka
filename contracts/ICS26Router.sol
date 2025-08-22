@@ -87,6 +87,8 @@ contract ICS26Router is
     /// @inheritdoc IICS26RouterAccessControlled
     function addIBCApp(string calldata portId, address app) external nonReentrant restricted {
         require(bytes(portId).length != 0, IBCInvalidPortIdentifier(portId));
+        // NOTE: We do not allow port-ids to be addresses, as this would conflict with the permissionless port-ids
+        // slither-disable-next-line unused-return
         (bool isAddress,) = Strings.tryParseAddress(portId);
         require(!isAddress, IBCInvalidPortIdentifier(portId));
         require(IBCIdentifiers.validateCustomIBCIdentifier(bytes(portId)), IBCInvalidPortIdentifier(portId));
@@ -115,6 +117,7 @@ contract ICS26Router is
             msg_.timeoutTimestamp > block.timestamp, IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp)
         );
         require(
+            // solhint-disable-next-line gas-strict-inequalities
             msg_.timeoutTimestamp - block.timestamp <= MAX_TIMEOUT_DURATION,
             IBCInvalidTimeoutDuration(MAX_TIMEOUT_DURATION, msg_.timeoutTimestamp - block.timestamp)
         );
@@ -138,6 +141,8 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26RouterAccessControlled
+    // NOTE: Reentrancy disabled for this function via the `nonReentrant` modifier.
+    // slither-disable-next-line reentrancy-no-eth
     function recvPacket(IICS26RouterMsgs.MsgRecvPacket calldata msg_) external nonReentrant restricted {
         // TODO: Support multi-payload packets (#93)
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
@@ -164,6 +169,8 @@ contract ICS26Router is
             path: ICS24Host.prefixedPath(cInfo.merklePrefix, commitmentPath),
             value: abi.encodePacked(commitmentBz)
         });
+        // NOTE: The verification timestamp is not used here in the IBC Eureka Specifications
+        // slither-disable-next-line unused-return
         getClient(msg_.packet.destClient).verifyMembership(membershipMsg);
 
         // recvPacket will no-op if the packet receipt already exists
@@ -198,6 +205,8 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26RouterAccessControlled
+    // NOTE: Reentrancy disabled for this function via the `nonReentrant` modifier.
+    // slither-disable-next-line reentrancy-no-eth
     function ackPacket(IICS26RouterMsgs.MsgAckPacket calldata msg_) external nonReentrant restricted {
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
@@ -222,6 +231,8 @@ contract ICS26Router is
             path: ICS24Host.prefixedPath(cInfo.merklePrefix, commitmentPath),
             value: abi.encodePacked(commitmentBz)
         });
+        // NOTE: The verification timestamp is not used here in the IBC Eureka Specifications
+        // slither-disable-next-line unused-return
         getClient(msg_.packet.sourceClient).verifyMembership(membershipMsg);
 
         // ackPacket will no-op if the packet commitment does not exist
@@ -267,6 +278,7 @@ contract ICS26Router is
         });
         uint256 counterpartyTimestamp = getClient(msg_.packet.sourceClient).verifyNonMembership(nonMembershipMsg);
         require(
+            // solhint-disable-next-line gas-strict-inequalities
             counterpartyTimestamp >= msg_.packet.timeoutTimestamp,
             IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp)
         );

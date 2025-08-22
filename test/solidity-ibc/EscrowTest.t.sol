@@ -122,7 +122,7 @@ contract EscrowTest is Test {
         vm.prank(rateLimiter);
         escrow.setRateLimit(mockToken, rateLimit);
 
-        for (uint256 i = 0; i < n - 1; i++) {
+        for (uint256 i = 0; i < n - 1; ++i) {
             vm.mockCall(mockToken, IERC20.transferFrom.selector, abi.encode(true));
             escrow.send(IERC20(mockToken), address(this), sendAmount);
             assertEq(escrow.getDailyUsage(mockToken), sendAmount * (i + 1));
@@ -144,7 +144,7 @@ contract EscrowTest is Test {
         vm.prank(rateLimiter);
         escrow.setRateLimit(mockToken, rateLimit);
 
-        for (uint256 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; ++i) {
             vm.mockCall(mockToken, IERC20.transferFrom.selector, abi.encode(true));
             escrow.send(IERC20(mockToken), address(this), sendAmount);
             assertEq(escrow.getDailyUsage(mockToken), sendAmount);

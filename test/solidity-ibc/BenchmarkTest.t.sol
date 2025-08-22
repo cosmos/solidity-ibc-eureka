@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-// solhint-disable custom-errors,max-line-length,avoid-low-level-calls
+// solhint-disable custom-errors,max-line-length,avoid-low-level-calls,gas-small-strings
 
 // solhint-disable-next-line no-global-import
 import "forge-std/console.sol";
@@ -45,7 +45,7 @@ contract BenchmarkTest is FixtureTest {
 
         // Step 1: Transfer from Ethereum to Cosmos
         uint64 sendGasUsed = 0;
-        for (uint64 i = 0; i < numPackets; i++) {
+        for (uint64 i = 0; i < numPackets; ++i) {
             sendGasUsed += sendTransfer(ackFixture);
         }
         console.log("Avg (", numPackets, "packets ) Send packet gas used: ", sendGasUsed / numPackets);

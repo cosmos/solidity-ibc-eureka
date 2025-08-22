@@ -51,13 +51,13 @@ abstract contract DeployAccessManagerWithRoles {
     )
         public
     {
-        for (uint256 i = 0; i < relayers.length; i++) {
+        for (uint256 i = 0; i < relayers.length; ++i) {
             accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayers[i], 0);
         }
-        for (uint256 i = 0; i < pausers.length; i++) {
+        for (uint256 i = 0; i < pausers.length; ++i) {
             accessManager.grantRole(IBCRolesLib.PAUSER_ROLE, pausers[i], 0);
         }
-        for (uint256 i = 0; i < unpausers.length; i++) {
+        for (uint256 i = 0; i < unpausers.length; ++i) {
             accessManager.grantRole(IBCRolesLib.UNPAUSER_ROLE, unpausers[i], 0);
         }
         if (idCustomizer != address(0)) {

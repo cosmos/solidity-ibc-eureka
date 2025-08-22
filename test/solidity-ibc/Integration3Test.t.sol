@@ -68,6 +68,7 @@ contract Integration3Test is Test {
         );
     }
 
+    // solhint-disable-next-line function-max-lines
     function testFuzz_success_forwardAndBack(uint256 amount) public {
         // There are three chains in this scenario: A -> B -> C
         vm.assume(amount > 0);

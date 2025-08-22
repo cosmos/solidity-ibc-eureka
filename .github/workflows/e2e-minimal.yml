@@ -39,11 +39,11 @@ permissions:
 
 jobs:
   generate-matrix:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     outputs:
       matrix: ${{ steps.get-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Generate Test Matrix
         id: get-matrix
         uses: ./.github/actions/e2e-matrix
@@ -55,10 +55,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
-    name: ${{ matrix.test }}
-    runs-on: depot-ubuntu-22.04
+    name: ${{ matrix.entrypoint }}/${{ matrix.test }}
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up E2E environment
         uses: ./.github/actions/e2e-setup
         with:
@@ -69,4 +69,4 @@ jobs:
           NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
         run: |
           cd e2e/interchaintestv8
-          go test -v -mod=readonly . -run "^${{ matrix.test }}$" -timeout 60m
+          go test -v -mod=readonly . -run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -timeout 60m
