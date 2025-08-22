@@ -4,22 +4,57 @@ This package contains the core attestor light client implementation for IBC.
 
 ## Overview
 
-The attestor light client provides IBC client functionality for verifying blockchain state through attestation and facilitating cross-chain communication with Cosmos-based chains.
+The attestor light client provides IBC client functionality for verifying blockchain state via attestation and facilitating cross-chain communication with Cosmos-based chains. Attestations consist of ABI-encoded data and raw 65-byte ECDSA signatures; signer addresses are recovered and checked against the trusted attestor set stored in the client state. Timestamps are validated for consistency and monotonicity.
 
 ## Key Components
 
-- **ClientState**: Chain parameters and configuration
-- **ConsensusState**: Trusted chain state at specific heights with minimal height and timestamp
-- **Header**: Block/state information for updates
-- **Verification**: Logic to verify client messages and state transitions
-- **Updates**: Logic to update consensus state with new blockchain data
+- **ClientState**: Chain parameters and configuration (trusted attestor addresses, signature threshold, latest height, frozen flag)
+- **ConsensusState**: Trusted chain state at specific heights with height and timestamp
+- **Header**: Block/state update container with `attestation_data` and raw `signatures`
+- **verify_attestation**: Address-recovery based cryptographic verification over 65-byte signatures
+- **verify::verify_header**: Header verification (attestation + timestamp invariants)
+- **update::update_consensus_state**: Applies verified headers and optionally bumps client state height
+- **membership::verify_membership**: Verifies packet membership using attested `bytes32[]` commitments
 
 ## Initial Implementation Focus
 
 This initial implementation focuses on:
 1. Basic client state management
 2. Consensus state updates using minimal height and timestamp data
-3. Simple verification of state transitions through attestation
-4. Integration with IBC verify_client_message and update_state methods
+3. Verification of state transitions through attestation (65-byte signatures, address recovery)
+4. Packet membership verification against attested `bytes32[]` commitments
+5. Integration points for IBC `verify_client_message` and `update_state`
 
-Note: Advanced features like merkle proof verification for membership proofs are not included in the initial implementation.
+Note: Advanced features like merkle proof verification are not included.
+
+## Attestation Format
+
+- `attestation_data`: ABI-encoded payload. For packet membership, this is `bytes32[]` of packet commitments.
+- `signatures`: Raw 65-byte `(r || s || v)` signatures. Signer addresses are recovered and must exist in `ClientState.attestor_addresses`. Duplicate signatures and insufficient signatures are rejected.
+
+## Minimal Examples
+
+```rust
+use attestor_light_client::{
+  client_state::ClientState,
+  consensus_state::ConsensusState,
+  header::Header,
+  update::update_consensus_state,
+  verify::verify_header,
+  membership::{verify_membership, MembershipProof},
+};
+
+// Verify a header and update consensus/client state
+let client_state = ClientState { attestor_addresses: vec![], min_required_sigs: 1, latest_height: 0, is_frozen: false };
+let trusted = ConsensusState { height: 10, timestamp: 1_700_000_000 };
+let header = Header::new(10, 1_700_000_000, vec![], vec![]);
+verify_header(Some(&trusted), None, None, &client_state, &header)?;
+let (_new_height, new_cns, maybe_new_cs) = update_consensus_state(client_state, &header)?;
+
+// Verify packet membership
+let proof = MembershipProof { attestation_data: vec![], signatures: vec![] };
+let proof_bytes = serde_json::to_vec(&proof)?;
+let value = vec![0u8; 32];
+verify_membership(&new_cns, maybe_new_cs.as_ref().unwrap_or(&ClientState{ attestor_addresses: vec![], min_required_sigs: 1, latest_height: 0, is_frozen: false }), new_cns.height, proof_bytes, value)?;
+# Ok::<(), attestor_light_client::error::IbcAttestorClientError>(())
+```
