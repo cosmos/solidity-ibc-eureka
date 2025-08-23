@@ -219,7 +219,7 @@ test-abigen:
 [group('test')]
 test-e2e testname: clean-foundry install-relayer
 	@echo "Running {{testname}} test..."
-	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
+	cd e2e/interchaintestv8 && GOTOOLCHAIN=go1.24.3 go test -v -run '^{{testname}}$' -timeout 120m
 
 # Run any e2e test in the IbcEurekaTestSuite. For example, `just test-e2e-eureka Test_Deploy`
 [group('test')]

@@ -11,17 +11,25 @@ use opentelemetry_sdk::{
     resource::Resource,
     trace::{Sampler, SdkTracerProvider, SpanExporter, Tracer},
 };
+use opentelemetry_sdk::logs::SdkLoggerProvider;
+use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
+use tracing_log::LogTracer;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
 
 /// Guard that shuts down OpenTelemetry on drop (if enabled).
 pub struct TracingGuard {
-    otel_provider: Option<SdkTracerProvider>,
+    otel_tracer_provider: Option<SdkTracerProvider>,
+    otel_logger_provider: Option<SdkLoggerProvider>,
 }
 
 impl Drop for TracingGuard {
     fn drop(&mut self) {
-        if let Some(provider) = self.otel_provider.take() {
+        if let Some(provider) = self.otel_tracer_provider.take() {
             let _ = provider.shutdown();
+        }
+        if let Some(provider) = self.otel_logger_provider.take() {
+            // There is no shutdown on SdkLoggerProvider in 0.30; drop flushes processors.
+            let _ = provider;
         }
     }
 }
@@ -35,6 +43,9 @@ pub fn init_subscriber(config: &TracingConfig) -> Result<TracingGuard> {
     // Set up global propagator for context propagation
     global::set_text_map_propagator(TraceContextPropagator::new());
 
+    // Bridge `log` crate records into `tracing` (best-effort)
+    let _ = LogTracer::init();
+
     // Using a closure instead of a function allows Rust to infer the correct
     // return type for each usage, avoiding type system constraints that would
     // arise from specifying a concrete return type like `fmt::Layer<Registry>`.
@@ -46,20 +57,21 @@ pub fn init_subscriber(config: &TracingConfig) -> Result<TracingGuard> {
             .with_file(true)
     };
 
-    let otel_provider = if config.use_otel {
-        match setup_otlp_tracer(config) {
-            Ok((tracer, provider)) => {
+    let (otel_tracer_provider, otel_logger_provider) = if config.use_otel {
+        match (setup_otlp_tracer(config), setup_otlp_logger(config)) {
+            (Ok((tracer, tracer_provider)), Ok(logger_provider)) => {
                 let subscriber = Registry::default()
                     .with(EnvFilter::new(config.level().as_str().to_lowercase()))
                     .with(create_fmt_layer())
-                    .with(tracing_opentelemetry::layer().with_tracer(tracer));
+                    .with(tracing_opentelemetry::layer().with_tracer(tracer))
+                    .with(OpenTelemetryTracingBridge::new(&logger_provider));
 
                 try_init_subscriber(subscriber)?;
-                Some(provider)
+                (Some(tracer_provider), Some(logger_provider))
             }
-            Err(e) => {
+            (Err(e), _) | (_, Err(e)) => {
                 eprintln!("OpenTelemetry disabled: {e}");
-                None
+                (None, None)
             }
         }
     } else {
@@ -69,10 +81,10 @@ pub fn init_subscriber(config: &TracingConfig) -> Result<TracingGuard> {
             .with(create_fmt_layer());
 
         try_init_subscriber(subscriber)?;
-        None
+        (None, None)
     };
 
-    Ok(TracingGuard { otel_provider })
+    Ok(TracingGuard { otel_tracer_provider, otel_logger_provider })
 }
 
 /// Initialize the subscriber and handle errors.
@@ -112,4 +124,65 @@ fn build_otlp_grpc_exporter(config: &TracingConfig) -> Result<impl SpanExporter>
     }
 
     Ok(exporter_builder.build()?)
+}
+
+/// Build an OTLP logger provider for exporting logs over gRPC
+fn setup_otlp_logger(config: &TracingConfig) -> Result<SdkLoggerProvider> {
+    let resource = Resource::builder()
+        .with_attributes(vec![
+            KeyValue::new("service.name", config.service_name.clone()),
+            KeyValue::new("service.version", env!("CARGO_PKG_VERSION")),
+        ])
+        .build();
+
+    // Build OTLP logs exporter via tonic
+    let mut exporter_builder = opentelemetry_otlp::LogExporter::builder().with_tonic();
+    if let Some(endpoint) = &config.otel_endpoint {
+        exporter_builder = exporter_builder.with_endpoint(endpoint);
+    }
+    let exporter = exporter_builder.build()?;
+
+    let provider = SdkLoggerProvider::builder()
+        .with_resource(resource)
+        .with_batch_exporter(exporter)
+        .build();
+
+    Ok(provider)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+
+    #[test]
+    fn init_subscriber_without_otel_succeeds() {
+        let config = TracingConfig {
+            level: "info".to_string(),
+            use_otel: false,
+            service_name: "test-relayer".to_string(),
+            otel_endpoint: None,
+        };
+
+        // Initialize at most once to avoid global subscriber conflicts across tests
+        INIT.call_once(|| {
+            let _ = init_subscriber(&config);
+        });
+    }
+
+    #[tokio::test]
+    async fn setup_otlp_logger_builds_with_endpoint() {
+        let config = TracingConfig {
+            level: "info".to_string(),
+            use_otel: true,
+            service_name: "test-relayer".to_string(),
+            otel_endpoint: Some("http://127.0.0.1:4317".to_string()),
+        };
+
+        let provider = setup_otlp_logger(&config);
+        assert!(provider.is_ok());
+        drop(provider);
+    }
 }

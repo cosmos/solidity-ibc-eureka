@@ -3851,12 +3851,14 @@ dependencies = [
  "ibc-eureka-relayer-eth-to-cosmos 0.1.0",
  "ibc-eureka-relayer-eth-to-cosmos-compat",
  "opentelemetry",
+ "opentelemetry-appender-tracing",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "prometheus",
  "serde_json",
  "tokio",
  "tracing",
+ "tracing-log",
  "tracing-opentelemetry",
  "tracing-subscriber",
  "uuid",
@@ -5073,6 +5075,18 @@ dependencies = [
  "pin-project-lite",
  "thiserror 2.0.12",
  "tracing",
+]
+
+[[package]]
+name = "opentelemetry-appender-tracing"
+version = "0.30.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e68f63eca5fad47e570e00e893094fc17be959c80c79a7d6ec1abdd5ae6ffc16"
+dependencies = [
+ "opentelemetry",
+ "tracing",
+ "tracing-core",
+ "tracing-subscriber",
 ]
 
 [[package]]

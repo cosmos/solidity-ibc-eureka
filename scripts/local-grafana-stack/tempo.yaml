@@ -1,0 +1,32 @@
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+
+ingester:
+  max_block_duration: 5m
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /tmp/tempo
+
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+  storage:
+    path: /tmp/tempo-metrics
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+
+compactor:
+  compaction:
+    block_retention: 1h
+
