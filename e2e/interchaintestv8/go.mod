@@ -20,7 +20,7 @@ require (
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/holiman/uint256 v1.3.2
-	github.com/kurtosis-tech/kurtosis/api/golang v1.8.1
+	github.com/kurtosis-tech/kurtosis/api/golang v1.10.3
 	github.com/rs/zerolog v1.34.0
 	github.com/strangelove-ventures/interchaintest/v8 v8.3.0
 	github.com/stretchr/testify v1.10.0
@@ -107,7 +107,7 @@ require (
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v1.2.2 // indirect
 	github.com/cosmos/ibc-go/modules/capability v1.0.1 // indirect
-	github.com/cosmos/ics23/go v0.11.0 // indirect
+	github.com/cosmos/ics23/go v0.11.0
 	github.com/cosmos/ledger-cosmos-go v0.14.0 // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/danieljoos/wincred v1.2.1 // indirect
