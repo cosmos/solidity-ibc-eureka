@@ -133,8 +133,8 @@ lint-solidity:
 [group('lint')]
 lint-go:
 	@echo "Linting the Go code..."
-	cd e2e/interchaintestv8 && golangci-lint run
-	cd packages/go-abigen && golangci-lint run
+	cd e2e/interchaintestv8 && GOTOOLCHAIN=go1.24.3 golangci-lint run
+	cd packages/go-abigen && GOTOOLCHAIN=go1.24.3 golangci-lint run
 
 # Lint the Protobuf files using `buf lint`
 [group('lint')]

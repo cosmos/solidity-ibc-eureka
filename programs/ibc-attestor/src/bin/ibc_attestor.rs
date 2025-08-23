@@ -34,20 +34,26 @@ async fn main() -> Result<(), anyhow::Error> {
             }
         }
         Commands::Key(cmd) => {
-            if !IBC_ATTESTOR_DIR.exists() {
-                fs::create_dir_all(&*IBC_ATTESTOR_DIR).unwrap();
+            #[allow(clippy::borrow_interior_mutable_const)]
+            let attestor_dir = &*IBC_ATTESTOR_DIR;
+            if !attestor_dir.exists() {
+                fs::create_dir_all(attestor_dir).unwrap();
             }
 
             match cmd {
                 KeyCommands::Generate => {
-                    if IBC_ATTESTOR_DIR.exists() && IBC_ATTESTOR_PATH.exists() {
+                    #[allow(clippy::borrow_interior_mutable_const)]
+                    let attestor_dir = &*IBC_ATTESTOR_DIR;
+                    #[allow(clippy::borrow_interior_mutable_const)]
+                    let attestor_path = &*IBC_ATTESTOR_PATH;
+                    if attestor_dir.exists() && attestor_path.exists() {
                         return Err(anyhow::anyhow!("key pair already found; aborting"));
                     }
-                    generate_secret_key(&*IBC_ATTESTOR_PATH)
+                    generate_secret_key(attestor_path)
                         .map_err(|e| anyhow::anyhow!("unable to generate key {e}"))?;
                     println!(
                         "key successfully saved to {}",
-                        IBC_ATTESTOR_PATH.to_str().unwrap()
+                        attestor_path.to_str().unwrap()
                     );
                     Ok::<(), anyhow::Error>(())
                 }
@@ -55,15 +61,16 @@ async fn main() -> Result<(), anyhow::Error> {
                     let mut printed_any = false;
 
                     if args.show_private {
-                        let skey =
-                            read_private_pem_to_string(&*IBC_ATTESTOR_PATH).map_err(|_| {
-                                anyhow::anyhow!(
-                                    "no key found at {}, please run `key generate`",
-                                    IBC_ATTESTOR_PATH.to_str().unwrap()
-                                )
-                            })?;
+                        #[allow(clippy::borrow_interior_mutable_const)]
+                        let attestor_path = &*IBC_ATTESTOR_PATH;
+                        let skey = read_private_pem_to_string(attestor_path).map_err(|_| {
+                            anyhow::anyhow!(
+                                "no key found at {}, please run `key generate`",
+                                attestor_path.to_str().unwrap()
+                            )
+                        })?;
                         let skey = skey.trim_end_matches('\n');
-                        print!("{}", skey);
+                        print!("{skey}");
                         printed_any = true;
                     }
 
@@ -73,15 +80,16 @@ async fn main() -> Result<(), anyhow::Error> {
                     }
 
                     if args.show_public {
-                        let pkey =
-                            read_public_key_to_string(&*IBC_ATTESTOR_PATH).map_err(|_| {
-                                anyhow::anyhow!(
-                                    "no key found at {}, please run `ibc_attestor key generate`",
-                                    IBC_ATTESTOR_PATH.to_str().unwrap()
-                                )
-                            })?;
+                        #[allow(clippy::borrow_interior_mutable_const)]
+                        let attestor_path = &*IBC_ATTESTOR_PATH;
+                        let pkey = read_public_key_to_string(attestor_path).map_err(|_| {
+                            anyhow::anyhow!(
+                                "no key found at {}, please run `ibc_attestor key generate`",
+                                attestor_path.to_str().unwrap()
+                            )
+                        })?;
                         let pkey = pkey.trim_end_matches('\n');
-                        print!("{}", pkey);
+                        print!("{pkey}");
                     }
 
                     Ok::<(), anyhow::Error>(())
