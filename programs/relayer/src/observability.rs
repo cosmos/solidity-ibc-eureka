@@ -1,9 +1,9 @@
-//! Tracing configuration for the relayer.
+//! Observability configuration for the relayer.
 //!
 //! Stdout logging + optional OpenTelemetry OTLP export.
 
 use anyhow::{Context, Result};
-use ibc_eureka_relayer_core::config::TracingConfig;
+use ibc_eureka_relayer_core::config::ObservabilityConfig;
 use opentelemetry::{global, trace::TracerProvider as _, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
@@ -17,12 +17,12 @@ use tracing_log::LogTracer;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
 
 /// Guard that shuts down OpenTelemetry on drop (if enabled).
-pub struct TracingGuard {
+pub struct ObservabilityGuard {
     otel_tracer_provider: Option<SdkTracerProvider>,
     otel_logger_provider: Option<SdkLoggerProvider>,
 }
 
-impl Drop for TracingGuard {
+impl Drop for ObservabilityGuard {
     fn drop(&mut self) {
         if let Some(provider) = self.otel_tracer_provider.take() {
             let _ = provider.shutdown();
@@ -39,7 +39,7 @@ impl Drop for TracingGuard {
 /// Keep the returned guard alive for the program's lifetime to ensure a
 /// clean OpenTelemetry shutdown.
 #[allow(clippy::missing_errors_doc)]
-pub fn init_subscriber(config: &TracingConfig) -> Result<TracingGuard> {
+pub fn init_observability(config: &ObservabilityConfig) -> Result<ObservabilityGuard> {
     // Set up global propagator for context propagation
     global::set_text_map_propagator(TraceContextPropagator::new());
 
@@ -84,7 +84,7 @@ pub fn init_subscriber(config: &TracingConfig) -> Result<TracingGuard> {
         (None, None)
     };
 
-    Ok(TracingGuard { otel_tracer_provider, otel_logger_provider })
+    Ok(ObservabilityGuard { otel_tracer_provider, otel_logger_provider })
 }
 
 /// Initialize the subscriber and handle errors.
@@ -95,7 +95,7 @@ fn try_init_subscriber(subscriber: impl SubscriberInitExt) -> Result<()> {
 }
 
 /// Build an OTLP tracer and a gRPC provider
-fn setup_otlp_tracer(config: &TracingConfig) -> Result<(Tracer, SdkTracerProvider)> {
+fn setup_otlp_tracer(config: &ObservabilityConfig) -> Result<(Tracer, SdkTracerProvider)> {
     let resource = Resource::builder()
         .with_attributes(vec![
             KeyValue::new("service.name", config.service_name.clone()),
@@ -116,7 +116,7 @@ fn setup_otlp_tracer(config: &TracingConfig) -> Result<(Tracer, SdkTracerProvide
     Ok((tracer, provider))
 }
 
-fn build_otlp_grpc_exporter(config: &TracingConfig) -> Result<impl SpanExporter> {
+fn build_otlp_grpc_exporter(config: &ObservabilityConfig) -> Result<impl SpanExporter> {
     let mut exporter_builder = opentelemetry_otlp::SpanExporter::builder().with_tonic();
 
     if let Some(endpoint) = &config.otel_endpoint {
@@ -127,7 +127,7 @@ fn build_otlp_grpc_exporter(config: &TracingConfig) -> Result<impl SpanExporter>
 }
 
 /// Build an OTLP logger provider for exporting logs over gRPC
-fn setup_otlp_logger(config: &TracingConfig) -> Result<SdkLoggerProvider> {
+fn setup_otlp_logger(config: &ObservabilityConfig) -> Result<SdkLoggerProvider> {
     let resource = Resource::builder()
         .with_attributes(vec![
             KeyValue::new("service.name", config.service_name.clone()),
@@ -157,9 +157,9 @@ mod tests {
     use std::sync::Once;
     static INIT: Once = Once::new();
 
-    #[test]
-    fn init_subscriber_without_otel_succeeds() {
-        let config = TracingConfig {
+    #[tokio::test]
+    async fn init_without_otel_succeeds() {
+        let config = ObservabilityConfig {
             level: "info".to_string(),
             use_otel: false,
             service_name: "test-relayer".to_string(),
@@ -168,13 +168,16 @@ mod tests {
 
         // Initialize at most once to avoid global subscriber conflicts across tests
         INIT.call_once(|| {
-            let _ = init_subscriber(&config);
+            let _ = init_observability(&config);
         });
+
+        // Ensure tracing macro does not panic
+        tracing::info!("hello from tracing crate");
     }
 
     #[tokio::test]
     async fn setup_otlp_logger_builds_with_endpoint() {
-        let config = TracingConfig {
+        let config = ObservabilityConfig {
             level: "info".to_string(),
             use_otel: true,
             service_name: "test-relayer".to_string(),
@@ -185,4 +188,35 @@ mod tests {
         assert!(provider.is_ok());
         drop(provider);
     }
+
+    #[tokio::test]
+    async fn setup_otlp_tracer_builds_with_endpoint() {
+        let config = ObservabilityConfig {
+            level: "info".to_string(),
+            use_otel: true,
+            service_name: "test-relayer".to_string(),
+            otel_endpoint: Some("http://127.0.0.1:4317".to_string()),
+        };
+
+        let tracer_provider = setup_otlp_tracer(&config);
+        assert!(tracer_provider.is_ok());
+        drop(tracer_provider);
+    }
+
+    #[tokio::test]
+    async fn init_with_otel_no_endpoint_succeeds() {
+        let config = ObservabilityConfig {
+            level: "debug".to_string(),
+            use_otel: true,
+            service_name: "test-relayer".to_string(),
+            otel_endpoint: None,
+        };
+
+        // Initialize at most once
+        INIT.call_once(|| {
+            let _ = init_observability(&config);
+        });
+    }
 }
+
+
