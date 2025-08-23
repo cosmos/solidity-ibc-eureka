@@ -31,6 +31,7 @@ type DeployedContracts struct {
 	VerifierMock  string `json:"verifierMock"`
 	Ics26Router   string `json:"ics26Router"`
 	Ics20Transfer string `json:"ics20Transfer"`
+	Ics27Gmp      string `json:"ics27Gmp"`
 	Erc20         string `json:"erc20"`
 }
 
@@ -55,6 +56,7 @@ func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 
 	if embeddedContracts.Erc20 == "" ||
 		embeddedContracts.Ics20Transfer == "" ||
+		embeddedContracts.Ics27Gmp == "" ||
 		embeddedContracts.VerifierPlonk == "" ||
 		embeddedContracts.VerifierGroth16 == "" ||
 		embeddedContracts.VerifierMock == "" ||
