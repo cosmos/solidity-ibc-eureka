@@ -367,7 +367,7 @@ func marshalMisbehaviour(cdc codec.Codec, misbehaviour tmclient.Misbehaviour) ([
 
 		valAddressBase64Str, ok := sig["validator_address"].(string)
 		if !ok {
-			return nil, fmt.Errorf("validator_address not found")
+			return nil, errors.New("validator_address not found")
 		}
 		valAddressBz, err := base64.StdEncoding.DecodeString(valAddressBase64Str)
 		if err != nil {
