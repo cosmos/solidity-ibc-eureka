@@ -19,9 +19,9 @@ const (
 // Config represents the relayer configuration structure aligned with the Rust RelayerConfig
 // and serves as template data for generation in e2e.
 type Config struct {
-	Modules []ModuleConfig `json:"modules"`
-	Server  ServerConfig   `json:"server"`
-	Tracing TracingConfig  `json:"tracing"`
+	Modules       []ModuleConfig      `json:"modules"`
+	Server        ServerConfig        `json:"server"`
+	Observability ObservabilityConfig `json:"observability"`
 }
 
 // ServerConfig mirrors the Rust ServerConfig
@@ -30,8 +30,8 @@ type ServerConfig struct {
 	Port    int    `json:"port"`
 }
 
-// TracingConfig mirrors the Rust TracingConfig
-type TracingConfig struct {
+// ObservabilityConfig mirrors the Rust ObservabilityConfig
+type ObservabilityConfig struct {
 	Level        string  `json:"level"`
 	UseOtel      bool    `json:"use_otel"`
 	ServiceName  string  `json:"service_name"`
@@ -85,7 +85,7 @@ func NewConfig(modules []ModuleConfig) Config {
 		Port:    3000,
 	}
 
-	// Tracing configuration
+	// Observability configuration
 	rustLog := os.Getenv(testvalues.EnvKeyRustLog)
 	if rustLog == "" {
 		rustLog = testvalues.EnvValueRustLog_Info
@@ -104,7 +104,7 @@ func NewConfig(modules []ModuleConfig) Config {
 		useOtel = true
 	}
 
-	tracing := TracingConfig{
+	observability := ObservabilityConfig{
 		Level:        tracingLevel,
 		UseOtel:      useOtel,
 		ServiceName:  "ibc-eureka-relayer",
@@ -112,9 +112,9 @@ func NewConfig(modules []ModuleConfig) Config {
 	}
 
 	return Config{
-		Modules: modules,
-		Server:  server,
-		Tracing: tracing,
+		Modules:       modules,
+		Server:        server,
+		Observability: observability,
 	}
 }
 

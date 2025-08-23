@@ -3,7 +3,7 @@
     "address": "127.0.0.1",
     "port": 3000
   },
-  "tracing": {
+  "observability": {
     "level": "info",
     "use_otel": false,
     "service_name": "ibc-eureka-relayer",

@@ -9,10 +9,10 @@
     "address": "{{ .Server.Address }}",
     "port": {{ .Server.Port }}
   },
-  "tracing": {
-    "level": "{{ .Tracing.Level }}",
-    "use_otel": {{ .Tracing.UseOtel }},
-    "service_name": "{{ .Tracing.ServiceName }}"{{ if .Tracing.OTelEndpoint }},
-    "otel_endpoint": "{{ .Tracing.OTelEndpoint }}"{{ end }}
+  "observability": {
+    "level": "{{ .Observability.Level }}",
+    "use_otel": {{ .Observability.UseOtel }},
+    "service_name": "{{ .Observability.ServiceName }}"{{ if .Observability.OTelEndpoint }},
+    "otel_endpoint": "{{ .Observability.OTelEndpoint }}"{{ end }}
   }
 }

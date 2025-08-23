@@ -421,7 +421,7 @@ async fn my_test() {
 
 For a complete example of production-ready tracing setup, see:
 
-- `programs/relayer/src/tracing.rs` - Production subscriber configuration (traces + OTLP logs)
+- `programs/relayer/src/observability.rs` - Production subscriber configuration (traces + OTLP logs)
 - `packages/relayer/lib/src/utils/tracing_layer.rs` - gRPC trace propagation
 - `packages/relayer/core/src/builder.rs` - Automatic interceptor integration
 
@@ -433,7 +433,7 @@ Config snippet:
 
 ```json
 {
-  "tracing": {
+  "observability": {
     "level": "info",
     "use_otel": true,
     "service_name": "ibc-eureka-relayer",
@@ -467,11 +467,11 @@ export ENABLE_LOCAL_OBSERVABILITY=true
 ```
 
 Behavior when enabled:
-- Tracing config in the generated relayer `config.json` will be set to:
+- Observability config in the generated relayer `config.json` will be set to:
 
 ```json
 {
-  "tracing": {
+  "observability": {
     "level": "<from RUST_LOG or 'info' if unset>",
     "use_otel": true,
     "service_name": "ibc-eureka-relayer",

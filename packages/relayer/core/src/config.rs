@@ -13,9 +13,9 @@ pub struct RelayerConfig {
     pub modules: Vec<ModuleConfig>,
     /// The configuration for the relayer server.
     pub server: ServerConfig,
-    /// The configuration for tracing and observability.
+    /// The configuration for observability.
     #[serde(default)]
-    pub tracing: TracingConfig,
+    pub observability: ObservabilityConfig,
 }
 
 /// The configuration for the relayer modules.
@@ -52,10 +52,10 @@ const fn default_true() -> bool {
     true
 }
 
-/// Configuration for tracing and observability.
+/// Configuration for observability.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(default)]
-pub struct TracingConfig {
+pub struct ObservabilityConfig {
     /// The log level to use.
     pub level: String,
     /// Whether to use OpenTelemetry for distributed tracing.
@@ -66,7 +66,7 @@ pub struct TracingConfig {
     pub otel_endpoint: Option<String>,
 }
 
-impl Default for TracingConfig {
+impl Default for ObservabilityConfig {
     fn default() -> Self {
         Self {
             level: "info".to_string(),
@@ -77,7 +77,7 @@ impl Default for TracingConfig {
     }
 }
 
-impl TracingConfig {
+impl ObservabilityConfig {
     /// Returns the log level as a `tracing::Level`.
     #[must_use]
     pub fn level(&self) -> Level {
