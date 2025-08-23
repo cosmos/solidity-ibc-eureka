@@ -110,7 +110,6 @@ func retry[T any](retries int, waitTime time.Duration, fn func() (T, error)) (T,
 func (b BeaconAPIClient) GetHeader(blockID string) (*apiv1.BeaconBlockHeader, error) {
 	return retry(b.Retries, b.RetryWait, func() (*apiv1.BeaconBlockHeader, error) {
 		headerResponse, err := b.client.(eth2client.BeaconBlockHeadersProvider).BeaconBlockHeader(b.ctx, blockID)
-
 		if err != nil {
 			return nil, err
 		}
