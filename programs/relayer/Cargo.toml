@@ -24,7 +24,12 @@ tracing-subscriber = { workspace = true, default-features = true, features = ["e
 
 tracing-opentelemetry = { workspace = true, default-features = true }
 opentelemetry         = { workspace = true, default-features = true }
-opentelemetry-otlp    = { workspace = true, default-features = true, features = ["grpc-tonic"] }
+opentelemetry-otlp    = { workspace = true, default-features = true, features = ["grpc-tonic", "logs"] }
 opentelemetry_sdk     = { workspace = true, default-features = true, features = ["experimental_async_runtime", "rt-tokio"] }
 
 uuid = { workspace = true, default-features = true, features = ["v4", "serde"] }
+
+# OTEL logs bridge for tracing events
+opentelemetry-appender-tracing = "0.30"
+# Bridge `log` crate records into `tracing`
+tracing-log = "0.2"

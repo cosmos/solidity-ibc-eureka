@@ -49,8 +49,14 @@ const (
 	// The log level for the Rust logger.
 	EnvKeyRustLog = "RUST_LOG"
 
+	// Enable local observability (Grafana stack under scripts/local-grafana-stack) for e2e runs.
+	// When set to "true", the relayer will emit OTLP traces to http://127.0.0.1:4317 and keep metrics enabled.
+	EnvKeyEnableLocalObservability = "ENABLE_LOCAL_OBSERVABILITY"
+
 	// Log level for the Rust logger.
 	EnvValueRustLog_Info = "info"
+	// Enable local observability flag value
+	EnvValueEnableLocalObservability_True = "true"
 	// EnvValueSp1Prover_Network is the prover type for the network prover.
 	EnvValueSp1Prover_Network = "network"
 	// EnvValueSp1Prover_PrivateCluster is the for running the network prover in a private cluster.

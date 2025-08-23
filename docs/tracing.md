@@ -421,6 +421,81 @@ async fn my_test() {
 
 For a complete example of production-ready tracing setup, see:
 
-- `programs/relayer/src/tracing.rs` - Production subscriber configuration
+- `programs/relayer/src/tracing.rs` - Production subscriber configuration (traces + OTLP logs)
 - `packages/relayer/lib/src/utils/tracing_layer.rs` - gRPC trace propagation
 - `packages/relayer/core/src/builder.rs` - Automatic interceptor integration
+
+### OTEL logs export
+
+When `use_otel` is true in the relayer config, logs are exported via OTLP gRPC to the same `otel_endpoint` as traces. The relayer bridges `tracing` events to OpenTelemetry logs using an appender layer, while retaining pretty-printed console output.
+
+Config snippet:
+
+```json
+{
+  "tracing": {
+    "level": "info",
+    "use_otel": true,
+    "service_name": "ibc-eureka-relayer",
+    "otel_endpoint": "http://localhost:4317"
+  }
+}
+```
+
+## Local observability for e2e (Grafana + Tempo + Prometheus)
+
+This project includes a local Grafana observability stack you can use during e2e runs.
+
+### Start the local stack
+
+```bash
+cd scripts/local-grafana-stack
+docker compose up -d
+```
+
+- Grafana: http://localhost:3002 (anonymous access enabled)
+- Tempo (traces backend): internal service at `tempo:3200` (Grafana datasource)
+- Prometheus: http://localhost:9090
+- Alloy (collector): OTLP gRPC on `0.0.0.0:4317` and HTTP on `4318`
+
+### Enable relayer tracing to local stack in e2e
+
+Set the environment variable before running the e2e tests:
+
+```bash
+export ENABLE_LOCAL_OBSERVABILITY=true
+```
+
+Behavior when enabled:
+- Tracing config in the generated relayer `config.json` will be set to:
+
+```json
+{
+  "tracing": {
+    "level": "<from RUST_LOG or 'info' if unset>",
+    "use_otel": true,
+    "service_name": "ibc-eureka-relayer",
+    "otel_endpoint": "http://127.0.0.1:4317"
+  }
+}
+```
+
+- The relayer respects `RUST_LOG` for log level; set it if you want a different level:
+
+```bash
+export RUST_LOG=debug
+```
+
+- Prometheus metrics are served at `http://0.0.0.0:9000/metrics` by the relayer and scraped by Prometheus if you configure it. The local stack already includes Prometheus; you can add a scrape config there if desired.
+
+### Validate traces in Grafana
+
+1. Open Grafana at http://localhost:3002
+2. Go to the Tempo datasource and run a trace search for recent activity.
+3. Generate e2e traffic (run tests). You should see spans with `service.name = ibc-eureka-relayer`.
+
+### Notes
+
+- e2e relayer runs on the host, so `http://127.0.0.1:4317` reaches the Alloy collector in Docker.
+- The OTLP transport is gRPC on 4317 as configured in `scripts/local-grafana-stack/config.alloy`.
+- If you need HTTP instead, switch the endpoint to `http://127.0.0.1:4318` and ensure the relayer exporter supports HTTP.
