@@ -5,6 +5,7 @@
 use std::collections::{HashMap, HashSet};
 
 use alloy::sol_types::SolValue;
+use alloy_primitives::Address;
 use anyhow::Result;
 use attestor_light_client::{
     client_state::ClientState as AttestorClientState,
@@ -286,8 +287,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             .collect::<Result<_, _>>()
             .map_err(|_| anyhow::anyhow!("failed to parse compressed secp256k1 pubkey"))?;
 
-        let client_state =
-            AttestorClientState::new_from_pubkeys(pub_keys, min_required_sigs, height);
+        let client_state = AttestorClientState::new(attestor_addresses, min_required_sigs, height);
         let consensus_state = AttestorConsensusState { height, timestamp };
 
         let client_state_bz = serde_json::to_vec(&client_state)?;
