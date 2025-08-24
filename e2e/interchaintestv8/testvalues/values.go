@@ -24,6 +24,9 @@ const (
 	// TransferAmount is the default transfer amount
 	TransferAmount int64 = 1_000_000_000
 
+	// NumAttestors is the number of attestor instances to start in tests
+	NumAttestors int = 1
+
 	// EnvKeyTendermintRPC Tendermint RPC URL.
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"
 	// EnvKeyEthRPC Ethereum RPC URL.
@@ -80,8 +83,20 @@ const (
 	EthTestnetTypePoW = "pow"
 	// EthTestnetTypePoS is the Ethereum testnet type for using a proof of stake chain
 	EthTestnetTypePoS = "pos"
+	// EthTestnetTypeOptimism is the Ethereum testnet type for using the Optimism chain.
+	EthTestnetTypeOptimism = "optimism"
+	// EthTestnetTypeArbitrum is the Ethereum testnet type for using the Arbitrum testnode.
+	EthTestnetTypeArbitrum = "arbitrum"
 	// EthTestnetTypeNone is the Ethereum testnet type for using no chain.
 	EthTestnetTypeNone = "none"
+
+	// Dummy light client
+	EthWasmTypeDummy = "dummy"
+	// Full light client
+	EthWasmTypeFull = "full"
+	// Attestor light client
+	EthWasmTypeAttestor = "attestor"
+
 	// EnvKeyEthTestnetType The Ethereum testnet type (pow|pos).
 	EnvKeyEthTestnetType = "ETH_TESTNET_TYPE"
 	// EnvE2EFacuetAddress The address of the faucet
@@ -95,7 +110,9 @@ const (
 	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
 	// otherwise, it will download the version from the github release with the given tag
 	EnvKeyE2EWasmLightClientTag = "E2E_WASM_LIGHT_CLIENT_TAG"
-
+	// EnvKeyE2EWasmLightClientTag is the environment variable name to configure the eth light client kind:
+	// dummy, full or attestor
+	EnvKeyE2EEthWasmType = "ETH_WASM_TYPE"
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
 	Sp1GenesisFilePath = "scripts/genesis.json"
@@ -134,6 +151,20 @@ const (
 	ParameterKey_RoleManager = "role_manager"
 	// Checksum hex parameter key for the relayer's ethereum light client creation.
 	ParameterKey_ChecksumHex = "checksum_hex"
+	// Min sigs parameter for the attestor light client creation.
+	ParameterKey_MinRequiredSigs = "min_required_sigs"
+	// Pub keys parameter for the attestor light client creation.
+	ParameterKey_Pubkeys = "pub_keys"
+	// Height parameter for the attestor light client creation.
+	ParameterKey_height = "height"
+	// Timestamp parameter for the attestor light client creation.
+	ParameterKey_timestamp = "timestamp"
+	// The tmp path used for programatically generated attestor configs
+	AttestorConfigPath = "/tmp/attestor.toml"
+	// The tmp path used for programatically generated aggregator configs
+	AggregatorConfigPath = "/tmp/aggregator.toml"
+	// The RPC endpoint for the aggregator service
+	AggregatorRpcPath = "http://localhost:8080"
 )
 
 var (

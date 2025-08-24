@@ -1,0 +1,39 @@
+[package]
+name = "sig-aggregator"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+moka = { workspace = true, features = ["future"] }
+
+tokio-stream = { workspace = true }
+tokio        = { workspace = true, features = ["full"] }
+futures      = { workspace = true }
+
+tonic            = { workspace = true, default-features = true }
+tonic-reflection = { workspace = true, default-features = true }
+tower-http       = { workspace = true, features = ["trace"] }
+
+serde = { workspace = true, default-features = true, features = ["derive"] }
+toml  = { workspace = true, default-features = true }
+
+clap = { workspace = true, features = ["derive"] }
+
+anyhow    = { workspace = true, default-features = true }
+thiserror = { workspace = true, default-features = true }
+
+tracing            = { workspace = true, default-features = true }
+tracing-subscriber = { workspace = true, default-features = true }
+
+alloy-primitives = { workspace = true, default-features = true }
+
+prost = { workspace = true, default-features = true }
+
+rand  = { workspace = true, default-features = true }
+
+sha2 = { workspace = true, default-features = true }
+
+[build-dependencies]
+tonic-build = { workspace = true, default-features = true }

@@ -1,0 +1,31 @@
+optimism_package:
+  chains:
+    opkurtosis:
+      participants:
+        node0:
+          sequencer: true
+          el:
+            type: op-geth
+          cl:
+            type: op-node
+            log_level: debug
+          conductor_params:
+            enabled: true
+            bootstrap: true
+        node1:
+          sequencer: true
+          el:
+            type: op-reth
+          cl:
+            type: op-node
+            log_level: debug
+          conductor_params:
+            enabled: true
+        node3:
+          sequencer: "node0"
+      network_params:
+        network: "kurtosis"
+        network_id: "2151908"
+        seconds_per_slot: 2
+        fjord_time_offset: 0
+        granite_time_offset: 0
