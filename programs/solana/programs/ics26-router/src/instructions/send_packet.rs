@@ -115,9 +115,9 @@ mod tests {
     use super::*;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
-    use ics24_host_solana::Payload;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
+    use solana_ibc_types::Payload;
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;

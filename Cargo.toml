@@ -16,6 +16,8 @@ members = [
     "packages/relayer/modules/cosmos-to-eth",
     "packages/relayer/modules/cosmos-to-cosmos",
     "packages/relayer/modules/eth-to-cosmos-compat",
+    "packages/relayer/modules/solana-to-cosmos",
+    "packages/relayer/modules/cosmos-to-solana",
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
 
@@ -40,6 +42,8 @@ ibc-eureka-relayer-eth-to-cosmos        = { path = "packages/relayer/modules/eth
 ibc-eureka-relayer-cosmos-to-eth        = { path = "packages/relayer/modules/cosmos-to-eth", default-features = false }
 ibc-eureka-relayer-cosmos-to-cosmos     = { path = "packages/relayer/modules/cosmos-to-cosmos", default-features = false }
 ibc-eureka-relayer-eth-to-cosmos-compat = { path = "packages/relayer/modules/eth-to-cosmos-compat", default-features = false }
+ibc-eureka-relayer-solana-to-cosmos     = { path = "packages/relayer/modules/solana-to-cosmos", default-features = false }
+ibc-eureka-relayer-cosmos-to-solana     = { path = "packages/relayer/modules/cosmos-to-solana", default-features = false }
 ibc-eureka-utils                        = { path = "packages/utils", default-features = false }
 sp1-ics07-tendermint-prover             = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }
 sp1-ics07-tendermint-update-client      = { path = "programs/sp1-programs/update-client", default-features = false }
@@ -55,6 +59,9 @@ tendermint-light-client-update-client     = { path = "packages/tendermint-light-
 tendermint-light-client-membership        = { path = "packages/tendermint-light-client/membership", default-features = false }
 tendermint-light-client-misbehaviour      = { path = "packages/tendermint-light-client/misbehaviour", default-features = false }
 tendermint-light-client-uc-and-membership = { path = "packages/tendermint-light-client/uc-and-membership", default-features = false }
+
+solana-ibc-constants = { path = "programs/solana/packages/solana-ibc-constants", default-features = false }
+solana-ibc-types = { path = "programs/solana/packages/solana-ibc-types", default-features = false }
 
 serde           = { version = "1.0", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
@@ -120,8 +127,8 @@ alloy-provider         = { version = "1.0", default-features = false }
 alloy-transport        = { version = "1.0", default-features = false }
 alloy-rpc-types-eth    = { version = "1.0", default-features = false }
 
-sp1-sdk    = { version = "5.0", default-features = false }
-sp1-prover = { version = "5.0", default-features = false }
+sp1-sdk    = { version = "=5.0.0", default-features = false }
+sp1-prover = { version = "=5.0.5", default-features = false }
 
 cosmwasm-schema = { version = "2.2", default-features = false }
 cosmwasm-std    = { version = "2.2", default-features = false }
@@ -146,6 +153,15 @@ milagro_bls   = { git = "https://github.com/Snowfork/milagro_bls", rev = "bc2b5b
 smallvec      = { version = "1.6.1", default-features = false }
 cw-ics08-wasm-eth-v1_2_0 = { package = "cw-ics08-wasm-eth", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
 ethereum-light-client-v1_2_0 = { package = "ethereum-light-client", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
+
+# Solana dependencies
+solana-client             = { version = "2.0" }
+solana-sdk                = { version = "2.0" }
+solana-transaction-status = { version = "2.0" }
+borsh                     = { version = "1.3" }
+bincode                   = { version = "1.3" }
+anchor-lang               = { version = "0.31.1" }
+anchor-client             = { version = "0.31.1" }
 
 # TODO: Remove these dependencies once ethereum wasm client v1.2.0 backwards compatibility is not needed
 ibc-eureka-relayer-eth-to-cosmos-v1_2 = { package = "ibc-eureka-relayer-eth-to-cosmos", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }

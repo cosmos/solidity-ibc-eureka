@@ -81,6 +81,9 @@
               protobuf
               just
               rust
+              golangci-lint
+              go
+              gopls
             ];
             shellHook = ''
               export RUST_SRC_PATH="${rust}/lib/rustlib/src/rust/library"

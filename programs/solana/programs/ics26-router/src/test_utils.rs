@@ -1,7 +1,7 @@
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::state::*;
 use anchor_lang::{AnchorSerialize, Discriminator, Space};
-use ics24_host_solana::Payload;
+use solana_ibc_types::Payload;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::sysvar::Sysvar;
 

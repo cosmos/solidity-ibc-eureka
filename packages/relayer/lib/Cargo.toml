@@ -10,6 +10,7 @@ ibc-eureka-solidity-types = { workspace = true, features = ["rpc"] }
 ibc-eureka-utils          = { workspace = true }
 
 sp1-ics07-tendermint-prover   = { workspace = true }
+ics23                         = { workspace = true }
 
 ethereum-apis = { workspace = true }
 ethereum-light-client = { workspace = true }
@@ -18,6 +19,7 @@ ethereum-types = { workspace = true }
 serde      = { workspace = true, features = ["derive"] }
 prost      = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
+base64     = { workspace = true }
 
 async-trait   = { workspace = true }
 anyhow        = { workspace = true, features = ["std"] }
@@ -28,6 +30,10 @@ tracing       = { workspace = true, default-features = true }
 tendermint     = { workspace = true, features = ["std"] }
 tendermint-rpc = { workspace = true, features = ["http-client"] }
 tendermint-light-client-verifier = { workspace = true }
+tonic = { workspace = true }
+anchor-lang = { workspace = true }
+solana-sdk = { workspace = true }
+solana-ibc-types = { workspace = true }
 
 ibc-proto-eureka          = { workspace = true }
 ibc-core-commitment-types = { workspace = true }

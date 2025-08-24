@@ -2,8 +2,8 @@ use crate::errors::RouterError;
 use crate::state::Packet;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::keccak::hash as keccak256;
-use ics24_host_solana::Payload;
 use sha2::{Digest, Sha256};
+use solana_ibc_types::Payload;
 
 /// Universal error acknowledgement as defined in ICS-04
 /// This is the keccak256 hash of the string "error"

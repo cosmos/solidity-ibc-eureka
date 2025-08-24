@@ -1,5 +1,11 @@
 use anchor_lang::prelude::*;
-use ics24_host_solana::Payload;
+
+// Re-export types from solana_ibc_types for use in instructions
+pub use solana_ibc_types::{MsgAckPacket, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket, Packet};
+pub use solana_ibc_types::{CLIENT_SEED, CLIENT_SEQUENCE_SEED, IBC_APP_SEED, ROUTER_STATE_SEED};
+pub use solana_ibc_types::{
+    COMMITMENT_SEED, PACKET_ACK_SEED, PACKET_COMMITMENT_SEED, PACKET_RECEIPT_SEED,
+};
 
 pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
@@ -71,55 +77,7 @@ pub struct Commitment {
     pub value: [u8; 32],
 }
 
-/// Packet structure matching Ethereum's ICS26RouterMsgs.Packet
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct Packet {
-    pub sequence: u64,
-    pub source_client: String,
-    pub dest_client: String,
-    pub timeout_timestamp: i64,
-    pub payloads: Vec<Payload>,
-}
-
-/// Message structures for instructions
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct MsgSendPacket {
-    pub source_client: String,
-    pub timeout_timestamp: i64,
-    pub payload: Payload,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct MsgRecvPacket {
-    pub packet: Packet,
-    pub proof_commitment: Vec<u8>,
-    pub proof_height: u64,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct MsgAckPacket {
-    pub packet: Packet,
-    pub acknowledgement: Vec<u8>,
-    pub proof_acked: Vec<u8>,
-    pub proof_height: u64,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct MsgTimeoutPacket {
-    pub packet: Packet,
-    pub proof_timeout: Vec<u8>,
-    pub proof_height: u64,
-}
-
-/// Constants
-pub const ROUTER_STATE_SEED: &[u8] = b"router_state";
-pub const IBC_APP_SEED: &[u8] = b"ibc_app";
-pub const CLIENT_SEED: &[u8] = b"client";
-pub const CLIENT_SEQUENCE_SEED: &[u8] = b"client_sequence";
-pub const COMMITMENT_SEED: &[u8] = b"commitment";
-pub const PACKET_COMMITMENT_SEED: &[u8] = b"packet_commitment";
-pub const PACKET_RECEIPT_SEED: &[u8] = b"packet_receipt";
-pub const PACKET_ACK_SEED: &[u8] = b"packet_ack";
+// Types are now imported from solana_ibc_types
 
 /// Maximum timeout duration (1 day in seconds)
 pub const MAX_TIMEOUT_DURATION: i64 = 86400;

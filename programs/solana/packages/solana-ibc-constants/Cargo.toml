@@ -1,17 +1,16 @@
 [package]
-name = "ics24-host-solana"
+name = "solana-ibc-constants"
 version.workspace = true
 edition.workspace = true
-description = "ICS-24 host chain interface types and messages for IBC on Solana"
+description = "Constants and program IDs for IBC on Solana"
 license.workspace = true
 repository.workspace = true
 readme = "../../../README.md"
-keywords = ["cosmos", "ibc", "solana", "host", "ics24"]
+keywords = ["cosmos", "ibc", "solana", "constants"]
 categories = ["cryptography", "blockchain"]
-
-[dependencies]
-anchor-lang.workspace = true
 
 [lib]
 crate-type = ["cdylib", "lib"]
 
+[dependencies]
+# No dependencies needed - just constants

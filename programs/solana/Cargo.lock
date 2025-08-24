@@ -1146,7 +1146,7 @@ name = "dummy-ibc-app"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
- "ics24-host-solana",
+ "solana-ibc-types",
 ]
 
 [[package]]
@@ -1957,13 +1957,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ics24-host-solana"
-version = "0.1.0"
-dependencies = [
- "anchor-lang",
-]
-
-[[package]]
 name = "ics25-handler"
 version = "0.1.0"
 dependencies = [
@@ -1978,11 +1971,11 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bincode",
- "ics24-host-solana",
  "ics25-handler",
  "mollusk-svm",
  "mollusk-svm-bencher",
  "sha2 0.10.9",
+ "solana-ibc-types",
  "solana-sdk",
 ]
 
@@ -2348,7 +2341,7 @@ name = "mock-ibc-app"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
- "ics24-host-solana",
+ "solana-ibc-types",
 ]
 
 [[package]]
@@ -3797,6 +3790,18 @@ dependencies = [
  "solana-atomic-u64",
  "solana-sanitize",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "solana-ibc-constants"
+version = "0.1.0"
+
+[[package]]
+name = "solana-ibc-types"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "solana-ibc-constants",
 ]
 
 [[package]]

@@ -11,14 +11,16 @@ use ibc_proto_eureka::{
     google::protobuf::{Any, Duration},
     ibc::{
         core::client::v1::{Height, MsgCreateClient, MsgUpdateClient},
-        lightclients::tendermint::v1::{ClientState, Fraction},
+        lightclients::tendermint::v1::ClientState,
     },
 };
+use ics23;
 use prost::Message;
 use tendermint_rpc::HttpClient;
 
 use ibc_eureka_relayer_lib::{
-    chain::CosmosSdk, events::EurekaEventWithHeight, tx_builder::TxBuilderService, utils::cosmos,
+    chain::CosmosSdk, events::EurekaEventWithHeight,
+    tendermint_client::build_tendermint_client_state, tx_builder::TxBuilderService, utils::cosmos,
 };
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`CosmosSdk`].
@@ -167,14 +169,6 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             revision_number: chain_id.revision_number(),
             revision_height: latest_light_block.height().value(),
         };
-        let default_trust_level = Fraction {
-            numerator: 1,
-            denominator: 3,
-        };
-        let default_max_clock_drift = Duration {
-            seconds: 15,
-            nanos: 0,
-        };
         let unbonding_period = self
             .source_tm_client
             .sdk_staking_params()
@@ -187,17 +181,13 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             nanos: 0,
         };
 
-        let client_state = ClientState {
-            chain_id: chain_id.to_string(),
-            trust_level: Some(default_trust_level),
-            trusting_period: Some(trusting_period),
-            unbonding_period: Some(unbonding_period),
-            max_clock_drift: Some(default_max_clock_drift),
-            latest_height: Some(height),
-            proof_specs: vec![ics23::iavl_spec(), ics23::tendermint_spec()],
-            upgrade_path: vec!["upgrade".to_string(), "upgradedIBCState".to_string()],
-            ..Default::default()
-        };
+        let client_state = build_tendermint_client_state(
+            chain_id.to_string(),
+            height,
+            trusting_period,
+            unbonding_period,
+            vec![ics23::iavl_spec(), ics23::tendermint_spec()],
+        );
 
         let consensus_state = latest_light_block.to_consensus_state();
 
