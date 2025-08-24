@@ -9,8 +9,7 @@ use alloy_primitives::Address;
 use anyhow::Result;
 use attestor_light_client::{
     client_state::ClientState as AttestorClientState,
-    consensus_state::ConsensusState as AttestorConsensusState, header::Header,
-    membership::MembershipProof,
+    consensus_state::ConsensusState as AttestorConsensusState, membership::MembershipProof,
 };
 use ibc_proto_eureka::{
     google::protobuf::Any,
@@ -30,10 +29,13 @@ use ibc_eureka_relayer_lib::{
     tx_builder::TxBuilderService,
     utils::{attestor, eth_eureka},
 };
-use ibc_eureka_solidity_types::ics26::{
-    router::{multicallCall, routerCalls, updateClientCall},
-    IICS02ClientMsgs::Height as ICS20Height,
-    IICS26RouterMsgs::Packet,
+use ibc_eureka_solidity_types::{
+    ics26::{
+        router::{multicallCall, routerCalls, updateClientCall},
+        IICS02ClientMsgs::Height as ICS20Height,
+        IICS26RouterMsgs::Packet,
+    },
+    msgs::IAttestorMsgs::AttestationProof,
 };
 
 /// Chain type for attested chains that get their state from the aggregator
@@ -185,20 +187,15 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             hex::encode(&packets.attested_data)
         );
 
-        let header = Header::new(
-            state.height,
-            // Unwrap safe as state attestation must contain ts
-            state.timestamp.unwrap(),
-            state.attested_data,
-            state.signatures,
-        );
-        let header_bz = serde_json::to_vec(&header)
-            .map_err(|_| anyhow::anyhow!("header could not be serialized"))?;
-
+        let msg = AttestationProof {
+            attestationData: Bytes::from_iter(state.attested_data),
+            signatures: state.signatures.into_iter().map(Bytes::from_iter).collect(),
+        }
+        .abi_encode();
         let update_msg = routerCalls::updateClient(updateClientCall {
             clientId: dst_client_id.clone(),
             // TODO: Use solidity msg type
-            updateMsg: alloy::primitives::Bytes::from_iter(header_bz),
+            updateMsg: Bytes::from_iter(msg),
         });
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
