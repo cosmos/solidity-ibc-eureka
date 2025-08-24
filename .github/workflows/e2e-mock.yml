@@ -22,7 +22,7 @@ env:
   ETH_TESTNET_TYPE: pow
   SP1_PROVER: mock
   E2E_PROOF_TYPE: groth16
-  ETH_WASM_TYPE: full
+  ETH_WASM_TYPE: dummy
 permissions:
   contents: read
 
