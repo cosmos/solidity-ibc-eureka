@@ -170,10 +170,11 @@ generate-abi: build-contracts
 	abigen --abi abi/RelayerHelper.json --pkg relayerhelper --type Contract --out packages/go-abigen/relayerhelper/contract.go
 	abigen --abi abi/AttestorLightClient.json --pkg attestorlightclient --type Contract --out packages/go-abigen/attestorlightclient/contract.go
 
-# Generate the ABI files with bytecode for the required contracts (only SP1ICS07Tendermint)
+# Generate the ABI files with bytecode for the required contracts
 [group('generate')]
 generate-abi-bytecode: build-contracts
 	cp out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json abi/bytecode
+	cp out/AttestorLightClient.sol/AttestorLightClient.json abi/bytecode
 
 # Generate the fixtures for the wasm tests using the e2e tests
 [group('generate')]

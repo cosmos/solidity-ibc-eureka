@@ -53,7 +53,7 @@ where
     /// The target chain listener for Cosmos SDK.
     pub eth_listener: eth_eureka::ChainListener<RootProvider>,
     /// The transaction builder from Attested to Cosmos.
-    pub tx_builder: tx_builder::TxBuilder,
+    pub tx_builder: tx_builder::TxBuilder<RootProvider>,
 }
 
 /// The configuration for the Attested to Cosmos relayer module.
@@ -77,17 +77,22 @@ pub struct EthToCosmosAttestedConfig {
 
 impl CosmosToEthAttestedRelayerModuleService<cosmos_sdk::ChainListener> {
     pub async fn new(config: EthToCosmosAttestedConfig) -> Self {
-        let tm_client = HttpClient::from_rpc_url(&config.eth_rpc_url);
+        let tm_client = HttpClient::from_rpc_url(&config.attested_rpc_url);
         let attestor_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
         let provider = RootProvider::builder()
-            .connect(&config.attested_rpc_url)
+            .connect(&config.eth_rpc_url)
             .await
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
 
-        let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider);
+        let eth_listener =
+            eth_eureka::ChainListener::new(config.ics26_address.clone(), provider.clone());
 
-        let tx_builder = tx_builder::TxBuilder::new(config.aggregator_url.clone());
+        let tx_builder = tx_builder::TxBuilder::new(
+            config.ics26_address,
+            provider,
+            config.aggregator_url.clone(),
+        );
 
         Self {
             attested_chain_id: config.attested_chain_id,
