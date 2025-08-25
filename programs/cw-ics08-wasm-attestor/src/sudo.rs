@@ -7,6 +7,8 @@ use ibc_proto::ibc::{
     lightclients::wasm::v1::ConsensusState as WasmConsensusState,
 };
 
+// Keep module compiled without direct usage
+
 use crate::{
     msg::{
         Height, UpdateStateMsg, UpdateStateOnMisbehaviourMsg, UpdateStateResult,
@@ -26,7 +28,7 @@ use crate::{
 /// An empty response
 #[allow(clippy::needless_pass_by_value)]
 pub fn verify_membership(
-    deps: DepsMut,
+    deps: &DepsMut,
     verify_membership_msg: VerifyMembershipMsg,
 ) -> Result<Binary, ContractError> {
     let client_state = get_client_state(deps.storage)?;

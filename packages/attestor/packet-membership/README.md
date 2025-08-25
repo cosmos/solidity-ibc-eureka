@@ -4,49 +4,54 @@ This package provides packet membership verification functionality for IBC attes
 
 ## Overview
 
-The attestor packet membership package contains utilities for verifying that IBC packets exist within packet attestations. It provides a simple, JSON-based approach to prove packet membership without requiring complex cryptographic proofs.
+The attestor packet membership package contains utilities for verifying that IBC packet commitments exist within packet attestations. Attested data is represented as an ABI-encoded `bytes32[]`, wrapped by the `Packets` type for ergonomic encoding/decoding and iteration.
 
 ## Key Components
 
-- **`verify_packet_membership`**: Core function that verifies whether a specific packet exists in a packet attestation proof
-- **`PacketAttestationError`**: Error types for packet verification failures
+- **`Packets`**: Wrapper over a vector of 32-byte commitments with helpers:
+  - `new(Vec<T>)` where `T: Into<FixedBytes<32>>`
+  - `packets()` iterator
+  - `to_abi_bytes()` and `from_abi_bytes(&[u8])`
+- **`verify_packet_membership`**: `fn verify_packet_membership(proof: Packets, value: Vec<u8>) -> Result<(), PacketAttestationError>`
+- **`PacketAttestationError`**: Error type for membership verification failures
 
 ## Functionality
 
 ### Packet Membership Verification
 
-The `verify_packet_membership` function takes two parameters:
-- `proof`: A JSON-serialized vector of packet bytes representing the attestation
-- `value`: A JSON-serialized packet to verify membership for
-
-The function returns `Ok(())` if the packet is found in the proof, or an error if:
-- The proof cannot be deserialized
-- The value cannot be deserialized  
-- The packet is not found in the attestation
+`verify_packet_membership` checks that a given `value` (packet commitment bytes) exists among the attested commitments in `proof: Packets`. The commitments are 32-byte values (Solidity `bytes32`) and can be encoded/decoded via the `Packets` helpers.
 
 ### Example Usage
 
 ```rust
-use attestor_packet_membership::verify_packet_membership;
+use attestor_packet_membership::{verify_packet_membership, Packets};
+use alloy_primitives::FixedBytes;
 
-// Create a proof containing multiple packets
-let packets = vec![b"packet1".to_vec(), b"packet2".to_vec(), b"packet3".to_vec()];
-let proof = serde_json::to_vec(&packets).unwrap();
+// Create a proof containing multiple 32-byte commitments
+let commitments: Vec<FixedBytes<32>> = vec![
+    [7u8; 32].into(),
+    [8u8; 32].into(),
+    [9u8; 32].into(),
+];
+let proof = Packets::new(commitments);
 
-// Verify that a specific packet exists in the proof
-let value = serde_json::to_vec(b"packet2".as_slice()).unwrap();
+// Verify that a specific 32-byte commitment exists in the proof
+let value = [9u8; 32].to_vec();
 let result = verify_packet_membership(proof, value);
 
 assert!(result.is_ok());
+
+// ABI encode/decode helpers
+let abi_bytes = proof.to_abi_bytes();
+let decoded = Packets::from_abi_bytes(&abi_bytes).unwrap();
 ```
 
 ## Error Handling
 
-The package defines `PacketAttestationError` with the following variants:
+On success, the function returns `Ok(())`. If the packet is not found, it returns:
 
-- `SerdeDeserializationError`: When JSON deserialization fails
-- `VerificationFailed`: When the packet is not found in the attestation
+- `PacketAttestationError::VerificiationFailed { reason }`
 
 ## Design Philosophy
 
-This implementation prioritizes simplicity over cryptographic complexity. Instead of using merkle proofs or other advanced verification mechanisms, it uses straightforward JSON serialization and direct comparison to verify packet membership. This approach is suitable for attestor-based IBC implementations where trust is established through attestation rather than cryptographic proofs.
+This implementation prioritizes simplicity over cryptographic complexity. Instead of using merkle proofs or other advanced verification mechanisms, it performs straightforward byte comparison over attested `bytes32[]` commitments. This approach is suitable for attestor-based IBC implementations where trust is established through attestation rather than cryptographic proofs.

@@ -8,6 +8,7 @@ repository = { workspace = true }
 default = []
 
 [dependencies]
-serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true, features = ["std"] }
+alloy-sol-types = { workspace = true, default-features = false, features = ["json"] }
+alloy-primitives = { workspace = true, default-features = false }
 thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }

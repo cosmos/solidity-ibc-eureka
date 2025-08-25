@@ -20,8 +20,6 @@ pub enum AttestorError {
     SignerConfigError(String),
     #[error("Failed to sign attestation due to: {0}")]
     SignerError(String),
-    #[error("Failed serialize attestation as signature due to: {0}")]
-    SerdeSignatureSerializationError(#[from] serde_json::Error),
     #[error("Failed to bulid attestor server due to: {0}")]
     ServerConfigError(String),
 }

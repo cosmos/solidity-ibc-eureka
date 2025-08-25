@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 ibc-proto = { workspace = true }
 attestor-light-client = { workspace = true }
 attestor-packet-membership = { workspace = true }
+alloy-sol-types = { workspace = true, default-features = false, features = ["json"] }
 
 cosmwasm-std = { workspace = true, features = ["std"] }
 cosmwasm-schema = { workspace = true }
@@ -20,6 +21,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 hex = { workspace = true }
+ed25519-zebra = { workspace = true, features = ["alloc"] }
 
 [dev-dependencies]
 attestor-light-client = { workspace = true, features = ["test-utils"] }

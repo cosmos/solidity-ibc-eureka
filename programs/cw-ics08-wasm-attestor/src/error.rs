@@ -10,9 +10,6 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
-    #[error("unauthorized")]
-    Unauthorized,
-
     #[error("client state latest height and height are not equal")]
     ClientStateHeightMismatch,
 
@@ -34,23 +31,14 @@ pub enum ContractError {
     #[error("deserializing client message failed: {0}")]
     DeserializeClientMessageFailed(#[source] serde_json::Error),
 
-    #[error("deserializing solana misbehaviour message failed: {0}")]
-    DeserializeSolMisbehaviourFailed(#[source] serde_json::Error),
-
     #[error("verify membership failed: {0}")]
     VerifyMembershipFailed(#[source] IbcAttestorClientError),
-
-    #[error("verify non-membership failed: {0}")]
-    VerifyNonMembershipFailed(#[source] IbcAttestorClientError),
 
     #[error("verify client message failed: {0}")]
     VerifyClientMessageFailed(#[source] IbcAttestorClientError),
 
     #[error("update client state failed: {0}")]
     UpdateClientStateFailed(#[source] IbcAttestorClientError),
-
-    #[error("unsupported fork version")]
-    UnsupportedForkVersion(#[source] IbcAttestorClientError),
 
     #[error("client state not found")]
     ClientStateNotFound,
