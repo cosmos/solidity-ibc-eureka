@@ -1,6 +1,4 @@
-mod config;
-
-pub use config::CosmosClientConfig;
+use alloy::sol_types::SolValue;
 
 use crate::adapter_client::{
     AttestationAdapter, UnsignedPacketAttestation, UnsignedStateAttestation,
@@ -10,8 +8,14 @@ use ibc_eureka_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 
 use attestor_packet_membership::Packets;
+use futures::{stream::FuturesUnordered, StreamExt};
+use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 
 use crate::AttestorError;
+
+pub use config::CosmosClientConfig;
+
+mod config;
 
 #[derive(Debug)]
 pub struct CosmosClient {
@@ -39,11 +43,27 @@ impl CosmosClient {
 
     async fn get_historical_packet_commitment(
         &self,
-        _hashed_path: [u8; 32],
-        _block_number: u64,
+        packet: &Packet,
+        height: u64,
     ) -> Result<[u8; 32], AttestorError> {
-        // todo implement grpc call for getCommitment
-        todo!()
+        let res = self
+            .rpc
+            .v2_packet_commitment(packet.sourceClient.clone(), packet.sequence, height)
+            .await
+            .map_err(|e| AttestorError::ClientError(e.to_string()))?;
+
+        if res.commitment.len() != 32 {
+            return Err(AttestorError::ClientError(format!(
+                "commitment length mismatch (got {} bytes, want 32)",
+                res.commitment.len()
+            )));
+        }
+
+        let as_arr: [u8; 32] = res.commitment.try_into().map_err(|v: Vec<u8>| {
+            AttestorError::ClientError(format!("vec to array: expected 32 bytes, got {}", v.len()))
+        })?;
+
+        Ok(as_arr)
     }
 }
 
@@ -59,9 +79,53 @@ impl AttestationAdapter for CosmosClient {
 
     async fn get_unsigned_packet_attestation_at_height(
         &self,
-        _packets: &Packets,
-        _height: u64,
+        packets: &Packets,
+        height: u64,
     ) -> Result<UnsignedPacketAttestation, AttestorError> {
-        todo!()
+        let mut futures = FuturesUnordered::new();
+
+        tracing::debug!(
+            "Total cosmos packets received: {}",
+            packets.packets().count()
+        );
+
+        for p in packets.packets() {
+            let packet = Packet::abi_decode(p).map_err(AttestorError::DecodePacket)?;
+
+            // concurrency validate packets against RPC data
+            let packet_validator = async move |packet: Packet, height: u64| {
+                let commitment = self
+                    .get_historical_packet_commitment(&packet, height)
+                    .await?;
+
+                if packet.commitment() != commitment {
+                    return Err(AttestorError::InvalidCommitment {
+                        reason: "requested and received packet commitments do not match".into(),
+                    });
+                }
+
+                Ok(commitment)
+            };
+
+            futures.push(packet_validator(packet, height));
+        }
+
+        let mut validated_commitments = Vec::with_capacity(futures.len());
+        while let Some(maybe_cmt) = futures.next().await {
+            match maybe_cmt {
+                Ok(cmt) => validated_commitments.push(cmt),
+                Err(e) => return Err(e),
+            }
+        }
+
+        tracing::debug!(
+            "Total cosmos packets validated: {}",
+            validated_commitments.len()
+        );
+
+        Ok(UnsignedPacketAttestation {
+            height,
+            packets: validated_commitments,
+        })
     }
 }
