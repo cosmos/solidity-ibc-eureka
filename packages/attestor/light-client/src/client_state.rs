@@ -20,7 +20,7 @@ pub struct ClientState {
 impl ClientState {
     /// Construct a new client state from a list of attestor addresses and quorum/height metadata.
     #[must_use]
-    pub fn new(attestor_addresses: Vec<Address>, min_required_sigs: u8, latest_height: u64) -> Self {
+    pub const fn new(attestor_addresses: Vec<Address>, min_required_sigs: u8, latest_height: u64) -> Self {
         Self { attestor_addresses, min_required_sigs, latest_height, is_frozen: false }
     }
 }

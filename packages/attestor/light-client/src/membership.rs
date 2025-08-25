@@ -10,12 +10,12 @@ use crate::{
 };
 
 /// Data structure that can be verified cryptographically
-/// Matches the AttestationProof struct in IAttestorMsgs.sol
+/// Matches the `AttestationProof` struct in IAttestorMsgs.sol
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct MembershipProof {
     /// ABI-encoded bytes32[] of packet commitments (the actual attested data)
     pub attestation_data: Vec<u8>,
-    /// Signatures over sha256(attestation_data); each 65-byte (r||s||v)
+    /// Signatures over `sha256(attestation_data)`; each 65-byte (r||s||v)
     /// We recover addresses from these signatures instead of sending in public keys
     pub signatures: Vec<Vec<u8>>,
 }
@@ -50,7 +50,7 @@ pub fn verify_membership(
     // Decode the ABI-encoded attestation data to get the packet commitments
     let packets = Packets::from_abi_bytes(&attested_state.attestation_data)
         .map_err(|e| IbcAttestorClientError::InvalidProof {
-            reason: format!("Failed to decode ABI attestation data: {}", e),
+            reason: format!("Failed to decode ABI attestation data: {e}"),
         })?;
 
     verify_packet_membership::verify_packet_membership(packets, value)?;

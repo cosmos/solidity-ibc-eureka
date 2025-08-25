@@ -7,7 +7,6 @@ type State = Vec<u8>;
 
 // 65-byte recoverable ECDSA signature: r (32) || s (32) || v (1)
 pub const SIGNATURE_BYTE_LENGTH: usize = 65;
-type Signature = FixedBytes<SIGNATURE_BYTE_LENGTH>;
 
 // Ethereum address length (20 bytes)
 pub const ADDRESS_BYTE_LENGTH: usize = 20;
@@ -71,7 +70,13 @@ impl AttestatorData {
 impl Attestation {
     fn validate(&self) -> Result<()> {
         self.validate_address()?;
-        self.validate_signature()?;
+        // Always enforce 65-byte recoverable signature format
+        anyhow_ensure!(
+            self.signature.len() == SIGNATURE_BYTE_LENGTH,
+            "Invalid signature length: {}",
+            self.signature.len()
+        );
+        // Only enforce address format and strict 65-byte signature length
         Ok(())
     }
 
@@ -88,18 +93,6 @@ impl Attestation {
         Ok(())
     }
 
-    fn validate_signature(&self) -> Result<()> {
-        anyhow_ensure!(
-            self.signature.len() == SIGNATURE_BYTE_LENGTH,
-            "Invalid signature length: {}",
-            self.signature.len()
-        );
-
-        Signature::try_from(self.signature.as_slice())
-            .with_context(|| format!("Invalid signature: {:?}", self.signature))?;
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]

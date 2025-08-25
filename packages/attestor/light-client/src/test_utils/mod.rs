@@ -1,5 +1,6 @@
 //! Test utilities for Attestor light client
 
+#[cfg(any(test, feature = "test-utils"))]
 pub use fixtures::*;
 
 #[allow(
@@ -8,10 +9,12 @@ pub use fixtures::*;
     clippy::declare_interior_mutable_const,
     clippy::missing_panics_doc
 )]
+#[cfg(any(test, feature = "test-utils"))]
 mod fixtures {
-    use alloy_primitives::{Address, FixedBytes};
+    use alloy_primitives::{Address, FixedBytes, B256, Signature};
+    use alloy_signer::SignerSync;
+    use alloy_signer_local::PrivateKeySigner;
     use attestor_packet_membership::Packets;
-    use k256::ecdsa::{signature::Signer, Signature, SigningKey};
     use sha2::{Digest, Sha256};
     use std::cell::LazyCell;
 
@@ -21,30 +24,18 @@ mod fixtures {
     pub const PACKET_COMMITMENTS_ENCODED: LazyCell<Packets> =
         LazyCell::new(|| Packets::new(PACKET_COMMITMENTS.iter().map(|p| FixedBytes::<32>::from(*p)).collect()));
 
-    pub const S_KEYS: LazyCell<[SigningKey; 5]> = LazyCell::new(|| {
-        [
-            SigningKey::from_bytes(&[0xcd; 32].into()).expect("32 bytes, within curve order"),
-            SigningKey::from_bytes(&[0x02; 32].into()).expect("32 bytes, within curve order"),
-            SigningKey::from_bytes(&[0x03; 32].into()).expect("32 bytes, within curve order"),
-            SigningKey::from_bytes(&[0x10; 32].into()).expect("32 bytes, within curve order"),
-            SigningKey::from_bytes(&[0x1F; 32].into()).expect("32 bytes, within curve order"),
+    pub const S_SIGNERS: LazyCell<Vec<PrivateKeySigner>> = LazyCell::new(|| {
+        vec![
+            PrivateKeySigner::from_slice(&[0xcd; 32]).expect("valid key"),
+            PrivateKeySigner::from_slice(&[0x02; 32]).expect("valid key"),
+            PrivateKeySigner::from_slice(&[0x03; 32]).expect("valid key"),
+            PrivateKeySigner::from_slice(&[0x10; 32]).expect("valid key"),
+            PrivateKeySigner::from_slice(&[0x1F; 32]).expect("valid key"),
         ]
     });
 
     pub const KEYS: LazyCell<Vec<Address>> = LazyCell::new(|| {
-        use sha3::{Digest as Sha3Digest, Keccak256};
-        // Derive Ethereum addresses from the verifying keys corresponding to our signing keys
-        S_KEYS
-            .iter()
-            .map(|skey| {
-                let pubkey_bytes = skey.verifying_key().to_encoded_point(false);
-                // Keccak256 over uncompressed pubkey without the 0x04 prefix, take last 20 bytes
-                let hash = Keccak256::digest(&pubkey_bytes.as_bytes()[1..]);
-                let mut addr_bytes = [0u8; 20];
-                addr_bytes.copy_from_slice(&hash[12..]);
-                Address::from(addr_bytes)
-            })
-            .collect()
+        S_SIGNERS.iter().map(|s| s.address()).collect()
     });
 
     pub const ADDRESSES: LazyCell<Vec<Address>> = LazyCell::new(|| {
@@ -53,43 +44,35 @@ mod fixtures {
     });
 
     pub const SIGS: LazyCell<Vec<Signature>> = LazyCell::new(|| {
-        let sigs = S_KEYS
+        S_SIGNERS
             .iter()
-            .map(|skey| {
+            .map(|signer| {
                 let mut hasher = Sha256::new();
                 let bytes = PACKET_COMMITMENTS_ENCODED.to_abi_bytes();
                 hasher.update(&bytes);
                 let hash_result = hasher.finalize();
-                skey.sign(&hash_result)
+                let b256 = B256::from_slice(&hash_result);
+                signer.sign_hash_sync(&b256).expect("signing should work")
             })
-            .collect();
-
-        sigs
+            .collect()
     });
     
     pub const SIGS_RAW: LazyCell<Vec<Vec<u8>>> = LazyCell::new(|| {
-        use k256::ecdsa::{RecoveryId};
-        
-        S_KEYS.iter().map(|skey| {
-            let mut hasher = Sha256::new();
-            let bytes = PACKET_COMMITMENTS_ENCODED.to_abi_bytes();
-            hasher.update(&bytes);
-            let hash_result = hasher.finalize();
-            
-            // Sign the message with recovery
-            let (sig, recovery_id): (k256::ecdsa::Signature, RecoveryId) = skey
-                .sign_prehash_recoverable(&hash_result)
-                .expect("signing should work");
-            
-            let (r, s) = sig.split_bytes();
-            
-            let mut sig_bytes = Vec::with_capacity(65);
-            sig_bytes.extend_from_slice(&r);
-            sig_bytes.extend_from_slice(&s);
-            // Use the recovery ID directly from k256
-            sig_bytes.push(recovery_id.to_byte());
-            sig_bytes
-        }).collect()
+        S_SIGNERS
+            .iter()
+            .map(|signer| {
+                let mut hasher = Sha256::new();
+                let bytes = PACKET_COMMITMENTS_ENCODED.to_abi_bytes();
+                hasher.update(&bytes);
+                let hash_result = hasher.finalize();
+                let b256 = B256::from_slice(&hash_result);
+                signer
+                    .sign_hash_sync(&b256)
+                    .expect("signing should work")
+                    .as_bytes()
+                    .to_vec()
+            })
+            .collect()
     });
 
     #[must_use]

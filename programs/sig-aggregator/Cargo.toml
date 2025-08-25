@@ -26,11 +26,14 @@ anyhow    = { workspace = true, default-features = true }
 tracing            = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true, default-features = true }
 
-alloy-primitives = { workspace = true, default-features = true }
+alloy-primitives = { workspace = true, default-features = false, features = ["k256"] }
 
 prost = { workspace = true, default-features = true }
 
 sha2 = { workspace = true, default-features = true }
+
+[dev-dependencies]
+k256 = { workspace = true, features = ["ecdsa"] }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }

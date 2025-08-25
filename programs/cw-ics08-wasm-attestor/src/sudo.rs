@@ -27,7 +27,7 @@ use crate::{
 /// # Returns
 /// An empty response
 pub fn verify_membership(
-    deps: DepsMut,
+    deps: &DepsMut,
     verify_membership_msg: VerifyMembershipMsg,
 ) -> Result<Binary, ContractError> {
     let client_state = get_client_state(deps.storage)?;

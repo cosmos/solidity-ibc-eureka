@@ -9,7 +9,7 @@ pub struct Header {
     pub new_height: u64,
     /// Timestamp of the new height
     pub timestamp: u64,
-    /// ABI-encoded attestation data that was signed (bytes32[] for packet commitments or StateAttestation struct)
+    /// ABI-encoded attestation data that was signed (bytes32[] for packet commitments or `StateAttestation` struct)
     pub attestation_data: Vec<u8>,
     /// Raw 65-byte signatures in (r||s||v) format for ECDSA address recovery
     pub signatures: Vec<Vec<u8>>,
@@ -19,7 +19,7 @@ impl Header {
     /// Create a new [Header] with ABI-encoded attestation data and raw signatures
     /// Signatures should be 65-byte (r||s||v) format for ECDSA address recovery
     #[must_use]
-    pub fn new(
+    pub const fn new(
         new_height: u64,
         timestamp: u64,
         attestation_data: Vec<u8>,

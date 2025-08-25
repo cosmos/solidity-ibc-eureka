@@ -72,7 +72,7 @@ pub(crate) fn verify_attestation(
         let is_trusted = client_state
             .attestor_addresses
             .iter()
-            .any(|trusted_addr| trusted_addr == &recovered_address);
+            .any(|trusted_addr| trusted_addr == recovered_address);
 
         if !is_trusted {
             return Err(IbcAttestorClientError::UnknownAddressRecovered { 
@@ -87,33 +87,22 @@ pub(crate) fn verify_attestation(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use k256::ecdsa::SigningKey;
+    use alloy_signer::SignerSync;
+    use alloy_signer_local::PrivateKeySigner;
     
     fn create_test_signature_and_address(data: &[u8]) -> (Vec<u8>, [u8; 20]) {
         use sha2::{Digest, Sha256};
-        use rand::thread_rng;
         
-        let secret_key = k256::SecretKey::random(&mut thread_rng());
-        let signing_key = SigningKey::from(secret_key);
+        let signer = PrivateKeySigner::random();
         
         let mut hasher = Sha256::new();
         hasher.update(data);
         let digest = hasher.finalize();
-        
-        let (sig, rec_id) = signing_key.sign_recoverable(&digest).unwrap();
-        
-        // Build 65-byte signature: r || s || v
-        let mut sig65 = Vec::with_capacity(65);
-        let (r, s) = sig.split_bytes();
-        sig65.extend_from_slice(&r);
-        sig65.extend_from_slice(&s);
-        // Add recovery id as v (27 + rec_id for Ethereum compatibility)
-        sig65.push(27 + rec_id.to_byte());
-        
-        // Calculate the expected address
-        let alloy_sig = Signature::try_from(sig65.as_slice()).unwrap();
         let hash = B256::from_slice(&digest);
-        let address = alloy_sig.recover_address_from_prehash(&hash).unwrap();
+        
+        let signature = signer.sign_hash_sync(&hash).unwrap();
+        let sig65 = signature.as_bytes().to_vec();
+        let address = signer.address();
         
         (sig65, address.into())
     }
