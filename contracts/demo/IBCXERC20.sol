@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IMintableAndBurnable } from "../../../contracts/interfaces/IMintableAndBurnable.sol";
+import { IMintableAndBurnable } from "../interfaces/IMintableAndBurnable.sol";
 import { IICS27GMPMsgs } from "../msgs/IICS27GMPMsgs.sol";
 
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
