@@ -14,9 +14,9 @@ on:
 
 jobs:
   lint:
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -33,9 +33,9 @@ jobs:
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
   build:
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -49,9 +49,9 @@ jobs:
 
   test:
     needs: [lint, build]
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -77,9 +77,9 @@ jobs:
 
   security:
     needs: [build]
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -99,9 +99,9 @@ jobs:
 
   coverage:
     needs: [test]
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -125,7 +125,7 @@ jobs:
       - name: Remove the test directory from the coverage report
         run: lcov --remove lcov.info "test/**" "scripts/**" -o lcov.info
 
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v5
         with:
           exclude: test
         env:

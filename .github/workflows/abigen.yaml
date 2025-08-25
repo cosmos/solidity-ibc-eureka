@@ -17,17 +17,17 @@ on:
 
 jobs:
   check:
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: 1.23
 
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v3
 
       - name: Install abigen
         run: go install github.com/ethereum/go-ethereum/cmd/abigen@latest
@@ -45,10 +45,10 @@ jobs:
           fi
 
   golangci:
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: 1.23
           cache-dependency-path: packages/go-abigen/go.sum
@@ -60,10 +60,10 @@ jobs:
           working-directory: packages/go-abigen
 
   test:
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: 1.23
           cache-dependency-path: packages/go-abigen/go.sum
