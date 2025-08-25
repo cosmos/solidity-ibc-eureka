@@ -9,8 +9,7 @@
         "@uniswap/permit2": "github:Uniswap/permit2",
       },
       "devDependencies": {
-        "@defi-wonderland/xerc20": "https://github.com/srdtrk/xERC20#26675c401c7dc93af0826c6f50c207b5ac4b6616",
-        "@zoomercoin/xerc20": "https://github.com/ZoomerCoin/xerc20#504ce5b480f2c8945d0d9dee0904e191d1e0371f",
+        "@defi-wonderland/xerc20": "https://github.com/srdtrk/xERC20#4dfe4bf6b84249177f25a93f223d7ae1b10d0772",
         "forge-std": "github:foundry-rs/forge-std#v1.9.7",
         "quicktype": "^23.2.6",
         "solhint": "^6.0.0",
@@ -25,7 +24,7 @@
 
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
 
-    "@defi-wonderland/xerc20": ["xerc20@github:srdtrk/xERC20#26675c4", {}, "srdtrk-xERC20-26675c4"],
+    "@defi-wonderland/xerc20": ["xerc20@github:srdtrk/xERC20#4dfe4bf", {}, "srdtrk-xERC20-4dfe4bf"],
 
     "@glideapps/ts-necessities": ["@glideapps/ts-necessities@2.4.0", "", {}, "sha512-mDC+qosuNa4lxR3ioMBb6CD0XLRsQBplU+zRPUYiMLXKeVPZ6UYphdNG/EGReig0YyfnVlBKZEXl1wzTotYmPA=="],
 
@@ -70,8 +69,6 @@
     "@types/node": ["@types/node@16.18.126", "", {}, "sha512-OTcgaiwfGFBKacvfwuHzzn1KLxH/er8mluiy8/uM3sGXHaRe73RrSIj01jow9t4kJEW633Ov+cOexXeiApTyAw=="],
 
     "@uniswap/permit2": ["@uniswap/permit2@github:Uniswap/permit2#cc56ad0", {}, "Uniswap-permit2-cc56ad0"],
-
-    "@zoomercoin/xerc20": ["zoomer-xerc20@github:ZoomerCoin/xerc20#504ce5b", {}, "ZoomerCoin-xerc20-504ce5b"],
 
     "abort-controller": ["abort-controller@3.0.0", "", { "dependencies": { "event-target-shim": "^5.0.0" } }, "sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg=="],
 
