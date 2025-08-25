@@ -25,6 +25,8 @@ runs:
         path: |
           ~/.cargo/bin/relayer
           ~/.cargo/bin/operator
+          ~/.cargo/bin/ibc_op_attestor
+          ~/.cargo/bin/ibc_arbitrum_attestor
           ./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
         key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'packages/**', 'programs/**', 'abi/**') }}
 
@@ -49,6 +51,20 @@ runs:
       with:
         command: install
         args: --bin relayer --path programs/relayer --locked
+
+    - name: Install op attestor
+      if: steps.cache-relayer.outputs.cache-hit != 'true'
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: --bin ibc_attestor --path programs/ibc-attestor -F op --locked
+
+    - name: Install arbitrum attestor
+      if: steps.cache-relayer.outputs.cache-hit != 'true'
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: --bin ibc_attestor --path programs/ibc-attestor -F arbitrum --locked
 
     - name: Install just
       if: (steps.cache-relayer.outputs.cache-hit != 'true')
