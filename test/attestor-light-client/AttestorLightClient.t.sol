@@ -301,7 +301,7 @@ contract AttestorLightClientTest is Test {
         attestationData = abi.encode(p);
         bytes32 digest = sha256(attestationData);
         signatures = new bytes[](signers.length);
-        for (uint256 i = 0; i < signers.length; i++) {
+        for (uint256 i = 0; i < signers.length; ++i) {
             signatures[i] = _sig(signers[i], digest);
         }
     }
@@ -320,7 +320,7 @@ contract AttestorLightClientTest is Test {
         attestationData = abi.encode(s);
         bytes32 digest = sha256(attestationData);
         signatures = new bytes[](signers.length);
-        for (uint256 i = 0; i < signers.length; i++) {
+        for (uint256 i = 0; i < signers.length; ++i) {
             signatures[i] = _sig(signers[i], digest);
         }
     }

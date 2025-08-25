@@ -15,11 +15,11 @@ contract AttestorLightClientGas is Test {
     error NeedAtLeastOneCommitment();
 
     function testGas_VerifyMembership_1of1_1Commit() public {
-        _runScenario({ quorum: 1, attestorCount: 1, commitmentCount: 1, label: "verifyMembership 1of1 - 1 commitment" });
+        _runScenario({ quorum: 1, attestorCount: 1, commitmentCount: 1, label: "verifyMembership 1of1 - 1 commit" });
     }
 
     function testGas_VerifyMembership_1of1_5Commits() public {
-        _runScenario({ quorum: 1, attestorCount: 1, commitmentCount: 5, label: "verifyMembership 1of1 - 5 commitments" });
+        _runScenario({ quorum: 1, attestorCount: 1, commitmentCount: 5, label: "verify 1of1 - 5 commits" });
     }
 
     function testGas_VerifyMembership_1of1_20Commits() public {
@@ -27,16 +27,16 @@ contract AttestorLightClientGas is Test {
             quorum: 1,
             attestorCount: 1,
             commitmentCount: 20,
-            label: "verifyMembership 1of1 - 20 commitments"
+            label: "verify 1of1 - 20 commits"
         });
     }
 
     function testGas_VerifyMembership_3of5_1Commit() public {
-        _runScenario({ quorum: 3, attestorCount: 5, commitmentCount: 1, label: "verifyMembership 3of5 - 1 commitment" });
+        _runScenario({ quorum: 3, attestorCount: 5, commitmentCount: 1, label: "verifyMembership 3of5 - 1 commit" });
     }
 
     function testGas_VerifyMembership_3of5_5Commits() public {
-        _runScenario({ quorum: 3, attestorCount: 5, commitmentCount: 5, label: "verifyMembership 3of5 - 5 commitments" });
+        _runScenario({ quorum: 3, attestorCount: 5, commitmentCount: 5, label: "verify 3of5 - 5 commits" });
     }
 
     function testGas_VerifyMembership_3of5_20Commits() public {
@@ -44,16 +44,16 @@ contract AttestorLightClientGas is Test {
             quorum: 3,
             attestorCount: 5,
             commitmentCount: 20,
-            label: "verifyMembership 3of5 - 20 commitments"
+            label: "verify 3of5 - 20 commits"
         });
     }
 
     function testGas_VerifyMembership_5of7_1Commit() public {
-        _runScenario({ quorum: 5, attestorCount: 7, commitmentCount: 1, label: "verifyMembership 5of7 - 1 commitment" });
+        _runScenario({ quorum: 5, attestorCount: 7, commitmentCount: 1, label: "verifyMembership 5of7 - 1 commit" });
     }
 
     function testGas_VerifyMembership_5of7_5Commits() public {
-        _runScenario({ quorum: 5, attestorCount: 7, commitmentCount: 5, label: "verifyMembership 5of7 - 5 commitments" });
+        _runScenario({ quorum: 5, attestorCount: 7, commitmentCount: 5, label: "verify 5of7 - 5 commits" });
     }
 
     function testGas_VerifyMembership_5of7_20Commits() public {
@@ -61,7 +61,7 @@ contract AttestorLightClientGas is Test {
             quorum: 5,
             attestorCount: 7,
             commitmentCount: 20,
-            label: "verifyMembership 5of7 - 20 commitments"
+            label: "verify 5of7 - 20 commits"
         });
     }
 
@@ -82,7 +82,7 @@ contract AttestorLightClientGas is Test {
         bytes32 digest = sha256(attestationData);
 
         bytes[] memory signatures = new bytes[](quorum);
-        for (uint256 i = 0; i < signatures.length; i++) {
+        for (uint256 i = 0; i < signatures.length; ++i) {
             signatures[i] = _sig(attestorPrivs[i], digest);
         }
 
@@ -106,7 +106,7 @@ contract AttestorLightClientGas is Test {
     function _generateAttestors(uint256 n) internal pure returns (address[] memory addrs, uint256[] memory privs) {
         addrs = new address[](n);
         privs = new uint256[](n);
-        for (uint256 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; ++i) {
             // deterministic but distinct private keys
             uint256 pk = uint256(keccak256(abi.encodePacked("attestor-pk", i + 1)));
             privs[i] = pk;
@@ -117,7 +117,7 @@ contract AttestorLightClientGas is Test {
     function _makeCommitments(uint256 k) internal pure returns (bytes32[] memory commits, bytes32 target) {
         if (k < 1) revert NeedAtLeastOneCommitment();
         commits = new bytes32[](k);
-        for (uint256 i = 0; i < k - 1; i++) {
+        for (uint256 i = 0; i < k - 1; ++i) {
             commits[i] = keccak256(abi.encodePacked("packet-", i));
         }
         target = keccak256(abi.encodePacked("target-packet", k));

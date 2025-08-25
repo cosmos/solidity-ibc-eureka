@@ -50,7 +50,7 @@ contract AttestorLightClient is IAttestorLightClient, IAttestorLightClientErrors
             isFrozen: false
         });
 
-        for (uint256 i = 0; i < attestorAddresses.length; i++) {
+        for (uint256 i = 0; i < attestorAddresses.length; ++i) {
             _isAttestor[attestorAddresses[i]] = true;
         }
 
@@ -135,7 +135,7 @@ contract AttestorLightClient is IAttestorLightClient, IAttestorLightClientErrors
         // Check membership: value must be present in the attested list
         bool found = false;
         bytes32 value = abi.decode(msg_.value, (bytes32));
-        for (uint256 i = 0; i < packetAttestation.packets.length; i++) {
+        for (uint256 i = 0; i < packetAttestation.packets.length; ++i) {
             if (packetAttestation.packets[i] == value) {
                 found = true;
                 break;
@@ -179,7 +179,7 @@ contract AttestorLightClient is IAttestorLightClient, IAttestorLightClientErrors
         uint256 seenLen = 0;
 
         uint256 valid = 0;
-        for (uint256 i = 0; i < signatures.length; i++) {
+        for (uint256 i = 0; i < signatures.length; ++i) {
             bytes memory sig = signatures[i];
             if (sig.length != 65) revert InvalidSignatureLength(i);
 
@@ -189,11 +189,12 @@ contract AttestorLightClient is IAttestorLightClient, IAttestorLightClientErrors
             if (!_isAttestor[recovered]) revert UnknownSigner(recovered);
 
             // check duplicates
-            for (uint256 j = 0; j < seenLen; j++) {
+            for (uint256 j = 0; j < seenLen; ++j) {
                 if (seen[j] == recovered) revert DuplicateSigner(recovered);
             }
-            seen[seenLen++] = recovered;
-            valid++;
+            seen[seenLen] = recovered;
+            ++seenLen;
+            ++valid;
         }
 
         if (valid < clientState.minRequiredSigs) revert ThresholdNotMet(valid, clientState.minRequiredSigs);
