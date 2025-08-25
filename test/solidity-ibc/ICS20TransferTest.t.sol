@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// solhint-disable custom-errors,max-line-length
+// solhint-disable custom-errors,max-line-length,function-max-lines
 
 import { Test } from "forge-std/Test.sol";
 

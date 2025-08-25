@@ -7,7 +7,6 @@ import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
-import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";

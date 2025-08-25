@@ -27,7 +27,7 @@ func (s *TestSuite) getWasmLightClientBinary() *os.File {
 	// For PoW testnets, we use the dummy light client
 	if s.ethTestnetType == testvalues.EthTestnetTypePoW && s.EthWasmType == testvalues.EthWasmTypeDummy {
 		s.T().Log("Using dummy Wasm light client for PoW testnet")
-		file, err := wasm.GetLocalWasmAttestorLightClient()
+		file, err := wasm.GetWasmDummyLightClient()
 		s.Require().NoError(err, "Failed to get local Wasm light client binary")
 		return file
 	}

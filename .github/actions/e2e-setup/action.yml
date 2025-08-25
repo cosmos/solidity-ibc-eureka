@@ -25,6 +25,9 @@ runs:
         path: |
           ~/.cargo/bin/relayer
           ~/.cargo/bin/operator
+          ~/.cargo/bin/ibc_op_attestor
+          ~/.cargo/bin/ibc_arbitrum_attestor
+          ~/.cargo/bin/aggregator
           ./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
         key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'packages/**', 'programs/**', 'abi/**') }}
 
@@ -53,6 +56,19 @@ runs:
     - name: Install just
       if: (steps.cache-relayer.outputs.cache-hit != 'true')
       uses: extractions/setup-just@v2
+
+    - name: Install attestor binaries
+      if: steps.cache-relayer.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        just install-attestor
+
+    - name: Install aggregator
+      if: steps.cache-relayer.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        just install-aggregator
+
     - name: Build SP1 Programs
       if: (steps.cache-relayer.outputs.cache-hit != 'true')
       shell: bash
@@ -64,7 +80,7 @@ runs:
       run: |
         echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
         sudo apt update
-        sudo apt install kurtosis-cli=1.8.1 # Must match the kurtosis library version we use in the e2e tests
+        sudo apt install kurtosis-cli=1.10.3 # Must match the kurtosis library version we use in the e2e tests
         kurtosis engine start
         kurtosis analytics disable
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH

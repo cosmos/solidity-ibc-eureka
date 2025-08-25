@@ -11,7 +11,7 @@ use crate::{sudo, ContractError};
 const STATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 
-/// The instantiate entry point for the CosmWasm contract.
+/// The instantiate entry point for the `CosmWasm` contract.
 /// # Errors
 /// Will return an error if the client state or consensus state cannot be deserialized.
 /// # Panics
@@ -31,7 +31,7 @@ pub fn instantiate(
     Ok(Response::default())
 }
 
-/// The sudo entry point for the CosmWasm contract.
+/// The sudo entry point for the `CosmWasm` contract.
 /// It routes the message to the appropriate handler.
 /// # Errors
 /// Will return an error if the handler returns an error.
@@ -60,7 +60,7 @@ pub fn execute(
     unimplemented!()
 }
 
-/// The query entry point for the CosmWasm contract.
+/// The query entry point for the `CosmWasm` contract.
 /// It routes the message to the appropriate handler.
 /// # Errors
 /// Will return an error if the handler returns an error.
@@ -87,7 +87,7 @@ mod tests {
         consensus_state::ConsensusState,
         header::Header,
         test_utils::{
-            packet_encoded_bytes, KEYS, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS,
+            keys as test_keys, packet_encoded_bytes, sigs as test_sigs, PACKET_COMMITMENTS,
         },
     };
     use cosmwasm_std::Binary;
@@ -106,8 +106,9 @@ mod tests {
     }
 
     pub fn client_state() -> ClientState {
+        let keys = test_keys();
         ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys,
             latest_height: 42,
             is_frozen: false,
             min_required_sigs: 5,
@@ -115,12 +116,14 @@ mod tests {
     }
 
     pub fn header(cns: &ConsensusState) -> Header {
+        let sigs = test_sigs();
+        let keys = test_keys();
         Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
             attestation_data: packet_encoded_bytes(),
-            signatures: SIGS.to_vec(),
-            pubkeys: KEYS.to_vec(),
+            signatures: sigs,
+            pubkeys: keys,
         }
     }
 
@@ -224,10 +227,7 @@ mod tests {
         use crate::{
             contract::{
                 instantiate, query, sudo,
-                tests::{
-                    client_state, consensus, header, make_instatiate_msg, membership_value, KEYS,
-                    PACKET_COMMITMENTS_ENCODED, SIGS,
-                },
+                tests::{client_state, consensus, header, make_instatiate_msg, membership_value},
             },
             msg::{
                 Height, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
@@ -238,6 +238,7 @@ mod tests {
         };
 
         #[test]
+        #[allow(clippy::too_many_lines)]
         fn basic_client_update_flow() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
@@ -263,7 +264,7 @@ mod tests {
             let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
                 client_message: Binary::from(header_bz),
             });
-            let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
+            let update_res = sudo(deps.as_mut(), env, sudo_update_state_msg).unwrap();
             let update_state_result: UpdateStateResult =
                 serde_json::from_slice(&update_res.data.unwrap())
                     .expect("update state result should be deserializable");
@@ -277,10 +278,13 @@ mod tests {
 
             // Verify membership for the added state
             let env = mock_env();
+            let packets = attestor_light_client::test_utils::packets();
+            let sigs = attestor_light_client::test_utils::sigs();
+            let keys = attestor_light_client::test_utils::keys();
             let verifyable = MembershipProof {
-                attestation_data: (*PACKET_COMMITMENTS_ENCODED).clone(),
-                signatures: SIGS.to_vec(),
-                pubkeys: KEYS.to_vec(),
+                attestation_data: packets,
+                signatures: sigs,
+                pubkeys: keys,
             };
             let as_bytes = serde_json::to_vec(&verifyable).unwrap();
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
@@ -305,17 +309,20 @@ mod tests {
                 proof: as_bytes.into(),
                 value: missing_packet.into(),
             });
-            let res = sudo(deps.as_mut(), env.clone(), msg);
+            let res = sudo(deps.as_mut(), env, msg);
             assert!(matches!(res,
                     Err(ContractError::VerifyMembershipFailed(IbcAttestorClientError::MembershipProofFailed(e)))
                     if e.to_string().contains("does not exist")));
 
             // Non existent height fails
             let env = mock_env();
+            let packets = attestor_light_client::test_utils::packets();
+            let sigs = attestor_light_client::test_utils::sigs();
+            let keys = attestor_light_client::test_utils::keys();
             let value = MembershipProof {
-                attestation_data: (*PACKET_COMMITMENTS_ENCODED).clone(),
-                signatures: SIGS.to_vec(),
-                pubkeys: KEYS.to_vec(),
+                attestation_data: packets,
+                signatures: sigs,
+                pubkeys: keys,
             };
             let as_bytes = serde_json::to_vec(&value).unwrap();
             let bad_height = consensus_state.height + 100;
@@ -327,7 +334,7 @@ mod tests {
                 proof: as_bytes.into(),
                 value: membership_value(),
             });
-            let res = sudo(deps.as_mut(), env.clone(), msg);
+            let res = sudo(deps.as_mut(), env, msg);
             assert!(matches!(res, Err(ContractError::ConsensusStateNotFound)));
 
             // Bad attestation fails
@@ -335,8 +342,8 @@ mod tests {
             let bad_data = [[254].to_vec()].to_vec();
             let value = MembershipProof {
                 attestation_data: Packets::new(bad_data),
-                signatures: SIGS.to_vec(),
-                pubkeys: KEYS.to_vec(),
+                signatures: attestor_light_client::test_utils::sigs(),
+                pubkeys: attestor_light_client::test_utils::keys(),
             };
             let as_bytes = serde_json::to_vec(&value).unwrap();
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
@@ -347,7 +354,7 @@ mod tests {
                 proof: as_bytes.into(),
                 value: membership_value(),
             });
-            let res = sudo(deps.as_mut(), env.clone(), msg);
+            let res = sudo(deps.as_mut(), env, msg);
             assert!(matches!(
                 res,
                 Err(ContractError::VerifyMembershipFailed(
@@ -388,7 +395,7 @@ mod tests {
                 let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
                     client_message: Binary::from(header_bz),
                 });
-                let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
+                let update_res = sudo(deps.as_mut(), env, sudo_update_state_msg).unwrap();
                 let update_state_result: UpdateStateResult =
                     serde_json::from_slice(&update_res.data.unwrap())
                         .expect("update state result should be deserializable");
@@ -403,6 +410,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::too_many_lines)]
         fn client_update_flow_with_historical_updates() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
@@ -437,7 +445,7 @@ mod tests {
                 let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
                     client_message: Binary::from(header_bz),
                 });
-                let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
+                let update_res = sudo(deps.as_mut(), env, sudo_update_state_msg).unwrap();
                 let update_state_result: UpdateStateResult =
                     serde_json::from_slice(&update_res.data.unwrap())
                         .expect("update state result should be deserializable");
@@ -473,7 +481,7 @@ mod tests {
                 let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
                     client_message: Binary::from(header_bz),
                 });
-                let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
+                let update_res = sudo(deps.as_mut(), env, sudo_update_state_msg).unwrap();
                 let update_state_result: UpdateStateResult =
                     serde_json::from_slice(&update_res.data.unwrap())
                         .expect("update state result should be deserializable");
@@ -490,10 +498,13 @@ mod tests {
             for i in 1..6 {
                 let env = mock_env();
 
+                let packets = attestor_light_client::test_utils::packets();
+                let sigs = attestor_light_client::test_utils::sigs();
+                let keys = attestor_light_client::test_utils::keys();
                 let value = MembershipProof {
-                    attestation_data: (*PACKET_COMMITMENTS_ENCODED).clone(),
-                    signatures: SIGS.to_vec(),
-                    pubkeys: KEYS.to_vec(),
+                    attestation_data: packets,
+                    signatures: sigs,
+                    pubkeys: keys,
                 };
                 let as_bytes = serde_json::to_vec(&value).unwrap();
                 let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
@@ -507,10 +518,13 @@ mod tests {
                 let res = sudo(deps.as_mut(), env.clone(), msg);
                 assert!(res.is_ok());
 
+                let packets = attestor_light_client::test_utils::packets();
+                let sigs = attestor_light_client::test_utils::sigs();
+                let keys = attestor_light_client::test_utils::keys();
                 let value = MembershipProof {
-                    attestation_data: (*PACKET_COMMITMENTS_ENCODED).clone(),
-                    signatures: SIGS.to_vec(),
-                    pubkeys: KEYS.to_vec(),
+                    attestation_data: packets,
+                    signatures: sigs,
+                    pubkeys: keys,
                 };
                 let as_bytes = serde_json::to_vec(&value).unwrap();
                 let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
