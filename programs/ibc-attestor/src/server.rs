@@ -109,6 +109,7 @@ pub async fn run_arbitrum_server(config: AttestorConfig) -> Result<(), anyhow::E
     run_server(arb, config).await
 }
 
+#[cfg(feature = "cosmos")]
 pub async fn run_cosmos_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
     let cosmos = CosmosClient::from_config(&config.cosmos);
     run_server(cosmos, config).await
