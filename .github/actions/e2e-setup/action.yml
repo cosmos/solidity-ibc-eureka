@@ -27,6 +27,7 @@ runs:
           ~/.cargo/bin/operator
           ~/.cargo/bin/ibc_op_attestor
           ~/.cargo/bin/ibc_arbitrum_attestor
+          ~/.cargo/bin/aggregator
           ./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
         key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'packages/**', 'programs/**', 'abi/**') }}
 
