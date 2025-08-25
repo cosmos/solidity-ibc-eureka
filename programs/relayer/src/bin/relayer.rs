@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use ibc_eureka_relayer::cli::{Commands, RelayerCli};
-use ibc_eureka_relayer_attested_to_cosmos::AttestedToCosmosRelayerModule;
 use ibc_eureka_relayer::observability::init_observability;
+use ibc_eureka_relayer_attested_to_cosmos::AttestedToCosmosRelayerModule;
 use ibc_eureka_relayer_core::{builder::RelayerBuilder, config::RelayerConfig};
 use ibc_eureka_relayer_cosmos_to_cosmos::CosmosToCosmosRelayerModule;
 use ibc_eureka_relayer_cosmos_to_eth::CosmosToEthRelayerModule;
@@ -25,7 +25,10 @@ async fn main() -> anyhow::Result<()> {
 
             let _guard = init_observability(&config.observability)?;
 
-            info!("Observability initialized with level: {}", config.observability.level());
+            info!(
+                "Observability initialized with level: {}",
+                config.observability.level()
+            );
 
             // Build the relayer server.
             let mut relayer_builder = RelayerBuilder::default();
