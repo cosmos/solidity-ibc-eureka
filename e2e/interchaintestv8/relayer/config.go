@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"text/template"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
@@ -76,23 +75,14 @@ func NewConfig(modules []ModuleConfig) Config {
 
 // GenerateConfig creates a config from the template
 func (c *Config) GenerateConfigFile(filePath string) error {
-	templatePath := "relayer/config.tmpl"
-
-	tmpl, err := template.ParseFiles(templatePath)
+	tmpl, err := template.ParseFiles("e2e/interchaintestv8/relayer/config.tmpl")
 	if err != nil {
 		return err
 	}
 
-	// Ensure the directory exists before creating the file
-	dir := filepath.Dir(filePath)
-	err = os.MkdirAll(dir, 0o755)
-	if err != nil {
-		return fmt.Errorf("failed to create directory '%s': %w", dir, err)
-	}
-
 	f, err := os.Create(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to create config file '%s': %w", filePath, err)
+		return err
 	}
 	defer f.Close()
 
