@@ -84,6 +84,9 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	// Start the relayer for cross-chain communication
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
+		err := os.Chdir("../..")
+		s.Require().NoError(err)
+
 		// Configure relayer for Solana <-> Cosmos communication
 		config := relayer.NewConfig(relayer.CreateSolanaCosmosModules(
 			relayer.SolanaCosmosConfigInfo{
