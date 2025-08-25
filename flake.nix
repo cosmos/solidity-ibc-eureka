@@ -40,8 +40,8 @@
             pkg-config
             foundry-bin
             go-ethereum
-            solc_0_8_30
-            (inputs.solc.mkDefault pkgs solc_0_8_30)
+            solc_0_8_28
+            (inputs.solc.mkDefault pkgs solc_0_8_28)
             bun
             just
             golangci-lint
