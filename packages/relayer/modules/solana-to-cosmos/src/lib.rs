@@ -169,7 +169,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         // Build the relay transaction
         let tx = self
             .tx_builder
-            .build_relay_tx(src_events, target_events)
+            .build_relay_tx(&inner_req.dst_client_id, src_events, target_events)
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!(
