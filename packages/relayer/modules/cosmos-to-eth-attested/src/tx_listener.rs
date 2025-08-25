@@ -14,18 +14,6 @@ impl From<FixedBytes<32>> for TxAdapter {
     }
 }
 
-impl From<TxAdapter> for FixedBytes<32> {
-    fn from(value: TxAdapter) -> Self {
-        value.0.into()
-    }
-}
-
-impl From<[u8; 32]> for TxAdapter {
-    fn from(value: [u8; 32]) -> Self {
-        Self(value)
-    }
-}
-
 impl From<TxAdapter> for tendermint::Hash {
     fn from(value: TxAdapter) -> Self {
         tendermint::Hash::Sha256(value.0)
