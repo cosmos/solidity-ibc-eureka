@@ -25,6 +25,7 @@ pub fn initialize(ctx: Context<Initialize>, authority: Pubkey) -> Result<()> {
     app_state.packets_received = 0;
     app_state.packets_acknowledged = 0;
     app_state.packets_timed_out = 0;
+    app_state.packets_sent = 0;
 
     msg!("Dummy IBC App initialized with authority: {}", authority);
 

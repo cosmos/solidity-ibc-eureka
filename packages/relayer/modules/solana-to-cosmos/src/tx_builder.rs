@@ -257,13 +257,14 @@ impl TxBuilder {
     /// - No messages to relay
     pub fn build_relay_tx(
         &self,
+        client_id: &str,
         src_events: Vec<SolanaIbcEvent>,
         target_events: Vec<SolanaIbcEvent>, // Timeout events from target
     ) -> anyhow::Result<TxBody> {
         let mut messages = Vec::new();
 
         // First, update the Solana light client on Cosmos
-        let update_msg = self.build_update_client_msg()?;
+        let update_msg = self.build_update_client_msg(client_id)?;
         messages.push(Any::from_msg(&update_msg)?);
 
         // Process source events from Solana
@@ -446,7 +447,7 @@ impl TxBuilder {
     /// # Errors
     ///
     /// Returns an error if failed to get Solana slot
-    fn build_update_client_msg(&self) -> anyhow::Result<MsgUpdateClient> {
+    fn build_update_client_msg(&self, client_id: &str) -> anyhow::Result<MsgUpdateClient> {
         // Get latest Solana slot/block information
         let slot = self
             .solana_client
@@ -458,7 +459,7 @@ impl TxBuilder {
         // Create update message with latest Solana state
         // This would include proof-of-history verification data
         Ok(MsgUpdateClient {
-            client_id: "08-wasm-0".to_string(), // Example client ID for WASM light client
+            client_id: client_id.to_string(),
             client_message: Some(Any {
                 type_url: "/ibc.lightclients.wasm.v1.Header".to_string(),
                 value: b"mock".to_vec(), // Mock Solana header for testing
@@ -586,13 +587,14 @@ impl MockTxBuilder {
     #[allow(clippy::cognitive_complexity)] // TODO: Refactor when implementing real proof generation
     pub fn build_relay_tx_mock(
         &self,
+        client_id: &str,
         src_events: Vec<SolanaIbcEvent>,
         target_events: Vec<SolanaIbcEvent>,
     ) -> anyhow::Result<TxBody> {
         let mut messages = Vec::new();
 
         // First, update the Solana light client on Cosmos with mock data
-        let update_msg = self.build_update_client_msg_mock()?;
+        let update_msg = self.build_update_client_msg_mock(client_id)?;
         messages.push(Any::from_msg(&update_msg)?);
 
         // Process source events from Solana with mock proofs
@@ -637,7 +639,7 @@ impl MockTxBuilder {
     /// # Errors
     ///
     /// Returns an error if failed to get Solana slot
-    fn build_update_client_msg_mock(&self) -> anyhow::Result<MsgUpdateClient> {
+    fn build_update_client_msg_mock(&self, client_id: &str) -> anyhow::Result<MsgUpdateClient> {
         // Get latest Solana slot/block information
         let slot = self
             .inner
@@ -649,7 +651,7 @@ impl MockTxBuilder {
 
         // Create update message with mock Solana state
         Ok(MsgUpdateClient {
-            client_id: "08-wasm-0".to_string(), // Example client ID for WASM light client
+            client_id: client_id.to_string(),
             client_message: Some(Any {
                 type_url: "/ibc.lightclients.wasm.v1.Header".to_string(),
                 value: b"mock_solana_header".to_vec(), // Mock header
