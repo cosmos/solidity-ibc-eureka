@@ -26,7 +26,7 @@ use ibc_eureka_solidity_types::{
     attestor_light_client,
     ics26::{
         router::{multicallCall, routerCalls, routerInstance, updateClientCall},
-        IICS02ClientMsgs::Height as ICS20Height,
+        IICS02ClientMsgs::Height as ICS26Height,
         IICS26RouterMsgs::Packet,
     },
     msgs::IAttestorMsgs::AttestationProof,
@@ -203,15 +203,16 @@ where
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
+        let dummy_height = ICS26Height {
+            revisionHeight: 0,
+            revisionNumber: 0,
+        };
         let timeout_msgs = eth_eureka::target_events_to_timeout_msgs(
             target_events,
             &src_client_id,
             &dst_client_id,
             &dst_packet_seqs,
-            &ICS20Height {
-                revisionHeight: query_height,
-                revisionNumber: 0,
-            },
+            &dummy_height,
             now_since_unix.as_secs(),
         );
         let mut recv_and_ack_msgs = eth_eureka::src_events_to_recv_and_ack_msgs(
@@ -220,11 +221,7 @@ where
             &dst_client_id,
             &src_packet_seqs,
             &dst_packet_seqs,
-            &ICS20Height {
-                revisionHeight: query_height,
-                // The attestor does not care about this
-                revisionNumber: 0,
-            },
+            &dummy_height,
             now_since_unix.as_secs(),
         );
 
@@ -232,7 +229,12 @@ where
         tracing::debug!("Recv & ack messages: #{}", recv_and_ack_msgs.len());
 
         let proof = build_abi_encoded_proof(packets.attested_data, packets.signatures);
-        attestor::inject_proofs_for_evm_msg(&mut recv_and_ack_msgs, &proof);
+        // We inject heigth here to follow the same method as eth to cosmos attested
+        let actual_height = ICS26Height {
+            revisionNumber: 0,
+            revisionHeight: query_height,
+        };
+        attestor::inject_proofs_for_evm_msg(&mut recv_and_ack_msgs, &proof, &actual_height);
 
         // NOTE: UpdateMsg must come first otherwise
         // client state may not contain the needed
@@ -245,7 +247,7 @@ where
                 routerCalls::ackPacket(call) => call.abi_encode(),
                 routerCalls::recvPacket(call) => call.abi_encode(),
                 routerCalls::timeoutPacket(call) => call.abi_encode(),
-                _ => unreachable!("only ack, recv msg and timeout msgs allowed"),
+                _ => unreachable!("only ack, recv and timeout msgs allowed"),
             });
 
         let multicall_tx = multicallCall {

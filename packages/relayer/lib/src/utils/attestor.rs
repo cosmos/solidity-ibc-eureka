@@ -1,9 +1,11 @@
 use alloy::primitives::Bytes;
-use ibc_eureka_solidity_types::ics26::router::routerCalls;
+use ibc_eureka_solidity_types::ics26::{
+    router::routerCalls, IICS02ClientMsgs::Height as ICS26Height,
+};
 use ibc_proto_eureka::ibc::core::{channel::v2::MsgRecvPacket, client::v1::Height};
 
 /// Injects the `proofs` for a given height into
-/// [`MsgRecvPacket`] msgs
+/// [MsgRecvPacket] msgs
 pub fn inject_proofs_for_tm_msg(recv_msgs: &mut [MsgRecvPacket], proof: &[u8], height: u64) {
     for msg in recv_msgs.iter_mut() {
         msg.proof_commitment = proof.to_vec();
@@ -14,12 +16,19 @@ pub fn inject_proofs_for_tm_msg(recv_msgs: &mut [MsgRecvPacket], proof: &[u8], h
     }
 }
 
-/// Injects the `proofs` for a given height into [`MsgRecvPacket`] msgs.
+/// Injects the `proofs` for a given height into [routerCalls::recvPacket] msgs.
 /// The height must be provided
-pub fn inject_proofs_for_evm_msg(recv_msgs: &mut [routerCalls], proof: &[u8]) {
+pub fn inject_proofs_for_evm_msg(
+    recv_msgs: &mut [routerCalls],
+    proof: &[u8],
+    height: &ICS26Height,
+) {
     for msg in recv_msgs.iter_mut() {
         match msg {
-            routerCalls::recvPacket(call) => call.msg_.proofCommitment = Bytes::from_iter(proof),
+            routerCalls::recvPacket(call) => {
+                call.msg_.proofCommitment = Bytes::from_iter(proof);
+                call.msg_.proofHeight = height.clone();
+            }
             _ => continue,
         }
     }
