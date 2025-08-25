@@ -1,4 +1,4 @@
-//! This is a one-sided relayer module from an Attested chain to a Cosmos SDK chain.
+//! This is a one-sided relayer module from an Attested Cosmos SDK chain to Ethereum.
 
 #![deny(
     clippy::nursery,
@@ -37,11 +37,11 @@ use ibc_eureka_relayer_core::{
 
 use crate::tx_listener::{TxAdapter, TxListener};
 
-/// The `AttestedToCosmosRelayerModule` struct defines the Attested to Cosmos relayer module.
+/// The `CosmosToEthAttestedRelayerModule` struct defines the Attested to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
 pub struct CosmosToEthAttestedRelayerModule;
 
-/// The `AttestedToCosmosRelayerModuleService` defines the relayer service from Attested to Cosmos.
+/// The `CosmosToEthAttestedRelayerModuleService` defines the relayer service from Attested to Cosmos.
 struct CosmosToEthAttestedRelayerModuleService<T>
 where
     T: TxListener,
@@ -50,33 +50,29 @@ where
     pub attested_chain_id: String,
     /// The chain listener for `Cosmos`.
     pub attestor_listener: T,
-    /// The target chain listener for Cosmos SDK.
+    /// The `Ethereum` chain listener
     pub eth_listener: eth_eureka::ChainListener<RootProvider>,
-    /// The transaction builder from Attested to Cosmos.
+    /// The transaction builder for `Cosmos` to `Ethereum`
     pub tx_builder: tx_builder::TxBuilder<RootProvider>,
 }
 
-/// The configuration for the Attested to Cosmos relayer module.
+/// The configuration for the Cosmos to Ethereum attested relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub struct EthToCosmosAttestedConfig {
+pub struct CosmosToEthAttestedConfig {
     /// The source chain ID for the attested chain.
     pub attested_chain_id: String,
     /// The aggregator service URL for fetching attestations.
     pub aggregator_url: String,
-    // TODO: Make this chain agnostic, see IBC-162
-    /// The EVM RPC URL.
+    /// Attested RPC address for the cosmos chain
     pub attested_rpc_url: String,
     /// ICS26 address
     pub ics26_address: Address,
     /// The target ETH RPC address
     pub eth_rpc_url: String,
-    /// The address of the submitter.
-    /// Required since cosmos messages require a signer address.
-    pub signer_address: String,
 }
 
 impl CosmosToEthAttestedRelayerModuleService<cosmos_sdk::ChainListener> {
-    pub async fn new(config: EthToCosmosAttestedConfig) -> Self {
+    pub async fn new(config: CosmosToEthAttestedConfig) -> Self {
         let tm_client = HttpClient::from_rpc_url(&config.attested_rpc_url);
         let attestor_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
@@ -253,7 +249,7 @@ where
 #[tonic::async_trait]
 impl RelayerModule for CosmosToEthAttestedRelayerModule {
     fn name(&self) -> &'static str {
-        "attested_to_cosmos"
+        "cosmos_to_eth_attested"
     }
 
     #[tracing::instrument(skip_all)]
@@ -261,10 +257,10 @@ impl RelayerModule for CosmosToEthAttestedRelayerModule {
         &self,
         config: serde_json::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
-        let config = serde_json::from_value::<EthToCosmosAttestedConfig>(config)
+        let config = serde_json::from_value::<CosmosToEthAttestedConfig>(config)
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
-        tracing::info!("Starting Attested to Cosmos relayer server.");
+        tracing::info!("Starting Cosmos to Eth attested relayer server.");
         Ok(Box::new(
             CosmosToEthAttestedRelayerModuleService::new(config).await,
         ))
@@ -285,22 +281,20 @@ mod tests {
 
     #[test]
     fn test_config_serialization() {
-        let config = EthToCosmosAttestedConfig {
+        let config = CosmosToEthAttestedConfig {
             aggregator_url: "http://localhost:8080".to_string(),
             ics26_address: Address(hex!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").into()),
             attested_rpc_url: "http://localhost:8080".to_string(),
             eth_rpc_url: "http://localhost:26657".to_string(),
-            signer_address: "cosmos1abc123".to_string(),
             attested_chain_id: "attested-chain-1".to_string(),
         };
 
         let json = serde_json::to_string(&config).expect("Failed to serialize config");
-        let deserialized: EthToCosmosAttestedConfig =
+        let deserialized: CosmosToEthAttestedConfig =
             serde_json::from_str(&json).expect("Failed to deserialize config");
 
         assert_eq!(config.aggregator_url, deserialized.aggregator_url);
         assert_eq!(config.eth_rpc_url, deserialized.eth_rpc_url);
-        assert_eq!(config.signer_address, deserialized.signer_address);
         assert_eq!(config.attested_chain_id, deserialized.attested_chain_id);
     }
 }
