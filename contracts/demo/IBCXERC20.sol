@@ -13,9 +13,9 @@ import { IICS27GMP } from "../interfaces/IICS27GMP.sol";
 /// @notice This implementation is intended to serve as a base reference for developers creating their own
 /// IBC-compatible upgradeable xERC20 tokens.
 contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable {
-    /// @notice Caller is not authorized
+    /// @notice Caller is not the bridge
     /// @param caller The address of the caller
-    error CallerUnauthorized(address caller);
+    error CallerNotBridge(address caller);
 
     /// @notice Storage of the IBCXERC20 contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
@@ -25,6 +25,7 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
         string clientId;
         string receiver;
         bytes payload;
+        address bridge;
     }
 
     /// @notice ERC-7201 slot for the IBCXERC20 storage
@@ -52,7 +53,8 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
         address ics27Gmp_,
         string calldata clientId_,
         string calldata receiver_,
-        bytes calldata payload_
+        bytes calldata payload_,
+        address bridge_
     )
         external
         initializer
@@ -65,6 +67,7 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
         $.clientId = clientId_;
         $.receiver = receiver_;
         $.payload = payload_;
+        $.bridge = bridge_;
     }
 
     /**
@@ -86,12 +89,12 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
     }
 
     /// @inheritdoc IMintableAndBurnable
-    function mint(address mintAddress, uint256 amount) external onlyOwner {
+    function mint(address mintAddress, uint256 amount) external onlyBridge {
         _mint(mintAddress, amount);
     }
 
     /// @inheritdoc IMintableAndBurnable
-    function burn(address mintAddress, uint256 amount) external onlyOwner {
+    function burn(address mintAddress, uint256 amount) external onlyBridge {
         _burn(mintAddress, amount);
 
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
@@ -119,4 +122,10 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
     /// @inheritdoc UUPSUpgradeable
     function _authorizeUpgrade(address) internal view override(UUPSUpgradeable) onlyOwner { }
     // solhint-disable-previous-line no-empty-blocks
+
+    /// @notice Modifier to restrict access to the bridge only
+    modifier onlyBridge() {
+        require(_msgSender() == _getIBCXERC20Storage().bridge, CallerNotBridge(msg.sender));
+        _;
+    }
 }

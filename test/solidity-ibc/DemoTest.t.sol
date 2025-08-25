@@ -15,7 +15,6 @@ import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.so
 import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
 import { IICS27Account } from "../../contracts/interfaces/IICS27Account.sol";
 
-import { XERC20 } from "@defi-wonderland/xerc20/contracts/XERC20.sol";
 import { IbcImpl } from "./utils/IbcImpl.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
 import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
@@ -24,16 +23,16 @@ import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { RefImplIBCERC20 } from "./utils/RefImplIBCERC20.sol";
+import { IBCXERC20 } from "../../contracts/demo/IBCXERC20.sol";
 
-contract Integration2Test is Test {
+contract DemoTest is Test {
     IbcImpl public ibcImplA;
     IbcImpl public ibcImplB;
 
     address public userA = makeAddr("userA");
     address public userB = makeAddr("userB");
-    address public factory = makeAddr("factory");
-    XERC20 public xerc20;
+    address public owner = makeAddr("owner");
+    IBCXERC20 public xerc20;
 
     TestHelper public th = new TestHelper();
     IntegrationEnv public integrationEnv = new IntegrationEnv();
@@ -51,8 +50,6 @@ contract Integration2Test is Test {
         clientId = ibcImplB.addCounterpartyImpl(ibcImplA, th.FIRST_CLIENT_ID());
         assertEq(clientId, th.FIRST_CLIENT_ID());
 
-        xerc20 = new XERC20("Test", "WF", factory);
-
         // precompute account address
         IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
             clientId: th.FIRST_CLIENT_ID(),
@@ -61,12 +58,13 @@ contract Integration2Test is Test {
         });
         address computedAccount = ibcImplB.ics27Gmp().getOrComputeAccountAddress(accountId);
 
-        vm.prank(factory);
-        xerc20.setLimits(computedAccount, 100, 100);
+        address xerc20Logic = address(new IBCXERC20());
+        ERC1967Proxy xerc20Proxy = new ERC1967Proxy(xerc20Logic, abi.encodeCall(IBCXERC20.initialize, (owner, "WildFlower", "WF", address(ibcImplB.ics27Gmp()), th.FIRST_CLIENT_ID(), "receiver", "test_payload", computedAccount)));
+        xerc20 = IBCXERC20(address(xerc20Proxy));
     }
 
     function testXERC20() public {
-        bytes memory payload = abi.encodeCall(XERC20.mint, (userB, 10));
+        bytes memory payload = abi.encodeCall(IBCXERC20.mint, (userB, 10));
         IICS26RouterMsgs.Packet memory sentPacket =
             ibcImplA.sendGmpAsUser(userA, Strings.toHexString(address(xerc20)), payload, "");
         bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
