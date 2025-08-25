@@ -5,6 +5,7 @@
 use std::collections::{HashMap, HashSet};
 
 use alloy::sol_types::SolValue;
+use alloy_primitives::Address;
 use anyhow::Result;
 use attestor_light_client::{
     client_state::ClientState as AttestorClientState,
@@ -21,7 +22,6 @@ use ibc_proto_eureka::{
         },
     },
 };
-use alloy_primitives::Address;
 use prost::Message;
 use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
@@ -344,7 +344,10 @@ mod tests {
         let abi = Packets::new(commitments).to_abi_bytes();
 
         let parsed: Result<Vec<Vec<u8>>, _> = serde_json::from_slice(&abi);
-        assert!(parsed.is_err(), "ABI-encoded bytes32[] must not be parsed as JSON");
+        assert!(
+            parsed.is_err(),
+            "ABI-encoded bytes32[] must not be parsed as JSON"
+        );
     }
 
     #[test]

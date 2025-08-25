@@ -28,7 +28,6 @@ pub enum IbcAttestorClientError {
     #[error("Membership proof failed: {0}")]
     MembershipProofFailed(#[from] PacketAttestationError),
 
-
     /// Unregistered address recovered from signature
     #[error("Unknown address recovered from signature: {address:02x?}")]
     UnknownAddressRecovered {
@@ -50,6 +49,4 @@ pub enum IbcAttestorClientError {
     /// Client is frozen
     #[error("Client is frozen")]
     ClientFrozen,
-
-    
 }

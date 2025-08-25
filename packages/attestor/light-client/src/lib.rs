@@ -1,11 +1,12 @@
 #![doc = "Attestor light client for IBC"]
 #![deny(
-	clippy::nursery,
-	clippy::pedantic,
-	warnings,
-	missing_docs,
-	unused_crate_dependencies
+    clippy::nursery,
+    clippy::pedantic,
+    warnings,
+    missing_docs,
+    unused_crate_dependencies
 )]
+#![cfg_attr(test, allow(clippy::borrow_interior_mutable_const))]
 
 // Keep sha3 as an unused crate dependency to satisfy workspace feature constraints
 use sha3 as _;

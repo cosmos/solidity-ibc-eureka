@@ -7,7 +7,8 @@ pub use fixtures::*;
     missing_docs,
     clippy::borrow_interior_mutable_const,
     clippy::declare_interior_mutable_const,
-    clippy::missing_panics_doc
+    clippy::missing_panics_doc,
+    clippy::redundant_closure_for_method_calls
 )]
 #[cfg(any(test, feature = "test-utils"))]
 mod fixtures {
@@ -18,11 +19,16 @@ mod fixtures {
     use sha2::{Digest, Sha256};
     use std::cell::LazyCell;
 
-    pub const PACKET_COMMITMENTS: [[u8; 32]; 3] =
-        [[1u8; 32], [2u8; 32], [3u8; 32]];
+    pub const PACKET_COMMITMENTS: [[u8; 32]; 3] = [[1u8; 32], [2u8; 32], [3u8; 32]];
 
-    pub const PACKET_COMMITMENTS_ENCODED: LazyCell<Packets> =
-        LazyCell::new(|| Packets::new(PACKET_COMMITMENTS.iter().map(|p| FixedBytes::<32>::from(*p)).collect()));
+    pub const PACKET_COMMITMENTS_ENCODED: LazyCell<Packets> = LazyCell::new(|| {
+        Packets::new(
+            PACKET_COMMITMENTS
+                .iter()
+                .map(|p| FixedBytes::<32>::from(*p))
+                .collect(),
+        )
+    });
 
     pub const S_SIGNERS: LazyCell<Vec<PrivateKeySigner>> = LazyCell::new(|| {
         vec![
@@ -34,16 +40,14 @@ mod fixtures {
         ]
     });
 
-    pub const KEYS: LazyCell<Vec<Address>> = LazyCell::new(|| {
-        S_SIGNERS.iter().map(|s| s.address()).collect()
-    });
+    pub const KEYS: LazyCell<Vec<Address>> =
+        LazyCell::new(|| S_SIGNERS.iter().map(|s| s.address()).collect());
 
     pub const ADDRESSES: LazyCell<Vec<Address>> = LazyCell::new(|| {
         // Keep a separate constant for tests that import ADDRESSES directly
         KEYS.clone()
     });
 
-    
     pub const SIGS_RAW: LazyCell<Vec<Vec<u8>>> = LazyCell::new(|| {
         S_SIGNERS
             .iter()

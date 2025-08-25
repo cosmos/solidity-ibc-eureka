@@ -3,9 +3,7 @@ use solana_sdk::pubkey::Pubkey;
 
 mod account_state;
 
-use crate::adapter_client::{
-    AttestationAdapter,
-};
+use crate::adapter_client::AttestationAdapter;
 use crate::cli::SolanaClientConfig;
 use crate::AttestorError;
 use ibc_eureka_solidity_types::msgs::IAttestorMsgs;

@@ -61,7 +61,12 @@ impl AttestatorData {
                     .map(|att| att.signature.clone())
                     .collect();
 
-                AggregatedAttestation { height: h, timestamp: ts, attested_data: att, signatures: sigs }
+                AggregatedAttestation {
+                    height: h,
+                    timestamp: ts,
+                    attested_data: att,
+                    signatures: sigs,
+                }
             })
     }
 }
@@ -92,7 +97,6 @@ impl Attestation {
 
         Ok(())
     }
-
 }
 
 #[cfg(test)]
@@ -108,7 +112,7 @@ mod tests {
     #[test]
     fn accepts_65_byte_signatures() {
         let mut attestator_data = AttestatorData::new();
-        
+
         let result = attestator_data.insert(Attestation {
             attested_data: vec![1],
             address: vec![0x03; ADDRESS_BYTE_LENGTH],
@@ -116,14 +120,14 @@ mod tests {
             timestamp: Some(100),
             signature: create_valid_65_byte_signature(),
         });
-        
+
         assert!(result.is_ok(), "Should accept 65-byte signatures");
     }
 
     #[test]
     fn rejects_64_byte_signatures() {
         let mut attestator_data = AttestatorData::new();
-        
+
         let result = attestator_data.insert(Attestation {
             attested_data: vec![1],
             address: vec![0x03; ADDRESS_BYTE_LENGTH],
@@ -131,12 +135,15 @@ mod tests {
             timestamp: Some(100),
             signature: vec![0x04; 64], // Old 64-byte format
         });
-        
+
         assert!(result.is_err(), "Should reject 64-byte signatures");
         // The error is wrapped by context, so we just verify it's an error
         let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("Invalid attestation"), 
-            "Should be an invalid attestation error, got: {}", err_msg);
+        assert!(
+            err_msg.contains("Invalid attestation"),
+            "Should be an invalid attestation error, got: {}",
+            err_msg
+        );
     }
 
     #[test]

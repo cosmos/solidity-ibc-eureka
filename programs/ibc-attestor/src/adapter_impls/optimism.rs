@@ -13,9 +13,7 @@ mod config;
 use futures::{stream::FuturesUnordered, StreamExt};
 use ibc_eureka_solidity_types::ics26::{router::routerInstance, IICS26RouterMsgs::Packet};
 
-use crate::adapter_client::{
-    AttestationAdapter,
-};
+use crate::adapter_client::AttestationAdapter;
 use crate::AttestorError;
 use ibc_eureka_solidity_types::msgs::IAttestorMsgs;
 
@@ -91,7 +89,10 @@ impl AttestationAdapter for OpClient {
         height: u64,
     ) -> Result<IAttestorMsgs::StateAttestation, AttestorError> {
         let ts = self.get_timestamp_for_block_at_height(height).await?;
-        Ok(IAttestorMsgs::StateAttestation { height, timestamp: ts })
+        Ok(IAttestorMsgs::StateAttestation {
+            height,
+            timestamp: ts,
+        })
     }
     async fn get_unsigned_packet_attestation_at_height(
         &self,
@@ -132,10 +133,8 @@ impl AttestationAdapter for OpClient {
 
         tracing::debug!("Total optimism packets validated : {}", validated.len());
 
-        let packets: Vec<FixedBytes<32>> = validated
-            .into_iter()
-            .map(FixedBytes::<32>::from)
-            .collect();
+        let packets: Vec<FixedBytes<32>> =
+            validated.into_iter().map(FixedBytes::<32>::from).collect();
         Ok(IAttestorMsgs::PacketAttestation { height, packets })
     }
 }

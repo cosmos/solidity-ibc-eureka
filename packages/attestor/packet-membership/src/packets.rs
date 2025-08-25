@@ -1,7 +1,7 @@
 use alloy_primitives::FixedBytes as AlloyFixedBytes;
-use alloy_sol_types::SolType;
-use alloy_sol_types::sol_data::FixedBytes as SolFixedBytes;
 use alloy_sol_types::sol_data::Array as SolArray;
+use alloy_sol_types::sol_data::FixedBytes as SolFixedBytes;
+use alloy_sol_types::SolType;
 
 /// Wrapper type that represents a list of packet commitments.
 /// Each packet commitment is represented as a fixed-size 32-byte array.
@@ -23,29 +23,29 @@ impl Packets {
     pub fn packets(&self) -> impl Iterator<Item = &AlloyFixedBytes<32>> {
         self.0.iter()
     }
-    
+
     /// Encode packet commitments to ABI bytes as bytes32[]
     #[must_use]
     pub fn to_abi_bytes(&self) -> Vec<u8> {
         SolArray::<SolFixedBytes<32>>::abi_encode(&self.0)
     }
-    
+
     /// Decode packet commitments from ABI bytes encoded as bytes32[]
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if the provided data cannot be decoded as a valid array of 32-byte fixed bytes.
     pub fn from_abi_bytes(data: &[u8]) -> Result<Self, alloy_sol_types::Error> {
         let packets = SolArray::<SolFixedBytes<32>>::abi_decode(data)?;
         Ok(Self(packets))
     }
-    
+
     /// Get the inner `Vec<FixedBytes<32>>`
     #[must_use]
     pub fn into_inner(self) -> Vec<AlloyFixedBytes<32>> {
         self.0
     }
-    
+
     /// Get a reference to the inner `Vec<FixedBytes<32>>`
     #[must_use]
     pub const fn as_inner(&self) -> &Vec<AlloyFixedBytes<32>> {

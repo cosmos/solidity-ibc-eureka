@@ -22,7 +22,9 @@ use sec1::{
 /// - ASN.1 decoding errors if the DER is malformed or the wrong type
 /// - Key-length validation if the inner scalar isn’t exactly 32 bytes
 /// - `secp256k1` range errors if the scalar is invalid
-pub fn read_private_pem_to_secret<P: AsRef<Path>>(path: P) -> Result<PrivateKeySigner, anyhow::Error> {
+pub fn read_private_pem_to_secret<P: AsRef<Path>>(
+    path: P,
+) -> Result<PrivateKeySigner, anyhow::Error> {
     let pem_str = fs::read_to_string(path)?;
     let pem = parse_pem(&pem_str)?;
 
@@ -85,7 +87,10 @@ pub fn read_public_key_to_string<P: AsRef<Path>>(path: P) -> Result<String, anyh
 /// or not a valid public key encoding.
 pub fn parse_public_key(bytes: &[u8]) -> Result<Vec<u8>, anyhow::Error> {
     if bytes.len() != 33 {
-        return Err(anyhow::anyhow!("Public key must be exactly 33 bytes, got {}", bytes.len()));
+        return Err(anyhow::anyhow!(
+            "Public key must be exactly 33 bytes, got {}",
+            bytes.len()
+        ));
     }
     Ok(bytes.to_vec())
 }
@@ -134,7 +139,7 @@ mod read_private_key_pem {
 
     use super::*;
     use pkcs8::{ObjectIdentifier, SecretDocument};
-    use rand_core::{RngCore, OsRng};
+    use rand_core::{OsRng, RngCore};
     use sec1::{
         pem::{LineEnding, PemLabel},
         EcParameters, EcPrivateKey,
@@ -199,8 +204,8 @@ mod parse_public_key {
     fn succeeds_on_valid_pkey() {
         let mut comp = [2u8; 33];
         comp[0] = 0x02;
-        for i in 1..33 {
-            comp[i] = i as u8;
+        for (i, item) in comp.iter_mut().enumerate().skip(1) {
+            *item = i as u8;
         }
 
         let pk2 = parse_public_key(&comp).unwrap();

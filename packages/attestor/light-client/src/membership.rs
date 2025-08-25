@@ -48,10 +48,11 @@ pub fn verify_membership(
     )?;
 
     // Decode the ABI-encoded attestation data to get the packet commitments
-    let packets = Packets::from_abi_bytes(&attested_state.attestation_data)
-        .map_err(|e| IbcAttestorClientError::InvalidProof {
+    let packets = Packets::from_abi_bytes(&attested_state.attestation_data).map_err(|e| {
+        IbcAttestorClientError::InvalidProof {
             reason: format!("Failed to decode ABI attestation data: {e}"),
-        })?;
+        }
+    })?;
 
     verify_packet_membership::verify_packet_membership(packets, value)?;
 
@@ -82,7 +83,12 @@ mod verify_membership {
             height: 100,
             timestamp: 123,
         };
-        let cs = ClientState { attestor_addresses: ADDRESSES.clone(), latest_height: 100, min_required_sigs: 5, is_frozen: false };
+        let cs = ClientState {
+            attestor_addresses: ADDRESSES.clone(),
+            latest_height: 100,
+            min_required_sigs: 5,
+            is_frozen: false,
+        };
 
         let height = cns.height;
         let attestation = MembershipProof {
@@ -103,11 +109,16 @@ mod verify_membership {
             height: 100,
             timestamp: 123,
         };
-        let cs = ClientState { attestor_addresses: ADDRESSES.clone(), latest_height: 100, min_required_sigs: 5, is_frozen: false };
+        let cs = ClientState {
+            attestor_addresses: ADDRESSES.clone(),
+            latest_height: 100,
+            min_required_sigs: 5,
+            is_frozen: false,
+        };
 
         let bad_height = cns.height + 1;
         let attestation = MembershipProof {
-            attestation_data: (*PACKET_COMMITMENTS_ENCODED).to_abi_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: SIGS_RAW.clone(),
         };
 
@@ -125,7 +136,12 @@ mod verify_membership {
             height: 100,
             timestamp: 123,
         };
-        let cs = ClientState { attestor_addresses: ADDRESSES.clone(), latest_height: 100, min_required_sigs: 5, is_frozen: false };
+        let cs = ClientState {
+            attestor_addresses: ADDRESSES.clone(),
+            latest_height: 100,
+            min_required_sigs: 5,
+            is_frozen: false,
+        };
 
         let height = cns.height;
         let attestation = [0, 1, 3].to_vec();
@@ -148,7 +164,12 @@ mod verify_membership {
             timestamp: 123,
         };
         // Empty attestor set will cause UnknownAddressRecovered
-        let cs = ClientState { attestor_addresses: Vec::new(), latest_height: 100, min_required_sigs: 5, is_frozen: false };
+        let cs = ClientState {
+            attestor_addresses: Vec::new(),
+            latest_height: 100,
+            min_required_sigs: 5,
+            is_frozen: false,
+        };
 
         let height = cns.height;
         let attestation = MembershipProof {
@@ -159,6 +180,9 @@ mod verify_membership {
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
         let value = PACKET_COMMITMENTS[0].to_vec();
         let res = verify_membership(&cns, &cs, height, as_bytes, value);
-        assert!(matches!(res, Err(IbcAttestorClientError::UnknownAddressRecovered { .. })));
+        assert!(matches!(
+            res,
+            Err(IbcAttestorClientError::UnknownAddressRecovered { .. })
+        ));
     }
 }

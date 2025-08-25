@@ -83,14 +83,15 @@ pub fn verify_header(
 
 #[cfg(test)]
 mod verify_header {
-    use crate::test_utils::{PACKET_COMMITMENTS_ENCODED, ADDRESSES, SIGS_RAW};
+    use crate::test_utils::{ADDRESSES, PACKET_COMMITMENTS_ENCODED, SIGS_RAW};
 
     use super::*;
 
     #[test]
     fn fails_on_frozon() {
+        let addresses = ADDRESSES.clone();
         let frozen = ClientState {
-            attestor_addresses: ADDRESSES.clone(),
+            attestor_addresses: addresses,
             latest_height: 100,
             is_frozen: true,
             min_required_sigs: 5,
@@ -167,7 +168,11 @@ mod verify_header {
 
         let res = verify_header(Some(&cns), None, None, &cs, &header);
         // This should fail with either InvalidSignature or UnknownAddressRecovered
-        assert!(matches!(res, Err(IbcAttestorClientError::InvalidSignature) | Err(IbcAttestorClientError::UnknownAddressRecovered { .. })));
+        assert!(matches!(
+            res,
+            Err(IbcAttestorClientError::InvalidSignature
+                | IbcAttestorClientError::UnknownAddressRecovered { .. })
+        ));
     }
 
     #[test]

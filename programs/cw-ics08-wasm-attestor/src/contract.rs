@@ -87,9 +87,7 @@ mod tests {
         client_state::ClientState,
         consensus_state::ConsensusState,
         header::Header,
-        test_utils::{
-            KEYS, PACKET_COMMITMENTS, SIGS_RAW, PACKET_COMMITMENTS_ENCODED,
-        },
+        test_utils::{KEYS, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS_RAW},
     };
     use cosmwasm_std::Binary;
 
@@ -213,7 +211,11 @@ mod tests {
     }
 
     mod integration_tests {
-        use attestor_light_client::{error::IbcAttestorClientError, membership::MembershipProof, test_utils::{SIGS_RAW, PACKET_COMMITMENTS_ENCODED}};
+        use attestor_light_client::{
+            error::IbcAttestorClientError,
+            membership::MembershipProof,
+            test_utils::{PACKET_COMMITMENTS_ENCODED, SIGS_RAW},
+        };
         use attestor_packet_membership::Packets;
         use cosmwasm_std::{
             coins,
@@ -224,9 +226,7 @@ mod tests {
         use crate::{
             contract::{
                 instantiate, query, sudo,
-                tests::{
-                    client_state, consensus, header, make_instatiate_msg, membership_value,
-                },
+                tests::{client_state, consensus, header, make_instatiate_msg, membership_value},
             },
             msg::{
                 Height, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
@@ -669,7 +669,9 @@ mod tests {
             let err = query(deps.as_ref(), env, query_verify_client_msg).unwrap_err();
             assert!(matches!(
                 err,
-                ContractError::VerifyClientMessageFailed(IbcAttestorClientError::UnknownAddressRecovered { .. })
+                ContractError::VerifyClientMessageFailed(
+                    IbcAttestorClientError::UnknownAddressRecovered { .. }
+                )
             ));
         }
 

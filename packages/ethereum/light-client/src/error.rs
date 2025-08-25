@@ -33,8 +33,6 @@ pub enum EthereumIBCError {
     #[error("unsupported fork version, must be electra or later")]
     MustBeElectraOrLater,
 
-    
-
     #[error(transparent)]
     InvalidMerkleBranch(#[from] Box<InvalidMerkleBranch>), // boxed to decrease enum size
 

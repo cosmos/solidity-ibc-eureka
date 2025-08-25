@@ -23,12 +23,7 @@ contract AttestorLightClientGas is Test {
     }
 
     function testGas_VerifyMembership_1of1_20Commits() public {
-        _runScenario({
-            quorum: 1,
-            attestorCount: 1,
-            commitmentCount: 20,
-            label: "verify 1of1 - 20 commits"
-        });
+        _runScenario({ quorum: 1, attestorCount: 1, commitmentCount: 20, label: "verify 1of1 - 20 commits" });
     }
 
     function testGas_VerifyMembership_3of5_1Commit() public {
@@ -40,12 +35,7 @@ contract AttestorLightClientGas is Test {
     }
 
     function testGas_VerifyMembership_3of5_20Commits() public {
-        _runScenario({
-            quorum: 3,
-            attestorCount: 5,
-            commitmentCount: 20,
-            label: "verify 3of5 - 20 commits"
-        });
+        _runScenario({ quorum: 3, attestorCount: 5, commitmentCount: 20, label: "verify 3of5 - 20 commits" });
     }
 
     function testGas_VerifyMembership_5of7_1Commit() public {
@@ -57,12 +47,7 @@ contract AttestorLightClientGas is Test {
     }
 
     function testGas_VerifyMembership_5of7_20Commits() public {
-        _runScenario({
-            quorum: 5,
-            attestorCount: 7,
-            commitmentCount: 20,
-            label: "verify 5of7 - 20 commits"
-        });
+        _runScenario({ quorum: 5, attestorCount: 7, commitmentCount: 20, label: "verify 5of7 - 20 commits" });
     }
 
     function _runScenario(uint8 quorum, uint256 attestorCount, uint256 commitmentCount, string memory label) internal {
