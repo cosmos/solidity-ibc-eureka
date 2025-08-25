@@ -14,14 +14,29 @@ const (
 	ModuleCosmosToEth       = "cosmos_to_eth"
 	ModuleEthToCosmos       = "eth_to_cosmos"
 	ModuleEthToCosmosCompat = "eth_to_cosmos_compat"
+	ModuleAttestedToCosmos  = "attested_to_cosmos"
 )
 
-// Config represents the relayer configuration structure and serves as template data
+// Config represents the relayer configuration structure aligned with the Rust RelayerConfig
+// and serves as template data for generation in e2e.
 type Config struct {
-	LogLevel string         `json:"log_level"`
-	Address  string         `json:"address"`
-	Port     int            `json:"port"`
-	Modules  []ModuleConfig `json:"modules"`
+	Modules       []ModuleConfig      `json:"modules"`
+	Server        ServerConfig        `json:"server"`
+	Observability ObservabilityConfig `json:"observability"`
+}
+
+// ServerConfig mirrors the Rust ServerConfig
+type ServerConfig struct {
+	Address string `json:"address"`
+	Port    int    `json:"port"`
+}
+
+// ObservabilityConfig mirrors the Rust ObservabilityConfig
+type ObservabilityConfig struct {
+	Level        string  `json:"level"`
+	UseOtel      bool    `json:"use_otel"`
+	ServiceName  string  `json:"service_name"`
+	OTelEndpoint *string `json:"otel_endpoint,omitempty"`
 }
 
 // ModuleConfig represents a module configuration
@@ -65,11 +80,42 @@ type CosmosToCosmosModuleConfig struct {
 
 // NewConfig creates a new Config with default values
 func NewConfig(modules []ModuleConfig) Config {
+	// Server defaults
+	server := ServerConfig{
+		Address: "127.0.0.1",
+		Port:    3000,
+	}
+
+	// Observability configuration
+	rustLog := os.Getenv(testvalues.EnvKeyRustLog)
+	if rustLog == "" {
+		rustLog = testvalues.EnvValueRustLog_Info
+	}
+
+	// Local observability flag strictly equals "true"
+	enableLocalObs := os.Getenv(testvalues.EnvKeyEnableLocalObservability) == testvalues.EnvValueEnableLocalObservability_True
+
+	var otlpEndpoint *string
+	tracingLevel := rustLog
+	useOtel := false
+	if enableLocalObs {
+		// Force the endpoint and enable OTLP, but respect RUST_LOG for level
+		endpoint := "http://127.0.0.1:4317"
+		otlpEndpoint = &endpoint
+		useOtel = true
+	}
+
+	observability := ObservabilityConfig{
+		Level:        tracingLevel,
+		UseOtel:      useOtel,
+		ServiceName:  "ibc-eureka-relayer",
+		OTelEndpoint: otlpEndpoint,
+	}
+
 	return Config{
-		LogLevel: os.Getenv(testvalues.EnvKeyRustLog),
-		Address:  "127.0.0.1",
-		Port:     3000,
-		Modules:  modules,
+		Modules:       modules,
+		Server:        server,
+		Observability: observability,
 	}
 }
 
@@ -120,4 +166,14 @@ type ethToCosmosConfig struct {
 	EthBeaconApiUrl string `json:"eth_beacon_api_url"`
 	SignerAddress   string `json:"signer_address"`
 	Mock            bool   `json:"mock"`
+}
+
+// AttestedToCosmosModuleConfig represents the configuration for attested_to_cosmos module
+type AttestedToCosmosModuleConfig struct {
+	AttestedChainId string `json:"attested_chain_id"`
+	AggregatorUrl   string `json:"aggregator_url"`
+	AttestedRpcUrl  string `json:"attested_rpc_url"`
+	Ics26Address    string `json:"ics26_address"`
+	TmRpcUrl        string `json:"tm_rpc_url"`
+	SignerAddress   string `json:"signer_address"`
 }

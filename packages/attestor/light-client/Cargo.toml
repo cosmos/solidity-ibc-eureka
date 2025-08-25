@@ -1,0 +1,19 @@
+[package]
+name = "attestor-light-client"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+
+[features]
+default = []
+test-utils = []
+
+[dependencies]
+attestor-packet-membership = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+k256 = { workspace = true, features = ["alloc", "ecdsa", "serde", "pem"] }
+sha2 = { workspace = true }
+
+

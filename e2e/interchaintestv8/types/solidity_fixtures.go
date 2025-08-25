@@ -82,7 +82,7 @@ func (g *SolidityFixtureGenerator) generateFixture(erc20Address string, msgBz []
 		return GenericSolidityFixture{}, err
 	}
 
-	packetBz, err := abiEncodePacket(packet)
+	packetBz, err := AbiEncodePacket(packet)
 	if err != nil {
 		return GenericSolidityFixture{}, err
 	}
@@ -125,7 +125,7 @@ func (g *SolidityFixtureGenerator) SetGenesisFixture(
 	}
 }
 
-func abiEncodePacket(packet ics26router.IICS26RouterMsgsPacket) ([]byte, error) {
+func AbiEncodePacket(packet ics26router.IICS26RouterMsgsPacket) ([]byte, error) {
 	structType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "sequence", Type: "uint64"},
 		{Name: "sourceClient", Type: "string"},

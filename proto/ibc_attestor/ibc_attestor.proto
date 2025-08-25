@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package ibc_attestor;
+
+import "ibc_attestor/attestation.proto";
+
+option go_package = "types/attestor";
+
+// Service definition for retrieving attestations.
+service AttestationService {
+  // Retrieves an attestation for a state at a given height.
+  rpc StateAttestation(StateAttestationRequest) returns (StateAttestationResponse);
+
+  // Retrieves an attestation for a set of packets.
+  rpc PacketAttestation(PacketAttestationRequest) returns (PacketAttestationResponse);
+}
+
+// Request message for getting an attestation for a state at a given height.
+message StateAttestationRequest {
+  // The height to attest to
+  uint64 height = 1;
+}
+
+// Response message for getting an attestation for a state at a given height.
+message StateAttestationResponse {
+  // The attestation
+  Attestation attestation = 1;
+}
+
+// Request message for getting an attestation for a set of packets.
+// This request's parameters does not include a height at the moment, because
+// we are currently only attesting to the latest height, and using the returned
+// height to request a state attestation.
+message PacketAttestationRequest {
+  // The packets to attest to
+  repeated bytes packets = 1;
+  // The height to attest to the packets at
+  uint64 height = 2;
+}
+
+// Response message for getting an attestation for a set of packets.
+message PacketAttestationResponse {
+  // The attestation
+  Attestation attestation = 1;
+}
