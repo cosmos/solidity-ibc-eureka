@@ -1,38 +1,36 @@
 //! This mod
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
-//! the Cosmos SDK chain from events received from an Attested chain via the aggregator.
+//! the Ethereum from events received from an Attested chain via the aggregator.
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+};
 
-use alloy::sol_types::SolValue;
+use alloy::{
+    network::Ethereum,
+    primitives::{Address, Bytes},
+    providers::Provider,
+    sol_types::{SolCall, SolValue},
+};
 use anyhow::Result;
-use attestor_light_client::{
-    client_state::ClientState as AttestorClientState,
-    consensus_state::ConsensusState as AttestorConsensusState, header::Header,
-    membership::MembershipProof,
-};
-use ibc_proto_eureka::{
-    cosmos::tx::v1beta1::TxBody,
-    google::protobuf::Any,
-    ibc::{
-        core::client::v1::{Height, MsgCreateClient, MsgUpdateClient},
-        lightclients::wasm::v1::{
-            ClientMessage, ClientState as WasmClientState, ConsensusState as WasmConsensusState,
-        },
-    },
-};
-use alloy_primitives::Address;
-use prost::Message;
-use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
 
 use ibc_eureka_relayer_lib::{
     chain::{Chain, CosmosSdk},
     events::{EurekaEvent, EurekaEventWithHeight},
     tx_builder::TxBuilderService,
-    utils::{attestor, cosmos},
+    utils::{attestor, eth_eureka},
 };
-use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
+use ibc_eureka_solidity_types::{
+    attestor_light_client,
+    ics26::{
+        router::{multicallCall, routerCalls, routerInstance, updateClientCall},
+        IICS02ClientMsgs::Height as ICS26Height,
+        IICS26RouterMsgs::Packet,
+    },
+    msgs::IAttestorMsgs::AttestationProof,
+};
 
 /// Chain type for attested chains that get their state from the aggregator
 pub struct AttestedChain;
@@ -52,28 +50,28 @@ pub mod aggregator_proto {
 pub type AggregatorClient =
     aggregator_proto::aggregator_service_client::AggregatorServiceClient<Channel>;
 
-/// The `TxBuilder` produces txs to [`CosmosSdk`] based on attestations from the aggregator.
-pub struct TxBuilder {
+/// The `TxBuilder` produces txs to [`Ethereum`] based on attestations from the aggregator.
+pub struct TxBuilder<P>
+where
+    P: Provider + Clone,
+{
     /// The aggregator URL for fetching attestations.
     pub aggregator_url: String,
-    /// The HTTP client for the target chain.
-    pub target_tm_client: HttpClient,
-    /// The signer address for the Cosmos messages.
-    pub signer_address: String,
+    /// The IBC Eureka router instance.
+    pub ics26_router: routerInstance<P, Ethereum>,
 }
 
-impl TxBuilder {
+impl<P> TxBuilder<P>
+where
+    P: Provider + Clone,
+{
     /// Creates a new `TxBuilder`.
     #[must_use]
-    pub fn new(
-        aggregator_url: String,
-        target_tm_client: HttpClient,
-        signer_address: String,
-    ) -> Self {
+    pub fn new(ics26_address: Address, provider: P, aggregator_url: String) -> Self {
         Self {
+            ics26_router: routerInstance::new(ics26_address, provider),
+
             aggregator_url,
-            target_tm_client,
-            signer_address,
         }
     }
 
@@ -87,15 +85,12 @@ impl TxBuilder {
 }
 
 /// Build serialized membership proof bytes from ABI-encoded attested data and signatures
-fn build_membership_proof_bytes(
-    attested_data: Vec<u8>,
-    signatures: Vec<Vec<u8>>,
-) -> anyhow::Result<Vec<u8>> {
-    let structured = MembershipProof {
-        attestation_data: attested_data,
-        signatures,
-    };
-    serde_json::to_vec(&structured).map_err(|_| anyhow::anyhow!("proof could not be serialized"))
+fn build_abi_encoded_proof(attested_data: Vec<u8>, signatures: Vec<Vec<u8>>) -> Vec<u8> {
+    AttestationProof {
+        attestationData: Bytes::from_iter(attested_data),
+        signatures: signatures.into_iter().map(Bytes::from).collect(),
+    }
+    .abi_encode()
 }
 
 fn encode_and_cyphon_packet_if_relevant(
@@ -113,15 +108,19 @@ fn encode_and_cyphon_packet_if_relevant(
     }
 }
 
-const CHECKSUM_HEX: &str = "checksum_hex";
-const ATTESTOR_ADDRESSES: &str = "attestor_addresses";
 const MIN_REQUIRED_SIGS: &str = "min_required_sigs";
 const HEIGHT: &str = "height";
 const TIMESTAMP: &str = "timestamp";
+const ATTESTOR_ADDRESSES: &str = "attestor_addresses";
+/// The key for the role manager in the parameters map.
+const ROLE_MANAGER: &str = "role_manager";
 
 #[async_trait::async_trait]
-impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
-    #[tracing::instrument(skip_all)]
+impl<P> TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder<P>
+where
+    P: Provider + Clone,
+{
+    #[tracing::instrument(skip(self, src_events, target_events, src_packet_seqs, dst_packet_seqs))]
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
@@ -195,77 +194,76 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             hex::encode(&packets.attested_data)
         );
 
-        let header = Header::new(
-            state.height,
-            // Unwrap safe as state attestation must contain ts
-            state.timestamp.unwrap(),
-            state.attested_data,
-            state.signatures,
-        );
-        let header_bz = serde_json::to_vec(&header)
-            .map_err(|_| anyhow::anyhow!("header could not be serialized"))?;
-
-        let update_msg = MsgUpdateClient {
-            client_id: dst_client_id.clone(),
-            client_message: Some(Any::from_msg(&ClientMessage { data: header_bz })?),
-            signer: self.signer_address.clone(),
-        };
+        let msg = build_abi_encoded_proof(state.attested_data, state.signatures);
+        let update_msg = routerCalls::updateClient(updateClientCall {
+            clientId: dst_client_id.clone(),
+            // TODO: Use solidity msg type
+            updateMsg: Bytes::from_iter(msg),
+        });
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
-        let timeout_msgs = cosmos::target_events_to_timeout_msgs(
+        let dummy_height = ICS26Height {
+            revisionHeight: 0,
+            revisionNumber: 0,
+        };
+        let timeout_msgs = eth_eureka::target_events_to_timeout_msgs(
             target_events,
             &src_client_id,
             &dst_client_id,
             &dst_packet_seqs,
-            &self.signer_address,
+            &dummy_height,
             now_since_unix.as_secs(),
         );
-
-        let (mut recv_msgs, ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+        let mut recv_and_ack_msgs = eth_eureka::src_events_to_recv_and_ack_msgs(
             src_events,
             &src_client_id,
             &dst_client_id,
             &src_packet_seqs,
             &dst_packet_seqs,
-            &self.signer_address,
+            &dummy_height,
             now_since_unix.as_secs(),
         );
 
         tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
-        tracing::debug!("Recv messages: #{}", recv_msgs.len());
-        tracing::debug!("Ack messages: #{}", ack_msgs.len());
+        tracing::debug!("Recv & ack messages: #{}", recv_and_ack_msgs.len());
 
-        let proof = build_membership_proof_bytes(packets.attested_data, packets.signatures)?;
-        attestor::inject_proofs(&mut recv_msgs, &proof, packets.height);
+        let proof = build_abi_encoded_proof(packets.attested_data, packets.signatures);
+        // We inject heigth here to follow the same method as eth to cosmos attested
+        let actual_height = ICS26Height {
+            revisionNumber: 0,
+            revisionHeight: query_height,
+        };
+        attestor::inject_proofs_for_evm_msg(&mut recv_and_ack_msgs, &proof, &actual_height);
 
         // NOTE: UpdateMsg must come first otherwise
         // client state may not contain the needed
         // height for the RecvMsgs
-        let all_msgs = std::iter::once(Any::from_msg(&update_msg))
-            .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
-            .chain(timeout_msgs.into_iter().map(|m| Any::from_msg(&m)))
-            .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
-            .collect::<Result<Vec<_>, _>>()?;
+        let all_calls = std::iter::once(update_msg)
+            .chain(recv_and_ack_msgs)
+            .chain(timeout_msgs)
+            .into_iter()
+            .map(|call| match call {
+                routerCalls::ackPacket(call) => call.abi_encode(),
+                routerCalls::recvPacket(call) => call.abi_encode(),
+                routerCalls::timeoutPacket(call) => call.abi_encode(),
+                _ => unreachable!("only ack, recv and timeout msgs allowed"),
+            });
 
-        tracing::debug!("Total messages: #{}", all_msgs.len());
-
-        let tx_body = TxBody {
-            messages: all_msgs,
-            ..Default::default()
+        let multicall_tx = multicallCall {
+            data: all_calls.map(Into::into).collect(),
         };
 
-        tracing::debug!("TX to send {:?}", tx_body);
-
-        Ok(tx_body.encode_to_vec())
+        Ok(multicall_tx.abi_encode())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip(self))]
     async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
-        let checksum_hex = parameters
-            .get(CHECKSUM_HEX)
-            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{CHECKSUM_HEX}` parameter")))?;
-        let checksum = alloy::hex::decode(checksum_hex)?;
+        let role_admin = parameters
+            .get(ROLE_MANAGER)
+            .map_or(Ok(Address::ZERO), |a| {
+                Address::from_str(a.as_str()).map_err(|e| anyhow::anyhow!(e))
+            })?;
 
         let min_required_sigs: u8 = parameters
             .get(MIN_REQUIRED_SIGS)
@@ -293,71 +291,21 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             .collect::<Result<_, _>>()
             .map_err(|_| anyhow::anyhow!("failed to parse ethereum address list"))?;
 
-        let client_state = AttestorClientState::new(attestor_addresses, min_required_sigs, height);
-        let consensus_state = AttestorConsensusState { height, timestamp };
-
-        let client_state_bz = serde_json::to_vec(&client_state)?;
-        let consensus_state_bz = serde_json::to_vec(&consensus_state)?;
-
-        let wasm_client_state = WasmClientState {
-            data: client_state_bz,
-            checksum,
-            latest_height: Some(Height {
-                revision_number: 0,
-                revision_height: height,
-            }),
-        };
-        let wasm_consensus_state = WasmConsensusState {
-            data: consensus_state_bz,
-        };
-
-        let msg = MsgCreateClient {
-            client_state: Some(Any::from_msg(&wasm_client_state)?),
-            consensus_state: Some(Any::from_msg(&wasm_consensus_state)?),
-            signer: self.signer_address.clone(),
-        };
-
-        Ok(TxBody {
-            messages: vec![Any::from_msg(&msg)?],
-            ..Default::default()
-        }
-        .encode_to_vec())
+        Ok(attestor_light_client::light_client::deploy_builder(
+            self.ics26_router.provider().clone(),
+            attestor_addresses,
+            min_required_sigs,
+            height,
+            timestamp,
+            role_admin,
+        )
+        .calldata()
+        .to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
-    async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
-        tracing::info!("Updating attested light client: {}", dst_client_id);
+    #[tracing::instrument(skip(self))]
+    async fn update_client(&self, _dst_client_id: String) -> Result<Vec<u8>> {
         // TODO: IBC-164
         todo!()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use attestor_light_client::membership::MembershipProof;
-    use attestor_packet_membership::Packets;
-
-    #[test]
-    fn abi_bytes_are_not_json() {
-        let commitments = vec![[0x11u8; 32], [0x22u8; 32]];
-        let abi = Packets::new(commitments).to_abi_bytes();
-
-        let parsed: Result<Vec<Vec<u8>>, _> = serde_json::from_slice(&abi);
-        assert!(parsed.is_err(), "ABI-encoded bytes32[] must not be parsed as JSON");
-    }
-
-    #[test]
-    fn build_membership_proof_passes_through_abi_bytes() {
-        let commitments = vec![[0xAAu8; 32], [0xBBu8; 32]];
-        let abi = Packets::new(commitments).to_abi_bytes();
-        let signatures = vec![vec![0u8; 65], vec![1u8; 65]];
-
-        let proof_bytes = build_membership_proof_bytes(abi.clone(), signatures.clone())
-            .expect("proof should serialize");
-        let proof: MembershipProof = serde_json::from_slice(&proof_bytes).expect("deserialize");
-
-        assert_eq!(proof.attestation_data, abi);
-        assert_eq!(proof.signatures, signatures);
     }
 }
