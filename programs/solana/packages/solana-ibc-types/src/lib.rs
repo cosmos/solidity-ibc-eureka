@@ -22,7 +22,8 @@ pub use router::{
 };
 
 pub use ics07::{
-    ClientState, ConsensusState, IbcHeight, TrustLevel, UpdateClientMsg, CONSENSUS_STATE_SEED,
+    ClientState, ConsensusState, IbcHeight, UpdateClientMsg, CONSENSUS_STATE_SEED,
+    ICS07_INITIALIZE_DISCRIMINATOR,
 };
 
 pub use pda::*;

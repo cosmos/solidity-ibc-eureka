@@ -101,6 +101,10 @@ const (
 	SolanaTestnetType_Localnet = "localnet"
 	// SolanaTestnetType_None is the Solana testnet type for using no chain.
 	SolanaTestnetType_None = "none"
+	// SolanaChainID is the chain identifier for Solana localnet used in relayer config.
+	SolanaChainID = "solana-localnet"
+	// SolanaLocalnetRPC is the default RPC URL for Solana localnet.
+	SolanaLocalnetRPC = "http://localhost:8899"
 
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
@@ -164,6 +168,9 @@ var (
 
 	// DefaultMaxClockDrift is the default maximum clock drift used by ICS07Tendermint (in seconds).
 	DefaultMaxClockDrift = 15
+
+	// DefaultRevisionNumber is the standard IBC revision number used for client creation.
+	DefaultRevisionNumber = 1
 
 	// MaxUint256 is the maximum value for a uint256.
 	MaxUint256 = uint256.MustFromHex("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")

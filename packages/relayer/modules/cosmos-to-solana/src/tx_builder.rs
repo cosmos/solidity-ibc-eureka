@@ -23,10 +23,23 @@ use tendermint_rpc::{Client, HttpClient};
 use solana_ibc_types::{
     derive_client, derive_client_sequence, derive_ibc_app, derive_ics07_client_state,
     derive_ics07_consensus_state, derive_packet_ack, derive_packet_receipt, derive_router_state,
-    get_instruction_discriminator, MsgRecvPacket, Packet, Payload, UpdateClientMsg,
+    get_instruction_discriminator,
+    ics07::{ClientState, ConsensusState, IbcHeight, ICS07_INITIALIZE_DISCRIMINATOR},
+    MsgRecvPacket, Packet, Payload, UpdateClientMsg,
 };
 
 use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
+
+/// Client parameters for creating a new ICS07 client
+#[derive(Debug, Clone)]
+struct ClientParameters {
+    trust_level_numerator: u64,
+    trust_level_denominator: u64,
+    trusting_period: u64,
+    unbonding_period: u64,
+    max_clock_drift: u64,
+    revision_number: u64,
+}
 
 /// Parameters for building a `RecvPacket` instruction
 struct RecvPacketParams<'a> {
@@ -37,7 +50,6 @@ struct RecvPacketParams<'a> {
     timeout_timestamp: u64,
 }
 
-// TODO: Move out?
 /// IBC Eureka event types from Cosmos
 #[derive(Debug, Clone)]
 pub enum CosmosIbcEvent {
@@ -84,6 +96,149 @@ pub struct TxBuilder {
 }
 
 impl TxBuilder {
+    /// Parse client parameters from the parameter map
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any required parameters are missing or invalid
+    fn parse_client_parameters(parameters: &HashMap<String, String>) -> Result<ClientParameters> {
+        /// Parse a required u64 parameter
+        fn parse_u64_param(parameters: &HashMap<String, String>, param_name: &str) -> Result<u64> {
+            parameters
+                .get(param_name)
+                .ok_or_else(|| anyhow::anyhow!("{param_name} parameter is required"))?
+                .parse::<u64>()
+                .map_err(|e| anyhow::anyhow!("{param_name} must be a valid u64: {e}"))
+        }
+
+        Ok(ClientParameters {
+            trust_level_numerator: parse_u64_param(parameters, "trust_level_numerator")?,
+            trust_level_denominator: parse_u64_param(parameters, "trust_level_denominator")?,
+            trusting_period: parse_u64_param(parameters, "trusting_period")?,
+            unbonding_period: parse_u64_param(parameters, "unbonding_period")?,
+            max_clock_drift: parse_u64_param(parameters, "max_clock_drift")?,
+            revision_number: parse_u64_param(parameters, "revision_number")?,
+        })
+    }
+
+    /// Create client state from parameters
+    fn create_client_state(
+        chain_id: &str,
+        params: &ClientParameters,
+        latest_height: u64,
+    ) -> ClientState {
+        ClientState {
+            chain_id: chain_id.to_string(),
+            trust_level_numerator: params.trust_level_numerator,
+            trust_level_denominator: params.trust_level_denominator,
+            trusting_period: params.trusting_period,
+            unbonding_period: params.unbonding_period,
+            max_clock_drift: params.max_clock_drift,
+            frozen_height: IbcHeight {
+                revision_number: 0,
+                revision_height: 0,
+            },
+            latest_height: IbcHeight {
+                revision_number: params.revision_number,
+                revision_height: latest_height,
+            },
+        }
+    }
+
+    /// Create consensus state from Tendermint block
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the timestamp cannot be converted to u64
+    fn create_consensus_state_from_block(
+        block: &tendermint_rpc::endpoint::block::Response,
+    ) -> Result<ConsensusState> {
+        let mut app_hash = [0u8; 32];
+        let app_hash_bytes = block.block.header.app_hash.as_bytes();
+        if app_hash_bytes.len() >= 32 {
+            app_hash.copy_from_slice(&app_hash_bytes[..32]);
+        } else {
+            // Pad with zeros if too short
+            app_hash[..app_hash_bytes.len()].copy_from_slice(app_hash_bytes);
+        }
+
+        let mut validators_hash = [0u8; 32];
+        let validators_hash_bytes = block.block.header.validators_hash.as_bytes();
+        if validators_hash_bytes.len() >= 32 {
+            validators_hash.copy_from_slice(&validators_hash_bytes[..32]);
+        } else {
+            validators_hash[..validators_hash_bytes.len()].copy_from_slice(validators_hash_bytes);
+        }
+
+        Ok(ConsensusState {
+            timestamp: block
+                .block
+                .header
+                .time
+                .unix_timestamp()
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("Invalid timestamp: negative value"))?,
+            root: app_hash,
+            next_validators_hash: validators_hash,
+        })
+    }
+
+    /// Build instruction for creating a client
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails
+    fn build_create_client_instruction(
+        &self,
+        chain_id: &str,
+        latest_height: u64,
+        client_state: &ClientState,
+        consensus_state: &ConsensusState,
+    ) -> Result<Instruction> {
+        // Derive PDAs
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+        let (consensus_state_pda, _) = derive_ics07_consensus_state(
+            &client_state_pda,
+            latest_height,
+            &self.solana_ics07_program_id,
+        );
+
+        tracing::debug!("Client state PDA: {}", client_state_pda);
+        tracing::debug!("Consensus state PDA: {}", consensus_state_pda);
+
+        // Build accounts for the instruction
+        let accounts = vec![
+            AccountMeta::new(client_state_pda, false),
+            AccountMeta::new(consensus_state_pda, false),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        // Use the correct ICS07 initialize discriminator
+        let discriminator = ICS07_INITIALIZE_DISCRIMINATOR;
+
+        // Serialize instruction data using Anchor format
+        let mut instruction_data = Vec::new();
+
+        // Add discriminator
+        instruction_data.extend_from_slice(&discriminator);
+
+        // Serialize parameters in order: chain_id, latest_height, client_state, consensus_state
+        instruction_data.extend_from_slice(&chain_id.try_to_vec()?);
+        instruction_data.extend_from_slice(&latest_height.try_to_vec()?);
+        instruction_data.extend_from_slice(&client_state.try_to_vec()?);
+        instruction_data.extend_from_slice(&consensus_state.try_to_vec()?);
+
+        tracing::debug!("Instruction data length: {} bytes", instruction_data.len());
+
+        Ok(Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data: instruction_data,
+        })
+    }
+
     /// Creates a new `TxBuilder`.
     ///
     /// # Errors
@@ -457,7 +612,8 @@ impl TxBuilder {
     ///
     /// Returns an error if:
     /// - Failed to get genesis block
-    /// - Failed to serialize header
+    /// - Failed to serialize instruction data
+    /// - Any required parameters are missing or invalid: `trust_level_numerator`, `trust_level_denominator`, `trusting_period`, `unbonding_period`, `max_clock_drift`, `revision_number`
     pub async fn build_create_client_tx(
         &self,
         parameters: HashMap<String, String>,
@@ -474,38 +630,36 @@ impl TxBuilder {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to get genesis block: {e}"))?;
 
-        // In production, you'd properly serialize the client state and consensus state
-        // This is simplified
         let chain_id = genesis_block.block.header.chain_id.to_string();
         let latest_height = genesis_block.block.header.height.value();
 
-        // Derive PDAs
-        let (client_state_pda, _) =
-            derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
-        let (consensus_state_pda, _) = derive_ics07_consensus_state(
-            &client_state_pda,
-            latest_height,
-            &self.solana_ics07_program_id,
+        tracing::info!(
+            "Creating client for chain {} at height {}",
+            chain_id,
+            latest_height
         );
 
-        // Build initialization instruction for ICS07
-        let accounts = vec![
-            AccountMeta::new(client_state_pda, false),
-            AccountMeta::new(consensus_state_pda, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        ];
+        // Extract required client parameters from the parameters map
+        let client_params = Self::parse_client_parameters(&parameters)?;
 
-        let discriminator = get_instruction_discriminator("initialize");
-        let mut data = discriminator.to_vec();
-        // Add serialized initialization parameters
-        data.extend_from_slice(chain_id.as_bytes());
+        tracing::info!(
+            "Using client parameters: trust_level={}/{}, trusting_period={}, unbonding_period={}, max_clock_drift={}, revision_number={}",
+            client_params.trust_level_numerator, client_params.trust_level_denominator, client_params.trusting_period, client_params.unbonding_period, client_params.max_clock_drift, client_params.revision_number
+        );
 
-        let instruction = Instruction {
-            program_id: self.solana_ics07_program_id,
-            accounts,
-            data,
-        };
+        // Create proper ClientState matching ICS07 program expectations
+        let client_state = Self::create_client_state(&chain_id, &client_params, latest_height);
+
+        // Create proper ConsensusState from the block
+        let consensus_state = Self::create_consensus_state_from_block(&genesis_block)?;
+
+        // Build the instruction for creating the client
+        let instruction = self.build_create_client_instruction(
+            &chain_id,
+            latest_height,
+            &client_state,
+            &consensus_state,
+        )?;
 
         // Create unsigned transaction
         let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
