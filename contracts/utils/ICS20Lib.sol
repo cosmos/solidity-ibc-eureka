@@ -67,7 +67,7 @@ library ICS20Lib {
     /// @return true if the denom has any hops in it
     function hasHops(bytes memory denom) internal pure returns (bool) {
         // check if the denom has any '/' in it
-        for (uint256 i = 0; i < denom.length; i++) {
+        for (uint256 i = 0; i < denom.length; ++i) {
             if (denom[i] == "/") {
                 return true;
             }

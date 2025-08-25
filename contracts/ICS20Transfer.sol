@@ -159,6 +159,8 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
+    // NOTE: Reentrancy disabled for this function via the `nonReentrant` modifier.
+    // slither-disable-next-line reentrancy-no-eth
     function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_)
         external
         whenNotPaused
@@ -175,6 +177,8 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
+    // NOTE: Reentrancy disabled for this function via the `nonReentrant` modifier.
+    // slither-disable-next-line reentrancy-no-eth
     function sendTransferWithPermit2(
         IICS20TransferMsgs.SendTransferMsg calldata msg_,
         ISignatureTransfer.PermitTransferFrom calldata permit,
@@ -204,6 +208,8 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20TransferAccessControlled
+    // NOTE: Reentrancy disabled for this function via the `nonReentrant` modifier.
+    // slither-disable-next-line reentrancy-no-eth
     function sendTransferWithSender(
         IICS20TransferMsgs.SendTransferMsg calldata msg_,
         address sender
@@ -228,6 +234,8 @@ contract ICS20Transfer is
     /// @param escrow The address of the escrow contract
     /// @param sender The address of the sender, used to refund the tokens if the packet fails
     /// @return sequence The sequence number of the packet created
+    // NOTE: We disable reentrancy for public functions.
+    // slither-disable-next-line reentrancy-no-eth
     function _sendTransferFromEscrowWithSender(
         IICS20TransferMsgs.SendTransferMsg calldata msg_,
         address escrow,
@@ -288,7 +296,10 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
+    // NOTE: Reentrancy disabled for this function via the `nonReentrant` modifier.
+    // slither-disable-next-line reentrancy-no-eth
     function onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback calldata msg_)
+        // solhint-disable-previous-line function-max-lines
         external
         onlyRouter
         nonReentrant
@@ -350,6 +361,8 @@ contract ICS20Transfer is
         } else {
             // we are not origin source, i.e. sender chain is the origin source: add denom trace and mint vouchers
             bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.payload.destPort, msg_.destinationClient);
+            // NOTE: encodePacked is required by the ICS20 spec.
+            // slither-disable-next-line encode-packed-collision
             bytes memory newDenom = abi.encodePacked(newDenomPrefix, denomBz);
 
             erc20Address = _getOrCreateIBCERC20(newDenom, address(escrow));
@@ -459,6 +472,8 @@ contract ICS20Transfer is
         uint256 expectedEndingBalance = ourStartingBalance + amount;
         // a very strange ERC20 may trigger this condition, if we didn't have this we would
         // underflow, so it's mostly just an error message printer
+        // NOTE: This is not a security check, but rather a sanity check.
+        // slither-disable-next-line incorrect-equality
         require(
             actualEndingBalance > ourStartingBalance && actualEndingBalance == expectedEndingBalance,
             ICS20UnexpectedERC20Balance(expectedEndingBalance, actualEndingBalance)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// solhint-disable custom-errors,max-line-length,max-states-count
+// solhint-disable custom-errors,max-line-length,max-states-count,gas-small-strings
 
 import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
@@ -21,7 +21,6 @@ import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { RelayerHelper } from "../../contracts/utils/RelayerHelper.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
 import { AttackerIBCERC20 } from "./mocks/AttackerIBCERC20.sol";
-import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
@@ -555,7 +554,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
         }
         receivedDenom = expectedDenom;
 
-        recvSeqs[counterpartyId]++;
+        ++recvSeqs[counterpartyId];
 
         return (receivedERC20, receivedDenom, receivePacket);
     }
@@ -574,9 +573,9 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
 
     function _getPacketFromSendEvent() internal returns (IICS26RouterMsgs.Packet memory) {
         Vm.Log[] memory sendEvent = vm.getRecordedLogs();
-        for (uint256 i = 0; i < sendEvent.length; i++) {
+        for (uint256 i = 0; i < sendEvent.length; ++i) {
             Vm.Log memory log = sendEvent[i];
-            for (uint256 j = 0; j < log.topics.length; j++) {
+            for (uint256 j = 0; j < log.topics.length; ++j) {
                 if (log.topics[j] == IICS26Router.SendPacket.selector) {
                     return abi.decode(log.data, (IICS26RouterMsgs.Packet));
                 }

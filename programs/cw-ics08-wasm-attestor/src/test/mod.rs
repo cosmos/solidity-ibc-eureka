@@ -1,3 +1,3 @@
-//! Tests for CosmWasm Solana light client
+//! Tests for `CosmWasm` Solana light client
 
 pub mod helpers;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// solhint-disable custom-errors,max-line-length
+// solhint-disable custom-errors,max-line-length,gas-small-strings
 
 import { Test } from "forge-std/Test.sol";
 
@@ -37,7 +37,7 @@ contract ICS24HostTest is Test {
             )
         ];
 
-        for (uint256 i = 0; i < testCases.length; i++) {
+        for (uint256 i = 0; i < testCases.length; ++i) {
             IBCPrefixedPathTestCase memory testCase = testCases[i];
             bytes[] memory actual = ICS24Host.prefixedPath(testCase.prefix, testCase.path);
             assertEq(actual.length, 2);
@@ -112,7 +112,7 @@ contract ICS24HostTest is Test {
     function bytesToHex(bytes memory data) public pure returns (string memory) {
         bytes memory alphabet = "0123456789abcdef";
         bytes memory str = new bytes(2 * data.length);
-        for (uint256 i = 0; i < data.length; i++) {
+        for (uint256 i = 0; i < data.length; ++i) {
             str[2 * i] = alphabet[uint8(data[i] >> 4)];
             str[2 * i + 1] = alphabet[uint8(data[i] & 0x0f)];
         }

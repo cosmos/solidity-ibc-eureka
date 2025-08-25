@@ -11,7 +11,7 @@ use crate::{sudo, ContractError};
 const STATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 
-/// The instantiate entry point for the CosmWasm contract.
+/// The instantiate entry point for the `CosmWasm` contract.
 /// # Errors
 /// Will return an error if the client state or consensus state cannot be deserialized.
 /// # Panics
@@ -31,7 +31,7 @@ pub fn instantiate(
     Ok(Response::default())
 }
 
-/// The sudo entry point for the CosmWasm contract.
+/// The sudo entry point for the `CosmWasm` contract.
 /// It routes the message to the appropriate handler.
 /// # Errors
 /// Will return an error if the handler returns an error.
@@ -72,7 +72,7 @@ pub fn execute(
     unimplemented!()
 }
 
-/// The query entry point for the CosmWasm contract.
+/// The query entry point for the `CosmWasm` contract.
 /// It routes the message to the appropriate handler.
 /// # Errors
 /// Will return an error if the handler returns an error.
@@ -96,7 +96,7 @@ pub fn query(
     }
 }
 
-/// The migrate entry point for the CosmWasm contract.
+/// The migrate entry point for the `CosmWasm` contract.
 /// # Errors
 /// Will return an errror if the state version is not newer than the current one.
 #[entry_point]
