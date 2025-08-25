@@ -349,10 +349,21 @@ func (s *IbcEurekaSolanaTestSuite) waitForProgramAvailabilityWithTimeout(ctx con
 
 // signAndBroadcastTxWithRetry attempts to broadcast a transaction.
 // If broadcasting fails, it retries every 1 second for up to the default timeout.
+// On retry, it refreshes the blockhash to avoid "Blockhash not found" errors.
 func (s *IbcEurekaSolanaTestSuite) signAndBroadcastTxWithRetry(ctx context.Context, tx *solanago.Transaction, wallet *solanago.Wallet) (solanago.Signature, error) {
 	var lastErr error
 	for i := range DefaultTimeoutSeconds {
-		// Try to broadcast the transaction directly
+		// Refresh blockhash on retry attempts to avoid stale blockhash errors
+		if i > 0 {
+			latestBlockhash, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, "confirmed")
+			if err != nil {
+				s.T().Logf("Failed to get latest blockhash: %v", err)
+			} else {
+				tx.Message.RecentBlockhash = latestBlockhash.Value.Blockhash
+			}
+		}
+
+		// Try to broadcast the transaction
 		sig, err := s.SolanaChain.SignAndBroadcastTx(ctx, tx, wallet)
 		if err == nil {
 			// Transaction succeeded
