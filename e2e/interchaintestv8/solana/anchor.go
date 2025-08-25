@@ -20,7 +20,7 @@ const deployerAddress = "8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z"
 var DeployerPubkey = solana.MustPublicKeyFromBase58(deployerAddress)
 
 func AnchorDeploy(ctx context.Context, dir, programName, programKeypairFile string, args ...string) (solana.PublicKey, solana.Signature, error) {
-	absWalletFile, err := filepath.Abs("./solana/deployer_wallet.json")
+	absWalletFile, err := filepath.Abs("./e2e/interchaintestv8/solana/deployer_wallet.json")
 	if err != nil {
 		return solana.PublicKey{}, solana.Signature{}, fmt.Errorf("failed to get absolute path for wallet file: %w", err)
 	}
