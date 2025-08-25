@@ -5,6 +5,7 @@ use ibc_eureka_relayer::cli::{Commands, RelayerCli};
 use ibc_eureka_relayer_core::{builder::RelayerBuilder, config::RelayerConfig};
 use ibc_eureka_relayer_cosmos_to_cosmos::CosmosToCosmosRelayerModule;
 use ibc_eureka_relayer_cosmos_to_eth::CosmosToEthRelayerModule;
+use ibc_eureka_relayer_cosmos_to_eth_attested::CosmosToEthAttestedRelayerModule;
 use ibc_eureka_relayer_eth_to_cosmos::EthToCosmosRelayerModule;
 use ibc_eureka_relayer_eth_to_cosmos_attested::EthToCosmosAttestedRelayerModule;
 use ibc_eureka_relayer_eth_to_cosmos_compat::EthToCosmosCompatRelayerModule;
@@ -29,6 +30,7 @@ async fn main() -> anyhow::Result<()> {
             // Build the relayer server.
             let mut relayer_builder = RelayerBuilder::default();
             relayer_builder.add_module(CosmosToEthRelayerModule);
+            relayer_builder.add_module(CosmosToEthAttestedRelayerModule);
             relayer_builder.add_module(CosmosToCosmosRelayerModule);
             relayer_builder.add_module(EthToCosmosRelayerModule);
             relayer_builder.add_module(EthToCosmosCompatRelayerModule);
