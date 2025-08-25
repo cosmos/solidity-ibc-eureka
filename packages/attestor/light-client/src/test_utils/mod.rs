@@ -11,7 +11,7 @@ pub use fixtures::*;
 )]
 #[cfg(any(test, feature = "test-utils"))]
 mod fixtures {
-    use alloy_primitives::{Address, FixedBytes, B256, Signature};
+    use alloy_primitives::{Address, FixedBytes, B256};
     use alloy_signer::SignerSync;
     use alloy_signer_local::PrivateKeySigner;
     use attestor_packet_membership::Packets;
@@ -52,7 +52,7 @@ mod fixtures {
                 hasher.update(&bytes);
                 let hash_result = hasher.finalize();
                 let b256 = B256::from_slice(&hash_result);
-                signer.sign_hash_sync(&b256).expect("signing should work")
+                signer.sign_hash_sync(&b256).expect("signing should work").as_bytes().to_vec()
             })
             .collect()
     });

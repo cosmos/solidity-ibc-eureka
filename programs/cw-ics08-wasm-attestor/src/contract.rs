@@ -88,7 +88,7 @@ mod tests {
         consensus_state::ConsensusState,
         header::Header,
         test_utils::{
-            PACKET_COMMITMENTS_ENCODED, KEYS, PACKET_COMMITMENTS, SIGS_RAW,
+            KEYS, PACKET_COMMITMENTS, SIGS_RAW, PACKET_COMMITMENTS_ENCODED,
         },
     };
     use cosmwasm_std::Binary;
@@ -107,7 +107,6 @@ mod tests {
     }
 
     pub fn client_state() -> ClientState {
-        let keys = test_keys();
         ClientState {
             attestor_addresses: KEYS.clone(),
             latest_height: 42,
@@ -117,12 +116,10 @@ mod tests {
     }
 
     pub fn header(cns: &ConsensusState) -> Header {
-        let sigs = test_sigs();
-        let keys = test_keys();
         Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: SIGS_RAW.to_vec(),
         }
     }
@@ -216,7 +213,7 @@ mod tests {
     }
 
     mod integration_tests {
-        use attestor_light_client::{error::IbcAttestorClientError, membership::MembershipProof, test_utils::SIGS_RAW};
+        use attestor_light_client::{error::IbcAttestorClientError, membership::MembershipProof, test_utils::{SIGS_RAW, PACKET_COMMITMENTS_ENCODED}};
         use attestor_packet_membership::Packets;
         use cosmwasm_std::{
             coins,
@@ -238,7 +235,6 @@ mod tests {
             test::helpers::mk_deps,
             ContractError,
         };
-        use attestor_light_client::test_utils::PACKET_COMMITMENTS_ENCODED;
 
         #[test]
         #[allow(clippy::too_many_lines)]
@@ -281,9 +277,6 @@ mod tests {
 
             // Verify membership for the added state
             let env = mock_env();
-            let packets = attestor_light_client::test_utils::packets();
-            let sigs = attestor_light_client::test_utils::sigs();
-            let keys = attestor_light_client::test_utils::keys();
             let verifyable = MembershipProof {
                 attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
                 signatures: SIGS_RAW.to_vec(),
@@ -318,9 +311,6 @@ mod tests {
 
             // Non existent height fails
             let env = mock_env();
-            let packets = attestor_light_client::test_utils::packets();
-            let sigs = attestor_light_client::test_utils::sigs();
-            let keys = attestor_light_client::test_utils::keys();
             let value = MembershipProof {
                 attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
                 signatures: SIGS_RAW.to_vec(),
@@ -498,9 +488,6 @@ mod tests {
             for i in 1..6 {
                 let env = mock_env();
 
-                let packets = attestor_light_client::test_utils::packets();
-                let sigs = attestor_light_client::test_utils::sigs();
-                let keys = attestor_light_client::test_utils::keys();
                 let value = MembershipProof {
                     attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
                     signatures: SIGS_RAW.to_vec(),
@@ -517,9 +504,6 @@ mod tests {
                 let res = sudo(deps.as_mut(), env.clone(), msg);
                 assert!(res.is_ok());
 
-                let packets = attestor_light_client::test_utils::packets();
-                let sigs = attestor_light_client::test_utils::sigs();
-                let keys = attestor_light_client::test_utils::keys();
                 let value = MembershipProof {
                     attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
                     signatures: SIGS_RAW.to_vec(),
