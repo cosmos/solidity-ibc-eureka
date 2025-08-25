@@ -52,23 +52,16 @@ runs:
         command: install
         args: --bin relayer --path programs/relayer --locked
 
-    - name: Install op attestor
-      if: steps.cache-relayer.outputs.cache-hit != 'true'
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: --bin ibc_attestor --path programs/ibc-attestor -F op --locked
-
-    - name: Install arbitrum attestor
-      if: steps.cache-relayer.outputs.cache-hit != 'true'
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: --bin ibc_attestor --path programs/ibc-attestor -F arbitrum --locked
-
     - name: Install just
       if: (steps.cache-relayer.outputs.cache-hit != 'true')
       uses: extractions/setup-just@v2
+
+    - name: Install attestor binaries
+      if: steps.cache-relayer.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        just install-attestor
+
     - name: Build SP1 Programs
       if: (steps.cache-relayer.outputs.cache-hit != 'true')
       shell: bash
