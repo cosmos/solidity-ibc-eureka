@@ -43,11 +43,11 @@ use ibc_eureka_relayer_core::{
 
 use crate::tx_listener::{TxAdapter, TxListener};
 
-/// The `AttestedToCosmosRelayerModule` struct defines the Attested to Cosmos relayer module.
+/// The `EthToCosmosAttestedRelayerModule` struct defines the relayer module.
 #[derive(Clone, Copy, Debug)]
 pub struct EthToCosmosAttestedRelayerModule;
 
-/// The `AttestedToCosmosRelayerModuleService` defines the relayer service from Attested to Cosmos.
+/// The `EthToCosmosAttestedRelayerModuleService` defines the relayer service.
 struct EthToCosmosAttestedRelayerModuleService<T>
 where
     T: TxListener,
@@ -116,7 +116,7 @@ impl<T> RelayerService for EthToCosmosAttestedRelayerModuleService<T>
 where
     T: TxListener,
 {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip(self))]
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
@@ -141,13 +141,11 @@ where
         }))
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip(self))]
     async fn relay_by_tx(
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request for Attested to Cosmos...");
-
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
@@ -213,13 +211,11 @@ where
         }))
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip(self))]
     async fn create_client(
         &self,
         request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
-        tracing::info!("Handling create client request for Attested to Cosmos...");
-
         let inner_req = request.into_inner();
         let tx = self
             .tx_builder
@@ -235,13 +231,11 @@ where
         }))
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip(self))]
     async fn update_client(
         &self,
         request: Request<api::UpdateClientRequest>,
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
-        tracing::info!("Handling update client request for Attested to Cosmos...");
-
         let inner_req = request.into_inner();
         let tx = self
             .tx_builder
@@ -261,7 +255,7 @@ where
 #[tonic::async_trait]
 impl RelayerModule for EthToCosmosAttestedRelayerModule {
     fn name(&self) -> &'static str {
-        "attested_to_cosmos"
+        "eth_to_cosmos_attested"
     }
 
     #[tracing::instrument(skip_all)]
