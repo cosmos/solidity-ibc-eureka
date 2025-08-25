@@ -14,10 +14,15 @@ use crate::{
 
 #[cfg(feature = "arbitrum")]
 use crate::ArbitrumClient;
+
 #[cfg(feature = "op")]
 use crate::OpClient;
+
 #[cfg(feature = "sol")]
 use crate::SolanaClient;
+
+#[cfg(feature = "cosmos")]
+use crate::CosmosClient;
 
 /// Simple server that accepts inbound RPC calls for [AttestationServiceServer]
 /// and periodically updates attestation state.
@@ -88,27 +93,34 @@ where
 
 #[cfg(feature = "sol")]
 pub async fn run_solana_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
-    let signer = Signer::from_config(config.signer.unwrap_or_default())?;
-    let adapter = SolanaClient::_from_config(config.solana);
-    let attestor = AttestorService::new(adapter, signer);
-    let server = Server::new(&config.server);
-    server.start(attestor, config.server).await
+    let sol = SolanaClient::_from_config(&config.solana);
+    run_server(sol, config).await
 }
 
 #[cfg(feature = "op")]
 pub async fn run_optimism_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
-    let signer = Signer::from_config(config.signer.unwrap_or_default())?;
-    let adapter = OpClient::from_config(&config.op)?;
-    let attestor = AttestorService::new(adapter, signer);
-    let server = Server::new(&config.server);
-    server.start(attestor, config.server).await
+    let op = OpClient::from_config(&config.op)?;
+    run_server(op, config).await
 }
 
 #[cfg(feature = "arbitrum")]
 pub async fn run_arbitrum_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
-    let signer = Signer::from_config(config.signer.unwrap_or_default())?;
-    let adapter = ArbitrumClient::from_config(&config.arbitrum)?;
-    let attestor = AttestorService::new(adapter, signer);
+    let arb = ArbitrumClient::from_config(&config.arbitrum)?;
+    run_server(arb, config).await
+}
+
+pub async fn run_cosmos_server(config: AttestorConfig) -> Result<(), anyhow::Error> {
+    let cosmos = CosmosClient::from_config(&config.cosmos);
+    run_server(cosmos, config).await
+}
+
+async fn run_server<T: AttestationAdapter>(
+    concrete_chain_adapter: T,
+    config: AttestorConfig,
+) -> Result<(), anyhow::Error> {
+    let signer = Signer::from_config(config.signer.clone().unwrap_or_default())?;
+    let attestor = AttestorService::new(concrete_chain_adapter, signer);
     let server = Server::new(&config.server);
+
     server.start(attestor, config.server).await
 }

@@ -4,3 +4,5 @@ pub mod arbitrum;
 pub mod optimism;
 #[cfg(feature = "sol")]
 pub mod sol;
+#[cfg(feature = "cosmos")]
+pub mod cosmos;
