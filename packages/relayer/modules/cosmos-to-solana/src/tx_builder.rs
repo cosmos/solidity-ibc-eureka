@@ -1,13 +1,13 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! Solana from events received from a Cosmos SDK chain.
 
-use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use anchor_lang::AnchorSerialize;
 use anyhow::Result;
 use ibc_eureka_relayer_lib::events::EurekaEvent;
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -30,16 +30,12 @@ use solana_ibc_types::{
 
 use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
 
-/// Client parameters for creating a new ICS07 client
-#[derive(Debug, Clone)]
-struct ClientParameters {
-    trust_level_numerator: u64,
-    trust_level_denominator: u64,
-    trusting_period: u64,
-    unbonding_period: u64,
-    max_clock_drift: u64,
-    revision_number: u64,
-}
+/// Default trust level for ICS07 Tendermint light client (1/3)
+const DEFAULT_TRUST_LEVEL_NUMERATOR: u64 = 1;
+const DEFAULT_TRUST_LEVEL_DENOMINATOR: u64 = 3;
+
+/// Maximum allowed clock drift in seconds
+const MAX_CLOCK_DRIFT_SECONDS: u64 = 15;
 
 /// Parameters for building a `RecvPacket` instruction
 struct RecvPacketParams<'a> {
@@ -96,55 +92,6 @@ pub struct TxBuilder {
 }
 
 impl TxBuilder {
-    /// Parse client parameters from the parameter map
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if any required parameters are missing or invalid
-    fn parse_client_parameters(parameters: &HashMap<String, String>) -> Result<ClientParameters> {
-        /// Parse a required u64 parameter
-        fn parse_u64_param(parameters: &HashMap<String, String>, param_name: &str) -> Result<u64> {
-            parameters
-                .get(param_name)
-                .ok_or_else(|| anyhow::anyhow!("{param_name} parameter is required"))?
-                .parse::<u64>()
-                .map_err(|e| anyhow::anyhow!("{param_name} must be a valid u64: {e}"))
-        }
-
-        Ok(ClientParameters {
-            trust_level_numerator: parse_u64_param(parameters, "trust_level_numerator")?,
-            trust_level_denominator: parse_u64_param(parameters, "trust_level_denominator")?,
-            trusting_period: parse_u64_param(parameters, "trusting_period")?,
-            unbonding_period: parse_u64_param(parameters, "unbonding_period")?,
-            max_clock_drift: parse_u64_param(parameters, "max_clock_drift")?,
-            revision_number: parse_u64_param(parameters, "revision_number")?,
-        })
-    }
-
-    /// Create client state from parameters
-    fn create_client_state(
-        chain_id: &str,
-        params: &ClientParameters,
-        latest_height: u64,
-    ) -> ClientState {
-        ClientState {
-            chain_id: chain_id.to_string(),
-            trust_level_numerator: params.trust_level_numerator,
-            trust_level_denominator: params.trust_level_denominator,
-            trusting_period: params.trusting_period,
-            unbonding_period: params.unbonding_period,
-            max_clock_drift: params.max_clock_drift,
-            frozen_height: IbcHeight {
-                revision_number: 0,
-                revision_height: 0,
-            },
-            latest_height: IbcHeight {
-                revision_number: params.revision_number,
-                revision_height: latest_height,
-            },
-        }
-    }
-
     /// Create consensus state from Tendermint block
     ///
     /// # Errors
@@ -612,50 +559,74 @@ impl TxBuilder {
     ///
     /// Returns an error if:
     /// - Failed to get genesis block
+    /// - Failed to query staking parameters
+    /// - Failed to parse chain ID
     /// - Failed to serialize instruction data
-    /// - Any required parameters are missing or invalid: `trust_level_numerator`, `trust_level_denominator`, `trusting_period`, `unbonding_period`, `max_clock_drift`, `revision_number`
-    pub async fn build_create_client_tx(
-        &self,
-        parameters: HashMap<String, String>,
-    ) -> Result<Transaction> {
-        // Get genesis block from Cosmos for initial client state
-        let genesis_height = parameters
-            .get("genesis_height")
-            .and_then(|h| h.parse::<i64>().ok())
-            .unwrap_or(1);
-
-        let genesis_block = self
+    pub async fn build_create_client_tx(&self) -> Result<Transaction> {
+        // Get latest block from Cosmos for initial client state
+        let latest_block = self
             .source_tm_client
-            .block(u32::try_from(genesis_height).unwrap_or(1))
+            .latest_block()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to get genesis block: {e}"))?;
+            .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
 
-        let chain_id = genesis_block.block.header.chain_id.to_string();
-        let latest_height = genesis_block.block.header.height.value();
+        let chain_id_str = latest_block.block.header.chain_id.to_string();
+        let latest_height = latest_block.block.header.height.value();
+
+        // Extract revision number from chain ID (format: {chain_name}-{revision_number})
+        let revision_number = chain_id_str
+            .rsplit('-')
+            .next()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(0);
+
+        // Query staking parameters to get unbonding period
+        let unbonding_period = self
+            .source_tm_client
+            .sdk_staking_params()
+            .await?
+            .unbonding_time
+            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?
+            .seconds
+            .try_into()?;
+        let trusting_period = 2 * (unbonding_period / 3);
 
         tracing::info!(
-            "Creating client for chain {} at height {}",
-            chain_id,
-            latest_height
+            "Creating client for chain {} at height {}, revision: {}",
+            chain_id_str,
+            latest_height,
+            revision_number
         );
 
-        // Extract required client parameters from the parameters map
-        let client_params = Self::parse_client_parameters(&parameters)?;
-
         tracing::info!(
-            "Using client parameters: trust_level={}/{}, trusting_period={}, unbonding_period={}, max_clock_drift={}, revision_number={}",
-            client_params.trust_level_numerator, client_params.trust_level_denominator, client_params.trusting_period, client_params.unbonding_period, client_params.max_clock_drift, client_params.revision_number
+            "Using client parameters: trust_level={}/{}, trusting_period={}, unbonding_period={}, max_clock_drift={}",
+            DEFAULT_TRUST_LEVEL_NUMERATOR, DEFAULT_TRUST_LEVEL_DENOMINATOR, trusting_period, unbonding_period, MAX_CLOCK_DRIFT_SECONDS
         );
 
         // Create proper ClientState matching ICS07 program expectations
-        let client_state = Self::create_client_state(&chain_id, &client_params, latest_height);
+        let client_state = ClientState {
+            chain_id: chain_id_str.clone(),
+            trust_level_numerator: DEFAULT_TRUST_LEVEL_NUMERATOR,
+            trust_level_denominator: DEFAULT_TRUST_LEVEL_DENOMINATOR,
+            trusting_period,
+            unbonding_period,
+            max_clock_drift: MAX_CLOCK_DRIFT_SECONDS,
+            frozen_height: IbcHeight {
+                revision_number: 0,
+                revision_height: 0,
+            },
+            latest_height: IbcHeight {
+                revision_number,
+                revision_height: latest_height,
+            },
+        };
 
         // Create proper ConsensusState from the block
-        let consensus_state = Self::create_consensus_state_from_block(&genesis_block)?;
+        let consensus_state = Self::create_consensus_state_from_block(&latest_block)?;
 
         // Build the instruction for creating the client
         let instruction = self.build_create_client_instruction(
-            &chain_id,
+            &chain_id_str,
             latest_height,
             &client_state,
             &consensus_state,

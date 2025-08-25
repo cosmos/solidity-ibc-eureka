@@ -13,6 +13,8 @@ import (
 
 	solanago "github.com/gagliardetto/solana-go"
 
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+
 	dummy_ibc_app "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/dummyibcapp"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
@@ -48,13 +50,17 @@ func TestWithIbcEurekaSolanaTestSuite(t *testing.T) {
 // SetupSuite calls the underlying IbcEurekaTestSuite's SetupSuite method
 // and deploys the IbcEureka contract
 func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
+	var err error
+
+	err = os.Chdir("../..")
+	s.Require().NoError(err)
+
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
 	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_Localnet)
 	s.TestSuite.SetupSuite(ctx)
 
 	simd := s.CosmosChains[0]
 
-	var err error
 	s.SolanaUser, err = s.SolanaChain.CreateAndFundWallet()
 	s.Require().NoError(err)
 
@@ -62,15 +68,13 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		_, err := s.SolanaChain.FundUser(solana.DeployerPubkey, 20*testvalues.InitialSolBalance)
 		s.Require().NoError(err)
 
-		ics07ProgramID, _, err := solana.AnchorDeploy(ctx, "../../programs/solana", "ics07_tendermint", "./solana/ics07_tendermint-keypair.json")
-		s.Require().NoError(err)
+		ics07ProgramID := s.deploySolanaProgram(ctx, "ics07_tendermint")
 		s.Require().Equal(ics07_tendermint.ProgramID, ics07ProgramID)
 
 		// Set the program ID in the ics07_tendermint package, in case it is not matched automatically
 		ics07_tendermint.ProgramID = ics07ProgramID
 
-		ics26RouterProgramID, _, err := solana.AnchorDeploy(ctx, "../../programs/solana", "ics26_router", "./solana/ics26_router-keypair.json")
-		s.Require().NoError(err)
+		ics26RouterProgramID := s.deploySolanaProgram(ctx, "ics26_router")
 		s.Require().Equal(ics26_router.ProgramID, ics26RouterProgramID)
 
 		// Ensure both programs are available before proceeding
@@ -84,9 +88,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	// Start the relayer for cross-chain communication
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
-		err := os.Chdir("../..")
-		s.Require().NoError(err)
-
 		// Configure relayer for Solana <-> Cosmos communication
 		config := relayer.NewConfig(relayer.CreateSolanaCosmosModules(
 			relayer.SolanaCosmosConfigInfo{
@@ -143,21 +144,10 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().True(s.Run("Create Relayer Client", func() {
 			var createClientTxBz []byte
 			s.Require().True(s.Run("Retrieve create client tx from relayer", func() {
-				// Fetch staking parameters to get the unbonding period
-				stakingParams, err := simd.StakingQueryParams(ctx)
-				s.Require().NoError(err)
-
 				resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
-					SrcChain: simd.Config().ChainID,
-					DstChain: testvalues.SolanaChainID,
-					Parameters: map[string]string{
-						"trust_level_numerator":   fmt.Sprintf("%d", testvalues.DefaultTrustLevel.Numerator),
-						"trust_level_denominator": fmt.Sprintf("%d", testvalues.DefaultTrustLevel.Denominator),
-						"trusting_period":         fmt.Sprintf("%d", testvalues.DefaultTrustPeriod),
-						"unbonding_period":        fmt.Sprintf("%d", int64(stakingParams.UnbondingTime.Seconds())),
-						"max_clock_drift":         fmt.Sprintf("%d", testvalues.DefaultMaxClockDrift),
-						"revision_number":         fmt.Sprintf("%d", testvalues.DefaultRevisionNumber),
-					},
+					SrcChain:   simd.Config().ChainID,
+					DstChain:   testvalues.SolanaChainID,
+					Parameters: map[string]string{},
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
@@ -239,8 +229,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
-	simd := s.CosmosChains[0]
-	clientID := simd.Config().ChainID
+	clientID := testvalues.FirstWasmClientID
 
 	// Deploy and register dummy app using helper
 	dummyAppProgramID := s.deployAndRegisterDummyApp(ctx, clientID)
@@ -411,8 +400,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
-	simd := s.CosmosChains[0]
-	clientID := simd.Config().ChainID
+	clientID := testvalues.FirstWasmClientID
 
 	// Variable to store transaction signature for relaying
 	var solanaTxSig solanago.Signature
@@ -493,9 +481,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 // deployAndRegisterDummyApp deploys the dummy IBC app and registers it for the transfer port
 func (s *IbcEurekaSolanaTestSuite) deployAndRegisterDummyApp(ctx context.Context, clientID string) solanago.PublicKey {
 	// Deploy dummy-ibc-app program
-	dummyAppProgramID, _, err := solana.AnchorDeploy(ctx, "../../programs/solana", "dummy_ibc_app", "../../programs/solana/target/deploy/dummy_ibc_app-keypair.json")
-	s.Require().NoError(err)
-	s.T().Logf("Dummy IBC App deployed at: %s", dummyAppProgramID.String())
+	dummyAppProgramID := s.deploySolanaProgram(ctx, "dummy_ibc_app")
 
 	// Set the program ID in the generated bindings
 	dummy_ibc_app.ProgramID = dummyAppProgramID
@@ -559,8 +545,8 @@ func (s *IbcEurekaSolanaTestSuite) deployAndRegisterDummyApp(ctx context.Context
 	s.Require().NoError(err)
 
 	counterpartyInfo := ics26_router.CounterpartyInfo{
-		ClientId:     "07-tendermint-0",
-		MerklePrefix: [][]byte{[]byte("ibc")},
+		ClientId:     testvalues.FirstWasmClientID,
+		MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 	}
 
 	addClientInstruction, err := ics26_router.NewAddClientInstruction(
@@ -663,4 +649,13 @@ func uint64ToLeBytes(val uint64) []byte {
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, val)
 	return b
+}
+
+// deploySolanaProgram is a helper function that standardizes Solana program deployment
+func (s *IbcEurekaSolanaTestSuite) deploySolanaProgram(ctx context.Context, programName string) solanago.PublicKey {
+	keypairPath := fmt.Sprintf("e2e/interchaintestv8/solana/%s-keypair.json", programName)
+	programID, _, err := solana.AnchorDeploy(ctx, "programs/solana", programName, keypairPath)
+	s.Require().NoError(err)
+	s.T().Logf("%s program deployed at: %s", programName, programID.String())
+	return programID
 }
