@@ -1,6 +1,6 @@
 //! This mod
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
-//! the Cosmos SDK chain from events received from an Attested chain via the aggregator.
+//! the Ethereum from events received from an Attested chain via the aggregator.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -50,7 +50,7 @@ pub mod aggregator_proto {
 pub type AggregatorClient =
     aggregator_proto::aggregator_service_client::AggregatorServiceClient<Channel>;
 
-/// The `TxBuilder` produces txs to [`CosmosSdk`] based on attestations from the aggregator.
+/// The `TxBuilder` produces txs to [`Ethereum`] based on attestations from the aggregator.
 pub struct TxBuilder<P>
 where
     P: Provider + Clone,
@@ -120,7 +120,7 @@ impl<P> TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder<P>
 where
     P: Provider + Clone,
 {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip(self, src_events, target_events, src_packet_seqs, dst_packet_seqs))]
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
@@ -257,7 +257,7 @@ where
         Ok(multicall_tx.abi_encode())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip(self))]
     async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         let role_admin = parameters
             .get(ROLE_MANAGER)
@@ -303,9 +303,8 @@ where
         .to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
-    async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
-        tracing::info!("Updating attested light client: {}", dst_client_id);
+    #[tracing::instrument(skip(self))]
+    async fn update_client(&self, _dst_client_id: String) -> Result<Vec<u8>> {
         // TODO: IBC-164
         todo!()
     }
