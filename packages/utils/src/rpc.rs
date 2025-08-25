@@ -27,7 +27,7 @@ use tendermint_rpc::{Client, HttpClient, Paging, Url};
 use crate::merkle::convert_tm_to_ics_merkle_proof;
 
 /// IBC V2 packet commitment request.
-/// https://github.com/cosmos/ibc-go/blob/release/v10.3.x/proto/ibc/core/channel/v2/query.proto#L75
+/// <https://github.com/cosmos/ibc-go/blob/release/v10.3.x/proto/ibc/core/channel/v2/query.proto#L75>
 #[derive(Clone, PartialEq, ::prost::Message)]
 struct QueryPacketCommitmentRequest {
     /// Client identifier.
