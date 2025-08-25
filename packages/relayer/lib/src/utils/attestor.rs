@@ -4,7 +4,7 @@ use ibc_eureka_solidity_types::ics26::{
 };
 use ibc_proto_eureka::ibc::core::{channel::v2::MsgRecvPacket, client::v1::Height};
 
-/// Injects the `proofs` for a given height into
+/// Injects the `proof` for a given height into
 /// [MsgRecvPacket] msgs
 pub fn inject_proofs_for_tm_msg(recv_msgs: &mut [MsgRecvPacket], proof: &[u8], height: u64) {
     for msg in recv_msgs.iter_mut() {
@@ -16,7 +16,7 @@ pub fn inject_proofs_for_tm_msg(recv_msgs: &mut [MsgRecvPacket], proof: &[u8], h
     }
 }
 
-/// Injects the `proofs` for a given height into [routerCalls::recvPacket] msgs.
+/// Injects the `proof` for a given height into [routerCalls::recvPacket] msgs.
 /// The height must be provided
 pub fn inject_proofs_for_evm_msg(
     recv_msgs: &mut [routerCalls],
