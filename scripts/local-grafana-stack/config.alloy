@@ -87,6 +87,7 @@ otelcol.receiver.otlp "from_apps" {
   grpc { endpoint = "0.0.0.0:4317" }
   output {
     traces = [otelcol.processor.batch.traces.input]
+    logs   = [otelcol.processor.attributes.loki_hints.input]
   }
 }
 
@@ -94,6 +95,30 @@ otelcol.processor.batch "traces" {
   output {
     traces = [otelcol.exporter.otlp.to_tempo.input]
   }
+}
+
+// Batch and forward logs to Loki using OTLP/HTTP
+// Add Loki label hints so each stream has at least one label
+otelcol.processor.attributes "loki_hints" {
+  action {
+    key    = "loki.resource.labels"
+    action = "insert"
+    value  = "service.name"
+  }
+  output {
+    logs = [otelcol.processor.batch.logs.input]
+  }
+}
+
+otelcol.processor.batch "logs" {
+  output {
+    logs = [otelcol.exporter.loki.to_loki.input]
+  }
+}
+
+// Forward logs to Loki using the native Loki exporter
+otelcol.exporter.loki "to_loki" {
+  forward_to = [loki.write.local.receiver]
 }
 
 // Forward traces to Tempo
