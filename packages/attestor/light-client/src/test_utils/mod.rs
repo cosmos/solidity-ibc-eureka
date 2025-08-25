@@ -43,19 +43,6 @@ mod fixtures {
         KEYS.clone()
     });
 
-    pub const SIGS: LazyCell<Vec<Vec<u8>>> = LazyCell::new(|| {
-        S_SIGNERS
-            .iter()
-            .map(|signer| {
-                let mut hasher = Sha256::new();
-                let bytes = PACKET_COMMITMENTS_ENCODED.to_abi_bytes();
-                hasher.update(&bytes);
-                let hash_result = hasher.finalize();
-                let b256 = B256::from_slice(&hash_result);
-                signer.sign_hash_sync(&b256).expect("signing should work").as_bytes().to_vec()
-            })
-            .collect()
-    });
     
     pub const SIGS_RAW: LazyCell<Vec<Vec<u8>>> = LazyCell::new(|| {
         S_SIGNERS
