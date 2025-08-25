@@ -53,17 +53,17 @@ runs:
         args: --bin relayer --path programs/relayer --locked
 
     - name: Install just
-      #if: (steps.cache-relayer.outputs.cache-hit != 'true')
+      if: (steps.cache-relayer.outputs.cache-hit != 'true')
       uses: extractions/setup-just@v2
 
     - name: Install attestor binaries
-      #if: steps.cache-relayer.outputs.cache-hit != 'true'
+      if: steps.cache-relayer.outputs.cache-hit != 'true'
       shell: bash
       run: |
         just install-attestor
 
     - name: Install aggregator
-      #if: steps.cache-relayer.outputs.cache-hit != 'true'
+      if: steps.cache-relayer.outputs.cache-hit != 'true'
       shell: bash
       run: |
         just install-aggregator
