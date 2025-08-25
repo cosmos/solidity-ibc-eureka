@@ -434,6 +434,12 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 
 func (s *IbcAttestorTestSuite) Test_AggregatorStartUp() {
 	ctx := context.Background()
+	if os.Getenv(testvalues.EnvKeyE2EEthWasmType) == testvalues.EthWasmTypeDummy {
+		s.T().Skip("Skipping attestor e2e tests when ETH_WASM_TYPE=dummy")
+	}
+	s.T().Setenv(testvalues.EnvKeyE2EEthWasmType, testvalues.EthWasmTypeAttestor)
+	// Ensure the test uses the Optimism testnet type
+	s.T().Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeOptimism)
 	s.AggregatorStartUpTest(ctx, attestor.OptimismBinary)
 }
 
@@ -512,6 +518,12 @@ func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binary
 
 func (s *IbcAttestorTestSuite) Test_OptimismAttestToICS20PacketsOnEth() {
 	ctx := context.Background()
+	if os.Getenv(testvalues.EnvKeyE2EEthWasmType) == testvalues.EthWasmTypeDummy {
+		s.T().Skip("Skipping attestor e2e tests when ETH_WASM_TYPE=dummy")
+	}
+	s.T().Setenv(testvalues.EnvKeyE2EEthWasmType, testvalues.EthWasmTypeAttestor)
+	// Ensure the test uses the Optimism testnet type
+	s.T().Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeOptimism)
 	proofType := types.GetEnvProofType()
 	s.AttestToICS20TransferNativeCosmosCoinsToEthereumNoReturn(ctx, proofType, big.NewInt(testvalues.TransferAmount), attestor.OptimismBinary)
 }
