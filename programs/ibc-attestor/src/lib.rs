@@ -24,4 +24,7 @@ pub use adapter_impls::optimism::*;
 #[cfg(feature = "sol")]
 pub use adapter_impls::sol::*;
 
+#[cfg(feature = "cosmos")]
+pub use adapter_impls::cosmos::*;
+
 pub use error::AttestorError;

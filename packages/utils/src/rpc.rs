@@ -16,6 +16,7 @@ use ibc_core_client_types::proto::v1::{
     QueryConsensusStateResponse,
 };
 use ibc_core_commitment_types::merkle::MerkleProof;
+use ibc_proto::ibc::core::channel::v1::QueryPacketCommitmentResponse;
 use tendermint::{
     block::{signed_header::SignedHeader, Height},
     validator::Set,
@@ -24,6 +25,19 @@ use tendermint_light_client_verifier::types::{LightBlock, ValidatorSet};
 use tendermint_rpc::{Client, HttpClient, Paging, Url};
 
 use crate::merkle::convert_tm_to_ics_merkle_proof;
+
+/// IBC V2 packet commitment request.
+/// <https://github.com/cosmos/ibc-go/blob/release/v10.3.x/proto/ibc/core/channel/v2/query.proto#L75>
+#[derive(Clone, PartialEq, ::prost::Message)]
+struct QueryPacketCommitmentRequest {
+    /// Client identifier.
+    #[prost(string, tag = "1")]
+    pub client_id: String,
+
+    /// Packet sequence number.
+    #[prost(uint64, tag = "2")]
+    pub sequence: u64,
+}
 
 /// An extension trait for [`HttpClient`] that provides additional methods for
 /// obtaining light blocks.
@@ -55,6 +69,15 @@ pub trait TendermintRpcExt {
     /// Proves a path in the chain's Merkle tree and returns the value at the path and the proof.
     /// If the value is empty, then this is a non-inclusion proof.
     async fn prove_path(&self, path: &[Vec<u8>], height: u64) -> Result<(Vec<u8>, MerkleProof)>;
+
+    /// Fetches the packet commitment from the Tendermint node (IBC V2).
+    async fn v2_packet_commitment(
+        &self,
+        client_id: String,
+        seq: u64,
+        height: u64,
+        prove: bool,
+    ) -> Result<QueryPacketCommitmentResponse>;
 }
 
 #[async_trait::async_trait]
@@ -203,6 +226,33 @@ impl TendermintRpcExt for HttpClient {
         }
 
         anyhow::Ok((res.value, vm_proof))
+    }
+
+    // https://github.com/cosmos/ibc-go/blob/release/v10.3.x/modules/core/04-channel/v2/keeper/grpc_query.go#L60
+    async fn v2_packet_commitment(
+        &self,
+        client_id: String,
+        seq: u64,
+        height: u64,
+        prove: bool,
+    ) -> Result<QueryPacketCommitmentResponse> {
+        let request = QueryPacketCommitmentRequest {
+            client_id,
+            sequence: seq,
+        };
+
+        let res = self
+            .abci_query(
+                Some("/ibc.core.channel.v2.Query/PacketCommitment".to_string()),
+                request.encode_to_vec(),
+                Some(height.try_into()?),
+                prove,
+            )
+            .await?;
+
+        // V1 & V2 share the same response type
+        QueryPacketCommitmentResponse::decode(res.value.as_slice())
+            .map_err(|e| anyhow::anyhow!("Failed to decode QueryPacketCommitmentResponse: {e}"))
     }
 }
 
