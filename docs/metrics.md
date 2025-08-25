@@ -127,4 +127,357 @@ When to use: Rarely. You can use histograms instead unless you have a specific r
 
 ### Rust
 
-TODO: IBC-143 Write the Rust-specific guide
+The relayer implements comprehensive metrics using the Prometheus crate with automatic collection and HTTP export.
+
+#### RED Metrics Implementation
+
+The relayer implements the RED pattern (Rate, Errors, Duration) for comprehensive service monitoring:
+
+**Rate:**
+```rust
+// Total request volume
+static REQUEST_COUNTER: LazyLock<Counter> = LazyLock::new(|| {
+    register_counter!("eureka_relayer_request_total", "Total number of requests").unwrap()
+});
+```
+
+**Errors:**
+```rust
+// Error classification by gRPC status codes
+static RESPONSE_CODE: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec!(
+        "eureka_relayer_response_codes",
+        "Response Codes", 
+        &["method", "src_chain", "dst_chain", "status_code"]
+    ).unwrap()
+});
+```
+
+**Duration:**
+```rust
+// Response time distribution with meaningful labels
+static RESPONSE_TIME: LazyLock<HistogramVec> = LazyLock::new(|| {
+    register_histogram_vec!(
+        "eureka_relayer_response_time_seconds",
+        "Response time in seconds",
+        &["method", "src_chain", "dst_chain"]
+    ).unwrap()
+});
+```
+
+This provides complete observability for:
+- **Rate**: `rate(eureka_relayer_request_total[5m])` - requests per second
+- **Errors**: `rate(eureka_relayer_response_codes{status_code!="0"}[5m])` - error rate
+- **Duration**: `histogram_quantile(0.95, rate(eureka_relayer_response_time_seconds_bucket[5m]))` - 95th percentile latency
+
+#### Dependencies
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+prometheus = { version = "0.13", features = ["push"] }
+tokio = { version = "1.0", features = ["full"] }
+warp = "0.3"  # For HTTP metrics endpoint
+```
+
+#### Metrics Implementation Pattern
+
+**1. Define Metrics with Static Registration**
+
+```rust
+use prometheus::{
+    register_counter, register_histogram_vec, register_int_counter_vec, register_int_gauge,
+    Counter, HistogramVec, IntCounterVec, IntGauge,
+};
+use std::sync::LazyLock;
+
+/// Total number of requests across all endpoints
+pub static REQUEST_COUNTER: LazyLock<Counter> = LazyLock::new(|| {
+    register_counter!("eureka_relayer_request_total", "Total number of requests").unwrap()
+});
+
+/// Response time in seconds, by method and chain pair
+pub static RESPONSE_TIME: LazyLock<HistogramVec> = LazyLock::new(|| {
+    register_histogram_vec!(
+        "eureka_relayer_response_time_seconds",
+        "Response time in seconds",
+        &["method", "src_chain", "dst_chain"]
+    )
+    .unwrap()
+});
+
+/// Response codes by method, chain pair, and status
+pub static RESPONSE_CODE: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec!(
+        "eureka_relayer_response_codes",
+        "Response Codes",
+        &["method", "src_chain", "dst_chain", "status_code"]
+    )
+    .unwrap()
+});
+
+/// Current number of active connections/requests
+pub static CONNECTED_CLIENTS: LazyLock<IntGauge> = LazyLock::new(|| {
+    register_int_gauge!("eureka_relayer_connected_clients", "Connected clients").unwrap()
+});
+```
+
+**2. Metrics Tracking Middleware**
+
+```rust
+use std::time::Instant;
+use tonic::{Response, Status};
+
+/// Generic metrics tracking middleware for service calls
+pub async fn track_metrics<F, Fut, R>(
+    method: &str,
+    src_chain: &str, 
+    dst_chain: &str,
+    f: F,
+) -> Result<Response<R>, Status>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<Response<R>, Status>>,
+{
+    let timer = Instant::now();
+    CONNECTED_CLIENTS.inc();
+    REQUEST_COUNTER.inc();
+
+    let result = f().await;
+    
+    // Record metrics based on result
+    let status_code: isize = match &result {
+        Ok(_) => 0,                    // Success
+        Err(status) => status.code() as isize,  // gRPC error code
+    };
+
+    // Record response time
+    RESPONSE_TIME
+        .with_label_values(&[method, src_chain, dst_chain])
+        .observe(timer.elapsed().as_secs_f64());
+
+    // Record response code
+    RESPONSE_CODE
+        .with_label_values(&[method, src_chain, dst_chain, &status_code.to_string()])
+        .inc();
+
+    CONNECTED_CLIENTS.dec();
+    result
+}
+```
+
+**3. HTTP Metrics Endpoint**
+
+```rust
+use prometheus::{Encoder, TextEncoder};
+use warp::Filter;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Start metrics server in background
+    tokio::spawn(async {
+        let metrics_route = warp::path("metrics").map(|| {
+            let encoder = TextEncoder::new();
+            let metric_families = prometheus::gather();
+            let mut buffer = Vec::new();
+            encoder.encode(&metric_families, &mut buffer).unwrap();
+            String::from_utf8(buffer).unwrap()
+        });
+
+        tracing::info!("Metrics available at http://0.0.0.0:9000/metrics");
+        warp::serve(metrics_route).run(([0, 0, 0, 0], 9000)).await;
+    });
+
+    // Start main application
+    start_relayer().await
+}
+```
+
+**4. Integration with Service Methods**
+
+```rust
+#[instrument(
+    skip(self, request),
+    fields(
+        src_chain = %request.get_ref().src_chain,
+        dst_chain = %request.get_ref().dst_chain,
+    )
+)]
+async fn relay_by_tx(
+    &self,
+    request: Request<api::RelayByTxRequest>,
+) -> Result<Response<api::RelayByTxResponse>, Status> {
+    let inner_request = request.get_ref();
+    let src_chain = inner_request.src_chain.clone();
+    let dst_chain = inner_request.dst_chain.clone();
+
+    // Wrap business logic with metrics tracking
+    crate::metrics::track_metrics("relay_by_tx", &src_chain, &dst_chain, || async move {
+        self.get_module(&inner_request.src_chain, &inner_request.dst_chain)?
+            .relay_by_tx(request)
+            .await
+            .map_err(|e| {
+                tracing::error!(error = %e, "Relay by tx request failed");
+                Status::internal("Failed to relay by tx. See logs for more details.")
+            })
+    })
+    .await
+}
+```
+
+#### Custom Metrics Examples
+
+**Business Logic Metrics:**
+```rust
+// Packet-specific metrics
+static PACKETS_PROCESSED: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec!(
+        "eureka_relayer_packets_processed_total",
+        "Packets processed by type",
+        &["packet_type", "src_chain", "dst_chain", "status"]
+    ).unwrap()
+});
+
+// Client expiry tracking
+static CLIENT_EXPIRY_TIME: LazyLock<HistogramVec> = LazyLock::new(|| {
+    register_histogram_vec!(
+        "eureka_relayer_client_expiry_seconds",
+        "Time until client expiry",
+        &["client_id", "chain_id"],
+        vec![3600.0, 7200.0, 86400.0, 604800.0]  // 1h, 2h, 1d, 1w buckets
+    ).unwrap()
+});
+```
+
+**Resource Monitoring:**
+```rust
+// Connection pool metrics
+static RPC_CONNECTIONS: LazyLock<IntGauge> = LazyLock::new(|| {
+    register_int_gauge!("eureka_relayer_rpc_connections_active", "Active RPC connections").unwrap()
+});
+
+// Queue depth tracking
+static QUEUE_DEPTH: LazyLock<IntGaugeVec> = LazyLock::new(|| {
+    register_int_gauge_vec!(
+        "eureka_relayer_queue_depth",
+        "Number of items in processing queues",
+        &["queue_type"]
+    ).unwrap()
+});
+```
+
+#### Prometheus Configuration
+
+**Scrape configuration for the local stack:**
+```yaml
+# In scripts/local-grafana-stack/prometheus.yml
+scrape_configs:
+  - job_name: 'ibc-eureka-relayer'
+    static_configs:
+      - targets: ['host.docker.internal:9000']
+    scrape_interval: 15s
+    metrics_path: /metrics
+```
+
+#### Best Practices for Rust
+
+- **Static registration**: Use `LazyLock` for global metrics to avoid registration panics
+- **Bounded cardinality**: Limit label values to known, finite sets
+- **Middleware pattern**: Wrap service calls with `track_metrics()` for consistent RED metrics
+- **Error categorization**: Group errors meaningfully, not by unique message
+- **Resource monitoring**: Track connection pools, queues, and other finite resources
+- **Background endpoint**: Run metrics HTTP server on separate port (9000) from main service
+
+#### Common Patterns
+
+**Conditional metrics:**
+```rust
+if critical_path {
+    CRITICAL_OPERATIONS.inc();
+}
+```
+
+**Timing operations:**
+```rust
+let timer = OPERATION_DURATION.with_label_values(&["fetch_data"]).start_timer();
+let result = fetch_data().await;
+drop(timer);  // Records duration automatically
+```
+
+**Gauge updates:**
+```rust
+// Track current state
+QUEUE_DEPTH.with_label_values(&["pending_packets"]).set(queue.len() as i64);
+
+// Track resource usage
+RPC_CONNECTIONS.set(connection_pool.active_count() as i64);
+```
+
+#### Local Development with Observability Stack
+
+The local Grafana stack includes Prometheus for metrics collection and visualization.
+
+**Quick Setup:**
+
+```bash
+# Start the full observability stack
+cd scripts/local-grafana-stack
+docker compose up -d
+
+# Enable metrics collection in e2e tests
+export ENABLE_LOCAL_OBSERVABILITY=true
+
+# Run tests to generate metrics
+just e2e-test
+```
+
+**Accessing Metrics:**
+
+- **Direct Prometheus endpoint**:
+  - Relayer metrics: http://localhost:9000/metrics
+  - Prometheus UI: http://localhost:9090
+
+- **In Grafana**:
+  1. Open http://localhost:3002
+  2. Navigate to **Explore** → **Prometheus datasource**
+  3. Query metrics: `eureka_relayer_request_total`
+  4. Build dashboards with rate calculations
+
+**Key Queries for Development:**
+
+```promql
+# Request rate (requests per second)
+rate(eureka_relayer_request_total[5m])
+
+# Error rate (percentage)
+rate(eureka_relayer_response_codes{status_code!="0"}[5m]) / 
+rate(eureka_relayer_response_codes[5m]) * 100
+
+# Response time percentiles
+histogram_quantile(0.95, rate(eureka_relayer_response_time_seconds_bucket[5m]))
+
+# Active connections
+eureka_relayer_connected_clients
+
+# Operation breakdown by chain pair
+sum by (src_chain, dst_chain) (rate(eureka_relayer_request_total[5m]))
+```
+
+**Development Tips:**
+
+```bash
+# Verify metrics endpoint is accessible
+curl -s http://localhost:9000/metrics | grep eureka_relayer
+
+# Generate load to see metrics in action
+for i in {1..10}; do
+  grpcurl -plaintext localhost:3001 ibc.applications.eureka.relayer.Relayer/Info
+done
+
+# Conditionally register metrics based on config
+if config.enable_metrics {
+    REQUEST_COUNTER.inc();
+}
+```
+
