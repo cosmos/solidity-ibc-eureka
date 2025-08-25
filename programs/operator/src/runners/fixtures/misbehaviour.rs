@@ -39,7 +39,12 @@ struct SP1ICS07SubmitMisbehaviourFixture {
 }
 
 /// Writes the proof data for misbehaviour to the given fixture path.
-#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+///
+/// # Errors
+/// Returns an error if file operations, JSON deserialization, or proof generation fails.
+///
+/// # Panics
+/// May panic if the trusted block height cannot be unwrapped or if proof verification fails.
 pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     let path = args.misbehaviour_json_path;
     let misbehaviour_bz = std::fs::read(path)?;

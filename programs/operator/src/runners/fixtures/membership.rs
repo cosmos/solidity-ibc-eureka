@@ -44,7 +44,12 @@ pub struct SP1ICS07MembershipFixture {
 }
 
 /// Writes the proof data for the given trusted and target blocks to the given fixture path.
-#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+///
+/// # Errors
+/// Returns an error if file operations, JSON deserialization, or proof generation fails.
+///
+/// # Panics
+/// Panics if the membership key paths are empty (assertion failure).
 pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
     assert!(!args.membership.key_paths.is_empty());
 

@@ -50,8 +50,11 @@ pub fn sudo(deps: DepsMut, _env: Env, msg: SudoMsg) -> Result<Response, Contract
 }
 
 /// Execute entry point is not used in this contract.
+///
+/// # Errors
+/// Always returns an error since execution is not supported in this contract.
 #[entry_point]
-#[allow(clippy::needless_pass_by_value, clippy::missing_errors_doc)]
+#[allow(clippy::needless_pass_by_value)]
 pub fn execute(
     _deps: DepsMut,
     _env: Env,

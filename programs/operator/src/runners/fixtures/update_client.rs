@@ -42,7 +42,12 @@ struct SP1ICS07UpdateClientFixture {
 }
 
 /// Writes the proof data for the given trusted and target blocks to the given fixture path.
-#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+///
+/// # Errors
+/// Returns an error if file operations, RPC calls, or proof generation fails.
+///
+/// # Panics
+/// Panics if the target block is not greater than the trusted block.
 pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     assert!(
         args.trusted_block < args.target_block,

@@ -38,7 +38,10 @@ pub struct SP1ICS07TendermintGenesis {
 impl SP1ICS07TendermintGenesis {
     /// Creates a new genesis instance by reading the environment variables
     /// and making the necessary RPC calls.
-    #[allow(clippy::missing_errors_doc, clippy::too_many_arguments)]
+    ///
+    /// # Errors
+    /// Returns an error if environment variables are missing or if RPC calls fail.
+    #[allow(clippy::too_many_arguments)]
     pub async fn from_env(
         trusted_light_block: &LightBlock,
         trusting_period: Option<u32>,
