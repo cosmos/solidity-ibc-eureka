@@ -61,7 +61,7 @@ mod verify_packet_membership {
 
         let res = verify_packet_membership(proof, value);
         assert!(
-            matches!(res, Err(PacketAttestationError::VerificiationFailed { reason }) if reason.contains("not exist") )
+            matches!(res, Err(PacketAttestationError::VerificiationFailed { reason }) if reason.contains("not exist"))
         );
     }
 }

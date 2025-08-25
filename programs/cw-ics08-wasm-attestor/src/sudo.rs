@@ -26,6 +26,7 @@ use crate::{
 /// Returns an error if the membership proof verification fails
 /// # Returns
 /// An empty response
+#[allow(clippy::needless_pass_by_value)]
 pub fn verify_membership(
     deps: &DepsMut,
     verify_membership_msg: VerifyMembershipMsg,

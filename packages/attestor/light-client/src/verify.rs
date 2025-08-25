@@ -83,7 +83,7 @@ pub fn verify_header(
 
 #[cfg(test)]
 mod verify_header {
-    use crate::test_utils::{packet_encoded_bytes, ADDRESSES, SIGS_RAW};
+    use crate::test_utils::{PACKET_COMMITMENTS_ENCODED, ADDRESSES, SIGS_RAW};
 
     use super::*;
 
@@ -102,7 +102,7 @@ mod verify_header {
         let header = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: SIGS_RAW.clone(),
         };
 
@@ -128,7 +128,7 @@ mod verify_header {
         let no_sig = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: too_few_sigs,
         };
 
@@ -161,7 +161,7 @@ mod verify_header {
         let header = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: bad_sigs,
         };
 
@@ -189,7 +189,7 @@ mod verify_header {
         let header = Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: bad_sigs,
         };
 
@@ -214,7 +214,7 @@ mod verify_header {
         let bad_ts = Header {
             new_height: cns.height,
             timestamp: cns.timestamp + 1,
-            attestation_data: packet_encoded_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: SIGS_RAW.clone(),
         };
 
@@ -247,7 +247,7 @@ mod verify_header {
         let not_inbetween = Header {
             new_height: 100 + 1,
             timestamp: next.timestamp + 3,
-            attestation_data: packet_encoded_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: SIGS_RAW.clone(),
         };
 
@@ -259,7 +259,7 @@ mod verify_header {
         let not_before = Header {
             new_height: 100 - 1,
             timestamp: next.timestamp + 3,
-            attestation_data: packet_encoded_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: SIGS_RAW.clone(),
         };
 
@@ -271,7 +271,7 @@ mod verify_header {
         let not_after = Header {
             new_height: 100 + 3,
             timestamp: prev.timestamp - 1,
-            attestation_data: packet_encoded_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: SIGS_RAW.clone(),
         };
 
@@ -304,7 +304,7 @@ mod verify_header {
         let inbetween = Header {
             new_height: 100 + 1,
             timestamp: 123 + 1,
-            attestation_data: packet_encoded_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: SIGS_RAW.clone(),
         };
 
@@ -314,7 +314,7 @@ mod verify_header {
         let before = Header {
             new_height: 100 - 1,
             timestamp: 123 - 1,
-            attestation_data: packet_encoded_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: SIGS_RAW.clone(),
         };
 
@@ -324,7 +324,7 @@ mod verify_header {
         let after = Header {
             new_height: 100 + 3,
             timestamp: prev.timestamp + 3,
-            attestation_data: packet_encoded_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
             signatures: SIGS_RAW.clone(),
         };
 

@@ -43,7 +43,7 @@ mod fixtures {
         KEYS.clone()
     });
 
-    pub const SIGS: LazyCell<Vec<Signature>> = LazyCell::new(|| {
+    pub const SIGS: LazyCell<Vec<Vec<u8>>> = LazyCell::new(|| {
         S_SIGNERS
             .iter()
             .map(|signer| {
@@ -74,9 +74,4 @@ mod fixtures {
             })
             .collect()
     });
-
-    #[must_use]
-    pub fn packet_encoded_bytes() -> Vec<u8> {
-        PACKET_COMMITMENTS_ENCODED.to_abi_bytes()
-    }
 }

@@ -133,8 +133,8 @@ lint-solidity:
 [group('lint')]
 lint-go:
 	@echo "Linting the Go code..."
-	cd e2e/interchaintestv8 && golangci-lint run
-	cd packages/go-abigen && golangci-lint run
+	cd e2e/interchaintestv8 && GOTOOLCHAIN=go1.24.3 golangci-lint run
+	cd packages/go-abigen && GOTOOLCHAIN=go1.24.3 golangci-lint run
 
 # Lint the Protobuf files using `buf lint`
 [group('lint')]
@@ -359,14 +359,9 @@ teardown-arbitrum:
 	docker-compose down || true
 
 [group('test')]
-test-e2e-l2-optimism testname:
+test-e2e-attestor testname:
 	@echo "Running {{testname}} test..."
-	just test-e2e TestWithL2OptimismTestSuite/{{testname}}
-
-[group('test')]
-test-e2e-l2-arbitrum testname:
-	@echo "Running {{testname}} test..."
-	just test-e2e TestWithL2ArbitrumTestSuite/{{testname}}
+	just test-e2e TestWithIbcAttestorTestSuite/{{testname}}
 
 # Run Slither static analysis on contracts
 # - **unused-return**: Return values from `verifyMembership` and `tryParseAddress` are intentionally unused
