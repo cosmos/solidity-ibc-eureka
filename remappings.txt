@@ -3,4 +3,3 @@ forge-std/=node_modules/forge-std/src/
 @openzeppelin-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/
 @sp1-contracts/=node_modules/sp1-contracts/contracts/src/
 @uniswap/permit2/=node_modules/@uniswap/permit2/
-@defi-wonderland/xerc20/=node_modules/@defi-wonderland/xERC20/solidity/

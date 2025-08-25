@@ -9,7 +9,6 @@
         "@uniswap/permit2": "github:Uniswap/permit2",
       },
       "devDependencies": {
-        "@defi-wonderland/xerc20": "https://github.com/srdtrk/xERC20#4dfe4bf6b84249177f25a93f223d7ae1b10d0772",
         "forge-std": "github:foundry-rs/forge-std#v1.9.7",
         "quicktype": "^23.2.6",
         "solhint": "^6.0.0",
@@ -23,8 +22,6 @@
     "@babel/helper-validator-identifier": ["@babel/helper-validator-identifier@7.27.1", "", {}, "sha512-D2hP9eA+Sqx1kBZgzxZh0y1trbuU+JoDkiEwqhQ36nodYqJwyEIhPSdMNd7lOm/4io72luTPWH20Yda0xOuUow=="],
 
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
-
-    "@defi-wonderland/xerc20": ["xerc20@github:srdtrk/xERC20#4dfe4bf", {}, "srdtrk-xERC20-4dfe4bf"],
 
     "@glideapps/ts-necessities": ["@glideapps/ts-necessities@2.4.0", "", {}, "sha512-mDC+qosuNa4lxR3ioMBb6CD0XLRsQBplU+zRPUYiMLXKeVPZ6UYphdNG/EGReig0YyfnVlBKZEXl1wzTotYmPA=="],
 
