@@ -9,6 +9,7 @@
   },
   "devDependencies": {
     "@defi-wonderland/xerc20": "https://github.com/srdtrk/xERC20#26675c401c7dc93af0826c6f50c207b5ac4b6616",
+    "@zoomercoin/xerc20": "https://github.com/ZoomerCoin/xerc20#504ce5b480f2c8945d0d9dee0904e191d1e0371f",
     "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.7",
     "solhint": "^6.0.0",
