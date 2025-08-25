@@ -29,7 +29,7 @@ use crate::merkle::convert_tm_to_ics_merkle_proof;
 /// IBC V2 packet commitment request.
 /// https://github.com/cosmos/ibc-go/blob/release/v10.3.x/proto/ibc/core/channel/v2/query.proto#L75
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct QueryPacketCommitmentRequest {
+struct QueryPacketCommitmentRequest {
     /// Client identifier.
     #[prost(string, tag = "1")]
     pub client_id: String,
@@ -76,6 +76,7 @@ pub trait TendermintRpcExt {
         client_id: String,
         seq: u64,
         height: u64,
+        prove: bool,
     ) -> Result<QueryPacketCommitmentResponse>;
 }
 
@@ -233,10 +234,8 @@ impl TendermintRpcExt for HttpClient {
         client_id: String,
         seq: u64,
         height: u64,
+        prove: bool,
     ) -> Result<QueryPacketCommitmentResponse> {
-        // we don't need to prove or provide the height for attestor-based light-client.
-        const PROVE: bool = false;
-
         let request = QueryPacketCommitmentRequest {
             client_id,
             sequence: seq,
@@ -247,7 +246,7 @@ impl TendermintRpcExt for HttpClient {
                 Some("/ibc.core.channel.v2.Query/PacketCommitment".to_string()),
                 request.encode_to_vec(),
                 Some(height.try_into()?),
-                PROVE,
+                prove,
             )
             .await?;
 

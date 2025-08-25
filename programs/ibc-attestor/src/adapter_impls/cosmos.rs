@@ -48,7 +48,7 @@ impl CosmosClient {
     ) -> Result<[u8; 32], AttestorError> {
         let res = self
             .rpc
-            .v2_packet_commitment(packet.sourceClient.clone(), packet.sequence, height)
+            .v2_packet_commitment(packet.sourceClient.clone(), packet.sequence, height, false)
             .await
             .map_err(|e| AttestorError::ClientError(e.to_string()))?;
 
@@ -59,9 +59,7 @@ impl CosmosClient {
             )));
         }
 
-        let as_arr: [u8; 32] = res.commitment.try_into().map_err(|v: Vec<u8>| {
-            AttestorError::ClientError(format!("vec to array: expected 32 bytes, got {}", v.len()))
-        })?;
+        let as_arr: [u8; 32] = res.commitment.try_into().unwrap();
 
         Ok(as_arr)
     }
