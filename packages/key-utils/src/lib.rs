@@ -1,7 +1,6 @@
-use k256::{ecdsa::SigningKey, ecdsa::VerifyingKey, SecretKey};
+use alloy_signer_local::PrivateKeySigner;
 use pem::parse as parse_pem;
 use pkcs8::PrivateKeyInfo;
-use rand_core::OsRng;
 use std::{fs, path::Path};
 
 use pkcs8::{ObjectIdentifier, SecretDocument};
@@ -11,7 +10,7 @@ use sec1::{
     EcParameters, EcPrivateKey,
 };
 
-/// Read a secp256k1 private key from PEM (PKCS#8 or SEC1) and return a `SecretKey`.
+/// Read a secp256k1 private key from PEM (PKCS#8 or SEC1) and return a `PrivateKeySigner`.
 ///
 /// Supports:
 ///  - `-----BEGIN PRIVATE KEY-----` (PKCS#8)
@@ -23,7 +22,7 @@ use sec1::{
 /// - ASN.1 decoding errors if the DER is malformed or the wrong type
 /// - Key-length validation if the inner scalar isn’t exactly 32 bytes
 /// - `secp256k1` range errors if the scalar is invalid
-pub fn read_private_pem_to_secret<P: AsRef<Path>>(path: P) -> Result<SecretKey, anyhow::Error> {
+pub fn read_private_pem_to_secret<P: AsRef<Path>>(path: P) -> Result<PrivateKeySigner, anyhow::Error> {
     let pem_str = fs::read_to_string(path)?;
     let pem = parse_pem(&pem_str)?;
 
@@ -43,15 +42,15 @@ pub fn read_private_pem_to_secret<P: AsRef<Path>>(path: P) -> Result<SecretKey, 
         .try_into()
         .map_err(|_| anyhow::anyhow!("SEC1 privateKey OCTET STRING must be 32 bytes"))?;
 
-    SecretKey::from_bytes(&arr.into()).map_err(|e| anyhow::anyhow!("{e}"))
+    PrivateKeySigner::from_slice(&arr).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 pub fn generate_secret_key<P: AsRef<Path>>(path: &P) -> Result<(), anyhow::Error> {
-    let signing_key = SigningKey::random(&mut OsRng);
-    let secret_key = signing_key.as_nonzero_scalar();
+    let signer = PrivateKeySigner::random();
+    let secret_bytes = signer.to_field_bytes();
 
     let ec_priv = EcPrivateKey {
-        private_key: &secret_key.to_bytes(),
+        private_key: secret_bytes.as_slice(),
         parameters: Some(EcParameters::NamedCurve(
             ObjectIdentifier::new("1.3.132.0.10").unwrap(),
         )),
@@ -74,10 +73,9 @@ pub fn read_private_pem_to_string<P: AsRef<Path>>(path: P) -> Result<String, any
 
 /// Read a secp256k1 private key from PEM (PKCS#8 or SEC1) and return a String.
 pub fn read_public_key_to_string<P: AsRef<Path>>(path: P) -> Result<String, anyhow::Error> {
-    let secret = read_private_pem_to_secret(&path)?;
-    let signing_key = SigningKey::from(secret);
-    let verifying_key = signing_key.verifying_key();
-    Ok(hex::encode(verifying_key.to_encoded_point(true).as_bytes()))
+    let signer = read_private_pem_to_secret(&path)?;
+    let address = signer.address();
+    Ok(hex::encode(address.as_slice()))
 }
 
 /// Parse a compressed (33-byte) public key from a byte slice.
@@ -85,9 +83,11 @@ pub fn read_public_key_to_string<P: AsRef<Path>>(path: P) -> Result<String, anyh
 /// # Errors
 /// Returns an Error if the slice is not exactly 33 bytes
 /// or not a valid public key encoding.
-pub fn parse_public_key(bytes: &[u8]) -> Result<VerifyingKey, anyhow::Error> {
-    VerifyingKey::from_sec1_bytes(bytes)
-        .map_err(|e| anyhow::anyhow!("Failed to parse public key: {}", e))
+pub fn parse_public_key(bytes: &[u8]) -> Result<Vec<u8>, anyhow::Error> {
+    if bytes.len() != 33 {
+        return Err(anyhow::anyhow!("Public key must be exactly 33 bytes, got {}", bytes.len()));
+    }
+    Ok(bytes.to_vec())
 }
 
 #[cfg(test)]
@@ -134,7 +134,7 @@ mod read_private_key_pem {
 
     use super::*;
     use pkcs8::{ObjectIdentifier, SecretDocument};
-    use rand_core::RngCore;
+    use rand_core::{RngCore, OsRng};
     use sec1::{
         pem::{LineEnding, PemLabel},
         EcParameters, EcPrivateKey,
@@ -197,24 +197,19 @@ mod parse_public_key {
 
     #[test]
     fn succeeds_on_valid_pkey() {
-        let signing_key = SigningKey::random(&mut OsRng);
-        let verifying_key = signing_key.verifying_key();
-
-        let comp = verifying_key.to_encoded_point(true).as_bytes().to_vec();
+        let mut comp = [2u8; 33];
+        comp[0] = 0x02;
+        for i in 1..33 {
+            comp[i] = i as u8;
+        }
 
         let pk2 = parse_public_key(&comp).unwrap();
-        assert_eq!(
-            verifying_key.to_encoded_point(true),
-            pk2.to_encoded_point(true)
-        );
+        assert_eq!(comp.to_vec(), pk2);
     }
 
     #[test]
     fn fails_on_wrong_size() {
-        let signing_key = SigningKey::random(&mut OsRng);
-        let verifying_key = signing_key.verifying_key();
-
-        let mut comp = verifying_key.to_encoded_point(true).as_bytes().to_vec();
+        let mut comp = vec![0x02; 34];
         comp.push(8);
 
         let failed = parse_public_key(&comp);

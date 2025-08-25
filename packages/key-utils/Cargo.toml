@@ -11,7 +11,9 @@ anyhow = { workspace = true, default-features = false }
 pem    = { workspace = true, default-features = true }
 pkcs8  = { workspace = true, features = ["pem"] }
 sec1   = { workspace = true, features = ["pem", "der"] }
-k256 = { workspace = true, features = ["ecdsa", "pem"] }
+alloy-signer-local = { workspace = true, default-features = false }
+alloy-signer = { workspace = true, default-features = false }
+alloy-primitives = { workspace = true, default-features = false }
 rand_core = { workspace = true, features = ["getrandom"] }
 hex = { workspace = true, features = ["alloc"] }
 

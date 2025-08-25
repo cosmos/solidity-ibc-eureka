@@ -16,10 +16,7 @@ pub struct Signer {
 
 impl Signer {
     pub fn from_config(config: SignerConfig) -> Result<Self, AttestorError> {
-        let secret_key = read_private_pem_to_secret(config.secret_key)
-            .map_err(|e| AttestorError::SignerConfigError(e.to_string()))?;
-        let raw = secret_key.to_bytes();
-        let signer = PrivateKeySigner::from_slice(&raw)
+        let signer = read_private_pem_to_secret(config.secret_key)
             .map_err(|e| AttestorError::SignerConfigError(e.to_string()))?;
         Ok(Self { signer })
     }
