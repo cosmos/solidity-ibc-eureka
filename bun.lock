@@ -4,8 +4,8 @@
     "": {
       "name": "@cosmos/solidity-ibc-eureka",
       "dependencies": {
-        "@openzeppelin/contracts": "^5.3.0",
-        "@openzeppelin/contracts-upgradeable": "^5.3.0",
+        "@openzeppelin/contracts": "^5.4.0",
+        "@openzeppelin/contracts-upgradeable": "^5.4.0",
         "@uniswap/permit2": "github:Uniswap/permit2",
       },
       "devDependencies": {
