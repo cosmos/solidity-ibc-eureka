@@ -22,6 +22,7 @@ env:
   ETH_TESTNET_TYPE: pow
   SP1_PROVER: mock
   E2E_PROOF_TYPE: groth16
+  ETH_WASM_TYPE: dummy
 permissions:
   contents: read
 
@@ -31,7 +32,7 @@ jobs:
     runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: 1.23
           cache-dependency-path: e2e/interchaintestv8/go.sum
