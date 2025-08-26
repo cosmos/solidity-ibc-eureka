@@ -51,7 +51,7 @@ futures				= { workspace = true, default-features = true }
 tracing				= { workspace = true }
 tracing-subscriber		= { workspace = true, default-features = true }
 
-key-utils			= { workspace = true, default-features = false }
+key-utils			= { workspace = true }
 ibc-eureka-solidity-types       = { workspace = true, default-features = true, features = ["rpc"] }
 
 [build-dependencies]

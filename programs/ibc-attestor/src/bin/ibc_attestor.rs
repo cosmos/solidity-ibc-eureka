@@ -4,7 +4,7 @@ use clap::Parser;
 use ibc_attestor::cli::{
     key::KeyCommands, AttestorCli, AttestorConfig, Commands, IBC_ATTESTOR_DIR, IBC_ATTESTOR_PATH,
 };
-use key_utils::{generate_secret_key, read_private_pem_to_string, read_public_key_to_string};
+use key_utils::pem::{generate_private_key_pem, read_private_key_pem};
 
 // Compile-time check: ensure that exactly one blockchain feature is enabled
 #[cfg(not(any(feature = "sol", feature = "op", feature = "arbitrum")))]
@@ -49,7 +49,7 @@ async fn main() -> Result<(), anyhow::Error> {
                     if attestor_dir.exists() && attestor_path.exists() {
                         return Err(anyhow::anyhow!("key pair already found; aborting"));
                     }
-                    generate_secret_key(attestor_path)
+                    generate_private_key_pem(attestor_path)
                         .map_err(|e| anyhow::anyhow!("unable to generate key {e}"))?;
                     println!(
                         "key successfully saved to {}",
@@ -63,7 +63,7 @@ async fn main() -> Result<(), anyhow::Error> {
                     if args.show_private {
                         #[allow(clippy::borrow_interior_mutable_const)]
                         let attestor_path = &*IBC_ATTESTOR_PATH;
-                        let skey = read_private_pem_to_string(attestor_path).map_err(|_| {
+                        let skey = std::fs::read_to_string(attestor_path).map_err(|_| {
                             anyhow::anyhow!(
                                 "no key found at {}, please run `key generate`",
                                 attestor_path.to_str().unwrap()
@@ -82,14 +82,14 @@ async fn main() -> Result<(), anyhow::Error> {
                     if args.show_public {
                         #[allow(clippy::borrow_interior_mutable_const)]
                         let attestor_path = &*IBC_ATTESTOR_PATH;
-                        let pkey = read_public_key_to_string(attestor_path).map_err(|_| {
+                        let signer = read_private_key_pem(attestor_path).map_err(|_| {
                             anyhow::anyhow!(
                                 "no key found at {}, please run `ibc_attestor key generate`",
                                 attestor_path.to_str().unwrap()
                             )
                         })?;
-                        let pkey = pkey.trim_end_matches('\n');
-                        print!("{pkey}");
+                        let addr = signer.address();
+                        print!("{}", hex::encode(addr.as_slice()));
                     }
 
                     Ok::<(), anyhow::Error>(())

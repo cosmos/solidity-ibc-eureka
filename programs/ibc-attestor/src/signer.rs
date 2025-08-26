@@ -1,8 +1,7 @@
-use alloy_primitives::{Address, Signature, B256};
-use alloy_signer::SignerSync;
+use alloy_primitives::{Address, Signature};
 use alloy_signer_local::PrivateKeySigner;
-use key_utils::read_private_pem_to_secret;
-use sha2::{Digest, Sha256};
+use key_utils::pem::read_private_key_pem;
+use key_utils::signature::sign;
 
 use crate::cli::SignerConfig;
 use crate::AttestorError;
@@ -16,7 +15,7 @@ pub struct Signer {
 
 impl Signer {
     pub fn from_config(config: SignerConfig) -> Result<Self, AttestorError> {
-        let signer = read_private_pem_to_secret(config.secret_key)
+        let signer = read_private_key_pem(config.secret_key)
             .map_err(|e| AttestorError::SignerConfigError(e.to_string()))?;
         Ok(Self { signer })
     }
@@ -28,15 +27,8 @@ impl Signer {
         let height = signable_data.height();
         let timestamp = signable_data.timestamp();
 
-        let mut hasher = Sha256::new();
-        hasher.update(&bytes);
-        let digest = hasher.finalize();
-
-        let b256 = B256::from_slice(&digest);
-        let sig: Signature = self
-            .signer
-            .sign_hash_sync(&b256)
-            .map_err(|e| AttestorError::SignerError(e.to_string()))?;
+        let sig: Signature =
+            sign(&self.signer, &bytes).map_err(|e| AttestorError::SignerError(e.to_string()))?;
 
         // 65-byte signature r||s||v
         let sig65 = sig.as_bytes().to_vec();

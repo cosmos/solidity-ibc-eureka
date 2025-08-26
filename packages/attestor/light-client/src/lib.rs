@@ -8,6 +8,8 @@
 )]
 #![cfg_attr(test, allow(clippy::borrow_interior_mutable_const))]
 
+use sha2 as _;
+
 pub mod client_state;
 pub mod consensus_state;
 pub mod error;

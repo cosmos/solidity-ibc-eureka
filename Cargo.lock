@@ -1425,6 +1425,7 @@ dependencies = [
  "alloy-signer",
  "alloy-signer-local",
  "attestor-packet-membership",
+ "key-utils",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -5214,8 +5215,6 @@ dependencies = [
 name = "ibc-eureka-utils"
 version = "0.1.0"
 dependencies = [
- "alloy-network",
- "alloy-signer-local",
  "anyhow",
  "async-trait",
  "cosmos-sdk-proto",
@@ -5732,6 +5731,7 @@ dependencies = [
  "pkcs8",
  "rand_core 0.6.4",
  "sec1",
+ "sha2 0.10.9",
 ]
 
 [[package]]

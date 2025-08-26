@@ -3,32 +3,11 @@
 
 use std::collections::HashSet;
 
-use alloy_primitives::{Signature, B256};
-use sha2::{Digest, Sha256};
+use key_utils::recover::recover_address;
 
 use crate::{client_state::ClientState, error::IbcAttestorClientError};
 
-/// Recover Ethereum address from 65-byte signature and message hash using alloy
-/// # Errors
-/// Returns an error if signature recovery fails or signature format is invalid
-pub fn recover_address_from_signature(
-    message_hash: &[u8; 32],
-    signature_65: &[u8],
-) -> Result<[u8; 20], IbcAttestorClientError> {
-    // Parse the 65-byte signature using alloy-primitives
-    let signature =
-        Signature::try_from(signature_65).map_err(|_| IbcAttestorClientError::InvalidSignature)?;
-
-    // Convert message hash to B256
-    let hash = B256::from_slice(message_hash);
-
-    // Recover the address from the signature and pre-hashed message
-    let address = signature
-        .recover_address_from_prehash(&hash)
-        .map_err(|_| IbcAttestorClientError::InvalidSignature)?;
-
-    Ok(address.into())
-}
+// Address recovery helpers are provided by key-utils; no local duplicates.
 
 /// Verifies the cryptographic validity of the attestation data using address recovery.
 /// This function takes raw 65-byte signatures and recovers addresses to verify against the client state.
@@ -57,14 +36,11 @@ pub(crate) fn verify_attestation(
         });
     }
 
-    // Hash the attestation data
-    let mut hasher = Sha256::new();
-    hasher.update(attestation_data);
-    let message_hash = hasher.finalize();
-
     // Verify each signature by recovering its address
     for raw_sig in raw_signatures {
-        let recovered_address = recover_address_from_signature(&message_hash.into(), raw_sig)?;
+        let recovered_address = recover_address(attestation_data, raw_sig)
+            .map_err(|_| IbcAttestorClientError::InvalidSignature)?
+            .into();
 
         // Check if the recovered address is in the trusted attestor set
         let is_trusted = client_state
@@ -85,19 +61,14 @@ pub(crate) fn verify_attestation(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloy_primitives::B256;
     use alloy_signer::SignerSync;
     use alloy_signer_local::PrivateKeySigner;
+    use sha2::Digest;
 
     fn create_test_signature_and_address(data: &[u8]) -> (Vec<u8>, [u8; 20]) {
-        use sha2::{Digest, Sha256};
-
         let signer = PrivateKeySigner::random();
-
-        let mut hasher = Sha256::new();
-        hasher.update(data);
-        let digest = hasher.finalize();
-        let hash = B256::from_slice(&digest);
-
+        let hash = B256::from_slice(&sha2::Sha256::digest(data));
         let signature = signer.sign_hash_sync(&hash).unwrap();
         let sig65 = signature.as_bytes().to_vec();
         let address = signer.address();
@@ -107,14 +78,12 @@ mod tests {
 
     #[test]
     fn test_recover_address_from_65_byte_signature() {
-        let message = b"test message";
-        let mut hasher = Sha256::new();
-        hasher.update(message);
-        let message_hash: [u8; 32] = hasher.finalize().into();
-
+        let message: &[u8] = b"test message";
         let (signature, expected_address) = create_test_signature_and_address(message);
 
-        let recovered_address = recover_address_from_signature(&message_hash, &signature).unwrap();
+        let recovered_address: [u8; 20] = key_utils::recover::recover_address(message, &signature)
+            .unwrap()
+            .into();
 
         assert_eq!(recovered_address, expected_address);
     }
