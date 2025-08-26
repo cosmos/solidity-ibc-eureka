@@ -44,30 +44,3 @@ let attestor_addresses: Vec<Address> = vec![
 ];
 let client_state = ClientState::new(attestor_addresses, 2, 42);
 ```
-
-## Minimal Examples
-
-```rust
-use attestor_light_client::{
-  client_state::ClientState,
-  consensus_state::ConsensusState,
-  header::Header,
-  update::update_consensus_state,
-  verify::verify_header,
-  membership::{verify_membership, MembershipProof},
-};
-
-// Verify a header and update consensus/client state
-let client_state = ClientState { attestor_addresses: vec![], min_required_sigs: 1, latest_height: 0, is_frozen: false };
-let trusted = ConsensusState { height: 10, timestamp: 1_700_000_000 };
-let header = Header::new(10, 1_700_000_000, vec![], vec![]);
-verify_header(Some(&trusted), None, None, &client_state, &header)?;
-let (_new_height, new_cns, maybe_new_cs) = update_consensus_state(client_state, &header)?;
-
-// Verify packet membership
-let proof = MembershipProof { attestation_data: vec![], signatures: vec![] };
-let proof_bytes = serde_json::to_vec(&proof)?;
-let value = vec![0u8; 32];
-verify_membership(&new_cns, maybe_new_cs.as_ref().unwrap_or(&ClientState{ attestor_addresses: vec![], min_required_sigs: 1, latest_height: 0, is_frozen: false }), new_cns.height, proof_bytes, value)?;
-# Ok::<(), attestor_light_client::error::IbcAttestorClientError>(())
-```

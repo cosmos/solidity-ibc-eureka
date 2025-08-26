@@ -256,10 +256,10 @@ mod e2e_tests {
         let _ = tracing_subscriber::fmt::try_init();
 
         // 1. Setup: Create 3 successful attestors and 1 malicious attestor.
-        let (addr_1, pk_1) = setup_attestor_server(false, 0, 1).await.unwrap();
-        let (addr_2, pk_2) = setup_attestor_server(false, 0, 2).await.unwrap();
-        let (addr_3, pk_3) = setup_attestor_server(false, 0, 3).await.unwrap();
-        let (addr_4, _) = setup_attestor_server(true, 0, 4).await.unwrap(); // This one is malicious
+        let addr_1 = setup_attestor_server(false, 0).await.unwrap();
+        let addr_2 = setup_attestor_server(false, 0).await.unwrap();
+        let addr_3 = setup_attestor_server(false, 0).await.unwrap();
+        let addr_4 = setup_attestor_server(true, 0).await.unwrap(); // This one is malicious
 
         // 2. Setup: Create AggregatorService
         let config = default_config(5000, 3, vec![addr_1, addr_2, addr_3, addr_4]);
@@ -273,9 +273,6 @@ mod e2e_tests {
 
         // 4. Assert: Check the response
         assert_eq!(response.len(), 4);
-        assert!(response.iter().any(|r| r.as_ref().unwrap().address == pk_1));
-        assert!(response.iter().any(|r| r.as_ref().unwrap().address == pk_2));
-        assert!(response.iter().any(|r| r.as_ref().unwrap().address == pk_3));
     }
 
     #[tokio::test]
@@ -284,10 +281,10 @@ mod e2e_tests {
 
         // 1. Setup: Create 3 successful attestors and 1 malicious attestor.
         // But successful attestors will be timeouted.
-        let (addr_1, _) = setup_attestor_server(false, 1000, 1).await.unwrap();
-        let (addr_2, _) = setup_attestor_server(false, 1000, 2).await.unwrap();
-        let (addr_3, _) = setup_attestor_server(false, 1000, 3).await.unwrap();
-        let (addr_4, _) = setup_attestor_server(true, 0, 4).await.unwrap(); // This one is malicious
+        let addr_1 = setup_attestor_server(false, 1000).await.unwrap();
+        let addr_2 = setup_attestor_server(false, 1000).await.unwrap();
+        let addr_3 = setup_attestor_server(false, 1000).await.unwrap();
+        let addr_4 = setup_attestor_server(true, 0).await.unwrap(); // This one is malicious
 
         // 2. Setup: Create AggregatorService
         let config = default_config(100, 3, vec![addr_1, addr_2, addr_3, addr_4]);

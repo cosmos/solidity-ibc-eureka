@@ -344,18 +344,18 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 		s.Require().NotEmpty(checksumHex)
 
 		var createClientTxBodyBz []byte
-		attestorPubkey, err := attestor.ReadAttestorPubKey(attestor.OptimismBinary)
+		attestorAddress, err := attestor.ReadAttestorAddress(attestor.OptimismBinary)
 		s.Require().NoError(err)
 		s.Require().True(s.Run("Retrieve create client tx", func() {
 			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
 				SrcChain: eth.ChainID.String(),
 				DstChain: simd.Config().ChainID,
 				Parameters: map[string]string{
-					testvalues.ParameterKey_ChecksumHex:     checksumHex,
-					testvalues.ParameterKey_Pubkeys:         attestorPubkey,
-					testvalues.ParameterKey_MinRequiredSigs: "1",
-					testvalues.ParameterKey_height:          "0",
-					testvalues.ParameterKey_timestamp:       "123456789",
+					testvalues.ParameterKey_ChecksumHex:       checksumHex,
+					testvalues.ParameterKey_AttestorAddresses: attestorAddress,
+					testvalues.ParameterKey_MinRequiredSigs:   "1",
+					testvalues.ParameterKey_height:            "0",
+					testvalues.ParameterKey_timestamp:         "123456789",
 				},
 			})
 			s.Require().NoError(err)

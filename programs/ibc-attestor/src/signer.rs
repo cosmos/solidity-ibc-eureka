@@ -1,7 +1,7 @@
-use alloy_primitives::{Address, Signature};
+use alloy_primitives::Signature;
 use alloy_signer_local::PrivateKeySigner;
-use key_utils::pem::read_private_key_pem;
-use key_utils::signature::sign;
+use ethereum_keys::signature::sign;
+use ethereum_keys::signer_local::read_from_keystore;
 
 use crate::cli::SignerConfig;
 use crate::AttestorError;
@@ -15,7 +15,7 @@ pub struct Signer {
 
 impl Signer {
     pub fn from_config(config: SignerConfig) -> Result<Self, AttestorError> {
-        let signer = read_private_key_pem(config.secret_key)
+        let signer = read_from_keystore(config.keystore_path)
             .map_err(|e| AttestorError::SignerConfigError(e.to_string()))?;
         Ok(Self { signer })
     }
@@ -33,15 +33,11 @@ impl Signer {
         // 65-byte signature r||s||v
         let sig65 = sig.as_bytes().to_vec();
 
-        // Signer address
-        let address: Address = self.signer.address();
-
         Ok(Attestation {
             height,
             timestamp,
             attested_data: bytes,
             signature: sig65,
-            address: address.0.to_vec(),
         })
     }
 }

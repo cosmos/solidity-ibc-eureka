@@ -21,31 +21,6 @@ The attestor packet membership package contains utilities for verifying that IBC
 
 `verify_packet_membership` checks that a given `value` (packet commitment bytes) exists among the attested commitments in `proof: Packets`. The commitments are 32-byte values (Solidity `bytes32`) and can be encoded/decoded via the `Packets` helpers.
 
-### Example Usage
-
-```rust
-use attestor_packet_membership::{verify_packet_membership, Packets};
-use alloy_primitives::FixedBytes;
-
-// Create a proof containing multiple 32-byte commitments
-let commitments: Vec<FixedBytes<32>> = vec![
-    [7u8; 32].into(),
-    [8u8; 32].into(),
-    [9u8; 32].into(),
-];
-let proof = Packets::new(commitments);
-
-// Verify that a specific 32-byte commitment exists in the proof
-let value = [9u8; 32].to_vec();
-let result = verify_packet_membership(proof, value);
-
-assert!(result.is_ok());
-
-// ABI encode/decode helpers
-let abi_bytes = proof.to_abi_bytes();
-let decoded = Packets::from_abi_bytes(&abi_bytes).unwrap();
-```
-
 ## Error Handling
 
 On success, the function returns `Ok(())`. If the packet is not found, it returns:

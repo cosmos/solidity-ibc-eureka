@@ -43,7 +43,7 @@ mod tests {
     #[test]
     fn invalid_signature_fails() {
         let msg = b"abc";
-        let err = recover_address(msg, &[0u8; 64]).unwrap_err();
-        let _ = err; // just ensure it errors
+        let result = recover_address(msg, &[0u8; 64]);
+        assert!(result.is_err());
     }
 }

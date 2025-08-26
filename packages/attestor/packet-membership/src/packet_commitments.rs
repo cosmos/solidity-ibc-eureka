@@ -6,9 +6,9 @@ use alloy_sol_types::SolType;
 /// Wrapper type that represents a list of packet commitments.
 /// Each packet commitment is represented as a fixed-size 32-byte array.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct Packets(Vec<AlloyFixedBytes<32>>);
+pub struct PacketCommitments(Vec<AlloyFixedBytes<32>>);
 
-impl Packets {
+impl PacketCommitments {
     /// Create a new instance of [Packets] from any type that can be converted to 32-byte fixed bytes
     #[must_use]
     pub fn new<T>(packets: Vec<T>) -> Self

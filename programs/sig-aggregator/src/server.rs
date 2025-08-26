@@ -41,8 +41,8 @@ mod tests {
 
     #[tokio::test]
     async fn server_accepts_and_responds_to_rpc() {
-        let (addr_1, _pk_1) = setup_attestor_server(false, 0, 1).await.unwrap();
-        let (addr_2, _pk_2) = setup_attestor_server(false, 0, 2).await.unwrap();
+        let addr_1 = setup_attestor_server(false, 0).await.unwrap();
+        let addr_2 = setup_attestor_server(false, 0).await.unwrap();
 
         let listener_addr: String = "127.0.0.1:50051".to_string();
         let config = Config {

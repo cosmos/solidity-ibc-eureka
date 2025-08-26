@@ -336,12 +336,12 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
 mod tests {
     use super::*;
     use attestor_light_client::membership::MembershipProof;
-    use attestor_packet_membership::Packets;
+    use attestor_packet_membership::PacketCommitments;
 
     #[test]
     fn abi_bytes_are_not_json() {
         let commitments = vec![[0x11u8; 32], [0x22u8; 32]];
-        let abi = Packets::new(commitments).to_abi_bytes();
+        let abi = PacketCommitments::new(commitments).to_abi_bytes();
 
         let parsed: Result<Vec<Vec<u8>>, _> = serde_json::from_slice(&abi);
         assert!(
@@ -353,7 +353,7 @@ mod tests {
     #[test]
     fn build_membership_proof_passes_through_abi_bytes() {
         let commitments = vec![[0xAAu8; 32], [0xBBu8; 32]];
-        let abi = Packets::new(commitments).to_abi_bytes();
+        let abi = PacketCommitments::new(commitments).to_abi_bytes();
         let signatures = vec![vec![0u8; 65], vec![1u8; 65]];
 
         let proof_bytes = build_membership_proof_bytes(abi.clone(), signatures.clone())

@@ -14,10 +14,10 @@ interface IAttestorMsgs {
 
     /// @notice Attested packet membership at a specific height
     /// @param height The height these packets correspond to
-    /// @param packets The list of packet commitments attested as present at `height`
+    /// @param packetCommitments The list of packet commitments attested as present at `height`
     struct PacketAttestation {
         uint64 height;
-        bytes32[] packets;
+        bytes32[] packetCommitments;
     }
 
     /// @notice Generic proof payload used for both client updates and membership checks

@@ -133,8 +133,12 @@ impl AttestationAdapter for OpClient {
 
         tracing::debug!("Total optimism packets validated : {}", validated.len());
 
-        let packets: Vec<FixedBytes<32>> =
+        let packet_commitments: Vec<FixedBytes<32>> =
             validated.into_iter().map(FixedBytes::<32>::from).collect();
-        Ok(IAttestorMsgs::PacketAttestation { height, packets })
+
+        Ok(IAttestorMsgs::PacketAttestation {
+            height,
+            packetCommitments: packet_commitments,
+        })
     }
 }

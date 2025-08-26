@@ -216,7 +216,7 @@ mod tests {
             membership::MembershipProof,
             test_utils::{PACKET_COMMITMENTS_ENCODED, SIGS_RAW},
         };
-        use attestor_packet_membership::Packets;
+        use attestor_packet_membership::PacketCommitments;
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
@@ -332,7 +332,7 @@ mod tests {
             let env = mock_env();
             let bad_commitments: Vec<[u8; 32]> = vec![[254u8; 32]];
             let value = MembershipProof {
-                attestation_data: Packets::new(bad_commitments).to_abi_bytes(),
+                attestation_data: PacketCommitments::new(bad_commitments).to_abi_bytes(),
                 signatures: SIGS_RAW.to_vec(),
             };
             let as_bytes = serde_json::to_vec(&value).unwrap();

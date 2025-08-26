@@ -14,6 +14,4 @@ message Attestation {
   bytes attested_data = 3;
   // The attestation signature
   bytes signature = 4;
-  // The attestor Ethereum address (20 bytes)
-  bytes address = 5;
 }

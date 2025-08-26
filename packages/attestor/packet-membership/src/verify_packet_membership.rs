@@ -1,8 +1,7 @@
 //! Generic function and data structures for verifying
 //! the membership of IBC packets in a packet attestation.
 
-use crate::PacketAttestationError;
-use crate::Packets;
+use crate::{packet_commitments::PacketCommitments, PacketAttestationError};
 
 /// Verifies that the provided `value` exists in the `proof`.
 ///
@@ -10,17 +9,9 @@ use crate::Packets;
 /// - The value does not exist in the proof
 #[allow(clippy::module_name_repetitions, clippy::needless_pass_by_value)]
 pub fn verify_packet_membership(
-    proof: Packets,
+    proof: PacketCommitments,
     value: Vec<u8>,
 ) -> Result<(), PacketAttestationError> {
-    if value.len() == 32 {
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(&value);
-        if proof.packets().any(|packet| packet.as_slice() == arr) {
-            return Ok(());
-        }
-    }
-
     if proof
         .packets()
         .any(|packet| packet.as_slice() == value.as_slice())
@@ -44,7 +35,7 @@ mod verify_packet_membership {
         let data: Vec<[u8; 32]> = vec![[7u8; 32], [8u8; 32], [9u8; 32]];
         let packets: Vec<FixedBytes<32>> = data.iter().map(|d| (*d).into()).collect();
 
-        let proof = Packets::new(packets);
+        let proof = PacketCommitments::new(packets);
         let value = [9u8; 32].to_vec();
 
         let res = verify_packet_membership(proof, value);
@@ -56,7 +47,7 @@ mod verify_packet_membership {
         let data: Vec<[u8; 32]> = vec![[7u8; 32], [8u8; 32], [9u8; 32]];
         let packets: Vec<FixedBytes<32>> = data.iter().map(|d| (*d).into()).collect();
 
-        let proof = Packets::new(packets);
+        let proof = PacketCommitments::new(packets);
         let value = [0u8; 32].to_vec();
 
         let res = verify_packet_membership(proof, value);

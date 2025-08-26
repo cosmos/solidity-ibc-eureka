@@ -38,10 +38,11 @@ contract AttestorLightClient is IAttestorLightClient, IAttestorLightClientErrors
         uint64 initialTimestampSeconds,
         address roleManager
     ) {
-        if (attestorAddresses.length == 0) revert NoAttestors();
-        if (minRequiredSigs == 0 || minRequiredSigs > attestorAddresses.length) {
-            revert BadQuorum(minRequiredSigs, attestorAddresses.length);
-        }
+        require(attestorAddresses.length > 0, NoAttestors());
+        require(
+            minRequiredSigs > 0 && attestorAddresses.length > minRequiredSigs - 1,
+            BadQuorum(minRequiredSigs, attestorAddresses.length)
+        );
 
         clientState = IAttestorLightClientMsgs.ClientState({
             attestorAddresses: attestorAddresses,
@@ -89,21 +90,28 @@ contract AttestorLightClient is IAttestorLightClient, IAttestorLightClientErrors
         IAttestorMsgs.AttestationProof memory proof = abi.decode(updateMsg, (IAttestorMsgs.AttestationProof));
 
         bytes32 digest = sha256(proof.attestationData);
-        _verifySignatures(digest, proof.signatures);
+        _verifySignaturesThreshold(digest, proof.signatures);
 
         IAttestorMsgs.StateAttestation memory state =
             abi.decode(proof.attestationData, (IAttestorMsgs.StateAttestation));
 
-        // Check if height already exists, if it does, check if the timestamp is the same, otherwise revert
+        require(state.height > 0 && state.timestamp > 0, InvalidState(state.height, state.timestamp));
+
+        // Check if height already exists, if it does, check if the timestamp is the same, otherwise freeze the client
+        // and return UpdateResult.Misbehaviour
         if (_consensusTimestampAtHeight[state.height] != 0) {
             if (_consensusTimestampAtHeight[state.height] != state.timestamp) {
-                revert ConflictingTimestamp(state.height, _consensusTimestampAtHeight[state.height], state.timestamp);
+                clientState.isFrozen = true;
+                return ILightClientMsgs.UpdateResult.Misbehaviour;
             }
             return ILightClientMsgs.UpdateResult.NoOp;
         }
 
+        if (state.height > clientState.latestHeight) {
+            clientState.latestHeight = state.height;
+        }
         _consensusTimestampAtHeight[state.height] = state.timestamp;
-        clientState.latestHeight = state.height;
+
         return ILightClientMsgs.UpdateResult.Update;
     }
 
@@ -115,35 +123,34 @@ contract AttestorLightClient is IAttestorLightClient, IAttestorLightClientErrors
         onlyProofSubmitter
         returns (uint256)
     {
-        if (msg_.value.length == 0) revert EmptyValue();
+        require(msg_.value.length != 0, EmptyValue());
 
         // Ensure we have a trusted timestamp at the provided height.
-        uint64 height = msg_.proofHeight.revisionHeight;
-        uint64 ts = _consensusTimestampAtHeight[height];
-        if (ts == 0) revert ConsensusTimestampNotFound(height);
+        uint64 proofHeight = msg_.proofHeight.revisionHeight;
+        uint64 ts = _consensusTimestampAtHeight[proofHeight];
+        require(ts != 0, ConsensusTimestampNotFound(proofHeight));
 
         IAttestorMsgs.AttestationProof memory proof = abi.decode(msg_.proof, (IAttestorMsgs.AttestationProof));
         bytes32 digest = sha256(proof.attestationData);
-        _verifySignatures(digest, proof.signatures);
+        _verifySignaturesThreshold(digest, proof.signatures);
 
         // Decode the attested packet commitments and verify the attested height matches the provided proof height
         IAttestorMsgs.PacketAttestation memory packetAttestation =
             abi.decode(proof.attestationData, (IAttestorMsgs.PacketAttestation));
 
-        if (packetAttestation.height != height) revert HeightMismatch(height, packetAttestation.height);
+        // Ensure the attested height matches the requested proofHeight
+        require(packetAttestation.height == proofHeight, HeightMismatch(proofHeight, packetAttestation.height));
 
+        require(packetAttestation.packetCommitments.length > 0, EmptyPacketCommitments());
         // Check membership: value must be present in the attested list
-        bool found = false;
         bytes32 value = abi.decode(msg_.value, (bytes32));
-        for (uint256 i = 0; i < packetAttestation.packets.length; ++i) {
-            if (packetAttestation.packets[i] == value) {
-                found = true;
-                break;
+        for (uint256 i = 0; i < packetAttestation.packetCommitments.length; ++i) {
+            if (packetAttestation.packetCommitments[i] == value) {
+                return uint256(ts);
             }
         }
-        if (!found) revert NotMember();
 
-        return uint256(ts);
+        revert NotMember();
     }
 
     /// @inheritdoc ILightClient
@@ -174,35 +181,46 @@ contract AttestorLightClient is IAttestorLightClient, IAttestorLightClientErrors
     /// @param signatures Compact ECDSA signatures (r||s||v) provided by attestors.
     /// @dev Reverts with `InvalidSignatureLength`, `SignatureInvalid`, `UnknownSigner`, `DuplicateSigner`,
     ///      or `ThresholdNotMet` on failure.
-    function _verifySignatures(bytes32 digest, bytes[] memory signatures) private view {
-        address[] memory seen = new address[](signatures.length);
-        uint256 seenLen = 0;
+    function _verifySignaturesThreshold(bytes32 digest, bytes[] memory signatures) private view {
+        require(signatures.length > 0, EmptySignatures());
 
-        uint256 valid = 0;
+        address[] memory seen = new address[](signatures.length);
+
         for (uint256 i = 0; i < signatures.length; ++i) {
             bytes memory sig = signatures[i];
-            if (sig.length != 65) revert InvalidSignatureLength(i);
-
-            address recovered = ECDSA.recover(digest, sig);
-            if (recovered == address(0)) revert SignatureInvalid(i);
-
-            if (!_isAttestor[recovered]) revert UnknownSigner(recovered);
+            address recovered = _verifySignature(digest, sig);
 
             // check duplicates
-            for (uint256 j = 0; j < seenLen; ++j) {
-                if (seen[j] == recovered) revert DuplicateSigner(recovered);
+            for (uint256 j = 0; j < i; ++j) {
+                require(seen[j] != recovered, DuplicateSigner(recovered));
             }
-            seen[seenLen] = recovered;
-            ++seenLen;
-            ++valid;
+            seen[i] = recovered;
         }
 
-        if (valid < clientState.minRequiredSigs) revert ThresholdNotMet(valid, clientState.minRequiredSigs);
+        require(
+            signatures.length > clientState.minRequiredSigs - 1,
+            ThresholdNotMet(signatures.length, clientState.minRequiredSigs)
+        );
+    }
+
+    /// @notice Verifies a single signature and returns the recovered signer address.
+    /// @param digest The message hash that was signed.
+    /// @param signature The compact ECDSA signature (r||s||v).
+    /// @return The recovered signer address.
+    /// @dev Reverts with `InvalidSignatureLength`, `SignatureInvalid`, or `UnknownSigner` on failure.
+    function _verifySignature(bytes32 digest, bytes memory signature) private view returns (address) {
+        require(signature.length == 65, InvalidSignatureLength(signature));
+
+        address recovered = ECDSA.recover(digest, signature);
+        require(recovered != address(0), SignatureInvalid(signature));
+        require(_isAttestor[recovered], UnknownSigner(recovered));
+
+        return recovered;
     }
 
     /// @notice Reverts if the client state is frozen.
     modifier notFrozen() {
-        if (clientState.isFrozen) revert FrozenClientState();
+        require(!clientState.isFrozen, FrozenClientState());
         _;
     }
 

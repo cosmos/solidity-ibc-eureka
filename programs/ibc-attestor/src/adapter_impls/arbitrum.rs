@@ -138,6 +138,9 @@ impl AttestationAdapter for ArbitrumClient {
 
         let packets: Vec<FixedBytes<32>> =
             validated.into_iter().map(FixedBytes::<32>::from).collect();
-        Ok(IAttestorMsgs::PacketAttestation { height, packets })
+        Ok(IAttestorMsgs::PacketAttestation {
+            height,
+            packetCommitments: packets,
+        })
     }
 }

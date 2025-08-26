@@ -51,7 +51,8 @@ futures				= { workspace = true, default-features = true }
 tracing				= { workspace = true }
 tracing-subscriber		= { workspace = true, default-features = true }
 
-key-utils			= { workspace = true }
+attestor-packet-membership = { workspace = true }
+ethereum-keys			= { workspace = true, features = ["signer-local"] }
 ibc-eureka-solidity-types       = { workspace = true, default-features = true, features = ["rpc"] }
 
 [build-dependencies]

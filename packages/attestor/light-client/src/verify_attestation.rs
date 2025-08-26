@@ -3,11 +3,9 @@
 
 use std::collections::HashSet;
 
-use key_utils::recover::recover_address;
+use ethereum_keys::recover::recover_address;
 
 use crate::{client_state::ClientState, error::IbcAttestorClientError};
-
-// Address recovery helpers are provided by key-utils; no local duplicates.
 
 /// Verifies the cryptographic validity of the attestation data using address recovery.
 /// This function takes raw 65-byte signatures and recovers addresses to verify against the client state.
@@ -74,18 +72,6 @@ mod tests {
         let address = signer.address();
 
         (sig65, address.into())
-    }
-
-    #[test]
-    fn test_recover_address_from_65_byte_signature() {
-        let message: &[u8] = b"test message";
-        let (signature, expected_address) = create_test_signature_and_address(message);
-
-        let recovered_address: [u8; 20] = key_utils::recover::recover_address(message, &signature)
-            .unwrap()
-            .into();
-
-        assert_eq!(recovered_address, expected_address);
     }
 
     #[test]

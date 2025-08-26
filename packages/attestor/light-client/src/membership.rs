@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use attestor_packet_membership::{verify_packet_membership, Packets};
+use attestor_packet_membership::{verify_packet_membership, PacketCommitments};
 
 use crate::{
     client_state::ClientState, consensus_state::ConsensusState, error::IbcAttestorClientError,
@@ -48,11 +48,12 @@ pub fn verify_membership(
     )?;
 
     // Decode the ABI-encoded attestation data to get the packet commitments
-    let packets = Packets::from_abi_bytes(&attested_state.attestation_data).map_err(|e| {
-        IbcAttestorClientError::InvalidProof {
-            reason: format!("Failed to decode ABI attestation data: {e}"),
-        }
-    })?;
+    let packets =
+        PacketCommitments::from_abi_bytes(&attested_state.attestation_data).map_err(|e| {
+            IbcAttestorClientError::InvalidProof {
+                reason: format!("Failed to decode ABI attestation data: {e}"),
+            }
+        })?;
 
     verify_packet_membership::verify_packet_membership(packets, value)?;
 

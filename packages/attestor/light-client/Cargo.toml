@@ -6,18 +6,18 @@ repository = { workspace = true }
 
 [features]
 default = []
-test-utils = ["dep:alloy-signer", "dep:alloy-signer-local"]
+test-utils = ["dep:alloy-signer", "dep:alloy-signer-local", "sha2"]
 
 [dependencies]
 attestor-packet-membership = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false, features = ["k256"] }
+ethereum-keys = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
-sha2 = { workspace = true }
+sha2 = { workspace = true, optional = true }
 alloy-signer-local = { workspace = true, optional = true }
 alloy-signer = { workspace = true, optional = true }
-key-utils = { workspace = true }
 
 [dev-dependencies]
 alloy-signer-local = { workspace = true }

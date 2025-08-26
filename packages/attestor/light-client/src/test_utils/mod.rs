@@ -15,14 +15,14 @@ mod fixtures {
     use alloy_primitives::{Address, FixedBytes, B256};
     use alloy_signer::SignerSync;
     use alloy_signer_local::PrivateKeySigner;
-    use attestor_packet_membership::Packets;
+    use attestor_packet_membership::PacketCommitments;
     use sha2::{Digest, Sha256};
     use std::cell::LazyCell;
 
     pub const PACKET_COMMITMENTS: [[u8; 32]; 3] = [[1u8; 32], [2u8; 32], [3u8; 32]];
 
-    pub const PACKET_COMMITMENTS_ENCODED: LazyCell<Packets> = LazyCell::new(|| {
-        Packets::new(
+    pub const PACKET_COMMITMENTS_ENCODED: LazyCell<PacketCommitments> = LazyCell::new(|| {
+        PacketCommitments::new(
             PACKET_COMMITMENTS
                 .iter()
                 .map(|p| FixedBytes::<32>::from(*p))

@@ -1,5 +1,4 @@
 use crate::rpc::{AggregatedAttestation, Attestation};
-use alloy_primitives::FixedBytes;
 use anyhow::{ensure as anyhow_ensure, Context, Result};
 use std::collections::HashMap;
 
@@ -7,10 +6,6 @@ type State = Vec<u8>;
 
 // 65-byte recoverable ECDSA signature: r (32) || s (32) || v (1)
 pub const SIGNATURE_BYTE_LENGTH: usize = 65;
-
-// Ethereum address length (20 bytes)
-pub const ADDRESS_BYTE_LENGTH: usize = 20;
-type Address = FixedBytes<ADDRESS_BYTE_LENGTH>;
 
 /// Maps attested_data -> list of attestations
 ///
@@ -74,27 +69,12 @@ impl AttestatorData {
 // TODO: move this to a separate library IBC-138
 impl Attestation {
     fn validate(&self) -> Result<()> {
-        self.validate_address()?;
         // Always enforce 65-byte recoverable signature format
         anyhow_ensure!(
             self.signature.len() == SIGNATURE_BYTE_LENGTH,
             "Invalid signature length: {}",
             self.signature.len()
         );
-        // Only enforce address format and strict 65-byte signature length
-        Ok(())
-    }
-
-    fn validate_address(&self) -> Result<()> {
-        anyhow_ensure!(
-            self.address.len() == ADDRESS_BYTE_LENGTH,
-            "Invalid address length: {}",
-            self.address.len()
-        );
-
-        Address::try_from(self.address.as_slice())
-            .with_context(|| format!("Invalid address: {:?}", self.address))?;
-
         Ok(())
     }
 }
@@ -115,7 +95,6 @@ mod tests {
 
         let result = attestator_data.insert(Attestation {
             attested_data: vec![1],
-            address: vec![0x03; ADDRESS_BYTE_LENGTH],
             height: 100,
             timestamp: Some(100),
             signature: create_valid_65_byte_signature(),
@@ -130,7 +109,6 @@ mod tests {
 
         let result = attestator_data.insert(Attestation {
             attested_data: vec![1],
-            address: vec![0x03; ADDRESS_BYTE_LENGTH],
             height: 100,
             timestamp: Some(100),
             signature: vec![0x04; 64], // Old 64-byte format
@@ -154,7 +132,6 @@ mod tests {
         attestator_data
             .insert(Attestation {
                 attested_data: vec![1],
-                address: vec![0x03; ADDRESS_BYTE_LENGTH],
                 height: 100,
                 timestamp: Some(100),
                 signature: create_valid_65_byte_signature(),
@@ -171,17 +148,23 @@ mod tests {
         let attestation = vec![0xAA];
         let height = 123;
 
-        [0x21, 0x22].iter().for_each(|&addr_byte| {
-            attestator_data
-                .insert(Attestation {
-                    attested_data: attestation.clone(),
-                    address: vec![addr_byte; ADDRESS_BYTE_LENGTH],
-                    height,
-                    timestamp: Some(height),
-                    signature: create_valid_65_byte_signature(),
-                })
-                .unwrap();
-        });
+        attestator_data
+            .insert(Attestation {
+                attested_data: attestation.clone(),
+                height,
+                timestamp: Some(height),
+                signature: create_valid_65_byte_signature(),
+            })
+            .unwrap();
+
+        attestator_data
+            .insert(Attestation {
+                attested_data: attestation.clone(),
+                height,
+                timestamp: Some(height),
+                signature: create_valid_65_byte_signature(),
+            })
+            .unwrap();
 
         let latest = attestator_data.agg_quorumed_attestations(2);
         assert!(latest.is_some(), "Should return a state meeting quorum");

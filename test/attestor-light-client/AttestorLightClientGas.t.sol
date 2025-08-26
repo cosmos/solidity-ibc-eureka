@@ -62,7 +62,7 @@ contract AttestorLightClientGas is Test {
 
         (bytes32[] memory commitments, bytes32 target) = _makeCommitments(commitmentCount);
         IAttestorMsgs.PacketAttestation memory p =
-            IAttestorMsgs.PacketAttestation({ height: INITIAL_HEIGHT, packets: commitments });
+            IAttestorMsgs.PacketAttestation({ height: INITIAL_HEIGHT, packetCommitments: commitments });
         bytes memory attestationData = abi.encode(p);
         bytes32 digest = sha256(attestationData);
 

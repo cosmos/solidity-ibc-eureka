@@ -1,5 +1,5 @@
 use crate::{
-    attestor_data::{ADDRESS_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH},
+    attestor_data::SIGNATURE_BYTE_LENGTH,
     rpc::{
         attestation_service_server::{AttestationService, AttestationServiceServer},
         Attestation, PacketAttestationRequest, PacketAttestationResponse, StateAttestationRequest,
@@ -12,7 +12,6 @@ use tonic::{transport::Server, Request, Response, Status};
 
 #[derive(Debug, Default)]
 pub struct MockAttestor {
-    pub_key: Vec<u8>,
     // To simulate malicious attestor
     is_malicious: bool,
     // To simulate latency
@@ -20,9 +19,8 @@ pub struct MockAttestor {
 }
 
 impl MockAttestor {
-    pub fn new(malicious: bool, delay_ms: u64, id: u8) -> Self {
+    pub fn new(malicious: bool, delay_ms: u64) -> Self {
         Self {
-            pub_key: vec![id; ADDRESS_BYTE_LENGTH],
             is_malicious: malicious,
             delay_ms,
         }
@@ -34,7 +32,6 @@ impl MockAttestor {
             height,
             attested_data: vec![value; 10],
             signature: vec![value; SIGNATURE_BYTE_LENGTH],
-            address: self.pub_key.clone(),
             timestamp: Some(123),
         }
     }
@@ -47,7 +44,6 @@ impl MockAttestor {
             height,
             attested_data: vec![value; 10],
             signature: vec![value; SIGNATURE_BYTE_LENGTH],
-            address: self.pub_key.clone(),
             timestamp: None,
         }
     }
@@ -92,15 +88,10 @@ impl AttestationService for MockAttestor {
 
 // Helper to spin up a mock attestor server on a random available port.
 // Returns the address it's listening on.
-pub async fn setup_attestor_server(
-    malicious: bool,
-    delay_ms: u64,
-    id: u8,
-) -> anyhow::Result<(SocketAddr, Vec<u8>)> {
+pub async fn setup_attestor_server(malicious: bool, delay_ms: u64) -> anyhow::Result<SocketAddr> {
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let addr = listener.local_addr()?;
-    let attestor = MockAttestor::new(malicious, delay_ms, id);
-    let pubkey = attestor.pub_key.clone();
+    let attestor = MockAttestor::new(malicious, delay_ms);
 
     tokio::spawn(async move {
         Server::builder()
@@ -109,5 +100,5 @@ pub async fn setup_attestor_server(
             .await
     });
 
-    Ok((addr, pubkey))
+    Ok(addr)
 }
