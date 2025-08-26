@@ -6,10 +6,10 @@ on:
 
 jobs:
   release-sp1-programs:
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     if: startsWith(github.ref_name, 'sp1-programs-')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Install SP1 toolchain
@@ -19,7 +19,7 @@ jobs:
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
       - name: Install just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v3
 
       - name: Build SP1 Programs
         shell: bash
@@ -35,10 +35,10 @@ jobs:
           overwrite: true
 
   release-cw-ics08-wasm-eth:
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-24.04-4
     if: startsWith(github.ref_name, 'cw-ics08-wasm-eth-')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Upload cw-ics08-wasm-eth to release
         uses: svenstaro/upload-release-action@v2

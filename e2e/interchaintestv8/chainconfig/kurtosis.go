@@ -24,7 +24,7 @@ import (
 
 const (
 	// ethereumPackageId is the package ID used by Kurtosis to find the Ethereum package we use for the testnet
-	ethereumPackageId = "github.com/ethpandaops/ethereum-package@4.5.0"
+	ethereumPackageId = "github.com/ethpandaops/ethereum-package@5.0.1"
 
 	faucetPrivateKey = "0x04b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
 )
@@ -36,9 +36,9 @@ var (
 		Participants: []kurtosisParticipant{
 			{
 				CLType:         "lodestar",
-				CLImage:        "ethpandaops/lodestar:unstable",
+				CLImage:        "chainsafe/lodestar:v1.33.0",
 				ELType:         "geth",
-				ELImage:        "ethpandaops/geth:prague-devnet-6",
+				ELImage:        "ethereum/client-go:v1.16.2",
 				ELExtraParams:  []string{"--gcmode=archive"},
 				ELLogLevel:     "info",
 				ValidatorCount: 64,

@@ -173,6 +173,8 @@ func (e Ethereum) SendEth(key *ecdsa.PrivateKey, toAddress string, amount math.I
 		"--value", amount.String(),
 		"--private-key", fmt.Sprintf("0x%s", hex.EncodeToString(crypto.FromECDSA(key))),
 		"--rpc-url", e.RPC,
+		"--priority-gas-price", "1gwei",
+		"--gas-price", "3gwei",
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
