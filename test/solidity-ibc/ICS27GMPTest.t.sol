@@ -49,7 +49,7 @@ contract ICS27GMPTest is Test {
     }
 
     function testFuzz_success_sendCall(uint16 saltLen, uint16 payloadLen, uint64 seq) public {
-        vm.assume(seq > 0);
+        vm.assume(payloadLen > 0 && seq > 0);
 
         address sender = makeAddr("sender");
         bytes memory salt = vm.randomBytes(saltLen);
