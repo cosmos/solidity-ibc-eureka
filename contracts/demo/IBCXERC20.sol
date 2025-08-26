@@ -20,6 +20,11 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
     /// @notice Storage of the IBCXERC20 contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
+    /// @param ics27Gmp The ICS27GMP contract
+    /// @param clientId The client ID on the this chain
+    /// @param receiver The receiver address on the counterparty chain
+    /// @param payload The payload to be sent back on burn
+    /// @param bridge The address of the bridge contract allowed to call mint and burn
     struct IBCXERC20Storage {
         IICS27GMP ics27Gmp;
         string clientId;
@@ -46,6 +51,8 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
     /// @param clientId_ The client ID on the source chain
     /// @param receiver_ The receiver address on the source chain
     /// @param payload_ The payload to be sent back on burn
+    /// @param bridge_ The address of the bridge contract allowed to call mint and burn
+    // natlint-disable-next-line MissingInheritdoc
     function initialize(
         address owner_,
         string calldata name_,
