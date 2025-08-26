@@ -51,7 +51,7 @@ impl CosmosClient {
         packet: &Packet,
         height: u64,
     ) -> Result<[u8; 32], AttestorError> {
-        let client_id = packet.destClient.clone();
+        let client_id = packet.sourceClient.clone();
 
         let res = self
             .rpc
