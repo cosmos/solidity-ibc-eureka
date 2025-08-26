@@ -13,7 +13,6 @@ use opentelemetry_sdk::{
     resource::Resource,
     trace::{Sampler, SdkTracerProvider, SpanExporter, Tracer},
 };
-use tracing_log::LogTracer;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
 
 /// Guard that shuts down OpenTelemetry on drop (if enabled).
@@ -43,8 +42,10 @@ pub fn init_observability(config: &ObservabilityConfig) -> Result<ObservabilityG
     // Set up global propagator for context propagation
     global::set_text_map_propagator(TraceContextPropagator::new());
 
-    // Bridge `log` crate records into `tracing` (best-effort)
-    let _ = LogTracer::init();
+    // NOTE: Do not call `LogTracer::init()` here.
+    // `SubscriberInitExt::try_init()` will install the log bridge when the
+    // `tracing-subscriber` crate is built with the `tracing-log` feature.
+    // Calling it explicitly can cause a double-initialization error.
 
     // Using a closure instead of a function allows Rust to infer the correct
     // return type for each usage, avoiding type system constraints that would
