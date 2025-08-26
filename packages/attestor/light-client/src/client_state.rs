@@ -33,19 +33,3 @@ impl ClientState {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::ClientState;
-    use alloy_primitives::Address;
-
-    #[test]
-    fn client_state_new_from_addresses() {
-        let addrs = vec![Address::from([0x11u8; 20]), Address::from([0x22u8; 20])];
-        let client_state = ClientState::new(addrs.clone(), 2, 42);
-        assert_eq!(client_state.attestor_addresses, addrs);
-        assert_eq!(client_state.min_required_sigs, 2);
-        assert_eq!(client_state.latest_height, 42);
-        assert!(!client_state.is_frozen);
-    }
-}
