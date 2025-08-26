@@ -59,8 +59,7 @@ contract DemoTest is Test {
                     "WF",
                     address(ibcImplB.ics27Gmp()),
                     th.FIRST_CLIENT_ID(),
-                    "receiver",
-                    "test_payload",
+                    "TODO",
                     computedAccount
                 )
             )

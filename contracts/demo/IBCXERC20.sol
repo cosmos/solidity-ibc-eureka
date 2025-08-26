@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IMintableAndBurnable } from "../interfaces/IMintableAndBurnable.sol";
 import { IICS27GMPMsgs } from "../msgs/IICS27GMPMsgs.sol";
+
+import { IICS27GMP } from "../interfaces/IICS27GMP.sol";
 
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { OwnableUpgradeable } from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
-import { IICS27GMP } from "../interfaces/IICS27GMP.sol";
+import { CosmosICS27Lib } from "./CosmosICS27Lib.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
 /// @title Reference IBC xERC20 Implementation
 /// @notice This implementation is intended to serve as a base reference for developers creating their own
 /// IBC-compatible upgradeable xERC20 tokens.
-contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable {
+contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable {
     /// @notice Caller is not the bridge
     /// @param caller The address of the caller
     error CallerNotBridge(address caller);
@@ -22,14 +24,13 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
     /// upgradeable contracts.
     /// @param ics27Gmp The ICS27GMP contract
     /// @param clientId The client ID on the this chain
-    /// @param receiver The receiver address on the counterparty chain
+    /// @param cosmosAccount_ The cosmos address on the counterparty chain
     /// @param payload The payload to be sent back on burn
     /// @param bridge The address of the bridge contract allowed to call mint and burn
     struct IBCXERC20Storage {
         IICS27GMP ics27Gmp;
         string clientId;
-        string receiver;
-        bytes payload;
+        string cosmosAccount;
         address bridge;
     }
 
@@ -49,8 +50,7 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
     /// @param symbol_ The symbol of the token
     /// @param ics27Gmp_ The ICS27GMP contract address
     /// @param clientId_ The client ID on the source chain
-    /// @param receiver_ The receiver address on the source chain
-    /// @param payload_ The payload to be sent back on burn
+    /// @param cosmosAccount_ The cosmos address on the counterparty chain
     /// @param bridge_ The address of the bridge contract allowed to call mint and burn
     // natlint-disable-next-line MissingInheritdoc
     function initialize(
@@ -59,8 +59,7 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
         string calldata symbol_,
         address ics27Gmp_,
         string calldata clientId_,
-        string calldata receiver_,
-        bytes calldata payload_,
+        string calldata cosmosAccount_,
         address bridge_
     )
         external
@@ -72,8 +71,7 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
         $.ics27Gmp = IICS27GMP(ics27Gmp_);
         $.clientId = clientId_;
-        $.receiver = receiver_;
-        $.payload = payload_;
+        $.cosmosAccount = cosmosAccount_;
         $.bridge = bridge_;
     }
 
@@ -95,24 +93,34 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
         return 6;
     }
 
-    /// @inheritdoc IMintableAndBurnable
+    /// @notice Mints tokens to a specified address
+    /// @dev Can only be called by the bridge account
+    /// @param mintAddress The address to mint tokens to
+    /// @param amount The amount of tokens to mint
+    // natlint-disable-next-line MissingInheritdoc
     function mint(address mintAddress, uint256 amount) external onlyBridge {
         _mint(mintAddress, amount);
     }
 
-    /// @inheritdoc IMintableAndBurnable
-    function burn(address mintAddress, uint256 amount) external onlyBridge {
-        _burn(mintAddress, amount);
+    /// @notice Burns tokens and sends a GMP to the counterparty chain to mint tokens there
+    /// @dev Can only be called by the bridge amount
+    /// @param amount The amount of tokens to burn
+    /// @param receiver The address on the counterparty chain to mint tokens to
+    // natlint-disable-next-line MissingInheritdoc
+    function transfer(uint256 amount, string calldata receiver) external onlyBridge {
+        _burn(_msgSender(), amount);
 
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
+        bytes memory payload = CosmosICS27Lib.tokenFactoryMintMsg($.cosmosAccount, receiver, symbol(), amount);
+
         // NOTE: There is no use for the returned packet sequence number here
         // slither-disable-next-line unused-return
         $.ics27Gmp.sendCall(
             IICS27GMPMsgs.SendCallMsg({
                 sourceClient: $.clientId,
-                receiver: $.receiver,
+                receiver: "",
                 salt: "",
-                payload: $.payload,
+                payload: payload,
                 timeoutTimestamp: uint64(block.timestamp + 1 hours),
                 memo: ""
             })
