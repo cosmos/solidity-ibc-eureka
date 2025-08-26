@@ -53,15 +53,7 @@ contract DemoTest is Test {
             xerc20Logic,
             abi.encodeCall(
                 IBCXERC20.initialize,
-                (
-                    owner,
-                    "WildFlower",
-                    "WF",
-                    address(ibcImplB.ics27Gmp()),
-                    th.FIRST_CLIENT_ID(),
-                    "TODO",
-                    computedAccount
-                )
+                (owner, "WildFlower", "WF", address(ibcImplB.ics27Gmp()), th.FIRST_CLIENT_ID(), "TODO", computedAccount)
             )
         );
         xerc20 = IBCXERC20(address(xerc20Proxy));
