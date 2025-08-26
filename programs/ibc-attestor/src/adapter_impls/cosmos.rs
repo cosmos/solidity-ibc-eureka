@@ -1,11 +1,12 @@
 use alloy::sol_types::SolValue;
+use tendermint::block::Height;
 
 use crate::adapter_client::{
     AttestationAdapter, UnsignedPacketAttestation, UnsignedStateAttestation,
 };
 
 use ibc_eureka_utils::rpc::TendermintRpcExt;
-use tendermint_rpc::HttpClient;
+use tendermint_rpc::{Client, HttpClient};
 
 use attestor_packet_membership::Packets;
 use futures::{stream::FuturesUnordered, StreamExt};
@@ -28,17 +29,21 @@ impl CosmosClient {
             rpc: HttpClient::from_rpc_url(&config.url),
         }
     }
-
     async fn get_timestamp_for_block_at_height(&self, height: u64) -> Result<u64, AttestorError> {
-        let block = self
-            .rpc
-            .get_light_block(height.into())
-            .await
-            .map_err(|e| AttestorError::ClientError(e.to_string()))?;
+        let h = TryInto::<Height>::try_into(height)
+            .map_err(|e| AttestorError::ClientError(format!("Invalid height {}: {}", height, e)))?;
 
-        let timestamp = block.time().unix_timestamp();
+        let block = self.rpc.commit(h).await.map_err(|e| {
+            tracing::error!("Failed to get block commit at height {}: {}", height, e);
+            AttestorError::ClientError(format!(
+                "Failed to retrieve block at height {}: {}",
+                height, e
+            ))
+        })?;
 
-        Ok(timestamp as u64)
+        let ts = block.signed_header.header.time.unix_timestamp();
+
+        Ok(ts as u64)
     }
 
     async fn get_historical_packet_commitment(
@@ -53,6 +58,10 @@ impl CosmosClient {
             .v2_packet_commitment(client_id, packet.sequence, height, false)
             .await
             .map_err(|e| AttestorError::ClientError(e.to_string()))?;
+
+        if res.commitment.is_empty() {
+            return Err(AttestorError::ClientError("empty commitment".to_string()));
+        }
 
         if res.commitment.len() != 32 {
             return Err(AttestorError::ClientError(format!(
@@ -94,13 +103,29 @@ impl AttestationAdapter for CosmosClient {
 
             // concurrency validate packets against RPC data
             let packet_validator = async move |packet: Packet, height: u64| {
-                let commitment = self
-                    .get_historical_packet_commitment(&packet, height)
-                    .await?;
+                let expected_commitment = packet.commitment();
 
-                if packet.commitment() != commitment {
+                let commitment = match self.get_historical_packet_commitment(&packet, height).await
+                {
+                    Ok(commitment) => commitment,
+                    Err(err) => {
+                        tracing::error!(
+                            "Commitment failed: {:?}, error: {}; expected 0x{}",
+                            packet,
+                            err,
+                            hex::encode(&expected_commitment),
+                        );
+                        return Err(err);
+                    }
+                };
+
+                if expected_commitment != commitment {
                     return Err(AttestorError::InvalidCommitment {
-                        reason: "requested and received packet commitments do not match".into(),
+                        reason: format!(
+                            "Commitment mismatch: request carried 0x{}, but rpc returned 0x{}",
+                            hex::encode(expected_commitment),
+                            hex::encode(commitment),
+                        ),
                     });
                 }
 
