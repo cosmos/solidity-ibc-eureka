@@ -12,6 +12,7 @@ default = ["op"]
 sol = ["dep:solana-client", "dep:solana-commitment-config", "dep:solana-sdk", ]
 op = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider" ]
 arbitrum = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider", "dep:alloy-contract" ]
+cosmos = [ "dep:alloy", "dep:ibc-eureka-utils" ]
 
 
 [dependencies]
@@ -22,12 +23,16 @@ alloy-network			= { workspace = true, default-features = false, optional = true 
 alloy-provider			= { workspace = true, default-features = false, features = ["reqwest"], optional = true }
 alloy-contract			= { workspace = true, default-features = false, optional = true }
 
+tendermint-rpc = { workspace = true, features = ["http-client"] }
+tendermint     = { workspace = true, features = ["std"] }
+
 borsh				= { workspace = true, default-features = false, features = ["derive"] }
 serde      			= { workspace = true, features = ["derive"] }
 serde_json 			= { workspace = true, default-features = true }
 k256				= { workspace = true, default-features = false, features = ["ecdsa", "sha2"] }
 sha2				= { workspace = true, default-features = false }
 toml 				= { workspace = true, default-features = true }
+hex 				= { workspace = true, default-features = true }
 
 solana-client			= { workspace = true, default-features = false, optional = true }
 solana-commitment-config	= { workspace = true, default-features = false, optional = true }
@@ -53,6 +58,7 @@ key-utils			= { workspace = true, default-features = false }
 
 attestor-packet-membership      = { workspace = true, default-features = false }
 ibc-eureka-solidity-types       = { workspace = true, default-features = true, features = ["rpc"] }
+ibc-eureka-utils               = { workspace = true, default-features = true, optional = true}
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }

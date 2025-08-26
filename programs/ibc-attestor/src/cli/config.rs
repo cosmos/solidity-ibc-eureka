@@ -11,8 +11,12 @@ use tracing::Level;
 
 #[cfg(feature = "arbitrum")]
 use crate::ArbitrumClientConfig;
+
 #[cfg(feature = "op")]
 use crate::OpClientConfig;
+
+#[cfg(feature = "cosmos")]
+use crate::CosmosClientConfig;
 
 // Without LazyCell we can't use paths under the hood
 #[allow(
@@ -57,6 +61,10 @@ pub struct AttestorConfig {
     #[cfg(feature = "arbitrum")]
     /// The configuration for the Arbitrum client.
     pub arbitrum: ArbitrumClientConfig,
+
+    #[cfg(feature = "cosmos")]
+    /// The configuration for the Cosmos client.
+    pub cosmos: CosmosClientConfig,
 }
 
 impl AttestorConfig {
