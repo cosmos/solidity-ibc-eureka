@@ -101,6 +101,10 @@ const (
 	SolanaTestnetType_Localnet = "localnet"
 	// SolanaTestnetType_None is the Solana testnet type for using no chain.
 	SolanaTestnetType_None = "none"
+	// SolanaChainID is the chain identifier for Solana localnet used in relayer config.
+	SolanaChainID = "solana-localnet"
+	// SolanaLocalnetRPC is the default RPC URL for Solana localnet.
+	SolanaLocalnetRPC = "http://localhost:8899"
 
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.

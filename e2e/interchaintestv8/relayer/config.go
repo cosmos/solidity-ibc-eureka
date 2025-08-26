@@ -14,6 +14,8 @@ const (
 	ModuleCosmosToEth       = "cosmos_to_eth"
 	ModuleEthToCosmos       = "eth_to_cosmos"
 	ModuleEthToCosmosCompat = "eth_to_cosmos_compat"
+	ModuleSolanaToCosmos    = "solana-to-cosmos"
+	ModuleCosmosToSolana    = "cosmos-to-solana"
 )
 
 // Config represents the relayer configuration structure and serves as template data

@@ -17,6 +17,15 @@ pub struct OnTimeoutPacket<'info> {
     /// CHECK: Verified to be the ICS26 Router program
     pub router_program: AccountInfo<'info>,
 
+    /// Escrow account that holds SOL (funds remain in escrow on timeout)
+    /// CHECK: PDA derived from `source_client`
+    #[account(
+        mut,
+        seeds = [ESCROW_SEED, msg.source_client.as_bytes()],
+        bump
+    )]
+    pub escrow_account: Option<AccountInfo<'info>>,
+
     /// Payer for account creation if needed
     #[account(mut)]
     pub payer: Signer<'info>,

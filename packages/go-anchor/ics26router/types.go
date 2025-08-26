@@ -630,6 +630,7 @@ func UnmarshalIbcAppAdded(buf []byte) (*IbcAppAdded, error) {
 	return obj, nil
 }
 
+// Message for acknowledging a packet
 type MsgAckPacket struct {
 	Packet          Packet `json:"packet"`
 	Acknowledgement []byte `json:"acknowledgement"`
@@ -712,6 +713,7 @@ func UnmarshalMsgAckPacket(buf []byte) (*MsgAckPacket, error) {
 	return obj, nil
 }
 
+// Message for receiving a packet
 type MsgRecvPacket struct {
 	Packet          Packet `json:"packet"`
 	ProofCommitment []byte `json:"proofCommitment"`
@@ -783,7 +785,7 @@ func UnmarshalMsgRecvPacket(buf []byte) (*MsgRecvPacket, error) {
 	return obj, nil
 }
 
-// Message structures for instructions
+// Message for sending a packet
 type MsgSendPacket struct {
 	SourceClient     string  `json:"sourceClient"`
 	TimeoutTimestamp int64   `json:"timeoutTimestamp"`
@@ -855,6 +857,7 @@ func UnmarshalMsgSendPacket(buf []byte) (*MsgSendPacket, error) {
 	return obj, nil
 }
 
+// Message for timing out a packet
 type MsgTimeoutPacket struct {
 	Packet       Packet `json:"packet"`
 	ProofTimeout []byte `json:"proofTimeout"`
@@ -1057,7 +1060,7 @@ func UnmarshalPacket(buf []byte) (*Packet, error) {
 	return obj, nil
 }
 
-// Payload structure
+// Payload structure shared between router and IBC apps
 type Payload struct {
 	SourcePort string `json:"sourcePort"`
 	DestPort   string `json:"destPort"`

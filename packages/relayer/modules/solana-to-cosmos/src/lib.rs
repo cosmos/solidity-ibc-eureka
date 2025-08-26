@@ -28,6 +28,8 @@ pub struct SolanaToCosmosRelayerModule;
 /// The `SolanaToCosmosRelayerModuleService` defines the relayer service from Solana to Cosmos.
 #[allow(dead_code)]
 struct SolanaToCosmosRelayerModuleService {
+    /// The Solana chain ID.
+    pub solana_chain_id: String,
     /// The Solana RPC client (wrapped in Arc since `RpcClient` doesn't implement Clone in 2.0).
     pub solana_client: Arc<RpcClient>,
     /// The target Cosmos tendermint client.
@@ -41,6 +43,8 @@ struct SolanaToCosmosRelayerModuleService {
 /// The configuration for the Solana to Cosmos relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct SolanaToCosmosConfig {
+    /// The Solana chain ID for identification.
+    pub solana_chain_id: String,
     /// The Solana RPC URL.
     pub solana_rpc_url: String,
     /// The target tendermint RPC URL.
@@ -70,6 +74,7 @@ impl SolanaToCosmosRelayerModuleService {
         );
 
         Ok(Self {
+            solana_chain_id: config.solana_chain_id,
             solana_client,
             target_tm_client: target_client,
             tx_builder,
@@ -101,7 +106,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
                 ibc_contract: String::new(),
             }),
             source_chain: Some(api::Chain {
-                chain_id: "solana".to_string(), // Solana doesn't have chain IDs like Cosmos
+                chain_id: self.solana_chain_id.clone(),
                 ibc_version: "2".to_string(),
                 ibc_contract: self.solana_ics26_program_id.to_string(),
             }),
@@ -164,7 +169,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         // Build the relay transaction
         let tx = self
             .tx_builder
-            .build_relay_tx(src_events, target_events)
+            .build_relay_tx(&inner_req.dst_client_id, src_events, target_events)
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!(
