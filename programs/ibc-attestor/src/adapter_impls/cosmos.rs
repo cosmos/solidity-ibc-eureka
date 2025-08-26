@@ -46,9 +46,11 @@ impl CosmosClient {
         packet: &Packet,
         height: u64,
     ) -> Result<[u8; 32], AttestorError> {
+        let client_id = packet.destClient.clone();
+
         let res = self
             .rpc
-            .v2_packet_commitment(packet.sourceClient.clone(), packet.sequence, height, false)
+            .v2_packet_commitment(client_id, packet.sequence, height, false)
             .await
             .map_err(|e| AttestorError::ClientError(e.to_string()))?;
 
