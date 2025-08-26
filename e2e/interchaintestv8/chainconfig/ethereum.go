@@ -24,8 +24,30 @@ const (
 )
 
 var (
-// KurtosisConfig sets up the default values for the eth testnet
-// It can be changed before calling SetupSuite to alter the testnet configuration
+	// KurtosisConfig sets up the default values for the eth testnet
+	// It can be changed before calling SetupSuite to alter the testnet configuration
+	KurtosisConfig = kurtosisEthNetworkParams{
+		Participants: []kurtosisEthParticipant{
+			{
+				CLType:         "lodestar",
+				CLImage:        "chainsafe/lodestar:v1.33.0",
+				ELType:         "geth",
+				ELImage:        "ethereum/client-go:v1.16.2",
+				ELExtraParams:  []string{"--gcmode=archive"},
+				ELLogLevel:     "info",
+				ValidatorCount: 64,
+			},
+		},
+		// We
+		NetworkParams: kurtosisEthNetworkConfigParams{
+			Preset:           "minimal",
+			ElectraForkEpoch: 1,
+		},
+		WaitForFinalization: true,
+		AdditionalServices:  []string{},
+	}
+	executionService = fmt.Sprintf("el-1-%s-%s", KurtosisConfig.Participants[0].ELType, KurtosisConfig.Participants[0].CLType)
+	consensusService = fmt.Sprintf("cl-1-%s-%s", KurtosisConfig.Participants[0].CLType, KurtosisConfig.Participants[0].ELType)
 )
 
 type EthKurtosisChain struct {
