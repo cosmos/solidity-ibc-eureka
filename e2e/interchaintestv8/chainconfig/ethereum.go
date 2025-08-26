@@ -23,32 +23,28 @@ const (
 	ethFaucetPrivateKey = "0x04b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
 )
 
-var (
-	// KurtosisConfig sets up the default values for the eth testnet
-	// It can be changed before calling SetupSuite to alter the testnet configuration
-	KurtosisConfig = kurtosisEthNetworkParams{
-		Participants: []kurtosisEthParticipant{
-			{
-				CLType:         "lodestar",
-				CLImage:        "chainsafe/lodestar:v1.33.0",
-				ELType:         "geth",
-				ELImage:        "ethereum/client-go:v1.16.2",
-				ELExtraParams:  []string{"--gcmode=archive"},
-				ELLogLevel:     "info",
-				ValidatorCount: 64,
-			},
+// KurtosisConfig sets up the default values for the eth testnet
+// It can be changed before calling SetupSuite to alter the testnet configuration
+var KurtosisConfig = kurtosisEthNetworkParams{
+	Participants: []kurtosisEthParticipant{
+		{
+			CLType:         "lodestar",
+			CLImage:        "chainsafe/lodestar:v1.33.0",
+			ELType:         "geth",
+			ELImage:        "ethereum/client-go:v1.16.2",
+			ELExtraParams:  []string{"--gcmode=archive"},
+			ELLogLevel:     "info",
+			ValidatorCount: 64,
 		},
-		// We
-		NetworkParams: kurtosisEthNetworkConfigParams{
-			Preset:           "minimal",
-			ElectraForkEpoch: 1,
-		},
-		WaitForFinalization: true,
-		AdditionalServices:  []string{},
-	}
-	executionService = fmt.Sprintf("el-1-%s-%s", KurtosisConfig.Participants[0].ELType, KurtosisConfig.Participants[0].CLType)
-	consensusService = fmt.Sprintf("cl-1-%s-%s", KurtosisConfig.Participants[0].CLType, KurtosisConfig.Participants[0].ELType)
-)
+	},
+	// We
+	NetworkParams: kurtosisEthNetworkConfigParams{
+		Preset:           "minimal",
+		ElectraForkEpoch: 1,
+	},
+	WaitForFinalization: true,
+	AdditionalServices:  []string{},
+}
 
 type EthKurtosisChain struct {
 	RPC             string
