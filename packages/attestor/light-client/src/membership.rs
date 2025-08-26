@@ -69,7 +69,7 @@ pub fn verify_non_membership(
 
 #[cfg(test)]
 mod verify_membership {
-    use crate::test_utils::{KEYS, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS};
+    use crate::test_utils::{keys, packets, sigs, PACKET_COMMITMENTS};
 
     use super::*;
 
@@ -80,7 +80,7 @@ mod verify_membership {
             timestamp: 123,
         };
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys(),
             latest_height: 100,
             min_required_sigs: 5,
             is_frozen: false,
@@ -88,15 +88,15 @@ mod verify_membership {
 
         let height = cns.height;
         let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.clone(),
-            pubkeys: KEYS.clone(),
-            signatures: SIGS.clone(),
+            attestation_data: packets(),
+            pubkeys: keys(),
+            signatures: sigs(),
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let value = PACKET_COMMITMENTS[0].clone();
+        let value = PACKET_COMMITMENTS[0];
         let res = verify_membership(&cns, &cs, height, as_bytes, value.to_vec());
-        println!("{:?}", res);
+        println!("{res:?}");
         assert!(res.is_ok());
     }
 
@@ -107,7 +107,7 @@ mod verify_membership {
             timestamp: 123,
         };
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys(),
             latest_height: 100,
             min_required_sigs: 5,
             is_frozen: false,
@@ -115,9 +115,9 @@ mod verify_membership {
 
         let bad_height = cns.height + 1;
         let attestation = MembershipProof {
-            attestation_data: (*PACKET_COMMITMENTS_ENCODED).clone(),
-            pubkeys: KEYS.clone(),
-            signatures: SIGS.clone(),
+            attestation_data: packets(),
+            pubkeys: keys(),
+            signatures: sigs(),
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
@@ -135,7 +135,7 @@ mod verify_membership {
             timestamp: 123,
         };
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys(),
             latest_height: 100,
             min_required_sigs: 5,
             is_frozen: false,
@@ -157,14 +157,14 @@ mod verify_membership {
     // as this is extensively tested in the `verify` module
     #[test]
     fn fails_if_verification_fails() {
-        let mut bad_keys = KEYS.clone();
+        let mut bad_keys = keys();
         bad_keys.pop();
         let cns = ConsensusState {
             height: 100,
             timestamp: 123,
         };
         let cs = ClientState {
-            pub_keys: KEYS.clone(),
+            pub_keys: keys(),
             latest_height: 100,
             min_required_sigs: 5,
             is_frozen: false,
@@ -172,9 +172,9 @@ mod verify_membership {
 
         let height = cns.height;
         let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.clone(),
+            attestation_data: packets(),
             pubkeys: bad_keys,
-            signatures: SIGS.clone(),
+            signatures: sigs(),
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
