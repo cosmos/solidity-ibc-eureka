@@ -24,7 +24,10 @@ async fn main() -> anyhow::Result<()> {
 
             let _guard = init_observability(&config.observability)?;
 
-            info!("Observability initialized with level: {}", config.observability.level());
+            info!(
+                "Observability initialized with level: {}",
+                config.observability.level()
+            );
 
             // Build the relayer server.
             let mut relayer_builder = RelayerBuilder::default();

@@ -5,14 +5,14 @@
 use anyhow::{Context, Result};
 use ibc_eureka_relayer_core::config::ObservabilityConfig;
 use opentelemetry::{global, trace::TracerProvider as _, KeyValue};
+use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::logs::SdkLoggerProvider;
 use opentelemetry_sdk::{
     propagation::TraceContextPropagator,
     resource::Resource,
     trace::{Sampler, SdkTracerProvider, SpanExporter, Tracer},
 };
-use opentelemetry_sdk::logs::SdkLoggerProvider;
-use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use tracing_log::LogTracer;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
 
@@ -84,7 +84,10 @@ pub fn init_observability(config: &ObservabilityConfig) -> Result<ObservabilityG
         (None, None)
     };
 
-    Ok(ObservabilityGuard { otel_tracer_provider, otel_logger_provider })
+    Ok(ObservabilityGuard {
+        otel_tracer_provider,
+        otel_logger_provider,
+    })
 }
 
 /// Initialize the subscriber and handle errors.
@@ -218,5 +221,3 @@ mod tests {
         });
     }
 }
-
-
