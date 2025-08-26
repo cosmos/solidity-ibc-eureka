@@ -22,9 +22,6 @@ pub mod test;
 
 pub use error::ContractError;
 
-// Unused crate dependencies - imported to satisfy linter
-use alloy_sol_types as _;
-use attestor_packet_membership as _;
+// ed25519-zebra is required by cosmwasm-crypto for signature verification
+// with ed25519_zebra 4.1, batch was suddenly feature gated...
 use ed25519_zebra as _;
-use hex as _;
-use serde as _;

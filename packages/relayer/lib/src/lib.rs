@@ -7,8 +7,6 @@
     unused_crate_dependencies
 )]
 
-use ibc_core_commitment_types as _;
-
 pub mod chain;
 pub mod events;
 pub mod listener;

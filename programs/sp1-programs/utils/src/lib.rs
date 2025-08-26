@@ -11,7 +11,6 @@
     unused_crate_dependencies
 )]
 
-use alloy_sol_types as _;
 use ibc_client_tendermint::types::ConsensusState;
 use ibc_core_client_types::Height;
 use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
