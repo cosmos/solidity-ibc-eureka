@@ -105,6 +105,8 @@ contract IBCXERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, O
         _burn(mintAddress, amount);
 
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
+        // NOTE: There is no use for the returned packet sequence number here
+        // slither-disable-next-line unused-return
         $.ics27Gmp.sendCall(
             IICS27GMPMsgs.SendCallMsg({
                 sourceClient: $.clientId,
