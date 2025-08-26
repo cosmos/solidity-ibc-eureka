@@ -1425,11 +1425,9 @@ dependencies = [
  "alloy-signer",
  "alloy-signer-local",
  "attestor-packet-membership",
- "k256",
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "sha3",
  "thiserror 2.0.16",
 ]
 
@@ -2908,17 +2906,14 @@ dependencies = [
 name = "cw-ics08-wasm-attestor"
 version = "0.1.0"
 dependencies = [
- "alloy-sol-types 1.3.1",
  "attestor-light-client",
  "attestor-packet-membership",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw2",
  "ed25519-zebra",
- "hex",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
- "serde",
  "serde_json",
  "thiserror 2.0.16",
 ]
@@ -4947,7 +4942,6 @@ dependencies = [
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
- "k256",
  "prost",
  "serde",
  "serde_json",
@@ -5114,7 +5108,6 @@ dependencies = [
  "ethereum-types 0.1.0",
  "futures",
  "futures-timer",
- "ibc-core-commitment-types",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",

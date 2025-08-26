@@ -12,11 +12,9 @@ test-utils = ["dep:alloy-signer", "dep:alloy-signer-local"]
 attestor-packet-membership = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false, features = ["k256"] }
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
+serde_json = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
-k256 = { workspace = true, features = ["alloc", "ecdsa", "pem"] }
 sha2 = { workspace = true }
-sha3 = { workspace = true }
 alloy-signer-local = { workspace = true, optional = true }
 alloy-signer = { workspace = true, optional = true }
 
