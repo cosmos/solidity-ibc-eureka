@@ -161,6 +161,19 @@ func (e Ethereum) CreateAndFundUser() (*ecdsa.PrivateKey, error) {
 	return key, nil
 }
 
+// WaitForNodeReady waits until the Ethereum node is no longer syncing
+// by checking the eth_syncing RPC endpoint
+func (e *Ethereum) WaitForNodeReady(ctx context.Context, timeout time.Duration) error {
+	return testutil.WaitForCondition(timeout, time.Second*2, func() (bool, error) {
+		syncing, err := e.RPCClient.SyncProgress(ctx)
+		if err != nil {
+			return false, nil
+		}
+		// If syncing is nil, the node is fully synced and ready for transactions
+		return syncing == nil, nil
+	})
+}
+
 func (e Ethereum) FundUser(address string, amount math.Int) error {
 	return e.SendEth(e.Faucet, address, amount)
 }

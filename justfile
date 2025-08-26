@@ -15,6 +15,11 @@ build-relayer:
 build-operator:
 	cargo build --bin operator --release --locked
 
+
+[group('build')]
+build-optimism-attestor:
+	cargo build --bin ibc_attestor --release --locked -F op
+
 # Build riscv elf files using `~/.sp1/bin/cargo-prove`
 [group('build')]
 build-sp1-programs:
@@ -31,11 +36,47 @@ build-cw-ics08-wasm-eth:
 	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
 	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
+# Build and optimize the attestor wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
+[group('build')]
+build-cw-ics08-wasm-attestor:
+	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.17.0 ./programs/cw-ics08-wasm-attestor
+	cp artifacts/cw_ics08_wasm_attestor.wasm e2e/interchaintestv8/wasm 
+	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_attestor.wasm -f
+
 # Build the relayer docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built
 [group('build')]
 build-relayer-image:
     docker build -t eureka-relayer:latest -f programs/relayer/Dockerfile .
+
+# Start the attestor and aggregator services using Docker Compose
+[group('run')]
+start-aggregator-services *flags="":
+    @just stop-aggregator-services
+    @echo "🚀 Starting IBC Attestor and Sig-Aggregator services..."
+    @cd programs/sig-aggregator && COMPOSE_BAKE=true docker compose up {{ if flags =~ "--no-build" { "" } else { "--build" } }} -d --wait
+
+# Stop the attestor and aggregator services
+[group('run')]
+stop-aggregator-services:
+    cd programs/sig-aggregator && docker-compose down --volumes
+
+# Test the attestor and aggregator services
+[group('run')]
+test-aggregator-services *flags="":
+    # TODO: point to e2e test when we have one.
+    @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
+        echo "✅ Services are already running, proceeding with tests..."; \
+    else \
+        echo "🚀 Services not running, starting them..."; \
+        just start-aggregator-services {{ flags }}; \
+    fi
+    @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
+        grpcurl -plaintext -d '{"min_height": 100}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq; \
+    else \
+        echo "❌ Aggregator service is not reachable. Check logs with: cd programs/sig-aggregator && docker-compose logs"; \
+        exit 1; \
+    fi
 
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 [group('install')]
@@ -46,6 +87,30 @@ install-operator:
 [group('install')]
 install-relayer:
 	cargo install --bin relayer --path programs/relayer --locked
+
+# Install the optimism using `cargo install`
+[group('install')]
+install-attestor:
+	# Clean up old keys
+	rm -rf ~/.ibc-attestor
+
+	# For some reason `cargo install` removes the CLI help options
+	# so we build manually and mv it to the default `cargo install`
+	# location
+
+	# Optimism
+	cargo build --bin ibc_attestor --release --locked --no-default-features -F op &&\
+	mv target/release/ibc_attestor ~/.cargo/bin/ibc_op_attestor
+	# Arbitrum
+	cargo build --bin ibc_attestor --release --locked --no-default-features -F arbitrum &&\
+	mv target/release/ibc_attestor ~/.cargo/bin/ibc_arbitrum_attestor
+
+# Install the sig-aggregator using `cargo install`
+[group('install')]
+install-aggregator:
+	cargo build --bin aggregator --release --locked &&\
+	mv target/release/aggregator ~/.cargo/bin/aggregator
+
 
 # Run all linters
 [group('lint')]
@@ -192,7 +257,7 @@ generate-fixtures-sp1-ics07: clean-foundry install-operator install-relayer
 # Generate the code from pritibuf using `buf generate`. (Only used for relayer testing at the moment)
 [group('generate')]
 generate-buf:
-    @echo "Generating Protobuf files for relayer"
+    @echo "Generating Protobuf files"
     buf generate --template buf.gen.yaml
 
 shadowfork := if env("ETH_RPC_URL", "") == "" { "--no-match-path test/shadowfork/*" } else { "" }
@@ -221,7 +286,7 @@ test-abigen:
 
 # Run any e2e test using the test's full name. For example, `just test-e2e TestWithIbcEurekaTestSuite/Test_Deploy`
 [group('test')]
-test-e2e testname: clean-foundry install-relayer
+test-e2e testname: clean-foundry install-relayer install-attestor install-aggregator
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 
@@ -273,6 +338,44 @@ clean-cargo:
 	@echo "Cleaning up cargo target directory"
 	cargo clean
 	cd programs/sp1-programs && cargo clean
+
+# Spike related recipes below:
+
+run-optimism:
+	kurtosis run github.com/ethpandaops/optimism-package@1.3.0 --enclave local-optimism --args-file ./network-config.yaml
+
+teardown-optimism:
+	kurtosis enclave stop local-optimism
+	kurtosis enclave rm local-optimism
+
+run-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8
+	if [ ! -d "nitro-testnode" ]; then
+		git clone -b release --recurse-submodules https://github.com/OffchainLabs/nitro-testnode.git
+	else
+		cd nitro-testnode
+		git pull origin release
+		cd ..
+	fi
+	cd nitro-testnode
+	docker-compose down || true
+	./test-node.bash --init --no-simple --detach
+
+teardown-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8/nitro-testnode
+	docker-compose down || true
+
+[group('test')]
+test-e2e-l2-optimism testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2OptimismTestSuite/{{testname}}
+
+[group('test')]
+test-e2e-l2-arbitrum testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2ArbitrumTestSuite/{{testname}}
 
 # Run Slither static analysis on contracts
 # - **unused-return**: Return values from `verifyMembership` and `tryParseAddress` are intentionally unused

@@ -1,0 +1,17 @@
+[package]
+name = "key-utils"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+
+[dependencies]
+anyhow = { workspace = true, default-features = false }
+pem    = { workspace = true, default-features = true }
+pkcs8  = { workspace = true, features = ["pem"] }
+sec1   = { workspace = true, features = ["pem", "der"] }
+k256 = { workspace = true, features = ["ecdsa", "pem"] }
+rand_core = { workspace = true, features = ["getrandom"] }
+hex = { workspace = true, features = ["alloc"] }
+
