@@ -94,7 +94,6 @@ mod verify_header {
         let addresses = ADDRESSES.clone();
         let frozen = ClientState {
             attestor_addresses: addresses,
-            latest_height: 100,
             is_frozen: true,
             min_required_sigs: 5,
         };
@@ -115,6 +114,8 @@ mod verify_header {
 
     #[test]
     fn fails_on_too_few_sigs() {
+        let keys = test_keys();
+
         let cs = ClientState {
             attestor_addresses: ADDRESSES.clone(),
             latest_height: 100,
@@ -143,6 +144,8 @@ mod verify_header {
 
     #[test]
     fn fails_on_rogue_signature() {
+        let keys = test_keys();
+
         let cs = ClientState {
             attestor_addresses: ADDRESSES.clone(),
             latest_height: 100,
@@ -179,6 +182,8 @@ mod verify_header {
 
     #[test]
     fn fails_on_dup_sigs() {
+        let keys = test_keys();
+
         let cs = ClientState {
             attestor_addresses: ADDRESSES.clone(),
             latest_height: 100,
@@ -208,6 +213,8 @@ mod verify_header {
 
     #[test]
     fn fails_on_inconsistent_ts() {
+        let keys = test_keys();
+
         let cs = ClientState {
             attestor_addresses: ADDRESSES.clone(),
             latest_height: 100,
@@ -233,6 +240,8 @@ mod verify_header {
 
     #[test]
     fn fails_non_monotonic_ts() {
+        let keys = test_keys();
+
         let cs = ClientState {
             attestor_addresses: ADDRESSES.clone(),
             latest_height: 100,
@@ -290,6 +299,8 @@ mod verify_header {
 
     #[test]
     fn succeeds_on_monotonic_ts() {
+        let keys = test_keys();
+
         let cs = ClientState {
             attestor_addresses: ADDRESSES.clone(),
             latest_height: 100,
