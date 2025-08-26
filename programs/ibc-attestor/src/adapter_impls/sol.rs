@@ -24,7 +24,7 @@ pub struct SolanaClient {
 }
 
 impl SolanaClient {
-    pub fn _from_config(_config: SolanaClientConfig) -> Self {
+    pub fn _from_config(_config: &SolanaClientConfig) -> Self {
         todo!()
     }
 
