@@ -637,6 +637,11 @@
   },
   {
     "type": "error",
+    "name": "ICS27PayloadEmpty",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ICS27Unauthorized",
     "inputs": [
       {
