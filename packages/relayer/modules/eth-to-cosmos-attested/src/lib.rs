@@ -13,11 +13,6 @@
     clippy::missing_errors_doc
 )]
 
-// Satisfy unused_crate_dependencies for transitive-only crates in this module
-use alloy_primitives as _;
-use attestor_packet_membership as _;
-use k256 as _;
-
 pub mod tx_builder;
 mod tx_listener;
 
@@ -282,7 +277,7 @@ mod tests {
     #[test]
     fn test_module_name() {
         let module = EthToCosmosAttestedRelayerModule;
-        assert_eq!(module.name(), "attested_to_cosmos");
+        assert_eq!(module.name(), "eth_to_cosmos_attested");
     }
 
     #[test]

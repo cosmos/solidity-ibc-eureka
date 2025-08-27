@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn test_module_name() {
         let module = CosmosToEthAttestedRelayerModule;
-        assert_eq!(module.name(), "attested_to_cosmos");
+        assert_eq!(module.name(), "cosmos_to_eth_attested");
     }
 
     #[test]

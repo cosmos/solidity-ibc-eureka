@@ -25,11 +25,12 @@ tendermint-rpc = { workspace = true, features = ["http-client"] }
 hex            = { workspace = true }
 
 attestor-light-client = { workspace = true }
-attestor-packet-membership = { workspace = true }
-k256 = { workspace = true, features = ["ecdsa"] }
 
 ibc-proto-eureka          = { workspace = true }
 ibc-eureka-solidity-types = { workspace = true, default-features = true }
+
+[dev-dependencies]
+attestor-packet-membership = { workspace = true }
 
 [build-dependencies]
 tonic-build = { workspace = true }
