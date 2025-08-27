@@ -120,6 +120,9 @@ reqwest            = { version = "0.12", default-features = false }
 reqwest_0_11       = { package = "reqwest", version = "0.11", default-features = false }
 indexmap           = { version = "2.10.0", default-features = false }
 
+# Ensure `alloc` is enabled for ed25519-zebra so cosmwasm-crypto can import its batch module
+ed25519-zebra      = { version = "4.1.0", default-features = false, features = ["alloc"] }
+
 tendermint                       = { version = "0.40", default-features = false }
 tendermint-rpc                   = { version = "0.40", default-features = false }
 tendermint-light-client-verifier = { version = "0.40", default-features = false }
