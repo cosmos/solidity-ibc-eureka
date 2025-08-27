@@ -17,7 +17,6 @@ cw2 = { workspace = true }
 prost = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-ed25519-zebra = { workspace = true }
 
 [dev-dependencies]
 attestor-light-client = { workspace = true, features = ["test-utils"] }

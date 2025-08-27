@@ -21,7 +21,3 @@ pub mod sudo;
 pub mod test;
 
 pub use error::ContractError;
-
-// ed25519-zebra is required by cosmwasm-crypto for signature verification
-// with ed25519_zebra 4.1, batch was suddenly feature gated...
-use ed25519_zebra as _;
