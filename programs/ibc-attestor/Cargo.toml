@@ -58,7 +58,7 @@ tracing				= { workspace = true }
 tracing-subscriber		= { workspace = true, default-features = true }
 
 attestor-packet-membership = { workspace = true }
-ethereum-keys			= { workspace = true, features = ["signer-local"] }
+ethereum-keys			= { workspace = true, features = ["signer", "signer-local"] }
 ibc-eureka-solidity-types       = { workspace = true, default-features = true, features = ["rpc"] }
 ibc-eureka-utils               = { workspace = true, default-features = true, optional = true}
 

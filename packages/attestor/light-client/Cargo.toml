@@ -6,7 +6,7 @@ repository = { workspace = true }
 
 [features]
 default = []
-test-utils = ["dep:alloy-signer", "dep:alloy-signer-local", "sha2"]
+test-utils = ["dep:alloy-signer", "dep:alloy-signer-local", "dep:sha2"]
 
 [dependencies]
 attestor-packet-membership = { workspace = true }
