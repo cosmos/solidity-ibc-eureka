@@ -29,18 +29,7 @@ pub const IBC_ATTESTOR_DIR: LazyCell<PathBuf> = LazyCell::new(|| {
         .unwrap()
 });
 
-const IBC_ATTESTOR_FILE: &str = "ibc-attestor.pem";
-
-// Without LazyCell we can't use paths under the hood
-#[allow(
-    clippy::borrow_interior_mutable_const,
-    clippy::declare_interior_mutable_const
-)]
-pub const IBC_ATTESTOR_PATH: LazyCell<PathBuf> = LazyCell::new(|| {
-    env::home_dir()
-        .map(|home| home.join(&*IBC_ATTESTOR_DIR).join(IBC_ATTESTOR_FILE))
-        .unwrap()
-});
+pub const DEFAULT_KEYSTORE_NAME: &str = "ibc-attestor-keystore";
 
 /// The top level configuration for the relayer.
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -82,7 +71,7 @@ impl AttestorConfig {
 
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct SignerConfig {
-    pub secret_key: String,
+    pub keystore_path: String,
 }
 
 impl Default for SignerConfig {
@@ -94,7 +83,12 @@ impl Default for SignerConfig {
     fn default() -> Self {
         SignerConfig {
             // Unwrap safe as path defined with valid utf-8
-            secret_key: IBC_ATTESTOR_PATH.to_str().unwrap().into(),
+            keystore_path: IBC_ATTESTOR_DIR
+                .as_path()
+                .join(DEFAULT_KEYSTORE_NAME)
+                .to_str()
+                .unwrap()
+                .into(),
         }
     }
 }

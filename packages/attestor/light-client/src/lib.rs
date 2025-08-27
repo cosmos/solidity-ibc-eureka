@@ -6,6 +6,7 @@
     missing_docs,
     unused_crate_dependencies
 )]
+#![cfg_attr(test, allow(clippy::borrow_interior_mutable_const))]
 
 pub mod client_state;
 pub mod consensus_state;

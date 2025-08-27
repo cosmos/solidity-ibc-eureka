@@ -18,6 +18,9 @@ cosmos = [ "dep:alloy", "dep:ibc-eureka-utils" ]
 [dependencies]
 alloy				= { workspace = true, default-features = false, features = ["consensus", "serde", "eips", "sol-types"], optional = true }
 alloy-primitives		= { workspace = true, default-features = false }
+alloy-sol-types			= { workspace = true, default-features = false, features = ["json"] }
+alloy-signer-local		= { workspace = true, default-features = false }
+alloy-signer			= { workspace = true, default-features = false }
 alloy-rpc-client		= { workspace = true, default-features = false, features = ["reqwest"], optional = true }
 alloy-network			= { workspace = true, default-features = false, optional = true }
 alloy-provider			= { workspace = true, default-features = false, features = ["reqwest"], optional = true }
@@ -29,8 +32,8 @@ tendermint     = { workspace = true, features = ["std"] }
 borsh				= { workspace = true, default-features = false, features = ["derive"] }
 serde      			= { workspace = true, features = ["derive"] }
 serde_json 			= { workspace = true, default-features = true }
-k256				= { workspace = true, default-features = false, features = ["ecdsa", "sha2"] }
 sha2				= { workspace = true, default-features = false }
+sha3                = { workspace = true, default-features = false }
 toml 				= { workspace = true, default-features = true }
 hex 				= { workspace = true, default-features = true }
 
@@ -54,9 +57,8 @@ futures				= { workspace = true, default-features = true }
 tracing				= { workspace = true }
 tracing-subscriber		= { workspace = true, default-features = true }
 
-key-utils			= { workspace = true, default-features = false }
-
-attestor-packet-membership      = { workspace = true, default-features = false }
+attestor-packet-membership = { workspace = true }
+ethereum-keys			= { workspace = true, features = ["signer-local"] }
 ibc-eureka-solidity-types       = { workspace = true, default-features = true, features = ["rpc"] }
 ibc-eureka-utils               = { workspace = true, default-features = true, optional = true}
 

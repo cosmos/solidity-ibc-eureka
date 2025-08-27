@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use attestor_packet_membership::Packets;
 use tonic::{Response, Status};
 
 use crate::AttestorError;
@@ -65,7 +64,7 @@ where
     /// sign the result.
     pub async fn get_latest_packet_attestation(
         &self,
-        packets: &Packets,
+        packets: &[Vec<u8>],
         height: u64,
     ) -> Result<Attestation, AttestorError> {
         let unsigned = self
@@ -100,9 +99,8 @@ where
         request: tonic::Request<PacketAttestationRequest>,
     ) -> Result<Response<PacketAttestationResponse>, Status> {
         let request_inner = request.into_inner();
-        let packets = Packets::new(request_inner.packets);
         let att = self
-            .get_latest_packet_attestation(&packets, request_inner.height)
+            .get_latest_packet_attestation(&request_inner.packets, request_inner.height)
             .await?;
         Ok(PacketAttestationResponse {
             attestation: Some(att),
