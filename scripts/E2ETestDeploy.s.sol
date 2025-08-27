@@ -22,6 +22,7 @@ import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy
 import { DeployAccessManagerWithRoles } from "./deployments/DeployAccessManagerWithRoles.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
+import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
@@ -91,19 +92,9 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
             accessManager, new address[](0), new address[](0), new address[](0), msg.sender, msg.sender, msg.sender
         );
 
-        ERC1967Proxy gmpProxy = deployProxiedICS27GMP(
-            ics27GmpLogic,
-            address(routerProxy),
-            accountLogic
-        );
-
-        ICS26Router ics26Router = ICS26Router(address(routerProxy));
-        ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
-        ICS27GMP ics27Gmp = ICS27GMP(address(gmpProxy));
-        TestERC20 erc20 = new TestERC20();
-        // Wire apps
-        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
-        ics26Router.addIBCApp(ICS27Lib.DEFAULT_PORT_ID, address(ics27Gmp));
+        // Wire Transfer app
+        ICS26Router(address(routerProxy)).addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(transferProxy));
+        ICS26Router(address(routerProxy)).addIBCApp(ICS27Lib.DEFAULT_PORT_ID, address(gmpProxy));
 
         // Mint some tokens
         TestERC20 erc20 = new TestERC20();
