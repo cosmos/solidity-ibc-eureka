@@ -35,13 +35,6 @@ pub enum IbcAttestorClientError {
         address: [u8; 20],
     },
 
-    /// Unregistered address recovered from signature
-    #[error("Unknown address recovered from signature: {address:02x?}")]
-    UnknownAddressRecovered {
-        /// Recovered address that is not in the trusted set
-        address: [u8; 20],
-    },
-
     /// Cannot attest to data as malformed
     #[error("Invalid attested data: {reason}")]
     InvalidAttestedData {

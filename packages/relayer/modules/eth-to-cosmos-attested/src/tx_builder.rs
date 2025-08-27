@@ -4,15 +4,15 @@
 
 use std::collections::{HashMap, HashSet};
 
-use alloy::sol_types::SolValue;
-use alloy_primitives::Address;
+use alloy::{
+    primitives::{Address, Bytes},
+    sol_types::SolValue,
+};
 use anyhow::Result;
 use attestor_light_client::{
     client_state::ClientState as AttestorClientState,
     consensus_state::ConsensusState as AttestorConsensusState, header::Header,
-    membership::MembershipProof,
 };
-use attestor_packet_membership::Packets;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -23,7 +23,6 @@ use ibc_proto_eureka::{
         },
     },
 };
-use k256::ecdsa::{Signature, VerifyingKey};
 use prost::Message;
 use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
@@ -34,7 +33,9 @@ use ibc_eureka_relayer_lib::{
     tx_builder::TxBuilderService,
     utils::{attestor, cosmos},
 };
-use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
+use ibc_eureka_solidity_types::{
+    ics26::IICS26RouterMsgs::Packet, msgs::IAttestorMsgs::AttestationProof,
+};
 
 /// Chain type for attested chains that get their state from the aggregator
 pub struct AttestedChain;
@@ -88,6 +89,15 @@ impl TxBuilder {
     }
 }
 
+/// Build serialized membership proof bytes from ABI-encoded attested data and signatures
+fn build_abi_encoded_proof(attested_data: Vec<u8>, signatures: Vec<Vec<u8>>) -> Vec<u8> {
+    AttestationProof {
+        attestationData: Bytes::from_iter(attested_data),
+        signatures: signatures.into_iter().map(Bytes::from).collect(),
+    }
+    .abi_encode()
+}
+
 fn encode_and_cyphon_packet_if_relevant(
     packet: &Packet,
     cyphon: &mut Vec<Vec<u8>>,
@@ -104,7 +114,7 @@ fn encode_and_cyphon_packet_if_relevant(
 }
 
 const CHECKSUM_HEX: &str = "checksum_hex";
-const PUB_KEYS: &str = "pub_keys";
+const ATTESTOR_ADDRESSES: &str = "attestor_addresses";
 const MIN_REQUIRED_SIGS: &str = "min_required_sigs";
 const HEIGHT: &str = "height";
 const TIMESTAMP: &str = "timestamp";
@@ -191,7 +201,6 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             state.timestamp.unwrap(),
             state.attested_data,
             state.signatures,
-            state.public_keys,
         );
         let header_bz = serde_json::to_vec(&header)
             .map_err(|_| anyhow::anyhow!("header could not be serialized"))?;
@@ -227,7 +236,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        let proof = build_membership_proof_bytes(packets.attested_data, packets.signatures)?;
+        let proof = build_abi_encoded_proof(packets.attested_data, packets.signatures);
         attestor::inject_proofs_for_tm_msg(&mut recv_msgs, &proof, packets.height);
 
         // NOTE: UpdateMsg must come first otherwise
@@ -273,19 +282,16 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             .ok_or_else(|| anyhow::anyhow!(format!("Missing `{TIMESTAMP}` parameter")))?
             .parse()?;
 
-        let pub_keys_hex = parameters
-            .get(PUB_KEYS)
-            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{PUB_KEYS}` parameter")))?;
-        let pub_keys_bytes = alloy::hex::decode(pub_keys_hex)?;
-        anyhow::ensure!(
-            pub_keys_bytes.len() % 33 == 0,
-            "`{PUB_KEYS}` must be a hex-encoded concatenation of 33-byte compressed pubkeys"
-        );
-        let pub_keys: Vec<VerifyingKey> = pub_keys_bytes
-            .chunks_exact(33)
-            .map(VerifyingKey::from_sec1_bytes)
+        let addrs_hex = parameters
+            .get(ATTESTOR_ADDRESSES)
+            .ok_or_else(|| anyhow::anyhow!(format!("Missing `{ATTESTOR_ADDRESSES}` parameter")))?;
+        // Accept comma- or space-separated list of 0x addresses
+        let attestor_addresses: Vec<Address> = addrs_hex
+            .split(|c| c == ',' || c == ' ')
+            .filter(|s| !s.is_empty())
+            .map(|s| Address::parse_checksummed(s, None))
             .collect::<Result<_, _>>()
-            .map_err(|_| anyhow::anyhow!("failed to parse compressed secp256k1 pubkey"))?;
+            .map_err(|_| anyhow::anyhow!("failed to parse ethereum address list"))?;
 
         let client_state = AttestorClientState::new(attestor_addresses, min_required_sigs, height);
         let consensus_state = AttestorConsensusState { height, timestamp };
@@ -329,32 +335,17 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use attestor_light_client::membership::MembershipProof;
-    use attestor_packet_membership::Packets;
+    use attestor_packet_membership::PacketCommitments;
 
     #[test]
     fn abi_bytes_are_not_json() {
         let commitments = vec![[0x11u8; 32], [0x22u8; 32]];
-        let abi = Packets::new(commitments).to_abi_bytes();
+        let abi = PacketCommitments::new(commitments).to_abi_bytes();
 
         let parsed: Result<Vec<Vec<u8>>, _> = serde_json::from_slice(&abi);
         assert!(
             parsed.is_err(),
             "ABI-encoded bytes32[] must not be parsed as JSON"
         );
-    }
-
-    #[test]
-    fn build_membership_proof_passes_through_abi_bytes() {
-        let commitments = vec![[0xAAu8; 32], [0xBBu8; 32]];
-        let abi = Packets::new(commitments).to_abi_bytes();
-        let signatures = vec![vec![0u8; 65], vec![1u8; 65]];
-
-        let proof_bytes = build_membership_proof_bytes(abi.clone(), signatures.clone())
-            .expect("proof should serialize");
-        let proof: MembershipProof = serde_json::from_slice(&proof_bytes).expect("deserialize");
-
-        assert_eq!(proof.attestation_data, abi);
-        assert_eq!(proof.signatures, signatures);
     }
 }

@@ -313,7 +313,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use attestor_light_client::membership::MembershipProof;
     use attestor_packet_membership::PacketCommitments;
 
     #[test]
@@ -326,19 +325,5 @@ mod tests {
             parsed.is_err(),
             "ABI-encoded bytes32[] must not be parsed as JSON"
         );
-    }
-
-    #[test]
-    fn build_membership_proof_passes_through_abi_bytes() {
-        let commitments = vec![[0xAAu8; 32], [0xBBu8; 32]];
-        let abi = PacketCommitments::new(commitments).to_abi_bytes();
-        let signatures = vec![vec![0u8; 65], vec![1u8; 65]];
-
-        let proof_bytes = build_membership_proof_bytes(abi.clone(), signatures.clone())
-            .expect("proof should serialize");
-        let proof: MembershipProof = serde_json::from_slice(&proof_bytes).expect("deserialize");
-
-        assert_eq!(proof.attestation_data, abi);
-        assert_eq!(proof.signatures, signatures);
     }
 }
