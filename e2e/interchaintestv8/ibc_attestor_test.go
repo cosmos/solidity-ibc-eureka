@@ -352,7 +352,7 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 				DstChain: simd.Config().ChainID,
 				Parameters: map[string]string{
 					testvalues.ParameterKey_ChecksumHex:       checksumHex,
-					testvalues.ParameterKey_AttestorAddresses: attestorAddress,
+					testvalues.ParameterKey_AttestorAddresses: ethcommon.HexToAddress(attestorAddress).Hex(),
 					testvalues.ParameterKey_MinRequiredSigs:   "1",
 					testvalues.ParameterKey_height:            "0",
 					testvalues.ParameterKey_timestamp:         "123456789",
