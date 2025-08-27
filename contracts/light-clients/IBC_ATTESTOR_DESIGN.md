@@ -110,7 +110,7 @@ Verification:
 - Require `consensusTimestampAtHeight[proofHeight.revisionHeight]` to exist.
 - Compute `digest = sha256(proof.attestationData)` and verify signatures as in `updateClient` via `ECDSA.recover`.
 - Decode `attestationData` into `PacketAttestation { height, packets }` via `abi.decode` and require `height == proofHeight.revisionHeight`.
-- Decode `value` to `bytes32` and require it to match exactly one `commitment` field in the `packets` array (byte equality).
+- Decode `value` to `bytes32` and require it to match exactly one element of `packets` (byte equality).
 
 Return:
 - The trusted timestamp (in seconds) stored for `proofHeight.revisionHeight`.

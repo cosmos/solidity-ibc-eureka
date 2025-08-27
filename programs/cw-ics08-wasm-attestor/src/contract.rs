@@ -12,6 +12,7 @@ const STATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 
 /// The instantiate entry point for the `CosmWasm` contract.
+/// The instantiate entry point for the `CosmWasm` contract.
 /// # Errors
 /// Will return an error if the client state or consensus state cannot be deserialized.
 /// # Panics
@@ -104,7 +105,6 @@ mod tests {
     }
 
     pub fn client_state() -> ClientState {
-        let keys = test_keys();
         ClientState {
             attestor_addresses: KEYS.clone(),
             latest_height: 42,
@@ -114,8 +114,6 @@ mod tests {
     }
 
     pub fn header(cns: &ConsensusState) -> Header {
-        let sigs = test_sigs();
-        let keys = test_keys();
         Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
@@ -314,9 +312,6 @@ mod tests {
 
             // Verify membership for the added state
             let env = mock_env();
-            let packets = attestor_light_client::test_utils::packets();
-            let sigs = attestor_light_client::test_utils::sigs();
-            let keys = attestor_light_client::test_utils::keys();
             let verifyable = MembershipProof {
                 attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
                 signatures: SIGS_RAW.to_vec(),
@@ -351,9 +346,6 @@ mod tests {
 
             // Non existent height fails
             let env = mock_env();
-            let packets = attestor_light_client::test_utils::packets();
-            let sigs = attestor_light_client::test_utils::sigs();
-            let keys = attestor_light_client::test_utils::keys();
             let value = MembershipProof {
                 attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
                 signatures: SIGS_RAW.to_vec(),
@@ -539,9 +531,6 @@ mod tests {
             for i in 1..6 {
                 let env = mock_env();
 
-                let packets = attestor_light_client::test_utils::packets();
-                let sigs = attestor_light_client::test_utils::sigs();
-                let keys = attestor_light_client::test_utils::keys();
                 let value = MembershipProof {
                     attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
                     signatures: SIGS_RAW.to_vec(),
@@ -558,9 +547,6 @@ mod tests {
                 let res = sudo(deps.as_mut(), env.clone(), msg);
                 assert!(res.is_ok());
 
-                let packets = attestor_light_client::test_utils::packets();
-                let sigs = attestor_light_client::test_utils::sigs();
-                let keys = attestor_light_client::test_utils::keys();
                 let value = MembershipProof {
                     attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
                     signatures: SIGS_RAW.to_vec(),

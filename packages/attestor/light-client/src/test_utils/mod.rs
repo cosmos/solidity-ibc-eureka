@@ -81,27 +81,4 @@ mod fixtures {
             })
             .collect()
     });
-
-    #[must_use]
-    pub fn packet_encoded_bytes() -> Vec<u8> {
-        serde_json::to_vec(&(*PACKET_COMMITMENTS_ENCODED)).unwrap()
-    }
-
-    #[must_use]
-    #[allow(clippy::borrow_interior_mutable_const)]
-    pub fn keys() -> Vec<VerifyingKey> {
-        KEYS.clone()
-    }
-
-    #[must_use]
-    #[allow(clippy::borrow_interior_mutable_const)]
-    pub fn sigs() -> Vec<Signature> {
-        SIGS.clone()
-    }
-
-    #[must_use]
-    #[allow(clippy::borrow_interior_mutable_const)]
-    pub fn packets() -> Packets {
-        (*PACKET_COMMITMENTS_ENCODED).clone()
-    }
 }
