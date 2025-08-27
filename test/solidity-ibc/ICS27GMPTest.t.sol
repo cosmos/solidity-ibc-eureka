@@ -448,4 +448,40 @@ contract ICS27GMPTest is Test {
         vm.prank(mockIcs26);
         ics27Gmp.onAcknowledgementPacket(msg_);
     }
+
+    function testFuzz_success_onTimeoutPacket(uint16 payloadLen, uint16 saltLen, uint64 seq) public {
+        vm.assume(payloadLen > 0);
+
+        address relayer = makeAddr("relayer");
+        bytes memory payload = vm.randomBytes(payloadLen);
+        bytes memory salt = vm.randomBytes(saltLen);
+        string memory memo = th.randomString();
+        address sender = makeAddr("sender");
+        string memory receiver = th.randomString();
+
+        IIBCAppCallbacks.OnTimeoutPacketCallback memory msg_ = IIBCAppCallbacks.OnTimeoutPacketCallback({
+            sourceClient: th.FIRST_CLIENT_ID(),
+            destinationClient: th.SECOND_CLIENT_ID(),
+            sequence: seq,
+            payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                destPort: ICS27Lib.DEFAULT_PORT_ID,
+                version: ICS27Lib.ICS27_VERSION,
+                encoding: ICS27Lib.ICS27_ENCODING,
+                value: abi.encode(
+                    IICS27GMPMsgs.GMPPacketData({
+                        sender: Strings.toHexString(sender),
+                        receiver: receiver,
+                        salt: salt,
+                        payload: payload,
+                        memo: memo
+                    })
+                )
+            }),
+            relayer: relayer
+        });
+
+        vm.prank(mockIcs26);
+        ics27Gmp.onTimeoutPacket(msg_);
+    }
 }
