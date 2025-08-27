@@ -21,15 +21,17 @@ interface IAttestorLightClientErrors {
     /// @param height The height that already has a timestamp.
     /// @param storedTimestamp The previously stored timestamp.
     /// @param providedTimestamp The new, conflicting timestamp.
-    error ConflictingTimestamp(uint64 height, uint64 storedTimestamp, uint64 providedTimestamp);
-    /// @notice Generic length mismatch error.
-    error LengthMismatch();
-    /// @notice ECDSA signature at `index` has an invalid length.
-    /// @param index Index of the invalid signature in the provided array.
-    error InvalidSignatureLength(uint256 index);
-    /// @notice ECDSA signature at `index` failed to recover a valid signer.
-    /// @param index Index of the invalid signature in the provided array.
-    error SignatureInvalid(uint256 index);
+    error ConflictingTimestamp(
+        uint64 height,
+        uint64 storedTimestamp,
+        uint64 providedTimestamp
+    );
+    /// @notice ECDSA signature has an invalid length.
+    /// @param signature The invalid signature.
+    error InvalidSignatureLength(bytes signature);
+    /// @notice ECDSA signature failed to recover a valid signer.
+    /// @param signature The invalid signature.
+    error SignatureInvalid(bytes signature);
     /// @notice The recovered signer is not part of the attestor set.
     /// @param signer Address of the unknown signer.
     error UnknownSigner(address signer);
@@ -42,10 +44,18 @@ interface IAttestorLightClientErrors {
     error ThresholdNotMet(uint256 validSigners, uint8 minRequired);
     /// @notice The provided membership value was empty.
     error EmptyValue();
+    /// @notice The provided packet commitments were empty.
+    error EmptyPacketCommitments();
     /// @notice The provided value is not a member of the attested set.
     error NotMember();
     /// @notice The attested height did not match the provided proof height.
     /// @param expected The expected height from the proofHeight field.
     /// @param provided The height that was present in the attested payload.
     error HeightMismatch(uint64 expected, uint64 provided);
+    /// @notice The attested state is invalid.
+    /// @param height The height of the attested state.
+    /// @param timestamp The timestamp of the attested state.
+    error InvalidState(uint64 height, uint64 timestamp);
+    /// @notice The provided signatures were empty.
+    error EmptySignatures();
 }
