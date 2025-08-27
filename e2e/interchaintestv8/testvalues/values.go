@@ -147,8 +147,8 @@ const (
 	ParameterKey_ChecksumHex = "checksum_hex"
 	// Min sigs parameter for the attestor light client creation.
 	ParameterKey_MinRequiredSigs = "min_required_sigs"
-	// Pub keys parameter for the attestor light client creation.
-	ParameterKey_Pubkeys = "pub_keys"
+	// Addresses parameter for the attestor light client creation.
+	ParameterKey_AttestorAddresses = "attestor_addresses"
 	// Height parameter for the attestor light client creation.
 	ParameterKey_height = "height"
 	// Timestamp parameter for the attestor light client creation.

@@ -5,7 +5,7 @@ This project implements a gRPC-based service for aggregating attestations from m
 It consists of three main components:
 
 1. **Attestor**: A mock service that provides attestations for given block heights.
-2. **Aggregator**: The main service that queries multiple attestors, handles failures, and finds the highest block height with a quorum of signatures.
+2. **Aggregator**: The main service that queries multiple attestors, handles failures, and finds the highest block height with a quorum of signatures. Aggregated responses include only 65-byte signatures; attestor addresses are recovered from signatures by downstream clients.
 3. **Relayer**: A simple client that queries the aggregator.
 
 ## Building the Project
@@ -22,7 +22,7 @@ cargo build --release
 
     a. Run: `cargo run -- key generate` to generate a private key
 
-    b. Run `cargo run -- server solana --config server.dev.toml` to start a dev server
+    b. Run `cargo run -- server solana --config server.dev.toml` to start a dev server. Each attestation includes the signer address (derived from the public key); public keys are not propagated in RPC.
 
 2. Run the aggregator
 
