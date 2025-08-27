@@ -12,6 +12,7 @@ const STATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 
 /// The instantiate entry point for the `CosmWasm` contract.
+/// The instantiate entry point for the `CosmWasm` contract.
 /// # Errors
 /// Will return an error if the client state or consensus state cannot be deserialized.
 /// # Panics
@@ -41,7 +42,7 @@ pub fn sudo(deps: DepsMut, _env: Env, msg: SudoMsg) -> Result<Response, Contract
     let result = match msg {
         SudoMsg::UpdateState(update_state_msg) => sudo::update_state(deps, update_state_msg)?,
         SudoMsg::VerifyMembership(verify_membership_msg) => {
-            sudo::verify_membership(deps, verify_membership_msg)?
+            sudo::verify_membership(&deps, verify_membership_msg)?
         }
     };
 
@@ -86,9 +87,7 @@ mod tests {
         client_state::ClientState,
         consensus_state::ConsensusState,
         header::Header,
-        test_utils::{
-            keys as test_keys, packet_encoded_bytes, sigs as test_sigs, PACKET_COMMITMENTS,
-        },
+        test_utils::{KEYS, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS_RAW},
     };
     use cosmwasm_std::Binary;
 
@@ -108,7 +107,7 @@ mod tests {
     pub fn client_state() -> ClientState {
         let keys = test_keys();
         ClientState {
-            pub_keys: keys,
+            attestor_addresses: KEYS.clone(),
             latest_height: 42,
             is_frozen: false,
             min_required_sigs: 5,
@@ -121,9 +120,8 @@ mod tests {
         Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: packet_encoded_bytes(),
-            signatures: sigs,
-            pubkeys: keys,
+            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+            signatures: SIGS_RAW.to_vec(),
         }
     }
 
@@ -216,8 +214,12 @@ mod tests {
     }
 
     mod integration_tests {
-        use attestor_light_client::{error::IbcAttestorClientError, membership::MembershipProof};
-        use attestor_packet_membership::Packets;
+        use attestor_light_client::{
+            error::IbcAttestorClientError,
+            membership::MembershipProof,
+            test_utils::{PACKET_COMMITMENTS_ENCODED, SIGS_RAW},
+        };
+        use attestor_packet_membership::PacketCommitments;
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
@@ -282,9 +284,8 @@ mod tests {
             let sigs = attestor_light_client::test_utils::sigs();
             let keys = attestor_light_client::test_utils::keys();
             let verifyable = MembershipProof {
-                attestation_data: packets,
-                signatures: sigs,
-                pubkeys: keys,
+                attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+                signatures: SIGS_RAW.to_vec(),
             };
             let as_bytes = serde_json::to_vec(&verifyable).unwrap();
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
@@ -320,9 +321,8 @@ mod tests {
             let sigs = attestor_light_client::test_utils::sigs();
             let keys = attestor_light_client::test_utils::keys();
             let value = MembershipProof {
-                attestation_data: packets,
-                signatures: sigs,
-                pubkeys: keys,
+                attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+                signatures: SIGS_RAW.to_vec(),
             };
             let as_bytes = serde_json::to_vec(&value).unwrap();
             let bad_height = consensus_state.height + 100;
@@ -339,11 +339,10 @@ mod tests {
 
             // Bad attestation fails
             let env = mock_env();
-            let bad_data = [[254].to_vec()].to_vec();
+            let bad_commitments: Vec<[u8; 32]> = vec![[254u8; 32]];
             let value = MembershipProof {
-                attestation_data: Packets::new(bad_data),
-                signatures: attestor_light_client::test_utils::sigs(),
-                pubkeys: attestor_light_client::test_utils::keys(),
+                attestation_data: PacketCommitments::new(bad_commitments).to_abi_bytes(),
+                signatures: SIGS_RAW.to_vec(),
             };
             let as_bytes = serde_json::to_vec(&value).unwrap();
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
@@ -358,7 +357,7 @@ mod tests {
             assert!(matches!(
                 res,
                 Err(ContractError::VerifyMembershipFailed(
-                    IbcAttestorClientError::InvalidSignature
+                    IbcAttestorClientError::UnknownAddressRecovered { .. }
                 ))
             ));
         }
@@ -502,9 +501,8 @@ mod tests {
                 let sigs = attestor_light_client::test_utils::sigs();
                 let keys = attestor_light_client::test_utils::keys();
                 let value = MembershipProof {
-                    attestation_data: packets,
-                    signatures: sigs,
-                    pubkeys: keys,
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+                    signatures: SIGS_RAW.to_vec(),
                 };
                 let as_bytes = serde_json::to_vec(&value).unwrap();
                 let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
@@ -522,9 +520,8 @@ mod tests {
                 let sigs = attestor_light_client::test_utils::sigs();
                 let keys = attestor_light_client::test_utils::keys();
                 let value = MembershipProof {
-                    attestation_data: packets,
-                    signatures: sigs,
-                    pubkeys: keys,
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+                    signatures: SIGS_RAW.to_vec(),
                 };
                 let as_bytes = serde_json::to_vec(&value).unwrap();
                 let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
@@ -687,7 +684,9 @@ mod tests {
             let err = query(deps.as_ref(), env, query_verify_client_msg).unwrap_err();
             assert!(matches!(
                 err,
-                ContractError::VerifyClientMessageFailed(IbcAttestorClientError::InvalidSignature)
+                ContractError::VerifyClientMessageFailed(
+                    IbcAttestorClientError::UnknownAddressRecovered { .. }
+                )
             ));
         }
 

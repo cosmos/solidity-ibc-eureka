@@ -8,8 +8,8 @@
 )]
 
 mod error;
-mod packets;
+mod packet_commitments;
 
 pub mod verify_packet_membership;
 pub use error::PacketAttestationError;
-pub use packets::Packets;
+pub use packet_commitments::PacketCommitments;

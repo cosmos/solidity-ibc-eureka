@@ -1,14 +1,12 @@
-use attestor_packet_membership::Packets;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 
 mod account_state;
 
-use crate::adapter_client::{
-    AttestationAdapter, UnsignedPacketAttestation, UnsignedStateAttestation,
-};
+use crate::adapter_client::AttestationAdapter;
 use crate::cli::SolanaClientConfig;
 use crate::AttestorError;
+use ibc_eureka_solidity_types::msgs::IAttestorMsgs;
 
 pub use account_state::AccountState;
 
@@ -26,7 +24,7 @@ pub struct SolanaClient {
 }
 
 impl SolanaClient {
-    pub fn _from_config(_config: SolanaClientConfig) -> Self {
+    pub fn _from_config(_config: &SolanaClientConfig) -> Self {
         todo!()
     }
 
@@ -43,14 +41,14 @@ impl AttestationAdapter for SolanaClient {
     async fn get_unsigned_state_attestation_at_height(
         &self,
         _height: u64,
-    ) -> Result<UnsignedStateAttestation, AttestorError> {
+    ) -> Result<IAttestorMsgs::StateAttestation, AttestorError> {
         todo!()
     }
     async fn get_unsigned_packet_attestation_at_height(
         &self,
-        _packets: &Packets,
+        _packets: &[Vec<u8>],
         _height: u64,
-    ) -> Result<UnsignedPacketAttestation, AttestorError> {
+    ) -> Result<IAttestorMsgs::PacketAttestation, AttestorError> {
         todo!()
     }
 }
