@@ -50,14 +50,14 @@ func StartAttestor(configPath string, binaryPath AttestorBinaryPath) (*os.Proces
 	return cmd.Process, nil
 }
 
-func ReadAttestorPubKey(binaryPath AttestorBinaryPath) (string, error) {
+func ReadAttestorAddress(binaryPath AttestorBinaryPath) (string, error) {
 	cmd := exec.Command(binaryPath, "key", "show")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to read attestor pubkey: %v: %s", err, stderr.String())
+		return "", fmt.Errorf("failed to read attestor address: %v: %s", err, stderr.String())
 	}
 	return strings.TrimSpace(stdout.String()), nil
 }

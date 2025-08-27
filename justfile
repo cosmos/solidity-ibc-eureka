@@ -85,12 +85,12 @@ test-aggregator-services *flags="":
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 [group('install')]
 install-operator:
-	cargo install --bin operator --path programs/operator --locked
+	cargo install --bin operator --path programs/operator --locked --force
 
 # Install the relayer using `cargo install`
 [group('install')]
 install-relayer:
-	cargo install --bin relayer --path programs/relayer --locked
+	cargo install --bin relayer --path programs/relayer --locked --force
 
 # Install the optimism using `cargo install`
 [group('install')]
