@@ -391,4 +391,61 @@ contract ICS27GMPTest is Test {
         vm.prank(mockIcs26);
         ics27Gmp.onAcknowledgementPacket(msg_);
     }
+
+    function testFuzz_failure_onAcknowledgementPacket(uint16 payloadLen, uint16 ackLen, uint16 saltLen, uint64 seq) public {
+        vm.assume(payloadLen > 0);
+
+        address relayer = makeAddr("relayer");
+        bytes memory payload = vm.randomBytes(payloadLen);
+        bytes memory ack = vm.randomBytes(ackLen);
+        bytes memory salt = vm.randomBytes(saltLen);
+        string memory memo = th.randomString();
+        address sender = makeAddr("sender");
+        string memory receiver = th.randomString();
+
+        bytes memory validValue = abi.encode(
+            IICS27GMPMsgs.GMPPacketData({
+                sender: Strings.toHexString(sender),
+                receiver: receiver,
+                salt: salt,
+                payload: payload,
+                memo: memo
+            })
+        );
+
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory msg_ = IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+            sourceClient: th.FIRST_CLIENT_ID(),
+            destinationClient: th.SECOND_CLIENT_ID(),
+            sequence: seq,
+            payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                destPort: ICS27Lib.DEFAULT_PORT_ID,
+                version: ICS27Lib.ICS27_VERSION,
+                encoding: ICS27Lib.ICS27_ENCODING,
+                value: validValue
+            }),
+            acknowledgement: ack,
+            relayer: relayer
+        });
+
+        // ===== Case 1: Invalid Payload Value =====
+        msg_.payload.value = bytes("invalid");
+        vm.prank(mockIcs26);
+        vm.expectRevert();
+        ics27Gmp.onAcknowledgementPacket(msg_);
+
+        // ===== Case 2: Invalid Sender =====
+        msg_.payload.value = abi.encode(
+            IICS27GMPMsgs.GMPPacketData({
+                sender: th.INVALID_ID(),
+                receiver: receiver,
+                salt: salt,
+                payload: payload,
+                memo: memo
+            })
+        );
+        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidSender.selector, th.INVALID_ID()));
+        vm.prank(mockIcs26);
+        ics27Gmp.onAcknowledgementPacket(msg_);
+    }
 }
