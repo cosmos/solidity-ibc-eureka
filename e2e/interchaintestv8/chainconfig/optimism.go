@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"strings"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -40,7 +41,7 @@ import (
 // }
 
 const (
-	kurtosisOptimismPackageId = "github.com/ethpandaops/optimism-package@1.3.0"
+	kurtosisOptimismPackageId = "github.com/ethpandaops/optimism-package@1.4.0"
 	optimismFaucetPrivateKey  = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 	optimismChainName = "chain0"
@@ -58,7 +59,8 @@ type KurtosisOptimismChain struct {
 }
 
 type kurtosisOptimismConfig struct {
-	OptimismPackage kurtosisOptimismPackage `json:"optimism_package"`
+	OptimismPackage kurtosisOptimismPackage          `json:"optimism_package"`
+	EthereumPackage kurtosisOptimismEthNetworkParams `json:"ethereum_package"`
 }
 
 // To see all the configuration options: github.com/ethpandaops/ethereum-package
@@ -67,15 +69,12 @@ type kurtosisOptimismPackage struct {
 }
 
 type kurtosisOptimismChain struct {
-	Participants  map[string]kurtosisOptimismParticipant `json:"participants"`
-	NetworkParams kustosisOptimismNetworkParams          `json:"network_params,omitempty"`
+	Participants map[string]kurtosisOptimismParticipant `json:"participants"`
 }
 
 type kurtosisOptimismParticipant struct {
-	Sequencer       bool                `json:"sequencer"`
-	EL              *kurtosisOptimismEL `json:"el,omitempty"`
-	CL              *kurtosisOptimismCL `json:"cl,omitempty"`
-	ConductorParams map[string]bool     `json:"conductor_params"`
+	EL *kurtosisOptimismEL `json:"el,omitempty"`
+	CL *kurtosisOptimismCL `json:"cl,omitempty"`
 }
 
 type kurtosisOptimismEL struct {
@@ -86,12 +85,22 @@ type kurtosisOptimismCL struct {
 	Type string `json:"type"`
 }
 
-type kustosisOptimismNetworkParams struct {
-	NetworkID         uint64 `json:"network_id"`
-	Network           string `json:"network"`
-	SecondsPerSlot    uint64 `json:"seconds_per_slot"`
-	FjordTimeOffset   uint64 `json:"fjord_time_offset"`
-	GraniteTimeOffset uint64 `json:"granite_time_offset"`
+// Optimism-specific ethereum package configuration
+type kurtosisOptimismEthNetworkParams struct {
+	Participants  []kurtosisOptimismEthParticipant       `json:"participants"`
+	NetworkParams kurtosisOptimismEthNetworkConfigParams `json:"network_params"`
+}
+
+type kurtosisOptimismEthParticipant struct {
+	ELType  string `json:"el_type"`
+	CLType  string `json:"cl_type"`
+	CLImage string `json:"cl_image"`
+}
+
+type kurtosisOptimismEthNetworkConfigParams struct {
+	Preset                       string `json:"preset"`
+	GenesisDelay                 uint64 `json:"genesis_delay"`
+	AdditionalPreloadedContracts string `json:"additional_preloaded_contracts"`
 }
 
 func SpinUpKurtosisOptimism(ctx context.Context) (KurtosisOptimismChain, error) {
@@ -101,58 +110,66 @@ func SpinUpKurtosisOptimism(ctx context.Context) (KurtosisOptimismChain, error) 
 				optimismChainName: {
 					Participants: map[string]kurtosisOptimismParticipant{
 						optimismNodeName0: {
-							Sequencer: true,
-							EL: &kurtosisOptimismEL{
-								Type: "op-geth",
-							},
-							CL: &kurtosisOptimismCL{
-								Type: "op-node",
-							},
-							ConductorParams: map[string]bool{
-								"enabled":   true,
-								"bootstrap": true,
-							},
+							EL: &kurtosisOptimismEL{Type: "op-geth"},
+							CL: &kurtosisOptimismCL{Type: "op-node"},
 						},
 						optimismNodeName1: {
-							Sequencer: true,
-							EL: &kurtosisOptimismEL{
-								Type: "op-reth",
-							},
-							CL: &kurtosisOptimismCL{
-								Type: "op-node",
-							},
-							ConductorParams: map[string]bool{
-								"enabled": true,
-							},
+							EL: &kurtosisOptimismEL{Type: "op-geth"},
+							CL: &kurtosisOptimismCL{Type: "op-node"},
 						},
-					},
-					NetworkParams: kustosisOptimismNetworkParams{
-						NetworkID:         12345,
-						Network:           "kurtosis-optimism",
-						SecondsPerSlot:    2,
-						FjordTimeOffset:   0,
-						GraniteTimeOffset: 0,
 					},
 				},
 			},
 		},
+		EthereumPackage: kurtosisOptimismEthNetworkParams{
+			Participants: []kurtosisOptimismEthParticipant{
+				{
+					CLType:  "lodestar",
+					CLImage: "chainsafe/lodestar:v1.33.0",
+					ELType:  "geth",
+				},
+			},
+			NetworkParams: kurtosisOptimismEthNetworkConfigParams{
+				Preset:       "minimal",
+				GenesisDelay: 5,
+				// OP L1 contract
+				AdditionalPreloadedContracts: `{
+					"0x4e59b44847b379578588920cA78FbF26c0B4956C": {
+					  "balance": "0ETH",
+					  "code": "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3",
+					  "storage": {},
+					  "nonce": "1"
+					}
+				  }`,
+			},
+		},
 	}
-
-	// Extract configuration from the new structure
-
-	chain := optimismConfig.OptimismPackage.Chains[optimismChainName]
-	participant := chain.Participants[optimismNodeName0]
-	elType := participant.EL.Type
-	clType := participant.CL.Type
-	networkID := chain.NetworkParams.NetworkID
-
-	// Use default values for service naming since the new format doesn't include network params
-	executionService := fmt.Sprintf("op-el-%d-%s-%s", networkID, optimismNodeName0, elType)
-	consensusService := fmt.Sprintf("op-cl-%d-%s-%s", networkID, optimismNodeName0, clType)
 
 	kurtosisEnclave, err := spinUpKurtosisEnclave(ctx, "optimism-pos-testnet", kurtosisOptimismPackageId, optimismConfig)
 	if err != nil {
 		return KurtosisOptimismChain{}, err
+	}
+
+	// Discover service names dynamically since naming can vary with config
+	servicesMap, err := kurtosisEnclave.enclaveCtx.GetServices()
+	if err != nil {
+		return KurtosisOptimismChain{}, err
+	}
+
+	var executionService string
+	var consensusService string
+	for svcName := range servicesMap {
+		name := string(svcName)
+		if executionService == "" && strings.Contains(name, "op-el") && strings.Contains(name, "-"+optimismNodeName0+"-") {
+			executionService = name
+		}
+		if consensusService == "" && strings.Contains(name, "op-cl") && strings.Contains(name, "-"+optimismNodeName0+"-") {
+			consensusService = name
+		}
+	}
+
+	if executionService == "" || consensusService == "" {
+		return KurtosisOptimismChain{}, fmt.Errorf("failed to discover execution/consensus services in enclave")
 	}
 
 	// exeuctionCtx is the service context (kurtosis concept) for the execution node that allows us to get the public ports
