@@ -101,6 +101,74 @@ contract ICS27GMPTest is Test {
         assertEq(sequence, seq, "Sequence mismatch");
     }
 
+    function test_failure_sendCall() public {
+        address sender = makeAddr("sender");
+        bytes memory salt = vm.randomBytes(16);
+        string memory receiver = th.randomString();
+        string memory memo = th.randomString();
+        bytes memory payload = vm.randomBytes(16);
+        uint64 seq = uint64(vm.randomUint(1, type(uint64).max));
+
+        bytes memory expCall = abi.encodeCall(
+            IICS26Router.sendPacket,
+            (
+                IICS26RouterMsgs.MsgSendPacket({
+                    sourceClient: th.FIRST_CLIENT_ID(),
+                    timeoutTimestamp: th.DEFAULT_TIMEOUT_TIMESTAMP(),
+                    payload: IICS26RouterMsgs.Payload({
+                        sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                        destPort: ICS27Lib.DEFAULT_PORT_ID,
+                        version: ICS27Lib.ICS27_VERSION,
+                        encoding: ICS27Lib.ICS27_ENCODING,
+                        value: abi.encode(
+                            IICS27GMPMsgs.GMPPacketData({
+                                sender: Strings.toHexString(sender),
+                                receiver: receiver,
+                                salt: salt,
+                                payload: payload,
+                                memo: memo
+                            })
+                        )
+                    })
+                })
+            )
+        );
+
+        uint64 defaultTimeoutTimestamp = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory defaultClientId = th.FIRST_CLIENT_ID();
+
+        vm.startPrank(sender);
+        // ===== Case 1: Empty Payload =====
+        vm.expectRevert(IICS27Errors.ICS27PayloadEmpty.selector);
+        ics27Gmp.sendCall(
+            IICS27GMPMsgs.SendCallMsg({
+                receiver: receiver,
+                payload: "",
+                salt: salt,
+                memo: memo,
+                timeoutTimestamp: defaultTimeoutTimestamp,
+                sourceClient: defaultClientId
+            })
+        );
+
+        // ===== Case 2: Router call reverts =====
+        bytes memory mockErr = bytes("mockErr");
+        vm.mockCallRevert(mockIcs26, expCall, mockErr);
+        vm.expectRevert(mockErr);
+        ics27Gmp.sendCall(
+            IICS27GMPMsgs.SendCallMsg({
+                receiver: receiver,
+                payload: payload,
+                salt: salt,
+                memo: memo,
+                timeoutTimestamp: defaultTimeoutTimestamp,
+                sourceClient: defaultClientId
+            })
+        );
+
+        vm.stopPrank();
+    }
+
     function testFuzz_success_onRecvPacket(uint16 saltLen, uint16 payloadLen, uint64 seq) public {
         vm.assume(seq > 0 && payloadLen > 0);
 
