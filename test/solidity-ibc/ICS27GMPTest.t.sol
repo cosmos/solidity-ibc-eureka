@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length,no-inline-assembly,gas-small-strings,function-max-lines
 
+import "forge-std/console2.sol";
 import { Test } from "forge-std/Test.sol";
 
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
@@ -16,6 +17,7 @@ import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy
 import { ICS27Account } from "../../contracts/utils/ICS27Account.sol";
 import { ICS27GMP } from "../../contracts/ICS27GMP.sol";
 import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
+import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
@@ -107,7 +109,6 @@ contract ICS27GMPTest is Test {
         string memory receiver = th.randomString();
         string memory memo = th.randomString();
         bytes memory payload = vm.randomBytes(16);
-        uint64 seq = uint64(vm.randomUint(1, type(uint64).max));
 
         bytes memory expCall = abi.encodeCall(
             IICS26Router.sendPacket,
@@ -345,5 +346,49 @@ contract ICS27GMPTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidReceiver.selector, th.INVALID_ID()));
         vm.prank(mockIcs26);
         ics27Gmp.onRecvPacket(msg_);
+    }
+
+    function testFuzz_success_onAcknowledgementPacket(uint16 payloadLen, uint16 ackLen, uint16 saltLen, uint64 seq) public {
+        vm.assume(payloadLen > 0);
+
+        address relayer = makeAddr("relayer");
+        bytes memory payload = vm.randomBytes(payloadLen);
+        bytes memory ack = vm.randomBytes(ackLen);
+        bytes memory salt = vm.randomBytes(saltLen);
+        string memory memo = th.randomString();
+        address sender = makeAddr("sender");
+        string memory receiver = th.randomString();
+
+        // ===== Case 1: Random Acknowledgement =====
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory msg_ = IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+            sourceClient: th.FIRST_CLIENT_ID(),
+            destinationClient: th.SECOND_CLIENT_ID(),
+            sequence: seq,
+            payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                destPort: ICS27Lib.DEFAULT_PORT_ID,
+                version: ICS27Lib.ICS27_VERSION,
+                encoding: ICS27Lib.ICS27_ENCODING,
+                value: abi.encode(
+                    IICS27GMPMsgs.GMPPacketData({
+                        sender: Strings.toHexString(sender),
+                        receiver: receiver,
+                        salt: salt,
+                        payload: payload,
+                        memo: memo
+                    })
+                )
+            }),
+            acknowledgement: ack,
+            relayer: relayer
+        });
+
+        vm.prank(mockIcs26);
+        ics27Gmp.onAcknowledgementPacket(msg_);
+
+        // ===== Case 2: Error Acknowledgement =====
+        msg_.acknowledgement = ICS24Host.UNIVERSAL_ERROR_ACK;
+        vm.prank(mockIcs26);
+        ics27Gmp.onAcknowledgementPacket(msg_);
     }
 }
