@@ -252,7 +252,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 #[tonic::async_trait]
 impl RelayerModule for CosmosToSolanaRelayerModule {
     fn name(&self) -> &'static str {
-        "cosmos-to-solana"
+        "cosmos_to_solana"
     }
 
     async fn create_service(
