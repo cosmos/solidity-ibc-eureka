@@ -9,7 +9,6 @@ import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upg
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { OwnableUpgradeable } from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
 import { CosmosICS27Lib } from "./CosmosICS27Lib.sol";
-import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
 /// @title Reference IBC xERC20 Implementation
 /// @notice This implementation is intended to serve as a base reference for developers creating their own
@@ -24,8 +23,7 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable {
     /// upgradeable contracts.
     /// @param ics27Gmp The ICS27GMP contract
     /// @param clientId The client ID on the this chain
-    /// @param cosmosAccount_ The cosmos address on the counterparty chain
-    /// @param payload The payload to be sent back on burn
+    /// @param cosmosAccount The cosmos address on the counterparty chain
     /// @param bridge The address of the bridge contract allowed to call mint and burn
     struct IBCXERC20Storage {
         IICS27GMP ics27Gmp;
