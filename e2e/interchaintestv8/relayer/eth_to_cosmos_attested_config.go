@@ -17,10 +17,10 @@ func CreateAttestedCosmosModules(
 ) []ModuleConfig {
 	return []ModuleConfig{
 		{
-			Name:     ModuleAttestedToCosmos,
+			Name:     ModuleEthToCosmosAttested,
 			SrcChain: configInfo.AttestedChainID,
 			DstChain: configInfo.CosmosChainID,
-			Config: AttestedToCosmosModuleConfig{
+			Config: EthToCosmosAttestedModuleConfig{
 				AttestedChainId: configInfo.AttestedChainID,
 				AggregatorUrl:   configInfo.AggregatorUrl,
 				AttestedRpcUrl:  configInfo.AttestedRpcUrl,
