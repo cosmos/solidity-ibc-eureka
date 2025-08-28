@@ -348,7 +348,14 @@ contract ICS27GMPTest is Test {
         ics27Gmp.onRecvPacket(msg_);
     }
 
-    function testFuzz_success_onAcknowledgementPacket(uint16 payloadLen, uint16 ackLen, uint16 saltLen, uint64 seq) public {
+    function testFuzz_success_onAcknowledgementPacket(
+        uint16 payloadLen,
+        uint16 ackLen,
+        uint16 saltLen,
+        uint64 seq
+    )
+        public
+    {
         vm.assume(payloadLen > 0);
 
         address relayer = makeAddr("relayer");
@@ -392,7 +399,14 @@ contract ICS27GMPTest is Test {
         ics27Gmp.onAcknowledgementPacket(msg_);
     }
 
-    function testFuzz_failure_onAcknowledgementPacket(uint16 payloadLen, uint16 ackLen, uint16 saltLen, uint64 seq) public {
+    function testFuzz_failure_onAcknowledgementPacket(
+        uint16 payloadLen,
+        uint16 ackLen,
+        uint16 saltLen,
+        uint64 seq
+    )
+        public
+    {
         vm.assume(payloadLen > 0);
 
         address relayer = makeAddr("relayer");
