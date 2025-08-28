@@ -21,11 +21,7 @@ interface IAttestorLightClientErrors {
     /// @param height The height that already has a timestamp.
     /// @param storedTimestamp The previously stored timestamp.
     /// @param providedTimestamp The new, conflicting timestamp.
-    error ConflictingTimestamp(
-        uint64 height,
-        uint64 storedTimestamp,
-        uint64 providedTimestamp
-    );
+    error ConflictingTimestamp(uint64 height, uint64 storedTimestamp, uint64 providedTimestamp);
     /// @notice ECDSA signature has an invalid length.
     /// @param signature The invalid signature.
     error InvalidSignatureLength(bytes signature);
