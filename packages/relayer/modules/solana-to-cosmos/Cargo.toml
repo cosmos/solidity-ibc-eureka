@@ -29,6 +29,7 @@ anchor-lang.workspace = true
 anchor-client.workspace = true
 borsh.workspace = true
 base64.workspace = true
+hex.workspace = true
 
 ibc-proto-eureka.workspace = true
 solana-ibc-types.workspace = true

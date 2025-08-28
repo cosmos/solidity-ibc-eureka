@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ibc_eureka_utils::rpc::TendermintRpcExt;
+use prost::Message;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::signature::Signature;
 use tendermint::Hash;
@@ -20,6 +21,7 @@ use ibc_eureka_relayer_core::{
     api::{self, relayer_service_server::RelayerService},
     modules::RelayerModule,
 };
+use ibc_eureka_relayer_lib::utils::cosmos;
 
 /// The `SolanaToCosmosRelayerModule` struct defines the Solana to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
@@ -38,6 +40,8 @@ struct SolanaToCosmosRelayerModuleService {
     pub tx_builder: tx_builder::TxBuilder,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: solana_sdk::pubkey::Pubkey,
+    /// Whether to use mock proofs for testing.
+    pub mock: bool,
 }
 
 /// The configuration for the Solana to Cosmos relayer module.
@@ -54,6 +58,8 @@ pub struct SolanaToCosmosConfig {
     pub signer_address: String,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: String,
+    /// Whether to use mock proofs for testing.
+    pub mock: bool,
 }
 
 impl SolanaToCosmosRelayerModuleService {
@@ -79,7 +85,39 @@ impl SolanaToCosmosRelayerModuleService {
             target_tm_client: target_client,
             tx_builder,
             solana_ics26_program_id,
+            mock: config.mock,
         })
+    }
+
+    /// Injects mock proofs into IBC messages in the transaction for testing purposes.
+    fn inject_mock_proofs_into_tx(
+        tx: &mut ibc_proto_eureka::cosmos::tx::v1beta1::TxBody,
+    ) -> anyhow::Result<()> {
+        use ibc_proto_eureka::ibc::core::channel::v2::{
+            MsgAcknowledgement, MsgRecvPacket, MsgTimeout,
+        };
+
+        for any_msg in &mut tx.messages {
+            // Try to decode as different IBC message types and inject mock proofs
+            if any_msg.type_url.contains("MsgRecvPacket") {
+                let msg = MsgRecvPacket::decode(any_msg.value.as_slice())?;
+                let mut msgs = [msg];
+                cosmos::inject_mock_proofs(&mut msgs, &mut [], &mut []);
+                any_msg.value = msgs[0].encode_to_vec();
+            } else if any_msg.type_url.contains("MsgAcknowledgement") {
+                let msg = MsgAcknowledgement::decode(any_msg.value.as_slice())?;
+                let mut msgs = [msg];
+                cosmos::inject_mock_proofs(&mut [], &mut msgs, &mut []);
+                any_msg.value = msgs[0].encode_to_vec();
+            } else if any_msg.type_url.contains("MsgTimeout") {
+                let msg = MsgTimeout::decode(any_msg.value.as_slice())?;
+                let mut msgs = [msg];
+                cosmos::inject_mock_proofs(&mut [], &mut [], &mut msgs);
+                any_msg.value = msgs[0].encode_to_vec();
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -167,10 +205,25 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         );
 
         // Build the relay transaction
-        let tx = self
+        let mut tx = self
             .tx_builder
             .build_relay_tx(&inner_req.dst_client_id, src_events, target_events)
             .map_err(|e| tonic::Status::from_error(e.into()))?;
+
+        // Inject mock proofs if in mock mode
+        if self.mock {
+            tracing::info!("=== INJECTING MOCK PROOFS ===");
+            tracing::info!(
+                "Mock mode enabled, injecting mock proofs into {} messages",
+                tx.messages.len()
+            );
+            Self::inject_mock_proofs_into_tx(&mut tx).map_err(|e| {
+                tonic::Status::internal(format!("Failed to inject mock proofs: {e}"))
+            })?;
+            tracing::info!("Successfully injected mock proofs into transaction messages");
+        } else {
+            tracing::warn!("Mock mode disabled - no proofs will be injected!");
+        }
 
         tracing::info!(
             "Built {} messages for Solana to Cosmos relay.",
@@ -178,7 +231,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         );
 
         Ok(Response::new(api::RelayByTxResponse {
-            tx: serde_json::to_vec(&tx).map_err(|e| tonic::Status::from_error(e.into()))?,
+            tx: tx.encode_to_vec(),
             address: String::new(),
         }))
     }
@@ -193,11 +246,11 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         let inner_req = request.into_inner();
         let tx = self
             .tx_builder
-            .build_create_client_tx(inner_req.parameters)
+            .build_create_client_tx(&inner_req.parameters)
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         Ok(Response::new(api::CreateClientResponse {
-            tx: serde_json::to_vec(&tx).map_err(|e| tonic::Status::from_error(e.into()))?,
+            tx: tx.encode_to_vec(),
             address: String::new(),
         }))
     }
@@ -216,7 +269,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         Ok(Response::new(api::UpdateClientResponse {
-            tx: serde_json::to_vec(&tx).map_err(|e| tonic::Status::from_error(e.into()))?,
+            tx: tx.encode_to_vec(),
             address: String::new(),
         }))
     }

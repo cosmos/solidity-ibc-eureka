@@ -7,7 +7,9 @@ use std::sync::Arc;
 use anchor_lang::AnchorSerialize;
 use anyhow::Result;
 use ibc_eureka_relayer_lib::events::EurekaEvent;
+use ibc_eureka_utils::light_block::LightBlockExt;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
+use prost::Message;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -407,13 +409,28 @@ impl TxBuilder {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
 
-        // For ICS07 Tendermint, we need to properly serialize the header
-        // This is a simplified version - in production, you'd use proper Tendermint types
-        let header_bytes = serde_json::to_vec(&latest_block.block.header)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize header: {e}"))?;
+        // Create update client header the same way as cosmos-to-cosmos relayer
+        // Get the target light block (latest from source chain)
+        let target_light_block = self.source_tm_client.get_light_block(None).await?;
+
+        // Get trusted light block from previous height
+        let trusted_height = latest_block.block.header.height.value().saturating_sub(1);
+        let trusted_light_block = self
+            .source_tm_client
+            .get_light_block(Some(trusted_height))
+            .await?;
+
+        tracing::info!(
+            "Generating Solana update client header from height: {} to height: {}",
+            trusted_height,
+            target_light_block.height().value()
+        );
+
+        let proposed_header = target_light_block.into_header(&trusted_light_block);
+        let header_bytes = proposed_header.encode_to_vec();
 
         let update_msg = UpdateClientMsg {
-            header: header_bytes,
+            client_message: header_bytes,
         };
 
         // Get the chain ID for PDA derivation
@@ -421,10 +438,10 @@ impl TxBuilder {
         let (client_state_pda, _) =
             derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
 
-        // Derive consensus state PDAs for trusted and new heights
-        let trusted_height = latest_block.block.header.height.value() - 1; // Previous height
+        // Use heights already calculated above
         let new_height = latest_block.block.header.height.value();
 
+        let trusted_height = new_height.saturating_sub(1);
         let (trusted_consensus_state, _) = derive_ics07_consensus_state(
             &client_state_pda,
             trusted_height,
@@ -490,7 +507,8 @@ impl TxBuilder {
             sequence: params.sequence,
             source_client: params.source_client.to_string(),
             dest_client: params.destination_client.to_string(),
-            timeout_timestamp: i64::try_from(params.timeout_timestamp).unwrap_or(i64::MAX),
+            timeout_timestamp: i64::try_from(params.timeout_timestamp)
+                .map_err(|e| anyhow::anyhow!("Invalid timeout timestamp: {e}"))?,
             payloads,
         };
 
@@ -578,7 +596,12 @@ impl TxBuilder {
             .rsplit('-')
             .next()
             .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(0);
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Invalid chain ID format: expected {{chain_name}}-{{revision_number}}, got {}",
+                    chain_id_str
+                )
+            })?;
 
         // Query staking parameters to get unbonding period
         let unbonding_period = self
@@ -737,7 +760,8 @@ impl MockTxBuilder {
             sequence: params.sequence,
             source_client: params.source_client.to_string(),
             dest_client: params.destination_client.to_string(),
-            timeout_timestamp: i64::try_from(params.timeout_timestamp).unwrap_or(i64::MAX),
+            timeout_timestamp: i64::try_from(params.timeout_timestamp)
+                .map_err(|e| anyhow::anyhow!("Invalid timeout timestamp: {e}"))?,
             payloads,
         };
 

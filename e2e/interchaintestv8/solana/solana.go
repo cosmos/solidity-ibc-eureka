@@ -151,3 +151,59 @@ func (s *Solana) CreateAndFundWallet() (*solana.Wallet, error) {
 	}
 	return wallet, nil
 }
+
+// WaitForProgramAvailability waits for a program to become available with default timeout
+func (s *Solana) WaitForProgramAvailability(ctx context.Context, programID solana.PublicKey) bool {
+	return s.WaitForProgramAvailabilityWithTimeout(ctx, programID, 30)
+}
+
+// WaitForProgramAvailabilityWithTimeout waits for a program to become available with specified timeout
+func (s *Solana) WaitForProgramAvailabilityWithTimeout(ctx context.Context, programID solana.PublicKey, timeoutSeconds int) bool {
+	for range timeoutSeconds {
+		accountInfo, err := s.RPCClient.GetAccountInfo(ctx, programID)
+		if err == nil && accountInfo.Value != nil && accountInfo.Value.Executable {
+			return true
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return false
+}
+
+// SignAndBroadcastTxWithRetry retries transaction broadcasting with default timeout
+func (s *Solana) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet) (solana.Signature, error) {
+	return s.SignAndBroadcastTxWithRetryTimeout(ctx, tx, wallet, 30)
+}
+
+// SignAndBroadcastTxWithRetryTimeout retries transaction broadcasting with specified timeout
+func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, timeoutSeconds int) (solana.Signature, error) {
+	var lastErr error
+	for range timeoutSeconds {
+		sig, err := s.SignAndBroadcastTx(ctx, tx, wallet)
+		if err == nil {
+			return sig, nil
+		}
+		lastErr = err
+		time.Sleep(1 * time.Second)
+	}
+	return solana.Signature{}, fmt.Errorf("transaction broadcast timed out after %d seconds: %w", timeoutSeconds, lastErr)
+}
+
+// WaitForBalanceChange waits for an account balance to change from the initial value
+func (s *Solana) WaitForBalanceChange(ctx context.Context, account solana.PublicKey, initialBalance uint64) (uint64, bool) {
+	return s.WaitForBalanceChangeWithTimeout(ctx, account, initialBalance, 30)
+}
+
+// WaitForBalanceChangeWithTimeout waits for an account balance to change with specified timeout
+func (s *Solana) WaitForBalanceChangeWithTimeout(ctx context.Context, account solana.PublicKey, initialBalance uint64, timeoutSeconds int) (uint64, bool) {
+	for range timeoutSeconds {
+		balanceResp, err := s.RPCClient.GetBalance(ctx, account, "confirmed")
+		if err == nil {
+			currentBalance := balanceResp.Value
+			if currentBalance != initialBalance {
+				return currentBalance, true
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return initialBalance, false
+}

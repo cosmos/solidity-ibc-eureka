@@ -18,6 +18,8 @@ type SolanaCosmosConfigInfo struct {
 	CosmosSignerAddress string
 	// Solana fee payer address (for cosmos-to-solana)
 	SolanaFeePayer string
+	// Whether we use the mock client in Cosmos
+	MockWasmClient bool
 }
 
 type SolanaToCosmosModuleConfig struct {
@@ -31,6 +33,8 @@ type SolanaToCosmosModuleConfig struct {
 	SignerAddress string `json:"signer_address"`
 	// Solana ICS26 router program ID (must be "solana_ics26_program_id")
 	SolanaIcs26ProgramId string `json:"solana_ics26_program_id"`
+	// Whether to use mock proofs for testing
+	Mock bool `json:"mock"`
 }
 
 type CosmosToSolanaModuleConfig struct {
@@ -58,6 +62,7 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 				TargetRpcUrl:         configInfo.TmRPC,
 				SignerAddress:        configInfo.CosmosSignerAddress,
 				SolanaIcs26ProgramId: configInfo.ICS26RouterProgramID,
+				Mock:                 configInfo.MockWasmClient,
 			},
 		},
 		{

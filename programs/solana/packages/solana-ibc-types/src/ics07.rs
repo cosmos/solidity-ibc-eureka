@@ -15,7 +15,7 @@ pub const ICS07_INITIALIZE_DISCRIMINATOR: [u8; 8] = [175, 175, 109, 31, 13, 152,
 /// Update client message for ICS07 Tendermint
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct UpdateClientMsg {
-    pub header: Vec<u8>, // Serialized Tendermint header
+    pub client_message: Vec<u8>, // Serialized Tendermint header
 }
 
 /// IBC height structure
