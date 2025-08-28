@@ -16,7 +16,6 @@ import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS27GMP } from "../../contracts/ICS27GMP.sol";
 import { ICS27Account } from "../../contracts/utils/ICS27Account.sol";
-import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { DummyInitializable, ErroneousInitializable } from "./mocks/DummyInitializable.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
