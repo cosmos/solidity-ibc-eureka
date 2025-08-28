@@ -6,20 +6,19 @@ repository = { workspace = true }
 
 [features]
 default = []
-test-utils = ["dep:alloy-signer", "dep:alloy-signer-local", "dep:sha2", "dep:alloy-primitives"]
+test-utils = ["dep:alloy-signer", "dep:alloy-signer-local", "dep:sha2"]
 
 [dependencies]
 attestor-packet-membership = { workspace = true }
-ibc-eureka-solidity-types       = { workspace = true, default-features = true, features = ["rpc"] }
-
-ethereum-keys = { workspace = true, features = ["signer"] }
+ibc-eureka-solidity-types = { workspace = true }
+ethereum-keys = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
 alloy-sol-types = { workspace = true, default-features = false }
+alloy-primitives = { workspace = true, default-features = false, features = ["k256"] }
 
-
-alloy-primitives = { workspace = true, default-features = false, features = ["k256"], optional = true }
+# Optional test dependencies
 sha2 = { workspace = true, optional = true }
 alloy-signer-local = { workspace = true, optional = true }
 alloy-signer = { workspace = true, optional = true }
