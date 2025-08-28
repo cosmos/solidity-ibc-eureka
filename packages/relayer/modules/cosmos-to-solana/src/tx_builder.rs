@@ -409,7 +409,6 @@ impl TxBuilder {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
 
-        // Create update client header the same way as cosmos-to-cosmos relayer
         // Get the target light block (latest from source chain)
         let target_light_block = self.source_tm_client.get_light_block(None).await?;
 

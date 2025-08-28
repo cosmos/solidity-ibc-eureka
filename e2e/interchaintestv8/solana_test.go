@@ -275,7 +275,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			s.Require().NoError(err)
 			s.T().Logf("Dummy app initialized")
 
-			// Register for "transfer" port
 			routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
 			s.Require().NoError(err)
 

@@ -211,12 +211,12 @@ func (s *Solana) WaitForBalanceChangeWithTimeout(ctx context.Context, account so
 
 // NewComputeBudgetInstruction creates a SetComputeUnitLimit instruction to increase available compute units
 func NewComputeBudgetInstruction(computeUnits uint32) solana.Instruction {
-	// Compute Budget Program ID  
+	// Compute Budget Program ID
 	computeBudgetProgramID := solana.MustPublicKeyFromBase58("ComputeBudget111111111111111111111111111111")
 	data := make([]byte, 5)
 	data[0] = 0x02 // SetComputeUnitLimit instruction discriminator
 	binary.LittleEndian.PutUint32(data[1:], computeUnits)
-	
+
 	return solana.NewInstruction(
 		computeBudgetProgramID,
 		solana.AccountMetaSlice{},

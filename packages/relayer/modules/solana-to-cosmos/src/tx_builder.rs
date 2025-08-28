@@ -373,13 +373,6 @@ impl TxBuilder {
         payloads: Vec<Vec<u8>>,
         timeout_timestamp: u64,
     ) -> anyhow::Result<Any> {
-        tracing::info!("=== BUILDING RECV PACKET MSG ===");
-        tracing::info!("Sequence: {}", sequence);
-        tracing::info!("Source client: {}", source_client);
-        tracing::info!("Destination client: {}", destination_client);
-        tracing::info!("Timeout timestamp: {}", timeout_timestamp);
-        tracing::info!("Payloads count: {}", payloads.len());
-
         // Log payload details for debugging
         for (i, payload) in payloads.iter().enumerate() {
             tracing::info!("Payload {}: {} bytes", i, payload.len());
