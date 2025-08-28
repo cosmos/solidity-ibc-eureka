@@ -346,7 +346,7 @@ clean-cargo:
 # Spike related recipes below:
 
 run-optimism:
-	kurtosis run github.com/ethpandaops/optimism-package@1.3.0 --enclave local-optimism --args-file ./network-config.yaml
+	kurtosis run github.com/ethpandaops/optimism-package@1.4.0 --enclave local-optimism --args-file ./network-config.yaml
 
 teardown-optimism:
 	kurtosis enclave stop local-optimism
