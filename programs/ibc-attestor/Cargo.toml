@@ -8,7 +8,7 @@ keywords.workspace = true
 
 
 [features]
-default = ["op"]
+default = ["cosmos"]
 sol = ["dep:solana-client", "dep:solana-commitment-config", "dep:solana-sdk", ]
 op = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider" ]
 arbitrum = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider", "dep:alloy-contract" ]
