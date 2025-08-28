@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/interchaintest/v10/testutil"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/sync/errgroup"
 
@@ -35,6 +34,8 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibchostv2 "github.com/cosmos/ibc-go/v10/modules/core/24-host/v2"
+
+	"github.com/cosmos/interchaintest/v10/testutil"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
