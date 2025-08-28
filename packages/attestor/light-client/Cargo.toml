@@ -11,6 +11,9 @@ test-utils = ["dep:alloy-signer", "dep:alloy-signer-local", "dep:sha2"]
 [dependencies]
 attestor-packet-membership = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false, features = ["k256"] }
+alloy-sol-types = { workspace = true }
+ibc-eureka-solidity-types =  { workspace = true }
+
 ethereum-keys = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["std"] }

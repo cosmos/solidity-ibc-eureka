@@ -213,7 +213,6 @@ mod tests {
     mod integration_tests {
         use attestor_light_client::{
             error::IbcAttestorClientError,
-            membership::MembershipProof,
             test_utils::{PACKET_COMMITMENTS_ENCODED, SIGS_RAW},
         };
         use attestor_packet_membership::PacketCommitments;
@@ -222,6 +221,9 @@ mod tests {
             testing::{message_info, mock_env},
             Binary, Timestamp,
         };
+
+        use alloy::{primitives::Bytes, sol_types::SolValue};
+        use ibc_eureka_solidity_types::msgs::IAttestorMsgs;
 
         use crate::{
             contract::{
@@ -277,31 +279,33 @@ mod tests {
 
             // Verify membership for the added state
             let env = mock_env();
-            let verifyable = MembershipProof {
-                attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
-                signatures: SIGS_RAW.to_vec(),
+            let proof = IAttestorMsgs::AttestationProof {
+                attestationData: Bytes::from_iter(PACKET_COMMITMENTS_ENCODED.to_abi_bytes()),
+                signatures: SIGS_RAW.to_vec().into_iter().map(Bytes::from).collect(),
             };
-            let as_bytes = serde_json::to_vec(&verifyable).unwrap();
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                 height: Height {
                     revision_number: 0,
                     revision_height: consensus_state.height,
                 },
-                proof: as_bytes.into(),
+                proof: proof.abi_encode().into(),
                 value: membership_value(),
             });
             let res = sudo(deps.as_mut(), env.clone(), msg);
             assert!(res.is_ok());
 
             // Verify membership fails for non-existant packet
-            let as_bytes = serde_json::to_vec(&verifyable).unwrap();
-            let missing_packet = serde_json::to_vec(b"this does not exist").unwrap();
+            let missing_packet = PacketCommitments::new(vec![[120u8; 32]]).to_abi_bytes();
+            let proof = IAttestorMsgs::AttestationProof {
+                attestationData: Bytes::from_iter(PACKET_COMMITMENTS_ENCODED.to_abi_bytes()),
+                signatures: SIGS_RAW.to_vec().into_iter().map(Bytes::from).collect(),
+            };
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                 height: Height {
                     revision_number: 0,
                     revision_height: consensus_state.height,
                 },
-                proof: as_bytes.into(),
+                proof: proof.abi_encode().into(),
                 value: missing_packet.into(),
             });
             let res = sudo(deps.as_mut(), env, msg);
@@ -311,18 +315,17 @@ mod tests {
 
             // Non existent height fails
             let env = mock_env();
-            let value = MembershipProof {
-                attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
-                signatures: SIGS_RAW.to_vec(),
+            let proof = IAttestorMsgs::AttestationProof {
+                attestationData: Bytes::from_iter(PACKET_COMMITMENTS_ENCODED.to_abi_bytes()),
+                signatures: SIGS_RAW.to_vec().into_iter().map(Bytes::from).collect(),
             };
-            let as_bytes = serde_json::to_vec(&value).unwrap();
             let bad_height = consensus_state.height + 100;
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                 height: Height {
                     revision_number: 0,
                     revision_height: bad_height,
                 },
-                proof: as_bytes.into(),
+                proof: proof.abi_encode().into(),
                 value: membership_value(),
             });
             let res = sudo(deps.as_mut(), env, msg);
@@ -331,17 +334,19 @@ mod tests {
             // Bad attestation fails
             let env = mock_env();
             let bad_commitments: Vec<[u8; 32]> = vec![[254u8; 32]];
-            let value = MembershipProof {
-                attestation_data: PacketCommitments::new(bad_commitments).to_abi_bytes(),
-                signatures: SIGS_RAW.to_vec(),
+            let proof = IAttestorMsgs::AttestationProof {
+                attestationData: Bytes::from_iter(
+                    PacketCommitments::new(bad_commitments).to_abi_bytes(),
+                ),
+                signatures: SIGS_RAW.to_vec().into_iter().map(Bytes::from).collect(),
             };
-            let as_bytes = serde_json::to_vec(&value).unwrap();
+
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                 height: Height {
                     revision_number: 0,
                     revision_height: consensus_state.height,
                 },
-                proof: as_bytes.into(),
+                proof: proof.abi_encode().into(),
                 value: membership_value(),
             });
             let res = sudo(deps.as_mut(), env, msg);
@@ -488,33 +493,31 @@ mod tests {
             for i in 1..6 {
                 let env = mock_env();
 
-                let value = MembershipProof {
-                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
-                    signatures: SIGS_RAW.to_vec(),
+                let proof = IAttestorMsgs::AttestationProof {
+                    attestationData: Bytes::from_iter(PACKET_COMMITMENTS_ENCODED.to_abi_bytes()),
+                    signatures: SIGS_RAW.to_vec().into_iter().map(Bytes::from).collect(),
                 };
-                let as_bytes = serde_json::to_vec(&value).unwrap();
                 let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                     height: Height {
                         revision_number: 0,
                         revision_height: consensus_state.height + i,
                     },
-                    proof: as_bytes.into(),
+                    proof: proof.abi_encode().into(),
                     value: membership_value(),
                 });
                 let res = sudo(deps.as_mut(), env.clone(), msg);
                 assert!(res.is_ok());
 
-                let value = MembershipProof {
-                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
-                    signatures: SIGS_RAW.to_vec(),
+                let proof = IAttestorMsgs::AttestationProof {
+                    attestationData: Bytes::from_iter(PACKET_COMMITMENTS_ENCODED.to_abi_bytes()),
+                    signatures: SIGS_RAW.to_vec().into_iter().map(Bytes::from).collect(),
                 };
-                let as_bytes = serde_json::to_vec(&value).unwrap();
                 let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                     height: Height {
                         revision_number: 0,
-                        revision_height: consensus_state.height + i,
+                        revision_height: consensus_state.height,
                     },
-                    proof: as_bytes.into(),
+                    proof: proof.abi_encode().into(),
                     value: membership_value(),
                 });
                 let res = sudo(deps.as_mut(), env.clone(), msg);

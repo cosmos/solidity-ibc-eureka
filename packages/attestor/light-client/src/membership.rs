@@ -1,8 +1,8 @@
 //! Membership proof verification for attestor client
 
-use serde::{Deserialize, Serialize};
-
+use alloy_sol_types::SolValue;
 use attestor_packet_membership::{verify_packet_membership, PacketCommitments};
+use ibc_eureka_solidity_types::msgs::IAttestorMsgs;
 
 use crate::{
     client_state::ClientState, consensus_state::ConsensusState, error::IbcAttestorClientError,
@@ -11,7 +11,7 @@ use crate::{
 
 /// Data structure that can be verified cryptographically
 /// Matches the `AttestationProof` struct in IAttestorMsgs.sol
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct MembershipProof {
     /// ABI-encoded bytes32[] of packet commitments (the actual attested data)
     pub attestation_data: Vec<u8>,
@@ -31,8 +31,22 @@ pub fn verify_membership(
     proof: Vec<u8>,
     value: Vec<u8>,
 ) -> Result<(), IbcAttestorClientError> {
-    let attested_state: MembershipProof = serde_json::from_slice(&proof)
-        .map_err(IbcAttestorClientError::DeserializeMembershipProofFailed)?;
+    // Decode the ABI-encoded IAttestorMsgs::AttestationProof
+    let attestation_proof = IAttestorMsgs::AttestationProof::abi_decode(&proof).map_err(|e| {
+        IbcAttestorClientError::InvalidProof {
+            reason: format!("Failed to decode ABI-encoded AttestationProof: {e}"),
+        }
+    })?;
+
+    // Convert from Solidity type to our Rust type
+    let attested_state = MembershipProof {
+        attestation_data: attestation_proof.attestationData.to_vec(),
+        signatures: attestation_proof
+            .signatures
+            .into_iter()
+            .map(|sig| sig.to_vec())
+            .collect(),
+    };
 
     if consensus_state.height != height {
         return Err(IbcAttestorClientError::InvalidProof {
@@ -92,12 +106,13 @@ mod verify_membership {
         };
 
         let height = cns.height;
-        let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
-            signatures: SIGS_RAW.clone(),
+        // Create the Solidity type and ABI encode it
+        let attestation_proof = IAttestorMsgs::AttestationProof {
+            attestationData: PACKET_COMMITMENTS_ENCODED.to_abi_bytes().into(),
+            signatures: SIGS_RAW.clone().into_iter().map(|sig| sig.into()).collect(),
         };
 
-        let as_bytes = serde_json::to_vec(&attestation).unwrap();
+        let as_bytes = attestation_proof.abi_encode();
         let value = PACKET_COMMITMENTS[0];
         let res = verify_membership(&cns, &cs, height, as_bytes, value.to_vec());
         println!("{res:?}");
@@ -118,12 +133,13 @@ mod verify_membership {
         };
 
         let bad_height = cns.height + 1;
-        let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
-            signatures: SIGS_RAW.clone(),
+        // Create the Solidity type and ABI encode it
+        let attestation_proof = IAttestorMsgs::AttestationProof {
+            attestationData: PACKET_COMMITMENTS_ENCODED.to_abi_bytes().into(),
+            signatures: SIGS_RAW.clone().into_iter().map(|sig| sig.into()).collect(),
         };
 
-        let as_bytes = serde_json::to_vec(&attestation).unwrap();
+        let as_bytes = attestation_proof.abi_encode();
         let value = PACKET_COMMITMENTS[0].to_vec();
         let res = verify_membership(&cns, &cs, bad_height, as_bytes, value);
         assert!(
@@ -145,14 +161,14 @@ mod verify_membership {
         };
 
         let height = cns.height;
-        let attestation = [0, 1, 3].to_vec();
 
-        let as_bytes = serde_json::to_vec(&attestation).unwrap();
+        // Use a badly formed array that is valid JSON but invalid ABI
+        let as_bytes = vec![0, 1, 3];
         let value = PACKET_COMMITMENTS[0].to_vec();
         let res = verify_membership(&cns, &cs, height, as_bytes, value);
         assert!(matches!(
             res,
-            Err(IbcAttestorClientError::DeserializeMembershipProofFailed { .. })
+            Err(IbcAttestorClientError::InvalidProof { .. })
         ));
     }
 
@@ -173,12 +189,13 @@ mod verify_membership {
         };
 
         let height = cns.height;
-        let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
-            signatures: SIGS_RAW.clone(),
+        // Create the Solidity type and ABI encode it
+        let attestation_proof = IAttestorMsgs::AttestationProof {
+            attestationData: PACKET_COMMITMENTS_ENCODED.to_abi_bytes().into(),
+            signatures: SIGS_RAW.clone().into_iter().map(|sig| sig.into()).collect(),
         };
 
-        let as_bytes = serde_json::to_vec(&attestation).unwrap();
+        let as_bytes = attestation_proof.abi_encode();
         let value = PACKET_COMMITMENTS[0].to_vec();
         let res = verify_membership(&cns, &cs, height, as_bytes, value);
         assert!(matches!(

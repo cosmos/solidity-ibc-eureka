@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 ibc-proto = { workspace = true }
 attestor-light-client = { workspace = true }
 
+
 cosmwasm-std = { workspace = true, features = ["std"] }
 cosmwasm-schema = { workspace = true }
 cw2 = { workspace = true }
@@ -21,3 +22,7 @@ thiserror = { workspace = true }
 [dev-dependencies]
 attestor-light-client = { workspace = true, features = ["test-utils"] }
 attestor-packet-membership = { workspace = true }
+ibc-eureka-solidity-types =  { workspace = true }
+alloy = { workspace = true }
+
+
