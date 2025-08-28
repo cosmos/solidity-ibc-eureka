@@ -81,12 +81,9 @@ func TestWithIbcAttestorTestSuite(t *testing.T) {
 // SetupSuite calls the underlying IbcAttestorTestSuite's SetupSuite method
 // and deploys the IbcEureka contract
 func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType, attestorType attestor.AttestorBinaryPath) {
-	if s.EthWasmType == "" {
-		s.EthWasmType = os.Getenv(testvalues.EnvKeyE2EEthWasmType)
-		if s.EthWasmType != testvalues.EthWasmTypeAttestor {
-			s.T().Fatalf("attestor tests must use attestor wasm type, found %s", s.EthWasmType)
-		}
-		s.T().Logf("wasm type %s", s.EthWasmType)
+	ethWasmType := os.Getenv(testvalues.EnvKeyE2EEthWasmType)
+	if ethWasmType != testvalues.EthWasmTypeAttestor {
+		s.T().Fatalf("attestor tests must use attestor wasm type, found %s", ethWasmType)
 
 	}
 
