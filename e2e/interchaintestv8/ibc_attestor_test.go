@@ -25,7 +25,7 @@ import (
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/cosmos/interchaintest/v10/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
