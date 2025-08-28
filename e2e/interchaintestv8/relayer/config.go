@@ -92,12 +92,12 @@ func NewConfig(modules []ModuleConfig) Config {
 	}
 
 	// Local observability flag strictly equals "true"
-	enableLocalObs := os.Getenv(testvalues.EnvKeyEnableLocalObservability) == testvalues.EnvValueEnableLocalObservability_True
+	enableLocalObservability := os.Getenv(testvalues.EnvKeyEnableLocalObservability) == testvalues.EnvValueEnableLocalObservability_True
 
 	var otlpEndpoint *string
 	tracingLevel := rustLog
 	useOtel := false
-	if enableLocalObs {
+	if enableLocalObservability {
 		// Force the endpoint and enable OTLP, but respect RUST_LOG for level
 		endpoint := "http://127.0.0.1:4317"
 		otlpEndpoint = &endpoint
