@@ -117,7 +117,7 @@ impl SolanaToCosmosRelayerModuleService {
                     cosmos::inject_mock_proofs(&mut [], &mut [], &mut msgs);
                     any_msg.value = msgs[0].encode_to_vec();
                 }
-                _ => continue, // Skip messages we don't care about
+                _ => {} // Skip messages we don't care about
             }
         }
 
