@@ -8,7 +8,7 @@ keywords.workspace = true
 
 
 [features]
-default = ["cosmos"]
+default = ["op"]
 sol = ["dep:solana-client", "dep:solana-commitment-config", "dep:solana-sdk", ]
 op = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider" ]
 arbitrum = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider", "dep:alloy-contract" ]
@@ -58,7 +58,7 @@ tracing				= { workspace = true }
 tracing-subscriber		= { workspace = true, default-features = true }
 
 attestor-packet-membership = { workspace = true }
-ethereum-keys			= { workspace = true, features = ["signer-local"] }
+ethereum-keys			= { workspace = true, features = ["signer", "signer-local"] }
 ibc-eureka-solidity-types       = { workspace = true, default-features = true, features = ["rpc"] }
 ibc-eureka-utils               = { workspace = true, default-features = true, optional = true}
 

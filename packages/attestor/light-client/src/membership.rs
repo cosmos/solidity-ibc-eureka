@@ -1,5 +1,7 @@
 //! Membership proof verification for attestor client
 
+use alloy_sol_types::SolType;
+use ibc_eureka_solidity_types::msgs::IAttestorMsgs;
 use serde::{Deserialize, Serialize};
 
 use attestor_packet_membership::{verify_packet_membership, PacketCommitments};
@@ -48,13 +50,12 @@ pub fn verify_membership(
     )?;
 
     // Decode the ABI-encoded attestation data to get the packet commitments
-    let packets =
-        PacketCommitments::from_abi_bytes(&attested_state.attestation_data).map_err(|e| {
-            IbcAttestorClientError::InvalidProof {
-                reason: format!("Failed to decode ABI attestation data: {e}"),
-            }
+    let proof = IAttestorMsgs::PacketAttestation::abi_decode(&attested_state.attestation_data)
+        .map_err(|e| IbcAttestorClientError::InvalidProof {
+            reason: format!("Failed to decode ABI attestation data: {e}"),
         })?;
 
+    let packets = PacketCommitments::new(proof.packetCommitments);
     verify_packet_membership::verify_packet_membership(packets, value)?;
 
     Ok(())

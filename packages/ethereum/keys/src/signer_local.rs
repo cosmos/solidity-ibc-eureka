@@ -19,7 +19,7 @@ pub fn write_to_keystore<P: AsRef<Path>>(
 
     let mut rng = thread_rng();
     let (_, id) = LocalSigner::encrypt_keystore(folder_path, &mut rng, key, "", Some(name))?;
-    println!("id: {}", id);
+    println!("id: {id}");
     Ok(())
 }
 
