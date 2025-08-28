@@ -552,6 +552,16 @@
   },
   {
     "type": "error",
+    "name": "EmptyPacketCommitments",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EmptySignatures",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "EmptyValue",
     "inputs": []
   },
@@ -586,16 +596,27 @@
     "name": "InvalidSignatureLength",
     "inputs": [
       {
-        "name": "index",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "signature",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ]
   },
   {
     "type": "error",
-    "name": "LengthMismatch",
-    "inputs": []
+    "name": "InvalidState",
+    "inputs": [
+      {
+        "name": "height",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
   },
   {
     "type": "error",
@@ -612,9 +633,9 @@
     "name": "SignatureInvalid",
     "inputs": [
       {
-        "name": "index",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "signature",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ]
   },
