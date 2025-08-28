@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length,no-inline-assembly,gas-small-strings,function-max-lines
 
-import "forge-std/console2.sol";
 import { Test } from "forge-std/Test.sol";
 
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
