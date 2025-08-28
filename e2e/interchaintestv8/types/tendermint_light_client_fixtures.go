@@ -5,8 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/tendermint_light_client_fixtures"

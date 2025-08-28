@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -31,6 +30,8 @@ import (
 	ibchostv2 "github.com/cosmos/ibc-go/v10/modules/core/24-host/v2"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+
+	"github.com/cosmos/interchaintest/v10/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	pb "google.golang.org/protobuf/proto"
@@ -14,6 +13,8 @@ import (
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 )
 
 var queryReqToPath = make(map[string]string)

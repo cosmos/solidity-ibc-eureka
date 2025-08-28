@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/stretchr/testify/suite"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -31,6 +30,8 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+
+	"github.com/cosmos/interchaintest/v10/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
