@@ -16,12 +16,26 @@ const (
 	ModuleEthToCosmosCompat = "eth_to_cosmos_compat"
 )
 
-// Config represents the relayer configuration structure and serves as template data
+// Config represents the relayer configuration structure aligned with the Rust RelayerConfig
+// and serves as template data for generation in e2e.
 type Config struct {
-	LogLevel string         `json:"log_level"`
-	Address  string         `json:"address"`
-	Port     int            `json:"port"`
-	Modules  []ModuleConfig `json:"modules"`
+	Modules       []ModuleConfig      `json:"modules"`
+	Server        ServerConfig        `json:"server"`
+	Observability ObservabilityConfig `json:"observability"`
+}
+
+// ServerConfig mirrors the Rust ServerConfig
+type ServerConfig struct {
+	Address string `json:"address"`
+	Port    int    `json:"port"`
+}
+
+// ObservabilityConfig mirrors the Rust ObservabilityConfig
+type ObservabilityConfig struct {
+	Level        string  `json:"level"`
+	UseOtel      bool    `json:"use_otel"`
+	ServiceName  string  `json:"service_name"`
+	OTelEndpoint *string `json:"otel_endpoint,omitempty"`
 }
 
 // ModuleConfig represents a module configuration
@@ -65,11 +79,42 @@ type CosmosToCosmosModuleConfig struct {
 
 // NewConfig creates a new Config with default values
 func NewConfig(modules []ModuleConfig) Config {
+	// Server defaults
+	server := ServerConfig{
+		Address: "127.0.0.1",
+		Port:    3000,
+	}
+
+	// Observability configuration
+	rustLog := os.Getenv(testvalues.EnvKeyRustLog)
+	if rustLog == "" {
+		rustLog = testvalues.EnvValueRustLog_Info
+	}
+
+	// Local observability flag strictly equals "true"
+	enableLocalObservability := os.Getenv(testvalues.EnvKeyEnableLocalObservability) == testvalues.EnvValueEnableLocalObservability_True
+
+	var otlpEndpoint *string
+	tracingLevel := rustLog
+	useOtel := false
+	if enableLocalObservability {
+		// Force the endpoint and enable OTLP, but respect RUST_LOG for level
+		endpoint := "http://127.0.0.1:4317"
+		otlpEndpoint = &endpoint
+		useOtel = true
+	}
+
+	observability := ObservabilityConfig{
+		Level:        tracingLevel,
+		UseOtel:      useOtel,
+		ServiceName:  "ibc-eureka-relayer",
+		OTelEndpoint: otlpEndpoint,
+	}
+
 	return Config{
-		LogLevel: os.Getenv(testvalues.EnvKeyRustLog),
-		Address:  "127.0.0.1",
-		Port:     3000,
-		Modules:  modules,
+		Modules:       modules,
+		Server:        server,
+		Observability: observability,
 	}
 }
 

@@ -6,14 +6,16 @@ repository = { workspace = true }
 license    = { workspace = true }
 
 [dependencies]
+ibc-eureka-relayer-lib = { workspace = true, default-features = false }
+
 tonic            = { workspace = true, default-features = true }
 tonic-reflection = { workspace = true, default-features = true }
 
-prometheus         = { workspace = true, default-features = true }
-tracing            = { workspace = true, default-features = true }
-anyhow             = { workspace = true, default-features = true, features = ["backtrace"] }
+prometheus = { workspace = true, default-features = true }
+tracing    = { workspace = true, default-features = true, features = ["attributes", "std"] }
+anyhow     = { workspace = true, default-features = true, features = ["backtrace"] }
 
-serde      = { workspace = true, default-features = true }
+serde      = { workspace = true, default-features = true, features = ["derive"] }
 serde_json = { workspace = true, default-features = true }
 prost      = { workspace = true, default-features = true }
 

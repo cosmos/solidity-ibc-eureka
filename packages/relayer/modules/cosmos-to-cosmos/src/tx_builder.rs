@@ -50,7 +50,7 @@ impl TxBuilder {
 
 #[async_trait::async_trait]
 impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
@@ -148,7 +148,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         Ok(tx_body.encode_to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         if !parameters.is_empty() {
             anyhow::bail!("Parameters are not supported for creating an `07-tendermint` client");
@@ -214,7 +214,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         .encode_to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
         let client_state = ClientState::decode(
             self.target_tm_client
