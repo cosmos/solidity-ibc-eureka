@@ -1,8 +1,8 @@
 package chainconfig
 
 import (
-	interchaintest "github.com/strangelove-ventures/interchaintest/v8"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	interchaintest "github.com/cosmos/interchaintest/v10"
+	"github.com/cosmos/interchaintest/v10/ibc"
 )
 
 var DefaultChainSpecs = []*interchaintest.ChainSpec{

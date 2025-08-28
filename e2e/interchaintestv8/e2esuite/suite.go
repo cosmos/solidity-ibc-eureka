@@ -4,19 +4,18 @@ import (
 	"context"
 	"os"
 
-	dockerclient "github.com/docker/docker/client"
+	interchaintest "github.com/cosmos/interchaintest/v10"
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
+	icfoundry "github.com/cosmos/interchaintest/v10/chain/ethereum/foundry"
+	"github.com/cosmos/interchaintest/v10/ibc"
+	"github.com/cosmos/interchaintest/v10/testreporter"
+	dockerclient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-
-	interchaintest "github.com/strangelove-ventures/interchaintest/v8"
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	icethereum "github.com/strangelove-ventures/interchaintest/v8/chain/ethereum"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
@@ -66,7 +65,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	s.ethTestnetType = os.Getenv(testvalues.EnvKeyEthTestnetType)
 	switch s.ethTestnetType {
 	case testvalues.EthTestnetTypePoW:
-		icChainSpecs = append(icChainSpecs, &interchaintest.ChainSpec{ChainConfig: icethereum.DefaultEthereumAnvilChainConfig("ethereum")})
+		icChainSpecs = append(icChainSpecs, &interchaintest.ChainSpec{ChainConfig: icfoundry.DefaultEthereumAnvilChainConfig("ethereum")})
 	case testvalues.EthTestnetTypePoS:
 		kurtosisEthChain, err := chainconfig.SpinUpKurtosisEthPoS(ctx) // TODO: Run this in a goroutine and wait for it to be ready
 		s.Require().NoError(err)
@@ -133,7 +132,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
-		anvil := chains[len(chains)-1].(*icethereum.EthereumChain)
+		anvil := chains[len(chains)-1].(*icfoundry.AnvilChain)
 		faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
 		s.Require().NoError(err)
 
