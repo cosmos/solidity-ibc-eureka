@@ -42,7 +42,7 @@ pub enum IbcAttestorClientError {
         reason: String,
     },
 
-    /// Proof cannot be deserialized (kept for backward compatibility)
+    /// Proof cannot be deserialized
     #[error("deserializing membership proof failed: {0}")]
     DeserializeMembershipProofFailed(#[source] serde_json::Error),
 
