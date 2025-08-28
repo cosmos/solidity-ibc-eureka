@@ -1,16 +1,15 @@
-use alloy::sol_types::SolValue;
+use alloy_primitives::FixedBytes;
+use alloy_sol_types::SolType;
 use tendermint::block::Height;
 
-use crate::adapter_client::{
-    AttestationAdapter, UnsignedPacketAttestation, UnsignedStateAttestation,
-};
+use crate::adapter_client::AttestationAdapter;
 
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::{Client, HttpClient};
 
-use attestor_packet_membership::Packets;
 use futures::{stream::FuturesUnordered, StreamExt};
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
+use ibc_eureka_solidity_types::msgs::IAttestorMsgs;
 
 use crate::AttestorError;
 
@@ -80,25 +79,22 @@ impl AttestationAdapter for CosmosClient {
     async fn get_unsigned_state_attestation_at_height(
         &self,
         height: u64,
-    ) -> Result<UnsignedStateAttestation, AttestorError> {
+    ) -> Result<IAttestorMsgs::StateAttestation, AttestorError> {
         let timestamp = self.get_timestamp_for_block_at_height(height).await?;
 
-        Ok(UnsignedStateAttestation { height, timestamp })
+        Ok(IAttestorMsgs::StateAttestation { height, timestamp })
     }
 
     async fn get_unsigned_packet_attestation_at_height(
         &self,
-        packets: &Packets,
+        packets: &[Vec<u8>],
         height: u64,
-    ) -> Result<UnsignedPacketAttestation, AttestorError> {
+    ) -> Result<IAttestorMsgs::PacketAttestation, AttestorError> {
         let mut futures = FuturesUnordered::new();
 
-        tracing::debug!(
-            "Total cosmos packets received: {}",
-            packets.packets().count()
-        );
+        tracing::debug!("Total cosmos packets received: {}", packets.len());
 
-        for p in packets.packets() {
+        for p in packets {
             let packet = Packet::abi_decode(p).map_err(AttestorError::DecodePacket)?;
 
             // concurrency validate packets against RPC data
@@ -148,9 +144,14 @@ impl AttestationAdapter for CosmosClient {
             validated_commitments.len()
         );
 
-        Ok(UnsignedPacketAttestation {
+        let packet_commitments: Vec<FixedBytes<32>> = validated_commitments
+            .into_iter()
+            .map(FixedBytes::<32>::from)
+            .collect();
+
+        Ok(IAttestorMsgs::PacketAttestation {
             height,
-            packets: validated_commitments,
+            packetCommitments: packet_commitments,
         })
     }
 }

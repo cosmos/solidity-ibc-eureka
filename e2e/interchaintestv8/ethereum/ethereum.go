@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cosmos/interchaintest/v10/testutil"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -21,8 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"cosmossdk.io/math"
-
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
