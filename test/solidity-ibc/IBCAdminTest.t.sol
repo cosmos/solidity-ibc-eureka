@@ -237,4 +237,21 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics20Transfer.upgradeIBCERC20To(address(newLogic));
     }
+
+    function test_success_ics27Account_upgrade() public {
+        DummyInitializable newLogic = new DummyInitializable();
+
+        ics27Gmp.upgradeAccountTo(address(newLogic));
+        UpgradeableBeacon beacon = UpgradeableBeacon(ics27Gmp.getAccountBeacon());
+        assertEq(beacon.implementation(), address(newLogic));
+    }
+
+    function test_failure_ics27Account_upgrade() public {
+        DummyInitializable newLogic = new DummyInitializable();
+        address unauthorized = makeAddr("unauthorized");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
+        ics27Gmp.upgradeAccountTo(address(newLogic));
+    }
 }
