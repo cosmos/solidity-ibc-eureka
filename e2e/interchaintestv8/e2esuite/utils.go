@@ -60,6 +60,7 @@ func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosC
 		chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator,
 		chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator+sdk.PrefixPublic,
 	)
+	sdk.GetConfig().SetBech32PrefixForConsensusNode(chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixConsensus, chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixConsensus+sdk.PrefixPublic)
 
 	broadcaster := cosmos.NewBroadcaster(s.T(), chain)
 
@@ -179,6 +180,12 @@ func (s *TestSuite) extractChecksumFromGzippedContent(zippedContent []byte) stri
 // ExecuteGovV1Proposal submits a v1 governance proposal using the provided user and message and uses all validators
 // to vote yes on the proposal.
 func (s *TestSuite) ExecuteGovV1Proposal(ctx context.Context, msg sdk.Msg, cosmosChain *cosmos.CosmosChain, user ibc.Wallet) error {
+	sdk.GetConfig().SetBech32PrefixForAccount(cosmosChain.Config().Bech32Prefix, cosmosChain.Config().Bech32Prefix+sdk.PrefixPublic)
+	sdk.GetConfig().SetBech32PrefixForValidator(
+		cosmosChain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator,
+		cosmosChain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator+sdk.PrefixPublic,
+	)
+
 	sender, err := sdk.AccAddressFromBech32(user.FormattedAddress())
 	s.Require().NoError(err)
 
