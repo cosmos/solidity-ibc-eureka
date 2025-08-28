@@ -16,6 +16,7 @@ import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy
 import { ICS27Account } from "../../contracts/utils/ICS27Account.sol";
 import { ICS27GMP } from "../../contracts/ICS27GMP.sol";
 import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
+import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
@@ -99,6 +100,73 @@ contract ICS27GMPTest is Test {
         vm.stopPrank();
 
         assertEq(sequence, seq, "Sequence mismatch");
+    }
+
+    function test_failure_sendCall() public {
+        address sender = makeAddr("sender");
+        bytes memory salt = vm.randomBytes(16);
+        string memory receiver = th.randomString();
+        string memory memo = th.randomString();
+        bytes memory payload = vm.randomBytes(16);
+
+        bytes memory expCall = abi.encodeCall(
+            IICS26Router.sendPacket,
+            (
+                IICS26RouterMsgs.MsgSendPacket({
+                    sourceClient: th.FIRST_CLIENT_ID(),
+                    timeoutTimestamp: th.DEFAULT_TIMEOUT_TIMESTAMP(),
+                    payload: IICS26RouterMsgs.Payload({
+                        sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                        destPort: ICS27Lib.DEFAULT_PORT_ID,
+                        version: ICS27Lib.ICS27_VERSION,
+                        encoding: ICS27Lib.ICS27_ENCODING,
+                        value: abi.encode(
+                            IICS27GMPMsgs.GMPPacketData({
+                                sender: Strings.toHexString(sender),
+                                receiver: receiver,
+                                salt: salt,
+                                payload: payload,
+                                memo: memo
+                            })
+                        )
+                    })
+                })
+            )
+        );
+
+        uint64 defaultTimeoutTimestamp = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory defaultClientId = th.FIRST_CLIENT_ID();
+
+        vm.startPrank(sender);
+        // ===== Case 1: Empty Payload =====
+        vm.expectRevert(IICS27Errors.ICS27PayloadEmpty.selector);
+        ics27Gmp.sendCall(
+            IICS27GMPMsgs.SendCallMsg({
+                receiver: receiver,
+                payload: "",
+                salt: salt,
+                memo: memo,
+                timeoutTimestamp: defaultTimeoutTimestamp,
+                sourceClient: defaultClientId
+            })
+        );
+
+        // ===== Case 2: Router call reverts =====
+        bytes memory mockErr = bytes("mockErr");
+        vm.mockCallRevert(mockIcs26, expCall, mockErr);
+        vm.expectRevert(mockErr);
+        ics27Gmp.sendCall(
+            IICS27GMPMsgs.SendCallMsg({
+                receiver: receiver,
+                payload: payload,
+                salt: salt,
+                memo: memo,
+                timeoutTimestamp: defaultTimeoutTimestamp,
+                sourceClient: defaultClientId
+            })
+        );
+
+        vm.stopPrank();
     }
 
     function testFuzz_success_onRecvPacket(uint16 saltLen, uint16 payloadLen, uint64 seq) public {
@@ -277,5 +345,212 @@ contract ICS27GMPTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidReceiver.selector, th.INVALID_ID()));
         vm.prank(mockIcs26);
         ics27Gmp.onRecvPacket(msg_);
+    }
+
+    function testFuzz_success_onAcknowledgementPacket(
+        uint16 payloadLen,
+        uint16 ackLen,
+        uint16 saltLen,
+        uint64 seq
+    )
+        public
+    {
+        vm.assume(payloadLen > 0);
+
+        address relayer = makeAddr("relayer");
+        bytes memory payload = vm.randomBytes(payloadLen);
+        bytes memory ack = vm.randomBytes(ackLen);
+        bytes memory salt = vm.randomBytes(saltLen);
+        string memory memo = th.randomString();
+        address sender = makeAddr("sender");
+        string memory receiver = th.randomString();
+
+        // ===== Case 1: Random Acknowledgement =====
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory msg_ = IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+            sourceClient: th.FIRST_CLIENT_ID(),
+            destinationClient: th.SECOND_CLIENT_ID(),
+            sequence: seq,
+            payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                destPort: ICS27Lib.DEFAULT_PORT_ID,
+                version: ICS27Lib.ICS27_VERSION,
+                encoding: ICS27Lib.ICS27_ENCODING,
+                value: abi.encode(
+                    IICS27GMPMsgs.GMPPacketData({
+                        sender: Strings.toHexString(sender),
+                        receiver: receiver,
+                        salt: salt,
+                        payload: payload,
+                        memo: memo
+                    })
+                )
+            }),
+            acknowledgement: ack,
+            relayer: relayer
+        });
+
+        vm.prank(mockIcs26);
+        ics27Gmp.onAcknowledgementPacket(msg_);
+
+        // ===== Case 2: Error Acknowledgement =====
+        msg_.acknowledgement = ICS24Host.UNIVERSAL_ERROR_ACK;
+        vm.prank(mockIcs26);
+        ics27Gmp.onAcknowledgementPacket(msg_);
+    }
+
+    function testFuzz_failure_onAcknowledgementPacket(
+        uint16 payloadLen,
+        uint16 ackLen,
+        uint16 saltLen,
+        uint64 seq
+    )
+        public
+    {
+        vm.assume(payloadLen > 0);
+
+        address relayer = makeAddr("relayer");
+        bytes memory payload = vm.randomBytes(payloadLen);
+        bytes memory ack = vm.randomBytes(ackLen);
+        bytes memory salt = vm.randomBytes(saltLen);
+        string memory memo = th.randomString();
+        address sender = makeAddr("sender");
+        string memory receiver = th.randomString();
+
+        bytes memory validValue = abi.encode(
+            IICS27GMPMsgs.GMPPacketData({
+                sender: Strings.toHexString(sender),
+                receiver: receiver,
+                salt: salt,
+                payload: payload,
+                memo: memo
+            })
+        );
+
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory msg_ = IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+            sourceClient: th.FIRST_CLIENT_ID(),
+            destinationClient: th.SECOND_CLIENT_ID(),
+            sequence: seq,
+            payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                destPort: ICS27Lib.DEFAULT_PORT_ID,
+                version: ICS27Lib.ICS27_VERSION,
+                encoding: ICS27Lib.ICS27_ENCODING,
+                value: validValue
+            }),
+            acknowledgement: ack,
+            relayer: relayer
+        });
+
+        // ===== Case 1: Invalid Payload Value =====
+        msg_.payload.value = bytes("invalid");
+        vm.prank(mockIcs26);
+        vm.expectRevert();
+        ics27Gmp.onAcknowledgementPacket(msg_);
+
+        // ===== Case 2: Invalid Sender =====
+        msg_.payload.value = abi.encode(
+            IICS27GMPMsgs.GMPPacketData({
+                sender: th.INVALID_ID(),
+                receiver: receiver,
+                salt: salt,
+                payload: payload,
+                memo: memo
+            })
+        );
+        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidSender.selector, th.INVALID_ID()));
+        vm.prank(mockIcs26);
+        ics27Gmp.onAcknowledgementPacket(msg_);
+    }
+
+    function testFuzz_success_onTimeoutPacket(uint16 payloadLen, uint16 saltLen, uint64 seq) public {
+        vm.assume(payloadLen > 0);
+
+        address relayer = makeAddr("relayer");
+        bytes memory payload = vm.randomBytes(payloadLen);
+        bytes memory salt = vm.randomBytes(saltLen);
+        string memory memo = th.randomString();
+        address sender = makeAddr("sender");
+        string memory receiver = th.randomString();
+
+        IIBCAppCallbacks.OnTimeoutPacketCallback memory msg_ = IIBCAppCallbacks.OnTimeoutPacketCallback({
+            sourceClient: th.FIRST_CLIENT_ID(),
+            destinationClient: th.SECOND_CLIENT_ID(),
+            sequence: seq,
+            payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                destPort: ICS27Lib.DEFAULT_PORT_ID,
+                version: ICS27Lib.ICS27_VERSION,
+                encoding: ICS27Lib.ICS27_ENCODING,
+                value: abi.encode(
+                    IICS27GMPMsgs.GMPPacketData({
+                        sender: Strings.toHexString(sender),
+                        receiver: receiver,
+                        salt: salt,
+                        payload: payload,
+                        memo: memo
+                    })
+                )
+            }),
+            relayer: relayer
+        });
+
+        vm.prank(mockIcs26);
+        ics27Gmp.onTimeoutPacket(msg_);
+    }
+
+    function testFuzz_failure_onTimeoutPacket(uint16 payloadLen, uint16 saltLen, uint64 seq) public {
+        vm.assume(payloadLen > 0);
+
+        address relayer = makeAddr("relayer");
+        bytes memory payload = vm.randomBytes(payloadLen);
+        bytes memory salt = vm.randomBytes(saltLen);
+        string memory memo = th.randomString();
+        address sender = makeAddr("sender");
+        string memory receiver = th.randomString();
+
+        IIBCAppCallbacks.OnTimeoutPacketCallback memory msg_ = IIBCAppCallbacks.OnTimeoutPacketCallback({
+            sourceClient: th.FIRST_CLIENT_ID(),
+            destinationClient: th.SECOND_CLIENT_ID(),
+            sequence: seq,
+            payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                destPort: ICS27Lib.DEFAULT_PORT_ID,
+                version: ICS27Lib.ICS27_VERSION,
+                encoding: ICS27Lib.ICS27_ENCODING,
+                value: abi.encode(
+                    IICS27GMPMsgs.GMPPacketData({
+                        sender: Strings.toHexString(sender),
+                        receiver: receiver,
+                        salt: salt,
+                        payload: payload,
+                        memo: memo
+                    })
+                )
+            }),
+            relayer: relayer
+        });
+
+        vm.prank(mockIcs26);
+        ics27Gmp.onTimeoutPacket(msg_);
+
+        // ===== Case 1: Invalid Payload Value =====
+        msg_.payload.value = bytes("invalid");
+        vm.prank(mockIcs26);
+        vm.expectRevert();
+        ics27Gmp.onTimeoutPacket(msg_);
+
+        // ===== Case 2: Invalid Sender =====
+        msg_.payload.value = abi.encode(
+            IICS27GMPMsgs.GMPPacketData({
+                sender: th.INVALID_ID(),
+                receiver: receiver,
+                salt: salt,
+                payload: payload,
+                memo: memo
+            })
+        );
+        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidSender.selector, th.INVALID_ID()));
+        vm.prank(mockIcs26);
+        ics27Gmp.onTimeoutPacket(msg_);
     }
 }

@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/cosmos/interchaintest/v10/chain/ethereum"
 	"github.com/holiman/uint256"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -12,6 +11,8 @@ import (
 	"cosmossdk.io/math"
 
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
+
+	"github.com/cosmos/interchaintest/v10/chain/ethereum"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 )

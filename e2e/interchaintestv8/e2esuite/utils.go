@@ -14,10 +14,6 @@ import (
 	"unicode"
 
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/interchaintest/v10"
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
-	"github.com/cosmos/interchaintest/v10/ibc"
-	"github.com/cosmos/interchaintest/v10/testutil"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -46,6 +42,11 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
+	"github.com/cosmos/interchaintest/v10"
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
+	"github.com/cosmos/interchaintest/v10/ibc"
+	"github.com/cosmos/interchaintest/v10/testutil"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
@@ -59,6 +60,7 @@ func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosC
 		chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator,
 		chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator+sdk.PrefixPublic,
 	)
+	sdk.GetConfig().SetBech32PrefixForConsensusNode(chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixConsensus, chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixConsensus+sdk.PrefixPublic)
 
 	broadcaster := cosmos.NewBroadcaster(s.T(), chain)
 
@@ -130,9 +132,10 @@ func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos
 
 	computedChecksum := s.extractChecksumFromGzippedContent(zippedContent)
 
+	moduleAddr, err := chain.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
 	s.Require().NoError(err)
 	message := ibcwasmtypes.MsgStoreCode{
-		Signer:       authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		Signer:       moduleAddr,
 		WasmByteCode: zippedContent,
 	}
 
@@ -178,9 +181,6 @@ func (s *TestSuite) extractChecksumFromGzippedContent(zippedContent []byte) stri
 // ExecuteGovV1Proposal submits a v1 governance proposal using the provided user and message and uses all validators
 // to vote yes on the proposal.
 func (s *TestSuite) ExecuteGovV1Proposal(ctx context.Context, msg sdk.Msg, cosmosChain *cosmos.CosmosChain, user ibc.Wallet) error {
-	sender, err := sdk.AccAddressFromBech32(user.FormattedAddress())
-	s.Require().NoError(err)
-
 	proposalID := s.proposalIDs[cosmosChain.Config().ChainID]
 	defer func() {
 		s.proposalIDs[cosmosChain.Config().ChainID] = proposalID + 1
@@ -191,7 +191,7 @@ func (s *TestSuite) ExecuteGovV1Proposal(ctx context.Context, msg sdk.Msg, cosmo
 	msgSubmitProposal, err := govtypesv1.NewMsgSubmitProposal(
 		msgs,
 		sdk.NewCoins(sdk.NewCoin(cosmosChain.Config().Denom, govtypesv1.DefaultMinDepositTokens)),
-		sender.String(),
+		user.FormattedAddress(),
 		"",
 		fmt.Sprintf("e2e gov proposal: %d", proposalID),
 		fmt.Sprintf("executing gov proposal %d", proposalID),
