@@ -98,22 +98,26 @@ impl SolanaToCosmosRelayerModuleService {
         };
 
         for any_msg in &mut tx.messages {
-            // Try to decode as different IBC message types and inject mock proofs
-            if any_msg.type_url.contains("MsgRecvPacket") {
-                let msg = MsgRecvPacket::decode(any_msg.value.as_slice())?;
-                let mut msgs = [msg];
-                cosmos::inject_mock_proofs(&mut msgs, &mut [], &mut []);
-                any_msg.value = msgs[0].encode_to_vec();
-            } else if any_msg.type_url.contains("MsgAcknowledgement") {
-                let msg = MsgAcknowledgement::decode(any_msg.value.as_slice())?;
-                let mut msgs = [msg];
-                cosmos::inject_mock_proofs(&mut [], &mut msgs, &mut []);
-                any_msg.value = msgs[0].encode_to_vec();
-            } else if any_msg.type_url.contains("MsgTimeout") {
-                let msg = MsgTimeout::decode(any_msg.value.as_slice())?;
-                let mut msgs = [msg];
-                cosmos::inject_mock_proofs(&mut [], &mut [], &mut msgs);
-                any_msg.value = msgs[0].encode_to_vec();
+            match any_msg.type_url.as_str() {
+                url if url.contains("MsgRecvPacket") => {
+                    let msg = MsgRecvPacket::decode(any_msg.value.as_slice())?;
+                    let mut msgs = [msg];
+                    cosmos::inject_mock_proofs(&mut msgs, &mut [], &mut []);
+                    any_msg.value = msgs[0].encode_to_vec();
+                }
+                url if url.contains("MsgAcknowledgement") => {
+                    let msg = MsgAcknowledgement::decode(any_msg.value.as_slice())?;
+                    let mut msgs = [msg];
+                    cosmos::inject_mock_proofs(&mut [], &mut msgs, &mut []);
+                    any_msg.value = msgs[0].encode_to_vec();
+                }
+                url if url.contains("MsgTimeout") => {
+                    let msg = MsgTimeout::decode(any_msg.value.as_slice())?;
+                    let mut msgs = [msg];
+                    cosmos::inject_mock_proofs(&mut [], &mut [], &mut msgs);
+                    any_msg.value = msgs[0].encode_to_vec();
+                }
+                _ => continue, // Skip messages we don't care about
             }
         }
 
