@@ -64,7 +64,7 @@ pub struct TxBuilder {
 impl TxBuilder {
     /// Creates a new `TxBuilder`.
     #[must_use]
-    pub fn new(
+    pub const fn new(
         aggregator_url: String,
         target_tm_client: HttpClient,
         signer_address: String,
