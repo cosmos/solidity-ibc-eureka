@@ -28,7 +28,7 @@ func (s *TestSuite) StoreSolanaLightClient(ctx context.Context, cosmosChain *cos
 	s.T().Log("Using dummy Wasm light client for Solana verification")
 	wasmBinary, err := wasm.GetWasmDummyLightClient()
 	s.Require().NoError(err, "Failed to get dummy Wasm light client binary")
-	
+
 	checksum := s.PushNewWasmClientProposal(ctx, cosmosChain, simdRelayerUser, wasmBinary)
 	s.Require().NotEmpty(checksum, "checksum was empty but should not have been")
 
@@ -36,7 +36,6 @@ func (s *TestSuite) StoreSolanaLightClient(ctx context.Context, cosmosChain *cos
 
 	return checksum
 }
-
 
 func (s *TestSuite) getWasmLightClientBinary() *os.File {
 	// For PoW testnets, we use the dummy light client
