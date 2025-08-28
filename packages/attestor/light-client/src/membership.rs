@@ -75,6 +75,8 @@ pub fn verify_non_membership(
 
 #[cfg(test)]
 mod verify_membership {
+    use alloy_sol_types::SolValue;
+
     use crate::test_utils::{ADDRESSES, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS_RAW};
 
     use super::*;
@@ -94,7 +96,7 @@ mod verify_membership {
 
         let height = cns.height;
         let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
             signatures: SIGS_RAW.clone(),
         };
 
@@ -120,7 +122,7 @@ mod verify_membership {
 
         let bad_height = cns.height + 1;
         let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
             signatures: SIGS_RAW.clone(),
         };
 
@@ -175,7 +177,7 @@ mod verify_membership {
 
         let height = cns.height;
         let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
             signatures: SIGS_RAW.clone(),
         };
 

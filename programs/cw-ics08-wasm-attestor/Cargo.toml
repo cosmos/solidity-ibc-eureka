@@ -20,4 +20,6 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 attestor-light-client = { workspace = true, features = ["test-utils"] }
-attestor-packet-membership = { workspace = true }
+alloy-sol-types = { workspace = true }
+alloy-primitives = { workspace = true }
+ibc-eureka-solidity-types = { workspace = true }

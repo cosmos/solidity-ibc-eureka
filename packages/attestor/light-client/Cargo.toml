@@ -28,3 +28,4 @@ alloy-signer = { workspace = true, optional = true }
 alloy-primitives = { workspace = true, default-features = false, features = ["k256"] }
 alloy-signer-local = { workspace = true }
 alloy-signer = { workspace = true }
+alloy-sol-types = { workspace = true }
