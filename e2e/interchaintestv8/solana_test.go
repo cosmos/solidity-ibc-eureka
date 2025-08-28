@@ -416,7 +416,13 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		)
 		s.Require().NoError(err)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), sendTransferInstruction)
+		computeBudgetInstruction := solana.NewComputeBudgetInstruction(400000)
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(
+			s.SolanaUser.PublicKey(),
+			computeBudgetInstruction,
+			sendTransferInstruction,
+		)
 		s.Require().NoError(err)
 
 		solanaTxSig, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
