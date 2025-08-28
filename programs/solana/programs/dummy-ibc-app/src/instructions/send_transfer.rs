@@ -158,6 +158,16 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
     if escrow_state.client_id.is_empty() {
         escrow_state.client_id.clone_from(&msg.source_client);
         escrow_state.authority = ctx.accounts.user.key();
+    } else {
+        // Validate existing escrow state matches current transaction
+        require!(
+            escrow_state.client_id == msg.source_client,
+            DummyIbcAppError::InvalidPacketData
+        );
+        require!(
+            escrow_state.authority == ctx.accounts.user.key(),
+            DummyIbcAppError::InvalidPacketData
+        );
     }
     escrow_state.total_escrowed = escrow_state.total_escrowed.saturating_add(amount_lamports);
     escrow_state.active_transfers = escrow_state.active_transfers.saturating_add(1);
