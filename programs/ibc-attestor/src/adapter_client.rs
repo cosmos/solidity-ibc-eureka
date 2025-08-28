@@ -1,5 +1,6 @@
 use alloy_sol_types::SolType;
 use std::future::Future;
+use alloy_sol_types::SolType;
 
 use crate::AttestorError;
 use ibc_eureka_solidity_types::msgs::IAttestorMsgs;

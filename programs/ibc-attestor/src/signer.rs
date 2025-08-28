@@ -6,6 +6,7 @@ use ethereum_keys::signer_local::read_from_keystore;
 use crate::cli::SignerConfig;
 use crate::AttestorError;
 use crate::{adapter_client::Signable, api::Attestation};
+use sha3::Keccak256;
 
 /// Signs `serde` encoded byte data using
 /// the `secp256k1` algorithm.
@@ -32,6 +33,14 @@ impl Signer {
 
         // 65-byte signature r||s||v
         let sig65 = sig.as_bytes().to_vec();
+
+        // Build 65-byte signature: r || s || v
+        let mut sig65 = Vec::with_capacity(65);
+        let (r, s) = sig.split_bytes();
+        sig65.extend_from_slice(&r);
+        sig65.extend_from_slice(&s);
+        // Add recovery id as v (27 + rec_id for Ethereum compatibility)
+        sig65.push(27 + rec_id.to_byte());
 
         Ok(Attestation {
             height,

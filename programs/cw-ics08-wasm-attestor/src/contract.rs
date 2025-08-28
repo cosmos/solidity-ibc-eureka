@@ -235,6 +235,7 @@ mod tests {
             test::helpers::mk_deps,
             ContractError,
         };
+        use attestor_light_client::test_utils::PACKET_COMMITMENTS_ENCODED;
 
         #[test]
         #[allow(clippy::too_many_lines)]
