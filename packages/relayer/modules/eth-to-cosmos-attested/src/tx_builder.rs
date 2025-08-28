@@ -4,14 +4,12 @@
 
 use std::collections::{HashMap, HashSet};
 
-use alloy::{
-    primitives::{Address, Bytes},
-    sol_types::SolValue,
-};
+use alloy::{primitives::Address, sol_types::SolValue};
 use anyhow::Result;
 use attestor_light_client::{
     client_state::ClientState as AttestorClientState,
     consensus_state::ConsensusState as AttestorConsensusState, header::Header,
+    membership::MembershipProof,
 };
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
@@ -33,9 +31,7 @@ use ibc_eureka_relayer_lib::{
     tx_builder::TxBuilderService,
     utils::{attestor, cosmos},
 };
-use ibc_eureka_solidity_types::{
-    ics26::IICS26RouterMsgs::Packet, msgs::IAttestorMsgs::AttestationProof,
-};
+use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 
 /// Chain type for attested chains that get their state from the aggregator
 pub struct AttestedChain;
@@ -90,12 +86,15 @@ impl TxBuilder {
 }
 
 /// Build serialized membership proof bytes from ABI-encoded attested data and signatures
-fn build_abi_encoded_proof(attested_data: Vec<u8>, signatures: Vec<Vec<u8>>) -> Vec<u8> {
-    AttestationProof {
-        attestationData: Bytes::from_iter(attested_data),
-        signatures: signatures.into_iter().map(Bytes::from).collect(),
-    }
-    .abi_encode()
+fn build_membership_proof(
+    attested_data: Vec<u8>,
+    signatures: Vec<Vec<u8>>,
+) -> Result<Vec<u8>, anyhow::Error> {
+    serde_json::to_vec(&MembershipProof {
+        attestation_data: attested_data,
+        signatures: signatures,
+    })
+    .map_err(Into::into)
 }
 
 fn encode_and_cyphon_packet_if_relevant(
@@ -236,7 +235,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        let proof = build_abi_encoded_proof(packets.attested_data, packets.signatures);
+        let proof = build_membership_proof(packets.attested_data, packets.signatures)?;
         attestor::inject_proofs_for_tm_msg(&mut recv_msgs, &proof, packets.height);
 
         // NOTE: UpdateMsg must come first otherwise
