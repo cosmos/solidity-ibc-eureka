@@ -27,7 +27,6 @@ require (
 	github.com/kurtosis-tech/kurtosis/api/golang v1.10.3
 	github.com/moby/moby v27.5.1+incompatible
 	github.com/rs/zerolog v1.34.0
-	github.com/strangelove-ventures/interchaintest/v8 v8.8.1
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.16.0
@@ -95,8 +94,6 @@ require (
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v1.2.4 // indirect
-	github.com/cosmos/ibc-go/modules/capability v1.0.1 // indirect
-	github.com/cosmos/ibc-go/v8 v8.4.0 // indirect
 	github.com/cosmos/interchain-security/v7 v7.0.0-20250408210344-06e0dc6bf6d6 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.14.0 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
