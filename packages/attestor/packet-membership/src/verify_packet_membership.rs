@@ -13,7 +13,7 @@ pub fn verify_packet_membership(
     value: Vec<u8>,
 ) -> Result<(), PacketAttestationError> {
     if proof
-        .packets()
+        .commitments()
         .any(|packet| packet.as_slice() == value.as_slice())
     {
         Ok(())
@@ -28,15 +28,18 @@ pub fn verify_packet_membership(
 #[allow(clippy::module_inception)]
 mod verify_packet_membership {
     use super::*;
-    use alloy_primitives::FixedBytes;
+
+    use crate::packet_commitments::PacketCompact;
 
     #[test]
     fn succeeds() {
-        let data: Vec<[u8; 32]> = vec![[7u8; 32], [8u8; 32], [9u8; 32]];
-        let packets: Vec<FixedBytes<32>> = data.iter().map(|d| (*d).into()).collect();
+        // (path, commitment)[]
+        let proof = PacketCommitments::new(vec![
+            PacketCompact::new([1u8; 32], [2u8; 32]),
+            PacketCompact::new([3u8; 32], [4u8; 32]),
+        ]);
 
-        let proof = PacketCommitments::new(packets);
-        let value = [9u8; 32].to_vec();
+        let value = [4u8; 32].to_vec();
 
         let res = verify_packet_membership(proof, value);
         assert!(res.is_ok());
@@ -44,11 +47,14 @@ mod verify_packet_membership {
 
     #[test]
     fn fails_on_missing() {
-        let data: Vec<[u8; 32]> = vec![[7u8; 32], [8u8; 32], [9u8; 32]];
-        let packets: Vec<FixedBytes<32>> = data.iter().map(|d| (*d).into()).collect();
+         // (path, commitment)[]
+         let proof = PacketCommitments::new(vec![
+            PacketCompact::new([1u8; 32], [2u8; 32]),
+            PacketCompact::new([3u8; 32], [4u8; 32]),
+        ]);
 
-        let proof = PacketCommitments::new(packets);
-        let value = [0u8; 32].to_vec();
+        // commitment that is not in the proof
+        let value = [7u8; 32].to_vec();
 
         let res = verify_packet_membership(proof, value);
         assert!(
