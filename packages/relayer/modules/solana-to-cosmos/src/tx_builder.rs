@@ -27,6 +27,9 @@ use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use tendermint_rpc::HttpClient;
 
+/// Mock header data for Solana client testing
+const MOCK_HEADER_DATA: &[u8] = b"mock";
+
 /// IBC event types emitted by Solana programs
 #[derive(Debug, Clone)]
 pub enum SolanaIbcEvent {
@@ -373,14 +376,6 @@ impl TxBuilder {
         payloads: Vec<Vec<u8>>,
         timeout_timestamp: u64,
     ) -> anyhow::Result<Any> {
-        // Log payload details for debugging
-        for (i, payload) in payloads.iter().enumerate() {
-            tracing::info!("Payload {}: {} bytes", i, payload.len());
-            if let Ok(payload_str) = String::from_utf8(payload.clone()) {
-                tracing::info!("Payload {} (decoded): {}", i, payload_str);
-            }
-        }
-
         let converted_payloads = Self::convert_payloads_to_ibc(payloads);
         tracing::info!("Converted payloads count: {}", converted_payloads.len());
 
@@ -486,7 +481,7 @@ impl TxBuilder {
 
         // Create update message with latest Solana state
         // This would include proof-of-history verification data
-        let header_data = b"mock".to_vec(); // Mock Solana header for testing
+        let header_data = MOCK_HEADER_DATA.to_vec(); // Mock Solana header for testing
         let client_msg = Any::from_msg(&ClientMessage { data: header_data })?;
 
         Ok(MsgUpdateClient {
@@ -572,7 +567,7 @@ impl TxBuilder {
 
         // Create update message with latest Solana state
         // This would include proof-of-history verification data
-        let header_data = b"mock".to_vec(); // Mock Solana header for testing
+        let header_data = MOCK_HEADER_DATA.to_vec(); // Mock Solana header for testing
         let client_msg = Any::from_msg(&ClientMessage { data: header_data })?;
 
         let update_msg = MsgUpdateClient {

@@ -39,6 +39,9 @@ const DEFAULT_TRUST_LEVEL_DENOMINATOR: u64 = 3;
 /// Maximum allowed clock drift in seconds
 const MAX_CLOCK_DRIFT_SECONDS: u64 = 15;
 
+/// Mock proof data for testing purposes
+const MOCK_PROOF_DATA: &[u8] = b"mock";
+
 /// Parameters for building a `RecvPacket` instruction
 struct RecvPacketParams<'a> {
     sequence: u64,
@@ -514,8 +517,8 @@ impl TxBuilder {
         // Create the message with mock proofs for now
         let msg = MsgRecvPacket {
             packet,
-            proof_commitment: b"mock".to_vec(), // Mock proof for testing
-            proof_height: 1,                    // Mock height for testing
+            proof_commitment: MOCK_PROOF_DATA.to_vec(), // Mock proof for testing
+            proof_height: 1,                            // Mock height for testing
         };
 
         // Derive all required PDAs
@@ -767,8 +770,8 @@ impl MockTxBuilder {
         // Create the message with mock proofs
         let msg = MsgRecvPacket {
             packet,
-            proof_commitment: b"mock".to_vec(), // Mock proof
-            proof_height: 1,                    // Mock height
+            proof_commitment: MOCK_PROOF_DATA.to_vec(), // Mock proof
+            proof_height: 1,                            // Mock height
         };
 
         // Derive all required PDAs
