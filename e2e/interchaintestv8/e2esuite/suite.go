@@ -4,11 +4,6 @@ import (
 	"context"
 	"os"
 
-	interchaintest "github.com/cosmos/interchaintest/v10"
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
-	icfoundry "github.com/cosmos/interchaintest/v10/chain/ethereum/foundry"
-	"github.com/cosmos/interchaintest/v10/ibc"
-	"github.com/cosmos/interchaintest/v10/testreporter"
 	dockerclient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
@@ -16,6 +11,12 @@ import (
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	interchaintest "github.com/cosmos/interchaintest/v10"
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
+	icfoundry "github.com/cosmos/interchaintest/v10/chain/ethereum/foundry"
+	"github.com/cosmos/interchaintest/v10/ibc"
+	"github.com/cosmos/interchaintest/v10/testreporter"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
