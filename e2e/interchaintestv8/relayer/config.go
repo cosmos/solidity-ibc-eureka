@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	ModuleCosmosToCosmos    = "cosmos_to_cosmos"
-	ModuleCosmosToEth       = "cosmos_to_eth"
-	ModuleEthToCosmos       = "eth_to_cosmos"
-	ModuleEthToCosmosCompat = "eth_to_cosmos_compat"
-	ModuleAttestedToCosmos  = "attested_to_cosmos"
+	ModuleCosmosToCosmos      = "cosmos_to_cosmos"
+	ModuleCosmosToEth         = "cosmos_to_eth"
+	ModuleEthToCosmos         = "eth_to_cosmos"
+	ModuleEthToCosmosCompat   = "eth_to_cosmos_compat"
+	ModuleEthToCosmosAttested = "eth_to_cosmos_attested"
 )
 
 // Config represents the relayer configuration structure and serves as template data
@@ -123,8 +123,8 @@ type ethToCosmosConfig struct {
 	Mock            bool   `json:"mock"`
 }
 
-// AttestedToCosmosModuleConfig represents the configuration for attested_to_cosmos module
-type AttestedToCosmosModuleConfig struct {
+// EthToCosmosAttestedModuleConfig represents the configuration for attested_to_cosmos module
+type EthToCosmosAttestedModuleConfig struct {
 	AttestedChainId string `json:"attested_chain_id"`
 	AggregatorUrl   string `json:"aggregator_url"`
 	AttestedRpcUrl  string `json:"attested_rpc_url"`
