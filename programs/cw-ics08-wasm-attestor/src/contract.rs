@@ -354,7 +354,6 @@ mod tests {
                 value: membership_value(),
             });
             let res = sudo(deps.as_mut(), env, msg);
-            println!("{:?}", res);
             assert!(matches!(
                 res,
                 Err(ContractError::VerifyMembershipFailed(

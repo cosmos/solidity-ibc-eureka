@@ -16,7 +16,7 @@ impl From<FixedBytes<32>> for TxAdapter {
 
 impl From<TxAdapter> for tendermint::Hash {
     fn from(value: TxAdapter) -> Self {
-        tendermint::Hash::Sha256(value.0)
+        Self::Sha256(value.0)
     }
 }
 
@@ -32,10 +32,7 @@ impl TxListener for cosmos_sdk::ChainListener {
         &self,
         tx_ids: Vec<TxAdapter>,
     ) -> Result<Vec<EurekaEventWithHeight>, anyhow::Error> {
-        ChainListenerService::fetch_tx_events(
-            self,
-            tx_ids.into_iter().map(|tx| tx.into()).collect(),
-        )
-        .await
+        ChainListenerService::fetch_tx_events(self, tx_ids.into_iter().map(Into::into).collect())
+            .await
     }
 }

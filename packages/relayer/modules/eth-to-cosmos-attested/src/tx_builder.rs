@@ -64,7 +64,7 @@ pub struct TxBuilder {
 impl TxBuilder {
     /// Creates a new `TxBuilder`.
     #[must_use]
-    pub fn new(
+    pub const fn new(
         aggregator_url: String,
         target_tm_client: HttpClient,
         signer_address: String,
@@ -92,7 +92,7 @@ fn build_membership_proof(
 ) -> Result<Vec<u8>, anyhow::Error> {
     serde_json::to_vec(&MembershipProof {
         attestation_data: attested_data,
-        signatures: signatures,
+        signatures,
     })
     .map_err(Into::into)
 }
@@ -286,7 +286,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             .ok_or_else(|| anyhow::anyhow!(format!("Missing `{ATTESTOR_ADDRESSES}` parameter")))?;
         // Accept comma- or space-separated list of 0x addresses
         let attestor_addresses: Vec<Address> = addrs_hex
-            .split(|c| c == ',' || c == ' ')
+            .split(&[',', ' '][..])
             .filter(|s| !s.is_empty())
             .map(|s| Address::parse_checksummed(s, None))
             .collect::<Result<_, _>>()

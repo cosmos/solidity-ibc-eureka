@@ -67,7 +67,7 @@ where
 {
     /// Creates a new `TxBuilder`.
     #[must_use]
-    pub fn new(ics26_address: Address, provider: P, aggregator_url: String) -> Self {
+    pub const fn new(ics26_address: Address, provider: P, aggregator_url: String) -> Self {
         Self {
             ics26_router: routerInstance::new(ics26_address, provider),
 
@@ -242,7 +242,6 @@ where
         let all_calls = std::iter::once(update_msg)
             .chain(recv_and_ack_msgs)
             .chain(timeout_msgs)
-            .into_iter()
             .map(|call| match call {
                 routerCalls::ackPacket(call) => call.abi_encode(),
                 routerCalls::recvPacket(call) => call.abi_encode(),
@@ -285,7 +284,7 @@ where
             .ok_or_else(|| anyhow::anyhow!(format!("Missing `{ATTESTOR_ADDRESSES}` parameter")))?;
         // Accept comma- or space-separated list of 0x addresses
         let attestor_addresses: Vec<Address> = addrs_hex
-            .split(|c| c == ',' || c == ' ')
+            .split(&[',', ' '][..])
             .filter(|s| !s.is_empty())
             .map(|s| Address::parse_checksummed(s, None))
             .collect::<Result<_, _>>()
