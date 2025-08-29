@@ -1,7 +1,7 @@
 package relayer
 
-// AttestedToCosmosConfigInfo is a struct that holds the configuration information for the Attested to Cosmos config template
-type AttestedToCosmosConfigInfo struct {
+// EthToCosmosAttestedConfigInfo is a struct that holds the configuration information for the Attested to Cosmos config template
+type EthToCosmosAttestedConfigInfo struct {
 	AttestedChainID     string
 	AggregatorUrl       string
 	AttestedRpcUrl      string
@@ -13,14 +13,14 @@ type AttestedToCosmosConfigInfo struct {
 }
 
 func CreateAttestedCosmosModules(
-	configInfo AttestedToCosmosConfigInfo,
+	configInfo EthToCosmosAttestedConfigInfo,
 ) []ModuleConfig {
 	return []ModuleConfig{
 		{
-			Name:     ModuleAttestedToCosmos,
+			Name:     ModuleEthToCosmosAttested,
 			SrcChain: configInfo.AttestedChainID,
 			DstChain: configInfo.CosmosChainID,
-			Config: AttestedToCosmosModuleConfig{
+			Config: EthToCosmosAttestedModuleConfig{
 				AttestedChainId: configInfo.AttestedChainID,
 				AggregatorUrl:   configInfo.AggregatorUrl,
 				AttestedRpcUrl:  configInfo.AttestedRpcUrl,
