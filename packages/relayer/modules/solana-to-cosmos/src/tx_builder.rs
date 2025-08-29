@@ -17,7 +17,7 @@ use ibc_proto_eureka::{
             client::v1::{Height, MsgCreateClient, MsgUpdateClient},
         },
         lightclients::wasm::v1::{
-            ClientState as WasmClientState, ConsensusState as WasmConsensusState,
+            ClientMessage, ClientState as WasmClientState, ConsensusState as WasmConsensusState,
         },
     },
 };
@@ -26,6 +26,9 @@ use solana_ibc_types::Packet as SolanaPacket;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use tendermint_rpc::HttpClient;
+
+/// Mock header data for Solana client testing
+const MOCK_HEADER_DATA: &[u8] = b"mock";
 
 /// IBC event types emitted by Solana programs
 #[derive(Debug, Clone)]
@@ -257,13 +260,14 @@ impl TxBuilder {
     /// - No messages to relay
     pub fn build_relay_tx(
         &self,
+        client_id: &str,
         src_events: Vec<SolanaIbcEvent>,
         target_events: Vec<SolanaIbcEvent>, // Timeout events from target
     ) -> anyhow::Result<TxBody> {
         let mut messages = Vec::new();
 
         // First, update the Solana light client on Cosmos
-        let update_msg = self.build_update_client_msg()?;
+        let update_msg = self.build_update_client_msg(client_id)?;
         messages.push(Any::from_msg(&update_msg)?);
 
         // Process source events from Solana
@@ -275,8 +279,6 @@ impl TxBuilder {
         // Process target events from Cosmos (for timeouts)
         for event in target_events {
             tracing::debug!("Processing timeout event from Cosmos: {:?}", event);
-            // These would be timeouts detected on Cosmos that need to be relayed back to Solana
-            // This would be handled by the cosmos-to-solana module instead
         }
 
         if messages.len() == 1 {
@@ -292,6 +294,7 @@ impl TxBuilder {
 
     /// Build a Cosmos message from a Solana IBC event
     fn build_message_from_event(&self, event: SolanaIbcEvent) -> anyhow::Result<Any> {
+        tracing::info!("Building message from Solana event: {:?}", event);
         match event {
             SolanaIbcEvent::SendPacket {
                 sequence,
@@ -299,13 +302,25 @@ impl TxBuilder {
                 destination_client,
                 payloads,
                 timeout_timestamp,
-            } => self.build_recv_packet_msg(
-                sequence,
-                source_client,
-                destination_client,
-                payloads,
-                timeout_timestamp,
-            ),
+            } => {
+                tracing::info!("Building recv packet msg - sequence: {}, source_client: {}, dest_client: {}, payloads: {} items, timeout: {}",
+                    sequence, source_client, destination_client, payloads.len(), timeout_timestamp);
+                for (i, payload) in payloads.iter().enumerate() {
+                    tracing::info!(
+                        "Payload {}: {} bytes - {}",
+                        i,
+                        payload.len(),
+                        String::from_utf8_lossy(payload)
+                    );
+                }
+                self.build_recv_packet_msg(
+                    sequence,
+                    source_client,
+                    destination_client,
+                    payloads,
+                    timeout_timestamp,
+                )
+            }
             SolanaIbcEvent::AcknowledgePacket {
                 sequence,
                 source_client,
@@ -345,13 +360,14 @@ impl TxBuilder {
                 source_port: "transfer".to_string(), // Default for ICS20
                 destination_port: "transfer".to_string(),
                 version: "ics20-1".to_string(),
-                encoding: "json".to_string(),
+                encoding: "application/json".to_string(),
                 value,
             })
             .collect()
     }
 
     /// Build a `RecvPacket` message for Cosmos
+    #[allow(clippy::cognitive_complexity)]
     fn build_recv_packet_msg(
         &self,
         sequence: u64,
@@ -360,22 +376,30 @@ impl TxBuilder {
         payloads: Vec<Vec<u8>>,
         timeout_timestamp: u64,
     ) -> anyhow::Result<Any> {
+        let converted_payloads = Self::convert_payloads_to_ibc(payloads);
+        tracing::info!("Converted payloads count: {}", converted_payloads.len());
+
         let packet = Packet {
             sequence,
             source_client,
             destination_client,
             timeout_timestamp,
-            payloads: Self::convert_payloads_to_ibc(payloads),
+            payloads: converted_payloads,
         };
 
         let msg = MsgRecvPacket {
-            packet: Some(packet),
+            packet: Some(packet.clone()),
             proof_height: None,       // Will be filled by proof injection
             proof_commitment: vec![], // Mock proof for now
             signer: self.signer_address.clone(),
         };
 
-        tracing::debug!("Created RecvPacket message for sequence {}", sequence);
+        tracing::info!(
+            "Created RecvPacket message for sequence {} with signer: {}",
+            sequence,
+            self.signer_address
+        );
+        tracing::info!("Packet details: {:?}", packet);
         Any::from_msg(&msg).map_err(Into::into)
     }
 
@@ -446,7 +470,7 @@ impl TxBuilder {
     /// # Errors
     ///
     /// Returns an error if failed to get Solana slot
-    fn build_update_client_msg(&self) -> anyhow::Result<MsgUpdateClient> {
+    fn build_update_client_msg(&self, client_id: &str) -> anyhow::Result<MsgUpdateClient> {
         // Get latest Solana slot/block information
         let slot = self
             .solana_client
@@ -457,12 +481,12 @@ impl TxBuilder {
 
         // Create update message with latest Solana state
         // This would include proof-of-history verification data
+        let header_data = MOCK_HEADER_DATA.to_vec(); // Mock Solana header for testing
+        let client_msg = Any::from_msg(&ClientMessage { data: header_data })?;
+
         Ok(MsgUpdateClient {
-            client_id: "08-wasm-0".to_string(), // Example client ID for WASM light client
-            client_message: Some(Any {
-                type_url: "/ibc.lightclients.wasm.v1.Header".to_string(),
-                value: b"mock".to_vec(), // Mock Solana header for testing
-            }),
+            client_id: client_id.to_string(),
+            client_message: Some(client_msg),
             signer: self.signer_address.clone(),
         })
     }
@@ -476,7 +500,7 @@ impl TxBuilder {
     /// - Failed to serialize client state
     pub fn build_create_client_tx(
         &self,
-        _parameters: HashMap<String, String>,
+        parameters: &HashMap<String, String>,
     ) -> anyhow::Result<TxBody> {
         // For Solana, we would create a WASM light client on Cosmos
         // that can verify Solana's proof-of-history consensus
@@ -489,11 +513,19 @@ impl TxBuilder {
             .get_slot()
             .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
 
-        // Create WASM client state for Solana verification with mock data
+        // Extract checksum from parameters
+        let checksum_hex = parameters
+            .get("checksum_hex")
+            .ok_or_else(|| anyhow::anyhow!("Missing checksum_hex parameter"))?;
+
+        let checksum = hex::decode(checksum_hex)
+            .map_err(|e| anyhow::anyhow!("Failed to decode checksum hex: {e}"))?;
+
+        // Create WASM client state for Solana verification with proper checksum
         // This would contain the Solana validator set and consensus parameters
         let client_state = WasmClientState {
             data: b"mock_client_state".to_vec(), // Mock Solana-specific client state
-            checksum: b"mock_checksum".to_vec(), // Mock WASM code checksum
+            checksum,                            // Use actual WASM code checksum from parameters
             latest_height: Some(Height {
                 revision_number: 0, // Solana doesn't have revision numbers
                 revision_height: slot,
@@ -535,12 +567,12 @@ impl TxBuilder {
 
         // Create update message with latest Solana state
         // This would include proof-of-history verification data
+        let header_data = MOCK_HEADER_DATA.to_vec(); // Mock Solana header for testing
+        let client_msg = Any::from_msg(&ClientMessage { data: header_data })?;
+
         let update_msg = MsgUpdateClient {
             client_id,
-            client_message: Some(Any {
-                type_url: "/ibc.lightclients.wasm.v1.Header".to_string(),
-                value: b"mock".to_vec(), // Mock Solana header for testing
-            }),
+            client_message: Some(client_msg),
             signer: self.signer_address.clone(),
         };
 
@@ -586,13 +618,14 @@ impl MockTxBuilder {
     #[allow(clippy::cognitive_complexity)] // TODO: Refactor when implementing real proof generation
     pub fn build_relay_tx_mock(
         &self,
+        client_id: &str,
         src_events: Vec<SolanaIbcEvent>,
         target_events: Vec<SolanaIbcEvent>,
     ) -> anyhow::Result<TxBody> {
         let mut messages = Vec::new();
 
         // First, update the Solana light client on Cosmos with mock data
-        let update_msg = self.build_update_client_msg_mock()?;
+        let update_msg = self.build_update_client_msg_mock(client_id)?;
         messages.push(Any::from_msg(&update_msg)?);
 
         // Process source events from Solana with mock proofs
@@ -637,7 +670,7 @@ impl MockTxBuilder {
     /// # Errors
     ///
     /// Returns an error if failed to get Solana slot
-    fn build_update_client_msg_mock(&self) -> anyhow::Result<MsgUpdateClient> {
+    fn build_update_client_msg_mock(&self, client_id: &str) -> anyhow::Result<MsgUpdateClient> {
         // Get latest Solana slot/block information
         let slot = self
             .inner
@@ -648,12 +681,12 @@ impl MockTxBuilder {
         tracing::info!(slot, "Updating Solana client with mock data");
 
         // Create update message with mock Solana state
+        let header_data = b"mock_solana_header".to_vec(); // Mock header
+        let client_msg = Any::from_msg(&ClientMessage { data: header_data })?;
+
         Ok(MsgUpdateClient {
-            client_id: "08-wasm-0".to_string(), // Example client ID for WASM light client
-            client_message: Some(Any {
-                type_url: "/ibc.lightclients.wasm.v1.Header".to_string(),
-                value: b"mock_solana_header".to_vec(), // Mock header
-            }),
+            client_id: client_id.to_string(),
+            client_message: Some(client_msg),
             signer: self.inner.signer_address.clone(),
         })
     }

@@ -203,15 +203,13 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     #[tracing::instrument(skip_all)]
     async fn create_client(
         &self,
-        request: Request<api::CreateClientRequest>,
+        _request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
         tracing::info!("Handling create client request for Cosmos to Solana...");
 
-        let inner_req = request.into_inner();
-
         let tx = self
             .tx_builder
-            .build_create_client_tx(inner_req.parameters)
+            .build_create_client_tx()
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
@@ -254,7 +252,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 #[tonic::async_trait]
 impl RelayerModule for CosmosToSolanaRelayerModule {
     fn name(&self) -> &'static str {
-        "cosmos-to-solana"
+        "cosmos_to_solana"
     }
 
     async fn create_service(

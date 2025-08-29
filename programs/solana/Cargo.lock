@@ -1146,6 +1146,7 @@ name = "dummy-ibc-app"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "ics26-router",
  "solana-ibc-types",
 ]
 
