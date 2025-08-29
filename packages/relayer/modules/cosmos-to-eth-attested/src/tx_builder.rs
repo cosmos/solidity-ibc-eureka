@@ -31,6 +31,17 @@ use ibc_eureka_solidity_types::{
     msgs::IAttestorMsgs::AttestationProof,
 };
 
+/// The key for the minimum number of signatures
+const MIN_REQUIRED_SIGS: &str = "min_required_sigs";
+/// The key for the intial height for the consensus state
+const HEIGHT: &str = "height";
+/// The key for the initial timestamp for the consensus state
+const TIMESTAMP: &str = "timestamp";
+/// The key for the attestor addresses
+const ATTESTOR_ADDRESSES: &str = "attestor_addresses";
+/// The key for the role manager in the parameters map.
+const ROLE_MANAGER: &str = "role_manager";
+
 /// Chain type for attested chains that get their state from the aggregator
 pub struct AttestedChain;
 
@@ -106,13 +117,6 @@ fn encode_and_cyphon_packet_if_relevant(
         cyphon.push(packet.abi_encode());
     }
 }
-
-const MIN_REQUIRED_SIGS: &str = "min_required_sigs";
-const HEIGHT: &str = "height";
-const TIMESTAMP: &str = "timestamp";
-const ATTESTOR_ADDRESSES: &str = "attestor_addresses";
-/// The key for the role manager in the parameters map.
-const ROLE_MANAGER: &str = "role_manager";
 
 #[async_trait::async_trait]
 impl<P> TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder<P>
@@ -196,22 +200,21 @@ where
         let msg = build_abi_encoded_proof(state.attested_data, state.signatures);
         let update_msg = routerCalls::updateClient(updateClientCall {
             clientId: dst_client_id.clone(),
-            // TODO: Use solidity msg type
             updateMsg: Bytes::from_iter(msg),
         });
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
-        let dummy_height = ICS26Height {
-            revisionHeight: 0,
+        let height = ICS26Height {
             revisionNumber: 0,
+            revisionHeight: query_height,
         };
         let timeout_msgs = eth_eureka::target_events_to_timeout_msgs(
             target_events,
             &src_client_id,
             &dst_client_id,
             &dst_packet_seqs,
-            &dummy_height,
+            &height,
             now_since_unix.as_secs(),
         );
         let mut recv_and_ack_msgs = eth_eureka::src_events_to_recv_and_ack_msgs(
@@ -220,7 +223,7 @@ where
             &dst_client_id,
             &src_packet_seqs,
             &dst_packet_seqs,
-            &dummy_height,
+            &height,
             now_since_unix.as_secs(),
         );
 
@@ -228,12 +231,7 @@ where
         tracing::debug!("Recv & ack messages: #{}", recv_and_ack_msgs.len());
 
         let proof = build_abi_encoded_proof(packets.attested_data, packets.signatures);
-        // We inject heigth here to follow the same method as eth to cosmos attested
-        let actual_height = ICS26Height {
-            revisionNumber: 0,
-            revisionHeight: query_height,
-        };
-        attestor::inject_proofs_for_evm_msg(&mut recv_and_ack_msgs, &proof, &actual_height);
+        attestor::inject_proofs_for_evm_msg(&mut recv_and_ack_msgs, &proof);
 
         // NOTE: UpdateMsg must come first otherwise
         // client state may not contain the needed

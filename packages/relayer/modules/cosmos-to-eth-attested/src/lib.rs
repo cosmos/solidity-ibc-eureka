@@ -14,7 +14,6 @@
 )]
 
 pub mod tx_builder;
-mod tx_listener;
 
 use std::collections::HashMap;
 
@@ -35,21 +34,16 @@ use ibc_eureka_relayer_core::{
     modules::RelayerModule,
 };
 
-use crate::tx_listener::{TxAdapter, TxListener};
-
 /// The `CosmosToEthAttestedRelayerModule` struct defines the relayer module.
 #[derive(Clone, Copy, Debug)]
 pub struct CosmosToEthAttestedRelayerModule;
 
 /// The `CosmosToEthAttestedRelayerModuleService` defines the relayer service.
-struct CosmosToEthAttestedRelayerModuleService<T>
-where
-    T: TxListener,
-{
+struct CosmosToEthAttestedRelayerModuleService {
     /// The source chain ID for the attested chain.
     pub attested_chain_id: String,
     /// The chain listener for `Cosmos`.
-    pub attestor_listener: T,
+    pub attestor_listener: cosmos_sdk::ChainListener,
     /// The `Ethereum` chain listener
     pub eth_listener: eth_eureka::ChainListener<RootProvider>,
     /// The transaction builder for `Cosmos` to `Ethereum`
@@ -71,7 +65,7 @@ pub struct CosmosToEthAttestedConfig {
     pub eth_rpc_url: String,
 }
 
-impl CosmosToEthAttestedRelayerModuleService<cosmos_sdk::ChainListener> {
+impl CosmosToEthAttestedRelayerModuleService {
     pub async fn new(config: CosmosToEthAttestedConfig) -> Self {
         let tm_client = HttpClient::from_rpc_url(&config.attested_rpc_url);
         let attestor_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
@@ -99,10 +93,7 @@ impl CosmosToEthAttestedRelayerModuleService<cosmos_sdk::ChainListener> {
 }
 
 #[tonic::async_trait]
-impl<T> RelayerService for CosmosToEthAttestedRelayerModuleService<T>
-where
-    T: TxListener,
-{
+impl RelayerService for CosmosToEthAttestedRelayerModuleService {
     #[tracing::instrument(skip(self))]
     async fn info(
         &self,
@@ -140,8 +131,7 @@ where
             .source_tx_ids
             .into_iter()
             .map(TryInto::<[u8; 32]>::try_into)
-            .map(|tx_hash| tx_hash.map(TxHash::from))
-            .map(|maybe_hashed| maybe_hashed.map(TxAdapter::from))
+            .map(|tx_hash| tx_hash.map(|hash| tendermint::Hash::Sha256(hash)))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|tx| tonic::Status::from_error(format!("invalid tx hash: {tx:?}").into()))?;
 
