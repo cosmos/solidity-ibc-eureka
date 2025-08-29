@@ -4,7 +4,7 @@ use alloy_sol_types::SolType;
 use ibc_eureka_solidity_types::msgs::IAttestorMsgs;
 use serde::{Deserialize, Serialize};
 
-use attestor_packet_membership::{verify_packet_membership, PacketCommitments};
+use attestor_packet_membership::{verify_packet_membership, PacketCommitments, PacketCompact};
 
 use crate::{
     client_state::ClientState, consensus_state::ConsensusState, error::IbcAttestorClientError,
@@ -55,7 +55,14 @@ pub fn verify_membership(
             reason: format!("Failed to decode ABI attestation data: {e}"),
         })?;
 
-    let packets = PacketCommitments::new(proof.packetCommitments);
+    let packets = PacketCommitments::new(
+        proof
+            .packets
+            .iter()
+            .map(|p| PacketCompact::new(p.path, p.commitment))
+            .collect(),
+    );
+
     verify_packet_membership::verify_packet_membership(packets, value)?;
 
     Ok(())
@@ -77,7 +84,9 @@ pub fn verify_non_membership(
 mod verify_membership {
     use alloy_sol_types::SolValue;
 
-    use crate::test_utils::{ADDRESSES, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS_RAW};
+    use crate::test_utils::{
+        sample_packet_commitments, ADDRESSES, PACKET_COMMITMENTS_ENCODED, SIGS_RAW,
+    };
 
     use super::*;
 
@@ -101,8 +110,8 @@ mod verify_membership {
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let value = PACKET_COMMITMENTS[0];
-        let res = verify_membership(&cns, &cs, height, as_bytes, value.to_vec());
+        let value = sample_packet_commitments()[0].commitment.to_vec();
+        let res = verify_membership(&cns, &cs, height, as_bytes, value);
         println!("{res:?}");
         assert!(res.is_ok());
     }
@@ -127,7 +136,7 @@ mod verify_membership {
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let value = PACKET_COMMITMENTS[0].to_vec();
+        let value = sample_packet_commitments()[0].commitment.to_vec();
         let res = verify_membership(&cns, &cs, bad_height, as_bytes, value);
         assert!(
             matches!(res, Err(IbcAttestorClientError::InvalidProof { reason }) if reason.contains("height"))
@@ -151,7 +160,7 @@ mod verify_membership {
         let attestation = [0, 1, 3].to_vec();
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let value = PACKET_COMMITMENTS[0].to_vec();
+        let value = sample_packet_commitments()[0].commitment.to_vec();
         let res = verify_membership(&cns, &cs, height, as_bytes, value);
         assert!(matches!(
             res,
@@ -182,7 +191,7 @@ mod verify_membership {
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let value = PACKET_COMMITMENTS[0].to_vec();
+        let value = sample_packet_commitments()[0].commitment.to_vec();
         let res = verify_membership(&cns, &cs, height, as_bytes, value);
         assert!(matches!(
             res,

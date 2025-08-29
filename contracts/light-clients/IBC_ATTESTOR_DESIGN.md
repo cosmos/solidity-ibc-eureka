@@ -51,7 +51,7 @@ This document specifies how the Solidity light client for IBC Attestations works
   - `signatures[i]` is a 65-byte `(r||s||v)` over `sha256(attestationData)`.
 - The `attestationData` payload is one of the following ABI-encoded structs, depending on the operation:
   - `StateAttestation { uint64 height; uint64 timestamp; }` — used by `updateClient`.
-  - `PacketAttestation { uint64 height; bytes32[] packets; }` — used by `verifyMembership`.
+  - `PacketAttestation { uint64 height; PacketCompact[] packets; }` — used by `verifyMembership`.
 - Public keys are not propagated anywhere on chain; addresses are inferred by recovering from signatures.
 - This enables efficient on-chain decoding and membership checks.
 - TODO: Update/align the CosmWasm attestor client to use ABI-equivalent payloads so both clients are wire-compatible at the attested-data level.
@@ -110,7 +110,7 @@ Verification:
 - Require `consensusTimestampAtHeight[proofHeight.revisionHeight]` to exist.
 - Compute `digest = sha256(proof.attestationData)` and verify signatures as in `updateClient` via `ECDSA.recover`.
 - Decode `attestationData` into `PacketAttestation { height, packets }` via `abi.decode` and require `height == proofHeight.revisionHeight`.
-- Decode `value` to `bytes32` and require it to match exactly one element of `packets` (byte equality).
+- Decode `value` to `bytes32` and require it to match exactly one `commitment` field in the `packets` array (byte equality).
 
 Return:
 - The trusted timestamp (in seconds) stored for `proofHeight.revisionHeight`.

@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 
 import { AttestorLightClient } from "contracts/light-clients/AttestorLightClient.sol";
-import { IAttestorMsgs } from "contracts/light-clients/msgs/IAttestorMsgs.sol";
+import { IAttestorMsgs as AM } from "contracts/light-clients/msgs/IAttestorMsgs.sol";
 import { ILightClientMsgs } from "contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "contracts/msgs/IICS02ClientMsgs.sol";
 
@@ -52,6 +52,7 @@ contract AttestorLightClientGas is Test {
 
     function _runScenario(uint8 quorum, uint256 attestorCount, uint256 commitmentCount, string memory label) internal {
         (address[] memory attestorAddrs, uint256[] memory attestorPrivs) = _generateAttestors(attestorCount);
+
         AttestorLightClient client = new AttestorLightClient({
             attestorAddresses: attestorAddrs,
             minRequiredSigs: quorum,
@@ -60,9 +61,9 @@ contract AttestorLightClientGas is Test {
             roleManager: address(0)
         });
 
-        (bytes32[] memory commitments, bytes32 target) = _makeCommitments(commitmentCount);
-        IAttestorMsgs.PacketAttestation memory p =
-            IAttestorMsgs.PacketAttestation({ height: INITIAL_HEIGHT, packetCommitments: commitments });
+        (AM.PacketCompact[] memory packets, AM.PacketCompact memory target) = _makeCommitments(commitmentCount);
+
+        AM.PacketAttestation memory p = AM.PacketAttestation({ height: INITIAL_HEIGHT, packets: packets });
         bytes memory attestationData = abi.encode(p);
         bytes32 digest = sha256(attestationData);
 
@@ -71,14 +72,14 @@ contract AttestorLightClientGas is Test {
             signatures[i] = _sig(attestorPrivs[i], digest);
         }
 
-        IAttestorMsgs.AttestationProof memory proof =
-            IAttestorMsgs.AttestationProof({ attestationData: attestationData, signatures: signatures });
+        AM.AttestationProof memory proof =
+            AM.AttestationProof({ attestationData: attestationData, signatures: signatures });
 
         ILightClientMsgs.MsgVerifyMembership memory msgVerify;
         msgVerify.proof = abi.encode(proof);
         msgVerify.proofHeight = IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: INITIAL_HEIGHT });
         msgVerify.path = new bytes[](0);
-        msgVerify.value = abi.encode(target);
+        msgVerify.value = abi.encode(target.commitment);
 
         uint256 gasBefore = gasleft();
         uint256 ts = client.verifyMembership(msgVerify);
@@ -99,14 +100,31 @@ contract AttestorLightClientGas is Test {
         }
     }
 
-    function _makeCommitments(uint256 k) internal pure returns (bytes32[] memory commits, bytes32 target) {
-        if (k < 1) revert NeedAtLeastOneCommitment();
-        commits = new bytes32[](k);
-        for (uint256 i = 0; i < k - 1; ++i) {
-            commits[i] = keccak256(abi.encodePacked("packet-", i));
+    function _makeCommitments(uint256 k)
+        internal
+        pure
+        returns (AM.PacketCompact[] memory packets, AM.PacketCompact memory target)
+    {
+        if (k < 1) {
+            revert NeedAtLeastOneCommitment();
         }
-        target = keccak256(abi.encodePacked("target-packet", k));
-        commits[k - 1] = target; // place target at the end for worst-case scan
+
+        packets = new AM.PacketCompact[](k);
+
+        for (uint256 i = 0; i < k - 1; ++i) {
+            packets[i] = AM.PacketCompact({
+                path: keccak256(abi.encodePacked("packet-path", i)),
+                commitment: keccak256(abi.encodePacked("packet-", i))
+            });
+        }
+
+        target = AM.PacketCompact({
+            path: keccak256(abi.encodePacked("target-packet-path", k)),
+            commitment: keccak256(abi.encodePacked("target-packet-", k))
+        });
+
+        // place target at the end for worst-case scan
+        packets[k - 1] = target;
     }
 
     function _sig(uint256 privKey, bytes32 digest) internal pure returns (bytes memory) {

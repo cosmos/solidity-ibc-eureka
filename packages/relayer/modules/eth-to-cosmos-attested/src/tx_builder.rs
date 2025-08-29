@@ -334,12 +334,16 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use attestor_packet_membership::PacketCommitments;
+    use attestor_packet_membership::{PacketCommitments, PacketCompact};
 
     #[test]
     fn abi_bytes_are_not_json() {
-        let commitments = vec![[0x11u8; 32], [0x22u8; 32]];
-        let abi = PacketCommitments::new(commitments).to_abi_bytes();
+        let packets = vec![
+            PacketCompact::new([0x11u8; 32], [0x12u8; 32]),
+            PacketCompact::new([0x21u8; 32], [0x22u8; 32]),
+        ];
+
+        let abi = PacketCommitments::new(packets).to_abi_bytes();
 
         let parsed: Result<Vec<Vec<u8>>, _> = serde_json::from_slice(&abi);
         assert!(
