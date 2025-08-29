@@ -135,14 +135,17 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
         );
 
         // Store the transfer info to handle potential timeouts or failures
-        $.pendingTransfers[$.clientId][seq] = TransferInfo({
-            sender: _msgSender(),
-            amount: amount
-        });
+        $.pendingTransfers[$.clientId][seq] = TransferInfo({ sender: _msgSender(), amount: amount });
     }
 
     /// @inheritdoc IIBCSenderCallbacks
-    function onAckPacket(bool success, IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_) external onlyICS27 {
+    function onAckPacket(
+        bool success,
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_
+    )
+        external
+        onlyICS27
+    {
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
         if (!success) {
             TransferInfo memory info = $.pendingTransfers[$.clientId][msg_.sequence];
