@@ -4,7 +4,7 @@ use alloy_sol_types::SolType;
 use ibc_eureka_solidity_types::msgs::IAttestorMsgs;
 use serde::{Deserialize, Serialize};
 
-use attestor_packet_membership::{verify_packet_membership, PacketCommitments};
+use attestor_packet_membership::{verify_packet_membership, PacketCommitments, PacketCompact};
 
 use crate::{
     client_state::ClientState, consensus_state::ConsensusState, error::IbcAttestorClientError,
@@ -55,7 +55,14 @@ pub fn verify_membership(
             reason: format!("Failed to decode ABI attestation data: {e}"),
         })?;
 
-    let packets = PacketCommitments::new(proof.packetCommitments);
+    let packets = PacketCommitments::new(
+        proof
+            .packets
+            .iter()
+            .map(|p| PacketCompact::new(p.path, p.commitment))
+            .collect(),
+    );
+
     verify_packet_membership::verify_packet_membership(packets, value)?;
 
     Ok(())

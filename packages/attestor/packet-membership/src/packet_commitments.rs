@@ -1,7 +1,7 @@
 use alloy_primitives::FixedBytes as AlloyFixedBytes;
 use alloy_sol_types::SolValue;
 
-// handy alias for 32-byte fixed bytes
+/// handy alias for 32-byte fixed bytes
 type B32 = AlloyFixedBytes<32>;
 
 /// Represents lightweight packet as hash(path.path()) && packet.commitment().
@@ -9,11 +9,15 @@ type B32 = AlloyFixedBytes<32>;
 /// (because we can't rely on a merkle proof)
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PacketCompact {
+    /// Packet commitment_path hash
     pub path: B32,
+
+    /// Packet commitment hash
     pub commitment: B32,
 }
 
 impl PacketCompact {
+    /// Create a new packet compact from a path and a commitment
     pub fn new<T>(path: T, commitment: T) -> Self
     where
         T: Into<B32>,
@@ -24,6 +28,7 @@ impl PacketCompact {
         }
     }
 
+    /// Create a new packet compact from a tuple of path and commitment
     pub fn new_from_tuple<T>(tuple: (T, T)) -> Self
     where
         T: Into<B32>,
@@ -31,6 +36,7 @@ impl PacketCompact {
         Self::new(tuple.0, tuple.1)
     }
 
+    /// Convert packet compact to a tuple of path and commitment
     #[inline]
     pub fn as_tuple(&self) -> (B32, B32) {
         (self.path, self.commitment)
@@ -68,6 +74,7 @@ impl PacketCommitments {
     }
 
     /// Iterate over each individual packet commitment
+    #[must_use]
     pub fn commitments(&self) -> impl Iterator<Item = &B32> {
         self.0.iter().map(|p| &p.commitment)
     }
@@ -93,13 +100,11 @@ impl PacketCommitments {
     }
 
     /// Convert to inner vector of [PacketCompact]
-    #[must_use]
     pub fn into_inner(self) -> Vec<PacketCompact> {
         self.0
     }
 
     /// Get inner vector of [PacketCompact]
-    #[must_use]
     pub const fn as_inner(&self) -> &Vec<PacketCompact> {
         &self.0
     }
