@@ -20,6 +20,7 @@ mod fixtures {
     use sha2::{Digest, Sha256};
     use std::cell::LazyCell;
 
+    #[must_use]
     pub fn sample_packet_commitments() -> Vec<PacketCompact> {
         vec![
             PacketCompact {

@@ -108,7 +108,7 @@ impl AttestationAdapter for ArbitrumClient {
             let packet = Packet::abi_decode(p).map_err(AttestorError::DecodePacket)?;
 
             let packet_validator = async move |packet: Packet, height: u64| {
-                let commitment_path = keccak256(&packet.commitment_path());
+                let commitment_path = keccak256(packet.commitment_path());
                 let expected_commitment = packet.commitment();
 
                 let commitment = match self
@@ -138,7 +138,7 @@ impl AttestationAdapter for ArbitrumClient {
                 }
 
                 Ok(IAttestorMsgs::PacketCompact {
-                    path: commitment_path.into(),
+                    path: commitment_path,
                     commitment: commitment.into(),
                 })
             };

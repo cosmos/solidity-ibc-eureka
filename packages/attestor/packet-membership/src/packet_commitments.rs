@@ -4,7 +4,7 @@ use alloy_sol_types::SolValue;
 /// handy alias for 32-byte fixed bytes
 type B32 = AlloyFixedBytes<32>;
 
-/// Represents lightweight packet as hash(path.path()) && packet.commitment().
+/// Lightweight packet representation
 /// Including path hash implies replay-protection for attestations
 /// (because we can't rely on a merkle proof)
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -38,16 +38,22 @@ impl PacketCompact {
 
     /// Convert packet compact to a tuple of path and commitment
     #[inline]
-    pub fn as_tuple(&self) -> (B32, B32) {
+    #[must_use]
+    pub const fn as_tuple(&self) -> (B32, B32) {
         (self.path, self.commitment)
     }
 
-    /// Encode packet compact as tuple(path_hash, commitment_hash)
+    /// Encode packet compact as `tuple(path_hash, commitment_hash)`
+    #[must_use]
     pub fn to_abi_bytes(&self) -> Vec<u8> {
         self.as_tuple().abi_encode()
     }
 
     /// Decode packet compact from ABI bytes encoded as tuple(bytes32, bytes32)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the ABI decoding fails.
     pub fn from_abi_bytes(raw: &[u8]) -> Result<Self, alloy_sol_types::Error> {
         let (path, commitment) = <(B32, B32)>::abi_decode(raw)?;
 
@@ -61,20 +67,18 @@ impl PacketCompact {
 pub struct PacketCommitments(Vec<PacketCompact>);
 
 impl PacketCommitments {
-    /// Create a new instance of [Packets] from a vector of [PacketCompact]
+    /// Create a new instance of [Packets] from a vector of [`PacketCompact`]
     #[must_use]
-    pub fn new(packets: Vec<PacketCompact>) -> Self {
+    pub const fn new(packets: Vec<PacketCompact>) -> Self {
         Self(packets)
     }
 
     /// Iterate over each individual packet commitment
-    #[must_use]
     pub fn iterate(&self) -> impl Iterator<Item = &PacketCompact> {
         self.0.iter()
     }
 
     /// Iterate over each individual packet commitment
-    #[must_use]
     pub fn commitments(&self) -> impl Iterator<Item = &B32> {
         self.0.iter().map(|p| &p.commitment)
     }
@@ -89,6 +93,10 @@ impl PacketCommitments {
     }
 
     /// Decode packet commitments from ABI bytes encoded as (bytes32,bytes32)[]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the ABI decoding fails.
     pub fn from_abi_bytes(raw: &[u8]) -> Result<Self, alloy_sol_types::Error> {
         let tuples: Vec<(B32, B32)> = Vec::<(B32, B32)>::abi_decode(raw)?;
         let packets = tuples
@@ -99,12 +107,14 @@ impl PacketCommitments {
         Ok(Self(packets))
     }
 
-    /// Convert to inner vector of [PacketCompact]
+    /// Convert to inner vector of [`PacketCompact`]
+    #[must_use]
     pub fn into_inner(self) -> Vec<PacketCompact> {
         self.0
     }
 
-    /// Get inner vector of [PacketCompact]
+    /// Get inner vector of [`PacketCompact`]
+    #[must_use]
     pub const fn as_inner(&self) -> &Vec<PacketCompact> {
         &self.0
     }
@@ -151,7 +161,7 @@ mod tests {
 
         // Check that tuple order is preserved
         // just check first packet is  (0x10..., 0x20...)
-        let first = packets.as_inner().get(0).unwrap();
+        let first = packets.as_inner().first().unwrap();
         assert_eq!(first.path.as_slice()[0], 0x10);
         assert_eq!(first.commitment.as_slice()[0], 0x20);
 

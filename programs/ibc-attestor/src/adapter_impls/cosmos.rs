@@ -1,4 +1,4 @@
-use alloy_primitives::{keccak256, FixedBytes};
+use alloy_primitives::keccak256;
 use alloy_sol_types::SolType;
 use tendermint::block::Height;
 
@@ -126,7 +126,7 @@ impl AttestationAdapter for CosmosClient {
                 }
 
                 Ok(IAttestorMsgs::PacketCompact {
-                    path: keccak256(&packet.commitment_path()).into(),
+                    path: keccak256(packet.commitment_path()),
                     commitment: commitment.into(),
                 })
             };
