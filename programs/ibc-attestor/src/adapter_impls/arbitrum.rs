@@ -100,47 +100,70 @@ impl AttestationAdapter for ArbitrumClient {
         packets: &[Vec<u8>],
         height: u64,
     ) -> Result<IAttestorMsgs::PacketAttestation, AttestorError> {
+        tracing::debug!("Total arbitrum packets received: {}", packets.len());
+
         let mut futures = FuturesUnordered::new();
 
         for p in packets.iter() {
             let packet = Packet::abi_decode(p).map_err(AttestorError::DecodePacket)?;
-            let validate_commitment = async move |packet: Packet, height: u64| {
-                let commitment_path = packet.commitment_path();
-                let hashed = keccak256(&commitment_path);
-                let cmt = self
-                    .get_historical_packet_commitment(hashed, height)
-                    .await?;
 
-                if packet.commitment() != cmt {
-                    Err(AttestorError::InvalidCommitment {
-                        reason: "requested and received packet commitments do not match".into(),
-                    })
-                } else {
-                    Ok(cmt)
+            let packet_validator = async move |packet: Packet, height: u64| {
+                let commitment_path = keccak256(&packet.commitment_path());
+                let expected_commitment = packet.commitment();
+
+                let commitment = match self
+                    .get_historical_packet_commitment(commitment_path, height)
+                    .await
+                {
+                    Ok(commitment) => commitment,
+                    Err(err) => {
+                        tracing::error!(
+                            "Commitment failed: {:?}, error: {}; expected 0x{}",
+                            packet,
+                            err,
+                            hex::encode(&expected_commitment),
+                        );
+                        return Err(err);
+                    }
+                };
+
+                if expected_commitment != commitment {
+                    return Err(AttestorError::InvalidCommitment {
+                        reason: format!(
+                            "Commitment mismatch: request carried 0x{}, but rpc returned 0x{}",
+                            hex::encode(expected_commitment),
+                            hex::encode(commitment),
+                        ),
+                    });
                 }
+
+                Ok(IAttestorMsgs::PacketCompact {
+                    path: commitment_path.into(),
+                    commitment: commitment.into(),
+                })
             };
-            futures.push(validate_commitment(packet, height));
+
+            futures.push(packet_validator(packet, height));
         }
 
         let mut validated = Vec::with_capacity(futures.len());
-        while let Some(maybe_cmt) = futures.next().await {
-            match maybe_cmt {
-                Ok(cmt) => validated.push(cmt),
+
+        while let Some(maybe) = futures.next().await {
+            match maybe {
+                Ok(packet_compact) => validated.push(packet_compact),
                 Err(e) => {
                     // NOTE: Do we fail fast here?
                     tracing::error!(
-                        "failed to retrieve packet commitment for due to {}",
+                        "failed to retrieve packet compact for due to {}",
                         e.to_string()
                     );
                 }
             }
         }
 
-        let packets: Vec<FixedBytes<32>> =
-            validated.into_iter().map(FixedBytes::<32>::from).collect();
         Ok(IAttestorMsgs::PacketAttestation {
             height,
-            packetCommitments: packets,
+            packets: validated,
         })
     }
 }

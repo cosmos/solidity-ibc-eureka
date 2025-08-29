@@ -1,4 +1,4 @@
-use alloy_primitives::FixedBytes;
+use alloy_primitives::{keccak256, FixedBytes};
 use alloy_sol_types::SolType;
 use tendermint::block::Height;
 
@@ -125,33 +125,27 @@ impl AttestationAdapter for CosmosClient {
                     });
                 }
 
-                Ok(commitment)
+                Ok(IAttestorMsgs::PacketCompact {
+                    path: keccak256(&packet.commitment_path()).into(),
+                    commitment: commitment.into(),
+                })
             };
 
             futures.push(packet_validator(packet, height));
         }
 
-        let mut validated_commitments = Vec::with_capacity(futures.len());
+        let mut validated = Vec::with_capacity(futures.len());
+
         while let Some(maybe_cmt) = futures.next().await {
             match maybe_cmt {
-                Ok(cmt) => validated_commitments.push(cmt),
+                Ok(cmt) => validated.push(cmt),
                 Err(e) => return Err(e),
             }
         }
 
-        tracing::debug!(
-            "Total cosmos packets validated: {}",
-            validated_commitments.len()
-        );
-
-        let packet_commitments: Vec<FixedBytes<32>> = validated_commitments
-            .into_iter()
-            .map(FixedBytes::<32>::from)
-            .collect();
-
         Ok(IAttestorMsgs::PacketAttestation {
             height,
-            packetCommitments: packet_commitments,
+            packets: validated,
         })
     }
 }
