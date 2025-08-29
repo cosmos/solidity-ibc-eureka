@@ -15,19 +15,22 @@ mod fixtures {
     use alloy_primitives::{Address, FixedBytes, B256};
     use alloy_signer::SignerSync;
     use alloy_signer_local::PrivateKeySigner;
-    use attestor_packet_membership::PacketCommitments;
+    use alloy_sol_types::SolValue;
+    use ibc_eureka_solidity_types::msgs::IAttestorMsgs::PacketAttestation;
     use sha2::{Digest, Sha256};
     use std::cell::LazyCell;
 
     pub const PACKET_COMMITMENTS: [[u8; 32]; 3] = [[1u8; 32], [2u8; 32], [3u8; 32]];
 
-    pub const PACKET_COMMITMENTS_ENCODED: LazyCell<PacketCommitments> = LazyCell::new(|| {
-        PacketCommitments::new(
-            PACKET_COMMITMENTS
+    pub const PACKET_COMMITMENTS_ENCODED: LazyCell<PacketAttestation> = LazyCell::new(|| {
+        PacketAttestation {
+            packetCommitments: PACKET_COMMITMENTS
                 .iter()
                 .map(|p| FixedBytes::<32>::from(*p))
                 .collect(),
-        )
+            // TODO: Needs to be real value
+            height: 0,
+        }
     });
 
     pub const S_SIGNERS: LazyCell<Vec<PrivateKeySigner>> = LazyCell::new(|| {
@@ -53,7 +56,7 @@ mod fixtures {
             .iter()
             .map(|signer| {
                 let mut hasher = Sha256::new();
-                let bytes = PACKET_COMMITMENTS_ENCODED.to_abi_bytes();
+                let bytes = PACKET_COMMITMENTS_ENCODED.abi_encode();
                 hasher.update(&bytes);
                 let hash_result = hasher.finalize();
                 let b256 = B256::from_slice(&hash_result);

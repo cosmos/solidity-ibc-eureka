@@ -23,11 +23,6 @@ const (
 	ethFaucetPrivateKey = "0x04b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
 )
 
-var (
-// KurtosisConfig sets up the default values for the eth testnet
-// It can be changed before calling SetupSuite to alter the testnet configuration
-)
-
 type EthKurtosisChain struct {
 	RPC             string
 	BeaconApiClient ethereum.BeaconAPIClient

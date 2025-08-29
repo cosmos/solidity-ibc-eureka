@@ -17,7 +17,8 @@ members = [
     "packages/relayer/modules/eth-to-cosmos",
     "packages/relayer/modules/cosmos-to-eth",
     "packages/relayer/modules/cosmos-to-cosmos",
-    "packages/relayer/modules/attested-to-cosmos",
+    "packages/relayer/modules/eth-to-cosmos-attested",
+    "packages/relayer/modules/cosmos-to-eth-attested",
     "packages/relayer/modules/eth-to-cosmos-compat",
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
@@ -43,10 +44,11 @@ ibc-eureka-solidity-types               = { path = "packages/solidity", default-
 ibc-eureka-relayer-lib                  = { path = "packages/relayer/lib", default-features = false }
 ibc-eureka-relayer-core                 = { path = "packages/relayer/core", default-features = false }
 ibc-eureka-relayer-eth-to-cosmos        = { path = "packages/relayer/modules/eth-to-cosmos", default-features = false }
-ibc-eureka-relayer-cosmos-to-eth        = { path = "packages/relayer/modules/cosmos-to-eth", default-features = false }
-ibc-eureka-relayer-cosmos-to-cosmos     = { path = "packages/relayer/modules/cosmos-to-cosmos", default-features = false }
-ibc-eureka-relayer-attested-to-cosmos   = { path = "packages/relayer/modules/attested-to-cosmos", default-features = false }
 ibc-eureka-relayer-eth-to-cosmos-compat = { path = "packages/relayer/modules/eth-to-cosmos-compat", default-features = false }
+ibc-eureka-relayer-eth-to-cosmos-attested  = { path = "packages/relayer/modules/eth-to-cosmos-attested", default-features = false }
+ibc-eureka-relayer-cosmos-to-eth        = { path = "packages/relayer/modules/cosmos-to-eth", default-features = false }
+ibc-eureka-relayer-cosmos-to-eth-attested  = { path = "packages/relayer/modules/cosmos-to-eth-attested", default-features = false }
+ibc-eureka-relayer-cosmos-to-cosmos     = { path = "packages/relayer/modules/cosmos-to-cosmos", default-features = false }
 ibc-eureka-utils                        = { path = "packages/utils", default-features = false }
 sp1-ics07-tendermint-prover             = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }
 sp1-ics07-tendermint-update-client      = { path = "programs/sp1-programs/update-client", default-features = false }
@@ -107,7 +109,7 @@ reqwest            = { version = "0.12", default-features = false }
 reqwest_0_11       = { package = "reqwest", version = "0.11", default-features = false }
 indexmap           = { version = "2.10.0", default-features = false }
 
-# Ensure `alloc` is enabled for ed25519-zebra so cosmwasm-crypto can import its batch module (this was broken from 4.0 to 4.1)
+# Ensure `alloc` is enabled for ed25519-zebra so cosmwasm-crypto can import its batch module
 ed25519-zebra      = { version = "4.1.0", default-features = false, features = ["alloc"] }
 
 tendermint                       = { version = "0.40", default-features = false }

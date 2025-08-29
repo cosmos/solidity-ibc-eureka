@@ -2,7 +2,7 @@ set dotenv-load
 
 # Default task lists all available tasks
 default:
-  just --list
+	just --list
 
 # Build the contracts using `forge build`
 [group('build')]
@@ -165,17 +165,20 @@ generate-abi: build-contracts
 	jq '.abi' out/ERC20.sol/ERC20.json > abi/ERC20.json
 	jq '.abi' out/IBCERC20.sol/IBCERC20.json > abi/IBCERC20.json
 	jq '.abi' out/RelayerHelper.sol/RelayerHelper.json > abi/RelayerHelper.json
+	jq '.abi' out/AttestorLightClient.sol/AttestorLightClient.json > abi/AttestorLightClient.json
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out packages/go-abigen/sp1ics07tendermint/contract.go
 	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out packages/go-abigen/ics20transfer/contract.go
 	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out packages/go-abigen/ics26router/contract.go
 	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out packages/go-abigen/ibcerc20/contract.go
 	abigen --abi abi/RelayerHelper.json --pkg relayerhelper --type Contract --out packages/go-abigen/relayerhelper/contract.go
+	abigen --abi abi/AttestorLightClient.json --pkg attestorlightclient --type Contract --out packages/go-abigen/attestorlightclient/contract.go
 
-# Generate the ABI files with bytecode for the required contracts (only SP1ICS07Tendermint)
+# Generate the ABI files with bytecode for the required contracts
 [group('generate')]
 generate-abi-bytecode: build-contracts
 	cp out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json abi/bytecode
+	cp out/AttestorLightClient.sol/AttestorLightClient.json abi/bytecode
 
 # Generate the fixtures for the wasm tests using the e2e tests
 [group('generate')]
@@ -368,6 +371,12 @@ test-e2e-attestor testname:
 	just test-e2e TestWithIbcAttestorTestSuite/{{testname}}
 
 # Run Slither static analysis on contracts
+# - **unused-return**: Return values from `verifyMembership` and `tryParseAddress` are intentionally unused
+# - **reentrancy-no-eth**: Cross-function reentrancy patterns are acceptable in this IBC implementation
+# - **builtin-symbol-shadowing**: Variable name 'msg' follows IBC conventions
+# - **assembly**: Assembly usage is from trusted OpenZeppelin libraries
+# - **naming-convention**: Follows IBC standards over Solidity conventions
+# - **encode-packed-collision**: `abi.encodePacked` usage is correct for IBC denomination paths
 [group('security')]
 slither:
 	@echo "Running Slither static analysis..."

@@ -1,9 +1,12 @@
 use alloy_primitives::{Signature, B256};
+
+#[cfg(feature = "signer")]
 use alloy_signer::SignerSync;
 
 use sha2::{Digest, Sha256};
 
 /// Compute SHA-256 of input and sign the digest.
+#[cfg(feature = "signer")]
 pub fn sign<T: SignerSync>(signer: &T, message: &[u8]) -> Result<Signature, anyhow::Error> {
     let digest = Sha256::digest(message);
     let hash = B256::from_slice(&digest);

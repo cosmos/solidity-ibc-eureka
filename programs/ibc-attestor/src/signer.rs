@@ -30,7 +30,6 @@ impl Signer {
         let sig: Signature =
             sign(&self.signer, &bytes).map_err(|e| AttestorError::SignerError(e.to_string()))?;
 
-        // 65-byte signature r||s||v
         let sig65 = sig.as_bytes().to_vec();
 
         Ok(Attestation {
