@@ -12,24 +12,36 @@ pub use fixtures::*;
 )]
 #[cfg(any(test, feature = "test-utils"))]
 mod fixtures {
-    use alloy_primitives::{Address, FixedBytes, B256};
+    use alloy_primitives::{Address, B256};
     use alloy_signer::SignerSync;
     use alloy_signer_local::PrivateKeySigner;
     use alloy_sol_types::SolValue;
-    use ibc_eureka_solidity_types::msgs::IAttestorMsgs::PacketAttestation;
+    use ibc_eureka_solidity_types::msgs::IAttestorMsgs::{PacketAttestation, PacketCompact};
     use sha2::{Digest, Sha256};
     use std::cell::LazyCell;
 
-    pub const PACKET_COMMITMENTS: [[u8; 32]; 3] = [[1u8; 32], [2u8; 32], [3u8; 32]];
+    pub fn sample_packet_commitments() -> Vec<PacketCompact> {
+        vec![
+            PacketCompact {
+                path: [0x11u8; 32].into(),
+                commitment: [0x12u8; 32].into(),
+            },
+            PacketCompact {
+                path: [0x21u8; 32].into(),
+                commitment: [0x22u8; 32].into(),
+            },
+            PacketCompact {
+                path: [0x31u8; 32].into(),
+                commitment: [0x32u8; 32].into(),
+            },
+        ]
+    }
 
     pub const PACKET_COMMITMENTS_ENCODED: LazyCell<PacketAttestation> = LazyCell::new(|| {
         PacketAttestation {
-            packetCommitments: PACKET_COMMITMENTS
-                .iter()
-                .map(|p| FixedBytes::<32>::from(*p))
-                .collect(),
             // TODO: Needs to be real value
             height: 0,
+            packets: sample_packet_commitments(),
         }
     });
 

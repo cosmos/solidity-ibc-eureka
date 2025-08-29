@@ -9,10 +9,10 @@ type B32 = AlloyFixedBytes<32>;
 /// (because we can't rely on a merkle proof)
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PacketCompact {
-    /// Packet commitment_path hash
+    /// Packet's `commitment_path` hash
     pub path: B32,
 
-    /// Packet commitment hash
+    /// Packet's `commitment` hash
     pub commitment: B32,
 }
 

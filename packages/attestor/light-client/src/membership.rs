@@ -84,7 +84,7 @@ pub fn verify_non_membership(
 mod verify_membership {
     use alloy_sol_types::SolValue;
 
-    use crate::test_utils::{ADDRESSES, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS_RAW};
+    use crate::test_utils::{sample_packet_commitments, ADDRESSES, PACKET_COMMITMENTS_ENCODED, SIGS_RAW};
 
     use super::*;
 
@@ -108,8 +108,8 @@ mod verify_membership {
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let value = PACKET_COMMITMENTS[0];
-        let res = verify_membership(&cns, &cs, height, as_bytes, value.to_vec());
+        let value = sample_packet_commitments()[0].commitment.to_vec();
+        let res = verify_membership(&cns, &cs, height, as_bytes, value);
         println!("{res:?}");
         assert!(res.is_ok());
     }
@@ -134,7 +134,7 @@ mod verify_membership {
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let value = PACKET_COMMITMENTS[0].to_vec();
+        let value = sample_packet_commitments()[0].commitment.to_vec();
         let res = verify_membership(&cns, &cs, bad_height, as_bytes, value);
         assert!(
             matches!(res, Err(IbcAttestorClientError::InvalidProof { reason }) if reason.contains("height"))
@@ -158,7 +158,7 @@ mod verify_membership {
         let attestation = [0, 1, 3].to_vec();
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let value = PACKET_COMMITMENTS[0].to_vec();
+        let value = sample_packet_commitments()[0].commitment.to_vec();
         let res = verify_membership(&cns, &cs, height, as_bytes, value);
         assert!(matches!(
             res,
@@ -189,7 +189,7 @@ mod verify_membership {
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
-        let value = PACKET_COMMITMENTS[0].to_vec();
+        let value = sample_packet_commitments()[0].commitment.to_vec();
         let res = verify_membership(&cns, &cs, height, as_bytes, value);
         assert!(matches!(
             res,
