@@ -24,15 +24,17 @@ func (s *TestSuite) StoreLightClient(ctx context.Context, cosmosChain *cosmos.Co
 }
 
 func (s *TestSuite) getWasmLightClientBinary() *os.File {
+	ethTestnetType := os.Getenv(testvalues.EnvKeyEthTestnetType)
+	ethWasmType := os.Getenv(testvalues.EnvKeyE2EEthWasmType)
 	// For PoW testnets, we use the dummy light client
-	if s.ethTestnetType == testvalues.EthTestnetTypePoW && s.EthWasmType == testvalues.EthWasmTypeDummy {
+	if ethTestnetType == testvalues.EthTestnetTypePoW && ethWasmType == testvalues.EthWasmTypeDummy {
 		s.T().Log("Using dummy Wasm light client for PoW testnet")
 		file, err := wasm.GetWasmDummyLightClient()
 		s.Require().NoError(err, "Failed to get local Wasm light client binary")
 		return file
 	}
 	// For PoW testnets using attestors
-	if s.ethTestnetType == testvalues.EthTestnetTypePoW && s.EthWasmType == testvalues.EthWasmTypeAttestor {
+	if ethTestnetType == testvalues.EthTestnetTypePoW && ethWasmType == testvalues.EthWasmTypeAttestor {
 		s.T().Log("Using attestor Wasm light client for PoW testnet")
 		file, err := wasm.GetLocalWasmAttestorLightClient()
 		s.Require().NoError(err, "Failed to get local Wasm light client binary")
@@ -40,16 +42,17 @@ func (s *TestSuite) getWasmLightClientBinary() *os.File {
 	}
 
 	allNonPowEvmTestnets := []string{testvalues.EthTestnetTypePoS, testvalues.EthTestnetTypeArbitrum, testvalues.EthTestnetTypeOptimism}
-	s.Require().True(slices.Contains(allNonPowEvmTestnets, s.ethTestnetType))
+	s.Require().True(slices.Contains(allNonPowEvmTestnets, ethWasmType))
 
 	acceptedWasmKinds := []string{testvalues.EthWasmTypeFull, testvalues.EthWasmTypeAttestor}
-	s.Require().True(slices.Contains(acceptedWasmKinds, s.EthWasmType))
+	s.Require().True(slices.Contains(acceptedWasmKinds, ethWasmType))
 
 	// If it is empty or set to "local", we use the local Wasm light client binary
 	// NOTE: We ignore the wasm kind here because we don't care about
 	// testing attestors on PoS and L2s only support attested solutions
-	if s.WasmLightClientTag == "" || s.WasmLightClientTag == testvalues.EnvValueWasmLightClientTag_Local {
-		switch s.ethTestnetType {
+	wasmLightClientTag := os.Getenv(testvalues.EnvKeyE2EWasmLightClientTag)
+	if wasmLightClientTag == "" || wasmLightClientTag == testvalues.EnvValueWasmLightClientTag_Local {
+		switch ethTestnetType {
 		case testvalues.EthTestnetTypeArbitrum, testvalues.EthTestnetTypeOptimism:
 			s.T().Log("Using local Wasm attestor light client binary")
 			file, err := wasm.GetLocalWasmAttestorLightClient()
@@ -64,9 +67,9 @@ func (s *TestSuite) getWasmLightClientBinary() *os.File {
 	}
 
 	// Otherwise, we download the Wasm light client binary from the GitHub release of the given tag
-	s.T().Logf("Downloading Wasm light client binary for tag %s", s.WasmLightClientTag)
+	s.T().Logf("Downloading Wasm light client binary for tag %s", wasmLightClientTag)
 	file, err := wasm.DownloadWasmLightClientRelease(wasm.Release{
-		TagName: s.WasmLightClientTag,
+		TagName: wasmLightClientTag,
 	})
 	s.Require().NoError(err, "Failed to download Wasm light client binary from release")
 	return file
