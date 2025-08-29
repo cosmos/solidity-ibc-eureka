@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cosmos/interchaintest/v10/testutil"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"

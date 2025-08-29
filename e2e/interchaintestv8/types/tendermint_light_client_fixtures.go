@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/interchaintest/v10/chain/cosmos"

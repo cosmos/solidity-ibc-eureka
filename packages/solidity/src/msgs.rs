@@ -28,6 +28,7 @@ alloy_sol_types::sol!("../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol"
 alloy_sol_types::sol!("../../contracts/light-clients/msgs/IUpdateClientMsgs.sol");
 alloy_sol_types::sol!("../../contracts/light-clients/msgs/IUcAndMembershipMsgs.sol");
 alloy_sol_types::sol!("../../contracts/light-clients/msgs/IAttestorMsgs.sol");
+alloy_sol_types::sol!("../../contracts/light-clients/msgs/IAttestorLightClientMsgs.sol");
 
 #[cfg(feature = "rpc")]
 impl ISP1Msgs::SP1Proof {

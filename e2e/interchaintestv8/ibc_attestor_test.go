@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -245,7 +246,7 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 			PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
 		}
 		config := relayer.NewConfig(relayer.CreateAttestedCosmosModules(
-			relayer.AttestedToCosmosConfigInfo{
+			relayer.EthToCosmosAttestedConfigInfo{
 				AttestedChainID:     eth.ChainID.String(),
 				AggregatorUrl:       testvalues.AggregatorRpcPath,
 				AttestedRpcUrl:      eth.RPC,

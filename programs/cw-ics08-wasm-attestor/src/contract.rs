@@ -91,6 +91,8 @@ mod tests {
     };
     use cosmwasm_std::Binary;
 
+    use alloy_sol_types::SolValue;
+
     use crate::msg::InstantiateMsg;
 
     pub fn membership_value() -> Binary {
@@ -117,7 +119,7 @@ mod tests {
         Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
             signatures: SIGS_RAW.to_vec(),
         }
     }
@@ -211,17 +213,19 @@ mod tests {
     }
 
     mod integration_tests {
+        use alloy_primitives::FixedBytes;
+        use alloy_sol_types::SolValue;
         use attestor_light_client::{
             error::IbcAttestorClientError,
             membership::MembershipProof,
             test_utils::{PACKET_COMMITMENTS_ENCODED, SIGS_RAW},
         };
-        use attestor_packet_membership::PacketCommitments;
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
             Binary, Timestamp,
         };
+        use ibc_eureka_solidity_types::msgs::IAttestorMsgs::PacketAttestation;
 
         use crate::{
             contract::{
@@ -278,7 +282,7 @@ mod tests {
             // Verify membership for the added state
             let env = mock_env();
             let verifyable = MembershipProof {
-                attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+                attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
                 signatures: SIGS_RAW.to_vec(),
             };
             let as_bytes = serde_json::to_vec(&verifyable).unwrap();
@@ -312,7 +316,7 @@ mod tests {
             // Non existent height fails
             let env = mock_env();
             let value = MembershipProof {
-                attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+                attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
                 signatures: SIGS_RAW.to_vec(),
             };
             let as_bytes = serde_json::to_vec(&value).unwrap();
@@ -330,12 +334,17 @@ mod tests {
 
             // Bad attestation fails
             let env = mock_env();
-            let bad_commitments: Vec<[u8; 32]> = vec![[254u8; 32]];
-            let value = MembershipProof {
-                attestation_data: PacketCommitments::new(bad_commitments).to_abi_bytes(),
+            let bad_commitments = vec![FixedBytes::from([254u8; 32])];
+
+            let value = PacketAttestation {
+                packetCommitments: bad_commitments,
+                height: 0,
+            };
+            let verifyable = MembershipProof {
+                attestation_data: value.abi_encode(),
                 signatures: SIGS_RAW.to_vec(),
             };
-            let as_bytes = serde_json::to_vec(&value).unwrap();
+            let as_bytes = serde_json::to_vec(&verifyable).unwrap();
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                 height: Height {
                     revision_number: 0,
@@ -489,7 +498,7 @@ mod tests {
                 let env = mock_env();
 
                 let value = MembershipProof {
-                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
                     signatures: SIGS_RAW.to_vec(),
                 };
                 let as_bytes = serde_json::to_vec(&value).unwrap();
@@ -505,7 +514,7 @@ mod tests {
                 assert!(res.is_ok());
 
                 let value = MembershipProof {
-                    attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+                    attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
                     signatures: SIGS_RAW.to_vec(),
                 };
                 let as_bytes = serde_json::to_vec(&value).unwrap();

@@ -1,5 +1,5 @@
 [package]
-name       = "ibc-eureka-relayer-attested-to-cosmos"
+name       = "ibc-eureka-relayer-eth-to-cosmos-attested"
 version    = { workspace = true }
 edition    = { workspace = true }
 repository = { workspace = true }
@@ -29,6 +29,9 @@ attestor-light-client = { workspace = true }
 
 ibc-proto-eureka          = { workspace = true }
 ibc-eureka-solidity-types = { workspace = true, default-features = true }
+
+[dev-dependencies]
+attestor-packet-membership = { workspace = true }
 
 [build-dependencies]
 tonic-build = { workspace = true }

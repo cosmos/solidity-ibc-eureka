@@ -1,5 +1,7 @@
 //! Membership proof verification for attestor client
 
+use alloy_sol_types::SolType;
+use ibc_eureka_solidity_types::msgs::IAttestorMsgs;
 use serde::{Deserialize, Serialize};
 
 use attestor_packet_membership::{verify_packet_membership, PacketCommitments};
@@ -48,13 +50,12 @@ pub fn verify_membership(
     )?;
 
     // Decode the ABI-encoded attestation data to get the packet commitments
-    let packets =
-        PacketCommitments::from_abi_bytes(&attested_state.attestation_data).map_err(|e| {
-            IbcAttestorClientError::InvalidProof {
-                reason: format!("Failed to decode ABI attestation data: {e}"),
-            }
+    let proof = IAttestorMsgs::PacketAttestation::abi_decode(&attested_state.attestation_data)
+        .map_err(|e| IbcAttestorClientError::InvalidProof {
+            reason: format!("Failed to decode ABI attestation data: {e}"),
         })?;
 
+    let packets = PacketCommitments::new(proof.packetCommitments);
     verify_packet_membership::verify_packet_membership(packets, value)?;
 
     Ok(())
@@ -74,6 +75,8 @@ pub fn verify_non_membership(
 
 #[cfg(test)]
 mod verify_membership {
+    use alloy_sol_types::SolValue;
+
     use crate::test_utils::{ADDRESSES, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS_RAW};
 
     use super::*;
@@ -93,7 +96,7 @@ mod verify_membership {
 
         let height = cns.height;
         let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
             signatures: SIGS_RAW.clone(),
         };
 
@@ -119,7 +122,7 @@ mod verify_membership {
 
         let bad_height = cns.height + 1;
         let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
             signatures: SIGS_RAW.clone(),
         };
 
@@ -174,7 +177,7 @@ mod verify_membership {
 
         let height = cns.height;
         let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.to_abi_bytes(),
+            attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
             signatures: SIGS_RAW.clone(),
         };
 
