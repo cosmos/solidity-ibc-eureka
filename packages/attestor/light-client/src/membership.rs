@@ -84,7 +84,9 @@ pub fn verify_non_membership(
 mod verify_membership {
     use alloy_sol_types::SolValue;
 
-    use crate::test_utils::{sample_packet_commitments, ADDRESSES, PACKET_COMMITMENTS_ENCODED, SIGS_RAW};
+    use crate::test_utils::{
+        sample_packet_commitments, ADDRESSES, PACKET_COMMITMENTS_ENCODED, SIGS_RAW,
+    };
 
     use super::*;
 

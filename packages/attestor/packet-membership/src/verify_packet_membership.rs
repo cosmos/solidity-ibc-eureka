@@ -47,8 +47,8 @@ mod verify_packet_membership {
 
     #[test]
     fn fails_on_missing() {
-         // (path, commitment)[]
-         let proof = PacketCommitments::new(vec![
+        // (path, commitment)[]
+        let proof = PacketCommitments::new(vec![
             PacketCompact::new([1u8; 32], [2u8; 32]),
             PacketCompact::new([3u8; 32], [4u8; 32]),
         ]);
