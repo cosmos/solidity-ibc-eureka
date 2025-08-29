@@ -1,4 +1,3 @@
-//! This mod
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Ethereum from events received from an Attested chain via the aggregator.
 
