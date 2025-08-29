@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -25,6 +24,8 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+
+	"github.com/cosmos/interchaintest/v10/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
@@ -84,7 +85,6 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 	ethWasmType := os.Getenv(testvalues.EnvKeyE2EEthWasmType)
 	if ethWasmType != testvalues.EthWasmTypeAttestor {
 		s.T().Fatalf("attestor tests must use attestor wasm type, found %s", ethWasmType)
-
 	}
 
 	s.TestSuite.SetupSuite(ctx)
