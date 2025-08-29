@@ -42,7 +42,7 @@ func (s *TestSuite) getWasmLightClientBinary() *os.File {
 	}
 
 	allNonPowEvmTestnets := []string{testvalues.EthTestnetTypePoS, testvalues.EthTestnetTypeArbitrum, testvalues.EthTestnetTypeOptimism}
-	s.Require().True(slices.Contains(allNonPowEvmTestnets, ethWasmType))
+	s.Require().True(slices.Contains(allNonPowEvmTestnets, ethTestnetType))
 
 	acceptedWasmKinds := []string{testvalues.EthWasmTypeFull, testvalues.EthWasmTypeAttestor}
 	s.Require().True(slices.Contains(acceptedWasmKinds, ethWasmType))
