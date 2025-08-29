@@ -131,7 +131,7 @@ impl RelayerService for CosmosToEthAttestedRelayerModuleService {
             .source_tx_ids
             .into_iter()
             .map(TryInto::<[u8; 32]>::try_into)
-            .map(|tx_hash| tx_hash.map(|hash| tendermint::Hash::Sha256(hash)))
+            .map(|tx_hash| tx_hash.map(tendermint::Hash::Sha256))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|tx| tonic::Status::from_error(format!("invalid tx hash: {tx:?}").into()))?;
 
