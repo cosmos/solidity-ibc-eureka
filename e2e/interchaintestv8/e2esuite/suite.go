@@ -29,42 +29,25 @@ const anvilFaucetPrivateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5ef
 type TestSuite struct {
 	suite.Suite
 
-	EthChain       ethereum.Ethereum
-	OptimismChain  chainconfig.KurtosisOptimismChain
-	ethTestnetType string
-	EthWasmType    string
-	CosmosChains   []*cosmos.CosmosChain
-	CosmosUsers    []ibc.Wallet
-	dockerClient   *dockerclient.Client
-	network        string
-	logger         *zap.Logger
+	EthChain      ethereum.Ethereum
+	OptimismChain chainconfig.KurtosisOptimismChain
+	CosmosChains  []*cosmos.CosmosChain
+	CosmosUsers   []ibc.Wallet
+	dockerClient  *dockerclient.Client
+	network       string
+	logger        *zap.Logger
 
 	// proposalIDs keeps track of the active proposal ID for cosmos chains
 	proposalIDs map[string]uint64
-	// WasmLightClientTag decides which version of the eth light client to use.
-	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
-	// otherwise, it will download the version from the github release with the given tag
-	WasmLightClientTag string
 }
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
 func (s *TestSuite) SetupSuite(ctx context.Context) {
-	// To let the download version be overridden by a calling test
-	if s.WasmLightClientTag == "" {
-		s.WasmLightClientTag = os.Getenv(testvalues.EnvKeyE2EWasmLightClientTag)
-	}
-
-	if s.EthWasmType == "" {
-		s.EthWasmType = os.Getenv(testvalues.EnvKeyE2EEthWasmType)
-		s.T().Logf("wasm type %s", s.EthWasmType)
-
-	}
-
 	icChainSpecs := chainconfig.DefaultChainSpecs
 
 	s.logger = zaptest.NewLogger(s.T())
-	s.ethTestnetType = os.Getenv(testvalues.EnvKeyEthTestnetType)
-	switch s.ethTestnetType {
+	ethTestnetType := os.Getenv(testvalues.EnvKeyEthTestnetType)
+	switch ethTestnetType {
 	case testvalues.EthTestnetTypePoW:
 		icChainSpecs = append(icChainSpecs, &interchaintest.ChainSpec{ChainConfig: icfoundry.DefaultEthereumAnvilChainConfig("ethereum")})
 	case testvalues.EthTestnetTypePoS:
@@ -107,7 +90,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	case testvalues.EthTestnetTypeNone:
 		// Do nothing
 	default:
-		s.T().Fatalf("Unknown Ethereum testnet type: %s", s.ethTestnetType)
+		s.T().Fatalf("Unknown Ethereum testnet type: %s", ethTestnetType)
 	}
 
 	s.dockerClient, s.network = interchaintest.DockerSetup(s.T())
@@ -132,7 +115,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		SkipPathCreation: true,
 	}))
 
-	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
+	if ethTestnetType == testvalues.EthTestnetTypePoW {
 		anvil := chains[len(chains)-1].(*icfoundry.AnvilChain)
 		faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
 		s.Require().NoError(err)
