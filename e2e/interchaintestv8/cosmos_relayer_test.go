@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
-	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/stretchr/testify/suite"
 
 	sdkmath "cosmossdk.io/math"

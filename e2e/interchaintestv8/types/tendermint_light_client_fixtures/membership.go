@@ -11,7 +11,6 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	ics23 "github.com/cosmos/ics23/go"
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 	"github.com/stretchr/testify/suite"
 
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"

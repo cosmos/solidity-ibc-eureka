@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/cosmos/interchaintest/v10/chain/ethereum"
 	"github.com/holiman/uint256"
 
 	"github.com/ethereum/go-ethereum/crypto"

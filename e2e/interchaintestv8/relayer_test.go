@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/interchaintest/v10/testutil"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/sync/errgroup"
 

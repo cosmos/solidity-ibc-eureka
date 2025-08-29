@@ -10,7 +10,6 @@ ibc-eureka-relayer-lib    = { workspace = true, default-features = false }
 ibc-eureka-relayer-core   = { workspace = true, default-features = false }
 ibc-eureka-utils          = { workspace = true }
 alloy = { workspace = true, features = ["full", "node-bindings"] }
-alloy-primitives = { workspace = true, default-features = false, features = ["k256"] }
 
 serde      = { workspace = true, features = ["derive"] }
 prost      = { workspace = true, features = ["std"] }
@@ -35,6 +34,3 @@ attestor-packet-membership = { workspace = true }
 
 [build-dependencies]
 tonic-build = { workspace = true }
-
-[dev-dependencies]
-attestor-packet-membership = { workspace = true }

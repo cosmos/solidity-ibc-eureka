@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
