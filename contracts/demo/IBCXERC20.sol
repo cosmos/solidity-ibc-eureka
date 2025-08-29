@@ -2,21 +2,32 @@
 pragma solidity ^0.8.28;
 
 import { IICS27GMPMsgs } from "../msgs/IICS27GMPMsgs.sol";
+import { IIBCAppCallbacks } from "../msgs/IIBCAppCallbacks.sol";
 
 import { IICS27GMP } from "../interfaces/IICS27GMP.sol";
+import { IIBCSenderCallbacks } from "../interfaces/IIBCSenderCallbacks.sol";
 
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { OwnableUpgradeable } from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
 import { CosmosICS27Lib } from "./CosmosICS27Lib.sol";
+import { IBCCallbackReceiver } from "../utils/IBCCallbackReceiver.sol";
 
 /// @title Reference IBC xERC20 Implementation
 /// @notice This implementation is intended to serve as a base reference for developers creating their own
 /// IBC-compatible upgradeable xERC20 tokens.
-contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable {
-    /// @notice Caller is not the bridge
+contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBCCallbackReceiver {
+    /// @notice Caller is not authorized
     /// @param caller The address of the caller
-    error CallerNotBridge(address caller);
+    error CallerUnauthorized(address caller);
+
+    /// @notice Information about a pending transfer
+    /// @param sender The address that initiated the transfer
+    /// @param amount The amount of tokens to transfer
+    struct TransferInfo {
+        address sender;
+        uint256 amount;
+    }
 
     /// @notice Storage of the IBCXERC20 contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
@@ -25,11 +36,13 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable {
     /// @param clientId The client ID on the this chain
     /// @param cosmosAccount The cosmos address on the counterparty chain
     /// @param bridge The address of the bridge contract allowed to call mint and burn
+    /// @param pendingTransfers Mapping of client ID and sequence to pending transfer info
     struct IBCXERC20Storage {
         IICS27GMP ics27Gmp;
         string clientId;
         string cosmosAccount;
         address bridge;
+        mapping(string clientId => mapping(uint64 seq => TransferInfo info)) pendingTransfers;
     }
 
     /// @notice ERC-7201 slot for the IBCXERC20 storage
@@ -111,9 +124,7 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable {
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
         bytes memory payload = CosmosICS27Lib.tokenFactoryMintMsg($.cosmosAccount, receiver, symbol(), amount);
 
-        // NOTE: There is no use for the returned packet sequence number here
-        // slither-disable-next-line unused-return
-        $.ics27Gmp.sendCall(
+        uint64 seq = $.ics27Gmp.sendCall(
             IICS27GMPMsgs.SendCallMsg({
                 sourceClient: $.clientId,
                 receiver: "",
@@ -123,6 +134,33 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable {
                 memo: ""
             })
         );
+
+        // Store the transfer info to handle potential timeouts or failures
+        $.pendingTransfers[$.clientId][seq] = TransferInfo({ sender: _msgSender(), amount: amount });
+    }
+
+    /// @inheritdoc IIBCSenderCallbacks
+    function onAckPacket(
+        bool success,
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_
+    )
+        external
+        onlyICS27
+    {
+        IBCXERC20Storage storage $ = _getIBCXERC20Storage();
+        if (!success) {
+            TransferInfo memory info = $.pendingTransfers[$.clientId][msg_.sequence];
+            _mint(info.sender, info.amount);
+        }
+        delete $.pendingTransfers[$.clientId][msg_.sequence];
+    }
+
+    /// @inheritdoc IIBCSenderCallbacks
+    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) external onlyICS27 {
+        IBCXERC20Storage storage $ = _getIBCXERC20Storage();
+        TransferInfo memory info = $.pendingTransfers[$.clientId][msg_.sequence];
+        _mint(info.sender, info.amount);
+        delete $.pendingTransfers[$.clientId][msg_.sequence];
     }
 
     /// @notice Returns the storage of the IBCXERC20 contract
@@ -140,7 +178,13 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable {
 
     /// @notice Modifier to restrict access to the bridge only
     modifier onlyBridge() {
-        require(_msgSender() == _getIBCXERC20Storage().bridge, CallerNotBridge(msg.sender));
+        require(_msgSender() == _getIBCXERC20Storage().bridge, CallerUnauthorized(msg.sender));
+        _;
+    }
+
+    /// @notice Modifier to restrict access to the ICS27GMP contract only
+    modifier onlyICS27() {
+        require(_msgSender() == address(_getIBCXERC20Storage().ics27Gmp), CallerUnauthorized(msg.sender));
         _;
     }
 }
