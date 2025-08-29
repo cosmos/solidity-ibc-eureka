@@ -36,6 +36,7 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
     /// @param clientId The client ID on the this chain
     /// @param cosmosAccount The cosmos address on the counterparty chain
     /// @param bridge The address of the bridge contract allowed to call mint and burn
+    /// @param pendingTransfers Mapping of client ID and sequence to pending transfer info
     struct IBCXERC20Storage {
         IICS27GMP ics27Gmp;
         string clientId;
