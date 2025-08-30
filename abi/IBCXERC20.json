@@ -86,6 +86,24 @@
   },
   {
     "type": "function",
+    "name": "bridgeTransfer",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "decimals",
     "inputs": [],
     "outputs": [
@@ -415,24 +433,6 @@
         "internalType": "bool"
       }
     ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "transfer",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "receiver",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
