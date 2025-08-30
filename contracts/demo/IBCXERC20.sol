@@ -115,10 +115,10 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
 
     /// @notice Burns tokens and sends a GMP to the counterparty chain to mint tokens there
     /// @dev Can only be called by the bridge amount
-    /// @param amount The amount of tokens to burn
     /// @param receiver The address on the counterparty chain to mint tokens to
+    /// @param amount The amount of tokens to burn
     // natlint-disable-next-line MissingInheritdoc
-    function transfer(uint256 amount, string calldata receiver) external onlyBridge {
+    function bridgeTransfer(string calldata receiver, uint256 amount) external onlyBridge {
         _burn(_msgSender(), amount);
 
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
