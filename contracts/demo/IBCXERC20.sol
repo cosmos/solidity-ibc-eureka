@@ -61,17 +61,13 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
     /// @param symbol_ The symbol of the token
     /// @param ics27Gmp_ The ICS27GMP contract address
     /// @param clientId_ The client ID on the source chain
-    /// @param cosmosAccount_ The cosmos address on the counterparty chain
-    /// @param bridge_ The address of the bridge contract allowed to call mint and burn
     // natlint-disable-next-line MissingInheritdoc
     function initialize(
         address owner_,
         string calldata name_,
         string calldata symbol_,
         address ics27Gmp_,
-        string calldata clientId_,
-        string calldata cosmosAccount_,
-        address bridge_
+        string calldata clientId_
     )
         external
         initializer
@@ -82,8 +78,6 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
         $.ics27Gmp = IICS27GMP(ics27Gmp_);
         $.clientId = clientId_;
-        $.cosmosAccount = cosmosAccount_;
-        $.bridge = bridge_;
     }
 
     /**
@@ -102,6 +96,20 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
      */
     function decimals() public pure override(ERC20Upgradeable) returns (uint8) {
         return 6;
+    }
+
+    /// @notice Sets the cosmos account on the counterparty chain
+    /// @param cosmosAccount_ The cosmos account
+    function setCosmosAccount(string calldata cosmosAccount_) external onlyOwner {
+        IBCXERC20Storage storage $ = _getIBCXERC20Storage();
+        $.cosmosAccount = cosmosAccount_;
+    }
+
+    /// @notice Sets the bridge address
+    /// @param bridge_ The address of the bridge contract allowed to call mint
+    function setBridge(address bridge_) external onlyOwner {
+        IBCXERC20Storage storage $ = _getIBCXERC20Storage();
+        $.bridge = bridge_;
     }
 
     /// @notice Mints tokens to a specified address
