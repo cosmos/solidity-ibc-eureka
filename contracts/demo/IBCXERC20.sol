@@ -109,7 +109,7 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
     /// @param mintAddress The address to mint tokens to
     /// @param amount The amount of tokens to mint
     // natlint-disable-next-line MissingInheritdoc
-    function mint(address mintAddress, uint256 amount) external onlyBridge {
+    function mint(address mintAddress, uint256 amount) external onlyBridgeOrOwner {
         _mint(mintAddress, amount);
     }
 
@@ -118,7 +118,7 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
     /// @param receiver The address on the counterparty chain to mint tokens to
     /// @param amount The amount of tokens to burn
     // natlint-disable-next-line MissingInheritdoc
-    function bridgeTransfer(string calldata receiver, uint256 amount) external onlyBridge {
+    function bridgeTransfer(string calldata receiver, uint256 amount) external {
         _burn(_msgSender(), amount);
 
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
@@ -177,8 +177,8 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
     // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Modifier to restrict access to the bridge only
-    modifier onlyBridge() {
-        require(_msgSender() == _getIBCXERC20Storage().bridge, CallerUnauthorized(msg.sender));
+    modifier onlyBridgeOrOwner() {
+        require(_msgSender() == _getIBCXERC20Storage().bridge || _msgSender() == owner(), CallerUnauthorized(msg.sender));
         _;
     }
 
