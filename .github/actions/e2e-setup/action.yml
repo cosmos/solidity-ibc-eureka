@@ -4,6 +4,10 @@ inputs:
   github_token:
     description: A Github PAT
     required: true
+  # TODO: remove this input and use github_token instead after the Cosmos packages are accessible with GITHUB_TOKEN
+  ghcr_pat:
+    description: A Github PAT with read access to the Cosmos private packages
+    required: true
 
 runs:
   using: composite
@@ -13,7 +17,7 @@ runs:
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ inputs.github_token }}
+        password: ${{ inputs.ghcr_pat }}
 
     - name: Pull Docker Image
       run: |
