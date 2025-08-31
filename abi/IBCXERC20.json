@@ -143,16 +143,6 @@
         "name": "clientId_",
         "type": "string",
         "internalType": "string"
-      },
-      {
-        "name": "cosmosAccount_",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "bridge_",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -363,6 +353,32 @@
     "type": "function",
     "name": "renounceOwnership",
     "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setBridge",
+    "inputs": [
+      {
+        "name": "bridge_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setCosmosAccount",
+    "inputs": [
+      {
+        "name": "cosmosAccount_",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
