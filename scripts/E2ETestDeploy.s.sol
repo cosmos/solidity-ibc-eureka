@@ -31,6 +31,7 @@ import { DeployProxiedICS26Router } from "./deployments/DeployProxiedICS26Router
 import { DeployProxiedICS27GMP } from "./deployments/DeployProxiedICS27GMP.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { IBCXERC20 } from "../contracts/demo/IBCXERC20.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
 contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router, DeployProxiedICS20Transfer, DeployProxiedICS27GMP {
@@ -38,6 +39,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
 
+    // solhint-disable-next-line function-max-lines
     function run() public returns (string memory) {
         // ============ Step 1: Load parameters ==============
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
@@ -58,6 +60,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
         address ics27GmpLogic = address(new ICS27GMP());
+        address ibcxerc20Logic = address(new IBCXERC20());
 
         AccessManager accessManager = new AccessManager(msg.sender);
 
@@ -100,6 +103,18 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
         TestERC20 erc20 = new TestERC20();
         erc20.mint(e2eFaucet, type(uint256).max);
 
+        IBCXERC20 ibcxerc20 = IBCXERC20(
+            address(
+                new ERC1967Proxy(
+                    ibcxerc20Logic,
+                    abi.encodeCall(
+                        IBCXERC20.initialize, (msg.sender, "WildFlower", "WF", address(gmpProxy), "08-wasm-0")
+                    )
+                )
+            )
+        );
+        ibcxerc20.mint(e2eFaucet, type(uint256).max / 2);
+
         vm.stopBroadcast();
 
         string memory json = "json";
@@ -109,6 +124,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
         json.serialize("ics26Router", Strings.toHexString(address(routerProxy)));
         json.serialize("ics20Transfer", Strings.toHexString(address(transferProxy)));
         json.serialize("ics27Gmp", Strings.toHexString(address(gmpProxy)));
+        json.serialize("ibcxerc20", Strings.toHexString(address(ibcxerc20)));
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;
