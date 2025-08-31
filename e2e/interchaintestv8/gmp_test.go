@@ -308,9 +308,10 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 	}))
 }
 
-func (s *IbcEurekaGmpTestSuite) TestDeploy_Groth16() {
+func (s *IbcEurekaGmpTestSuite) TestDeploy() {
 	ctx := context.Background()
-	s.DeployTest(ctx, types.ProofTypeGroth16)
+	proofType := types.GetEnvProofType()
+	s.DeployTest(ctx, proofType)
 }
 
 func (s *IbcEurekaGmpTestSuite) DeployTest(ctx context.Context, proofType types.SupportedProofType) {
@@ -387,9 +388,11 @@ func (s *IbcEurekaGmpTestSuite) DeployTest(ctx context.Context, proofType types.
 	}))
 }
 
-func (s *IbcEurekaGmpTestSuite) TestSendCallFromCosmos_Groth16() {
+// TestSendCallFromCosmos tests the SendCall from Cosmos to Ethereum
+func (s *IbcEurekaGmpTestSuite) TestSendCallFromCosmos() {
 	ctx := context.Background()
-	s.SendCallFromCosmosTest(ctx, types.ProofTypeGroth16)
+	proofType := types.GetEnvProofType()
+	s.SendCallFromCosmosTest(ctx, proofType)
 }
 
 func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proofType types.SupportedProofType) {
@@ -524,10 +527,11 @@ func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proo
 	}))
 }
 
-// TestSendCallFromEth_Groth16 tests the SendCall from Ethereum to Cosmos
-func (s *IbcEurekaGmpTestSuite) TestSendCallFromEth_Groth16() {
+// TestSendCallFromEth tests the SendCall from Ethereum to Cosmos
+func (s *IbcEurekaGmpTestSuite) TestSendCallFromEth() {
 	ctx := context.Background()
-	s.SendCallFromEthTest(ctx, types.ProofTypeGroth16)
+	proofType := types.GetEnvProofType()
+	s.SendCallFromEthTest(ctx, proofType)
 }
 
 func (s *IbcEurekaGmpTestSuite) SendCallFromEthTest(ctx context.Context, proofType types.SupportedProofType) {
