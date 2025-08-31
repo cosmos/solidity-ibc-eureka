@@ -35,6 +35,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
 
+    // solhint-disable-next-line function-max-lines
     function run() public returns (string memory) {
         // ============ Step 1: Load parameters ==============
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");

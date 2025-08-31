@@ -100,6 +100,7 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
 
     /// @notice Sets the cosmos account on the counterparty chain
     /// @param cosmosAccount_ The cosmos account
+    // natlint-disable-next-line MissingInheritdoc
     function setCosmosAccount(string calldata cosmosAccount_) external onlyOwner {
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
         $.cosmosAccount = cosmosAccount_;
@@ -107,6 +108,7 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
 
     /// @notice Sets the bridge address
     /// @param bridge_ The address of the bridge contract allowed to call mint
+    // natlint-disable-next-line MissingInheritdoc
     function setBridge(address bridge_) external onlyOwner {
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
         $.bridge = bridge_;
