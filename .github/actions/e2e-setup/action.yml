@@ -20,6 +20,7 @@ runs:
         password: ${{ inputs.ghcr_pat }}
 
     - name: Pull Docker Image
+      shell: bash
       run: |
         docker pull ghcr.io/cosmos/wfchain:latest
 
