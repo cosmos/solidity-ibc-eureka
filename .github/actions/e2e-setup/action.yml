@@ -16,7 +16,7 @@ runs:
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
-        username: ${{ github.actor }}
+        username: srdtrk
         password: ${{ inputs.ghcr_pat }}
 
     - name: Set up foundry tooling
