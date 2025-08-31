@@ -19,10 +19,6 @@ runs:
         username: ${{ github.actor }}
         password: ${{ inputs.ghcr_pat }}
 
-    - name: Pull Docker Image
-      run: |
-        docker pull ghcr.io/cosmos/wfchain:latest
-
     - name: Set up foundry tooling
       uses: ./.github/actions/foundry-setup
 
