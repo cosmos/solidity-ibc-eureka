@@ -100,14 +100,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
                 new ERC1967Proxy(
                     ibcxerc20Logic,
                     abi.encodeCall(
-                        IBCXERC20.initialize,
-                        (
-                            msg.sender,
-                            "WildFlower",
-                            "WF",
-                            address(gmpProxy),
-                            "08-wasm-0"
-                        )
+                        IBCXERC20.initialize, (msg.sender, "WildFlower", "WF", address(gmpProxy), "08-wasm-0")
                     )
                 )
             )

@@ -186,7 +186,9 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
 
     /// @notice Modifier to restrict access to the bridge only
     modifier onlyBridgeOrOwner() {
-        require(_msgSender() == _getIBCXERC20Storage().bridge || _msgSender() == owner(), CallerUnauthorized(msg.sender));
+        require(
+            _msgSender() == _getIBCXERC20Storage().bridge || _msgSender() == owner(), CallerUnauthorized(msg.sender)
+        );
         _;
     }
 
