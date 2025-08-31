@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	mathrand "math/rand"
@@ -20,7 +19,6 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
@@ -743,18 +741,21 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(ctx context.Context, n
 		s.Require().True(s.Run("Generate state and keys", func() {
 			// Messages to generate state to be used in the membership proof
 			msgs := []sdk.Msg{}
-			// Generate a random addresses
-			pubBz := make([]byte, ed25519.PubKeySize)
-			pub := &ed25519.PubKey{Key: pubBz}
 			for i := uint64(0); i < n; i++ {
-				_, err := rand.Read(pubBz)
+				// Generate a random addresses
+				randomWallet, err := simd.BuildWallet(ctx, fmt.Sprintf("random-%d", i), "")
 				s.Require().NoError(err)
-				acc := sdk.AccAddress(pub.Address())
+
+				msg := &banktypes.MsgSend{
+					FromAddress: simdUser.FormattedAddress(),
+					ToAddress:   randomWallet.FormattedAddress(),
+					Amount:      sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, math.NewInt(1))),
+				}
 
 				// Send some funds to the address
-				msgs = append(msgs, banktypes.NewMsgSend(simdUser.Address(), acc, sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, math.NewInt(1)))))
+				msgs = append(msgs, msg)
 
-				key, err := cosmos.BankBalanceKey(simdUser.Address(), simd.Config().Denom)
+				key, err := cosmos.BankBalanceKey(randomWallet.Address(), simd.Config().Denom)
 				s.Require().NoError(err)
 
 				membershipKeys[i] = [][]byte{[]byte(banktypes.StoreKey), key}
