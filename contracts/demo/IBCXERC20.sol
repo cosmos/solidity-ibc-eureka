@@ -114,6 +114,27 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
         $.bridge = bridge_;
     }
 
+    /// @notice Sends a GMP to the counterparty chain to create the denom
+    // natlint-disable-next-line MissingInheritdoc
+    function createDenom() external {
+        IBCXERC20Storage storage $ = _getIBCXERC20Storage();
+        // solhint-disable-next-line gas-custom-errors
+        require(bytes($.cosmosAccount).length != 0, "Cosmos account not set");
+        bytes memory createDenomMsg = CosmosICS27Lib.tokenFactoryCreateDenomMsg($.cosmosAccount, symbol());
+        bytes memory payload = CosmosICS27Lib.msgsToPayload(createDenomMsg);
+
+        $.ics27Gmp.sendCall(
+            IICS27GMPMsgs.SendCallMsg({
+                sourceClient: $.clientId,
+                receiver: "",
+                salt: "",
+                payload: payload,
+                timeoutTimestamp: uint64(block.timestamp + 1 hours),
+                memo: ""
+            })
+        );
+    }
+
     /// @notice Mints tokens to a specified address
     /// @dev Can only be called by the bridge account
     /// @param mintAddress The address to mint tokens to
@@ -132,7 +153,8 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
         _burn(_msgSender(), amount);
 
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
-        bytes memory payload = CosmosICS27Lib.tokenFactoryMintMsg($.cosmosAccount, receiver, symbol(), amount);
+        bytes memory mintMsg = CosmosICS27Lib.tokenFactoryMintMsg($.cosmosAccount, receiver, symbol(), amount);
+        bytes memory payload = CosmosICS27Lib.msgsToPayload(mintMsg);
 
         uint64 seq = $.ics27Gmp.sendCall(
             IICS27GMPMsgs.SendCallMsg({

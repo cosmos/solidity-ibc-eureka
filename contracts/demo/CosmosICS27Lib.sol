@@ -6,11 +6,30 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 /// @title CosmosICS27Lib
 /// @notice This library provides utility functions for sending GMPs to Cosmos SDK chains.
 library CosmosICS27Lib {
-    /// @notice MINT_TYPE_URL is the type URL for the MsgMint message in the FiatTokenFactory module.
-    string private constant MINT_TYPE_URL = "/circle.fiattokenfactory.v1.MsgMint";
+    /// @notice MINT_TYPE_URL is the type URL for the MsgMint message in the TokenFactory module.
+    string private constant MINT_TYPE_URL = "/wfchain.tokenfactory.MsgMint";
     // solhint-disable-previous-line gas-small-strings
 
-    /// @notice Constructs a MsgMint message for the FiatTokenFactory module.
+    /// @notice CREATE_DENOM_TYPE_URL is the type URL for the MsgCreateDenom message in the TokenFactory module.
+    string private constant CREATE_DENOM_TYPE_URL = "/wfchain.tokenfactory.MsgCreateDenom";
+    // solhint-disable-previous-line gas-small-strings
+
+    /// @notice Wraps the provided message bytes in a JSON payload with a "messages" array.
+    /// @param msg_ The message bytes to wrap.
+    /// @return The JSON payload as bytes.
+    function msgsToPayload(bytes memory msg_) internal pure returns (bytes memory) {
+        return abi.encodePacked("{\"messages\":[", msg_, "]}");
+    }
+
+    /// @notice Wraps two provided message bytes in a JSON payload with a "messages" array.
+    /// @param msg1 The first message bytes to wrap.
+    /// @param msg2 The second message bytes to wrap.
+    /// @return The JSON payload as bytes.
+    function msgsToPayload(bytes memory msg1, bytes memory msg2) internal pure returns (bytes memory) {
+        return abi.encodePacked("{\"messages\":[", msg1, ",", msg2, "]}");
+    }
+
+    /// @notice Constructs a MsgMint message for the TokenFactory module.
     /// @param from The address of the minter.
     /// @param receiver The address of the recipient.
     /// @param subdenom The subdenomination of the token to mint.
@@ -27,7 +46,7 @@ library CosmosICS27Lib {
         returns (bytes memory)
     {
         return abi.encodePacked(
-            "{\"messages\":[{\"@type\":\"",
+            "{\"@type\":\"",
             MINT_TYPE_URL,
             "\",\"from\":\"",
             from,
@@ -37,7 +56,24 @@ library CosmosICS27Lib {
             tokenFactoryDenom(from, subdenom),
             "\",\"amount\":\"",
             Strings.toString(amount),
-            "\"}}]}"
+            "\"}}"
+        );
+    }
+
+    /// @notice Constructs a MsgCreateDenom message for the TokenFactory module.
+    /// @param from The address of the minter.
+    /// @param subdenom The subdenomination of the token to create.
+    /// @return The encoded MsgCreateDenom message as bytes.
+    function tokenFactoryCreateDenomMsg(
+        string memory from,
+        string memory subdenom
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodePacked(
+            "{\"@type\":\"", CREATE_DENOM_TYPE_URL, "\",\"sender\":\"", from, "\",\"subdenom\":\"", subdenom, "\"}"
         );
     }
 
