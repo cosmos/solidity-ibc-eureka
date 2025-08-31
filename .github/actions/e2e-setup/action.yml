@@ -4,10 +4,26 @@ inputs:
   github_token:
     description: A Github PAT
     required: true
+  # TODO: remove this input and use github_token instead after the Cosmos packages are accessible with GITHUB_TOKEN
+  ghcr_pat:
+    description: A Github PAT with read access to the Cosmos private packages
+    required: true
 
 runs:
   using: composite
   steps:
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: srdtrk
+        password: ${{ inputs.ghcr_pat }}
+
+    - name: Pull Docker Image
+      shell: bash
+      run: |
+        docker pull ghcr.io/cosmos/wfchain:latest
+
     - name: Set up foundry tooling
       uses: ./.github/actions/foundry-setup
 
