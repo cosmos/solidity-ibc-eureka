@@ -33,6 +33,7 @@ type DeployedContracts struct {
 	Ics20Transfer string `json:"ics20Transfer"`
 	Ics27Gmp      string `json:"ics27Gmp"`
 	Erc20         string `json:"erc20"`
+	IbcXErc20     string `json:"ibcxerc20"`
 }
 
 func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
@@ -60,6 +61,7 @@ func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 		embeddedContracts.VerifierPlonk == "" ||
 		embeddedContracts.VerifierGroth16 == "" ||
 		embeddedContracts.VerifierMock == "" ||
+		embeddedContracts.IbcXErc20 == "" ||
 		embeddedContracts.Ics26Router == "" {
 
 		return DeployedContracts{}, fmt.Errorf("one or more contracts missing: %+v", embeddedContracts)
