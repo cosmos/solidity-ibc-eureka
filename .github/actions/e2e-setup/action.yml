@@ -13,7 +13,7 @@ runs:
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ inputs.github_token }}
 
     - name: Set up foundry tooling
       uses: ./.github/actions/foundry-setup
