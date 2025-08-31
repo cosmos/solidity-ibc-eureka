@@ -4,6 +4,8 @@
 #![allow(unused_crate_dependencies, missing_docs)]
 
 pub mod tx_builder;
+#[cfg(test)]
+mod tests;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -135,7 +137,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             .collect::<Result<Vec<_>, _>>()?;
 
         // Parse Cosmos transaction hashes for timeouts
-        let _target_txs = inner_req
+        let target_txs = inner_req
             .timeout_tx_ids
             .into_iter()
             .map(Hash::try_from)
@@ -154,10 +156,16 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             src_events.len()
         );
 
-        // For timeouts from Cosmos - simplified for now
-        let target_events = Vec::new();
+        // Fetch timeout events from Cosmos transactions
+        let target_events = self
+            .tx_builder
+            .fetch_cosmos_timeout_events(target_txs)
+            .await
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
+
+        tracing::debug!(cosmos_target_events = ?target_events, "Fetched target timeout events from Cosmos.");
         tracing::info!(
-            "Fetched {} target eureka events from CosmosSDK.",
+            "Fetched {} timeout events from CosmosSDK.",
             target_events.len()
         );
 

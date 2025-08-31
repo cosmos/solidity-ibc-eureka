@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use anchor_lang::prelude::*;
 use ibc_eureka_relayer_lib::events::solana::{parse_events_from_logs, IbcEvent};
+use ibc_eureka_relayer_lib::events::EurekaEvent;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -25,7 +26,8 @@ use solana_client::rpc_client::RpcClient;
 use solana_ibc_types::Packet as SolanaPacket;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
-use tendermint_rpc::HttpClient;
+use tendermint::Hash;
+use tendermint_rpc::{Client, HttpClient};
 
 /// IBC event types emitted by Solana programs
 #[derive(Debug, Clone)]
@@ -71,6 +73,21 @@ pub enum SolanaIbcEvent {
         /// Timeout timestamp
         timeout_timestamp: u64,
     },
+}
+
+/// Timeout event from Cosmos
+#[derive(Debug, Clone)]
+pub struct CosmosTimeoutEvent {
+    /// Packet sequence
+    pub sequence: u64,
+    /// Source client ID
+    pub source_client: String,
+    /// Destination client ID
+    pub destination_client: String,
+    /// Packet payloads
+    pub payloads: Vec<Vec<u8>>,
+    /// Timeout timestamp
+    pub timeout_timestamp: u64,
 }
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from Solana.
@@ -258,7 +275,7 @@ impl TxBuilder {
     pub fn build_relay_tx(
         &self,
         src_events: Vec<SolanaIbcEvent>,
-        target_events: Vec<SolanaIbcEvent>, // Timeout events from target
+        target_events: Vec<CosmosTimeoutEvent>, // Timeout events from target
     ) -> anyhow::Result<TxBody> {
         let mut messages = Vec::new();
 
@@ -272,11 +289,19 @@ impl TxBuilder {
             messages.push(msg);
         }
 
-        // Process target events from Cosmos (for timeouts)
+        // Process target timeout events from Cosmos
+        // These are packets that timed out on Cosmos and need timeout confirmation on Solana
         for event in target_events {
             tracing::debug!("Processing timeout event from Cosmos: {:?}", event);
-            // These would be timeouts detected on Cosmos that need to be relayed back to Solana
-            // This would be handled by the cosmos-to-solana module instead
+            // Build timeout message to relay back to source chain
+            let timeout_msg = self.build_timeout_msg(
+                event.sequence,
+                event.source_client,
+                event.destination_client,
+                event.payloads,
+                event.timeout_timestamp,
+            )?;
+            messages.push(timeout_msg);
         }
 
         if messages.len() == 1 {
@@ -517,6 +542,118 @@ impl TxBuilder {
         })
     }
 
+    /// Fetch timeout events from Cosmos transactions
+    ///
+    /// This fetches packets that have timed out on Cosmos and need to be relayed back to Solana.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to fetch transaction from Cosmos
+    /// - Failed to parse events
+    ///
+    /// # Panics
+    ///
+    /// This function should not panic under normal circumstances.
+    pub async fn fetch_cosmos_timeout_events(
+        &self,
+        tx_hashes: Vec<Hash>,
+    ) -> anyhow::Result<Vec<CosmosTimeoutEvent>> {
+        let mut timeout_events = Vec::new();
+
+        for tx_hash in tx_hashes {
+            // Fetch transaction from Tendermint
+            let tx_result = self
+                .target_tm_client
+                .tx(tx_hash, false)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to fetch Cosmos transaction: {e}"))?;
+
+            let _height = tx_result.height.value();
+
+            // Parse events from the transaction
+            for tm_event in tx_result.tx_result.events {
+                // Check if this is a timeout packet event
+                if tm_event.kind.as_str() == "timeout_packet" {
+                    let mut sequence = None;
+                    let mut source_client = None;
+                    let mut dest_client = None;
+                    let mut timeout_timestamp = None;
+                    let mut packet_data = None;
+
+                    // Parse attributes from the event
+                    for attr in &tm_event.attributes {
+                        match attr.key_str().unwrap_or("") {
+                            "packet_sequence" => {
+                                sequence =
+                                    attr.value_str().ok().and_then(|s| s.parse::<u64>().ok());
+                            }
+                            "packet_src_client" | "source_client" => {
+                                source_client = attr.value_str().ok().map(String::from);
+                            }
+                            "packet_dst_client" | "destination_client" => {
+                                dest_client = attr.value_str().ok().map(String::from);
+                            }
+                            "packet_timeout_timestamp" | "timeout_timestamp" => {
+                                timeout_timestamp =
+                                    attr.value_str().ok().and_then(|s| s.parse::<u64>().ok());
+                            }
+                            "packet_data" => {
+                                packet_data = attr.value_str().ok().map(String::from);
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    // If we have all required fields, create a timeout event
+                    if let (Some(seq), Some(src), Some(dst), Some(timeout_ts)) =
+                        (sequence, source_client, dest_client, timeout_timestamp)
+                    {
+                        // Try to decode packet data if available
+                        let payloads = packet_data.map_or_else(
+                            || vec![vec![]], // Empty payload if no data found
+                            |data| {
+                                // Attempt to decode as hex or base64
+                                use base64::{engine::general_purpose::STANDARD, Engine as _};
+                                hex::decode(&data)
+                                    .map_or_else(
+                                        |_| STANDARD.decode(&data).map_or_else(
+                                            |_| vec![data.into_bytes()], // Fallback to raw bytes
+                                            |decoded| vec![decoded]
+                                        ),
+                                        |decoded| vec![decoded]
+                                    )
+                            },
+                        );
+
+                        timeout_events.push(CosmosTimeoutEvent {
+                            sequence: seq,
+                            source_client: src,
+                            destination_client: dst,
+                            payloads,
+                            timeout_timestamp: timeout_ts,
+                        });
+
+                        let last_event = timeout_events.last().expect("just pushed an event");
+                        tracing::info!(
+                            "Parsed timeout event: seq={}, src={}, dst={}, timeout={}",
+                            seq,
+                            last_event.source_client,
+                            last_event.destination_client,
+                            timeout_ts
+                        );
+                    }
+                }
+                // Also try to parse using the EurekaEvent enum if it supports timeout
+                else if let Ok(_eureka_event) = EurekaEvent::try_from(tm_event.clone()) {
+                    // Handle timeout if EurekaEvent supports it in the future
+                }
+            }
+        }
+
+        Ok(timeout_events)
+    }
+
     /// Build an update client transaction
     ///
     /// # Errors
@@ -587,7 +724,7 @@ impl MockTxBuilder {
     pub fn build_relay_tx_mock(
         &self,
         src_events: Vec<SolanaIbcEvent>,
-        target_events: Vec<SolanaIbcEvent>,
+        target_events: Vec<CosmosTimeoutEvent>,
     ) -> anyhow::Result<TxBody> {
         let mut messages = Vec::new();
 
