@@ -43,6 +43,9 @@ func (s *DemoTestSuite) SetupSuite(ctx context.Context, proofType types.Supporte
 		s.ibcXERC20, err = ibcxerc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.IbcXErc20), eth.RPCClient)
 		s.Require().NoError(err)
 
+		_, err = s.ibcXERC20.SetClientId(s.GetTransactOpts(s.deployer, eth), testvalues.CustomClientID)
+		s.Require().NoError(err)
+
 		s.Require().True(s.Run("Set the Cosmos account in the IBCXERC20 contract", func() {
 			resp, err := e2esuite.GRPCQuery[gmptypes.QueryAccountAddressResponse](ctx, simd, &gmptypes.QueryAccountAddressRequest{
 				ClientId: testvalues.FirstWasmClientID,
@@ -51,6 +54,8 @@ func (s *DemoTestSuite) SetupSuite(ctx context.Context, proofType types.Supporte
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.AccountAddress)
+
+			s.T().Logf("IBC-XERC20 Cosmos account: %s", resp.AccountAddress)
 
 			_, err = s.ibcXERC20.SetCosmosAccount(s.GetTransactOpts(s.deployer, eth), resp.AccountAddress)
 			s.Require().NoError(err)
@@ -78,6 +83,9 @@ func (s *DemoTestSuite) SetupSuite(ctx context.Context, proofType types.Supporte
 			tx, err := s.ibcXERC20.CreateDenom(s.GetTransactOpts(s.deployer, eth))
 			s.Require().NoError(err)
 
+			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 			ethSendTxHash := tx.Hash().Bytes()
 
 			var ackTxHash []byte
@@ -99,7 +107,7 @@ func (s *DemoTestSuite) SetupSuite(ctx context.Context, proofType types.Supporte
 				}))
 
 				s.Require().True(s.Run("Broadcast relay tx", func() {
-					resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+					resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 10_000_000, relayTxBodyBz)
 
 					ackTxHash, err = hex.DecodeString(resp.TxHash)
 					s.Require().NoError(err)
@@ -127,7 +135,7 @@ func (s *DemoTestSuite) SetupSuite(ctx context.Context, proofType types.Supporte
 				}))
 
 				s.Require().True(s.Run("Submit relay tx", func() {
-					receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 1_000_000, &ics26Address, ackRelayTx)
+					receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 10_000_000, &ics26Address, ackRelayTx)
 					s.Require().NoError(err)
 					s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 

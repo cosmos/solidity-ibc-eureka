@@ -32,13 +32,13 @@ library CosmosICS27Lib {
     /// @notice Constructs a MsgMint message for the TokenFactory module.
     /// @param from The address of the minter.
     /// @param receiver The address of the recipient.
-    /// @param subdenom The subdenomination of the token to mint.
+    /// @param denom The denomination of the token to mint.
     /// @param amount The amount of tokens to mint.
     /// @return The encoded MsgMint message as bytes.
     function tokenFactoryMintMsg(
         string memory from,
         string memory receiver,
-        string memory subdenom,
+        string memory denom,
         uint256 amount
     )
         internal
@@ -53,7 +53,7 @@ library CosmosICS27Lib {
             "\",\"address\":\"",
             receiver,
             "\",\"amount\":{\"denom\":\"",
-            tokenFactoryDenom(from, subdenom),
+            denom,
             "\",\"amount\":\"",
             Strings.toString(amount),
             "\"}}"
@@ -62,26 +62,18 @@ library CosmosICS27Lib {
 
     /// @notice Constructs a MsgCreateDenom message for the TokenFactory module.
     /// @param from The address of the minter.
-    /// @param subdenom The subdenomination of the token to create.
+    /// @param denom The denomination of the token to create.
     /// @return The encoded MsgCreateDenom message as bytes.
     function tokenFactoryCreateDenomMsg(
         string memory from,
-        string memory subdenom
+        string memory denom
     )
         internal
         pure
         returns (bytes memory)
     {
         return abi.encodePacked(
-            "{\"@type\":\"", CREATE_DENOM_TYPE_URL, "\",\"sender\":\"", from, "\",\"subdenom\":\"", subdenom, "\"}"
+            "{\"@type\":\"", CREATE_DENOM_TYPE_URL, "\",\"sender\":\"", from, "\",\"denom\":\"", denom, "\"}"
         );
-    }
-
-    /// @notice Constructs the denom string for a token in the FiatTokenFactory module.
-    /// @param from The address of the minter.
-    /// @param subdenom The subdenomination of the token.
-    /// @return The constructed token factory denom string as bytes.
-    function tokenFactoryDenom(string memory from, string memory subdenom) private pure returns (bytes memory) {
-        return abi.encodePacked("factory/", from, "/", subdenom);
     }
 }
