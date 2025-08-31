@@ -50,10 +50,7 @@ contract DemoTest is Test {
 
         address xerc20Logic = address(new IBCXERC20());
         ERC1967Proxy xerc20Proxy = new ERC1967Proxy(
-            xerc20Logic,
-            abi.encodeCall(
-                IBCXERC20.initialize, (owner, "WildFlower", "WF", address(ibcImplB.ics27Gmp()), th.FIRST_CLIENT_ID())
-            )
+            xerc20Logic, abi.encodeCall(IBCXERC20.initialize, (owner, "WildFlower", "WF", address(ibcImplB.ics27Gmp())))
         );
         xerc20 = IBCXERC20(address(xerc20Proxy));
         vm.prank(owner);

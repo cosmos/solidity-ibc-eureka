@@ -145,11 +145,6 @@
         "name": "ics27Gmp_",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "clientId_",
-        "type": "string",
-        "internalType": "string"
       }
     ],
     "outputs": [],
@@ -371,6 +366,19 @@
         "name": "bridge_",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setClientId",
+    "inputs": [
+      {
+        "name": "clientId_",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "outputs": [],

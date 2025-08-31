@@ -60,14 +60,12 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
     /// @param name_ The name of the token
     /// @param symbol_ The symbol of the token
     /// @param ics27Gmp_ The ICS27GMP contract address
-    /// @param clientId_ The client ID on the source chain
     // natlint-disable-next-line MissingInheritdoc
     function initialize(
         address owner_,
         string calldata name_,
         string calldata symbol_,
-        address ics27Gmp_,
-        string calldata clientId_
+        address ics27Gmp_
     )
         external
         initializer
@@ -77,7 +75,6 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
 
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
         $.ics27Gmp = IICS27GMP(ics27Gmp_);
-        $.clientId = clientId_;
     }
 
     /**
@@ -96,6 +93,14 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
      */
     function decimals() public pure override(ERC20Upgradeable) returns (uint8) {
         return 6;
+    }
+
+    /// @notice Sets the client ID on this chain
+    /// @param clientId_ The client ID
+    // natlint-disable-next-line MissingInheritdoc
+    function setClientId(string calldata clientId_) external onlyOwner {
+        IBCXERC20Storage storage $ = _getIBCXERC20Storage();
+        $.clientId = clientId_;
     }
 
     /// @notice Sets the cosmos account on the counterparty chain
