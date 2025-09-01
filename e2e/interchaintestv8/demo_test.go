@@ -4,17 +4,21 @@ import (
 	"context"
 	"testing"
 
+	// relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	"github.com/stretchr/testify/suite"
+
+	ethcommon "github.com/ethereum/go-ethereum/common"
+
 	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
+
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcxerc20"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics27gmp"
-	ethcommon "github.com/ethereum/go-ethereum/common"
-	wfchain "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/wfchain"
+
 	// ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
-	// relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
-	"github.com/stretchr/testify/suite"
+	wfchain "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/wfchain"
 )
 
 // DemoTestSuite is a suite of tests that wraps DemoTestSuite
