@@ -19,11 +19,13 @@ import { DeployAccessManagerWithRoles } from "./deployments/DeployAccessManagerW
 import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { IBCXERC20 } from "../contracts/demo/IBCXERC20.sol";
+import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
+import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
 
 contract DemoDeploy is Script, DeployAccessManagerWithRoles {
     using stdJson for string;
 
-    string internal constant DEPLOYMENTS_DIR = "./deployments/";
+    string internal constant DEPLOYMENTS_DIR = "./scripts/deployments/";
 
     // solhint-disable-next-line function-max-lines
     function run() public returns (string memory) {
@@ -46,12 +48,19 @@ contract DemoDeploy is Script, DeployAccessManagerWithRoles {
             )
         );
 
-        // Wire up the IBCAdmin and access control
-        accessManagerSetTargetRoles(accessManager, address(routerProxy), makeAddr("ics20"), true);
+        address ics26 = address(routerProxy);
 
-        accessManagerSetRoles(
-            accessManager, new address[](0), new address[](0), new address[](0), msg.sender, msg.sender, msg.sender
+        // Wire up the IBCAdmin and access control
+        accessManager.setTargetFunctionRole(
+            ics26, IBCRolesLib.ics26IdCustomizerSelectors(), IBCRolesLib.ID_CUSTOMIZER_ROLE
         );
+        accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.RELAYER_ROLE);
+        accessManager.setTargetFunctionRole(ics26, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
+        accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.PUBLIC_ROLE); // pub relay
+
+        // Grant roles
+        accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, msg.sender, 0);
+        accessManager.grantRole(IBCRolesLib.DELEGATE_SENDER_ROLE, msg.sender, 0);
 
         // Wire GMP app
         ICS26Router(address(routerProxy)).addIBCApp(ICS27Lib.DEFAULT_PORT_ID, address(gmpProxy));
