@@ -1,8 +1,7 @@
 use alloy_primitives::FixedBytes as AlloyFixedBytes;
 use alloy_sol_types::SolValue;
 
-/// handy alias for 32-byte fixed bytes
-type B32 = AlloyFixedBytes<32>;
+type B32Tuple = (AlloyFixedBytes<32>, AlloyFixedBytes<32>);
 
 /// Lightweight packet representation
 /// Including path hash implies replay-protection for attestations
@@ -10,17 +9,17 @@ type B32 = AlloyFixedBytes<32>;
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PacketCompact {
     /// Packet's `commitment_path` hash
-    pub path: B32,
+    pub path: AlloyFixedBytes<32>,
 
     /// Packet's `commitment` hash
-    pub commitment: B32,
+    pub commitment: AlloyFixedBytes<32>,
 }
 
 impl PacketCompact {
     /// Create a new packet compact from a path and a commitment
     pub fn new<T>(path: T, commitment: T) -> Self
     where
-        T: Into<B32>,
+        T: Into<AlloyFixedBytes<32>>,
     {
         Self {
             path: path.into(),
@@ -31,15 +30,14 @@ impl PacketCompact {
     /// Create a new packet compact from a tuple of path and commitment
     pub fn new_from_tuple<T>(tuple: (T, T)) -> Self
     where
-        T: Into<B32>,
+        T: Into<AlloyFixedBytes<32>>,
     {
         Self::new(tuple.0, tuple.1)
     }
 
     /// Convert packet compact to a tuple of path and commitment
     #[inline]
-    #[must_use]
-    pub const fn as_tuple(&self) -> (B32, B32) {
+    const fn as_tuple(&self) -> B32Tuple {
         (self.path, self.commitment)
     }
 
@@ -55,7 +53,7 @@ impl PacketCompact {
     ///
     /// Returns an error if the ABI decoding fails.
     pub fn from_abi_bytes(raw: &[u8]) -> Result<Self, alloy_sol_types::Error> {
-        let (path, commitment) = <(B32, B32)>::abi_decode(raw)?;
+        let (path, commitment) = B32Tuple::abi_decode(raw)?;
 
         Ok(Self { path, commitment })
     }
@@ -74,7 +72,7 @@ impl PacketCommitments {
     }
 
     /// Iterate over each individual packet commitment
-    pub fn commitments(&self) -> impl Iterator<Item = &B32> {
+    pub fn commitments(&self) -> impl Iterator<Item = &AlloyFixedBytes<32>> {
         self.0.iter().map(|p| &p.commitment)
     }
 
@@ -94,7 +92,7 @@ impl PacketCommitments {
     ///
     /// Returns an error if the ABI decoding fails.
     pub fn from_abi_bytes(raw: &[u8]) -> Result<Self, alloy_sol_types::Error> {
-        let tuples: Vec<(B32, B32)> = Vec::<(B32, B32)>::abi_decode(raw)?;
+        let tuples: Vec<B32Tuple> = Vec::<B32Tuple>::abi_decode(raw)?;
         let packets = tuples
             .into_iter()
             .map(PacketCompact::new_from_tuple)
