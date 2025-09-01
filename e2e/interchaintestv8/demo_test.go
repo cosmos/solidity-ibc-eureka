@@ -7,8 +7,8 @@ import (
 	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcxerc20"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics27gmp"
-	factorytypes "github.com/cosmos/wfchain/x/tokenfactory/types"
 	ethcommon "github.com/ethereum/go-ethereum/common"
+	wfchain "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/wfchain"
 	// ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
@@ -81,8 +81,16 @@ func (s *DemoTestSuite) SetupSuite(ctx context.Context, proofType types.Supporte
 	}))
 
 	s.Require().True(s.Run("TokenFactory Setup", func() {
-		createDenomMsg := factorytypes.NewMsgCreateDenom(simdUser.FormattedAddress(), testvalues.DemoDenom)
-		createBridgeMsg := factorytypes.NewMsgCreateBridge(simdUser.FormattedAddress(), testvalues.DemoDenom, testvalues.FirstWasmClientID, ibcxerc20Address.String())
+		createDenomMsg := &wfchain.MsgCreateDenom{
+			Sender: simdUser.FormattedAddress(),
+			Denom:  testvalues.DemoDenom,
+		}
+		createBridgeMsg := &wfchain.MsgCreateBridge{
+			From:                  simdUser.FormattedAddress(),
+			Denom:                 testvalues.DemoDenom,
+			ClientId:              testvalues.FirstWasmClientID,
+			RemoteContractAddress: ibcxerc20Address.String(),
+		}
 		_, err := s.BroadcastMessages(ctx, simd, simdUser, 500_000, createDenomMsg, createBridgeMsg)
 		s.Require().NoError(err)
 	}))

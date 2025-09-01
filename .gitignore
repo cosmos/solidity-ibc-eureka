@@ -21,9 +21,6 @@ scripts/ethgenesis/consensus_state.json
 go.work
 nitro-testnode
 
-# demo
-wfchain
-
 # broadcasts
 !broadcast
 broadcast/*

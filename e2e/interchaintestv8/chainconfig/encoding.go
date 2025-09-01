@@ -28,6 +28,8 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	solomachine "github.com/cosmos/ibc-go/v10/modules/light-clients/06-solomachine"
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
+
+	wfchain "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/wfchain"
 )
 
 // Codec returns the global E2E protobuf codec.
@@ -78,6 +80,10 @@ func codecAndEncodingConfig() (*codec.ProtoCodec, sdktestutil.TestEncodingConfig
 	proposaltypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	authz.RegisterInterfaces(cfg.InterfaceRegistry)
 	txtypes.RegisterInterfaces(cfg.InterfaceRegistry)
+
+	// wfchain types
+	wfchain.RegisterInterfaces(cfg.InterfaceRegistry)
+
 	cdc := codec.NewProtoCodec(cfg.InterfaceRegistry)
 	return cdc, cfg
 }

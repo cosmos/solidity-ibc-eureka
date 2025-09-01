@@ -45,7 +45,7 @@
             bun
             just
             golangci-lint
-            go_1_25
+            go
             jq
             parallel
             rust

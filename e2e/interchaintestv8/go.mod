@@ -1,6 +1,6 @@
 module github.com/srdtrk/solidity-ibc-eureka/e2e/v8
 
-go 1.25.0
+go 1.24.0
 
 replace github.com/ethereum/go-ethereum => github.com/ethereum-optimism/op-geth v1.101511.0
 
@@ -13,6 +13,7 @@ require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/attestantio/go-eth2-client v1.15.2
 	github.com/cometbft/cometbft v0.38.18
+	github.com/cosmos/cosmos-proto v1.0.0-beta.5
 	github.com/cosmos/cosmos-sdk v0.53.4
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.3.0
@@ -20,7 +21,6 @@ require (
 	github.com/cosmos/ics23/go v0.11.0
 	github.com/cosmos/interchaintest/v10 v10.0.0
 	github.com/cosmos/solidity-ibc-eureka/packages/go-abigen v0.0.0
-	github.com/cosmos/wfchain v0.0.0
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/holiman/uint256 v1.3.2
 	github.com/kurtosis-tech/kurtosis/api/golang v1.10.3
@@ -89,7 +89,6 @@ require (
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/cosmos-db v1.1.3 // indirect
-	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v1.2.4 // indirect
@@ -311,8 +310,6 @@ require (
 )
 
 replace github.com/cosmos/solidity-ibc-eureka/packages/go-abigen => ../../packages/go-abigen
-
-replace github.com/cosmos/wfchain => ../../wfchain
 
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
