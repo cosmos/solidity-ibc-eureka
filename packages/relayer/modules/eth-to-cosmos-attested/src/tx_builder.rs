@@ -26,10 +26,11 @@ use tendermint_rpc::HttpClient;
 use tonic::transport::Channel;
 
 use ibc_eureka_relayer_lib::{
+    attestations,
     chain::{Chain, CosmosSdk},
     events::{EurekaEvent, EurekaEventWithHeight},
     tx_builder::TxBuilderService,
-    utils::{attestor, cosmos},
+    utils::cosmos,
 };
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 
@@ -236,7 +237,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
         let proof = build_membership_proof(packets.attested_data, packets.signatures)?;
-        attestor::inject_proofs_for_tm_msg(&mut recv_msgs, &proof, packets.height);
+        attestations::inject_proofs_for_tm_msg(&mut recv_msgs, &proof, packets.height);
 
         // NOTE: UpdateMsg must come first otherwise
         // client state may not contain the needed

@@ -35,6 +35,5 @@ where
 }
 
 /// Utils useful for type conversions for attestor clients
-pub mod attestor;
 pub mod cosmos;
 pub mod eth_eureka;

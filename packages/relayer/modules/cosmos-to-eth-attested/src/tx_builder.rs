@@ -16,10 +16,11 @@ use anyhow::Result;
 use tonic::transport::Channel;
 
 use ibc_eureka_relayer_lib::{
+    attestations,
     chain::{Chain, CosmosSdk},
     events::{EurekaEvent, EurekaEventWithHeight},
     tx_builder::TxBuilderService,
-    utils::{attestor, eth_eureka},
+    utils::eth_eureka,
 };
 use ibc_eureka_solidity_types::{
     attestor_light_client,
@@ -231,7 +232,7 @@ where
         tracing::debug!("Recv & ack messages: #{}", recv_and_ack_msgs.len());
 
         let proof = build_abi_encoded_proof(packets.attested_data, packets.signatures);
-        attestor::inject_proofs_for_evm_msg(&mut recv_and_ack_msgs, &proof);
+        attestations::inject_proofs_for_evm_msg(&mut recv_and_ack_msgs, &proof);
 
         // NOTE: UpdateMsg must come first otherwise
         // client state may not contain the needed
