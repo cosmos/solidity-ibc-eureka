@@ -13,12 +13,16 @@ pub struct Config {
 
 impl Config {
     /// Reads config from a file
+    ///
+    /// # Errors
+    /// - Fails if file does not exist
+    /// - Fails if the config is invalid
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         let content = fs::read_to_string(path)
             .with_context(|| format!("Failed to read config file '{}'", path.display()))?;
 
-        let config: Config =
+        let config: Self =
             serde_json::from_str(&content).context("Failed to parse JSON configuration")?;
 
         config.validate()?;
@@ -27,6 +31,10 @@ impl Config {
     }
 
     /// Validates the parsed config
+    ///
+    /// # Errors
+    /// - Fails if attestaor config is invalid
+    /// - Fails if cache config is invalid
     pub fn validate(&self) -> Result<()> {
         self.attestor.validate()?;
         self.cache.validate()?;
@@ -62,7 +70,7 @@ impl AttestorConfig {
         self.attestor_endpoints
             .iter()
             .enumerate()
-            .try_for_each(|(index, endpoint)| self.validate_single_endpoint(endpoint, index))?;
+            .try_for_each(|(index, endpoint)| Self::validate_single_endpoint(endpoint, index))?;
 
         let unique_count = self.attestor_endpoints.iter().collect::<HashSet<_>>().len();
 
@@ -76,7 +84,7 @@ impl AttestorConfig {
         Ok(())
     }
 
-    fn validate_single_endpoint(&self, endpoint: &str, index: usize) -> Result<()> {
+    fn validate_single_endpoint(endpoint: &str, index: usize) -> Result<()> {
         let trimmed_endpoint = endpoint.trim();
 
         anyhow::ensure!(
@@ -179,11 +187,11 @@ mod defaults {
     pub const DEFAULT_PACKET_CACHE_MAX_ENTRIES: u64 = 100_000;
     pub const MAX_CACHE_ENTRIES: u64 = 100_000_000;
 
-    pub fn default_state_cache_max_entries() -> u64 {
+    pub const fn default_state_cache_max_entries() -> u64 {
         DEFAULT_STATE_CACHE_MAX_ENTRIES
     }
 
-    pub fn default_packet_cache_max_entries() -> u64 {
+    pub const fn default_packet_cache_max_entries() -> u64 {
         DEFAULT_PACKET_CACHE_MAX_ENTRIES
     }
 }

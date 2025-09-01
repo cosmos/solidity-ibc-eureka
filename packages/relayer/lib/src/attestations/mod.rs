@@ -5,7 +5,7 @@ mod aggregator;
 mod proof;
 
 pub use aggregator::{
-    aggregator::Aggregator,
     config::{AttestorConfig, CacheConfig, Config},
+    Aggregator,
 };
 pub use proof::*;

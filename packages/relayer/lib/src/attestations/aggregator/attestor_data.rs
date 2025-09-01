@@ -7,7 +7,7 @@ type State = Vec<u8>;
 // 65-byte recoverable ECDSA signature: r (32) || s (32) || v (1)
 pub const SIGNATURE_BYTE_LENGTH: usize = 65;
 
-/// Maps attested_data -> list of attestations
+/// Maps `attested_data` -> list of attestations
 ///
 /// Structure:
 /// ```text
@@ -119,8 +119,7 @@ mod tests {
         let err_msg = result.unwrap_err().to_string();
         assert!(
             err_msg.contains("Invalid attestation"),
-            "Should be an invalid attestation error, got: {}",
-            err_msg
+            "Should be an invalid attestation error, got: {err_msg}",
         );
     }
 
