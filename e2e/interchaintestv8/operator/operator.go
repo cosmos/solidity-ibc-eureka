@@ -21,7 +21,7 @@ import (
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 type GenesisFixture struct {

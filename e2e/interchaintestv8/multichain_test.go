@@ -31,22 +31,22 @@ import (
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/cosmos/interchaintest/v10/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/chainconfig"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/cosmos"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/ethereum"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/relayer"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/types"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/erc20"
+	relayertypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
 type MultichainTestSuite struct {

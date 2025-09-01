@@ -35,17 +35,17 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibchostv2 "github.com/cosmos/ibc-go/v10/modules/core/24-host/v2"
 
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+	"github.com/cosmos/interchaintest/v10/testutil"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
-	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/relayer"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/types"
+	ethereumtypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/ethereum"
+	relayertypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
 // RelayerTestSuite is a suite of tests that wraps IbcEurekaTestSuite

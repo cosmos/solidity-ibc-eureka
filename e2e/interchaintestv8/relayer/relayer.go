@@ -19,8 +19,8 @@ import (
 	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
-	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	ethereumtypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/ethereum"
+	relayertypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
 // DefaultRelayerGRPCAddress returns the default gRPC address for the relayer.

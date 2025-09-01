@@ -10,7 +10,7 @@ import (
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 type SolidityFixtureGenerator struct {

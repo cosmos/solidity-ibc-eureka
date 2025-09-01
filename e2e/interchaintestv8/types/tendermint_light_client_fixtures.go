@@ -7,10 +7,10 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/tendermint_light_client_fixtures"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/tendermint_light_client_fixtures"
 )
 
 type KeyPath = tendermint_light_client_fixtures.KeyPath
