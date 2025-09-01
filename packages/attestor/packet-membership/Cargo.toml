@@ -12,3 +12,7 @@ alloy-sol-types = { workspace = true, default-features = false, features = ["jso
 alloy-primitives = { workspace = true, default-features = false }
 thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+hex = "0.4"
+serde_json = "1.0"

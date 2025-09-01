@@ -29,7 +29,7 @@ Note: Advanced features like merkle proof verification are not included.
 
 ## Attestation Format
 
-- `attestation_data`: ABI-encoded payload. For packet membership, this is `bytes32[]` of packet commitments.
+- `attestation_data`: ABI-encoded payload. For packet membership, this is an ABI-encoded `PacketAttestation` struct containing packet commitment paths and values.
 - `signatures`: Raw 65-byte `(r || s || v)` signatures. Signer addresses are recovered and must exist in `ClientState.attestor_addresses`. Duplicate signatures and insufficient signatures are rejected.
 
 Construct client state with addresses directly:

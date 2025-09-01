@@ -12,4 +12,4 @@ mod packet_commitments;
 
 pub mod verify_packet_membership;
 pub use error::PacketAttestationError;
-pub use packet_commitments::PacketCommitments;
+pub use packet_commitments::{PacketCommitments, PacketCompact};

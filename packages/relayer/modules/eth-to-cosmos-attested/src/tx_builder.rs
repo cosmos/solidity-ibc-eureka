@@ -23,13 +23,13 @@ use ibc_proto_eureka::{
 };
 use prost::Message;
 use tendermint_rpc::HttpClient;
-use tonic::transport::Channel;
 
 use ibc_eureka_relayer_lib::{
+    aggregator::{Aggregator, Config},
     chain::{Chain, CosmosSdk},
     events::{EurekaEvent, EurekaEventWithHeight},
     tx_builder::TxBuilderService,
-    utils::{attestor, cosmos},
+    utils::{attested, cosmos},
 };
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 
@@ -42,19 +42,10 @@ impl Chain for AttestedChain {
     type Height = u64;
 }
 
-/// Generated aggregator client protobuf definitions
-pub mod aggregator_proto {
-    tonic::include_proto!("aggregator");
-}
-
-/// The aggregator client for fetching attestations.
-pub type AggregatorClient =
-    aggregator_proto::aggregator_service_client::AggregatorServiceClient<Channel>;
-
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on attestations from the aggregator.
 pub struct TxBuilder {
     /// The aggregator URL for fetching attestations.
-    pub aggregator_url: String,
+    pub aggregator: Aggregator,
     /// The HTTP client for the target chain.
     pub target_tm_client: HttpClient,
     /// The signer address for the Cosmos messages.
@@ -63,25 +54,18 @@ pub struct TxBuilder {
 
 impl TxBuilder {
     /// Creates a new `TxBuilder`.
-    #[must_use]
-    pub const fn new(
-        aggregator_url: String,
+    pub async fn new(
+        aggregator_config: Config,
         target_tm_client: HttpClient,
         signer_address: String,
-    ) -> Self {
-        Self {
-            aggregator_url,
+    ) -> Result<Self> {
+        let aggregator = Aggregator::from_config(aggregator_config.clone()).await?;
+
+        Ok(Self {
+            aggregator,
             target_tm_client,
             signer_address,
-        }
-    }
-
-    /// Creates an aggregator client.
-    async fn create_aggregator_client(&self) -> Result<AggregatorClient> {
-        let channel = Channel::from_shared(self.aggregator_url.clone())?
-            .connect()
-            .await?;
-        Ok(AggregatorClient::new(channel))
+        })
     }
 }
 
@@ -136,8 +120,6 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             target_events.len()
         );
 
-        let mut aggregator_client = self.create_aggregator_client().await?;
-
         let mut ics26_send_packets = Vec::new();
         let mut ics26_ack_packets = Vec::new();
         let mut heights = HashSet::new();
@@ -163,29 +145,16 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         }
 
         let query_height = *heights.iter().max().unwrap();
-        let request = aggregator_proto::GetAttestationsRequest {
-            packets: ics26_send_packets,
-            height: query_height, // latest height
-        };
 
         tracing::info!(
             "Requesting state attestation from aggregator for {} packets",
-            request.packets.len()
+            ics26_send_packets.len()
         );
 
-        let response = aggregator_client
-            .get_attestations(request)
-            .await?
-            .into_inner();
-
-        let (state, packets) = (
-            response
-                .state_attestation
-                .ok_or_else(|| anyhow::anyhow!("No state received"))?,
-            response
-                .packet_attestation
-                .ok_or_else(|| anyhow::anyhow!("No packets received"))?,
-        );
+        let (state, packets) = self
+            .aggregator
+            .get_attestations(ics26_send_packets, query_height)
+            .await?;
 
         tracing::info!(
             "Received state attestation: {} signatures, height {}, state: {}",
@@ -236,7 +205,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
         let proof = build_membership_proof(packets.attested_data, packets.signatures)?;
-        attestor::inject_proofs_for_tm_msg(&mut recv_msgs, &proof, packets.height);
+        attested::inject_proofs_for_tm_msg(&mut recv_msgs, &proof, packets.height);
 
         // NOTE: UpdateMsg must come first otherwise
         // client state may not contain the needed
@@ -328,23 +297,5 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::info!("Updating attested light client: {}", dst_client_id);
         // TODO: IBC-164
         todo!()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use attestor_packet_membership::PacketCommitments;
-
-    #[test]
-    fn abi_bytes_are_not_json() {
-        let commitments = vec![[0x11u8; 32], [0x22u8; 32]];
-        let abi = PacketCommitments::new(commitments).to_abi_bytes();
-
-        let parsed: Result<Vec<Vec<u8>>, _> = serde_json::from_slice(&abi);
-        assert!(
-            parsed.is_err(),
-            "ABI-encoded bytes32[] must not be parsed as JSON"
-        );
     }
 }

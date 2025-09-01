@@ -125,10 +125,10 @@ type ethToCosmosConfig struct {
 
 // EthToCosmosAttestedModuleConfig represents the configuration for attested_to_cosmos module
 type EthToCosmosAttestedModuleConfig struct {
-	AttestedChainId string `json:"attested_chain_id"`
-	AggregatorUrl   string `json:"aggregator_url"`
-	AttestedRpcUrl  string `json:"attested_rpc_url"`
-	Ics26Address    string `json:"ics26_address"`
-	TmRpcUrl        string `json:"tm_rpc_url"`
-	SignerAddress   string `json:"signer_address"`
+	AttestedChainId  string           `json:"attested_chain_id"`
+	AggregatorConfig AggregatorConfig `json:"aggregator_config"`
+	AttestedRpcUrl   string           `json:"attested_rpc_url"`
+	Ics26Address     string           `json:"ics26_address"`
+	TmRpcUrl         string           `json:"tm_rpc_url"`
+	SignerAddress    string           `json:"signer_address"`
 }
