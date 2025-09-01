@@ -5,7 +5,7 @@ use std::collections::HashMap;
 type State = Vec<u8>;
 
 // 65-byte recoverable ECDSA signature: r (32) || s (32) || v (1)
-pub const SIGNATURE_BYTE_LENGTH: usize = 65;
+const SIGNATURE_BYTE_LENGTH: usize = 65;
 
 /// Maps `attested_data` -> list of attestations
 ///
@@ -23,11 +23,11 @@ pub struct AttestatorData {
 
 impl AttestatorData {
     #[must_use]
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self::default()
     }
 
-    pub fn insert(&mut self, attestation: Attestation) -> Result<()> {
+    pub(super) fn insert(&mut self, attestation: Attestation) -> Result<()> {
         attestation.validate().context("Invalid attestation")?;
 
         let attested_data = State::from(attestation.attested_data.as_slice());
@@ -41,7 +41,7 @@ impl AttestatorData {
     }
 
     #[must_use]
-    pub fn agg_quorumed_attestations(&self, quorum: usize) -> Option<AggregatedAttestation> {
+    pub(super) fn agg_quorumed_attestations(&self, quorum: usize) -> Option<AggregatedAttestation> {
         self.state_attestations
             .iter()
             .find(|(_, attestations)| attestations.len() >= quorum)

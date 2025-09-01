@@ -15,11 +15,11 @@ use alloy::{
 use anyhow::Result;
 
 use ibc_eureka_relayer_lib::{
-    attestations::{self, Aggregator, Config},
+    aggregator::{Aggregator, Config},
     chain::{Chain, CosmosSdk},
     events::{EurekaEvent, EurekaEventWithHeight},
     tx_builder::TxBuilderService,
-    utils::eth_eureka,
+    utils::{attested, eth_eureka},
 };
 use ibc_eureka_solidity_types::{
     attestor_light_client,
@@ -203,7 +203,7 @@ where
         tracing::debug!("Recv & ack messages: #{}", recv_and_ack_msgs.len());
 
         let proof = build_abi_encoded_proof(packets.attested_data, packets.signatures);
-        attestations::inject_proofs_for_evm_msg(&mut recv_and_ack_msgs, &proof);
+        attested::inject_proofs_for_evm_msg(&mut recv_and_ack_msgs, &proof);
 
         // NOTE: UpdateMsg must come first otherwise
         // client state may not contain the needed

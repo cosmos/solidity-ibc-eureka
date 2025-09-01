@@ -22,7 +22,7 @@ use alloy::{
     providers::{Provider, RootProvider},
 };
 use ibc_eureka_relayer_lib::{
-    attestations::Config,
+    aggregator::Config,
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::TxBuilderService,
 };
@@ -252,7 +252,7 @@ impl RelayerModule for CosmosToEthAttestedRelayerModule {
 #[cfg(test)]
 mod tests {
     use alloy::hex;
-    use ibc_eureka_relayer_lib::attestations::{AttestorConfig, CacheConfig};
+    use ibc_eureka_relayer_lib::aggregator::{AttestorConfig, CacheConfig};
 
     use super::*;
 

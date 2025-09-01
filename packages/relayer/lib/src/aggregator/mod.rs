@@ -1,11 +1,14 @@
+//! Reusable aggregator for attester relayer modules
+
 #[allow(clippy::all, clippy::pedantic, clippy::nursery)]
+/// RPC definitions for the attestor
 pub mod rpc {
     tonic::include_proto!("aggregator");
     tonic::include_proto!("ibc_attestor");
 }
 
-pub mod attestor_data;
-pub mod config;
+mod attestor_data;
+mod config;
 
 use futures::future::join_all;
 use moka::future::Cache;
@@ -19,12 +22,13 @@ use tonic::{transport::Channel, Request, Status};
 use tracing::error as tracing_error;
 use {
     attestor_data::AttestatorData,
-    config::{AttestorConfig, Config},
     rpc::{
         attestation_service_client::AttestationServiceClient, AggregatedAttestation, Attestation,
         PacketAttestationRequest, StateAttestationRequest,
     },
 };
+
+pub use config::{AttestorConfig, CacheConfig, Config};
 
 #[derive(Clone)]
 enum AttestationQuery {
