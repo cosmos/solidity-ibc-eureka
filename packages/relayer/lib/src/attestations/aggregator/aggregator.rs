@@ -3,7 +3,7 @@ use super::{
     config::{AttestorConfig, Config},
     rpc::{
         attestation_service_client::AttestationServiceClient, AggregatedAttestation, Attestation,
-        GetAttestationsRequest, PacketAttestationRequest, StateAttestationRequest,
+        PacketAttestationRequest, StateAttestationRequest,
     },
 };
 use futures::future::join_all;
@@ -79,25 +79,26 @@ impl Aggregator {
     /// Get attestations
     pub async fn get_attestations(
         &self,
-        request: GetAttestationsRequest,
+        packets: Vec<Vec<u8>>,
+        height: u64,
     ) -> anyhow::Result<(AggregatedAttestation, AggregatedAttestation)> {
-        if request.packets.is_empty() {
+        if packets.is_empty() {
             return Err(anyhow::anyhow!("Packets cannot be empty"));
         }
 
-        if request.packets.iter().any(|packet| packet.is_empty()) {
+        if packets.iter().any(|packet| packet.is_empty()) {
             return Err(anyhow::anyhow!("Packet cannot be empty"));
         }
 
-        let mut sorted_packets = request.packets;
+        let mut sorted_packets = packets;
         sorted_packets.sort();
-        let packet_cache_key = Self::make_packet_cache_key(&sorted_packets, request.height);
+        let packet_cache_key = Self::make_packet_cache_key(&sorted_packets, height);
 
         let packet_attestation = self
             .packet_cache
             .try_get_with(packet_cache_key, async {
                 let packet_attestations = self
-                    .query_attestations(AttestationQuery::Packet(sorted_packets, request.height))
+                    .query_attestations(AttestationQuery::Packet(sorted_packets, height))
                     .await?;
 
                 let quorumed_aggregation =

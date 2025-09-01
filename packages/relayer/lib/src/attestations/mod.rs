@@ -7,6 +7,5 @@ mod proof;
 pub use aggregator::{
     aggregator::Aggregator,
     config::{AttestorConfig, CacheConfig, Config},
-    rpc::GetAttestationsRequest,
 };
 pub use proof::*;

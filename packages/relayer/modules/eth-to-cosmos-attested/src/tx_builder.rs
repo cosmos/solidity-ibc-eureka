@@ -25,7 +25,7 @@ use prost::Message;
 use tendermint_rpc::HttpClient;
 
 use ibc_eureka_relayer_lib::{
-    attestations::{self, Aggregator, Config, GetAttestationsRequest},
+    attestations::{self, Aggregator, Config},
     chain::{Chain, CosmosSdk},
     events::{EurekaEvent, EurekaEventWithHeight},
     tx_builder::TxBuilderService,
@@ -146,17 +146,16 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         }
 
         let query_height = *heights.iter().max().unwrap();
-        let request = GetAttestationsRequest {
-            packets: ics26_send_packets,
-            height: query_height, // latest height
-        };
 
         tracing::info!(
             "Requesting state attestation from aggregator for {} packets",
-            request.packets.len()
+            ics26_send_packets.len()
         );
 
-        let (state, packets) = self.aggregator.get_attestations(request).await?;
+        let (state, packets) = self
+            .aggregator
+            .get_attestations(ics26_send_packets, query_height)
+            .await?;
 
         tracing::info!(
             "Received state attestation: {} signatures, height {}, state: {}",
