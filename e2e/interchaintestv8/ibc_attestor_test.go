@@ -30,7 +30,6 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
-	aggregator "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/aggregator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -213,34 +212,6 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 		}
 	})
 
-	// Setup aggregator
-	var aggregatorProcess *os.Process
-	s.Require().True(s.Run("Setup aggregator", func() {
-		aggregatorConfig := aggregator.NewAggregatorConfigWithEndpoints(attestorEndpoints, 1)
-		err := aggregatorConfig.WriteTomlConfig(testvalues.AggregatorConfigPath)
-		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			err := aggregator.CleanupConfig(testvalues.AggregatorConfigPath)
-			s.Require().NoError(err)
-		})
-
-		aggregatorProcess, err = aggregator.StartAggregator(testvalues.AggregatorConfigPath)
-		s.Require().NoError(err)
-
-		agg, err := aggregator.GetAggregatorServiceClient(aggregatorConfig.Server.ListenerAddr)
-		s.Require().NoError(err)
-		s.AggregatorClient = agg
-	}))
-
-	s.T().Cleanup(func() {
-		if aggregatorProcess != nil {
-			err := aggregatorProcess.Kill()
-			if err != nil {
-				s.T().Logf("Failed to kill the aggregator process: %v", err)
-			}
-		}
-	})
-
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
 		sp1Config := relayer.SP1ProverConfig{
@@ -250,7 +221,6 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 		config := relayer.NewConfig(relayer.CreateAttestedCosmosModules(
 			relayer.EthToCosmosAttestedConfigInfo{
 				AttestedChainID:     eth.ChainID.String(),
-				AggregatorUrl:       testvalues.AggregatorRpcPath,
 				AttestedRpcUrl:      eth.RPC,
 				Ics26Address:        s.contractAddresses.Ics26Router,
 				TmRpcUrl:            simd.GetHostRPCAddress(),
@@ -486,33 +456,6 @@ func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binary
 		}
 	})
 
-	// Start aggregator service
-	var aggregatorProcess *os.Process
-	s.Require().True(s.Run("Setup aggregator", func() {
-		aggregatorConfig := aggregator.NewAggregatorConfigWithEndpoints(attestorEndpoints, testvalues.NumAttestors)
-		err := aggregatorConfig.WriteTomlConfig(testvalues.AggregatorConfigPath)
-		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			err := aggregator.CleanupConfig(testvalues.AggregatorConfigPath)
-			s.Require().NoError(err)
-		})
-
-		aggregatorProcess, err = aggregator.StartAggregator(testvalues.AggregatorConfigPath)
-		s.Require().NoError(err)
-	}))
-
-	s.T().Cleanup(func() {
-		if aggregatorProcess != nil {
-			err := aggregatorProcess.Kill()
-			s.Require().NoError(err)
-		}
-	})
-
-	// Test that aggregator can communicate with attestors
-	s.Require().True(s.Run("Test aggregator communication", func() {
-		_, err := aggregator.GetAggregatorServiceClient("127.0.0.1:8080")
-		s.Require().NoError(err)
-	}))
 }
 
 func (s *IbcAttestorTestSuite) Test_OptimismAttestToICS20PacketsOnEth() {
@@ -561,10 +504,9 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 	}))
 
 	var (
-		sendPacket            ics26router.IICS26RouterMsgsPacket
-		escrowAddress         ethcommon.Address
-		blockHeightOfTransfer uint64
-		ethSendTxHash         []byte
+		sendPacket    ics26router.IICS26RouterMsgsPacket
+		escrowAddress ethcommon.Address
+		ethSendTxHash []byte
 	)
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
@@ -588,7 +530,6 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 		tx, err := s.ics20Contract.Multicall(s.GetTransactOpts(s.key, eth), transferMulticall)
 		s.Require().NoError(err)
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-		blockHeightOfTransfer = receipt.BlockNumber.Uint64()
 		ethSendTxHash = tx.Hash().Bytes()
 
 		s.Require().NoError(err)
@@ -623,22 +564,6 @@ func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumN
 			s.Require().NoError(err)
 			s.Require().Equal(totalTransferAmount, escrowBalance)
 		}))
-	}))
-
-	s.True(s.Run("Attest to packets via aggregator", func() {
-		encoded, err := types.AbiEncodePacket(sendPacket)
-		s.Require().NoError(err)
-
-		packet_to_arr := [][]byte{encoded}
-
-		atts, err := aggregator.GetAttestations(ctx, s.AggregatorClient, packet_to_arr, blockHeightOfTransfer)
-		s.Require().NoError(err)
-
-		s.True(atts.StateAttestation.Height == blockHeightOfTransfer)
-		s.True(atts.PacketAttestation.Height == blockHeightOfTransfer)
-
-		s.True(len(atts.PacketAttestation.AttestedData) > 0)
-		s.True(len(atts.StateAttestation.AttestedData) > 0)
 	}))
 
 	var (

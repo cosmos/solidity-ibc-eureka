@@ -45,7 +45,7 @@ impl Chain for AttestedChain {
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on attestations from the aggregator.
 pub struct TxBuilder {
     /// The aggregator URL for fetching attestations.
-    pub aggregater_config: Config,
+    pub aggregator_config: Config,
     /// The HTTP client for the target chain.
     pub target_tm_client: HttpClient,
     /// The signer address for the Cosmos messages.
@@ -56,12 +56,12 @@ impl TxBuilder {
     /// Creates a new `TxBuilder`.
     #[must_use]
     pub const fn new(
-        aggregater_config: Config,
+        aggregator_config: Config,
         target_tm_client: HttpClient,
         signer_address: String,
     ) -> Self {
         Self {
-            aggregater_config,
+            aggregator_config,
             target_tm_client,
             signer_address,
         }
@@ -69,7 +69,7 @@ impl TxBuilder {
 
     /// Creates an aggregator client.
     async fn create_aggregator_client(&self) -> Result<Aggregator> {
-        Aggregator::from_config(self.aggregater_config.clone())
+        Aggregator::from_config(self.aggregator_config.clone())
             .await
             .map_err(Into::into)
     }

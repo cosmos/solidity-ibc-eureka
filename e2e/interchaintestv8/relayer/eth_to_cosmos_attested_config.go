@@ -1,9 +1,53 @@
 package relayer
 
+// ServerConfig represents the server configuration section
+type ServerConfig struct {
+	ListenerAddr string `json:"listener_addr"`
+	LogLevel     string `json:"log_level"`
+}
+
+// AttestorConfig represents the attestor configuration section
+type AttestorConfig struct {
+	AttestorQueryTimeoutMs int      `json:"attestor_query_timeout_ms"`
+	QuorumThreshold        int      `json:"quorum_threshold"`
+	AttestorEndpoints      []string `json:"attestor_endpoints"`
+}
+
+// CacheConfig represents the cache configuration section
+type CacheConfig struct {
+	StateCacheMaxEntries  int `json:"state_cache_max_entries"`
+	PacketCacheMaxEntries int `json:"packet_cache_max_entries"`
+}
+
+// AggregatorConfig represents the full aggregator configuration
+type AggregatorConfig struct {
+	Server   ServerConfig   `json:"server"`
+	Attestor AttestorConfig `json:"attestor"`
+	Cache    CacheConfig    `json:"cache"`
+}
+
+// DefaultAggregatorConfig returns a config with sensible defaults
+func DefaultAggregatorConfig() *AggregatorConfig {
+	return &AggregatorConfig{
+		Server: ServerConfig{
+			ListenerAddr: "127.0.0.1:8080",
+			LogLevel:     "INFO",
+		},
+		Attestor: AttestorConfig{
+			AttestorQueryTimeoutMs: 5000,
+			QuorumThreshold:        1,
+			AttestorEndpoints:      []string{"http://127.0.0.1:9000"},
+		},
+		Cache: CacheConfig{
+			StateCacheMaxEntries:  100000,
+			PacketCacheMaxEntries: 100000,
+		},
+	}
+}
+
 // EthToCosmosAttestedConfigInfo is a struct that holds the configuration information for the Attested to Cosmos config template
 type EthToCosmosAttestedConfigInfo struct {
 	AttestedChainID     string
-	AggregatorUrl       string
 	AttestedRpcUrl      string
 	Ics26Address        string
 	TmRpcUrl            string
@@ -21,12 +65,12 @@ func CreateAttestedCosmosModules(
 			SrcChain: configInfo.AttestedChainID,
 			DstChain: configInfo.CosmosChainID,
 			Config: EthToCosmosAttestedModuleConfig{
-				AttestedChainId: configInfo.AttestedChainID,
-				AggregatorUrl:   configInfo.AggregatorUrl,
-				AttestedRpcUrl:  configInfo.AttestedRpcUrl,
-				Ics26Address:    configInfo.Ics26Address,
-				TmRpcUrl:        configInfo.TmRpcUrl,
-				SignerAddress:   configInfo.CosmosSignerAddress,
+				AttestedChainId:  configInfo.AttestedChainID,
+				AggregatorConfig: *DefaultAggregatorConfig(),
+				AttestedRpcUrl:   configInfo.AttestedRpcUrl,
+				Ics26Address:     configInfo.Ics26Address,
+				TmRpcUrl:         configInfo.TmRpcUrl,
+				SignerAddress:    configInfo.CosmosSignerAddress,
 			},
 		},
 		{
