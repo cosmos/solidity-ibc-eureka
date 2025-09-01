@@ -142,19 +142,14 @@ impl TxBuilder {
     /// Returns an error if serialization fails
     fn build_create_client_instruction(
         &self,
-        chain_id: &str,
         latest_height: u64,
         client_state: &ClientState,
         consensus_state: &ConsensusState,
     ) -> Result<Instruction> {
         // Derive PDAs
-        let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
-        let (consensus_state_pda, _) = derive_ics07_consensus_state(
-            &client_state_pda,
-            latest_height,
-            &self.solana_ics07_program_id,
-        );
+        let (client_state_pda, _) = derive_ics07_client_state(&self.solana_ics07_program_id);
+        let (consensus_state_pda, _) =
+            derive_ics07_consensus_state(latest_height, &self.solana_ics07_program_id);
 
         tracing::debug!("Client state PDA: {}", client_state_pda);
         tracing::debug!("Consensus state PDA: {}", consensus_state_pda);
@@ -176,8 +171,7 @@ impl TxBuilder {
         // Add discriminator
         instruction_data.extend_from_slice(&discriminator);
 
-        // Serialize parameters in order: chain_id, latest_height, client_state, consensus_state
-        instruction_data.extend_from_slice(&chain_id.try_to_vec()?);
+        // Serialize parameters in order: latest_height, client_state, consensus_state
         instruction_data.extend_from_slice(&latest_height.try_to_vec()?);
         instruction_data.extend_from_slice(&client_state.try_to_vec()?);
         instruction_data.extend_from_slice(&consensus_state.try_to_vec()?);
@@ -435,25 +429,16 @@ impl TxBuilder {
             client_message: header_bytes,
         };
 
-        // Get the chain ID for PDA derivation
-        let chain_id = latest_block.block.header.chain_id.to_string();
-        let (client_state_pda, _) =
-            derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
+        let (client_state_pda, _) = derive_ics07_client_state(&self.solana_ics07_program_id);
 
         // Use heights already calculated above
         let new_height = latest_block.block.header.height.value();
 
         let trusted_height = new_height.saturating_sub(1);
-        let (trusted_consensus_state, _) = derive_ics07_consensus_state(
-            &client_state_pda,
-            trusted_height,
-            &self.solana_ics07_program_id,
-        );
-        let (new_consensus_state, _) = derive_ics07_consensus_state(
-            &client_state_pda,
-            new_height,
-            &self.solana_ics07_program_id,
-        );
+        let (trusted_consensus_state, _) =
+            derive_ics07_consensus_state(trusted_height, &self.solana_ics07_program_id);
+        let (new_consensus_state, _) =
+            derive_ics07_consensus_state(new_height, &self.solana_ics07_program_id);
 
         // Build the instruction
         let accounts = vec![
@@ -524,25 +509,15 @@ impl TxBuilder {
         // Derive all required PDAs
         let (router_state, _) = derive_router_state(&self.solana_ics26_program_id);
         let (ibc_app, _) = derive_ibc_app(&dest_port, &self.solana_ics26_program_id);
-        let (client_sequence, _) =
-            derive_client_sequence(params.destination_client, &self.solana_ics26_program_id);
-        let (packet_receipt, _) = derive_packet_receipt(
-            params.destination_client,
-            params.sequence,
-            &self.solana_ics26_program_id,
-        );
-        let (packet_ack, _) = derive_packet_ack(
-            params.destination_client,
-            params.sequence,
-            &self.solana_ics26_program_id,
-        );
-        let (client, _) = derive_client(params.destination_client, &self.solana_ics26_program_id);
+        let (client_sequence, _) = derive_client_sequence(&self.solana_ics26_program_id);
+        let (packet_receipt, _) =
+            derive_packet_receipt(params.sequence, &self.solana_ics26_program_id);
+        let (packet_ack, _) = derive_packet_ack(params.sequence, &self.solana_ics26_program_id);
+        let (client, _) = derive_client(&self.solana_ics26_program_id);
 
         // For light client verification, we also need ICS07 accounts
-        let (client_state, _) =
-            derive_ics07_client_state(params.source_client, &self.solana_ics07_program_id);
-        let (consensus_state, _) =
-            derive_ics07_consensus_state(&client_state, 0, &self.solana_ics07_program_id); // Use appropriate height
+        let (client_state, _) = derive_ics07_client_state(&self.solana_ics07_program_id);
+        let (consensus_state, _) = derive_ics07_consensus_state(0, &self.solana_ics07_program_id); // Use appropriate height
 
         // Build accounts list
         let accounts = vec![
@@ -650,12 +625,8 @@ impl TxBuilder {
         let consensus_state = Self::create_consensus_state_from_block(&latest_block)?;
 
         // Build the instruction for creating the client
-        let instruction = self.build_create_client_instruction(
-            &chain_id_str,
-            latest_height,
-            &client_state,
-            &consensus_state,
-        )?;
+        let instruction =
+            self.build_create_client_instruction(latest_height, &client_state, &consensus_state)?;
 
         // Create unsigned transaction
         let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
@@ -777,30 +748,17 @@ impl MockTxBuilder {
         // Derive all required PDAs
         let (router_state, _) = derive_router_state(&self.inner.solana_ics26_program_id);
         let (ibc_app, _) = derive_ibc_app(&dest_port, &self.inner.solana_ics26_program_id);
-        let (client_sequence, _) = derive_client_sequence(
-            params.destination_client,
-            &self.inner.solana_ics26_program_id,
-        );
-        let (packet_receipt, _) = derive_packet_receipt(
-            params.destination_client,
-            params.sequence,
-            &self.inner.solana_ics26_program_id,
-        );
-        let (packet_ack, _) = derive_packet_ack(
-            params.destination_client,
-            params.sequence,
-            &self.inner.solana_ics26_program_id,
-        );
-        let (client, _) = derive_client(
-            params.destination_client,
-            &self.inner.solana_ics26_program_id,
-        );
+        let (client_sequence, _) = derive_client_sequence(&self.inner.solana_ics26_program_id);
+        let (packet_receipt, _) =
+            derive_packet_receipt(params.sequence, &self.inner.solana_ics26_program_id);
+        let (packet_ack, _) =
+            derive_packet_ack(params.sequence, &self.inner.solana_ics26_program_id);
+        let (client, _) = derive_client(&self.inner.solana_ics26_program_id);
 
         // For light client verification, we also need ICS07 accounts
-        let (client_state, _) =
-            derive_ics07_client_state(params.source_client, &self.inner.solana_ics07_program_id);
+        let (client_state, _) = derive_ics07_client_state(&self.inner.solana_ics07_program_id);
         let (consensus_state, _) =
-            derive_ics07_consensus_state(&client_state, 0, &self.inner.solana_ics07_program_id);
+            derive_ics07_consensus_state(0, &self.inner.solana_ics07_program_id);
 
         // Build accounts list
         let accounts = vec![

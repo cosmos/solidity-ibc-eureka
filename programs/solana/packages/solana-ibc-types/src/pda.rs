@@ -22,74 +22,41 @@ pub fn derive_ibc_app(port_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
 }
 
 /// Derive client PDA
-pub fn derive_client(client_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], program_id)
+pub fn derive_client(program_id: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[CLIENT_SEED], program_id)
 }
 
 /// Derive client sequence PDA
-pub fn derive_client_sequence(client_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED, client_id.as_bytes()], program_id)
+pub fn derive_client_sequence(program_id: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED], program_id)
 }
 
 /// Derive packet commitment PDA
-pub fn derive_packet_commitment(
-    client_id: &str,
-    sequence: u64,
-    program_id: &Pubkey,
-) -> (Pubkey, u8) {
+pub fn derive_packet_commitment(sequence: u64, program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(
-        &[
-            PACKET_COMMITMENT_SEED,
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-        ],
+        &[PACKET_COMMITMENT_SEED, &sequence.to_le_bytes()],
         program_id,
     )
 }
 
 /// Derive packet receipt PDA
-pub fn derive_packet_receipt(client_id: &str, sequence: u64, program_id: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[
-            PACKET_RECEIPT_SEED,
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-        ],
-        program_id,
-    )
+pub fn derive_packet_receipt(sequence: u64, program_id: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[PACKET_RECEIPT_SEED, &sequence.to_le_bytes()], program_id)
 }
 
 /// Derive packet acknowledgment PDA
-pub fn derive_packet_ack(client_id: &str, sequence: u64, program_id: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[
-            PACKET_ACK_SEED,
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-        ],
-        program_id,
-    )
+pub fn derive_packet_ack(sequence: u64, program_id: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[PACKET_ACK_SEED, &sequence.to_le_bytes()], program_id)
 }
 
 /// Derive ICS07 client state PDA
-pub fn derive_ics07_client_state(chain_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], program_id)
+pub fn derive_ics07_client_state(program_id: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[b"client"], program_id)
 }
 
 /// Derive ICS07 consensus state PDA
-pub fn derive_ics07_consensus_state(
-    client_state: &Pubkey,
-    height: u64,
-    program_id: &Pubkey,
-) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[
-            CONSENSUS_STATE_SEED,
-            client_state.as_ref(),
-            &height.to_le_bytes(),
-        ],
-        program_id,
-    )
+pub fn derive_ics07_consensus_state(height: u64, program_id: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[CONSENSUS_STATE_SEED, &height.to_le_bytes()], program_id)
 }
 
 /// Build instruction discriminator for Anchor
@@ -118,13 +85,13 @@ pub fn derive_ibc_app_default(port_id: &str) -> (Pubkey, u8) {
 }
 
 /// Derive client PDA using the default ICS26 program ID
-pub fn derive_client_default(client_id: &str) -> (Pubkey, u8) {
+pub fn derive_client_default() -> (Pubkey, u8) {
     let program_id = Pubkey::from_str(ICS26_ROUTER_ID).expect("Invalid ICS26 program ID");
-    derive_client(client_id, &program_id)
+    derive_client(&program_id)
 }
 
 /// Derive ICS07 client state PDA using the default ICS07 program ID
-pub fn derive_ics07_client_state_default(chain_id: &str) -> (Pubkey, u8) {
+pub fn derive_ics07_client_state_default() -> (Pubkey, u8) {
     let program_id = Pubkey::from_str(ICS07_TENDERMINT_ID).expect("Invalid ICS07 program ID");
-    derive_ics07_client_state(chain_id, &program_id)
+    derive_ics07_client_state(&program_id)
 }

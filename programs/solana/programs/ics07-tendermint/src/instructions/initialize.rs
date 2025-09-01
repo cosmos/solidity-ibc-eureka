@@ -65,21 +65,11 @@ mod tests {
         accounts: Vec<(Pubkey, Account)>,
     }
 
-    fn setup_test_accounts(chain_id: &str, latest_height: u64) -> TestAccounts {
+    fn setup_test_accounts(latest_height: u64) -> TestAccounts {
         let payer = Pubkey::new_unique();
-        let chain_id_bytes = if chain_id.is_empty() {
-            b""
-        } else {
-            chain_id.as_bytes()
-        };
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[b"client", chain_id_bytes], &crate::ID);
+        let (client_state_pda, _) = Pubkey::find_program_address(&[b"client"], &crate::ID);
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
-            &[
-                b"consensus_state",
-                client_state_pda.as_ref(),
-                &latest_height.to_le_bytes(),
-            ],
+            &[b"consensus_state", &latest_height.to_le_bytes()],
             &crate::ID,
         );
 
@@ -140,7 +130,6 @@ mod tests {
         consensus_state: &ConsensusState,
     ) -> Instruction {
         let instruction_data = crate::instruction::Initialize {
-            chain_id: client_state.chain_id.clone(),
             latest_height: client_state.latest_height.revision_height,
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
@@ -188,12 +177,14 @@ mod tests {
         setup_invalid_state: impl FnOnce(&mut ClientState),
         expected_error: ErrorCode,
     ) {
+        // Store original height before modification
+        let original_height = client_state.latest_height.revision_height;
+
+        // Apply the invalid state modification
         setup_invalid_state(&mut client_state);
 
-        let test_accounts = setup_test_accounts(
-            &client_state.chain_id,
-            client_state.latest_height.revision_height,
-        );
+        // Use original height for PDA derivation to ensure consistency
+        let test_accounts = setup_test_accounts(original_height);
         let instruction =
             create_initialize_instruction(&test_accounts, &client_state, &consensus_state);
 
@@ -205,25 +196,17 @@ mod tests {
         // Load all fixtures efficiently (single JSON parse)
         let (client_state, consensus_state, _) = load_primary_fixtures();
 
-        let chain_id = &client_state.chain_id;
-
         let payer = Pubkey::new_unique();
 
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID);
+        let (client_state_pda, _) = Pubkey::find_program_address(&[b"client"], &crate::ID);
 
         let latest_height = client_state.latest_height.revision_height;
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
-            &[
-                b"consensus_state",
-                client_state_pda.as_ref(),
-                &latest_height.to_le_bytes(),
-            ],
+            &[b"consensus_state", &latest_height.to_le_bytes()],
             &crate::ID,
         );
 
         let instruction_data = crate::instruction::Initialize {
-            chain_id: chain_id.clone(),
             latest_height,
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
@@ -404,17 +387,7 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_initialize_invalid_chain_id() {
-        let (client_state, consensus_state, _) = load_primary_fixtures();
-
-        test_initialize_validation_failure(
-            client_state,
-            consensus_state,
-            |cs| cs.chain_id = String::new(),
-            ErrorCode::InvalidChainId,
-        );
-    }
+    // Chain ID validation test removed - single client per program, no chain_id parameter
 
     #[test]
     fn test_initialize_invalid_trust_level_zero_numerator() {
@@ -508,12 +481,18 @@ mod tests {
 
     #[test]
     fn test_initialize_invalid_height() {
-        let (client_state, consensus_state, _) = load_primary_fixtures();
+        let (mut client_state, consensus_state, _) = load_primary_fixtures();
 
-        test_initialize_validation_failure(
-            client_state,
-            consensus_state,
-            |cs| cs.latest_height.revision_height = 0,
+        // For height test, we need special handling since modifying height affects PDA derivation
+        client_state.latest_height.revision_height = 0;
+
+        let test_accounts = setup_test_accounts(0); // Use the modified height for PDA
+        let instruction =
+            create_initialize_instruction(&test_accounts, &client_state, &consensus_state);
+
+        assert_instruction_fails_with_error(
+            &instruction,
+            &test_accounts.accounts,
             ErrorCode::InvalidHeight,
         );
     }

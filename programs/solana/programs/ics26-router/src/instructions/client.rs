@@ -22,7 +22,7 @@ pub struct AddClient<'info> {
         init,
         payer = authority,
         space = 8 + Client::INIT_SPACE,
-        seeds = [CLIENT_SEED, client_id.as_bytes()],
+        seeds = [CLIENT_SEED],
         bump,
     )]
     pub client: Account<'info, Client>,
@@ -31,7 +31,7 @@ pub struct AddClient<'info> {
         init,
         payer = authority,
         space = 8 + ClientSequence::INIT_SPACE,
-        seeds = [CLIENT_SEQUENCE_SEED, client_id.as_bytes()],
+        seeds = [CLIENT_SEQUENCE_SEED],
         bump,
     )]
     pub client_sequence: Account<'info, ClientSequence>,
@@ -59,7 +59,7 @@ pub struct UpdateClient<'info> {
 
     #[account(
         mut,
-        seeds = [CLIENT_SEED, client_id.as_bytes()],
+        seeds = [CLIENT_SEED],
         bump,
         constraint = client.authority == authority.key() @ RouterError::UnauthorizedAuthority,
     )]
@@ -242,12 +242,9 @@ mod tests {
         let light_client_program = Pubkey::new_unique();
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
-        let (client_pda, _) =
-            Pubkey::find_program_address(&[CLIENT_SEED, config.client_id.as_bytes()], &crate::ID);
-        let (client_sequence_pda, _) = Pubkey::find_program_address(
-            &[CLIENT_SEQUENCE_SEED, config.client_id.as_bytes()],
-            &crate::ID,
-        );
+        let (client_pda, _) = Pubkey::find_program_address(&[CLIENT_SEED], &crate::ID);
+        let (client_sequence_pda, _) =
+            Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED], &crate::ID);
 
         let instruction_data = crate::instruction::AddClient {
             client_id: config.client_id.to_string(),
@@ -325,10 +322,9 @@ mod tests {
             .map(|(pubkey, _)| *pubkey)
             .expect("Authority account not found");
 
-        let (client_pda, _) =
-            Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &crate::ID);
+        let (client_pda, _) = Pubkey::find_program_address(&[CLIENT_SEED], &crate::ID);
         let (client_sequence_pda, _) =
-            Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED, client_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED], &crate::ID);
 
         // Verify authority paid for account creation
         let authority_account = result

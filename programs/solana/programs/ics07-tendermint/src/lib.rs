@@ -19,13 +19,13 @@ pub use types::{
 pub use ics25_handler::MembershipMsg;
 
 #[derive(Accounts)]
-#[instruction(chain_id: String, latest_height: u64, client_state: ClientState)]
+#[instruction(latest_height: u64, client_state: ClientState)]
 pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
         space = 8 + ClientState::INIT_SPACE,
-        seeds = [b"client", chain_id.as_bytes()],
+        seeds = [b"client"],  // Single client per program instance
         bump
     )]
     pub client_state: Account<'info, ClientState>,
@@ -33,7 +33,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [b"consensus_state", client_state.key().as_ref(), &latest_height.to_le_bytes()],
+        seeds = [b"consensus_state", latest_height.to_le_bytes().as_ref()],
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
@@ -45,21 +45,16 @@ pub struct Initialize<'info> {
 
 #[derive(Accounts)]
 pub struct UpdateClient<'info> {
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"client"],
+        bump
+    )]
     pub client_state: Account<'info, ClientState>,
     /// Trusted consensus state at the height specified in the header
-    /// We use `UncheckedAccount` here because the trusted height is extracted from the header,
-    /// which can only be deserialized inside the instruction handler. Since Anchor's account
-    /// validation happens before the instruction code runs, we cannot use the standard
-    /// #[account(seeds = ...)] constraint. Instead, we manually validate the PDA derivation
-    /// inside the instruction handler after extracting the trusted height from the header.
     /// CHECK: This account is validated in the instruction handler based on the trusted height from the header
     pub trusted_consensus_state: UncheckedAccount<'info>,
-    /// Consensus state store for the new height
-    /// Will be created if it doesn't exist, or validated if it does (for misbehaviour detection)
-    /// NOTE: We can't use the instruction parameter here because we don't know the new height
-    /// until after processing the update. This account must be derived by the client
-    /// based on the expected new height from the header.
+    /// Consensus state store for the new height - will be created or validated
     /// CHECK: This account is validated in the instruction handler
     pub new_consensus_state_store: UncheckedAccount<'info>,
     #[account(mut)]
@@ -95,14 +90,11 @@ pub mod ics07_tendermint {
 
     pub fn initialize(
         ctx: Context<Initialize>,
-        chain_id: String,
         latest_height: u64,
         client_state: ClientState,
         consensus_state: ConsensusState,
     ) -> Result<()> {
-        // NOTE: chain_id is used in the #[instruction] attribute for account validation
-        // but the actual handler doesn't need it as it's embedded in client_state
-        assert_eq!(client_state.chain_id, chain_id);
+        // Validate that the provided height matches client state
         assert_eq!(client_state.latest_height.revision_height, latest_height);
 
         instructions::initialize::initialize(ctx, client_state, consensus_state)

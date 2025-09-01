@@ -61,7 +61,7 @@ pub struct SendPacket<'info> {
 
     #[account(
         mut,
-        seeds = [CLIENT_SEQUENCE_SEED, msg.source_client.as_bytes()],
+        seeds = [CLIENT_SEQUENCE_SEED],
         bump,
         seeds::program = router_program
     )]
@@ -73,7 +73,7 @@ pub struct SendPacket<'info> {
     pub packet_commitment: AccountInfo<'info>,
 
     #[account(
-        seeds = [CLIENT_SEED, msg.source_client.as_bytes()],
+        seeds = [CLIENT_SEED],
         bump,
         seeds::program = router_program
     )]

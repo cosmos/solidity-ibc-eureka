@@ -216,10 +216,10 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
 			s.Require().NoError(err)
 
-			clientAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(SolanaClientID)}, ics26_router.ProgramID)
+			clientAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client")}, ics26_router.ProgramID)
 			s.Require().NoError(err)
 
-			clientSequenceAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client_sequence"), []byte(SolanaClientID)}, ics26_router.ProgramID)
+			clientSequenceAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client_sequence")}, ics26_router.ProgramID)
 			s.Require().NoError(err)
 
 			counterpartyInfo := ics26_router.CounterpartyInfo{
@@ -316,7 +316,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	simd := s.CosmosChains[0]
 
 	s.Require().True(s.Run("Verify ics07-svm-tendermint", func() {
-		clientStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(simd.Config().ChainID)}, ics07_tendermint.ProgramID)
+		clientStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client")}, ics07_tendermint.ProgramID)
 		s.Require().NoError(err)
 
 		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
@@ -383,7 +383,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		destPort := "transfer"
 		memo := "Test transfer from Solana to Cosmos"
 
-		accounts := s.prepareTransferAccounts(ctx, s.DummyAppProgramID, destPort, SolanaClientID)
+		accounts := s.prepareTransferAccounts(ctx, s.DummyAppProgramID, destPort)
 
 		timeoutTimestamp := time.Now().Unix() + 3600
 
@@ -567,7 +567,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		)
 		packetData := transferData.GetBytes()
 
-		accounts := s.preparePacketAccounts(ctx, s.DummyAppProgramID, "transfer", SolanaClientID)
+		accounts := s.preparePacketAccounts(ctx, s.DummyAppProgramID, "transfer")
 
 		packetMsg := dummy_ibc_app.SendPacketMsg{
 			SourceClient:     SolanaClientID,
@@ -740,7 +740,7 @@ type AccountSet struct {
 	EscrowState      solanago.PublicKey
 }
 
-func (s *IbcEurekaSolanaTestSuite) prepareBaseAccounts(ctx context.Context, dummyAppProgramID solanago.PublicKey, port, clientID string) AccountSet {
+func (s *IbcEurekaSolanaTestSuite) prepareBaseAccounts(ctx context.Context, dummyAppProgramID solanago.PublicKey, port string) AccountSet {
 	accounts := AccountSet{}
 	var err error
 
@@ -756,10 +756,10 @@ func (s *IbcEurekaSolanaTestSuite) prepareBaseAccounts(ctx context.Context, dumm
 	accounts.IBCApp, _, err = solanago.FindProgramAddress([][]byte{[]byte("ibc_app"), []byte(port)}, ics26_router.ProgramID)
 	s.Require().NoError(err)
 
-	accounts.Client, _, err = solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(clientID)}, ics26_router.ProgramID)
+	accounts.Client, _, err = solanago.FindProgramAddress([][]byte{[]byte("client")}, ics26_router.ProgramID)
 	s.Require().NoError(err)
 
-	accounts.ClientSequence, _, err = solanago.FindProgramAddress([][]byte{[]byte("client_sequence"), []byte(clientID)}, ics26_router.ProgramID)
+	accounts.ClientSequence, _, err = solanago.FindProgramAddress([][]byte{[]byte("client_sequence")}, ics26_router.ProgramID)
 	s.Require().NoError(err)
 
 	clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, accounts.ClientSequence)
@@ -770,27 +770,27 @@ func (s *IbcEurekaSolanaTestSuite) prepareBaseAccounts(ctx context.Context, dumm
 
 	nextSequence := clientSequenceData.NextSequenceSend
 	sequenceBytes := uint64ToLeBytes(nextSequence)
-	accounts.PacketCommitment, _, err = solanago.FindProgramAddress([][]byte{[]byte("packet_commitment"), []byte(clientID), sequenceBytes}, ics26_router.ProgramID)
+	accounts.PacketCommitment, _, err = solanago.FindProgramAddress([][]byte{[]byte("packet_commitment"), sequenceBytes}, ics26_router.ProgramID)
 	s.Require().NoError(err)
 
 	return accounts
 }
 
-func (s *IbcEurekaSolanaTestSuite) prepareTransferAccounts(ctx context.Context, dummyAppProgramID solanago.PublicKey, port, clientID string) AccountSet {
-	accounts := s.prepareBaseAccounts(ctx, dummyAppProgramID, port, clientID)
+func (s *IbcEurekaSolanaTestSuite) prepareTransferAccounts(ctx context.Context, dummyAppProgramID solanago.PublicKey, port string) AccountSet {
+	accounts := s.prepareBaseAccounts(ctx, dummyAppProgramID, port)
 	var err error
 
-	accounts.Escrow, _, err = solanago.FindProgramAddress([][]byte{[]byte("escrow"), []byte(clientID)}, dummyAppProgramID)
+	accounts.Escrow, _, err = solanago.FindProgramAddress([][]byte{[]byte("escrow")}, dummyAppProgramID)
 	s.Require().NoError(err)
 
-	accounts.EscrowState, _, err = solanago.FindProgramAddress([][]byte{[]byte("escrow_state"), []byte(clientID)}, dummyAppProgramID)
+	accounts.EscrowState, _, err = solanago.FindProgramAddress([][]byte{[]byte("escrow_state")}, dummyAppProgramID)
 	s.Require().NoError(err)
 
 	return accounts
 }
 
-func (s *IbcEurekaSolanaTestSuite) preparePacketAccounts(ctx context.Context, dummyAppProgramID solanago.PublicKey, port, clientID string) AccountSet {
-	return s.prepareBaseAccounts(ctx, dummyAppProgramID, port, clientID)
+func (s *IbcEurekaSolanaTestSuite) preparePacketAccounts(ctx context.Context, dummyAppProgramID solanago.PublicKey, port string) AccountSet {
+	return s.prepareBaseAccounts(ctx, dummyAppProgramID, port)
 }
 
 func uint64ToLeBytes(val uint64) []byte {
