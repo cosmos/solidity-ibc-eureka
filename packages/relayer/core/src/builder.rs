@@ -1,6 +1,8 @@
 //! Defines the [`RelayerBuilder`] struct that is used to build the relayer server.
 
 use std::collections::HashMap;
+use tonic_web::GrpcWebLayer;
+use tower_http::cors::{Any, CorsLayer};
 
 use crate::{
     api::{
@@ -76,6 +78,13 @@ impl RelayerBuilder {
         // Start the gRPC server
         tracing::info!("Started gRPC server on {}", socket_addr);
         Server::builder()
+            .layer(
+                CorsLayer::new()
+                    .allow_origin(Any)
+                    .allow_methods(Any)
+                    .allow_headers(Any),
+            )
+            .layer(GrpcWebLayer::new())
             .add_service(RelayerServiceServer::new(relayer))
             .add_service(reflection_service)
             .serve(socket_addr)

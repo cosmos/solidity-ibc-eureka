@@ -8,14 +8,16 @@ license    = { workspace = true }
 [dependencies]
 tonic            = { workspace = true, default-features = true }
 tonic-reflection = { workspace = true, default-features = true }
+tonic-web        = { workspace = true, default-features = true }
 
 prometheus         = { workspace = true, default-features = true }
 tracing            = { workspace = true, default-features = true }
 anyhow             = { workspace = true, default-features = true, features = ["backtrace"] }
 
-serde      = { workspace = true, default-features = true }
+serde      = { workspace = true, default-features = true, features = ["derive"] }
 serde_json = { workspace = true, default-features = true }
 prost      = { workspace = true, default-features = true }
+tower-http = { workspace = true, default-features = true, features = ["cors"] }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }
