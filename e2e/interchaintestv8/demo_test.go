@@ -2,22 +2,27 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
+	"math/big"
 	"testing"
 
-	// relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 	"github.com/stretchr/testify/suite"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcxerc20"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics27gmp"
 
-	// ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 	wfchain "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/wfchain"
 )
 
@@ -108,4 +113,72 @@ func (s *DemoTestSuite) Test_Deploy() {
 
 func (s *DemoTestSuite) DeployTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
+}
+
+func (s *DemoTestSuite) Test_BridgeTransferFromEth() {
+	ctx := context.Background()
+	proofType := types.GetEnvProofType()
+	s.BridgeTransferFromEthTest(ctx, proofType)
+}
+
+func (s *DemoTestSuite) BridgeTransferFromEthTest(ctx context.Context, proofType types.SupportedProofType) {
+	s.SetupSuite(ctx, proofType)
+
+	eth, simd := s.EthChain, s.CosmosChains[0]
+	simdUser := s.CosmosUsers[0]
+	ethUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+
+	amount := big.NewInt(1_000)
+	s.Require().True(s.Run("Fund user with IBCXERC20", func() {
+		_, err := s.ibcXERC20.Transfer(s.GetTransactOpts(s.EthChain.Faucet, eth), ethUserAddress, amount)
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Bridge transfer from Ethereum to Cosmos", func() {
+		tx, err := s.ibcXERC20.BridgeTransfer(s.GetTransactOpts(s.key, eth), simdUser.FormattedAddress(), amount)
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		s.Require().True(s.Run("Relay Packet", func() {
+			var relayTxBodyBz []byte
+			s.Require().True(s.Run("Retrieve relay tx", func() {
+				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+					SrcChain:    eth.ChainID.String(),
+					DstChain:    simd.Config().ChainID,
+					SourceTxIds: [][]byte{tx.Hash().Bytes()},
+					SrcClientId: testvalues.CustomClientID,
+					DstClientId: testvalues.FirstWasmClientID,
+				})
+				s.Require().NoError(err)
+				s.Require().NotEmpty(resp.Tx)
+				s.Require().Empty(resp.Address)
+
+				relayTxBodyBz = resp.Tx
+			}))
+
+			var ackTxHash []byte
+			s.Require().True(s.Run("Broadcast relay tx", func() {
+				resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, relayTxBodyBz)
+
+				ackTxHash, err = hex.DecodeString(resp.TxHash)
+				s.Require().NoError(err)
+				s.Require().NotEmpty(ackTxHash)
+			}))
+
+			s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+				// User balance on Cosmos chain
+				resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+					Address: simdUser.FormattedAddress(),
+					Denom:   testvalues.DemoDenom,
+				})
+				s.Require().NoError(err)
+				s.Require().NotNil(resp.Balance)
+				s.Require().Equal(amount, resp.Balance.Amount.BigInt())
+				s.Require().Equal(testvalues.DemoDenom, resp.Balance.Denom)
+			}))
+		}))
+	}))
 }
