@@ -60,13 +60,14 @@ func (s *DemoTestSuite) SetupSuite(ctx context.Context, proofType types.Supporte
 		s.Require().True(s.Run("Set the Cosmos account in the IBCXERC20 contract", func() {
 			resp, err := e2esuite.GRPCQuery[gmptypes.QueryAccountAddressResponse](ctx, simd, &gmptypes.QueryAccountAddressRequest{
 				ClientId: testvalues.FirstWasmClientID,
-				Sender:   s.contractAddresses.IbcXErc20,
+				Sender:   ibcxerc20Address.String(),
 				Salt:     "",
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.AccountAddress)
 
 			s.T().Logf("IBC-XERC20 Cosmos account: %s", resp.AccountAddress)
+			s.T().Logf("IBC-XERC20 Ethereum account: %s", ibcxerc20Address.String())
 
 			_, err = s.ibcXERC20.SetCosmosAccount(s.GetTransactOpts(s.deployer, eth), resp.AccountAddress)
 			s.Require().NoError(err)
@@ -134,51 +135,49 @@ func (s *DemoTestSuite) BridgeTransferFromEthTest(ctx context.Context, proofType
 		s.Require().NoError(err)
 	}))
 
-	s.Require().True(s.Run("Bridge transfer from Ethereum to Cosmos", func() {
-		tx, err := s.ibcXERC20.BridgeTransfer(s.GetTransactOpts(s.key, eth), simdUser.FormattedAddress(), amount)
-		s.Require().NoError(err)
+	tx, err := s.ibcXERC20.BridgeTransfer(s.GetTransactOpts(s.key, eth), simdUser.FormattedAddress(), amount)
+	s.Require().NoError(err)
 
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-		s.Require().NoError(err)
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+	receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+	s.Require().NoError(err)
+	s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
-		s.Require().True(s.Run("Relay Packet", func() {
-			var relayTxBodyBz []byte
-			s.Require().True(s.Run("Retrieve relay tx", func() {
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:    eth.ChainID.String(),
-					DstChain:    simd.Config().ChainID,
-					SourceTxIds: [][]byte{tx.Hash().Bytes()},
-					SrcClientId: testvalues.CustomClientID,
-					DstClientId: testvalues.FirstWasmClientID,
-				})
-				s.Require().NoError(err)
-				s.Require().NotEmpty(resp.Tx)
-				s.Require().Empty(resp.Address)
+	s.Require().True(s.Run("Relay Packet", func() {
+		var relayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{tx.Hash().Bytes()},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
 
-				relayTxBodyBz = resp.Tx
-			}))
+			relayTxBodyBz = resp.Tx
+		}))
 
-			var ackTxHash []byte
-			s.Require().True(s.Run("Broadcast relay tx", func() {
-				resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, relayTxBodyBz)
+		var ackTxHash []byte
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 
-				ackTxHash, err = hex.DecodeString(resp.TxHash)
-				s.Require().NoError(err)
-				s.Require().NotEmpty(ackTxHash)
-			}))
+			ackTxHash, err = hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(ackTxHash)
+		}))
 
-			s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
-				// User balance on Cosmos chain
-				resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
-					Address: simdUser.FormattedAddress(),
-					Denom:   testvalues.DemoDenom,
-				})
-				s.Require().NoError(err)
-				s.Require().NotNil(resp.Balance)
-				s.Require().Equal(amount, resp.Balance.Amount.BigInt())
-				s.Require().Equal(testvalues.DemoDenom, resp.Balance.Denom)
-			}))
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			// User balance on Cosmos chain
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: simdUser.FormattedAddress(),
+				Denom:   testvalues.DemoDenom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(amount, resp.Balance.Amount.BigInt())
+			s.Require().Equal(testvalues.DemoDenom, resp.Balance.Denom)
 		}))
 	}))
 }
