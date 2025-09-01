@@ -1,12 +1,9 @@
 use anyhow::{Context, Result};
-use std::{collections::HashSet, fs, net::SocketAddr, path::Path, str::FromStr};
-use tracing::Level;
+use std::{collections::HashSet, fs, path::Path};
 
 /// Aggregator config
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct Config {
-    /// The configuration for the aggregator server.
-    pub server: ServerConfig,
     /// The configuration for the attestor signer.
     pub attestor: AttestorConfig,
     /// The configuration for caching behavior.
@@ -31,7 +28,6 @@ impl Config {
 
     /// Validates the parsed config
     pub fn validate(&self) -> Result<()> {
-        self.server.validate()?;
         self.attestor.validate()?;
         self.cache.validate()?;
         Ok(())
@@ -172,41 +168,9 @@ impl CacheConfig {
     }
 }
 
-/// The configuration for the aggregator server.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub struct ServerConfig {
-    /// The listener_addr to bind the server to.
-    pub listener_addr: SocketAddr,
-    /// The log level for the server.
-    #[serde(default = "defaults::default_log_level")]
-    pub log_level: String,
-}
-
-impl ServerConfig {
-    fn validate(&self) -> Result<()> {
-        if !self.log_level.is_empty() {
-            Level::from_str(&self.log_level).with_context(|| {
-                format!(
-                    "invalid log level '{}'. Valid levels are: TRACE, DEBUG, INFO, WARN, ERROR",
-                    self.log_level
-                )
-            })?;
-        }
-        Ok(())
-    }
-
-    /// Returns the log level for the server.
-    #[must_use]
-    pub fn log_level(&self) -> Level {
-        Level::from_str(&self.log_level).unwrap_or(defaults::DEFAULT_LOG_LEVEL)
-    }
-}
-
 /// Default values for configuration
 mod defaults {
-    use tracing::Level;
 
-    pub const DEFAULT_LOG_LEVEL: Level = Level::INFO;
     pub const MIN_TIMEOUT_MS: u64 = 10;
     pub const MAX_TIMEOUT_MS: u64 = 60_000;
     pub const MIN_QUORUM_THRESHOLD: usize = 1;
@@ -214,10 +178,6 @@ mod defaults {
     pub const DEFAULT_STATE_CACHE_MAX_ENTRIES: u64 = 100_000;
     pub const DEFAULT_PACKET_CACHE_MAX_ENTRIES: u64 = 100_000;
     pub const MAX_CACHE_ENTRIES: u64 = 100_000_000;
-
-    pub fn default_log_level() -> String {
-        DEFAULT_LOG_LEVEL.to_string().to_lowercase()
-    }
 
     pub fn default_state_cache_max_entries() -> u64 {
         DEFAULT_STATE_CACHE_MAX_ENTRIES

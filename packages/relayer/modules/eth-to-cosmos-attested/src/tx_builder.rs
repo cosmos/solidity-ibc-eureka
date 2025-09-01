@@ -45,7 +45,7 @@ impl Chain for AttestedChain {
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on attestations from the aggregator.
 pub struct TxBuilder {
     /// The aggregator URL for fetching attestations.
-    pub aggregator_config: Config,
+    pub aggregator: Aggregator,
     /// The HTTP client for the target chain.
     pub target_tm_client: HttpClient,
     /// The signer address for the Cosmos messages.
@@ -55,23 +55,18 @@ pub struct TxBuilder {
 impl TxBuilder {
     /// Creates a new `TxBuilder`.
     #[must_use]
-    pub const fn new(
+    pub async fn new(
         aggregator_config: Config,
         target_tm_client: HttpClient,
         signer_address: String,
-    ) -> Self {
-        Self {
-            aggregator_config,
+    ) -> Result<Self> {
+        let aggregator = Aggregator::from_config(aggregator_config.clone()).await?;
+
+        Ok(Self {
+            aggregator,
             target_tm_client,
             signer_address,
-        }
-    }
-
-    /// Creates an aggregator client.
-    async fn create_aggregator_client(&self) -> Result<Aggregator> {
-        Aggregator::from_config(self.aggregator_config.clone())
-            .await
-            .map_err(Into::into)
+        })
     }
 }
 
@@ -126,8 +121,6 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             target_events.len()
         );
 
-        let aggregator_client = self.create_aggregator_client().await?;
-
         let mut ics26_send_packets = Vec::new();
         let mut ics26_ack_packets = Vec::new();
         let mut heights = HashSet::new();
@@ -163,7 +156,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             request.packets.len()
         );
 
-        let (state, packets) = aggregator_client.get_attestations(request).await?;
+        let (state, packets) = self.aggregator.get_attestations(request).await?;
 
         tracing::info!(
             "Received state attestation: {} signatures, height {}, state: {}",

@@ -1,11 +1,5 @@
 package relayer
 
-// ServerConfig represents the server configuration section
-type ServerConfig struct {
-	ListenerAddr string `json:"listener_addr"`
-	LogLevel     string `json:"log_level"`
-}
-
 // AttestorConfig represents the attestor configuration section
 type AttestorConfig struct {
 	AttestorQueryTimeoutMs int      `json:"attestor_query_timeout_ms"`
@@ -21,7 +15,6 @@ type CacheConfig struct {
 
 // AggregatorConfig represents the full aggregator configuration
 type AggregatorConfig struct {
-	Server   ServerConfig   `json:"server"`
 	Attestor AttestorConfig `json:"attestor"`
 	Cache    CacheConfig    `json:"cache"`
 }
@@ -29,10 +22,6 @@ type AggregatorConfig struct {
 // DefaultAggregatorConfig returns a config with sensible defaults
 func DefaultAggregatorConfig() *AggregatorConfig {
 	return &AggregatorConfig{
-		Server: ServerConfig{
-			ListenerAddr: "127.0.0.1:8080",
-			LogLevel:     "INFO",
-		},
 		Attestor: AttestorConfig{
 			AttestorQueryTimeoutMs: 5000,
 			QuorumThreshold:        1,

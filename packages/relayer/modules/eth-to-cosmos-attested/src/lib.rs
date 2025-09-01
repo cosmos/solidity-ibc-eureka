@@ -96,7 +96,9 @@ impl
             config.aggregator_config.clone(),
             target_client,
             config.signer_address,
-        );
+        )
+        .await
+        .expect("tx builder cannot be built");
 
         Self {
             attested_chain_id: config.attested_chain_id,
@@ -272,7 +274,7 @@ impl RelayerModule for EthToCosmosAttestedRelayerModule {
 #[cfg(test)]
 mod tests {
     use alloy::hex;
-    use ibc_eureka_relayer_lib::attestations::{AttestorConfig, CacheConfig, ServerConfig};
+    use ibc_eureka_relayer_lib::attestations::{AttestorConfig, CacheConfig};
 
     use super::*;
 
@@ -285,10 +287,6 @@ mod tests {
     #[test]
     fn test_config_serialization() {
         let agg_config = Config {
-            server: ServerConfig {
-                listener_addr: "127.0.0.1:8080".parse().expect("url must be parsed"),
-                log_level: "info".to_string(),
-            },
             attestor: AttestorConfig {
                 attestor_query_timeout_ms: 100_000,
                 quorum_threshold: 1,
