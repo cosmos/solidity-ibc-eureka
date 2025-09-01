@@ -20,8 +20,8 @@ type AggregatorConfig struct {
 }
 
 // DefaultAggregatorConfig returns a config with sensible defaults
-func DefaultAggregatorConfig() *AggregatorConfig {
-	return &AggregatorConfig{
+func DefaultAggregatorConfig() AggregatorConfig {
+	return AggregatorConfig{
 		Attestor: AttestorConfig{
 			AttestorQueryTimeoutMs: 5000,
 			QuorumThreshold:        1,
@@ -55,7 +55,7 @@ func CreateAttestedCosmosModules(
 			DstChain: configInfo.CosmosChainID,
 			Config: EthToCosmosAttestedModuleConfig{
 				AttestedChainId:  configInfo.AttestedChainID,
-				AggregatorConfig: *DefaultAggregatorConfig(),
+				AggregatorConfig: DefaultAggregatorConfig(),
 				AttestedRpcUrl:   configInfo.AttestedRpcUrl,
 				Ics26Address:     configInfo.Ics26Address,
 				TmRpcUrl:         configInfo.TmRpcUrl,
