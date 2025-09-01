@@ -455,7 +455,6 @@ func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binary
 			}
 		}
 	})
-
 }
 
 func (s *IbcAttestorTestSuite) Test_OptimismAttestToICS20PacketsOnEth() {
