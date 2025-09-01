@@ -10,23 +10,11 @@ library CosmosICS27Lib {
     string private constant MINT_TYPE_URL = "/wfchain.tokenfactory.MsgMint";
     // solhint-disable-previous-line gas-small-strings
 
-    /// @notice CREATE_DENOM_TYPE_URL is the type URL for the MsgCreateDenom message in the TokenFactory module.
-    string private constant CREATE_DENOM_TYPE_URL = "/wfchain.tokenfactory.MsgCreateDenom";
-    // solhint-disable-previous-line gas-small-strings
-
     /// @notice Wraps the provided message bytes in a JSON payload with a "messages" array.
     /// @param msg_ The message bytes to wrap.
     /// @return The JSON payload as bytes.
     function msgsToPayload(bytes memory msg_) internal pure returns (bytes memory) {
         return abi.encodePacked("{\"messages\":[", msg_, "]}");
-    }
-
-    /// @notice Wraps two provided message bytes in a JSON payload with a "messages" array.
-    /// @param msg1 The first message bytes to wrap.
-    /// @param msg2 The second message bytes to wrap.
-    /// @return The JSON payload as bytes.
-    function msgsToPayload(bytes memory msg1, bytes memory msg2) internal pure returns (bytes memory) {
-        return abi.encodePacked("{\"messages\":[", msg1, ",", msg2, "]}");
     }
 
     /// @notice Constructs a MsgMint message for the TokenFactory module.
@@ -57,23 +45,6 @@ library CosmosICS27Lib {
             "\",\"amount\":\"",
             Strings.toString(amount),
             "\"}}"
-        );
-    }
-
-    /// @notice Constructs a MsgCreateDenom message for the TokenFactory module.
-    /// @param from The address of the minter.
-    /// @param denom The denomination of the token to create.
-    /// @return The encoded MsgCreateDenom message as bytes.
-    function tokenFactoryCreateDenomMsg(
-        string memory from,
-        string memory denom
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
-        return abi.encodePacked(
-            "{\"@type\":\"", CREATE_DENOM_TYPE_URL, "\",\"sender\":\"", from, "\",\"denom\":\"", denom, "\"}"
         );
     }
 }
