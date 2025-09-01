@@ -75,11 +75,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1756026611,
-        "narHash": "sha256-yWgzlMa6AXZ8iNmUDhO1lKgTTv2mEumpQcNhY24JMio=",
+        "lastModified": 1756631398,
+        "narHash": "sha256-kcfcdKR0BmehavXIc74bPmWPun2hnKiWbG6Xrvr+J1A=",
         "owner": "shazow",
         "repo": "foundry.nix",
-        "rev": "cccce367ba14821eebef4b06f7ccbaccf6c4abd1",
+        "rev": "9b9c4f12670e8b554bf90571607eaba37bf8a94c",
         "type": "github"
       },
       "original": {
@@ -157,11 +157,11 @@
     },
     "nixpkgs_4": {
       "locked": {
-        "lastModified": 1755615617,
-        "narHash": "sha256-HMwfAJBdrr8wXAkbGhtcby1zGFvs+StOp19xNsbqdOg=",
+        "lastModified": 1756542300,
+        "narHash": "sha256-tlOn88coG5fzdyqz6R93SQL5Gpq+m/DsWpekNFhqPQk=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+        "rev": "d7600c775f877cd87b4f5a831c28aa94137377aa",
         "type": "github"
       },
       "original": {
@@ -220,11 +220,11 @@
         "nixpkgs": "nixpkgs_5"
       },
       "locked": {
-        "lastModified": 1756089517,
-        "narHash": "sha256-KGinVKturJFPrRebgvyUB1BUNqf1y9FN+tSJaTPlnFE=",
+        "lastModified": 1756694554,
+        "narHash": "sha256-z/Iy4qvcMqzhA2IAAg71Sw4BrMwbBHvCS90ZoPLsnIk=",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "44774c8c83cd392c50914f86e1ff75ef8619f1cd",
+        "rev": "b29e5365120f344fe7161f14fc9e272fcc41ee56",
         "type": "github"
       },
       "original": {
@@ -242,11 +242,11 @@
         "solc-macos-amd64-list-json": "solc-macos-amd64-list-json"
       },
       "locked": {
-        "lastModified": 1748780655,
-        "narHash": "sha256-mradCdMvjXwKd7kVFACB/d1CP2LLCyEgUu4vJCSzNLU=",
+        "lastModified": 1756368702,
+        "narHash": "sha256-cqEHv7uCV0LibmQphyiXZ1+jYtGjMNb9Pae4tfcAcF8=",
         "owner": "hellwolf",
         "repo": "solc.nix",
-        "rev": "3b6f3223ace5a7bc400b01a434d86bb1cb2593fb",
+        "rev": "d83e90df2fa8359a690f6baabf76099432193c3f",
         "type": "github"
       },
       "original": {
@@ -260,11 +260,11 @@
       "locked": {
         "narHash": "sha256-AvITkfpNYgCypXuLJyqco0li+unVw39BAfdOZvd/SPE=",
         "type": "file",
-        "url": "https://github.com/ethereum/solc-bin/raw/26fc3fd/macosx-amd64/list.json"
+        "url": "https://github.com/argotorg/solc-bin/raw/26fc3fd/macosx-amd64/list.json"
       },
       "original": {
         "type": "file",
-        "url": "https://github.com/ethereum/solc-bin/raw/26fc3fd/macosx-amd64/list.json"
+        "url": "https://github.com/argotorg/solc-bin/raw/26fc3fd/macosx-amd64/list.json"
       }
     },
     "systems": {

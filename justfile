@@ -329,11 +329,17 @@ test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
-# Run any e2e test in the IbcEurekaGmpTestSuite. For example, `just test-e2e-multichain TestDeploy_Groth16`
+# Run any e2e test in the IbcEurekaGmpTestSuite. For example, `just test-e2e-gmp TestDeploy_Groth16`
 [group('test')]
 test-e2e-gmp testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaGmpTestSuite/{{testname}}
+
+# Run any e2e test in the DemoTestSuite. For example, `just test-e2e-demo TestDeploy_Groth16`
+[group('test')]
+test-e2e-demo testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithDemoTestSuite/{{testname}}
 
 # Clean up the foundry cache and out directories
 [group('clean')]
