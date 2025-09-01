@@ -20,7 +20,6 @@ import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { IBCXERC20 } from "../contracts/demo/IBCXERC20.sol";
 import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
-import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
 
 contract DemoDeploy is Script, DeployAccessManagerWithRoles {
     using stdJson for string;
@@ -56,7 +55,8 @@ contract DemoDeploy is Script, DeployAccessManagerWithRoles {
         );
         accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.RELAYER_ROLE);
         accessManager.setTargetFunctionRole(ics26, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
-        accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.PUBLIC_ROLE); // pub relay
+        // pub relay
+        accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.PUBLIC_ROLE);
 
         // Grant roles
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, msg.sender, 0);
