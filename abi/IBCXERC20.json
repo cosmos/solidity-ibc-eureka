@@ -104,13 +104,6 @@
   },
   {
     "type": "function",
-    "name": "createDenom",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "decimals",
     "inputs": [],
     "outputs": [
