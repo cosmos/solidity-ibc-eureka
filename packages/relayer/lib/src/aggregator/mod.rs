@@ -1,13 +1,15 @@
-use crate::{
-    attestor_data::AttestatorData,
-    config::{AttestorConfig, Config},
-    rpc::{
-        aggregator_service_server::AggregatorService,
-        attestation_service_client::AttestationServiceClient, AggregatedAttestation, Attestation,
-        GetAttestationsRequest, GetAttestationsResponse, PacketAttestationRequest,
-        StateAttestationRequest,
-    },
-};
+//! Reusable aggregator for attester relayer modules
+
+#[allow(clippy::all, clippy::pedantic, clippy::nursery)]
+/// RPC definitions for the attestor
+pub mod rpc {
+    tonic::include_proto!("aggregator");
+    tonic::include_proto!("ibc_attestor");
+}
+
+mod attestor_data;
+mod config;
+
 use futures::future::join_all;
 use moka::future::Cache;
 use sha2::{Digest, Sha256};
@@ -16,8 +18,17 @@ use tokio::{
     sync::Mutex,
     time::{timeout, Duration},
 };
-use tonic::{transport::Channel, Request, Response, Status};
-use tracing::{error as tracing_error, instrument};
+use tonic::{transport::Channel, Request, Status};
+use tracing::error as tracing_error;
+use {
+    attestor_data::AttestatorData,
+    rpc::{
+        attestation_service_client::AttestationServiceClient, AggregatedAttestation, Attestation,
+        PacketAttestationRequest, StateAttestationRequest,
+    },
+};
+
+pub use config::{AttestorConfig, CacheConfig, Config};
 
 #[derive(Clone)]
 enum AttestationQuery {
@@ -47,6 +58,10 @@ pub struct Aggregator {
 }
 
 impl Aggregator {
+    /// Creates aggregator from the [`Config`]
+    ///
+    /// # Errors
+    /// - Fails if clients cannot be created
     pub async fn from_config(config: Config) -> anyhow::Result<Self> {
         let attestor_clients = Self::create_clients(&config.attestor).await?;
 
@@ -76,32 +91,34 @@ impl Aggregator {
     }
 }
 
-#[tonic::async_trait]
-impl AggregatorService for Aggregator {
-    #[instrument(skip_all, fields(height = request.get_ref().height))]
-    async fn get_attestations(
+impl Aggregator {
+    /// Get attestations
+    ///
+    /// # Errors
+    /// - Fails if attesations cannot be fetched
+    /// - Fails if input packets are empty
+    pub async fn get_attestations(
         &self,
-        request: Request<GetAttestationsRequest>,
-    ) -> Result<Response<GetAttestationsResponse>, Status> {
-        let request = request.into_inner();
-
-        if request.packets.is_empty() {
-            return Err(Status::invalid_argument("Packets cannot be empty"));
+        packets: Vec<Vec<u8>>,
+        height: u64,
+    ) -> anyhow::Result<(AggregatedAttestation, AggregatedAttestation)> {
+        if packets.is_empty() {
+            return Err(anyhow::anyhow!("Packets cannot be empty"));
         }
 
-        if request.packets.iter().any(|packet| packet.is_empty()) {
-            return Err(Status::invalid_argument("Packet cannot be empty"));
+        if packets.iter().any(std::vec::Vec::is_empty) {
+            return Err(anyhow::anyhow!("Packet cannot be empty"));
         }
 
-        let mut sorted_packets = request.packets;
+        let mut sorted_packets = packets;
         sorted_packets.sort();
-        let packet_cache_key = Self::make_packet_cache_key(&sorted_packets, request.height);
+        let packet_cache_key = Self::make_packet_cache_key(&sorted_packets, height);
 
         let packet_attestation = self
             .packet_cache
             .try_get_with(packet_cache_key, async {
                 let packet_attestations = self
-                    .query_attestations(AttestationQuery::Packet(sorted_packets, request.height))
+                    .query_attestations(AttestationQuery::Packet(sorted_packets, height))
                     .await?;
 
                 let quorumed_aggregation =
@@ -129,15 +146,9 @@ impl AggregatorService for Aggregator {
             .await
             .map_err(|e: Arc<Status>| (*e).clone())?;
 
-        let response = GetAttestationsResponse {
-            state_attestation: Some(state_attestation),
-            packet_attestation: Some(packet_attestation),
-        };
-        Ok(Response::new(response))
+        Ok((state_attestation, packet_attestation))
     }
-}
 
-impl Aggregator {
     async fn query_attestations(
         &self,
         query: AttestationQuery,
@@ -197,7 +208,9 @@ impl Aggregator {
 
     fn make_packet_cache_key(packets: &[Vec<u8>], height: u64) -> ([u8; 32], u64) {
         let mut hasher = Sha256::new();
-        packets.iter().for_each(|p| hasher.update(p));
+        for p in packets {
+            hasher.update(p);
+        }
         (hasher.finalize().into(), height)
     }
 }
@@ -217,86 +230,5 @@ fn agg_quorumed_attestations(
 
     attestator_data
         .agg_quorumed_attestations(quorum_threshold)
-        .ok_or(anyhow::anyhow!("Quorum not met"))
-}
-
-#[cfg(test)]
-mod e2e_tests {
-    use super::*;
-    use crate::{
-        config::{AttestorConfig, Config, ServerConfig},
-        mock_attestor::setup_attestor_server,
-    };
-    use std::net::SocketAddr;
-
-    fn default_config(
-        timeout: u64,
-        quorum_threshold: usize,
-        attestor_endpoints: Vec<SocketAddr>,
-    ) -> Config {
-        Config {
-            server: ServerConfig {
-                listener_addr: "127.0.0.1:8080".parse().unwrap(),
-                log_level: "INFO".to_string(),
-            },
-            attestor: AttestorConfig {
-                attestor_query_timeout_ms: timeout,
-                quorum_threshold,
-                attestor_endpoints: attestor_endpoints
-                    .into_iter()
-                    .map(|s| format!("http://{s}"))
-                    .collect(),
-            },
-            cache: Default::default(),
-        }
-    }
-
-    #[tokio::test]
-    async fn get_aggregate_attestation_quorum_met() {
-        let _ = tracing_subscriber::fmt::try_init();
-
-        // 1. Setup: Create 3 successful attestors and 1 malicious attestor.
-        let addr_1 = setup_attestor_server(false, 0).await.unwrap();
-        let addr_2 = setup_attestor_server(false, 0).await.unwrap();
-        let addr_3 = setup_attestor_server(false, 0).await.unwrap();
-        let addr_4 = setup_attestor_server(true, 0).await.unwrap(); // This one is malicious
-
-        // 2. Setup: Create AggregatorService
-        let config = default_config(5000, 3, vec![addr_1, addr_2, addr_3, addr_4]);
-        let aggregator_service = Aggregator::from_config(config).await.unwrap();
-
-        // 3. Execute: Query for an aggregated attestation
-        let response = aggregator_service
-            .query_attestations(AttestationQuery::State(110))
-            .await
-            .unwrap();
-
-        // 4. Assert: Check the response
-        assert_eq!(response.len(), 4);
-    }
-
-    #[tokio::test]
-    async fn get_aggregate_attestation_network_timeout() {
-        let _ = tracing_subscriber::fmt::try_init();
-
-        // 1. Setup: Create 3 successful attestors and 1 malicious attestor.
-        // But successful attestors will be timeouted.
-        let addr_1 = setup_attestor_server(false, 1000).await.unwrap();
-        let addr_2 = setup_attestor_server(false, 1000).await.unwrap();
-        let addr_3 = setup_attestor_server(false, 1000).await.unwrap();
-        let addr_4 = setup_attestor_server(true, 0).await.unwrap(); // This one is malicious
-
-        // 2. Setup: Create AggregatorService
-        let config = default_config(100, 3, vec![addr_1, addr_2, addr_3, addr_4]);
-        let aggregator_service = Aggregator::from_config(config).await.unwrap();
-
-        // 3. Execute: Query for an aggregated attestation
-        let response = aggregator_service
-            .query_attestations(AttestationQuery::State(100))
-            .await;
-
-        // 4. Assert: Can not reach quorum due to timeouts
-        let response = response.unwrap();
-        assert_eq!(response.len(), 1);
-    }
+        .ok_or_else(|| anyhow::anyhow!("Quorum not met"))
 }

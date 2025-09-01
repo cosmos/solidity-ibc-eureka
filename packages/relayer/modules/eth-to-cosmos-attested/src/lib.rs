@@ -23,6 +23,7 @@ use alloy::{
     providers::{Provider, RootProvider},
 };
 use ibc_eureka_relayer_lib::{
+    aggregator::Config,
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::TxBuilderService,
 };
@@ -62,8 +63,8 @@ where
 pub struct EthToCosmosAttestedConfig {
     /// The source chain ID for the attested chain.
     pub attested_chain_id: String,
-    /// The aggregator service URL for fetching attestations.
-    pub aggregator_url: String,
+    /// Aggregator configuration
+    pub aggregator_config: Config,
     // TODO: Make this chain agnostic, see IBC-162
     /// The EVM RPC URL.
     pub attested_rpc_url: String,
@@ -92,10 +93,12 @@ impl
         let tm_listener = cosmos_sdk::ChainListener::new(target_client.clone());
 
         let tx_builder = tx_builder::TxBuilder::new(
-            config.aggregator_url.clone(),
+            config.aggregator_config.clone(),
             target_client,
             config.signer_address,
-        );
+        )
+        .await
+        .expect("tx builder cannot be built");
 
         Self {
             attested_chain_id: config.attested_chain_id,
@@ -271,6 +274,7 @@ impl RelayerModule for EthToCosmosAttestedRelayerModule {
 #[cfg(test)]
 mod tests {
     use alloy::hex;
+    use ibc_eureka_relayer_lib::aggregator::{AttestorConfig, CacheConfig};
 
     use super::*;
 
@@ -282,8 +286,16 @@ mod tests {
 
     #[test]
     fn test_config_serialization() {
+        let agg_config = Config {
+            attestor: AttestorConfig {
+                attestor_query_timeout_ms: 100_000,
+                quorum_threshold: 1,
+                attestor_endpoints: ["127.0.0.1:8080".to_string()].to_vec(),
+            },
+            cache: CacheConfig::default(),
+        };
         let config = EthToCosmosAttestedConfig {
-            aggregator_url: "http://localhost:8080".to_string(),
+            aggregator_config: agg_config,
             ics26_address: Address(hex!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").into()),
             attested_rpc_url: "http://localhost:8080".to_string(),
             tm_rpc_url: "http://localhost:26657".to_string(),
@@ -295,7 +307,6 @@ mod tests {
         let deserialized: EthToCosmosAttestedConfig =
             serde_json::from_str(&json).expect("Failed to deserialize config");
 
-        assert_eq!(config.aggregator_url, deserialized.aggregator_url);
         assert_eq!(config.tm_rpc_url, deserialized.tm_rpc_url);
         assert_eq!(config.signer_address, deserialized.signer_address);
         assert_eq!(config.attested_chain_id, deserialized.attested_chain_id);

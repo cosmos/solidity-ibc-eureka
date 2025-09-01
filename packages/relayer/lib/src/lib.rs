@@ -7,6 +7,7 @@
     unused_crate_dependencies
 )]
 
+pub mod aggregator;
 pub mod chain;
 pub mod events;
 pub mod listener;

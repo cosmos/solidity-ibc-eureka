@@ -63,12 +63,6 @@ runs:
       run: |
         just install-attestor
 
-    - name: Install aggregator
-      if: steps.cache-relayer.outputs.cache-hit != 'true'
-      shell: bash
-      run: |
-        just install-aggregator
-
     - name: Build SP1 Programs
       if: (steps.cache-relayer.outputs.cache-hit != 'true')
       shell: bash

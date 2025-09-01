@@ -27,7 +27,6 @@ members = [
     "programs/cw-ics08-wasm-eth",
     "programs/cw-ics08-wasm-attestor",
     "programs/ibc-attestor",
-    "programs/sig-aggregator",
     "packages/ethereum/keys"
 ]
 resolver = "2"

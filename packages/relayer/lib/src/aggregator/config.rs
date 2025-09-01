@@ -1,12 +1,9 @@
 use anyhow::{Context, Result};
-use serde::Deserialize;
-use std::{collections::HashSet, fs, net::SocketAddr, path::Path, str::FromStr};
-use tracing::Level;
+use std::{collections::HashSet, fs, path::Path};
 
-#[derive(Debug, Deserialize, Clone)]
+/// Aggregator config
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct Config {
-    /// The configuration for the aggregator server.
-    pub server: ServerConfig,
     /// The configuration for the attestor signer.
     pub attestor: AttestorConfig,
     /// The configuration for caching behavior.
@@ -15,31 +12,44 @@ pub struct Config {
 }
 
 impl Config {
+    /// Reads config from a file
+    ///
+    /// # Errors
+    /// - Fails if file does not exist
+    /// - Fails if the config is invalid
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         let content = fs::read_to_string(path)
             .with_context(|| format!("Failed to read config file '{}'", path.display()))?;
 
-        let config: Config =
-            toml::from_str(&content).context("Failed to parse TOML configuration")?;
+        let config: Self =
+            serde_json::from_str(&content).context("Failed to parse JSON configuration")?;
 
         config.validate()?;
 
         Ok(config)
     }
 
+    /// Validates the parsed config
+    ///
+    /// # Errors
+    /// - Fails if attestaor config is invalid
+    /// - Fails if cache config is invalid
     pub fn validate(&self) -> Result<()> {
-        self.server.validate()?;
         self.attestor.validate()?;
         self.cache.validate()?;
         Ok(())
     }
 }
 
-#[derive(Clone, Debug, serde::Deserialize)]
+/// Attestor config
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct AttestorConfig {
+    /// Timeout
     pub attestor_query_timeout_ms: u64,
+    /// Quorum
     pub quorum_threshold: usize,
+    /// Endpoints
     pub attestor_endpoints: Vec<String>,
 }
 
@@ -60,7 +70,7 @@ impl AttestorConfig {
         self.attestor_endpoints
             .iter()
             .enumerate()
-            .try_for_each(|(index, endpoint)| self.validate_single_endpoint(endpoint, index))?;
+            .try_for_each(|(index, endpoint)| Self::validate_single_endpoint(endpoint, index))?;
 
         let unique_count = self.attestor_endpoints.iter().collect::<HashSet<_>>().len();
 
@@ -74,7 +84,7 @@ impl AttestorConfig {
         Ok(())
     }
 
-    fn validate_single_endpoint(&self, endpoint: &str, index: usize) -> Result<()> {
+    fn validate_single_endpoint(endpoint: &str, index: usize) -> Result<()> {
         let trimmed_endpoint = endpoint.trim();
 
         anyhow::ensure!(
@@ -128,12 +138,13 @@ impl AttestorConfig {
     }
 }
 
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+/// Aggregator cache config
 pub struct CacheConfig {
     #[serde(default = "defaults::default_state_cache_max_entries")]
-    pub state_cache_max_entries: u64,
+    pub(crate) state_cache_max_entries: u64,
     #[serde(default = "defaults::default_packet_cache_max_entries")]
-    pub packet_cache_max_entries: u64,
+    pub(crate) packet_cache_max_entries: u64,
 }
 
 impl Default for CacheConfig {
@@ -165,41 +176,9 @@ impl CacheConfig {
     }
 }
 
-/// The configuration for the aggregator server.
-#[derive(Clone, Debug, serde::Deserialize)]
-pub struct ServerConfig {
-    /// The listener_addr to bind the server to.
-    pub listener_addr: SocketAddr,
-    /// The log level for the server.
-    #[serde(default = "defaults::default_log_level")]
-    pub log_level: String,
-}
-
-impl ServerConfig {
-    fn validate(&self) -> Result<()> {
-        if !self.log_level.is_empty() {
-            Level::from_str(&self.log_level).with_context(|| {
-                format!(
-                    "invalid log level '{}'. Valid levels are: TRACE, DEBUG, INFO, WARN, ERROR",
-                    self.log_level
-                )
-            })?;
-        }
-        Ok(())
-    }
-
-    /// Returns the log level for the server.
-    #[must_use]
-    pub fn log_level(&self) -> Level {
-        Level::from_str(&self.log_level).unwrap_or(defaults::DEFAULT_LOG_LEVEL)
-    }
-}
-
 /// Default values for configuration
 mod defaults {
-    use tracing::Level;
 
-    pub const DEFAULT_LOG_LEVEL: Level = Level::INFO;
     pub const MIN_TIMEOUT_MS: u64 = 10;
     pub const MAX_TIMEOUT_MS: u64 = 60_000;
     pub const MIN_QUORUM_THRESHOLD: usize = 1;
@@ -208,15 +187,11 @@ mod defaults {
     pub const DEFAULT_PACKET_CACHE_MAX_ENTRIES: u64 = 100_000;
     pub const MAX_CACHE_ENTRIES: u64 = 100_000_000;
 
-    pub fn default_log_level() -> String {
-        DEFAULT_LOG_LEVEL.to_string().to_lowercase()
-    }
-
-    pub fn default_state_cache_max_entries() -> u64 {
+    pub const fn default_state_cache_max_entries() -> u64 {
         DEFAULT_STATE_CACHE_MAX_ENTRIES
     }
 
-    pub fn default_packet_cache_max_entries() -> u64 {
+    pub const fn default_packet_cache_max_entries() -> u64 {
         DEFAULT_PACKET_CACHE_MAX_ENTRIES
     }
 }

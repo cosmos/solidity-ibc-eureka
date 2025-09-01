@@ -5138,7 +5138,6 @@ dependencies = [
  "ibc-eureka-relayer-lib 0.1.0",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils 0.1.0",
- "prost",
  "serde",
  "serde_json",
  "tendermint",
@@ -5256,15 +5255,20 @@ dependencies = [
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "moka",
  "prost",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "sp1-ics07-tendermint-prover 0.1.0",
  "sp1-prover",
  "sp1-sdk",
  "tendermint",
  "tendermint-light-client-verifier",
  "tendermint-rpc",
+ "tokio",
+ "tonic 0.13.1",
+ "tonic-build",
  "tracing",
 ]
 
@@ -8695,30 +8699,6 @@ name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
-
-[[package]]
-name = "sig-aggregator"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives 1.3.1",
- "anyhow",
- "clap",
- "futures",
- "k256",
- "moka",
- "prost",
- "serde",
- "sha2 0.10.9",
- "tokio",
- "tokio-stream",
- "toml",
- "tonic 0.13.1",
- "tonic-build",
- "tonic-reflection",
- "tower-http",
- "tracing",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "signal-hook-registry"

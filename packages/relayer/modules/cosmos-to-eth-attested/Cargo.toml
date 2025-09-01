@@ -12,7 +12,6 @@ ibc-eureka-utils          = { workspace = true }
 alloy = { workspace = true, features = ["full", "node-bindings"] }
 
 serde      = { workspace = true, features = ["derive"] }
-prost      = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
 
 tonic         = { workspace = true, default-features = true }
