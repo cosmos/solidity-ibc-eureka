@@ -1,8 +1,6 @@
 module github.com/srdtrk/solidity-ibc-eureka/e2e/v8
 
-go 1.23.8
-
-toolchain go1.24.3
+go 1.24.0
 
 replace github.com/ethereum/go-ethereum => github.com/ethereum-optimism/op-geth v1.101511.0
 
@@ -15,6 +13,7 @@ require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/attestantio/go-eth2-client v1.15.2
 	github.com/cometbft/cometbft v0.38.18
+	github.com/cosmos/cosmos-proto v1.0.0-beta.5
 	github.com/cosmos/cosmos-sdk v0.53.4
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.3.0
@@ -90,7 +89,6 @@ require (
 	github.com/consensys/gnark-crypto v0.16.0 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/cosmos-db v1.1.3 // indirect
-	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v1.2.4 // indirect

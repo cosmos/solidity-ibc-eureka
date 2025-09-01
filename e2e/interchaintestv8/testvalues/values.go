@@ -163,6 +163,7 @@ const (
 
 	// Ics27AbiEncoding is the solidity abi encoding type for the ICS27 packets.
 	Ics27AbiEncoding = "application/x-solidity-abi"
+	DemoDenom        = "WF"
 )
 
 var (
