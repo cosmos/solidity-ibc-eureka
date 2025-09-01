@@ -1,54 +1,188 @@
 use alloy_primitives::FixedBytes as AlloyFixedBytes;
-use alloy_sol_types::sol_data::Array as SolArray;
-use alloy_sol_types::sol_data::FixedBytes as SolFixedBytes;
-use alloy_sol_types::SolType;
+use alloy_sol_types::SolValue;
+
+type B32Tuple = (AlloyFixedBytes<32>, AlloyFixedBytes<32>);
+
+/// Lightweight packet representation
+/// Including path hash implies replay-protection for attestations
+/// (because we can't rely on a merkle proof)
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct PacketCompact {
+    /// Packet's `commitment_path` hash
+    pub path: AlloyFixedBytes<32>,
+
+    /// Packet's `commitment` hash
+    pub commitment: AlloyFixedBytes<32>,
+}
+
+impl PacketCompact {
+    /// Create a new packet compact from a path and a commitment
+    pub fn new<T>(path: T, commitment: T) -> Self
+    where
+        T: Into<AlloyFixedBytes<32>>,
+    {
+        Self {
+            path: path.into(),
+            commitment: commitment.into(),
+        }
+    }
+
+    /// Create a new packet compact from a tuple of path and commitment
+    pub fn new_from_tuple<T>(tuple: (T, T)) -> Self
+    where
+        T: Into<AlloyFixedBytes<32>>,
+    {
+        Self::new(tuple.0, tuple.1)
+    }
+
+    /// Convert packet compact to a tuple of path and commitment
+    #[inline]
+    const fn as_tuple(&self) -> B32Tuple {
+        (self.path, self.commitment)
+    }
+
+    /// Encode packet compact as `tuple(path_hash, commitment_hash)`
+    #[must_use]
+    pub fn to_abi_bytes(&self) -> Vec<u8> {
+        self.as_tuple().abi_encode()
+    }
+
+    /// Decode packet compact from ABI bytes encoded as tuple(bytes32, bytes32)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the ABI decoding fails.
+    pub fn from_abi_bytes(raw: &[u8]) -> Result<Self, alloy_sol_types::Error> {
+        let (path, commitment) = B32Tuple::abi_decode(raw)?;
+
+        Ok(Self { path, commitment })
+    }
+}
 
 /// Wrapper type that represents a list of packet commitments.
 /// Each packet commitment is represented as a fixed-size 32-byte array.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct PacketCommitments(Vec<AlloyFixedBytes<32>>);
+pub struct PacketCommitments(Vec<PacketCompact>);
 
 impl PacketCommitments {
-    /// Create a new instance of [Packets] from any type that can be converted to 32-byte fixed bytes
+    /// Create a new instance of [Packets] from a vector of [`PacketCompact`]
     #[must_use]
-    pub fn new<T>(packets: Vec<T>) -> Self
-    where
-        T: Into<AlloyFixedBytes<32>>,
-    {
-        let packets: Vec<AlloyFixedBytes<32>> = packets.into_iter().map(Into::into).collect();
+    pub const fn new(packets: Vec<PacketCompact>) -> Self {
         Self(packets)
     }
 
     /// Iterate over each individual packet commitment
-    pub fn packets(&self) -> impl Iterator<Item = &AlloyFixedBytes<32>> {
-        self.0.iter()
+    pub fn commitments(&self) -> impl Iterator<Item = &AlloyFixedBytes<32>> {
+        self.0.iter().map(|p| &p.commitment)
     }
 
-    /// Encode packet commitments to ABI bytes as bytes32[]
+    /// Encode packet commitments to ABI bytes as (bytes32,bytes32)[]
     #[must_use]
     pub fn to_abi_bytes(&self) -> Vec<u8> {
-        SolArray::<SolFixedBytes<32>>::abi_encode(&self.0)
+        self.0
+            .iter()
+            .map(PacketCompact::as_tuple)
+            .collect::<Vec<_>>()
+            .abi_encode()
     }
 
-    /// Decode packet commitments from ABI bytes encoded as bytes32[]
+    /// Decode packet commitments from ABI bytes encoded as (bytes32,bytes32)[]
     ///
     /// # Errors
     ///
-    /// Returns an error if the provided data cannot be decoded as a valid array of 32-byte fixed bytes.
-    pub fn from_abi_bytes(data: &[u8]) -> Result<Self, alloy_sol_types::Error> {
-        let packets = SolArray::<SolFixedBytes<32>>::abi_decode(data)?;
+    /// Returns an error if the ABI decoding fails.
+    pub fn from_abi_bytes(raw: &[u8]) -> Result<Self, alloy_sol_types::Error> {
+        let tuples: Vec<B32Tuple> = Vec::<B32Tuple>::abi_decode(raw)?;
+        let packets = tuples
+            .into_iter()
+            .map(PacketCompact::new_from_tuple)
+            .collect();
+
         Ok(Self(packets))
     }
 
-    /// Get the inner `Vec<FixedBytes<32>>`
+    /// Convert to inner vector of [`PacketCompact`]
     #[must_use]
-    pub fn into_inner(self) -> Vec<AlloyFixedBytes<32>> {
+    pub fn into_inner(self) -> Vec<PacketCompact> {
         self.0
     }
 
-    /// Get a reference to the inner `Vec<FixedBytes<32>>`
+    /// Get inner vector of [`PacketCompact`]
     #[must_use]
-    pub const fn as_inner(&self) -> &Vec<AlloyFixedBytes<32>> {
+    pub const fn as_inner(&self) -> &Vec<PacketCompact> {
         &self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn abi_bytes_are_not_json() {
+        let packets = vec![
+            PacketCompact::new([0x11u8; 32], [0x12u8; 32]),
+            PacketCompact::new([0x21u8; 32], [0x22u8; 32]),
+        ];
+
+        let abi = PacketCommitments::new(packets).to_abi_bytes();
+
+        let parsed: Result<Vec<Vec<u8>>, _> = serde_json::from_slice(&abi);
+        assert!(
+            parsed.is_err(),
+            "ABI-encoded bytes32[] must not be parsed as JSON"
+        );
+    }
+
+    #[test]
+    fn test_packet_commitments_roundtrip() {
+        // ARRANGE
+        // Given a sample ABI-encoded hex
+        //
+        // cast abi-encode "fn((bytes32,bytes32)[])" \
+        //  "[(0x1000000000000000000000000000000000000000000000000000000000000000,0x2000000000000000000000000000000000000000000000000000000000000000), \
+        //    (0x3000000000000000000000000000000000000000000000000000000000000000,0x4000000000000000000000000000000000000000000000000000000000000000)]"
+        const SAMPLE_HEX: &str = concat!(
+            "0x00000000000000000000000000000000000000000000000000000000000000",
+            "200000000000000000000000000000000000000000000000000000000000000002",
+            "1000000000000000000000000000000000000000000000000000000000000000",
+            "2000000000000000000000000000000000000000000000000000000000000000",
+            "3000000000000000000000000000000000000000000000000000000000000000",
+            "4000000000000000000000000000000000000000000000000000000000000000",
+        );
+
+        let sample_bytes = hex::decode(&SAMPLE_HEX[2..]).expect("Invalid hex");
+
+        // ACT #1
+        // Decode the hex string to bytes
+        let res = PacketCommitments::from_abi_bytes(&sample_bytes);
+
+        // ASSERT #1
+        assert!(
+            res.is_ok(),
+            "Failed to parse PacketCommitments: {:?}",
+            res.unwrap_err()
+        );
+
+        let packets = res.unwrap();
+
+        // Check that the number of packets is correct
+        assert_eq!(packets.0.len(), 2, "Expected 2 packets");
+
+        // Check that tuple order is preserved
+        // just check first packet is  (0x10..., 0x20...)
+        let first = packets.as_inner().first().unwrap();
+        assert_eq!(first.path.as_slice()[0], 0x10);
+        assert_eq!(first.commitment.as_slice()[0], 0x20);
+
+        // ACT #2
+        // Encode back to ABI bytes
+        let encoded_bytes = packets.to_abi_bytes();
+
+        // Convert back to hex string
+        let encoded_hex = format!("0x{}", hex::encode(&encoded_bytes));
+
+        // ASSERT #2
+        assert_eq!(encoded_hex, SAMPLE_HEX, "hex mismatch");
     }
 }

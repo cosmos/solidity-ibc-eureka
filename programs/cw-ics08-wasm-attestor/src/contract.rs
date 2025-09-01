@@ -87,7 +87,7 @@ mod tests {
         client_state::ClientState,
         consensus_state::ConsensusState,
         header::Header,
-        test_utils::{KEYS, PACKET_COMMITMENTS, PACKET_COMMITMENTS_ENCODED, SIGS_RAW},
+        test_utils::{sample_packet_commitments, KEYS, PACKET_COMMITMENTS_ENCODED, SIGS_RAW},
     };
     use cosmwasm_std::Binary;
 
@@ -96,7 +96,7 @@ mod tests {
     use crate::msg::InstantiateMsg;
 
     pub fn membership_value() -> Binary {
-        PACKET_COMMITMENTS[0].to_vec().into()
+        sample_packet_commitments()[0].commitment.to_vec().into()
     }
 
     pub fn consensus() -> ConsensusState {
@@ -213,7 +213,6 @@ mod tests {
     }
 
     mod integration_tests {
-        use alloy_primitives::FixedBytes;
         use alloy_sol_types::SolValue;
         use attestor_light_client::{
             error::IbcAttestorClientError,
@@ -225,7 +224,7 @@ mod tests {
             testing::{message_info, mock_env},
             Binary, Timestamp,
         };
-        use ibc_eureka_solidity_types::msgs::IAttestorMsgs::PacketAttestation;
+        use ibc_eureka_solidity_types::msgs::IAttestorMsgs::{PacketAttestation, PacketCompact};
 
         use crate::{
             contract::{
@@ -334,10 +333,13 @@ mod tests {
 
             // Bad attestation fails
             let env = mock_env();
-            let bad_commitments = vec![FixedBytes::from([254u8; 32])];
+            let bad_commitments = vec![PacketCompact {
+                path: [254u8; 32].into(),
+                commitment: [254u8; 32].into(),
+            }];
 
             let value = PacketAttestation {
-                packetCommitments: bad_commitments,
+                packets: bad_commitments,
                 height: 0,
             };
             let verifyable = MembershipProof {

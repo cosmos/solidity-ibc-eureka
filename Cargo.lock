@@ -1457,7 +1457,9 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives 1.3.1",
  "alloy-sol-types 1.3.1",
+ "hex",
  "serde",
+ "serde_json",
  "thiserror 2.0.16",
 ]
 
@@ -2988,7 +2990,6 @@ dependencies = [
 name = "cw-ics08-wasm-attestor"
 version = "0.1.0"
 dependencies = [
- "alloy-primitives 1.3.1",
  "alloy-sol-types 1.3.1",
  "attestor-light-client",
  "cosmwasm-schema",
@@ -5132,7 +5133,6 @@ dependencies = [
  "alloy",
  "anyhow",
  "async-trait",
- "attestor-packet-membership",
  "hex",
  "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-lib 0.1.0",
@@ -5205,7 +5205,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "attestor-light-client",
- "attestor-packet-membership",
  "hex",
  "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-lib 0.1.0",

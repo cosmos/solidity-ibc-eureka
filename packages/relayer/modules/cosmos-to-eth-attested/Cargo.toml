@@ -28,6 +28,3 @@ ibc-eureka-solidity-types = { workspace = true, default-features = true }
 
 [build-dependencies]
 tonic-build = { workspace = true }
-
-[dev-dependencies]
-attestor-packet-membership = { workspace = true }

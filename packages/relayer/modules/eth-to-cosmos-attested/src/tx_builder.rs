@@ -330,21 +330,3 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         todo!()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use attestor_packet_membership::PacketCommitments;
-
-    #[test]
-    fn abi_bytes_are_not_json() {
-        let commitments = vec![[0x11u8; 32], [0x22u8; 32]];
-        let abi = PacketCommitments::new(commitments).to_abi_bytes();
-
-        let parsed: Result<Vec<Vec<u8>>, _> = serde_json::from_slice(&abi);
-        assert!(
-            parsed.is_err(),
-            "ABI-encoded bytes32[] must not be parsed as JSON"
-        );
-    }
-}

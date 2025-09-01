@@ -141,11 +141,11 @@ contract AttestorLightClient is IAttestorLightClient, IAttestorLightClientErrors
         // Ensure the attested height matches the requested proofHeight
         require(packetAttestation.height == proofHeight, HeightMismatch(proofHeight, packetAttestation.height));
 
-        require(packetAttestation.packetCommitments.length > 0, EmptyPacketCommitments());
+        require(packetAttestation.packets.length > 0, EmptyPacketCommitments());
         // Check membership: value must be present in the attested list
         bytes32 value = abi.decode(msg_.value, (bytes32));
-        for (uint256 i = 0; i < packetAttestation.packetCommitments.length; ++i) {
-            if (packetAttestation.packetCommitments[i] == value) {
+        for (uint256 i = 0; i < packetAttestation.packets.length; ++i) {
+            if (packetAttestation.packets[i].commitment == value) {
                 return uint256(ts);
             }
         }
