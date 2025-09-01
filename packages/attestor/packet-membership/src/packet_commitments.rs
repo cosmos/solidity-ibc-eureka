@@ -74,11 +74,6 @@ impl PacketCommitments {
     }
 
     /// Iterate over each individual packet commitment
-    pub fn iterate(&self) -> impl Iterator<Item = &PacketCompact> {
-        self.0.iter()
-    }
-
-    /// Iterate over each individual packet commitment
     pub fn commitments(&self) -> impl Iterator<Item = &B32> {
         self.0.iter().map(|p| &p.commitment)
     }
@@ -86,7 +81,8 @@ impl PacketCommitments {
     /// Encode packet commitments to ABI bytes as (bytes32,bytes32)[]
     #[must_use]
     pub fn to_abi_bytes(&self) -> Vec<u8> {
-        self.iterate()
+        self.0
+            .iter()
             .map(PacketCompact::as_tuple)
             .collect::<Vec<_>>()
             .abi_encode()
@@ -125,6 +121,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn abi_bytes_are_not_json() {
+        let packets = vec![
+            PacketCompact::new([0x11u8; 32], [0x12u8; 32]),
+            PacketCompact::new([0x21u8; 32], [0x22u8; 32]),
+        ];
+
+        let abi = PacketCommitments::new(packets).to_abi_bytes();
+
+        let parsed: Result<Vec<Vec<u8>>, _> = serde_json::from_slice(&abi);
+        assert!(
+            parsed.is_err(),
+            "ABI-encoded bytes32[] must not be parsed as JSON"
+        );
+    }
+
+    #[test]
     fn test_packet_commitments_roundtrip() {
         // ARRANGE
         // Given a sample ABI-encoded hex
@@ -157,7 +169,7 @@ mod tests {
         let packets = res.unwrap();
 
         // Check that the number of packets is correct
-        assert_eq!(packets.iterate().count(), 2, "Expected 2 packets");
+        assert_eq!(packets.0.len(), 2, "Expected 2 packets");
 
         // Check that tuple order is preserved
         // just check first packet is  (0x10..., 0x20...)

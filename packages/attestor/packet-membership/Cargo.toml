@@ -15,3 +15,4 @@ serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 hex = "0.4"
+serde_json = "1.0"
