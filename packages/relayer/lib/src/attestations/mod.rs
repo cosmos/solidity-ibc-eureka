@@ -4,4 +4,9 @@
 mod aggregator;
 mod proof;
 
+pub use aggregator::{
+    aggregator::Aggregator,
+    config::{AttestorConfig, CacheConfig, Config, ServerConfig},
+    server::start,
+};
 pub use proof::*;
