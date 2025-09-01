@@ -5138,7 +5138,6 @@ dependencies = [
  "ibc-eureka-relayer-lib 0.1.0",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils 0.1.0",
- "prost",
  "serde",
  "serde_json",
  "tendermint",

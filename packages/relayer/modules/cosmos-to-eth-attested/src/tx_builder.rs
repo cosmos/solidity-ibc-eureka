@@ -13,10 +13,9 @@ use alloy::{
     sol_types::{SolCall, SolValue},
 };
 use anyhow::Result;
-use tonic::transport::Channel;
 
 use ibc_eureka_relayer_lib::{
-    attestations,
+    attestations::{self, Aggregator, Config},
     chain::{Chain, CosmosSdk},
     events::{EurekaEvent, EurekaEventWithHeight},
     tx_builder::TxBuilderService,
@@ -52,22 +51,13 @@ impl Chain for AttestedChain {
     type Height = u64;
 }
 
-/// Generated aggregator client protobuf definitions
-pub mod aggregator_proto {
-    tonic::include_proto!("aggregator");
-}
-
-/// The aggregator client for fetching attestations.
-pub type AggregatorClient =
-    aggregator_proto::aggregator_service_client::AggregatorServiceClient<Channel>;
-
 /// The `TxBuilder` produces txs to [`Ethereum`] based on attestations from the aggregator.
 pub struct TxBuilder<P>
 where
     P: Provider + Clone,
 {
-    /// The aggregator URL for fetching attestations.
-    pub aggregator_url: String,
+    /// The aggregator for fetching attestations.
+    pub aggregator: Aggregator,
     /// The IBC Eureka router instance.
     pub ics26_router: routerInstance<P, Ethereum>,
 }
@@ -78,20 +68,17 @@ where
 {
     /// Creates a new `TxBuilder`.
     #[must_use]
-    pub const fn new(ics26_address: Address, provider: P, aggregator_url: String) -> Self {
-        Self {
+    pub async fn new(
+        ics26_address: Address,
+        provider: P,
+        aggregator_config: Config,
+    ) -> Result<Self> {
+        let aggregator = Aggregator::from_config(aggregator_config).await?;
+
+        Ok(Self {
             ics26_router: routerInstance::new(ics26_address, provider),
-
-            aggregator_url,
-        }
-    }
-
-    /// Creates an aggregator client.
-    async fn create_aggregator_client(&self) -> Result<AggregatorClient> {
-        let channel = Channel::from_shared(self.aggregator_url.clone())?
-            .connect()
-            .await?;
-        Ok(AggregatorClient::new(channel))
+            aggregator,
+        })
     }
 }
 
@@ -140,8 +127,6 @@ where
             target_events.len()
         );
 
-        let mut aggregator_client = self.create_aggregator_client().await?;
-
         let mut ics26_send_packets = Vec::new();
         let mut ics26_ack_packets = Vec::new();
         let mut heights = HashSet::new();
@@ -167,29 +152,16 @@ where
         }
 
         let query_height = *heights.iter().max().unwrap();
-        let request = aggregator_proto::GetAttestationsRequest {
-            packets: ics26_send_packets,
-            height: query_height, // latest height
-        };
 
         tracing::info!(
             "Requesting state attestation from aggregator for {} packets",
-            request.packets.len()
+            ics26_send_packets.len()
         );
 
-        let response = aggregator_client
-            .get_attestations(request)
-            .await?
-            .into_inner();
-
-        let (state, packets) = (
-            response
-                .state_attestation
-                .ok_or_else(|| anyhow::anyhow!("No state received"))?,
-            response
-                .packet_attestation
-                .ok_or_else(|| anyhow::anyhow!("No packets received"))?,
-        );
+        let (state, packets) = self
+            .aggregator
+            .get_attestations(ics26_send_packets, query_height)
+            .await?;
 
         tracing::info!(
             "Received state attestation: {} signatures, height {}, state: {}",

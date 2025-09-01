@@ -22,6 +22,7 @@ use alloy::{
     providers::{Provider, RootProvider},
 };
 use ibc_eureka_relayer_lib::{
+    attestations::Config,
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::TxBuilderService,
 };
@@ -56,7 +57,7 @@ pub struct CosmosToEthAttestedConfig {
     /// The source chain ID for the attested chain.
     pub attested_chain_id: String,
     /// The aggregator service URL for fetching attestations.
-    pub aggregator_url: String,
+    pub aggregator_config: Config,
     /// Attested RPC address for the cosmos chain
     pub attested_rpc_url: String,
     /// ICS26 address
@@ -77,11 +78,10 @@ impl CosmosToEthAttestedRelayerModuleService {
 
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
 
-        let tx_builder = tx_builder::TxBuilder::new(
-            config.ics26_address,
-            provider,
-            config.aggregator_url.clone(),
-        );
+        let tx_builder =
+            tx_builder::TxBuilder::new(config.ics26_address, provider, config.aggregator_config)
+                .await
+                .expect("tx builder requires aggregator");
 
         Self {
             attested_chain_id: config.attested_chain_id,
@@ -252,6 +252,7 @@ impl RelayerModule for CosmosToEthAttestedRelayerModule {
 #[cfg(test)]
 mod tests {
     use alloy::hex;
+    use ibc_eureka_relayer_lib::attestations::{AttestorConfig, CacheConfig};
 
     use super::*;
 
@@ -263,8 +264,16 @@ mod tests {
 
     #[test]
     fn test_config_serialization() {
+        let agg_config = Config {
+            attestor: AttestorConfig {
+                attestor_query_timeout_ms: 100_000,
+                quorum_threshold: 1,
+                attestor_endpoints: ["127.0.0.1:8080".to_string()].to_vec(),
+            },
+            cache: CacheConfig::default(),
+        };
         let config = CosmosToEthAttestedConfig {
-            aggregator_url: "http://localhost:8080".to_string(),
+            aggregator_config: agg_config,
             ics26_address: Address(hex!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").into()),
             attested_rpc_url: "http://localhost:8080".to_string(),
             eth_rpc_url: "http://localhost:26657".to_string(),
@@ -275,7 +284,6 @@ mod tests {
         let deserialized: CosmosToEthAttestedConfig =
             serde_json::from_str(&json).expect("Failed to deserialize config");
 
-        assert_eq!(config.aggregator_url, deserialized.aggregator_url);
         assert_eq!(config.eth_rpc_url, deserialized.eth_rpc_url);
         assert_eq!(config.attested_chain_id, deserialized.attested_chain_id);
     }
