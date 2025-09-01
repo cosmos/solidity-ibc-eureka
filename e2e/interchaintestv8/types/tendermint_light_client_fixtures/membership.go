@@ -11,6 +11,7 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	ics23 "github.com/cosmos/ics23/go"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/stretchr/testify/suite"
 
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -24,8 +25,6 @@ import (
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
 	"github.com/cosmos/interchaintest/v10/chain/cosmos"
-
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
 )
 
 type KeyPath struct {

@@ -12,11 +12,10 @@ import (
 	apiv1 "github.com/attestantio/go-eth2-client/api/v1"
 	ethttp "github.com/attestantio/go-eth2-client/http"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
+	ethereumtypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/ethereum"
 	"github.com/rs/zerolog"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
-
-	ethereumtypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
 type BeaconAPIClient struct {

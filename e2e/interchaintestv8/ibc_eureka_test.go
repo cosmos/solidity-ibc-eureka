@@ -11,6 +11,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/cosmos"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/ethereum"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/relayer"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/types"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/erc20"
+	ethereumtypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/ethereum"
+	relayertypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/relayer"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -37,16 +46,6 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
-
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/cosmos"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/relayer"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/types"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/erc20"
-	ethereumtypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/ethereum"
-	relayertypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
 // IbcEurekaTestSuite is a suite of tests that wraps TestSuite

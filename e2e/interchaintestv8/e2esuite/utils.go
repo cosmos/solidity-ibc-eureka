@@ -14,6 +14,9 @@ import (
 	"unicode"
 
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/ethereum"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
+	ethereumtypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/ethereum"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -45,10 +48,6 @@ import (
 	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/cosmos/interchaintest/v10/testutil"
-
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
-	ethereumtypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
 // BroadcastMessages broadcasts the provided messages to the given chain and signs them on behalf of the provided user.

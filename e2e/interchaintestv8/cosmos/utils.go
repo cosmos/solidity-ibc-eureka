@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
+
 	"cosmossdk.io/collections"
 
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -13,8 +15,6 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/interchaintest/v10/chain/cosmos"
-
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
 )
 
 // CloneAppend returns a new slice with the contents of the provided slices.

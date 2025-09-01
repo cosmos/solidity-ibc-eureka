@@ -4,11 +4,11 @@ import (
 	"context"
 	"os"
 
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
-	"github.com/cosmos/interchaintest/v10/ibc"
-
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/wasm"
+
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
+	"github.com/cosmos/interchaintest/v10/ibc"
 )
 
 // StoreEthereumLightClient stores the Ethereum light client on the given Cosmos chain and returns the hex-encoded checksum of the light client.

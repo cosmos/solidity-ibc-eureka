@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/cosmos-sdk/codec/types"
@@ -20,9 +22,6 @@ import (
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"github.com/cosmos/interchaintest/v10/chain/cosmos"
-
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 type SolanaFixtureGenerator struct {

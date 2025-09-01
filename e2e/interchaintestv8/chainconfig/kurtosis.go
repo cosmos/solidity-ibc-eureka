@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/ethereum"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/enclaves"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/starlark_run_config"
@@ -17,9 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/interchaintest/v10/testutil"
-
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 const (

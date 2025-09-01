@@ -6,6 +6,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
+
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -13,8 +15,6 @@ import (
 	"github.com/gagliardetto/solana-go/rpc/ws"
 
 	"github.com/cosmos/interchaintest/v10/testutil"
-
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 type Solana struct {
