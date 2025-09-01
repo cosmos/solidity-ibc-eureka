@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -46,7 +47,6 @@ func (s *DemoTestSuite) SetupSuite(ctx context.Context, proofType types.Supporte
 
 	simdUser := s.CosmosUsers[0]
 
-	// ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ibcxerc20Address := ethcommon.HexToAddress(s.contractAddresses.IbcXErc20)
 
 	s.Require().True(s.Run("IBCXERC20 Setup", func() {
@@ -129,26 +129,40 @@ func (s *DemoTestSuite) BridgeTransferFromEthTest(ctx context.Context, proofType
 	simdUser := s.CosmosUsers[0]
 	ethUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+
 	amount := big.NewInt(1_000)
 	s.Require().True(s.Run("Fund user with IBCXERC20", func() {
 		_, err := s.ibcXERC20.Transfer(s.GetTransactOpts(s.EthChain.Faucet, eth), ethUserAddress, amount)
 		s.Require().NoError(err)
 	}))
 
-	tx, err := s.ibcXERC20.BridgeTransfer(s.GetTransactOpts(s.key, eth), simdUser.FormattedAddress(), amount)
-	s.Require().NoError(err)
+	var sendTxHash []byte
+	s.Require().True(s.Run("Send tokens on Ethereum", func() {
+		tx, err := s.ibcXERC20.BridgeTransfer(s.GetTransactOpts(s.key, eth), simdUser.FormattedAddress(), amount)
+		s.Require().NoError(err)
 
-	receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-	s.Require().NoError(err)
-	s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		sendTxHash = tx.Hash().Bytes()
 
+		s.Require().True(s.Run("Verify balances on Ethereum", func() {
+			// User balance on Ethereum
+			bal, err := s.ibcXERC20.BalanceOf(nil, ethUserAddress)
+			s.Require().NoError(err)
+			s.Require().Zero(bal.Int64())
+		}))
+	}))
+
+	var ackTxHash []byte
 	s.Require().True(s.Run("Relay Packet", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    simd.Config().ChainID,
-				SourceTxIds: [][]byte{tx.Hash().Bytes()},
+				SourceTxIds: [][]byte{sendTxHash},
 				SrcClientId: testvalues.CustomClientID,
 				DstClientId: testvalues.FirstWasmClientID,
 			})
@@ -159,10 +173,10 @@ func (s *DemoTestSuite) BridgeTransferFromEthTest(ctx context.Context, proofType
 			relayTxBodyBz = resp.Tx
 		}))
 
-		var ackTxHash []byte
 		s.Require().True(s.Run("Broadcast relay tx", func() {
 			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 
+			var err error
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(ackTxHash)
@@ -178,6 +192,41 @@ func (s *DemoTestSuite) BridgeTransferFromEthTest(ctx context.Context, proofType
 			s.Require().NotNil(resp.Balance)
 			s.Require().Equal(amount, resp.Balance.Amount.BigInt())
 			s.Require().Equal(testvalues.DemoDenom, resp.Balance.Denom)
+		}))
+	}))
+
+	s.Require().True(s.Run("Relay Acknowledgement", func() {
+		var ackRelayTx []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{ackTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
+
+			ackRelayTx = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Submit relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, &ics26Address, ackRelayTx)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+
+			// Verify the ack packet event exists
+			_, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseAckPacket)
+			s.Require().NoError(err)
+		}))
+
+		s.Require().True(s.Run("Verify balances on Ethereum", func() {
+			// User balance on Ethereum
+			bal, err := s.ibcXERC20.BalanceOf(nil, ethUserAddress)
+			s.Require().NoError(err)
+			s.Require().Zero(bal.Int64())
 		}))
 	}))
 }
