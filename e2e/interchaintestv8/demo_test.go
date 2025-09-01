@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
-	"fmt"
 	"testing"
 
 	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
@@ -11,11 +9,11 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics27gmp"
 	factorytypes "github.com/cosmos/wfchain/x/tokenfactory/types"
 	ethcommon "github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	// ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	// relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -37,11 +35,14 @@ func (s *DemoTestSuite) SetupSuite(ctx context.Context, proofType types.Supporte
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
-	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	simdUser := s.CosmosUsers[0]
+
+	// ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	ibcxerc20Address := ethcommon.HexToAddress(s.contractAddresses.IbcXErc20)
 
 	s.Require().True(s.Run("IBCXERC20 Setup", func() {
 		var err error
-		s.ibcXERC20, err = ibcxerc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.IbcXErc20), eth.RPCClient)
+		s.ibcXERC20, err = ibcxerc20.NewContract(ibcxerc20Address, eth.RPCClient)
 		s.Require().NoError(err)
 
 		_, err = s.ibcXERC20.SetClientId(s.GetTransactOpts(s.deployer, eth), testvalues.CustomClientID)
@@ -80,72 +81,10 @@ func (s *DemoTestSuite) SetupSuite(ctx context.Context, proofType types.Supporte
 	}))
 
 	s.Require().True(s.Run("TokenFactory Setup", func() {
-		s.Require().True(s.Run("Create a new denom", func() {
-			tx, err := s.ibcXERC20.CreateDenom(s.GetTransactOpts(s.deployer, eth))
-			s.Require().NoError(err)
-
-			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-			s.Require().NoError(err)
-			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
-			ethSendTxHash := tx.Hash().Bytes()
-
-			var ackTxHash []byte
-			s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
-				var relayTxBodyBz []byte
-				s.Require().True(s.Run("Retrieve relay tx", func() {
-					resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-						SrcChain:    eth.ChainID.String(),
-						DstChain:    simd.Config().ChainID,
-						SourceTxIds: [][]byte{ethSendTxHash},
-						SrcClientId: testvalues.CustomClientID,
-						DstClientId: testvalues.FirstWasmClientID,
-					})
-					s.Require().NoError(err)
-					s.Require().NotEmpty(resp.Tx)
-					s.Require().Empty(resp.Address)
-
-					relayTxBodyBz = resp.Tx
-				}))
-
-				s.Require().True(s.Run("Broadcast relay tx", func() {
-					resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 10_000_000, relayTxBodyBz)
-
-					ackTxHash, err = hex.DecodeString(resp.TxHash)
-					s.Require().NoError(err)
-					s.Require().NotEmpty(ackTxHash)
-				}))
-				// s.Require().True(s.Run("Verify denom on Cosmos chain", func() {
-				// }))
-			}))
-
-			s.Require().True(s.Run("Acknowledge packets on Ethereum", func() {
-				var ackRelayTx []byte
-				s.Require().True(s.Run("Retrieve relay tx", func() {
-					resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-						SrcChain:    simd.Config().ChainID,
-						DstChain:    eth.ChainID.String(),
-						SourceTxIds: [][]byte{ackTxHash},
-						SrcClientId: testvalues.FirstWasmClientID,
-						DstClientId: testvalues.CustomClientID,
-					})
-					s.Require().NoError(err)
-					s.Require().NotEmpty(resp.Tx)
-					s.Require().Equal(resp.Address, ics26Address.String())
-
-					ackRelayTx = resp.Tx
-				}))
-
-				s.Require().True(s.Run("Submit relay tx", func() {
-					receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 10_000_000, &ics26Address, ackRelayTx)
-					s.Require().NoError(err)
-					s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
-
-					// Verify the ack packet event exists
-					_, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseAckPacket)
-					s.Require().NoError(err)
-				}))
-			}))
-		}))
+		createDenomMsg := factorytypes.NewMsgCreateDenom(simdUser.FormattedAddress(), testvalues.DemoDenom)
+		createBridgeMsg := factorytypes.NewMsgCreateBridge(simdUser.FormattedAddress(), testvalues.DemoDenom, testvalues.FirstWasmClientID, ibcxerc20Address.String())
+		_, err := s.BroadcastMessages(ctx, simd, simdUser, 500_000, createDenomMsg, createBridgeMsg)
+		s.Require().NoError(err)
 	}))
 }
 
