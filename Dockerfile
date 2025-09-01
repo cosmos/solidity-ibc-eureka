@@ -15,9 +15,7 @@ WORKDIR /src
 
 COPY . .
 
-RUN cargo build --release --locked --bin relayer --bin operator
-
-RUN \
+RUN cargo build --release --locked --bin relayer && \
     cargo build --release --locked --bin ibc_attestor -F op && \
     mv target/release/ibc_attestor target/release/attestor-optimism && \
     cargo build --release --locked --bin ibc_attestor -F arbitrum && \
@@ -34,7 +32,6 @@ COPY scripts/docker/all-in-one-entrypoint.sh /entrypoint.sh
 COPY --from=build /etc/ssl/certs /etc/ssl/certs
 
 COPY --from=build /src/target/release/relayer /usr/local/bin/relayer
-COPY --from=build /src/target/release/operator /usr/local/bin/operator
 
 COPY --from=build /src/target/release/attestor-optimism /usr/local/bin/attestor-optimism
 COPY --from=build /src/target/release/attestor-arbitrum /usr/local/bin/attestor-arbitrum
