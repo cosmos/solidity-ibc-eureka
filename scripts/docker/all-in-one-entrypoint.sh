@@ -12,10 +12,10 @@ Usage: <COMMAND> [ARGS...]
 Commands:
     help                    Show this help message
     sh                      Start an interactive shell
-    relayer                 Run the relayer with provided arguments
-    attestor-optimism       Run the optimism attestor with provided arguments
-    attestor-arbitrum       Run the arbitrum attestor with provided arguments
-    attestor-cosmos         Run the cosmos attestor with provided arguments
+    relayer                 Run the relayer with [ARGS...]
+    attestor-optimism       Run the optimism attestor with [ARGS...]
+    attestor-arbitrum       Run the arbitrum attestor with [ARGS...]
+    attestor-cosmos         Run the cosmos attestor with [ARGS...]
 
 Examples:
     docker run --rm ibc-eureka:latest relayer --config config.json
