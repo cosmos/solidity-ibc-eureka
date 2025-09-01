@@ -549,7 +549,7 @@ func (s *IbcEurekaGmpTestSuite) SendCallFromEthTest(ctx context.Context, proofTy
 	s.Require().True(s.Run("Fund pre-computed ICS27 address", func() {
 		res, err := e2esuite.GRPCQuery[gmptypes.QueryAccountAddressResponse](ctx, simd, &gmptypes.QueryAccountAddressRequest{
 			ClientId: testvalues.FirstWasmClientID,
-			Sender:   strings.ToLower(ethUserAddress.Hex()),
+			Sender:   ethUserAddress.String(),
 			Salt:     "",
 		})
 		s.Require().NoError(err)
