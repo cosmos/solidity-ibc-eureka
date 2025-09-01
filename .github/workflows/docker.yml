@@ -2,10 +2,9 @@ name: docker
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
     tags:
       - relayer-api-wf-v[0-9]+.[0-9]+.[0-9]+
+      - attestor-wf-v[0-9]+.[0-9]+.[0-9]+
   pull_request:
     paths:
       - '**.rs'
@@ -73,7 +72,7 @@ jobs:
       contents: read
       packages: write
     env:
-      registry_url: ghcr.io/cosmos/ibc-eureka
+      registry_url: ghcr.io/cosmos/attestor-wf
     steps:
       - uses: actions/checkout@v5
       - name: Login to GitHub Container Registry
@@ -93,7 +92,7 @@ jobs:
             ${{ env.registry_url }}
           tags: |
             # Tag triggered events
-            type=match,event=tag,pattern=^relayer-(v[0-9]+\.[0-9]+\.[0-9]+)$,group=1,priority=1000
+            type=match,event=tag,pattern=^attestor-wf-(v[0-9]+\.[0-9]+\.[0-9]+)$,group=1,priority=1000
 
             # Latest, but only on main
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch' }},priority=900
