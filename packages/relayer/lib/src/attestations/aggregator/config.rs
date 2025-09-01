@@ -1,10 +1,9 @@
 use anyhow::{Context, Result};
-use serde::Deserialize;
 use std::{collections::HashSet, fs, net::SocketAddr, path::Path, str::FromStr};
 use tracing::Level;
 
 /// Aggregator config
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct Config {
     /// The configuration for the aggregator server.
     pub server: ServerConfig,
@@ -23,7 +22,7 @@ impl Config {
             .with_context(|| format!("Failed to read config file '{}'", path.display()))?;
 
         let config: Config =
-            toml::from_str(&content).context("Failed to parse TOML configuration")?;
+            serde_json::from_str(&content).context("Failed to parse JSON configuration")?;
 
         config.validate()?;
 
@@ -40,11 +39,14 @@ impl Config {
 }
 
 /// Attestor config
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct AttestorConfig {
-    pub(crate) attestor_query_timeout_ms: u64,
-    pub(crate) quorum_threshold: usize,
-    pub(crate) attestor_endpoints: Vec<String>,
+    /// Timeout
+    pub attestor_query_timeout_ms: u64,
+    /// Quorum
+    pub quorum_threshold: usize,
+    /// Endpoints
+    pub attestor_endpoints: Vec<String>,
 }
 
 impl AttestorConfig {
@@ -132,7 +134,7 @@ impl AttestorConfig {
     }
 }
 
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 /// Aggregator cache config
 pub struct CacheConfig {
     #[serde(default = "defaults::default_state_cache_max_entries")]
@@ -171,7 +173,7 @@ impl CacheConfig {
 }
 
 /// The configuration for the aggregator server.
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct ServerConfig {
     /// The listener_addr to bind the server to.
     pub listener_addr: SocketAddr,

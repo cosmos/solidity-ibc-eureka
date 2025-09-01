@@ -5269,11 +5269,8 @@ dependencies = [
  "tendermint-light-client-verifier",
  "tendermint-rpc",
  "tokio",
- "toml",
  "tonic 0.13.1",
  "tonic-build",
- "tonic-reflection",
- "tower-http",
  "tracing",
 ]
 

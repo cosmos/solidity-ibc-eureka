@@ -2,10 +2,8 @@ use super::{
     attestor_data::AttestatorData,
     config::{AttestorConfig, Config},
     rpc::{
-        aggregator_service_server::AggregatorService,
         attestation_service_client::AttestationServiceClient, AggregatedAttestation, Attestation,
-        GetAttestationsRequest, GetAttestationsResponse, PacketAttestationRequest,
-        StateAttestationRequest,
+        GetAttestationsRequest, PacketAttestationRequest, StateAttestationRequest,
     },
 };
 use futures::future::join_all;
@@ -16,8 +14,8 @@ use tokio::{
     sync::Mutex,
     time::{timeout, Duration},
 };
-use tonic::{transport::Channel, Request, Response, Status};
-use tracing::{error as tracing_error, instrument};
+use tonic::{transport::Channel, Request, Status};
+use tracing::error as tracing_error;
 
 #[derive(Clone)]
 enum AttestationQuery {
@@ -77,21 +75,18 @@ impl Aggregator {
     }
 }
 
-#[tonic::async_trait]
-impl AggregatorService for Aggregator {
-    #[instrument(skip_all, fields(height = request.get_ref().height))]
-    async fn get_attestations(
+impl Aggregator {
+    /// Get attestations
+    pub async fn get_attestations(
         &self,
-        request: Request<GetAttestationsRequest>,
-    ) -> Result<Response<GetAttestationsResponse>, Status> {
-        let request = request.into_inner();
-
+        request: GetAttestationsRequest,
+    ) -> anyhow::Result<(AggregatedAttestation, AggregatedAttestation)> {
         if request.packets.is_empty() {
-            return Err(Status::invalid_argument("Packets cannot be empty"));
+            return Err(anyhow::anyhow!("Packets cannot be empty"));
         }
 
         if request.packets.iter().any(|packet| packet.is_empty()) {
-            return Err(Status::invalid_argument("Packet cannot be empty"));
+            return Err(anyhow::anyhow!("Packet cannot be empty"));
         }
 
         let mut sorted_packets = request.packets;
@@ -130,15 +125,9 @@ impl AggregatorService for Aggregator {
             .await
             .map_err(|e: Arc<Status>| (*e).clone())?;
 
-        let response = GetAttestationsResponse {
-            state_attestation: Some(state_attestation),
-            packet_attestation: Some(packet_attestation),
-        };
-        Ok(Response::new(response))
+        Ok((state_attestation, packet_attestation))
     }
-}
 
-impl Aggregator {
     async fn query_attestations(
         &self,
         query: AttestationQuery,

@@ -23,10 +23,9 @@ use ibc_proto_eureka::{
 };
 use prost::Message;
 use tendermint_rpc::HttpClient;
-use tonic::transport::Channel;
 
 use ibc_eureka_relayer_lib::{
-    attestations,
+    attestations::{self, Aggregator, Config, GetAttestationsRequest},
     chain::{Chain, CosmosSdk},
     events::{EurekaEvent, EurekaEventWithHeight},
     tx_builder::TxBuilderService,
@@ -43,19 +42,10 @@ impl Chain for AttestedChain {
     type Height = u64;
 }
 
-/// Generated aggregator client protobuf definitions
-pub mod aggregator_proto {
-    tonic::include_proto!("aggregator");
-}
-
-/// The aggregator client for fetching attestations.
-pub type AggregatorClient =
-    aggregator_proto::aggregator_service_client::AggregatorServiceClient<Channel>;
-
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on attestations from the aggregator.
 pub struct TxBuilder {
     /// The aggregator URL for fetching attestations.
-    pub aggregator_url: String,
+    pub aggregater_config: Config,
     /// The HTTP client for the target chain.
     pub target_tm_client: HttpClient,
     /// The signer address for the Cosmos messages.
@@ -66,23 +56,22 @@ impl TxBuilder {
     /// Creates a new `TxBuilder`.
     #[must_use]
     pub const fn new(
-        aggregator_url: String,
+        aggregater_config: Config,
         target_tm_client: HttpClient,
         signer_address: String,
     ) -> Self {
         Self {
-            aggregator_url,
+            aggregater_config,
             target_tm_client,
             signer_address,
         }
     }
 
     /// Creates an aggregator client.
-    async fn create_aggregator_client(&self) -> Result<AggregatorClient> {
-        let channel = Channel::from_shared(self.aggregator_url.clone())?
-            .connect()
-            .await?;
-        Ok(AggregatorClient::new(channel))
+    async fn create_aggregator_client(&self) -> Result<Aggregator> {
+        Aggregator::from_config(self.aggregater_config.clone())
+            .await
+            .map_err(Into::into)
     }
 }
 
@@ -137,7 +126,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             target_events.len()
         );
 
-        let mut aggregator_client = self.create_aggregator_client().await?;
+        let aggregator_client = self.create_aggregator_client().await?;
 
         let mut ics26_send_packets = Vec::new();
         let mut ics26_ack_packets = Vec::new();
@@ -164,7 +153,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         }
 
         let query_height = *heights.iter().max().unwrap();
-        let request = aggregator_proto::GetAttestationsRequest {
+        let request = GetAttestationsRequest {
             packets: ics26_send_packets,
             height: query_height, // latest height
         };
@@ -174,19 +163,7 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
             request.packets.len()
         );
 
-        let response = aggregator_client
-            .get_attestations(request)
-            .await?
-            .into_inner();
-
-        let (state, packets) = (
-            response
-                .state_attestation
-                .ok_or_else(|| anyhow::anyhow!("No state received"))?,
-            response
-                .packet_attestation
-                .ok_or_else(|| anyhow::anyhow!("No packets received"))?,
-        );
+        let (state, packets) = aggregator_client.get_attestations(request).await?;
 
         tracing::info!(
             "Received state attestation: {} signatures, height {}, state: {}",

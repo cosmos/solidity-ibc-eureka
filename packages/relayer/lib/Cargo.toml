@@ -42,10 +42,6 @@ moka = { workspace = true, features = ["future"] }
 tokio        = { workspace = true, features = ["full"] }
 
 tonic            = { workspace = true, default-features = true }
-tonic-reflection = { workspace = true, default-features = true }
-tower-http       = { workspace = true, features = ["trace"] }
-
-toml  = { workspace = true, default-features = true }
 
 sha2 = { workspace = true, default-features = true }
 
