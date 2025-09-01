@@ -1,3 +1,4 @@
+#[allow(clippy::all, clippy::pedantic, clippy::nursery)]
 pub mod rpc {
     tonic::include_proto!("aggregator");
     tonic::include_proto!("ibc_attestor");

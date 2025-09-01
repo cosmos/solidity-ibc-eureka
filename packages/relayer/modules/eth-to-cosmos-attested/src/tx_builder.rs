@@ -54,7 +54,6 @@ pub struct TxBuilder {
 
 impl TxBuilder {
     /// Creates a new `TxBuilder`.
-    #[must_use]
     pub async fn new(
         aggregator_config: Config,
         target_tm_client: HttpClient,

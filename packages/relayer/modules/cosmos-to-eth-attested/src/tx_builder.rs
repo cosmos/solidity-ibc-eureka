@@ -67,7 +67,6 @@ where
     P: Provider + Clone,
 {
     /// Creates a new `TxBuilder`.
-    #[must_use]
     pub async fn new(
         ics26_address: Address,
         provider: P,
