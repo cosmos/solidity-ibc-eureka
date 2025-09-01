@@ -78,6 +78,7 @@ impl RelayerBuilder {
         // Start the gRPC server
         tracing::info!("Started gRPC server on {}", socket_addr);
         Server::builder()
+            .accept_http1(true)
             .layer(
                 CorsLayer::new()
                     .allow_origin(Any)
