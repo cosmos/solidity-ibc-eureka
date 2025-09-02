@@ -74,9 +74,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractErr
         QueryMsg::CheckForMisbehaviour(_) => {
             todo!()
         }
-        QueryMsg::TimestampAtHeight(_) => {
-            todo!()
-        }
+        QueryMsg::TimestampAtHeight(msg) => query::timestamp_at_height(deps, msg),
         QueryMsg::Status(_) => query::status(deps),
     }
 }
@@ -232,12 +230,46 @@ mod tests {
                 tests::{client_state, consensus, header, make_instatiate_msg, membership_value},
             },
             msg::{
-                Height, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
-                VerifyClientMessageMsg, VerifyMembershipMsg,
+                Height, QueryMsg, SudoMsg, TimestampAtHeightMsg, TimestampAtHeightResult,
+                UpdateStateMsg, UpdateStateResult, VerifyClientMessageMsg, VerifyMembershipMsg,
             },
             test::helpers::mk_deps,
             ContractError,
         };
+
+        #[test]
+        fn query_timestamp_at_height() {
+            let mut deps = mk_deps();
+            let creator = deps.api.addr_make("creator");
+            let info = message_info(&creator, &coins(1, "uatom"));
+
+            let client_state = client_state();
+            let consensus_state = consensus();
+            let msg = make_instatiate_msg(&client_state, &consensus_state);
+
+            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+            let msg = QueryMsg::TimestampAtHeight(TimestampAtHeightMsg {
+                height: Height {
+                    revision_number: 0,
+                    revision_height: consensus_state.height,
+                },
+            });
+            let result = query(deps.as_ref(), mock_env(), msg);
+            assert!(result.is_ok());
+            let ts: TimestampAtHeightResult =
+                serde_json::from_slice(&result.unwrap()).expect("must deserialize");
+            assert_eq!(ts.timestamp, consensus_state.timestamp * 1_000_000_000);
+
+            let non_existant_height = QueryMsg::TimestampAtHeight(TimestampAtHeightMsg {
+                height: Height {
+                    revision_number: 0,
+                    revision_height: consensus_state.height + 1,
+                },
+            });
+            let result = query(deps.as_ref(), mock_env(), non_existant_height);
+            assert!(matches!(result, Err(ContractError::ConsensusStateNotFound)));
+        }
 
         #[test]
         #[allow(clippy::too_many_lines)]
