@@ -219,6 +219,12 @@ contract ICS27GMPTest is Test {
 
         address actualAccount = ics27Gmp.getOrComputeAccountAddress(accountId);
         assertEq(actualAccount, predeterminedAccount, "Account address mismatch");
+
+        // Call again to cover the case where the account already exists
+        vm.expectCall(receiver, payload);
+        vm.prank(mockIcs26);
+        ack = ics27Gmp.onRecvPacket(msg_);
+        assertEq(ack, expAck, "Acknowledgement mismatch");
     }
 
     function testFuzz_failure_onRecvPacket(uint16 saltLen, uint16 payloadLen, uint64 seq) public {
@@ -377,7 +383,7 @@ contract ICS27GMPTest is Test {
                 encoding: ICS27Lib.ICS27_ENCODING,
                 value: abi.encode(
                     IICS27GMPMsgs.GMPPacketData({
-                        sender: Strings.toHexString(sender),
+                        sender: Strings.toChecksumHexString(sender),
                         receiver: receiver,
                         salt: salt,
                         payload: payload,
@@ -418,7 +424,7 @@ contract ICS27GMPTest is Test {
 
         bytes memory validValue = abi.encode(
             IICS27GMPMsgs.GMPPacketData({
-                sender: Strings.toHexString(sender),
+                sender: Strings.toChecksumHexString(sender),
                 receiver: receiver,
                 salt: salt,
                 payload: payload,
@@ -483,7 +489,7 @@ contract ICS27GMPTest is Test {
                 encoding: ICS27Lib.ICS27_ENCODING,
                 value: abi.encode(
                     IICS27GMPMsgs.GMPPacketData({
-                        sender: Strings.toHexString(sender),
+                        sender: Strings.toChecksumHexString(sender),
                         receiver: receiver,
                         salt: salt,
                         payload: payload,
@@ -519,7 +525,7 @@ contract ICS27GMPTest is Test {
                 encoding: ICS27Lib.ICS27_ENCODING,
                 value: abi.encode(
                     IICS27GMPMsgs.GMPPacketData({
-                        sender: Strings.toHexString(sender),
+                        sender: Strings.toChecksumHexString(sender),
                         receiver: receiver,
                         salt: salt,
                         payload: payload,
