@@ -583,7 +583,7 @@ contract Integration2Test is Test {
 
         IICS27GMPMsgs.GMPPacketData memory gmpPacketData =
             abi.decode(sentPacket.payloads[0].value, (IICS27GMPMsgs.GMPPacketData));
-        assertEq(gmpPacketData.sender, Strings.toHexString(user), "sender mismatch");
+        assertEq(gmpPacketData.sender, Strings.toChecksumHexString(user), "sender mismatch");
         assertEq(gmpPacketData.receiver, receiver, "receiver mismatch");
         assertEq(gmpPacketData.payload, mockPayload, "payload mismatch");
         assertEq(gmpPacketData.salt, bytes(""), "salt mismatch");
@@ -608,14 +608,14 @@ contract Integration2Test is Test {
         // precompute account address
         IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
             clientId: th.FIRST_CLIENT_ID(),
-            sender: Strings.toHexString(user),
+            sender: Strings.toChecksumHexString(user),
             salt: vm.randomBytes(saltLen)
         });
         address computedAccount = ibcImplB.ics27Gmp().getOrComputeAccountAddress(accountId);
 
         // send packet
         IICS26RouterMsgs.Packet memory sentPacket =
-            ibcImplA.sendGmpAsUser(user, Strings.toHexString(receiver), payload, accountId.salt);
+            ibcImplA.sendGmpAsUser(user, Strings.toChecksumHexString(receiver), payload, accountId.salt);
 
         // Receive the packet on B
         vm.expectCall(receiver, 0, payload);
