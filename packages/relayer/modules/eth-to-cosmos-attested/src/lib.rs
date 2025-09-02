@@ -92,6 +92,10 @@ impl
         let target_client = HttpClient::from_rpc_url(&config.tm_rpc_url);
         let tm_listener = cosmos_sdk::ChainListener::new(target_client.clone());
 
+        rustls::crypto::ring::default_provider()
+            .install_default()
+            .expect("Failed to install rustls crypto provider");
+
         let tx_builder = tx_builder::TxBuilder::new(
             config.aggregator_config.clone(),
             target_client,
