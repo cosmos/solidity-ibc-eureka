@@ -64,6 +64,20 @@ pub enum ErrorCode {
     #[msg("Invalid length: state root or next validators hash is not 32 bytes long")]
     InvalidRootLength,
 
+    // Chunking errors
+    #[msg("Session expired: header upload session has timed out")]
+    SessionExpired,
+    #[msg("Session not expired: cannot clean up active session")]
+    SessionNotExpired,
+    #[msg("Missing chunks: not all chunks have been uploaded")]
+    MissingChunks,
+    #[msg("Invalid chunk count: unexpected number of chunk accounts")]
+    InvalidChunkCount,
+    #[msg("Invalid chunk account: chunk account PDA mismatch")]
+    InvalidChunkAccount,
+    #[msg("Chunk not old enough: must wait 1 hour for orphaned chunks")]
+    ChunkNotOldEnough,
+
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]
     SerializationError,

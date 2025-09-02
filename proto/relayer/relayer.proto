@@ -41,6 +41,8 @@ message RelayByTxRequest {
     // The optional destination chain send packet sequences for acks and timeouts
     // Used for event filtering, no filtering if empty
     repeated uint64 dst_packet_sequences = 8;
+    // Skip update client instruction (for chunked or separate update client)
+    bool skip_update_client = 9;
 }
 
 // The relay by tx response message
