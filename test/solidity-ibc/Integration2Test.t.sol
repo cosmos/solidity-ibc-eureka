@@ -654,7 +654,7 @@ contract Integration2Test is Test {
         // precompute account address
         IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
             clientId: th.FIRST_CLIENT_ID(),
-            sender: Strings.toHexString(user),
+            sender: Strings.toChecksumHexString(user),
             salt: vm.randomBytes(saltLen)
         });
 
@@ -693,7 +693,7 @@ contract Integration2Test is Test {
         // precompute account address
         IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
             clientId: th.FIRST_CLIENT_ID(),
-            sender: Strings.toHexString(user),
+            sender: Strings.toChecksumHexString(user),
             salt: vm.randomBytes(saltLen)
         });
 
