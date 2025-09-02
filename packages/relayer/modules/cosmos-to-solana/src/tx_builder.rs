@@ -107,20 +107,14 @@ impl TxBuilder {
     ) -> Result<ConsensusState> {
         let mut app_hash = [0u8; 32];
         let app_hash_bytes = block.block.header.app_hash.as_bytes();
-        if app_hash_bytes.len() >= 32 {
-            app_hash.copy_from_slice(&app_hash_bytes[..32]);
-        } else {
-            // Pad with zeros if too short
+        if app_hash_bytes.len() <= 32 {
             app_hash[..app_hash_bytes.len()].copy_from_slice(app_hash_bytes);
+        } else {
+            return Err(anyhow::anyhow!("app_hash cannot be longer than 32 bytes"));
         }
 
-        let mut validators_hash = [0u8; 32];
-        let validators_hash_bytes = block.block.header.validators_hash.as_bytes();
-        if validators_hash_bytes.len() >= 32 {
-            validators_hash.copy_from_slice(&validators_hash_bytes[..32]);
-        } else {
-            validators_hash[..validators_hash_bytes.len()].copy_from_slice(validators_hash_bytes);
-        }
+        let validators_hash: [u8; 32] = block.block.header.validators_hash.as_bytes().try_into()
+            .map_err(|_| anyhow::anyhow!("validators_hash must be exactly 32 bytes"))?;
 
         Ok(ConsensusState {
             timestamp: block
