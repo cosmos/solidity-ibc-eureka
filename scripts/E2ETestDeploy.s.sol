@@ -107,7 +107,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
             address(
                 new ERC1967Proxy(
                     ibcxerc20Logic,
-                    abi.encodeCall(IBCXERC20.initialize, (msg.sender, "WildFlower", "WF", address(gmpProxy)))
+                    abi.encodeCall(IBCXERC20.initialize, (msg.sender, "WildFlower", "uwfdeposit", address(gmpProxy)))
                 )
             )
         );

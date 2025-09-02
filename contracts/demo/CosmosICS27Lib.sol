@@ -6,8 +6,8 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 /// @title CosmosICS27Lib
 /// @notice This library provides utility functions for sending GMPs to Cosmos SDK chains.
 library CosmosICS27Lib {
-    /// @notice MINT_TYPE_URL is the type URL for the MsgMint message in the TokenFactory module.
-    string private constant MINT_TYPE_URL = "/wfchain.tokenfactory.MsgMint";
+    /// @notice BRIDGE_RECEIVE_TYPE_URL is the type URL for the MsgBridgeReceive message in the TokenFactory module.
+    string private constant BRIDGE_RECEIVE_TYPE_URL = "/wfchain.tokenfactory.MsgBridgeReceive";
     // solhint-disable-previous-line gas-small-strings
 
     /// @notice Wraps the provided message bytes in a JSON payload with a "messages" array.
@@ -17,14 +17,16 @@ library CosmosICS27Lib {
         return abi.encodePacked("{\"messages\":[", msg_, "]}");
     }
 
-    /// @notice Constructs a MsgMint message for the TokenFactory module.
-    /// @param from The address of the minter.
-    /// @param receiver The address of the recipient.
+    /// @notice Constructs a MsgBridgeReceive message for the TokenFactory module.
+    /// @param icaAddress The address of the cosmos ica.
+    /// @param counterpartyClient The counterparty client id.
+    /// @param receiver The address on the cosmos chain to receive the tokens.
     /// @param denom The denomination of the token to mint.
     /// @param amount The amount of tokens to mint.
     /// @return The encoded MsgMint message as bytes.
-    function tokenFactoryMintMsg(
-        string memory from,
+    function tokenFactoryBridgeReceiveMsg(
+        string memory icaAddress,
+        string memory counterpartyClient,
         string memory receiver,
         string memory denom,
         uint256 amount
@@ -35,10 +37,12 @@ library CosmosICS27Lib {
     {
         return abi.encodePacked(
             "{\"@type\":\"",
-            MINT_TYPE_URL,
-            "\",\"from\":\"",
-            from,
-            "\",\"address\":\"",
+            BRIDGE_RECEIVE_TYPE_URL,
+            "\",\"ica_address\":\"",
+            icaAddress,
+            "\",\"client_id\":\"",
+            counterpartyClient,
+            "\",\"receiver\":\"",
             receiver,
             "\",\"amount\":{\"denom\":\"",
             denom,

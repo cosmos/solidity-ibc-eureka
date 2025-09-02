@@ -6,6 +6,7 @@ import { IIBCAppCallbacks } from "../msgs/IIBCAppCallbacks.sol";
 
 import { IICS27GMP } from "../interfaces/IICS27GMP.sol";
 import { IIBCSenderCallbacks } from "../interfaces/IIBCSenderCallbacks.sol";
+import { IICS02Client } from "../interfaces/IICS02Client.sol";
 
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -137,7 +138,9 @@ contract IBCXERC20 is UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, IBC
         _burn(_msgSender(), amount);
 
         IBCXERC20Storage storage $ = _getIBCXERC20Storage();
-        bytes memory mintMsg = CosmosICS27Lib.tokenFactoryMintMsg($.cosmosAccount, receiver, symbol(), amount);
+        string memory counterpartyClient = IICS02Client($.ics27Gmp.ics26()).getCounterparty($.clientId).clientId;
+        bytes memory mintMsg =
+            CosmosICS27Lib.tokenFactoryBridgeReceiveMsg($.cosmosAccount, counterpartyClient, receiver, symbol(), amount);
         bytes memory payload = CosmosICS27Lib.msgsToPayload(mintMsg);
 
         uint64 seq = $.ics27Gmp.sendCall(
