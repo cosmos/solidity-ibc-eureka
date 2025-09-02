@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
-	bin "github.com/gagliardetto/binary"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 	relayertypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/relayer"
+	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
 
 	solanago "github.com/gagliardetto/solana-go"
