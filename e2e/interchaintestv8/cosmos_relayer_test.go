@@ -9,6 +9,13 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/chainconfig"
+	cosmosutils "github.com/cosmos/solidity-ibc-eureka/e2e/v8/cosmos"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/relayer"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
+	e2etypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types"
+	relayertypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/relayer"
 	"github.com/stretchr/testify/suite"
 
 	sdkmath "cosmossdk.io/math"
@@ -25,16 +32,8 @@ import (
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
-	cosmosutils "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	e2etypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
+	"github.com/cosmos/interchaintest/v10/ibc"
 )
 
 // CosmosRelayerTestSuite is a struct that holds the test suite for two Cosmos chains.

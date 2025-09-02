@@ -1,5 +1,9 @@
 set dotenv-load
 
+# Default task lists all available tasks
+default:
+  just --list
+
 # Build the contracts using `forge build`
 [group('build')]
 build-contracts: clean-foundry
@@ -270,7 +274,7 @@ test-e2e-cosmos-relayer testname:
 
 # Run anu e2e test in the SP1ICS07TendermintTestSuite. For example, `just test-e2e-sp1-ics07 Test_Deploy`
 [group('test')]
-test-e2e-sp1-ics07 testname:
+test-e2e-sp1-ics07 testname: install-operator
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithSP1ICS07TendermintTestSuite/{{testname}}
 
@@ -326,12 +330,6 @@ clean-cargo:
 	cd programs/sp1-programs && cargo clean
 
 # Run Slither static analysis on contracts
-# - **unused-return**: Return values from `verifyMembership` and `tryParseAddress` are intentionally unused
-# - **reentrancy-no-eth**: Cross-function reentrancy patterns are acceptable in this IBC implementation
-# - **builtin-symbol-shadowing**: Variable name 'msg' follows IBC conventions
-# - **assembly**: Assembly usage is from trusted OpenZeppelin libraries
-# - **naming-convention**: Follows IBC standards over Solidity conventions
-# - **encode-packed-collision**: `abi.encodePacked` usage is correct for IBC denomination paths
 [group('security')]
 slither:
 	@echo "Running Slither static analysis..."

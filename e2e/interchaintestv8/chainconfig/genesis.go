@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/cosmos/interchaintest/v10/ibc"
 )
 
 func defaultModifyGenesis() func(ibc.ChainConfig, []byte) ([]byte, error) {
