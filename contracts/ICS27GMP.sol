@@ -83,7 +83,7 @@ contract ICS27GMP is
         require(msg_.payload.length != 0, ICS27PayloadEmpty());
 
         IICS27GMPMsgs.GMPPacketData memory packetData = IICS27GMPMsgs.GMPPacketData({
-            sender: Strings.toHexString(_msgSender()),
+            sender: Strings.toChecksumHexString(_msgSender()),
             receiver: msg_.receiver,
             salt: msg_.salt,
             payload: msg_.payload,
