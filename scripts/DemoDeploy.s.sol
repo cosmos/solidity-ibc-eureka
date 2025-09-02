@@ -83,7 +83,7 @@ contract DemoDeploy is Script, DeployAccessManagerWithRoles {
         json.serialize("ics27Gmp", Strings.toHexString(address(gmpProxy)));
         string memory finalJson = json.serialize("ibcxerc20", Strings.toHexString(address(ibcxerc20)));
 
-        string memory fileName = string.concat(DEPLOYMENTS_DIR, "testnet.json");
+        string memory fileName = string.concat(DEPLOYMENTS_DIR, "deployment.json");
         vm.writeFile(fileName, finalJson);
 
         return finalJson;
