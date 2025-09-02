@@ -377,7 +377,7 @@ contract ICS27GMPTest is Test {
                 encoding: ICS27Lib.ICS27_ENCODING,
                 value: abi.encode(
                     IICS27GMPMsgs.GMPPacketData({
-                        sender: Strings.toHexString(sender),
+                        sender: Strings.toChecksumHexString(sender),
                         receiver: receiver,
                         salt: salt,
                         payload: payload,
@@ -418,7 +418,7 @@ contract ICS27GMPTest is Test {
 
         bytes memory validValue = abi.encode(
             IICS27GMPMsgs.GMPPacketData({
-                sender: Strings.toHexString(sender),
+                sender: Strings.toChecksumHexString(sender),
                 receiver: receiver,
                 salt: salt,
                 payload: payload,
@@ -483,7 +483,7 @@ contract ICS27GMPTest is Test {
                 encoding: ICS27Lib.ICS27_ENCODING,
                 value: abi.encode(
                     IICS27GMPMsgs.GMPPacketData({
-                        sender: Strings.toHexString(sender),
+                        sender: Strings.toChecksumHexString(sender),
                         receiver: receiver,
                         salt: salt,
                         payload: payload,
@@ -519,7 +519,7 @@ contract ICS27GMPTest is Test {
                 encoding: ICS27Lib.ICS27_ENCODING,
                 value: abi.encode(
                     IICS27GMPMsgs.GMPPacketData({
-                        sender: Strings.toHexString(sender),
+                        sender: Strings.toChecksumHexString(sender),
                         receiver: receiver,
                         salt: salt,
                         payload: payload,
