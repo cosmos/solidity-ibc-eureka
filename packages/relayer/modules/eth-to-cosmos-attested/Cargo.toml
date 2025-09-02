@@ -29,7 +29,7 @@ attestor-light-client = { workspace = true }
 ibc-proto-eureka          = { workspace = true }
 ibc-eureka-solidity-types = { workspace = true, default-features = true }
 
-rustls = { workspace = true, features = ["ring"] }
+rustls = { workspace = true, default-features = true, features = ["aws_lc_rs"] }
 
 [build-dependencies]
 tonic-build = { workspace = true }
