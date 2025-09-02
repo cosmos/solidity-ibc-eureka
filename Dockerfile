@@ -23,7 +23,7 @@ RUN cargo build --release --locked --bin relayer && \
     cargo build --release --locked --bin ibc_attestor -F cosmos && \
     mv target/release/ibc_attestor target/release/attestor-cosmos
 
-FROM gcr.io/distroless/cc-debian12:debug
+FROM debian:bookworm-slim
 
 WORKDIR /usr/local/bin
 
