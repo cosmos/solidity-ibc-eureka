@@ -27,3 +27,4 @@ default = []
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 solana-ibc-types.workspace = true
+ics26-router = { workspace = true, features = ["cpi"] }

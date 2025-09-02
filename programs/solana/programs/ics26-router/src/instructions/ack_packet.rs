@@ -5,6 +5,8 @@ use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
+#[cfg(test)]
+use solana_ibc_types::router::APP_STATE_SEED;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgAckPacket)]
@@ -244,7 +246,7 @@ mod tests {
 
         // Mock app state - just create a dummy account since mock app doesn't use it
         let (dummy_app_state_pda, _) =
-            Pubkey::find_program_address(&[b"app_state"], &app_program_id);
+            Pubkey::find_program_address(&[APP_STATE_SEED], &app_program_id);
 
         let packet_dest_client = params.wrong_dest_client.unwrap_or(params.dest_client_id);
         let packet = create_test_packet(

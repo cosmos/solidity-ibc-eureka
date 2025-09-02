@@ -19,8 +19,8 @@ const deployerAddress = "8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z"
 // DeployerPubkey is the public key of the deployer wallet used for deploying Anchor programs.
 var DeployerPubkey = solana.MustPublicKeyFromBase58(deployerAddress)
 
-func AnchorDeploy(ctx context.Context, dir, programName, programKeypairFile string, args ...string) (solana.PublicKey, solana.Signature, error) {
-	absWalletFile, err := filepath.Abs("./solana/deployer_wallet.json")
+func AnchorDeploy(ctx context.Context, dir, programName, programKeypairFile, walletFile string, args ...string) (solana.PublicKey, solana.Signature, error) {
+	absWalletFile, err := filepath.Abs(walletFile)
 	if err != nil {
 		return solana.PublicKey{}, solana.Signature{}, fmt.Errorf("failed to get absolute path for wallet file: %w", err)
 	}

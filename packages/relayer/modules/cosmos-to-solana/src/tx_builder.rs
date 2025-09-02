@@ -1,13 +1,16 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! Solana from events received from a Cosmos SDK chain.
 
-use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use anchor_lang::AnchorSerialize;
 use anyhow::Result;
 use ibc_eureka_relayer_lib::events::EurekaEvent;
+use ibc_eureka_relayer_lib::utils::{to_32_bytes_exact, to_32_bytes_padded};
+use ibc_eureka_utils::light_block::LightBlockExt;
+use ibc_eureka_utils::rpc::TendermintRpcExt;
+use prost::Message;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -23,10 +26,22 @@ use tendermint_rpc::{Client, HttpClient};
 use solana_ibc_types::{
     derive_client, derive_client_sequence, derive_ibc_app, derive_ics07_client_state,
     derive_ics07_consensus_state, derive_packet_ack, derive_packet_receipt, derive_router_state,
-    get_instruction_discriminator, MsgRecvPacket, Packet, Payload, UpdateClientMsg,
+    get_instruction_discriminator,
+    ics07::{ClientState, ConsensusState, IbcHeight, ICS07_INITIALIZE_DISCRIMINATOR},
+    MsgRecvPacket, Packet, Payload, UpdateClientMsg,
 };
 
 use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
+
+/// Default trust level for ICS07 Tendermint light client (1/3)
+const DEFAULT_TRUST_LEVEL_NUMERATOR: u64 = 1;
+const DEFAULT_TRUST_LEVEL_DENOMINATOR: u64 = 3;
+
+/// Maximum allowed clock drift in seconds
+const MAX_CLOCK_DRIFT_SECONDS: u64 = 15;
+
+/// Mock proof data for testing purposes
+const MOCK_PROOF_DATA: &[u8] = b"mock";
 
 /// Parameters for building a `RecvPacket` instruction
 struct RecvPacketParams<'a> {
@@ -37,7 +52,6 @@ struct RecvPacketParams<'a> {
     timeout_timestamp: u64,
 }
 
-// TODO: Move out?
 /// IBC Eureka event types from Cosmos
 #[derive(Debug, Clone)]
 pub enum CosmosIbcEvent {
@@ -84,6 +98,90 @@ pub struct TxBuilder {
 }
 
 impl TxBuilder {
+    /// Create consensus state from Tendermint block
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the timestamp cannot be converted to u64
+    fn create_consensus_state_from_block(
+        block: &tendermint_rpc::endpoint::block::Response,
+    ) -> Result<ConsensusState> {
+        let app_hash = to_32_bytes_padded(block.block.header.app_hash.as_bytes(), "app_hash");
+
+        let validators_hash = to_32_bytes_exact(
+            block.block.header.validators_hash.as_bytes(),
+            "validators_hash",
+        );
+
+        Ok(ConsensusState {
+            timestamp: block
+                .block
+                .header
+                .time
+                .unix_timestamp()
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("Invalid timestamp: negative value"))?,
+            root: app_hash,
+            next_validators_hash: validators_hash,
+        })
+    }
+
+    /// Build instruction for creating a client
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails
+    fn build_create_client_instruction(
+        &self,
+        chain_id: &str,
+        latest_height: u64,
+        client_state: &ClientState,
+        consensus_state: &ConsensusState,
+    ) -> Result<Instruction> {
+        // Derive PDAs
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+        let (consensus_state_pda, _) = derive_ics07_consensus_state(
+            &client_state_pda,
+            latest_height,
+            &self.solana_ics07_program_id,
+        );
+
+        tracing::debug!("Client state PDA: {}", client_state_pda);
+        tracing::debug!("Consensus state PDA: {}", consensus_state_pda);
+
+        // Build accounts for the instruction
+        let accounts = vec![
+            AccountMeta::new(client_state_pda, false),
+            AccountMeta::new(consensus_state_pda, false),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        // Use the correct ICS07 initialize discriminator
+        let discriminator = ICS07_INITIALIZE_DISCRIMINATOR;
+
+        // Serialize instruction data using Anchor format
+        let mut instruction_data = Vec::new();
+
+        // Add discriminator
+        instruction_data.extend_from_slice(&discriminator);
+
+        // Serialize parameters in order: chain_id, latest_height, client_state, consensus_state
+        instruction_data.extend_from_slice(&chain_id.try_to_vec()?);
+        instruction_data.extend_from_slice(&latest_height.try_to_vec()?);
+        instruction_data.extend_from_slice(&client_state.try_to_vec()?);
+        instruction_data.extend_from_slice(&consensus_state.try_to_vec()?);
+
+        tracing::debug!("Instruction data length: {} bytes", instruction_data.len());
+
+        Ok(Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data: instruction_data,
+        })
+    }
+
     /// Creates a new `TxBuilder`.
     ///
     /// # Errors
@@ -305,13 +403,27 @@ impl TxBuilder {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
 
-        // For ICS07 Tendermint, we need to properly serialize the header
-        // This is a simplified version - in production, you'd use proper Tendermint types
-        let header_bytes = serde_json::to_vec(&latest_block.block.header)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize header: {e}"))?;
+        // Get the target light block (latest from source chain)
+        let target_light_block = self.source_tm_client.get_light_block(None).await?;
+
+        // Get trusted light block from previous height
+        let trusted_height = latest_block.block.header.height.value().saturating_sub(1);
+        let trusted_light_block = self
+            .source_tm_client
+            .get_light_block(Some(trusted_height))
+            .await?;
+
+        tracing::info!(
+            "Generating Solana update client header from height: {} to height: {}",
+            trusted_height,
+            target_light_block.height().value()
+        );
+
+        let proposed_header = target_light_block.into_header(&trusted_light_block);
+        let header_bytes = proposed_header.encode_to_vec();
 
         let update_msg = UpdateClientMsg {
-            header: header_bytes,
+            client_message: header_bytes,
         };
 
         // Get the chain ID for PDA derivation
@@ -319,10 +431,10 @@ impl TxBuilder {
         let (client_state_pda, _) =
             derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
 
-        // Derive consensus state PDAs for trusted and new heights
-        let trusted_height = latest_block.block.header.height.value() - 1; // Previous height
+        // Use heights already calculated above
         let new_height = latest_block.block.header.height.value();
 
+        let trusted_height = new_height.saturating_sub(1);
         let (trusted_consensus_state, _) = derive_ics07_consensus_state(
             &client_state_pda,
             trusted_height,
@@ -388,15 +500,16 @@ impl TxBuilder {
             sequence: params.sequence,
             source_client: params.source_client.to_string(),
             dest_client: params.destination_client.to_string(),
-            timeout_timestamp: i64::try_from(params.timeout_timestamp).unwrap_or(i64::MAX),
+            timeout_timestamp: i64::try_from(params.timeout_timestamp)
+                .map_err(|e| anyhow::anyhow!("Invalid timeout timestamp: {e}"))?,
             payloads,
         };
 
         // Create the message with mock proofs for now
         let msg = MsgRecvPacket {
             packet,
-            proof_commitment: b"mock".to_vec(), // Mock proof for testing
-            proof_height: 1,                    // Mock height for testing
+            proof_commitment: MOCK_PROOF_DATA.to_vec(), // Mock proof for testing
+            proof_height: 1,                            // Mock height for testing
         };
 
         // Derive all required PDAs
@@ -457,55 +570,83 @@ impl TxBuilder {
     ///
     /// Returns an error if:
     /// - Failed to get genesis block
-    /// - Failed to serialize header
-    pub async fn build_create_client_tx(
-        &self,
-        parameters: HashMap<String, String>,
-    ) -> Result<Transaction> {
-        // Get genesis block from Cosmos for initial client state
-        let genesis_height = parameters
-            .get("genesis_height")
-            .and_then(|h| h.parse::<i64>().ok())
-            .unwrap_or(1);
-
-        let genesis_block = self
+    /// - Failed to query staking parameters
+    /// - Failed to parse chain ID
+    /// - Failed to serialize instruction data
+    pub async fn build_create_client_tx(&self) -> Result<Transaction> {
+        // Get latest block from Cosmos for initial client state
+        let latest_block = self
             .source_tm_client
-            .block(u32::try_from(genesis_height).unwrap_or(1))
+            .latest_block()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to get genesis block: {e}"))?;
+            .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
 
-        // In production, you'd properly serialize the client state and consensus state
-        // This is simplified
-        let chain_id = genesis_block.block.header.chain_id.to_string();
-        let latest_height = genesis_block.block.header.height.value();
+        let chain_id_str = latest_block.block.header.chain_id.to_string();
+        let latest_height = latest_block.block.header.height.value();
 
-        // Derive PDAs
-        let (client_state_pda, _) =
-            derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
-        let (consensus_state_pda, _) = derive_ics07_consensus_state(
-            &client_state_pda,
+        // Extract revision number from chain ID (format: {chain_name}-{revision_number})
+        let revision_number = chain_id_str
+            .rsplit('-')
+            .next()
+            .and_then(|s| s.parse::<u64>().ok())
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Invalid chain ID format: expected {{chain_name}}-{{revision_number}}, got {}",
+                    chain_id_str
+                )
+            })?;
+
+        // Query staking parameters to get unbonding period
+        let unbonding_period = self
+            .source_tm_client
+            .sdk_staking_params()
+            .await?
+            .unbonding_time
+            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?
+            .seconds
+            .try_into()?;
+        let trusting_period = 2 * (unbonding_period / 3);
+
+        tracing::info!(
+            "Creating client for chain {} at height {}, revision: {}",
+            chain_id_str,
             latest_height,
-            &self.solana_ics07_program_id,
+            revision_number
         );
 
-        // Build initialization instruction for ICS07
-        let accounts = vec![
-            AccountMeta::new(client_state_pda, false),
-            AccountMeta::new(consensus_state_pda, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        ];
+        tracing::info!(
+            "Using client parameters: trust_level={}/{}, trusting_period={}, unbonding_period={}, max_clock_drift={}",
+            DEFAULT_TRUST_LEVEL_NUMERATOR, DEFAULT_TRUST_LEVEL_DENOMINATOR, trusting_period, unbonding_period, MAX_CLOCK_DRIFT_SECONDS
+        );
 
-        let discriminator = get_instruction_discriminator("initialize");
-        let mut data = discriminator.to_vec();
-        // Add serialized initialization parameters
-        data.extend_from_slice(chain_id.as_bytes());
-
-        let instruction = Instruction {
-            program_id: self.solana_ics07_program_id,
-            accounts,
-            data,
+        // Create proper ClientState matching ICS07 program expectations
+        let client_state = ClientState {
+            chain_id: chain_id_str.clone(),
+            trust_level_numerator: DEFAULT_TRUST_LEVEL_NUMERATOR,
+            trust_level_denominator: DEFAULT_TRUST_LEVEL_DENOMINATOR,
+            trusting_period,
+            unbonding_period,
+            max_clock_drift: MAX_CLOCK_DRIFT_SECONDS,
+            frozen_height: IbcHeight {
+                revision_number: 0,
+                revision_height: 0,
+            },
+            latest_height: IbcHeight {
+                revision_number,
+                revision_height: latest_height,
+            },
         };
+
+        // Create proper ConsensusState from the block
+        let consensus_state = Self::create_consensus_state_from_block(&latest_block)?;
+
+        // Build the instruction for creating the client
+        let instruction = self.build_create_client_instruction(
+            &chain_id_str,
+            latest_height,
+            &client_state,
+            &consensus_state,
+        )?;
 
         // Create unsigned transaction
         let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
@@ -612,15 +753,16 @@ impl MockTxBuilder {
             sequence: params.sequence,
             source_client: params.source_client.to_string(),
             dest_client: params.destination_client.to_string(),
-            timeout_timestamp: i64::try_from(params.timeout_timestamp).unwrap_or(i64::MAX),
+            timeout_timestamp: i64::try_from(params.timeout_timestamp)
+                .map_err(|e| anyhow::anyhow!("Invalid timeout timestamp: {e}"))?,
             payloads,
         };
 
         // Create the message with mock proofs
         let msg = MsgRecvPacket {
             packet,
-            proof_commitment: b"mock".to_vec(), // Mock proof
-            proof_height: 1,                    // Mock height
+            proof_commitment: MOCK_PROOF_DATA.to_vec(), // Mock proof
+            proof_height: 1,                            // Mock height
         };
 
         // Derive all required PDAs

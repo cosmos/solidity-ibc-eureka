@@ -63,10 +63,18 @@ pub struct Client {
 
 /// Client sequence tracking
 #[account]
-#[derive(InitSpace, Default)]
+#[derive(InitSpace)]
 pub struct ClientSequence {
     /// Next sequence number for sending packets
     pub next_sequence_send: u64,
+}
+
+impl Default for ClientSequence {
+    fn default() -> Self {
+        Self {
+            next_sequence_send: 1, // IBC sequences start from 1
+        }
+    }
 }
 
 /// Commitment storage (simple key-value)

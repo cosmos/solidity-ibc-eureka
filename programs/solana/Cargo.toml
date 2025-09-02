@@ -72,6 +72,7 @@ tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-
 solana-ibc-types = { path = "./packages/solana-ibc-types", default-features = false }
 ics25-handler = { path = "./packages/ics25-handler", default-features = false }
 solana-ibc-constants = { path = "./packages/solana-ibc-constants", default-features = false }
+ics26-router = { path = "./programs/ics26-router", default-features = false }
 
 ibc-client-tendermint = { version = "0.57", default-features = false }
 ibc-core-client = { version = "0.57", default-features = false }

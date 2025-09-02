@@ -101,8 +101,9 @@ pub fn add_client(
     client.authority = ctx.accounts.authority.key();
     client.active = true;
 
-    // ClientSequence is automatically initialized with Default trait (next_sequence_send = 0)
-    // The first packet will use sequence 1 (incremented before use)
+    // Initialize client sequence to start from 1 (IBC sequences start from 1, not 0)
+    let client_sequence = &mut ctx.accounts.client_sequence;
+    client_sequence.next_sequence_send = 1;
 
     emit!(ClientAddedEvent {
         client_id: client.client_id.clone(),
@@ -402,8 +403,8 @@ mod tests {
             .expect("Failed to deserialize client sequence");
 
         assert_eq!(
-            deserialized_sequence.next_sequence_send, 0,
-            "Sequence should be initialized to 0"
+            deserialized_sequence.next_sequence_send, 1,
+            "Sequence should be initialized to 1"
         );
     }
 

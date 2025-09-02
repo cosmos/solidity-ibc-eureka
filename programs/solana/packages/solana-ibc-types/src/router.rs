@@ -57,3 +57,4 @@ pub const COMMITMENT_SEED: &[u8] = b"commitment";
 pub const PACKET_COMMITMENT_SEED: &[u8] = b"packet_commitment";
 pub const PACKET_RECEIPT_SEED: &[u8] = b"packet_receipt";
 pub const PACKET_ACK_SEED: &[u8] = b"packet_ack";
+pub const APP_STATE_SEED: &[u8] = b"app_state";
