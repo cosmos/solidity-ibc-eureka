@@ -41,7 +41,7 @@ case "$COMMAND" in
         exit 0
         ;;
     sh)
-        exec /busybox/sh
+        exec sh
         ;;
     relayer)
         exec "$BIN_DIR/relayer" "$@"
