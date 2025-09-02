@@ -148,6 +148,7 @@ alloy-rpc-types-eth    = { version = "1.0", default-features = false }
 sp1-sdk    = { version = "5.0", default-features = false }
 sp1-prover = { version = "5.0", default-features = false }
 
+rustls = { version = "0.23.31", default-features = false }
 
 solana-client = { version = "2.3.2", default-features = false }
 solana-commitment-config = { version = "2.2.1", default-features = false }
