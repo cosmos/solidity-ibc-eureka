@@ -25,7 +25,5 @@ hex            = { workspace = true }
 
 ibc-eureka-solidity-types = { workspace = true, default-features = true }
 
-rustls = { workspace = true, features = ["ring"] }
-
 [build-dependencies]
 tonic-build = { workspace = true }
