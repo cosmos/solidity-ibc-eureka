@@ -315,9 +315,6 @@ func (s *DemoTestSuite) BridgeTransferFromCosmosTest(ctx context.Context, proofT
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 
-			_, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseAckPacket)
-			s.Require().NoError(err)
-
 			ackTxHash = receipt.TxHash.Bytes()
 			s.Require().NotEmpty(ackTxHash)
 		}))
@@ -327,6 +324,33 @@ func (s *DemoTestSuite) BridgeTransferFromCosmosTest(ctx context.Context, proofT
 			bal, err := s.ibcXERC20.BalanceOf(nil, ethUserAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(amount.Int64(), bal.Int64())
+		}))
+	}))
+
+	s.Require().True(s.Run("Relay Acknowledgement", func() {
+		var ackRelayTx []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{ackTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			ackRelayTx = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 1_000_000, ackRelayTx)
+
+			var err error
+			ackTxHash, err = hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(ackTxHash)
 		}))
 	}))
 }
