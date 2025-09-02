@@ -18,7 +18,7 @@ pub fn upload_header_chunk(
     // Initialize or update metadata
     if metadata.chain_id.is_empty() {
         // First chunk for this height - initialize metadata
-        metadata.chain_id = chain_id.clone();
+        metadata.chain_id.clone_from(&chain_id);
         metadata.target_height = target_height;
         metadata.total_chunks = total_chunks;
         metadata.header_commitment = header_commitment;
@@ -33,8 +33,9 @@ pub fn upload_header_chunk(
             metadata.header_commitment == header_commitment,
             ErrorCode::InvalidHeader
         );
-        metadata.updated_at = clock.unix_timestamp;
     }
+
+    metadata.updated_at = clock.unix_timestamp;
 
     // Store chunk data (overwrites if already exists)
     chunk.chain_id = chain_id;
@@ -52,3 +53,4 @@ pub fn upload_header_chunk(
     );
     Ok(())
 }
+
