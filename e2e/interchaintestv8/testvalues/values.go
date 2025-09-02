@@ -164,7 +164,7 @@ const (
 	// The RPC endpoint for the aggregator service
 	AggregatorRpcPath = "http://localhost:8080"
 
-	DemoDenom = "WF"
+	DemoDenom = "uwfdeposit"
 )
 
 var (

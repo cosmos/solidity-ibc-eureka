@@ -43,7 +43,7 @@ contract DemoTest is Test {
         // precompute account address
         IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
             clientId: th.FIRST_CLIENT_ID(),
-            sender: Strings.toHexString(userA),
+            sender: Strings.toChecksumHexString(userA),
             salt: ""
         });
         address computedAccount = ibcImplB.ics27Gmp().getOrComputeAccountAddress(accountId);
