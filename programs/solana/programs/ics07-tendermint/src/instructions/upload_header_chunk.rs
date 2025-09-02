@@ -23,7 +23,6 @@ pub fn upload_header_chunk(
         metadata.total_chunks = total_chunks;
         metadata.header_commitment = header_commitment;
         metadata.created_at = clock.unix_timestamp;
-        metadata.updated_at = clock.unix_timestamp;
     } else {
         // Validate metadata matches
         require_eq!(&metadata.chain_id, &chain_id);
