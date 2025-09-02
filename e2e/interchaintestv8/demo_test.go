@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 
@@ -13,6 +14,9 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
@@ -213,7 +217,7 @@ func (s *DemoTestSuite) BridgeTransferFromEthTest(ctx context.Context, proofType
 		}))
 
 		s.Require().True(s.Run("Submit relay tx", func() {
-			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, &ics26Address, ackRelayTx)
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 1_000_000, &ics26Address, ackRelayTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 
@@ -227,6 +231,102 @@ func (s *DemoTestSuite) BridgeTransferFromEthTest(ctx context.Context, proofType
 			bal, err := s.ibcXERC20.BalanceOf(nil, ethUserAddress)
 			s.Require().NoError(err)
 			s.Require().Zero(bal.Int64())
+		}))
+	}))
+}
+
+func (s *DemoTestSuite) Test_BridgeTransferFromCosmos() {
+	ctx := context.Background()
+	proofType := types.GetEnvProofType()
+	s.BridgeTransferFromCosmosTest(ctx, proofType)
+}
+
+func (s *DemoTestSuite) BridgeTransferFromCosmosTest(ctx context.Context, proofType types.SupportedProofType) {
+	s.SetupSuite(ctx, proofType)
+
+	eth, simd := s.EthChain, s.CosmosChains[0]
+	simdUser := s.CosmosUsers[0]
+	ethUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+
+	amount := sdkmath.NewInt(1_000)
+	s.Require().True(s.Run("Fund user with denom", func() {
+		mintMsg := &wfchain.MsgMint{
+			From:    simdUser.FormattedAddress(),
+			Address: simdUser.FormattedAddress(),
+			Amount:  sdk.NewCoin(testvalues.DemoDenom, amount),
+		}
+		_, err := s.BroadcastMessages(ctx, simd, simdUser, 500_000, mintMsg)
+		s.Require().NoError(err)
+	}))
+
+	var sendTxHash []byte
+	s.Require().True(s.Run("Send tokens on Cosmos chain", func() {
+		transferMsg := &wfchain.MsgBridgeTransfer{
+			Sender:           simdUser.FormattedAddress(),
+			Denom:            testvalues.DemoDenom,
+			Amount:           amount.BigInt().String(),
+			Receiver:         ethUserAddress.String(),
+			SourceClient:     testvalues.FirstWasmClientID,
+			TimeoutTimestamp: uint64(time.Now().Add(1 * time.Hour).Unix()),
+		}
+		resp, err := s.BroadcastMessages(ctx, simd, simdUser, 500_000, transferMsg)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.TxHash)
+
+		sendTxHash, err = hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(sendTxHash)
+
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			// User balance on Cosmos chain
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: simdUser.FormattedAddress(),
+				Denom:   testvalues.DemoDenom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Zero(resp.Balance.Amount.Int64())
+			s.Require().Equal(testvalues.DemoDenom, resp.Balance.Denom)
+		}))
+	}))
+
+	var ackTxHash []byte
+	s.Require().True(s.Run("Relay Packet", func() {
+		var relayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{sendTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
+
+			relayTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Submit relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 1_000_000, &ics26Address, relayTxBodyBz)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+
+			_, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseAckPacket)
+			s.Require().NoError(err)
+
+			ackTxHash = receipt.TxHash.Bytes()
+			s.Require().NotEmpty(ackTxHash)
+		}))
+
+		s.Require().True(s.Run("Verify balances on Ethereum", func() {
+			// User balance on Ethereum
+			bal, err := s.ibcXERC20.BalanceOf(nil, ethUserAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(amount.Int64(), bal.Int64())
 		}))
 	}))
 }
