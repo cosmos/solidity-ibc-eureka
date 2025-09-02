@@ -34,5 +34,8 @@ where
     anyhow::bail!("Timeout exceeded waiting for condition")
 }
 
+pub mod tracing_layer;
+
+/// Utils useful for type conversions for attestor clients
 pub mod cosmos;
 pub mod eth_eureka;

@@ -1,0 +1,130 @@
+// ###############################
+// #### Metrics Configuration ####
+// ###############################
+
+// Host Cadvisor on the Docker socket to expose container metrics.
+prometheus.exporter.cadvisor "example" {
+  docker_only = true
+}
+
+discovery.relabel "example" {
+    targets = prometheus.exporter.cadvisor.example.targets
+
+    rule {
+        target_label = "job"
+        replacement  = "integrations/docker"
+    }
+
+    rule {
+        target_label = "instance"
+        replacement  = constants.hostname
+    }
+}
+
+// Configure a prometheus.scrape component to collect cadvisor metrics.
+prometheus.scrape "scraper" {
+  targets    = discovery.relabel.example.output
+  forward_to = [ prometheus.remote_write.demo.receiver ]
+
+
+  scrape_interval = "10s"
+}
+
+// Configure a prometheus.remote_write component to send metrics to a Prometheus server.
+prometheus.remote_write "demo" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
+
+// ###############################
+// #### Logging Configuration ####
+// ###############################
+
+// Discover Docker containers and extract metadata.
+discovery.docker "linux" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// Define a relabeling rule to create a service name from the container name.
+discovery.relabel "logs_integrations_docker" {
+      targets = []
+  
+      rule {
+          source_labels = ["__meta_docker_container_name"]
+          regex = "/(.*)"
+          target_label = "container_name"
+      }
+
+     rule {
+        target_label = "instance"
+        replacement  = constants.hostname
+    }
+
+  }
+
+
+// Configure a loki.source.docker component to collect logs from Docker containers.
+loki.source.docker "default" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.docker.linux.targets
+  relabel_rules = discovery.relabel.logs_integrations_docker.rules
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// ###############################
+// #### Tracing Configuration ####
+// ###############################
+
+// Receive OTLP from local apps (relayer) on gRPC 4317
+otelcol.receiver.otlp "from_apps" {
+  grpc { endpoint = "0.0.0.0:4317" }
+  output {
+    traces = [otelcol.processor.batch.traces.input]
+    logs   = [otelcol.processor.attributes.loki_hints.input]
+  }
+}
+
+otelcol.processor.batch "traces" {
+  output {
+    traces = [otelcol.exporter.otlp.to_tempo.input]
+  }
+}
+
+// Batch and forward logs to Loki using OTLP/HTTP
+// Add Loki label hints so each stream has at least one label
+otelcol.processor.attributes "loki_hints" {
+  action {
+    key    = "loki.resource.labels"
+    action = "insert"
+    value  = "service.name"
+  }
+  output {
+    logs = [otelcol.processor.batch.logs.input]
+  }
+}
+
+otelcol.processor.batch "logs" {
+  output {
+    logs = [otelcol.exporter.loki.to_loki.input]
+  }
+}
+
+// Forward logs to Loki using the native Loki exporter
+otelcol.exporter.loki "to_loki" {
+  forward_to = [loki.write.local.receiver]
+}
+
+// Forward traces to Tempo
+otelcol.exporter.otlp "to_tempo" {
+  client {
+    endpoint = "http://tempo:4317"
+    tls { insecure = true }
+  }
+}
