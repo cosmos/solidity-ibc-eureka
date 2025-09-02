@@ -268,7 +268,7 @@ mod tests {
                 },
             });
             let result = query(deps.as_ref(), mock_env(), non_existant_height);
-            assert!(result.is_err());
+            assert!(matches!(result, Err(ContractError::ConsensusStateNotFound)));
         }
 
         #[test]
