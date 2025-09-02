@@ -38,7 +38,8 @@ COPY --from=build /src/target/release/attestor-arbitrum /usr/local/bin/attestor-
 COPY --from=build /src/target/release/attestor-cosmos /usr/local/bin/attestor-cosmos
 
 # 3000 is the relayer port
+# 9000 is the relayer metrics port
 # 8080 is the attestor port
-EXPOSE 3000 8080
+EXPOSE 3000 9000 8080
 
 ENTRYPOINT [ "sh", "/entrypoint.sh" ]
