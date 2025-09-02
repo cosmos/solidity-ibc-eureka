@@ -78,6 +78,10 @@ impl CosmosToEthAttestedRelayerModuleService {
 
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
 
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .expect("Failed to install rustls crypto provider");
+
         let tx_builder =
             tx_builder::TxBuilder::new(config.ics26_address, provider, config.aggregator_config)
                 .await
