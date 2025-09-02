@@ -9,7 +9,7 @@ FROM rust:1.89-bookworm AS build
 ARG CARGO_TERM_COLOR=always
 ARG RUSTFLAGS="-C codegen-units=8"
 
-RUN apt update && apt install -y build-essential protobuf-compiler ca-certificates
+RUN apt update && apt install -y build-essential protobuf-compiler
 
 WORKDIR /src
 
@@ -24,6 +24,9 @@ RUN cargo build --release --locked --bin relayer && \
     mv target/release/ibc_attestor target/release/attestor-cosmos
 
 FROM debian:bookworm-slim
+
+RUN apt update && apt install -y build-essential protobuf-compiler ca-certificates
+RUN update-ca-certificates
 
 WORKDIR /usr/local/bin
 
