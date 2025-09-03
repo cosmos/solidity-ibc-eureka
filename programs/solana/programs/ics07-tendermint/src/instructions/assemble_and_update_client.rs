@@ -189,7 +189,7 @@ fn check_misbehaviour(
 
 /// Clean up chunk accounts to reclaim rent
 fn cleanup_chunks(ctx: &Context<AssembleAndUpdateClient>) -> Result<()> {
-    for chunk_account in ctx.remaining_accounts.iter() {
+    for chunk_account in ctx.remaining_accounts {
         let mut lamports = chunk_account.try_borrow_mut_lamports()?;
         let mut payer_lamports = ctx.accounts.payer.try_borrow_mut_lamports()?;
         **payer_lamports += **lamports;
