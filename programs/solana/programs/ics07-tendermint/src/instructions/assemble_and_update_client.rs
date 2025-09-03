@@ -38,7 +38,7 @@ pub fn assemble_and_update_client(ctx: Context<AssembleAndUpdateClient>) -> Resu
         // Load and append chunk data
         let chunk_data = chunk_account.try_borrow_data()?;
         let chunk: HeaderChunk = HeaderChunk::try_deserialize(&mut &chunk_data[..])?;
-        require_eq!(&chunk.chain_id, &chain_id);
+        require_eq!(&chunk.chain_id, chain_id);
         require_eq!(chunk.target_height, target_height);
         require_eq!(chunk.chunk_index, index as u8);
 

@@ -91,7 +91,7 @@ pub struct SubmitMisbehaviour<'info> {
 /// Context for uploading a chunk of header data
 /// Chunks are stored by chain_id, height, and chunk index
 #[derive(Accounts)]
-#[instruction(chain_id: String, target_height: u64, chunk_index: u8, total_chunks: u8)]
+#[instruction(params: types::UploadChunkParams)]
 pub struct UploadHeaderChunk<'info> {
     /// The header chunk account to create/update
     /// If there's an old chunk at this position, it will be overwritten
@@ -101,9 +101,9 @@ pub struct UploadHeaderChunk<'info> {
         space = 8 + HeaderChunk::INIT_SPACE,
         seeds = [
             b"header_chunk",
-            chain_id.as_bytes(),
-            &target_height.to_le_bytes(),
-            &[chunk_index]
+            params.chain_id.as_bytes(),
+            &params.target_height.to_le_bytes(),
+            &[params.chunk_index]
         ],
         bump
     )]
@@ -116,8 +116,8 @@ pub struct UploadHeaderChunk<'info> {
         space = 8 + HeaderMetadata::INIT_SPACE,
         seeds = [
             b"header_metadata",
-            chain_id.as_bytes(),
-            &target_height.to_le_bytes()
+            params.chain_id.as_bytes(),
+            &params.target_height.to_le_bytes()
         ],
         bump
     )]
@@ -125,8 +125,8 @@ pub struct UploadHeaderChunk<'info> {
 
     /// Client state to verify this is a valid client
     #[account(
-        constraint = client_state.chain_id == chain_id,
-        constraint = target_height > client_state.latest_height.revision_height
+        constraint = client_state.chain_id == params.chain_id,
+        constraint = params.target_height > client_state.latest_height.revision_height
     )]
     pub client_state: Account<'info, ClientState>,
 
@@ -200,7 +200,9 @@ pub struct CleanupIncompleteUpload<'info> {
 #[program]
 pub mod ics07_tendermint {
     use super::*;
-    use crate::types::{ClientState, ConsensusState, MisbehaviourMsg, UpdateClientMsg};
+    use crate::types::{
+        ClientState, ConsensusState, MisbehaviourMsg, UpdateClientMsg, UploadChunkParams,
+    };
 
     pub fn initialize(
         ctx: Context<Initialize>,
@@ -243,24 +245,9 @@ pub mod ics07_tendermint {
     /// Automatically overwrites any existing chunk at the same position
     pub fn upload_header_chunk(
         ctx: Context<UploadHeaderChunk>,
-        chain_id: String,
-        target_height: u64,
-        chunk_index: u8,
-        total_chunks: u8,
-        chunk_data: Vec<u8>,
-        chunk_hash: [u8; 32],
-        header_commitment: [u8; 32],
+        params: UploadChunkParams,
     ) -> Result<()> {
-        instructions::upload_header_chunk::upload_header_chunk(
-            ctx,
-            chain_id,
-            target_height,
-            chunk_index,
-            total_chunks,
-            chunk_data,
-            chunk_hash,
-            header_commitment,
-        )
+        instructions::upload_header_chunk::upload_header_chunk(ctx, params)
     }
 
     /// Assemble chunks and update the client
