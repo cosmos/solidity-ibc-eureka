@@ -16,11 +16,11 @@ WORKDIR /src
 COPY . .
 
 RUN cargo build --release --locked --bin relayer && \
-    cargo build --release --locked --bin ibc_attestor -F op && \
+    cargo build --release --locked --bin ibc_attestor --no-default-features -F op && \
     mv target/release/ibc_attestor target/release/attestor-optimism && \
-    cargo build --release --locked --bin ibc_attestor -F arbitrum && \
+    cargo build --release --locked --bin ibc_attestor --no-default-features -F arbitrum && \
     mv target/release/ibc_attestor target/release/attestor-arbitrum && \
-    cargo build --release --locked --bin ibc_attestor -F cosmos && \
+    cargo build --release --locked --bin ibc_attestor --no-default-features -F cosmos && \
     mv target/release/ibc_attestor target/release/attestor-cosmos
 
 FROM gcr.io/distroless/cc-debian12:debug
