@@ -63,12 +63,8 @@ pub fn assemble_and_update_client(
         client_message: header_bytes,
     };
 
-    // Call the update_client handler with a synthetic context
-    // This is simpler than duplicating all the logic
+    // TODO:copy logic and remove after tests succeeed
     let result = {
-        // We need to create a synthetic UpdateClient context
-        // Since we can't use BTreeMap, we'll pass an empty bumps via unsafe transmute
-        // This is safe because UpdateClient doesn't use any bumps
         let update_ctx = unsafe {
             use crate::UpdateClient;
             use core::mem;
@@ -82,7 +78,7 @@ pub fn assemble_and_update_client(
                     system_program: ctx.accounts.system_program.clone(),
                 },
                 remaining_accounts: &[],
-                bumps: mem::zeroed(), // Safe because UpdateClient has no PDA bumps
+                bumps: mem::zeroed(),
             }
         };
 
