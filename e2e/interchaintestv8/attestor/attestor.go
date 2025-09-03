@@ -20,6 +20,7 @@ type AttestorBinaryPath = string
 const (
 	OptimismBinary AttestorBinaryPath = "ibc_op_attestor"
 	ArbitrumBinary AttestorBinaryPath = "ibc_arbitrum_attestor"
+	CosmosBinary   AttestorBinaryPath = "ibc_cosmos_attestor"
 )
 
 // StartAttestor starts the attestor with the given config file.
