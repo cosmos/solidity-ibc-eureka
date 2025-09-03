@@ -3,9 +3,8 @@ package ethereum_test
 import (
 	"testing"
 
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/stretchr/testify/require"
-
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 )
 
 func TestGetEthAddressFromStdout(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 const (

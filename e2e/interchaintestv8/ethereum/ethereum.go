@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -22,9 +24,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
-
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/cosmos/interchaintest/v10/testutil"
 )
 
 type Ethereum struct {
@@ -164,6 +164,8 @@ func (e Ethereum) SendEth(key *ecdsa.PrivateKey, toAddress string, amount math.I
 		"--value", amount.String(),
 		"--private-key", fmt.Sprintf("0x%s", hex.EncodeToString(crypto.FromECDSA(key))),
 		"--rpc-url", e.RPC,
+		"--priority-gas-price", "1gwei",
+		"--gas-price", "3gwei",
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

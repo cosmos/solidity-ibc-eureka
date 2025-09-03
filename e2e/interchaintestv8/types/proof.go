@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"os"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 // SupportedProofType is an enum for supported proof types.

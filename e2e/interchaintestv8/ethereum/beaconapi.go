@@ -9,15 +9,13 @@ import (
 	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
-	"github.com/attestantio/go-eth2-client/api"
 	apiv1 "github.com/attestantio/go-eth2-client/api/v1"
 	ethttp "github.com/attestantio/go-eth2-client/http"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
+	ethereumtypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/ethereum"
 	"github.com/rs/zerolog"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
-
-	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
 type BeaconAPIClient struct {
@@ -110,14 +108,12 @@ func retry[T any](retries int, waitTime time.Duration, fn func() (T, error)) (T,
 
 func (b BeaconAPIClient) GetHeader(blockID string) (*apiv1.BeaconBlockHeader, error) {
 	return retry(b.Retries, b.RetryWait, func() (*apiv1.BeaconBlockHeader, error) {
-		headerResponse, err := b.client.(eth2client.BeaconBlockHeadersProvider).BeaconBlockHeader(b.ctx, &api.BeaconBlockHeaderOpts{
-			Block: blockID,
-		})
+		headerResponse, err := b.client.(eth2client.BeaconBlockHeadersProvider).BeaconBlockHeader(b.ctx, blockID)
 		if err != nil {
 			return nil, err
 		}
 
-		return headerResponse.Data, nil
+		return headerResponse, nil
 	})
 }
 
@@ -156,12 +152,12 @@ func (b BeaconAPIClient) GetBootstrap(finalizedRoot phase0.Root) (Bootstrap, err
 
 func (b BeaconAPIClient) GetSpec() (Spec, error) {
 	return retry(b.Retries, b.RetryWait, func() (Spec, error) {
-		specResponse, err := b.client.(eth2client.SpecProvider).Spec(b.ctx, &api.SpecOpts{})
+		specResponse, err := b.client.(eth2client.SpecProvider).Spec(b.ctx)
 		if err != nil {
 			return Spec{}, err
 		}
 
-		specJsonBz, err := json.Marshal(specResponse.Data)
+		specJsonBz, err := json.Marshal(specResponse)
 		if err != nil {
 			return Spec{}, err
 		}

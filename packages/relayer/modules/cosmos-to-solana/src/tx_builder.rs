@@ -7,6 +7,7 @@ use std::sync::Arc;
 use anchor_lang::AnchorSerialize;
 use anyhow::Result;
 use ibc_eureka_relayer_lib::events::EurekaEvent;
+use ibc_eureka_relayer_lib::utils::{to_32_bytes_exact, to_32_bytes_padded};
 use ibc_eureka_utils::light_block::LightBlockExt;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use prost::Message;
@@ -105,22 +106,12 @@ impl TxBuilder {
     fn create_consensus_state_from_block(
         block: &tendermint_rpc::endpoint::block::Response,
     ) -> Result<ConsensusState> {
-        let mut app_hash = [0u8; 32];
-        let app_hash_bytes = block.block.header.app_hash.as_bytes();
-        if app_hash_bytes.len() >= 32 {
-            app_hash.copy_from_slice(&app_hash_bytes[..32]);
-        } else {
-            // Pad with zeros if too short
-            app_hash[..app_hash_bytes.len()].copy_from_slice(app_hash_bytes);
-        }
+        let app_hash = to_32_bytes_padded(block.block.header.app_hash.as_bytes(), "app_hash");
 
-        let mut validators_hash = [0u8; 32];
-        let validators_hash_bytes = block.block.header.validators_hash.as_bytes();
-        if validators_hash_bytes.len() >= 32 {
-            validators_hash.copy_from_slice(&validators_hash_bytes[..32]);
-        } else {
-            validators_hash[..validators_hash_bytes.len()].copy_from_slice(validators_hash_bytes);
-        }
+        let validators_hash = to_32_bytes_exact(
+            block.block.header.validators_hash.as_bytes(),
+            "validators_hash",
+        );
 
         Ok(ConsensusState {
             timestamp: block
