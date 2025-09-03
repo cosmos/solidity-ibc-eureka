@@ -19,25 +19,21 @@ pub fn upload_header_chunk(
 
     // Verify the provided hash matches the actual chunk data
     let computed_hash = keccak::hash(&params.chunk_data).0;
-    require!(params.chunk_hash == computed_hash, ErrorCode::InvalidChunkHash);
+    require!(
+        params.chunk_hash == computed_hash,
+        ErrorCode::InvalidChunkHash
+    );
 
-    // Initialize or update metadata
-    if metadata.chain_id.is_empty() {
-        // First chunk for this height - initialize metadata
+    // Only update metadata if it's new or different
+    if metadata.header_commitment != params.header_commitment
+        || metadata.total_chunks != params.total_chunks
+    {
         metadata.chain_id.clone_from(&params.chain_id);
         metadata.target_height = params.target_height;
         metadata.total_chunks = params.total_chunks;
         metadata.header_commitment = params.header_commitment;
+
         metadata.created_at = clock.unix_timestamp;
-    } else {
-        // Validate metadata matches
-        require_eq!(&metadata.chain_id, &params.chain_id);
-        require_eq!(metadata.target_height, params.target_height);
-        require_eq!(metadata.total_chunks, params.total_chunks);
-        require!(
-            metadata.header_commitment == params.header_commitment,
-            ErrorCode::InvalidHeader
-        );
     }
 
     metadata.updated_at = clock.unix_timestamp;
