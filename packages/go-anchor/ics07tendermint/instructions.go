@@ -14,7 +14,6 @@ import (
 // Builds a "initialize" instruction.
 func NewInitializeInstruction(
 	// Params:
-	chainIdParam string,
 	latestHeightParam uint64,
 	clientStateParam ClientState,
 	consensusStateParam ConsensusState,
@@ -34,11 +33,6 @@ func NewInitializeInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `chainIdParam`:
-		err = enc__.Encode(chainIdParam)
-		if err != nil {
-			return nil, errors.NewField("chainIdParam", err)
-		}
 		// Serialize `latestHeightParam`:
 		err = enc__.Encode(latestHeightParam)
 		if err != nil {
@@ -157,18 +151,9 @@ func NewUpdateClientInstruction(
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
 		// Account 1 "trusted_consensus_state": Read-only, Non-signer, Required
 		// Trusted consensus state at the height specified in the header
-		// We use `UncheckedAccount` here because the trusted height is extracted from the header,
-		// which can only be deserialized inside the instruction handler. Since Anchor's account
-		// validation happens before the instruction code runs, we cannot use the standard
-		// #[account(seeds = ...)] constraint. Instead, we manually validate the PDA derivation
-		// inside the instruction handler after extracting the trusted height from the header.
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
 		// Account 2 "new_consensus_state_store": Read-only, Non-signer, Required
-		// Consensus state store for the new height
-		// Will be created if it doesn't exist, or validated if it does (for misbehaviour detection)
-		// NOTE: We can't use the instruction parameter here because we don't know the new height
-		// until after processing the update. This account must be derived by the client
-		// based on the expected new height from the header.
+		// Consensus state store for the new height - will be created or validated
 		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, false, false))
 		// Account 3 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))

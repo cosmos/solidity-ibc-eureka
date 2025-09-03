@@ -20,7 +20,7 @@ pub struct SendPacket<'info> {
 
     #[account(
         mut,
-        seeds = [CLIENT_SEQUENCE_SEED, msg.source_client.as_bytes()],
+        seeds = [CLIENT_SEQUENCE_SEED],
         bump
     )]
     pub client_sequence: Account<'info, ClientSequence>,
@@ -31,7 +31,6 @@ pub struct SendPacket<'info> {
         space = 8 + Commitment::INIT_SPACE,
         seeds = [
             PACKET_COMMITMENT_SEED,
-            msg.source_client.as_bytes(),
             &client_sequence.next_sequence_send.to_le_bytes()
         ],
         bump
@@ -49,7 +48,7 @@ pub struct SendPacket<'info> {
     pub clock: Sysvar<'info, Clock>,
 
     #[account(
-        seeds = [CLIENT_SEED, msg.source_client.as_bytes()],
+        seeds = [CLIENT_SEED],
         bump,
         constraint = client.active @ RouterError::ClientNotActive,
     )]
@@ -173,7 +172,7 @@ mod tests {
             params.active_client,
         );
         let (client_sequence_pda, client_sequence_data) =
-            setup_client_sequence(params.client_id, params.initial_sequence);
+            setup_client_sequence(params.initial_sequence);
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(params.port_id, app_program_id);
 
         let clock_data = create_clock_data(params.current_timestamp);
@@ -193,7 +192,6 @@ mod tests {
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
             &[
                 PACKET_COMMITMENT_SEED,
-                msg.source_client.as_bytes(),
                 &params.initial_sequence.to_le_bytes(),
             ],
             &crate::ID,
@@ -411,8 +409,7 @@ mod tests {
             "counterparty-client-1",
             true,
         );
-        let (client_sequence_pda_1, client_sequence_data_1) =
-            setup_client_sequence(client_id_1, 10);
+        let (client_sequence_pda_1, client_sequence_data_1) = setup_client_sequence(10);
 
         // Create second client with sequence 20
         let client_id_2 = "test-client-2";
@@ -423,8 +420,7 @@ mod tests {
             "counterparty-client-2",
             true,
         );
-        let (client_sequence_pda_2, client_sequence_data_2) =
-            setup_client_sequence(client_id_2, 20);
+        let (client_sequence_pda_2, client_sequence_data_2) = setup_client_sequence(20);
 
         let clock_data = create_clock_data(1000);
 
@@ -444,7 +440,6 @@ mod tests {
         let (packet_commitment_pda_1, _) = Pubkey::find_program_address(
             &[
                 PACKET_COMMITMENT_SEED,
-                msg_1.source_client.as_bytes(),
                 &10u64.to_le_bytes(), // sequence 10
             ],
             &crate::ID,
@@ -502,7 +497,6 @@ mod tests {
         let (packet_commitment_pda_2, _) = Pubkey::find_program_address(
             &[
                 PACKET_COMMITMENT_SEED,
-                msg_2.source_client.as_bytes(),
                 &20u64.to_le_bytes(), // sequence 20
             ],
             &crate::ID,
