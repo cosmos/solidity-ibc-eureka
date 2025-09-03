@@ -89,8 +89,9 @@ pub struct SubmitMisbehaviour<'info> {
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 }
 
+// TODO: Economic incentive is required to slash malicious relayers
 /// Context for uploading a chunk of header data
-/// Chunks are stored by chain_id, height, and chunk index
+/// Chunks are stored by `chain_id`, `height`, and `chunk_index`
 #[derive(Accounts)]
 #[instruction(params: types::UploadChunkParams)]
 pub struct UploadHeaderChunk<'info> {
@@ -110,7 +111,7 @@ pub struct UploadHeaderChunk<'info> {
     )]
     pub chunk: Account<'info, HeaderChunk>,
 
-    /// Header metadata for this height (created with first chunk)
+    /// Header metadata for this height (created with first chunk or overwritten when needed)
     #[account(
         init_if_needed,
         payer = payer,
