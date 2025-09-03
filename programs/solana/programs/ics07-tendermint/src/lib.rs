@@ -14,6 +14,7 @@ declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 
 pub use types::{
     ClientState, ConsensusState, IbcHeight, MisbehaviourMsg, UpdateClientMsg, UpdateResult,
+    UploadChunkParams,
 };
 
 pub use ics25_handler::MembershipMsg;
