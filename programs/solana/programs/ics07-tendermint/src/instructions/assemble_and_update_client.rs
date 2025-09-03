@@ -1,5 +1,5 @@
 use crate::error::ErrorCode;
-use crate::state::{HeaderChunk, HeaderMetadata};
+use crate::state::HeaderChunk;
 use crate::types::{UpdateClientMsg, UpdateResult};
 use crate::AssembleAndUpdateClient;
 use anchor_lang::prelude::*;
@@ -106,4 +106,3 @@ pub fn assemble_and_update_client(
     );
     Ok(result)
 }
-

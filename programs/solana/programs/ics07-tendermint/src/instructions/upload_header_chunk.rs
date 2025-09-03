@@ -1,6 +1,7 @@
 use crate::error::ErrorCode;
 use crate::UploadHeaderChunk;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::keccak;
 
 pub fn upload_header_chunk(
     ctx: Context<UploadHeaderChunk>,
@@ -9,11 +10,21 @@ pub fn upload_header_chunk(
     chunk_index: u8,
     total_chunks: u8,
     chunk_data: Vec<u8>,
+    chunk_hash: [u8; 32],
     header_commitment: [u8; 32],
 ) -> Result<()> {
     let clock = Clock::get()?;
     let chunk = &mut ctx.accounts.chunk;
     let metadata = &mut ctx.accounts.metadata;
+
+    // Check if chunk already has the correct hash (early exit)
+    if chunk.chunk_hash == chunk_hash {
+        return Ok(());
+    }
+
+    // Verify the provided hash matches the actual chunk data
+    let computed_hash = keccak::hash(&chunk_data).0;
+    require!(chunk_hash == computed_hash, ErrorCode::InvalidChunkHash);
 
     // Initialize or update metadata
     if metadata.chain_id.is_empty() {
@@ -36,20 +47,13 @@ pub fn upload_header_chunk(
 
     metadata.updated_at = clock.unix_timestamp;
 
-    // Store chunk data (overwrites if already exists)
     chunk.chain_id = chain_id;
     chunk.target_height = target_height;
     chunk.chunk_index = chunk_index;
+    chunk.chunk_hash = chunk_hash;
     chunk.chunk_data = chunk_data;
     chunk.submitter = ctx.accounts.payer.key();
     chunk.version = chunk.version.wrapping_add(1); // Increment version on overwrites
 
-    msg!(
-        "Uploaded chunk {} of {} for height {}",
-        chunk_index,
-        total_chunks,
-        target_height
-    );
     Ok(())
 }
-

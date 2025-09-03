@@ -69,6 +69,12 @@ pub enum ErrorCode {
     InvalidChunkCount,
     #[msg("Invalid chunk account: chunk account PDA mismatch")]
     InvalidChunkAccount,
+    #[msg("Invalid chunk hash: chunk data does not match stored hash")]
+    InvalidChunkHash,
+    #[msg("Invalid chunk index: chunk index out of bounds")]
+    InvalidChunkIndex,
+    #[msg("Too many chunks: exceeds maximum supported chunks")]
+    TooManyChunks,
 
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]

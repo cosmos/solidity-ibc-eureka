@@ -255,6 +255,7 @@ pub mod ics07_tendermint {
         chunk_index: u8,
         total_chunks: u8,
         chunk_data: Vec<u8>,
+        chunk_hash: [u8; 32],
         header_commitment: [u8; 32],
     ) -> Result<()> {
         instructions::upload_header_chunk::upload_header_chunk(
@@ -264,6 +265,7 @@ pub mod ics07_tendermint {
             chunk_index,
             total_chunks,
             chunk_data,
+            chunk_hash,
             header_commitment,
         )
     }
