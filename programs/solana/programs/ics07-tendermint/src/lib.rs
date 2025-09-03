@@ -138,24 +138,17 @@ pub struct UploadHeaderChunk<'info> {
 /// Context for assembling chunks and updating the client
 /// This will automatically clean up any old chunks at the same height
 #[derive(Accounts)]
-#[instruction(chain_id: String, target_height: u64)]
 pub struct AssembleAndUpdateClient<'info> {
     #[account(
         mut,
-        constraint = client_state.chain_id == chain_id,
-        constraint = target_height > client_state.latest_height.revision_height
+        constraint = client_state.chain_id == metadata.chain_id.as_str(),
+        constraint = metadata.target_height > client_state.latest_height.revision_height
     )]
     pub client_state: Account<'info, ClientState>,
 
     /// Header metadata for this height
     #[account(
         mut,
-        seeds = [
-            b"header_metadata",
-            chain_id.as_bytes(),
-            &target_height.to_le_bytes()
-        ],
-        bump,
         close = payer  // Close metadata after successful update
     )]
     pub metadata: Account<'info, HeaderMetadata>,
@@ -274,14 +267,8 @@ pub mod ics07_tendermint {
     /// Automatically cleans up all chunks after successful update
     pub fn assemble_and_update_client(
         ctx: Context<AssembleAndUpdateClient>,
-        chain_id: String,
-        target_height: u64,
     ) -> Result<UpdateResult> {
-        instructions::assemble_and_update_client::assemble_and_update_client(
-            ctx,
-            chain_id,
-            target_height,
-        )
+        instructions::assemble_and_update_client::assemble_and_update_client(ctx)
     }
 
     /// Clean up incomplete header uploads at lower heights

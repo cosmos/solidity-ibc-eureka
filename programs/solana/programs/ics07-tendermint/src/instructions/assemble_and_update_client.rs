@@ -5,16 +5,10 @@ use crate::AssembleAndUpdateClient;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::keccak;
 
-pub fn assemble_and_update_client(
-    ctx: Context<AssembleAndUpdateClient>,
-    chain_id: String,
-    target_height: u64,
-) -> Result<UpdateResult> {
+pub fn assemble_and_update_client(ctx: Context<AssembleAndUpdateClient>) -> Result<UpdateResult> {
     let metadata = &ctx.accounts.metadata;
-
-    // Validate metadata
-    require_eq!(&metadata.chain_id, &chain_id);
-    require_eq!(metadata.target_height, target_height);
+    let chain_id = &metadata.chain_id;
+    let target_height = metadata.target_height;
 
     // Collect all chunk data from remaining accounts
     let mut header_bytes = Vec::new();
