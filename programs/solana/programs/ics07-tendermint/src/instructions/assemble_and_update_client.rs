@@ -26,16 +26,15 @@ pub fn assemble_and_update_client(
         ErrorCode::InvalidChunkCount
     );
 
-    for (i, chunk_account) in chunk_accounts.iter().enumerate() {
+    for (index, chunk_account) in chunk_accounts.iter().enumerate() {
         // Validate chunk PDA
         let expected_seeds = &[
             b"header_chunk".as_ref(),
             chain_id.as_bytes(),
             &target_height.to_le_bytes(),
-            &[i as u8],
+            &[index as u8],
         ];
-        let (expected_chunk_pda, _) =
-            Pubkey::find_program_address(expected_seeds, ctx.program_id);
+        let (expected_chunk_pda, _) = Pubkey::find_program_address(expected_seeds, ctx.program_id);
         require_eq!(
             chunk_account.key(),
             expected_chunk_pda,
@@ -47,7 +46,7 @@ pub fn assemble_and_update_client(
         let chunk: HeaderChunk = HeaderChunk::try_deserialize(&mut &chunk_data[..])?;
         require_eq!(&chunk.chain_id, &chain_id);
         require_eq!(chunk.target_height, target_height);
-        require_eq!(chunk.chunk_index, i as u8);
+        require_eq!(chunk.chunk_index, index as u8);
 
         header_bytes.extend_from_slice(&chunk.chunk_data);
     }
@@ -107,3 +106,4 @@ pub fn assemble_and_update_client(
     );
     Ok(result)
 }
+
