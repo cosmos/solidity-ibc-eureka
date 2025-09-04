@@ -147,7 +147,7 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 
 		var cosmosToEVMTxBody []byte
 
-		ts.do("4: prepare relay tx from Cosmos to EVM", func() {
+		ts.do("4: Prepare relay tx from Cosmos to EVM", func() {
 			req := &relayertypes.RelayByTxRequest{
 				SrcChain:    cosmosChain.Config().ChainID,
 				DstChain:    evmChain.ChainID.String(),
@@ -230,8 +230,9 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 		// Now we want to acknowledge the packet on Cosmos
 		var evmToCosmosTxBody []byte
 
-		ts.do("7: Retrieve ACK relay tx from EVM to Cosmos", func() {
+		ts.do("7: Prepare ACK relay tx from EVM to Cosmos", func() {
 			req := &relayertypes.RelayByTxRequest{
+				SrcChain:    evmChain.ChainID.String(),
 				DstChain:    cosmosChain.Config().ChainID,
 				SourceTxIds: [][]byte{ackTxHash},
 				SrcClientId: tv.CustomClientID,
@@ -250,9 +251,9 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 		ts.do("8: Broadcast ACK relay tx from EVM to Cosmos", func() {
 			resp := ts.base.MustBroadcastSdkTxBody(ctx, cosmosChain, ts.cosmosDeployer, 2_000_000, evmToCosmosTxBody)
 
-			ackTxHash, err := hex.DecodeString(resp.TxHash)
+			txHash, err := hex.DecodeString(resp.TxHash)
 			require.NoError(t, err)
-			require.NotEmpty(t, ackTxHash)
+			require.NotEmpty(t, txHash)
 		})
 
 		ts.do("9: Verify commitment removed from Cosmos", func() {
