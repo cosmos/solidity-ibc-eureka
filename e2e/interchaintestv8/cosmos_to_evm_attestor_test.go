@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -344,7 +346,6 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	// 3. Provision users
 	evmDeployer, err := evmChain.CreateAndFundUser()
 	require.NoError(t, err, "unable to provision EVM deployer")
-	evmDeployerAddr := crypto.PubkeyToAddress(evmDeployer.PublicKey)
 
 	cosmosDeployer := base.CreateAndFundCosmosUser(ctx, cosmosChain)
 
@@ -383,7 +384,7 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 				AttestedChainId:  cosmosChain.Config().ChainID,
 				AggregatorConfig: relayer.DefaultAggregatorConfig(),
 				AttestedRpcUrl:   cosmosChain.GetHostRPCAddress(),
-				Ics26Address:     evmContracts.ICS26RouterAddress.String(),
+				Ics26Address:     evmContracts.ICS26RouterAddress.Hex(),
 				EthRpcUrl:        evmChain.RPC,
 			},
 		},
@@ -403,6 +404,14 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	}))
 
 	// 6. Deploy Cosmos LC on EVM (relayer creates the tx, evmDeployer broadcasts it)
+	latestCosmosHeader, err := cosmosChain.GetFullNode().Client.Header(ctx, nil)
+	require.NoError(t, err, "unable to get latest cosmos header")
+
+	var (
+		cosmosBlockHeight    = latestCosmosHeader.Header.Height
+		cosmosBlockTimestamp = latestCosmosHeader.Header.Time.Unix()
+	)
+
 	resp, err := relayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
 		SrcChain: cosmosChain.Config().ChainID,
 		DstChain: evmChain.ChainID.String(),
@@ -410,9 +419,10 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 			// see contracts/light-clients/AttestorLightClient.sol constructor(...)
 			tv.ParameterKey_AttestorAddresses: ethcommon.HexToAddress(attestorAddress).Hex(),
 			tv.ParameterKey_MinRequiredSigs:   "1",
-			tv.ParameterKey_height:            "0",
-			tv.ParameterKey_timestamp:         "123456789",
-			tv.ParameterKey_RoleManager:       evmDeployerAddr.Hex(),
+			tv.ParameterKey_height:            strconv.FormatInt(cosmosBlockHeight, 10),
+			tv.ParameterKey_timestamp:         strconv.FormatInt(cosmosBlockTimestamp, 10),
+			// Light client proof submission is executed by ICS26Router; grant role to router
+			tv.ParameterKey_RoleManager: evmContracts.ICS26RouterAddress.Hex(),
 		},
 	})
 
@@ -431,6 +441,14 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	checksumHex := base.StoreLightClient(ctx, cosmosChain, cosmosDeployer)
 	require.NotEmpty(t, checksumHex, "checksumHex is empty")
 
+	evmBlockHeader, err := evmChain.RPCClient.HeaderByNumber(ctx, nil)
+	require.NoError(t, err, "unable to get evm block header")
+
+	var (
+		evmBlockHeight    = evmBlockHeader.Number.Int64()
+		evmBlockTimestamp = evmBlockHeader.Time
+	)
+
 	resp, err = relayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
 		SrcChain: evmChain.ChainID.String(),
 		DstChain: cosmosChain.Config().ChainID,
@@ -438,15 +456,20 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 			tv.ParameterKey_ChecksumHex:       checksumHex,
 			tv.ParameterKey_AttestorAddresses: ethcommon.HexToAddress(attestorAddress).Hex(),
 			tv.ParameterKey_MinRequiredSigs:   "1",
-			tv.ParameterKey_height:            "0",
-			tv.ParameterKey_timestamp:         "123456789",
+			tv.ParameterKey_height:            strconv.FormatInt(evmBlockHeight, 10),
+			tv.ParameterKey_timestamp:         fmt.Sprintf("%d", evmBlockTimestamp),
 		},
 	})
 	require.NoError(t, err, "unable to create evm light-client tx")
 	require.NotEmpty(t, resp.Tx, "tx is empty")
 
 	cosmosResp := base.MustBroadcastSdkTxBody(ctx, cosmosChain, cosmosDeployer, 20_000_000, resp.Tx)
-	wasmClientID, err := cosmos.GetEventValue(cosmosResp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
+	wasmClientID, err := cosmos.GetEventValue(
+		cosmosResp.Events,
+		clienttypes.EventTypeCreateClient,
+		clienttypes.AttributeKeyClientID,
+	)
+
 	require.NoError(t, err, "unable to get event value from create client tx")
 	require.Equal(t, tv.FirstWasmClientID, wasmClientID)
 
