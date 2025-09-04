@@ -647,9 +647,8 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         );
 
         // ===== Case 3: Denom not found for a non-native token (source trace) =====
-        string memory invalidDenom = string(
-            abi.encodePacked(callbackMsg.payload.sourcePort, "/", callbackMsg.sourceClient, "/", "notfound")
-        );
+        string memory invalidDenom =
+            string(abi.encodePacked(callbackMsg.payload.sourcePort, "/", callbackMsg.sourceClient, "/", "notfound"));
         callbackMsg.payload.value = abi.encode(
             IICS20TransferMsgs.FungibleTokenPacketData({
                 denom: invalidDenom,
@@ -716,20 +715,20 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             destinationClient: destClient,
             sequence: seq,
             payload: IICS26RouterMsgs.Payload({
-            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-            destPort: ICS20Lib.DEFAULT_PORT_ID,
-            version: ICS20Lib.ICS20_VERSION,
-            encoding: ICS20Lib.ICS20_ENCODING,
-            value: abi.encode(
-                IICS20TransferMsgs.FungibleTokenPacketData({
-                    denom: denom,
-                    amount: amount,
-                    sender: Strings.toHexString(sender),
-                    receiver: receiver,
-                    memo: memo
-                })
-            )
-        }),
+                sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+                destPort: ICS20Lib.DEFAULT_PORT_ID,
+                version: ICS20Lib.ICS20_VERSION,
+                encoding: ICS20Lib.ICS20_ENCODING,
+                value: abi.encode(
+                    IICS20TransferMsgs.FungibleTokenPacketData({
+                        denom: denom,
+                        amount: amount,
+                        sender: Strings.toHexString(sender),
+                        receiver: receiver,
+                        memo: memo
+                    })
+                )
+            }),
             relayer: relayer
         });
 
