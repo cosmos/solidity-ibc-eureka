@@ -19,10 +19,8 @@ concurrency:
 
 env:
   FOUNDRY_PROFILE: ci
-  ETH_TESTNET_TYPE: pow
   SP1_PROVER: mock
   E2E_PROOF_TYPE: groth16
-  ETH_WASM_TYPE: dummy
 permissions:
   contents: read
 
@@ -72,6 +70,8 @@ jobs:
       - name: Run Tests
         env:
           NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
+          ETH_TESTNET_TYPE: ${{ contains(toLower(matrix.test), 'attestor') && 'optimism' || 'pow' }}
+          ETH_WASM_TYPE: ${{ contains(toLower(matrix.test), 'attestor') && 'attestor' || 'dummy' }}
         run: |
           cd e2e/interchaintestv8
           go test -v -mod=readonly . -run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -timeout 40m
