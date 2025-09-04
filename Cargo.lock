@@ -5060,6 +5060,7 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
+ "tokio",
  "tonic 0.13.1",
  "tonic-build",
  "tonic-reflection",
