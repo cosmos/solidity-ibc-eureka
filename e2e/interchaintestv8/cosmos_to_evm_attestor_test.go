@@ -55,6 +55,16 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 
 		t.Logf("State attestation signature: 0x%x", sig)
 	})
+
+	t.Run("ICS20Transfer", func(t *testing.T) {
+		// ARRANGE
+
+		// ACT
+		// todo
+
+		// ASSERT
+		// todo
+	})
 }
 
 type cosmosToEVMAttestorTestSuite struct {
@@ -72,8 +82,8 @@ type cosmosToEVMAttestorTestSuite struct {
 	attestorClient attestortypes.AttestationServiceClient
 	relayerClient  relayertypes.RelayerServiceClient
 
-	// evmContracts
-	evmContracts evmContracts
+	// evmBindings
+	evmBindings evmBindings
 }
 
 func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite {
@@ -159,7 +169,7 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	out, err := base.EthChain.ForgeScript(evmDeployer, tv.E2EDeployScriptPath)
 	require.NoError(t, err, "unable to deploy ibc contracts")
 
-	evmWrappers := extractContractWrappers(t, out, base.EthChain.RPCClient)
+	evmContracts := extractEVMBindings(t, out, base.EthChain.RPCClient)
 
 	// 5. Start the relayer
 	relayerClient := runRelayer(t, relayer.NewConfig([]relayer.ModuleConfig{
@@ -171,7 +181,7 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 				AttestedChainId:  cosmosChain.Config().ChainID,
 				AggregatorConfig: relayer.DefaultAggregatorConfig(),
 				AttestedRpcUrl:   cosmosChain.GetHostRPCAddress(),
-				Ics26Address:     evmWrappers.ICS26RouterAddress.String(),
+				Ics26Address:     evmContracts.ICS26RouterAddress.String(),
 				EthRpcUrl:        evmChain.RPC,
 			},
 		},
@@ -183,7 +193,7 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 				AttestedChainId:  evmChain.ChainID.String(),
 				AggregatorConfig: relayer.DefaultAggregatorConfig(),
 				AttestedRpcUrl:   evmChain.RPC,
-				Ics26Address:     evmWrappers.ICS26RouterAddress.String(),
+				Ics26Address:     evmContracts.ICS26RouterAddress.String(),
 				TmRpcUrl:         cosmosChain.GetHostRPCAddress(),
 				SignerAddress:    cosmosDeployer.FormattedAddress(),
 			},
@@ -211,8 +221,8 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	require.NoError(t, err, "unable to broadcast cosmos light-client tx on evm")
 	require.Equal(t, ethtypes.ReceiptStatusSuccessful, txReceipt.Status, "tx failed: %+v", txReceipt)
 
-	evmWrappers.LightClientAddress = txReceipt.ContractAddress
-	evmWrappers.LightClient, err = attestorlightclient.NewContract(txReceipt.ContractAddress, evmChain.RPCClient)
+	evmContracts.LightClientAddress = txReceipt.ContractAddress
+	evmContracts.LightClient, err = attestorlightclient.NewContract(txReceipt.ContractAddress, evmChain.RPCClient)
 	require.NoError(t, err, "unable to create cosmos light-client wrapper")
 
 	// 7. Deploy EVM LC on Cosmos (relayer creates the tx, cosmosSender broadcasts it)
@@ -240,21 +250,21 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 
 	// 8. Register counter parties
 	// EVM
-	evmRegistrationTx, err := evmWrappers.ICS26Router.AddClient(
+	evmRegistrationTx, err := evmContracts.ICS26Router.AddClient(
 		must(evmChain.GetTransactOpts(evmDeployer)),
 		tv.CustomClientID,
 		ics26router.IICS02ClientMsgsCounterpartyInfo{
 			ClientId:     wasmClientID,
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		},
-		evmWrappers.LightClientAddress,
+		evmContracts.LightClientAddress,
 	)
 	require.NoError(t, err, "unable to add registration counterparty on EVM")
 
 	evmRegistrationReceipt, err := evmChain.GetTxReciept(ctx, evmRegistrationTx.Hash())
 	require.NoError(t, err, "unable to get registration client receipt on EVM")
 
-	event, err := e2esuite.GetEvmEvent(evmRegistrationReceipt, evmWrappers.ICS26Router.ParseICS02ClientAdded)
+	event, err := e2esuite.GetEvmEvent(evmRegistrationReceipt, evmContracts.ICS26Router.ParseICS02ClientAdded)
 	require.NoError(t, err, "unable to get registration client event on EVM")
 	require.Equal(t, tv.CustomClientID, event.ClientId)
 	require.Equal(t, wasmClientID, event.CounterpartyInfo.ClientId)
@@ -280,7 +290,7 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 		attestorClient: attestorClient,
 		relayerClient:  relayerClient,
 
-		evmContracts: evmWrappers,
+		evmBindings: evmContracts,
 	}
 }
 
@@ -335,7 +345,7 @@ func runRelayer(t *testing.T, config relayer.Config) relayertypes.RelayerService
 	return client
 }
 
-type evmContracts struct {
+type evmBindings struct {
 	ICS26RouterAddress ethcommon.Address
 	ICS26Router        *ics26router.Contract
 
@@ -349,7 +359,8 @@ type evmContracts struct {
 	LightClient        *attestorlightclient.Contract
 }
 
-func extractContractWrappers(t *testing.T, raw []byte, evmClient *ethclient.Client) evmContracts {
+// Parses stdout of `scripts/E2ETestDeploy.s.sol` into a set of contract wrappers
+func extractEVMBindings(t *testing.T, raw []byte, evmClient *ethclient.Client) evmBindings {
 	t.Helper()
 
 	addresses, err := ethereum.GetEthContractsFromDeployOutput(string(raw))
@@ -367,7 +378,7 @@ func extractContractWrappers(t *testing.T, raw []byte, evmClient *ethclient.Clie
 	erc20Contract, err := erc20.NewContract(erc20Address, evmClient)
 	require.NoError(t, err, "unable to create erc20 wrapper")
 
-	return evmContracts{
+	return evmBindings{
 		ICS26RouterAddress: ics26RouterAddress,
 		ICS26Router:        ics26Contract,
 
