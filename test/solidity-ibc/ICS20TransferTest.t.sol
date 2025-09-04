@@ -209,7 +209,8 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
 
         vm.mockCall(ics26, IICS26Router.sendPacket.selector, abi.encode(seq));
 
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) = env.getPermitAndSignature(sender, address(ics20Transfer), amount);
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) =
+            env.getPermitAndSignature(sender, address(ics20Transfer), amount);
 
         vm.prank(sender);
         uint64 sequence = ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
@@ -237,7 +238,8 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
 
         vm.mockCall(ics26, IICS26Router.sendPacket.selector, abi.encode(seq));
 
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) = env.getPermitAndSignature(sender, address(ics20Transfer), amount);
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) =
+            env.getPermitAndSignature(sender, address(ics20Transfer), amount);
 
         // ===== Case 1: Missing Approval =====
         vm.startPrank(sender);
@@ -265,7 +267,8 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         differentERC20.mint(sender, amount);
         differentERC20.approve(env.permit2(), amount);
         vm.stopPrank();
-        (ISignatureTransfer.PermitTransferFrom memory differentPermit, bytes memory differentSignature) = env.getPermitAndSignature(sender, address(ics20Transfer), amount, address(differentERC20));
+        (ISignatureTransfer.PermitTransferFrom memory differentPermit, bytes memory differentSignature) =
+            env.getPermitAndSignature(sender, address(ics20Transfer), amount, address(differentERC20));
         vm.expectRevert(
             abi.encodeWithSelector(
                 IICS20Errors.ICS20Permit2TokenMismatch.selector, address(differentERC20), env.erc20()
@@ -279,7 +282,6 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         vm.expectRevert();
         vm.prank(sender);
         ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, invalidSignature);
-
     }
 
     function testFuzz_success_sendTransferWithSender(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
@@ -727,7 +729,9 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         address relayer = makeAddr("relayer");
 
         string memory denom = string(
-            abi.encodePacked(ICS20Lib.DEFAULT_PORT_ID, "/", sourceClient, "/", Strings.toHexString(address(env.erc20())))
+            abi.encodePacked(
+                ICS20Lib.DEFAULT_PORT_ID, "/", sourceClient, "/", Strings.toHexString(address(env.erc20()))
+            )
         );
         IIBCAppCallbacks.OnRecvPacketCallback memory callbackMsg = IIBCAppCallbacks.OnRecvPacketCallback({
             sourceClient: sourceClient,
