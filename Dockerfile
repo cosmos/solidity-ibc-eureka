@@ -16,11 +16,11 @@ WORKDIR /src
 COPY . .
 
 RUN cargo build --release --locked --bin relayer && \
-    cargo build --release --locked --bin ibc_attestor -F op && \
+    cargo build --release --locked --bin ibc_attestor --no-default-features -F op && \
     mv target/release/ibc_attestor target/release/attestor-optimism && \
-    cargo build --release --locked --bin ibc_attestor -F arbitrum && \
+    cargo build --release --locked --bin ibc_attestor --no-default-features -F arbitrum && \
     mv target/release/ibc_attestor target/release/attestor-arbitrum && \
-    cargo build --release --locked --bin ibc_attestor -F cosmos && \
+    cargo build --release --locked --bin ibc_attestor --no-default-features -F cosmos && \
     mv target/release/ibc_attestor target/release/attestor-cosmos
 
 FROM gcr.io/distroless/cc-debian12:debug
@@ -38,7 +38,9 @@ COPY --from=build /src/target/release/attestor-arbitrum /usr/local/bin/attestor-
 COPY --from=build /src/target/release/attestor-cosmos /usr/local/bin/attestor-cosmos
 
 # 3000 is the relayer port
+# 9000 is the relayer metrics port
+# 8081 is the relayer grpc web port
 # 8080 is the attestor port
-EXPOSE 3000 8080
+EXPOSE 3000 9000 8081 8080
 
 ENTRYPOINT [ "sh", "/entrypoint.sh" ]
