@@ -130,17 +130,19 @@ impl RelayerService for CosmosToEthAttestedRelayerModuleService {
         let src_txs = inner_req
             .source_tx_ids
             .into_iter()
-            .map(TryInto::<[u8; 32]>::try_into)
-            .map(|tx_hash| tx_hash.map(tendermint::Hash::Sha256))
+            .map(tendermint::Hash::try_from)
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|tx| tonic::Status::from_error(format!("invalid tx hash: {tx:?}").into()))?;
+            .map_err(|e| tonic::Status::from_error(format!("invalid src tx hash {e}").into()))?;
 
         let eth_events = inner_req
             .timeout_tx_ids
             .into_iter()
-            .map(|tx| TxHash::try_from(tx.as_slice()))
+            .map(TryInto::<[u8; 32]>::try_into)
+            .map(|tx_hash| tx_hash.map(TxHash::from))
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| tonic::Status::from_error(e.into()))?;
+            .map_err(|tx| {
+                tonic::Status::from_error(format!("invalid timeout tx hash: {tx:?}").into())
+            })?;
 
         let attested_events = self
             .attestor_listener
