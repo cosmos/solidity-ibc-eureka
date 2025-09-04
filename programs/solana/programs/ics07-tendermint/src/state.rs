@@ -10,9 +10,7 @@ pub struct ConsensusStateStore {
     pub consensus_state: ConsensusState,
 }
 
-// TODO: Most likely we'd need economic incentive w/ slashing for relayers
 /// Storage for a single chunk of header data during multi-transaction upload
-/// Chunks are stored by chain_id, height, and submitter
 #[account]
 #[derive(InitSpace)]
 pub struct HeaderChunk {
@@ -33,7 +31,6 @@ pub struct HeaderChunk {
 }
 
 /// Metadata for tracking header upload by height
-/// Only one active upload per height allowed
 #[account]
 #[derive(InitSpace)]
 pub struct HeaderMetadata {

@@ -78,7 +78,7 @@ mod tests {
             trust_level_numerator: 2,
             trust_level_denominator: 3,
             trusting_period: 86400,
-            unbonding_period: 172800,
+            unbonding_period: 172_800,
             max_clock_drift: 600,
             frozen_height: IbcHeight {
                 revision_number: 0,
@@ -266,7 +266,7 @@ mod tests {
         // Calculate expected rent to be reclaimed
         let metadata_rent = 2_000_000u64;
         let chunk_rent_per = 1_500_000u64;
-        let total_expected_rent = metadata_rent + (chunk_rent_per * num_chunks as u64);
+        let total_expected_rent = metadata_rent + (chunk_rent_per * u64::from(num_chunks));
         let initial_submitter_balance = 10_000_000_000u64;
 
         let instruction = create_cleanup_instruction(
@@ -359,7 +359,7 @@ mod tests {
             trust_level_numerator: 2,
             trust_level_denominator: 3,
             trusting_period: 86400,
-            unbonding_period: 172800,
+            unbonding_period: 172_800,
             max_clock_drift: 600,
             frozen_height: IbcHeight {
                 revision_number: 0,

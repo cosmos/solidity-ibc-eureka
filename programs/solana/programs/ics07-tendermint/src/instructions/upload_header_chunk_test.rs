@@ -97,7 +97,7 @@ mod tests {
                 trust_level_numerator: 2,
                 trust_level_denominator: 3,
                 trusting_period: 86400,
-                unbonding_period: 172800,
+                unbonding_period: 172_800,
                 max_clock_drift: 600,
                 frozen_height: IbcHeight {
                     revision_number: 0,
@@ -534,4 +534,3 @@ mod tests {
         );
     }
 }
-

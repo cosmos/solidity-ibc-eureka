@@ -326,3 +326,7 @@ fn store_consensus_state<'info>(
 
     Ok(UpdateResult::Update)
 }
+
+#[cfg(test)]
+#[path = "assemble_and_update_client_test.rs"]
+mod assemble_and_update_client_test;
