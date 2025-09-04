@@ -697,11 +697,13 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     }
 
     function testFuzz_failure_onRecvPacket(uint256 amount, uint64 seq) public {
+        vm.assume(amount > 0);
+
         address sender = makeAddr("sender");
         string memory sourceClient = th.randomString();
         string memory destClient = th.randomString();
         string memory memo = th.randomString();
-        string memory receiver = th.randomString();
+        string memory receiver = Strings.toHexString(makeAddr("receiver"));
         address relayer = makeAddr("relayer");
 
         string memory denom = string(
