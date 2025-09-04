@@ -181,18 +181,46 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             target_events.len()
         );
 
-        let tx = self
+        // Build the relay transactions with optional chunked update client
+        let relay_txs = self
             .tx_builder
-            .build_solana_tx(src_events, target_events)
+            .build_solana_relay_txs_with_options(
+                inner_req.dst_client_id.clone(),
+                src_events,
+                target_events,
+                inner_req.skip_update_client,
+            )
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::info!("Built Solana transaction for Cosmos to Solana relay.");
+        let total_tx_count = relay_txs.packet_txs.len()
+            + relay_txs
+                .update_client
+                .as_ref()
+                .map_or(0, |u| u.total_chunks + 1);
 
-        // Serialize the unsigned transaction
-        let tx_bytes = bincode::serialize(&tx).map_err(|e| {
-            tonic::Status::internal(format!("Failed to serialize transaction: {e}"))
+        tracing::info!(
+            "Built {} Solana transactions for Cosmos to Solana relay (skip_update_client={})",
+            total_tx_count,
+            inner_req.skip_update_client
+        );
+
+        // For now, serialize all transactions as a composite structure
+        // In production, the relayer service should handle multiple transactions properly
+        let tx_bytes = bincode::serialize(&relay_txs).map_err(|e| {
+            tonic::Status::internal(format!("Failed to serialize transactions: {e}"))
         })?;
+
+        if !inner_req.skip_update_client && relay_txs.update_client.is_some() {
+            // Note: The actual relayer implementation should:
+            // 1. Submit first chunk tx
+            // 2. Submit parallel chunk txs in parallel
+            // 3. Submit assembly tx
+            // 4. Submit packet txs
+            tracing::warn!(
+                "Returning serialized chunked transactions - relayer must handle submission order"
+            );
+        }
 
         Ok(Response::new(api::RelayByTxResponse {
             tx: tx_bytes,
@@ -231,20 +259,58 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         tracing::info!("Handling update client request for Cosmos to Solana...");
 
         let inner_req = request.into_inner();
+        let client_id = inner_req.dst_client_id;
 
-        let tx = self
+        // Build chunked update client transactions
+        let chunked_txs = self
             .tx_builder
-            .build_update_client_tx(inner_req.dst_client_id)
+            .build_chunked_update_client_txs(client_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        let tx_bytes = bincode::serialize(&tx).map_err(|e| {
-            tonic::Status::internal(format!("Failed to serialize transaction: {e}"))
-        })?;
+        tracing::info!(
+            "Built {} chunked update client transactions for Cosmos to Solana",
+            chunked_txs.total_chunks + 1 // chunks + assembly
+        );
+
+        // Serialize all transactions for the chunked_txs field
+        let mut serialized_txs = Vec::new();
+
+        // Add first chunk transaction
+        serialized_txs.push(
+            bincode::serialize(&chunked_txs.first_chunk_tx).map_err(|e| {
+                tonic::Status::internal(format!("Failed to serialize first chunk tx: {e}"))
+            })?,
+        );
+
+        // Add parallel chunk transactions
+        for tx in &chunked_txs.parallel_chunk_txs {
+            serialized_txs.push(bincode::serialize(tx).map_err(|e| {
+                tonic::Status::internal(format!("Failed to serialize chunk tx: {e}"))
+            })?);
+        }
+
+        // Add assembly transaction
+        serialized_txs.push(bincode::serialize(&chunked_txs.assembly_tx).map_err(|e| {
+            tonic::Status::internal(format!("Failed to serialize assembly tx: {e}"))
+        })?);
+
+        // Create metadata about the chunked upload
+        let chunked_metadata = Some(api::ChunkedMetadata {
+            first_chunk_count: 1, // Always 1 first chunk
+            parallel_chunk_count: u32::try_from(chunked_txs.parallel_chunk_txs.len())
+                .map_err(|e| tonic::Status::internal(format!("Too many parallel chunks: {e}")))?,
+            assembly_count: 1, // Always 1 assembly tx
+            target_height: chunked_txs.target_height,
+            total_chunks: u32::try_from(chunked_txs.total_chunks)
+                .map_err(|e| tonic::Status::internal(format!("Total chunks overflow: {e}")))?,
+        });
 
         Ok(Response::new(api::UpdateClientResponse {
-            tx: tx_bytes,
+            tx: vec![], // Empty for backward compatibility
             address: self.solana_ics07_program_id.to_string(),
+            chunked_txs: serialized_txs,
+            chunked_metadata,
         }))
     }
 }
