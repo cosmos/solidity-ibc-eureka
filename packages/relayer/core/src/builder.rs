@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use tonic_web::GrpcWebLayer;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 
 use crate::{
     api::{
@@ -91,12 +91,7 @@ impl RelayerBuilder {
 
         let web_server = Server::builder()
             .accept_http1(true)
-            .layer(
-                CorsLayer::new()
-                    .allow_origin(Any)
-                    .allow_methods(Any)
-                    .allow_headers(Any),
-            )
+            .layer(CorsLayer::permissive())
             .layer(GrpcWebLayer::new())
             .add_service(relayer_service)
             .serve(web_addr);
