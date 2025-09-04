@@ -329,5 +329,4 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
 }
 
 #[cfg(test)]
-#[path = "assemble_and_update_client_test.rs"]
-mod assemble_and_update_client_test;
+mod tests;

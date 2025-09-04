@@ -374,7 +374,7 @@ fn create_consensus_state_account<'info>(
 mod tests {
     use super::*;
     use crate::state::ConsensusStateStore;
-    use crate::test_helpers::fixtures::*;
+    use crate::test_helpers::{fixtures::*, PROGRAM_BINARY_PATH};
     use crate::types::UpdateClientMsg;
     use anchor_lang::{AnchorDeserialize, InstructionData};
     use mollusk_svm::result::Check;
@@ -494,7 +494,7 @@ mod tests {
         instruction: &Instruction,
         accounts: &[(Pubkey, Account)],
     ) -> mollusk_svm::result::InstructionResult {
-        let mut mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
+        let mut mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         mollusk.compute_budget.compute_unit_limit = 20_000_000;
         mollusk.process_instruction(instruction, accounts)
     }
@@ -670,7 +670,7 @@ mod tests {
             (clock_pubkey, clock_account),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
 
         let checks = vec![
             Check::success(),

@@ -59,5 +59,4 @@ pub fn upload_header_chunk(
 }
 
 #[cfg(test)]
-#[path = "upload_header_chunk_test.rs"]
-mod upload_header_chunk_test;
+mod tests;

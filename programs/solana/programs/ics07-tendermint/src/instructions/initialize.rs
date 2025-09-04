@@ -49,7 +49,7 @@ pub fn initialize(
 mod tests {
     use super::*;
     use crate::state::ConsensusStateStore;
-    use crate::test_helpers::fixtures::*;
+    use crate::test_helpers::{fixtures::*, PROGRAM_BINARY_PATH};
     use anchor_lang::{AnchorDeserialize, InstructionData};
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
@@ -163,7 +163,7 @@ mod tests {
         accounts: &[(Pubkey, Account)],
         expected_error: ErrorCode,
     ) {
-        let mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let result = mollusk.process_instruction(instruction, accounts);
 
         match result.program_result {
@@ -284,7 +284,7 @@ mod tests {
             ),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
 
         let checks = vec![
             Check::success(),

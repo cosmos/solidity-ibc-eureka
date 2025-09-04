@@ -59,5 +59,4 @@ pub fn cleanup_incomplete_upload(
 }
 
 #[cfg(test)]
-#[path = "cleanup_incomplete_upload_test.rs"]
-mod cleanup_incomplete_upload_test;
+mod tests;

@@ -1,4 +1,5 @@
-#[cfg(test)]
+pub const PROGRAM_BINARY_PATH: &str = "../../target/deploy/ics07_tendermint";
+
 pub mod fixtures {
     use crate::types::{ClientState, ConsensusState, IbcHeight};
     use serde::Deserialize;
