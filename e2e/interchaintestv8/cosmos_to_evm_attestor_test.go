@@ -3,8 +3,12 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
+	"math/big"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/stretchr/testify/require"
@@ -14,11 +18,19 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
+	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/attestorlightclient"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 
@@ -56,14 +68,203 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 		t.Logf("State attestation signature: 0x%x", sig)
 	})
 
+	// Transfers ICS20 token from Cosmos to EVM
 	t.Run("ICS20Transfer", func(t *testing.T) {
-		// ARRANGE
+		var (
+			ctx = ts.ctx
 
-		// ACT
-		// todo
+			evmChain    = ts.base.EthChain
+			cosmosChain = ts.base.CosmosChains[0]
 
-		// ASSERT
-		// todo
+			evmDeployerAddr = crypto.PubkeyToAddress(ts.evmDeployer.PublicKey)
+
+			transferAmount = big.NewInt(tv.TransferAmount)
+			transferCoin   = sdk.NewCoin(cosmosChain.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
+
+			packetTimeout = uint64(time.Now().Add(30 * time.Minute).Unix())
+		)
+
+		var cosmosSendTxHash []byte
+
+		ts.do("1: Send transfer on Cosmos", func() {
+			// prepare packet with payload with transfer action :)
+			transferPayload := transfertypes.FungibleTokenPacketData{
+				Denom:    transferCoin.Denom,
+				Amount:   transferCoin.Amount.String(),
+				Sender:   ts.cosmosDeployer.FormattedAddress(),
+				Receiver: strings.ToLower(evmDeployerAddr.Hex()),
+				Memo:     "nativesend",
+			}
+
+			msgSendPacket := channeltypesv2.MsgSendPacket{
+				SourceClient:     tv.FirstWasmClientID,
+				TimeoutTimestamp: packetTimeout,
+				Signer:           ts.cosmosDeployer.FormattedAddress(),
+				Payloads: []channeltypesv2.Payload{
+					{
+						SourcePort:      transfertypes.PortID,
+						DestinationPort: transfertypes.PortID,
+						Version:         transfertypes.V1,
+						Encoding:        transfertypes.EncodingABI,
+						Value:           must(transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)),
+					},
+				},
+			}
+
+			// broadcast and retrieve tx hash so further relaying
+			resp, err := ts.base.BroadcastMessages(ctx, cosmosChain, ts.cosmosDeployer, 200_000, &msgSendPacket)
+			require.NoError(t, err, "unable to broadcast messages")
+			require.NotEmpty(t, resp.TxHash, "tx hash is empty")
+
+			cosmosSendTxHash, err = hex.DecodeString(resp.TxHash)
+			require.NoError(t, err, "unable to decode tx hash")
+		})
+
+		ts.do("2: Verify balances on Cosmos", func() {
+			req := &banktypes.QueryBalanceRequest{
+				Address: ts.cosmosDeployer.FormattedAddress(),
+				Denom:   transferCoin.Denom,
+			}
+
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, cosmosChain, req)
+
+			require.NoError(t, err, "unable to query balance")
+			require.NotNil(t, resp.Balance, "balance is nil")
+			require.Equal(t, tv.InitialBalance-tv.TransferAmount, resp.Balance.Amount.Int64())
+		})
+
+		ts.do("3: Verify commitment exists on Cosmos", func() {
+			req := &channeltypesv2.QueryPacketCommitmentRequest{
+				ClientId: tv.FirstWasmClientID,
+				Sequence: 1,
+			}
+
+			resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, cosmosChain, req)
+
+			require.NoError(t, err)
+			require.NotEmpty(t, resp.Commitment)
+		})
+
+		var cosmosToEVMTxBody []byte
+
+		ts.do("4: prepare relay tx from Cosmos to EVM", func() {
+			req := &relayertypes.RelayByTxRequest{
+				SrcChain:    cosmosChain.Config().ChainID,
+				DstChain:    evmChain.ChainID.String(),
+				SourceTxIds: [][]byte{cosmosSendTxHash},
+				SrcClientId: tv.FirstWasmClientID,
+				DstClientId: tv.CustomClientID,
+			}
+			resp, err := ts.relayerClient.RelayByTx(ts.ctx, req)
+
+			require.NoError(t, err, "unable to retrieve relay tx")
+			require.NotEmpty(t, resp.Tx, "relay tx is empty")
+
+			cosmosToEVMTxBody = resp.Tx
+		})
+
+		var (
+			packet    ics26router.IICS26RouterMsgsPacket
+			ackTxHash []byte
+		)
+
+		ts.do("5: Broadcast relay tx from Cosmos to EVM", func() {
+			receipt, err := evmChain.BroadcastTx(
+				ctx,
+				ts.evmDeployer,
+				5_000_000,
+				&ts.evmBindings.ICS26RouterAddress,
+				cosmosToEVMTxBody,
+			)
+			require.NoError(t, err)
+			require.Equal(t, ethtypes.ReceiptStatusSuccessful, receipt.Status, "relay tx failed: %+v", receipt)
+
+			ethReceiveAckEvent, err := e2esuite.GetEvmEvent(
+				receipt,
+				ts.evmBindings.ICS26Router.ParseWriteAcknowledgement,
+			)
+			require.NoError(t, err, "unable to get write acknowledgement event")
+
+			packet = ethReceiveAckEvent.Packet
+			ackTxHash = receipt.TxHash.Bytes()
+		})
+
+		ts.do("6: Verify balances on EVM", func() {
+			// Recreate the full denom path
+			denomOnEVM := transfertypes.NewDenom(
+				transferCoin.Denom,
+				transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestClient),
+			)
+
+			// create ibcERC20 contract
+			ibcERC20Address, err := ts.evmBindings.ICS20Transfer.IbcERC20Contract(nil, denomOnEVM.Path())
+			require.NoError(t, err, "unable to get ibcERC20 contract address")
+
+			ibcERC20, err := ibcerc20.NewContract(ibcERC20Address, evmChain.RPCClient)
+			require.NoError(t, err)
+
+			// sanity checks
+			actualDenom, err := ibcERC20.Name(nil)
+			require.NoError(t, err)
+			require.Equal(t, denomOnEVM.Path(), actualDenom)
+
+			actualSymbol, err := ibcERC20.Symbol(nil)
+			require.NoError(t, err)
+			require.Equal(t, denomOnEVM.Path(), actualSymbol)
+
+			actualFullDenom, err := ibcERC20.FullDenomPath(nil)
+			require.NoError(t, err)
+			require.Equal(t, denomOnEVM.Path(), actualFullDenom)
+
+			// User balance on Ethereum
+			userBalance, err := ibcERC20.BalanceOf(nil, evmDeployerAddr)
+			require.NoError(t, err)
+			require.Equal(t, transferAmount, userBalance)
+
+			// ICS20 contract balance on Ethereum
+			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ibcERC20Address)
+			require.NoError(t, err)
+			require.Zero(t, ics20TransferBalance.Int64())
+		})
+
+		// Now we want to acknowledge the packet on Cosmos
+		var evmToCosmosTxBody []byte
+
+		ts.do("7: Retrieve ACK relay tx from EVM to Cosmos", func() {
+			req := &relayertypes.RelayByTxRequest{
+				DstChain:    cosmosChain.Config().ChainID,
+				SourceTxIds: [][]byte{ackTxHash},
+				SrcClientId: tv.CustomClientID,
+				DstClientId: tv.FirstWasmClientID,
+			}
+
+			resp, err := ts.relayerClient.RelayByTx(ctx, req)
+
+			require.NoError(t, err)
+			require.NotEmpty(t, resp.Tx)
+			require.Empty(t, resp.Address)
+
+			evmToCosmosTxBody = resp.Tx
+		})
+
+		ts.do("8: Broadcast ACK relay tx from EVM to Cosmos", func() {
+			resp := ts.base.MustBroadcastSdkTxBody(ctx, cosmosChain, ts.cosmosDeployer, 2_000_000, evmToCosmosTxBody)
+
+			ackTxHash, err := hex.DecodeString(resp.TxHash)
+			require.NoError(t, err)
+			require.NotEmpty(t, ackTxHash)
+		})
+
+		ts.do("9: Verify commitment removed from Cosmos", func() {
+			req := &channeltypesv2.QueryPacketCommitmentRequest{
+				ClientId: tv.FirstWasmClientID,
+				Sequence: 1,
+			}
+
+			_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, cosmosChain, req)
+
+			require.ErrorContains(t, err, "packet commitment hash not found")
+		})
 	})
 }
 
@@ -292,6 +493,15 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 
 		evmBindings: evmContracts,
 	}
+}
+
+func (ts *cosmosToEVMAttestorTestSuite) do(name string, fn func()) {
+	ts.Logf("Running step %q", name)
+	start := time.Now()
+
+	fn()
+
+	ts.Logf("Step %q completed in %s", name, time.Since(start))
 }
 
 // runAttestor spins up a separate process that runs the attestor binary
