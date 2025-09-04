@@ -185,6 +185,44 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         ics20Transfer.sendTransfer(msgSendTransfer);
     }
 
+    function testFuzz_success_sendTransferWithPermit2(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
+        vm.assume(amount > 0);
+
+        (address sender, uint256 senderKey) = makeAddrAndKey("sender");
+        string memory sourceClient = th.randomString();
+        string memory destClient = th.randomString();
+        string memory memo = th.randomString();
+        string memory receiver = th.randomString();
+
+        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
+            denom: address(erc20),
+            amount: amount,
+            receiver: receiver,
+            sourceClient: sourceClient,
+            destPort: destClient,
+            timeoutTimestamp: timeoutTimestamp,
+            memo: memo
+        });
+
+        erc20.mint(sender, amount);
+        vm.prank(sender);
+        erc20.approve(address(permit2), amount);
+
+        vm.mockCall(ics26, IICS26Router.sendPacket.selector, abi.encode(seq));
+
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({ token: address(erc20), amount: amount }),
+            nonce: 0,
+            deadline: block.timestamp + 100
+        });
+        bytes memory signature =
+            this.getPermitTransferSignature(permit, senderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR());
+
+        vm.prank(sender);
+        uint64 sequence = ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
+        assertEq(sequence, seq);
+    }
+
     function testFuzz_failure_sendTransferWithPermit2(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
         vm.assume(amount > 0);
 
@@ -204,7 +242,6 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             memo: memo
         });
 
-        // this contract acts as the ics26Router
         vm.mockCall(ics26, IICS26Router.sendPacket.selector, abi.encode(seq));
 
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
@@ -220,12 +257,12 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         vm.prank(sender);
         ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
 
-        // ===== Case 2: Mint and Approve permit2 =====
+        // ===== Mint and Approve permit2 =====
         erc20.mint(sender, amount);
         vm.prank(sender);
         erc20.approve(address(permit2), amount);
 
-        // ===== Case 3: Invalid Amount =====
+        // ===== Case 2: Invalid Amount =====
         msgSendTransfer.amount = 0;
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
         vm.prank(sender);
@@ -233,7 +270,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // reset amount
         msgSendTransfer.amount = amount;
 
-        // ===== Case 4: Permit and Token Mismatch =====
+        // ===== Case 3: Permit and Token Mismatch =====
         TestERC20 differentERC20 = new TestERC20();
         differentERC20.mint(sender, amount);
         vm.prank(sender);
@@ -259,10 +296,6 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         vm.expectRevert();
         vm.prank(sender);
         ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, invalidSignature);
-
-        // TODO: prove that it works with a valid signature
-        vm.prank(sender);
-        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
     }
 
     function testFuzz_success_sendTransferWithSender(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
