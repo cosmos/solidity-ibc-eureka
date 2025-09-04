@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 // solhint-disable gas-custom-errors,immutable-vars-naming
 
-import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
