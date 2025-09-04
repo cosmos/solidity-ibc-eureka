@@ -25,7 +25,7 @@ func DefaultAggregatorConfig() AggregatorConfig {
 		Attestor: AttestorConfig{
 			AttestorQueryTimeoutMs: 5000,
 			QuorumThreshold:        1,
-			AttestorEndpoints:      []string{"http://127.0.0.1:9000"},
+			AttestorEndpoints:      []string{"http://127.0.0.1:2025"},
 		},
 		Cache: CacheConfig{
 			StateCacheMaxEntries:  100000,
