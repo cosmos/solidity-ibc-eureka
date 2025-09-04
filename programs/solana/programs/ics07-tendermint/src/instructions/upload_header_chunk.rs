@@ -1,4 +1,5 @@
 use crate::error::ErrorCode;
+use crate::state::CHUNK_DATA_SIZE;
 use crate::types::UploadChunkParams;
 use crate::UploadHeaderChunk;
 use anchor_lang::prelude::*;
@@ -12,10 +13,11 @@ pub fn upload_header_chunk(
     let chunk = &mut ctx.accounts.chunk;
     let metadata = &mut ctx.accounts.metadata;
 
-    // Check if chunk already has the correct hash (early exit)
-    if chunk.chunk_hash == params.chunk_hash {
-        return Ok(());
-    }
+    // Verify chunk data size
+    require!(
+        params.chunk_data.len() <= CHUNK_DATA_SIZE,
+        ErrorCode::ChunkDataTooLarge
+    );
 
     // Verify the provided hash matches the actual chunk data
     let computed_hash = keccak::hash(&params.chunk_data).0;
@@ -24,16 +26,24 @@ pub fn upload_header_chunk(
         ErrorCode::InvalidChunkHash
     );
 
+    // Check if chunk already has the correct hash (early exit)
+    if chunk.chunk_hash == params.chunk_hash {
+        return Ok(());
+    }
+
     // Only update metadata if it's new or different
     if metadata.header_commitment != params.header_commitment
         || metadata.total_chunks != params.total_chunks
+        || metadata.created_at == 0
     {
         metadata.chain_id.clone_from(&params.chain_id);
         metadata.target_height = params.target_height;
         metadata.total_chunks = params.total_chunks;
         metadata.header_commitment = params.header_commitment;
 
-        metadata.created_at = clock.unix_timestamp;
+        if metadata.created_at == 0 {
+            metadata.created_at = clock.unix_timestamp;
+        }
     }
 
     metadata.updated_at = clock.unix_timestamp;
@@ -47,3 +57,7 @@ pub fn upload_header_chunk(
 
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "upload_header_chunk_test.rs"]
+mod upload_header_chunk_test;

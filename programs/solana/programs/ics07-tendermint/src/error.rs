@@ -75,6 +75,8 @@ pub enum ErrorCode {
     InvalidChunkIndex,
     #[msg("Too many chunks: exceeds maximum supported chunks")]
     TooManyChunks,
+    #[msg("Chunk data too large: exceeds maximum chunk size")]
+    ChunkDataTooLarge,
 
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]

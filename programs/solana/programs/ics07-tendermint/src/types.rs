@@ -14,7 +14,7 @@ pub enum UpdateResult {
 }
 
 /// Parameters for uploading a header chunk
-#[derive(AnchorSerialize, AnchorDeserialize)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct UploadChunkParams {
     pub chain_id: String,
     pub target_height: u64,
