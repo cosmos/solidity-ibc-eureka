@@ -13,10 +13,6 @@ pub fn cleanup_incomplete_upload(
     require_eq!(&metadata.chain_id, &chain_id);
     require_eq!(metadata.target_height, cleanup_height);
 
-    // Since we dont have uploaded chunks_count, we need to check if all chunks exist
-    // by attempting to verify the commitment (which would fail if chunks are missing)
-    // For cleanup, we just close whatever chunks exist
-
     // Close all chunk accounts that were uploaded
     // IMPORTANT: We must validate that these are actually chunk PDAs to avoid
     // accidentally closing other accounts

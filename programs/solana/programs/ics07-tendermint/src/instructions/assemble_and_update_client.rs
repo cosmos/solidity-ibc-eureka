@@ -148,16 +148,16 @@ fn process_header_update(
         client_state,
     )?;
 
-    let result = store_consensus_state(
-        &ctx.accounts.new_consensus_state_store,
-        &ctx.accounts.payer,
-        &ctx.accounts.system_program,
-        ctx.program_id,
-        client_state.key(),
-        new_height.revision_height(),
-        &new_consensus_state,
+    let result = store_consensus_state(StoreConsensusStateParams {
+        account: &ctx.accounts.new_consensus_state_store,
+        payer: &ctx.accounts.payer,
+        system_program: &ctx.accounts.system_program,
+        program_id: ctx.program_id,
+        client_key: client_state.key(),
+        height: new_height.revision_height(),
+        new_consensus_state: &new_consensus_state,
         client_state,
-    )?;
+    })?;
 
     if result == UpdateResult::Update {
         client_state.latest_height = new_height.into();
@@ -250,42 +250,43 @@ fn load_consensus_state(
         .map_err(|_| error!(ErrorCode::SerializationError))
 }
 
-// Helper function to store or verify consensus state
-fn store_consensus_state<'info>(
-    account: &UncheckedAccount<'info>,
-    payer: &Signer<'info>,
-    system_program: &Program<'info, System>,
-    program_id: &Pubkey,
+struct StoreConsensusStateParams<'a, 'info> {
+    account: &'a UncheckedAccount<'info>,
+    payer: &'a Signer<'info>,
+    system_program: &'a Program<'info, System>,
+    program_id: &'a Pubkey,
     client_key: Pubkey,
     height: u64,
-    new_consensus_state: &ConsensusState,
-    client_state: &mut Account<crate::types::ClientState>,
-) -> Result<UpdateResult> {
+    new_consensus_state: &'a ConsensusState,
+    client_state: &'a mut Account<'info, crate::types::ClientState>,
+}
+
+fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResult> {
     // Validate PDA
     let (expected_pda, bump) = Pubkey::find_program_address(
         &[
             b"consensus_state",
-            client_key.as_ref(),
-            &height.to_le_bytes(),
+            params.client_key.as_ref(),
+            &params.height.to_le_bytes(),
         ],
-        program_id,
+        params.program_id,
     );
 
     require!(
-        expected_pda == account.key(),
+        expected_pda == params.account.key(),
         ErrorCode::AccountValidationFailed
     );
 
     // Check if account exists
-    if account.lamports() > 0 {
+    if params.account.lamports() > 0 {
         // Account exists - check for conflicts
-        let account_data = account.try_borrow_data()?;
+        let account_data = params.account.try_borrow_data()?;
         if !account_data.is_empty() {
             let existing: ConsensusStateStore =
                 ConsensusStateStore::try_deserialize(&mut &account_data[..])?;
 
-            if existing.consensus_state != *new_consensus_state {
-                client_state.freeze();
+            if existing.consensus_state != *params.new_consensus_state {
+                params.client_state.freeze();
                 return err!(ErrorCode::MisbehaviourConflictingState);
             }
 
@@ -299,28 +300,28 @@ fn store_consensus_state<'info>(
 
     let seeds_with_bump = [
         b"consensus_state".as_ref(),
-        client_key.as_ref(),
-        &height.to_le_bytes(),
+        params.client_key.as_ref(),
+        &params.height.to_le_bytes(),
         &[bump],
     ];
 
     let cpi_accounts = system_program::CreateAccount {
-        from: payer.to_account_info(),
-        to: account.to_account_info(),
+        from: params.payer.to_account_info(),
+        to: params.account.to_account_info(),
     };
-    let cpi_program = system_program.to_account_info();
+    let cpi_program = params.system_program.to_account_info();
     let signer = &[&seeds_with_bump[..]];
     let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
 
-    system_program::create_account(cpi_ctx, rent, space as u64, program_id)?;
+    system_program::create_account(cpi_ctx, rent, space as u64, params.program_id)?;
 
     // Serialize the new consensus state
     let new_store = ConsensusStateStore {
-        height,
-        consensus_state: new_consensus_state.clone(),
+        height: params.height,
+        consensus_state: params.new_consensus_state.clone(),
     };
 
-    let mut data = account.try_borrow_mut_data()?;
+    let mut data = params.account.try_borrow_mut_data()?;
     let mut cursor = std::io::Cursor::new(&mut data[..]);
     new_store.try_serialize(&mut cursor)?;
 
