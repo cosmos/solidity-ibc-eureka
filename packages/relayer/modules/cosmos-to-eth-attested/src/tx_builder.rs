@@ -212,10 +212,11 @@ where
             .chain(recv_and_ack_msgs)
             .chain(timeout_msgs)
             .map(|call| match call {
+                routerCalls::updateClient(call) => call.abi_encode(),
                 routerCalls::ackPacket(call) => call.abi_encode(),
                 routerCalls::recvPacket(call) => call.abi_encode(),
                 routerCalls::timeoutPacket(call) => call.abi_encode(),
-                _ => unreachable!("only ack, recv and timeout msgs allowed"),
+                _ => unreachable!("only ack, update client, recv and timeout msgs allowed"),
             });
 
         let multicall_tx = multicallCall {
