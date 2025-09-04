@@ -59,6 +59,10 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     name: ${{ matrix.entrypoint }}/${{ matrix.test }}
+    env:
+        ETH_TESTNET_TYPE: ${{ startsWith(matrix.entrypoint, 'TestWithIbcAttestorTestSuite') && 'optimism' || 'pow' }}
+        ETH_WASM_TYPE: ${{ startsWith(matrix.entrypoint, 'TestWithIbcAttestorTestSuite') && 'attestor' || 'dummy' }}
+
     runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@v5
@@ -70,8 +74,6 @@ jobs:
       - name: Run Tests
         env:
           NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
-          ETH_TESTNET_TYPE: ${{ startsWith(matrix.entrypoint, 'TestWithIbcAttestorTestSuite') && 'optimism' || 'pow' }}
-          ETH_WASM_TYPE: ${{ startsWith(matrix.entrypoint, 'TestWithIbcAttestorTestSuite') && 'attestor' || 'dummy' }}
         run: |
           cd e2e/interchaintestv8
           go test -v -mod=readonly . -run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -timeout 40m
