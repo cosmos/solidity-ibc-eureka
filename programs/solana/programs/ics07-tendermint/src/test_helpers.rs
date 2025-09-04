@@ -275,9 +275,6 @@ pub mod fixtures {
     pub mod misbehaviour {
         use super::*;
 
-        /// Create a mock Tendermint misbehaviour protobuf for testing
-        /// Note: This creates a simplified mock that won't pass actual validation.
-        /// Real tests should use fixtures generated from actual Tendermint data.
         pub fn create_mock_tendermint_misbehaviour(
             _chain_id: &str,
             _header1_height: u64,
@@ -286,22 +283,14 @@ pub mod fixtures {
             _trusted_height_2: u64,
             _conflicting_app_hashes: bool,
         ) -> Vec<u8> {
-            // Creating a valid misbehaviour requires complex protobuf structures
-            // that need tendermint_proto types. For unit testing the instruction
-            // logic, we can use simplified mock data that will fail validation
-            // but allow us to test the instruction flow.
             vec![0xDE, 0xAD, 0xBE, 0xEF] // Mock data
         }
 
-        /// Check if a fixture file for misbehaviour exists
         pub fn misbehaviour_fixture_exists(filename: &str) -> bool {
             fixture_exists(filename)
         }
 
-        /// Load misbehaviour fixture from JSON file
         pub fn load_misbehaviour_fixture(_filename: &str) -> Vec<u8> {
-            // This would load real fixture data from the fixtures directory
-            // For now, return mock data
             vec![0xDE, 0xAD, 0xBE, 0xEF]
         }
     }
@@ -535,7 +524,6 @@ pub mod chunk_test_utils {
             full_header.extend(&chunk_data);
         }
 
-        // Create commitment from full header
         let header_commitment = keccak::hash(&full_header).0;
 
         (all_chunks, header_commitment)
