@@ -39,7 +39,8 @@ COPY --from=build /src/target/release/attestor-cosmos /usr/local/bin/attestor-co
 
 # 3000 is the relayer port
 # 9000 is the relayer metrics port
+# 8081 is the relayer grpc web port
 # 8080 is the attestor port
-EXPOSE 3000 9000 8080
+EXPOSE 3000 9000 8081 8080
 
 ENTRYPOINT [ "sh", "/entrypoint.sh" ]
