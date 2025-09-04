@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use tonic_web::GrpcWebLayer;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 
 use crate::{
     api::{
