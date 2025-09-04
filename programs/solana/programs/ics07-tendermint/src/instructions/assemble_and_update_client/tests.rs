@@ -210,7 +210,10 @@ fn test_successful_assembly_and_update() {
         println!("Assembly succeeded with real fixtures");
     } else {
         // This might fail due to validation checks, but the assembly part works
-        println!("Assembly test completed with error: {:?}", result.program_result);
+        println!(
+            "Assembly test completed with error: {:?}",
+            result.program_result
+        );
     }
 }
 
@@ -622,7 +625,6 @@ fn test_rent_reclaim_after_assembly() {
         ));
     }
 
-
     let result = mollusk.process_instruction(&instruction, &accounts);
 
     // With real fixtures, this should either succeed or fail with a known error
@@ -632,7 +634,10 @@ fn test_rent_reclaim_after_assembly() {
         println!("Assembly succeeded with real fixtures");
     } else {
         // This might fail due to validation checks, but the assembly part works
-        println!("Assembly test completed with error: {:?}", result.program_result);
+        println!(
+            "Assembly test completed with error: {:?}",
+            result.program_result
+        );
     }
 }
 
