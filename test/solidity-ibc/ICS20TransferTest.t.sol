@@ -428,7 +428,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
                     })
                 )
             }),
-            acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
+            acknowledgement: ICS24Host.UNIVERSAL_ERROR_ACK,
             relayer: relayer
         });
 
