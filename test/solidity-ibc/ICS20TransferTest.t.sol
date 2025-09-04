@@ -29,18 +29,17 @@ import { CallbackReceiver } from "./mocks/CallbackReceiver.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
+import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
 
 contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     ICS20Transfer public ics20Transfer;
-    TestERC20 public erc20;
-    ISignatureTransfer public permit2;
     AccessManager public accessManager;
 
     address public ics26 = makeAddr("ics26router");
     TestHelper public th = new TestHelper();
+    IntegrationEnv public env = new IntegrationEnv();
 
     function setUp() public {
-        permit2 = ISignatureTransfer(deployPermit2());
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
@@ -49,16 +48,15 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
-                ICS20Transfer.initialize, (ics26, escrowLogic, ibcERC20Logic, address(permit2), address(accessManager))
+                ICS20Transfer.initialize, (ics26, escrowLogic, ibcERC20Logic, env.permit2(), address(accessManager))
             )
         );
 
         ics20Transfer = ICS20Transfer(address(transferProxy));
-        assertEq(ics20Transfer.getPermit2(), address(permit2));
+        assertEq(ics20Transfer.getPermit2(), env.permit2());
         assertEq(ics20Transfer.ics26(), ics26);
 
-        erc20 = new TestERC20();
-        assertEq(ics20Transfer.ibcERC20Denom(address(erc20)), "");
+        assertEq(ics20Transfer.ibcERC20Denom(address(env.erc20())), "");
     }
 
     function testFuzz_success_sendTransfer(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
@@ -85,7 +83,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             encoding: ICS20Lib.ICS20_ENCODING,
             value: abi.encode(
                 IICS20TransferMsgs.FungibleTokenPacketData({
-                    denom: Strings.toHexString(address(erc20)),
+                    denom: Strings.toHexString(address(env.erc20())),
                     amount: amount,
                     sender: Strings.toHexString(sender),
                     receiver: receiver,
@@ -94,12 +92,12 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             )
         });
 
-        erc20.mint(sender, amount);
-        vm.prank(sender);
-        erc20.approve(address(ics20Transfer), amount);
+        vm.startPrank(sender);
+        env.erc20().mint(sender, amount);
+        env.erc20().approve(address(ics20Transfer), amount);
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: address(erc20),
+            denom: address(env.erc20()),
             amount: amount,
             receiver: receiver,
             sourceClient: sourceClient,
@@ -120,9 +118,10 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
                 })
             )
         );
-        vm.prank(sender);
         uint64 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
         assertEq(sequence, seq);
+
+        vm.stopPrank();
     }
 
     function testFuzz_failure_sendTransfer(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
@@ -138,7 +137,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         address sender = makeAddr("sender");
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: address(erc20),
+            denom: address(env.erc20()),
             amount: amount,
             receiver: receiver,
             sourceClient: sourceClient,
@@ -151,16 +150,17 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         vm.expectRevert(
             abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(ics20Transfer), 0, amount)
         );
+        vm.prank(sender);
         ics20Transfer.sendTransfer(msgSendTransfer);
 
         // ===== Case 2: Test insufficient balance =====
-        vm.prank(sender);
-        erc20.approve(address(ics20Transfer), amount);
+        vm.startPrank(sender);
+        env.erc20().approve(address(ics20Transfer), amount);
         vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, sender, 0, amount));
-        vm.prank(sender);
         ics20Transfer.sendTransfer(msgSendTransfer);
+        vm.stopPrank();
 
-        erc20.mint(sender, amount);
+        env.erc20().mint(sender, amount);
 
         // ===== Case 3: Empty amount =====
         msgSendTransfer.amount = 0;
@@ -188,14 +188,14 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     function testFuzz_success_sendTransferWithPermit2(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
         vm.assume(amount > 0);
 
-        (address sender, uint256 senderKey) = makeAddrAndKey("sender");
+        address sender = env.createAndFundUser(amount);
         string memory sourceClient = th.randomString();
         string memory destClient = th.randomString();
         string memory memo = th.randomString();
         string memory receiver = th.randomString();
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: address(erc20),
+            denom: address(env.erc20()),
             amount: amount,
             receiver: receiver,
             sourceClient: sourceClient,
@@ -204,19 +204,12 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             memo: memo
         });
 
-        erc20.mint(sender, amount);
         vm.prank(sender);
-        erc20.approve(address(permit2), amount);
+        env.erc20().approve(env.permit2(), amount);
 
         vm.mockCall(ics26, IICS26Router.sendPacket.selector, abi.encode(seq));
 
-        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({ token: address(erc20), amount: amount }),
-            nonce: 0,
-            deadline: block.timestamp + 100
-        });
-        bytes memory signature =
-            this.getPermitTransferSignature(permit, senderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR());
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) = env.getPermitAndSignature(sender, address(ics20Transfer), amount);
 
         vm.prank(sender);
         uint64 sequence = ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
@@ -226,14 +219,14 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     function testFuzz_failure_sendTransferWithPermit2(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
         vm.assume(amount > 0);
 
-        (address sender, uint256 senderKey) = makeAddrAndKey("sender");
+        address sender = env.createAndFundUser(amount);
         string memory sourceClient = th.randomString();
         string memory destClient = th.randomString();
         string memory memo = th.randomString();
         string memory receiver = th.randomString();
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: address(erc20),
+            denom: address(env.erc20()),
             amount: amount,
             receiver: receiver,
             sourceClient: sourceClient,
@@ -244,48 +237,38 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
 
         vm.mockCall(ics26, IICS26Router.sendPacket.selector, abi.encode(seq));
 
-        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({ token: address(erc20), amount: amount }),
-            nonce: 0,
-            deadline: block.timestamp + 100
-        });
-        bytes memory signature =
-            this.getPermitTransferSignature(permit, senderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR());
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) = env.getPermitAndSignature(sender, address(ics20Transfer), amount);
 
         // ===== Case 1: Missing Approval =====
+        vm.startPrank(sender);
+        env.erc20().approve(env.permit2(), 0);
+
         vm.expectRevert("TRANSFER_FROM_FAILED");
-        vm.prank(sender);
         ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
 
+        vm.stopPrank();
         // ===== Mint and Approve permit2 =====
-        erc20.mint(sender, amount);
-        vm.prank(sender);
-        erc20.approve(address(permit2), amount);
+        env.erc20().approve(env.permit2(), amount);
 
         // ===== Case 2: Invalid Amount =====
+        vm.startPrank(sender);
         msgSendTransfer.amount = 0;
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
-        vm.prank(sender);
         ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
         // reset amount
         msgSendTransfer.amount = amount;
+        vm.stopPrank();
 
         // ===== Case 3: Permit and Token Mismatch =====
         TestERC20 differentERC20 = new TestERC20();
+        vm.startPrank(sender);
         differentERC20.mint(sender, amount);
-        vm.prank(sender);
-        differentERC20.approve(address(permit2), amount);
-        ISignatureTransfer.PermitTransferFrom memory differentPermit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({ token: address(differentERC20), amount: amount }),
-            nonce: 1,
-            deadline: block.timestamp + 100
-        });
-        bytes memory differentSignature = this.getPermitTransferSignature(
-            differentPermit, senderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR()
-        );
+        differentERC20.approve(env.permit2(), amount);
+        vm.stopPrank();
+        (ISignatureTransfer.PermitTransferFrom memory differentPermit, bytes memory differentSignature) = env.getPermitAndSignature(sender, address(ics20Transfer), amount, address(differentERC20));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IICS20Errors.ICS20Permit2TokenMismatch.selector, address(differentERC20), address(erc20)
+                IICS20Errors.ICS20Permit2TokenMismatch.selector, address(differentERC20), env.erc20()
             )
         );
         vm.prank(sender);
@@ -296,6 +279,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         vm.expectRevert();
         vm.prank(sender);
         ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, invalidSignature);
+
     }
 
     function testFuzz_success_sendTransferWithSender(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
@@ -322,7 +306,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             encoding: ICS20Lib.ICS20_ENCODING,
             value: abi.encode(
                 IICS20TransferMsgs.FungibleTokenPacketData({
-                    denom: Strings.toHexString(address(erc20)),
+                    denom: Strings.toHexString(address(env.erc20())),
                     amount: amount,
                     sender: Strings.toHexString(customSender),
                     receiver: receiver,
@@ -337,12 +321,13 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             address(ics20Transfer), IBCRolesLib.delegateSenderSelectors(), IBCRolesLib.DELEGATE_SENDER_ROLE
         );
 
-        erc20.mint(sender, amount);
-        vm.prank(sender);
-        erc20.approve(address(ics20Transfer), amount);
+        vm.startPrank(sender);
+
+        env.erc20().mint(sender, amount);
+        env.erc20().approve(address(ics20Transfer), amount);
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: address(erc20),
+            denom: address(env.erc20()),
             amount: amount,
             receiver: receiver,
             sourceClient: sourceClient,
@@ -351,7 +336,6 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             memo: memo
         });
 
-        vm.prank(sender);
         vm.expectCall(
             ics26,
             abi.encodeCall(
@@ -366,6 +350,8 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         vm.mockCall(ics26, IICS26Router.sendPacket.selector, abi.encode(seq));
         uint64 sequence = ics20Transfer.sendTransferWithSender(msgSendTransfer, customSender);
         assertEq(sequence, seq);
+
+        vm.stopPrank();
     }
 
     function testFuzz_success_onAcknowledgementPacketCallback(
@@ -398,7 +384,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             encoding: ICS20Lib.ICS20_ENCODING,
             value: abi.encode(
                 IICS20TransferMsgs.FungibleTokenPacketData({
-                    denom: Strings.toHexString(address(erc20)),
+                    denom: Strings.toHexString(address(env.erc20())),
                     amount: amount,
                     sender: Strings.toHexString(sender),
                     receiver: receiver,
@@ -455,7 +441,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
                 encoding: ICS20Lib.ICS20_ENCODING,
                 value: abi.encode(
                     IICS20TransferMsgs.FungibleTokenPacketData({
-                        denom: Strings.toHexString(address(erc20)),
+                        denom: Strings.toHexString(address(env.erc20())),
                         amount: amount,
                         sender: Strings.toHexString(sender),
                         receiver: receiver,
@@ -480,7 +466,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // reset data
         callbackMsg.payload.value = abi.encode(
             IICS20TransferMsgs.FungibleTokenPacketData({
-                denom: Strings.toHexString(address(erc20)),
+                denom: Strings.toHexString(address(env.erc20())),
                 amount: amount,
                 sender: Strings.toHexString(sender),
                 receiver: receiver,
@@ -504,7 +490,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // reset denom
         callbackMsg.payload.value = abi.encode(
             IICS20TransferMsgs.FungibleTokenPacketData({
-                denom: Strings.toHexString(address(erc20)),
+                denom: Strings.toHexString(address(env.erc20())),
                 amount: amount,
                 sender: Strings.toHexString(sender),
                 receiver: receiver,
@@ -530,7 +516,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // reset denom
         callbackMsg.payload.value = abi.encode(
             IICS20TransferMsgs.FungibleTokenPacketData({
-                denom: Strings.toHexString(address(erc20)),
+                denom: Strings.toHexString(address(env.erc20())),
                 amount: amount,
                 sender: Strings.toHexString(sender),
                 receiver: receiver,
@@ -541,7 +527,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // ===== Case 5: Invalid Sender =====
         callbackMsg.payload.value = abi.encode(
             IICS20TransferMsgs.FungibleTokenPacketData({
-                denom: Strings.toHexString(address(erc20)),
+                denom: Strings.toHexString(address(env.erc20())),
                 amount: amount,
                 sender: th.INVALID_ID(),
                 receiver: receiver,
@@ -554,7 +540,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // reset sender
         callbackMsg.payload.value = abi.encode(
             IICS20TransferMsgs.FungibleTokenPacketData({
-                denom: Strings.toHexString(address(erc20)),
+                denom: Strings.toHexString(address(env.erc20())),
                 amount: amount,
                 sender: Strings.toHexString(sender),
                 receiver: receiver,
@@ -582,7 +568,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
                 encoding: ICS20Lib.ICS20_ENCODING,
                 value: abi.encode(
                     IICS20TransferMsgs.FungibleTokenPacketData({
-                        denom: Strings.toHexString(address(erc20)),
+                        denom: Strings.toHexString(address(env.erc20())),
                         amount: amount,
                         sender: Strings.toHexString(sender),
                         receiver: receiver,
@@ -624,7 +610,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
                 encoding: ICS20Lib.ICS20_ENCODING,
                 value: abi.encode(
                     IICS20TransferMsgs.FungibleTokenPacketData({
-                        denom: Strings.toHexString(address(erc20)),
+                        denom: Strings.toHexString(address(env.erc20())),
                         amount: amount,
                         sender: Strings.toHexString(sender),
                         receiver: receiver,
@@ -647,7 +633,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // reset data
         callbackMsg.payload.value = abi.encode(
             IICS20TransferMsgs.FungibleTokenPacketData({
-                denom: Strings.toHexString(address(erc20)),
+                denom: Strings.toHexString(address(env.erc20())),
                 amount: amount,
                 sender: Strings.toHexString(sender),
                 receiver: receiver,
@@ -671,7 +657,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // reset denom
         callbackMsg.payload.value = abi.encode(
             IICS20TransferMsgs.FungibleTokenPacketData({
-                denom: Strings.toHexString(address(erc20)),
+                denom: Strings.toHexString(address(env.erc20())),
                 amount: amount,
                 sender: Strings.toHexString(sender),
                 receiver: receiver,
@@ -697,7 +683,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // reset denom
         callbackMsg.payload.value = abi.encode(
             IICS20TransferMsgs.FungibleTokenPacketData({
-                denom: Strings.toHexString(address(erc20)),
+                denom: Strings.toHexString(address(env.erc20())),
                 amount: amount,
                 sender: Strings.toHexString(sender),
                 receiver: receiver,
@@ -708,7 +694,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // ===== Case 4: Invalid Sender =====
         callbackMsg.payload.value = abi.encode(
             IICS20TransferMsgs.FungibleTokenPacketData({
-                denom: Strings.toHexString(address(erc20)),
+                denom: Strings.toHexString(address(env.erc20())),
                 amount: amount,
                 sender: th.INVALID_ID(),
                 receiver: receiver,
@@ -721,7 +707,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // reset sender
         callbackMsg.payload.value = abi.encode(
             IICS20TransferMsgs.FungibleTokenPacketData({
-                denom: Strings.toHexString(address(erc20)),
+                denom: Strings.toHexString(address(env.erc20())),
                 amount: amount,
                 sender: Strings.toHexString(sender),
                 receiver: receiver,
@@ -741,7 +727,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         address relayer = makeAddr("relayer");
 
         string memory denom = string(
-            abi.encodePacked(ICS20Lib.DEFAULT_PORT_ID, "/", sourceClient, "/", Strings.toHexString(address(erc20)))
+            abi.encodePacked(ICS20Lib.DEFAULT_PORT_ID, "/", sourceClient, "/", Strings.toHexString(address(env.erc20())))
         );
         IIBCAppCallbacks.OnRecvPacketCallback memory callbackMsg = IIBCAppCallbacks.OnRecvPacketCallback({
             sourceClient: sourceClient,

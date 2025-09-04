@@ -33,8 +33,8 @@ contract IntegrationEnv is Test, DeployPermit2 {
         return address(_permit2);
     }
 
-    function erc20() public view returns (IERC20) {
-        return IERC20(_erc20);
+    function erc20() public view returns (TestERC20) {
+        return TestERC20(_erc20);
     }
 
     /// @notice Creates a new user and funds the user with the default amount of tokens
