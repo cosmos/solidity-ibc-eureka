@@ -15,6 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/attestorlightclient"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
@@ -42,7 +44,7 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 		const height = uint64(1)
 
 		// ACT
-		resp, err := attestor.GetStateAttestation(ts.Ctx, ts.attestorClient, height)
+		resp, err := attestor.GetStateAttestation(ts.ctx, ts.attestorClient, height)
 
 		// ASSERT
 		require.NoError(t, err, "unable to get state attestation")
@@ -58,13 +60,13 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 type cosmosToEVMAttestorTestSuite struct {
 	*testing.T
 
-	Ctx context.Context
+	ctx context.Context
 
 	base *e2esuite.TestSuite
 
 	// users
-	evmDeployer  *ecdsa.PrivateKey
-	cosmosSender ibc.Wallet
+	evmDeployer    *ecdsa.PrivateKey
+	cosmosDeployer ibc.Wallet
 
 	// clients
 	attestorClient attestortypes.AttestationServiceClient
@@ -132,7 +134,7 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	require.NoError(t, err, "unable to provision EVM deployer")
 	evmDeployerAddr := crypto.PubkeyToAddress(evmDeployer.PublicKey)
 
-	cosmosSender := base.CreateAndFundCosmosUser(ctx, cosmosChain)
+	cosmosDeployer := base.CreateAndFundCosmosUser(ctx, cosmosChain)
 
 	// 4. Setup ONE cosmos attestor (for the sake of the current test)
 	// TODO: support for arbitrary number of attestors in the future with
@@ -183,7 +185,7 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 				AttestedRpcUrl:   evmChain.RPC,
 				Ics26Address:     evmWrappers.ICS26RouterAddress.String(),
 				TmRpcUrl:         cosmosChain.GetHostRPCAddress(),
-				SignerAddress:    cosmosSender.FormattedAddress(),
+				SignerAddress:    cosmosDeployer.FormattedAddress(),
 			},
 		},
 	}))
@@ -214,7 +216,7 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	require.NoError(t, err, "unable to create cosmos light-client wrapper")
 
 	// 7. Deploy EVM LC on Cosmos (relayer creates the tx, cosmosSender broadcasts it)
-	checksumHex := base.StoreLightClient(ctx, cosmosChain, cosmosSender)
+	checksumHex := base.StoreLightClient(ctx, cosmosChain, cosmosDeployer)
 	require.NotEmpty(t, checksumHex, "checksumHex is empty")
 
 	resp, err = relayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
@@ -231,20 +233,49 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	require.NoError(t, err, "unable to create evm light-client tx")
 	require.NotEmpty(t, resp.Tx, "tx is empty")
 
-	cosmosResp := base.MustBroadcastSdkTxBody(ctx, cosmosChain, cosmosSender, 20_000_000, resp.Tx)
-	clientId, err := cosmos.GetEventValue(cosmosResp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
+	cosmosResp := base.MustBroadcastSdkTxBody(ctx, cosmosChain, cosmosDeployer, 20_000_000, resp.Tx)
+	wasmClientID, err := cosmos.GetEventValue(cosmosResp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
 	require.NoError(t, err, "unable to get event value from create client tx")
-	require.Equal(t, tv.FirstWasmClientID, clientId)
+	require.Equal(t, tv.FirstWasmClientID, wasmClientID)
 
-	// todo register counter parties
+	// 8. Register counter parties
+	// EVM
+	evmRegistrationTx, err := evmWrappers.ICS26Router.AddClient(
+		must(evmChain.GetTransactOpts(evmDeployer)),
+		tv.CustomClientID,
+		ics26router.IICS02ClientMsgsCounterpartyInfo{
+			ClientId:     wasmClientID,
+			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+		},
+		evmWrappers.LightClientAddress,
+	)
+	require.NoError(t, err, "unable to add registration counterparty on EVM")
+
+	evmRegistrationReceipt, err := evmChain.GetTxReciept(ctx, evmRegistrationTx.Hash())
+	require.NoError(t, err, "unable to get registration client receipt on EVM")
+
+	event, err := e2esuite.GetEvmEvent(evmRegistrationReceipt, evmWrappers.ICS26Router.ParseICS02ClientAdded)
+	require.NoError(t, err, "unable to get registration client event on EVM")
+	require.Equal(t, tv.CustomClientID, event.ClientId)
+	require.Equal(t, wasmClientID, event.CounterpartyInfo.ClientId)
+
+	// Cosmos
+	_, err = base.BroadcastMessages(ctx, cosmosChain, cosmosDeployer, 200_000, &clienttypesv2.MsgRegisterCounterparty{
+		ClientId:                 wasmClientID,
+		CounterpartyMerklePrefix: [][]byte{[]byte("")},
+		CounterpartyClientId:     tv.CustomClientID,
+		Signer:                   cosmosDeployer.FormattedAddress(),
+	})
+	require.NoError(t, err, "unable to register counterparty on Cosmos")
 
 	return &cosmosToEVMAttestorTestSuite{
-		T:    t,
-		Ctx:  ctx,
+		T: t,
+
+		ctx:  ctx,
 		base: base,
 
-		evmDeployer:  evmDeployer,
-		cosmosSender: cosmosSender,
+		evmDeployer:    evmDeployer,
+		cosmosDeployer: cosmosDeployer,
 
 		attestorClient: attestorClient,
 		relayerClient:  relayerClient,
@@ -350,4 +381,12 @@ func extractContractWrappers(t *testing.T, raw []byte, evmClient *ethclient.Clie
 		LightClientAddress: ethcommon.Address{},
 		LightClient:        nil,
 	}
+}
+
+func must[T any](value T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+
+	return value
 }
