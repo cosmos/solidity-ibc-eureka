@@ -70,8 +70,8 @@ jobs:
       - name: Run Tests
         env:
           NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
-          ETH_TESTNET_TYPE: ${{ contains(toLower(matrix.test), 'attestor') && 'optimism' || 'pow' }}
-          ETH_WASM_TYPE: ${{ contains(toLower(matrix.test), 'attestor') && 'attestor' || 'dummy' }}
+          ETH_TESTNET_TYPE: ${{ startsWith(matrix.test, 'TestWithIbcAttestorTestSuite') && 'optimism' || 'pow' }}
+          ETH_WASM_TYPE: ${{ startsWith(matrix.test, 'TestWithIbcAttestorTestSuite') && 'attestor' || 'dummy' }}
         run: |
           cd e2e/interchaintestv8
           go test -v -mod=readonly . -run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -timeout 40m
