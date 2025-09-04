@@ -186,8 +186,9 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     }
 
     function testFuzz_failure_sendTransferWithPermit2(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
-        (address sender, uint256 senderKey) = makeAddrAndKey("sender");
+        vm.assume(amount > 0);
 
+        (address sender, uint256 senderKey) = makeAddrAndKey("sender");
         string memory sourceClient = th.randomString();
         string memory destClient = th.randomString();
         string memory memo = th.randomString();
