@@ -270,8 +270,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         differentERC20.mint(sender, amount);
         differentERC20.approve(env.permit2(), amount);
         vm.stopPrank();
-        (permit, signature) =
-            env.getPermitAndSignature(sender, address(ics20Transfer), amount, address(differentERC20));
+        (permit, signature) = env.getPermitAndSignature(sender, address(ics20Transfer), amount, address(differentERC20));
         vm.expectRevert(
             abi.encodeWithSelector(
                 IICS20Errors.ICS20Permit2TokenMismatch.selector, address(differentERC20), env.erc20()
