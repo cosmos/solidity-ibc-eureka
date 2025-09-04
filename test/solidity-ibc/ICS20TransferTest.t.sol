@@ -223,17 +223,15 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         address sender = env.createAndFundUser(amount);
         string memory sourceClient = th.randomString();
         string memory destClient = th.randomString();
-        string memory memo = th.randomString();
-        string memory receiver = th.randomString();
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
             denom: address(env.erc20()),
             amount: amount,
-            receiver: receiver,
+            receiver: th.randomString(),
             sourceClient: sourceClient,
             destPort: destClient,
             timeoutTimestamp: timeoutTimestamp,
-            memo: memo
+            memo: th.randomString()
         });
 
         vm.mockCall(ics26, IICS26Router.sendPacket.selector, abi.encode(seq));
@@ -261,13 +259,18 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         msgSendTransfer.amount = amount;
         vm.stopPrank();
 
+        // ===== Case 4: Invalid Signature =====
+        vm.expectRevert();
+        vm.prank(sender);
+        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, new bytes(65));
+
         // ===== Case 3: Permit and Token Mismatch =====
         TestERC20 differentERC20 = new TestERC20();
         vm.startPrank(sender);
         differentERC20.mint(sender, amount);
         differentERC20.approve(env.permit2(), amount);
         vm.stopPrank();
-        (ISignatureTransfer.PermitTransferFrom memory differentPermit, bytes memory differentSignature) =
+        (permit, signature) =
             env.getPermitAndSignature(sender, address(ics20Transfer), amount, address(differentERC20));
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -275,13 +278,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             )
         );
         vm.prank(sender);
-        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, differentPermit, differentSignature);
-
-        // ===== Case 4: Invalid Signature =====
-        bytes memory invalidSignature = new bytes(65);
-        vm.expectRevert();
-        vm.prank(sender);
-        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, invalidSignature);
+        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
     }
 
     function testFuzz_success_sendTransferWithSender(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
