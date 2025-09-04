@@ -15,8 +15,7 @@ import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./PermitSignature.sol";
 
 contract IntegrationEnv is Test, DeployPermit2 {
-    uint256 private _userCount = 0;
-    TestHelper private _testValues = new TestHelper();
+    TestHelper private _th = new TestHelper();
     PermitSignature private _permitHelper = new PermitSignature();
 
     TestERC20 public immutable _erc20;
@@ -51,7 +50,7 @@ contract IntegrationEnv is Test, DeployPermit2 {
 
     /// @notice Creates a new user and funds them with the default amount of tokens from the specified token
     function createAndFundUser(TestERC20 token) public returns (address) {
-        return createAndFundUser(token, _testValues.DEFAULT_ERC20_STARTING_BALANCE());
+        return createAndFundUser(token, _th.DEFAULT_ERC20_STARTING_BALANCE());
     }
 
     /// @notice Creates a new user and funds them with the specified amount of tokens from the specified token
@@ -63,11 +62,10 @@ contract IntegrationEnv is Test, DeployPermit2 {
     }
 
     function createUser() public returns (address) {
-        // Create a new user
-        Vm.Wallet memory wallet = vm.createWallet(++_userCount);
-        _userPrivateKeys[wallet.addr] = wallet.privateKey;
-
-        return wallet.addr;
+        string memory keyName = _th.randomString();
+        (address keyAddr, uint256 key) = makeAddrAndKey(keyName);
+        _userPrivateKeys[keyAddr] = key;
+        return keyAddr;
     }
 
     function fundUser(address user, uint256 amount) public {
