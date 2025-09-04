@@ -12,7 +12,7 @@ pub struct ConsensusStateStore {
 
 // TODO: Most likely we'd need economic incentive w/ slashing for relayers
 /// Storage for a single chunk of header data during multi-transaction upload
-/// Chunks are stored by chain_id and height
+/// Chunks are stored by chain_id, height, and submitter
 #[account]
 #[derive(InitSpace)]
 pub struct HeaderChunk {
@@ -28,8 +28,6 @@ pub struct HeaderChunk {
     /// The chunk data
     #[max_len(CHUNK_DATA_SIZE)]
     pub chunk_data: Vec<u8>,
-    /// Who submitted this chunk
-    pub submitter: Pubkey,
     /// Version/nonce to handle overwrites
     pub version: u32,
 }

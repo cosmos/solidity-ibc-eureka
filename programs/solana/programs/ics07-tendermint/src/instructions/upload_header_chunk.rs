@@ -43,7 +43,6 @@ pub fn upload_header_chunk(
     chunk.chunk_index = params.chunk_index;
     chunk.chunk_hash = params.chunk_hash;
     chunk.chunk_data = params.chunk_data;
-    chunk.submitter = ctx.accounts.payer.key();
     chunk.version = chunk.version.wrapping_add(1); // Increment version on overwrites
 
     Ok(())

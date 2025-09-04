@@ -91,7 +91,7 @@ pub struct SubmitMisbehaviour<'info> {
 
 // TODO: Economic incentive is required to slash malicious relayers
 /// Context for uploading a chunk of header data
-/// Chunks are stored by `chain_id`, `height`, and `chunk_index`
+/// Chunks are stored by `chain_id`, `height`, `submitter`, and `chunk_index`
 #[derive(Accounts)]
 #[instruction(params: types::UploadChunkParams)]
 pub struct UploadHeaderChunk<'info> {
@@ -99,10 +99,11 @@ pub struct UploadHeaderChunk<'info> {
     /// If there's an old chunk at this position, it will be overwritten
     #[account(
         init_if_needed,
-        payer = payer,
+        payer = submitter,
         space = 8 + HeaderChunk::INIT_SPACE,
         seeds = [
             b"header_chunk",
+            submitter.key().as_ref(),
             params.chain_id.as_bytes(),
             &params.target_height.to_le_bytes(),
             &[params.chunk_index]
@@ -111,15 +112,16 @@ pub struct UploadHeaderChunk<'info> {
     )]
     pub chunk: Account<'info, HeaderChunk>,
 
-    /// Header metadata for this height (created with first chunk or overwritten when needed)
+    /// Header metadata for this height and submitter
     #[account(
         init_if_needed,
-        payer = payer,
+        payer = submitter,
         space = 8 + HeaderMetadata::INIT_SPACE,
         seeds = [
             b"header_metadata",
+            submitter.key().as_ref(),
             params.chain_id.as_bytes(),
-            &params.target_height.to_le_bytes()
+            &params.target_height.to_le_bytes(),
         ],
         bump
     )]
@@ -128,12 +130,12 @@ pub struct UploadHeaderChunk<'info> {
     /// Client state to verify this is a valid client
     #[account(
         constraint = client_state.chain_id == params.chain_id,
-        constraint = params.target_height > client_state.latest_height.revision_height
     )]
     pub client_state: Account<'info, ClientState>,
 
+    /// The submitter who pays for and owns these accounts
     #[account(mut)]
-    pub payer: Signer<'info>,
+    pub submitter: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
@@ -144,14 +146,13 @@ pub struct AssembleAndUpdateClient<'info> {
     #[account(
         mut,
         constraint = client_state.chain_id == metadata.chain_id.as_str(),
-        constraint = metadata.target_height > client_state.latest_height.revision_height
     )]
     pub client_state: Account<'info, ClientState>,
 
     /// Header metadata for this height
     #[account(
         mut,
-        close = payer  // Close metadata after successful update
+        close = submitter  // Close metadata and return rent to original submitter
     )]
     pub metadata: Account<'info, HeaderMetadata>,
 
@@ -163,6 +164,11 @@ pub struct AssembleAndUpdateClient<'info> {
     /// CHECK: Validated in instruction handler
     pub new_consensus_state_store: UncheckedAccount<'info>,
 
+    /// The original submitter who paid for the chunks (receives rent back)
+    /// CHECK: Must be the same submitter who created the metadata/chunks
+    #[account(mut)]
+    pub submitter: UncheckedAccount<'info>,
+
     #[account(mut)]
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -172,30 +178,35 @@ pub struct AssembleAndUpdateClient<'info> {
 
 /// Context for cleaning up incomplete header uploads at lower heights
 #[derive(Accounts)]
-#[instruction(chain_id: String, cleanup_height: u64)]
+#[instruction(chain_id: String, cleanup_height: u64, submitter: Pubkey)]
 pub struct CleanupIncompleteUpload<'info> {
     /// Client state to verify this is a valid client
     #[account(
         constraint = client_state.chain_id == chain_id,
-        constraint = cleanup_height < client_state.latest_height.revision_height
     )]
     pub client_state: Account<'info, ClientState>,
 
-    /// Header metadata for the height to clean up
+    /// Header metadata for the height and submitter to clean up
     #[account(
         mut,
         seeds = [
             b"header_metadata",
+            submitter.as_ref(),
             chain_id.as_bytes(),
-            &cleanup_height.to_le_bytes()
+            &cleanup_height.to_le_bytes(),
         ],
         bump,
-        close = payer  // Close metadata to reclaim rent
+        close = submitter_account  // Close metadata and return rent to submitter
     )]
     pub metadata: Account<'info, HeaderMetadata>,
 
-    #[account(mut)]
-    pub payer: Signer<'info>,
+    /// The original submitter who gets their rent back
+    /// Must be the signer to prove they own the upload
+    #[account(
+        mut,
+        constraint = submitter_account.key() == submitter
+    )]
+    pub submitter_account: Signer<'info>,
     // Remaining accounts are the chunk accounts to close
 }
 
@@ -266,11 +277,13 @@ pub mod ics07_tendermint {
         ctx: Context<CleanupIncompleteUpload>,
         chain_id: String,
         cleanup_height: u64,
+        submitter: Pubkey,
     ) -> Result<()> {
         instructions::cleanup_incomplete_upload::cleanup_incomplete_upload(
             ctx,
             chain_id,
             cleanup_height,
+            submitter,
         )
     }
 }

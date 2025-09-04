@@ -12,6 +12,29 @@ use tendermint_light_client_update_client::ClientState as UpdateClientState;
 pub fn assemble_and_update_client(
     mut ctx: Context<AssembleAndUpdateClient>,
 ) -> Result<UpdateResult> {
+    // Validate that the submitter matches the metadata PDA
+    let metadata = &ctx.accounts.metadata;
+    let chain_id = &metadata.chain_id;
+    let target_height = metadata.target_height;
+    let submitter = ctx.accounts.submitter.key();
+
+    // Verify metadata PDA was created by this submitter
+    let (expected_metadata_pda, _) = Pubkey::find_program_address(
+        &[
+            b"header_metadata",
+            submitter.as_ref(),
+            chain_id.as_bytes(),
+            &target_height.to_le_bytes(),
+        ],
+        ctx.program_id,
+    );
+
+    require_eq!(
+        ctx.accounts.metadata.key(),
+        expected_metadata_pda,
+        ErrorCode::AccountValidationFailed
+    );
+
     let header_bytes = assemble_chunks(&ctx)?;
 
     let result = process_header_update(&mut ctx, header_bytes)?;
@@ -21,40 +44,36 @@ pub fn assemble_and_update_client(
     Ok(result)
 }
 
-/// Assemble chunks into complete header and verify commitment
 fn assemble_chunks(ctx: &Context<AssembleAndUpdateClient>) -> Result<Vec<u8>> {
     let metadata = &ctx.accounts.metadata;
     let chain_id = &metadata.chain_id;
     let target_height = metadata.target_height;
+    let submitter = ctx.accounts.submitter.key();
     let mut header_bytes = Vec::new();
 
-    // Validate chunk count
     require_eq!(
         ctx.remaining_accounts.len(),
         metadata.total_chunks as usize,
         ErrorCode::InvalidChunkCount
     );
 
-    // Collect and validate each chunk
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
         validate_and_load_chunk(
             chunk_account,
             chain_id,
             target_height,
+            submitter,
             index as u8,
             ctx.program_id,
             &mut header_bytes,
         )?;
     }
 
-    // Verify header commitment
     let computed_commitment = keccak::hash(&header_bytes).0;
     require!(
         metadata.header_commitment == computed_commitment,
         ErrorCode::InvalidHeader
     );
-
-    // TODO: Delete everything?
 
     Ok(header_bytes)
 }
@@ -63,6 +82,7 @@ fn validate_and_load_chunk(
     chunk_account: &AccountInfo,
     chain_id: &str,
     target_height: u64,
+    submitter: Pubkey,
     index: u8,
     program_id: &Pubkey,
     header_bytes: &mut Vec<u8>,
@@ -70,6 +90,7 @@ fn validate_and_load_chunk(
     // Validate chunk PDA
     let expected_seeds = &[
         b"header_chunk".as_ref(),
+        submitter.as_ref(),
         chain_id.as_bytes(),
         &target_height.to_le_bytes(),
         &[index],
@@ -191,11 +212,11 @@ fn check_misbehaviour(
 fn cleanup_chunks(ctx: &Context<AssembleAndUpdateClient>) -> Result<()> {
     for chunk_account in ctx.remaining_accounts {
         let mut lamports = chunk_account.try_borrow_mut_lamports()?;
-        let mut payer_lamports = ctx.accounts.payer.try_borrow_mut_lamports()?;
-        **payer_lamports += **lamports;
+        let mut submitter_lamports = ctx.accounts.submitter.try_borrow_mut_lamports()?;
+        **submitter_lamports += **lamports;
         **lamports = 0;
     }
-    // Metadata account will be closed automatically by Anchor due to close = payer
+    // Metadata account will be closed automatically by Anchor due to close = submitter
     Ok(())
 }
 

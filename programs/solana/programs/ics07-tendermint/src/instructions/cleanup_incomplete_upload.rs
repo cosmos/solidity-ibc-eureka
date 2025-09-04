@@ -5,6 +5,7 @@ pub fn cleanup_incomplete_upload(
     ctx: Context<CleanupIncompleteUpload>,
     chain_id: String,
     cleanup_height: u64,
+    submitter: Pubkey,
 ) -> Result<()> {
     let metadata = &ctx.accounts.metadata;
 
@@ -24,6 +25,7 @@ pub fn cleanup_incomplete_upload(
         // Derive the expected chunk PDA for this index
         let expected_seeds = &[
             b"header_chunk".as_ref(),
+            submitter.as_ref(),
             chain_id.as_bytes(),
             &cleanup_height.to_le_bytes(),
             &[index as u8],
@@ -41,15 +43,16 @@ pub fn cleanup_incomplete_upload(
         if chunk_account.owner == ctx.program_id && chunk_account.lamports() > 0 {
             // Safe to close - it's a verified chunk PDA owned by our program
             let mut lamports = chunk_account.try_borrow_mut_lamports()?;
-            let mut payer_lamports = ctx.accounts.payer.try_borrow_mut_lamports()?;
-            **payer_lamports += **lamports;
+            let mut submitter_lamports =
+                ctx.accounts.submitter_account.try_borrow_mut_lamports()?;
+            **submitter_lamports += **lamports;
             **lamports = 0;
             closed_count += 1;
         }
         // If account doesn't exist or isn't owned by us, skip it
     }
 
-    // Metadata account will be closed automatically by Anchor due to close = payer
+    // Metadata account will be closed automatically by Anchor due to close = submitter_account
 
     msg!(
         "Cleaned up incomplete upload at height {} ({} chunks closed)",
