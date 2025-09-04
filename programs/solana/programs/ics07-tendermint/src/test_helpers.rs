@@ -270,13 +270,47 @@ pub mod fixtures {
             }
         }
     }
+
+    /// Helper functions for misbehaviour testing
+    pub mod misbehaviour {
+        use super::*;
+
+        /// Create a mock Tendermint misbehaviour protobuf for testing
+        /// Note: This creates a simplified mock that won't pass actual validation.
+        /// Real tests should use fixtures generated from actual Tendermint data.
+        pub fn create_mock_tendermint_misbehaviour(
+            _chain_id: &str,
+            _header1_height: u64,
+            _header2_height: u64,
+            _trusted_height_1: u64,
+            _trusted_height_2: u64,
+            _conflicting_app_hashes: bool,
+        ) -> Vec<u8> {
+            // Creating a valid misbehaviour requires complex protobuf structures
+            // that need tendermint_proto types. For unit testing the instruction
+            // logic, we can use simplified mock data that will fail validation
+            // but allow us to test the instruction flow.
+            vec![0xDE, 0xAD, 0xBE, 0xEF] // Mock data
+        }
+
+        /// Check if a fixture file for misbehaviour exists
+        pub fn misbehaviour_fixture_exists(filename: &str) -> bool {
+            fixture_exists(filename)
+        }
+
+        /// Load misbehaviour fixture from JSON file
+        pub fn load_misbehaviour_fixture(_filename: &str) -> Vec<u8> {
+            // This would load real fixture data from the fixtures directory
+            // For now, return mock data
+            vec![0xDE, 0xAD, 0xBE, 0xEF]
+        }
+    }
 }
 
 #[cfg(test)]
 pub mod chunk_test_utils {
     use crate::state::{HeaderChunk, HeaderMetadata, CHUNK_DATA_SIZE};
     use crate::types::{ClientState, ConsensusState, IbcHeight, UploadChunkParams};
-    use anchor_lang::prelude::*;
     use anchor_lang::solana_program::keccak;
     use solana_sdk::account::Account;
     use solana_sdk::pubkey::Pubkey;
@@ -302,6 +336,8 @@ pub mod chunk_test_utils {
         chunk_index: u8,
         chunk_data: Vec<u8>,
     ) -> Account {
+        use anchor_lang::AccountSerialize;
+
         let chunk_hash = keccak::hash(&chunk_data).0;
         let chunk = HeaderChunk {
             chain_id: chain_id.to_string(),
@@ -313,7 +349,7 @@ pub mod chunk_test_utils {
         };
 
         let mut data = vec![];
-        chunk.serialize(&mut data).unwrap();
+        chunk.try_serialize(&mut data).unwrap();
 
         Account {
             lamports: 1_500_000, // Rent
@@ -330,6 +366,8 @@ pub mod chunk_test_utils {
         total_chunks: u8,
         header_commitment: [u8; 32],
     ) -> Account {
+        use anchor_lang::AccountSerialize;
+
         let metadata = HeaderMetadata {
             chain_id: chain_id.to_string(),
             target_height,
@@ -340,7 +378,7 @@ pub mod chunk_test_utils {
         };
 
         let mut data = vec![];
-        metadata.serialize(&mut data).unwrap();
+        metadata.try_serialize(&mut data).unwrap();
 
         Account {
             lamports: 2_000_000, // Rent
@@ -352,6 +390,8 @@ pub mod chunk_test_utils {
     }
 
     pub fn create_client_state_account(chain_id: &str, latest_height: u64) -> Account {
+        use anchor_lang::AccountSerialize;
+
         let client_state = ClientState {
             chain_id: chain_id.to_string(),
             trust_level_numerator: 2,
@@ -370,7 +410,7 @@ pub mod chunk_test_utils {
         };
 
         let mut data = vec![];
-        client_state.serialize(&mut data).unwrap();
+        client_state.try_serialize(&mut data).unwrap();
 
         Account {
             lamports: 1_000_000,
@@ -386,14 +426,20 @@ pub mod chunk_test_utils {
         next_validators_hash: [u8; 32],
         timestamp: u64,
     ) -> Account {
-        let consensus_state = ConsensusState {
-            timestamp,
-            root,
-            next_validators_hash,
+        use crate::state::ConsensusStateStore;
+        use anchor_lang::AccountSerialize;
+
+        let consensus_state_store = ConsensusStateStore {
+            height: 0, // Will be set by the actual instruction
+            consensus_state: ConsensusState {
+                timestamp,
+                root,
+                next_validators_hash,
+            },
         };
 
         let mut data = vec![];
-        consensus_state.serialize(&mut data).unwrap();
+        consensus_state_store.try_serialize(&mut data).unwrap();
 
         Account {
             lamports: 1_000_000,
