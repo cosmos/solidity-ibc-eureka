@@ -29,7 +29,6 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/attestorlightclient"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcerc20"
@@ -145,6 +144,8 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 
 			require.NoError(t, err)
 			require.NotEmpty(t, resp.Commitment)
+
+			t.Logf("Cosmos transfer packet commitment: 0x%x", resp.Commitment)
 		})
 
 		var cosmosToEVMTxBody []byte
@@ -412,17 +413,12 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	latestCosmosHeader, err := cosmosChain.GetFullNode().Client.Header(ctx, nil)
 	require.NoError(t, err, "unable to get latest cosmos header")
 
-	var (
-		cosmosBlockHeight    = latestCosmosHeader.Header.Height
-		cosmosBlockTimestamp = latestCosmosHeader.Header.Time.Unix()
-	)
-
 	cosmosLCParams := map[string]string{
 		// see contracts/light-clients/AttestorLightClient.sol constructor(...)
 		tv.ParameterKey_AttestorAddresses: attestorAddress.Hex(),
 		tv.ParameterKey_MinRequiredSigs:   "1",
-		tv.ParameterKey_height:            strconv.FormatInt(cosmosBlockHeight, 10),
-		tv.ParameterKey_timestamp:         strconv.FormatInt(cosmosBlockTimestamp, 10),
+		tv.ParameterKey_height:            strconv.FormatInt(latestCosmosHeader.Header.Height, 10),
+		tv.ParameterKey_timestamp:         strconv.FormatInt(latestCosmosHeader.Header.Time.Unix(), 10),
 		// Light client proof submission is executed by ICS26Router; grant role to router
 		tv.ParameterKey_RoleManager: evmContracts.ICS26RouterAddress.Hex(),
 	}
@@ -453,18 +449,15 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	evmBlockHeader, err := evmChain.RPCClient.HeaderByNumber(ctx, nil)
 	require.NoError(t, err, "unable to get evm block header")
 
-	var (
-		evmBlockHeight    = evmBlockHeader.Number.Int64()
-		evmBlockTimestamp = evmBlockHeader.Time
-	)
-
 	evmLCParams := map[string]string{
 		tv.ParameterKey_ChecksumHex:       checksumHex,
 		tv.ParameterKey_AttestorAddresses: attestorAddress.Hex(),
 		tv.ParameterKey_MinRequiredSigs:   "1",
-		tv.ParameterKey_height:            strconv.FormatInt(evmBlockHeight, 10),
-		tv.ParameterKey_timestamp:         fmt.Sprintf("%d", evmBlockTimestamp),
+		tv.ParameterKey_height:            strconv.FormatInt(evmBlockHeader.Number.Int64(), 10),
+		tv.ParameterKey_timestamp:         fmt.Sprintf("%d", evmBlockHeader.Time),
 	}
+
+	t.Logf("EVM LC params: %+v", evmLCParams)
 
 	resp, err = relayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
 		SrcChain:   evmChain.ChainID.String(),
@@ -492,7 +485,7 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 		tv.CustomClientID,
 		ics26router.IICS02ClientMsgsCounterpartyInfo{
 			ClientId:     wasmClientID,
-			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+			MerklePrefix: [][]byte{[]byte("")},
 		},
 		evmContracts.LightClientAddress,
 	)
