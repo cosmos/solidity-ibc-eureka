@@ -365,8 +365,13 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	require.NoError(t, err, "unable to get attestation service client")
 
 	// evm address for Cosmos attestor
-	attestorAddress, err := attestor.ReadAttestorAddress(attestor.CosmosBinary)
+	attestorAddressStr, err := attestor.ReadAttestorAddress(attestor.CosmosBinary)
 	require.NoError(t, err, "unable to read attestor address")
+
+	attestorAddress := ethcommon.HexToAddress(attestorAddressStr)
+	require.NotEqual(t, ethcommon.Address{}, attestorAddress, "attestor address should not be empty")
+
+	t.Logf("Attestor address: %s", attestorAddress.Hex())
 
 	// 4. Deploy IBC contracts
 	out, err := base.EthChain.ForgeScript(evmDeployer, tv.E2EDeployScriptPath)
@@ -412,18 +417,22 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 		cosmosBlockTimestamp = latestCosmosHeader.Header.Time.Unix()
 	)
 
+	cosmosLCParams := map[string]string{
+		// see contracts/light-clients/AttestorLightClient.sol constructor(...)
+		tv.ParameterKey_AttestorAddresses: attestorAddress.Hex(),
+		tv.ParameterKey_MinRequiredSigs:   "1",
+		tv.ParameterKey_height:            strconv.FormatInt(cosmosBlockHeight, 10),
+		tv.ParameterKey_timestamp:         strconv.FormatInt(cosmosBlockTimestamp, 10),
+		// Light client proof submission is executed by ICS26Router; grant role to router
+		tv.ParameterKey_RoleManager: evmContracts.ICS26RouterAddress.Hex(),
+	}
+
+	t.Logf("Cosmos LC params: %+v", cosmosLCParams)
+
 	resp, err := relayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
-		SrcChain: cosmosChain.Config().ChainID,
-		DstChain: evmChain.ChainID.String(),
-		Parameters: map[string]string{
-			// see contracts/light-clients/AttestorLightClient.sol constructor(...)
-			tv.ParameterKey_AttestorAddresses: ethcommon.HexToAddress(attestorAddress).Hex(),
-			tv.ParameterKey_MinRequiredSigs:   "1",
-			tv.ParameterKey_height:            strconv.FormatInt(cosmosBlockHeight, 10),
-			tv.ParameterKey_timestamp:         strconv.FormatInt(cosmosBlockTimestamp, 10),
-			// Light client proof submission is executed by ICS26Router; grant role to router
-			tv.ParameterKey_RoleManager: evmContracts.ICS26RouterAddress.Hex(),
-		},
+		SrcChain:   cosmosChain.Config().ChainID,
+		DstChain:   evmChain.ChainID.String(),
+		Parameters: cosmosLCParams,
 	})
 
 	require.NoError(t, err, "unable to create cosmos light-client tx")
@@ -449,17 +458,20 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 		evmBlockTimestamp = evmBlockHeader.Time
 	)
 
+	evmLCParams := map[string]string{
+		tv.ParameterKey_ChecksumHex:       checksumHex,
+		tv.ParameterKey_AttestorAddresses: attestorAddress.Hex(),
+		tv.ParameterKey_MinRequiredSigs:   "1",
+		tv.ParameterKey_height:            strconv.FormatInt(evmBlockHeight, 10),
+		tv.ParameterKey_timestamp:         fmt.Sprintf("%d", evmBlockTimestamp),
+	}
+
 	resp, err = relayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
-		SrcChain: evmChain.ChainID.String(),
-		DstChain: cosmosChain.Config().ChainID,
-		Parameters: map[string]string{
-			tv.ParameterKey_ChecksumHex:       checksumHex,
-			tv.ParameterKey_AttestorAddresses: ethcommon.HexToAddress(attestorAddress).Hex(),
-			tv.ParameterKey_MinRequiredSigs:   "1",
-			tv.ParameterKey_height:            strconv.FormatInt(evmBlockHeight, 10),
-			tv.ParameterKey_timestamp:         fmt.Sprintf("%d", evmBlockTimestamp),
-		},
+		SrcChain:   evmChain.ChainID.String(),
+		DstChain:   cosmosChain.Config().ChainID,
+		Parameters: evmLCParams,
 	})
+
 	require.NoError(t, err, "unable to create evm light-client tx")
 	require.NotEmpty(t, resp.Tx, "tx is empty")
 
