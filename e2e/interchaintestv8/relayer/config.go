@@ -12,6 +12,7 @@ import (
 const (
 	ModuleCosmosToCosmos      = "cosmos_to_cosmos"
 	ModuleCosmosToEth         = "cosmos_to_eth"
+	ModuleCosmosToEthAttested = "cosmos_to_eth_attested"
 	ModuleEthToCosmos         = "eth_to_cosmos"
 	ModuleEthToCosmosCompat   = "eth_to_cosmos_compat"
 	ModuleEthToCosmosAttested = "eth_to_cosmos_attested"
@@ -131,4 +132,13 @@ type EthToCosmosAttestedModuleConfig struct {
 	Ics26Address     string           `json:"ics26_address"`
 	TmRpcUrl         string           `json:"tm_rpc_url"`
 	SignerAddress    string           `json:"signer_address"`
+}
+
+// CosmosToEthAttestedModuleConfig represents the configuration for cosmos_to_eth_attested module
+type CosmosToEthAttestedModuleConfig struct {
+	AttestedChainId  string           `json:"attested_chain_id"`
+	AggregatorConfig AggregatorConfig `json:"aggregator_config"`
+	AttestedRpcUrl   string           `json:"attested_rpc_url"`
+	Ics26Address     string           `json:"ics26_address"`
+	EthRpcUrl        string           `json:"eth_rpc_url"`
 }

@@ -1,6 +1,7 @@
 # End to End Testing Suite with Interchaintest
 
-The e2e tests are built using the [interchaintest](https://github.com/cosmos/interchaintest) library. It runs multiple docker container validators, and lets you test IBC enabled smart contracts.
+The e2e tests are built using the [interchaintest](https://github.com/cosmos/interchaintest) library. 
+It runs multiple docker container validators, and lets you test IBC enabled smart contracts.
 
 These end to end tests are designed to run in the CI, but you can also run them locally.
 
@@ -26,6 +27,6 @@ just test-e2e $TEST_SUITE_FN/$TEST_NAME
 # For example, to run the `TestDeploy` test, you would run:
 just test-e2e TestWithIbcEurekaTestSuite/Test_Deploy
 
-# Altneratively:
+# Alternatively:
 just test-e2e-eureka Test_Deploy
 ```
