@@ -4,7 +4,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use anchor_lang::AnchorSerialize;
+use anchor_lang::prelude::*;
 use anyhow::Result;
 use ibc_eureka_relayer_lib::events::EurekaEvent;
 use ibc_eureka_relayer_lib::utils::{to_32_bytes_exact, to_32_bytes_padded};
@@ -15,6 +15,7 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
+    keccak,
     pubkey::Pubkey,
     signature::Signature,
     sysvar,
@@ -42,6 +43,94 @@ const MAX_CLOCK_DRIFT_SECONDS: u64 = 15;
 
 /// Mock proof data for testing purposes
 const MOCK_PROOF_DATA: &[u8] = b"mock";
+
+/// Maximum size for a header chunk (matches `CHUNK_DATA_SIZE` in Solana program)
+const MAX_CHUNK_SIZE: usize = 900;
+
+/// Parameters for uploading a header chunk (mirrors the Solana program's type)
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+struct UploadChunkParams {
+    chain_id: String,
+    target_height: u64,
+    chunk_index: u8,
+    total_chunks: u8,
+    chunk_data: Vec<u8>,
+    chunk_hash: [u8; 32],
+    header_commitment: [u8; 32],
+}
+
+/// Parameters for building chunk transactions
+struct ChunkTxParams<'a> {
+    chunk_data: &'a [u8],
+    chain_id: &'a str,
+    target_height: u64,
+    chunk_index: u8,
+    total_chunks: u8,
+    header_commitment: [u8; 32],
+    recent_blockhash: solana_sdk::hash::Hash,
+}
+
+/// Organized transactions for chunked update client
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct ChunkedUpdateTransactions {
+    /// First chunk transaction (creates metadata, must be submitted first)
+    pub first_chunk_tx: Transaction,
+    /// Remaining chunk transactions (can be submitted in parallel)
+    pub parallel_chunk_txs: Vec<Transaction>,
+    /// Final assembly transaction (must be submitted last)
+    pub assembly_tx: Transaction,
+    /// Total number of chunks
+    pub total_chunks: usize,
+    /// Target height being updated to
+    pub target_height: u64,
+}
+
+/// Solana relay transactions including chunked update and packet processing
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct SolanaRelayTransactions {
+    /// Chunked update client transactions (must be submitted first)
+    pub update_client: Option<ChunkedUpdateTransactions>,
+    /// Packet relay transactions (submitted after client update)
+    pub packet_txs: Vec<Transaction>,
+}
+
+/// Helper to derive header chunk PDA
+fn derive_header_chunk(
+    submitter: &Pubkey,
+    chain_id: &str,
+    height: u64,
+    chunk_index: u8,
+    program_id: &Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            b"header_chunk",
+            submitter.as_ref(),
+            chain_id.as_bytes(),
+            &height.to_le_bytes(),
+            &[chunk_index],
+        ],
+        program_id,
+    )
+}
+
+/// Helper to derive header metadata PDA
+fn derive_header_metadata(
+    submitter: &Pubkey,
+    chain_id: &str,
+    height: u64,
+    program_id: &Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            b"header_metadata",
+            submitter.as_ref(),
+            chain_id.as_bytes(),
+            &height.to_le_bytes(),
+        ],
+        program_id,
+    )
+}
 
 /// Parameters for building a `RecvPacket` instruction
 struct RecvPacketParams<'a> {
@@ -319,73 +408,156 @@ impl TxBuilder {
         Ok(events)
     }
 
-    /// Build a Solana transaction from IBC events
+    /// Build Solana relay transactions with optional chunked update client
+    ///
+    /// Returns separate transactions for the chunked update client and packet relaying.
+    /// The update client transactions must be submitted first in the correct order:
+    /// 1. First chunk transaction
+    /// 2. Parallel chunk transactions (can be submitted in parallel)
+    /// 3. Assembly transaction
+    /// 4. Packet relay transactions
     ///
     /// # Errors
     ///
     /// Returns an error if:
-    /// - Failed to build update client instruction
-    /// - No instructions to execute
-    #[allow(clippy::cognitive_complexity)] // TODO: Refactor when all event types are fully implemented
-    pub async fn build_solana_tx(
+    /// - Failed to build update client transactions
+    /// - Failed to build packet instructions
+    pub async fn build_solana_relay_txs_with_options(
+        &self,
+        client_id: String,
+        src_events: Vec<CosmosIbcEvent>,
+        target_events: Vec<CosmosIbcEvent>,
+        skip_update_client: bool,
+    ) -> Result<SolanaRelayTransactions> {
+        // Build optional update client
+        let update_client = self
+            .build_optional_update_client(
+                client_id,
+                skip_update_client,
+                !src_events.is_empty() || !target_events.is_empty(),
+            )
+            .await?;
+
+        // Build packet relay transactions
+        let packet_txs = self.build_packet_transactions(src_events, target_events)?;
+
+        Ok(SolanaRelayTransactions {
+            update_client,
+            packet_txs,
+        })
+    }
+
+    /// Build optional update client based on conditions
+    async fn build_optional_update_client(
+        &self,
+        client_id: String,
+        skip_update_client: bool,
+        has_events: bool,
+    ) -> Result<Option<ChunkedUpdateTransactions>> {
+        if !skip_update_client && has_events {
+            Ok(Some(self.build_chunked_update_client_txs(client_id).await?))
+        } else {
+            if skip_update_client {
+                tracing::info!("Skipping update client as requested");
+            }
+            Ok(None)
+        }
+    }
+
+    /// Build packet relay transactions from events
+    fn build_packet_transactions(
         &self,
         src_events: Vec<CosmosIbcEvent>,
         target_events: Vec<CosmosIbcEvent>,
-    ) -> Result<Transaction> {
-        let mut instructions = Vec::new();
+    ) -> Result<Vec<Transaction>> {
+        let mut packet_txs = Vec::new();
 
-        // First, update the Tendermint light client on Solana
-        let update_client_ix = self.build_update_client_instruction().await?;
-        instructions.push(update_client_ix);
-
-        // Process source events from Cosmos
-        for event in src_events {
-            match event {
-                CosmosIbcEvent::SendPacket {
-                    sequence,
-                    source_client,
-                    destination_client,
-                    payloads,
-                    timeout_timestamp,
-                } => {
-                    let recv_packet_ix = self.build_recv_packet_instruction(&RecvPacketParams {
-                        sequence,
-                        source_client: &source_client,
-                        destination_client: &destination_client,
-                        payloads: &payloads,
-                        timeout_timestamp,
-                    })?;
-                    instructions.push(recv_packet_ix);
-                }
-                CosmosIbcEvent::AcknowledgePacket { .. } => {
-                    tracing::debug!("Building acknowledgement instruction");
-                }
-                CosmosIbcEvent::TimeoutPacket { .. } => {
-                    tracing::debug!("Building timeout instruction");
-                }
-            }
-        }
-
-        for event in target_events {
-            tracing::debug!(?event, "Processing timeout event");
-        }
-
-        if instructions.is_empty() {
-            anyhow::bail!("No instructions to execute on Solana");
-        }
-
-        // Create unsigned transaction
-        let mut tx = Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
-
-        // Get recent blockhash for the transaction
+        // Get recent blockhash for packet transactions
         let recent_blockhash = self
             .solana_client
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
-        tx.message.recent_blockhash = recent_blockhash;
+        // Process source events from Cosmos
+        for event in src_events {
+            if let Some(tx) = self.build_packet_tx_from_event(event, recent_blockhash)? {
+                packet_txs.push(tx);
+            }
+        }
 
-        Ok(tx)
+        // Process target events (for timeouts)
+        for event in target_events {
+            tracing::debug!(?event, "Processing timeout event from Solana");
+        }
+
+        Ok(packet_txs)
+    }
+
+    /// Build a packet transaction from a single event
+    fn build_packet_tx_from_event(
+        &self,
+        event: CosmosIbcEvent,
+        recent_blockhash: solana_sdk::hash::Hash,
+    ) -> Result<Option<Transaction>> {
+        let mut instructions = Vec::new();
+
+        match event {
+            CosmosIbcEvent::SendPacket {
+                sequence,
+                source_client,
+                destination_client,
+                payloads,
+                timeout_timestamp,
+            } => {
+                let recv_packet_ix = self.build_recv_packet_instruction(&RecvPacketParams {
+                    sequence,
+                    source_client: &source_client,
+                    destination_client: &destination_client,
+                    payloads: &payloads,
+                    timeout_timestamp,
+                })?;
+                instructions.push(recv_packet_ix);
+            }
+            CosmosIbcEvent::AcknowledgePacket { .. } => {
+                tracing::debug!("Building acknowledgement instruction - not yet implemented");
+            }
+            CosmosIbcEvent::TimeoutPacket { .. } => {
+                tracing::debug!("Building timeout instruction - not yet implemented");
+            }
+        }
+
+        if instructions.is_empty() {
+            Ok(None)
+        } else {
+            let mut tx = Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
+            tx.message.recent_blockhash = recent_blockhash;
+            Ok(Some(tx))
+        }
+    }
+
+    /// Build Solana relay transactions with chunked update client
+    ///
+    /// Convenience method that includes update client by default.
+    /// Use `build_solana_relay_txs_with_options` to skip update client.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to build update client transactions
+    /// - Failed to build packet instructions
+    pub async fn build_solana_relay_txs(
+        &self,
+        client_id: String,
+        src_events: Vec<CosmosIbcEvent>,
+        target_events: Vec<CosmosIbcEvent>,
+    ) -> Result<SolanaRelayTransactions> {
+        self.build_solana_relay_txs_with_options(
+            client_id,
+            src_events,
+            target_events,
+            false, // Don't skip update client by default
+        )
+        .await
     }
 
     /// Build instruction to update Tendermint light client on Solana
@@ -662,16 +834,400 @@ impl TxBuilder {
         Ok(tx)
     }
 
-    /// Build an update client transaction for Solana
+    /// Build chunked update client transactions for Solana
+    ///
+    /// Since Tendermint headers always exceed Solana's transaction size limit,
+    /// this method splits the header into chunks and creates multiple transactions.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to get latest block from Cosmos
+    /// - Failed to serialize header
+    /// - Failed to get blockhash from Solana
+    pub async fn build_chunked_update_client_txs(
+        &self,
+        client_id: String,
+    ) -> Result<ChunkedUpdateTransactions> {
+        tracing::info!(
+            "Building chunked update client transactions for client {}",
+            client_id
+        );
+
+        // Fetch block data and create header
+        let (header_bytes, chain_id, target_height, trusted_height) =
+            self.prepare_header_for_chunking().await?;
+
+        // Calculate header commitment and split into chunks
+        let header_commitment = keccak::hash(&header_bytes).0;
+        let chunks = Self::split_header_into_chunks(&header_bytes);
+        let total_chunks = u8::try_from(chunks.len())
+            .map_err(|_| anyhow::anyhow!("Too many chunks: {} exceeds u8 max", chunks.len()))?;
+
+        tracing::info!(
+            "Header size: {} bytes, split into {} chunks",
+            header_bytes.len(),
+            total_chunks
+        );
+
+        // Get recent blockhash for all transactions
+        let recent_blockhash = self
+            .solana_client
+            .get_latest_blockhash()
+            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
+
+        // Build all chunk transactions
+        let (first_chunk_tx, parallel_chunk_txs) = self.build_chunk_transactions(
+            &chunks,
+            &chain_id,
+            target_height,
+            total_chunks,
+            header_commitment,
+            recent_blockhash,
+        )?;
+
+        // Build assembly transaction
+        let assembly_tx = self.build_assembly_transaction(
+            &chain_id,
+            target_height,
+            trusted_height,
+            total_chunks,
+            recent_blockhash,
+        );
+
+        Ok(ChunkedUpdateTransactions {
+            first_chunk_tx,
+            parallel_chunk_txs,
+            assembly_tx,
+            total_chunks: total_chunks as usize,
+            target_height,
+        })
+    }
+
+    /// Prepare header data for chunking by fetching blocks and creating header
+    async fn prepare_header_for_chunking(&self) -> Result<(Vec<u8>, String, u64, u64)> {
+        // Get latest block from Cosmos
+        let latest_block = self
+            .source_tm_client
+            .latest_block()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
+
+        // Get the target light block (latest from source chain)
+        let target_light_block = self.source_tm_client.get_light_block(None).await?;
+
+        // Get trusted light block from previous height
+        let trusted_height = latest_block.block.header.height.value().saturating_sub(1);
+        let trusted_light_block = self
+            .source_tm_client
+            .get_light_block(Some(trusted_height))
+            .await?;
+
+        tracing::info!(
+            "Generating chunked Solana update client header from height: {} to height: {}",
+            trusted_height,
+            target_light_block.height().value()
+        );
+
+        // Create the header
+        let proposed_header = target_light_block.into_header(&trusted_light_block);
+        let header_bytes = proposed_header.encode_to_vec();
+
+        let chain_id = latest_block.block.header.chain_id.to_string();
+        let target_height = latest_block.block.header.height.value();
+
+        Ok((header_bytes, chain_id, target_height, trusted_height))
+    }
+
+    /// Split header into chunks of `MAX_CHUNK_SIZE`
+    fn split_header_into_chunks(header_bytes: &[u8]) -> Vec<Vec<u8>> {
+        header_bytes
+            .chunks(MAX_CHUNK_SIZE)
+            .map(<[u8]>::to_vec)
+            .collect()
+    }
+
+    /// Build chunk upload transactions
+    fn build_chunk_transactions(
+        &self,
+        chunks: &[Vec<u8>],
+        chain_id: &str,
+        target_height: u64,
+        total_chunks: u8,
+        header_commitment: [u8; 32],
+        recent_blockhash: solana_sdk::hash::Hash,
+    ) -> Result<(Transaction, Vec<Transaction>)> {
+        // Build first chunk transaction separately
+        let first_chunk_tx = self.build_single_chunk_transaction(&ChunkTxParams {
+            chunk_data: &chunks[0],
+            chain_id,
+            target_height,
+            chunk_index: 0,
+            total_chunks,
+            header_commitment,
+            recent_blockhash,
+        })?;
+
+        // Build remaining chunk transactions (can be submitted in parallel)
+        let mut parallel_chunk_txs = Vec::new();
+        for (index, chunk_data) in chunks.iter().enumerate().skip(1) {
+            let chunk_index = u8::try_from(index)
+                .map_err(|_| anyhow::anyhow!("Chunk index {} exceeds u8 max", index))?;
+            let chunk_tx = self.build_single_chunk_transaction(&ChunkTxParams {
+                chunk_data,
+                chain_id,
+                target_height,
+                chunk_index,
+                total_chunks,
+                header_commitment,
+                recent_blockhash,
+            })?;
+            parallel_chunk_txs.push(chunk_tx);
+        }
+
+        Ok((first_chunk_tx, parallel_chunk_txs))
+    }
+
+    /// Build a single chunk upload transaction
+    fn build_single_chunk_transaction(&self, params: &ChunkTxParams) -> Result<Transaction> {
+        let chunk_hash = keccak::hash(params.chunk_data).0;
+
+        let upload_ix = self.build_upload_header_chunk_instruction(
+            params.chain_id,
+            params.target_height,
+            params.chunk_index,
+            params.total_chunks,
+            params.chunk_data.to_vec(),
+            chunk_hash,
+            params.header_commitment,
+        )?;
+
+        let mut tx = Transaction::new_with_payer(&[upload_ix], Some(&self.fee_payer));
+        tx.message.recent_blockhash = params.recent_blockhash;
+
+        Ok(tx)
+    }
+
+    /// Build the assembly transaction
+    fn build_assembly_transaction(
+        &self,
+        chain_id: &str,
+        target_height: u64,
+        trusted_height: u64,
+        total_chunks: u8,
+        recent_blockhash: solana_sdk::hash::Hash,
+    ) -> Transaction {
+        let assembly_instruction = self.build_assemble_and_update_client_instruction(
+            chain_id,
+            target_height,
+            trusted_height,
+            total_chunks,
+        );
+
+        let mut assembly_tx =
+            Transaction::new_with_payer(&[assembly_instruction], Some(&self.fee_payer));
+        assembly_tx.message.recent_blockhash = recent_blockhash;
+
+        assembly_tx
+    }
+
+    /// Build instruction for uploading a header chunk
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails
+    #[allow(clippy::too_many_arguments)]
+    fn build_upload_header_chunk_instruction(
+        &self,
+        chain_id: &str,
+        target_height: u64,
+        chunk_index: u8,
+        total_chunks: u8,
+        chunk_data: Vec<u8>,
+        chunk_hash: [u8; 32],
+        header_commitment: [u8; 32],
+    ) -> Result<Instruction> {
+        // Create upload chunk params
+        let params = UploadChunkParams {
+            chain_id: chain_id.to_string(),
+            target_height,
+            chunk_index,
+            total_chunks,
+            chunk_data,
+            chunk_hash,
+            header_commitment,
+        };
+
+        // Derive PDAs
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+        let (chunk_pda, _) = derive_header_chunk(
+            &self.fee_payer,
+            chain_id,
+            target_height,
+            chunk_index,
+            &self.solana_ics07_program_id,
+        );
+        let (metadata_pda, _) = derive_header_metadata(
+            &self.fee_payer,
+            chain_id,
+            target_height,
+            &self.solana_ics07_program_id,
+        );
+
+        // Build accounts
+        let accounts = vec![
+            AccountMeta::new(chunk_pda, false),
+            AccountMeta::new(metadata_pda, false),
+            AccountMeta::new_readonly(client_state_pda, false),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        // Build instruction data
+        let discriminator = get_instruction_discriminator("upload_header_chunk");
+        let mut data = discriminator.to_vec();
+        data.extend_from_slice(&params.try_to_vec()?);
+
+        Ok(Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data,
+        })
+    }
+
+    /// Build instruction for assembling chunks and updating the client
+    fn build_assemble_and_update_client_instruction(
+        &self,
+        chain_id: &str,
+        target_height: u64,
+        trusted_height: u64,
+        total_chunks: u8,
+    ) -> Instruction {
+        // Derive PDAs
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+        let (metadata_pda, _) = derive_header_metadata(
+            &self.fee_payer,
+            chain_id,
+            target_height,
+            &self.solana_ics07_program_id,
+        );
+        let (trusted_consensus_state, _) = derive_ics07_consensus_state(
+            &client_state_pda,
+            trusted_height,
+            &self.solana_ics07_program_id,
+        );
+        let (new_consensus_state, _) = derive_ics07_consensus_state(
+            &client_state_pda,
+            target_height,
+            &self.solana_ics07_program_id,
+        );
+
+        // Build accounts
+        let mut accounts = vec![
+            AccountMeta::new(client_state_pda, false),
+            AccountMeta::new(metadata_pda, false),
+            AccountMeta::new_readonly(trusted_consensus_state, false),
+            AccountMeta::new(new_consensus_state, false),
+            AccountMeta::new(self.fee_payer, false), // submitter who gets rent back
+            AccountMeta::new(self.fee_payer, true),  // payer for new consensus state
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        // Add chunk accounts as remaining accounts
+        for chunk_index in 0..total_chunks {
+            let (chunk_pda, _) = derive_header_chunk(
+                &self.fee_payer,
+                chain_id,
+                target_height,
+                chunk_index,
+                &self.solana_ics07_program_id,
+            );
+            accounts.push(AccountMeta::new(chunk_pda, false));
+        }
+
+        // Build instruction data
+        let discriminator = get_instruction_discriminator("assemble_and_update_client");
+
+        Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data: discriminator.to_vec(),
+        }
+    }
+
+    /// Build instruction for cleaning up incomplete uploads
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if PDA derivation fails
+    pub fn build_cleanup_incomplete_upload_instruction(
+        &self,
+        chain_id: &str,
+        cleanup_height: u64,
+        total_chunks: u8,
+    ) -> Result<Instruction> {
+        // Derive PDAs
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+        let (metadata_pda, _) = derive_header_metadata(
+            &self.fee_payer,
+            chain_id,
+            cleanup_height,
+            &self.solana_ics07_program_id,
+        );
+
+        // Build accounts
+        let mut accounts = vec![
+            AccountMeta::new_readonly(client_state_pda, false),
+            AccountMeta::new(metadata_pda, false),
+            AccountMeta::new(self.fee_payer, true), // submitter_account
+        ];
+
+        // Add chunk accounts as remaining accounts to close
+        for chunk_index in 0..total_chunks {
+            let (chunk_pda, _) = derive_header_chunk(
+                &self.fee_payer,
+                chain_id,
+                cleanup_height,
+                chunk_index,
+                &self.solana_ics07_program_id,
+            );
+            accounts.push(AccountMeta::new(chunk_pda, false));
+        }
+
+        // Build instruction data
+        let discriminator = get_instruction_discriminator("cleanup_incomplete_upload");
+        let mut data = discriminator.to_vec();
+        // Add parameters: chain_id, cleanup_height, submitter
+        data.extend_from_slice(&chain_id.try_to_vec()?);
+        data.extend_from_slice(&cleanup_height.try_to_vec()?);
+        data.extend_from_slice(&self.fee_payer.try_to_vec()?);
+
+        Ok(Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data,
+        })
+    }
+
+    /// Build an update client transaction for Solana (DEPRECATED - use chunked version)
+    ///
+    /// This method is deprecated because Tendermint headers always exceed
+    /// Solana's transaction size limit. Use `build_chunked_update_client_txs` instead.
     ///
     /// # Errors
     ///
     /// Returns an error if:
     /// - Failed to get latest block
     /// - Failed to serialize header
+    #[deprecated(
+        note = "Use build_chunked_update_client_txs instead - headers exceed tx size limit"
+    )]
     pub async fn build_update_client_tx(&self, client_id: String) -> Result<Transaction> {
-        tracing::info!(
-            "Building update client transaction for client {}",
+        tracing::warn!(
+            "Using deprecated build_update_client_tx for client {} - headers will exceed tx size limit!",
             client_id
         );
 
