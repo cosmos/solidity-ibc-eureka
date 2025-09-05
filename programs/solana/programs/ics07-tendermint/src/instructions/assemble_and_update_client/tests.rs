@@ -206,14 +206,14 @@ fn test_successful_assembly_and_update() {
 
     // With real fixtures, this should either succeed or fail with a known error
     // The test demonstrates proper assembly with real header data
-    if !result.program_result.is_err() {
-        println!("Assembly succeeded with real fixtures");
-    } else {
+    if result.program_result.is_err() {
         // This might fail due to validation checks, but the assembly part works
         println!(
             "Assembly test completed with error: {:?}",
             result.program_result
         );
+    } else {
+        println!("Assembly succeeded with real fixtures");
     }
 }
 
@@ -629,15 +629,15 @@ fn test_rent_reclaim_after_assembly() {
 
     // With real fixtures, this should either succeed or fail with a known error
     // The test demonstrates proper assembly with real header data
-    if !result.program_result.is_err() {
-        // Verify metadata and chunks were closed (rent returned)
-        println!("Assembly succeeded with real fixtures");
-    } else {
+    if result.program_result.is_err() {
         // This might fail due to validation checks, but the assembly part works
         println!(
             "Assembly test completed with error: {:?}",
             result.program_result
         );
+    } else {
+        // Verify metadata and chunks were closed (rent returned)
+        println!("Assembly succeeded with real fixtures");
     }
 }
 
@@ -746,7 +746,14 @@ fn test_assemble_and_update_client_happy_path() {
     let result = mollusk.process_instruction(&instruction, &accounts);
 
     // With real fixtures from Tendermint, this should succeed
-    if !result.program_result.is_err() {
+    if result.program_result.is_err() {
+        // This might still fail due to missing Clock sysvar or other setup
+        // but the test demonstrates the proper approach with real fixtures
+        println!(
+            "Test failed with real fixtures: {:?}",
+            result.program_result
+        );
+    } else {
         // Verify the client state was updated
         let client_state_account = result
             .resulting_accounts
@@ -781,13 +788,6 @@ fn test_assemble_and_update_client_happy_path() {
         assert!(
             new_consensus_account.owner == crate::ID,
             "New consensus state should be owned by program"
-        );
-    } else {
-        // This might still fail due to missing Clock sysvar or other setup
-        // but the test demonstrates the proper approach with real fixtures
-        println!(
-            "Test failed with real fixtures: {:?}",
-            result.program_result
         );
     }
 }
@@ -1008,7 +1008,7 @@ fn test_assemble_updates_latest_height() {
 
     // Split the real header into chunks
     let header_commitment = keccak::hash(&client_message_bytes).0;
-    let chunks = vec![
+    let chunks = [
         client_message_bytes[0..client_message_bytes.len() / 2].to_vec(),
         client_message_bytes[client_message_bytes.len() / 2..].to_vec(),
     ];
@@ -1091,7 +1091,10 @@ fn test_assemble_updates_latest_height() {
     let result = mollusk.process_instruction(&instruction, &accounts);
 
     // With real fixtures, verify the client state update
-    if !result.program_result.is_err() {
+    if result.program_result.is_err() {
+        // Log the error for debugging
+        println!("Test completed with error: {:?}", result.program_result);
+    } else {
         // Verify client state was updated to new height
         let updated_client_account = result
             .resulting_accounts
@@ -1109,8 +1112,5 @@ fn test_assemble_updates_latest_height() {
             updated_client.latest_height.revision_height, target_height,
             "Client state latest height should be updated"
         );
-    } else {
-        // Log the error for debugging
-        println!("Test completed with error: {:?}", result.program_result);
     }
 }
