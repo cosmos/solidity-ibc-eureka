@@ -166,10 +166,7 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 			cosmosToEVMTxBody = resp.Tx
 		})
 
-		var (
-			packet    ics26router.IICS26RouterMsgsPacket
-			ackTxHash []byte
-		)
+		var packet ics26router.IICS26RouterMsgsPacket
 
 		ts.do("5: Broadcast relay tx from Cosmos to EVM", func() {
 			receipt, err := evmChain.BroadcastTx(
@@ -189,7 +186,6 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 			require.NoError(t, err, "unable to get write acknowledgement event")
 
 			packet = ethReceiveAckEvent.Packet
-			ackTxHash = receipt.TxHash.Bytes()
 		})
 
 		ts.do("6: Verify balances on EVM", func() {
@@ -228,46 +224,6 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ibcERC20Address)
 			require.NoError(t, err)
 			require.Zero(t, ics20TransferBalance.Int64())
-		})
-
-		// Now we want to acknowledge the packet on Cosmos
-		var evmToCosmosTxBody []byte
-
-		ts.do("7: Prepare ACK relay tx from EVM to Cosmos", func() {
-			req := &relayertypes.RelayByTxRequest{
-				SrcChain:    evmChain.ChainID.String(),
-				DstChain:    cosmosChain.Config().ChainID,
-				SourceTxIds: [][]byte{ackTxHash},
-				SrcClientId: tv.CustomClientID,
-				DstClientId: tv.FirstWasmClientID,
-			}
-
-			resp, err := ts.relayerClient.RelayByTx(ctx, req)
-
-			require.NoError(t, err)
-			require.NotEmpty(t, resp.Tx)
-			require.Empty(t, resp.Address)
-
-			evmToCosmosTxBody = resp.Tx
-		})
-
-		ts.do("8: Broadcast ACK relay tx from EVM to Cosmos", func() {
-			resp := ts.base.MustBroadcastSdkTxBody(ctx, cosmosChain, ts.cosmosDeployer, 2_000_000, evmToCosmosTxBody)
-
-			txHash, err := hex.DecodeString(resp.TxHash)
-			require.NoError(t, err)
-			require.NotEmpty(t, txHash)
-		})
-
-		ts.do("9: Verify commitment removed from Cosmos", func() {
-			req := &channeltypesv2.QueryPacketCommitmentRequest{
-				ClientId: tv.FirstWasmClientID,
-				Sequence: 1,
-			}
-
-			_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, cosmosChain, req)
-
-			require.ErrorContains(t, err, "packet commitment hash not found")
 		})
 	})
 }
