@@ -84,6 +84,10 @@
               golangci-lint
               go
               gopls
+              protobuf
+              buf
+              protoc-gen-go
+              protoc-gen-go-grpc
             ];
             shellHook = ''
               export RUST_SRC_PATH="${rust}/lib/rustlib/src/rust/library"
