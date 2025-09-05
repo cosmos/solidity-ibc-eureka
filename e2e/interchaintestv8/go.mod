@@ -1,6 +1,6 @@
 module github.com/cosmos/solidity-ibc-eureka/e2e/v8
 
-go 1.24.3
+go 1.24.5
 
 require (
 	cosmossdk.io/api v0.9.2
@@ -16,6 +16,7 @@ require (
 	github.com/cosmos/ibc-go/v10 v10.3.0
 	github.com/cosmos/ics23/go v0.11.0
 	github.com/cosmos/interchaintest/v10 v10.0.0
+	github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor v0.0.0-00010101000000-000000000000
 	github.com/cosmos/solidity-ibc-eureka/packages/go-abigen v0.0.0
 	github.com/cosmos/solidity-ibc-eureka/packages/go-anchor v0.0.0
 	github.com/ethereum/go-ethereum v1.16.2
@@ -316,6 +317,8 @@ require (
 replace github.com/cosmos/solidity-ibc-eureka/packages/go-abigen => ../../packages/go-abigen
 
 replace github.com/cosmos/solidity-ibc-eureka/packages/go-anchor => ../../packages/go-anchor
+
+replace github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor => ./solana/go-anchor
 
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 

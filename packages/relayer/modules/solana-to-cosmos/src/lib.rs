@@ -8,6 +8,9 @@ pub mod tx_builder;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use anyhow::Result;
+use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
+
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use prost::Message;
 use solana_client::rpc_client::RpcClient;
@@ -21,11 +24,16 @@ use ibc_eureka_relayer_core::{
     api::{self, relayer_service_server::RelayerService},
     modules::RelayerModule,
 };
-use ibc_eureka_relayer_lib::utils::cosmos;
 
 /// The `SolanaToCosmosRelayerModule` struct defines the Solana to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
 pub struct SolanaToCosmosRelayerModule;
+
+/// Transaction builder for Solana to Cosmos relaying
+enum SolanaToCosmosTxBuilder {
+    Real(tx_builder::TxBuilder),
+    Mock(tx_builder::MockTxBuilder),
+}
 
 /// The `SolanaToCosmosRelayerModuleService` defines the relayer service from Solana to Cosmos.
 #[allow(dead_code)]
@@ -37,11 +45,9 @@ struct SolanaToCosmosRelayerModuleService {
     /// The target Cosmos tendermint client.
     pub target_tm_client: HttpClient,
     /// The transaction builder from Solana to Cosmos.
-    pub tx_builder: tx_builder::TxBuilder,
+    pub tx_builder: SolanaToCosmosTxBuilder,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: solana_sdk::pubkey::Pubkey,
-    /// Whether to use mock proofs for testing.
-    pub mock: bool,
 }
 
 /// The configuration for the Solana to Cosmos relayer module.
@@ -58,8 +64,55 @@ pub struct SolanaToCosmosConfig {
     pub signer_address: String,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: String,
-    /// Whether to use mock proofs for testing.
-    pub mock: bool,
+    /// Whether to use mock WASM client on Cosmos for testing.
+    pub mock_wasm_client: bool,
+    /// Whether to use mock Solana light client updates for testing.
+    pub mock_solana_client: bool,
+}
+
+impl SolanaToCosmosTxBuilder {
+    /// Build a relay transaction for Cosmos
+    fn build_relay_tx(
+        &self,
+        client_id: &str,
+        src_events: Vec<tx_builder::SolanaIbcEvent>,
+        target_events: Vec<tx_builder::SolanaIbcEvent>,
+    ) -> anyhow::Result<TxBody> {
+        match self {
+            Self::Real(tb) => tb.build_relay_tx(client_id, src_events, target_events),
+            Self::Mock(tb) => tb.build_relay_tx(client_id, src_events, target_events),
+        }
+    }
+
+    /// Build a create client transaction
+    fn build_create_client_tx(
+        &self,
+        parameters: &HashMap<String, String>,
+    ) -> anyhow::Result<TxBody> {
+        match self {
+            Self::Real(tb) => tb.build_create_client_tx(parameters),
+            Self::Mock(tb) => tb.build_create_client_tx(parameters),
+        }
+    }
+
+    /// Build an update client transaction
+    fn build_update_client_tx(&self, client_id: String) -> anyhow::Result<TxBody> {
+        match self {
+            Self::Real(tb) => tb.build_update_client_tx(client_id),
+            Self::Mock(tb) => tb.build_update_client_tx(client_id),
+        }
+    }
+
+    /// Fetch events from Solana transactions
+    fn fetch_solana_events(
+        &self,
+        tx_signatures: &[Signature],
+    ) -> anyhow::Result<Vec<tx_builder::SolanaIbcEvent>> {
+        match self {
+            Self::Real(tb) => tb.fetch_solana_events(tx_signatures),
+            Self::Mock(tb) => tb.inner.fetch_solana_events(tx_signatures),
+        }
+    }
 }
 
 impl SolanaToCosmosRelayerModuleService {
@@ -72,12 +125,21 @@ impl SolanaToCosmosRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana program ID: {e}"))?;
 
-        let tx_builder = tx_builder::TxBuilder::new(
-            Arc::clone(&solana_client),
-            target_client.clone(),
-            config.signer_address,
-            solana_ics26_program_id,
-        );
+        let tx_builder = if config.mock_wasm_client {
+            SolanaToCosmosTxBuilder::Mock(tx_builder::MockTxBuilder::new(
+                Arc::clone(&solana_client),
+                target_client.clone(),
+                config.signer_address,
+                solana_ics26_program_id,
+            ))
+        } else {
+            SolanaToCosmosTxBuilder::Real(tx_builder::TxBuilder::new(
+                Arc::clone(&solana_client),
+                target_client.clone(),
+                config.signer_address,
+                solana_ics26_program_id,
+            ))
+        };
 
         Ok(Self {
             solana_chain_id: config.solana_chain_id,
@@ -85,43 +147,7 @@ impl SolanaToCosmosRelayerModuleService {
             target_tm_client: target_client,
             tx_builder,
             solana_ics26_program_id,
-            mock: config.mock,
         })
-    }
-
-    /// Injects mock proofs into IBC messages in the transaction for testing purposes.
-    fn inject_mock_proofs_into_tx(
-        tx: &mut ibc_proto_eureka::cosmos::tx::v1beta1::TxBody,
-    ) -> anyhow::Result<()> {
-        use ibc_proto_eureka::ibc::core::channel::v2::{
-            MsgAcknowledgement, MsgRecvPacket, MsgTimeout,
-        };
-
-        for any_msg in &mut tx.messages {
-            match any_msg.type_url.as_str() {
-                url if url.contains("MsgRecvPacket") => {
-                    let msg = MsgRecvPacket::decode(any_msg.value.as_slice())?;
-                    let mut msgs = [msg];
-                    cosmos::inject_mock_proofs(&mut msgs, &mut [], &mut []);
-                    any_msg.value = msgs[0].encode_to_vec();
-                }
-                url if url.contains("MsgAcknowledgement") => {
-                    let msg = MsgAcknowledgement::decode(any_msg.value.as_slice())?;
-                    let mut msgs = [msg];
-                    cosmos::inject_mock_proofs(&mut [], &mut msgs, &mut []);
-                    any_msg.value = msgs[0].encode_to_vec();
-                }
-                url if url.contains("MsgTimeout") => {
-                    let msg = MsgTimeout::decode(any_msg.value.as_slice())?;
-                    let mut msgs = [msg];
-                    cosmos::inject_mock_proofs(&mut [], &mut [], &mut msgs);
-                    any_msg.value = msgs[0].encode_to_vec();
-                }
-                _ => {} // Skip messages we don't care about
-            }
-        }
-
-        Ok(())
     }
 }
 
@@ -164,8 +190,6 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         tracing::info!("Handling relay by tx request for Solana to Cosmos...");
 
         let inner_req = request.into_inner();
-        tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
-        tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
 
         // Parse Solana transaction signatures
         let src_txs: Vec<Signature> = inner_req
@@ -175,11 +199,17 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
                 let sig_str = String::from_utf8(tx_id).map_err(|e| {
                     tonic::Status::invalid_argument(format!("Invalid signature: {e}"))
                 })?;
+                tracing::trace!("Parsing signature: {}", sig_str);
                 sig_str
                     .parse::<Signature>()
                     .map_err(|e| tonic::Status::invalid_argument(format!("Invalid signature: {e}")))
             })
             .collect::<Result<Vec<_>, _>>()?;
+
+        tracing::debug!(
+            "Successfully parsed {} Solana transaction signatures",
+            src_txs.len()
+        );
 
         // Parse Cosmos transaction hashes for timeouts
         let _target_txs = inner_req
@@ -192,44 +222,29 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         // Fetch events from Solana transactions
         let src_events = self
             .tx_builder
-            .fetch_solana_events(src_txs)
+            .fetch_solana_events(&src_txs)
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::debug!(solana_src_events = ?src_events, "Fetched source Solana events.");
-        tracing::info!(
+        tracing::debug!(
             "Fetched {} source eureka events from Solana.",
             src_events.len()
         );
 
         // For timeouts from Cosmos - simplified for now
         let target_events = Vec::new();
-        tracing::info!(
+        tracing::debug!(
             "Fetched {} target eureka events from CosmosSDK.",
             target_events.len()
         );
 
         // Build the relay transaction
-        let mut tx = self
+        let tx = self
             .tx_builder
             .build_relay_tx(&inner_req.dst_client_id, src_events, target_events)
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        // Inject mock proofs if in mock mode
-        if self.mock {
-            tracing::info!("=== INJECTING MOCK PROOFS ===");
-            tracing::info!(
-                "Mock mode enabled, injecting mock proofs into {} messages",
-                tx.messages.len()
-            );
-            Self::inject_mock_proofs_into_tx(&mut tx).map_err(|e| {
-                tonic::Status::internal(format!("Failed to inject mock proofs: {e}"))
-            })?;
-            tracing::info!("Successfully injected mock proofs into transaction messages");
-        } else {
-            tracing::warn!("Mock mode disabled - no proofs will be injected!");
-        }
-
-        tracing::info!(
+        tracing::debug!(
             "Built {} messages for Solana to Cosmos relay.",
             tx.messages.len()
         );

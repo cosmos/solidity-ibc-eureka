@@ -20,7 +20,7 @@ pub struct WriteAcknowledgementEvent {
     pub client_id: String,
     pub sequence: u64,
     pub packet_data: Vec<u8>,
-    pub acknowledgements: Vec<u8>,
+    pub acknowledgements: Vec<Vec<u8>>,
 }
 
 /// Event emitted when a packet is acknowledged

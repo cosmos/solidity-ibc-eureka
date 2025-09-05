@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 pub use solana_ibc_types::{
-    IBCAppError, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg,
+    router::APP_STATE_SEED, IBCAppError, OnAcknowledgementPacketMsg, OnRecvPacketMsg,
+    OnTimeoutPacketMsg,
 };
 
 /// Dummy IBC App state
@@ -35,7 +36,6 @@ pub struct EscrowState {
 }
 
 /// Constants
-pub const APP_STATE_SEED: &[u8] = b"dummy_app_state";
 pub const ESCROW_STATE_SEED: &[u8] = b"escrow_state";
 pub const ESCROW_SEED: &[u8] = b"escrow";
 pub const ROUTER_CALLER_SEED: &[u8] = b"router_caller";

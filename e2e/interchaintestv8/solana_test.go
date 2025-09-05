@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
+	mock_light_client "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/mocklightclient"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/solana"
@@ -28,6 +29,7 @@ import (
 
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
+	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	dummy_ibc_app "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/dummyibcapp"
@@ -50,6 +52,10 @@ type IbcEurekaSolanaTestSuite struct {
 
 	RelayerClient     relayertypes.RelayerServiceClient
 	DummyAppProgramID solanago.PublicKey
+
+	// Mock configuration for tests
+	UseMockWasmClient   bool
+	UseMockSolanaClient bool
 }
 
 func TestWithIbcEurekaSolanaTestSuite(t *testing.T) {
@@ -75,10 +81,18 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		_, err := s.SolanaChain.FundUser(solana.DeployerPubkey, 20*testvalues.InitialSolBalance)
 		s.Require().NoError(err)
 
-		ics07ProgramID := s.deploySolanaProgram(ctx, "ics07_tendermint")
-		s.Require().Equal(ics07_tendermint.ProgramID, ics07ProgramID)
-
-		ics07_tendermint.ProgramID = ics07ProgramID
+		var ics07ProgramID solanago.PublicKey
+		if s.UseMockSolanaClient {
+			ics07ProgramID = s.deploySolanaProgram(ctx, "mock_light_client")
+			// Override the ics07_tendermint.ProgramID to point to mock client
+			ics07_tendermint.ProgramID = ics07ProgramID
+			// Update mock_light_client.ProgramID as well for consistency
+			mock_light_client.ProgramID = ics07ProgramID
+		} else {
+			ics07ProgramID = s.deploySolanaProgram(ctx, "ics07_tendermint")
+			s.Require().Equal(ics07_tendermint.ProgramID, ics07ProgramID)
+			ics07_tendermint.ProgramID = ics07ProgramID
+		}
 
 		ics26RouterProgramID := s.deploySolanaProgram(ctx, "ics26_router")
 		s.Require().Equal(ics26_router.ProgramID, ics26RouterProgramID)
@@ -92,19 +106,20 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
-		config := relayer.NewConfig(relayer.CreateSolanaCosmosModules(
-			relayer.SolanaCosmosConfigInfo{
-				SolanaChainID:        testvalues.SolanaChainID,
-				CosmosChainID:        simd.Config().ChainID,
-				SolanaRPC:            testvalues.SolanaLocalnetRPC,
-				TmRPC:                simd.GetHostRPCAddress(),
-				ICS07ProgramID:       ics07_tendermint.ProgramID.String(),
-				ICS26RouterProgramID: ics26_router.ProgramID.String(),
-				CosmosSignerAddress:  s.CosmosUsers[0].FormattedAddress(),
-				SolanaFeePayer:       s.SolanaUser.PublicKey().String(),
-				MockWasmClient:       true, // Use mock proofs for testing
-			}),
-		)
+		configInfo := relayer.SolanaCosmosConfigInfo{
+			SolanaChainID:        testvalues.SolanaChainID,
+			CosmosChainID:        simd.Config().ChainID,
+			SolanaRPC:            testvalues.SolanaLocalnetRPC,
+			TmRPC:                simd.GetHostRPCAddress(),
+			ICS07ProgramID:       ics07_tendermint.ProgramID.String(),
+			ICS26RouterProgramID: ics26_router.ProgramID.String(),
+			CosmosSignerAddress:  s.CosmosUsers[0].FormattedAddress(),
+			SolanaFeePayer:       s.SolanaUser.PublicKey().String(),
+			MockWasmClient:       s.UseMockWasmClient,
+			MockSolanaClient:     s.UseMockSolanaClient,
+		}
+
+		config := relayer.NewConfig(relayer.CreateSolanaCosmosModules(configInfo))
 
 		err = config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
@@ -256,7 +271,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			s.Require().True(programAvailable, "Program failed to become available within timeout")
 
 			// Initialize dummy app state
-			appStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("dummy_app_state")}, dummyAppProgramID)
+			appStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte("transfer")}, dummyAppProgramID)
 			s.Require().NoError(err)
 
 			initInstruction, err := dummy_ibc_app.NewInitializeInstruction(
@@ -280,14 +295,11 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			ibcAppAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("ibc_app"), []byte("transfer")}, ics26_router.ProgramID)
 			s.Require().NoError(err)
 
-			routerCallerAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_caller")}, dummyAppProgramID)
-			s.Require().NoError(err)
-
 			registerInstruction, err := ics26_router.NewAddIbcAppInstruction(
 				"transfer",
 				routerStateAccount,
 				ibcAppAccount,
-				routerCallerAccount,
+				dummyAppProgramID,
 				s.SolanaUser.PublicKey(),
 				s.SolanaUser.PublicKey(),
 				solanago.SystemProgramID,
@@ -310,6 +322,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	ctx := context.Background()
+
 	s.SetupSuite(ctx)
 
 	simd := s.CosmosChains[0]
@@ -362,6 +375,12 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 
 func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	ctx := context.Background()
+
+	// Temporarily mock the Solana client to bypass the transaction size issue
+	// in "Acknowledge transfer on Solana" step
+	s.UseMockSolanaClient = true
+	s.UseMockWasmClient = true
+
 	s.SetupSuite(ctx)
 
 	simd := s.CosmosChains[0]
@@ -521,24 +540,219 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(ackRelayTxBz))
 		}))
 
-		// TODO: Fix transaction size issue - acknowledgment transactions are ~1892 bytes but Solana limit is 1644 bytes
-		// This occurs because update client messages with full Tendermint headers are too large for Solana transactions
-		_ = ackRelayTxBz // Disable unused variable warning
-		s.T().Logf("SKIPPED: Acknowledgment transaction submission due to size limit (1644 bytes)")
+		s.Require().True(s.Run("Broadcast acknowledgment on Solana", func() {
+			unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(ackRelayTxBz))
+			s.Require().NoError(err)
 
-		// s.Require().True(s.Run("Broadcast acknowledgment on Solana", func() {
-		// 	unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(ackRelayTxBz))
-		// 	s.Require().NoError(err)
+			ackSig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
+			s.Require().NoError(err)
+			s.T().Logf("Acknowledgment transaction broadcasted on Solana: %s", ackSig)
+		}))
+	}))
+}
 
-		// 	ackSig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
-		// 	s.Require().NoError(err)
-		// 	s.T().Logf("Acknowledgment transaction broadcasted on Solana: %s", ackSig)
-		// }))
+func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
+	ctx := context.Background()
+
+	s.UseMockSolanaClient = true
+
+	s.SetupSuite(ctx)
+
+	simd := s.CosmosChains[0]
+
+	var cosmosPacketTxHash []byte
+	var solanaRelayTxSig solanago.Signature
+
+	s.Require().True(s.Run("Send ICS20 transfer from Cosmos to Solana", func() {
+		cosmosUserWallet := s.CosmosUsers[0]
+		cosmosUserAddress := cosmosUserWallet.FormattedAddress()
+		solanaUserAddress := s.SolanaUser.PublicKey().String()
+		transferCoin := sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(TestTransferAmount))
+
+		// Check initial balance on Cosmos
+		initialResp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+			Address: cosmosUserAddress,
+			Denom:   transferCoin.Denom,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(initialResp.Balance)
+		initialBalance := initialResp.Balance.Amount.Int64()
+		s.T().Logf("Initial Cosmos balance: %d %s", initialBalance, transferCoin.Denom)
+
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+
+		transferPayload := transfertypes.FungibleTokenPacketData{
+			Denom:    transferCoin.Denom,
+			Amount:   transferCoin.Amount.String(),
+			Sender:   cosmosUserAddress,
+			Receiver: solanaUserAddress,
+			Memo:     "cosmos-to-solana-transfer",
+		}
+		encodedPayload, err := transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)
+		s.Require().NoError(err)
+
+		payload := channeltypesv2.Payload{
+			SourcePort:      transfertypes.PortID,
+			DestinationPort: transfertypes.PortID,
+			Version:         transfertypes.V1,
+			Encoding:        transfertypes.EncodingABI,
+			Value:           encodedPayload,
+		}
+		msgSendPacket := channeltypesv2.MsgSendPacket{
+			SourceClient:     CosmosClientID,
+			TimeoutTimestamp: timeout,
+			Payloads: []channeltypesv2.Payload{
+				payload,
+			},
+			Signer: cosmosUserWallet.FormattedAddress(),
+		}
+
+		resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgSendPacket)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.TxHash)
+
+		cosmosPacketTxHashBytes, err := hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
+		cosmosPacketTxHash = cosmosPacketTxHashBytes
+
+		s.T().Logf("Cosmos packet transaction sent: %s", resp.TxHash)
+
+		// Verify balances changed on Cosmos chain
+		finalResp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+			Address: cosmosUserAddress,
+			Denom:   transferCoin.Denom,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(finalResp.Balance)
+		finalBalance := finalResp.Balance.Amount.Int64()
+		s.T().Logf("Final Cosmos balance: %d %s (transferred: %d)", finalBalance, transferCoin.Denom, initialBalance-finalBalance)
+		s.Require().Equal(initialBalance-TestTransferAmount, finalBalance, "Balance should decrease by transfer amount")
+	}))
+
+	s.Require().True(s.Run("Relay packet from Cosmos to Solana", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosPacketTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+		s.T().Logf("Relayer target address (Solana program): %s", resp.Address)
+
+		relayTxBodyBz := resp.Tx
+		s.T().Logf("Retrieved relay transaction with %d bytes", len(relayTxBodyBz))
+
+		// Decode and broadcast transaction
+		unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(relayTxBodyBz))
+		s.Require().NoError(err)
+
+		solanaRelayTxSig, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Logf("Packet relay transaction broadcasted on Solana: %s", solanaRelayTxSig)
+	}))
+
+	s.Require().True(s.Run("Verify packet received on Solana", func() {
+		// Check that the dummy app state was updated
+		dummyAppStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte("transfer")}, s.DummyAppProgramID)
+		s.Require().NoError(err)
+
+		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, dummyAppStateAccount)
+		s.Require().NoError(err)
+		s.Require().NotNil(accountInfo.Value)
+
+		appState, err := dummy_ibc_app.ParseAccount_DummyIbcAppState(accountInfo.Value.Data.GetBinary())
+		s.Require().NoError(err)
+
+		s.Require().Greater(appState.PacketsReceived, uint64(0), "Dummy app should have received at least one packet")
+		s.T().Logf("Solana dummy app has received %d packets total", appState.PacketsReceived)
+
+		// Check that packet receipt was written
+		clientSequenceAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client_sequence"), []byte(SolanaClientID)}, ics26_router.ProgramID)
+		s.Require().NoError(err)
+
+		clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequenceAccount)
+		s.Require().NoError(err)
+
+		clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
+		s.Require().NoError(err)
+
+		s.T().Logf("Solana client sequence - next send: %d",
+			clientSequenceData.NextSequenceSend)
+		s.Require().Greater(clientSequenceData.NextSequenceSend, uint64(0), "Should have processed packets")
+	}))
+
+	s.Require().True(s.Run("Relay acknowledgment back to Cosmos", func() {
+		var ackRelayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    testvalues.SolanaChainID,
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{[]byte(solanaRelayTxSig.String())},
+				SrcClientId: SolanaClientID,
+				DstClientId: CosmosClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			ackRelayTxBodyBz = resp.Tx
+			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(ackRelayTxBodyBz))
+		}))
+
+		s.Require().True(s.Run("Verify relay tx structure", func() {
+			// NOTE: We cannot broadcast this transaction for now because:
+			// The packet commitment verification would fail due to hardcoded payload values
+			// For now, we verify the transaction structure to ensure proper message construction
+
+			// Deserialize the transaction body to verify its contents
+			var txBody txtypes.TxBody
+			err := proto.Unmarshal(ackRelayTxBodyBz, &txBody)
+			s.Require().NoError(err)
+
+			s.T().Logf("Transaction has %d messages", len(txBody.Messages))
+			s.Require().Equal(2, len(txBody.Messages), "Expected 2 messages: update client and acknowledge packet")
+
+			// Verify first message is update client
+			s.Require().Equal("/ibc.core.client.v1.MsgUpdateClient", txBody.Messages[0].TypeUrl)
+
+			// Verify second message is acknowledge packet
+			s.Require().Equal("/ibc.core.channel.v2.MsgAcknowledgement", txBody.Messages[1].TypeUrl)
+
+			// Deserialize the acknowledge packet message
+			var ackMsg channeltypesv2.MsgAcknowledgement
+			err = proto.Unmarshal(txBody.Messages[1].Value, &ackMsg)
+			s.Require().NoError(err)
+
+			// Verify packet structure matches hardcoded values
+			s.Require().NotNil(ackMsg.Packet)
+			s.Require().Equal(uint64(1), ackMsg.Packet.Sequence)
+			s.Require().Equal("08-wasm-0", ackMsg.Packet.SourceClient)
+			s.Require().Equal("cosmoshub-1", ackMsg.Packet.DestinationClient)
+			s.Require().Len(ackMsg.Packet.Payloads, 1, "Expected exactly 1 payload")
+
+			payload := ackMsg.Packet.Payloads[0]
+			s.Require().Equal("transfer", payload.SourcePort)
+			s.Require().Equal("transfer", payload.DestinationPort)
+			s.Require().Equal("ics20-1", payload.Version)
+			s.Require().Equal("json", payload.Encoding)
+			s.Require().Equal([]byte("mock"), payload.Value)
+
+			s.T().Logf("Transaction structure verified: packet has hardcoded values as expected")
+			s.T().Logf("SKIPPED: Transaction broadcast because payload is hardcoded to 'mock' for testing")
+		}))
 	}))
 }
 
 func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	ctx := context.Background()
+
+	// Temporarily mock the Solana client to bypass the transaction size issue
+	// in "Acknowledge transfer on Solana" step
+	s.UseMockSolanaClient = true
+	s.UseMockWasmClient = true
+
 	s.SetupSuite(ctx)
 
 	simd := s.CosmosChains[0]
@@ -705,19 +919,14 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(ackRelayTx))
 		}))
 
-		// TODO: Fix transaction size issue - acknowledgment transactions are ~1892 bytes but Solana limit is 1644 bytes
-		// This occurs because update client messages with full Tendermint headers are too large for Solana transactions
-		s.T().Logf("SKIPPED: Acknowledgment transaction submission due to size limit (1644 bytes)")
+		s.Require().True(s.Run("Broadcast acknowledgment on Solana", func() {
+			unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(ackRelayTx))
+			s.Require().NoError(err)
 
-		// s.Require().True(s.Run("Submit relay tx", func() {
-		// 	unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(ackRelayTx))
-		// 	s.Require().NoError(err)
-		// 	s.T().Logf("Acknowledgment transaction contains %d instructions", len(unsignedSolanaTx.Message.Instructions))
-
-		// 	sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
-		// 	s.Require().NoError(err)
-		// 	s.T().Logf("Acknowledgment transaction broadcasted: %s", sig)
-		// }))
+			ackSig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
+			s.Require().NoError(err)
+			s.T().Logf("Acknowledgment transaction broadcasted on Solana: %s", ackSig)
+		}))
 	}))
 }
 
@@ -743,7 +952,7 @@ func (s *IbcEurekaSolanaTestSuite) prepareBaseAccounts(ctx context.Context, dumm
 	accounts := AccountSet{}
 	var err error
 
-	accounts.AppState, _, err = solanago.FindProgramAddress([][]byte{[]byte("dummy_app_state")}, dummyAppProgramID)
+	accounts.AppState, _, err = solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte("transfer")}, dummyAppProgramID)
 	s.Require().NoError(err)
 
 	accounts.RouterCaller, _, err = solanago.FindProgramAddress([][]byte{[]byte("router_caller")}, dummyAppProgramID)

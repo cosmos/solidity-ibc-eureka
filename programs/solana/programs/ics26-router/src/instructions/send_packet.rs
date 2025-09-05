@@ -63,8 +63,13 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     let packet_commitment = &mut ctx.accounts.packet_commitment;
     let clock = &ctx.accounts.clock;
 
+    // Check if app_caller is authorized - it must be a PDA derived from the registered program
+    // (since program IDs cannot sign transactions in Solana)
+    let (expected_pda, _) =
+        Pubkey::find_program_address(&[b"router_caller"], &ibc_app.app_program_id);
+
     require!(
-        ctx.accounts.app_caller.key() == ibc_app.app_program_id,
+        ctx.accounts.app_caller.key() == expected_pda,
         RouterError::UnauthorizedSender
     );
 
@@ -161,7 +166,9 @@ mod tests {
     fn setup_send_packet_test_with_params(params: SendPacketTestParams) -> SendPacketTestContext {
         let authority = Pubkey::new_unique();
         let app_program_id = params.app_program_id.unwrap_or_else(Pubkey::new_unique);
-        let app_caller = params.unauthorized_app_caller.unwrap_or(app_program_id);
+        let (default_app_caller, _) =
+            Pubkey::find_program_address(&[b"router_caller"], &app_program_id);
+        let app_caller = params.unauthorized_app_caller.unwrap_or(default_app_caller);
         let payer = app_caller;
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
@@ -396,6 +403,8 @@ mod tests {
         // Test that two different clients have independent sequence counters
         let authority = Pubkey::new_unique();
         let app_program_id = Pubkey::new_unique();
+        let (app_caller_pda, _) =
+            Pubkey::find_program_address(&[b"router_caller"], &app_program_id);
         let payer = app_program_id;
         let port_id = "test-port";
 
@@ -457,7 +466,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda_1, false),
                 AccountMeta::new(packet_commitment_pda_1, false),
-                AccountMeta::new_readonly(app_program_id, true),
+                AccountMeta::new_readonly(app_caller_pda, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(Clock::id(), false),
@@ -472,6 +481,7 @@ mod tests {
             create_account(client_pda_1, client_data_1, crate::ID),
             create_account(client_sequence_pda_1, client_sequence_data_1, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_1),
+            create_system_account(app_caller_pda),
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_clock_account_with_data(clock_data.clone()),
@@ -515,7 +525,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda_2, false),
                 AccountMeta::new(packet_commitment_pda_2, false),
-                AccountMeta::new_readonly(app_program_id, true),
+                AccountMeta::new_readonly(app_caller_pda, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(Clock::id(), false),
@@ -530,6 +540,7 @@ mod tests {
             create_account(client_pda_2, client_data_2, crate::ID),
             create_account(client_sequence_pda_2, client_sequence_data_2, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_2),
+            create_system_account(app_caller_pda),
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_clock_account_with_data(clock_data),
