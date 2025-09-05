@@ -24,6 +24,12 @@ use ibc_eureka_relayer_core::{
 #[derive(Clone, Copy, Debug)]
 pub struct CosmosToSolanaRelayerModule;
 
+/// Transaction builder for Cosmos to Solana relaying
+enum CosmosToSolanaTxBuilder {
+    Real(tx_builder::TxBuilder),
+    Mock(tx_builder::MockTxBuilder),
+}
+
 /// The `CosmosToSolanaRelayerModuleService` defines the relayer service from Cosmos to Solana.
 #[allow(dead_code)]
 struct CosmosToSolanaRelayerModuleService {
@@ -32,7 +38,7 @@ struct CosmosToSolanaRelayerModuleService {
     /// The target Solana RPC client
     pub solana_client: Arc<RpcClient>,
     /// The transaction builder from Cosmos to Solana.
-    pub tx_builder: tx_builder::TxBuilder,
+    pub tx_builder: CosmosToSolanaTxBuilder,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: solana_sdk::pubkey::Pubkey,
     /// The Solana ICS07 Tendermint light client program ID.
@@ -52,6 +58,10 @@ pub struct CosmosToSolanaConfig {
     pub solana_ics07_program_id: String,
     /// The Solana fee payer address.
     pub solana_fee_payer: String,
+    /// Whether to use mock WASM client on Cosmos for testing.
+    pub mock_wasm_client: bool,
+    /// Whether to use mock Solana light client updates for testing.
+    pub mock_solana_client: bool,
 }
 
 impl CosmosToSolanaRelayerModuleService {
@@ -74,13 +84,23 @@ impl CosmosToSolanaRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid fee payer address: {}", e))?;
 
-        let tx_builder = tx_builder::TxBuilder::new(
-            source_client.clone(),
-            solana_client.clone(),
-            solana_ics26_program_id,
-            solana_ics07_program_id,
-            fee_payer,
-        )?;
+        let tx_builder = if config.mock_solana_client {
+            CosmosToSolanaTxBuilder::Mock(tx_builder::MockTxBuilder::new(
+                source_client.clone(),
+                solana_client.clone(),
+                solana_ics26_program_id,
+                solana_ics07_program_id,
+                fee_payer,
+            )?)
+        } else {
+            CosmosToSolanaTxBuilder::Real(tx_builder::TxBuilder::new(
+                source_client.clone(),
+                solana_client.clone(),
+                solana_ics26_program_id,
+                solana_ics07_program_id,
+                fee_payer,
+            )?)
+        };
 
         Ok(Self {
             source_tm_client: source_client,
@@ -89,6 +109,61 @@ impl CosmosToSolanaRelayerModuleService {
             solana_ics26_program_id,
             solana_ics07_program_id,
         })
+    }
+}
+
+impl CosmosToSolanaTxBuilder {
+    /// Fetch events from Cosmos transactions
+    async fn fetch_cosmos_events(
+        &self,
+        cosmos_txs: Vec<tendermint::Hash>,
+    ) -> anyhow::Result<Vec<tx_builder::CosmosIbcEvent>> {
+        match self {
+            Self::Real(tb) => tb.fetch_cosmos_events(cosmos_txs).await,
+            Self::Mock(tb) => tb.fetch_cosmos_events(cosmos_txs).await,
+        }
+    }
+
+    /// Fetch timeout events from Solana
+    fn fetch_solana_timeout_events(
+        &self,
+        solana_txs: Vec<solana_sdk::signature::Signature>,
+    ) -> anyhow::Result<Vec<tx_builder::CosmosIbcEvent>> {
+        match self {
+            Self::Real(tb) => tb.fetch_solana_timeout_events(solana_txs),
+            Self::Mock(tb) => tb.fetch_solana_timeout_events(solana_txs),
+        }
+    }
+
+    /// Build Solana transaction for relaying
+    async fn build_solana_tx(
+        &self,
+        src_events: Vec<tx_builder::CosmosIbcEvent>,
+        target_events: Vec<tx_builder::CosmosIbcEvent>,
+    ) -> anyhow::Result<solana_sdk::transaction::Transaction> {
+        match self {
+            Self::Real(tb) => tb.build_solana_tx(src_events, target_events).await,
+            Self::Mock(tb) => tb.build_solana_tx(src_events, target_events).await,
+        }
+    }
+
+    /// Build create client transaction
+    async fn build_create_client_tx(&self) -> anyhow::Result<solana_sdk::transaction::Transaction> {
+        match self {
+            Self::Real(tb) => tb.build_create_client_tx().await,
+            Self::Mock(tb) => tb.build_create_client_tx().await,
+        }
+    }
+
+    /// Build update client transaction
+    async fn build_update_client_tx(
+        &self,
+        client_id: String,
+    ) -> anyhow::Result<solana_sdk::transaction::Transaction> {
+        match self {
+            Self::Real(tb) => tb.build_update_client_tx(client_id).await,
+            Self::Mock(tb) => tb.build_update_client_tx(client_id).await,
+        }
     }
 }
 

@@ -5,7 +5,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anchor_lang::prelude::*;
-use ibc_eureka_relayer_lib::events::solana::{parse_events_from_logs, IbcEvent};
+use ibc_eureka_relayer_lib::{
+    events::solana::{parse_events_from_logs, IbcEvent},
+    utils::cosmos,
+};
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -21,6 +24,7 @@ use ibc_proto_eureka::{
         },
     },
 };
+use prost::Message;
 use solana_client::rpc_client::RpcClient;
 use solana_ibc_types::Packet as SolanaPacket;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
@@ -54,8 +58,8 @@ pub enum SolanaIbcEvent {
         source_client: String,
         /// Destination client ID
         destination_client: String,
-        /// Packet payloads
-        payloads: Vec<Vec<u8>>,
+        /// Original packet data to preserve payload structure
+        original_packet_data: Vec<u8>,
         /// Timeout timestamp
         timeout_timestamp: u64,
         /// Acknowledgement data (one per payload)
@@ -114,21 +118,33 @@ impl TxBuilder {
     /// - Failed to fetch Solana transaction
     /// - Transaction deserialization fails
     /// - Event parsing fails
+    #[allow(clippy::cognitive_complexity)]
     pub fn fetch_solana_events(
         &self,
-        tx_signatures: Vec<Signature>,
+        tx_signatures: &[Signature],
     ) -> anyhow::Result<Vec<SolanaIbcEvent>> {
         let mut events = Vec::new();
 
         for signature in tx_signatures {
             let tx = self
                 .solana_client
-                .get_transaction(&signature, UiTransactionEncoding::Json)
+                .get_transaction(signature, UiTransactionEncoding::Json)
                 .map_err(|e| anyhow::anyhow!("Failed to fetch Solana transaction: {e}"))?;
 
             // Check if transaction was successful
-            if tx.transaction.meta.as_ref().is_none_or(|m| m.err.is_some()) {
-                continue; // Skip failed transactions
+            if let Some(ref meta) = tx.transaction.meta {
+                if let Some(ref err) = meta.err {
+                    tracing::debug!(
+                        "Transaction {} failed with error: {:?}, skipping",
+                        signature,
+                        err
+                    );
+                    continue;
+                }
+                tracing::debug!("Transaction {} was successful", signature);
+            } else {
+                tracing::debug!("Transaction {} has no metadata, skipping", signature);
+                continue;
             }
 
             // Parse logs for IBC events
@@ -154,7 +170,10 @@ impl TxBuilder {
 
         // Get logs from the transaction
         let empty_logs = vec![];
-        let logs = meta.log_messages.as_ref().unwrap_or(&empty_logs);
+        let logs = match &meta.log_messages {
+            solana_transaction_status::option_serializer::OptionSerializer::Some(logs) => logs,
+            _ => &empty_logs,
+        };
 
         // Use the shared event parser - it now returns fully decoded events
         let parsed_events = parse_events_from_logs(logs);
@@ -173,34 +192,19 @@ impl TxBuilder {
                             payloads,
                             timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
                         });
-
-                        tracing::debug!(
-                            "Parsed SendPacket event: seq={}, src={}, dst={}",
-                            send_event.sequence,
-                            packet.source_client,
-                            packet.dest_client
-                        );
                     }
                 }
                 IbcEvent::AckPacket(ack_event) => {
                     // For acknowledge packet, we need the full packet data
                     if let Ok(packet) = SolanaPacket::try_from_slice(&ack_event.packet_data) {
-                        let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
-
                         events.push(SolanaIbcEvent::AcknowledgePacket {
                             sequence: ack_event.sequence,
                             source_client: packet.source_client,
                             destination_client: packet.dest_client,
-                            payloads,
+                            original_packet_data: ack_event.packet_data,
                             timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
                             acknowledgements: vec![ack_event.acknowledgement],
                         });
-
-                        tracing::debug!(
-                            "Parsed AcknowledgePacket event: seq={}, client={}",
-                            ack_event.sequence,
-                            ack_event.client_id
-                        );
                     }
                 }
                 IbcEvent::TimeoutPacket(timeout_event) => {
@@ -215,34 +219,21 @@ impl TxBuilder {
                             payloads,
                             timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
                         });
-
-                        tracing::debug!(
-                            "Parsed TimeoutPacket event: seq={}, client={}",
-                            timeout_event.sequence,
-                            timeout_event.client_id
-                        );
                     }
                 }
                 IbcEvent::WriteAcknowledgement(write_ack_event) => {
                     // WriteAcknowledgement is emitted when Solana receives a packet from Cosmos
                     // and writes an acknowledgement. We need to relay this ack back to Cosmos.
                     if let Ok(packet) = SolanaPacket::try_from_slice(&write_ack_event.packet_data) {
-                        let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
-
+                        // Store the complete packet data to preserve original payload structure
                         events.push(SolanaIbcEvent::AcknowledgePacket {
                             sequence: write_ack_event.sequence,
                             source_client: packet.source_client,
                             destination_client: packet.dest_client,
-                            payloads,
+                            original_packet_data: write_ack_event.packet_data,
                             timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
-                            acknowledgements: vec![write_ack_event.acknowledgements],
+                            acknowledgements: write_ack_event.acknowledgements,
                         });
-
-                        tracing::debug!(
-                            "Parsed WriteAcknowledgement event: seq={}, client={}",
-                            write_ack_event.sequence,
-                            write_ack_event.client_id
-                        );
                     }
                 }
             }
@@ -294,7 +285,7 @@ impl TxBuilder {
 
     /// Build a Cosmos message from a Solana IBC event
     fn build_message_from_event(&self, event: SolanaIbcEvent) -> anyhow::Result<Any> {
-        tracing::info!("Building message from Solana event: {:?}", event);
+        tracing::debug!("Building message from Solana event: {:?}", event);
         match event {
             SolanaIbcEvent::SendPacket {
                 sequence,
@@ -303,10 +294,10 @@ impl TxBuilder {
                 payloads,
                 timeout_timestamp,
             } => {
-                tracing::info!("Building recv packet msg - sequence: {}, source_client: {}, dest_client: {}, payloads: {} items, timeout: {}",
+                tracing::debug!("Building recv packet msg - sequence: {}, source_client: {}, dest_client: {}, payloads: {} items, timeout: {}",
                     sequence, source_client, destination_client, payloads.len(), timeout_timestamp);
                 for (i, payload) in payloads.iter().enumerate() {
-                    tracing::info!(
+                    tracing::debug!(
                         "Payload {}: {} bytes - {}",
                         i,
                         payload.len(),
@@ -325,14 +316,14 @@ impl TxBuilder {
                 sequence,
                 source_client,
                 destination_client,
-                payloads,
+                original_packet_data,
                 timeout_timestamp,
                 acknowledgements,
             } => self.build_acknowledgement_msg(
                 sequence,
                 source_client,
                 destination_client,
-                payloads,
+                &original_packet_data,
                 timeout_timestamp,
                 acknowledgements,
             ),
@@ -377,7 +368,7 @@ impl TxBuilder {
         timeout_timestamp: u64,
     ) -> anyhow::Result<Any> {
         let converted_payloads = Self::convert_payloads_to_ibc(payloads);
-        tracing::info!("Converted payloads count: {}", converted_payloads.len());
+        tracing::debug!("Converted payloads count: {}", converted_payloads.len());
 
         let packet = Packet {
             sequence,
@@ -394,31 +385,82 @@ impl TxBuilder {
             signer: self.signer_address.clone(),
         };
 
-        tracing::info!(
+        tracing::debug!(
             "Created RecvPacket message for sequence {} with signer: {}",
             sequence,
             self.signer_address
         );
-        tracing::info!("Packet details: {:?}", packet);
+        tracing::debug!("Packet details: {:?}", packet);
         Any::from_msg(&msg).map_err(Into::into)
     }
 
     /// Build an Acknowledgement message for Cosmos
+    #[allow(clippy::cognitive_complexity)]
     fn build_acknowledgement_msg(
         &self,
         sequence: u64,
         source_client: String,
         destination_client: String,
-        payloads: Vec<Vec<u8>>,
+        original_packet_data: &[u8],
         timeout_timestamp: u64,
         acknowledgements: Vec<Vec<u8>>,
     ) -> anyhow::Result<Any> {
+        // Deserialize the original packet data to preserve the exact structure
+        tracing::debug!(
+            "Original packet data length: {} bytes",
+            original_packet_data.len()
+        );
+        tracing::trace!(
+            "Original packet data (hex): {}",
+            hex::encode(original_packet_data)
+        );
+
+        let solana_packet = SolanaPacket::try_from_slice(original_packet_data)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize original packet data: {e}"))?;
+
+        tracing::debug!(
+            "Deserialized packet: sequence={}, src_client={}, dst_client={}, timeout={}",
+            solana_packet.sequence,
+            solana_packet.source_client,
+            solana_packet.dest_client,
+            solana_packet.timeout_timestamp
+        );
+        tracing::debug!(
+            "Deserialized packet has {} payloads",
+            solana_packet.payloads.len()
+        );
+
+        for (i, payload) in solana_packet.payloads.iter().enumerate() {
+            tracing::trace!("Payload {}: source_port={}, dest_port={}, version={}, encoding={}, value_len={} bytes",
+                i, payload.source_port, payload.dest_port, payload.version, payload.encoding, payload.value.len());
+            if payload.value.len() <= 100 {
+                tracing::trace!(
+                    "Payload {} value: {:?}",
+                    i,
+                    String::from_utf8_lossy(&payload.value)
+                );
+            }
+        }
+
+        // Convert Solana payloads to IBC format, preserving original payload structure
+        let ibc_payloads: Vec<Payload> = solana_packet
+            .payloads
+            .into_iter()
+            .map(|solana_payload| Payload {
+                source_port: solana_payload.source_port,
+                destination_port: solana_payload.dest_port,
+                version: solana_payload.version,
+                encoding: solana_payload.encoding,
+                value: solana_payload.value,
+            })
+            .collect();
+
         let packet = Packet {
             sequence,
             source_client,
             destination_client,
             timeout_timestamp,
-            payloads: Self::convert_payloads_to_ibc(payloads),
+            payloads: ibc_payloads,
         };
 
         let ack = Acknowledgement {
@@ -583,7 +625,7 @@ impl TxBuilder {
     }
 }
 
-/// Mock `TxBuilder` for testing that uses mock proofs and simplified event processing
+/// Mock `TxBuilder` for testing that uses mock proofs instead of real ones
 pub struct MockTxBuilder {
     /// The underlying real `TxBuilder`
     pub inner: TxBuilder,
@@ -615,79 +657,74 @@ impl MockTxBuilder {
     /// Returns an error if:
     /// - Failed to build update client message
     /// - No messages to relay
-    #[allow(clippy::cognitive_complexity)] // TODO: Refactor when implementing real proof generation
-    pub fn build_relay_tx_mock(
+    pub fn build_relay_tx(
         &self,
         client_id: &str,
         src_events: Vec<SolanaIbcEvent>,
         target_events: Vec<SolanaIbcEvent>,
     ) -> anyhow::Result<TxBody> {
-        let mut messages = Vec::new();
+        // Build transaction normally first
+        let mut tx = self
+            .inner
+            .build_relay_tx(client_id, src_events, target_events)?;
 
-        // First, update the Solana light client on Cosmos with mock data
-        let update_msg = self.build_update_client_msg_mock(client_id)?;
-        messages.push(Any::from_msg(&update_msg)?);
+        // Then inject mock proofs into the transaction
+        Self::inject_mock_proofs_into_tx(&mut tx)?;
 
-        // Process source events from Solana with mock proofs
-        for event in src_events {
-            match event {
-                SolanaIbcEvent::SendPacket { .. } => {
-                    // In production, would create RecvPacket with real proofs
-                    // For now, just log that we would process it
-                    tracing::debug!("Processing SendPacket event from Solana with mock proof");
-                }
-                SolanaIbcEvent::AcknowledgePacket { .. } => {
-                    tracing::debug!(
-                        "Processing AcknowledgePacket event from Solana with mock proof"
-                    );
-                }
-                SolanaIbcEvent::TimeoutPacket { .. } => {
-                    tracing::debug!("Processing TimeoutPacket event from Solana with mock proof");
-                }
-            }
-        }
-
-        // Process target events from Cosmos (for timeouts)
-        for event in target_events {
-            tracing::debug!(
-                "Processing timeout event from Cosmos with mock proof: {:?}",
-                event
-            );
-        }
-
-        if messages.is_empty() {
-            anyhow::bail!("No messages to relay to Cosmos");
-        }
-
-        Ok(TxBody {
-            messages,
-            ..Default::default()
-        })
+        Ok(tx)
     }
 
-    /// Build an update client message with mock data
+    /// Build create client transaction
     ///
     /// # Errors
     ///
-    /// Returns an error if failed to get Solana slot
-    fn build_update_client_msg_mock(&self, client_id: &str) -> anyhow::Result<MsgUpdateClient> {
-        // Get latest Solana slot/block information
-        let slot = self
-            .inner
-            .solana_client
-            .get_slot()
-            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
+    /// Returns an error if building the create client transaction fails.
+    pub fn build_create_client_tx(
+        &self,
+        parameters: &HashMap<String, String>,
+    ) -> anyhow::Result<TxBody> {
+        self.inner.build_create_client_tx(parameters)
+    }
 
-        tracing::info!(slot, "Updating Solana client with mock data");
+    /// Build update client transaction
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if building the update client transaction fails.
+    pub fn build_update_client_tx(&self, client_id: String) -> anyhow::Result<TxBody> {
+        self.inner.build_update_client_tx(client_id)
+    }
 
-        // Create update message with mock Solana state
-        let header_data = b"mock_solana_header".to_vec(); // Mock header
-        let client_msg = Any::from_msg(&ClientMessage { data: header_data })?;
+    /// Injects mock proofs into IBC messages in the transaction for testing purposes.
+    fn inject_mock_proofs_into_tx(tx: &mut TxBody) -> anyhow::Result<()> {
+        use ibc_proto_eureka::ibc::core::channel::v2::{
+            MsgAcknowledgement, MsgRecvPacket, MsgTimeout,
+        };
 
-        Ok(MsgUpdateClient {
-            client_id: client_id.to_string(),
-            client_message: Some(client_msg),
-            signer: self.inner.signer_address.clone(),
-        })
+        for any_msg in &mut tx.messages {
+            match any_msg.type_url.as_str() {
+                url if url.contains("MsgRecvPacket") => {
+                    let msg = MsgRecvPacket::decode(any_msg.value.as_slice())?;
+                    let mut msgs = [msg];
+                    cosmos::inject_mock_proofs(&mut msgs, &mut [], &mut []);
+                    any_msg.value = msgs[0].encode_to_vec();
+                }
+                url if url.contains("MsgAcknowledgement") => {
+                    let msg = MsgAcknowledgement::decode(any_msg.value.as_slice())?;
+                    let mut msgs = [msg];
+                    cosmos::inject_mock_proofs(&mut [], &mut msgs, &mut []);
+                    any_msg.value = msgs[0].encode_to_vec();
+                }
+                url if url.contains("MsgTimeout") => {
+                    let msg = MsgTimeout::decode(any_msg.value.as_slice())?;
+                    let mut msgs = [msg];
+                    cosmos::inject_mock_proofs(&mut [], &mut [], &mut msgs);
+                    any_msg.value = msgs[0].encode_to_vec();
+                }
+                _ => {} // Skip messages we don't care about
+            }
+        }
+
+        Ok(())
     }
 }

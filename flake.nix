@@ -100,6 +100,9 @@
               echo "  anchor-nix test                 - Build and run anchor client tests"
               echo "  anchor-nix unit-test [options]  - Build program then run cargo test"
               echo ""
+
+              # custom shell prompt
+              PS1='\[\e[36m\][solana]\[\e[0m\] ➜ \[\e[33m\]\W\[\e[0m\] git:(\[\e[32m\]$(git branch 2>/dev/null | grep "*" | sed "s/* //")\[\e[0m\]) \$ '
             '';
           };
         };
