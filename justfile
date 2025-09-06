@@ -134,6 +134,13 @@ lint-go:
 	cd e2e/interchaintestv8 && GOTOOLCHAIN=go1.24.3 golangci-lint run
 	cd packages/go-abigen && GOTOOLCHAIN=go1.24.3 golangci-lint run
 
+# Lint & fix the Go code using `golangci-lint`
+[group('lint')]
+lint-go-fix:
+	@echo "Linting the Go code..."
+	cd e2e/interchaintestv8 && GOTOOLCHAIN=go1.24.3 golangci-lint run --fix
+	cd packages/go-abigen && GOTOOLCHAIN=go1.24.3 golangci-lint run --fix
+
 # Lint the Protobuf files using `buf lint`
 [group('lint')]
 lint-buf:
