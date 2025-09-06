@@ -25,16 +25,12 @@ import { Escrow } from "../contracts/utils/Escrow.sol";
 import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
-import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
-import { DeployProxiedICS20Transfer } from "./deployments/DeployProxiedICS20Transfer.sol";
-import { DeployProxiedICS26Router } from "./deployments/DeployProxiedICS26Router.sol";
-import { DeployProxiedICS27GMP } from "./deployments/DeployProxiedICS27GMP.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { IBCXERC20 } from "../contracts/demo/IBCXERC20.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
-contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router, DeployProxiedICS20Transfer, DeployProxiedICS27GMP {
+contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithRoles {
     using stdJson for string;
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
@@ -54,9 +50,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
         address verifierMock = address(new SP1MockVerifier());
 
         // Deploy IBC Eureka with proxy
-        address escrowLogic = address(new Escrow());
-        address ibcERC20Logic = address(new IBCERC20());
-        address accountLogic = address(new ICS27Account());
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
         address ics27GmpLogic = address(new ICS27GMP());

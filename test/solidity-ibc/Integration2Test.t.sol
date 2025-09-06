@@ -24,7 +24,6 @@ import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { RefImplIBCERC20 } from "./utils/RefImplIBCERC20.sol";
-import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
 
 contract Integration2Test is Test {
     IbcImpl public ibcImplA;

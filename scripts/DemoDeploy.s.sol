@@ -19,7 +19,7 @@ import { DeployAccessManagerWithRoles } from "./deployments/DeployAccessManagerW
 import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { IBCXERC20 } from "../contracts/demo/IBCXERC20.sol";
-import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
+import { IBCRolesLib } from "../contracts/utils/IBCRolesLib.sol";
 
 contract DemoDeploy is Script, DeployAccessManagerWithRoles {
     using stdJson for string;
