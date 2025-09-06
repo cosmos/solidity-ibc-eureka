@@ -162,7 +162,7 @@ impl AttestationAdapter for OpClient {
 
         Ok(IAttestorMsgs::PacketAttestation {
             height,
-            packetCommitments: packet_commitments,
+            packets: validated,
         })
     }
 }

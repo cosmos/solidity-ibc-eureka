@@ -81,18 +81,6 @@ fn build_membership_proof(
     .map_err(Into::into)
 }
 
-/// Build serialized membership proof bytes from ABI-encoded attested data and signatures
-fn build_membership_proof(
-    attested_data: Vec<u8>,
-    signatures: Vec<Vec<u8>>,
-) -> Result<Vec<u8>, anyhow::Error> {
-    serde_json::to_vec(&MembershipProof {
-        attestation_data: attested_data,
-        signatures,
-    })
-    .map_err(Into::into)
-}
-
 fn encode_and_cyphon_packet_if_relevant(
     packet: &Packet,
     cyphon: &mut Vec<Vec<u8>>,
@@ -309,23 +297,5 @@ impl TxBuilderService<AttestedChain, CosmosSdk> for TxBuilder {
         tracing::info!("Updating attested light client: {}", dst_client_id);
         // TODO: IBC-164
         todo!()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use attestor_packet_membership::PacketCommitments;
-
-    #[test]
-    fn abi_bytes_are_not_json() {
-        let commitments = vec![[0x11u8; 32], [0x22u8; 32]];
-        let abi = PacketCommitments::new(commitments).to_abi_bytes();
-
-        let parsed: Result<Vec<Vec<u8>>, _> = serde_json::from_slice(&abi);
-        assert!(
-            parsed.is_err(),
-            "ABI-encoded bytes32[] must not be parsed as JSON"
-        );
     }
 }

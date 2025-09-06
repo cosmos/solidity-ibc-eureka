@@ -163,7 +163,7 @@ impl AttestationAdapter for ArbitrumClient {
 
         Ok(IAttestorMsgs::PacketAttestation {
             height,
-            packetCommitments: packets,
+            packets: validated,
         })
     }
 }

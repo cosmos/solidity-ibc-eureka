@@ -94,6 +94,7 @@ mod verify_header {
         let addresses = ADDRESSES.clone();
         let frozen = ClientState {
             attestor_addresses: addresses,
+            latest_height: 100,
             is_frozen: true,
             min_required_sigs: 5,
         };

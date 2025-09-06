@@ -28,7 +28,6 @@ pub fn verify_packet_membership(
 #[allow(clippy::module_inception)]
 mod verify_packet_membership {
     use super::*;
-    use alloy_primitives::FixedBytes;
 
     use crate::packet_commitments::PacketCompact;
 
