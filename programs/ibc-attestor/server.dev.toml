@@ -1,8 +1,8 @@
 [server]
-address = "127.0.0.1"
-port = 8080
-log_level = "info"
+  address = "0.0.0.0"
+  port = 8080
+  log_level = "debug"
 
-[solana]
-url = "https://api.devnet.solana.com"
-account_key = "vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg"
+[op]
+  url = "https://eth-sepolia.g.alchemy.com/v2/iR-o8s0PPaLM7yCqrmna9ANzqvx7mF8B"
+  router_address = "0xff42b3db9f1040539a3741434e4b33b352fabd80"
