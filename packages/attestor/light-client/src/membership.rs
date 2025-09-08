@@ -29,31 +29,30 @@ pub struct MembershipProof {
 pub fn verify_membership(
     consensus_state: &ConsensusState,
     client_state: &ClientState,
-    height: u64,
+    _height: u64,
     proof: Vec<u8>,
     value: Vec<u8>,
 ) -> Result<(), IbcAttestorClientError> {
     let attested_state: MembershipProof = serde_json::from_slice(&proof)
         .map_err(IbcAttestorClientError::DeserializeMembershipProofFailed)?;
 
-    if consensus_state.height != height {
+    let proof = IAttestorMsgs::PacketAttestation::abi_decode(&attested_state.attestation_data)
+        .map_err(|e| IbcAttestorClientError::InvalidProof {
+            reason: format!("Failed to decode ABI attestation data: {e}"),
+        })?;
+
+    let trusted_height = proof.height;
+    if consensus_state.height != trusted_height {
         return Err(IbcAttestorClientError::InvalidProof {
-            reason: "heights must match".into(),
+            reason: "consensus and trusted height must match".into(),
         });
     }
 
-    // First verify the attestation signatures against the client state
     verify_attestation::verify_attestation(
         client_state,
         &attested_state.attestation_data,
         &attested_state.signatures,
     )?;
-
-    // Decode the ABI-encoded attestation data to get the packet commitments
-    let proof = IAttestorMsgs::PacketAttestation::abi_decode(&attested_state.attestation_data)
-        .map_err(|e| IbcAttestorClientError::InvalidProof {
-            reason: format!("Failed to decode ABI attestation data: {e}"),
-        })?;
 
     let packets = PacketCommitments::new(
         proof
@@ -85,10 +84,17 @@ mod verify_membership {
     use alloy_sol_types::SolValue;
 
     use crate::test_utils::{
-        sample_packet_commitments, ADDRESSES, PACKET_COMMITMENTS_ENCODED, SIGS_RAW,
+        packet_commitments_with_height, sample_packet_commitments, sigs_with_height, ADDRESSES,
     };
 
     use super::*;
+
+    fn default_packet_commitments() -> IAttestorMsgs::PacketAttestation {
+        packet_commitments_with_height(100)
+    }
+    fn default_sigs() -> Vec<Vec<u8>> {
+        sigs_with_height(100)
+    }
 
     #[test]
     fn succeeds() {
@@ -105,8 +111,8 @@ mod verify_membership {
 
         let height = cns.height;
         let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-            signatures: SIGS_RAW.clone(),
+            attestation_data: default_packet_commitments().abi_encode(),
+            signatures: default_sigs(),
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
@@ -130,9 +136,10 @@ mod verify_membership {
         };
 
         let bad_height = cns.height + 1;
+        let packets_with_bad_height = packet_commitments_with_height(bad_height);
         let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-            signatures: SIGS_RAW.clone(),
+            attestation_data: packets_with_bad_height.abi_encode(),
+            signatures: default_sigs(),
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
@@ -186,8 +193,8 @@ mod verify_membership {
 
         let height = cns.height;
         let attestation = MembershipProof {
-            attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-            signatures: SIGS_RAW.clone(),
+            attestation_data: default_packet_commitments().abi_encode(),
+            signatures: default_sigs(),
         };
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
