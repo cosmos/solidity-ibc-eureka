@@ -2,9 +2,13 @@ package relayer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math/rand"
+	"net"
 	"os"
 	"text/template"
+	"time"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
@@ -19,10 +23,11 @@ const (
 
 // Config represents the relayer configuration structure and serves as template data
 type Config struct {
-	LogLevel string         `json:"log_level"`
-	Address  string         `json:"address"`
-	Port     int            `json:"port"`
-	Modules  []ModuleConfig `json:"modules"`
+	LogLevel    string         `json:"log_level"`
+	Address     string         `json:"address"`
+	Port        int            `json:"port"`
+	GrpcWebPort int            `json:"grpc_web_port"`
+	Modules     []ModuleConfig `json:"modules"`
 }
 
 // ModuleConfig represents a module configuration
@@ -64,13 +69,57 @@ type CosmosToCosmosModuleConfig struct {
 	SignerAddress string `json:"signer_address"`
 }
 
+// GetAvailablePort returns a random available TCP port on localhost within a typical ephemeral range.
+// It tries up to maxAttempts times to find a free port by binding and immediately releasing it.
+func GetAvailablePort() (int, error) {
+	const (
+		minPort     = 20000
+		maxPort     = 40000
+		maxAttempts = 50
+	)
+	// Seed RNG once per process
+	rand.Seed(time.Now().UnixNano())
+	for i := 0; i < maxAttempts; i++ {
+		p := rand.Intn(maxPort-minPort+1) + minPort
+		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
+		if err == nil {
+			_ = ln.Close()
+			return p, nil
+		}
+	}
+	return 0, errors.New("failed to find an available port")
+}
+
 // NewConfig creates a new Config with default values
 func NewConfig(modules []ModuleConfig) Config {
+	addr := "127.0.0.1"
+	port, err := GetAvailablePort()
+	if err != nil {
+		// Fallback to a sensible default if no port found; tests may still override via env
+		port = 3000
+	}
+	grpcWebPort, err := GetAvailablePort()
+	if err != nil {
+		grpcWebPort = 8081
+	}
+	// Ensure ports are distinct
+	if grpcWebPort == port {
+		if alt, err := GetAvailablePort(); err == nil {
+			grpcWebPort = alt
+		} else {
+			grpcWebPort = port + 1
+		}
+	}
+
+	// Make the chosen address visible to tests that use DefaultRelayerGRPCAddress
+	_ = os.Setenv("RELAYER_GRPC_ADDR", fmt.Sprintf("%s:%d", addr, port))
+
 	return Config{
-		LogLevel: os.Getenv(testvalues.EnvKeyRustLog),
-		Address:  "127.0.0.1",
-		Port:     3000,
-		Modules:  modules,
+		LogLevel:    os.Getenv(testvalues.EnvKeyRustLog),
+		Address:     addr,
+		Port:        port,
+		GrpcWebPort: grpcWebPort,
+		Modules:     modules,
 	}
 }
 
