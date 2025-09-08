@@ -40,14 +40,16 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
-	tv "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
 // TestCosmosToEVMAttestor E2E test that exercises Cosmos state attestation on EVM chain using
-// a light client in Solidity
+// a light client in Solidity.
+//
+// TODO: Decide to either refactor the other tests to a similar setup, or refactor this to follow the existing pattern.
 func TestCosmosToEVMAttestor(t *testing.T) {
 	ts := newCosmosToEVMAttestorTestSuite(t)
 
@@ -79,7 +81,7 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 
 			evmDeployerAddr = crypto.PubkeyToAddress(ts.evmDeployer.PublicKey)
 
-			transferAmount = big.NewInt(tv.TransferAmount)
+			transferAmount = big.NewInt(testvalues.TransferAmount)
 			transferCoin   = sdk.NewCoin(cosmosChain.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
 			packetTimeout = uint64(time.Now().Add(30 * time.Minute).Unix())
@@ -98,7 +100,7 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 			}
 
 			msgSendPacket := channeltypesv2.MsgSendPacket{
-				SourceClient:     tv.FirstWasmClientID,
+				SourceClient:     testvalues.FirstWasmClientID,
 				TimeoutTimestamp: packetTimeout,
 				Signer:           ts.cosmosDeployer.FormattedAddress(),
 				Payloads: []channeltypesv2.Payload{
@@ -131,12 +133,12 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 
 			require.NoError(t, err, "unable to query balance")
 			require.NotNil(t, resp.Balance, "balance is nil")
-			require.Equal(t, tv.InitialBalance-tv.TransferAmount, resp.Balance.Amount.Int64())
+			require.Equal(t, testvalues.InitialBalance-testvalues.TransferAmount, resp.Balance.Amount.Int64())
 		})
 
 		ts.do("3: Verify commitment exists on Cosmos", func() {
 			req := &channeltypesv2.QueryPacketCommitmentRequest{
-				ClientId: tv.FirstWasmClientID,
+				ClientId: testvalues.FirstWasmClientID,
 				Sequence: 1,
 			}
 
@@ -155,8 +157,8 @@ func TestCosmosToEVMAttestor(t *testing.T) {
 				SrcChain:    cosmosChain.Config().ChainID,
 				DstChain:    evmChain.ChainID.String(),
 				SourceTxIds: [][]byte{cosmosSendTxHash},
-				SrcClientId: tv.FirstWasmClientID,
-				DstClientId: tv.CustomClientID,
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
 			}
 			resp, err := ts.relayerClient.RelayByTx(ts.ctx, req)
 
@@ -257,26 +259,26 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 
 	// 1. Ensure some ENV
 	var (
-		envEthWasmType    = tv.EnvEnsure(tv.EnvKeyE2EEthWasmType, tv.EthWasmTypeAttestor)
-		envEthTestnetType = tv.EnvEnsure(tv.EnvKeyEthTestnetType, tv.EthTestnetTypeOptimism)
-		_                 = tv.EnvEnsure(tv.EnvKeyRustLog, tv.EnvValueRustLog_Info)
+		envEthWasmType    = testvalues.EnvEnsure(testvalues.EnvKeyE2EEthWasmType, testvalues.EthWasmTypeAttestor)
+		envEthTestnetType = testvalues.EnvEnsure(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeOptimism)
+		_                 = testvalues.EnvEnsure(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
 	)
 
 	// Skip test if not relevant
-	if envEthWasmType != tv.EthWasmTypeAttestor {
+	if envEthWasmType != testvalues.EthWasmTypeAttestor {
 		t.Skipf(
 			"Skipping: expecting %s to be %q, got %q",
-			tv.EnvKeyE2EEthWasmType,
-			tv.EthWasmTypeAttestor,
+			testvalues.EnvKeyE2EEthWasmType,
+			testvalues.EthWasmTypeAttestor,
 			envEthWasmType,
 		)
 	}
 
-	if envEthTestnetType != tv.EthTestnetTypeOptimism {
+	if envEthTestnetType != testvalues.EthTestnetTypeOptimism {
 		t.Skipf(
 			"Skipping: expecting %s to be %q, got %q",
-			tv.EnvKeyEthTestnetType,
-			tv.EthTestnetTypeOptimism,
+			testvalues.EnvKeyEthTestnetType,
+			testvalues.EthTestnetTypeOptimism,
 			envEthTestnetType,
 		)
 	}
@@ -297,8 +299,8 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	)
 
 	// Set some ENV related to RPC
-	os.Setenv(tv.EnvKeyEthRPC, evmChain.RPC)
-	os.Setenv(tv.EnvKeyTendermintRPC, cosmosChain.GetHostRPCAddress())
+	os.Setenv(testvalues.EnvKeyEthRPC, evmChain.RPC)
+	os.Setenv(testvalues.EnvKeyTendermintRPC, cosmosChain.GetHostRPCAddress())
 
 	// 3. Provision users
 	evmDeployer, err := evmChain.CreateAndFundUser()
@@ -331,7 +333,7 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	t.Logf("Attestor address: %s", attestorAddress.Hex())
 
 	// 4. Deploy IBC contracts
-	out, err := base.EthChain.ForgeScript(evmDeployer, tv.E2EDeployScriptPath)
+	out, err := base.EthChain.ForgeScript(evmDeployer, testvalues.E2EDeployScriptPath)
 	require.NoError(t, err, "unable to deploy ibc contracts")
 
 	evmContracts := extractEVMBindings(t, out, base.EthChain.RPCClient)
@@ -371,12 +373,12 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 
 	cosmosLCParams := map[string]string{
 		// see contracts/light-clients/AttestorLightClient.sol constructor(...)
-		tv.ParameterKey_AttestorAddresses: attestorAddress.Hex(),
-		tv.ParameterKey_MinRequiredSigs:   "1",
-		tv.ParameterKey_height:            strconv.FormatInt(latestCosmosHeader.Header.Height, 10),
-		tv.ParameterKey_timestamp:         strconv.FormatInt(latestCosmosHeader.Header.Time.Unix(), 10),
+		testvalues.ParameterKey_AttestorAddresses: attestorAddress.Hex(),
+		testvalues.ParameterKey_MinRequiredSigs:   "1",
+		testvalues.ParameterKey_height:            strconv.FormatInt(latestCosmosHeader.Header.Height, 10),
+		testvalues.ParameterKey_timestamp:         strconv.FormatInt(latestCosmosHeader.Header.Time.Unix(), 10),
 		// Light client proof submission is executed by ICS26Router; grant role to router
-		tv.ParameterKey_RoleManager: evmContracts.ICS26RouterAddress.Hex(),
+		testvalues.ParameterKey_RoleManager: evmContracts.ICS26RouterAddress.Hex(),
 	}
 
 	t.Logf("Cosmos LC params: %+v", cosmosLCParams)
@@ -406,11 +408,11 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	require.NoError(t, err, "unable to get evm block header")
 
 	evmLCParams := map[string]string{
-		tv.ParameterKey_ChecksumHex:       checksumHex,
-		tv.ParameterKey_AttestorAddresses: attestorAddress.Hex(),
-		tv.ParameterKey_MinRequiredSigs:   "1",
-		tv.ParameterKey_height:            strconv.FormatInt(evmBlockHeader.Number.Int64(), 10),
-		tv.ParameterKey_timestamp:         fmt.Sprintf("%d", evmBlockHeader.Time),
+		testvalues.ParameterKey_ChecksumHex:       checksumHex,
+		testvalues.ParameterKey_AttestorAddresses: attestorAddress.Hex(),
+		testvalues.ParameterKey_MinRequiredSigs:   "1",
+		testvalues.ParameterKey_height:            strconv.FormatInt(evmBlockHeader.Number.Int64(), 10),
+		testvalues.ParameterKey_timestamp:         fmt.Sprintf("%d", evmBlockHeader.Time),
 	}
 
 	t.Logf("EVM LC params: %+v", evmLCParams)
@@ -432,13 +434,13 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 	)
 
 	require.NoError(t, err, "unable to get event value from create client tx")
-	require.Equal(t, tv.FirstWasmClientID, wasmClientID)
+	require.Equal(t, testvalues.FirstWasmClientID, wasmClientID)
 
 	// 8. Register counter parties
 	// EVM
 	evmRegistrationTx, err := evmContracts.ICS26Router.AddClient(
 		must(evmChain.GetTransactOpts(evmDeployer)),
-		tv.CustomClientID,
+		testvalues.CustomClientID,
 		ics26router.IICS02ClientMsgsCounterpartyInfo{
 			ClientId:     wasmClientID,
 			MerklePrefix: [][]byte{[]byte("")},
@@ -452,14 +454,14 @@ func newCosmosToEVMAttestorTestSuite(t *testing.T) *cosmosToEVMAttestorTestSuite
 
 	event, err := e2esuite.GetEvmEvent(evmRegistrationReceipt, evmContracts.ICS26Router.ParseICS02ClientAdded)
 	require.NoError(t, err, "unable to get registration client event on EVM")
-	require.Equal(t, tv.CustomClientID, event.ClientId)
+	require.Equal(t, testvalues.CustomClientID, event.ClientId)
 	require.Equal(t, wasmClientID, event.CounterpartyInfo.ClientId)
 
 	// Cosmos
 	_, err = base.BroadcastMessages(ctx, cosmosChain, cosmosDeployer, 200_000, &clienttypesv2.MsgRegisterCounterparty{
 		ClientId:                 wasmClientID,
 		CounterpartyMerklePrefix: [][]byte{[]byte("")},
-		CounterpartyClientId:     tv.CustomClientID,
+		CounterpartyClientId:     testvalues.CustomClientID,
 		Signer:                   cosmosDeployer.FormattedAddress(),
 	})
 	require.NoError(t, err, "unable to register counterparty on Cosmos")
@@ -521,14 +523,14 @@ func runAttestor(
 func runRelayer(t *testing.T, config relayer.Config) relayertypes.RelayerServiceClient {
 	t.Helper()
 
-	err := config.GenerateConfigFile(tv.RelayerConfigFilePath)
+	err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 	require.NoError(t, err, "unable to generate relayer config file")
 
-	proc, err := relayer.StartRelayer(tv.RelayerConfigFilePath)
+	proc, err := relayer.StartRelayer(testvalues.RelayerConfigFilePath)
 	require.NoError(t, err, "unable to start relayer")
 
 	t.Cleanup(func() {
-		os.Remove(tv.RelayerConfigFilePath)
+		os.Remove(testvalues.RelayerConfigFilePath)
 		if err := proc.Kill(); err != nil {
 			t.Logf("unable to kill relayer process: %v", err)
 		}
