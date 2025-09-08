@@ -7,8 +7,8 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"time"
 	"text/template"
+	"time"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
