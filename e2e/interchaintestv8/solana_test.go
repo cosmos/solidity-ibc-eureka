@@ -505,35 +505,60 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	}))
 
 	s.Require().True(s.Run("Acknowledge transfer on Solana", func() {
-		var ackRelayTxBz []byte
-		s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		// First, update the client on Solana separately using chunked transactions
+		s.Require().True(s.Run("Update Tendermint client on Solana", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    testvalues.SolanaChainID,
-				SourceTxIds: [][]byte{cosmosRelayTxHash},
-				SrcClientId: CosmosClientID,
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx)
 
-			ackRelayTxBz = resp.Tx
-			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(ackRelayTxBz))
+			// Handle chunked transactions for update client
+			if len(resp.ChunkedTxs) > 0 {
+				err = s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
+				s.Require().NoError(err, "Failed to submit chunked update client transactions")
+				s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.ChunkedTxs))
+			} else if len(resp.Tx) > 0 {
+				// Fallback to single transaction (shouldn't happen for Tendermint headers)
+				s.T().Logf("WARNING: Received single transaction for client update - this may fail due to size")
+				unsignedTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
+				s.Require().NoError(err)
+				sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedTx, s.SolanaUser)
+				s.Require().NoError(err)
+				s.T().Logf("Update client transaction: %s", sig)
+			} else {
+				s.Require().Fail("No update client transactions received")
+			}
 		}))
 
-		// TODO: Fix transaction size issue - acknowledgment transactions are ~1892 bytes but Solana limit is 1644 bytes
-		// This occurs because update client messages with full Tendermint headers are too large for Solana transactions
-		_ = ackRelayTxBz // Disable unused variable warning
-		s.T().Logf("SKIPPED: Acknowledgment transaction submission due to size limit (1644 bytes)")
+		// Now relay the acknowledgment packet without update client
+		s.Require().True(s.Run("Relay acknowledgment without update client", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:         simd.Config().ChainID,
+				DstChain:         testvalues.SolanaChainID,
+				SourceTxIds:      [][]byte{cosmosRelayTxHash},
+				SrcClientId:      CosmosClientID,
+				DstClientId:      SolanaClientID,
+				SkipUpdateClient: true, // Skip update client since we did it separately
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(resp.Tx))
 
-		// s.Require().True(s.Run("Broadcast acknowledgment on Solana", func() {
-		// 	unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(ackRelayTxBz))
-		// 	s.Require().NoError(err)
+			// Submit the acknowledgment transaction
+			unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
+			s.Require().NoError(err)
+			s.T().Logf("Acknowledgment transaction contains %d instructions", len(unsignedSolanaTx.Message.Instructions))
 
-		// 	ackSig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
-		// 	s.Require().NoError(err)
-		// 	s.T().Logf("Acknowledgment transaction broadcasted on Solana: %s", ackSig)
-		// }))
+			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
+			s.Require().NoError(err)
+			s.T().Logf("Acknowledgment transaction broadcasted: %s", sig)
+
+			// Verify acknowledgment was processed correctly on Solana
+			// The packet should have sequence 1 since it's our first packet
+			s.verifyAcknowledgmentOnSolana(ctx, SolanaClientID, 1)
+		}))
 	}))
 }
 
@@ -689,39 +714,159 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
-		var ackRelayTx []byte
-		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		s.Require().True(s.Run("Update Tendermint client on Solana", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    testvalues.SolanaChainID,
-				SourceTxIds: [][]byte{cosmosPacketRelayTxHash},
-				SrcClientId: CosmosClientID,
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx)
 
-			ackRelayTx = resp.Tx
-			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(ackRelayTx))
+			// Handle chunked transactions for update client
+			if len(resp.ChunkedTxs) > 0 {
+				err = s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
+				s.Require().NoError(err, "Failed to submit chunked update client transactions")
+				s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.ChunkedTxs))
+			} else if len(resp.Tx) > 0 {
+				s.Require().Fail("Chunked update client supported only")
+			} else {
+				s.Require().Fail("No update client transactions received")
+			}
 		}))
 
-		// TODO: Fix transaction size issue - acknowledgment transactions are ~1892 bytes but Solana limit is 1644 bytes
-		// This occurs because update client messages with full Tendermint headers are too large for Solana transactions
-		s.T().Logf("SKIPPED: Acknowledgment transaction submission due to size limit (1644 bytes)")
+		s.Require().True(s.Run("Relay acknowledgment without update client", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:         simd.Config().ChainID,
+				DstChain:         testvalues.SolanaChainID,
+				SourceTxIds:      [][]byte{cosmosPacketRelayTxHash},
+				SrcClientId:      CosmosClientID,
+				DstClientId:      SolanaClientID,
+				SkipUpdateClient: true, // Skip update client since we did it separately
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(resp.Tx))
 
-		// s.Require().True(s.Run("Submit relay tx", func() {
-		// 	unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(ackRelayTx))
-		// 	s.Require().NoError(err)
-		// 	s.T().Logf("Acknowledgment transaction contains %d instructions", len(unsignedSolanaTx.Message.Instructions))
+			// Submit the acknowledgment transaction
+			unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
+			s.Require().NoError(err)
+			s.T().Logf("Acknowledgment transaction contains %d instructions", len(unsignedSolanaTx.Message.Instructions))
 
-		// 	sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
-		// 	s.Require().NoError(err)
-		// 	s.T().Logf("Acknowledgment transaction broadcasted: %s", sig)
-		// }))
+			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
+			s.Require().NoError(err)
+			s.T().Logf("Acknowledgment transaction broadcasted: %s", sig)
+
+			// Verify acknowledgment was processed correctly on Solana
+			// The packet should have sequence 1 since it's our first packet
+			s.verifyAcknowledgmentOnSolana(ctx, SolanaClientID, 1)
+		}))
 	}))
 }
 
 // Helpers
+
+// submitChunkedUpdateClient handles the submission of chunked update client transactions
+func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context, resp *relayertypes.UpdateClientResponse, user *solanago.Wallet) error {
+	if len(resp.ChunkedTxs) == 0 {
+		return fmt.Errorf("no chunked transactions provided")
+	}
+
+	if resp.ChunkedMetadata == nil {
+		return fmt.Errorf("chunked metadata is required")
+	}
+
+	metadata := resp.ChunkedMetadata
+	s.T().Logf("Submitting %d chunked transactions: first=%d, parallel=%d, assembly=%d",
+		len(resp.ChunkedTxs),
+		metadata.FirstChunkCount,
+		metadata.ParallelChunkCount,
+		metadata.AssemblyCount)
+
+	// Submit first chunk(s) - must be done sequentially
+	firstChunkEnd := int(metadata.FirstChunkCount)
+	for i := 0; i < firstChunkEnd && i < len(resp.ChunkedTxs); i++ {
+		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[i]))
+		if err != nil {
+			return fmt.Errorf("failed to decode first chunk %d: %w", i, err)
+		}
+
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
+		if err != nil {
+			return fmt.Errorf("failed to submit first chunk %d: %w", i, err)
+		}
+		s.T().Logf("First chunk %d submitted: %s", i, sig)
+
+		// Small delay to ensure transaction is processed
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	// Submit parallel chunks - can be done concurrently (but we'll do sequentially for simplicity)
+	parallelStart := firstChunkEnd
+	parallelEnd := parallelStart + int(metadata.ParallelChunkCount)
+	for i := parallelStart; i < parallelEnd && i < len(resp.ChunkedTxs); i++ {
+		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[i]))
+		if err != nil {
+			return fmt.Errorf("failed to decode parallel chunk %d: %w", i-parallelStart, err)
+		}
+
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
+		if err != nil {
+			return fmt.Errorf("failed to submit parallel chunk %d: %w", i-parallelStart, err)
+		}
+		s.T().Logf("Parallel chunk %d submitted: %s", i-parallelStart, sig)
+	}
+
+	// Submit assembly transaction(s) - must be done last
+	assemblyStart := parallelEnd
+	assemblyEnd := assemblyStart + int(metadata.AssemblyCount)
+	for i := assemblyStart; i < assemblyEnd && i < len(resp.ChunkedTxs); i++ {
+		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[i]))
+		if err != nil {
+			return fmt.Errorf("failed to decode assembly tx %d: %w", i-assemblyStart, err)
+		}
+
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
+		if err != nil {
+			return fmt.Errorf("failed to submit assembly tx %d: %w", i-assemblyStart, err)
+		}
+		s.T().Logf("Assembly transaction %d submitted: %s", i-assemblyStart, sig)
+
+		// Small delay to ensure transaction is processed
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	s.T().Logf("Successfully submitted all %d chunked transactions", len(resp.ChunkedTxs))
+	return nil
+}
+
+func (s *IbcEurekaSolanaTestSuite) verifyAcknowledgmentOnSolana(ctx context.Context, clientID string, sequence uint64) {
+	// Derive the packet acknowledgment PDA
+	packetAckPDA, _, err := solanago.FindProgramAddress(
+		[][]byte{
+			[]byte("packet_ack"),
+			[]byte(clientID),
+			binary.LittleEndian.AppendUint64(nil, sequence),
+		},
+		ics26_router.ProgramID,
+	)
+	s.Require().NoError(err)
+
+	// Query the account to verify it exists
+	accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, packetAckPDA)
+	s.Require().NoError(err)
+	s.Require().NotNil(accountInfo.Value, "Acknowledgment account should exist")
+	s.Require().NotNil(accountInfo.Value.Data, "Acknowledgment account should have data")
+
+	// The account should be owned by the ICS26 router program
+	s.Require().Equal(ics26_router.ProgramID.String(), accountInfo.Value.Owner.String(),
+		"Acknowledgment account should be owned by ICS26 router")
+
+	// Log the acknowledgment data for debugging
+	s.T().Logf("Acknowledgment verified on Solana for client %s, sequence %d", clientID, sequence)
+	s.T().Logf("  - Account: %s", packetAckPDA.String())
+	s.T().Logf("  - Data length: %d bytes", len(accountInfo.Value.Data.GetBinary()))
+	s.T().Logf("  - Owner: %s", accountInfo.Value.Owner.String())
+}
 
 func getSolDenomOnCosmos() transfertypes.Denom {
 	return transfertypes.NewDenom(SolDenom, transfertypes.NewHop("transfer", CosmosClientID))
