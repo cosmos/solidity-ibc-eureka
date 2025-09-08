@@ -105,10 +105,14 @@ install-attestor:
 	# Optimism
 	cargo build --bin ibc_attestor --release --locked --no-default-features -F op &&\
 	mv target/release/ibc_attestor ~/.cargo/bin/ibc_op_attestor
+
 	# Arbitrum
 	cargo build --bin ibc_attestor --release --locked --no-default-features -F arbitrum &&\
 	mv target/release/ibc_attestor ~/.cargo/bin/ibc_arbitrum_attestor
 
+	# Cosmos
+	cargo build --bin ibc_attestor --release --locked --no-default-features -F cosmos &&\
+	mv target/release/ibc_attestor ~/.cargo/bin/ibc_cosmos_attestor
 
 # Run all linters
 [group('lint')]
@@ -194,7 +198,7 @@ generate-fixtures-tendermint-light-client: install-relayer
 	@echo "Generating basic membership and update client fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES=true go test -v -run '^TestWithCosmosRelayerTestSuite/Test_UpdateClient$' -timeout 40m
 
-# Generate go types for the e2e tests from the etheruem light client code
+# Generate go types for the e2e tests from the ethereum light client code
 [group('generate')]
 generate-ethereum-types:
 	cargo run --bin generate_json_schema --features test-utils

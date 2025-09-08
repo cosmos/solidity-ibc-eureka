@@ -27,11 +27,6 @@ const (
 	testExclusionsEnv = "TEST_EXCLUSIONS"
 )
 
-var (
-	ErrNoSuiteEntrypoint       = errors.New("no suite entrypoint found")
-	ErrMultipleSuiteEntrypoint = errors.New("multiple suite entrypoints found")
-)
-
 type actionTestMatrix struct {
 	Include []testSuitePair `json:"include"`
 }
@@ -40,6 +35,19 @@ type testSuitePair struct {
 	Test       string `json:"test"`
 	EntryPoint string `json:"entrypoint"`
 }
+
+var (
+	ErrNoSuiteEntrypoint       = errors.New("no suite entrypoint found")
+	ErrMultipleSuiteEntrypoint = errors.New("multiple suite entrypoints found")
+)
+
+var (
+	// todo: workaround for including standalone tests in the matrix
+	// todo: improve this script to support standalone tests discovery
+	standaloneTestEntryPoint = map[string][]string{
+		"TestCosmosToEVMAttestor": {"StateAttestation", "ICS20Transfer"},
+	}
+)
 
 func main() {
 	var testDir string
@@ -78,6 +86,11 @@ func main() {
 
 func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems []string) (actionTestMatrix, error) {
 	testSuiteMapping := map[string][]string{}
+
+	for k, v := range standaloneTestEntryPoint {
+		testSuiteMapping[k] = v
+	}
+
 	fileSet := token.NewFileSet()
 	err := filepath.WalkDir(e2eRootDirectory, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -127,7 +140,7 @@ func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems
 			if slices.Contains(excludedItems, fullTestName) {
 				continue
 			}
-			
+
 			gh.Include = append(gh.Include, testSuitePair{
 				Test:       testCaseName,
 				EntryPoint: testSuiteName,

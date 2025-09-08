@@ -22,10 +22,16 @@ type OpConfig struct {
 	RouterAddress string `toml:"router_address"`
 }
 
+// CosmosConfig represents the Cosmos-specific configuration
+type CosmosConfig struct {
+	URL string `toml:"url"`
+}
+
 // AttestorConfig represents the full attestor configuration
 type AttestorConfig struct {
 	Server ServerConfig `toml:"server"`
 	OP     OpConfig     `toml:"op"`
+	Cosmos CosmosConfig `toml:"cosmos"`
 }
 
 // DefaultAttestorConfig returns a config with sensible defaults
