@@ -26,12 +26,9 @@ contract Integration2Test is Test {
     IbcImpl public ibcImplB;
 
     TestHelper public th = new TestHelper();
-    IntegrationEnv public integrationEnv;
+    IntegrationEnv public integrationEnv = new IntegrationEnv();
 
     function setUp() public {
-        // Set up the environment
-        integrationEnv = new IntegrationEnv();
-
         // Deploy the IBC implementation
         ibcImplA = new IbcImpl(integrationEnv.permit2());
         ibcImplB = new IbcImpl(integrationEnv.permit2());
