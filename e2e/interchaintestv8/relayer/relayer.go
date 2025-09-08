@@ -24,7 +24,11 @@ import (
 )
 
 // DefaultRelayerGRPCAddress returns the default gRPC address for the relayer.
+// If RELAYER_GRPC_ADDR is set, it takes precedence to allow dynamic ports in CI/E2E.
 func DefaultRelayerGRPCAddress() string {
+	if v := os.Getenv("RELAYER_GRPC_ADDR"); v != "" {
+		return v
+	}
 	return "127.0.0.1:3000"
 }
 
