@@ -29,7 +29,6 @@ pub struct MembershipProof {
 pub fn verify_membership(
     consensus_state: &ConsensusState,
     client_state: &ClientState,
-    _height: u64,
     proof: Vec<u8>,
     value: Vec<u8>,
 ) -> Result<(), IbcAttestorClientError> {
@@ -109,7 +108,6 @@ mod verify_membership {
             is_frozen: false,
         };
 
-        let height = cns.height;
         let attestation = MembershipProof {
             attestation_data: default_packet_commitments().abi_encode(),
             signatures: default_sigs(),
@@ -117,7 +115,7 @@ mod verify_membership {
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
         let value = sample_packet_commitments()[0].commitment.to_vec();
-        let res = verify_membership(&cns, &cs, height, as_bytes, value);
+        let res = verify_membership(&cns, &cs, as_bytes, value);
         println!("{res:?}");
         assert!(res.is_ok());
     }
@@ -144,7 +142,7 @@ mod verify_membership {
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
         let value = sample_packet_commitments()[0].commitment.to_vec();
-        let res = verify_membership(&cns, &cs, bad_height, as_bytes, value);
+        let res = verify_membership(&cns, &cs, as_bytes, value);
         assert!(
             matches!(res, Err(IbcAttestorClientError::InvalidProof { reason }) if reason.contains("height"))
         );
@@ -163,12 +161,11 @@ mod verify_membership {
             is_frozen: false,
         };
 
-        let height = cns.height;
         let attestation = [0, 1, 3].to_vec();
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
         let value = sample_packet_commitments()[0].commitment.to_vec();
-        let res = verify_membership(&cns, &cs, height, as_bytes, value);
+        let res = verify_membership(&cns, &cs, as_bytes, value);
         assert!(matches!(
             res,
             Err(IbcAttestorClientError::DeserializeMembershipProofFailed { .. })
@@ -191,7 +188,6 @@ mod verify_membership {
             is_frozen: false,
         };
 
-        let height = cns.height;
         let attestation = MembershipProof {
             attestation_data: default_packet_commitments().abi_encode(),
             signatures: default_sigs(),
@@ -199,7 +195,7 @@ mod verify_membership {
 
         let as_bytes = serde_json::to_vec(&attestation).unwrap();
         let value = sample_packet_commitments()[0].commitment.to_vec();
-        let res = verify_membership(&cns, &cs, height, as_bytes, value);
+        let res = verify_membership(&cns, &cs, as_bytes, value);
         assert!(matches!(
             res,
             Err(IbcAttestorClientError::UnknownAddressRecovered { .. })
