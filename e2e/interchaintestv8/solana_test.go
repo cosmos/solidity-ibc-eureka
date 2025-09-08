@@ -515,11 +515,12 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			s.Require().NoError(err)
 
 			// Handle chunked transactions for update client
-			if len(resp.ChunkedTxs) > 0 {
+			switch {
+			case len(resp.ChunkedTxs) > 0:
 				err = s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
 				s.Require().NoError(err, "Failed to submit chunked update client transactions")
 				s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.ChunkedTxs))
-			} else if len(resp.Tx) > 0 {
+			case len(resp.Tx) > 0:
 				// Fallback to single transaction (shouldn't happen for Tendermint headers)
 				s.T().Logf("WARNING: Received single transaction for client update - this may fail due to size")
 				unsignedTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
@@ -527,7 +528,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 				sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedTx, s.SolanaUser)
 				s.Require().NoError(err)
 				s.T().Logf("Update client transaction: %s", sig)
-			} else {
+			default:
 				s.Require().Fail("No update client transactions received")
 			}
 		}))
@@ -723,13 +724,14 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.Require().NoError(err)
 
 			// Handle chunked transactions for update client
-			if len(resp.ChunkedTxs) > 0 {
+			switch {
+			case len(resp.ChunkedTxs) > 0:
 				err = s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
 				s.Require().NoError(err, "Failed to submit chunked update client transactions")
 				s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.ChunkedTxs))
-			} else if len(resp.Tx) > 0 {
+			case len(resp.Tx) > 0:
 				s.Require().Fail("Chunked update client supported only")
-			} else {
+			default:
 				s.Require().Fail("No update client transactions received")
 			}
 		}))
