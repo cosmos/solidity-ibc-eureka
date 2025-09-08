@@ -13,7 +13,6 @@ pub fn upload_header_chunk(
     let chunk = &mut ctx.accounts.chunk;
     let metadata = &mut ctx.accounts.metadata;
 
-    // Verify chunk data size
     require!(
         params.chunk_data.len() <= CHUNK_DATA_SIZE,
         ErrorCode::ChunkDataTooLarge
@@ -26,25 +25,26 @@ pub fn upload_header_chunk(
         ErrorCode::InvalidChunkHash
     );
 
-    // Check if chunk already has the correct hash (early exit)
-    if chunk.chunk_hash == params.chunk_hash {
-        return Ok(());
-    }
-
-    // Only update metadata if it's new or different
-    if metadata.header_commitment != params.header_commitment
-        || metadata.total_chunks != params.total_chunks
-        || metadata.created_at == 0
-    {
-        metadata.chain_id.clone_from(&params.chain_id);
-        metadata.target_height = params.target_height;
-        metadata.total_chunks = params.total_chunks;
-        metadata.header_commitment = params.header_commitment;
-
-        if metadata.created_at == 0 {
-            metadata.created_at = clock.unix_timestamp;
-        }
-    }
+    require!(
+        metadata.chain_id == params.chain_id,
+        ErrorCode::InvalidChunkAccount
+    );
+    require!(
+        metadata.target_height == params.target_height,
+        ErrorCode::InvalidChunkAccount
+    );
+    require!(
+        metadata.total_chunks == params.total_chunks,
+        ErrorCode::InvalidChunkCount
+    );
+    require!(
+        metadata.header_commitment == params.header_commitment,
+        ErrorCode::InvalidHeader
+    );
+    require!(
+        params.chunk_index < metadata.total_chunks,
+        ErrorCode::InvalidChunkIndex
+    );
 
     metadata.updated_at = clock.unix_timestamp;
 

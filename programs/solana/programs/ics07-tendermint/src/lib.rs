@@ -89,9 +89,36 @@ pub struct SubmitMisbehaviour<'info> {
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 }
 
-// TODO: Economic incentive is required to slash malicious relayers
-/// Context for uploading a chunk of header data
-/// Chunks are stored by `chain_id`, `height`, `submitter`, and `chunk_index`
+#[derive(Accounts)]
+#[instruction(chain_id: String, target_height: u64, total_chunks: u8, header_commitment: [u8; 32])]
+pub struct InitializeUpload<'info> {
+    /// Header metadata for this height and submitter
+    #[account(
+        init,
+        payer = submitter,
+        space = 8 + HeaderMetadata::INIT_SPACE,
+        seeds = [
+            b"header_metadata",
+            submitter.key().as_ref(),
+            chain_id.as_bytes(),
+            &target_height.to_le_bytes(),
+        ],
+        bump
+    )]
+    pub metadata: Account<'info, HeaderMetadata>,
+
+    /// Client state to verify this is a valid client
+    #[account(
+        constraint = client_state.chain_id == chain_id,
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    /// The submitter who pays for and owns these accounts
+    #[account(mut)]
+    pub submitter: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
 #[derive(Accounts)]
 #[instruction(params: types::UploadChunkParams)]
 pub struct UploadHeaderChunk<'info> {
@@ -112,11 +139,9 @@ pub struct UploadHeaderChunk<'info> {
     )]
     pub chunk: Account<'info, HeaderChunk>,
 
-    /// Header metadata for this height and submitter
+    /// Header metadata for this height and submitter (must already exist)
     #[account(
-        init_if_needed,
-        payer = submitter,
-        space = 8 + HeaderMetadata::INIT_SPACE,
+        mut,
         seeds = [
             b"header_metadata",
             submitter.key().as_ref(),
@@ -252,6 +277,23 @@ pub mod ics07_tendermint {
         msg: MisbehaviourMsg,
     ) -> Result<()> {
         instructions::submit_misbehaviour::submit_misbehaviour(ctx, msg)
+    }
+
+    /// Initialize a new chunked upload by creating the metadata
+    pub fn initialize_upload(
+        ctx: Context<InitializeUpload>,
+        chain_id: String,
+        target_height: u64,
+        total_chunks: u8,
+        header_commitment: [u8; 32],
+    ) -> Result<()> {
+        instructions::initialize_upload::initialize_upload(
+            ctx,
+            chain_id,
+            target_height,
+            total_chunks,
+            header_commitment,
+        )
     }
 
     /// Upload a chunk of header data for multi-transaction updates

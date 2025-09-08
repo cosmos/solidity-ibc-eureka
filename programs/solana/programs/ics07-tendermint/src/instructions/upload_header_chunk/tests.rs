@@ -1,4 +1,3 @@
-use super::*;
 use crate::error::ErrorCode;
 use crate::state::{HeaderChunk, HeaderMetadata, CHUNK_DATA_SIZE};
 use crate::test_helpers::PROGRAM_BINARY_PATH;
@@ -9,7 +8,7 @@ use anchor_lang::solana_program::{
     pubkey::Pubkey,
     system_program,
 };
-use anchor_lang::InstructionData;
+use anchor_lang::{AccountDeserialize, AccountSerialize, InstructionData};
 use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
 use solana_sdk::account::Account;
 
@@ -170,6 +169,32 @@ fn create_upload_chunk_params(
     }
 }
 
+fn create_initialize_upload_instruction(
+    test_accounts: &TestAccounts,
+    chain_id: String,
+    target_height: u64,
+    total_chunks: u8,
+    header_commitment: [u8; 32],
+) -> Instruction {
+    let instruction_data = crate::instruction::InitializeUpload {
+        chain_id,
+        target_height,
+        total_chunks,
+        header_commitment,
+    };
+
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(test_accounts.metadata_pda, false),
+            AccountMeta::new_readonly(test_accounts.client_state_pda, false),
+            AccountMeta::new(test_accounts.submitter, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data: instruction_data.data(),
+    }
+}
+
 fn create_upload_instruction(
     test_accounts: &TestAccounts,
     params: UploadChunkParams,
@@ -187,6 +212,25 @@ fn create_upload_instruction(
         ],
         data: instruction_data.data(),
     }
+}
+
+fn initialize_metadata(
+    test_accounts: &TestAccounts,
+    chain_id: &str,
+    target_height: u64,
+    total_chunks: u8,
+    header_commitment: [u8; 32],
+) -> Vec<(Pubkey, Account)> {
+    let instruction = create_initialize_upload_instruction(
+        test_accounts,
+        chain_id.to_string(),
+        target_height,
+        total_chunks,
+        header_commitment,
+    );
+
+    let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
+    result.resulting_accounts.into_iter().collect()
 }
 
 fn assert_instruction_succeeds(
@@ -238,7 +282,7 @@ fn test_upload_first_chunk_success() {
     let total_chunks = 3;
     let submitter = Pubkey::new_unique();
 
-    let test_accounts = setup_test_accounts(
+    let mut test_accounts = setup_test_accounts(
         chain_id,
         target_height,
         chunk_index,
@@ -257,7 +301,18 @@ fn test_upload_first_chunk_success() {
 
     let expected_hash = params.chunk_hash;
     let expected_data = params.chunk_data.clone();
+    let header_commitment = params.header_commitment;
 
+    // First initialize the metadata
+    test_accounts.accounts = initialize_metadata(
+        &test_accounts,
+        chain_id,
+        target_height,
+        total_chunks,
+        header_commitment,
+    );
+
+    // Then upload the chunk
     let instruction = create_upload_instruction(&test_accounts, params);
     let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
 
@@ -294,10 +349,20 @@ fn test_upload_chunk_with_invalid_hash_fails() {
     let chunk_index = 0;
     let submitter = Pubkey::new_unique();
 
-    let test_accounts = setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
+    let mut test_accounts =
+        setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
 
     let mut params =
         create_upload_chunk_params(chain_id, target_height, chunk_index, 3, vec![1u8; 100]);
+
+    // Initialize metadata first
+    test_accounts.accounts = initialize_metadata(
+        &test_accounts,
+        chain_id,
+        target_height,
+        3,
+        params.header_commitment,
+    );
 
     // Corrupt the hash
     params.chunk_hash = [0u8; 32];
@@ -323,6 +388,15 @@ fn test_upload_same_chunk_twice_with_same_hash() {
     let chunk_data = vec![1u8; 100];
     let params = create_upload_chunk_params(chain_id, target_height, chunk_index, 3, chunk_data);
 
+    // Initialize metadata first
+    test_accounts.accounts = initialize_metadata(
+        &test_accounts,
+        chain_id,
+        target_height,
+        3,
+        params.header_commitment,
+    );
+
     // First upload
     let instruction = create_upload_instruction(&test_accounts, params.clone());
     let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
@@ -330,11 +404,11 @@ fn test_upload_same_chunk_twice_with_same_hash() {
     // Update accounts with results from first upload
     test_accounts.accounts = result.resulting_accounts.into_iter().collect();
 
-    // Second upload with same data (should succeed but be a no-op)
+    // Second upload with same data (should succeed and increment version)
     let instruction2 = create_upload_instruction(&test_accounts, params);
     let result2 = assert_instruction_succeeds(&instruction2, &test_accounts.accounts);
 
-    // Verify chunk wasn't modified (version should still be 1)
+    // Verify chunk was re-uploaded (version should be 2 now)
     let chunk_account = result2
         .resulting_accounts
         .iter()
@@ -345,8 +419,8 @@ fn test_upload_same_chunk_twice_with_same_hash() {
         .expect("should deserialize chunk");
 
     assert_eq!(
-        chunk.version, 1,
-        "version should not increment for same hash"
+        chunk.version, 2,
+        "version should increment even for same data"
     );
 }
 
@@ -364,16 +438,32 @@ fn test_upload_chunk_overwrites_with_different_data() {
     let chunk_data1 = vec![1u8; 100];
     let params1 = create_upload_chunk_params(chain_id, target_height, chunk_index, 3, chunk_data1);
 
+    // Save the header commitment before params1 is moved
+    let header_commitment = params1.header_commitment;
+
+    // Initialize metadata first (using params1's header commitment)
+    test_accounts.accounts = initialize_metadata(
+        &test_accounts,
+        chain_id,
+        target_height,
+        3,
+        header_commitment,
+    );
+
     let instruction = create_upload_instruction(&test_accounts, params1);
     let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
 
     // Update accounts with results from first upload
     test_accounts.accounts = result.resulting_accounts.into_iter().collect();
 
-    // Second upload with different data
+    // Second upload with different data but same header commitment
+    // (simulating a re-upload scenario where the full header is the same)
     let chunk_data2 = vec![2u8; 100];
-    let params2 =
+    let mut params2 =
         create_upload_chunk_params(chain_id, target_height, chunk_index, 3, chunk_data2.clone());
+
+    // Use the same header commitment to match the initialized metadata
+    params2.header_commitment = header_commitment;
 
     let instruction2 = create_upload_instruction(&test_accounts, params2);
     let result2 = assert_instruction_succeeds(&instruction2, &test_accounts.accounts);
@@ -407,6 +497,15 @@ fn test_upload_multiple_chunks_creates_shared_metadata() {
 
     let expected_commitment = params0.header_commitment;
 
+    // Initialize metadata first
+    test_accounts0.accounts = initialize_metadata(
+        &test_accounts0,
+        chain_id,
+        target_height,
+        total_chunks,
+        expected_commitment,
+    );
+
     let instruction0 = create_upload_instruction(&test_accounts0, params0);
     let result0 = assert_instruction_succeeds(&instruction0, &test_accounts0.accounts);
 
@@ -428,12 +527,12 @@ fn test_upload_multiple_chunks_creates_shared_metadata() {
     // In tests, Clock might return 0, so just check it was set
     assert!(metadata.created_at >= 0);
 
-    // Upload chunk 1 (should reuse same metadata)
+    // Upload chunk 1 (should use same metadata)
     test_accounts0.accounts = result0.resulting_accounts.into_iter().collect();
 
     let test_accounts1 = setup_test_accounts(chain_id, target_height, 1, submitter, true);
 
-    // Update accounts to include existing metadata
+    // Update accounts to include existing metadata from chunk 0
     let mut accounts1 = test_accounts0.accounts.clone();
     accounts1.retain(|(k, _)| *k != test_accounts1.chunk_pda);
     accounts1.push((
@@ -469,7 +568,7 @@ fn test_upload_multiple_chunks_creates_shared_metadata() {
 }
 
 #[test]
-fn test_upload_chunk_without_client_fails() {
+fn test_upload_chunk_without_metadata_fails() {
     let chain_id = "test-chain";
     let target_height = 200;
     let chunk_index = 0;
@@ -480,14 +579,16 @@ fn test_upload_chunk_without_client_fails() {
         target_height,
         chunk_index,
         submitter,
-        false, // no existing client
+        true, // with existing client
     );
 
     let params =
         create_upload_chunk_params(chain_id, target_height, chunk_index, 3, vec![1u8; 100]);
 
+    // Try to upload chunk without initializing metadata first
+
     let instruction = create_upload_instruction(&test_accounts, params);
-    // This should fail because the client doesn't exist
+    // This should fail because the metadata doesn't exist
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
     let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
 
@@ -496,7 +597,7 @@ fn test_upload_chunk_without_client_fails() {
             result.program_result,
             mollusk_svm::result::ProgramResult::Success
         ),
-        "Should fail without client"
+        "Should fail without metadata"
     );
 }
 
@@ -507,13 +608,23 @@ fn test_upload_chunk_exceeding_max_size_fails() {
     let chunk_index = 0;
     let submitter = Pubkey::new_unique();
 
-    let test_accounts = setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
+    let mut test_accounts =
+        setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
 
     // Create chunk data that exceeds max size
     let oversized_data = vec![1u8; CHUNK_DATA_SIZE + 1];
 
     let params =
         create_upload_chunk_params(chain_id, target_height, chunk_index, 3, oversized_data);
+
+    // Initialize metadata first
+    test_accounts.accounts = initialize_metadata(
+        &test_accounts,
+        chain_id,
+        target_height,
+        3,
+        params.header_commitment,
+    );
 
     let instruction = create_upload_instruction(&test_accounts, params);
 

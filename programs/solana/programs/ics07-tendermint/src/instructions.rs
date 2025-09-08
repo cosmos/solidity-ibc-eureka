@@ -1,6 +1,7 @@
 pub mod assemble_and_update_client;
 pub mod cleanup_incomplete_upload;
 pub mod initialize;
+pub mod initialize_upload;
 pub mod submit_misbehaviour;
 pub mod update_client;
 pub mod upload_header_chunk;
