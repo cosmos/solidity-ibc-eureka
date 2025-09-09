@@ -40,10 +40,10 @@ pub fn verify_membership(
             reason: format!("Failed to decode ABI attestation data: {e}"),
         })?;
 
-    let trusted_height = proof.height;
-    if consensus_state.height != trusted_height {
+    let trusted_height = consensus_state.height;
+    if trusted_height != proof.height {
         return Err(IbcAttestorClientError::InvalidProof {
-            reason: "consensus and trusted height must match".into(),
+            reason: "trusted consensus and proof height must match".into(),
         });
     }
 
