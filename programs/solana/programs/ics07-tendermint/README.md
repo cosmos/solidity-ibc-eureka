@@ -4,7 +4,9 @@ This is a Solana implementation of the ICS07 Tendermint light client, enabling I
 
 ## Overview
 
-The Tendermint light client verifies consensus proofs from Tendermint chains on Solana. Since Tendermint headers are always several KB in size and exceed Solana's transaction size limitations (~1232 bytes), all headers must be uploaded in chunks across multiple transactions before being assembled and verified. Each chunk can contain up to 900 bytes of header data.
+The Tendermint light client verifies consensus proofs from Tendermint chains on Solana. This implementation supports multiple independent light client instances, each tracking a different Tendermint-based chain. After initialization, each client instance is identified by its chain ID and can be used to verify proofs from its corresponding chain.
+
+Since Tendermint headers are always several KB in size and exceed Solana's transaction size limitations (~1232 bytes), all headers must be uploaded in chunks across multiple transactions before being assembled and verified. Each chunk can contain up to 900 bytes of header data.
 
 ## Architecture
 
@@ -31,19 +33,21 @@ The client implements a mandatory chunked upload mechanism for all header update
 ### Core IBC Instructions
 
 #### `initialize`
-Initializes a new Tendermint light client for a specific chain.
+Initializes a new Tendermint light client instance for a specific chain. Multiple clients can be initialized to track different Tendermint-based chains simultaneously.
 
 **Parameters:**
-- `chain_id`: The chain identifier
+- `chain_id`: The unique chain identifier (e.g., "cosmoshub-4", "osmosis-1", "noble-1")
 - `latest_height`: Initial trusted height
 - `client_state`: Initial client configuration (trust level, periods, etc.)
 - `consensus_state`: Initial trusted consensus state
 
 **Accounts:**
-- `client_state` (init): PDA storing client configuration
+- `client_state` (init): PDA storing client configuration, derived from chain_id
 - `consensus_state_store` (init): PDA storing consensus state at height
 - `payer` (signer, mut): Account paying for initialization
 - `system_program`: System program
+
+**Multi-Chain Support**: Each chain_id creates a separate client instance with its own state. This allows Solana to maintain IBC connections with multiple Tendermint chains concurrently.
 
 ### Chunked Upload Instructions
 
@@ -162,7 +166,7 @@ Submits evidence of misbehaviour to freeze the client.
 
 ## PDA Derivations
 
-All storage uses Program Derived Addresses (PDAs) for deterministic addressing:
+All storage uses Program Derived Addresses (PDAs) for deterministic addressing. The chain_id is a key component in most PDAs, ensuring complete isolation between different chain clients:
 
 ```
 client_state: [b"client", chain_id]
@@ -170,6 +174,12 @@ consensus_state: [b"consensus_state", client_state, height_bytes]
 header_chunk: [b"header_chunk", submitter, chain_id, height_bytes, chunk_index]
 header_metadata: [b"header_metadata", submitter, chain_id, height_bytes]
 ```
+
+This PDA structure ensures that:
+- Each chain has its own isolated client state
+- Consensus states are chain-specific
+- Upload operations cannot interfere across different chains
+- Multiple chains can be tracked simultaneously without conflicts
 
 ## Upload Flow Example
 
@@ -242,23 +252,27 @@ Approximate compute units per operation:
 
 ### For Relayers
 
-1. Monitor Tendermint chain for new headers
-2. Split header into 900-byte chunks
-3. Create metadata via `create_metadata`
-4. Upload all chunks in parallel for optimal performance
-5. Call `assemble_and_update_client` once all chunks are confirmed
-6. Handle failures:
+1. **Choose the target chain**: Determine which Tendermint chain you're relaying for (each chain_id has its own client)
+2. Monitor Tendermint chain for new headers
+3. Split header into 900-byte chunks
+4. Create metadata via `create_metadata` (specify the correct chain_id)
+5. Upload all chunks in parallel for optimal performance
+6. Call `assemble_and_update_client` once all chunks are confirmed
+7. Handle failures:
    - Retry failed chunks
    - Call `cleanup_incomplete_upload` if abandoning (will need to start fresh with new metadata)
+
+**Multi-Chain Relaying**: Relayers can operate across multiple chains simultaneously. Each chain's uploads are isolated by chain_id in the PDA derivation.
 
 **Performance Tip**: With the separated metadata creation, all chunks can now be uploaded in parallel. A 9KB header (10 chunks of 900 bytes) can be uploaded in ~2 block times instead of ~10.
 
 ### For IBC Applications
 
-1. Reference client via chain_id PDA
-2. Call `verify_membership` for packet proofs
+1. **Specify the chain**: Reference the specific client via chain_id PDA
+2. Call `verify_membership` for packet proofs from that chain
 3. Check client not frozen before relying on proofs
 4. Monitor for client updates
+5. **Multi-Chain Applications**: Can interact with multiple chains by referencing different chain_id PDAs
 
 ## Dependencies
 
