@@ -573,13 +573,13 @@ impl TxBuilder {
         })
     }
 
-    /// Build instruction for `RecvPacket` on Solana with hardcoded payload value
+    /// Build instruction for `RecvPacket` on Solana
     ///
     /// # Errors
     ///
     /// Returns an error if packet data cannot be serialized
     fn build_recv_packet_instruction(&self, params: &RecvPacketParams) -> Result<Instruction> {
-        // Build the packet structure (IBC v2) using real payload data
+        // Build the packet structure (IBC v2)
         let payloads = params.payloads.to_vec();
 
         // Get dest_port for PDA derivation before moving packet
