@@ -271,7 +271,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			s.Require().True(programAvailable, "Program failed to become available within timeout")
 
 			// Initialize dummy app state
-			appStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte("transfer")}, dummyAppProgramID)
+			appStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(transfertypes.PortID)}, dummyAppProgramID)
 			s.Require().NoError(err)
 
 			initInstruction, err := dummy_ibc_app.NewInitializeInstruction(
@@ -292,11 +292,11 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
 			s.Require().NoError(err)
 
-			ibcAppAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("ibc_app"), []byte("transfer")}, ics26_router.ProgramID)
+			ibcAppAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("ibc_app"), []byte(transfertypes.PortID)}, ics26_router.ProgramID)
 			s.Require().NoError(err)
 
 			registerInstruction, err := ics26_router.NewAddIbcAppInstruction(
-				"transfer",
+				transfertypes.PortID,
 				routerStateAccount,
 				ibcAppAccount,
 				dummyAppProgramID,
@@ -398,7 +398,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		transferAmount := fmt.Sprintf("%d", TestTransferAmount)
 		cosmosUserWallet := s.CosmosUsers[0]
 		receiver := cosmosUserWallet.FormattedAddress()
-		destPort := "transfer"
+		destPort := transfertypes.PortID
 		memo := "Test transfer from Solana to Cosmos"
 
 		accounts := s.prepareTransferAccounts(ctx, s.DummyAppProgramID, destPort, SolanaClientID)
@@ -588,14 +588,13 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			Receiver: solanaUserAddress,
 			Memo:     "cosmos-to-solana-transfer",
 		}
-		encodedPayload, err := transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)
-		s.Require().NoError(err)
+		encodedPayload := transferPayload.GetBytes() // Protobuf encoding
 
 		payload := channeltypesv2.Payload{
 			SourcePort:      transfertypes.PortID,
 			DestinationPort: transfertypes.PortID,
 			Version:         transfertypes.V1,
-			Encoding:        transfertypes.EncodingABI,
+			Encoding:        transfertypes.EncodingProtobuf,
 			Value:           encodedPayload,
 		}
 		msgSendPacket := channeltypesv2.MsgSendPacket{
@@ -655,7 +654,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 
 	s.Require().True(s.Run("Verify packet received on Solana", func() {
 		// Check that the dummy app state was updated
-		dummyAppStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte("transfer")}, s.DummyAppProgramID)
+		dummyAppStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(transfertypes.PortID)}, s.DummyAppProgramID)
 		s.Require().NoError(err)
 
 		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, dummyAppStateAccount)
@@ -733,10 +732,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			s.Require().Len(ackMsg.Packet.Payloads, 1, "Expected exactly 1 payload")
 
 			payload := ackMsg.Packet.Payloads[0]
-			s.Require().Equal("transfer", payload.SourcePort)
-			s.Require().Equal("transfer", payload.DestinationPort)
-			s.Require().Equal("ics20-1", payload.Version)
-			s.Require().Equal("json", payload.Encoding)
+			s.Require().Equal(transfertypes.PortID, payload.SourcePort)
+			s.Require().Equal(transfertypes.PortID, payload.DestinationPort)
+			s.Require().Equal(transfertypes.V1, payload.Version)
+			s.Require().Equal(transfertypes.EncodingProtobuf, payload.Encoding)
 			s.Require().Equal([]byte("mock"), payload.Value)
 
 			s.T().Logf("Transaction structure verified: packet has hardcoded values as expected")
@@ -780,14 +779,14 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		)
 		packetData := transferData.GetBytes()
 
-		accounts := s.preparePacketAccounts(ctx, s.DummyAppProgramID, "transfer", SolanaClientID)
+		accounts := s.preparePacketAccounts(ctx, s.DummyAppProgramID, transfertypes.PortID, SolanaClientID)
 
 		packetMsg := dummy_ibc_app.SendPacketMsg{
 			SourceClient:     SolanaClientID,
-			SourcePort:       "transfer",
-			DestPort:         "transfer",
-			Version:          "ics20-1",
-			Encoding:         "application/json",
+			SourcePort:       transfertypes.PortID,
+			DestPort:         transfertypes.PortID,
+			Version:          transfertypes.V1,
+			Encoding:         transfertypes.EncodingProtobuf,
 			PacketData:       packetData,
 			TimeoutTimestamp: time.Now().Unix() + 3600,
 		}
@@ -933,7 +932,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 // Helpers
 
 func getSolDenomOnCosmos() transfertypes.Denom {
-	return transfertypes.NewDenom(SolDenom, transfertypes.NewHop("transfer", CosmosClientID))
+	return transfertypes.NewDenom(SolDenom, transfertypes.NewHop(transfertypes.PortID, CosmosClientID))
 }
 
 type AccountSet struct {
@@ -952,7 +951,7 @@ func (s *IbcEurekaSolanaTestSuite) prepareBaseAccounts(ctx context.Context, dumm
 	accounts := AccountSet{}
 	var err error
 
-	accounts.AppState, _, err = solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte("transfer")}, dummyAppProgramID)
+	accounts.AppState, _, err = solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(transfertypes.PortID)}, dummyAppProgramID)
 	s.Require().NoError(err)
 
 	accounts.RouterCaller, _, err = solanago.FindProgramAddress([][]byte{[]byte("router_caller")}, dummyAppProgramID)
