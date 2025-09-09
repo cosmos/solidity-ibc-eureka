@@ -78,7 +78,31 @@ func GetAvailablePort() (int, error) {
 		maxAttempts = 50
 	)
 	// Seed RNG once per process
-	rand.Seed(time.Now().UnixNano())
+	func GetFreePorts(n int) ([]int, error) {
+	ports := make([]int, 0, n)
+
+	for i := 0; i < n; i++ {
+		addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to resolve port")
+		}
+
+		l, err := net.ListenTCP("tcp", addr)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to listen to tcp")
+		}
+
+		// This is done on purpose - we want to keep ports
+		// busy to avoid collisions when getting the next one
+		//goland:noinspection ALL
+		defer func() { _ = l.Close() }()
+
+		port := l.Addr().(*net.TCPAddr).Port
+		ports = append(ports, port)
+	}
+
+	return ports, nil
+}
 	for i := 0; i < maxAttempts; i++ {
 		p := rand.Intn(maxPort-minPort+1) + minPort
 		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
