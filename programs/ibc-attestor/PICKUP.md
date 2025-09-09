@@ -24,3 +24,6 @@ Here we summarise the top features, fixes and refactors that need completing in 
 ### CI
 - Get attestors into the test suite minimal and full test suites
 
+### E2E
+- Improve relayer port allocation as discussed [here](https://github.com/cosmos/solidity-ibc-eureka/pull/748)
+
