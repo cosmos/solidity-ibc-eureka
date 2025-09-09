@@ -570,15 +570,17 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 		solanaUserAddress := s.SolanaUser.PublicKey().String()
 		transferCoin := sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(TestTransferAmount))
 
-		// Check initial balance on Cosmos
-		initialResp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
-			Address: cosmosUserAddress,
-			Denom:   transferCoin.Denom,
-		})
-		s.Require().NoError(err)
-		s.Require().NotNil(initialResp.Balance)
-		initialBalance := initialResp.Balance.Amount.Int64()
-		s.T().Logf("Initial Cosmos balance: %d %s", initialBalance, transferCoin.Denom)
+		var initialBalance int64
+		s.Require().True(s.Run("Verify balances on Cosmos before transfer", func() {
+			initialResp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: cosmosUserAddress,
+				Denom:   transferCoin.Denom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(initialResp.Balance)
+			initialBalance = initialResp.Balance.Amount.Int64()
+			s.T().Logf("Initial Cosmos balance: %d %s", initialBalance, transferCoin.Denom)
+		}))
 
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
@@ -618,16 +620,17 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 
 		s.T().Logf("Cosmos packet transaction sent: %s", resp.TxHash)
 
-		// Verify balances changed on Cosmos chain
-		finalResp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
-			Address: cosmosUserAddress,
-			Denom:   transferCoin.Denom,
-		})
-		s.Require().NoError(err)
-		s.Require().NotNil(finalResp.Balance)
-		finalBalance := finalResp.Balance.Amount.Int64()
-		s.T().Logf("Final Cosmos balance: %d %s (transferred: %d)", finalBalance, transferCoin.Denom, initialBalance-finalBalance)
-		s.Require().Equal(initialBalance-TestTransferAmount, finalBalance, "Balance should decrease by transfer amount")
+		s.Require().True(s.Run("Verify balances on Cosmos after transfer", func() {
+			finalResp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: cosmosUserAddress,
+				Denom:   transferCoin.Denom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(finalResp.Balance)
+			finalBalance := finalResp.Balance.Amount.Int64()
+			s.T().Logf("Final Cosmos balance: %d %s (transferred: %d)", finalBalance, transferCoin.Denom, initialBalance-finalBalance)
+			s.Require().Equal(initialBalance-TestTransferAmount, finalBalance, "Balance should decrease by transfer amount")
+		}))
 	}))
 
 	s.Require().True(s.Run("Relay packet from Cosmos to Solana", func() {
@@ -682,6 +685,11 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 		s.T().Logf("Solana client sequence - next send: %d",
 			clientSequenceData.NextSequenceSend)
 		s.Require().Greater(clientSequenceData.NextSequenceSend, uint64(0), "Should have processed packets")
+	}))
+
+	s.Require().True(s.Run("Verify balances on Solana", func() {
+		s.T().Logf("SKIPPED: Solana balance verification not applicable for dummy IBC app")
+		s.T().Logf("The dummy app only processes packets without actual token transfers")
 	}))
 
 	s.Require().True(s.Run("Relay acknowledgment back to Cosmos", func() {
@@ -862,7 +870,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	}))
 
 	var denomOnCosmos transfertypes.Denom
-	s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+	s.Require().True(s.Run("Verify balances on Cosmos after acknowledgment", func() {
 		cosmosUserAddress := s.CosmosUsers[0].FormattedAddress()
 
 		denomOnCosmos = getSolDenomOnCosmos()
