@@ -78,8 +78,7 @@ impl RelayerBuilder {
         // Start separate servers for gRPC (HTTP/2) and gRPC-Web (HTTP/1.1)
         let relayer_service = RelayerServiceServer::new(relayer);
         let grpc_addr = socket_addr;
-        // TODO: Make grpc-web configurable
-        let web_addr = std::net::SocketAddr::new(grpc_addr.ip(), 8081);
+        let web_addr = std::net::SocketAddr::new(grpc_addr.ip(), config.server.grpc_web_port);
 
         tracing::info!("Starting gRPC server (HTTP/2) on {}", grpc_addr);
         tracing::info!("Starting gRPC-Web server (HTTP/1.1) on {}", web_addr);

@@ -171,8 +171,8 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 	// Setup multiple attestors
 	s.Require().True(s.Run("Setup multiple attestors", func() {
 		for i := range testvalues.NumAttestors {
-			port := 9000 + i
 			attestorConfig := attestor.DefaultAttestorConfig()
+			port := attestorConfig.Server.Port + i
 			attestorConfig.OP.URL = s.EthChain.RPC
 			attestorConfig.OP.RouterAddress = s.contractAddresses.Ics26Router
 			attestorConfig.Server.Port = port
@@ -419,8 +419,8 @@ func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binary
 	// Start multiple attestor instances
 	s.Require().True(s.Run("Setup multiple attestors", func() {
 		for i := range testvalues.NumAttestors {
-			port := 9000 + i
 			attestorConfig := attestor.DefaultAttestorConfig()
+			port := attestorConfig.Server.Port + i
 			attestorConfig.Server.Port = port
 
 			configPath := fmt.Sprintf("/tmp/attestor_%d.toml", i)

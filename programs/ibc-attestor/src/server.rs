@@ -64,7 +64,7 @@ where
     A: AttestationAdapter,
 {
     let socket_addr = format!("{}:{}", server_config.address, server_config.port);
-    tracing::info!(%socket_addr, "Starting relayer...");
+    tracing::info!(%socket_addr, "Starting attestor...");
     let socket_addr = socket_addr
         .parse::<std::net::SocketAddr>()
         .map_err(|e| AttestorError::ServerConfigError(e.to_string()))?;
