@@ -24,5 +24,3 @@ Here we summarise the top features, fixes and refactors that need completing in 
 ### CI
 - Get attestors into the test suite. Started [here](https://github.com/cosmos/solidity-ibc-eureka/pull/748)
 
-### IBC Attestor
-- Use attested height in membership check. Started [here](https://github.com/cosmos/solidity-ibc-eureka/pull/751)
