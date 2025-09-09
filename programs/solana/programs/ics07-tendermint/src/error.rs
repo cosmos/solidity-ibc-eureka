@@ -67,6 +67,8 @@ pub enum ErrorCode {
     // Chunking errors
     #[msg("Invalid chunk count: unexpected number of chunk accounts")]
     InvalidChunkCount,
+    #[msg("Metadata already initialized: cannot reinitialize upload metadata")]
+    MetadataAlreadyInitialized,
     #[msg("Invalid chunk account: chunk account PDA mismatch")]
     InvalidChunkAccount,
     #[msg("Invalid chunk hash: chunk data does not match stored hash")]

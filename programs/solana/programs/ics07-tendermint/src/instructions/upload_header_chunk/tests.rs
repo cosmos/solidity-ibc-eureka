@@ -169,14 +169,14 @@ fn create_upload_chunk_params(
     }
 }
 
-fn create_initialize_upload_instruction(
+fn create_or_update_metadata_instruction(
     test_accounts: &TestAccounts,
     chain_id: String,
     target_height: u64,
     total_chunks: u8,
     header_commitment: [u8; 32],
 ) -> Instruction {
-    let instruction_data = crate::instruction::InitializeUpload {
+    let instruction_data = crate::instruction::CreateOrUpdateMetadata {
         chain_id,
         target_height,
         total_chunks,
@@ -221,7 +221,7 @@ fn initialize_metadata(
     total_chunks: u8,
     header_commitment: [u8; 32],
 ) -> Vec<(Pubkey, Account)> {
-    let instruction = create_initialize_upload_instruction(
+    let instruction = create_or_update_metadata_instruction(
         test_accounts,
         chain_id.to_string(),
         target_height,

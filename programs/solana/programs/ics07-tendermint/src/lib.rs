@@ -91,10 +91,10 @@ pub struct SubmitMisbehaviour<'info> {
 
 #[derive(Accounts)]
 #[instruction(chain_id: String, target_height: u64, total_chunks: u8, header_commitment: [u8; 32])]
-pub struct InitializeUpload<'info> {
-    /// Header metadata for this height and submitter
+pub struct CreateOrUpdateMetadata<'info> {
+    /// Header metadata account to create or update for this specific height
     #[account(
-        init,
+        init_if_needed,
         payer = submitter,
         space = 8 + HeaderMetadata::INIT_SPACE,
         seeds = [
@@ -279,15 +279,15 @@ pub mod ics07_tendermint {
         instructions::submit_misbehaviour::submit_misbehaviour(ctx, msg)
     }
 
-    /// Initialize a new chunked upload by creating the metadata
-    pub fn initialize_upload(
-        ctx: Context<InitializeUpload>,
+    /// Create or update metadata for chunked header upload
+    pub fn create_or_update_metadata(
+        ctx: Context<CreateOrUpdateMetadata>,
         chain_id: String,
         target_height: u64,
         total_chunks: u8,
         header_commitment: [u8; 32],
     ) -> Result<()> {
-        instructions::initialize_upload::initialize_upload(
+        instructions::create_or_update_metadata::create_or_update_metadata(
             ctx,
             chain_id,
             target_height,
