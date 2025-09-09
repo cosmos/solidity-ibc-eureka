@@ -38,13 +38,37 @@ mod fixtures {
         ]
     }
 
-    pub const PACKET_COMMITMENTS_ENCODED: LazyCell<PacketAttestation> = LazyCell::new(|| {
-        PacketAttestation {
-            // TODO: Needs to be real value
+    #[must_use]
+    pub fn packet_commitments_with_height(height: u64) -> PacketAttestation {
+        let mut packets = PACKET_COMMITMENTS_ENCODED.clone();
+        packets.height = height;
+        packets
+    }
+
+    #[must_use]
+    pub fn sigs_with_height(height: u64) -> Vec<Vec<u8>> {
+        S_SIGNERS
+            .iter()
+            .map(|signer| {
+                let mut hasher = Sha256::new();
+                let bytes = packet_commitments_with_height(height).abi_encode();
+                hasher.update(&bytes);
+                let hash_result = hasher.finalize();
+                let b256 = B256::from_slice(&hash_result);
+                signer
+                    .sign_hash_sync(&b256)
+                    .expect("signing should work")
+                    .as_bytes()
+                    .to_vec()
+            })
+            .collect()
+    }
+
+    pub const PACKET_COMMITMENTS_ENCODED: LazyCell<PacketAttestation> =
+        LazyCell::new(|| PacketAttestation {
             height: 0,
             packets: sample_packet_commitments(),
-        }
-    });
+        });
 
     pub const S_SIGNERS: LazyCell<Vec<PrivateKeySigner>> = LazyCell::new(|| {
         vec![
