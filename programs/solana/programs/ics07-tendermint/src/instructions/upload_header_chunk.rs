@@ -34,14 +34,6 @@ pub fn upload_header_chunk(
         ErrorCode::InvalidChunkAccount
     );
     require!(
-        metadata.total_chunks == params.total_chunks,
-        ErrorCode::InvalidChunkCount
-    );
-    require!(
-        metadata.header_commitment == params.header_commitment,
-        ErrorCode::InvalidHeader
-    );
-    require!(
         params.chunk_index < metadata.total_chunks,
         ErrorCode::InvalidChunkIndex
     );

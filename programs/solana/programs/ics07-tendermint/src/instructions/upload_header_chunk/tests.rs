@@ -146,26 +146,16 @@ fn create_upload_chunk_params(
     chain_id: &str,
     target_height: u64,
     chunk_index: u8,
-    total_chunks: u8,
     chunk_data: Vec<u8>,
 ) -> UploadChunkParams {
     let chunk_hash = keccak::hash(&chunk_data).0;
-
-    // Create a fake header by concatenating all chunks
-    let mut full_header = vec![];
-    for _ in 0..total_chunks {
-        full_header.extend_from_slice(&chunk_data);
-    }
-    let header_commitment = keccak::hash(&full_header).0;
 
     UploadChunkParams {
         chain_id: chain_id.to_string(),
         target_height,
         chunk_index,
-        total_chunks,
         chunk_data,
         chunk_hash,
-        header_commitment,
     }
 }
 
@@ -295,7 +285,6 @@ fn test_upload_first_chunk_success() {
         chain_id,
         target_height,
         chunk_index,
-        total_chunks,
         chunk_data,
     );
 
@@ -353,7 +342,7 @@ fn test_upload_chunk_with_invalid_hash_fails() {
         setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
 
     let mut params =
-        create_upload_chunk_params(chain_id, target_height, chunk_index, 3, vec![1u8; 100]);
+        create_upload_chunk_params(chain_id, target_height, chunk_index, vec![1u8; 100]);
 
     // Initialize metadata first
     test_accounts.accounts = initialize_metadata(
@@ -386,7 +375,7 @@ fn test_upload_same_chunk_twice_with_same_hash() {
         setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
 
     let chunk_data = vec![1u8; 100];
-    let params = create_upload_chunk_params(chain_id, target_height, chunk_index, 3, chunk_data);
+    let params = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data);
 
     // Initialize metadata first
     test_accounts.accounts = initialize_metadata(
@@ -436,7 +425,7 @@ fn test_upload_chunk_overwrites_with_different_data() {
 
     // First upload
     let chunk_data1 = vec![1u8; 100];
-    let params1 = create_upload_chunk_params(chain_id, target_height, chunk_index, 3, chunk_data1);
+    let params1 = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data1);
 
     // Save the header commitment before params1 is moved
     let header_commitment = params1.header_commitment;
@@ -460,7 +449,7 @@ fn test_upload_chunk_overwrites_with_different_data() {
     // (simulating a re-upload scenario where the full header is the same)
     let chunk_data2 = vec![2u8; 100];
     let mut params2 =
-        create_upload_chunk_params(chain_id, target_height, chunk_index, 3, chunk_data2.clone());
+        create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data2.clone());
 
     // Use the same header commitment to match the initialized metadata
     params2.header_commitment = header_commitment;
@@ -493,7 +482,7 @@ fn test_upload_multiple_chunks_creates_shared_metadata() {
     let mut test_accounts0 = setup_test_accounts(chain_id, target_height, 0, submitter, true);
 
     let params0 =
-        create_upload_chunk_params(chain_id, target_height, 0, total_chunks, vec![1u8; 100]);
+        create_upload_chunk_params(chain_id, target_height, 0, vec![1u8; 100]);
 
     let expected_commitment = params0.header_commitment;
 
@@ -547,7 +536,7 @@ fn test_upload_multiple_chunks_creates_shared_metadata() {
     ));
 
     let params1 =
-        create_upload_chunk_params(chain_id, target_height, 1, total_chunks, vec![1u8; 100]);
+        create_upload_chunk_params(chain_id, target_height, 1, vec![1u8; 100]);
 
     let instruction1 = create_upload_instruction(&test_accounts1, params1);
     let result1 = assert_instruction_succeeds(&instruction1, &accounts1);
@@ -583,7 +572,7 @@ fn test_upload_chunk_without_metadata_fails() {
     );
 
     let params =
-        create_upload_chunk_params(chain_id, target_height, chunk_index, 3, vec![1u8; 100]);
+        create_upload_chunk_params(chain_id, target_height, chunk_index, vec![1u8; 100]);
 
     // Try to upload chunk without initializing metadata first
 
@@ -615,7 +604,7 @@ fn test_upload_chunk_exceeding_max_size_fails() {
     let oversized_data = vec![1u8; CHUNK_DATA_SIZE + 1];
 
     let params =
-        create_upload_chunk_params(chain_id, target_height, chunk_index, 3, oversized_data);
+        create_upload_chunk_params(chain_id, target_height, chunk_index, oversized_data);
 
     // Initialize metadata first
     test_accounts.accounts = initialize_metadata(

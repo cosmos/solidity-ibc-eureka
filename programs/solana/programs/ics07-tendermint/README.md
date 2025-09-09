@@ -81,6 +81,7 @@ Uploads a single chunk of a large header. Requires metadata to be created first 
   - `target_height`: Height being updated to
   - `chunk_index`: Position of this chunk (0-indexed)
   - `chunk_data`: The actual chunk bytes (max 900 bytes)
+  - `chunk_hash`: Keccak hash of the chunk data for integrity verification
 
 **Accounts:**
 - `chunk` (init_if_needed): PDA for this specific chunk
@@ -90,6 +91,8 @@ Uploads a single chunk of a large header. Requires metadata to be created first 
 - `system_program`: System program
 
 **Storage Cost**: Each chunk account costs rent, paid by submitter
+
+**Validation**: The instruction validates that the chunk's chain_id and target_height match the metadata, and that the chunk_index is within the expected range (< total_chunks from metadata).
 
 **Parallel Upload**: After metadata is created, all chunks can be uploaded in parallel transactions for faster throughput. Each chunk upload is independent.
 

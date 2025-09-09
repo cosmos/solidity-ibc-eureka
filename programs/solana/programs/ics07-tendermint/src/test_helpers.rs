@@ -460,8 +460,6 @@ pub mod chunk_test_utils {
         target_height: u64,
         chunk_index: u8,
         chunk_data: Vec<u8>,
-        total_chunks: u8,
-        header_commitment: [u8; 32],
     ) -> UploadChunkParams {
         let chunk_hash = keccak::hash(&chunk_data).0;
         UploadChunkParams {
@@ -470,8 +468,6 @@ pub mod chunk_test_utils {
             chunk_index,
             chunk_hash,
             chunk_data,
-            total_chunks,
-            header_commitment,
         }
     }
 
