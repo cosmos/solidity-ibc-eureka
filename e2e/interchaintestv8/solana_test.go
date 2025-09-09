@@ -588,7 +588,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			Receiver: solanaUserAddress,
 			Memo:     "cosmos-to-solana-transfer",
 		}
-		encodedPayload := transferPayload.GetBytes() // Protobuf encoding
+		encodedPayload, err := transfertypes.MarshalPacketData(transferPayload, transfertypes.V1, transfertypes.EncodingProtobuf)
+		s.Require().NoError(err)
 
 		payload := channeltypesv2.Payload{
 			SourcePort:      transfertypes.PortID,
@@ -700,46 +701,31 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(ackRelayTxBodyBz))
 		}))
 
-		s.Require().True(s.Run("Verify relay tx structure", func() {
-			// NOTE: We cannot broadcast this transaction for now because:
-			// The packet commitment verification would fail due to hardcoded payload values
-			// For now, we verify the transaction structure to ensure proper message construction
-
-			// Deserialize the transaction body to verify its contents
+		s.Require().True(s.Run("Broadcast acknowledgment relay tx on Cosmos", func() {
 			var txBody txtypes.TxBody
 			err := proto.Unmarshal(ackRelayTxBodyBz, &txBody)
 			s.Require().NoError(err)
 
-			s.T().Logf("Transaction has %d messages", len(txBody.Messages))
-			s.Require().Equal(2, len(txBody.Messages), "Expected 2 messages: update client and acknowledge packet")
+			s.T().Logf("=== COSMOS ACKNOWLEDGMENT RELAY TX DEBUG ===")
+			s.T().Logf("Transaction body contains %d messages", len(txBody.Messages))
 
-			// Verify first message is update client
-			s.Require().Equal("/ibc.core.client.v1.MsgUpdateClient", txBody.Messages[0].TypeUrl)
+			var msgs []sdk.Msg
+			for i, msg := range txBody.Messages {
+				var sdkMsg sdk.Msg
+				err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
+				s.Require().NoError(err)
+				msgs = append(msgs, sdkMsg)
+				s.T().Logf("Message %d type: %T", i, sdkMsg)
+			}
+			s.Require().NotZero(len(msgs))
+			s.Require().Equal(2, len(msgs), "Expected 2 messages: update client and acknowledge packet")
 
-			// Verify second message is acknowledge packet
-			s.Require().Equal("/ibc.core.channel.v2.MsgAcknowledgement", txBody.Messages[1].TypeUrl)
-
-			// Deserialize the acknowledge packet message
-			var ackMsg channeltypesv2.MsgAcknowledgement
-			err = proto.Unmarshal(txBody.Messages[1].Value, &ackMsg)
+			s.T().Logf("Broadcasting %d messages to Cosmos...", len(msgs))
+			relayTxResult, err := s.BroadcastMessages(ctx, simd, s.CosmosUsers[0], 200_000, msgs...)
 			s.Require().NoError(err)
-
-			// Verify packet structure matches hardcoded values
-			s.Require().NotNil(ackMsg.Packet)
-			s.Require().Equal(uint64(1), ackMsg.Packet.Sequence)
-			s.Require().Equal("08-wasm-0", ackMsg.Packet.SourceClient)
-			s.Require().Equal("cosmoshub-1", ackMsg.Packet.DestinationClient)
-			s.Require().Len(ackMsg.Packet.Payloads, 1, "Expected exactly 1 payload")
-
-			payload := ackMsg.Packet.Payloads[0]
-			s.Require().Equal(transfertypes.PortID, payload.SourcePort)
-			s.Require().Equal(transfertypes.PortID, payload.DestinationPort)
-			s.Require().Equal(transfertypes.V1, payload.Version)
-			s.Require().Equal(transfertypes.EncodingProtobuf, payload.Encoding)
-			s.Require().Equal([]byte("mock"), payload.Value)
-
-			s.T().Logf("Transaction structure verified: packet has hardcoded values as expected")
-			s.T().Logf("SKIPPED: Transaction broadcast because payload is hardcoded to 'mock' for testing")
+			s.T().Logf("Acknowledgment relay transaction broadcasted: %s with %d messages", relayTxResult.TxHash, len(msgs))
+			s.T().Logf("Transaction result code: %d", relayTxResult.Code)
+			s.T().Logf("Transaction gas used: %d", relayTxResult.GasUsed)
 		}))
 	}))
 }
@@ -777,7 +763,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			receiver,                              // receiver
 			"Test via send_packet",                // memo
 		)
-		packetData := transferData.GetBytes()
+		packetData, err := transfertypes.MarshalPacketData(transferData, transfertypes.V1, transfertypes.EncodingProtobuf)
+		s.Require().NoError(err)
 
 		accounts := s.preparePacketAccounts(ctx, s.DummyAppProgramID, transfertypes.PortID, SolanaClientID)
 
