@@ -579,26 +579,23 @@ impl TxBuilder {
     ///
     /// Returns an error if packet data cannot be serialized
     fn build_recv_packet_instruction(&self, params: &RecvPacketParams) -> Result<Instruction> {
-        // Build the packet structure (IBC v2)
-        // For now, use hardcoded values for testing
-        let payloads = if params.payloads.is_empty() {
-            vec![]
-        } else {
-            vec![Payload {
-                source_port: "transfer".to_string(), // Default ICS20 port
-                dest_port: "transfer".to_string(),
-                version: "ics20-1".to_string(),
-                encoding: "json".to_string(),
-                value: b"mock".to_vec(), // Hardcoded mock value
-            }]
-        };
+        // Build the packet structure (IBC v2) using real payload data
+        let payloads = params.payloads.to_vec();
 
         // Get dest_port for PDA derivation before moving packet
         let dest_port = if payloads.is_empty() {
-            "transfer".to_string()
+            return Err(anyhow::anyhow!("Payloads are empty"));
         } else {
-            payloads[0].dest_port.clone()
+            payloads[0].dest_port.clone() // Use actual destination port from first payload
         };
+
+        // Make sure all payloads have the same destination port
+        // TODO: Support multiple payload destinations
+        for payload in &payloads {
+            if payload.dest_port != dest_port {
+                return Err(anyhow::anyhow!("Payloads have different destination ports"));
+            }
+        }
 
         let packet = Packet {
             sequence: params.sequence,
