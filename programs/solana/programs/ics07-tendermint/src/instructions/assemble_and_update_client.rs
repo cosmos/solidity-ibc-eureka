@@ -12,7 +12,6 @@ use tendermint_light_client_update_client::ClientState as UpdateClientState;
 pub fn assemble_and_update_client(
     mut ctx: Context<AssembleAndUpdateClient>,
 ) -> Result<UpdateResult> {
-    // Validate that the submitter matches the metadata PDA
     let metadata = &ctx.accounts.metadata;
     let chain_id = &metadata.chain_id;
     let target_height = metadata.target_height;
@@ -113,7 +112,6 @@ fn validate_and_load_chunk(
     Ok(())
 }
 
-/// Process the header update with the assembled header
 fn process_header_update(
     ctx: &mut Context<AssembleAndUpdateClient>,
     header_bytes: Vec<u8>,
