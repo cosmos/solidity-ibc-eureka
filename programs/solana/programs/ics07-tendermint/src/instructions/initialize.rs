@@ -49,7 +49,7 @@ pub fn initialize(
 mod tests {
     use super::*;
     use crate::state::ConsensusStateStore;
-    use crate::test_helpers::{fixtures::*, PROGRAM_BINARY_PATH};
+    use crate::test_helpers::{fixtures::*, PROGRAM_BINARY_PATH, SUCCESS_CHECK};
     use anchor_lang::{AnchorDeserialize, InstructionData};
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
@@ -286,13 +286,13 @@ mod tests {
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
 
-        let checks = vec![
-            Check::success(),
+        let mut checks = SUCCESS_CHECK.clone();
+        checks.extend(vec![
             Check::account(&client_state_pda).owner(&crate::ID).build(),
             Check::account(&consensus_state_store_pda)
                 .owner(&crate::ID)
                 .build(),
-        ];
+        ]);
 
         let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
 

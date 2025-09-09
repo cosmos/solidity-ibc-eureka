@@ -4,7 +4,7 @@ use mollusk_svm::result::Check;
 
 pub const PROGRAM_BINARY_PATH: &str = "../../target/deploy/ics07_tendermint";
 
-pub static SUCESS_CHECK: LazyLock<Vec<Check>> = LazyLock::new(|| vec![Check::success()]);
+pub static SUCCESS_CHECK: LazyLock<Vec<Check>> = LazyLock::new(|| vec![Check::success()]);
 
 pub mod fixtures {
     use crate::types::{ClientState, ConsensusState, IbcHeight};
