@@ -32,7 +32,7 @@ The Attestor Service monitors blockchain networks and provides cryptographically
 #### Core Components
 
 - **Adapter Client** (`src/adapter_client.rs`): Generic interface for blockchain interaction
-- **Chain Adapters** (`src/adapter_impls/`): Network-specific implementations (Arbitrum, Optimism/Base; Solana WIP)
+- **Chain Adapters** (`src/adapter_impls/`): Network-specific implementations (Arbitrum, Optimism/Base)
 - **Signer** (`src/signer.rs`): secp256k1 cryptographic signing that produces 65-byte Ethereum-style recoverable signatures (r||s||v) and includes the signer Ethereum address (derived from the public key)
 - **gRPC Server** (`src/server.rs`): API, used primarily by aggregator
 
