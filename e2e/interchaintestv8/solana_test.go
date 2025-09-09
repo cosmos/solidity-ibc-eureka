@@ -554,6 +554,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 	ctx := context.Background()
 
+	s.UseMockWasmClient = true
 	s.UseMockSolanaClient = true
 
 	s.SetupSuite(ctx)
