@@ -1,6 +1,6 @@
 pub mod assemble_and_update_client;
 pub mod cleanup_incomplete_upload;
-pub mod create_or_update_metadata;
+pub mod create_metadata;
 pub mod initialize;
 pub mod submit_misbehaviour;
 pub mod update_client;

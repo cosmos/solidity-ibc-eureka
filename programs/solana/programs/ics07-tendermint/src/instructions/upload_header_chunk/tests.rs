@@ -176,7 +176,7 @@ fn create_or_update_metadata_instruction(
     total_chunks: u8,
     header_commitment: [u8; 32],
 ) -> Instruction {
-    let instruction_data = crate::instruction::CreateOrUpdateMetadata {
+    let instruction_data = crate::instruction::CreateMetadata {
         chain_id,
         target_height,
         total_chunks,

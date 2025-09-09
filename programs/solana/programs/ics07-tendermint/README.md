@@ -13,10 +13,11 @@ The Tendermint light client verifies consensus proofs from Tendermint chains on 
 The client implements a mandatory chunked upload mechanism for all header updates:
 
 1. **Headers are split into chunks**: Large headers are divided into manageable pieces that fit within Solana transactions
-2. **Parallel upload support**: After the first chunk creates the metadata account, remaining chunks can be uploaded in parallel for faster throughput
-3. **Each relayer has isolated storage**: Chunks are stored in PDAs derived from the relayer's address, preventing interference between relayers
-4. **Relayers pay rent**: The submitting relayer pays for all storage (metadata and chunk accounts)
-5. **Assembly triggers verification**: Once all chunks are uploaded, the relayer calls `assemble_and_update_client` to reconstruct and verify the header
+2. **Metadata creation is separate**: The `create_metadata` instruction initializes the upload metadata once per upload
+3. **Full parallel upload support**: All chunks can be uploaded in parallel after metadata creation for maximum throughput
+4. **Each relayer has isolated storage**: Chunks are stored in PDAs derived from the relayer's address, preventing interference between relayers
+5. **Relayers pay rent**: The submitting relayer pays for all storage (metadata and chunk accounts)
+6. **Assembly triggers verification**: Once all chunks are uploaded, the relayer calls `assemble_and_update_client` to reconstruct and verify the header
 
 ### Key Design Principles
 
@@ -48,8 +49,27 @@ Initializes a new Tendermint light client for a specific chain.
 
 Since Tendermint headers always exceed Solana's transaction size limits, all header updates must use the chunked upload system described below.
 
+#### `create_metadata`
+Creates metadata for a header upload. This instruction must be called once before uploading chunks.
+
+**Parameters:**
+- `chain_id`: Target chain identifier
+- `target_height`: Height being updated to
+- `total_chunks`: Total number of chunks expected
+- `header_commitment`: Keccak hash of the complete header
+
+**Accounts:**
+- `metadata` (init): PDA for header metadata
+- `client_state`: Validates chain exists
+- `submitter` (signer, mut): Relayer creating metadata and paying rent
+- `system_program`: System program
+
+**Notes:**
+- Must be called exactly once per upload attempt
+- Creates a new metadata account for tracking the upload
+
 #### `upload_header_chunk`
-Uploads a single chunk of a large header. Overwrites any existing chunk at the same position.
+Uploads a single chunk of a large header. Requires metadata to be created first via `create_metadata`.
 
 **Parameters:**
 - `params`: UploadChunkParams containing:
@@ -57,19 +77,17 @@ Uploads a single chunk of a large header. Overwrites any existing chunk at the s
   - `target_height`: Height being updated to
   - `chunk_index`: Position of this chunk (0-indexed)
   - `chunk_data`: The actual chunk bytes (max 900 bytes)
-  - `total_chunks`: Total expected chunks
-  - `header_commitment`: Keccak hash of complete header
 
 **Accounts:**
 - `chunk` (init_if_needed): PDA for this specific chunk
-- `metadata` (init_if_needed): PDA for header metadata (created by first chunk)
+- `metadata` (mut): PDA for header metadata (must already exist)
 - `client_state`: Validates chain exists
 - `submitter` (signer, mut): Relayer uploading and paying rent
 - `system_program`: System program
 
 **Storage Cost**: Each chunk account costs rent, paid by submitter
 
-**Parallel Upload**: After chunk 0 creates the metadata, chunks 1 through n-1 can be uploaded in parallel transactions for faster throughput. Each chunk upload is independent once metadata exists.
+**Parallel Upload**: After metadata is created, all chunks can be uploaded in parallel transactions for faster throughput. Each chunk upload is independent.
 
 #### `assemble_and_update_client`
 Assembles uploaded chunks into a complete header and updates the client.
@@ -158,23 +176,23 @@ header_metadata: [b"header_metadata", submitter, chain_id, height_bytes]
 ```
 1. Relayer receives 3.6KB Tendermint header
 2. Splits into 4 chunks of 900 bytes each
-3. Uploads chunks:
-   - Chunk 0: Creates metadata + chunk_0 accounts (must be first)
-   - Chunks 1-3: Can be uploaded in parallel (speeds up large headers)
-4. Calls assemble_and_update_client:
+3. Creates metadata with create_metadata instruction
+4. Uploads all chunks (can be done in parallel):
+   - Chunks 0-3: All uploaded independently in parallel
+5. Calls assemble_and_update_client:
    - Header reconstructed and verified
    - Client state updated
-   - All 5 temporary accounts closed
+   - All 5 temporary accounts closed (metadata + 4 chunks)
    - Rent (~0.05 SOL) returned to relayer
 ```
 
 ### Parallel Upload Optimization
 
 For maximum throughput with large headers:
-1. Upload chunk 0 first (creates metadata)
-2. Upload remaining chunks in parallel transactions
+1. Call `create_metadata` to initialize metadata
+2. Upload all chunks in parallel transactions
 3. Wait for all confirmations
-4. Call assemble_and_update_client
+4. Call `assemble_and_update_client`
 
 This parallel approach can reduce upload time from `n * block_time` to `2 * block_time` for n chunks.
 
@@ -226,16 +244,14 @@ Approximate compute units per operation:
 
 1. Monitor Tendermint chain for new headers
 2. Split header into 900-byte chunks
-3. Upload chunks:
-   - Upload chunk 0 first (creates metadata)
-   - Upload chunks 1 to n-1 in parallel for speed
-   - Wait for all confirmations
-4. Call `assemble_and_update_client`
-5. Handle failures:
+3. Create metadata via `create_metadata`
+4. Upload all chunks in parallel for optimal performance
+5. Call `assemble_and_update_client` once all chunks are confirmed
+6. Handle failures:
    - Retry failed chunks
-   - Call `cleanup_incomplete_upload` if abandoning
+   - Call `cleanup_incomplete_upload` if abandoning (will need to start fresh with new metadata)
 
-**Performance Tip**: Utilize parallel chunk uploads after the first chunk to minimize total upload time. A 9KB header (10 chunks of 900 bytes) can be uploaded in ~2 block times instead of ~10.
+**Performance Tip**: With the separated metadata creation, all chunks can now be uploaded in parallel. A 9KB header (10 chunks of 900 bytes) can be uploaded in ~2 block times instead of ~10.
 
 ### For IBC Applications
 

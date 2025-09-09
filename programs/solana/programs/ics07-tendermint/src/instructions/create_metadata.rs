@@ -1,9 +1,9 @@
 use crate::error::ErrorCode;
-use crate::CreateOrUpdateMetadata;
+use crate::CreateMetadata;
 use anchor_lang::prelude::*;
 
-pub fn create_or_update_metadata(
-    ctx: Context<CreateOrUpdateMetadata>,
+pub fn create_metadata(
+    ctx: Context<CreateMetadata>,
     chain_id: String,
     target_height: u64,
     total_chunks: u8,
@@ -13,21 +13,11 @@ pub fn create_or_update_metadata(
 
     let clock = Clock::get()?;
     let metadata = &mut ctx.accounts.metadata;
-
-    // If this is a new account (created_at == 0), initialize all fields
-    // Otherwise, just update the upload parameters
-    if metadata.created_at == 0 {
-        metadata.chain_id = chain_id;
-        metadata.target_height = target_height;
-        metadata.created_at = clock.unix_timestamp;
-    } else {
-        // Verify chain_id and target_height match for updates
-        require_eq!(&metadata.chain_id, &chain_id);
-        require_eq!(metadata.target_height, target_height);
-    }
-
+    metadata.chain_id = chain_id;
+    metadata.target_height = target_height;
     metadata.total_chunks = total_chunks;
     metadata.header_commitment = header_commitment;
+    metadata.created_at = clock.unix_timestamp;
     metadata.updated_at = clock.unix_timestamp;
 
     Ok(())
@@ -56,7 +46,7 @@ mod tests {
     }
 
     impl TestAccounts {
-        fn new(target_height: u64, with_existing_metadata: bool) -> Self {
+        fn new(target_height: u64) -> Self {
             let submitter = Pubkey::new_unique();
             let chain_id = "test_chain";
             let (metadata_pda, _) = Pubkey::find_program_address(
@@ -74,34 +64,8 @@ mod tests {
 
             let mut accounts = vec![];
 
-            if with_existing_metadata {
-                let metadata = HeaderMetadata {
-                    chain_id: chain_id.to_string(),
-                    target_height,
-                    total_chunks: 3,
-                    header_commitment: [1u8; 32],
-                    created_at: 1000,
-                    updated_at: 1000,
-                };
-                // Create serialized metadata with discriminator - must match expected size
-                // The account needs 8 bytes for discriminator + actual data size
-                let mut metadata_data = Vec::new();
-                metadata.try_serialize(&mut metadata_data).unwrap();
-                // Pad to expected size if needed
-                metadata_data.resize(8 + 93, 0); // 93 is the INIT_SPACE for HeaderMetadata
-                accounts.push((
-                    metadata_pda,
-                    Account {
-                        lamports: 10_000_000, // Enough for rent exemption
-                        data: metadata_data,
-                        owner: crate::ID,
-                        executable: false,
-                        rent_epoch: 0,
-                    },
-                ));
-            } else {
-                accounts.push((metadata_pda, Account::new(0, 0, &system_program::ID)));
-            }
+            // Metadata account starts empty (will be created by instruction)
+            accounts.push((metadata_pda, Account::new(0, 0, &system_program::ID)));
 
             // Add client state account
             let client_state = ClientState {
@@ -152,12 +116,12 @@ mod tests {
     fn test_create_metadata_success() {
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let target_height = 100u64;
-        let test_accounts = TestAccounts::new(target_height, false);
+        let test_accounts = TestAccounts::new(target_height);
         let chain_id = "test_chain".to_string();
         let total_chunks = 5u8;
         let header_commitment = keccak::hash(b"test_header").0;
 
-        let ix_data = crate::instruction::CreateOrUpdateMetadata {
+        let ix_data = crate::instruction::CreateMetadata {
             chain_id: chain_id.clone(),
             target_height,
             total_chunks,
@@ -193,61 +157,15 @@ mod tests {
     }
 
     #[test]
-    fn test_update_metadata_success() {
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let target_height = 100u64;
-        let test_accounts = TestAccounts::new(target_height, true);
-        let chain_id = "test_chain".to_string();
-        let total_chunks = 10u8;
-        let header_commitment = keccak::hash(b"updated_header").0;
-
-        let ix_data = crate::instruction::CreateOrUpdateMetadata {
-            chain_id: chain_id.clone(),
-            target_height,
-            total_chunks,
-            header_commitment,
-        }
-        .data();
-
-        let account_metas = vec![
-            AccountMeta::new(test_accounts.metadata_pda, false),
-            AccountMeta::new_readonly(test_accounts.client_state_pda, false),
-            AccountMeta::new(test_accounts.submitter, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-        ];
-
-        let instruction = Instruction::new_with_bytes(crate::ID, &ix_data, account_metas);
-
-        let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-        if !matches!(
-            result.program_result,
-            mollusk_svm::result::ProgramResult::Success
-        ) {
-            panic!("Update metadata failed: {:?}", result.program_result);
-        }
-
-        let metadata_account = result.get_account(&test_accounts.metadata_pda).unwrap();
-        let metadata =
-            HeaderMetadata::try_deserialize(&mut metadata_account.data.as_slice()).unwrap();
-
-        assert_eq!(metadata.chain_id, chain_id);
-        assert_eq!(metadata.target_height, target_height);
-        assert_eq!(metadata.total_chunks, total_chunks);
-        assert_eq!(metadata.header_commitment, header_commitment);
-        assert_eq!(metadata.created_at, 1000); // Should not change
-        assert!(metadata.updated_at >= 0); // Gets updated by instruction
-    }
-
-    #[test]
     fn test_invalid_total_chunks_fails() {
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let target_height = 100u64;
-        let test_accounts = TestAccounts::new(target_height, false);
+        let test_accounts = TestAccounts::new(target_height);
         let chain_id = "test_chain".to_string();
         let total_chunks = 0u8; // Invalid
         let header_commitment = keccak::hash(b"test_header").0;
 
-        let ix_data = crate::instruction::CreateOrUpdateMetadata {
+        let ix_data = crate::instruction::CreateMetadata {
             chain_id,
             target_height,
             total_chunks,
@@ -271,4 +189,3 @@ mod tests {
         ));
     }
 }
-
