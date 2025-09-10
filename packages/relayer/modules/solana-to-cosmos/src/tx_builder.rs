@@ -186,13 +186,7 @@ impl TxBuilder {
                         let payloads: Vec<Payload> = packet
                             .payloads
                             .into_iter()
-                            .map(|solana_payload| Payload {
-                                source_port: solana_payload.source_port,
-                                destination_port: solana_payload.dest_port,
-                                version: solana_payload.version,
-                                encoding: solana_payload.encoding,
-                                value: solana_payload.value,
-                            })
+                            .map(Payload::from)
                             .collect();
 
                         events.push(SolanaIbcEvent::SendPacket {
@@ -223,13 +217,7 @@ impl TxBuilder {
                         let payloads: Vec<Payload> = packet
                             .payloads
                             .into_iter()
-                            .map(|solana_payload| Payload {
-                                source_port: solana_payload.source_port,
-                                destination_port: solana_payload.dest_port,
-                                version: solana_payload.version,
-                                encoding: solana_payload.encoding,
-                                value: solana_payload.value,
-                            })
+                            .map(Payload::from)
                             .collect();
 
                         events.push(SolanaIbcEvent::TimeoutPacket {
@@ -444,13 +432,7 @@ impl TxBuilder {
         let ibc_payloads: Vec<Payload> = solana_packet
             .payloads
             .into_iter()
-            .map(|solana_payload| Payload {
-                source_port: solana_payload.source_port,
-                destination_port: solana_payload.dest_port,
-                version: solana_payload.version,
-                encoding: solana_payload.encoding,
-                value: solana_payload.value,
-            })
+            .map(Payload::from)
             .collect();
 
         let packet = Packet {
@@ -742,5 +724,17 @@ impl MockTxBuilder {
         );
 
         Ok(())
+    }
+}
+
+impl From<solana_ibc_types::Payload> for Payload {
+    fn from(solana_payload: solana_ibc_types::Payload) -> Self {
+        Self {
+            source_port: solana_payload.source_port,
+            destination_port: solana_payload.dest_port,
+            version: solana_payload.version,
+            encoding: solana_payload.encoding,
+            value: solana_payload.value,
+        }
     }
 }
