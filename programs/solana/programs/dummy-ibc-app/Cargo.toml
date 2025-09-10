@@ -28,3 +28,5 @@ default = []
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 solana-ibc-types.workspace = true
 ics26-router = { workspace = true, features = ["cpi"] }
+prost = { workspace = true }
+ibc-proto-eureka = { package = "ibc-proto", git = "https://github.com/srdtrk/ibc-proto-rs", rev = "7074fb20c3a654e945e5ca46627c5a971d785e04", default-features = false }

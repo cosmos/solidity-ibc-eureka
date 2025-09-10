@@ -1,5 +1,6 @@
 use crate::{errors::DummyIbcAppError, state::*};
 use anchor_lang::prelude::*;
+use ibc_proto_eureka::ibc::applications::transfer::v2::FungibleTokenPacketData;
 use ics26_router::cpi as router_cpi;
 use ics26_router::program::Ics26Router;
 use ics26_router::{
@@ -9,6 +10,7 @@ use ics26_router::{
         CLIENT_SEQUENCE_SEED, IBC_APP_SEED, ROUTER_STATE_SEED,
     },
 };
+use prost::Message;
 use solana_ibc_types::Payload;
 
 /// Message for sending a transfer via IBC
@@ -178,23 +180,25 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
         escrow_state.total_escrowed
     );
 
-    // Create ICS20-compatible packet data
-    let packet_data = format!(
-        r#"{{"denom":"{}","amount":"{}","sender":"{}","receiver":"{}","memo":"{}"}}"#,
-        msg.denom,
-        msg.amount,
-        ctx.accounts.user.key(),
-        msg.receiver,
-        msg.memo
-    );
+    // Create ICS20-compatible packet data using proper protobuf encoding
+    let fungible_token_data = FungibleTokenPacketData {
+        denom: msg.denom.clone(),
+        amount: msg.amount.clone(),
+        sender: ctx.accounts.user.key().to_string(),
+        receiver: msg.receiver.clone(),
+        memo: msg.memo.clone(),
+    };
+
+    // Serialize to protobuf bytes
+    let packet_data = fungible_token_data.encode_to_vec();
 
     // Create payload for router
     let payload = Payload {
         source_port: "transfer".to_string(),
         dest_port: msg.dest_port,
-        version: "ics20-1".to_string(),
-        encoding: "json".to_string(),
-        value: packet_data.into_bytes(),
+        version: "ics20-2".to_string(),
+        encoding: "application/x-protobuf".to_string(),
+        value: packet_data,
     };
 
     // Call router via CPI to send packet

@@ -1146,7 +1146,9 @@ name = "dummy-ibc-app"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "ics26-router",
+ "prost",
  "solana-ibc-types",
 ]
 
@@ -1699,7 +1701,7 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "tendermint",
  "tendermint-light-client-verifier",
@@ -1719,7 +1721,7 @@ dependencies = [
  "ibc-core-connection-types",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "sha2 0.10.9",
  "subtle-encoding",
@@ -1768,7 +1770,7 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "subtle-encoding",
  "tendermint",
@@ -1784,7 +1786,7 @@ dependencies = [
  "displaydoc",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ics23",
  "serde",
  "subtle-encoding",
@@ -1802,7 +1804,7 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "subtle-encoding",
  "tendermint",
@@ -1823,7 +1825,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-core-router-types",
  "ibc-primitives",
- "ibc-proto",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "subtle-encoding",
  "tendermint",
@@ -1872,7 +1874,7 @@ dependencies = [
  "displaydoc",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "subtle-encoding",
  "tendermint",
@@ -1886,7 +1888,7 @@ checksum = "4ff3dab00855e9ab99fa7276814bd29b0350f2da70b3e9f67f1d86f4e269655b"
 dependencies = [
  "derive_more 1.0.0",
  "displaydoc",
- "ibc-proto",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "serde",
  "time",
@@ -1911,6 +1913,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-proto"
+version = "0.51.1"
+source = "git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04#7074fb20c3a654e945e5ca46627c5a971d785e04"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "cosmos-sdk-proto",
+ "flex-error",
+ "ics23",
+ "prost",
+ "subtle-encoding",
+ "tendermint-proto",
+]
+
+[[package]]
 name = "ics07-tendermint"
 version = "0.1.0"
 dependencies = [
@@ -1922,7 +1939,7 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ics25-handler",
  "mollusk-svm",
  "mollusk-svm-bencher",
