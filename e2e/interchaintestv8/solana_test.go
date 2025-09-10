@@ -804,30 +804,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on Cosmos", func() {
-			var txBody txtypes.TxBody
-			err := proto.Unmarshal(relayTxBodyBz, &txBody)
-			s.Require().NoError(err)
-
-			s.T().Logf("=== COSMOS RELAY TX DEBUG ===")
-			s.T().Logf("Transaction body contains %d messages", len(txBody.Messages))
-
-			var msgs []sdk.Msg
-			for i, msg := range txBody.Messages {
-				var sdkMsg sdk.Msg
-				err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
-				s.Require().NoError(err)
-				msgs = append(msgs, sdkMsg)
-				s.T().Logf("Message %d type: %T", i, sdkMsg)
-				s.T().Logf("Message %d: %+v", i, sdkMsg)
-			}
-			s.Require().NotZero(len(msgs))
-
-			s.T().Logf("Broadcasting %d messages to Cosmos...", len(msgs))
-			relayTxResult, err := s.BroadcastMessages(ctx, simd, s.CosmosUsers[0], 200_000, msgs...)
-			s.Require().NoError(err)
-			s.T().Logf("Relay transaction broadcasted: %s with %d messages", relayTxResult.TxHash, len(msgs))
-			s.T().Logf("Transaction result code: %d", relayTxResult.Code)
-			s.T().Logf("Transaction gas used: %d", relayTxResult.GasUsed)
+			relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 200_000, relayTxBodyBz)
+			s.T().Logf("Relay transaction: %s (code: %d, gas: %d)", 
+				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
 
 			cosmosPacketRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
 			s.Require().NoError(err)
