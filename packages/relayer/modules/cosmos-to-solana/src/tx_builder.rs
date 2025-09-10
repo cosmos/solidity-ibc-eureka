@@ -363,7 +363,6 @@ impl TxBuilder {
     }
 
     /// Shared helper to process events and build instructions
-    #[allow(clippy::cognitive_complexity)]
     pub(crate) async fn build_instructions_from_events<F, Fut>(
         &self,
         src_events: Vec<CosmosIbcEvent>,
@@ -494,26 +493,14 @@ impl TxBuilder {
 
         let account_data_without_discriminator = &account_data[8..];
 
-        // IMPORTANT: We must use field-by-field deserialization because the on-chain account
-        // has #[max_len(128)] which reserves 128 bytes for port_id. When port_id is shorter
-        // (e.g., "transfer" = 12 bytes), the account contains padding that try_from_slice
-        // would fail on with "Not all bytes read". Field deserializers handle this correctly.
-        let mut remaining_data = account_data_without_discriminator;
-
-        let port_id_from_account = <String as AnchorDeserialize>::deserialize(&mut remaining_data)
-            .map_err(|e| anyhow::anyhow!("Failed to deserialize port_id: {}", e))?;
-        let app_program_id = <Pubkey as AnchorDeserialize>::deserialize(&mut remaining_data)
-            .map_err(|e| anyhow::anyhow!("Failed to deserialize app_program_id: {}", e))?;
-        let authority = <Pubkey as AnchorDeserialize>::deserialize(&mut remaining_data)
-            .map_err(|e| anyhow::anyhow!("Failed to deserialize authority: {}", e))?;
-
-        // Note: remaining_data still has ~120 bytes of padding from #[max_len(128)]
-
-        let ibc_app = IBCApp {
-            port_id: port_id_from_account,
-            app_program_id,
-            authority,
-        };
+        let mut data_slice = account_data_without_discriminator;
+        let ibc_app = IBCApp::deserialize(&mut data_slice).map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to deserialize IBCApp account for port '{}': {}",
+                port_id,
+                e
+            )
+        })?;
 
         tracing::info!(
             "Resolved port '{}' to program ID: {}",
