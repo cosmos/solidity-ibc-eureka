@@ -453,15 +453,15 @@ where
             .compute_sync_committee_period_at_slot(ethereum_client_state.latest_slot);
         let latest_period = ethereum_client_state.compute_sync_committee_period_at_slot(proof_slot);
         tracing::info!(
-            "Relay events summary:
+            "Relay events summary: 
                 client id: {},
-                recv events processed: #{},
-                ack events processed: #{},
-                timeout events processed: #{},
-                initial slot: {},
-                latest trusted slot (after updates): {},
-                initial period: {},
-                latest period: {},
+                recv events processed: #{}, 
+                ack events processed: #{}, 
+                timeout events processed: #{}, 
+                initial slot: {}, 
+                latest trusted slot (after updates): {}, 
+                initial period: {}, 
+                latest period: {}, 
                 number of headers: #{}",
             dst_client_id,
             recv_msgs.len(),
@@ -649,12 +649,12 @@ where
             .compute_sync_committee_period_at_slot(ethereum_client_state.latest_slot);
         let latest_period = ethereum_client_state.compute_sync_committee_period_at_slot(proof_slot);
         tracing::info!(
-            "Update client summary:
+            "Update client summary: 
                 client id: {},
-                initial slot: {},
-                latest trusted slot (after updates): {},
-                initial period: {},
-                latest period: {},
+                initial slot: {}, 
+                latest trusted slot (after updates): {}, 
+                initial period: {}, 
+                latest period: {}, 
                 number of headers: #{}",
             dst_client_id,
             ethereum_client_state.latest_slot,
