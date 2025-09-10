@@ -45,7 +45,7 @@ pub struct RecvPacketParams<'a> {
     sequence: u64,
     source_client: &'a str,
     destination_client: &'a str,
-    payloads: &'a [Payload],
+    payload: Payload,
     timeout_timestamp: u64,
 }
 
@@ -389,15 +389,30 @@ impl TxBuilder {
                     payloads,
                     timeout_timestamp,
                 } => {
-                    tracing::debug!("Building recv packet instruction for sequence {}", sequence);
-                    let recv_packet_ix = self.build_recv_packet_instruction(&RecvPacketParams {
+                    tracing::debug!(
+                        "Building recv packet instructions for sequence {} with {} payload(s)",
                         sequence,
-                        source_client: &source_client,
-                        destination_client: &destination_client,
-                        payloads: &payloads,
-                        timeout_timestamp,
-                    })?;
-                    instructions.push(recv_packet_ix);
+                        payloads.len()
+                    );
+
+                    // Build a separate instruction for each payload
+                    // Each payload may have a different destination port with different IBC app
+                    for payload in payloads {
+                        tracing::debug!(
+                            "Building recv packet instruction for port '{}'",
+                            payload.dest_port
+                        );
+
+                        let recv_packet_ix =
+                            self.build_recv_packet_instruction(&RecvPacketParams {
+                                sequence,
+                                source_client: &source_client,
+                                destination_client: &destination_client,
+                                payload,
+                                timeout_timestamp,
+                            })?;
+                        instructions.push(recv_packet_ix);
+                    }
                 }
                 CosmosIbcEvent::AcknowledgePacket { .. } => {
                     tracing::debug!("Building acknowledgement instruction");
@@ -594,27 +609,17 @@ impl TxBuilder {
 
     /// Build instruction for `RecvPacket` on Solana
     ///
+    /// This method handles a single payload. Each payload gets its own instruction
+    /// since different destination ports have different IBC applications with
+    /// different program IDs that must be resolved independently.
+    ///
     /// # Errors
     ///
     /// Returns an error if packet data cannot be serialized
     fn build_recv_packet_instruction(&self, params: &RecvPacketParams<'_>) -> Result<Instruction> {
-        // Build the packet structure (IBC v2)
-        let payloads = params.payloads.to_vec();
-
-        // Get dest_port for PDA derivation before moving packet
-        let dest_port = if payloads.is_empty() {
-            return Err(anyhow::anyhow!("Payloads are empty"));
-        } else {
-            payloads[0].dest_port.clone() // Use actual destination port from first payload
-        };
-
-        // Make sure all payloads have the same destination port
-        // TODO: Support multiple payload destinations
-        for payload in &payloads {
-            if payload.dest_port != dest_port {
-                return Err(anyhow::anyhow!("Payloads have different destination ports"));
-            }
-        }
+        // Get the destination port from the single payload
+        let dest_port = params.payload.dest_port.clone();
+        let payloads = vec![params.payload.clone()];
 
         let packet = Packet {
             sequence: params.sequence,
