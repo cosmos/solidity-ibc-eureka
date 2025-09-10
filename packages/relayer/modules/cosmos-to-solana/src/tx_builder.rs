@@ -1050,8 +1050,17 @@ impl TxBuilder {
             total_chunks,
         );
 
-        let mut assembly_tx =
-            Transaction::new_with_payer(&[assembly_instruction], Some(&self.fee_payer));
+        // Add compute budget instructions to increase the limit
+        // Request 1.4M compute units (maximum allowed)
+        let compute_budget_ix = solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+
+        // Optionally set a priority fee to ensure the transaction gets processed
+        let priority_fee_ix = solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(1000);
+
+        let mut assembly_tx = Transaction::new_with_payer(
+            &[compute_budget_ix, priority_fee_ix, assembly_instruction],
+            Some(&self.fee_payer),
+        );
         assembly_tx.message.recent_blockhash = recent_blockhash;
 
         assembly_tx
