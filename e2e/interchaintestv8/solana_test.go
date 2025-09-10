@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/gogoproto/proto"
 	mock_light_client "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/mocklightclient"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/relayer"
@@ -24,7 +23,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
