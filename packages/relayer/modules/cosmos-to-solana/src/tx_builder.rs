@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anchor_lang::prelude::*;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use ibc_eureka_relayer_lib::events::EurekaEvent;
 use ibc_eureka_relayer_lib::utils::{to_32_bytes_exact, to_32_bytes_padded};
 use ibc_eureka_utils::light_block::LightBlockExt;
@@ -573,8 +573,11 @@ impl TxBuilder {
         // Get the target light block (latest from source chain)
         let target_light_block = self.source_tm_client.get_light_block(None).await?;
 
-        // Get trusted light block from previous height
-        let trusted_height = latest_block.block.header.height.value().saturating_sub(1);
+        // Query the client state to get the actual trusted height
+        let chain_id = latest_block.block.header.chain_id.to_string();
+        let trusted_height = self.query_client_latest_height(&chain_id)?;
+
+        // Get trusted light block from the height that actually has a consensus state
         let trusted_light_block = self
             .source_tm_client
             .get_light_block(Some(trusted_height))
@@ -902,6 +905,24 @@ impl TxBuilder {
         })
     }
 
+    /// Query the client state from Solana to get the latest consensus state height
+    fn query_client_latest_height(&self, chain_id: &str) -> Result<u64> {
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+
+        // Fetch the account data
+        let account = self
+            .solana_client
+            .get_account(&client_state_pda)
+            .context("Failed to fetch client state account")?;
+
+        // Deserialize the client state (skip 8-byte Anchor discriminator)
+        let client_state: ClientState = ClientState::try_from_slice(&account.data[8..])
+            .context("Failed to deserialize client state")?;
+
+        Ok(client_state.latest_height.revision_height)
+    }
+
     /// Prepare header data for chunking by fetching blocks and creating header
     async fn prepare_header_for_chunking(&self) -> Result<(Vec<u8>, String, u64, u64)> {
         // Get latest block from Cosmos
@@ -911,11 +932,17 @@ impl TxBuilder {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
 
+        // Get chain_id first
+        let chain_id = latest_block.block.header.chain_id.to_string();
+        let target_height = latest_block.block.header.height.value();
+
         // Get the target light block (latest from source chain)
         let target_light_block = self.source_tm_client.get_light_block(None).await?;
 
-        // Get trusted light block from previous height
-        let trusted_height = latest_block.block.header.height.value().saturating_sub(1);
+        // Query the client state to get the actual trusted height
+        let trusted_height = self.query_client_latest_height(&chain_id)?;
+
+        // Get trusted light block from the height that actually has a consensus state
         let trusted_light_block = self
             .source_tm_client
             .get_light_block(Some(trusted_height))
@@ -930,9 +957,6 @@ impl TxBuilder {
         // Create the header
         let proposed_header = target_light_block.into_header(&trusted_light_block);
         let header_bytes = proposed_header.encode_to_vec();
-
-        let chain_id = latest_block.block.header.chain_id.to_string();
-        let target_height = latest_block.block.header.height.value();
 
         Ok((header_bytes, chain_id, target_height, trusted_height))
     }
