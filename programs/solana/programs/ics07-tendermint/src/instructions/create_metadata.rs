@@ -149,9 +149,8 @@ mod tests {
         let metadata_account = result
             .get_account(&test_accounts.metadata_pda)
             .expect("Metadata account should exist after creation");
-        let metadata =
-            HeaderMetadata::try_deserialize(&mut metadata_account.data.as_slice())
-                .expect("Failed to deserialize header metadata");
+        let metadata = HeaderMetadata::try_deserialize(&mut metadata_account.data.as_slice())
+            .expect("Failed to deserialize header metadata");
 
         assert_eq!(metadata.chain_id, chain_id);
         assert_eq!(metadata.target_height, target_height);

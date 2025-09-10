@@ -187,7 +187,8 @@ fn test_successful_assembly_and_update() {
     let mut client_state_account =
         create_client_state_account(chain_id, client_state.latest_height.revision_height);
     let mut client_data = vec![];
-    client_state.try_serialize(&mut client_data)
+    client_state
+        .try_serialize(&mut client_data)
         .expect("Failed to serialize client state");
     client_state_account.data = client_data;
 
@@ -255,8 +256,7 @@ fn test_successful_assembly_and_update() {
             &update_message,
         ),
     };
-    let clock_data = bincode::serialize(&clock)
-        .expect("Failed to serialize Clock for test");
+    let clock_data = bincode::serialize(&clock).expect("Failed to serialize Clock for test");
     accounts.push((
         solana_sdk::sysvar::clock::ID,
         Account {
@@ -793,7 +793,8 @@ fn test_assemble_and_update_client_happy_path() {
     let mut client_state_account =
         create_client_state_account(chain_id, client_state.latest_height.revision_height);
     let mut client_data = vec![];
-    client_state.try_serialize(&mut client_data)
+    client_state
+        .try_serialize(&mut client_data)
         .expect("Failed to serialize client state");
     client_state_account.data = client_data;
 
@@ -828,8 +829,7 @@ fn test_assemble_and_update_client_happy_path() {
             &update_message,
         ),
     };
-    let clock_data = bincode::serialize(&clock)
-        .expect("Failed to serialize Clock for test");
+    let clock_data = bincode::serialize(&clock).expect("Failed to serialize Clock for test");
 
     let mut accounts = vec![
         (client_state_pda, client_state_account),
@@ -1084,7 +1084,8 @@ fn test_assemble_with_existing_consensus_state() {
 
     // Create proper client state
     let mut client_data = vec![];
-    client_state.try_serialize(&mut client_data)
+    client_state
+        .try_serialize(&mut client_data)
         .expect("Failed to serialize client state");
     let client_account = Account {
         lamports: 1_000_000,
@@ -1301,7 +1302,8 @@ fn test_assemble_updates_latest_height() {
     let mut initial_client =
         create_client_state_account(chain_id, client_state.latest_height.revision_height);
     let mut client_data = vec![];
-    client_state.try_serialize(&mut client_data)
+    client_state
+        .try_serialize(&mut client_data)
         .expect("Failed to serialize client state");
     initial_client.data = client_data;
 
@@ -1342,8 +1344,7 @@ fn test_assemble_updates_latest_height() {
             &update_message,
         ),
     };
-    let clock_data = bincode::serialize(&clock)
-        .expect("Failed to serialize Clock for test");
+    let clock_data = bincode::serialize(&clock).expect("Failed to serialize Clock for test");
     accounts.push((
         solana_sdk::sysvar::clock::ID,
         Account {

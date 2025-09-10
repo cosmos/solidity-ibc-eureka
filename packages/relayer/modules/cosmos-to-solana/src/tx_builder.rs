@@ -881,12 +881,8 @@ impl TxBuilder {
         );
 
         // Build all chunk upload transactions
-        let chunk_txs = self.build_chunk_transactions(
-            &chunks,
-            &chain_id,
-            target_height,
-            recent_blockhash,
-        )?;
+        let chunk_txs =
+            self.build_chunk_transactions(&chunks, &chain_id, target_height, recent_blockhash)?;
 
         // Build assembly transaction
         let assembly_tx = self.build_assembly_transaction(
