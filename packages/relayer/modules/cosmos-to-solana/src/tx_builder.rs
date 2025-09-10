@@ -498,7 +498,7 @@ impl TxBuilder {
             .get_light_block(Some(trusted_height))
             .await?;
 
-        tracing::debug!(
+        tracing::info!(
             "Generating Solana update client header from height: {} to height: {}",
             trusted_height,
             target_light_block.height().value()
@@ -696,14 +696,14 @@ impl TxBuilder {
             .try_into()?;
         let trusting_period = 2 * (unbonding_period / 3);
 
-        tracing::debug!(
+        tracing::info!(
             "Creating client for chain {} at height {}, revision: {}",
             chain_id_str,
             latest_height,
             revision_number
         );
 
-        tracing::debug!(
+        tracing::info!(
             "Using client parameters: trust_level={}/{}, trusting_period={}, unbonding_period={}, max_clock_drift={}",
             DEFAULT_TRUST_LEVEL_NUMERATOR, DEFAULT_TRUST_LEVEL_DENOMINATOR, trusting_period, unbonding_period, MAX_CLOCK_DRIFT_SECONDS
         );
@@ -759,7 +759,7 @@ impl TxBuilder {
     /// - Failed to get latest block
     /// - Failed to serialize header
     pub async fn build_update_client_tx(&self, client_id: String) -> Result<Transaction> {
-        tracing::debug!(
+        tracing::info!(
             "Building update client transaction for client {}",
             client_id
         );

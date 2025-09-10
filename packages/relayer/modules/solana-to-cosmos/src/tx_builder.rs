@@ -304,7 +304,7 @@ impl TxBuilder {
 
     /// Build a Cosmos message from a Solana IBC event
     fn build_message_from_event(&self, event: SolanaIbcEvent) -> anyhow::Result<Any> {
-        tracing::debug!("Building message from Solana event: {:?}", event);
+        tracing::info!("Building message from Solana event: {:?}", event);
         match event {
             SolanaIbcEvent::SendPacket {
                 sequence,
@@ -313,7 +313,7 @@ impl TxBuilder {
                 payloads,
                 timeout_timestamp,
             } => {
-                tracing::debug!("Building recv packet msg - sequence: {}, source_client: {}, dest_client: {}, payloads: {} items, timeout: {}",
+                tracing::info!("Building recv packet msg - sequence: {}, source_client: {}, dest_client: {}, payloads: {} items, timeout: {}",
                     sequence, source_client, destination_client, payloads.len(), timeout_timestamp);
 
                 self.build_recv_packet_msg(
@@ -382,12 +382,12 @@ impl TxBuilder {
             signer: self.signer_address.clone(),
         };
 
-        tracing::debug!(
+        tracing::info!(
             "Created RecvPacket message for sequence {} with signer: {}",
             sequence,
             self.signer_address
         );
-        tracing::debug!("Packet details: {:?}", packet);
+        tracing::info!("Packet details: {:?}", packet);
         Any::from_msg(&msg).map_err(Into::into)
     }
 
