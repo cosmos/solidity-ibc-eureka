@@ -446,25 +446,6 @@ impl TxBuilder {
 
         tx.message.recent_blockhash = recent_blockhash;
 
-        // Log transaction size for debugging using the same method as the Go test
-        let tx_size = bincode::serialize(&tx).map(|data| data.len()).unwrap_or(0);
-        tracing::debug!(
-            "Built transaction with {} instructions, bincode size: {} bytes",
-            instructions.len(),
-            tx_size
-        );
-
-        // Additional debug: log instruction sizes for mock vs real comparison
-        for (i, instruction) in instructions.iter().enumerate() {
-            tracing::debug!(
-                "Instruction {}: program_id={}, accounts={}, data_len={} bytes",
-                i,
-                instruction.program_id,
-                instruction.accounts.len(),
-                instruction.data.len()
-            );
-        }
-
         Ok(tx)
     }
 
@@ -499,9 +480,8 @@ impl TxBuilder {
     /// - Failed to get latest block from Cosmos
     /// - Failed to serialize header
     async fn build_update_client_instruction(&self) -> Result<Instruction> {
-        tracing::warn!(
-            "Building REGULAR (non-mock) update client instruction - this will be LARGE!"
-        );
+        tracing::info!("Building REGULAR update client instruction!");
+
         // Get latest block from Cosmos
         let latest_block = self
             .source_tm_client

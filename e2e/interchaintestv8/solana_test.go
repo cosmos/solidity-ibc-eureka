@@ -376,9 +376,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	ctx := context.Background()
 
-	// Temporarily mock the Solana client to bypass the transaction size issue
-	// in "Acknowledge transfer on Solana" step
+	// Mock the Solana client to bypass the transaction size issue for update client instruction
 	s.UseMockSolanaClient = true
+	// Mock the Wasm client because we inject fake proofs
 	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
@@ -485,22 +485,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on Cosmos", func() {
-			var txBody txtypes.TxBody
-			err := proto.Unmarshal(relayTxBodyBz, &txBody)
-			s.Require().NoError(err)
-
-			var msgs []sdk.Msg
-			for _, msg := range txBody.Messages {
-				var sdkMsg sdk.Msg
-				err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
-				s.Require().NoError(err)
-				msgs = append(msgs, sdkMsg)
-			}
-			s.Require().NotZero(len(msgs))
-
-			relayTxResult, err := s.BroadcastMessages(ctx, simd, s.CosmosUsers[0], 200_000, msgs...)
-			s.Require().NoError(err)
-			s.T().Logf("Relay transaction broadcasted: %s with %d messages", relayTxResult.TxHash, len(msgs))
+			relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 200_000, relayTxBodyBz)
+			s.T().Logf("Relay transaction: %s (code: %d, gas: %d)",
+				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
 
 			cosmosRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
 			s.Require().NoError(err)
@@ -711,30 +698,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 		}))
 
 		s.Require().True(s.Run("Broadcast acknowledgment relay tx on Cosmos", func() {
-			var txBody txtypes.TxBody
-			err := proto.Unmarshal(ackRelayTxBodyBz, &txBody)
-			s.Require().NoError(err)
-
-			s.T().Logf("=== COSMOS ACKNOWLEDGMENT RELAY TX DEBUG ===")
-			s.T().Logf("Transaction body contains %d messages", len(txBody.Messages))
-
-			var msgs []sdk.Msg
-			for i, msg := range txBody.Messages {
-				var sdkMsg sdk.Msg
-				err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
-				s.Require().NoError(err)
-				msgs = append(msgs, sdkMsg)
-				s.T().Logf("Message %d type: %T", i, sdkMsg)
-			}
-			s.Require().NotZero(len(msgs))
-			s.Require().Equal(2, len(msgs), "Expected 2 messages: update client and acknowledge packet")
-
-			s.T().Logf("Broadcasting %d messages to Cosmos...", len(msgs))
-			relayTxResult, err := s.BroadcastMessages(ctx, simd, s.CosmosUsers[0], 200_000, msgs...)
-			s.Require().NoError(err)
-			s.T().Logf("Acknowledgment relay transaction broadcasted: %s with %d messages", relayTxResult.TxHash, len(msgs))
-			s.T().Logf("Transaction result code: %d", relayTxResult.Code)
-			s.T().Logf("Transaction gas used: %d", relayTxResult.GasUsed)
+			relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 200_000, ackRelayTxBodyBz)
+			s.T().Logf("Acknowledgment relay transaction: %s (code: %d, gas: %d)",
+				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
 		}))
 	}))
 }
@@ -742,9 +708,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	ctx := context.Background()
 
-	// Temporarily mock the Solana client to bypass the transaction size issue
-	// in "Acknowledge transfer on Solana" step
+	// Mock the Solana client to bypass the transaction size issue for update client instruction
 	s.UseMockSolanaClient = true
+	// Mock the Wasm client because we inject fake proofs
 	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
