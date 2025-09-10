@@ -1,6 +1,6 @@
 use crate::{errors::DummyIbcAppError, state::*};
 use anchor_lang::prelude::*;
-use ibc_proto_eureka::ibc::applications::transfer::v2::FungibleTokenPacketData;
+use ibc_proto::ibc::applications::transfer::v2::FungibleTokenPacketData;
 use ics26_router::cpi as router_cpi;
 use ics26_router::program::Ics26Router;
 use ics26_router::{
@@ -196,7 +196,7 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
     let payload = Payload {
         source_port: "transfer".to_string(),
         dest_port: msg.dest_port,
-        version: "ics20-2".to_string(),
+        version: "ics20-1".to_string(),
         encoding: "application/x-protobuf".to_string(),
         value: packet_data,
     };
