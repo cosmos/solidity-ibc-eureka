@@ -397,8 +397,7 @@ fn test_upload_chunk_no_overwrite_allowed() {
 
     // Second upload with different data should fail (no overwrites allowed)
     let chunk_data2 = vec![2u8; 100];
-    let params2 =
-        create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data2.clone());
+    let params2 = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data2);
 
     let instruction2 = create_upload_instruction(&test_accounts, params2);
     let result2 = mollusk_svm::Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH)
