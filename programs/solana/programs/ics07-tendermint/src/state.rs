@@ -1,7 +1,7 @@
 use crate::types::ConsensusState;
 use anchor_lang::prelude::*;
 
-pub const CHUNK_DATA_SIZE: usize = 900;
+pub const CHUNK_DATA_SIZE: usize = 700;
 
 #[account]
 #[derive(InitSpace)]
@@ -21,13 +21,9 @@ pub struct HeaderChunk {
     pub target_height: u64,
     /// Index of this chunk (0-based)
     pub chunk_index: u8,
-    /// Hash of the chunk data (keccak256)
-    pub chunk_hash: [u8; 32],
     /// The chunk data
     #[max_len(CHUNK_DATA_SIZE)]
     pub chunk_data: Vec<u8>,
-    /// Version/nonce to handle overwrites
-    pub version: u32,
 }
 
 /// Metadata for tracking header upload by height

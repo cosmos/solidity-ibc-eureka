@@ -45,7 +45,7 @@ const MAX_CLOCK_DRIFT_SECONDS: u64 = 15;
 const MOCK_PROOF_DATA: &[u8] = b"mock";
 
 /// Maximum size for a header chunk (matches `CHUNK_DATA_SIZE` in Solana program)
-const MAX_CHUNK_SIZE: usize = 900;
+const MAX_CHUNK_SIZE: usize = 700;
 
 /// Parameters for uploading a header chunk (mirrors the Solana program's type)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -53,10 +53,7 @@ struct UploadChunkParams {
     chain_id: String,
     target_height: u64,
     chunk_index: u8,
-    total_chunks: u8,
     chunk_data: Vec<u8>,
-    chunk_hash: [u8; 32],
-    header_commitment: [u8; 32],
 }
 
 /// Parameters for building chunk transactions
@@ -65,8 +62,6 @@ struct ChunkTxParams<'a> {
     chain_id: &'a str,
     target_height: u64,
     chunk_index: u8,
-    total_chunks: u8,
-    header_commitment: [u8; 32],
     recent_blockhash: solana_sdk::hash::Hash,
 }
 
@@ -890,8 +885,6 @@ impl TxBuilder {
             &chunks,
             &chain_id,
             target_height,
-            total_chunks,
-            header_commitment,
             recent_blockhash,
         )?;
 
@@ -982,8 +975,6 @@ impl TxBuilder {
         chunks: &[Vec<u8>],
         chain_id: &str,
         target_height: u64,
-        total_chunks: u8,
-        header_commitment: [u8; 32],
         recent_blockhash: solana_sdk::hash::Hash,
     ) -> Result<Vec<Transaction>> {
         let mut chunk_txs = Vec::new();
@@ -996,8 +987,6 @@ impl TxBuilder {
                 chain_id,
                 target_height,
                 chunk_index,
-                total_chunks,
-                header_commitment,
                 recent_blockhash,
             })?;
             chunk_txs.push(chunk_tx);
@@ -1007,16 +996,11 @@ impl TxBuilder {
     }
 
     fn build_single_chunk_transaction(&self, params: &ChunkTxParams) -> Result<Transaction> {
-        let chunk_hash = keccak::hash(params.chunk_data).0;
-
         let upload_ix = self.build_upload_header_chunk_instruction(
             params.chain_id,
             params.target_height,
             params.chunk_index,
-            params.total_chunks,
             params.chunk_data.to_vec(),
-            chunk_hash,
-            params.header_commitment,
         )?;
 
         let mut tx = Transaction::new_with_payer(&[upload_ix], Some(&self.fee_payer));
@@ -1101,26 +1085,19 @@ impl TxBuilder {
     /// # Errors
     ///
     /// Returns an error if serialization fails
-    #[allow(clippy::too_many_arguments)]
     fn build_upload_header_chunk_instruction(
         &self,
         chain_id: &str,
         target_height: u64,
         chunk_index: u8,
-        total_chunks: u8,
         chunk_data: Vec<u8>,
-        chunk_hash: [u8; 32],
-        header_commitment: [u8; 32],
     ) -> Result<Instruction> {
         // Create upload chunk params
         let params = UploadChunkParams {
             chain_id: chain_id.to_string(),
             target_height,
             chunk_index,
-            total_chunks,
             chunk_data,
-            chunk_hash,
-            header_commitment,
         };
 
         // Derive PDAs

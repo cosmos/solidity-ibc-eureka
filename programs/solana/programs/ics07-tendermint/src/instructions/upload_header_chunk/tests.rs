@@ -150,14 +150,11 @@ fn create_upload_chunk_params(
     chunk_index: u8,
     chunk_data: Vec<u8>,
 ) -> UploadChunkParams {
-    let chunk_hash = keccak::hash(&chunk_data).0;
-
     UploadChunkParams {
         chain_id: chain_id.to_string(),
         target_height,
         chunk_index,
         chunk_data,
-        chunk_hash,
     }
 }
 
@@ -286,7 +283,6 @@ fn test_upload_first_chunk_success() {
     let header_commitment = keccak::hash(&chunk_data).0; // Compute before moving chunk_data
     let params = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data);
 
-    let expected_hash = params.chunk_hash;
     let expected_data = params.chunk_data.clone();
 
     // First initialize the metadata
@@ -323,49 +319,11 @@ fn test_upload_first_chunk_success() {
     assert_eq!(chunk.chain_id, chain_id);
     assert_eq!(chunk.target_height, target_height);
     assert_eq!(chunk.chunk_index, chunk_index);
-    assert_eq!(chunk.chunk_hash, expected_hash);
     assert_eq!(chunk.chunk_data, expected_data);
-    assert_eq!(chunk.version, 1);
 }
 
 #[test]
-fn test_upload_chunk_with_invalid_hash_fails() {
-    let chain_id = "test-chain";
-    let target_height = 200;
-    let chunk_index = 0;
-    let submitter = Pubkey::new_unique();
-
-    let mut test_accounts =
-        setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
-
-    let mut params =
-        create_upload_chunk_params(chain_id, target_height, chunk_index, vec![1u8; 100]);
-
-    // Compute the header commitment
-    let header_commitment = keccak::hash(&params.chunk_data).0;
-
-    // Initialize metadata first
-    test_accounts.accounts = initialize_metadata(
-        &test_accounts,
-        chain_id,
-        target_height,
-        3,
-        header_commitment,
-    );
-
-    // Corrupt the hash
-    params.chunk_hash = [0u8; 32];
-
-    let instruction = create_upload_instruction(&test_accounts, params);
-    assert_instruction_fails_with_error(
-        &instruction,
-        &test_accounts.accounts,
-        ErrorCode::InvalidChunkHash,
-    );
-}
-
-#[test]
-fn test_upload_same_chunk_twice_with_same_hash() {
+fn test_upload_same_chunk_twice_should_fail() {
     let chain_id = "test-chain";
     let target_height = 200;
     let chunk_index = 0;
@@ -394,28 +352,17 @@ fn test_upload_same_chunk_twice_with_same_hash() {
     // Update accounts with results from first upload
     test_accounts.accounts = result.resulting_accounts.into_iter().collect();
 
-    // Second upload with same data (should succeed and increment version)
+    // Second upload with same data should fail
     let instruction2 = create_upload_instruction(&test_accounts, params);
-    let result2 = assert_instruction_succeeds(&instruction2, &test_accounts.accounts);
-
-    // Verify chunk was re-uploaded (version should be 2 now)
-    let chunk_account = result2
-        .resulting_accounts
-        .iter()
-        .find(|(k, _)| *k == test_accounts.chunk_pda)
-        .expect("chunk account should exist");
-
-    let chunk: HeaderChunk = HeaderChunk::try_deserialize(&mut &chunk_account.1.data[..])
-        .expect("should deserialize chunk");
-
-    assert_eq!(
-        chunk.version, 2,
-        "version should increment even for same data"
+    assert_instruction_fails_with_error(
+        &instruction2,
+        &test_accounts.accounts,
+        ErrorCode::ChunkAlreadyUploaded,
     );
 }
 
 #[test]
-fn test_upload_chunk_overwrites_with_different_data() {
+fn test_upload_chunk_no_overwrite_allowed() {
     let chain_id = "test-chain";
     let target_height = 200;
     let chunk_index = 0;
@@ -446,29 +393,17 @@ fn test_upload_chunk_overwrites_with_different_data() {
     // Update accounts with results from first upload
     test_accounts.accounts = result.resulting_accounts.into_iter().collect();
 
-    // Second upload with different data but same header commitment
-    // (simulating a re-upload scenario where the full header is the same)
+    // Second upload with different data should fail (no overwrites allowed)
     let chunk_data2 = vec![2u8; 100];
     let params2 =
         create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data2.clone());
 
-    // params2 already has its own chunk data and hash, no need to set header_commitment
-
     let instruction2 = create_upload_instruction(&test_accounts, params2);
-    let result2 = assert_instruction_succeeds(&instruction2, &test_accounts.accounts);
-
-    // Verify chunk was overwritten
-    let chunk_account = result2
-        .resulting_accounts
-        .iter()
-        .find(|(k, _)| *k == test_accounts.chunk_pda)
-        .expect("chunk account should exist");
-
-    let chunk: HeaderChunk = HeaderChunk::try_deserialize(&mut &chunk_account.1.data[..])
-        .expect("should deserialize chunk");
-
-    assert_eq!(chunk.chunk_data, chunk_data2);
-    assert_eq!(chunk.version, 2, "version should increment on overwrite");
+    assert_instruction_fails_with_error(
+        &instruction2,
+        &test_accounts.accounts,
+        ErrorCode::ChunkAlreadyUploaded,
+    );
 }
 
 #[test]

@@ -148,9 +148,7 @@ fn setup_test_accounts_with_chunks(
                 chain_id: chain_id.to_string(),
                 target_height: cleanup_height,
                 chunk_index: i as u8,
-                chunk_hash: [i as u8; 32],
                 chunk_data: vec![i as u8; 100],
-                version: 1,
             };
 
             let mut chunk_data = vec![];
@@ -426,9 +424,7 @@ fn test_cleanup_with_missing_chunks() {
             chain_id: chain_id.to_string(),
             target_height: cleanup_height,
             chunk_index: i,
-            chunk_hash: [i; 32],
             chunk_data: vec![i; 100],
-            version: 1,
         };
 
         let mut chunk_data = vec![];

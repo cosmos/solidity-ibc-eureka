@@ -333,14 +333,11 @@ pub mod chunk_test_utils {
     ) -> Account {
         use anchor_lang::AccountSerialize;
 
-        let chunk_hash = keccak::hash(&chunk_data).0;
         let chunk = HeaderChunk {
             chain_id: chain_id.to_string(),
             target_height,
             chunk_index,
-            chunk_hash,
             chunk_data,
-            version: 1,
         };
 
         let mut data = vec![];
@@ -461,12 +458,10 @@ pub mod chunk_test_utils {
         chunk_index: u8,
         chunk_data: Vec<u8>,
     ) -> UploadChunkParams {
-        let chunk_hash = keccak::hash(&chunk_data).0;
         UploadChunkParams {
             chain_id: chain_id.to_string(),
             target_height,
             chunk_index,
-            chunk_hash,
             chunk_data,
         }
     }

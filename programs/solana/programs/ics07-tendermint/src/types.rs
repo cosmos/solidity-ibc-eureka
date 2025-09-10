@@ -20,7 +20,6 @@ pub struct UploadChunkParams {
     pub target_height: u64,
     pub chunk_index: u8,
     pub chunk_data: Vec<u8>,
-    pub chunk_hash: [u8; 32],
 }
 
 #[account]

@@ -71,14 +71,14 @@ pub enum ErrorCode {
     MetadataAlreadyInitialized,
     #[msg("Invalid chunk account: chunk account PDA mismatch")]
     InvalidChunkAccount,
-    #[msg("Invalid chunk hash: chunk data does not match stored hash")]
-    InvalidChunkHash,
     #[msg("Invalid chunk index: chunk index out of bounds")]
     InvalidChunkIndex,
     #[msg("Too many chunks: exceeds maximum supported chunks")]
     TooManyChunks,
     #[msg("Chunk data too large: exceeds maximum chunk size")]
     ChunkDataTooLarge,
+    #[msg("Chunk already uploaded: cannot update existing chunk")]
+    ChunkAlreadyUploaded,
 
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]
