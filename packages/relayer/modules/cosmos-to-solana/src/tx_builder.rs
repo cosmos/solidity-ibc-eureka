@@ -917,7 +917,13 @@ impl TxBuilder {
             .context("Failed to fetch client state account")?;
 
         // Deserialize the client state (skip 8-byte Anchor discriminator)
-        let client_state: ClientState = ClientState::try_from_slice(&account.data[8..])
+        // Only deserialize the exact bytes needed, ignoring any padding
+        let client_state = ClientState::try_from_slice(&account.data[8..])
+            .or_else(|_| {
+                // If try_from_slice fails due to extra bytes, use deserialize which is more lenient
+                let mut data = &account.data[8..];
+                ClientState::deserialize(&mut data)
+            })
             .context("Failed to deserialize client state")?;
 
         Ok(client_state.latest_height.revision_height)
