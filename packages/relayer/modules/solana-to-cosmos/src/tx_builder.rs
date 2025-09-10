@@ -46,7 +46,7 @@ pub enum SolanaIbcEvent {
         /// Destination client ID
         destination_client: String,
         /// Packet payloads (IBC v2 supports multiple payloads)
-        payloads: Vec<Vec<u8>>,
+        payloads: Vec<Payload>,
         /// Timeout timestamp
         timeout_timestamp: u64,
     },
@@ -74,7 +74,7 @@ pub enum SolanaIbcEvent {
         /// Destination client ID
         destination_client: String,
         /// Packet payloads
-        payloads: Vec<Vec<u8>>,
+        payloads: Vec<Payload>,
         /// Timeout timestamp
         timeout_timestamp: u64,
     },
@@ -183,7 +183,17 @@ impl TxBuilder {
                 IbcEvent::SendPacket(send_event) => {
                     // Deserialize the packet to get full details
                     if let Ok(packet) = SolanaPacket::try_from_slice(&send_event.packet_data) {
-                        let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
+                        let payloads: Vec<Payload> = packet
+                            .payloads
+                            .into_iter()
+                            .map(|solana_payload| Payload {
+                                source_port: solana_payload.source_port,
+                                destination_port: solana_payload.dest_port,
+                                version: solana_payload.version,
+                                encoding: solana_payload.encoding,
+                                value: solana_payload.value,
+                            })
+                            .collect();
 
                         events.push(SolanaIbcEvent::SendPacket {
                             sequence: send_event.sequence,
@@ -210,7 +220,17 @@ impl TxBuilder {
                 IbcEvent::TimeoutPacket(timeout_event) => {
                     // For timeout packet, we need the full packet data
                     if let Ok(packet) = SolanaPacket::try_from_slice(&timeout_event.packet_data) {
-                        let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
+                        let payloads: Vec<Payload> = packet
+                            .payloads
+                            .into_iter()
+                            .map(|solana_payload| Payload {
+                                source_port: solana_payload.source_port,
+                                destination_port: solana_payload.dest_port,
+                                version: solana_payload.version,
+                                encoding: solana_payload.encoding,
+                                value: solana_payload.value,
+                            })
+                            .collect();
 
                         events.push(SolanaIbcEvent::TimeoutPacket {
                             sequence: timeout_event.sequence,
@@ -298,11 +318,21 @@ impl TxBuilder {
                     sequence, source_client, destination_client, payloads.len(), timeout_timestamp);
                 for (i, payload) in payloads.iter().enumerate() {
                     tracing::debug!(
-                        "Payload {}: {} bytes - {}",
+                        "Payload {}: source_port={}, dest_port={}, version={}, encoding={}, value_len={} bytes",
                         i,
-                        payload.len(),
-                        String::from_utf8_lossy(payload)
+                        payload.source_port,
+                        payload.destination_port,
+                        payload.version,
+                        payload.encoding,
+                        payload.value.len()
                     );
+                    if payload.value.len() <= 100 {
+                        tracing::debug!(
+                            "Payload {} value: {}",
+                            i,
+                            String::from_utf8_lossy(&payload.value)
+                        );
+                    }
                 }
                 self.build_recv_packet_msg(
                     sequence,
@@ -343,19 +373,6 @@ impl TxBuilder {
         }
     }
 
-    /// Convert Solana payloads to IBC v2 Payload format
-    fn convert_payloads_to_ibc(payloads: Vec<Vec<u8>>) -> Vec<Payload> {
-        payloads
-            .into_iter()
-            .map(|value| Payload {
-                source_port: "transfer".to_string(), // Default for ICS20
-                destination_port: "transfer".to_string(),
-                version: "ics20-1".to_string(),
-                encoding: "application/json".to_string(),
-                value,
-            })
-            .collect()
-    }
 
     /// Build a `RecvPacket` message for Cosmos
     #[allow(clippy::cognitive_complexity)]
@@ -364,18 +381,17 @@ impl TxBuilder {
         sequence: u64,
         source_client: String,
         destination_client: String,
-        payloads: Vec<Vec<u8>>,
+        payloads: Vec<Payload>,
         timeout_timestamp: u64,
     ) -> anyhow::Result<Any> {
-        let converted_payloads = Self::convert_payloads_to_ibc(payloads);
-        tracing::debug!("Converted payloads count: {}", converted_payloads.len());
+        tracing::debug!("Payloads count: {}", payloads.len());
 
         let packet = Packet {
             sequence,
             source_client,
             destination_client,
             timeout_timestamp,
-            payloads: converted_payloads,
+            payloads,
         };
 
         let msg = MsgRecvPacket {
@@ -485,7 +501,7 @@ impl TxBuilder {
         sequence: u64,
         source_client: String,
         destination_client: String,
-        payloads: Vec<Vec<u8>>,
+        payloads: Vec<Payload>,
         timeout_timestamp: u64,
     ) -> anyhow::Result<Any> {
         let packet = Packet {
@@ -493,7 +509,7 @@ impl TxBuilder {
             source_client,
             destination_client,
             timeout_timestamp,
-            payloads: Self::convert_payloads_to_ibc(payloads),
+            payloads,
         };
 
         let msg = MsgTimeout {
