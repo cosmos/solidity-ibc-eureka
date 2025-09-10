@@ -138,19 +138,6 @@ pub struct UploadHeaderChunk<'info> {
     )]
     pub chunk: Account<'info, HeaderChunk>,
 
-    /// Header metadata for this height and submitter (must already exist)
-    #[account(
-        mut,
-        seeds = [
-            b"header_metadata",
-            submitter.key().as_ref(),
-            params.chain_id.as_bytes(),
-            &params.target_height.to_le_bytes(),
-        ],
-        bump
-    )]
-    pub metadata: Account<'info, HeaderMetadata>,
-
     /// Client state to verify this is a valid client
     #[account(
         constraint = client_state.chain_id == params.chain_id,

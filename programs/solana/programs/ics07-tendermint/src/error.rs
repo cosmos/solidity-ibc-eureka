@@ -71,8 +71,6 @@ pub enum ErrorCode {
     MetadataAlreadyInitialized,
     #[msg("Invalid chunk account: chunk account PDA mismatch")]
     InvalidChunkAccount,
-    #[msg("Invalid chunk index: chunk index out of bounds")]
-    InvalidChunkIndex,
     #[msg("Too many chunks: exceeds maximum supported chunks")]
     TooManyChunks,
     #[msg("Chunk data too large: exceeds maximum chunk size")]

@@ -194,7 +194,6 @@ fn create_upload_instruction(
         program_id: crate::ID,
         accounts: vec![
             AccountMeta::new(test_accounts.chunk_pda, false),
-            AccountMeta::new(test_accounts.metadata_pda, false),
             AccountMeta::new_readonly(test_accounts.client_state_pda, false),
             AccountMeta::new(test_accounts.submitter, true),
             AccountMeta::new_readonly(system_program::ID, false),
@@ -495,34 +494,6 @@ fn test_upload_multiple_chunks_creates_shared_metadata() {
 
     assert_eq!(metadata2.header_commitment, metadata.header_commitment);
     assert_eq!(metadata2.total_chunks, metadata.total_chunks);
-}
-
-#[test]
-fn test_upload_chunk_without_metadata_fails() {
-    let chain_id = "test-chain";
-    let target_height = 200;
-    let chunk_index = 0;
-    let submitter = Pubkey::new_unique();
-
-    let test_accounts = setup_test_accounts(
-        chain_id,
-        target_height,
-        chunk_index,
-        submitter,
-        true, // with existing client
-    );
-
-    let params = create_upload_chunk_params(chain_id, target_height, chunk_index, vec![1u8; 100]);
-
-    // Try to upload chunk without initializing metadata first
-
-    let instruction = create_upload_instruction(&test_accounts, params);
-    // This should fail because the metadata doesn't exist
-    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-
-    // Anchor's constraint validation happens first when metadata doesn't exist
-    assert!(result.program_result.is_err()); // Error 3012 is ConstraintAccountIsNone
 }
 
 #[test]

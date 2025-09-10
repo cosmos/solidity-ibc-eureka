@@ -1106,17 +1106,10 @@ impl TxBuilder {
             chunk_index,
             &self.solana_ics07_program_id,
         );
-        let (metadata_pda, _) = derive_header_metadata(
-            &self.fee_payer,
-            chain_id,
-            target_height,
-            &self.solana_ics07_program_id,
-        );
 
         // Build accounts
         let accounts = vec![
             AccountMeta::new(chunk_pda, false),
-            AccountMeta::new(metadata_pda, false),
             AccountMeta::new_readonly(client_state_pda, false),
             AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
