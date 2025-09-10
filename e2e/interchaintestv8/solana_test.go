@@ -567,43 +567,45 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			s.T().Logf("Initial Cosmos balance: %d %s", initialBalance, transferCoin.Denom)
 		}))
 
-		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+		s.Require().True(s.Run("Send transfer packet from Cosmos", func() {
+			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
-		transferPayload := transfertypes.FungibleTokenPacketData{
-			Denom:    transferCoin.Denom,
-			Amount:   transferCoin.Amount.String(),
-			Sender:   cosmosUserAddress,
-			Receiver: solanaUserAddress,
-			Memo:     "cosmos-to-solana-transfer",
-		}
-		encodedPayload, err := transfertypes.MarshalPacketData(transferPayload, transfertypes.V1, transfertypes.EncodingProtobuf)
-		s.Require().NoError(err)
+			transferPayload := transfertypes.FungibleTokenPacketData{
+				Denom:    transferCoin.Denom,
+				Amount:   transferCoin.Amount.String(),
+				Sender:   cosmosUserAddress,
+				Receiver: solanaUserAddress,
+				Memo:     "cosmos-to-solana-transfer",
+			}
+			encodedPayload, err := transfertypes.MarshalPacketData(transferPayload, transfertypes.V1, transfertypes.EncodingProtobuf)
+			s.Require().NoError(err)
 
-		payload := channeltypesv2.Payload{
-			SourcePort:      transfertypes.PortID,
-			DestinationPort: transfertypes.PortID,
-			Version:         transfertypes.V1,
-			Encoding:        transfertypes.EncodingProtobuf,
-			Value:           encodedPayload,
-		}
-		msgSendPacket := channeltypesv2.MsgSendPacket{
-			SourceClient:     CosmosClientID,
-			TimeoutTimestamp: timeout,
-			Payloads: []channeltypesv2.Payload{
-				payload,
-			},
-			Signer: cosmosUserWallet.FormattedAddress(),
-		}
+			payload := channeltypesv2.Payload{
+				SourcePort:      transfertypes.PortID,
+				DestinationPort: transfertypes.PortID,
+				Version:         transfertypes.V1,
+				Encoding:        transfertypes.EncodingProtobuf,
+				Value:           encodedPayload,
+			}
+			msgSendPacket := channeltypesv2.MsgSendPacket{
+				SourceClient:     CosmosClientID,
+				TimeoutTimestamp: timeout,
+				Payloads: []channeltypesv2.Payload{
+					payload,
+				},
+				Signer: cosmosUserWallet.FormattedAddress(),
+			}
 
-		resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgSendPacket)
-		s.Require().NoError(err)
-		s.Require().NotEmpty(resp.TxHash)
+			resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgSendPacket)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.TxHash)
 
-		cosmosPacketTxHashBytes, err := hex.DecodeString(resp.TxHash)
-		s.Require().NoError(err)
-		cosmosPacketTxHash = cosmosPacketTxHashBytes
+			cosmosPacketTxHashBytes, err := hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			cosmosPacketTxHash = cosmosPacketTxHashBytes
 
-		s.T().Logf("Cosmos packet transaction sent: %s", resp.TxHash)
+			s.T().Logf("Cosmos packet transaction sent: %s", resp.TxHash)
+		}))
 
 		s.Require().True(s.Run("Verify balances on Cosmos after transfer", func() {
 			finalResp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
