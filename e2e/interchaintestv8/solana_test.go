@@ -777,61 +777,81 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 		return fmt.Errorf("chunked metadata is required")
 	}
 
-	metadata := resp.ChunkedMetadata
-	s.T().Logf("Submitting %d chunked transactions: first=%d, parallel=%d, assembly=%d",
+	// Transaction structure: [metadata, chunk1, chunk2, ..., chunkN, assembly]
+	chunkCount := len(resp.ChunkedTxs) - 2 // Total minus metadata and assembly
+	s.T().Logf("Submitting %d transactions for height %d: 1 metadata + %d chunks (parallel) + 1 assembly",
 		len(resp.ChunkedTxs),
-		metadata.FirstChunkCount,
-		metadata.ParallelChunkCount,
-		metadata.AssemblyCount)
+		resp.ChunkedMetadata.TargetHeight,
+		chunkCount)
 
-	// Submit first chunk(s) - must be done sequentially
-	firstChunkEnd := int(metadata.FirstChunkCount)
-	for i := 0; i < firstChunkEnd && i < len(resp.ChunkedTxs); i++ {
-		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[i]))
+	// Submit metadata creation transaction first (always the first transaction)
+	if len(resp.ChunkedTxs) > 0 {
+		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[0]))
 		if err != nil {
-			return fmt.Errorf("failed to decode first chunk %d: %w", i, err)
+			return fmt.Errorf("failed to decode metadata tx: %w", err)
 		}
 
 		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
 		if err != nil {
-			return fmt.Errorf("failed to submit first chunk %d: %w", i, err)
+			return fmt.Errorf("failed to submit metadata tx: %w", err)
 		}
-		s.T().Logf("First chunk %d submitted: %s", i, sig)
+		s.T().Logf("Metadata transaction submitted: %s", sig)
 
-		// Small delay to ensure transaction is processed
-		time.Sleep(500 * time.Millisecond)
+		// Wait for metadata account to be created
+		time.Sleep(1 * time.Second)
 	}
 
-	// Submit parallel chunks - can be done concurrently (but we'll do sequentially for simplicity)
-	parallelStart := firstChunkEnd
-	parallelEnd := parallelStart + int(metadata.ParallelChunkCount)
-	for i := parallelStart; i < parallelEnd && i < len(resp.ChunkedTxs); i++ {
-		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[i]))
-		if err != nil {
-			return fmt.Errorf("failed to decode parallel chunk %d: %w", i-parallelStart, err)
-		}
+	// Submit all chunk transactions in parallel (transactions 1 through N-2)
+	chunkStart := 1
+	chunkEnd := len(resp.ChunkedTxs) - 1 // Everything except first (metadata) and last (assembly)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
-		if err != nil {
-			return fmt.Errorf("failed to submit parallel chunk %d: %w", i-parallelStart, err)
-		}
-		s.T().Logf("Parallel chunk %d submitted: %s", i-parallelStart, sig)
+	type chunkResult struct {
+		index int
+		sig   solanago.Signature
+		err   error
 	}
 
-	// Submit assembly transaction(s) - must be done last
-	assemblyStart := parallelEnd
-	assemblyEnd := assemblyStart + int(metadata.AssemblyCount)
-	for i := assemblyStart; i < assemblyEnd && i < len(resp.ChunkedTxs); i++ {
-		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[i]))
+	// Use goroutines to submit chunks in parallel
+	chunkResults := make(chan chunkResult, chunkEnd-chunkStart)
+	for i := chunkStart; i < chunkEnd; i++ {
+		go func(idx int) {
+			tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[idx]))
+			if err != nil {
+				chunkResults <- chunkResult{index: idx - chunkStart, err: fmt.Errorf("failed to decode chunk %d: %w", idx-chunkStart, err)}
+				return
+			}
+
+			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
+			if err != nil {
+				chunkResults <- chunkResult{index: idx - chunkStart, err: fmt.Errorf("failed to submit chunk %d: %w", idx-chunkStart, err)}
+				return
+			}
+			chunkResults <- chunkResult{index: idx - chunkStart, sig: sig}
+		}(i)
+	}
+
+	// Collect results from all parallel chunk submissions
+	for i := 0; i < chunkEnd-chunkStart; i++ {
+		result := <-chunkResults
+		if result.err != nil {
+			return result.err
+		}
+		s.T().Logf("Chunk %d submitted: %s", result.index, result.sig)
+	}
+	close(chunkResults)
+
+	// Submit assembly transaction - must be done last (always the last transaction)
+	if len(resp.ChunkedTxs) > 0 {
+		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[len(resp.ChunkedTxs)-1]))
 		if err != nil {
-			return fmt.Errorf("failed to decode assembly tx %d: %w", i-assemblyStart, err)
+			return fmt.Errorf("failed to decode assembly tx: %w", err)
 		}
 
 		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
 		if err != nil {
-			return fmt.Errorf("failed to submit assembly tx %d: %w", i-assemblyStart, err)
+			return fmt.Errorf("failed to submit assembly tx: %w", err)
 		}
-		s.T().Logf("Assembly transaction %d submitted: %s", i-assemblyStart, sig)
+		s.T().Logf("Assembly transaction submitted: %s", sig)
 
 		// Small delay to ensure transaction is processed
 		time.Sleep(500 * time.Millisecond)
