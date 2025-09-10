@@ -1,5 +1,8 @@
 use crate::state::CHUNK_DATA_SIZE;
-use crate::test_helpers::{chunk_test_utils::*, PROGRAM_BINARY_PATH};
+use crate::error::ErrorCode;
+use crate::test_helpers::{chunk_test_utils::*, fixtures::{assert_error_code, load_primary_fixtures, UpdateClientMessage, get_valid_clock_timestamp_for_header}, PROGRAM_BINARY_PATH};
+use solana_sdk::clock::Clock;
+use solana_sdk::sysvar;
 use anchor_lang::solana_program::keccak;
 use anchor_lang::{AccountDeserialize, AccountSerialize, InstructionData};
 use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
@@ -10,6 +13,51 @@ use solana_sdk::system_program;
 
 fn setup_mollusk() -> Mollusk {
     Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH)
+}
+
+fn create_clock_account(unix_timestamp: i64) -> (Pubkey, Account) {
+    let clock = Clock {
+        slot: 1000,
+        epoch_start_timestamp: 0,
+        epoch: 1,
+        leader_schedule_epoch: 1,
+        unix_timestamp,
+    };
+    
+    (
+        sysvar::clock::ID,
+        Account {
+            lamports: 1,
+            data: bincode::serialize(&clock).unwrap(),
+            owner: sysvar::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+/// Create real header data from fixtures that can be properly deserialized
+fn create_real_header_and_chunks() -> (Vec<u8>, Vec<Vec<u8>>, [u8; 32], UpdateClientMessage) {
+    let (_, _, update_msg) = load_primary_fixtures();
+    
+    // Get the actual header bytes from the client message
+    let header_bytes = hex::decode(&update_msg.client_message_hex).unwrap();
+    
+    // Calculate commitment
+    let header_commitment = keccak::hash(&header_bytes).0;
+    
+    // Split into chunks - determine optimal number of chunks
+    let num_chunks = ((header_bytes.len() + CHUNK_DATA_SIZE - 1) / CHUNK_DATA_SIZE).max(2) as u8;
+    let chunk_size = (header_bytes.len() + num_chunks as usize - 1) / num_chunks as usize;
+    
+    let mut chunks = vec![];
+    for i in 0..num_chunks {
+        let start = i as usize * chunk_size;
+        let end = ((i + 1) as usize * chunk_size).min(header_bytes.len());
+        chunks.push(header_bytes[start..end].to_vec());
+    }
+    
+    (header_bytes, chunks, header_commitment, update_msg)
 }
 
 fn create_test_header_and_chunks(num_chunks: u8) -> (Vec<u8>, Vec<Vec<u8>>, [u8; 32]) {
@@ -117,7 +165,15 @@ fn test_successful_assembly_and_update() {
     // Set up PDAs
     let client_state_pda = derive_client_state_pda(chain_id);
     let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
-    let consensus_state_pda = derive_consensus_state_pda(chain_id, target_height);
+    // New consensus state PDA also needs client state PDA in its seeds
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
 
     // Create client state with real data
     let mut client_state_account =
@@ -231,7 +287,15 @@ fn test_assembly_with_missing_chunks() {
     // Set up PDAs
     let client_state_pda = derive_client_state_pda(chain_id);
     let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
-    let consensus_state_pda = derive_consensus_state_pda(chain_id, target_height);
+    // New consensus state PDA also needs client state PDA in its seeds
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
 
     // Create accounts
     let client_state_account = create_client_state_account(chain_id, 90);
@@ -249,6 +313,7 @@ fn test_assembly_with_missing_chunks() {
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
 
+    // Only pass 2 chunk PDAs instead of 3 to test InvalidChunkCount error
     let instruction = create_assemble_instruction(
         client_state_pda,
         metadata_pda,
@@ -256,7 +321,7 @@ fn test_assembly_with_missing_chunks() {
         consensus_state_pda,
         submitter,
         payer,
-        chunk_pdas.clone(),
+        chunk_pdas[0..2].to_vec(), // Only pass first 2 chunks
     );
 
     // Setup accounts - only provide 2 chunks
@@ -279,15 +344,11 @@ fn test_assembly_with_missing_chunks() {
             create_chunk_account(chain_id, target_height, i as u8, chunks[i as usize].clone());
         accounts.push((chunk_pdas[i as usize], chunk_account));
     }
-    // Missing chunk gets empty account
-    accounts.push((chunk_pdas[2], Account::default()));
+    // Don't add the third chunk at all - this will make remaining_accounts count wrong
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
-    assert!(
-        result.program_result.is_err(),
-        "Should fail with missing chunk"
-    );
+    assert_error_code(result, ErrorCode::InvalidChunkCount, "missing chunk");
 }
 
 #[test]
@@ -303,7 +364,15 @@ fn test_assembly_with_invalid_chunk_count() {
     // Set up PDAs
     let client_state_pda = derive_client_state_pda(chain_id);
     let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
-    let consensus_state_pda = derive_consensus_state_pda(chain_id, target_height);
+    // New consensus state PDA also needs client state PDA in its seeds
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
 
     // Create metadata expecting 2 chunks but provide 3
     let metadata_account = create_metadata_account(
@@ -352,10 +421,7 @@ fn test_assembly_with_invalid_chunk_count() {
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
-    assert!(
-        result.program_result.is_err(),
-        "Should fail with wrong chunk count"
-    );
+    assert_error_code(result, ErrorCode::InvalidChunkCount, "wrong chunk count");
 }
 
 #[test]
@@ -371,7 +437,15 @@ fn test_assembly_with_corrupted_chunk() {
     // Set up PDAs
     let client_state_pda = derive_client_state_pda(chain_id);
     let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
-    let consensus_state_pda = derive_consensus_state_pda(chain_id, target_height);
+    // New consensus state PDA also needs client state PDA in its seeds
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
 
     // Create metadata
     let metadata_account = create_metadata_account(chain_id, target_height, 2, header_commitment);
@@ -423,10 +497,8 @@ fn test_assembly_with_corrupted_chunk() {
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
-    assert!(
-        result.program_result.is_err(),
-        "Should fail with corrupted chunk data"
-    );
+    // When chunk data is corrupted, the header commitment check fails first
+    assert_error_code(result, ErrorCode::InvalidHeader, "corrupted chunk data");
 }
 
 #[test]
@@ -449,7 +521,15 @@ fn test_assembly_wrong_submitter() {
 
     // Try to assemble with wrong submitter
     let client_state_pda = derive_client_state_pda(chain_id);
-    let consensus_state_pda = derive_consensus_state_pda(chain_id, target_height);
+    // New consensus state PDA also needs client state PDA in its seeds
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
 
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
@@ -487,10 +567,7 @@ fn test_assembly_wrong_submitter() {
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
-    assert!(
-        result.program_result.is_err(),
-        "Should fail with wrong submitter"
-    );
+    assert_error_code(result, ErrorCode::AccountValidationFailed, "wrong submitter");
 }
 
 #[test]
@@ -506,7 +583,15 @@ fn test_assembly_chunks_in_wrong_order() {
     // Set up PDAs
     let client_state_pda = derive_client_state_pda(chain_id);
     let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
-    let consensus_state_pda = derive_consensus_state_pda(chain_id, target_height);
+    // New consensus state PDA also needs client state PDA in its seeds
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
 
     // Create accounts
     let metadata_account = create_metadata_account(chain_id, target_height, 3, header_commitment);
@@ -559,11 +644,8 @@ fn test_assembly_chunks_in_wrong_order() {
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
-    // Should fail because chunks are not in correct order
-    assert!(
-        result.program_result.is_err(),
-        "Should fail with chunks in wrong order"
-    );
+    // When chunks are in wrong order, PDA validation fails first
+    assert_error_code(result, ErrorCode::InvalidChunkAccount, "chunks in wrong order");
 }
 
 #[test]
@@ -581,7 +663,15 @@ fn test_rent_reclaim_after_assembly() {
     // Set up accounts
     let client_state_pda = derive_client_state_pda(chain_id);
     let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
-    let consensus_state_pda = derive_consensus_state_pda(chain_id, target_height);
+    // New consensus state PDA also needs client state PDA in its seeds
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
 
     let metadata_account = create_metadata_account(chain_id, target_height, 2, header_commitment);
 
@@ -670,7 +760,15 @@ fn test_assemble_and_update_client_happy_path() {
 
     let client_state_pda = derive_client_state_pda(chain_id);
     let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
-    let consensus_state_pda = derive_consensus_state_pda(chain_id, target_height);
+    // New consensus state PDA also needs client state PDA in its seeds
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, num_chunks);
 
     // Create existing client state with proper data
@@ -796,33 +894,58 @@ fn test_assemble_and_update_client_happy_path() {
 fn test_assemble_with_frozen_client() {
     let mollusk = setup_mollusk();
 
-    let chain_id = "test-chain";
-    let target_height = 100u64;
+    // Load real fixture data
+    let (client_state, consensus_state, _) = load_primary_fixtures();
+    let (header_bytes, chunks, header_commitment, update_msg) = create_real_header_and_chunks();
+    
+    let chain_id = &client_state.chain_id;
     let submitter = Pubkey::new_unique();
-
-    let (_, chunks, header_commitment) = create_test_header_and_chunks(2);
+    let num_chunks = chunks.len() as u8;
+    
+    // Use the actual heights from the fixture
+    let trusted_height = update_msg.trusted_height;
+    let target_height = update_msg.new_height;
 
     let client_state_pda = derive_client_state_pda(chain_id);
     let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
-    let consensus_state_pda = derive_consensus_state_pda(chain_id, target_height);
-    let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 2);
+    // New consensus state PDA also needs client state PDA in its seeds
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
+    let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, num_chunks);
 
-    // Create frozen client state
-    let mut frozen_client = create_client_state_account(chain_id, 90);
-    if let Ok(mut client_state) =
-        crate::types::ClientState::try_deserialize(&mut &frozen_client.data[8..])
-    {
-        client_state.frozen_height = crate::types::IbcHeight {
-            revision_number: 0,
-            revision_height: 50, // Frozen at height 50
-        };
-        let mut data = vec![];
-        client_state.try_serialize(&mut data).unwrap();
-        frozen_client.data = data;
-    }
+    // Create frozen client state from real fixture
+    let mut frozen_client_state = client_state.clone();
+    frozen_client_state.frozen_height = crate::types::IbcHeight {
+        revision_number: 0,
+        revision_height: 50, // Frozen at height 50
+    };
+    
+    let mut frozen_client_data = vec![];
+    frozen_client_state.try_serialize(&mut frozen_client_data).unwrap();
+    let frozen_client = Account {
+        lamports: 1_000_000,
+        data: frozen_client_data,
+        owner: crate::ID,
+        executable: false,
+        rent_epoch: 0,
+    };
 
     let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
+    // Consensus state PDA needs client state PDA in its seeds
+    let (trusted_consensus_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &trusted_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
 
     let instruction = create_assemble_instruction(
         client_state_pda,
@@ -833,16 +956,29 @@ fn test_assemble_with_frozen_client() {
         payer,
         chunk_pdas.clone(),
     );
+    
+    // Create proper trusted consensus state from fixture
+    let mut trusted_consensus_data = vec![];
+    crate::state::ConsensusStateStore {
+        height: trusted_height,
+        consensus_state: consensus_state.clone(),
+    }.try_serialize(&mut trusted_consensus_data).unwrap();
 
     let mut accounts = vec![
         (client_state_pda, frozen_client),
         (
             metadata_pda,
-            create_metadata_account(chain_id, target_height, 2, header_commitment),
+            create_metadata_account(chain_id, target_height, num_chunks, header_commitment),
         ),
         (
             trusted_consensus_pda,
-            create_consensus_state_account([0; 32], [0; 32], 0),
+            Account {
+                lamports: 1_000_000,
+                data: trusted_consensus_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
         ),
         (consensus_state_pda, Account::default()),
         (submitter, create_submitter_account(10_000_000_000)),
@@ -856,33 +992,98 @@ fn test_assemble_with_frozen_client() {
             create_chunk_account(chain_id, target_height, i as u8, chunks[i].clone()),
         ));
     }
+    
+    // Add Clock sysvar for timestamp validation
+    let clock_timestamp = get_valid_clock_timestamp_for_header(&update_msg);
+    let (clock_pubkey, clock_account) = create_clock_account(clock_timestamp);
+    accounts.push((clock_pubkey, clock_account));
 
-    let result = mollusk.process_instruction(&instruction, &accounts);
+    // Increase compute budget for processing real data
+    let mut mollusk_with_budget = mollusk;
+    mollusk_with_budget.compute_budget.compute_unit_limit = 2_000_000;
+    
+    let result = mollusk_with_budget.process_instruction(&instruction, &accounts);
 
-    // Should fail because client is frozen
-    assert!(result.program_result.is_err());
+    // Now with real data, should fail because client is frozen
+    assert_error_code(result, ErrorCode::ClientFrozen, "frozen client");
 }
 
 #[test]
 fn test_assemble_with_existing_consensus_state() {
     let mollusk = setup_mollusk();
 
-    let chain_id = "test-chain";
-    let target_height = 100u64;
+    // Load real fixture data
+    let (client_state, consensus_state, _) = load_primary_fixtures();
+    let (header_bytes, chunks, header_commitment, update_msg) = create_real_header_and_chunks();
+    
+    let chain_id = &client_state.chain_id;
     let submitter = Pubkey::new_unique();
-
-    let (_, chunks, header_commitment) = create_test_header_and_chunks(2);
+    let num_chunks = chunks.len() as u8;
+    
+    // Use the actual heights from the fixture
+    let trusted_height = update_msg.trusted_height;
+    let target_height = update_msg.new_height;
 
     let client_state_pda = derive_client_state_pda(chain_id);
     let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
-    let consensus_state_pda = derive_consensus_state_pda(chain_id, target_height);
-    let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 2);
+    // New consensus state PDA also needs client state PDA in its seeds
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
+    let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, num_chunks);
 
-    // Create existing consensus state at target height
-    let existing_consensus = create_consensus_state_account([1u8; 32], [2u8; 32], 1000);
+    // Create a conflicting consensus state at target height (different from what header will produce)
+    let mut conflicting_consensus_data = vec![];
+    crate::state::ConsensusStateStore {
+        height: target_height,
+        consensus_state: crate::types::ConsensusState {
+            root: [1u8; 32], // Different root
+            next_validators_hash: [2u8; 32], // Different validators
+            timestamp: 1000,
+        },
+    }.try_serialize(&mut conflicting_consensus_data).unwrap();
+    
+    let existing_consensus = Account {
+        lamports: 1_000_000,
+        data: conflicting_consensus_data,
+        owner: crate::ID,
+        executable: false,
+        rent_epoch: 0,
+    };
+
+    // Create proper client state
+    let mut client_data = vec![];
+    client_state.try_serialize(&mut client_data).unwrap();
+    let client_account = Account {
+        lamports: 1_000_000,
+        data: client_data,
+        owner: crate::ID,
+        executable: false,
+        rent_epoch: 0,
+    };
 
     let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
+    // Consensus state PDA needs client state PDA in its seeds
+    let (trusted_consensus_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &trusted_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
+    
+    // Create proper trusted consensus state from fixture
+    let mut trusted_consensus_data = vec![];
+    crate::state::ConsensusStateStore {
+        height: trusted_height,
+        consensus_state: consensus_state.clone(),
+    }.try_serialize(&mut trusted_consensus_data).unwrap();
 
     let instruction = create_assemble_instruction(
         client_state_pda,
@@ -895,16 +1096,22 @@ fn test_assemble_with_existing_consensus_state() {
     );
 
     let mut accounts = vec![
-        (client_state_pda, create_client_state_account(chain_id, 90)),
+        (client_state_pda, client_account),
         (
             metadata_pda,
-            create_metadata_account(chain_id, target_height, 2, header_commitment),
+            create_metadata_account(chain_id, target_height, num_chunks, header_commitment),
         ),
         (
             trusted_consensus_pda,
-            create_consensus_state_account([0; 32], [0; 32], 0),
+            Account {
+                lamports: 1_000_000,
+                data: trusted_consensus_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
         ),
-        (consensus_state_pda, existing_consensus),
+        (consensus_state_pda, existing_consensus), // Conflicting consensus state
         (submitter, create_submitter_account(10_000_000_000)),
         (payer, create_submitter_account(1_000_000_000)),
         keyed_account_for_system_program(),
@@ -916,11 +1123,20 @@ fn test_assemble_with_existing_consensus_state() {
             create_chunk_account(chain_id, target_height, i as u8, chunks[i].clone()),
         ));
     }
+    
+    // Add Clock sysvar for timestamp validation
+    let clock_timestamp = get_valid_clock_timestamp_for_header(&update_msg);
+    let (clock_pubkey, clock_account) = create_clock_account(clock_timestamp);
+    accounts.push((clock_pubkey, clock_account));
 
-    let result = mollusk.process_instruction(&instruction, &accounts);
+    // Increase compute budget for this complex operation (header verification is expensive)
+    let mut mollusk_with_budget = mollusk;
+    mollusk_with_budget.compute_budget.compute_unit_limit = 20_000_000;
+    
+    let result = mollusk_with_budget.process_instruction(&instruction, &accounts);
 
-    // Would check for duplicate or conflicting consensus state
-    assert!(result.program_result.is_err());
+    // Now with real data, should detect conflicting consensus state
+    assert_error_code(result, ErrorCode::MisbehaviourConflictingState, "conflicting consensus state");
 }
 
 #[test]
@@ -944,7 +1160,15 @@ fn test_assemble_with_invalid_header_after_assembly() {
 
     let client_state_pda = derive_client_state_pda(chain_id);
     let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
-    let consensus_state_pda = derive_consensus_state_pda(chain_id, target_height);
+    // New consensus state PDA also needs client state PDA in its seeds
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 2);
 
     let payer = Pubkey::new_unique();
@@ -988,7 +1212,7 @@ fn test_assemble_with_invalid_header_after_assembly() {
     let result = mollusk.process_instruction(&instruction, &accounts);
 
     // Should fail during header validation after assembly
-    assert!(result.program_result.is_err());
+    assert_error_code(result, ErrorCode::InvalidHeader, "invalid assembled header");
 }
 
 #[test]
@@ -1015,7 +1239,15 @@ fn test_assemble_updates_latest_height() {
 
     let client_state_pda = derive_client_state_pda(chain_id);
     let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
-    let consensus_state_pda = derive_consensus_state_pda(chain_id, target_height);
+    // New consensus state PDA also needs client state PDA in its seeds
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 2);
 
     let payer = Pubkey::new_unique();

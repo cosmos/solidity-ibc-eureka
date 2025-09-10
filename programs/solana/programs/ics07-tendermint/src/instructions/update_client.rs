@@ -374,7 +374,7 @@ fn create_consensus_state_account<'info>(
 mod tests {
     use super::*;
     use crate::state::ConsensusStateStore;
-    use crate::test_helpers::{fixtures::*, PROGRAM_BINARY_PATH, SUCCESS_CHECK};
+    use crate::test_helpers::{fixtures::*, PROGRAM_BINARY_PATH};
     use crate::types::UpdateClientMsg;
     use anchor_lang::{AnchorDeserialize, InstructionData};
     use mollusk_svm::result::Check;
@@ -672,13 +672,13 @@ mod tests {
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
 
-        let mut checks = SUCCESS_CHECK.clone();
-        checks.extend(vec![
+        let checks = vec![
+            Check::success(),
             Check::account(&client_state_pda).owner(&crate::ID).build(),
             Check::account(&consensus_state_store_pda)
                 .owner(&crate::ID)
                 .build(),
-        ]);
+        ];
 
         let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
 

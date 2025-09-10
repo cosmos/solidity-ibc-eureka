@@ -1,6 +1,7 @@
 use super::*;
+use crate::error::ErrorCode;
 use crate::state::{HeaderChunk, HeaderMetadata};
-use crate::test_helpers::PROGRAM_BINARY_PATH;
+use crate::test_helpers::{fixtures::assert_error_code, PROGRAM_BINARY_PATH};
 use crate::types::{ClientState, IbcHeight};
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
@@ -235,16 +236,15 @@ fn assert_instruction_succeeds(
     result
 }
 
-fn assert_instruction_fails(instruction: &Instruction, accounts: &[(Pubkey, Account)]) {
+fn assert_instruction_fails_with_error(
+    instruction: &Instruction,
+    accounts: &[(Pubkey, Account)],
+    expected_error: ErrorCode,
+    test_name: &str,
+) {
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
     let result = mollusk.process_instruction(instruction, accounts);
-
-    if matches!(
-        result.program_result,
-        mollusk_svm::result::ProgramResult::Success
-    ) {
-        panic!("Instruction should have failed but succeeded");
-    }
+    assert_error_code(result, expected_error, test_name);
 }
 
 #[test]
@@ -574,7 +574,11 @@ fn test_cleanup_requires_submitter_signature() {
     };
 
     // This should fail because wrong_signer != submitter
-    assert_instruction_fails(&instruction, &test_accounts.accounts);
+    // Anchor's ConstraintSeeds validation happens first
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
+    assert!(result.program_result.is_err());
+    // Error 2003 is ConstraintSeeds in Anchor
 }
 
 #[test]
@@ -646,7 +650,11 @@ fn test_cleanup_empty_upload() {
     );
 
     // Should fail because metadata account doesn't exist
-    assert_instruction_fails(&instruction, &test_accounts.accounts);
+    // Anchor's close constraint fails with ConstraintAccountIsNone (3012)
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
+    assert!(result.program_result.is_err());
+    // Error 3012 is ConstraintAccountIsNone when account doesn't exist
 }
 
 #[test]
@@ -681,5 +689,9 @@ fn test_cleanup_with_invalid_client() {
     );
 
     // Should fail because client doesn't exist
-    assert_instruction_fails(&instruction, &test_accounts.accounts);
+    // Anchor fails with AccountDiscriminatorNotFound when account data is empty
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
+    assert!(result.program_result.is_err());
+    // Error 3001 is AccountDiscriminatorNotFound in Anchor
 }

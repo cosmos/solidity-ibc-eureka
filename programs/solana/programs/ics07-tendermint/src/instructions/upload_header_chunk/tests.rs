@@ -1,6 +1,6 @@
 use crate::error::ErrorCode;
 use crate::state::{HeaderChunk, HeaderMetadata, CHUNK_DATA_SIZE};
-use crate::test_helpers::PROGRAM_BINARY_PATH;
+use crate::test_helpers::{fixtures::assert_error_code, PROGRAM_BINARY_PATH};
 use crate::types::{ClientState, IbcHeight, UploadChunkParams};
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
@@ -281,6 +281,7 @@ fn test_upload_first_chunk_success() {
     );
 
     let chunk_data = vec![1u8; 100];
+    let header_commitment = keccak::hash(&chunk_data).0; // Compute before moving chunk_data
     let params = create_upload_chunk_params(
         chain_id,
         target_height,
@@ -290,7 +291,6 @@ fn test_upload_first_chunk_success() {
 
     let expected_hash = params.chunk_hash;
     let expected_data = params.chunk_data.clone();
-    let header_commitment = params.header_commitment;
 
     // First initialize the metadata
     test_accounts.accounts = initialize_metadata(
@@ -344,15 +344,18 @@ fn test_upload_chunk_with_invalid_hash_fails() {
     let mut params =
         create_upload_chunk_params(chain_id, target_height, chunk_index, vec![1u8; 100]);
 
+    // Compute the header commitment
+    let header_commitment = keccak::hash(&params.chunk_data).0;
+    
     // Initialize metadata first
     test_accounts.accounts = initialize_metadata(
         &test_accounts,
         chain_id,
         target_height,
         3,
-        params.header_commitment,
+        header_commitment,
     );
-
+    
     // Corrupt the hash
     params.chunk_hash = [0u8; 32];
 
@@ -375,6 +378,7 @@ fn test_upload_same_chunk_twice_with_same_hash() {
         setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
 
     let chunk_data = vec![1u8; 100];
+    let header_commitment = keccak::hash(&chunk_data).0;
     let params = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data);
 
     // Initialize metadata first
@@ -383,7 +387,7 @@ fn test_upload_same_chunk_twice_with_same_hash() {
         chain_id,
         target_height,
         3,
-        params.header_commitment,
+        header_commitment,
     );
 
     // First upload
@@ -428,7 +432,7 @@ fn test_upload_chunk_overwrites_with_different_data() {
     let params1 = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data1);
 
     // Save the header commitment before params1 is moved
-    let header_commitment = params1.header_commitment;
+    let header_commitment = keccak::hash(&params1.chunk_data).0;
 
     // Initialize metadata first (using params1's header commitment)
     test_accounts.accounts = initialize_metadata(
@@ -448,11 +452,10 @@ fn test_upload_chunk_overwrites_with_different_data() {
     // Second upload with different data but same header commitment
     // (simulating a re-upload scenario where the full header is the same)
     let chunk_data2 = vec![2u8; 100];
-    let mut params2 =
+    let params2 =
         create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data2.clone());
 
-    // Use the same header commitment to match the initialized metadata
-    params2.header_commitment = header_commitment;
+    // params2 already has its own chunk data and hash, no need to set header_commitment
 
     let instruction2 = create_upload_instruction(&test_accounts, params2);
     let result2 = assert_instruction_succeeds(&instruction2, &test_accounts.accounts);
@@ -484,7 +487,9 @@ fn test_upload_multiple_chunks_creates_shared_metadata() {
     let params0 =
         create_upload_chunk_params(chain_id, target_height, 0, vec![1u8; 100]);
 
-    let expected_commitment = params0.header_commitment;
+    // For this test, we'll use a commitment that represents the full header
+    // In a real scenario, this would be computed from all chunks combined
+    let expected_commitment = keccak::hash(b"full_header_data").0;
 
     // Initialize metadata first
     test_accounts0.accounts = initialize_metadata(
@@ -581,13 +586,8 @@ fn test_upload_chunk_without_metadata_fails() {
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
     let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
 
-    assert!(
-        !matches!(
-            result.program_result,
-            mollusk_svm::result::ProgramResult::Success
-        ),
-        "Should fail without metadata"
-    );
+    // Anchor's constraint validation happens first when metadata doesn't exist
+    assert!(result.program_result.is_err()); // Error 3012 is ConstraintAccountIsNone
 }
 
 #[test]
@@ -605,6 +605,8 @@ fn test_upload_chunk_exceeding_max_size_fails() {
 
     let params =
         create_upload_chunk_params(chain_id, target_height, chunk_index, oversized_data);
+    
+    let header_commitment = keccak::hash(&params.chunk_data).0;
 
     // Initialize metadata first
     test_accounts.accounts = initialize_metadata(
@@ -612,7 +614,7 @@ fn test_upload_chunk_exceeding_max_size_fails() {
         chain_id,
         target_height,
         3,
-        params.header_commitment,
+        header_commitment,
     );
 
     let instruction = create_upload_instruction(&test_accounts, params);
