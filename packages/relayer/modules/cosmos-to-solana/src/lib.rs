@@ -269,38 +269,31 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!(
-            "Built {} chunked update client transactions for Cosmos to Solana",
-            chunked_txs.total_chunks + 1 // chunks + assembly
+            "Built {} transactions for chunked update client (1 metadata + {} chunks + 1 assembly)",
+            chunked_txs.total_chunks + 2, // metadata + chunks + assembly
+            chunked_txs.total_chunks
         );
 
         // Serialize all transactions for the chunked_txs field
         let mut serialized_txs = Vec::new();
+        serialized_txs.push(bincode::serialize(&chunked_txs.metadata_tx).map_err(|e| {
+            tonic::Status::internal(format!("Failed to serialize metadata tx: {e}"))
+        })?);
 
-        // Add first chunk transaction
-        serialized_txs.push(
-            bincode::serialize(&chunked_txs.first_chunk_tx).map_err(|e| {
-                tonic::Status::internal(format!("Failed to serialize first chunk tx: {e}"))
-            })?,
-        );
-
-        // Add parallel chunk transactions
-        for tx in &chunked_txs.parallel_chunk_txs {
+        // Add all chunk transactions (can be sent in parallel after metadata)
+        for tx in &chunked_txs.chunk_txs {
             serialized_txs.push(bincode::serialize(tx).map_err(|e| {
                 tonic::Status::internal(format!("Failed to serialize chunk tx: {e}"))
             })?);
         }
 
-        // Add assembly transaction
+        // Add assembly transaction (must be last)
         serialized_txs.push(bincode::serialize(&chunked_txs.assembly_tx).map_err(|e| {
             tonic::Status::internal(format!("Failed to serialize assembly tx: {e}"))
         })?);
 
         // Create metadata about the chunked upload
         let chunked_metadata = Some(api::ChunkedMetadata {
-            first_chunk_count: 1, // Always 1 first chunk
-            parallel_chunk_count: u32::try_from(chunked_txs.parallel_chunk_txs.len())
-                .map_err(|e| tonic::Status::internal(format!("Too many parallel chunks: {e}")))?,
-            assembly_count: 1, // Always 1 assembly tx
             target_height: chunked_txs.target_height,
             total_chunks: u32::try_from(chunked_txs.total_chunks)
                 .map_err(|e| tonic::Status::internal(format!("Total chunks overflow: {e}")))?,

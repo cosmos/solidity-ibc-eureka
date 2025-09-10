@@ -95,16 +95,10 @@ message UpdateClientResponse {
 
 // Metadata for chunked transaction uploads
 message ChunkedMetadata {
-    // Number of transactions that must be executed first (always 1 for first chunk)
-    uint32 first_chunk_count = 1;
-    // Number of transactions that can be executed in parallel
-    uint32 parallel_chunk_count = 2;
-    // Number of transactions that must be executed last (always 1 for assembly)
-    uint32 assembly_count = 3;
     // The target height being updated to
-    uint64 target_height = 4;
+    uint64 target_height = 1;
     // Total number of chunks in the header
-    uint32 total_chunks = 5;
+    uint32 total_chunks = 2;
 }
 
 // Information request message

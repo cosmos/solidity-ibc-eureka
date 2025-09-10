@@ -73,10 +73,10 @@ struct ChunkTxParams<'a> {
 /// Organized transactions for chunked update client
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct ChunkedUpdateTransactions {
-    /// First chunk transaction (creates metadata, must be submitted first)
-    pub first_chunk_tx: Transaction,
-    /// Remaining chunk transactions (can be submitted in parallel)
-    pub parallel_chunk_txs: Vec<Transaction>,
+    /// Metadata creation transaction (must be submitted first)
+    pub metadata_tx: Transaction,
+    /// All chunk upload transactions (can be submitted in parallel after metadata)
+    pub chunk_txs: Vec<Transaction>,
     /// Final assembly transaction (must be submitted last)
     pub assembly_tx: Transaction,
     /// Total number of chunks
@@ -876,8 +876,17 @@ impl TxBuilder {
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
-        // Build all chunk transactions
-        let (first_chunk_tx, parallel_chunk_txs) = self.build_chunk_transactions(
+        // Build metadata creation transaction
+        let metadata_tx = self.build_create_metadata_transaction(
+            &chain_id,
+            target_height,
+            total_chunks,
+            header_commitment,
+            recent_blockhash,
+        );
+
+        // Build all chunk upload transactions
+        let chunk_txs = self.build_chunk_transactions(
             &chunks,
             &chain_id,
             target_height,
@@ -896,8 +905,8 @@ impl TxBuilder {
         );
 
         Ok(ChunkedUpdateTransactions {
-            first_chunk_tx,
-            parallel_chunk_txs,
+            metadata_tx,
+            chunk_txs,
             assembly_tx,
             total_chunks: total_chunks as usize,
             target_height,
@@ -939,7 +948,6 @@ impl TxBuilder {
         Ok((header_bytes, chain_id, target_height, trusted_height))
     }
 
-    /// Split header into chunks of `MAX_CHUNK_SIZE`
     fn split_header_into_chunks(header_bytes: &[u8]) -> Vec<Vec<u8>> {
         header_bytes
             .chunks(MAX_CHUNK_SIZE)
@@ -947,7 +955,28 @@ impl TxBuilder {
             .collect()
     }
 
-    /// Build chunk upload transactions
+    fn build_create_metadata_transaction(
+        &self,
+        chain_id: &str,
+        target_height: u64,
+        total_chunks: u8,
+        header_commitment: [u8; 32],
+        recent_blockhash: solana_sdk::hash::Hash,
+    ) -> Transaction {
+        let instruction = self.build_create_metadata_instruction(
+            chain_id,
+            target_height,
+            total_chunks,
+            header_commitment,
+        );
+
+        let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
+        tx.message.recent_blockhash = recent_blockhash;
+
+        tx
+    }
+
+    /// Build chunk upload transactions (all can be submitted in parallel after metadata creation)
     fn build_chunk_transactions(
         &self,
         chunks: &[Vec<u8>],
@@ -956,21 +985,10 @@ impl TxBuilder {
         total_chunks: u8,
         header_commitment: [u8; 32],
         recent_blockhash: solana_sdk::hash::Hash,
-    ) -> Result<(Transaction, Vec<Transaction>)> {
-        // Build first chunk transaction separately
-        let first_chunk_tx = self.build_single_chunk_transaction(&ChunkTxParams {
-            chunk_data: &chunks[0],
-            chain_id,
-            target_height,
-            chunk_index: 0,
-            total_chunks,
-            header_commitment,
-            recent_blockhash,
-        })?;
+    ) -> Result<Vec<Transaction>> {
+        let mut chunk_txs = Vec::new();
 
-        // Build remaining chunk transactions (can be submitted in parallel)
-        let mut parallel_chunk_txs = Vec::new();
-        for (index, chunk_data) in chunks.iter().enumerate().skip(1) {
+        for (index, chunk_data) in chunks.iter().enumerate() {
             let chunk_index = u8::try_from(index)
                 .map_err(|_| anyhow::anyhow!("Chunk index {} exceeds u8 max", index))?;
             let chunk_tx = self.build_single_chunk_transaction(&ChunkTxParams {
@@ -982,13 +1000,12 @@ impl TxBuilder {
                 header_commitment,
                 recent_blockhash,
             })?;
-            parallel_chunk_txs.push(chunk_tx);
+            chunk_txs.push(chunk_tx);
         }
 
-        Ok((first_chunk_tx, parallel_chunk_txs))
+        Ok(chunk_txs)
     }
 
-    /// Build a single chunk upload transaction
     fn build_single_chunk_transaction(&self, params: &ChunkTxParams) -> Result<Transaction> {
         let chunk_hash = keccak::hash(params.chunk_data).0;
 
@@ -1008,7 +1025,6 @@ impl TxBuilder {
         Ok(tx)
     }
 
-    /// Build the assembly transaction
     fn build_assembly_transaction(
         &self,
         chain_id: &str,
@@ -1029,6 +1045,55 @@ impl TxBuilder {
         assembly_tx.message.recent_blockhash = recent_blockhash;
 
         assembly_tx
+    }
+
+    /// Build instruction for creating metadata
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails
+    fn build_create_metadata_instruction(
+        &self,
+        chain_id: &str,
+        target_height: u64,
+        total_chunks: u8,
+        header_commitment: [u8; 32],
+    ) -> Instruction {
+        // Derive PDAs
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+        let (metadata_pda, _) = derive_header_metadata(
+            &self.fee_payer,
+            chain_id,
+            target_height,
+            &self.solana_ics07_program_id,
+        );
+
+        // Build accounts
+        let accounts = vec![
+            AccountMeta::new(metadata_pda, false),
+            AccountMeta::new_readonly(client_state_pda, false),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        // Build instruction data
+        let discriminator = get_instruction_discriminator("create_metadata");
+        let mut data = discriminator.to_vec();
+
+        // Serialize parameters
+        let chain_id_len = u32::try_from(chain_id.len()).expect("chain_id too long");
+        data.extend_from_slice(&chain_id_len.to_le_bytes());
+        data.extend_from_slice(chain_id.as_bytes());
+        data.extend_from_slice(&target_height.to_le_bytes());
+        data.push(total_chunks);
+        data.extend_from_slice(&header_commitment);
+
+        Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data,
+        }
     }
 
     /// Build instruction for uploading a header chunk

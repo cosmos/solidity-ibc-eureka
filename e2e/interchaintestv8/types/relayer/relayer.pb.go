@@ -458,16 +458,10 @@ func (x *UpdateClientResponse) GetChunkedMetadata() *ChunkedMetadata {
 // Metadata for chunked transaction uploads
 type ChunkedMetadata struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Number of transactions that must be executed first (always 1 for first chunk)
-	FirstChunkCount uint32 `protobuf:"varint,1,opt,name=first_chunk_count,json=firstChunkCount,proto3" json:"first_chunk_count,omitempty"`
-	// Number of transactions that can be executed in parallel
-	ParallelChunkCount uint32 `protobuf:"varint,2,opt,name=parallel_chunk_count,json=parallelChunkCount,proto3" json:"parallel_chunk_count,omitempty"`
-	// Number of transactions that must be executed last (always 1 for assembly)
-	AssemblyCount uint32 `protobuf:"varint,3,opt,name=assembly_count,json=assemblyCount,proto3" json:"assembly_count,omitempty"`
 	// The target height being updated to
-	TargetHeight uint64 `protobuf:"varint,4,opt,name=target_height,json=targetHeight,proto3" json:"target_height,omitempty"`
+	TargetHeight uint64 `protobuf:"varint,1,opt,name=target_height,json=targetHeight,proto3" json:"target_height,omitempty"`
 	// Total number of chunks in the header
-	TotalChunks   uint32 `protobuf:"varint,5,opt,name=total_chunks,json=totalChunks,proto3" json:"total_chunks,omitempty"`
+	TotalChunks   uint32 `protobuf:"varint,2,opt,name=total_chunks,json=totalChunks,proto3" json:"total_chunks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -500,27 +494,6 @@ func (x *ChunkedMetadata) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ChunkedMetadata.ProtoReflect.Descriptor instead.
 func (*ChunkedMetadata) Descriptor() ([]byte, []int) {
 	return file_relayer_relayer_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *ChunkedMetadata) GetFirstChunkCount() uint32 {
-	if x != nil {
-		return x.FirstChunkCount
-	}
-	return 0
-}
-
-func (x *ChunkedMetadata) GetParallelChunkCount() uint32 {
-	if x != nil {
-		return x.ParallelChunkCount
-	}
-	return 0
-}
-
-func (x *ChunkedMetadata) GetAssemblyCount() uint32 {
-	if x != nil {
-		return x.AssemblyCount
-	}
-	return 0
 }
 
 func (x *ChunkedMetadata) GetTargetHeight() uint64 {
@@ -759,13 +732,10 @@ const file_relayer_relayer_proto_rawDesc = "" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x1f\n" +
 	"\vchunked_txs\x18\x03 \x03(\fR\n" +
 	"chunkedTxs\x12C\n" +
-	"\x10chunked_metadata\x18\x04 \x01(\v2\x18.relayer.ChunkedMetadataR\x0fchunkedMetadata\"\xde\x01\n" +
-	"\x0fChunkedMetadata\x12*\n" +
-	"\x11first_chunk_count\x18\x01 \x01(\rR\x0ffirstChunkCount\x120\n" +
-	"\x14parallel_chunk_count\x18\x02 \x01(\rR\x12parallelChunkCount\x12%\n" +
-	"\x0eassembly_count\x18\x03 \x01(\rR\rassemblyCount\x12#\n" +
-	"\rtarget_height\x18\x04 \x01(\x04R\ftargetHeight\x12!\n" +
-	"\ftotal_chunks\x18\x05 \x01(\rR\vtotalChunks\"G\n" +
+	"\x10chunked_metadata\x18\x04 \x01(\v2\x18.relayer.ChunkedMetadataR\x0fchunkedMetadata\"Y\n" +
+	"\x0fChunkedMetadata\x12#\n" +
+	"\rtarget_height\x18\x01 \x01(\x04R\ftargetHeight\x12!\n" +
+	"\ftotal_chunks\x18\x02 \x01(\rR\vtotalChunks\"G\n" +
 	"\vInfoRequest\x12\x1b\n" +
 	"\tsrc_chain\x18\x01 \x01(\tR\bsrcChain\x12\x1b\n" +
 	"\tdst_chain\x18\x02 \x01(\tR\bdstChain\"\xf2\x01\n" +
