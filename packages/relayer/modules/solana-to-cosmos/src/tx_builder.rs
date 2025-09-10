@@ -373,7 +373,6 @@ impl TxBuilder {
         }
     }
 
-
     /// Build a `RecvPacket` message for Cosmos
     #[allow(clippy::cognitive_complexity)]
     fn build_recv_packet_msg(
@@ -719,7 +718,7 @@ impl MockTxBuilder {
 
         // Collect all messages by type
         let mut recv_msgs = Vec::new();
-        let mut ack_msgs = Vec::new(); 
+        let mut ack_msgs = Vec::new();
         let mut timeout_msgs = Vec::new();
         let mut other_msgs = Vec::new();
 
@@ -746,9 +745,18 @@ impl MockTxBuilder {
         // Rebuild the transaction with updated messages
         tx.messages.clear();
         tx.messages.extend(other_msgs);
-        tx.messages.extend(recv_msgs.into_iter().map(|msg| Any::from_msg(&msg).unwrap()));
-        tx.messages.extend(ack_msgs.into_iter().map(|msg| Any::from_msg(&msg).unwrap()));
-        tx.messages.extend(timeout_msgs.into_iter().map(|msg| Any::from_msg(&msg).unwrap()));
+        tx.messages.extend(
+            recv_msgs
+                .into_iter()
+                .map(|msg| Any::from_msg(&msg).unwrap()),
+        );
+        tx.messages
+            .extend(ack_msgs.into_iter().map(|msg| Any::from_msg(&msg).unwrap()));
+        tx.messages.extend(
+            timeout_msgs
+                .into_iter()
+                .map(|msg| Any::from_msg(&msg).unwrap()),
+        );
 
         Ok(())
     }
