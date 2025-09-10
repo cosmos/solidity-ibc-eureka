@@ -803,7 +803,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 		s.Require().True(s.Run("Broadcast relay tx on Cosmos", func() {
 			relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 200_000, relayTxBodyBz)
-			s.T().Logf("Relay transaction: %s (code: %d, gas: %d)", 
+			s.T().Logf("Relay transaction: %s (code: %d, gas: %d)",
 				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
 
 			cosmosPacketRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
