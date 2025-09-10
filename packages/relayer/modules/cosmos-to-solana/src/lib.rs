@@ -20,8 +20,6 @@ use ibc_eureka_relayer_core::{
     modules::RelayerModule,
 };
 
-use tx_builder::CosmosIbcEvent;
-
 /// The `CosmosToSolanaRelayerModule` struct defines the Cosmos to Solana relayer module.
 #[derive(Clone, Copy, Debug)]
 pub struct CosmosToSolanaRelayerModule;

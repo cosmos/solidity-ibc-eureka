@@ -316,24 +316,7 @@ impl TxBuilder {
             } => {
                 tracing::debug!("Building recv packet msg - sequence: {}, source_client: {}, dest_client: {}, payloads: {} items, timeout: {}",
                     sequence, source_client, destination_client, payloads.len(), timeout_timestamp);
-                for (i, payload) in payloads.iter().enumerate() {
-                    tracing::debug!(
-                        "Payload {}: source_port={}, dest_port={}, version={}, encoding={}, value_len={} bytes",
-                        i,
-                        payload.source_port,
-                        payload.destination_port,
-                        payload.version,
-                        payload.encoding,
-                        payload.value.len()
-                    );
-                    if payload.value.len() <= 100 {
-                        tracing::debug!(
-                            "Payload {} value: {}",
-                            i,
-                            String::from_utf8_lossy(&payload.value)
-                        );
-                    }
-                }
+
                 self.build_recv_packet_msg(
                     sequence,
                     source_client,
