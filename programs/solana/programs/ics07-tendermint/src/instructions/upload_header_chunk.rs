@@ -12,12 +12,6 @@ pub fn upload_header_chunk(
     let chunk = &mut ctx.accounts.chunk;
     let metadata = &mut ctx.accounts.metadata;
 
-    // Prevent updating already uploaded chunks
-    require!(
-        chunk.chunk_data.is_empty(),
-        ErrorCode::ChunkAlreadyUploaded
-    );
-
     require!(
         params.chunk_data.len() <= CHUNK_DATA_SIZE,
         ErrorCode::ChunkDataTooLarge

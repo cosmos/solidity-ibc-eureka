@@ -77,8 +77,6 @@ pub enum ErrorCode {
     TooManyChunks,
     #[msg("Chunk data too large: exceeds maximum chunk size")]
     ChunkDataTooLarge,
-    #[msg("Chunk already uploaded: cannot update existing chunk")]
-    ChunkAlreadyUploaded,
 
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]

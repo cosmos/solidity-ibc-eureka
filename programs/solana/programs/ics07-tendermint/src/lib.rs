@@ -122,10 +122,9 @@ pub struct CreateMetadata<'info> {
 #[derive(Accounts)]
 #[instruction(params: types::UploadChunkParams)]
 pub struct UploadHeaderChunk<'info> {
-    /// The header chunk account to create/update
-    /// If there's an old chunk at this position, it will be overwritten
+    /// The header chunk account to create (fails if already exists)
     #[account(
-        init_if_needed,
+        init,
         payer = submitter,
         space = 8 + HeaderChunk::INIT_SPACE,
         seeds = [
@@ -297,7 +296,7 @@ pub mod ics07_tendermint {
     }
 
     /// Upload a chunk of header data for multi-transaction updates
-    /// Automatically overwrites any existing chunk at the same position
+    /// Fails if a chunk already exists at this position (no overwrites allowed)
     pub fn upload_header_chunk(
         ctx: Context<UploadHeaderChunk>,
         params: UploadChunkParams,
