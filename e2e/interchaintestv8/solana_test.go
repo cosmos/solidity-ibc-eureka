@@ -521,13 +521,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 				s.Require().NoError(err, "Failed to submit chunked update client transactions")
 				s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.ChunkedTxs))
 			case len(resp.Tx) > 0:
-				// Fallback to single transaction (shouldn't happen for Tendermint headers)
-				s.T().Logf("WARNING: Received single transaction for client update - this may fail due to size")
-				unsignedTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
-				s.Require().NoError(err)
-				sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedTx, s.SolanaUser)
-				s.Require().NoError(err)
-				s.T().Logf("Update client transaction: %s", sig)
+				s.Require().Fail("Only chunked tx are supported on Solana due to tx size limit")
 			default:
 				s.Require().Fail("No update client transactions received")
 			}
