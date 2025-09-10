@@ -494,15 +494,20 @@ impl TxBuilder {
 
         let account_data_without_discriminator = &account_data[8..];
 
-        // Deserialize the on-chain IBCApp account which uses #[max_len(128)] for port_id
-        // Use step-by-step Anchor deserialization to handle the format correctly
+        // IMPORTANT: We must use field-by-field deserialization because the on-chain account
+        // has #[max_len(128)] which reserves 128 bytes for port_id. When port_id is shorter
+        // (e.g., "transfer" = 12 bytes), the account contains padding that try_from_slice
+        // would fail on with "Not all bytes read". Field deserializers handle this correctly.
         let mut remaining_data = account_data_without_discriminator;
+
         let port_id_from_account = <String as AnchorDeserialize>::deserialize(&mut remaining_data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize port_id: {}", e))?;
         let app_program_id = <Pubkey as AnchorDeserialize>::deserialize(&mut remaining_data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize app_program_id: {}", e))?;
         let authority = <Pubkey as AnchorDeserialize>::deserialize(&mut remaining_data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize authority: {}", e))?;
+
+        // Note: remaining_data still has ~120 bytes of padding from #[max_len(128)]
 
         let ibc_app = IBCApp {
             port_id: port_id_from_account,
