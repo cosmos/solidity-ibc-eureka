@@ -456,7 +456,6 @@ impl TxBuilder {
     /// Returns an error if:
     /// - Failed to build update client instruction
     /// - No instructions to execute
-    #[allow(clippy::cognitive_complexity)] // TODO: Refactor when all event types are fully implemented
     pub async fn build_solana_tx(
         &self,
         src_events: Vec<CosmosIbcEvent>,
