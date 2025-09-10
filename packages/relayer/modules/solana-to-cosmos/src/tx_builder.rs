@@ -717,29 +717,38 @@ impl MockTxBuilder {
             MsgAcknowledgement, MsgRecvPacket, MsgTimeout,
         };
 
-        for any_msg in &mut tx.messages {
+        // Collect all messages by type
+        let mut recv_msgs = Vec::new();
+        let mut ack_msgs = Vec::new(); 
+        let mut timeout_msgs = Vec::new();
+        let mut other_msgs = Vec::new();
+
+        for any_msg in &tx.messages {
             match any_msg.type_url.as_str() {
                 url if url.contains("MsgRecvPacket") => {
-                    let msg = MsgRecvPacket::decode(any_msg.value.as_slice())?;
-                    let mut msgs = [msg];
-                    cosmos::inject_mock_proofs(&mut msgs, &mut [], &mut []);
-                    any_msg.value = msgs[0].encode_to_vec();
+                    recv_msgs.push(MsgRecvPacket::decode(any_msg.value.as_slice())?);
                 }
                 url if url.contains("MsgAcknowledgement") => {
-                    let msg = MsgAcknowledgement::decode(any_msg.value.as_slice())?;
-                    let mut msgs = [msg];
-                    cosmos::inject_mock_proofs(&mut [], &mut msgs, &mut []);
-                    any_msg.value = msgs[0].encode_to_vec();
+                    ack_msgs.push(MsgAcknowledgement::decode(any_msg.value.as_slice())?);
                 }
                 url if url.contains("MsgTimeout") => {
-                    let msg = MsgTimeout::decode(any_msg.value.as_slice())?;
-                    let mut msgs = [msg];
-                    cosmos::inject_mock_proofs(&mut [], &mut [], &mut msgs);
-                    any_msg.value = msgs[0].encode_to_vec();
+                    timeout_msgs.push(MsgTimeout::decode(any_msg.value.as_slice())?);
                 }
-                _ => {} // Skip messages we don't care about
+                _ => {
+                    other_msgs.push(any_msg.clone()); // Keep non-IBC messages as-is
+                }
             }
         }
+
+        // Apply mock proofs to all messages at once
+        cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
+
+        // Rebuild the transaction with updated messages
+        tx.messages.clear();
+        tx.messages.extend(other_msgs);
+        tx.messages.extend(recv_msgs.into_iter().map(|msg| Any::from_msg(&msg).unwrap()));
+        tx.messages.extend(ack_msgs.into_iter().map(|msg| Any::from_msg(&msg).unwrap()));
+        tx.messages.extend(timeout_msgs.into_iter().map(|msg| Any::from_msg(&msg).unwrap()));
 
         Ok(())
     }
