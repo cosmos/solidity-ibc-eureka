@@ -213,7 +213,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         if !inner_req.skip_update_client && relay_txs.update_client.is_some() {
             // Note: The actual relayer implementation should:
-            // 1. Submit first chunk tx
+            // 1. Submit create metadata tx
             // 2. Submit parallel chunk txs in parallel
             // 3. Submit assembly tx
             // 4. Submit packet txs

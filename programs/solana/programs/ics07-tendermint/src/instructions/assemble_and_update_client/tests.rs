@@ -1,15 +1,22 @@
-use crate::state::CHUNK_DATA_SIZE;
 use crate::error::ErrorCode;
-use crate::test_helpers::{chunk_test_utils::*, fixtures::{assert_error_code, load_primary_fixtures, UpdateClientMessage, get_valid_clock_timestamp_for_header}, PROGRAM_BINARY_PATH};
-use solana_sdk::clock::Clock;
-use solana_sdk::sysvar;
+use crate::state::CHUNK_DATA_SIZE;
+use crate::test_helpers::{
+    chunk_test_utils::*,
+    fixtures::{
+        assert_error_code, get_valid_clock_timestamp_for_header, load_primary_fixtures,
+        UpdateClientMessage,
+    },
+    PROGRAM_BINARY_PATH,
+};
 use anchor_lang::solana_program::keccak;
 use anchor_lang::{AccountDeserialize, AccountSerialize, InstructionData};
 use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
 use solana_sdk::account::Account;
+use solana_sdk::clock::Clock;
 use solana_sdk::instruction::{AccountMeta, Instruction};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::system_program;
+use solana_sdk::sysvar;
 
 fn setup_mollusk() -> Mollusk {
     Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH)
@@ -23,12 +30,12 @@ fn create_clock_account(unix_timestamp: i64) -> (Pubkey, Account) {
         leader_schedule_epoch: 1,
         unix_timestamp,
     };
-    
+
     (
         sysvar::clock::ID,
         Account {
             lamports: 1,
-            data: bincode::serialize(&clock).unwrap(),
+            data: bincode::serialize(&clock).expect("Failed to serialize Clock sysvar"),
             owner: sysvar::ID,
             executable: false,
             rent_epoch: 0,
@@ -39,24 +46,25 @@ fn create_clock_account(unix_timestamp: i64) -> (Pubkey, Account) {
 /// Create real header data from fixtures that can be properly deserialized
 fn create_real_header_and_chunks() -> (Vec<u8>, Vec<Vec<u8>>, [u8; 32], UpdateClientMessage) {
     let (_, _, update_msg) = load_primary_fixtures();
-    
+
     // Get the actual header bytes from the client message
-    let header_bytes = hex::decode(&update_msg.client_message_hex).unwrap();
-    
+    let header_bytes = hex::decode(&update_msg.client_message_hex)
+        .expect("Failed to decode header hex from fixture");
+
     // Calculate commitment
     let header_commitment = keccak::hash(&header_bytes).0;
-    
+
     // Split into chunks - determine optimal number of chunks
-    let num_chunks = ((header_bytes.len() + CHUNK_DATA_SIZE - 1) / CHUNK_DATA_SIZE).max(2) as u8;
-    let chunk_size = (header_bytes.len() + num_chunks as usize - 1) / num_chunks as usize;
-    
+    let num_chunks = (header_bytes.len().div_ceil(CHUNK_DATA_SIZE)).max(2) as u8;
+    let chunk_size = header_bytes.len().div_ceil(num_chunks as usize);
+
     let mut chunks = vec![];
     for i in 0..num_chunks {
         let start = i as usize * chunk_size;
         let end = ((i + 1) as usize * chunk_size).min(header_bytes.len());
         chunks.push(header_bytes[start..end].to_vec());
     }
-    
+
     (header_bytes, chunks, header_commitment, update_msg)
 }
 
@@ -179,7 +187,8 @@ fn test_successful_assembly_and_update() {
     let mut client_state_account =
         create_client_state_account(chain_id, client_state.latest_height.revision_height);
     let mut client_data = vec![];
-    client_state.try_serialize(&mut client_data).unwrap();
+    client_state.try_serialize(&mut client_data)
+        .expect("Failed to serialize client state");
     client_state_account.data = client_data;
 
     // Get chunk PDAs
@@ -246,7 +255,8 @@ fn test_successful_assembly_and_update() {
             &update_message,
         ),
     };
-    let clock_data = bincode::serialize(&clock).unwrap();
+    let clock_data = bincode::serialize(&clock)
+        .expect("Failed to serialize Clock for test");
     accounts.push((
         solana_sdk::sysvar::clock::ID,
         Account {
@@ -567,7 +577,11 @@ fn test_assembly_wrong_submitter() {
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
-    assert_error_code(result, ErrorCode::AccountValidationFailed, "wrong submitter");
+    assert_error_code(
+        result,
+        ErrorCode::AccountValidationFailed,
+        "wrong submitter",
+    );
 }
 
 #[test]
@@ -645,7 +659,11 @@ fn test_assembly_chunks_in_wrong_order() {
     let result = mollusk.process_instruction(&instruction, &accounts);
 
     // When chunks are in wrong order, PDA validation fails first
-    assert_error_code(result, ErrorCode::InvalidChunkAccount, "chunks in wrong order");
+    assert_error_code(
+        result,
+        ErrorCode::InvalidChunkAccount,
+        "chunks in wrong order",
+    );
 }
 
 #[test]
@@ -775,7 +793,8 @@ fn test_assemble_and_update_client_happy_path() {
     let mut client_state_account =
         create_client_state_account(chain_id, client_state.latest_height.revision_height);
     let mut client_data = vec![];
-    client_state.try_serialize(&mut client_data).unwrap();
+    client_state.try_serialize(&mut client_data)
+        .expect("Failed to serialize client state");
     client_state_account.data = client_data;
 
     // Create existing consensus state at trusted height
@@ -809,7 +828,8 @@ fn test_assemble_and_update_client_happy_path() {
             &update_message,
         ),
     };
-    let clock_data = bincode::serialize(&clock).unwrap();
+    let clock_data = bincode::serialize(&clock)
+        .expect("Failed to serialize Clock for test");
 
     let mut accounts = vec![
         (client_state_pda, client_state_account),
@@ -896,12 +916,12 @@ fn test_assemble_with_frozen_client() {
 
     // Load real fixture data
     let (client_state, consensus_state, _) = load_primary_fixtures();
-    let (header_bytes, chunks, header_commitment, update_msg) = create_real_header_and_chunks();
-    
+    let (_header_bytes, chunks, header_commitment, update_msg) = create_real_header_and_chunks();
+
     let chain_id = &client_state.chain_id;
     let submitter = Pubkey::new_unique();
     let num_chunks = chunks.len() as u8;
-    
+
     // Use the actual heights from the fixture
     let trusted_height = update_msg.trusted_height;
     let target_height = update_msg.new_height;
@@ -925,9 +945,11 @@ fn test_assemble_with_frozen_client() {
         revision_number: 0,
         revision_height: 50, // Frozen at height 50
     };
-    
+
     let mut frozen_client_data = vec![];
-    frozen_client_state.try_serialize(&mut frozen_client_data).unwrap();
+    frozen_client_state
+        .try_serialize(&mut frozen_client_data)
+        .expect("Failed to deserialize consensus state from test account");
     let frozen_client = Account {
         lamports: 1_000_000,
         data: frozen_client_data,
@@ -956,13 +978,15 @@ fn test_assemble_with_frozen_client() {
         payer,
         chunk_pdas.clone(),
     );
-    
+
     // Create proper trusted consensus state from fixture
     let mut trusted_consensus_data = vec![];
     crate::state::ConsensusStateStore {
         height: trusted_height,
-        consensus_state: consensus_state.clone(),
-    }.try_serialize(&mut trusted_consensus_data).unwrap();
+        consensus_state,
+    }
+    .try_serialize(&mut trusted_consensus_data)
+    .unwrap();
 
     let mut accounts = vec![
         (client_state_pda, frozen_client),
@@ -992,7 +1016,7 @@ fn test_assemble_with_frozen_client() {
             create_chunk_account(chain_id, target_height, i as u8, chunks[i].clone()),
         ));
     }
-    
+
     // Add Clock sysvar for timestamp validation
     let clock_timestamp = get_valid_clock_timestamp_for_header(&update_msg);
     let (clock_pubkey, clock_account) = create_clock_account(clock_timestamp);
@@ -1001,7 +1025,7 @@ fn test_assemble_with_frozen_client() {
     // Increase compute budget for processing real data
     let mut mollusk_with_budget = mollusk;
     mollusk_with_budget.compute_budget.compute_unit_limit = 2_000_000;
-    
+
     let result = mollusk_with_budget.process_instruction(&instruction, &accounts);
 
     // Now with real data, should fail because client is frozen
@@ -1014,12 +1038,12 @@ fn test_assemble_with_existing_consensus_state() {
 
     // Load real fixture data
     let (client_state, consensus_state, _) = load_primary_fixtures();
-    let (header_bytes, chunks, header_commitment, update_msg) = create_real_header_and_chunks();
-    
+    let (_header_bytes, chunks, header_commitment, update_msg) = create_real_header_and_chunks();
+
     let chain_id = &client_state.chain_id;
     let submitter = Pubkey::new_unique();
     let num_chunks = chunks.len() as u8;
-    
+
     // Use the actual heights from the fixture
     let trusted_height = update_msg.trusted_height;
     let target_height = update_msg.new_height;
@@ -1042,12 +1066,14 @@ fn test_assemble_with_existing_consensus_state() {
     crate::state::ConsensusStateStore {
         height: target_height,
         consensus_state: crate::types::ConsensusState {
-            root: [1u8; 32], // Different root
+            root: [1u8; 32],                 // Different root
             next_validators_hash: [2u8; 32], // Different validators
             timestamp: 1000,
         },
-    }.try_serialize(&mut conflicting_consensus_data).unwrap();
-    
+    }
+    .try_serialize(&mut conflicting_consensus_data)
+    .unwrap();
+
     let existing_consensus = Account {
         lamports: 1_000_000,
         data: conflicting_consensus_data,
@@ -1058,7 +1084,8 @@ fn test_assemble_with_existing_consensus_state() {
 
     // Create proper client state
     let mut client_data = vec![];
-    client_state.try_serialize(&mut client_data).unwrap();
+    client_state.try_serialize(&mut client_data)
+        .expect("Failed to serialize client state");
     let client_account = Account {
         lamports: 1_000_000,
         data: client_data,
@@ -1077,13 +1104,15 @@ fn test_assemble_with_existing_consensus_state() {
         ],
         &crate::ID,
     );
-    
+
     // Create proper trusted consensus state from fixture
     let mut trusted_consensus_data = vec![];
     crate::state::ConsensusStateStore {
         height: trusted_height,
-        consensus_state: consensus_state.clone(),
-    }.try_serialize(&mut trusted_consensus_data).unwrap();
+        consensus_state,
+    }
+    .try_serialize(&mut trusted_consensus_data)
+    .unwrap();
 
     let instruction = create_assemble_instruction(
         client_state_pda,
@@ -1123,7 +1152,7 @@ fn test_assemble_with_existing_consensus_state() {
             create_chunk_account(chain_id, target_height, i as u8, chunks[i].clone()),
         ));
     }
-    
+
     // Add Clock sysvar for timestamp validation
     let clock_timestamp = get_valid_clock_timestamp_for_header(&update_msg);
     let (clock_pubkey, clock_account) = create_clock_account(clock_timestamp);
@@ -1132,11 +1161,15 @@ fn test_assemble_with_existing_consensus_state() {
     // Increase compute budget for this complex operation (header verification is expensive)
     let mut mollusk_with_budget = mollusk;
     mollusk_with_budget.compute_budget.compute_unit_limit = 20_000_000;
-    
+
     let result = mollusk_with_budget.process_instruction(&instruction, &accounts);
 
     // Now with real data, should detect conflicting consensus state
-    assert_error_code(result, ErrorCode::MisbehaviourConflictingState, "conflicting consensus state");
+    assert_error_code(
+        result,
+        ErrorCode::MisbehaviourConflictingState,
+        "conflicting consensus state",
+    );
 }
 
 #[test]
@@ -1268,7 +1301,8 @@ fn test_assemble_updates_latest_height() {
     let mut initial_client =
         create_client_state_account(chain_id, client_state.latest_height.revision_height);
     let mut client_data = vec![];
-    client_state.try_serialize(&mut client_data).unwrap();
+    client_state.try_serialize(&mut client_data)
+        .expect("Failed to serialize client state");
     initial_client.data = client_data;
 
     // Create trusted consensus state with real data
@@ -1308,7 +1342,8 @@ fn test_assemble_updates_latest_height() {
             &update_message,
         ),
     };
-    let clock_data = bincode::serialize(&clock).unwrap();
+    let clock_data = bincode::serialize(&clock)
+        .expect("Failed to serialize Clock for test");
     accounts.push((
         solana_sdk::sysvar::clock::ID,
         Account {

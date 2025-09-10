@@ -277,13 +277,3 @@ Approximate compute units per operation:
 4. Monitor for client updates
 5. **Multi-Chain Applications**: Can interact with multiple chains by referencing different chain_id PDAs
 
-## Dependencies
-
-- Anchor Framework 0.30.1
-- Solana 1.18
-- Tendermint types (via borsh serialization)
-- SP1 zkVM (for proof verification in some configurations)
-
-## License
-
-Apache 2.0

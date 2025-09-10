@@ -85,7 +85,9 @@ mod tests {
                 },
             };
             let mut client_data = vec![];
-            client_state.try_serialize(&mut client_data).unwrap();
+            client_state
+                .try_serialize(&mut client_data)
+                .expect("Failed to serialize client state");
             accounts.push((
                 client_state_pda,
                 Account {
@@ -144,9 +146,12 @@ mod tests {
             mollusk_svm::result::ProgramResult::Success
         ));
 
-        let metadata_account = result.get_account(&test_accounts.metadata_pda).unwrap();
+        let metadata_account = result
+            .get_account(&test_accounts.metadata_pda)
+            .expect("Metadata account should exist after creation");
         let metadata =
-            HeaderMetadata::try_deserialize(&mut metadata_account.data.as_slice()).unwrap();
+            HeaderMetadata::try_deserialize(&mut metadata_account.data.as_slice())
+                .expect("Failed to deserialize header metadata");
 
         assert_eq!(metadata.chain_id, chain_id);
         assert_eq!(metadata.target_height, target_height);

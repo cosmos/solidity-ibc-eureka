@@ -761,14 +761,13 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 // Helpers
 
-// submitChunkedUpdateClient handles the submission of chunked update client transactions
 func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context, resp *relayertypes.UpdateClientResponse, user *solanago.Wallet) error {
-	if len(resp.ChunkedTxs) == 0 {
-		return fmt.Errorf("no chunked transactions provided")
-	}
-
 	if resp.ChunkedMetadata == nil {
 		return fmt.Errorf("chunked metadata is required")
+	}
+
+	if len(resp.ChunkedTxs) == 0 {
+		return fmt.Errorf("no chunked transactions provided")
 	}
 
 	// Transaction structure: [metadata, chunk1, chunk2, ..., chunkN, assembly]
@@ -795,7 +794,6 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 		time.Sleep(1 * time.Second)
 	}
 
-	// Submit all chunk transactions in parallel (transactions 1 through N-2)
 	chunkStart := 1
 	chunkEnd := len(resp.ChunkedTxs) - 1 // Everything except first (metadata) and last (assembly)
 
@@ -805,7 +803,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 		err   error
 	}
 
-	// Use goroutines to submit chunks in parallel
+	// Submit cshunks
 	chunkResults := make(chan chunkResult, chunkEnd-chunkStart)
 	for i := chunkStart; i < chunkEnd; i++ {
 		go func(idx int) {

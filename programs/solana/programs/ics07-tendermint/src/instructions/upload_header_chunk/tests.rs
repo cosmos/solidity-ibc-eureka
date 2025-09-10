@@ -1,6 +1,6 @@
 use crate::error::ErrorCode;
 use crate::state::{HeaderChunk, HeaderMetadata, CHUNK_DATA_SIZE};
-use crate::test_helpers::{fixtures::assert_error_code, PROGRAM_BINARY_PATH};
+use crate::test_helpers::PROGRAM_BINARY_PATH;
 use crate::types::{ClientState, IbcHeight, UploadChunkParams};
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
@@ -108,7 +108,9 @@ fn setup_test_accounts(
         };
 
         let mut client_data = vec![];
-        client_state.try_serialize(&mut client_data).unwrap();
+        client_state
+            .try_serialize(&mut client_data)
+            .expect("Failed to serialize client state");
 
         accounts.push((
             client_state_pda,
@@ -282,12 +284,7 @@ fn test_upload_first_chunk_success() {
 
     let chunk_data = vec![1u8; 100];
     let header_commitment = keccak::hash(&chunk_data).0; // Compute before moving chunk_data
-    let params = create_upload_chunk_params(
-        chain_id,
-        target_height,
-        chunk_index,
-        chunk_data,
-    );
+    let params = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data);
 
     let expected_hash = params.chunk_hash;
     let expected_data = params.chunk_data.clone();
@@ -346,7 +343,7 @@ fn test_upload_chunk_with_invalid_hash_fails() {
 
     // Compute the header commitment
     let header_commitment = keccak::hash(&params.chunk_data).0;
-    
+
     // Initialize metadata first
     test_accounts.accounts = initialize_metadata(
         &test_accounts,
@@ -355,7 +352,7 @@ fn test_upload_chunk_with_invalid_hash_fails() {
         3,
         header_commitment,
     );
-    
+
     // Corrupt the hash
     params.chunk_hash = [0u8; 32];
 
@@ -484,8 +481,7 @@ fn test_upload_multiple_chunks_creates_shared_metadata() {
     // Upload chunk 0
     let mut test_accounts0 = setup_test_accounts(chain_id, target_height, 0, submitter, true);
 
-    let params0 =
-        create_upload_chunk_params(chain_id, target_height, 0, vec![1u8; 100]);
+    let params0 = create_upload_chunk_params(chain_id, target_height, 0, vec![1u8; 100]);
 
     // For this test, we'll use a commitment that represents the full header
     // In a real scenario, this would be computed from all chunks combined
@@ -540,8 +536,7 @@ fn test_upload_multiple_chunks_creates_shared_metadata() {
         },
     ));
 
-    let params1 =
-        create_upload_chunk_params(chain_id, target_height, 1, vec![1u8; 100]);
+    let params1 = create_upload_chunk_params(chain_id, target_height, 1, vec![1u8; 100]);
 
     let instruction1 = create_upload_instruction(&test_accounts1, params1);
     let result1 = assert_instruction_succeeds(&instruction1, &accounts1);
@@ -576,8 +571,7 @@ fn test_upload_chunk_without_metadata_fails() {
         true, // with existing client
     );
 
-    let params =
-        create_upload_chunk_params(chain_id, target_height, chunk_index, vec![1u8; 100]);
+    let params = create_upload_chunk_params(chain_id, target_height, chunk_index, vec![1u8; 100]);
 
     // Try to upload chunk without initializing metadata first
 
@@ -603,9 +597,8 @@ fn test_upload_chunk_exceeding_max_size_fails() {
     // Create chunk data that exceeds max size
     let oversized_data = vec![1u8; CHUNK_DATA_SIZE + 1];
 
-    let params =
-        create_upload_chunk_params(chain_id, target_height, chunk_index, oversized_data);
-    
+    let params = create_upload_chunk_params(chain_id, target_height, chunk_index, oversized_data);
+
     let header_commitment = keccak::hash(&params.chunk_data).0;
 
     // Initialize metadata first
