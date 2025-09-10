@@ -58,8 +58,8 @@ pub enum SolanaIbcEvent {
         source_client: String,
         /// Destination client ID
         destination_client: String,
-        /// Original packet data to preserve payload structure
-        original_packet_data: Vec<u8>,
+        /// Packet payloads
+        payloads: Vec<Payload>,
         /// Timeout timestamp
         timeout_timestamp: u64,
         /// Acknowledgement data (one per payload)
@@ -201,11 +201,17 @@ impl TxBuilder {
                 IbcEvent::AckPacket(ack_event) => {
                     // For acknowledge packet, we need the full packet data
                     if let Ok(packet) = SolanaPacket::try_from_slice(&ack_event.packet_data) {
+                        let payloads: Vec<Payload> = packet
+                            .payloads
+                            .into_iter()
+                            .map(convert_solana_payload_to_ibc)
+                            .collect();
+
                         events.push(SolanaIbcEvent::AcknowledgePacket {
                             sequence: ack_event.sequence,
                             source_client: packet.source_client,
                             destination_client: packet.dest_client,
-                            original_packet_data: ack_event.packet_data,
+                            payloads,
                             timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
                             acknowledgements: vec![ack_event.acknowledgement],
                         });
@@ -233,12 +239,17 @@ impl TxBuilder {
                     // WriteAcknowledgement is emitted when Solana receives a packet from Cosmos
                     // and writes an acknowledgement. We need to relay this ack back to Cosmos.
                     if let Ok(packet) = SolanaPacket::try_from_slice(&write_ack_event.packet_data) {
-                        // Store the complete packet data to preserve original payload structure
+                        let payloads: Vec<Payload> = packet
+                            .payloads
+                            .into_iter()
+                            .map(convert_solana_payload_to_ibc)
+                            .collect();
+
                         events.push(SolanaIbcEvent::AcknowledgePacket {
                             sequence: write_ack_event.sequence,
                             source_client: packet.source_client,
                             destination_client: packet.dest_client,
-                            original_packet_data: write_ack_event.packet_data,
+                            payloads,
                             timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
                             acknowledgements: write_ack_event.acknowledgements,
                         });
@@ -317,14 +328,14 @@ impl TxBuilder {
                 sequence,
                 source_client,
                 destination_client,
-                original_packet_data,
+                payloads,
                 timeout_timestamp,
                 acknowledgements,
             } => self.build_acknowledgement_msg(
                 sequence,
                 source_client,
                 destination_client,
-                &original_packet_data,
+                &payloads,
                 timeout_timestamp,
                 acknowledgements,
             ),
@@ -387,60 +398,16 @@ impl TxBuilder {
         sequence: u64,
         source_client: String,
         destination_client: String,
-        original_packet_data: &[u8],
+        payloads: &[Payload],
         timeout_timestamp: u64,
         acknowledgements: Vec<Vec<u8>>,
     ) -> anyhow::Result<Any> {
-        // Deserialize the original packet data to preserve the exact structure
-        tracing::debug!(
-            "Original packet data length: {} bytes",
-            original_packet_data.len()
-        );
-        tracing::trace!(
-            "Original packet data (hex): {}",
-            hex::encode(original_packet_data)
-        );
-
-        let solana_packet = SolanaPacket::try_from_slice(original_packet_data)
-            .map_err(|e| anyhow::anyhow!("Failed to deserialize original packet data: {e}"))?;
-
-        tracing::debug!(
-            "Deserialized packet: sequence={}, src_client={}, dst_client={}, timeout={}",
-            solana_packet.sequence,
-            solana_packet.source_client,
-            solana_packet.dest_client,
-            solana_packet.timeout_timestamp
-        );
-        tracing::debug!(
-            "Deserialized packet has {} payloads",
-            solana_packet.payloads.len()
-        );
-
-        for (i, payload) in solana_packet.payloads.iter().enumerate() {
-            tracing::trace!("Payload {}: source_port={}, dest_port={}, version={}, encoding={}, value_len={} bytes",
-                i, payload.source_port, payload.dest_port, payload.version, payload.encoding, payload.value.len());
-            if payload.value.len() <= 100 {
-                tracing::trace!(
-                    "Payload {} value: {:?}",
-                    i,
-                    String::from_utf8_lossy(&payload.value)
-                );
-            }
-        }
-
-        // Convert Solana payloads to IBC format, preserving original payload structure
-        let ibc_payloads: Vec<Payload> = solana_packet
-            .payloads
-            .into_iter()
-            .map(convert_solana_payload_to_ibc)
-            .collect();
-
         let packet = Packet {
             sequence,
             source_client,
             destination_client,
             timeout_timestamp,
-            payloads: ibc_payloads,
+            payloads: payloads.to_vec(),
         };
 
         let ack = Acknowledgement {
@@ -455,7 +422,6 @@ impl TxBuilder {
             signer: self.signer_address.clone(),
         };
 
-        tracing::debug!("Created Acknowledgement message for sequence {}", sequence);
         Any::from_msg(&msg).map_err(Into::into)
     }
 
