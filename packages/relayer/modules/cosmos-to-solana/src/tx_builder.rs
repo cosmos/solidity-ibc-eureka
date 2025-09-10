@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use anchor_lang::AnchorSerialize;
+use anchor_lang::{AnchorDeserialize, AnchorSerialize};
 use anyhow::Result;
 use ibc_eureka_relayer_lib::events::EurekaEvent;
 use ibc_eureka_relayer_lib::utils::{to_32_bytes_exact, to_32_bytes_padded};
@@ -27,7 +27,7 @@ use solana_ibc_types::{
     derive_ics07_client_state, derive_ics07_consensus_state, derive_packet_ack,
     derive_packet_receipt, derive_router_state, get_instruction_discriminator,
     ics07::{ClientState, ConsensusState, IbcHeight, ICS07_INITIALIZE_DISCRIMINATOR},
-    MsgRecvPacket, Packet, Payload, UpdateClientMsg,
+    IBCApp, MsgRecvPacket, Packet, Payload, UpdateClientMsg,
 };
 
 /// Default trust level for ICS07 Tendermint light client (1/3)
@@ -39,10 +39,6 @@ const MAX_CLOCK_DRIFT_SECONDS: u64 = 15;
 
 /// Mock proof data for testing purposes
 const MOCK_PROOF_DATA: &[u8] = b"mock";
-
-/// Mock IBC app program ID for testing (matches dummy-ibc-app program ID)
-/// TODO: Make this configurable for production
-const DUMMY_IBC_APP_PROGRAM_ID: &str = "5E73beFMq9QZvbwPN5i84psh2WcyJ9PgqF4avBaRDgCC";
 
 /// Parameters for building a `RecvPacket` instruction
 pub struct RecvPacketParams<'a> {
@@ -96,6 +92,30 @@ pub struct TxBuilder {
     pub solana_ics07_program_id: Pubkey,
     /// The fee payer address for transactions.
     pub fee_payer: Pubkey,
+}
+
+/// Deserialize IBCApp account data using Anchor's deserialization
+/// 
+/// This handles the specific serialization format used by on-chain IBCApp accounts
+/// which includes #[max_len(128)] annotation for the port_id field.
+fn deserialize_ibc_app_account(data: &[u8]) -> Result<IBCApp> {
+    // Use Anchor's deserialization pattern (like in events/solana.rs)
+    let mut remaining_data = data;
+    
+    // Deserialize port_id using Anchor's deserialization (handles max_len format)
+    let port_id = <String as AnchorDeserialize>::deserialize(&mut remaining_data)?;
+    
+    // Deserialize app_program_id using Anchor's deserialization
+    let app_program_id = <Pubkey as AnchorDeserialize>::deserialize(&mut remaining_data)?;
+    
+    // Deserialize authority using Anchor's deserialization
+    let authority = <Pubkey as AnchorDeserialize>::deserialize(&mut remaining_data)?;
+    
+    Ok(IBCApp {
+        port_id,
+        app_program_id,
+        authority,
+    })
 }
 
 impl TxBuilder {
@@ -395,13 +415,15 @@ impl TxBuilder {
                     timeout_timestamp,
                 } => {
                     tracing::debug!("Building recv packet instruction for sequence {}", sequence);
-                    let recv_packet_ix = self.build_recv_packet_instruction(&RecvPacketParams {
-                        sequence,
-                        source_client: &source_client,
-                        destination_client: &destination_client,
-                        payloads: &payloads,
-                        timeout_timestamp,
-                    })?;
+                    let recv_packet_ix = self
+                        .build_recv_packet_instruction(&RecvPacketParams {
+                            sequence,
+                            source_client: &source_client,
+                            destination_client: &destination_client,
+                            payloads: &payloads,
+                            timeout_timestamp,
+                        })
+                        .await?;
                     instructions.push(recv_packet_ix);
                 }
                 CosmosIbcEvent::AcknowledgePacket { .. } => {
@@ -469,6 +491,61 @@ impl TxBuilder {
             })
             .await?;
         self.build_transaction_from_instructions(&instructions)
+    }
+
+    /// Resolve the program ID for a given port by querying the router's port registry
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to derive IBC app account
+    /// - Failed to fetch account data
+    /// - Failed to deserialize IBCApp account
+    async fn resolve_port_program_id(&self, port_id: &str) -> Result<Pubkey> {
+        // Derive the IBCApp account PDA for this port
+        let (ibc_app_account, _) = derive_ibc_app(port_id, &self.solana_ics26_program_id);
+
+        tracing::debug!(
+            "Resolving program ID for port '{}' via account: {}",
+            port_id,
+            ibc_app_account
+        );
+
+        // Fetch the account data from Solana
+        let account_data = self
+            .solana_client
+            .get_account_data(&ibc_app_account)
+            .map_err(|e| {
+                anyhow::anyhow!("Failed to fetch IBCApp account for port '{}': {e}", port_id)
+            })?;
+
+        // Anchor accounts have an 8-byte discriminator prefix
+        if account_data.len() < 8 {
+            return Err(anyhow::anyhow!("Account data too short for IBCApp account"));
+        }
+
+        let account_data_without_discriminator = &account_data[8..];
+
+        tracing::debug!(
+            "Account data length: {} bytes, data without discriminator: {} bytes",
+            account_data.len(),
+            account_data_without_discriminator.len()
+        );
+
+        // Deserialize using Anchor's format with proper max_len handling
+        // The on-chain IBCApp uses #[max_len(128)] for port_id which affects serialization
+        let ibc_app = deserialize_ibc_app_account(account_data_without_discriminator)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account for port '{}': {}", port_id, e))?;
+
+        tracing::debug!("Successfully parsed IBCApp: port={}, program_id={}", ibc_app.port_id, ibc_app.app_program_id);
+
+        tracing::info!(
+            "Resolved port '{}' to program ID: {}",
+            port_id,
+            ibc_app.app_program_id
+        );
+
+        Ok(ibc_app.app_program_id)
     }
 
     /// Build instruction to update Tendermint light client on Solana
@@ -557,7 +634,10 @@ impl TxBuilder {
     /// # Errors
     ///
     /// Returns an error if packet data cannot be serialized
-    fn build_recv_packet_instruction(&self, params: &RecvPacketParams) -> Result<Instruction> {
+    async fn build_recv_packet_instruction(
+        &self,
+        params: &RecvPacketParams<'_>,
+    ) -> Result<Instruction> {
         // Build the packet structure (IBC v2)
         let payloads = params.payloads.to_vec();
 
@@ -615,11 +695,11 @@ impl TxBuilder {
         let (consensus_state, _) =
             derive_ics07_consensus_state(&client_state, 0, &self.solana_ics07_program_id); // Use appropriate height
 
-        // Use mock IBC app program ID for testing
-        let dummy_ibc_app_program_id = Pubkey::from_str_const(DUMMY_IBC_APP_PROGRAM_ID);
+        // Resolve the actual IBC app program ID for this port
+        let ibc_app_program_id = self.resolve_port_program_id(&dest_port).await?;
 
-        // Derive a mock app state account for the IBC app
-        let (dummy_ibc_app_state, _) = derive_app_state(&dest_port, &dummy_ibc_app_program_id);
+        // Derive the app state account for the resolved IBC app
+        let (ibc_app_state, _) = derive_app_state(&dest_port, &ibc_app_program_id);
 
         // Build accounts list in the correct order for RecvPacket struct
         let accounts = vec![
@@ -628,8 +708,8 @@ impl TxBuilder {
             AccountMeta::new(client_sequence, false),       // client_sequence
             AccountMeta::new(packet_receipt, false),        // packet_receipt
             AccountMeta::new(packet_ack, false),            // packet_ack
-            AccountMeta::new_readonly(dummy_ibc_app_program_id, false), // ibc_app_program
-            AccountMeta::new(dummy_ibc_app_state, false),   // ibc_app_state
+            AccountMeta::new_readonly(ibc_app_program_id, false), // ibc_app_program
+            AccountMeta::new(ibc_app_state, false),         // ibc_app_state
             AccountMeta::new_readonly(self.solana_ics26_program_id, false), // router_program
             AccountMeta::new_readonly(self.fee_payer, true), // relayer (signer)
             AccountMeta::new(self.fee_payer, true),         // payer (signer)
