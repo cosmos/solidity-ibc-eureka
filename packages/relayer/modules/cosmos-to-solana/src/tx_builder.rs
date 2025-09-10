@@ -381,6 +381,21 @@ impl TxBuilder {
         instructions.push(update_client_ix);
 
         // Process source events from Cosmos
+        let mut source_instructions = self.process_source_events(src_events)?;
+        instructions.append(&mut source_instructions);
+
+        // Process target events
+        for event in target_events {
+            tracing::debug!(?event, "Processing timeout event");
+        }
+
+        Ok(instructions)
+    }
+
+    /// Process source events and build instructions
+    fn process_source_events(&self, src_events: Vec<CosmosIbcEvent>) -> Result<Vec<Instruction>> {
+        let mut instructions = Vec::new();
+
         for event in src_events {
             match event {
                 CosmosIbcEvent::SendPacket {
@@ -390,39 +405,14 @@ impl TxBuilder {
                     payloads,
                     timeout_timestamp,
                 } => {
-                    tracing::debug!(
-                        "Building recv packet instructions for sequence {} with {} payload(s)",
+                    let mut packet_instructions = self.process_send_packet(
                         sequence,
-                        payloads.len()
-                    );
-
-                    // Group payloads by destination port
-                    let mut payloads_by_port: BTreeMap<String, Vec<Payload>> = BTreeMap::new();
-                    for payload in payloads {
-                        payloads_by_port
-                            .entry(payload.dest_port.clone())
-                            .or_default()
-                            .push(payload);
-                    }
-
-                    // Build one instruction per destination port with all its payloads
-                    for (dest_port, port_payloads) in payloads_by_port {
-                        tracing::debug!(
-                            "Building recv packet instruction for port '{}' with {} payload(s)",
-                            dest_port,
-                            port_payloads.len()
-                        );
-
-                        let recv_packet_ix =
-                            self.build_recv_packet_instruction(&RecvPacketParams {
-                                sequence,
-                                source_client: &source_client,
-                                destination_client: &destination_client,
-                                payloads: port_payloads,
-                                timeout_timestamp,
-                            })?;
-                        instructions.push(recv_packet_ix);
-                    }
+                        &source_client,
+                        &destination_client,
+                        payloads,
+                        timeout_timestamp,
+                    )?;
+                    instructions.append(&mut packet_instructions);
                 }
                 CosmosIbcEvent::AcknowledgePacket { .. } => {
                     tracing::debug!("Building acknowledgement instruction");
@@ -433,8 +423,51 @@ impl TxBuilder {
             }
         }
 
-        for event in target_events {
-            tracing::debug!(?event, "Processing timeout event");
+        Ok(instructions)
+    }
+
+    /// Process send packet event and build recv packet instructions
+    fn process_send_packet(
+        &self,
+        sequence: u64,
+        source_client: &str,
+        destination_client: &str,
+        payloads: Vec<Payload>,
+        timeout_timestamp: u64,
+    ) -> Result<Vec<Instruction>> {
+        let mut instructions = Vec::new();
+
+        tracing::debug!(
+            "Building recv packet instructions for sequence {} with {} payload(s)",
+            sequence,
+            payloads.len()
+        );
+
+        // Group payloads by destination port
+        let mut payloads_by_port: BTreeMap<String, Vec<Payload>> = BTreeMap::new();
+        for payload in payloads {
+            payloads_by_port
+                .entry(payload.dest_port.clone())
+                .or_default()
+                .push(payload);
+        }
+
+        // Build one instruction per destination port with all its payloads
+        for (dest_port, port_payloads) in payloads_by_port {
+            tracing::debug!(
+                "Building recv packet instruction for port '{}' with {} payload(s)",
+                dest_port,
+                port_payloads.len()
+            );
+
+            let recv_packet_ix = self.build_recv_packet_instruction(&RecvPacketParams {
+                sequence,
+                source_client,
+                destination_client,
+                payloads: port_payloads,
+                timeout_timestamp,
+            })?;
+            instructions.push(recv_packet_ix);
         }
 
         Ok(instructions)
