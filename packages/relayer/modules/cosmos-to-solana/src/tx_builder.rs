@@ -1,7 +1,6 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! Solana from events received from a Cosmos SDK chain.
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use anchor_lang::{AnchorDeserialize, AnchorSerialize};
@@ -46,7 +45,7 @@ pub struct RecvPacketParams<'a> {
     sequence: u64,
     source_client: &'a str,
     destination_client: &'a str,
-    payloads: Vec<Payload>,
+    payload: Payload,
     timeout_timestamp: u64,
 }
 
@@ -443,28 +442,20 @@ impl TxBuilder {
             payloads.len()
         );
 
-        // Group payloads by destination port
-        let mut payloads_by_port: BTreeMap<String, Vec<Payload>> = BTreeMap::new();
+        // Create a separate instruction for each payload
+        // Each recv_packet instruction must contain exactly one payload to match the router's validation.
+        // TODO: Support multi-payload packets #602
         for payload in payloads {
-            payloads_by_port
-                .entry(payload.dest_port.clone())
-                .or_default()
-                .push(payload);
-        }
-
-        // Build one instruction per destination port with all its payloads
-        for (dest_port, port_payloads) in payloads_by_port {
             tracing::debug!(
-                "Building recv packet instruction for port '{}' with {} payload(s)",
-                dest_port,
-                port_payloads.len()
+                "Building recv packet instruction for port '{}' with single payload",
+                payload.dest_port,
             );
 
             let recv_packet_ix = self.build_recv_packet_instruction(&RecvPacketParams {
                 sequence,
                 source_client,
                 destination_client,
-                payloads: port_payloads,
+                payload,
                 timeout_timestamp,
             })?;
             instructions.push(recv_packet_ix);
@@ -652,20 +643,14 @@ impl TxBuilder {
 
     /// Build instruction for `RecvPacket` on Solana
     ///
-    /// This method handles all payloads for a specific destination port.
-    /// All payloads in the params must have the same destination port.
+    /// This method handles a single payload packet.
+    /// Current Solana implementation only supports single-payload packets.
     ///
     /// # Errors
     ///
     /// Returns an error if packet data cannot be serialized
     fn build_recv_packet_instruction(&self, params: &RecvPacketParams<'_>) -> Result<Instruction> {
-        // All payloads should have the same destination port (enforced by caller)
-        let dest_port = params
-            .payloads
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("No payloads provided"))?
-            .dest_port
-            .clone();
+        let dest_port = params.payload.dest_port.clone();
 
         let packet = Packet {
             sequence: params.sequence,
@@ -673,7 +658,7 @@ impl TxBuilder {
             dest_client: params.destination_client.to_string(),
             timeout_timestamp: i64::try_from(params.timeout_timestamp)
                 .map_err(|e| anyhow::anyhow!("Invalid timeout timestamp: {e}"))?,
-            payloads: params.payloads.clone(),
+            payloads: vec![params.payload.clone()],
         };
 
         // Create the message with mock proofs for now
