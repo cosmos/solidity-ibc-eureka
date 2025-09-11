@@ -27,6 +27,7 @@ pub struct AckPacket<'info> {
         mut,
         seeds = [
             PACKET_COMMITMENT_SEED,
+            msg.packet.source_client.as_bytes(),
             &msg.packet.sequence.to_le_bytes()
         ],
         bump
@@ -58,7 +59,7 @@ pub struct AckPacket<'info> {
 
     // Client for light client lookup
     #[account(
-        seeds = [CLIENT_SEED],
+        seeds = [CLIENT_SEED, msg.packet.source_client.as_bytes()],
         bump,
         constraint = client.active @ RouterError::ClientNotActive,
     )]
@@ -258,7 +259,11 @@ mod tests {
         );
 
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
-            &[PACKET_COMMITMENT_SEED, &packet.sequence.to_le_bytes()],
+            &[
+                PACKET_COMMITMENT_SEED,
+                packet.source_client.as_bytes(),
+                &packet.sequence.to_le_bytes(),
+            ],
             &crate::ID,
         );
 
@@ -293,7 +298,8 @@ mod tests {
         };
 
         let packet_commitment_account = if params.with_existing_commitment {
-            let (_, data) = setup_packet_commitment(packet.sequence, &packet);
+            let (_, data) =
+                setup_packet_commitment(params.source_client_id, packet.sequence, &packet);
             create_account(packet_commitment_pda, data, crate::ID)
         } else {
             create_uninitialized_account(packet_commitment_pda, 0)

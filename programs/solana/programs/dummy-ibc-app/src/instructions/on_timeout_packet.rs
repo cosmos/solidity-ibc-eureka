@@ -21,7 +21,7 @@ pub struct OnTimeoutPacket<'info> {
     /// CHECK: PDA derived from `source_client`
     #[account(
         mut,
-        seeds = [ESCROW_SEED],
+        seeds = [ESCROW_SEED, msg.source_client.as_bytes()],
         bump
     )]
     pub escrow_account: Option<AccountInfo<'info>>,

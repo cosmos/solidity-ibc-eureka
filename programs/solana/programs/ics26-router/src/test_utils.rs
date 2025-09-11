@@ -41,7 +41,8 @@ pub fn setup_client(
     counterparty_client_id: &str,
     active: bool,
 ) -> (Pubkey, Vec<u8>) {
-    let (client_pda, _) = Pubkey::find_program_address(&[CLIENT_SEED], &crate::ID);
+    let (client_pda, _) =
+        Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &crate::ID);
 
     let client = Client {
         client_id: client_id.to_string(),
@@ -58,9 +59,9 @@ pub fn setup_client(
     (client_pda, client_data)
 }
 
-pub fn setup_client_sequence(next_sequence: u64) -> (Pubkey, Vec<u8>) {
+pub fn setup_client_sequence(client_id: &str, next_sequence: u64) -> (Pubkey, Vec<u8>) {
     let (client_sequence_pda, _) =
-        Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED], &crate::ID);
+        Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED, client_id.as_bytes()], &crate::ID);
     let client_sequence = ClientSequence {
         next_sequence_send: next_sequence,
     };
@@ -255,9 +256,17 @@ pub fn create_uninitialized_account(
     )
 }
 
-pub fn setup_packet_commitment(sequence: u64, packet: &Packet) -> (Pubkey, Vec<u8>) {
+pub fn setup_packet_commitment(
+    source_client: &str,
+    sequence: u64,
+    packet: &Packet,
+) -> (Pubkey, Vec<u8>) {
     let (packet_commitment_pda, _) = Pubkey::find_program_address(
-        &[PACKET_COMMITMENT_SEED, &sequence.to_le_bytes()],
+        &[
+            PACKET_COMMITMENT_SEED,
+            source_client.as_bytes(),
+            &sequence.to_le_bytes(),
+        ],
         &crate::ID,
     );
 

@@ -48,7 +48,7 @@ pub struct SendTransfer<'info> {
     /// CHECK: PDA derived from `client_id`, will be validated
     #[account(
         mut,
-        seeds = [ESCROW_SEED],
+        seeds = [ESCROW_SEED, msg.source_client.as_bytes()],
         bump
     )]
     pub escrow_account: AccountInfo<'info>,
@@ -58,7 +58,7 @@ pub struct SendTransfer<'info> {
         init_if_needed,
         payer = user,
         space = 8 + EscrowState::INIT_SPACE,
-        seeds = [ESCROW_STATE_SEED],
+        seeds = [ESCROW_STATE_SEED, msg.source_client.as_bytes()],
         bump
     )]
     pub escrow_state: Account<'info, EscrowState>,
@@ -80,7 +80,7 @@ pub struct SendTransfer<'info> {
 
     #[account(
         mut,
-        seeds = [CLIENT_SEQUENCE_SEED],
+        seeds = [CLIENT_SEQUENCE_SEED, msg.source_client.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -92,7 +92,7 @@ pub struct SendTransfer<'info> {
     pub packet_commitment: AccountInfo<'info>,
 
     #[account(
-        seeds = [CLIENT_SEED],
+        seeds = [CLIENT_SEED, msg.source_client.as_bytes()],
         bump,
         seeds::program = router_program
     )]

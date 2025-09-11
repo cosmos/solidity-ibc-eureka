@@ -23,7 +23,7 @@ pub struct RecvPacket<'info> {
 
     #[account(
         mut,
-        seeds = [CLIENT_SEQUENCE_SEED],
+        seeds = [CLIENT_SEQUENCE_SEED, msg.packet.dest_client.as_bytes()],
         bump
     )]
     pub client_sequence: Account<'info, ClientSequence>,
@@ -80,7 +80,7 @@ pub struct RecvPacket<'info> {
 
     // Client for light client lookup
     #[account(
-        seeds = [CLIENT_SEED],
+        seeds = [CLIENT_SEED, msg.packet.dest_client.as_bytes()],
         bump,
         constraint = client.active @ RouterError::ClientNotActive,
     )]
@@ -339,7 +339,7 @@ mod tests {
         let ibc_app_program_id = MOCK_IBC_APP_PROGRAM_ID;
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, ibc_app_program_id);
         let ibc_app_state = Pubkey::new_unique();
-        let (client_sequence_pda, client_sequence_data) = setup_client_sequence(0);
+        let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 0);
 
         let current_timestamp = 1000;
         let clock_data = create_clock_data(current_timestamp);
