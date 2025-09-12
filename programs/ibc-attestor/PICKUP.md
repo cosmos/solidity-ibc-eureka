@@ -18,7 +18,7 @@ Here we summarise the top features, fixes and refactors that need completing in 
 
 ### Aggregator layer
 - Remove dependency on `aggregator.proto` generated types
-- Simplify configuration by reducing nesting
+- Simplify configuration by reducing nesting. See [this](https://github.com/cosmos/solidity-ibc-eureka/pull/718#discussion_r2313819607)
 
 ## Fixes
 ### CI
