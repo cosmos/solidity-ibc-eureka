@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Script } from "forge-std/Script.sol";
-import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { IICS02Client } from "../contracts//interfaces/IICS02Client.sol";
 import { IICS02ClientMsgs } from "../contracts/msgs/IICS02ClientMsgs.sol";
 
@@ -17,11 +15,7 @@ contract MigrateLightClient is Script {
 
         address actualClientAddress = address(ics26Router.getClient(clientIDToMigrate));
 
-        vm.assertNotEq(
-            actualClientAddress,
-            newLightClientAddress,
-            "On-chain client address already matches the implementation address"
-        );
+        vm.assertNotEq(actualClientAddress, newLightClientAddress, "Clients must not match");
 
         IICS02ClientMsgs.CounterpartyInfo memory counterPartyInfo = ics26Router.getCounterparty(clientIDToMigrate);
 
