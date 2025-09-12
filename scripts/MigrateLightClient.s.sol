@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
@@ -18,7 +17,11 @@ contract MigrateLightClient is Script {
 
         address actualClientAddress = address(ics26Router.getClient(clientIDToMigrate));
 
-        vm.assertNotEq(actualClientAddress, newLightClientAddress, "On-chain client address already matches the implementation address");
+        vm.assertNotEq(
+            actualClientAddress,
+            newLightClientAddress,
+            "On-chain client address already matches the implementation address"
+        );
 
         IICS02ClientMsgs.CounterpartyInfo memory counterPartyInfo = ics26Router.getCounterparty(clientIDToMigrate);
 
