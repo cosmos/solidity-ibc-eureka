@@ -2,7 +2,8 @@
   "server": {
     "log_level": "{{ .LogLevel }}",
     "address": "{{ .Address }}",
-    "port": {{ .Port }}
+    "port": {{ .Port }},
+    "grpc_web_port": {{ .GrpcWebPort }}
   },
   "modules": [
     {{- range $index, $module := .Modules }}

@@ -17,11 +17,11 @@ The system consists of three main components working together:
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │   Attestor  │───▶│ Aggregator  │───▶│Light Client │
-│   Service   │    │   Service   │    │             │
+│   Service   │    │   layer     │    │             │
 └─────────────┘    └─────────────┘    └─────────────┘
        │                    │                  │
-   Signs state &        Collects m-of-n    Verifies sigs &
-   packet data         signatures with     updates IBC state
+   Signs state &       Collects m-of-n    Verifies sigs &
+   packet data         signatures with    updates IBC state
                        quorum validation
 ```
 
@@ -32,7 +32,7 @@ The Attestor Service monitors blockchain networks and provides cryptographically
 #### Core Components
 
 - **Adapter Client** (`src/adapter_client.rs`): Generic interface for blockchain interaction
-- **Chain Adapters** (`src/adapter_impls/`): Network-specific implementations (Arbitrum, Optimism/Base; Solana WIP)
+- **Chain Adapters** (`src/adapter_impls/`): Network-specific implementations (Arbitrum, Optimism/Base)
 - **Signer** (`src/signer.rs`): secp256k1 cryptographic signing that produces 65-byte Ethereum-style recoverable signatures (r||s||v) and includes the signer Ethereum address (derived from the public key)
 - **gRPC Server** (`src/server.rs`): API, used primarily by aggregator
 
@@ -53,9 +53,9 @@ The Attestor Service monitors blockchain networks and provides cryptographically
 - **Modular Design**: Adapter pattern enables easy addition of new chains
 - **ABI Encoding**: Attested messages are encoded via Solidity ABI (see `IAttestorMsgs`), then hashed (SHA-256) before signing for cross-language compatibility. Public keys are not propagated; addresses are recovered from signatures.
 
-### 2. Aggregator Service (`programs/sig-aggregator`)
+### 2. Aggregator Layer (`packages/relayer/lib/src/relayer`)
 
-The Aggregator Service collects attestations from multiple attestors and enforces quorum requirements.
+The Aggregator collects attestations from multiple attestors and enforces quorum requirements. This used to be a separate service but was moved into the relayer to reduce deployment overhead.
 
 #### Core Functionality
 
@@ -80,6 +80,10 @@ The Light Client verifies aggregated attestations and integrates with IBC protoc
   - Smart contract deployable to ibc-go's 08-wasm module
   - Implements the Light Client Module interface
   - Store and retrieval of state
+- **EVM Integration** (`contracts/light-clients/IAttestor*.sol`):
+  - Smart contract deployable to EVM
+  - Implements the Light Client Module interface
+  - Store and retrieval of state
 - **Packet Membership** (`packages/attestor/packet-membership/`):
   - Packet membership types and logic
   - Verify packet inclusion in attested data (i.e., not from native blockchain proof)
@@ -97,12 +101,6 @@ The Light Client verifies aggregated attestations and integrates with IBC protoc
 - **Error Handling**: Graceful degradation and detailed error reporting
 - **Performance**: Concurrent processing where possible
 - **Simplicity**: Avoid over-engineering, focus on core functionality
-
-## 📋 Future/Unplanned/Not in current scope
-
-- **Misbehaviour Detection**: Automated pause mechanisms (not implemented yet, but coming)
-- **Monitoring System**: For L2s: Reorg and outage detection (no concrete timeline)
-- **Sequencer Key Verification**: Additional signature validation (not planned)
 
 ## Security Model
 
@@ -125,15 +123,3 @@ The Light Client verifies aggregated attestations and integrates with IBC protoc
 - **Trust-based**: Security depends on attestor honesty and availability
 - **No Slashing**: No economic penalties for malicious behavior
 
-
-## Technical Reference
-
-### Key Files
-
-- `programs/ibc-attestor/src/attestor.rs`: Core attestor service logic
-- `programs/ibc-attestor/src/server.rs`: gRPC server wiring for attestor
-- `programs/sig-aggregator/src/aggregator.rs`: Signature aggregation logic  
-- `programs/sig-aggregator/src/attestor_data.rs`: Aggregation and validation helpers
-- `packages/attestor/light-client/src/verify.rs`: Header checks
-- `packages/attestor/light-client/src/verify_attestation.rs`: Signature verification
-- `packages/attestor/packet-membership/src/verify_packet_membership.rs`: Packet validation

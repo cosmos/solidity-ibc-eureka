@@ -2,6 +2,7 @@ package testvalues
 
 import (
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/holiman/uint256"
@@ -199,3 +200,22 @@ var (
 		return role
 	}()
 )
+
+func EnvGet(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+
+	return value
+}
+
+func EnvEnsure(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+
+	os.Setenv(key, defaultValue)
+
+	return defaultValue
+}

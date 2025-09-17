@@ -38,7 +38,6 @@ pub fn verify_membership(
     attestor_light_client::membership::verify_membership(
         &consensus_state,
         &client_state,
-        verify_membership_msg.height.revision_height,
         verify_membership_msg.proof.into(),
         verify_membership_msg.value.into(),
     )

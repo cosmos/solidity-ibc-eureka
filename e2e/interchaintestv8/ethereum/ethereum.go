@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
@@ -37,23 +38,30 @@ type Ethereum struct {
 	Faucet *ecdsa.PrivateKey
 }
 
-func NewEthereum(ctx context.Context, rpc string, beaconAPIClient *BeaconAPIClient, faucet *ecdsa.PrivateKey) (Ethereum, error) {
-	ethClient, err := ethclient.Dial(rpc)
+func NewEthereum(
+	ctx context.Context,
+	rpcURL string,
+	beaconAPIClient *BeaconAPIClient,
+	faucet *ecdsa.PrivateKey,
+) (Ethereum, error) {
+	ethClient, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		return Ethereum{}, err
 	}
+
 	chainID, err := ethClient.ChainID(ctx)
 	if err != nil {
 		return Ethereum{}, err
 	}
-	ethAPI, err := NewEthAPI(rpc)
+
+	ethAPI, err := NewEthAPI(rpcURL)
 	if err != nil {
 		return Ethereum{}, err
 	}
 
 	return Ethereum{
 		ChainID:         chainID,
-		RPC:             rpc,
+		RPC:             rpcURL,
 		EthAPI:          ethAPI,
 		BeaconAPIClient: beaconAPIClient,
 		RPCClient:       ethClient,
@@ -94,6 +102,19 @@ func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, g
 	}
 
 	if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
+		receiptJSON, err := json.MarshalIndent(receipt, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal failed receipt: %w", err)
+		}
+
+		fmt.Println("Receipt", string(receiptJSON))
+
+		if trace, errDebug := e.debugTraceTransaction(ctx, signedTx.Hash()); errDebug == nil {
+			fmt.Println("debug_traceTransaction result:", string(trace))
+		} else {
+			fmt.Println("debug_traceTransaction not available:", errDebug)
+		}
+
 		return nil, fmt.Errorf("eth transaction was broadcasted, but failed on-chain with status %d", receipt.Status)
 	}
 
@@ -247,4 +268,30 @@ func (e *Ethereum) GetTransactOpts(key *ecdsa.PrivateKey) (*bind.TransactOpts, e
 	txOpts.GasPrice = gasPrice
 
 	return txOpts, nil
+}
+
+// debugTraceTransaction invokes debug_traceTransaction with callTracer to obtain a call trace.
+// It returns the raw JSON trace or an error if the RPC method is unavailable or fails.
+func (e *Ethereum) debugTraceTransaction(ctx context.Context, txHash ethcommon.Hash) ([]byte, error) {
+	// Geth callTracer request payload
+	type tracerOpts struct {
+		Tracer  string `json:"tracer"`
+		Timeout string `json:"timeout"`
+	}
+
+	var result json.RawMessage
+
+	// Params: tx hash, options
+	err := e.RPCClient.Client().CallContext(
+		ctx,
+		&result,
+		"debug_traceTransaction",
+		txHash.Hex(),
+		tracerOpts{Tracer: "callTracer", Timeout: "30s"},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

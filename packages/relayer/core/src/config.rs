@@ -42,6 +42,10 @@ pub struct ServerConfig {
     pub address: String,
     /// The port to bind the server to.
     pub port: u16,
+    /// The port to bind the gRPC-Web server to (HTTP/1.1).
+    /// Defaults to 8081 for backward compatibility.
+    #[serde(default = "default_grpc_web_port")]
+    pub grpc_web_port: u16,
     /// The log level for the server.
     #[serde(default)]
     pub log_level: String,
@@ -50,6 +54,11 @@ pub struct ServerConfig {
 /// Returns true, used as a default value for boolean fields.
 const fn default_true() -> bool {
     true
+}
+
+/// Default gRPC-Web port used when not provided in config.
+const fn default_grpc_web_port() -> u16 {
+    8081
 }
 
 impl ServerConfig {

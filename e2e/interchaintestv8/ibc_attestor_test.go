@@ -168,8 +168,8 @@ func (s *IbcAttestorTestSuite) SetupSuite(ctx context.Context, proofType types.S
 	// Setup multiple attestors
 	s.Require().True(s.Run("Setup multiple attestors", func() {
 		for i := range testvalues.NumAttestors {
-			port := 9000 + i
 			attestorConfig := attestor.DefaultAttestorConfig()
+			port := attestorConfig.Server.Port + i
 			attestorConfig.OP.URL = s.EthChain.RPC
 			attestorConfig.OP.RouterAddress = s.contractAddresses.Ics26Router
 			attestorConfig.Server.Port = port
@@ -416,8 +416,8 @@ func (s *IbcAttestorTestSuite) AggregatorStartUpTest(ctx context.Context, binary
 	// Start multiple attestor instances
 	s.Require().True(s.Run("Setup multiple attestors", func() {
 		for i := range testvalues.NumAttestors {
-			port := 9000 + i
 			attestorConfig := attestor.DefaultAttestorConfig()
+			port := attestorConfig.Server.Port + i
 			attestorConfig.Server.Port = port
 
 			configPath := fmt.Sprintf("/tmp/attestor_%d.toml", i)
@@ -463,12 +463,18 @@ func (s *IbcAttestorTestSuite) Test_OptimismAttestToICS20PacketsOnEth() {
 	// Ensure the test uses the Optimism testnet type
 	s.T().Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeOptimism)
 	proofType := types.GetEnvProofType()
-	s.AttestToICS20TransferNativeCosmosCoinsToEthereumNoReturn(ctx, proofType, big.NewInt(testvalues.TransferAmount), attestor.OptimismBinary)
+
+	s.attestToICS20TransferNativeCosmosCoinsToEthereumNoReturn(ctx, proofType, big.NewInt(testvalues.TransferAmount), attestor.OptimismBinary)
 }
 
 // ICS20TransferNativeCosmosCoinsToEthereumAndBackTest tests the ICS20 transfer functionality
 // by transferring native coins from a Cosmos chain to Ethereum and back
-func (s *IbcAttestorTestSuite) AttestToICS20TransferNativeCosmosCoinsToEthereumNoReturn(ctx context.Context, pt types.SupportedProofType, transferAmount *big.Int, binaryPath attestor.AttestorBinaryPath) {
+func (s *IbcAttestorTestSuite) attestToICS20TransferNativeCosmosCoinsToEthereumNoReturn(
+	ctx context.Context,
+	pt types.SupportedProofType,
+	transferAmount *big.Int,
+	binaryPath attestor.AttestorBinaryPath,
+) {
 	s.SetupSuite(ctx, pt, binaryPath)
 
 	numOfTransfers := 1

@@ -85,7 +85,9 @@ mod tests {
         client_state::ClientState,
         consensus_state::ConsensusState,
         header::Header,
-        test_utils::{sample_packet_commitments, KEYS, PACKET_COMMITMENTS_ENCODED, SIGS_RAW},
+        test_utils::{
+            packet_commitments_with_height, sample_packet_commitments, sigs_with_height, KEYS,
+        },
     };
     use cosmwasm_std::Binary;
 
@@ -117,8 +119,8 @@ mod tests {
         Header {
             new_height: cns.height,
             timestamp: cns.timestamp,
-            attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-            signatures: SIGS_RAW.to_vec(),
+            attestation_data: packet_commitments_with_height(cns.height).abi_encode(),
+            signatures: sigs_with_height(cns.height),
         }
     }
 
@@ -212,11 +214,7 @@ mod tests {
 
     mod integration_tests {
         use alloy_sol_types::SolValue;
-        use attestor_light_client::{
-            error::IbcAttestorClientError,
-            membership::MembershipProof,
-            test_utils::{PACKET_COMMITMENTS_ENCODED, SIGS_RAW},
-        };
+        use attestor_light_client::{error::IbcAttestorClientError, membership::MembershipProof};
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
@@ -236,6 +234,8 @@ mod tests {
             test::helpers::mk_deps,
             ContractError,
         };
+
+        use super::*;
 
         #[test]
         fn query_timestamp_at_height() {
@@ -310,11 +310,12 @@ mod tests {
                 update_state_result.heights[0].revision_height
             );
 
+            let height = consensus_state.height;
             // Verify membership for the added state
             let env = mock_env();
             let verifyable = MembershipProof {
-                attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-                signatures: SIGS_RAW.to_vec(),
+                attestation_data: packet_commitments_with_height(height).abi_encode(),
+                signatures: sigs_with_height(height),
             };
             let as_bytes = serde_json::to_vec(&verifyable).unwrap();
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
@@ -347,8 +348,8 @@ mod tests {
             // Non existent height fails
             let env = mock_env();
             let value = MembershipProof {
-                attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-                signatures: SIGS_RAW.to_vec(),
+                attestation_data: packet_commitments_with_height(height).abi_encode(),
+                signatures: sigs_with_height(height),
             };
             let as_bytes = serde_json::to_vec(&value).unwrap();
             let bad_height = consensus_state.height + 100;
@@ -372,11 +373,11 @@ mod tests {
 
             let value = PacketAttestation {
                 packets: bad_commitments,
-                height: 0,
+                height,
             };
             let verifyable = MembershipProof {
                 attestation_data: value.abi_encode(),
-                signatures: SIGS_RAW.to_vec(),
+                signatures: sigs_with_height(height),
             };
             let as_bytes = serde_json::to_vec(&verifyable).unwrap();
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
@@ -531,9 +532,10 @@ mod tests {
             for i in 1..6 {
                 let env = mock_env();
 
+                let height = consensus_state.height + i;
                 let value = MembershipProof {
-                    attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-                    signatures: SIGS_RAW.to_vec(),
+                    attestation_data: packet_commitments_with_height(height).abi_encode(),
+                    signatures: sigs_with_height(height),
                 };
                 let as_bytes = serde_json::to_vec(&value).unwrap();
                 let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
@@ -548,8 +550,8 @@ mod tests {
                 assert!(res.is_ok());
 
                 let value = MembershipProof {
-                    attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-                    signatures: SIGS_RAW.to_vec(),
+                    attestation_data: packet_commitments_with_height(height).abi_encode(),
+                    signatures: sigs_with_height(height),
                 };
                 let as_bytes = serde_json::to_vec(&value).unwrap();
                 let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {

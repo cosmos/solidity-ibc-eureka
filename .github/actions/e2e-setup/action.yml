@@ -85,7 +85,7 @@ runs:
       run: just build-sp1-programs
 
     - name: Setup Kurtosis
-      if: env.ETH_TESTNET_TYPE == 'pos'
+      if: contains(fromJSON('["pos", "optimism", "arbitrum", "cosmos"]'), env.ETH_TESTNET_TYPE)
       shell: bash
       run: |
         echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
