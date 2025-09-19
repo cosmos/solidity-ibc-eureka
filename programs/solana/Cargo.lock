@@ -674,6 +674,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "brine-ed25519"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffb604b3e64e069843eb815cd108f3dfc8bfcf9c4434a3d7d832332092cd1d63"
+dependencies = [
+ "curve25519-dalek 4.1.3",
+ "sha2 0.10.9",
+ "solana-curve25519",
+]
+
+[[package]]
 name = "brotli"
 version = "8.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5311,12 +5322,14 @@ dependencies = [
 name = "tendermint-light-client-update-client"
 version = "0.1.0"
 dependencies = [
+ "brine-ed25519",
  "ibc-client-tendermint",
  "ibc-core-client",
  "ibc-core-client-types",
  "ibc-core-host-types",
  "ibc-primitives",
  "sha2 0.10.9",
+ "tendermint",
  "tendermint-light-client-verifier",
  "thiserror 2.0.12",
 ]

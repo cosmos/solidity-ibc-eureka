@@ -161,6 +161,8 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
         Ok(Response::new(api::RelayByTxResponse {
             tx,
             address: String::new(),
+            chunked_txs: vec![],
+            chunked_metadata: None,
         }))
     }
 

@@ -157,16 +157,17 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .collect::<Result<Vec<_>, _>>()?;
 
         // Fetch events from Cosmos transactions
-        let src_events = self
+        let (src_events, proof_height) = self
             .tx_builder
             .fetch_cosmos_events(src_txs)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(cosmos_src_events = ?src_events, "Fetched source Cosmos events.");
+        tracing::debug!(cosmos_src_events = ?src_events, proof_height = ?proof_height, "Fetched source Cosmos events.");
         tracing::info!(
-            "Fetched {} source eureka events from Cosmos.",
-            src_events.len()
+            "Fetched {} source eureka events from Cosmos at height {:?}.",
+            src_events.len(),
+            proof_height
         );
 
         // Fetch events from Solana for timeouts
@@ -182,6 +183,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         );
 
         // Build the relay transactions with optional chunked update client
+        // If we have a proof height, we need to update the client to that height
         let relay_txs = self
             .tx_builder
             .build_solana_relay_txs_with_options(
@@ -189,6 +191,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
                 src_events,
                 target_events,
                 inner_req.skip_update_client,
+                proof_height, // Pass the proof height for client update
             )
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
@@ -205,26 +208,84 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             inner_req.skip_update_client
         );
 
-        // For now, serialize all transactions as a composite structure
-        // In production, the relayer service should handle multiple transactions properly
-        let tx_bytes = bincode::serialize(&relay_txs).map_err(|e| {
-            tonic::Status::internal(format!("Failed to serialize transactions: {e}"))
-        })?;
-
-        if !inner_req.skip_update_client && relay_txs.update_client.is_some() {
-            // Note: The actual relayer implementation should:
-            // 1. Submit create metadata tx
-            // 2. Submit parallel chunk txs in parallel
-            // 3. Submit assembly tx
-            // 4. Submit packet txs
-            tracing::warn!(
-                "Returning serialized chunked transactions - relayer must handle submission order"
-            );
-        }
+        // Prepare the response based on whether update client is needed
+        let (tx_bytes, chunked_txs, chunked_metadata) = 
+            if !inner_req.skip_update_client && relay_txs.update_client.is_some() {
+                // Return chunked update client transactions for the client to submit
+                let update_client = relay_txs.update_client.as_ref().unwrap();
+                
+                tracing::info!("Returning chunked update client transactions for client to submit");
+                
+                // Serialize all chunked transactions
+                let mut serialized_txs = Vec::new();
+                
+                // Add metadata transaction
+                serialized_txs.push(bincode::serialize(&update_client.metadata_tx).map_err(|e| {
+                    tonic::Status::internal(format!("Failed to serialize metadata tx: {e}"))
+                })?);
+                
+                // Add chunk transactions
+                for tx in &update_client.chunk_txs {
+                    serialized_txs.push(bincode::serialize(tx).map_err(|e| {
+                        tonic::Status::internal(format!("Failed to serialize chunk tx: {e}"))
+                    })?);
+                }
+                
+                // Add assembly transaction
+                serialized_txs.push(bincode::serialize(&update_client.assembly_tx).map_err(|e| {
+                    tonic::Status::internal(format!("Failed to serialize assembly tx: {e}"))
+                })?);
+                
+                // Create metadata
+                let metadata = Some(api::ChunkedMetadata {
+                    target_height: update_client.target_height,
+                    total_chunks: u32::try_from(update_client.total_chunks)
+                        .map_err(|e| tonic::Status::internal(format!("Total chunks overflow: {e}")))?,
+                });
+                
+                tracing::info!(
+                    "Returning chunked update client: {} transactions (metadata + {} chunks + assembly), target_height: {}",
+                    serialized_txs.len(),
+                    update_client.total_chunks,
+                    update_client.target_height
+                );
+                
+                // Return the packet transaction as the main tx
+                let main_tx = if relay_txs.packet_txs.len() == 1 {
+                    bincode::serialize(&relay_txs.packet_txs[0]).map_err(|e| {
+                        tonic::Status::internal(format!("Failed to serialize packet transaction: {e}"))
+                    })?
+                } else if relay_txs.packet_txs.is_empty() {
+                    vec![]
+                } else {
+                    bincode::serialize(&relay_txs.packet_txs).map_err(|e| {
+                        tonic::Status::internal(format!("Failed to serialize packet transactions: {e}"))
+                    })?
+                };
+                
+                (main_tx, serialized_txs, metadata)
+            } else {
+                // No update client needed, just return packet txs
+                let tx_bytes = if relay_txs.packet_txs.len() == 1 {
+                    bincode::serialize(&relay_txs.packet_txs[0]).map_err(|e| {
+                        tonic::Status::internal(format!("Failed to serialize packet transaction: {e}"))
+                    })?
+                } else if relay_txs.packet_txs.is_empty() {
+                    vec![]
+                } else {
+                    bincode::serialize(&relay_txs.packet_txs).map_err(|e| {
+                        tonic::Status::internal(format!("Failed to serialize packet transactions: {e}"))
+                    })?
+                };
+                
+                (tx_bytes, vec![], None)
+            };
 
         Ok(Response::new(api::RelayByTxResponse {
             tx: tx_bytes,
             address: self.solana_ics26_program_id.to_string(),
+            chunked_txs,
+            chunked_metadata,
         }))
     }
 

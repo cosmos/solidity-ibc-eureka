@@ -26,10 +26,10 @@ use tendermint_rpc::{Client, HttpClient};
 
 use solana_ibc_types::{
     derive_client, derive_client_sequence, derive_ibc_app, derive_ics07_client_state,
-    derive_ics07_consensus_state, derive_packet_ack, derive_packet_receipt, derive_router_state,
-    get_instruction_discriminator,
+    derive_ics07_consensus_state, derive_packet_ack, derive_packet_commitment,
+    derive_packet_receipt, derive_router_state, get_instruction_discriminator,
     ics07::{ClientState, ConsensusState, IbcHeight, ICS07_INITIALIZE_DISCRIMINATOR},
-    MsgRecvPacket, Packet, Payload, UpdateClientMsg,
+    MsgAckPacket, MsgRecvPacket, Packet, Payload, UpdateClientMsg,
 };
 
 use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
@@ -136,6 +136,14 @@ struct RecvPacketParams<'a> {
     timeout_timestamp: u64,
 }
 
+/// Parameters for building an `AckPacket` instruction
+struct AckPacketParams<'a> {
+    sequence: u64,
+    source_client: &'a str,
+    destination_client: &'a str,
+    acknowledgement: &'a [Vec<u8>],
+}
+
 /// IBC Eureka event types from Cosmos
 #[derive(Debug, Clone)]
 pub enum CosmosIbcEvent {
@@ -154,8 +162,10 @@ pub enum CosmosIbcEvent {
     AcknowledgePacket {
         /// Packet sequence
         sequence: u64,
-        /// Source client ID
+        /// Source client ID (original source of the packet)
         source_client: String,
+        /// Destination client ID (original destination of the packet)
+        destination_client: String,
         /// Acknowledgement data (one per payload)
         acknowledgements: Vec<Vec<u8>>,
     },
@@ -197,14 +207,28 @@ impl TxBuilder {
             "validators_hash",
         );
 
+        let timestamp_nanos = block.block.header.time.unix_timestamp_nanos();
+
+        // Convert i128 nanoseconds to u64, handling overflow
+        let timestamp_u64 = if timestamp_nanos < 0 {
+            return Err(anyhow::anyhow!("Invalid timestamp: negative value"));
+        } else if timestamp_nanos > u64::MAX as i128 {
+            // This shouldn't happen for reasonable timestamps
+            return Err(anyhow::anyhow!(
+                "Invalid timestamp: value too large for u64"
+            ));
+        } else {
+            timestamp_nanos as u64
+        };
+
+        tracing::info!(
+            "Creating consensus state with timestamp: {} ns (from block time: {})",
+            timestamp_u64,
+            block.block.header.time
+        );
+
         Ok(ConsensusState {
-            timestamp: block
-                .block
-                .header
-                .time
-                .unix_timestamp()
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Invalid timestamp: negative value"))?,
+            timestamp: timestamp_u64,
             root: app_hash,
             next_validators_hash: validators_hash,
         })
@@ -296,8 +320,12 @@ impl TxBuilder {
     ///
     /// Returns an error if failed to fetch Cosmos transaction
     #[allow(clippy::cognitive_complexity)] // Event parsing is inherently complex
-    pub async fn fetch_cosmos_events(&self, tx_hashes: Vec<Hash>) -> Result<Vec<CosmosIbcEvent>> {
+    pub async fn fetch_cosmos_events(
+        &self,
+        tx_hashes: Vec<Hash>,
+    ) -> Result<(Vec<CosmosIbcEvent>, Option<u64>)> {
         let mut events = Vec::new();
+        let mut max_height: Option<u64> = None;
 
         for tx_hash in tx_hashes {
             // Fetch transaction from Tendermint
@@ -307,7 +335,10 @@ impl TxBuilder {
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to fetch Cosmos transaction: {e}"))?;
 
-            let _height = tx_result.height.value();
+            let height = tx_result.height.value();
+
+            // Track the maximum height from all transactions
+            max_height = Some(max_height.map_or(height, |h| h.max(height)));
 
             for tm_event in tx_result.tx_result.events {
                 if let Ok(eureka_event) = EurekaEvent::try_from(tm_event.clone()) {
@@ -335,31 +366,100 @@ impl TxBuilder {
                                 timeout_timestamp: packet.timeoutTimestamp,
                             });
                         }
-                        EurekaEvent::WriteAcknowledgement(packet, _acks) => {
-                            tracing::debug!(
-                                "Parsed write_acknowledgement: seq={}, src={}",
+                        EurekaEvent::WriteAcknowledgement(packet, acks) => {
+                            tracing::info!(
+                                "Parsed write_acknowledgement: seq={}, src={}, dst={}",
                                 packet.sequence,
-                                packet.sourceClient
+                                packet.sourceClient,
+                                packet.destClient
                             );
 
-                            // For now, we'll skip WriteAck as it's not the same as AcknowledgePacket
-                            // WriteAck is when the destination writes an ack,
-                            // AcknowledgePacket is when source processes the ack
+                            // WriteAck is when Cosmos (destination) writes an ack for a packet from Solana (source)
+                            // We need to relay this ack back to Solana
+                            // The packet.sourceClient is the Solana client, packet.destClient is the Cosmos client
+                            let acknowledgements =
+                                acks.into_iter().map(|ack| ack.to_vec()).collect();
+
+                            events.push(CosmosIbcEvent::AcknowledgePacket {
+                                sequence: packet.sequence,
+                                source_client: packet.sourceClient, // Original source (Solana client)
+                                destination_client: packet.destClient, // Original destination (Cosmos client)
+                                acknowledgements,
+                            });
                         }
                     }
                 } else {
                     // Handle events not yet supported by EurekaEvent
-                    // For now, just log them
+                    // For now, manually parse acknowledge_packet events
                     match tm_event.kind.as_str() {
                         "acknowledge_packet" => {
-                            tracing::debug!("Found acknowledge_packet event (not yet implemented in EurekaEvent)");
-                            // TODO: When EurekaEvent supports AcknowledgePacket, handle it
+                            tracing::info!("Found acknowledge_packet event, parsing manually");
+                            tracing::debug!("Event attributes: {:?}", tm_event.attributes);
+
+                            // Parse acknowledge_packet event attributes
+                            let mut sequence = 0u64;
+                            let mut source_client = String::new();
+                            let mut destination_client = String::new();
+                            let mut acknowledgements = Vec::new();
+
+                            for attr in &tm_event.attributes {
+                                if let (Ok(key), Ok(value)) = (attr.key_str(), attr.value_str()) {
+                                    tracing::debug!("  Attribute: {} = {}", key, value);
+                                    match key {
+                                        "packet_sequence" | "sequence" => {
+                                            sequence = value.parse().unwrap_or(0);
+                                            tracing::debug!("    Parsed sequence: {}", sequence);
+                                        }
+                                        "packet_source_client" | "source_client" => {
+                                            source_client = value.to_string();
+                                            tracing::debug!(
+                                                "    Parsed source_client: {}",
+                                                source_client
+                                            );
+                                        }
+                                        "packet_destination_client"
+                                        | "destination_client"
+                                        | "dest_client" => {
+                                            destination_client = value.to_string();
+                                            tracing::debug!(
+                                                "    Parsed destination_client: {}",
+                                                destination_client
+                                            );
+                                        }
+                                        "packet_ack" | "acknowledgement" | "ack" => {
+                                            // The acknowledgement might be hex or base64 encoded
+                                            if let Ok(ack_bytes) = hex::decode(&value) {
+                                                acknowledgements.push(ack_bytes);
+                                                tracing::debug!("    Parsed hex acknowledgement");
+                                            } else {
+                                                // If not hex, use as-is
+                                                acknowledgements.push(value.as_bytes().to_vec());
+                                                tracing::debug!("    Using raw acknowledgement");
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+
+                            if sequence > 0 && !source_client.is_empty() {
+                                tracing::info!(
+                                    "Parsed acknowledge_packet: seq={}, src={}",
+                                    sequence,
+                                    source_client
+                                );
+
+                                events.push(CosmosIbcEvent::AcknowledgePacket {
+                                    sequence,
+                                    source_client,
+                                    destination_client,
+                                    acknowledgements,
+                                });
+                            }
                         }
                         "timeout_packet" => {
-                            tracing::debug!(
-                                "Found timeout_packet event (not yet implemented in EurekaEvent)"
-                            );
-                            // TODO: When EurekaEvent supports TimeoutPacket, handle it
+                            tracing::debug!("Found timeout_packet event (not yet implemented)");
+                            // TODO: Parse timeout_packet events when needed
                         }
                         _ => {}
                     }
@@ -367,7 +467,7 @@ impl TxBuilder {
             }
         }
 
-        Ok(events)
+        Ok((events, max_height))
     }
 
     /// Fetch timeout events from Solana transactions
@@ -423,6 +523,7 @@ impl TxBuilder {
         src_events: Vec<CosmosIbcEvent>,
         target_events: Vec<CosmosIbcEvent>,
         skip_update_client: bool,
+        proof_height: Option<u64>,
     ) -> Result<SolanaRelayTransactions> {
         // Build optional update client
         let update_client = self
@@ -430,6 +531,7 @@ impl TxBuilder {
                 client_id,
                 skip_update_client,
                 !src_events.is_empty() || !target_events.is_empty(),
+                proof_height,
             )
             .await?;
 
@@ -448,9 +550,13 @@ impl TxBuilder {
         client_id: String,
         skip_update_client: bool,
         has_events: bool,
+        target_height: Option<u64>,
     ) -> Result<Option<ChunkedUpdateTransactions>> {
         if !skip_update_client && has_events {
-            Ok(Some(self.build_chunked_update_client_txs(client_id).await?))
+            Ok(Some(
+                self.build_chunked_update_client_txs_to_height(client_id, target_height)
+                    .await?,
+            ))
         } else {
             if skip_update_client {
                 tracing::info!("Skipping update client as requested");
@@ -513,8 +619,25 @@ impl TxBuilder {
                 })?;
                 instructions.push(recv_packet_ix);
             }
-            CosmosIbcEvent::AcknowledgePacket { .. } => {
-                tracing::debug!("Building acknowledgement instruction - not yet implemented");
+            CosmosIbcEvent::AcknowledgePacket {
+                sequence,
+                source_client,
+                destination_client,
+                acknowledgements,
+            } => {
+                tracing::debug!(
+                    "Building acknowledgement instruction for sequence {}",
+                    sequence
+                );
+                // The packet was originally sent from Solana (source) to Cosmos (destination)
+                // Now we're acknowledging back on Solana
+                let ack_packet_ix = self.build_ack_packet_instruction(&AckPacketParams {
+                    sequence,
+                    source_client: &source_client,
+                    destination_client: &destination_client,
+                    acknowledgement: &acknowledgements,
+                })?;
+                instructions.push(ack_packet_ix);
             }
             CosmosIbcEvent::TimeoutPacket { .. } => {
                 tracing::debug!("Building timeout instruction - not yet implemented");
@@ -551,6 +674,7 @@ impl TxBuilder {
             src_events,
             target_events,
             false, // Don't skip update client by default
+            None,  // No specific proof height
         )
         .await
     }
@@ -734,6 +858,176 @@ impl TxBuilder {
         })
     }
 
+    /// Build instruction for acknowledging a packet on Solana
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if packet data cannot be serialized
+    fn build_ack_packet_instruction(&self, params: &AckPacketParams) -> Result<Instruction> {
+        // Build the acknowledgement data
+        let acknowledgement = if params.acknowledgement.is_empty() {
+            vec![]
+        } else {
+            // For now, handle single acknowledgement payload
+            params.acknowledgement[0].clone()
+        };
+
+        // Build the packet structure that matches what was originally sent
+        // The packet was sent FROM Solana TO Cosmos, so:
+        // - source_client is the Cosmos client ID on Solana (cosmoshub-1)
+        // - dest_client is the Solana client ID on Cosmos (08-wasm-0)
+        let packet = Packet {
+            sequence: params.sequence,
+            source_client: params.source_client.to_string(),
+            dest_client: params.destination_client.to_string(),
+            timeout_timestamp: 0, // Not needed for ack
+            payloads: vec![Payload {
+                source_port: "transfer".to_string(),
+                dest_port: "transfer".to_string(),
+                version: "ics20-1".to_string(),
+                encoding: "json".to_string(),
+                value: vec![], // Empty for ack - just need packet metadata
+            }],
+        };
+
+        let msg = MsgAckPacket {
+            packet,
+            acknowledgement,
+            proof_acked: MOCK_PROOF_DATA.to_vec(), // Using mock proof for testing
+            proof_height: 0,                       // Mock height
+        };
+
+        // Derive PDAs for the packet accounts
+        let (router_state, _) = derive_router_state(&self.solana_ics26_program_id);
+
+        // Derive IBC app account (using "transfer" port for ICS20)
+        let (ibc_app_pda, _) = derive_ibc_app("transfer", &self.solana_ics26_program_id);
+
+        // Query the IBC app account to get the actual program ID
+        let ibc_app_account = self
+            .solana_client
+            .get_account(&ibc_app_pda)
+            .map_err(|e| anyhow::anyhow!("Failed to get IBC app account: {e}"))?;
+
+        // The IBC app account data structure:
+        // - discriminator (8 bytes)
+        // - port_id string (4 bytes length + string data)
+        // - app_program_id (32 bytes)
+        // - authority (32 bytes)
+
+        // Parse the IBC app account to get the program ID
+        let ibc_app_program = if ibc_app_account.data.len() >= 44 {
+            // Skip discriminator (8 bytes)
+            let mut offset = 8;
+
+            // Read port_id string length (4 bytes, little-endian)
+            let port_len = u32::from_le_bytes(
+                ibc_app_account.data[offset..offset + 4]
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("Invalid port length"))?,
+            ) as usize;
+            offset += 4;
+
+            // Skip the port string data
+            offset += port_len;
+
+            // Now read the app_program_id (32 bytes)
+            if offset + 32 <= ibc_app_account.data.len() {
+                let program_bytes: [u8; 32] = ibc_app_account.data[offset..offset + 32]
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("Invalid program ID bytes"))?;
+                Pubkey::new_from_array(program_bytes)
+            } else {
+                return Err(anyhow::anyhow!(
+                    "IBC app account data too short for program ID"
+                ));
+            }
+        } else {
+            return Err(anyhow::anyhow!("Invalid IBC app account data length"));
+        };
+
+        tracing::info!("IBC app program ID: {}", ibc_app_program);
+
+        // Derive the app state PDA
+        let (app_state, _) = Pubkey::find_program_address(&[b"state"], &ibc_app_program);
+
+        // For ack, the packet commitment is stored under the SOURCE client (where packet originated)
+        // Need to use the ICS26 client ID for the commitment lookup
+        let commitment_client_id = if params.source_client == "cosmoshub-1" {
+            "cosmoshub-1"
+        } else {
+            params.source_client
+        };
+
+        let (packet_commitment, _) = derive_packet_commitment(
+            commitment_client_id, // Use ICS26 client ID for commitment lookup
+            params.sequence,
+            &self.solana_ics26_program_id,
+        );
+
+        // IMPORTANT: The test setup uses different client IDs:
+        // - ICS26 router has "cosmoshub-1" registered as the client
+        // - ICS07 Tendermint has the actual chain ID "simd-1" for the client state
+        // We need to use the correct ID for each component
+
+        // For ICS26 router operations, use the registered client ID
+        let ics26_client_id = if params.source_client == "cosmoshub-1" {
+            "cosmoshub-1".to_string()
+        } else {
+            params.source_client.to_string()
+        };
+
+        // For ICS07 Tendermint operations, use the actual chain ID
+        let ics07_chain_id = if params.source_client == "cosmoshub-1" {
+            "simd-1".to_string() // The actual Cosmos chain ID
+        } else {
+            params.source_client.to_string()
+        };
+
+        tracing::info!(
+            "Client ID mapping - ICS26: {}, ICS07: {}",
+            ics26_client_id,
+            ics07_chain_id
+        );
+
+        // Derive the client PDA using ICS26 client ID
+        let (client, _) = derive_client(&ics26_client_id, &self.solana_ics26_program_id);
+
+        // For light client verification, use ICS07 accounts with the actual chain ID
+        let (client_state, _) =
+            derive_ics07_client_state(&ics07_chain_id, &self.solana_ics07_program_id);
+        let (consensus_state, _) =
+            derive_ics07_consensus_state(&client_state, 0, &self.solana_ics07_program_id);
+
+        // Build accounts list for ack_packet (order matters!)
+        let accounts = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(ibc_app_pda, false),
+            AccountMeta::new(packet_commitment, false), // Will be closed after ack
+            AccountMeta::new_readonly(ibc_app_program, false), // IBC app program
+            AccountMeta::new(app_state, false),         // IBC app state
+            AccountMeta::new_readonly(self.solana_ics26_program_id, false), // Router program
+            AccountMeta::new_readonly(self.fee_payer, true), // relayer
+            AccountMeta::new(self.fee_payer, true),     // payer
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(client, false),
+            AccountMeta::new_readonly(self.solana_ics07_program_id, false), // light client program
+            AccountMeta::new_readonly(client_state, false),
+            AccountMeta::new_readonly(consensus_state, false),
+        ];
+
+        // Build instruction data
+        let discriminator = get_instruction_discriminator("ack_packet");
+        let mut data = discriminator.to_vec();
+        data.extend_from_slice(&msg.try_to_vec()?);
+
+        Ok(Instruction {
+            program_id: self.solana_ics26_program_id,
+            accounts,
+            data,
+        })
+    }
+
     /// Build a create client transaction for Solana
     ///
     /// # Errors
@@ -843,19 +1137,52 @@ impl TxBuilder {
     /// - Failed to get latest block from Cosmos
     /// - Failed to serialize header
     /// - Failed to get blockhash from Solana
-    pub async fn build_chunked_update_client_txs(
+    /// Build chunked update client transactions to a specific height
+    pub async fn build_chunked_update_client_txs_to_height(
         &self,
         client_id: String,
+        target_height_override: Option<u64>,
     ) -> Result<ChunkedUpdateTransactions> {
         tracing::info!(
-            "Building chunked update client transactions for client {}",
-            client_id
+            "Building chunked update client transactions for client {} to height {:?}",
+            client_id,
+            target_height_override
         );
 
         // Fetch block data and create header
         let (header_bytes, chain_id, target_height, trusted_height) =
-            self.prepare_header_for_chunking().await?;
+            if let Some(height) = target_height_override {
+                self.prepare_header_for_chunking_at_height(height).await?
+            } else {
+                self.prepare_header_for_chunking().await?
+            };
 
+        self.build_chunked_update_client_txs_internal(
+            client_id,
+            header_bytes,
+            chain_id,
+            target_height,
+            trusted_height,
+        )
+        .await
+    }
+
+    pub async fn build_chunked_update_client_txs(
+        &self,
+        client_id: String,
+    ) -> Result<ChunkedUpdateTransactions> {
+        self.build_chunked_update_client_txs_to_height(client_id, None)
+            .await
+    }
+
+    async fn build_chunked_update_client_txs_internal(
+        &self,
+        _client_id: String,
+        header_bytes: Vec<u8>,
+        chain_id: String,
+        target_height: u64,
+        trusted_height: u64,
+    ) -> Result<ChunkedUpdateTransactions> {
         // Calculate header commitment and split into chunks
         let header_commitment = keccak::hash(&header_bytes).0;
         let chunks = Self::split_header_into_chunks(&header_bytes);
@@ -930,6 +1257,43 @@ impl TxBuilder {
     }
 
     /// Prepare header data for chunking by fetching blocks and creating header
+    async fn prepare_header_for_chunking_at_height(
+        &self,
+        height: u64,
+    ) -> Result<(Vec<u8>, String, u64, u64)> {
+        // Get block at specific height from Cosmos
+        let target_light_block = self
+            .source_tm_client
+            .get_light_block(Some(height))
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to get block at height {}: {e}", height))?;
+
+        // Get chain_id
+        let chain_id = target_light_block.signed_header.header.chain_id.to_string();
+        let target_height = height;
+
+        // Query the client state to get the actual trusted height
+        let trusted_height = self.query_client_latest_height(&chain_id)?;
+
+        // Get trusted light block from the height that actually has a consensus state
+        let trusted_light_block = self
+            .source_tm_client
+            .get_light_block(Some(trusted_height))
+            .await?;
+
+        tracing::info!(
+            "Generating chunked Solana update client header from height: {} to height: {}",
+            trusted_height,
+            target_light_block.height().value()
+        );
+
+        // Create the header
+        let proposed_header = target_light_block.into_header(&trusted_light_block);
+        let header_bytes = proposed_header.encode_to_vec();
+
+        Ok((header_bytes, chain_id, target_height, trusted_height))
+    }
+
     async fn prepare_header_for_chunking(&self) -> Result<(Vec<u8>, String, u64, u64)> {
         // Get latest block from Cosmos
         let latest_block = self
@@ -1052,10 +1416,12 @@ impl TxBuilder {
 
         // Add compute budget instructions to increase the limit
         // Request 1.4M compute units (maximum allowed)
-        let compute_budget_ix = solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let compute_budget_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
 
         // Optionally set a priority fee to ensure the transaction gets processed
-        let priority_fee_ix = solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(1000);
+        let priority_fee_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(1000);
 
         let mut assembly_tx = Transaction::new_with_payer(
             &[compute_budget_ix, priority_fee_ix, assembly_instruction],

@@ -6,6 +6,10 @@ edition     = { workspace = true }
 repository  = { workspace = true }
 license     = { workspace = true }
 
+[features]
+default = []
+solana = ["brine-ed25519", "tendermint"]
+
 [dependencies]
 tendermint-light-client-verifier = { workspace = true }
 ibc-client-tendermint            = { workspace = true, features = ["serde"] }
@@ -15,6 +19,8 @@ ibc-core-client-types            = { workspace = true }
 ibc-primitives                   = { workspace = true }
 sha2                             = { workspace = true }
 thiserror                        = { workspace = true }
+tendermint                       = { workspace = true, optional = true }
+brine-ed25519                    = { workspace = true, optional = true, features = ["std"] }
 
 [dev-dependencies]
 serde                            = { workspace = true, features = ["derive"] }

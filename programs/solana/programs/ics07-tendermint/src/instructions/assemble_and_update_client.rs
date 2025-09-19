@@ -12,6 +12,8 @@ use tendermint_light_client_update_client::ClientState as UpdateClientState;
 pub fn assemble_and_update_client(
     mut ctx: Context<AssembleAndUpdateClient>,
 ) -> Result<UpdateResult> {
+    let start_cu: u64 = anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
+
     let metadata = &ctx.accounts.metadata;
     let chain_id = &metadata.chain_id;
     let target_height = metadata.target_height;
@@ -34,11 +36,43 @@ pub fn assemble_and_update_client(
         ErrorCode::AccountValidationFailed
     );
 
+    let cu_after_validation: u64 =
+        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
+    msg!(
+        "CU used for PDA validation: {}",
+        start_cu.saturating_sub(cu_after_validation)
+    );
+
     let header_bytes = assemble_chunks(&ctx)?;
+
+    let cu_after_assembly: u64 =
+        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
+    msg!(
+        "CU used for chunk assembly: {}",
+        cu_after_validation.saturating_sub(cu_after_assembly)
+    );
 
     let result = process_header_update(&mut ctx, header_bytes)?;
 
+    let cu_after_update: u64 =
+        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
+    msg!(
+        "CU used for header update: {}",
+        cu_after_assembly.saturating_sub(cu_after_update)
+    );
+
     cleanup_chunks(&ctx)?;
+
+    let cu_after_cleanup: u64 =
+        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
+    msg!(
+        "CU used for cleanup: {}",
+        cu_after_update.saturating_sub(cu_after_cleanup)
+    );
+    msg!(
+        "Total CU used: {}",
+        start_cu.saturating_sub(cu_after_cleanup)
+    );
 
     Ok(result)
 }
@@ -68,7 +102,15 @@ fn assemble_chunks(ctx: &Context<AssembleAndUpdateClient>) -> Result<Vec<u8>> {
         )?;
     }
 
+    let cu_before_keccak: u64 =
+        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
     let computed_commitment = keccak::hash(&header_bytes).0;
+    let cu_after_keccak: u64 =
+        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
+    msg!(
+        "CU used for keccak hash: {}",
+        cu_before_keccak.saturating_sub(cu_after_keccak)
+    );
     require!(
         metadata.header_commitment == computed_commitment,
         ErrorCode::InvalidHeader
@@ -170,17 +212,47 @@ fn verify_and_update_header(
     trusted_state: &ConsensusState,
     header: Header,
 ) -> Result<(ibc_core_client_types::Height, ConsensusState)> {
+    // Always perform real verification
     let update_client_state: UpdateClientState = client_state.clone().into();
     let trusted_ibc_state: IbcConsensusState = trusted_state.clone().into();
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
+    msg!("Starting header verification");
+    msg!("Client state chain_id: {}", client_state.chain_id);
+    msg!(
+        "Trusted height: {}",
+        header.trusted_height.revision_height()
+    );
+    msg!(
+        "New header height: {}",
+        header.signed_header.header.height.value()
+    );
+    msg!(
+        "Trusted consensus timestamp (ns): {}",
+        trusted_state.timestamp
+    );
+    msg!("Current time (ns): {}", current_time);
+
+    let cu_before_verify: u64 =
+        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
         &trusted_ibc_state,
         header,
         current_time,
     )
-    .map_err(|_| ErrorCode::UpdateClientFailed)?;
+    .map_err(|e| {
+        msg!("Header verification failed: {:?}", e);
+        ErrorCode::UpdateClientFailed
+    })?;
+
+    let cu_after_verify: u64 =
+        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
+    msg!(
+        "CU used for tendermint verification: {}",
+        cu_before_verify.saturating_sub(cu_after_verify)
+    );
+    msg!("Header verification successful");
 
     Ok((
         output.latest_height,
