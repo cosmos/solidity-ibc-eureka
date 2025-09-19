@@ -890,11 +890,15 @@ impl TxBuilder {
             }],
         };
 
+        // Query the latest height from the client state
+        let ics07_chain_id = &params.source_client;
+        let latest_height = self.query_client_latest_height(ics07_chain_id)?;
+
         let msg = MsgAckPacket {
             packet,
             acknowledgement,
             proof_acked: MOCK_PROOF_DATA.to_vec(), // Using mock proof for testing
-            proof_height: 0,                       // Mock height
+            proof_height: latest_height,
         };
 
         // Derive PDAs for the packet accounts
