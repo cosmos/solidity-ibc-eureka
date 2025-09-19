@@ -996,8 +996,14 @@ impl TxBuilder {
         // For light client verification, use ICS07 accounts with the actual chain ID
         let (client_state, _) =
             derive_ics07_client_state(&ics07_chain_id, &self.solana_ics07_program_id);
-        let (consensus_state, _) =
-            derive_ics07_consensus_state(&client_state, 0, &self.solana_ics07_program_id);
+
+        // Query the latest height from the client state
+        let latest_height = self.query_client_latest_height(&ics07_chain_id)?;
+        let (consensus_state, _) = derive_ics07_consensus_state(
+            &client_state,
+            latest_height,
+            &self.solana_ics07_program_id,
+        );
 
         // Build accounts list for ack_packet (order matters!)
         let accounts = vec![
