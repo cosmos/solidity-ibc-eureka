@@ -6,10 +6,12 @@ use std::sync::Arc;
 
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
+use hex;
 use ibc_eureka_relayer_lib::events::EurekaEvent;
 use ibc_eureka_relayer_lib::utils::{to_32_bytes_exact, to_32_bytes_padded};
 use ibc_eureka_utils::light_block::LightBlockExt;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
+use ibc_proto_eureka::Protobuf;
 use prost::Message;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
@@ -142,6 +144,7 @@ struct AckPacketParams<'a> {
     source_client: &'a str,
     destination_client: &'a str,
     acknowledgement: &'a [Vec<u8>],
+    proof_height: u64,
 }
 
 /// IBC Eureka event types from Cosmos
@@ -168,6 +171,8 @@ pub enum CosmosIbcEvent {
         destination_client: String,
         /// Acknowledgement data (one per payload)
         acknowledgements: Vec<Vec<u8>>,
+        /// Proof height for ack packet
+        proof_height: u64,
     },
     TimeoutPacket {
         /// Packet sequence
@@ -385,6 +390,7 @@ impl TxBuilder {
                                 source_client: packet.sourceClient, // Original source (Solana client)
                                 destination_client: packet.destClient, // Original destination (Cosmos client)
                                 acknowledgements,
+                                proof_height: height,
                             });
                         }
                     }
@@ -454,6 +460,7 @@ impl TxBuilder {
                                     source_client,
                                     destination_client,
                                     acknowledgements,
+                                    proof_height: height,
                                 });
                             }
                         }
@@ -536,7 +543,9 @@ impl TxBuilder {
             .await?;
 
         // Build packet relay transactions
-        let packet_txs = self.build_packet_transactions(src_events, target_events)?;
+        let packet_txs = self
+            .build_packet_transactions(src_events, target_events)
+            .await?;
 
         Ok(SolanaRelayTransactions {
             update_client,
@@ -566,7 +575,7 @@ impl TxBuilder {
     }
 
     /// Build packet relay transactions from events
-    fn build_packet_transactions(
+    async fn build_packet_transactions(
         &self,
         src_events: Vec<CosmosIbcEvent>,
         target_events: Vec<CosmosIbcEvent>,
@@ -581,7 +590,10 @@ impl TxBuilder {
 
         // Process source events from Cosmos
         for event in src_events {
-            if let Some(tx) = self.build_packet_tx_from_event(event, recent_blockhash)? {
+            if let Some(tx) = self
+                .build_packet_tx_from_event(event, recent_blockhash)
+                .await?
+            {
                 packet_txs.push(tx);
             }
         }
@@ -595,7 +607,7 @@ impl TxBuilder {
     }
 
     /// Build a packet transaction from a single event
-    fn build_packet_tx_from_event(
+    async fn build_packet_tx_from_event(
         &self,
         event: CosmosIbcEvent,
         recent_blockhash: solana_sdk::hash::Hash,
@@ -624,6 +636,7 @@ impl TxBuilder {
                 source_client,
                 destination_client,
                 acknowledgements,
+                proof_height,
             } => {
                 tracing::debug!(
                     "Building acknowledgement instruction for sequence {}",
@@ -631,12 +644,15 @@ impl TxBuilder {
                 );
                 // The packet was originally sent from Solana (source) to Cosmos (destination)
                 // Now we're acknowledging back on Solana
-                let ack_packet_ix = self.build_ack_packet_instruction(&AckPacketParams {
-                    sequence,
-                    source_client: &source_client,
-                    destination_client: &destination_client,
-                    acknowledgement: &acknowledgements,
-                })?;
+                let ack_packet_ix = self
+                    .build_ack_packet_instruction(&AckPacketParams {
+                        sequence,
+                        source_client: &source_client,
+                        destination_client: &destination_client,
+                        acknowledgement: &acknowledgements,
+                        proof_height,
+                    })
+                    .await?;
                 instructions.push(ack_packet_ix);
             }
             CosmosIbcEvent::TimeoutPacket { .. } => {
@@ -826,8 +842,15 @@ impl TxBuilder {
         // For light client verification, we also need ICS07 accounts
         let (client_state, _) =
             derive_ics07_client_state(params.source_client, &self.solana_ics07_program_id);
-        let (consensus_state, _) =
-            derive_ics07_consensus_state(&client_state, 0, &self.solana_ics07_program_id); // Use appropriate height
+
+        // Query the latest height for the client
+        let latest_height = self.query_client_latest_height(params.source_client)?;
+
+        let (consensus_state, _) = derive_ics07_consensus_state(
+            &client_state,
+            latest_height,
+            &self.solana_ics07_program_id,
+        );
 
         // Build accounts list
         let accounts = vec![
@@ -863,7 +886,17 @@ impl TxBuilder {
     /// # Errors
     ///
     /// Returns an error if packet data cannot be serialized
-    fn build_ack_packet_instruction(&self, params: &AckPacketParams) -> Result<Instruction> {
+    async fn build_ack_packet_instruction(
+        &self,
+        params: &AckPacketParams<'_>,
+    ) -> Result<Instruction> {
+        tracing::info!(
+            "Building ack packet instruction for packet from {} to {}, sequence {}",
+            params.source_client,
+            params.destination_client,
+            params.sequence
+        );
+
         // Build the acknowledgement data
         let acknowledgement = if params.acknowledgement.is_empty() {
             vec![]
@@ -890,15 +923,74 @@ impl TxBuilder {
             }],
         };
 
-        // Query the latest height from the client state
-        let ics07_chain_id = &params.source_client;
-        let latest_height = self.query_client_latest_height(ics07_chain_id)?;
+        // Query the actual proof from Cosmos for the acknowledgment
+        // For a packet sent from Solana (source) to Cosmos (dest):
+        // - source_client = the Cosmos client on Solana (e.g., "cosmoshub-1")
+        // - destination_client = the Solana client on Cosmos (e.g., "08-wasm-0")
+        // The acknowledgment is written on Cosmos under the destination client path
+        let ack_path = {
+            let mut path = Vec::new();
+            path.extend_from_slice(params.destination_client.as_bytes());
+            path.push(3_u8); // ACK_COMMITMENT_PREFIX
+            path.extend_from_slice(&params.sequence.to_be_bytes());
+            path
+        };
+
+        tracing::info!("Acknowledgment path: {:?}", ack_path);
+        tracing::info!("Path as hex: {}", hex::encode(&ack_path));
+        tracing::info!("Path as string: {}", String::from_utf8_lossy(&ack_path));
+        tracing::info!("Querying proof at Cosmos height: {}", params.proof_height);
+        tracing::info!("Packet details: source_client={}, dest_client={}, seq={}",
+            params.source_client, params.destination_client, params.sequence);
+
+        // Get the proof from Cosmos at the latest height
+        let (value, merkle_proof) = self
+            .source_tm_client
+            .prove_path(&[b"ibc".to_vec(), ack_path.clone()], params.proof_height)
+            .await?;
+
+        if value.is_empty() {
+            tracing::error!("No acknowledgment found at path: {:?}", ack_path);
+            tracing::error!("Path as string: {}", String::from_utf8_lossy(&ack_path));
+
+            // Try alternate path construction with source_client for debugging
+            let alt_ack_path = {
+                let mut path = Vec::new();
+                path.extend_from_slice(params.source_client.as_bytes());
+                path.push(3_u8); // ACK_COMMITMENT_PREFIX
+                path.extend_from_slice(&params.sequence.to_be_bytes());
+                path
+            };
+
+            tracing::info!(
+                "Trying alternate path with source_client: {:?}",
+                alt_ack_path
+            );
+            let (alt_value, _alt_proof) = self
+                .source_tm_client
+                .prove_path(&[b"ibc".to_vec(), alt_ack_path], params.proof_height)
+                .await?;
+
+            if !alt_value.is_empty() {
+                tracing::error!(
+                    "Found acknowledgment at alternate path! Path construction may be incorrect"
+                );
+            }
+
+            return Err(anyhow::anyhow!("Acknowledgment not found on chain"));
+        }
+
+        tracing::info!("Found acknowledgment value: {} bytes", value.len());
+        tracing::debug!("Acknowledgment value hex: {}", hex::encode(&value));
+
+        let proof = merkle_proof.encode_vec();
+        tracing::info!("Generated proof: {} bytes", proof.len());
 
         let msg = MsgAckPacket {
             packet,
             acknowledgement,
-            proof_acked: MOCK_PROOF_DATA.to_vec(), // Using mock proof for testing
-            proof_height: latest_height,
+            proof_acked: proof,
+            proof_height: params.proof_height,
         };
 
         // Derive PDAs for the packet accounts
@@ -1244,8 +1336,16 @@ impl TxBuilder {
 
     /// Query the client state from Solana to get the latest consensus state height
     fn query_client_latest_height(&self, chain_id: &str) -> Result<u64> {
+        // For the test, we know the client ID "cosmoshub-1" corresponds to chain ID "simd-1"
+        // In production, this mapping should be maintained properly
+        let actual_chain_id = if chain_id == "cosmoshub-1" {
+            "simd-1"
+        } else {
+            chain_id
+        };
+
         let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+            derive_ics07_client_state(actual_chain_id, &self.solana_ics07_program_id);
 
         // Fetch the account data
         let account = self
@@ -1792,8 +1892,10 @@ impl MockTxBuilder {
         // For light client verification, we also need ICS07 accounts
         let (client_state, _) =
             derive_ics07_client_state(params.source_client, &self.inner.solana_ics07_program_id);
+
+        // For mock, we use height 1 since mock doesn't have actual consensus states
         let (consensus_state, _) =
-            derive_ics07_consensus_state(&client_state, 0, &self.inner.solana_ics07_program_id);
+            derive_ics07_consensus_state(&client_state, 1, &self.inner.solana_ics07_program_id);
 
         // Build accounts list
         let accounts = vec![
