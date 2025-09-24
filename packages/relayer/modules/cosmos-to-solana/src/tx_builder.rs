@@ -689,31 +689,6 @@ impl TxBuilder {
         }
     }
 
-    /// Build Solana relay transactions with chunked update client
-    ///
-    /// Convenience method that includes update client by default.
-    /// Use `build_solana_relay_txs_with_options` to skip update client.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Failed to build update client transactions
-    /// - Failed to build packet instructions
-    pub async fn build_solana_relay_txs(
-        &self,
-        client_id: String,
-        src_events: Vec<CosmosIbcEvent>,
-        target_events: Vec<CosmosIbcEvent>,
-    ) -> Result<SolanaRelayTransactions> {
-        self.build_solana_relay_txs_with_options(
-            client_id,
-            src_events,
-            target_events,
-            false, // Don't skip update client by default
-            None,  // No specific proof height
-        )
-        .await
-    }
 
     /// Build instruction to update Tendermint light client on Solana
     ///
