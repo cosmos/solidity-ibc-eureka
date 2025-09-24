@@ -556,15 +556,20 @@ impl TxBuilder {
         skip_update_client: bool,
         proof_height: Option<u64>,
     ) -> Result<SolanaRelayTransactions> {
-        let update_client = self
-            .build_optional_update_client(
-                client_id,
-                skip_update_client,
-                !src_events.is_empty() || !target_events.is_empty(),
-                proof_height,
-            )
-            .await?;
+        // Build update client if needed
+        let update_client = if !skip_update_client && (!src_events.is_empty() || !target_events.is_empty()) {
+            tracing::info!("Building update client transactions");
+            Some(self.build_chunked_update_client_txs_to_height(client_id, proof_height).await?)
+        } else {
+            if skip_update_client {
+                tracing::info!("Skipping update client as requested");
+            } else {
+                tracing::info!("No events to process, skipping update client");
+            }
+            None
+        };
 
+        // Build packet transactions
         let packet_txs = self
             .build_packet_transactions(src_events, target_events)
             .await?;
@@ -575,29 +580,17 @@ impl TxBuilder {
         })
     }
 
-    /// Build optional update client based on conditions
-    async fn build_optional_update_client(
-        &self,
-        client_id: String,
-        skip_update_client: bool,
-        has_events: bool,
-        target_height: Option<u64>,
-    ) -> Result<Option<ChunkedUpdateTransactions>> {
-        if !skip_update_client && has_events {
-            Ok(Some(
-                self.build_chunked_update_client_txs_to_height(client_id, target_height)
-                    .await?,
-            ))
-        } else {
-            if skip_update_client {
-                tracing::info!("Skipping update client as requested");
-            }
-            Ok(None)
-        }
-    }
-
     /// Build packet relay transactions from events
-    async fn build_packet_transactions(
+    ///
+    /// This can be called separately from update client for better control
+    /// over transaction submission on Solana.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to get blockhash from Solana
+    /// - Failed to build packet instructions
+    pub async fn build_packet_transactions(
         &self,
         src_events: Vec<CosmosIbcEvent>,
         target_events: Vec<CosmosIbcEvent>,
