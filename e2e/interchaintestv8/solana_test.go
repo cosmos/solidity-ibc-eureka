@@ -588,9 +588,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 		packetMsg := dummy_ibc_app.SendPacketMsg{
 			SourceClient:     SolanaClientID,
-			SourcePort:       "transfer",
-			DestPort:         "transfer",
-			Version:          "ics20-1",
+			SourcePort:       transfertypes.PortID,
+			DestPort:         transfertypes.PortID,
+			Version:          transfertypes.V1,
 			Encoding:         "application/json",
 			PacketData:       packetData,
 			TimeoutTimestamp: time.Now().Unix() + 3600,
