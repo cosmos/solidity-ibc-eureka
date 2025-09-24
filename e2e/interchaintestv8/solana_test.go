@@ -506,8 +506,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	}))
 
 	s.Require().True(s.Run("Acknowledge transfer on Solana", func() {
-		// First, update the client on Solana separately using chunked transactions
-		s.Require().True(s.Run("Update Tendermint client on Solana", func() {
+		s.Require().True(s.Run("Update Tendermint client on Solana via chunks", func() {
 			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    testvalues.SolanaChainID,
@@ -515,7 +514,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			})
 			s.Require().NoError(err)
 
-			// Handle chunked transactions for update client
 			switch {
 			case len(resp.ChunkedTxs) > 0:
 				err = s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
@@ -528,7 +526,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			}
 		}))
 
-		// Now relay the acknowledgment packet without update client
 		s.Require().True(s.Run("Relay acknowledgment without update client", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SrcChain:         simd.Config().ChainID,
@@ -536,7 +533,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 				SourceTxIds:      [][]byte{cosmosRelayTxHash},
 				SrcClientId:      CosmosClientID,
 				DstClientId:      SolanaClientID,
-				SkipUpdateClient: true, // Skip update client since we did it separately
+				SkipUpdateClient: true, // Skip update client since we did it separately via chunks
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -711,8 +708,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
 		s.Require().True(s.Run("Relay acknowledgment with automatic update client", func() {
-			// When SkipUpdateClient is false, the relayer returns chunked update client transactions
-			// that need to be submitted before the acknowledgment
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SrcChain:         simd.Config().ChainID,
 				DstChain:         testvalues.SolanaChainID,
@@ -728,10 +723,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 				s.T().Logf("Received %d chunked update client transactions", len(resp.ChunkedTxs))
 				s.T().Logf("ChunkedMetadata present: %v", resp.ChunkedMetadata != nil)
 				if resp.ChunkedMetadata != nil {
-					s.T().Logf("ChunkedMetadata - TargetHeight: %d, TotalChunks: %d", 
+					s.T().Logf("ChunkedMetadata - TargetHeight: %d, TotalChunks: %d",
 						resp.ChunkedMetadata.TargetHeight, resp.ChunkedMetadata.TotalChunks)
 				}
-				
+
 				// Submit the chunked update client transactions
 				err = s.submitChunkedUpdateClientFromRelay(ctx, resp, s.SolanaUser)
 				s.Require().NoError(err, "Failed to submit chunked update client")
@@ -772,7 +767,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClientFromRelay(ctx contex
 
 	// Log what we received
 	s.T().Logf("submitChunkedUpdateClientFromRelay: received %d transactions", len(resp.ChunkedTxs))
-	
+
 	// Handle missing metadata - infer from transaction count
 	var targetHeight uint64
 	var totalChunks uint32
@@ -834,7 +829,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClientFromRelay(ctx contex
 	// Submit chunks in parallel
 	if chunkEnd > chunkStart {
 		resultsCh := make(chan chunkResult, chunkEnd-chunkStart)
-		
+
 		for i := chunkStart; i < chunkEnd; i++ {
 			go func(index int) {
 				tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[index]))
@@ -856,7 +851,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClientFromRelay(ctx contex
 					resultsCh <- chunkResult{index: index, err: fmt.Errorf("failed to submit chunk %d: %w", index-1, err)}
 					return
 				}
-				
+
 				resultsCh <- chunkResult{index: index, sig: sig}
 			}(i)
 		}
@@ -870,7 +865,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClientFromRelay(ctx contex
 			s.T().Logf("Chunk %d transaction submitted: %s", result.index-1, result.sig)
 		}
 		close(resultsCh)
-		
+
 		// Wait for all chunks to be processed
 		time.Sleep(1 * time.Second)
 	}
@@ -894,7 +889,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClientFromRelay(ctx contex
 			return fmt.Errorf("failed to submit assembly tx: %w", err)
 		}
 		s.T().Logf("Assembly transaction submitted: %s", sig)
-		
+
 		// Wait for assembly to complete
 		time.Sleep(2 * time.Second)
 	}
