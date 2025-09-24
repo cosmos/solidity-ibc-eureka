@@ -209,47 +209,47 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         );
 
         // Prepare the response based on whether update client is needed
-        let (tx_bytes, chunked_txs, chunked_metadata) = 
+        let (tx_bytes, chunked_txs, chunked_metadata) =
             if !inner_req.skip_update_client && relay_txs.update_client.is_some() {
                 // Return chunked update client transactions for the client to submit
                 let update_client = relay_txs.update_client.as_ref().unwrap();
-                
+
                 tracing::info!("Returning chunked update client transactions for client to submit");
-                
+
                 // Serialize all chunked transactions
                 let mut serialized_txs = Vec::new();
-                
+
                 // Add metadata transaction
                 serialized_txs.push(bincode::serialize(&update_client.metadata_tx).map_err(|e| {
                     tonic::Status::internal(format!("Failed to serialize metadata tx: {e}"))
                 })?);
-                
+
                 // Add chunk transactions
                 for tx in &update_client.chunk_txs {
                     serialized_txs.push(bincode::serialize(tx).map_err(|e| {
                         tonic::Status::internal(format!("Failed to serialize chunk tx: {e}"))
                     })?);
                 }
-                
+
                 // Add assembly transaction
                 serialized_txs.push(bincode::serialize(&update_client.assembly_tx).map_err(|e| {
                     tonic::Status::internal(format!("Failed to serialize assembly tx: {e}"))
                 })?);
-                
+
                 // Create metadata
                 let metadata = Some(api::ChunkedMetadata {
                     target_height: update_client.target_height,
                     total_chunks: u32::try_from(update_client.total_chunks)
                         .map_err(|e| tonic::Status::internal(format!("Total chunks overflow: {e}")))?,
                 });
-                
+
                 tracing::info!(
                     "Returning chunked update client: {} transactions (metadata + {} chunks + assembly), target_height: {}",
                     serialized_txs.len(),
                     update_client.total_chunks,
                     update_client.target_height
                 );
-                
+
                 // Return the packet transaction as the main tx
                 let main_tx = if relay_txs.packet_txs.len() == 1 {
                     bincode::serialize(&relay_txs.packet_txs[0]).map_err(|e| {
@@ -262,7 +262,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
                         tonic::Status::internal(format!("Failed to serialize packet transactions: {e}"))
                     })?
                 };
-                
+
                 (main_tx, serialized_txs, metadata)
             } else {
                 // No update client needed, just return packet txs
@@ -277,7 +277,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
                         tonic::Status::internal(format!("Failed to serialize packet transactions: {e}"))
                     })?
                 };
-                
+
                 (tx_bytes, vec![], None)
             };
 
@@ -322,7 +322,6 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         let inner_req = request.into_inner();
         let client_id = inner_req.dst_client_id;
 
-        // Build chunked update client transactions
         let chunked_txs = self
             .tx_builder
             .build_chunked_update_client_txs(client_id)
