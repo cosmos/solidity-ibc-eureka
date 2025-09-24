@@ -557,17 +557,21 @@ impl TxBuilder {
         proof_height: Option<u64>,
     ) -> Result<SolanaRelayTransactions> {
         // Build update client if needed
-        let update_client = if !skip_update_client && (!src_events.is_empty() || !target_events.is_empty()) {
-            tracing::info!("Building update client transactions");
-            Some(self.build_chunked_update_client_txs_to_height(client_id, proof_height).await?)
-        } else {
-            if skip_update_client {
-                tracing::info!("Skipping update client as requested");
+        let update_client =
+            if !skip_update_client && (!src_events.is_empty() || !target_events.is_empty()) {
+                tracing::info!("Building update client transactions");
+                Some(
+                    self.build_chunked_update_client_txs_to_height(client_id, proof_height)
+                        .await?,
+                )
             } else {
-                tracing::info!("No events to process, skipping update client");
-            }
-            None
-        };
+                if skip_update_client {
+                    tracing::info!("Skipping update client as requested");
+                } else {
+                    tracing::info!("No events to process, skipping update client");
+                }
+                None
+            };
 
         // Build packet transactions
         let packet_txs = self
@@ -611,7 +615,6 @@ impl TxBuilder {
             }
         }
 
-        // Process target events (for timeouts)
         for event in target_events {
             tracing::debug!(?event, "Processing timeout event from Solana");
         }
@@ -681,7 +684,6 @@ impl TxBuilder {
             Ok(Some(tx))
         }
     }
-
 
     /// Build instruction to update Tendermint light client on Solana
     ///
