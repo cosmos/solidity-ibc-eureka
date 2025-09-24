@@ -556,7 +556,6 @@ impl TxBuilder {
         skip_update_client: bool,
         proof_height: Option<u64>,
     ) -> Result<SolanaRelayTransactions> {
-        // Build optional update client
         let update_client = self
             .build_optional_update_client(
                 client_id,
@@ -566,7 +565,6 @@ impl TxBuilder {
             )
             .await?;
 
-        // Build packet relay transactions
         let packet_txs = self
             .build_packet_transactions(src_events, target_events)
             .await?;
@@ -606,13 +604,11 @@ impl TxBuilder {
     ) -> Result<Vec<Transaction>> {
         let mut packet_txs = Vec::new();
 
-        // Get recent blockhash for packet transactions
         let recent_blockhash = self
             .solana_client
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
-        // Process source events from Cosmos
         for event in src_events {
             if let Some(tx) = self
                 .build_packet_tx_from_event(event, recent_blockhash)
@@ -789,7 +785,6 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
-        // Get instruction discriminator for "update_client"
         let discriminator = get_instruction_discriminator("update_client");
         let mut data = discriminator.to_vec();
         data.extend_from_slice(&update_msg.try_to_vec()?);
@@ -893,7 +888,6 @@ impl TxBuilder {
             AccountMeta::new_readonly(consensus_state, false),
         ];
 
-        // Build instruction data
         let discriminator = get_instruction_discriminator("recv_packet");
         let mut data = discriminator.to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
@@ -951,14 +945,8 @@ impl TxBuilder {
         // For a packet sent from Solana (source) to Cosmos (dest):
         // - source_client = the Cosmos client on Solana (e.g., "cosmoshub-1")
         // - destination_client = the Solana client on Cosmos (e.g., "08-wasm-0")
-        // In IBC v2 Eureka, the acknowledgment is stored at: destClient + 0x03 + sequence
-        let ack_path = {
-            let mut path = Vec::new();
-            path.extend_from_slice(params.destination_client.as_bytes());
-            path.push(3_u8); // ACK_COMMITMENT_PREFIX
-            path.extend_from_slice(&params.sequence.to_be_bytes());
-            path
-        };
+        // Use the packet's ack_commitment_path method for consistency
+        let ack_path = packet.ack_commitment_path();
 
         tracing::info!("=== DEBUGGING ACK PATH ===");
         tracing::info!("Packet flow: Solana -> Cosmos (now acknowledging back to Solana)");
@@ -985,269 +973,24 @@ impl TxBuilder {
             hex::encode(&params.sequence.to_be_bytes())
         );
 
-        tracing::info!("=== QUERYING IBC STORE FOR ALL KEYS ===");
-
-        let query_paths = vec![
-            "/store/ibc/key",      // Try to query specific keys
-            "/store/ibc/subspace", // Query subspace
-            "/cosmos.ibc.core.channel.v1.Query/PacketAcknowledgement", // Query service
-        ];
-
-        for query_path in query_paths {
-            tracing::debug!("Trying ABCI query path: {}", query_path);
-            let abci_query = self
-                .source_tm_client
-                .abci_query(
-                    Some(query_path.to_string()),
-                    vec![], // Empty data
-                    Some(tendermint::block::Height::try_from(
-                        params.proof_height as u32,
-                    )?),
-                    false,
-                )
-                .await;
-
-            if let Ok(response) = abci_query {
-                if !response.value.is_empty() || response.code.is_ok() {
-                    tracing::info!(
-                        "ABCI query {} returned: code={:?}, log={}, value_len={}",
-                        query_path,
-                        response.code,
-                        response.log,
-                        response.value.len()
-                    );
-                    if !response.value.is_empty() {
-                        tracing::debug!("Value (hex): {}", hex::encode(&response.value));
-                    }
-                }
-            }
-        }
-
-        // Try different path formats - IBC-Go v10 might still use channel paths even in Eureka mode
-        tracing::info!("=== TRYING DIFFERENT PATH FORMATS ===");
-
-        // IBC Classic format: acks/ports/{port}/channels/{channel}/sequences/{sequence}
-        // Let's try the raw format that IBC-Go v10 might use
-        let classic_paths = vec![
-            format!(
-                "acks/ports/transfer/channels/channel-0/sequences/{}",
-                params.sequence
-            ),
-            format!(
-                "acks/ports/transfer/channels/channel-1/sequences/{}",
-                params.sequence
-            ),
-        ];
-
-        for classic_path in &classic_paths {
-            tracing::info!("Trying IBC Classic path: {}", classic_path);
-            let (test_value, _) = self
-                .source_tm_client
-                .prove_path(
-                    &[b"ibc".to_vec(), classic_path.as_bytes().to_vec()],
-                    params.proof_height,
-                )
-                .await?;
-
-            if !test_value.is_empty() {
-                tracing::info!(
-                    "FOUND acknowledgment at IBC Classic path: {} (value: {} bytes)",
-                    classic_path,
-                    test_value.len()
-                );
-                tracing::info!("Acknowledgment value (hex): {}", hex::encode(&test_value));
-            }
-        }
-
-        // Try commitments/ prefix that might be used by IBC-Go v10
-        let commitment_paths = vec![
-            format!("commitments/sequences/{}", params.sequence),
-            format!(
-                "commitments/{}/sequences/{}",
-                params.destination_client, params.sequence
-            ),
-            format!(
-                "commitments/{}/sequences/{}",
-                params.source_client, params.sequence
-            ),
-            format!("acks/{}/{}", params.destination_client, params.sequence),
-            format!("acks/{}/{}", params.source_client, params.sequence),
-        ];
-
-        for commitment_path in &commitment_paths {
-            tracing::info!("Trying commitment/ack path format: {}", commitment_path);
-            let (test_value, _) = self
-                .source_tm_client
-                .prove_path(
-                    &[b"ibc".to_vec(), commitment_path.as_bytes().to_vec()],
-                    params.proof_height,
-                )
-                .await?;
-
-            if !test_value.is_empty() {
-                tracing::info!(
-                    "FOUND acknowledgment at commitment path: {} (value: {} bytes)",
-                    commitment_path,
-                    test_value.len()
-                );
-                tracing::info!("Acknowledgment value (hex): {}", hex::encode(&test_value));
-            }
-        }
-
-        // Also try IBC v2 Eureka format with different client IDs
-        let prefixes_to_try = vec![
-            (
-                b"08-wasm-0".to_vec(),
-                "destination client (Solana on Cosmos)",
-            ),
-            (
-                params.destination_client.as_bytes().to_vec(),
-                "explicit destination client",
-            ),
-            (b"cosmoshub-1".to_vec(), "source client (Cosmos on Solana)"),
-            (
-                params.source_client.as_bytes().to_vec(),
-                "explicit source client",
-            ),
-            (b"channel-0".to_vec(), "channel-0 (backwards compat?)"),
-            (b"channel-1".to_vec(), "channel-1 (backwards compat?)"),
-        ];
-
-        for (prefix, description) in &prefixes_to_try {
-            let mut test_path = prefix.clone();
-            test_path.push(3_u8); // ACK_COMMITMENT_PREFIX
-            test_path.extend_from_slice(&params.sequence.to_be_bytes());
-
-            tracing::info!(
-                "Checking IBC v2 path with {}: {} (hex: {})",
-                description,
-                String::from_utf8_lossy(&test_path),
-                hex::encode(&test_path)
-            );
-
-            let (test_value, _) = self
-                .source_tm_client
-                .prove_path(&[b"ibc".to_vec(), test_path.clone()], params.proof_height)
-                .await?;
-
-            if !test_value.is_empty() {
-                tracing::info!(
-                    "✓ FOUND acknowledgment at path with {}: {} (value: {} bytes)",
-                    description,
-                    String::from_utf8_lossy(&test_path),
-                    test_value.len()
-                );
-                tracing::info!("Acknowledgment value (hex): {}", hex::encode(&test_value));
-
-                // Use this working path
-                tracing::info!("Using this path for the actual query!");
-                // Update ack_path to use the working one
-                // Note: We'd need to restructure the code to use this, for now just log it
-            } else {
-                tracing::debug!("✗ No acknowledgment at path with {}", description);
-            }
-        }
-
-        // Now try to find the actual acknowledgment path that works
-        let mut working_ack_path = None;
-
-        // First try the expected IBC v2 path
-        let (value_v2, proof_v2) = self
+        // Query the acknowledgment from Cosmos chain using IBC v2 path
+        let (value, merkle_proof) = self
             .source_tm_client
             .prove_path(&[b"ibc".to_vec(), ack_path.clone()], params.proof_height)
             .await?;
 
-        if !value_v2.is_empty() {
-            tracing::info!("✓ Found acknowledgment at expected IBC v2 path");
-            working_ack_path = Some((ack_path.clone(), value_v2, proof_v2));
+        if value.is_empty() {
+            tracing::error!("No acknowledgment found at expected IBC v2 path");
+            tracing::error!("Path: {}", String::from_utf8_lossy(&ack_path));
+            tracing::error!("Path hex: {}", hex::encode(&ack_path));
+            return Err(anyhow::anyhow!("Acknowledgment not found on chain"));
         }
 
-        // If not found, try IBC Classic paths
-        if working_ack_path.is_none() {
-            for channel in &["channel-0", "channel-1"] {
-                let classic_path = format!(
-                    "acks/ports/transfer/channels/{}/sequences/{}",
-                    channel, params.sequence
-                );
-                let (value_classic, proof_classic) = self
-                    .source_tm_client
-                    .prove_path(
-                        &[b"ibc".to_vec(), classic_path.as_bytes().to_vec()],
-                        params.proof_height,
-                    )
-                    .await?;
-
-                if !value_classic.is_empty() {
-                    tracing::info!(
-                        "✓ Found acknowledgment at IBC Classic path: {}",
-                        classic_path
-                    );
-                    working_ack_path = Some((
-                        classic_path.as_bytes().to_vec(),
-                        value_classic,
-                        proof_classic,
-                    ));
-                    break;
-                }
-            }
-        }
-
-        // If still not found, try commitment paths
-        if working_ack_path.is_none() {
-            let commitment_paths = vec![
-                format!("commitments/sequences/{}", params.sequence),
-                format!(
-                    "commitments/{}/sequences/{}",
-                    params.destination_client, params.sequence
-                ),
-                format!(
-                    "commitments/{}/sequences/{}",
-                    params.source_client, params.sequence
-                ),
-                format!("acks/{}/{}", params.destination_client, params.sequence),
-                format!("acks/{}/{}", params.source_client, params.sequence),
-            ];
-
-            for commitment_path in &commitment_paths {
-                let (value_commit, proof_commit) = self
-                    .source_tm_client
-                    .prove_path(
-                        &[b"ibc".to_vec(), commitment_path.as_bytes().to_vec()],
-                        params.proof_height,
-                    )
-                    .await?;
-
-                if !value_commit.is_empty() {
-                    tracing::info!(
-                        "✓ Found acknowledgment at commitment path: {}",
-                        commitment_path
-                    );
-                    working_ack_path = Some((
-                        commitment_path.as_bytes().to_vec(),
-                        value_commit,
-                        proof_commit,
-                    ));
-                    break;
-                }
-            }
-        }
-
-        // If still not found, we have a problem
-        let (value, merkle_proof) = match working_ack_path {
-            Some((path, val, proof)) => {
-                tracing::info!(
-                    "Using acknowledgment from path: {}",
-                    String::from_utf8_lossy(&path)
-                );
-                (val, proof)
-            }
-            None => {
-                tracing::error!("No acknowledgment found at any expected path");
-                tracing::error!("Tried IBC v2 path: {}", String::from_utf8_lossy(&ack_path));
-                tracing::error!("Tried IBC Classic paths: acks/ports/transfer/channels/channel-{{0,1}}/sequences/{}", params.sequence);
-                return Err(anyhow::anyhow!("Acknowledgment not found on chain"));
-            }
-        };
+        tracing::info!(
+            "✓ Found acknowledgment at IBC v2 path (value: {} bytes)",
+            value.len()
+        );
+        tracing::info!("Acknowledgment value (hex): {}", hex::encode(&value));
 
         tracing::info!("Found acknowledgment value: {} bytes", value.len());
         tracing::debug!("Acknowledgment value hex: {}", hex::encode(&value));
