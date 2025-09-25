@@ -943,16 +943,25 @@ impl TxBuilder {
             hex::encode(&params.sequence.to_be_bytes())
         );
 
+        // Acknowledgment is written at the NEXT height after the packet is received
+        let query_height = params.proof_height + 1;
+
+        tracing::info!(
+            "Querying acknowledgment at height {} (proof_height + 1)",
+            query_height
+        );
+
         // Query the acknowledgment from Cosmos chain using IBC v2 path
         let (value, merkle_proof) = self
             .source_tm_client
-            .prove_path(&[b"ibc".to_vec(), ack_path.clone()], params.proof_height)
+            .prove_path(&[b"ibc".to_vec(), ack_path.clone()], query_height)
             .await?;
 
         if value.is_empty() {
             tracing::error!("No acknowledgment found at expected IBC v2 path");
             tracing::error!("Path: {}", String::from_utf8_lossy(&ack_path));
             tracing::error!("Path hex: {}", hex::encode(&ack_path));
+            tracing::error!("Queried at height: {} (proof_height + 1)", query_height);
             return Err(anyhow::anyhow!("Acknowledgment not found on chain"));
         }
 
@@ -962,9 +971,6 @@ impl TxBuilder {
         );
         tracing::info!("Acknowledgment value (hex): {}", hex::encode(&value));
 
-        tracing::info!("Found acknowledgment value: {} bytes", value.len());
-        tracing::debug!("Acknowledgment value hex: {}", hex::encode(&value));
-
         let proof = merkle_proof.encode_vec();
         tracing::info!("Generated proof: {} bytes", proof.len());
 
@@ -972,7 +978,7 @@ impl TxBuilder {
             packet,
             acknowledgement,
             proof_acked: proof,
-            proof_height: params.proof_height,
+            proof_height: query_height,
         };
 
         // Derive PDAs for the packet accounts

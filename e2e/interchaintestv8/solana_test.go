@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -672,6 +674,84 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.T().Logf("Transaction result code: %d", relayTxResult.Code)
 			s.T().Logf("Transaction gas used: %d", relayTxResult.GasUsed)
 
+			// Check if the transaction was successful
+			s.Require().Equal(uint32(0), relayTxResult.Code, "MsgRecvPacket transaction should succeed with code 0")
+
+			// Query the transaction to check for events
+			txResp, err := simd.GetTransaction(relayTxResult.TxHash)
+			s.Require().NoError(err)
+			s.T().Logf("Transaction events count: %d", len(txResp.Events))
+
+			// Look for write_acknowledgement event
+			foundWriteAck := false
+			var ackSequence, ackDestClient string
+			for _, event := range txResp.Events {
+				s.T().Logf("Event type: %s", event.Type)
+				if event.Type == "write_acknowledgement" {
+					foundWriteAck = true
+					s.T().Log("✓ Found write_acknowledgement event!")
+					s.T().Log("Raw attributes:")
+					for _, attr := range event.Attributes {
+						// Check if attributes are base64 encoded or plain text
+						keyStr := attr.Key
+						valueStr := attr.Value
+
+						// Try to decode as base64, but if it fails, use the raw string
+						if decodedKey, err := base64.StdEncoding.DecodeString(attr.Key); err == nil {
+							keyStr = string(decodedKey)
+						}
+						if decodedValue, err := base64.StdEncoding.DecodeString(attr.Value); err == nil {
+							valueStr = string(decodedValue)
+						}
+
+						s.T().Logf("  - %s: %s", keyStr, valueStr)
+
+						// Check for specific attributes we need (IBC v2 event attributes)
+						// Based on IBC-Go v10 source: AttributeKeySequence = "packet_sequence"
+						// AttributeKeyDstClient = "packet_dest_client"
+						if keyStr == "packet_sequence" {
+							ackSequence = valueStr
+							s.T().Logf("  Found sequence: %s", ackSequence)
+						} else if keyStr == "packet_dest_client" {
+							ackDestClient = valueStr
+							s.T().Logf("  Found dest client: %s", ackDestClient)
+						} else if keyStr == "encoded_acknowledgement_hex" {
+							s.T().Logf("  Found encoded acknowledgement: %s", valueStr)
+						}
+					}
+				}
+			}
+
+			if !foundWriteAck {
+				s.T().Log("⚠️  WARNING: No write_acknowledgement event found in transaction!")
+				s.T().Log("This means Cosmos did not write an acknowledgment for the packet")
+			} else {
+				// Log where the acknowledgment should be stored
+				s.T().Logf("Acknowledgment should be stored for:")
+				s.T().Logf("  - Destination Client: %s", ackDestClient)
+				s.T().Logf("  - Sequence: %s", ackSequence)
+
+				// Calculate the expected IBC v2 path
+				if ackDestClient != "" && ackSequence != "" {
+					// Parse the sequence number from the string
+					seqNum, err := strconv.ParseUint(ackSequence, 10, 64)
+					if err != nil {
+						s.T().Logf("Failed to parse sequence number: %v", err)
+						seqNum = 1 // Default to 1 if parsing fails
+					}
+
+					// Build the IBC v2 Eureka acknowledgment path: destClient + 0x03 + sequence (8 bytes big-endian)
+					ackPath := append([]byte(ackDestClient), 0x03)
+					seqBytes := make([]byte, 8)
+					binary.BigEndian.PutUint64(seqBytes, seqNum)
+					ackPath = append(ackPath, seqBytes...)
+					s.T().Logf("Expected IBC v2 acknowledgment path (hex): %s", hex.EncodeToString(ackPath))
+					s.T().Logf("  Breakdown: client=%s (hex: %s), sep=0x03, seq=%d (hex: %s)",
+						ackDestClient, hex.EncodeToString([]byte(ackDestClient)),
+						seqNum, hex.EncodeToString(seqBytes))
+				}
+			}
+
 			cosmosPacketRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
 			s.Require().NoError(err)
 			cosmosPacketRelayTxHash = cosmosPacketRelayTxHashBytes
@@ -1024,6 +1104,16 @@ func (s *IbcEurekaSolanaTestSuite) verifyAcknowledgmentOnSolana(ctx context.Cont
 	s.T().Logf("  - Account: %s", packetAckPDA.String())
 	s.T().Logf("  - Data length: %d bytes", len(accountInfo.Value.Data.GetBinary()))
 	s.T().Logf("  - Owner: %s", accountInfo.Value.Owner.String())
+}
+
+// isPrintable checks if a string contains only printable ASCII characters
+func isPrintable(s string) bool {
+	for _, r := range s {
+		if r < 32 || r > 126 {
+			return false
+		}
+	}
+	return true
 }
 
 func getSolDenomOnCosmos() transfertypes.Denom {
