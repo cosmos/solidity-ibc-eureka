@@ -108,12 +108,13 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     let receipt_path =
         ics24::packet_receipt_commitment_path(&msg.packet.dest_client, msg.packet.sequence);
 
+    // The proof from Cosmos is generated with path segments ["ibc", receipt_path]
     let non_membership_msg = MembershipMsg {
         height: msg.proof_height,
         delay_time_period: 0,
         delay_block_period: 0,
         proof: msg.proof_timeout.clone(),
-        path: vec![receipt_path],
+        path: vec![b"ibc".to_vec(), receipt_path],
         value: vec![], // Empty value for non-membership
     };
 

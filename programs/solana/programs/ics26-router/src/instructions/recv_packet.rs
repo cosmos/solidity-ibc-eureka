@@ -139,12 +139,13 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     let expected_commitment = ics24::packet_commitment_bytes32(&msg.packet);
 
     // Verify membership proof via CPI to light client
+    // The proof from Cosmos is generated with path segments ["ibc", commitment_path]
     let membership_msg = MembershipMsg {
         height: msg.proof_height,
         delay_time_period: 0,
         delay_block_period: 0,
         proof: msg.proof_commitment.clone(),
-        path: vec![commitment_path],
+        path: vec![b"ibc".to_vec(), commitment_path],
         value: expected_commitment.to_vec(),
     };
 

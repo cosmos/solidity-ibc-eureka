@@ -107,14 +107,29 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     let ack_path =
         ics24::packet_acknowledgement_commitment_path(&msg.packet.dest_client, msg.packet.sequence);
 
+    // Debug logging to understand what's being verified
+    msg!("AckPacket verification details:");
+    msg!("  dest_client: {}", msg.packet.dest_client);
+    msg!("  sequence: {}", msg.packet.sequence);
+    msg!("  ack_path (hex): {:?}", hex::encode(&ack_path));
+    msg!("  proof_height: {}", msg.proof_height);
+    msg!("  acknowledgement (hex): {:?}", hex::encode(&msg.acknowledgement));
+    msg!("  acknowledgement len: {}", msg.acknowledgement.len());
+
+    // The proof from Cosmos is generated with path segments ["ibc", ack_path]
+    // So we need to pass the same path structure for verification
     let membership_msg = MembershipMsg {
         height: msg.proof_height,
         delay_time_period: 0,
         delay_block_period: 0,
         proof: msg.proof_acked.clone(),
-        path: vec![ack_path],
+        path: vec![b"ibc".to_vec(), ack_path.clone()],
         value: msg.acknowledgement.clone(),
     };
+
+    msg!("Membership verification path segments:");
+    msg!("  path[0] (ibc): {:?}", hex::encode(&membership_msg.path[0]));
+    msg!("  path[1] (ack_path): {:?}", hex::encode(&membership_msg.path[1]));
 
     verify_membership_cpi(client, &light_client_verification, membership_msg)?;
 

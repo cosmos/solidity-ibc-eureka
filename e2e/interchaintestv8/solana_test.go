@@ -71,7 +71,14 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 	simd := s.CosmosChains[0]
 
-	s.SolanaUser, err = s.SolanaChain.CreateAndFundWallet()
+	// Wait for Solana cluster to be fully initialized
+	s.T().Log("Waiting for Solana cluster to be ready...")
+	err = s.SolanaChain.WaitForClusterReady(ctx, 30*time.Second)
+	s.Require().NoError(err, "Solana cluster failed to initialize")
+
+	// Create and fund wallet with retry logic
+	s.T().Log("Creating and funding Solana test wallet...")
+	s.SolanaUser, err = s.SolanaChain.CreateAndFundWalletWithRetry(ctx, 5)
 	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Deploy contracts", func() {

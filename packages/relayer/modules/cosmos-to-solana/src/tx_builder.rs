@@ -944,11 +944,18 @@ impl TxBuilder {
         );
 
         // Acknowledgment is written at the NEXT height after the packet is received
+        // Cosmos SDK state model: ack written at height N is provable at height N+1
+        // But the proof at height N+1 proves against the app hash from height N
         let query_height = params.proof_height + 1;
 
         tracing::info!(
-            "Querying acknowledgment at height {} (proof_height + 1)",
-            query_height
+            "Querying acknowledgment proof at height {} (event height {} + 1)",
+            query_height,
+            params.proof_height
+        );
+        tracing::info!(
+            "Will verify proof against consensus state at height {}",
+            params.proof_height
         );
 
         // Query the acknowledgment from Cosmos chain using IBC v2 path
@@ -974,11 +981,13 @@ impl TxBuilder {
         let proof = merkle_proof.encode_vec();
         tracing::info!("Generated proof: {} bytes", proof.len());
 
+        // Use the original proof_height for verification, not query_height
+        // The proof from query_height (N+1) proves against app hash at proof_height (N)
         let msg = MsgAckPacket {
             packet,
             acknowledgement,
             proof_acked: proof,
-            proof_height: query_height,
+            proof_height: params.proof_height,  // Use original height for verification
         };
 
         // Derive PDAs for the packet accounts
@@ -1081,11 +1090,11 @@ impl TxBuilder {
         let (client_state, _) =
             derive_ics07_client_state(&ics07_chain_id, &self.solana_ics07_program_id);
 
-        // Query the latest height from the client state
-        let latest_height = self.query_client_latest_height(&ics07_chain_id)?;
+        // Use the proof height for the consensus state lookup (NOT query_height)
+        // The proof from query_height (N+1) verifies against app hash at proof_height (N)
         let (consensus_state, _) = derive_ics07_consensus_state(
             &client_state,
-            latest_height,
+            params.proof_height,  // Use proof_height, not query_height
             &self.solana_ics07_program_id,
         );
 

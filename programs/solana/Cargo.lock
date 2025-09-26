@@ -1983,6 +1983,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bincode",
+ "hex",
  "ics25-handler",
  "mollusk-svm",
  "mollusk-svm-bencher",
