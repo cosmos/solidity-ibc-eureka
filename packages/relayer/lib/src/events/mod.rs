@@ -5,3 +5,4 @@ mod eureka;
 pub mod solana;
 
 pub use eureka::{EurekaEvent, EurekaEventWithHeight};
+pub use solana::{SolanaEurekaEvent, SolanaEurekaEventWithHeight};

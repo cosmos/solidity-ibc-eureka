@@ -2,9 +2,10 @@
 
 use alloy::primitives::TxHash;
 use serde::{de::DeserializeOwned, Serialize};
+use solana_sdk::signature::Signature;
 use std::fmt::Debug;
 
-use crate::events::EurekaEventWithHeight;
+use crate::events::{solana::SolanaEurekaEventWithHeight, EurekaEventWithHeight};
 
 /// The `Chain` trait defines the interface for a chain.
 pub trait Chain {
@@ -34,5 +35,14 @@ pub struct EthEureka;
 impl Chain for EthEureka {
     type Event = EurekaEventWithHeight;
     type TxId = TxHash;
+    type Height = u64;
+}
+
+/// The `SolanaEureka` is an implementation of the `Chain` trait for Solana IBC programs.
+pub struct SolanaEureka;
+
+impl Chain for SolanaEureka {
+    type Event = SolanaEurekaEventWithHeight;
+    type TxId = Signature;
     type Height = u64;
 }

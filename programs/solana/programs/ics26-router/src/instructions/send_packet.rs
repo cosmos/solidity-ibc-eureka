@@ -2,6 +2,7 @@ use crate::errors::RouterError;
 use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
+use solana_ibc_types::events::SendPacketEvent;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgSendPacket)]
@@ -97,18 +98,12 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     emit!(SendPacketEvent {
         client_id: msg.source_client,
         sequence,
-        packet_data: packet.try_to_vec()?,
+        packet,
     });
 
     Ok(sequence)
 }
 
-#[event]
-pub struct SendPacketEvent {
-    pub client_id: String,
-    pub sequence: u64,
-    pub packet_data: Vec<u8>,
-}
 
 #[cfg(test)]
 mod tests {

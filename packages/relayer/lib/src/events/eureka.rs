@@ -54,6 +54,7 @@ impl TryFrom<&Log> for EurekaEventWithHeight {
                 e.to_string()
             )
         })?;
+
         let event_type = match sol_event.data {
             routerEvents::SendPacket(event) => Ok(EurekaEvent::SendPacket(event.packet)),
             routerEvents::WriteAcknowledgement(event) => Ok(EurekaEvent::WriteAcknowledgement(

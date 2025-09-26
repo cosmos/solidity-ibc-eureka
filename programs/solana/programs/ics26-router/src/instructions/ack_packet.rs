@@ -5,6 +5,7 @@ use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
+use solana_ibc_types::events::{AckPacketEvent, NoopEvent};
 #[cfg(test)]
 use solana_ibc_types::router::APP_STATE_SEED;
 
@@ -187,20 +188,13 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     emit!(AckPacketEvent {
         client_id: msg.packet.source_client.clone(),
         sequence: msg.packet.sequence,
-        packet_data: msg.packet.try_to_vec()?,
+        packet: msg.packet.clone(),
         acknowledgement: msg.acknowledgement,
     });
 
     Ok(())
 }
 
-#[event]
-pub struct AckPacketEvent {
-    pub client_id: String,
-    pub sequence: u64,
-    pub packet_data: Vec<u8>,
-    pub acknowledgement: Vec<u8>,
-}
 
 #[cfg(test)]
 mod tests {

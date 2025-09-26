@@ -4,6 +4,7 @@ use crate::state::{
     ROUTER_STATE_SEED,
 };
 use anchor_lang::prelude::*;
+use solana_ibc_types::events::{ClientAddedEvent, ClientStatusUpdatedEvent};
 
 #[derive(Accounts)]
 #[instruction(client_id: String)]
@@ -173,19 +174,6 @@ pub fn validate_custom_ibc_identifier(custom_id: &str) -> bool {
     }
 
     true
-}
-
-#[event]
-pub struct ClientAddedEvent {
-    pub client_id: String,
-    pub client_program_id: Pubkey,
-    pub authority: Pubkey,
-}
-
-#[event]
-pub struct ClientStatusUpdatedEvent {
-    pub client_id: String,
-    pub active: bool,
 }
 
 #[cfg(test)]

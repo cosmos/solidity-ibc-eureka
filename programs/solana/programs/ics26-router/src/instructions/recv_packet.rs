@@ -5,6 +5,7 @@ use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
+use solana_ibc_types::events::{NoopEvent, WriteAcknowledgementEvent};
 
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
@@ -206,20 +207,13 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     emit!(WriteAcknowledgementEvent {
         client_id: msg.packet.dest_client.clone(),
         sequence: msg.packet.sequence,
-        packet_data: msg.packet.try_to_vec()?,
-        acknowledgements: acks,
+        packet: msg.packet.clone(),
+        acknowledgements: acks.try_to_vec()?,
     });
 
     Ok(())
 }
 
-#[event]
-pub struct WriteAcknowledgementEvent {
-    pub client_id: String,
-    pub sequence: u64,
-    pub packet_data: Vec<u8>,
-    pub acknowledgements: Vec<Vec<u8>>,
-}
 
 #[cfg(test)]
 mod tests {

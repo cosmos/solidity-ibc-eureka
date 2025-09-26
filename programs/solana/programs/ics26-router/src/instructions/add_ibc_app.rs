@@ -1,6 +1,7 @@
 use crate::errors::RouterError;
 use crate::state::{IBCApp, RouterState, IBC_APP_SEED, ROUTER_STATE_SEED};
 use anchor_lang::prelude::*;
+use solana_ibc_types::events::IBCAppAdded;
 
 #[derive(Accounts)]
 #[instruction(port_id: String)]
@@ -53,12 +54,6 @@ pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
     });
 
     Ok(())
-}
-
-#[event]
-pub struct IBCAppAdded {
-    pub port_id: String,
-    pub app_program_id: Pubkey,
 }
 
 #[cfg(test)]
