@@ -8,6 +8,7 @@ pub mod tx_builder;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use ibc_eureka_relayer_lib::listener::solana_eureka;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use prost::Message;
 use solana_client::rpc_client::RpcClient;
@@ -30,12 +31,11 @@ pub struct SolanaToCosmosRelayerModule;
 /// The `SolanaToCosmosRelayerModuleService` defines the relayer service from Solana to Cosmos.
 #[allow(dead_code)]
 struct SolanaToCosmosRelayerModuleService {
-    /// The Solana chain ID.
+    /// The souce chain listener for Solana.
+    pub src_listener: solana_eureka::ChainListener,
     pub solana_chain_id: String,
-    /// The Solana RPC client (wrapped in Arc since `RpcClient` doesn't implement Clone in 2.0).
-    pub solana_client: Arc<RpcClient>,
-    /// The target Cosmos tendermint client.
-    pub target_tm_client: HttpClient,
+    /// The target chain listener for Cosmos SDK.
+    pub target_listener: cosmos_sdk::ChainListener,
     /// The transaction builder from Solana to Cosmos.
     pub tx_builder: tx_builder::TxBuilder,
     /// The Solana ICS26 router program ID.

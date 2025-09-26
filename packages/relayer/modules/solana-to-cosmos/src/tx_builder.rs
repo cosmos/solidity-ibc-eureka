@@ -4,8 +4,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anchor_lang::prelude::*;
-use ibc_eureka_relayer_lib::events::solana::{parse_events_from_logs, IbcEvent};
+use ibc_eureka_relayer_lib::events::solana::{parse_events_from_logs, SolanaEurekaEvent};
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -22,7 +21,6 @@ use ibc_proto_eureka::{
     },
 };
 use solana_client::rpc_client::RpcClient;
-use solana_ibc_types::Packet as SolanaPacket;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use tendermint_rpc::HttpClient;
@@ -30,58 +28,12 @@ use tendermint_rpc::HttpClient;
 /// Mock header data for Solana client testing
 const MOCK_HEADER_DATA: &[u8] = b"mock";
 
-/// IBC event types emitted by Solana programs
-#[derive(Debug, Clone)]
-pub enum SolanaIbcEvent {
-    /// Send packet event
-    SendPacket {
-        /// Packet sequence
-        sequence: u64,
-        /// Source client ID
-        source_client: String,
-        /// Destination client ID
-        destination_client: String,
-        /// Packet payloads (IBC v2 supports multiple payloads)
-        payloads: Vec<Vec<u8>>,
-        /// Timeout timestamp
-        timeout_timestamp: u64,
-    },
-    /// Acknowledge packet event
-    AcknowledgePacket {
-        /// Packet sequence
-        sequence: u64,
-        /// Source client ID
-        source_client: String,
-        /// Destination client ID
-        destination_client: String,
-        /// Packet payloads
-        payloads: Vec<Vec<u8>>,
-        /// Timeout timestamp
-        timeout_timestamp: u64,
-        /// Acknowledgement data (one per payload)
-        acknowledgements: Vec<Vec<u8>>,
-    },
-    /// Timeout packet event
-    TimeoutPacket {
-        /// Packet sequence
-        sequence: u64,
-        /// Source client ID
-        source_client: String,
-        /// Destination client ID
-        destination_client: String,
-        /// Packet payloads
-        payloads: Vec<Vec<u8>>,
-        /// Timeout timestamp
-        timeout_timestamp: u64,
-    },
-}
-
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from Solana.
 #[allow(dead_code)]
 pub struct TxBuilder {
     /// The Solana RPC client
     pub solana_client: Arc<RpcClient>,
-    /// The HTTP client for the target chain.
+    /// The HTTP client for the Cosmos SDK.
     pub target_tm_client: HttpClient,
     /// The signer address for the Cosmos messages.
     pub signer_address: String,
@@ -134,8 +86,17 @@ impl TxBuilder {
             // Parse logs for IBC events
             if let Some(ref meta) = tx.transaction.meta {
                 // Parse events from transaction logs
-                let parsed_events = Self::parse_events_from_logs(&tx, meta);
-                events.extend(parsed_events);
+                match Self::parse_events_from_logs(&tx, meta) {
+                    Ok(parsed_events) => events.extend(parsed_events),
+                    Err(e) => {
+                        tracing::error!(
+                            "Failed to parse events from transaction {}: {}",
+                            signature,
+                            e
+                        );
+                        // Continue processing other transactions
+                    }
+                }
             }
         }
 
@@ -149,7 +110,7 @@ impl TxBuilder {
     fn parse_events_from_logs(
         _tx: &EncodedConfirmedTransactionWithStatusMeta,
         meta: &solana_transaction_status::UiTransactionStatusMeta,
-    ) -> Vec<SolanaIbcEvent> {
+    ) -> anyhow::Result<Vec<SolanaIbcEvent>> {
         let mut events = Vec::new();
 
         // Get logs from the transaction
@@ -157,98 +118,96 @@ impl TxBuilder {
         let logs = meta.log_messages.as_ref().unwrap_or(&empty_logs);
 
         // Use the shared event parser - it now returns fully decoded events
-        let parsed_events = parse_events_from_logs(logs);
+        let parsed_events = parse_events_from_logs(logs)
+            .map_err(|e| anyhow::anyhow!("Failed to parse Solana events: {}", e))?;
 
         for event in parsed_events {
             match event {
-                IbcEvent::SendPacket(send_event) => {
-                    // Deserialize the packet to get full details
-                    if let Ok(packet) = SolanaPacket::try_from_slice(&send_event.packet_data) {
-                        let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
+                SolanaEurekaEvent::SendPacket(send_event) => {
+                    // The packet is already deserialized in the event
+                    let packet = &send_event.packet;
+                    let payloads = packet.payloads.iter().map(|p| p.value.clone()).collect();
 
-                        events.push(SolanaIbcEvent::SendPacket {
-                            sequence: send_event.sequence,
-                            source_client: packet.source_client.clone(),
-                            destination_client: packet.dest_client.clone(),
-                            payloads,
-                            timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
-                        });
+                    events.push(SolanaIbcEvent::SendPacket {
+                        sequence: send_event.sequence,
+                        source_client: packet.source_client.clone(),
+                        destination_client: packet.dest_client.clone(),
+                        payloads,
+                        timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
+                    });
 
-                        tracing::debug!(
-                            "Parsed SendPacket event: seq={}, src={}, dst={}",
-                            send_event.sequence,
-                            packet.source_client,
-                            packet.dest_client
-                        );
-                    }
+                    tracing::debug!(
+                        "Parsed SendPacket event: seq={}, src={}, dst={}",
+                        send_event.sequence,
+                        packet.source_client,
+                        packet.dest_client
+                    );
                 }
-                IbcEvent::AckPacket(ack_event) => {
-                    // For acknowledge packet, we need the full packet data
-                    if let Ok(packet) = SolanaPacket::try_from_slice(&ack_event.packet_data) {
-                        let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
+                SolanaEurekaEvent::AckPacket(ack_event) => {
+                    // The packet is already deserialized in the event
+                    let packet = &ack_event.packet;
+                    let payloads = packet.payloads.iter().map(|p| p.value.clone()).collect();
 
-                        events.push(SolanaIbcEvent::AcknowledgePacket {
-                            sequence: ack_event.sequence,
-                            source_client: packet.source_client,
-                            destination_client: packet.dest_client,
-                            payloads,
-                            timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
-                            acknowledgements: vec![ack_event.acknowledgement],
-                        });
+                    events.push(SolanaIbcEvent::AcknowledgePacket {
+                        sequence: ack_event.sequence,
+                        source_client: packet.source_client.clone(),
+                        destination_client: packet.dest_client.clone(),
+                        payloads,
+                        timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
+                        acknowledgements: vec![ack_event.acknowledgement],
+                    });
 
-                        tracing::debug!(
-                            "Parsed AcknowledgePacket event: seq={}, client={}",
-                            ack_event.sequence,
-                            ack_event.client_id
-                        );
-                    }
+                    tracing::debug!(
+                        "Parsed AcknowledgePacket event: seq={}, client={}",
+                        ack_event.sequence,
+                        ack_event.client_id
+                    );
                 }
-                IbcEvent::TimeoutPacket(timeout_event) => {
-                    // For timeout packet, we need the full packet data
-                    if let Ok(packet) = SolanaPacket::try_from_slice(&timeout_event.packet_data) {
-                        let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
+                SolanaEurekaEvent::TimeoutPacket(timeout_event) => {
+                    // The packet is already deserialized in the event
+                    let packet = &timeout_event.packet;
+                    let payloads = packet.payloads.iter().map(|p| p.value.clone()).collect();
 
-                        events.push(SolanaIbcEvent::TimeoutPacket {
-                            sequence: timeout_event.sequence,
-                            source_client: packet.source_client,
-                            destination_client: packet.dest_client,
-                            payloads,
-                            timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
-                        });
+                    events.push(SolanaIbcEvent::TimeoutPacket {
+                        sequence: timeout_event.sequence,
+                        source_client: packet.source_client.clone(),
+                        destination_client: packet.dest_client.clone(),
+                        payloads,
+                        timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
+                    });
 
-                        tracing::debug!(
-                            "Parsed TimeoutPacket event: seq={}, client={}",
-                            timeout_event.sequence,
-                            timeout_event.client_id
-                        );
-                    }
+                    tracing::debug!(
+                        "Parsed TimeoutPacket event: seq={}, src={}, dst={}",
+                        timeout_event.sequence,
+                        packet.source_client,
+                        packet.dest_client
+                    );
                 }
-                IbcEvent::WriteAcknowledgement(write_ack_event) => {
+                SolanaEurekaEvent::WriteAcknowledgement(write_ack_event) => {
                     // WriteAcknowledgement is emitted when Solana receives a packet from Cosmos
                     // and writes an acknowledgement. We need to relay this ack back to Cosmos.
-                    if let Ok(packet) = SolanaPacket::try_from_slice(&write_ack_event.packet_data) {
-                        let payloads = packet.payloads.into_iter().map(|p| p.value).collect();
+                    let packet = &write_ack_event.packet;
+                    let payloads = packet.payloads.iter().map(|p| p.value.clone()).collect();
 
-                        events.push(SolanaIbcEvent::AcknowledgePacket {
-                            sequence: write_ack_event.sequence,
-                            source_client: packet.source_client,
-                            destination_client: packet.dest_client,
-                            payloads,
-                            timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
-                            acknowledgements: vec![write_ack_event.acknowledgements],
-                        });
+                    events.push(SolanaIbcEvent::AcknowledgePacket {
+                        sequence: write_ack_event.sequence,
+                        source_client: packet.source_client.clone(),
+                        destination_client: packet.dest_client.clone(),
+                        payloads,
+                        timeout_timestamp: u64::try_from(packet.timeout_timestamp).unwrap_or(0),
+                        acknowledgements: vec![write_ack_event.acknowledgements],
+                    });
 
-                        tracing::debug!(
-                            "Parsed WriteAcknowledgement event: seq={}, client={}",
-                            write_ack_event.sequence,
-                            write_ack_event.client_id
-                        );
-                    }
+                    tracing::debug!(
+                        "Parsed WriteAcknowledgement event: seq={}, client={}",
+                        write_ack_event.sequence,
+                        write_ack_event.client_id
+                    );
                 }
             }
         }
 
-        events
+        Ok(events)
     }
 
     /// Build a relay transaction for Cosmos

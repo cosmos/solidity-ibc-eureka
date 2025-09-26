@@ -8,7 +8,6 @@ use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use hex;
 use ibc_eureka_relayer_lib::events::EurekaEvent;
-use ibc_eureka_relayer_lib::utils::{to_32_bytes_exact, to_32_bytes_padded};
 use ibc_eureka_utils::light_block::LightBlockExt;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::Protobuf;
@@ -147,41 +146,6 @@ struct AckPacketParams<'a> {
     proof_height: u64,
 }
 
-/// IBC Eureka event types from Cosmos
-#[derive(Debug, Clone)]
-pub enum CosmosIbcEvent {
-    SendPacket {
-        /// Packet sequence
-        sequence: u64,
-        /// Source client ID
-        source_client: String,
-        /// Destination client ID
-        destination_client: String,
-        /// Packet payloads
-        payloads: Vec<Vec<u8>>,
-        /// Timeout timestamp
-        timeout_timestamp: u64,
-    },
-    AcknowledgePacket {
-        /// Packet sequence
-        sequence: u64,
-        /// Source client ID (original source of the packet)
-        source_client: String,
-        /// Destination client ID (original destination of the packet)
-        destination_client: String,
-        /// Acknowledgement data (one per payload)
-        acknowledgements: Vec<Vec<u8>>,
-        /// Proof height for ack packet
-        proof_height: u64,
-    },
-    TimeoutPacket {
-        /// Packet sequence
-        sequence: u64,
-        /// Source client ID
-        source_client: String,
-    },
-}
-
 /// The `TxBuilder` produces Solana transactions based on events from Cosmos SDK.
 pub struct TxBuilder {
     /// The source Cosmos HTTP client.
@@ -197,48 +161,6 @@ pub struct TxBuilder {
 }
 
 impl TxBuilder {
-    /// Create consensus state from Tendermint block
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the timestamp cannot be converted to u64
-    fn create_consensus_state_from_block(
-        block: &tendermint_rpc::endpoint::block::Response,
-    ) -> Result<ConsensusState> {
-        let app_hash = to_32_bytes_padded(block.block.header.app_hash.as_bytes(), "app_hash");
-
-        let validators_hash = to_32_bytes_exact(
-            block.block.header.validators_hash.as_bytes(),
-            "validators_hash",
-        );
-
-        let timestamp_nanos = block.block.header.time.unix_timestamp_nanos();
-
-        // Convert i128 nanoseconds to u64, handling overflow
-        let timestamp_u64 = if timestamp_nanos < 0 {
-            return Err(anyhow::anyhow!("Invalid timestamp: negative value"));
-        } else if timestamp_nanos > u64::MAX as i128 {
-            // This shouldn't happen for reasonable timestamps
-            return Err(anyhow::anyhow!(
-                "Invalid timestamp: value too large for u64"
-            ));
-        } else {
-            timestamp_nanos as u64
-        };
-
-        tracing::info!(
-            "Creating consensus state with timestamp: {} ns (from block time: {})",
-            timestamp_u64,
-            block.block.header.time
-        );
-
-        Ok(ConsensusState {
-            timestamp: timestamp_u64,
-            root: app_hash,
-            next_validators_hash: validators_hash,
-        })
-    }
-
     /// Build instruction for creating a client
     ///
     /// # Errors
@@ -683,7 +605,9 @@ impl TxBuilder {
             // Add compute budget instructions to handle complex operations
             // Request 400K compute units (enough for ack packet verification)
             let compute_budget_ix =
-                solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(400_000);
+                solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(
+                    400_000,
+                );
 
             // Add priority fee to ensure transaction gets processed
             let priority_fee_ix =
@@ -932,30 +856,30 @@ impl TxBuilder {
         // Use the packet's ack_commitment_path method for consistency
         let ack_path = packet.ack_commitment_path();
 
-        tracing::info!("=== DEBUGGING ACK PATH ===");
-        tracing::info!("Packet flow: Solana -> Cosmos (now acknowledging back to Solana)");
-        tracing::info!("Source client (Cosmos on Solana): {}", params.source_client);
-        tracing::info!(
-            "Dest client (Solana on Cosmos): {}",
-            params.destination_client
-        );
-        tracing::info!("Sequence: {}", params.sequence);
-        tracing::info!("Proof height: {}", params.proof_height);
-        tracing::info!("Expected ack path (IBC v2 Eureka): destClient + 0x03 + sequence");
-        tracing::info!("Constructed path: {:?}", ack_path);
-        tracing::info!("Path as hex: {}", hex::encode(&ack_path));
-        tracing::info!("Path as string: {}", String::from_utf8_lossy(&ack_path));
-        tracing::info!("Path breakdown:");
-        tracing::info!(
-            "  - Client ID bytes: {} ({})",
-            hex::encode(params.destination_client.as_bytes()),
-            params.destination_client
-        );
-        tracing::info!("  - Separator: 0x03");
-        tracing::info!(
-            "  - Sequence big-endian: {}",
-            hex::encode(&params.sequence.to_be_bytes())
-        );
+        // tracing::info!("=== DEBUGGING ACK PATH ===");
+        // tracing::info!("Packet flow: Solana -> Cosmos (now acknowledging back to Solana)");
+        // tracing::info!("Source client (Cosmos on Solana): {}", params.source_client);
+        // tracing::info!(
+        //     "Dest client (Solana on Cosmos): {}",
+        //     params.destination_client
+        // );
+        // tracing::info!("Sequence: {}", params.sequence);
+        // tracing::info!("Proof height: {}", params.proof_height);
+        // tracing::info!("Expected ack path (IBC v2 Eureka): destClient + 0x03 + sequence");
+        // tracing::info!("Constructed path: {:?}", ack_path);
+        // tracing::info!("Path as hex: {}", hex::encode(&ack_path));
+        // tracing::info!("Path as string: {}", String::from_utf8_lossy(&ack_path));
+        // tracing::info!("Path breakdown:");
+        // tracing::info!(
+        //     "  - Client ID bytes: {} ({})",
+        //     hex::encode(params.destination_client.as_bytes()),
+        //     params.destination_client
+        // );
+        // tracing::info!("  - Separator: 0x03");
+        // tracing::info!(
+        //     "  - Sequence big-endian: {}",
+        //     hex::encode(&params.sequence.to_be_bytes())
+        // );
 
         // Acknowledgment is written at the NEXT height after the packet is received
         // Cosmos SDK state model: ack written at height N is provable at height N+1
@@ -972,8 +896,7 @@ impl TxBuilder {
             params.proof_height
         );
 
-        // Query the acknowledgment COMMITMENT from Cosmos chain using IBC v2 path
-        // The proof verifies that the commitment of our acknowledgement is stored on chain
+        // FIXME: wrong???? Query the acknowledgment COMMITMENT from Cosmos chain
         let (commitment_value, merkle_proof) = self
             .source_tm_client
             .prove_path(&[b"ibc".to_vec(), ack_path.clone()], query_height)
@@ -984,7 +907,9 @@ impl TxBuilder {
             tracing::error!("Path: {}", String::from_utf8_lossy(&ack_path));
             tracing::error!("Path hex: {}", hex::encode(&ack_path));
             tracing::error!("Queried at height: {} (proof_height + 1)", query_height);
-            return Err(anyhow::anyhow!("Acknowledgment commitment not found on chain"));
+            return Err(anyhow::anyhow!(
+                "Acknowledgment commitment not found on chain"
+            ));
         }
 
         tracing::info!(
@@ -994,11 +919,14 @@ impl TxBuilder {
         tracing::info!("Commitment value (hex): {}", hex::encode(&commitment_value));
 
         // The acknowledgement we have from the event should hash to this commitment
-        tracing::info!("Acknowledgment from event (hex): {}", hex::encode(&acknowledgement));
+        tracing::info!(
+            "Acknowledgment from event (hex): {}",
+            hex::encode(&acknowledgement)
+        );
 
         // IBC v2 commitment: sha256_hash(0x02 + sha256_hash(ack))
         // For single payload, it's: sha256(0x02 + sha256(acknowledgement))
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
 
         // First hash the acknowledgement
         let mut inner_hasher = Sha256::new();
@@ -1015,18 +943,29 @@ impl TxBuilder {
             tracing::error!("Acknowledgment commitment mismatch!");
             tracing::error!("Computed: {}", hex::encode(&computed_commitment));
             tracing::error!("Expected: {}", hex::encode(&commitment_value));
-            return Err(anyhow::anyhow!("Acknowledgment commitment verification failed"));
+            return Err(anyhow::anyhow!(
+                "Acknowledgment commitment verification failed"
+            ));
         }
 
         tracing::info!("✓ Acknowledgment commitment verified");
 
         // Query the actual app hash at the proof height from Cosmos
-        let light_block = self.source_tm_client.get_light_block(Some(params.proof_height)).await?;
+        let light_block = self
+            .source_tm_client
+            .get_light_block(Some(params.proof_height))
+            .await?;
         let app_hash_at_proof_height = light_block.signed_header.header.app_hash;
         tracing::info!("=== COSMOS STATE AT HEIGHT {} ===", params.proof_height);
-        tracing::info!("App hash from Cosmos: {}", hex::encode(&app_hash_at_proof_height));
+        tracing::info!(
+            "App hash from Cosmos: {}",
+            hex::encode(&app_hash_at_proof_height)
+        );
         tracing::info!("Block time: {:?}", light_block.signed_header.header.time);
-        tracing::info!("Validators hash: {}", hex::encode(&light_block.signed_header.header.validators_hash));
+        tracing::info!(
+            "Validators hash: {}",
+            hex::encode(&light_block.signed_header.header.validators_hash)
+        );
 
         // Log the merkle proof details before encoding (which consumes it)
         tracing::debug!("Proof structure: {:?}", merkle_proof);
@@ -1045,9 +984,9 @@ impl TxBuilder {
         // The proof from query_height (N+1) proves against app hash at proof_height (N)
         let msg = MsgAckPacket {
             packet,
-            acknowledgement,  // Use the acknowledgement from the event
+            acknowledgement, // Use the acknowledgement from the event
             proof_acked: proof,
-            proof_height: params.proof_height,  // Use original height for verification
+            proof_height: params.proof_height, // Use original height for verification
         };
 
         // Derive PDAs for the packet accounts
@@ -1154,7 +1093,7 @@ impl TxBuilder {
         // The proof from query_height (N+1) verifies against app hash at proof_height (N)
         let (consensus_state, _) = derive_ics07_consensus_state(
             &client_state,
-            params.proof_height,  // Use proof_height, not query_height
+            params.proof_height, // Use proof_height, not query_height
             &self.solana_ics07_program_id,
         );
 
@@ -1198,14 +1137,19 @@ impl TxBuilder {
     /// - Failed to serialize instruction data
     pub async fn build_create_client_tx(&self) -> Result<Transaction> {
         // Get latest block from Cosmos for initial client state
-        let latest_block = self
+        let latest_light_block = self
             .source_tm_client
-            .latest_block()
+            .get_light_block(None)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
 
-        let chain_id_str = latest_block.block.header.chain_id.to_string();
-        let latest_height = latest_block.block.header.height.value();
+        tracing::info!(
+            "Creating client at height: {}",
+            latest_light_block.height().value()
+        );
+
+        let chain_id_str = latest_light_block.signed_header.header.chain_id.to_string();
+        let latest_height = latest_light_block.signed_header.header.height.value();
 
         // Extract revision number from chain ID (format: {chain_name}-{revision_number})
         let revision_number = chain_id_str
@@ -1260,8 +1204,30 @@ impl TxBuilder {
             },
         };
 
-        // Create proper ConsensusState from the block
-        let consensus_state = Self::create_consensus_state_from_block(&latest_block)?;
+        // Get the light block to create consensus state properly
+        let latest_light_block = self
+            .source_tm_client
+            .get_light_block(Some(latest_height))
+            .await?;
+
+        // Use the LightBlockExt trait to get the proper consensus state
+        let ibc_consensus_state = latest_light_block.to_consensus_state();
+
+        // Convert IBC ConsensusState to Solana ConsensusState
+        // This matches what the Solana program does in its TryFrom implementation
+        let consensus_state = ConsensusState {
+            timestamp: ibc_consensus_state.timestamp.unix_timestamp_nanos() as u64,
+            root: ibc_consensus_state
+                .root
+                .into_vec()
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("Invalid root hash length"))?,
+            next_validators_hash: ibc_consensus_state
+                .next_validators_hash
+                .as_bytes()
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("Invalid validators hash length"))?,
+        };
 
         // Build the instruction for creating the client
         let instruction = self.build_create_client_instruction(

@@ -45,9 +45,9 @@ pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurek
 
     for (log_idx, log) in logs.iter().enumerate() {
         if let Some(data_str) = log.strip_prefix("Program data: ") {
-            let data = BASE64
-                .decode(data_str)
-                .with_context(|| format!("Failed to decode base64 in log {}: {}", log_idx, data_str))?;
+            let data = BASE64.decode(data_str).with_context(|| {
+                format!("Failed to decode base64 in log {}: {}", log_idx, data_str)
+            })?;
 
             if data.len() < 8 {
                 // Not an Anchor event, skip
@@ -68,32 +68,47 @@ pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurek
                 continue;
             }
 
-            // Parse the IBC event - return error if it fails
             let event = match discriminator {
                 disc if disc == SendPacketEvent::DISCRIMINATOR => {
                     SendPacketEvent::try_from_slice(event_data)
                         .map(SolanaEurekaEvent::SendPacket)
-                        .with_context(|| format!("Failed to deserialize SendPacketEvent in log {}", log_idx))?
+                        .with_context(|| {
+                            format!("Failed to deserialize SendPacketEvent in log {}", log_idx)
+                        })?
                 }
                 disc if disc == WriteAcknowledgementEvent::DISCRIMINATOR => {
                     WriteAcknowledgementEvent::try_from_slice(event_data)
                         .map(SolanaEurekaEvent::WriteAcknowledgement)
-                        .with_context(|| format!("Failed to deserialize WriteAcknowledgementEvent in log {}", log_idx))?
+                        .with_context(|| {
+                            format!(
+                                "Failed to deserialize WriteAcknowledgementEvent in log {}",
+                                log_idx
+                            )
+                        })?
                 }
                 disc if disc == AckPacketEvent::DISCRIMINATOR => {
                     AckPacketEvent::try_from_slice(event_data)
                         .map(SolanaEurekaEvent::AckPacket)
-                        .with_context(|| format!("Failed to deserialize AckPacketEvent in log {}", log_idx))?
+                        .with_context(|| {
+                            format!("Failed to deserialize AckPacketEvent in log {}", log_idx)
+                        })?
                 }
                 disc if disc == TimeoutPacketEvent::DISCRIMINATOR => {
                     TimeoutPacketEvent::try_from_slice(event_data)
                         .map(SolanaEurekaEvent::TimeoutPacket)
-                        .with_context(|| format!("Failed to deserialize TimeoutPacketEvent in log {}", log_idx))?
+                        .with_context(|| {
+                            format!(
+                                "Failed to deserialize TimeoutPacketEvent in log {}",
+                                log_idx
+                            )
+                        })?
                 }
                 _ => {
                     return Err(anyhow!("Unexpected discriminator match in log {}", log_idx));
                 }
             };
+
+            tracing::debug!(?event, "parsed event");
 
             events.push(event);
         }

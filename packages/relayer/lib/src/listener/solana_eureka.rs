@@ -3,7 +3,7 @@
 use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
-use solana_transaction_status::UiTransactionEncoding;
+use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use std::sync::Arc;
 
 use crate::{
@@ -24,6 +24,7 @@ impl ChainListener {
     /// # Arguments
     /// - `rpc_url` - The Solana RPC endpoint URL
     /// - `ics26_router_program_id` - The ICS26 Router program ID on Solana
+    #[must_use]
     pub fn new(rpc_url: String, ics26_router_program_id: Pubkey) -> Self {
         let rpc_client = Arc::new(RpcClient::new_with_commitment(
             rpc_url,
@@ -37,24 +38,26 @@ impl ChainListener {
     }
 
     /// Get the RPC client.
+    #[must_use]
     pub fn client(&self) -> &Arc<RpcClient> {
         &self.rpc_client
     }
 
     /// Parse IBC events from Solana transaction logs.
     fn parse_events_from_logs(
-        &self,
-        logs: &[String],
-        slot: u64,
-    ) -> Result<Vec<SolanaEurekaEventWithHeight>> {
-        // Use the shared event parser from solana module
-        let parsed_events = parse_events_from_logs(logs)?;
+        meta: &solana_transaction_status::UiTransactionStatusMeta,
+        tx: &EncodedConfirmedTransactionWithStatusMeta,
+    ) -> anyhow::Result<Vec<SolanaEurekaEventWithHeight>> {
+        let empty_logs = vec![];
+        let logs = meta.log_messages.as_ref().unwrap_or(&empty_logs);
+        let parsed_events = parse_events_from_logs(logs)
+            .map_err(|e| anyhow::anyhow!(?e, ?tx, "Failed to parse Solana events"))?;
 
         Ok(parsed_events
             .into_iter()
             .map(|event| SolanaEurekaEventWithHeight {
                 event,
-                height: slot,
+                height: tx.slot,
             })
             .collect())
     }
@@ -66,45 +69,31 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
         &self,
         tx_ids: Vec<Signature>,
     ) -> Result<Vec<SolanaEurekaEventWithHeight>> {
-        let mut all_events = Vec::new();
+        let mut events = Vec::new();
 
-        for sig in tx_ids {
-            // Fetch transaction with logs using get_transaction_with_config
-            let config = solana_client::rpc_config::RpcTransactionConfig {
-                encoding: Some(UiTransactionEncoding::Base64),
-                commitment: Some(CommitmentConfig::confirmed()),
-                max_supported_transaction_version: Some(0),
-            };
+        for tx in tx_ids {
+            let (tx, meta) = self
+                .rpc_client
+                .get_transaction(&tx, UiTransactionEncoding::Json)
+                .map_err(|e| anyhow::anyhow!("Failed to fetch Solana transaction: {e}"))
+                .and_then(|tx| {
+                    tx.transaction
+                        .meta
+                        .clone()
+                        .ok_or_else(|| anyhow::anyhow!("Transaction metadata not found"))
+                        .and_then(|meta| {
+                            meta.err
+                                .as_ref()
+                                .map(|err| Err(anyhow::anyhow!("Transaction failed: {err:?}")))
+                                .unwrap_or(Ok((tx, meta)))
+                        })
+                })?;
 
-            match self.rpc_client.get_transaction_with_config(&sig, config) {
-                Ok(tx) => {
-                    let slot = tx.slot;
-
-                    // Extract logs from transaction metadata
-                    if let Some(meta) = &tx.transaction.meta {
-                        match &meta.log_messages {
-                            solana_transaction_status::option_serializer::OptionSerializer::Some(logs) => {
-                                // Parse events from logs
-                                match self.parse_events_from_logs(logs, slot) {
-                                    Ok(events) => all_events.extend(events),
-                                    Err(e) => {
-                                        tracing::error!("Failed to parse events from transaction {}: {}", sig, e);
-                                        // Continue processing other transactions
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to fetch transaction {}: {}", sig, e);
-                    // Continue with other transactions
-                }
-            }
+            let tx_events = Self::parse_events_from_logs(&meta, &tx)?;
+            events.extend(tx_events);
         }
 
-        Ok(all_events)
+        Ok(events)
     }
 
     async fn fetch_events(
@@ -171,4 +160,3 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
         Ok(all_events)
     }
 }
-
