@@ -387,6 +387,7 @@ impl TxBuilder {
                             // WriteAck is when Cosmos (destination) writes an ack for a packet from Solana (source)
                             // We need to relay this ack back to Solana
                             // The packet.sourceClient is the Solana client, packet.destClient is the Cosmos client
+                            // The 'acks' contains the actual acknowledgement data (not the commitment)
                             let acknowledgements =
                                 acks.into_iter().map(|ack| ack.to_vec()).collect();
 
@@ -679,7 +680,20 @@ impl TxBuilder {
         if instructions.is_empty() {
             Ok(None)
         } else {
-            let mut tx = Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
+            // Add compute budget instructions to handle complex operations
+            // Request 400K compute units (enough for ack packet verification)
+            let compute_budget_ix =
+                solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(400_000);
+
+            // Add priority fee to ensure transaction gets processed
+            let priority_fee_ix =
+                solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(1000);
+
+            // Prepend compute budget instructions
+            let mut all_instructions = vec![compute_budget_ix, priority_fee_ix];
+            all_instructions.extend(instructions);
+
+            let mut tx = Transaction::new_with_payer(&all_instructions, Some(&self.fee_payer));
             tx.message.recent_blockhash = recent_blockhash;
             Ok(Some(tx))
         }
@@ -958,34 +972,80 @@ impl TxBuilder {
             params.proof_height
         );
 
-        // Query the acknowledgment from Cosmos chain using IBC v2 path
-        let (value, merkle_proof) = self
+        // Query the acknowledgment COMMITMENT from Cosmos chain using IBC v2 path
+        // The proof verifies that the commitment of our acknowledgement is stored on chain
+        let (commitment_value, merkle_proof) = self
             .source_tm_client
             .prove_path(&[b"ibc".to_vec(), ack_path.clone()], query_height)
             .await?;
 
-        if value.is_empty() {
-            tracing::error!("No acknowledgment found at expected IBC v2 path");
+        if commitment_value.is_empty() {
+            tracing::error!("No acknowledgment commitment found at expected IBC v2 path");
             tracing::error!("Path: {}", String::from_utf8_lossy(&ack_path));
             tracing::error!("Path hex: {}", hex::encode(&ack_path));
             tracing::error!("Queried at height: {} (proof_height + 1)", query_height);
-            return Err(anyhow::anyhow!("Acknowledgment not found on chain"));
+            return Err(anyhow::anyhow!("Acknowledgment commitment not found on chain"));
         }
 
         tracing::info!(
-            "✓ Found acknowledgment at IBC v2 path (value: {} bytes)",
-            value.len()
+            "✓ Found acknowledgment commitment at IBC v2 path (value: {} bytes)",
+            commitment_value.len()
         );
-        tracing::info!("Acknowledgment value (hex): {}", hex::encode(&value));
+        tracing::info!("Commitment value (hex): {}", hex::encode(&commitment_value));
+
+        // The acknowledgement we have from the event should hash to this commitment
+        tracing::info!("Acknowledgment from event (hex): {}", hex::encode(&acknowledgement));
+
+        // IBC v2 commitment: sha256_hash(0x02 + sha256_hash(ack))
+        // For single payload, it's: sha256(0x02 + sha256(acknowledgement))
+        use sha2::{Sha256, Digest};
+
+        // First hash the acknowledgement
+        let mut inner_hasher = Sha256::new();
+        inner_hasher.update(&acknowledgement);
+        let inner_hash = inner_hasher.finalize();
+
+        // Then compute the commitment with 0x02 prefix
+        let mut outer_hasher = Sha256::new();
+        outer_hasher.update(&[0x02]); // IBC v2 acknowledgment prefix
+        outer_hasher.update(&inner_hash);
+        let computed_commitment = outer_hasher.finalize().to_vec();
+
+        if computed_commitment != commitment_value {
+            tracing::error!("Acknowledgment commitment mismatch!");
+            tracing::error!("Computed: {}", hex::encode(&computed_commitment));
+            tracing::error!("Expected: {}", hex::encode(&commitment_value));
+            return Err(anyhow::anyhow!("Acknowledgment commitment verification failed"));
+        }
+
+        tracing::info!("✓ Acknowledgment commitment verified");
+
+        // Query the actual app hash at the proof height from Cosmos
+        let light_block = self.source_tm_client.get_light_block(Some(params.proof_height)).await?;
+        let app_hash_at_proof_height = light_block.signed_header.header.app_hash;
+        tracing::info!("=== COSMOS STATE AT HEIGHT {} ===", params.proof_height);
+        tracing::info!("App hash from Cosmos: {}", hex::encode(&app_hash_at_proof_height));
+        tracing::info!("Block time: {:?}", light_block.signed_header.header.time);
+        tracing::info!("Validators hash: {}", hex::encode(&light_block.signed_header.header.validators_hash));
+
+        // Log the merkle proof details before encoding (which consumes it)
+        tracing::debug!("Proof structure: {:?}", merkle_proof);
 
         let proof = merkle_proof.encode_vec();
         tracing::info!("Generated proof: {} bytes", proof.len());
+
+        // Log critical debugging info
+        tracing::info!(
+            "Proof from height {} will verify against consensus state at height {}",
+            query_height,
+            params.proof_height
+        );
 
         // Use the original proof_height for verification, not query_height
         // The proof from query_height (N+1) proves against app hash at proof_height (N)
         let msg = MsgAckPacket {
             packet,
-            acknowledgement,
+            acknowledgement,  // Use the acknowledgement from the event
             proof_acked: proof,
             proof_height: params.proof_height,  // Use original height for verification
         };

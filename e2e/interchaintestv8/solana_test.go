@@ -2,12 +2,10 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
@@ -689,79 +687,13 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.Require().NoError(err)
 			s.T().Logf("Transaction events count: %d", len(txResp.Events))
 
-			// Look for write_acknowledgement event
-			foundWriteAck := false
-			var ackSequence, ackDestClient string
-			for _, event := range txResp.Events {
-				s.T().Logf("Event type: %s", event.Type)
-				if event.Type == "write_acknowledgement" {
-					foundWriteAck = true
-					s.T().Log("✓ Found write_acknowledgement event!")
-					s.T().Log("Raw attributes:")
-					for _, attr := range event.Attributes {
-						// Check if attributes are base64 encoded or plain text
-						keyStr := attr.Key
-						valueStr := attr.Value
-
-						// Try to decode as base64, but if it fails, use the raw string
-						if decodedKey, err := base64.StdEncoding.DecodeString(attr.Key); err == nil {
-							keyStr = string(decodedKey)
-						}
-						if decodedValue, err := base64.StdEncoding.DecodeString(attr.Value); err == nil {
-							valueStr = string(decodedValue)
-						}
-
-						s.T().Logf("  - %s: %s", keyStr, valueStr)
-
-						// Check for specific attributes we need (IBC v2 event attributes)
-						// Based on IBC-Go v10 source: AttributeKeySequence = "packet_sequence"
-						// AttributeKeyDstClient = "packet_dest_client"
-						if keyStr == "packet_sequence" {
-							ackSequence = valueStr
-							s.T().Logf("  Found sequence: %s", ackSequence)
-						} else if keyStr == "packet_dest_client" {
-							ackDestClient = valueStr
-							s.T().Logf("  Found dest client: %s", ackDestClient)
-						} else if keyStr == "encoded_acknowledgement_hex" {
-							s.T().Logf("  Found encoded acknowledgement: %s", valueStr)
-						}
-					}
-				}
-			}
-
-			if !foundWriteAck {
-				s.T().Log("⚠️  WARNING: No write_acknowledgement event found in transaction!")
-				s.T().Log("This means Cosmos did not write an acknowledgment for the packet")
-			} else {
-				// Log where the acknowledgment should be stored
-				s.T().Logf("Acknowledgment should be stored for:")
-				s.T().Logf("  - Destination Client: %s", ackDestClient)
-				s.T().Logf("  - Sequence: %s", ackSequence)
-
-				// Calculate the expected IBC v2 path
-				if ackDestClient != "" && ackSequence != "" {
-					// Parse the sequence number from the string
-					seqNum, err := strconv.ParseUint(ackSequence, 10, 64)
-					if err != nil {
-						s.T().Logf("Failed to parse sequence number: %v", err)
-						seqNum = 1 // Default to 1 if parsing fails
-					}
-
-					// Build the IBC v2 Eureka acknowledgment path: destClient + 0x03 + sequence (8 bytes big-endian)
-					ackPath := append([]byte(ackDestClient), 0x03)
-					seqBytes := make([]byte, 8)
-					binary.BigEndian.PutUint64(seqBytes, seqNum)
-					ackPath = append(ackPath, seqBytes...)
-					s.T().Logf("Expected IBC v2 acknowledgment path (hex): %s", hex.EncodeToString(ackPath))
-					s.T().Logf("  Breakdown: client=%s (hex: %s), sep=0x03, seq=%d (hex: %s)",
-						ackDestClient, hex.EncodeToString([]byte(ackDestClient)),
-						seqNum, hex.EncodeToString(seqBytes))
-				}
-			}
-
 			cosmosPacketRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
 			s.Require().NoError(err)
 			cosmosPacketRelayTxHash = cosmosPacketRelayTxHashBytes
+
+			// Add a small delay to ensure the acknowledgment is fully written to state
+			s.T().Log("Waiting 2 seconds for acknowledgment to be written to state...")
+			time.Sleep(2 * time.Second)
 		}))
 	}))
 
@@ -794,6 +726,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
+		// Add a small delay to ensure acknowledgment is fully committed on Cosmos
+		s.T().Log("Waiting 3 seconds for acknowledgment to be fully committed on Cosmos...")
+		time.Sleep(3 * time.Second)
+
 		s.Require().True(s.Run("Relay acknowledgment with automatic update client", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SrcChain:         simd.Config().ChainID,

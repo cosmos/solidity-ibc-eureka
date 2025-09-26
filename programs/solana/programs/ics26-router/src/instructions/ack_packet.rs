@@ -116,6 +116,18 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     msg!("  acknowledgement (hex): {:?}", hex::encode(&msg.acknowledgement));
     msg!("  acknowledgement len: {}", msg.acknowledgement.len());
 
+    // IMPORTANT: In IBC v2, the commitment is: sha256(0x02 + sha256(acknowledgement))
+    // The proof verifies the commitment, not the raw acknowledgement data
+    use anchor_lang::solana_program::hash::hashv;  // SHA256
+
+    // First hash the acknowledgement
+    let inner_hash = hashv(&[&msg.acknowledgement]);
+
+    // Then compute the commitment with 0x02 prefix
+    let ack_commitment = hashv(&[&[0x02], inner_hash.as_ref()]).to_bytes().to_vec();
+
+    msg!("  ack_commitment (hex): {:?}", hex::encode(&ack_commitment));
+
     // The proof from Cosmos is generated with path segments ["ibc", ack_path]
     // So we need to pass the same path structure for verification
     let membership_msg = MembershipMsg {
@@ -124,7 +136,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         delay_block_period: 0,
         proof: msg.proof_acked.clone(),
         path: vec![b"ibc".to_vec(), ack_path.clone()],
-        value: msg.acknowledgement.clone(),
+        value: ack_commitment,  // Verify the commitment hash, not the raw ack
     };
 
     msg!("Membership verification path segments:");
