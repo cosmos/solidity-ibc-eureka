@@ -2,8 +2,8 @@
 //!
 //! These events are emitted by the ICS26 router and other IBC programs.
 
-use anchor_lang::prelude::*;
 use crate::router::Packet;
+use anchor_lang::prelude::*;
 
 /// Event emitted when a packet is sent
 #[event]
@@ -12,6 +12,7 @@ pub struct SendPacketEvent {
     pub client_id: String,
     pub sequence: u64,
     pub packet: Packet,
+    pub timeout_timestamp: i64,
 }
 
 /// Event emitted when a packet acknowledgement is written

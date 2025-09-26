@@ -99,11 +99,11 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
         client_id: msg.source_client,
         sequence,
         packet,
+        timeout_timestamp: msg.timeout_timestamp
     });
 
     Ok(sequence)
 }
-
 
 #[cfg(test)]
 mod tests {
