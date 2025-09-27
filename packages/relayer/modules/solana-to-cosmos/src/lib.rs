@@ -17,8 +17,6 @@ use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use prost::Message;
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::signature::Signature;
-use tendermint::Hash;
 use tendermint_rpc::Client;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
@@ -86,7 +84,7 @@ impl SolanaToCosmosRelayerModuleService {
         Ok(Self {
             solana_chain_id: config.solana_chain_id,
             solana_client,
-            target_tm_client: target_client,
+            target_client,
             tx_builder,
             solana_ics26_program_id,
             mock: config.mock,
@@ -247,11 +245,11 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         let inner_req = request.into_inner();
         let tx = self
             .tx_builder
-            .build_create_client_tx(&inner_req.parameters)
+            .create_client(&inner_req.parameters)
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         Ok(Response::new(api::CreateClientResponse {
-            tx: tx.encode_to_vec(),
+            tx,
             address: String::new(),
         }))
     }
@@ -266,8 +264,10 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         let inner_req = request.into_inner();
         let tx = self
             .tx_builder
-            .build_update_client_tx(inner_req.dst_client_id)
+            .update_client(inner_req.dst_client_id)
             .map_err(|e| tonic::Status::from_error(e.into()))?;
+
+        tracing::info!("Update client request completed.");
 
         Ok(Response::new(api::UpdateClientResponse {
             tx: tx.encode_to_vec(),

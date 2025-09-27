@@ -1,10 +1,18 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Cosmos SDK chain from events received from Solana.
 
+use prost::Message;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use ibc_eureka_relayer_lib::events::solana::{parse_events_from_logs, SolanaEurekaEvent};
+use ibc_eureka_relayer_lib::{
+    chain::{CosmosSdk, SolanaEureka},
+    events::{
+        solana::{parse_events_from_logs, SolanaEurekaEvent},
+        SolanaEurekaEventWithHeight,
+    },
+    tx_builder::TxBuilderService,
+};
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -450,29 +458,14 @@ impl TxBuilder {
         })
     }
 
-    /// Build a create client transaction
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Failed to get Solana slot
-    /// - Failed to serialize client state
-    pub fn build_create_client_tx(
-        &self,
-        parameters: &HashMap<String, String>,
-    ) -> anyhow::Result<TxBody> {
-        // For Solana, we would create a WASM light client on Cosmos
-        // that can verify Solana's proof-of-history consensus
-
+    pub fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
         tracing::info!("Creating Solana light client on Cosmos");
 
-        // Get latest Solana slot/block information
         let slot = self
             .solana_client
             .get_slot()
             .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
 
-        // Extract checksum from parameters
         let checksum_hex = parameters
             .get("checksum_hex")
             .ok_or_else(|| anyhow::anyhow!("Missing checksum_hex parameter"))?;
@@ -502,10 +495,12 @@ impl TxBuilder {
             signer: self.signer_address.clone(),
         };
 
-        Ok(TxBody {
+        let tx = TxBody {
             messages: vec![Any::from_msg(&create_msg)?],
             ..Default::default()
-        })
+        };
+
+        Ok(tx.encode_to_vec())
     }
 
     /// Build an update client transaction
@@ -515,8 +510,7 @@ impl TxBuilder {
     /// Returns an error if:
     /// - Failed to get Solana slot
     /// - Failed to serialize update message
-    pub fn build_update_client_tx(&self, client_id: String) -> anyhow::Result<TxBody> {
-        // Get latest Solana slot/block information
+    pub fn update_client(&self, client_id: String) -> anyhow::Result<Vec<u8>> {
         let slot = self
             .solana_client
             .get_slot()
@@ -538,7 +532,8 @@ impl TxBuilder {
         Ok(TxBody {
             messages: vec![Any::from_msg(&update_msg)?],
             ..Default::default()
-        })
+        }
+        .encode_to_vec())
     }
 }
 
@@ -649,4 +644,24 @@ impl MockTxBuilder {
             signer: self.inner.signer_address.clone(),
         })
     }
+}
+
+#[async_trait::async_trait]
+impl TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
+    async fn relay_events(
+        &self,
+        src_events: Vec<SolanaEurekaEventWithHeight>,
+        dest_events: Vec<SolanaEurekaEventWithHeight>,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
+    ) -> Result<Vec<u8>> {
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {}
+
+    #[tracing::instrument(skip_all)]
+    async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {}
 }
