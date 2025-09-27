@@ -11,6 +11,7 @@ use std::sync::Arc;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana_eureka;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
+use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
