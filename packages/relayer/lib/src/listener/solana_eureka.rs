@@ -39,7 +39,7 @@ impl ChainListener {
 
     /// Get the RPC client.
     #[must_use]
-    pub fn client(&self) -> &Arc<RpcClient> {
+    pub const fn client(&self) -> &Arc<RpcClient> {
         &self.rpc_client
     }
 
@@ -51,8 +51,7 @@ impl ChainListener {
         let empty_logs = vec![];
         let logs = meta.log_messages.as_ref().unwrap_or(&empty_logs);
         let parsed_events = parse_events_from_logs(logs).context(format!(
-            "Failed to parse Solana events from height: {}",
-            height
+            "Failed to parse Solana events from height: {height}",
         ))?;
 
         Ok(parsed_events
@@ -125,20 +124,16 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
             if let Some(transactions) = block.transactions {
                 for tx in transactions {
                     if let Some(meta) = &tx.meta {
-                        // solana_transaction_status uses OptionSerializer for optional fields
-                        match &meta.log_messages {
-                            solana_transaction_status::option_serializer::OptionSerializer::Some(logs) => {
-                                // Check if any log mentions our program
-                                let involves_ibc = logs.iter().any(|log|
-                                    log.contains(&self.ics26_router_program_id.to_string())
-                                );
+                        if let solana_transaction_status::option_serializer::OptionSerializer::Some(logs) = &meta.log_messages {
+                            // Check if any log mentions our program
+                            let involves_ibc = logs.iter().any(|log|
+                                log.contains(&self.ics26_router_program_id.to_string())
+                            );
 
-                                if involves_ibc {
-                                    let parsed_events = Self::parse_events_from_logs(&meta, slot)?;
-                                        all_events.extend(parsed_events);
-                                }
+                            if involves_ibc {
+                                let parsed_events = Self::parse_events_from_logs(meta, slot)?;
+                                    all_events.extend(parsed_events);
                             }
-                            _ => {}
                         }
                     }
                 }
