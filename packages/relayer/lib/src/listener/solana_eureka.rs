@@ -3,7 +3,7 @@
 use anyhow::{Context, Result};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
-use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
+use solana_transaction_status::UiTransactionEncoding;
 use std::sync::Arc;
 
 use crate::{
@@ -50,8 +50,10 @@ impl ChainListener {
     ) -> anyhow::Result<Vec<SolanaEurekaEventWithHeight>> {
         let empty_logs = vec![];
         let logs = meta.log_messages.as_ref().unwrap_or(&empty_logs);
-        let parsed_events = parse_events_from_logs(logs)
-            .with_context(|| format!("Failed to parse Solana events from slot {}", tx.slot))?;
+        let parsed_events = parse_events_from_logs(logs).context(format!(
+            "Failed to parse Solana events from height: {}",
+            height
+        ))?;
 
         Ok(parsed_events
             .into_iter()
@@ -78,11 +80,9 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
                         .meta
                         .clone()
                         .ok_or_else(|| anyhow::anyhow!("Transaction metadata not found"))
-                        .and_then(|meta| {
-                            meta.err
-                                .as_ref()
-                                .context("Transaction failed")
-                                .unwrap_or(Ok((tx, meta)))
+                        .and_then(|meta| match meta.err {
+                            Some(err) => Err(anyhow::anyhow!("Transaction error {err}")),
+                            None => Ok((tx, meta)),
                         })
                 })?;
 
