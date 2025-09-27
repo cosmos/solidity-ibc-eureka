@@ -98,7 +98,7 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
         start_height: u64,
         end_height: u64,
     ) -> Result<Vec<SolanaEurekaEventWithHeight>> {
-        const CONCURRENT_REQUESTS: usize = 10; // Adjust based on RPC limits
+        const CONCURRENT_REQUESTS: usize = 10;
 
         let events = stream::iter(start_height..=end_height)
             .map(|slot| async move {
