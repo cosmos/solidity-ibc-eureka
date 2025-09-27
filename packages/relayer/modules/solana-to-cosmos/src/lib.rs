@@ -8,7 +8,11 @@ pub mod tx_builder;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana_eureka;
+use ibc_eureka_relayer_lib::listener::ChainListenerService;
+use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
+use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use prost::Message;
 use solana_client::rpc_client::RpcClient;
@@ -33,7 +37,6 @@ pub struct SolanaToCosmosRelayerModule;
 struct SolanaToCosmosRelayerModuleService {
     /// The souce chain listener for Solana.
     pub src_listener: solana_eureka::ChainListener,
-    pub solana_chain_id: String,
     /// The target chain listener for Cosmos SDK.
     pub target_listener: cosmos_sdk::ChainListener,
     /// The transaction builder from Solana to Cosmos.
@@ -143,7 +146,11 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
 
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
-                chain_id: status.node_info.network.to_string(),
+                chain_id: self
+                    .target_listener
+                    .chain_id()
+                    .await
+                    .map_err(to_tonic_status)?,
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
@@ -167,45 +174,32 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
 
-        // Parse Solana transaction signatures
-        let src_txs: Vec<Signature> = inner_req
-            .source_tx_ids
-            .into_iter()
-            .map(|tx_id| {
-                let sig_str = String::from_utf8(tx_id).map_err(|e| {
-                    tonic::Status::invalid_argument(format!("Invalid signature: {e}"))
-                })?;
-                sig_str
-                    .parse::<Signature>()
-                    .map_err(|e| tonic::Status::invalid_argument(format!("Invalid signature: {e}")))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let solana_tx_hashes = parse_solana_tx_hashes(inner_req.source_tx_ids)?;
 
-        // Parse Cosmos transaction hashes for timeouts
-        let _target_txs = inner_req
-            .timeout_tx_ids
-            .into_iter()
-            .map(Hash::try_from)
-            .collect::<Result<Vec<_>, _>>()
+        let cosmos_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
+
+        let solana_events = self
+            .src_listener
+            .fetch_tx_events(solana_tx_hashes)
+            .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        // Fetch events from Solana transactions
-        let src_events = self
-            .tx_builder
-            .fetch_solana_events(src_txs)
-            .map_err(|e| tonic::Status::from_error(e.into()))?;
-
-        tracing::debug!(solana_src_events = ?src_events, "Fetched source Solana events.");
+        tracing::debug!(?solana_events, "Fetched source Solana events.");
         tracing::info!(
             "Fetched {} source eureka events from Solana.",
-            src_events.len()
+            solana_events.len()
         );
 
-        // For timeouts from Cosmos - simplified for now
-        let target_events = Vec::new();
+        let cosmos_events = self
+            .target_listener
+            .fetch_tx_events(cosmos_txs)
+            .await
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
+
+        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched Cosmos events.");
         tracing::info!(
-            "Fetched {} target eureka events from CosmosSDK.",
-            target_events.len()
+            "Fetched {} eureka events from CosmosSDK.",
+            cosmos_events.len()
         );
 
         // Build the relay transaction

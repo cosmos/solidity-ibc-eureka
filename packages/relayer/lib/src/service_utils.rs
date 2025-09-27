@@ -1,6 +1,7 @@
 //! Common service patterns and utilities for relayer modules
 //! This module provides shared functionality for `RelayerService` implementations
 
+use solana_sdk::signature::Signature;
 use tendermint::Hash;
 use tonic::Status;
 
@@ -41,5 +42,27 @@ pub fn parse_eth_tx_hashes(tx_ids: Vec<Vec<u8>>) -> Result<Vec<[u8; 32]>, Status
                 .map_err(|tx| format!("invalid tx hash: {tx:?}"))
         })
         .collect::<Result<Vec<[u8; 32]>, _>>()
+        .map_err(|e| Status::from_error(e.into()))
+}
+
+/// Parse Solana transaction signatures (hashes) from request
+///
+/// # Errors
+///
+/// Returns a `Status` error if any transaction ID is not Solana Signature
+#[inline]
+#[allow(clippy::result_large_err)]
+pub fn parse_solana_tx_hashes(tx_ids: Vec<Vec<u8>>) -> Result<Vec<Signature>, Status> {
+    tx_ids
+        .into_iter()
+        .map(|tx_id| {
+            let sig_str =
+                String::from_utf8(tx_id).map_err(|e| format!("Invalid signature : {e}"))?;
+
+            sig_str
+                .parse::<Signature>()
+                .map_err(|e| format!("Invalid signature: {e}"))
+        })
+        .collect::<Result<Vec<_>, _>>()
         .map_err(|e| Status::from_error(e.into()))
 }
