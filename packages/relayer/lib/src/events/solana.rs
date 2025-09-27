@@ -33,10 +33,21 @@ pub struct SolanaEurekaEventWithHeight {
 /// Parse events from Solana transaction logs
 ///
 /// This function extracts and deserializes Anchor events from the transaction logs.
+///
 /// Events are emitted as "Program data: <base64>" in the logs.
 /// The data format is: [discriminator (8 bytes)][borsh-serialized event data]
 ///
 /// Returns an error if any IBC event fails to parse, but ignores non-IBC events.
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// - Base64 decoding fails for any "Program data:" log entry
+/// - Deserialization fails for any recognized IBC event (`SendPacket`, `WriteAcknowledgement`,
+///   `AckPacket`, or `TimeoutPacket`)
+/// - An impossible discriminator match occurs (internal logic error)
+///
+/// Non-IBC events and logs without "Program data:" prefix are silently skipped.
 pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurekaEvent>> {
     use anchor_lang::Discriminator;
     use anyhow::{anyhow, Context};
@@ -45,9 +56,9 @@ pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurek
 
     for (log_idx, log) in logs.iter().enumerate() {
         if let Some(data_str) = log.strip_prefix("Program data: ") {
-            let data = BASE64.decode(data_str).with_context(|| {
-                format!("Failed to decode base64 in log {}: {}", log_idx, data_str)
-            })?;
+            let data = BASE64
+                .decode(data_str)
+                .with_context(|| format!("Failed to decode base64 in log {log_idx}: {data_str}"))?;
 
             if data.len() < 8 {
                 // Not an Anchor event, skip
@@ -73,7 +84,7 @@ pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurek
                     SendPacketEvent::try_from_slice(event_data)
                         .map(SolanaEurekaEvent::SendPacket)
                         .with_context(|| {
-                            format!("Failed to deserialize SendPacketEvent in log {}", log_idx)
+                            format!("Failed to deserialize SendPacketEvent in log {log_idx}")
                         })?
                 }
                 disc if disc == WriteAcknowledgementEvent::DISCRIMINATOR => {
@@ -81,8 +92,7 @@ pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurek
                         .map(SolanaEurekaEvent::WriteAcknowledgement)
                         .with_context(|| {
                             format!(
-                                "Failed to deserialize WriteAcknowledgementEvent in log {}",
-                                log_idx
+                                "Failed to deserialize WriteAcknowledgementEvent in log {log_idx}",
                             )
                         })?
                 }
@@ -90,21 +100,18 @@ pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurek
                     AckPacketEvent::try_from_slice(event_data)
                         .map(SolanaEurekaEvent::AckPacket)
                         .with_context(|| {
-                            format!("Failed to deserialize AckPacketEvent in log {}", log_idx)
+                            format!("Failed to deserialize AckPacketEvent in log {log_idx}")
                         })?
                 }
                 disc if disc == TimeoutPacketEvent::DISCRIMINATOR => {
                     TimeoutPacketEvent::try_from_slice(event_data)
                         .map(SolanaEurekaEvent::TimeoutPacket)
                         .with_context(|| {
-                            format!(
-                                "Failed to deserialize TimeoutPacketEvent in log {}",
-                                log_idx
-                            )
+                            format!("Failed to deserialize TimeoutPacketEvent in log {log_idx}",)
                         })?
                 }
                 _ => {
-                    return Err(anyhow!("Unexpected discriminator match in log {}", log_idx));
+                    return Err(anyhow!("Unexpected discriminator match in log {log_idx}"));
                 }
             };
 
