@@ -11,6 +11,7 @@ use crate::{
     events::solana::{parse_events_from_logs, SolanaEurekaEventWithHeight},
     listener::ChainListenerService,
 };
+use futures::stream::{self, StreamExt, TryStreamExt};
 
 /// The `ChainListener` listens for events on the Solana chain.
 pub struct ChainListener {
@@ -97,49 +98,64 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
         start_height: u64,
         end_height: u64,
     ) -> Result<Vec<SolanaEurekaEventWithHeight>> {
-        let mut all_events = Vec::new();
+        const CONCURRENT_REQUESTS: usize = 10; // Adjust based on RPC limits
 
-        // Solana doesn't have a direct way to query events by block range,
-        // so we need to fetch blocks and look for transactions to our program
-        for slot in start_height..=end_height {
-            // Get block with transaction details
-            let block = match self.rpc_client.get_block_with_config(
-                slot,
-                solana_client::rpc_config::RpcBlockConfig {
-                    encoding: Some(UiTransactionEncoding::Base64),
-                    max_supported_transaction_version: Some(0),
-                    rewards: Some(false),
-                    commitment: Some(CommitmentConfig::confirmed()),
-                    transaction_details: Some(solana_transaction_status::TransactionDetails::Full),
-                },
-            ) {
-                Ok(block) => block,
-                Err(e) => {
-                    // Skip slots that don't exist (empty slots are common in Solana)
-                    tracing::debug!("Skipping slot {}: {}", slot, e);
-                    continue;
-                }
-            };
+        let events = stream::iter(start_height..=end_height)
+            .map(|slot| async move {
+                let block = match self.rpc_client.get_block_with_config(
+                    slot,
+                    solana_client::rpc_config::RpcBlockConfig {
+                        encoding: Some(UiTransactionEncoding::Base64),
+                        max_supported_transaction_version: Some(0),
+                        rewards: Some(false),
+                        commitment: Some(CommitmentConfig::confirmed()),
+                        transaction_details: Some(
+                            solana_transaction_status::TransactionDetails::Full,
+                        ),
+                    },
+                ) {
+                    Ok(block) => block,
+                    Err(e) => {
+                        tracing::debug!("Skipping slot {}: {}", slot, e);
+                        return Ok(Vec::new());
+                    }
+                };
 
-            if let Some(transactions) = block.transactions {
-                for tx in transactions {
-                    if let Some(meta) = &tx.meta {
-                        if let solana_transaction_status::option_serializer::OptionSerializer::Some(logs) = &meta.log_messages {
-                            // Check if any log mentions our program
-                            let involves_ibc = logs.iter().any(|log|
-                                log.contains(&self.ics26_router_program_id.to_string())
-                            );
+                let mut slot_events = Vec::new();
 
-                            if involves_ibc {
-                                let parsed_events = Self::parse_events_from_logs(meta, slot)?;
-                                    all_events.extend(parsed_events);
-                            }
+                if let Some(transactions) = block.transactions {
+                    for tx in transactions {
+                        let Some(meta) = tx.meta else {
+                            continue;
+                        };
+
+                        let solana_transaction_status::option_serializer::OptionSerializer::Some(
+                            logs,
+                        ) = &meta.log_messages
+                        else {
+                            continue;
+                        };
+
+                        let involves_ibc = logs
+                            .iter()
+                            .any(|log| log.contains(&self.ics26_router_program_id.to_string()));
+
+                        if involves_ibc {
+                            let parsed_events = Self::parse_events_from_logs(&meta, slot)?;
+                            slot_events.extend(parsed_events);
                         }
                     }
                 }
-            }
-        }
 
-        Ok(all_events)
+                Ok::<Vec<SolanaEurekaEventWithHeight>, anyhow::Error>(slot_events)
+            })
+            .buffer_unordered(CONCURRENT_REQUESTS)
+            .try_fold(Vec::new(), |mut acc, events| async move {
+                acc.extend(events);
+                Ok(acc)
+            })
+            .await?;
+
+        Ok(events)
     }
 }
