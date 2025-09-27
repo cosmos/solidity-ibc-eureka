@@ -1,6 +1,6 @@
 //! Solana chain listener implementation for IBC Eureka.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
@@ -46,19 +46,16 @@ impl ChainListener {
     /// Parse IBC events from Solana transaction logs.
     fn parse_events_from_logs(
         meta: &solana_transaction_status::UiTransactionStatusMeta,
-        tx: &EncodedConfirmedTransactionWithStatusMeta,
+        height: u64,
     ) -> anyhow::Result<Vec<SolanaEurekaEventWithHeight>> {
         let empty_logs = vec![];
         let logs = meta.log_messages.as_ref().unwrap_or(&empty_logs);
         let parsed_events = parse_events_from_logs(logs)
-            .map_err(|e| anyhow::anyhow!(?e, ?tx, "Failed to parse Solana events"))?;
+            .with_context(|| format!("Failed to parse Solana events from slot {}", tx.slot))?;
 
         Ok(parsed_events
             .into_iter()
-            .map(|event| SolanaEurekaEventWithHeight {
-                event,
-                height: tx.slot,
-            })
+            .map(|event| SolanaEurekaEventWithHeight { event, height })
             .collect())
     }
 }
@@ -84,12 +81,12 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
                         .and_then(|meta| {
                             meta.err
                                 .as_ref()
-                                .map(|err| Err(anyhow::anyhow!("Transaction failed: {err:?}")))
+                                .context("Transaction failed")
                                 .unwrap_or(Ok((tx, meta)))
                         })
                 })?;
 
-            let tx_events = Self::parse_events_from_logs(&meta, &tx)?;
+            let tx_events = Self::parse_events_from_logs(&meta, tx.slot)?;
             events.extend(tx_events);
         }
 
@@ -101,7 +98,6 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
         start_height: u64,
         end_height: u64,
     ) -> Result<Vec<SolanaEurekaEventWithHeight>> {
-        // For Solana, we need to fetch blocks in the range and extract events
         let mut all_events = Vec::new();
 
         // Solana doesn't have a direct way to query events by block range,
@@ -126,12 +122,9 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
                 }
             };
 
-            // Process transactions in the block
             if let Some(transactions) = block.transactions {
-                for tx_with_meta in transactions {
-                    // Check if transaction involves our ICS26 router program
-                    // Extract logs from transaction metadata
-                    if let Some(meta) = &tx_with_meta.meta {
+                for tx in transactions {
+                    if let Some(meta) = &tx.meta {
                         // solana_transaction_status uses OptionSerializer for optional fields
                         match &meta.log_messages {
                             solana_transaction_status::option_serializer::OptionSerializer::Some(logs) => {
@@ -141,13 +134,8 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
                                 );
 
                                 if involves_ibc {
-                                    match self.parse_events_from_logs(logs, slot) {
-                                        Ok(events) => all_events.extend(events),
-                                        Err(e) => {
-                                            tracing::error!("Failed to parse events from block {} transaction: {}", slot, e);
-                                            // Continue processing other transactions
-                                        }
-                                    }
+                                    let parsed_events = Self::parse_events_from_logs(&meta, slot)?;
+                                        all_events.extend(parsed_events);
                                 }
                             }
                             _ => {}
