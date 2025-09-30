@@ -24,17 +24,17 @@ import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessMana
 import { IBCXERC20 } from "../contracts/demo/IBCXERC20.sol";
 import { IBCRolesLib } from "../contracts/utils/IBCRolesLib.sol";
 
-contract DemoDeploy is Script, DeployAccessManagerWithRoles {
+contract GenericDeploy is Script, DeployAccessManagerWithRoles {
     using stdJson for string;
 
-    bytes[] public cosmosMerklePrefix = [bytes("ibc"), bytes("")];
+    bytes[] public attestorMerklePrefix = [bytes("")];
 
     // TODO: enter the address of your deployed light client
     address public lightClient = makeAddr("TODO");
     // TODO: enter the desired custom client id on Ethereum
     string public constant CUSTOM_CLIENT_ID = "custom-0";
     // TODO: enter the counterparty client id on the connected chain
-    string public constant COUNTERPARTY_CLIENT_ID = "07-tendermint-0";
+    string public constant COUNTERPARTY_CLIENT_ID = "08-wasm-0";
 
     // ERC20 parameters, adjust as needed
     string public constant ERC20_NAME = "WildFlower";
@@ -104,7 +104,7 @@ contract DemoDeploy is Script, DeployAccessManagerWithRoles {
         // Wire light client
         ICS26Router(address(routerProxy)).addClient(
             CUSTOM_CLIENT_ID,
-            IICS02ClientMsgs.CounterpartyInfo({ clientId: COUNTERPARTY_CLIENT_ID, merklePrefix: cosmosMerklePrefix }),
+            IICS02ClientMsgs.CounterpartyInfo({ clientId: COUNTERPARTY_CLIENT_ID, merklePrefix: attestorMerklePrefix }),
             lightClient
         );
 
