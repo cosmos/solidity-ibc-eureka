@@ -16,8 +16,6 @@ use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use prost::Message;
-use solana_client::rpc_client::RpcClient;
-use tendermint_rpc::Client;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
@@ -40,8 +38,6 @@ struct SolanaToCosmosRelayerModuleService {
     pub target_listener: cosmos_sdk::ChainListener,
     /// The transaction builder from Solana to Cosmos.
     pub tx_builder: tx_builder::TxBuilder,
-    /// The Solana ICS26 router program ID.
-    pub solana_ics26_program_id: solana_sdk::pubkey::Pubkey,
     /// Whether to use mock proofs for testing.
     pub mock: bool,
 }
@@ -52,7 +48,7 @@ pub struct SolanaToCosmosConfig {
     /// The Solana chain ID for identification.
     pub solana_chain_id: String,
     /// The Solana RPC URL.
-    pub solana_rpc_url: String,
+    pub src_rpc_url: String,
     /// The target tendermint RPC URL.
     pub target_rpc_url: String,
     /// The address of the submitter on Cosmos.
@@ -66,27 +62,36 @@ pub struct SolanaToCosmosConfig {
 
 impl SolanaToCosmosRelayerModuleService {
     fn new(config: SolanaToCosmosConfig) -> anyhow::Result<Self> {
-        let solana_client = Arc::new(RpcClient::new(config.solana_rpc_url));
-        let target_client = HttpClient::from_rpc_url(&config.target_rpc_url);
-
         let solana_ics26_program_id = config
             .solana_ics26_program_id
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana program ID: {e}"))?;
 
+        let solana_ics07_program_id = config
+            .solana_ics07_program_id
+            .parse()
+            .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {}", e))?;
+
+        let src_listener = solana_eureka::ChainListener::new(
+            config.src_rpc_url.clone(),
+            solana_ics26_program_id,
+            solana_ics07_program_id,
+        );
+
+        let target_listener =
+            cosmos_sdk::ChainListener::new(HttpClient::from_rpc_url(&config.target_rpc_url));
+
         let tx_builder = tx_builder::TxBuilder::new(
-            Arc::clone(&solana_client),
-            target_client.clone(),
+            Arc::clone(src_listener.client()),
+            target_listener.client().clone(),
             config.signer_address,
             solana_ics26_program_id,
         );
 
         Ok(Self {
-            solana_chain_id: config.solana_chain_id,
-            solana_client,
-            target_client,
+            src_listener,
+            target_listener,
             tx_builder,
-            solana_ics26_program_id,
             mock: config.mock,
         })
     }
@@ -136,13 +141,6 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
         tracing::info!("Handling info request for Solana to Cosmos...");
 
-        // Get Cosmos chain ID
-        let status = self
-            .target_tm_client
-            .status()
-            .await
-            .map_err(|e| tonic::Status::internal(format!("Failed to get chain ID: {e}")))?;
-
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
@@ -154,9 +152,9 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
                 ibc_contract: String::new(),
             }),
             source_chain: Some(api::Chain {
-                chain_id: self.solana_chain_id.clone(),
+                chain_id: "solana".to_string(), // Solana doesn't have chain IDs like Cosmos
                 ibc_version: "2".to_string(),
-                ibc_contract: self.solana_ics26_program_id.to_string(),
+                ibc_contract: self.src_listener.ics26_router_program_id().to_string(),
             }),
             metadata: HashMap::default(),
         }))
@@ -204,7 +202,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         // Build the relay transaction
         let mut tx = self
             .tx_builder
-            .build_relay_tx(&inner_req.dst_client_id, src_events, target_events)
+            .build_relay_tx(&inner_req.dst_client_id, solana_events, cosmos_events)
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         // Inject mock proofs if in mock mode

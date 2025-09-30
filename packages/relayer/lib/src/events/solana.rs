@@ -15,10 +15,6 @@ pub enum SolanaEurekaEvent {
     SendPacket(SendPacketEvent),
     /// An acknowledgement was written for a received packet
     WriteAcknowledgement(WriteAcknowledgementEvent),
-    /// A packet acknowledgement was processed
-    AckPacket(AckPacketEvent),
-    /// A packet timed out
-    TimeoutPacket(TimeoutPacketEvent),
 }
 
 /// Solana-specific Eureka event with height
