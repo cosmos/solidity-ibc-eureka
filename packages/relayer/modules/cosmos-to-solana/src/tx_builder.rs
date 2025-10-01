@@ -1537,7 +1537,6 @@ impl TxBuilder {
     }
 }
 
-
 #[async_trait::async_trait]
 impl TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
     #[tracing::instrument(skip_all)]
@@ -1597,44 +1596,61 @@ impl TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
-        self.list
-        parameters
-            .keys()
-            .find(|k| k.as_str() != CHECKSUM_HEX)
-            .map_or(Ok(()), |param| {
-                Err(anyhow::anyhow!(
-                    "Unexpected parameter: `{param}`, only `{CHECKSUM_HEX}` is allowed"
-                ))
-            })?;
+    async fn create_client(&self) -> Result<Transaction> {
+        let latest_light_block = self.source_tm_client.get_light_block(None).await?;
 
-        let client_state = WasmClientState {
-            data: b"test".to_vec(),
-            checksum: hex::decode(
-                parameters
-                    .get(CHECKSUM_HEX)
-                    .ok_or_else(|| anyhow::anyhow!("Missing `{CHECKSUM_HEX}` parameter"))?,
-            )?,
-            latest_height: Some(Height {
-                revision_number: 0,
-                revision_height: 1,
-            }),
-        };
-        let consensus_state = WasmConsensusState {
-            data: b"test".to_vec(),
-        };
+        tracing::info!(
+            "Creating client at height: {}",
+            latest_light_block.height().value()
+        );
 
-        let msg = MsgCreateClient {
-            client_state: Some(Any::from_msg(&client_state)?),
-            consensus_state: Some(Any::from_msg(&consensus_state)?),
-            signer: self.signer_address.clone(),
+        let chain_id =
+            ChainId::from_str(latest_light_block.signed_header.header.chain_id.as_str())?;
+        let height = Height {
+            revision_number: chain_id.revision_number(),
+            revision_height: latest_light_block.height().value(),
+        };
+        let unbonding_period = self
+            .source_tm_client
+            .sdk_staking_params()
+            .await?
+            .unbonding_time
+            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
+        // Defaults to the recommended 2/3 of the UnbondingPeriod
+        let trusting_period = Duration {
+            seconds: 2 * (unbonding_period.seconds / 3),
+            nanos: 0,
         };
 
-        Ok(TxBody {
-            messages: vec![Any::from_msg(&msg)?],
-            ..Default::default()
-        }
-        .encode_to_vec())
+        let client_state = build_tendermint_client_state(
+            chain_id.to_string(),
+            height,
+            trusting_period,
+            unbonding_period,
+            vec![ics23::iavl_spec(), ics23::tendermint_spec()],
+        );
+
+        let consensus_state = latest_light_block.to_consensus_state();
+
+        let instruction = self.build_create_client_instruction(
+            &chain_id_str,
+            latest_height,
+            &client_state,
+            &consensus_state,
+        )?;
+
+        // Create unsigned transaction
+        let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
+
+        // Get recent blockhash
+        let recent_blockhash = self
+            .solana_client
+            .get_latest_blockhash()
+            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
+
+        tx.message.recent_blockhash = recent_blockhash;
+
+        Ok(tx)
     }
 
     // TODO: Update once real solana light client is available
