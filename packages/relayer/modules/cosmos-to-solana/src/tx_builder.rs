@@ -179,7 +179,7 @@ enum CosmosIbcEvent {
 /// The `TxBuilder` produces Solana transactions based on events from Cosmos SDK.
 pub struct TxBuilder {
     /// The source chain listener for Cosmos SDK.
-    pub target_listener: cosmos_sdk::ChainListener,
+    pub src_listener: cosmos_sdk::ChainListener,
     /// The Solana RPC client (wrapped in Arc since `RpcClient` doesn't implement Clone in 2.0).
     /// The target chain listener for Solana.
     pub target_listener: solana_eureka::ChainListener,
@@ -1652,22 +1652,35 @@ impl TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
         Ok(tx)
     }
 
-    // TODO: Update once real solana light client is available
     #[tracing::instrument(skip_all)]
     async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
+        let client_state = ClientState::decode(
+            self.src_listener
+                .client_state(dst_client_id.clone())
+                .await?
+                .value
+                .as_slice(),
+        )?;
+
+        let target_light_block = self.source_tm_client.get_light_block(None).await?;
+        let trusted_light_block = self
+            .src_listener
+            .get_light_block(Some(
+                client_state
+                    .latest_height
+                    .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
+                    .revision_height,
+            ))
+            .await?;
+
         tracing::info!(
-            "Generating tx to update mock light client: {}",
-            dst_client_id
+            "Generating tx to update '{}' from height: {} to height: {}",
+            dst_client_id,
+            trusted_light_block.height().value(),
+            target_light_block.height().value()
         );
 
-        let consensus_state = WasmConsensusState {
-            data: b"test".to_vec(),
-        };
-        let msg = MsgUpdateClient {
-            client_id: dst_client_id,
-            client_message: Some(Any::from_msg(&consensus_state)?),
-            signer: self.signer_address.clone(),
-        };
+        let proposed_header = target_light_block.into_header(&trusted_light_block);
 
         Ok(TxBody {
             messages: vec![Any::from_msg(&msg)?],
