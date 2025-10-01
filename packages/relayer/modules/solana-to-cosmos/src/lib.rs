@@ -72,16 +72,8 @@ impl SolanaToCosmosRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana program ID: {e}"))?;
 
-        let solana_ics07_program_id = config
-            .solana_ics07_program_id
-            .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {}", e))?;
-
-        let src_listener = solana_eureka::ChainListener::new(
-            config.src_rpc_url.clone(),
-            solana_ics26_program_id,
-            solana_ics07_program_id,
-        );
+        let src_listener =
+            solana_eureka::ChainListener::new(config.src_rpc_url.clone(), solana_ics26_program_id);
 
         let target_listener =
             cosmos_sdk::ChainListener::new(HttpClient::from_rpc_url(&config.target_rpc_url));

@@ -20,8 +20,6 @@ pub struct ChainListener {
     rpc_client: Arc<RpcClient>,
     /// The Solana ICS26 router program ID.
     ics26_router_program_id: Pubkey,
-    /// The Solana ICS07 Tendermint light client program ID.
-    solana_ics07_program_id: solana_sdk::pubkey::Pubkey,
 }
 
 impl ChainListener {
@@ -31,11 +29,7 @@ impl ChainListener {
     /// - `rpc_url` - The Solana RPC endpoint URL
     /// - `ics26_router_program_id` - The ICS26 Router program ID on Solana
     #[must_use]
-    pub fn new(
-        rpc_url: String,
-        ics26_router_program_id: Pubkey,
-        solana_ics07_program_id: Pubkey,
-    ) -> Self {
+    pub fn new(rpc_url: String, ics26_router_program_id: Pubkey) -> Self {
         let rpc_client = Arc::new(RpcClient::new_with_commitment(
             rpc_url,
             CommitmentConfig::confirmed(),
@@ -44,7 +38,6 @@ impl ChainListener {
         Self {
             rpc_client,
             ics26_router_program_id,
-            solana_ics07_program_id,
         }
     }
 
