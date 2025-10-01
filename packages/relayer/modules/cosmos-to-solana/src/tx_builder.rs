@@ -1639,10 +1639,8 @@ impl TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
             &consensus_state,
         )?;
 
-        // Create unsigned transaction
         let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
 
-        // Get recent blockhash
         let recent_blockhash = self
             .solana_client
             .get_latest_blockhash()
