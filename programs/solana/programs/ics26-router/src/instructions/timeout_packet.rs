@@ -170,12 +170,11 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     emit!(TimeoutPacketEvent {
         client_id: msg.packet.source_client.clone(),
         sequence: msg.packet.sequence,
-        packet: msg.packet.clone(),
+        packet: msg.packet,
     });
 
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -67,4 +67,3 @@ pub fn to_32_bytes_padded(bytes: &[u8], field_name: &str) -> [u8; 32] {
 
 pub mod cosmos;
 pub mod eth_eureka;
-pub mod solana;

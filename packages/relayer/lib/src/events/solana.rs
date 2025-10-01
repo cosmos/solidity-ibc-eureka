@@ -2,11 +2,18 @@
 //!
 //! This module provides utilities for parsing IBC events from Solana transaction logs.
 
-use anchor_lang::prelude::*;
+use alloy::primitives::Bytes;
+use anchor_lang::AnchorDeserialize as _;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use solana_ibc_types::events::{
-    AckPacketEvent, SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
+use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::{
+    Packet as SolPacket, Payload as SolPayload,
 };
+use solana_ibc_types::{
+    events::{SendPacketEvent, WriteAcknowledgementEvent},
+    Packet as SolanaPacket, Payload as SolanaPayload,
+};
+
+use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
 /// Parsed IBC event from Solana transaction logs
 #[derive(Debug, Clone)]
@@ -26,6 +33,57 @@ pub struct SolanaEurekaEventWithHeight {
     pub height: u64,
 }
 
+impl From<&SolanaEurekaEventWithHeight> for EurekaEventWithHeight {
+    fn from(event_with_height: &SolanaEurekaEventWithHeight) -> Self {
+        let event = match &event_with_height.event {
+            SolanaEurekaEvent::SendPacket(send_packet_event) => {
+                EurekaEvent::SendPacket(solana_packet_to_sol_packet(&send_packet_event.packet))
+            }
+            SolanaEurekaEvent::WriteAcknowledgement(write_acknowledgement_event) => {
+                EurekaEvent::WriteAcknowledgement(
+                    solana_packet_to_sol_packet(&write_acknowledgement_event.packet),
+                    write_acknowledgement_event
+                        .acknowledgements
+                        .clone()
+                        .into_iter()
+                        .map(Bytes::from)
+                        .collect(),
+                )
+            }
+        };
+
+        Self {
+            event,
+            height: event_with_height.height,
+        }
+    }
+}
+
+fn solana_packet_to_sol_packet(value: &SolanaPacket) -> SolPacket {
+    SolPacket {
+        sequence: value.sequence,
+        sourceClient: value.source_client.clone(),
+        destClient: value.dest_client.clone(),
+        timeoutTimestamp: u64::try_from(value.timeout_timestamp).unwrap_or(0),
+        payloads: value
+            .payloads
+            .clone()
+            .into_iter()
+            .map(solana_payload_to_sol_payload)
+            .collect(),
+    }
+}
+
+fn solana_payload_to_sol_payload(value: SolanaPayload) -> SolPayload {
+    SolPayload {
+        sourcePort: value.source_port,
+        destPort: value.dest_port,
+        version: value.version,
+        encoding: value.encoding,
+        value: value.value.into(),
+    }
+}
+
 /// Parse events from Solana transaction logs
 ///
 /// This function extracts and deserializes Anchor events from the transaction logs.
@@ -39,11 +97,11 @@ pub struct SolanaEurekaEventWithHeight {
 ///
 /// This function will return an error if:
 /// - Base64 decoding fails for any "Program data:" log entry
-/// - Deserialization fails for any recognized IBC event (`SendPacket`, `WriteAcknowledgement`,
-///   `AckPacket`, or `TimeoutPacket`)
+/// - Deserialization fails for any recognized IBC event (`SendPacket`, `WriteAcknowledgement`)
 /// - An impossible discriminator match occurs (internal logic error)
 ///
 /// Non-IBC events and logs without "Program data:" prefix are silently skipped.
+/// TODO: Might be easier to parse via anchor_client but dependencies get kinda messy so manual parse
 pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurekaEvent>> {
     use anchor_lang::Discriminator;
     use anyhow::{anyhow, Context};
@@ -66,12 +124,9 @@ pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurek
 
             // Check if this is an IBC event we care about
             let is_ibc_event = discriminator == SendPacketEvent::DISCRIMINATOR
-                || discriminator == WriteAcknowledgementEvent::DISCRIMINATOR
-                || discriminator == AckPacketEvent::DISCRIMINATOR
-                || discriminator == TimeoutPacketEvent::DISCRIMINATOR;
+                || discriminator == WriteAcknowledgementEvent::DISCRIMINATOR;
 
             if !is_ibc_event {
-                // Not an IBC event, skip without error
                 continue;
             }
 
@@ -90,20 +145,6 @@ pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurek
                             format!(
                                 "Failed to deserialize WriteAcknowledgementEvent in log {log_idx}",
                             )
-                        })?
-                }
-                disc if disc == AckPacketEvent::DISCRIMINATOR => {
-                    AckPacketEvent::try_from_slice(event_data)
-                        .map(SolanaEurekaEvent::AckPacket)
-                        .with_context(|| {
-                            format!("Failed to deserialize AckPacketEvent in log {log_idx}")
-                        })?
-                }
-                disc if disc == TimeoutPacketEvent::DISCRIMINATOR => {
-                    TimeoutPacketEvent::try_from_slice(event_data)
-                        .map(SolanaEurekaEvent::TimeoutPacket)
-                        .with_context(|| {
-                            format!("Failed to deserialize TimeoutPacketEvent in log {log_idx}",)
                         })?
                 }
                 _ => {

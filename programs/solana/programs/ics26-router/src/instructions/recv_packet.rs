@@ -200,20 +200,19 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         }
     };
 
-    let acks = vec![acknowledgement];
-    let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&acks)?;
+    let acknowledgements = vec![acknowledgement];
+    let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&acknowledgements)?;
     packet_ack.value = ack_commitment;
 
     emit!(WriteAcknowledgementEvent {
         client_id: msg.packet.dest_client.clone(),
         sequence: msg.packet.sequence,
-        packet: msg.packet.clone(),
-        acknowledgements: acks.try_to_vec()?,
+        packet: msg.packet,
+        acknowledgements,
     });
 
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {

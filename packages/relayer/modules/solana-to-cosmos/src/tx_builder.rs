@@ -8,10 +8,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use ibc_eureka_relayer_lib::{
     chain::{CosmosSdk, SolanaEureka},
-    events::{
-        solana::SolanaEurekaEvent,
-        EurekaEventWithHeight, SolanaEurekaEventWithHeight,
-    },
+    events::{solana::SolanaEurekaEvent, EurekaEventWithHeight, SolanaEurekaEventWithHeight},
     tx_builder::TxBuilderService,
     utils::{cosmos, solana},
 };
@@ -382,7 +379,6 @@ impl TxBuilder {
     }
 }
 
-
 #[async_trait::async_trait]
 impl TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
     async fn relay_events(
@@ -408,7 +404,7 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
             now_since_unix,
         );
 
-        let (mut recv_msgs, mut ack_msgs) = solana::src_events_to_recv_and_ack_msgs(
+        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
             &src_client_id,
             &dst_client_id,
@@ -426,9 +422,24 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
 
         // Combine all messages
         let all_msgs = std::iter::once(Any::from_msg(&update_msg)?)
-            .chain(timeout_msgs.iter().map(|m| Any::from_msg(m)).collect::<Result<Vec<_>, _>>()?)
-            .chain(recv_msgs.iter().map(|m| Any::from_msg(m)).collect::<Result<Vec<_>, _>>()?)
-            .chain(ack_msgs.iter().map(|m| Any::from_msg(m)).collect::<Result<Vec<_>, _>>()?)
+            .chain(
+                timeout_msgs
+                    .iter()
+                    .map(|m| Any::from_msg(m))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+            .chain(
+                recv_msgs
+                    .iter()
+                    .map(|m| Any::from_msg(m))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+            .chain(
+                ack_msgs
+                    .iter()
+                    .map(|m| Any::from_msg(m))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
             .collect::<Vec<_>>();
 
         if all_msgs.len() == 1 {

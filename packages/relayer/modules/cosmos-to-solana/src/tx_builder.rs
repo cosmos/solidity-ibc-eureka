@@ -146,6 +146,36 @@ struct AckPacketParams<'a> {
     proof_height: u64,
 }
 
+/// Internal representation of IBC events from Cosmos
+#[derive(Debug, Clone)]
+enum CosmosIbcEvent {
+    /// A packet was sent from Cosmos
+    SendPacket {
+        sequence: u64,
+        source_client: String,
+        destination_client: String,
+        payloads: Vec<Vec<u8>>,
+        timeout_timestamp: u64,
+    },
+    /// An acknowledgement was written/received
+    AcknowledgePacket {
+        sequence: u64,
+        source_client: String,
+        destination_client: String,
+        payloads: Vec<Vec<u8>>,
+        timeout_timestamp: u64,
+        acknowledgements: Vec<Vec<u8>>,
+    },
+    /// A packet timed out
+    TimeoutPacket {
+        sequence: u64,
+        source_client: String,
+        destination_client: String,
+        payloads: Vec<Vec<u8>>,
+        timeout_timestamp: u64,
+    },
+}
+
 /// The `TxBuilder` produces Solana transactions based on events from Cosmos SDK.
 pub struct TxBuilder {
     /// The source Cosmos HTTP client.
@@ -239,222 +269,6 @@ impl TxBuilder {
                 .map_err(|e| anyhow::anyhow!("Invalid ICS07 program ID: {e}"))?,
             fee_payer,
         })
-    }
-
-    /// Fetch events from Cosmos transactions
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if failed to fetch Cosmos transaction
-    #[allow(clippy::cognitive_complexity)] // Event parsing is inherently complex
-    pub async fn fetch_cosmos_events(
-        &self,
-        tx_hashes: Vec<Hash>,
-    ) -> Result<(Vec<CosmosIbcEvent>, Option<u64>)> {
-        let mut events = Vec::new();
-        let mut max_height: Option<u64> = None;
-
-        for tx_hash in tx_hashes {
-            // Fetch transaction from Tendermint
-            let tx_result = self
-                .source_tm_client
-                .tx(tx_hash, false)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to fetch Cosmos transaction: {e}"))?;
-
-            let height = tx_result.height.value();
-
-            // Track the maximum height from all transactions
-            max_height = Some(max_height.map_or(height, |h| h.max(height)));
-
-            for tm_event in tx_result.tx_result.events {
-                if let Ok(eureka_event) = EurekaEvent::try_from(tm_event.clone()) {
-                    match eureka_event {
-                        EurekaEvent::SendPacket(packet) => {
-                            tracing::debug!(
-                                "Parsed send_packet: seq={}, src={}, dst={}",
-                                packet.sequence,
-                                packet.sourceClient,
-                                packet.destClient
-                            );
-
-                            // Convert payloads to Vec<Vec<u8>>
-                            let payloads = packet
-                                .payloads
-                                .into_iter()
-                                .map(|p| p.value.to_vec())
-                                .collect();
-
-                            events.push(CosmosIbcEvent::SendPacket {
-                                sequence: packet.sequence,
-                                source_client: packet.sourceClient,
-                                destination_client: packet.destClient,
-                                payloads,
-                                timeout_timestamp: packet.timeoutTimestamp,
-                            });
-                        }
-                        EurekaEvent::WriteAcknowledgement(packet, acks) => {
-                            tracing::info!(
-                                "COSMOS WROTE ACKNOWLEDGEMENT: seq={}, src={}, dst={}, ack_data={:?}",
-                                packet.sequence,
-                                packet.sourceClient,
-                                packet.destClient,
-                                acks
-                            );
-                            tracing::info!(
-                                "This acknowledgment should be queryable at the destination client path: {}",
-                                packet.destClient
-                            );
-
-                            // WriteAck is when Cosmos (destination) writes an ack for a packet from Solana (source)
-                            // We need to relay this ack back to Solana
-                            // The packet.sourceClient is the Solana client, packet.destClient is the Cosmos client
-                            // The 'acks' contains the actual acknowledgement data (not the commitment)
-                            let acknowledgements =
-                                acks.into_iter().map(|ack| ack.to_vec()).collect();
-
-                            // For now, we'll leave channels empty as they should be in the event
-                            // They will be parsed from the manual event parsing below
-                            events.push(CosmosIbcEvent::AcknowledgePacket {
-                                sequence: packet.sequence,
-                                source_client: packet.sourceClient, // Original source (Solana client)
-                                destination_client: packet.destClient, // Original destination (Cosmos client)
-                                acknowledgements,
-                                proof_height: height,
-                            });
-                        }
-                    }
-                } else {
-                    // Handle events not yet supported by EurekaEvent
-                    // For now, manually parse acknowledge_packet events
-                    match tm_event.kind.as_str() {
-                        "acknowledge_packet" => {
-                            tracing::info!("Found acknowledge_packet event, parsing manually");
-                            tracing::debug!("Event attributes: {:?}", tm_event.attributes);
-
-                            // Parse acknowledge_packet event attributes
-                            let mut sequence = 0u64;
-                            let mut source_client = String::new();
-                            let mut destination_client = String::new();
-                            let mut acknowledgements = Vec::new();
-
-                            for attr in &tm_event.attributes {
-                                if let (Ok(key), Ok(value)) = (attr.key_str(), attr.value_str()) {
-                                    tracing::debug!("  Attribute: {} = {}", key, value);
-                                    match key {
-                                        "packet_sequence" | "sequence" => {
-                                            sequence = value.parse().unwrap_or(0);
-                                            tracing::debug!("    Parsed sequence: {}", sequence);
-                                        }
-                                        "packet_source_client" | "source_client" => {
-                                            source_client = value.to_string();
-                                            tracing::debug!(
-                                                "    Parsed source_client: {}",
-                                                source_client
-                                            );
-                                        }
-                                        "packet_destination_client"
-                                        | "destination_client"
-                                        | "dest_client" => {
-                                            destination_client = value.to_string();
-                                            tracing::debug!(
-                                                "    Parsed destination_client: {}",
-                                                destination_client
-                                            );
-                                        }
-                                        "packet_source_channel" | "source_channel" => {
-                                            // Channel fields are not used in current implementation
-                                            tracing::debug!(
-                                                "    Ignoring source_channel: {}",
-                                                value
-                                            );
-                                        }
-                                        "packet_destination_channel"
-                                        | "destination_channel"
-                                        | "dest_channel" => {
-                                            // Channel fields are not used in current implementation
-                                            tracing::debug!(
-                                                "    Ignoring destination_channel: {}",
-                                                value
-                                            );
-                                        }
-                                        "packet_ack" | "acknowledgement" | "ack" => {
-                                            // The acknowledgement might be hex or base64 encoded
-                                            if let Ok(ack_bytes) = hex::decode(&value) {
-                                                acknowledgements.push(ack_bytes);
-                                                tracing::debug!("    Parsed hex acknowledgement");
-                                            } else {
-                                                // If not hex, use as-is
-                                                acknowledgements.push(value.as_bytes().to_vec());
-                                                tracing::debug!("    Using raw acknowledgement");
-                                            }
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            }
-
-                            if sequence > 0 && !source_client.is_empty() {
-                                tracing::info!(
-                                    "Parsed acknowledge_packet: seq={}, src={}, dest={}",
-                                    sequence,
-                                    source_client,
-                                    destination_client
-                                );
-
-                                events.push(CosmosIbcEvent::AcknowledgePacket {
-                                    sequence,
-                                    source_client,
-                                    destination_client,
-                                    acknowledgements,
-                                    proof_height: height,
-                                });
-                            }
-                        }
-                        "timeout_packet" => {
-                            tracing::debug!("Found timeout_packet event (not yet implemented)");
-                            // TODO: Parse timeout_packet events when needed
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-
-        Ok((events, max_height))
-    }
-
-    /// Fetch timeout events from Solana transactions
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if failed to fetch Solana transaction
-    pub fn fetch_solana_timeout_events(
-        &self,
-        tx_signatures: Vec<Signature>,
-    ) -> Result<Vec<CosmosIbcEvent>> {
-        let events = Vec::new();
-
-        for signature in tx_signatures {
-            // Get transaction details
-            let _tx = self
-                .solana_client
-                .get_transaction_with_config(
-                    &signature,
-                    solana_client::rpc_config::RpcTransactionConfig {
-                        encoding: Some(solana_transaction_status::UiTransactionEncoding::Json),
-                        commitment: Some(CommitmentConfig::confirmed()),
-                        max_supported_transaction_version: Some(0),
-                    },
-                )
-                .map_err(|e| anyhow::anyhow!("Failed to fetch Solana transaction: {e}"))?;
-
-            // Parse timeout events from transaction logs
-            // In production, you'd parse the actual instruction data
-            tracing::debug!("Processing Solana transaction for timeouts");
-        }
-
-        Ok(events)
     }
 
     /// Build Solana relay transactions with optional chunked update client

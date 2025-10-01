@@ -8,12 +8,16 @@ pub mod tx_builder;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use ibc_eureka_relayer_lib::chain::SolanaEureka;
+use ibc_eureka_relayer_lib::events::EurekaEventWithHeight;
+use ibc_eureka_relayer_lib::events::SolanaEurekaEvent;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana_eureka;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
 use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
+use ibc_eureka_relayer_lib::utils::solana;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use prost::Message;
 use tendermint_rpc::HttpClient;
@@ -95,41 +99,6 @@ impl SolanaToCosmosRelayerModuleService {
             mock: config.mock,
         })
     }
-
-    /// Injects mock proofs into IBC messages in the transaction for testing purposes.
-    fn inject_mock_proofs_into_tx(
-        tx: &mut ibc_proto_eureka::cosmos::tx::v1beta1::TxBody,
-    ) -> anyhow::Result<()> {
-        use ibc_proto_eureka::ibc::core::channel::v2::{
-            MsgAcknowledgement, MsgRecvPacket, MsgTimeout,
-        };
-
-        for any_msg in &mut tx.messages {
-            match any_msg.type_url.as_str() {
-                url if url.contains("MsgRecvPacket") => {
-                    let msg = MsgRecvPacket::decode(any_msg.value.as_slice())?;
-                    let mut msgs = [msg];
-                    cosmos::inject_mock_proofs(&mut msgs, &mut [], &mut []);
-                    any_msg.value = msgs[0].encode_to_vec();
-                }
-                url if url.contains("MsgAcknowledgement") => {
-                    let msg = MsgAcknowledgement::decode(any_msg.value.as_slice())?;
-                    let mut msgs = [msg];
-                    cosmos::inject_mock_proofs(&mut [], &mut msgs, &mut []);
-                    any_msg.value = msgs[0].encode_to_vec();
-                }
-                url if url.contains("MsgTimeout") => {
-                    let msg = MsgTimeout::decode(any_msg.value.as_slice())?;
-                    let mut msgs = [msg];
-                    cosmos::inject_mock_proofs(&mut [], &mut [], &mut msgs);
-                    any_msg.value = msgs[0].encode_to_vec();
-                }
-                _ => {} // Skip messages we don't care about
-            }
-        }
-
-        Ok(())
-    }
 }
 
 #[tonic::async_trait]
@@ -199,26 +168,10 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             cosmos_events.len()
         );
 
-        // Build the relay transaction
         let mut tx = self
             .tx_builder
             .build_relay_tx(&inner_req.dst_client_id, solana_events, cosmos_events)
             .map_err(|e| tonic::Status::from_error(e.into()))?;
-
-        // Inject mock proofs if in mock mode
-        if self.mock {
-            tracing::info!("=== INJECTING MOCK PROOFS ===");
-            tracing::info!(
-                "Mock mode enabled, injecting mock proofs into {} messages",
-                tx.messages.len()
-            );
-            Self::inject_mock_proofs_into_tx(&mut tx).map_err(|e| {
-                tonic::Status::internal(format!("Failed to inject mock proofs: {e}"))
-            })?;
-            tracing::info!("Successfully injected mock proofs into transaction messages");
-        } else {
-            tracing::warn!("Mock mode disabled - no proofs will be injected!");
-        }
 
         tracing::info!(
             "Built {} messages for Solana to Cosmos relay.",
@@ -273,6 +226,130 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             chunked_metadata: None,
             chunked_txs: vec![],
         }))
+    }
+}
+
+#[async_trait::async_trait]
+impl<P> TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
+    #[tracing::instrument(skip_all)]
+    async fn relay_events(
+        &self,
+        src_events: Vec<EurekaEventWithHeight>,
+        dest_events: Vec<EurekaEventWithHeight>,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
+    ) -> Result<Vec<u8>> {
+        tracing::info!(
+            "Relaying events from Solana to Cosmos for client {}",
+            dst_client_id
+        );
+
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+
+        let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
+            dest_events,
+            &src_client_id,
+            &dst_client_id,
+            &dst_packet_seqs,
+            &self.signer_address,
+            now_since_unix.as_secs(),
+        );
+
+        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+            src_events,
+            &src_client_id,
+            &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
+            &self.signer_address,
+            now_since_unix.as_secs(),
+        );
+
+        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
+        tracing::debug!("Recv messages: #{}", recv_msgs.len());
+        tracing::debug!("Ack messages: #{}", ack_msgs.len());
+
+        cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
+
+        let all_msgs = timeout_msgs
+            .into_iter()
+            .map(|m| Any::from_msg(&m))
+            .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let tx_body = TxBody {
+            messages: all_msgs,
+            ..Default::default()
+        };
+        Ok(tx_body.encode_to_vec())
+    }
+
+    // TODO: Update once real solana light client is available
+    #[tracing::instrument(skip_all)]
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        parameters
+            .keys()
+            .find(|k| k.as_str() != CHECKSUM_HEX)
+            .map_or(Ok(()), |param| {
+                Err(anyhow::anyhow!(
+                    "Unexpected parameter: `{param}`, only `{CHECKSUM_HEX}` is allowed"
+                ))
+            })?;
+
+        let client_state = WasmClientState {
+            data: b"test".to_vec(),
+            checksum: hex::decode(
+                parameters
+                    .get(CHECKSUM_HEX)
+                    .ok_or_else(|| anyhow::anyhow!("Missing `{CHECKSUM_HEX}` parameter"))?,
+            )?,
+            latest_height: Some(Height {
+                revision_number: 0,
+                revision_height: 1,
+            }),
+        };
+        let consensus_state = WasmConsensusState {
+            data: b"test".to_vec(),
+        };
+
+        let msg = MsgCreateClient {
+            client_state: Some(Any::from_msg(&client_state)?),
+            consensus_state: Some(Any::from_msg(&consensus_state)?),
+            signer: self.signer_address.clone(),
+        };
+
+        Ok(TxBody {
+            messages: vec![Any::from_msg(&msg)?],
+            ..Default::default()
+        }
+        .encode_to_vec())
+    }
+
+    // TODO: Update once real solana light client is available
+    #[tracing::instrument(skip_all)]
+    async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
+        tracing::info!(
+            "Generating tx to update mock light client: {}",
+            dst_client_id
+        );
+
+        let consensus_state = WasmConsensusState {
+            data: b"test".to_vec(),
+        };
+        let msg = MsgUpdateClient {
+            client_id: dst_client_id,
+            client_message: Some(Any::from_msg(&consensus_state)?),
+            signer: self.signer_address.clone(),
+        };
+
+        Ok(TxBody {
+            messages: vec![Any::from_msg(&msg)?],
+            ..Default::default()
+        }
+        .encode_to_vec())
     }
 }
 

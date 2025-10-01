@@ -4,11 +4,15 @@ use anyhow::{Context, Result};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::UiTransactionEncoding;
+
 use std::sync::Arc;
 
 use crate::{
     chain::SolanaEureka,
-    events::solana::{parse_events_from_logs, SolanaEurekaEventWithHeight},
+    events::{
+        solana::{parse_events_from_logs, SolanaEurekaEventWithHeight},
+        EurekaEventWithHeight,
+    },
     listener::ChainListenerService,
 };
 use futures::stream::{self, StreamExt, TryStreamExt};
@@ -53,6 +57,7 @@ impl ChainListener {
         &self.rpc_client
     }
 
+    /// Get Router program id
     #[must_use]
     pub const fn ics26_router_program_id(&self) -> &Pubkey {
         &self.ics26_router_program_id
@@ -78,10 +83,7 @@ impl ChainListener {
 
 #[async_trait::async_trait]
 impl ChainListenerService<SolanaEureka> for ChainListener {
-    async fn fetch_tx_events(
-        &self,
-        tx_ids: Vec<Signature>,
-    ) -> Result<Vec<SolanaEurekaEventWithHeight>> {
+    async fn fetch_tx_events(&self, tx_ids: Vec<Signature>) -> Result<Vec<EurekaEventWithHeight>> {
         let mut events = Vec::new();
 
         for tx in tx_ids {
@@ -104,6 +106,8 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
             events.extend(tx_events);
         }
 
+        let events = events.iter().map(EurekaEventWithHeight::from).collect();
+
         Ok(events)
     }
 
@@ -111,7 +115,7 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
         &self,
         start_height: u64,
         end_height: u64,
-    ) -> Result<Vec<SolanaEurekaEventWithHeight>> {
+    ) -> Result<Vec<EurekaEventWithHeight>> {
         const CONCURRENT_REQUESTS: usize = 10;
 
         let events = stream::iter(start_height..=end_height)
@@ -169,6 +173,8 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
                 Ok(acc)
             })
             .await?;
+
+        let events = events.iter().map(EurekaEventWithHeight::from).collect();
 
         Ok(events)
     }
