@@ -1595,6 +1595,7 @@ impl TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
         Ok(tx_body.encode_to_vec())
     }
 
+    // TODO: refactor, create shared code
     #[tracing::instrument(skip_all)]
     async fn create_client(&self) -> Result<Transaction> {
         let latest_light_block = self.source_tm_client.get_light_block(None).await?;
