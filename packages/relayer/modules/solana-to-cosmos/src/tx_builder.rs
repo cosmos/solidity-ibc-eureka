@@ -394,7 +394,6 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
 
-        // Use the utility functions to convert Cosmos events to timeout messages
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
             &src_client_id,
@@ -404,8 +403,14 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
             now_since_unix,
         );
 
+        // NOTE: Convert to eureka event to reuse to recvs/ack msg fn
+        let src_events_as_sol_events = src_events
+            .clone()
+            .into_iter()
+            .map(EurekaEventWithHeight::from)
+            .collect();
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
-            src_events,
+            src_events_as_sol_events,
             &src_client_id,
             &dst_client_id,
             &src_packet_seqs,

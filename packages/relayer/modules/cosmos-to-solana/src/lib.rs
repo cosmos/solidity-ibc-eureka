@@ -11,6 +11,7 @@ use std::sync::Arc;
 use ibc_eureka_relayer_lib::chain::CosmosSdk;
 use ibc_eureka_relayer_lib::chain::SolanaEureka;
 use ibc_eureka_relayer_lib::events::EurekaEventWithHeight;
+use ibc_eureka_relayer_lib::events::SolanaEurekaEventWithHeight;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana_eureka;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
@@ -377,7 +378,7 @@ impl<P> TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
-        dest_events: Vec<EurekaEventWithHeight>,
+        dest_events: Vec<SolanaEurekaEventWithHeight>,
         src_client_id: String,
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,

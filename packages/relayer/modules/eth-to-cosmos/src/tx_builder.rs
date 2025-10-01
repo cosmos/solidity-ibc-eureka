@@ -323,8 +323,15 @@ where
 
         let max_src_block_number = src_events.iter().map(|e| e.height).max();
 
+        // NOTE: Convert to eureka event to reuse to timeout fn
+        let dest_events_as_sol_events = dest_events
+            .clone()
+            .into_iter()
+            .map(EurekaEventWithHeight::from)
+            .collect();
+
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
-            dest_events,
+            dest_events_as_sol_events,
             &src_client_id,
             &dst_client_id,
             &dst_packet_seqs,
@@ -453,15 +460,15 @@ where
             .compute_sync_committee_period_at_slot(ethereum_client_state.latest_slot);
         let latest_period = ethereum_client_state.compute_sync_committee_period_at_slot(proof_slot);
         tracing::info!(
-            "Relay events summary: 
+            "Relay events summary:
                 client id: {},
-                recv events processed: #{}, 
-                ack events processed: #{}, 
-                timeout events processed: #{}, 
-                initial slot: {}, 
-                latest trusted slot (after updates): {}, 
-                initial period: {}, 
-                latest period: {}, 
+                recv events processed: #{},
+                ack events processed: #{},
+                timeout events processed: #{},
+                initial slot: {},
+                latest trusted slot (after updates): {},
+                initial period: {},
+                latest period: {},
                 number of headers: #{}",
             dst_client_id,
             recv_msgs.len(),
@@ -649,12 +656,12 @@ where
             .compute_sync_committee_period_at_slot(ethereum_client_state.latest_slot);
         let latest_period = ethereum_client_state.compute_sync_committee_period_at_slot(proof_slot);
         tracing::info!(
-            "Update client summary: 
+            "Update client summary:
                 client id: {},
-                initial slot: {}, 
-                latest trusted slot (after updates): {}, 
-                initial period: {}, 
-                latest period: {}, 
+                initial slot: {},
+                latest trusted slot (after updates): {},
+                initial period: {},
+                latest period: {},
                 number of headers: #{}",
             dst_client_id,
             ethereum_client_state.latest_slot,
