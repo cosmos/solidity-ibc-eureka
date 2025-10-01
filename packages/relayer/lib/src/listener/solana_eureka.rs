@@ -9,10 +9,7 @@ use std::sync::Arc;
 
 use crate::{
     chain::SolanaEureka,
-    events::{
-        solana::{parse_events_from_logs, SolanaEurekaEventWithHeight},
-        EurekaEventWithHeight,
-    },
+    events::solana::{parse_events_from_logs, SolanaEurekaEventWithHeight},
     listener::ChainListenerService,
 };
 use futures::stream::{self, StreamExt, TryStreamExt};
@@ -83,7 +80,10 @@ impl ChainListener {
 
 #[async_trait::async_trait]
 impl ChainListenerService<SolanaEureka> for ChainListener {
-    async fn fetch_tx_events(&self, tx_ids: Vec<Signature>) -> Result<Vec<EurekaEventWithHeight>> {
+    async fn fetch_tx_events(
+        &self,
+        tx_ids: Vec<Signature>,
+    ) -> Result<Vec<SolanaEurekaEventWithHeight>> {
         let mut events = Vec::new();
 
         for tx in tx_ids {
@@ -106,8 +106,6 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
             events.extend(tx_events);
         }
 
-        let events = events.iter().map(EurekaEventWithHeight::from).collect();
-
         Ok(events)
     }
 
@@ -115,7 +113,7 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
         &self,
         start_height: u64,
         end_height: u64,
-    ) -> Result<Vec<EurekaEventWithHeight>> {
+    ) -> Result<Vec<SolanaEurekaEventWithHeight>> {
         const CONCURRENT_REQUESTS: usize = 10;
 
         let events = stream::iter(start_height..=end_height)
@@ -173,8 +171,6 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
                 Ok(acc)
             })
             .await?;
-
-        let events = events.iter().map(EurekaEventWithHeight::from).collect();
 
         Ok(events)
     }

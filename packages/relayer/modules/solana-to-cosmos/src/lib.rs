@@ -11,6 +11,7 @@ use std::sync::Arc;
 use ibc_eureka_relayer_lib::chain::SolanaEureka;
 use ibc_eureka_relayer_lib::events::EurekaEventWithHeight;
 use ibc_eureka_relayer_lib::events::SolanaEurekaEvent;
+use ibc_eureka_relayer_lib::events::SolanaEurekaEventWithHeight;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana_eureka;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
@@ -234,7 +235,7 @@ impl<P> TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
-        src_events: Vec<EurekaEventWithHeight>,
+        src_events: Vec<SolanaEurekaEventWithHeight>,
         dest_events: Vec<EurekaEventWithHeight>,
         src_client_id: String,
         dst_client_id: String,
@@ -257,8 +258,15 @@ impl<P> TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
             now_since_unix.as_secs(),
         );
 
+        // NOTE: Convert to eureka event to reuse to recvs/ack msg fn
+        let src_events_as_sol_events = src_events
+            .clone()
+            .into_iter()
+            .map(EurekaEventWithHeight::from)
+            .collect();
+
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
-            src_events,
+            src_events_as_sol_events,
             &src_client_id,
             &dst_client_id,
             &src_packet_seqs,

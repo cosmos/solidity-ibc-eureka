@@ -37,11 +37,11 @@ impl From<&SolanaEurekaEventWithHeight> for EurekaEventWithHeight {
     fn from(event_with_height: &SolanaEurekaEventWithHeight) -> Self {
         let event = match &event_with_height.event {
             SolanaEurekaEvent::SendPacket(send_packet_event) => {
-                EurekaEvent::SendPacket(solana_packet_to_sol_packet(&send_packet_event.packet))
+                EurekaEvent::SendPacket(to_sol_packet(&send_packet_event.packet))
             }
             SolanaEurekaEvent::WriteAcknowledgement(write_acknowledgement_event) => {
                 EurekaEvent::WriteAcknowledgement(
-                    solana_packet_to_sol_packet(&write_acknowledgement_event.packet),
+                    to_sol_packet(&write_acknowledgement_event.packet),
                     write_acknowledgement_event
                         .acknowledgements
                         .clone()
@@ -59,7 +59,7 @@ impl From<&SolanaEurekaEventWithHeight> for EurekaEventWithHeight {
     }
 }
 
-fn solana_packet_to_sol_packet(value: &SolanaPacket) -> SolPacket {
+fn to_sol_packet(value: &SolanaPacket) -> SolPacket {
     SolPacket {
         sequence: value.sequence,
         sourceClient: value.source_client.clone(),
@@ -69,12 +69,12 @@ fn solana_packet_to_sol_packet(value: &SolanaPacket) -> SolPacket {
             .payloads
             .clone()
             .into_iter()
-            .map(solana_payload_to_sol_payload)
+            .map(to_sol_payload)
             .collect(),
     }
 }
 
-fn solana_payload_to_sol_payload(value: SolanaPayload) -> SolPayload {
+fn to_sol_payload(value: SolanaPayload) -> SolPayload {
     SolPayload {
         sourcePort: value.source_port,
         destPort: value.dest_port,
@@ -101,7 +101,7 @@ fn solana_payload_to_sol_payload(value: SolanaPayload) -> SolPayload {
 /// - An impossible discriminator match occurs (internal logic error)
 ///
 /// Non-IBC events and logs without "Program data:" prefix are silently skipped.
-/// TODO: Might be easier to parse via anchor_client but dependencies get kinda messy so manual parse
+/// TODO: Might be easier to parse via `anchor_client` but dependencies get kinda messy so manual parse
 pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurekaEvent>> {
     use anchor_lang::Discriminator;
     use anyhow::{anyhow, Context};

@@ -5,7 +5,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use solana_sdk::signature::Signature;
 use std::fmt::Debug;
 
-use crate::events::EurekaEventWithHeight;
+use crate::events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight};
 
 /// The `Chain` trait defines the interface for a chain.
 pub trait Chain {
@@ -42,9 +42,7 @@ impl Chain for EthEureka {
 pub struct SolanaEureka;
 
 impl Chain for SolanaEureka {
-    // NOTE: Since we can easily convert solana events to eureka events
-    // we do it to reuse eth implementations
-    type Event = EurekaEventWithHeight;
+    type Event = SolanaEurekaEventWithHeight;
     type TxId = Signature;
     type Height = u64;
 }

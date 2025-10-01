@@ -8,6 +8,9 @@ pub mod tx_builder;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use ibc_eureka_relayer_lib::chain::CosmosSdk;
+use ibc_eureka_relayer_lib::chain::SolanaEureka;
+use ibc_eureka_relayer_lib::events::EurekaEventWithHeight;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana_eureka;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
@@ -368,6 +371,129 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     }
 }
 
+#[async_trait::async_trait]
+impl<P> TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
+    #[tracing::instrument(skip_all)]
+    async fn relay_events(
+        &self,
+        src_events: Vec<EurekaEventWithHeight>,
+        dest_events: Vec<EurekaEventWithHeight>,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
+    ) -> Result<Vec<u8>> {
+        tracing::info!(
+            "Relaying events from Cosmos to Solana for client {}",
+            dst_client_id
+        );
+
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+
+        let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
+            dest_events,
+            &src_client_id,
+            &dst_client_id,
+            &dst_packet_seqs,
+            &self.signer_address,
+            now_since_unix.as_secs(),
+        );
+
+        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+            src_events,
+            &src_client_id,
+            &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
+            &self.signer_address,
+            now_since_unix.as_secs(),
+        );
+
+        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
+        tracing::debug!("Recv messages: #{}", recv_msgs.len());
+        tracing::debug!("Ack messages: #{}", ack_msgs.len());
+
+        cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
+
+        let all_msgs = timeout_msgs
+            .into_iter()
+            .map(|m| Any::from_msg(&m))
+            .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let tx_body = TxBody {
+            messages: all_msgs,
+            ..Default::default()
+        };
+        Ok(tx_body.encode_to_vec())
+    }
+
+    // TODO: Update once real solana light client is available
+    #[tracing::instrument(skip_all)]
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        parameters
+            .keys()
+            .find(|k| k.as_str() != CHECKSUM_HEX)
+            .map_or(Ok(()), |param| {
+                Err(anyhow::anyhow!(
+                    "Unexpected parameter: `{param}`, only `{CHECKSUM_HEX}` is allowed"
+                ))
+            })?;
+
+        let client_state = WasmClientState {
+            data: b"test".to_vec(),
+            checksum: hex::decode(
+                parameters
+                    .get(CHECKSUM_HEX)
+                    .ok_or_else(|| anyhow::anyhow!("Missing `{CHECKSUM_HEX}` parameter"))?,
+            )?,
+            latest_height: Some(Height {
+                revision_number: 0,
+                revision_height: 1,
+            }),
+        };
+        let consensus_state = WasmConsensusState {
+            data: b"test".to_vec(),
+        };
+
+        let msg = MsgCreateClient {
+            client_state: Some(Any::from_msg(&client_state)?),
+            consensus_state: Some(Any::from_msg(&consensus_state)?),
+            signer: self.signer_address.clone(),
+        };
+
+        Ok(TxBody {
+            messages: vec![Any::from_msg(&msg)?],
+            ..Default::default()
+        }
+        .encode_to_vec())
+    }
+
+    // TODO: Update once real solana light client is available
+    #[tracing::instrument(skip_all)]
+    async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
+        tracing::info!(
+            "Generating tx to update mock light client: {}",
+            dst_client_id
+        );
+
+        let consensus_state = WasmConsensusState {
+            data: b"test".to_vec(),
+        };
+        let msg = MsgUpdateClient {
+            client_id: dst_client_id,
+            client_message: Some(Any::from_msg(&consensus_state)?),
+            signer: self.signer_address.clone(),
+        };
+
+        Ok(TxBody {
+            messages: vec![Any::from_msg(&msg)?],
+            ..Default::default()
+        }
+        .encode_to_vec())
+    }
+}
 #[tonic::async_trait]
 impl RelayerModule for CosmosToSolanaRelayerModule {
     fn name(&self) -> &'static str {
