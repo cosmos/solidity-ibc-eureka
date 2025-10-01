@@ -7,7 +7,7 @@ use std::sync::Arc;
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use hex;
-use ibc_eureka_relayer_lib::events::EurekaEvent;
+use ibc_eureka_relayer_lib::{events::EurekaEvent, listener::solana_eureka};
 use ibc_eureka_utils::light_block::LightBlockExt;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::Protobuf;
@@ -183,6 +183,8 @@ pub struct TxBuilder {
     /// The Solana RPC client (wrapped in Arc since `RpcClient` doesn't implement Clone in 2.0).
     /// The target chain listener for Solana.
     pub target_listener: solana_eureka::ChainListener,
+    /// The Solana ICS07 program ID.
+    pub solana_ics07_router_program_id: Pubkey,
     /// The fee payer address for transactions.
     pub fee_payer: Pubkey,
 }
@@ -1167,27 +1169,16 @@ impl TxBuilder {
         })
     }
 
-    /// Query the client state from Solana to get the latest consensus state height
-    fn query_client_latest_height(&self, chain_id: &str) -> Result<u64> {
-        // For the test, we know the client ID "cosmoshub-1" corresponds to chain ID "simd-1"
-        // In production, this mapping should be maintained properly
-        let actual_chain_id = if chain_id == "cosmoshub-1" {
-            "simd-1"
-        } else {
-            chain_id
-        };
-
+    fn client_state(&self, chain_id: &str) -> Result<ClientState> {
         let (client_state_pda, _) =
             derive_ics07_client_state(actual_chain_id, &self.solana_ics07_program_id);
 
-        // Fetch the account data
         let account = self
-            .solana_client
+            .target_listener
+            .client()
             .get_account(&client_state_pda)
             .context("Failed to fetch client state account")?;
 
-        // Deserialize the client state (skip 8-byte Anchor discriminator)
-        // Only deserialize the exact bytes needed, ignoring any padding
         let client_state = ClientState::try_from_slice(&account.data[8..])
             .or_else(|_| {
                 // If try_from_slice fails due to extra bytes, use deserialize which is more lenient
@@ -1196,7 +1187,7 @@ impl TxBuilder {
             })
             .context("Failed to deserialize client state")?;
 
-        Ok(client_state.latest_height.revision_height)
+        Ok(client_state)
     }
 
     /// Prepare header data for chunking by fetching blocks and creating header
@@ -1653,16 +1644,26 @@ impl TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
-        let client_state = ClientState::decode(
-            self.src_listener
-                .client_state(dst_client_id.clone())
-                .await?
-                .value
-                .as_slice(),
-        )?;
+    async fn update_client(&self, chain_id: &str) -> Result<Vec<Transaction>> {
+        // Add compute budget instructions to increase the limit
+        // Request 1.4M compute units (maximum allowed)
+        let compute_budget_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
 
-        let target_light_block = self.source_tm_client.get_light_block(None).await?;
+        // Optionally set a priority fee to ensure the transaction gets processed
+        let priority_fee_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(1000);
+
+        let mut assembly_tx = Transaction::new_with_payer(
+            &[compute_budget_ix, priority_fee_ix, assembly_instruction],
+            Some(&self.fee_payer),
+        );
+
+        assembly_tx.message.recent_blockhash = recent_blockhash;
+
+        let client_state = self.client_state(chain_id)?;
+
+        let target_light_block = self.src_listener.get_light_block(None).await?;
         let trusted_light_block = self
             .src_listener
             .get_light_block(Some(
@@ -1675,7 +1676,7 @@ impl TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
 
         tracing::info!(
             "Generating tx to update '{}' from height: {} to height: {}",
-            dst_client_id,
+            chain_id,
             trusted_light_block.height().value(),
             target_light_block.height().value()
         );
@@ -1687,5 +1688,64 @@ impl TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
             ..Default::default()
         }
         .encode_to_vec())
+    }
+
+    fn build_assemble_and_update_client_instruction(
+        &self,
+        chain_id: &str,
+        target_height: u64,
+        trusted_height: u64,
+        total_chunks: u8,
+    ) -> Instruction {
+        // Derive PDAs
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+        let (metadata_pda, _) = derive_header_metadata(
+            &self.fee_payer,
+            chain_id,
+            target_height,
+            &self.solana_ics07_program_id,
+        );
+        let (trusted_consensus_state, _) = derive_ics07_consensus_state(
+            &client_state_pda,
+            trusted_height,
+            &self.solana_ics07_program_id,
+        );
+        let (new_consensus_state, _) = derive_ics07_consensus_state(
+            &client_state_pda,
+            target_height,
+            &self.solana_ics07_program_id,
+        );
+
+        let mut accounts = vec![
+            AccountMeta::new(client_state_pda, false),
+            AccountMeta::new(metadata_pda, false),
+            AccountMeta::new_readonly(trusted_consensus_state, false),
+            AccountMeta::new(new_consensus_state, false),
+            AccountMeta::new(self.fee_payer, false), // submitter who gets rent back
+            AccountMeta::new(self.fee_payer, true),  // payer for new consensus state
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        // Add chunk accounts as remaining accounts
+        for chunk_index in 0..total_chunks {
+            let (chunk_pda, _) = derive_header_chunk(
+                &self.fee_payer,
+                chain_id,
+                target_height,
+                chunk_index,
+                &self.solana_ics07_program_id,
+            );
+            accounts.push(AccountMeta::new(chunk_pda, false));
+        }
+
+        // Build instruction data
+        let discriminator = get_instruction_discriminator("assemble_and_update_client");
+
+        Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data: discriminator.to_vec(),
+        }
     }
 }
