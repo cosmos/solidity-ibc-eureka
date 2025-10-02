@@ -35,7 +35,7 @@ pub struct SendPacketMsg {
 pub struct SendPacket<'info> {
     #[account(
         mut,
-        seeds = [APP_STATE_SEED],
+        seeds = [APP_STATE_SEED, TRANSFER_PORT.as_bytes()],
         bump
     )]
     pub app_state: Account<'info, DummyIbcAppState>,

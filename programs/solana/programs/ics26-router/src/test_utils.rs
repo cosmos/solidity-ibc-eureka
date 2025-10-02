@@ -9,7 +9,7 @@ pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
 
 // Mock light client program ID - must match the ID in mock-light-client/src/lib.rs
 pub const MOCK_LIGHT_CLIENT_ID: Pubkey =
-    solana_sdk::pubkey!("4nFbkWTbUxKwXqKHzLdxkUfYZ9MrVkzJp7nXt8GY7JKp");
+    solana_sdk::pubkey!("CSLS3A9jS7JAD8aUe3LRXMYZ1U8Lvxn9usGygVrA2arZ");
 
 // Dummy IBC app program ID - must match the ID in dummy-ibc-app/src/lib.rs
 pub const DUMMY_IBC_APP_PROGRAM_ID: Pubkey =

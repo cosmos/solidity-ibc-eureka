@@ -16,7 +16,7 @@ pub use app_msgs::{
 };
 
 pub use router::{
-    MsgAckPacket, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket, Packet, CLIENT_SEED,
+    IBCApp, MsgAckPacket, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket, Packet, CLIENT_SEED,
     CLIENT_SEQUENCE_SEED, COMMITMENT_SEED, IBC_APP_SEED, PACKET_ACK_SEED, PACKET_COMMITMENT_SEED,
     PACKET_RECEIPT_SEED, ROUTER_STATE_SEED,
 };

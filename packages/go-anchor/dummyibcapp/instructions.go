@@ -278,7 +278,6 @@ func NewSendPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(clockAccount, false, false))
 		// Account 10 "router_caller": Read-only, Non-signer, Required
 		// PDA that acts as the router caller for CPI calls to the IBC router.
-		// This PDA was registered with the router as the authorized caller for the port.
 		accounts__.Append(solanago.NewAccountMeta(routerCallerAccount, false, false))
 	}
 
@@ -362,20 +361,6 @@ func NewSendTransferInstruction(
 		accounts__.Append(solanago.NewAccountMeta(clockAccount, false, false))
 		// Account 12 "router_caller": Read-only, Non-signer, Required
 		// PDA that acts as the router caller for CPI calls to the IBC router.
-		//
-		// This is required because of IBC's port-based authorization model and Solana's
-		// security constraints:
-		//
-		// 1. IBC ports (like "transfer") are exclusive namespaces - only one app can control each port
-		// 2. The router must verify that packet-sending requests come from the legitimate app
-		// registered for that port, not from arbitrary users or malicious programs
-		// 3. Solana programs cannot sign transactions directly - only users and PDAs can sign
-		// 4. This PDA was registered with the router during app setup as the authorized caller
-		// for the "transfer" port, creating the authorization chain:
-		// User → App Program → Router Caller PDA → Router → IBC Protocol
-		//
-		// Without this PDA, there would be no secure way for the router to authenticate
-		// that CPI calls actually originate from the registered app rather than an attacker.
 		accounts__.Append(solanago.NewAccountMeta(routerCallerAccount, false, false))
 	}
 

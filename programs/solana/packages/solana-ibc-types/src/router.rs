@@ -83,6 +83,18 @@ pub struct MsgTimeoutPacket {
     pub proof_height: u64,
 }
 
+/// IBCApp mapping port IDs to IBC app program IDs
+/// This matches the on-chain account structure in the ICS26 router
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct IBCApp {
+    /// The port identifier
+    pub port_id: String,
+    /// The program ID of the IBC application
+    pub app_program_id: Pubkey,
+    /// Authority that registered this port
+    pub authority: Pubkey,
+}
+
 /// PDA seed constants for the ICS26 router
 pub const ROUTER_STATE_SEED: &[u8] = b"router_state";
 pub const IBC_APP_SEED: &[u8] = b"ibc_app";

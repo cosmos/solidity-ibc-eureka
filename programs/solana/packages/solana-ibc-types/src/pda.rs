@@ -71,6 +71,11 @@ pub fn derive_packet_ack(client_id: &str, sequence: u64, program_id: &Pubkey) ->
     )
 }
 
+/// Derive app state PDA for IBC applications
+pub fn derive_app_state(port_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[APP_STATE_SEED, port_id.as_bytes()], program_id)
+}
+
 /// Derive ICS07 client state PDA
 pub fn derive_ics07_client_state(chain_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], program_id)

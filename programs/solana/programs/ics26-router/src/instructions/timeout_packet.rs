@@ -151,6 +151,8 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         &ctx.accounts.ibc_app_program,
         &ctx.accounts.ibc_app_state,
         &ctx.accounts.router_program,
+        &ctx.accounts.payer,
+        &ctx.accounts.system_program,
         &msg.packet,
         &msg.packet.payloads[0],
         &ctx.accounts.relayer.key(),

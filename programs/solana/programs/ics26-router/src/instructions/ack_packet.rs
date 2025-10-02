@@ -178,6 +178,8 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         &ctx.accounts.ibc_app_program,
         &ctx.accounts.ibc_app_state,
         &ctx.accounts.router_program,
+        &ctx.accounts.payer,
+        &ctx.accounts.system_program,
         &msg.packet,
         &msg.packet.payloads[0],
         &msg.acknowledgement,

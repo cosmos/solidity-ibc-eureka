@@ -10,7 +10,7 @@ pub fn verify_non_membership(ctx: Context<VerifyNonMembership>, msg: MembershipM
     let client_state = &ctx.accounts.client_state;
     let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
-    validate_proof_params(client_state, consensus_state_store, &msg)?;
+    validate_proof_params(client_state, &msg)?;
 
     // For non-membership, the value must be empty
     require!(msg.value.is_empty(), ErrorCode::InvalidValue);
