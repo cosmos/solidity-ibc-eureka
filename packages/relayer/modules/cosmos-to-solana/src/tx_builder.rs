@@ -8,10 +8,16 @@ use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use hex;
 use ibc_eureka_relayer_lib::{
-    events::EurekaEvent,
+    events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight},
     listener::{cosmos_sdk, solana_eureka},
     tx_builder::TxBuilderService,
-    utils::cosmos::{tm_update_client_params, TmUpdateClientParams},
+    utils::{
+        cosmos::{
+            tm_create_client_params, tm_update_client_params, TmCreateClientParams,
+            TmUpdateClientParams,
+        },
+        solana_eureka::convert_client_state,
+    },
 };
 use ibc_eureka_utils::light_block::LightBlockExt;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
@@ -19,7 +25,6 @@ use ibc_proto_eureka::Protobuf;
 use prost::Message;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
     keccak,
     pubkey::Pubkey,
@@ -27,14 +32,13 @@ use solana_sdk::{
     sysvar,
     transaction::Transaction,
 };
-use tendermint::Hash;
-use tendermint_rpc::{Client, HttpClient};
+use tendermint_rpc::HttpClient;
 
 use solana_ibc_types::{
     derive_client, derive_client_sequence, derive_ibc_app, derive_ics07_client_state,
     derive_ics07_consensus_state, derive_packet_ack, derive_packet_commitment,
     derive_packet_receipt, derive_router_state, get_instruction_discriminator,
-    ics07::{ClientState, ConsensusState, IbcHeight, ICS07_INITIALIZE_DISCRIMINATOR},
+    ics07::{ClientState, ConsensusState, ICS07_INITIALIZE_DISCRIMINATOR},
     MsgAckPacket, MsgRecvPacket, Packet, Payload, UpdateClientMsg,
 };
 
@@ -1313,59 +1317,30 @@ impl TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
         Ok(tx_body.encode_to_vec())
     }
 
-    // TODO: refactor, create shared code
+    // TODO: reuse code
     #[tracing::instrument(skip_all)]
     async fn create_client(&self) -> Result<Transaction> {
-        let latest_light_block = self.source_tm_client.get_light_block(None).await?;
+        let chain_id = self.src_listener.chain_id().await?;
+        let TmCreateClientParams {
+            latest_height,
+            client_state,
+            consensus_state,
+        } = tm_create_client_params(self.src_listener.client()).await?;
 
-        tracing::info!(
-            "Creating client at height: {}",
-            latest_light_block.height().value()
-        );
+        let client_state = convert_client_state(client_state)?;
 
-        let chain_id =
-            ChainId::from_str(latest_light_block.signed_header.header.chain_id.as_str())?;
-        let height = Height {
-            revision_number: chain_id.revision_number(),
-            revision_height: latest_light_block.height().value(),
+        let consensus_state = solana_ibc_types::ConsensusState {
+            timestamp: consensus_state.timestamp,
+            root: consensus_state.root,
+            next_validators_hash: consensus_state.next_validators_hash,
         };
-        let unbonding_period = self
-            .source_tm_client
-            .sdk_staking_params()
-            .await?
-            .unbonding_time
-            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
-        // Defaults to the recommended 2/3 of the UnbondingPeriod
-        let trusting_period = Duration {
-            seconds: 2 * (unbonding_period.seconds / 3),
-            nanos: 0,
-        };
-
-        let client_state = build_tendermint_client_state(
-            chain_id.to_string(),
-            height,
-            trusting_period,
-            unbonding_period,
-            vec![ics23::iavl_spec(), ics23::tendermint_spec()],
-        );
-
-        let consensus_state = latest_light_block.to_consensus_state();
 
         let instruction = self.build_create_client_instruction(
-            &chain_id_str,
+            &chain_id,
             latest_height,
             &client_state,
             &consensus_state,
         )?;
-
-        let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
-
-        let recent_blockhash = self
-            .solana_client
-            .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
-
-        tx.message.recent_blockhash = recent_blockhash;
 
         Ok(tx)
     }

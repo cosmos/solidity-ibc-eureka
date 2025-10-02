@@ -184,6 +184,8 @@ pub async fn tm_update_client_params(
 
 /// Parameters for creating a new Tendermint IBC light client.
 pub struct TmCreateClientParams {
+    /// Latest height
+    pub latest_height: u64,
     /// Consensus state
     pub client_state: ClientState,
     /// Initial trusted consensus state
@@ -207,10 +209,9 @@ pub async fn tm_create_client_params(
     // NOTE: might cache
     let chain_id = latest_light_block.chain_id()?;
 
-    tracing::info!(
-        "Creating client at height: {}",
-        latest_light_block.height().value()
-    );
+    let latest_height = latest_light_block.height().value();
+
+    tracing::info!("Creating client at height: {latest_height}",);
 
     let height = Height {
         revision_number: chain_id.revision_number(),
@@ -238,6 +239,7 @@ pub async fn tm_create_client_params(
 
     let consensus_state = latest_light_block.to_consensus_state();
     Ok(TmCreateClientParams {
+        latest_height,
         client_state,
         consensus_state,
     })

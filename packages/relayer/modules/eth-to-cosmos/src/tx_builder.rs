@@ -323,15 +323,8 @@ where
 
         let max_src_block_number = src_events.iter().map(|e| e.height).max();
 
-        // NOTE: Convert to eureka event to reuse to timeout fn
-        let dest_events_as_sol_events = dest_events
-            .clone()
-            .into_iter()
-            .map(EurekaEventWithHeight::from)
-            .collect();
-
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
-            dest_events_as_sol_events,
+            dest_events,
             &src_client_id,
             &dst_client_id,
             &dst_packet_seqs,
