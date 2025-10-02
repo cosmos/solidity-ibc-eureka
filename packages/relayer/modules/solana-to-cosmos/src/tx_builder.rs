@@ -391,6 +391,10 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
         src_packet_seqs: Vec<u64>,
         dst_packet_seqs: Vec<u64>,
     ) -> anyhow::Result<Vec<u8>> {
+        tracing::info!(
+            "Relaying events from Solana to Cosmos for client {}",
+            dst_client_id
+        );
         let now_since_unix = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
@@ -406,10 +410,10 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
 
         // NOTE: Convert to eureka event to reuse to recvs/ack msg fn
         let src_events_as_sol_events = src_events
-            .clone()
             .into_iter()
             .map(EurekaEventWithHeight::from)
             .collect();
+
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events_as_sol_events,
             &src_client_id,
@@ -420,47 +424,18 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
             now_since_unix,
         );
 
-        // For mock testing, inject mock proofs
+        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
+        tracing::debug!("Recv messages: #{}", recv_msgs.len());
+        tracing::debug!("Ack messages: #{}", ack_msgs.len());
+
         cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
 
-        // Build the update client message
-        let update_msg = self.build_update_client_msg(&dst_client_id)?;
-
-        // Combine all messages
-        let all_msgs = std::iter::once(Any::from_msg(&update_msg)?)
-            .chain(
-                timeout_msgs
-                    .iter()
-                    .map(|m| Any::from_msg(m))
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-            .chain(
-                recv_msgs
-                    .iter()
-                    .map(|m| Any::from_msg(m))
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-            .chain(
-                ack_msgs
-                    .iter()
-                    .map(|m| Any::from_msg(m))
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-            .collect::<Vec<_>>();
-
-        if all_msgs.len() == 1 {
-            // Only contains the update client message
-            return Err(anyhow::anyhow!("No IBC messages to relay to Cosmos"));
-        }
-
-        tracing::info!(
-            "Relay events summary: client id: {}, recv events: #{}, ack events: #{}, timeout events: #{}, total messages: #{}",
-            dst_client_id,
-            recv_msgs.len(),
-            ack_msgs.len(),
-            timeout_msgs.len(),
-            all_msgs.len()
-        );
+        let all_msgs = timeout_msgs
+            .into_iter()
+            .map(|m| Any::from_msg(&m))
+            .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .collect::<Result<Vec<_>, _>>()?;
 
         let tx_body = TxBody {
             messages: all_msgs,

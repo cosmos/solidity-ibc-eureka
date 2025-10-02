@@ -33,18 +33,17 @@ pub struct SolanaEurekaEventWithHeight {
     pub height: u64,
 }
 
-impl From<&SolanaEurekaEventWithHeight> for EurekaEventWithHeight {
-    fn from(event_with_height: &SolanaEurekaEventWithHeight) -> Self {
-        let event = match &event_with_height.event {
+impl From<SolanaEurekaEventWithHeight> for EurekaEventWithHeight {
+    fn from(event_with_height: SolanaEurekaEventWithHeight) -> Self {
+        let event = match event_with_height.event {
             SolanaEurekaEvent::SendPacket(send_packet_event) => {
-                EurekaEvent::SendPacket(to_sol_packet(&send_packet_event.packet))
+                EurekaEvent::SendPacket(to_sol_packet(send_packet_event.packet))
             }
             SolanaEurekaEvent::WriteAcknowledgement(write_acknowledgement_event) => {
                 EurekaEvent::WriteAcknowledgement(
-                    to_sol_packet(&write_acknowledgement_event.packet),
+                    to_sol_packet(write_acknowledgement_event.packet),
                     write_acknowledgement_event
                         .acknowledgements
-                        .clone()
                         .into_iter()
                         .map(Bytes::from)
                         .collect(),
@@ -59,18 +58,13 @@ impl From<&SolanaEurekaEventWithHeight> for EurekaEventWithHeight {
     }
 }
 
-fn to_sol_packet(value: &SolanaPacket) -> SolPacket {
+fn to_sol_packet(value: SolanaPacket) -> SolPacket {
     SolPacket {
         sequence: value.sequence,
         sourceClient: value.source_client.clone(),
         destClient: value.dest_client.clone(),
         timeoutTimestamp: u64::try_from(value.timeout_timestamp).unwrap_or(0),
-        payloads: value
-            .payloads
-            .clone()
-            .into_iter()
-            .map(to_sol_payload)
-            .collect(),
+        payloads: value.payloads.into_iter().map(to_sol_payload).collect(),
     }
 }
 
