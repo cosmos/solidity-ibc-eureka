@@ -7,11 +7,14 @@ use ethereum_light_client::membership::{evm_ics26_commitment_path, MembershipPro
 use ethereum_types::execution::{account_proof::AccountProof, storage_proof::StorageProof};
 use futures::future;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
-use ibc_eureka_utils::rpc::TendermintRpcExt;
+use ibc_eureka_utils::{light_block::LightBlockExt as _, rpc::TendermintRpcExt};
 use ibc_proto_eureka::{
-    ibc::core::{
-        channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
-        client::v1::Height,
+    ibc::{
+        core::{
+            channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
+            client::v1::Height,
+        },
+        lightclients::tendermint::v1::ClientState,
     },
     Protobuf,
 };
@@ -127,6 +130,39 @@ pub fn src_events_to_recv_and_ack_msgs(
         .collect::<Vec<MsgAcknowledgement>>();
 
     (recv_msgs, ack_msgs)
+}
+
+/// Generates a Tendermint header for IBC client update from trusted height to latest.
+///
+/// # Errors
+/// - Missing `latest_height` in client state
+/// - Failed light block retrieval from Tendermint node
+pub async fn tm_proposed_header_for_client_update(
+    client_state: ClientState,
+    tm_client: &HttpClient,
+) -> Result<ibc_proto::ibc::lightclients::tendermint::v1::Header> {
+    let target_light_block = tm_client.get_light_block(None).await?;
+    let chain_id = target_light_block.chain_id()?;
+
+    let trusted_light_block = tm_client
+        .get_light_block(Some(
+            client_state
+                .latest_height
+                .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
+                .revision_height,
+        ))
+        .await?;
+
+    tracing::info!(
+        "Generating header to update '{}' from height: {} to height: {}",
+        chain_id,
+        trusted_light_block.height().value(),
+        target_light_block.height().value()
+    );
+
+    let proposed_header = target_light_block.into_header(&trusted_light_block);
+
+    Ok(proposed_header)
 }
 
 /// Generates and injects tendermint proofs for rec, ack and timeout messages.
