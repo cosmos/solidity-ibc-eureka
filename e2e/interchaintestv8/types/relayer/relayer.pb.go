@@ -389,12 +389,10 @@ type UpdateClientResponse struct {
 	Tx []byte `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`
 	// The contract address to submit the transaction, if applicable
 	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	// Multiple transactions for chunked upload (used by Solana)
-	ChunkedTxs [][]byte `protobuf:"bytes,3,rep,name=chunked_txs,json=chunkedTxs,proto3" json:"chunked_txs,omitempty"`
-	// Metadata about the chunked upload
-	ChunkedMetadata *ChunkedMetadata `protobuf:"bytes,4,opt,name=chunked_metadata,json=chunkedMetadata,proto3" json:"chunked_metadata,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Multiple transactions for chunked update (used by Solana)
+	Txs           [][]byte `protobuf:"bytes,3,rep,name=txs,proto3" json:"txs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateClientResponse) Reset() {
@@ -441,16 +439,9 @@ func (x *UpdateClientResponse) GetAddress() string {
 	return ""
 }
 
-func (x *UpdateClientResponse) GetChunkedTxs() [][]byte {
+func (x *UpdateClientResponse) GetTxs() [][]byte {
 	if x != nil {
-		return x.ChunkedTxs
-	}
-	return nil
-}
-
-func (x *UpdateClientResponse) GetChunkedMetadata() *ChunkedMetadata {
-	if x != nil {
-		return x.ChunkedMetadata
+		return x.Txs
 	}
 	return nil
 }
@@ -726,13 +717,11 @@ const file_relayer_relayer_proto_rawDesc = "" +
 	"\x13UpdateClientRequest\x12\x1b\n" +
 	"\tsrc_chain\x18\x01 \x01(\tR\bsrcChain\x12\x1b\n" +
 	"\tdst_chain\x18\x02 \x01(\tR\bdstChain\x12\"\n" +
-	"\rdst_client_id\x18\x03 \x01(\tR\vdstClientId\"\xa6\x01\n" +
+	"\rdst_client_id\x18\x03 \x01(\tR\vdstClientId\"R\n" +
 	"\x14UpdateClientResponse\x12\x0e\n" +
 	"\x02tx\x18\x01 \x01(\fR\x02tx\x12\x18\n" +
-	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x1f\n" +
-	"\vchunked_txs\x18\x03 \x03(\fR\n" +
-	"chunkedTxs\x12C\n" +
-	"\x10chunked_metadata\x18\x04 \x01(\v2\x18.relayer.ChunkedMetadataR\x0fchunkedMetadata\"Y\n" +
+	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x10\n" +
+	"\x03txs\x18\x03 \x03(\fR\x03txs\"Y\n" +
 	"\x0fChunkedMetadata\x12#\n" +
 	"\rtarget_height\x18\x01 \x01(\x04R\ftargetHeight\x12!\n" +
 	"\ftotal_chunks\x18\x02 \x01(\rR\vtotalChunks\"G\n" +
@@ -787,23 +776,22 @@ var file_relayer_relayer_proto_goTypes = []any{
 }
 var file_relayer_relayer_proto_depIdxs = []int32{
 	10, // 0: relayer.CreateClientRequest.parameters:type_name -> relayer.CreateClientRequest.ParametersEntry
-	6,  // 1: relayer.UpdateClientResponse.chunked_metadata:type_name -> relayer.ChunkedMetadata
-	9,  // 2: relayer.InfoResponse.target_chain:type_name -> relayer.Chain
-	9,  // 3: relayer.InfoResponse.source_chain:type_name -> relayer.Chain
-	11, // 4: relayer.InfoResponse.metadata:type_name -> relayer.InfoResponse.MetadataEntry
-	0,  // 5: relayer.RelayerService.RelayByTx:input_type -> relayer.RelayByTxRequest
-	2,  // 6: relayer.RelayerService.CreateClient:input_type -> relayer.CreateClientRequest
-	4,  // 7: relayer.RelayerService.UpdateClient:input_type -> relayer.UpdateClientRequest
-	7,  // 8: relayer.RelayerService.Info:input_type -> relayer.InfoRequest
-	1,  // 9: relayer.RelayerService.RelayByTx:output_type -> relayer.RelayByTxResponse
-	3,  // 10: relayer.RelayerService.CreateClient:output_type -> relayer.CreateClientResponse
-	5,  // 11: relayer.RelayerService.UpdateClient:output_type -> relayer.UpdateClientResponse
-	8,  // 12: relayer.RelayerService.Info:output_type -> relayer.InfoResponse
-	9,  // [9:13] is the sub-list for method output_type
-	5,  // [5:9] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	9,  // 1: relayer.InfoResponse.target_chain:type_name -> relayer.Chain
+	9,  // 2: relayer.InfoResponse.source_chain:type_name -> relayer.Chain
+	11, // 3: relayer.InfoResponse.metadata:type_name -> relayer.InfoResponse.MetadataEntry
+	0,  // 4: relayer.RelayerService.RelayByTx:input_type -> relayer.RelayByTxRequest
+	2,  // 5: relayer.RelayerService.CreateClient:input_type -> relayer.CreateClientRequest
+	4,  // 6: relayer.RelayerService.UpdateClient:input_type -> relayer.UpdateClientRequest
+	7,  // 7: relayer.RelayerService.Info:input_type -> relayer.InfoRequest
+	1,  // 8: relayer.RelayerService.RelayByTx:output_type -> relayer.RelayByTxResponse
+	3,  // 9: relayer.RelayerService.CreateClient:output_type -> relayer.CreateClientResponse
+	5,  // 10: relayer.RelayerService.UpdateClient:output_type -> relayer.UpdateClientResponse
+	8,  // 11: relayer.RelayerService.Info:output_type -> relayer.InfoResponse
+	8,  // [8:12] is the sub-list for method output_type
+	4,  // [4:8] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_relayer_relayer_proto_init() }

@@ -87,10 +87,8 @@ message UpdateClientResponse {
     bytes tx = 1;
     // The contract address to submit the transaction, if applicable
     string address = 2;
-    // Multiple transactions for chunked upload (used by Solana)
-    repeated bytes chunked_txs = 3;
-    // Metadata about the chunked upload
-    ChunkedMetadata chunked_metadata = 4;
+    // Multiple transactions for chunked update (used by Solana)
+    repeated bytes txs = 3;
 }
 
 // Metadata for chunked transaction uploads
