@@ -8,6 +8,7 @@ use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use hex;
 use ibc_eureka_relayer_lib::{
+    chain::{CosmosSdk, SolanaEureka},
     events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight},
     listener::{cosmos_sdk, solana_eureka},
     tx_builder::TxBuilderService,
@@ -1259,8 +1260,7 @@ impl TxBuilder {
     }
 }
 
-#[async_trait::async_trait]
-impl TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
+impl TxBuilder {
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
@@ -1319,7 +1319,7 @@ impl TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
 
     // TODO: reuse code
     #[tracing::instrument(skip_all)]
-    async fn create_client(&self) -> Result<Transaction> {
+    async fn create_client(&self) -> Result<Vec<u8>> {
         let chain_id = self.src_listener.chain_id().await?;
         let TmCreateClientParams {
             latest_height,
