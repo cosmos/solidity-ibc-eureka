@@ -31,11 +31,6 @@ pub fn validate_proof_params(
     require!(!client_state.is_frozen(), ErrorCode::ClientFrozen);
 
     require!(
-        consensus_state_store.height == msg.height,
-        ErrorCode::ProofHeightNotFound
-    );
-
-    require!(
         msg.height <= client_state.latest_height.revision_height,
         ErrorCode::InvalidHeight
     );
