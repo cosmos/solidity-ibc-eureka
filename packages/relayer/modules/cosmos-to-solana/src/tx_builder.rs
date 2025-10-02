@@ -14,7 +14,7 @@ use ibc_eureka_relayer_lib::{
     tx_builder::TxBuilderService,
     utils::{
         cosmos::{
-            tm_create_client_params, tm_update_client_params, TmCreateClientParams,
+            self, tm_create_client_params, tm_update_client_params, TmCreateClientParams,
             TmUpdateClientParams,
         },
         solana_eureka::convert_client_state,
@@ -1000,9 +1000,12 @@ impl TxBuilder {
         })
     }
 
+    /// Fetch Cosmos client state from the light client on Solana.
+    /// # Errors
+    /// Returns an error if the client state cannot be fetched or decoded.
     fn client_state(&self, chain_id: &str) -> Result<ClientState> {
         let (client_state_pda, _) =
-            derive_ics07_client_state(actual_chain_id, &self.solana_ics07_program_id);
+            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
 
         let account = self
             .target_listener
