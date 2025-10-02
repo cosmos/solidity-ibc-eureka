@@ -6,7 +6,6 @@
 pub mod tx_builder;
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use ibc_eureka_relayer_lib::events::EurekaEventWithHeight;
 use ibc_eureka_relayer_lib::events::SolanaEurekaEvent;
@@ -18,6 +17,7 @@ use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use prost::Message;
+use solana_sdk::pubkey::Pubkey;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
@@ -194,6 +194,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         let tx = self
             .tx_builder
             .create_client(&inner_req.parameters)
+            .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         Ok(Response::new(api::CreateClientResponse {
@@ -213,6 +214,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         let tx = self
             .tx_builder
             .update_client(inner_req.dst_client_id)
+            .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!("Update client request completed.");
@@ -273,21 +275,21 @@ impl SolanaToCosmosTxBuilder {
     async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Real() => unreachable!(),
-            Self::Mock(tb) => tb.create_client(parameters).await,
+            Self::Mock(tb) => tb.create_client(parameters),
         }
     }
 
     async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Real() => unreachable!(),
-            Self::Mock(tb) => tb.update_client(dst_client_id).await,
+            Self::Mock(tb) => tb.update_client(dst_client_id),
         }
     }
 
-    const fn ics26_router_address(&self) -> &pu {
+    const fn ics26_program_id(&self) -> &Pubkey {
         match self {
             Self::Real() => unreachable!(),
-            Self::Mock(tb) => tb.ics26_program_id.address(),
+            Self::Mock(tb) => &tb.ics26_program_id,
         }
     }
 }
