@@ -8,17 +8,12 @@ pub mod tx_builder;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use ibc_eureka_relayer_lib::chain::SolanaEureka;
-use ibc_eureka_relayer_lib::events::EurekaEventWithHeight;
-use ibc_eureka_relayer_lib::events::SolanaEurekaEvent;
-use ibc_eureka_relayer_lib::events::SolanaEurekaEventWithHeight;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana_eureka;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
 use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
-use ibc_eureka_relayer_lib::utils::solana;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use prost::Message;
 use tendermint_rpc::HttpClient;
@@ -28,7 +23,6 @@ use ibc_eureka_relayer_core::{
     api::{self, relayer_service_server::RelayerService},
     modules::RelayerModule,
 };
-use ibc_eureka_relayer_lib::utils::cosmos;
 
 /// The `SolanaToCosmosRelayerModule` struct defines the Solana to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]

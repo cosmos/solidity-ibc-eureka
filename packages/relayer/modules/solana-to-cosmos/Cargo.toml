@@ -17,7 +17,6 @@ serde_json.workspace = true
 tonic = { workspace = true, default-features = true }
 anyhow = { workspace = true, features = ["std"] }
 tracing = { workspace = true, default-features = true }
-async-trait = { workspace = true }
 
 tendermint = { workspace = true, features = ["std"] }
 tendermint-rpc = { workspace = true, features = ["http-client"] }

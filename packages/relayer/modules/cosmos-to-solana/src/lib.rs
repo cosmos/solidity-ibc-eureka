@@ -8,19 +8,15 @@ pub mod tx_builder;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use ibc_eureka_relayer_lib::chain::CosmosSdk;
-use ibc_eureka_relayer_lib::chain::SolanaEureka;
-use ibc_eureka_relayer_lib::events::EurekaEventWithHeight;
-use ibc_eureka_relayer_lib::events::SolanaEurekaEventWithHeight;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana_eureka;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
 use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
+use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use solana_client::rpc_client::RpcClient;
-use tendermint::Hash;
-use tendermint_rpc::Client;
+use solana_sdk::pubkey::Pubkey;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
@@ -43,7 +39,7 @@ struct CosmosToSolanaRelayerModuleService {
     /// The transaction builder from Cosmos to Solana.
     pub tx_builder: tx_builder::TxBuilder,
     /// The Solana ICS07 program ID.
-    pub solana_ics07_router_program_id: Pubkey,
+    pub solana_ics07_program_id: Pubkey,
 }
 
 /// The configuration for the Cosmos to Solana relayer module.
@@ -63,7 +59,9 @@ pub struct CosmosToSolanaConfig {
 
 impl CosmosToSolanaRelayerModuleService {
     fn new(config: &CosmosToSolanaConfig) -> anyhow::Result<Self> {
-        let source_client = HttpClient::from_rpc_url(&config.source_rpc_url);
+        let src_listener =
+            cosmos_sdk::ChainListener::new(HttpClient::from_rpc_url(&config.source_rpc_url));
+
         let solana_client = Arc::new(RpcClient::new(config.target_rpc_url.clone()));
 
         let solana_ics26_program_id = config
@@ -98,12 +96,12 @@ impl CosmosToSolanaRelayerModuleService {
             src_listener,
             target_listener,
             tx_builder,
-            solana_ics07_router_program_id,
+            solana_ics07_program_id,
         })
     }
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl RelayerService for CosmosToSolanaRelayerModuleService {
     #[tracing::instrument(skip_all)]
     async fn info(
@@ -125,7 +123,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             target_chain: Some(api::Chain {
                 chain_id: "solana".to_string(), // Solana doesn't have chain IDs like Cosmos
                 ibc_version: "2".to_string(),
-                ibc_contract: self.solana_ics26_program_id.to_string(),
+                ibc_contract: self.target_listener.ics26_router_program_id().to_string(),
             }),
             metadata: HashMap::default(),
         }))

@@ -194,7 +194,7 @@ pub struct TxBuilder {
     /// The target chain listener for Solana.
     pub target_listener: solana_eureka::ChainListener,
     /// The Solana ICS07 program ID.
-    pub solana_ics07_router_program_id: Pubkey,
+    pub solana_ics07_program_id: Pubkey,
     /// The fee payer address for transactions.
     pub fee_payer: Pubkey,
 }
@@ -232,22 +232,16 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
-        // Use the correct ICS07 initialize discriminator
         let discriminator = ICS07_INITIALIZE_DISCRIMINATOR;
 
-        // Serialize instruction data using Anchor format
         let mut instruction_data = Vec::new();
 
-        // Add discriminator
         instruction_data.extend_from_slice(&discriminator);
 
-        // Serialize parameters in order: chain_id, latest_height, client_state, consensus_state
         instruction_data.extend_from_slice(&chain_id.try_to_vec()?);
         instruction_data.extend_from_slice(&latest_height.try_to_vec()?);
         instruction_data.extend_from_slice(&client_state.try_to_vec()?);
         instruction_data.extend_from_slice(&consensus_state.try_to_vec()?);
-
-        tracing::debug!("Instruction data length: {} bytes", instruction_data.len());
 
         Ok(Instruction {
             program_id: self.solana_ics07_program_id,
@@ -1317,7 +1311,6 @@ impl TxBuilder {
         Ok(tx_body.encode_to_vec())
     }
 
-    // TODO: reuse code
     #[tracing::instrument(skip_all)]
     async fn create_client(&self) -> Result<Vec<u8>> {
         let chain_id = self.src_listener.chain_id().await?;

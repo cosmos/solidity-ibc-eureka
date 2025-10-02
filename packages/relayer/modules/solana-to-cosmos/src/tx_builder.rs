@@ -10,7 +10,7 @@ use ibc_eureka_relayer_lib::{
     chain::{CosmosSdk, SolanaEureka},
     events::{solana::SolanaEurekaEvent, EurekaEventWithHeight, SolanaEurekaEventWithHeight},
     tx_builder::TxBuilderService,
-    utils::{cosmos, solana},
+    utils::cosmos,
 };
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
@@ -77,88 +77,89 @@ impl TxBuilder {
         src_events: Vec<SolanaEurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>, // Timeout events from target
     ) -> anyhow::Result<TxBody> {
-        let mut messages = Vec::new();
-
-        // First, update the Solana light client on Cosmos
-        let update_msg = self.build_update_client_msg(client_id)?;
-        messages.push(Any::from_msg(&update_msg)?);
-
-        // Process source events from Solana
-        for event_with_height in src_events {
-            if let Some(msg) = self.build_message_from_event(event_with_height.event)? {
-                messages.push(msg);
-            }
-        }
-
-        // Process target events from Cosmos (for timeouts)
-        for event in target_events {
-            tracing::debug!("Processing timeout event from Cosmos: {:?}", event);
-        }
-
-        if messages.len() == 1 {
-            // Only contains the update client message
-            anyhow::bail!("No IBC messages to relay to Cosmos");
-        }
-
-        Ok(TxBody {
-            messages,
-            ..Default::default()
-        })
-    }
-
-    /// Build a Cosmos message from a Solana IBC event
-    fn build_message_from_event(&self, event: SolanaEurekaEvent) -> anyhow::Result<Option<Any>> {
-        tracing::info!("Building message from Solana event: {:?}", event);
-        match event {
-            SolanaEurekaEvent::SendPacket(send_event) => {
-                let packet = &send_event.packet;
-                let payloads = packet.payloads.iter().map(|p| p.value.clone()).collect();
-
-                tracing::info!("Building recv packet msg - sequence: {}, source_client: {}, dest_client: {}, payloads: {} items",
-                    send_event.sequence, packet.source_client, packet.dest_client, packet.payloads.len());
-
-                let msg = self.build_recv_packet_msg(
-                    send_event.sequence,
-                    packet.source_client.clone(),
-                    packet.dest_client.clone(),
-                    payloads,
-                    u64::try_from(packet.timeout_timestamp).unwrap_or(0),
-                )?;
-                Ok(Some(msg))
-            }
-            SolanaEurekaEvent::WriteAcknowledgement(write_ack) => {
-                let packet = &write_ack.packet;
-                let payloads = packet.payloads.iter().map(|p| p.value.clone()).collect();
-
-                let msg = self.build_acknowledgement_msg(
-                    write_ack.sequence,
-                    packet.source_client.clone(),
-                    packet.dest_client.clone(),
-                    payloads,
-                    u64::try_from(packet.timeout_timestamp).unwrap_or(0),
-                    vec![write_ack.acknowledgements],
-                )?;
-                Ok(Some(msg))
-            }
-            SolanaEurekaEvent::TimeoutPacket(timeout_event) => {
-                let packet = &timeout_event.packet;
-                let payloads = packet.payloads.iter().map(|p| p.value.clone()).collect();
-
-                let msg = self.build_timeout_msg(
-                    timeout_event.sequence,
-                    packet.source_client.clone(),
-                    packet.dest_client.clone(),
-                    payloads,
-                    u64::try_from(packet.timeout_timestamp).unwrap_or(0),
-                )?;
-                Ok(Some(msg))
-            }
-            _ => {
-                // Skip non-packet events
-                tracing::debug!("Skipping non-packet event");
-                Ok(None)
-            }
-        }
+        unimplemented!()
+        //     let mut messages = Vec::new();
+        //
+        //     // First, update the Solana light client on Cosmos
+        //     let update_msg = self.build_update_client_msg(client_id)?;
+        //     messages.push(Any::from_msg(&update_msg)?);
+        //
+        //     // Process source events from Solana
+        //     for event_with_height in src_events {
+        //         if let Some(msg) = self.build_message_from_event(event_with_height.event)? {
+        //             messages.push(msg);
+        //         }
+        //     }
+        //
+        //     // Process target events from Cosmos (for timeouts)
+        //     for event in target_events {
+        //         tracing::debug!("Processing timeout event from Cosmos: {:?}", event);
+        //     }
+        //
+        //     if messages.len() == 1 {
+        //         // Only contains the update client message
+        //         anyhow::bail!("No IBC messages to relay to Cosmos");
+        //     }
+        //
+        //     Ok(TxBody {
+        //         messages,
+        //         ..Default::default()
+        //     })
+        // }
+        //
+        // /// Build a Cosmos message from a Solana IBC event
+        // fn build_message_from_event(&self, event: SolanaEurekaEvent) -> anyhow::Result<Option<Any>> {
+        //     tracing::info!("Building message from Solana event: {:?}", event);
+        //     match event {
+        //         SolanaEurekaEvent::SendPacket(send_event) => {
+        //             let packet = &send_event.packet;
+        //             let payloads = packet.payloads.iter().map(|p| p.value.clone()).collect();
+        //
+        //             tracing::info!("Building recv packet msg - sequence: {}, source_client: {}, dest_client: {}, payloads: {} items",
+        //                 send_event.sequence, packet.source_client, packet.dest_client, packet.payloads.len());
+        //
+        //             let msg = self.build_recv_packet_msg(
+        //                 send_event.sequence,
+        //                 packet.source_client.clone(),
+        //                 packet.dest_client.clone(),
+        //                 payloads,
+        //                 u64::try_from(packet.timeout_timestamp).unwrap_or(0),
+        //             )?;
+        //             Ok(Some(msg))
+        //         }
+        //         SolanaEurekaEvent::WriteAcknowledgement(write_ack) => {
+        //             let packet = &write_ack.packet;
+        //             let payloads = packet.payloads.iter().map(|p| p.value.clone()).collect();
+        //
+        //             let msg = self.build_acknowledgement_msg(
+        //                 write_ack.sequence,
+        //                 packet.source_client.clone(),
+        //                 packet.dest_client.clone(),
+        //                 payloads,
+        //                 u64::try_from(packet.timeout_timestamp).unwrap_or(0),
+        //                 vec![write_ack.acknowledgements],
+        //             )?;
+        //             Ok(Some(msg))
+        //         }
+        //         SolanaEurekaEvent::TimeoutPacket(timeout_event) => {
+        //             let packet = &timeout_event.packet;
+        //             let payloads = packet.payloads.iter().map(|p| p.value.clone()).collect();
+        //
+        //             let msg = self.build_timeout_msg(
+        //                 timeout_event.sequence,
+        //                 packet.source_client.clone(),
+        //                 packet.dest_client.clone(),
+        //                 payloads,
+        //                 u64::try_from(packet.timeout_timestamp).unwrap_or(0),
+        //             )?;
+        //             Ok(Some(msg))
+        //         }
+        //         _ => {
+        //             // Skip non-packet events
+        //             tracing::debug!("Skipping non-packet event");
+        //             Ok(None)
+        //         }
+        //     }
     }
 
     /// Convert Solana payloads to IBC v2 Payload format
