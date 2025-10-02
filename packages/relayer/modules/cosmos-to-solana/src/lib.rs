@@ -62,8 +62,6 @@ impl CosmosToSolanaRelayerModuleService {
         let src_listener =
             cosmos_sdk::ChainListener::new(HttpClient::from_rpc_url(&config.source_rpc_url));
 
-        let solana_client = Arc::new(RpcClient::new(config.target_rpc_url.clone()));
-
         let solana_ics26_program_id = config
             .solana_ics26_program_id
             .parse()
@@ -85,8 +83,8 @@ impl CosmosToSolanaRelayerModuleService {
             .map_err(|e| anyhow::anyhow!("Invalid fee payer address: {}", e))?;
 
         let tx_builder = tx_builder::TxBuilder::new(
-            source_client.clone(),
-            solana_client.clone(),
+            src_listener.client().clone(),
+            target_listener.client().clone(),
             solana_ics26_program_id,
             solana_ics07_program_id,
             fee_payer,
