@@ -6,6 +6,7 @@ use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApi
 use ethereum_light_client::membership::{evm_ics26_commitment_path, MembershipProof};
 use ethereum_types::execution::{account_proof::AccountProof, storage_proof::StorageProof};
 use futures::future;
+use ibc_client_tendermint_types::ConsensusState;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 use ibc_eureka_utils::{light_block::LightBlockExt as _, rpc::TendermintRpcExt};
 use ibc_proto_eureka::{
@@ -20,7 +21,10 @@ use ibc_proto_eureka::{
 };
 use tendermint_rpc::HttpClient;
 
-use crate::events::{EurekaEvent, EurekaEventWithHeight};
+use crate::{
+    events::{EurekaEvent, EurekaEventWithHeight},
+    tendermint_client::build_tendermint_client_state,
+};
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgTimeout`]s.
 ///
@@ -148,24 +152,22 @@ pub struct TmUpdateClientParams {
 /// # Errors
 /// - Missing `latest_height` in client state
 /// - Failed light block retrieval from Tendermint node
-pub async fn tm_proposed_header_for_client_update(
+pub async fn tm_update_client_params(
     client_state: ClientState,
-    tm_client: &HttpClient,
+    src_tm_client: &HttpClient,
     target_height: Option<u64>,
-) -> Result<TmUpdateClientParams> {
-    let target_light_block = tm_client.get_light_block(target_height).await?;
+) -> anyhow::Result<TmUpdateClientParams> {
+    let target_light_block = src_tm_client.get_light_block(target_height).await?;
     let target_height = target_light_block.signed_header.header.height.value();
-    let chain_id = target_light_block.chain_id()?;
     let trusted_height = client_state
         .latest_height
         .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
         .revision_height;
 
-    let trusted_light_block = tm_client.get_light_block(Some(trusted_height)).await?;
+    let trusted_light_block = src_tm_client.get_light_block(Some(trusted_height)).await?;
 
     tracing::info!(
-        "Generating header to update '{}' from height: {} to height: {}",
-        chain_id,
+        "Generating header to update from height: {} to height: {}",
         trusted_light_block.height().value(),
         target_light_block.height().value()
     );
@@ -176,6 +178,57 @@ pub async fn tm_proposed_header_for_client_update(
         target_height,
         trusted_height,
         proposed_header,
+    })
+}
+
+/// Parameters for creating a new Tendermint IBC light client.
+pub struct TmCreateClientParams {
+    /// Consensus state
+    pub client_state: ClientState,
+    /// Initial trusted consensus state
+    pub consensus_state: ConsensusState,
+}
+
+pub async fn tm_create_client_params(
+    src_tm_client: &HttpClient,
+) -> anyhow::Result<TmCreateClientParams> {
+    let latest_light_block = src_tm_client.get_light_block(None).await?;
+    // NOTE: might cache
+    let chain_id = latest_light_block.chain_id()?;
+
+    tracing::info!(
+        "Creating client at height: {}",
+        latest_light_block.height().value()
+    );
+
+    let height = Height {
+        revision_number: chain_id.revision_number(),
+        revision_height: latest_light_block.height().value(),
+    };
+    let unbonding_period = src_tm_client
+        .sdk_staking_params()
+        .await?
+        .unbonding_time
+        .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
+
+    // Defaults to the recommended 2/3 of the UnbondingPeriod
+    let trusting_period = Duration {
+        seconds: 2 * (unbonding_period.seconds / 3),
+        nanos: 0,
+    };
+
+    let client_state = build_tendermint_client_state(
+        chain_id.to_string(),
+        height,
+        trusting_period,
+        unbonding_period,
+        vec![ics23::iavl_spec(), ics23::tendermint_spec()],
+    );
+
+    let consensus_state = latest_light_block.to_consensus_state();
+    Ok(TmCreateClientParams {
+        client_state,
+        consensus_state,
     })
 }
 

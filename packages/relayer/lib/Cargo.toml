@@ -41,6 +41,7 @@ solana-ibc-types = { workspace = true }
 ibc-proto                 = { workspace = true }
 ibc-proto-eureka          = { workspace = true }
 ibc-core-commitment-types = { workspace = true }
+ibc-client-tendermint-types      = { workspace = true }
 
 alloy = { workspace = true, features = ["full", "node-bindings"] }
 

@@ -10,7 +10,7 @@ use hex;
 use ibc_eureka_relayer_lib::{
     events::EurekaEvent,
     listener::{cosmos_sdk, solana_eureka},
-    utils::cosmos::{tm_proposed_header_for_client_update, TmUpdateClientParams},
+    utils::cosmos::{tm_update_client_params, TmUpdateClientParams},
 };
 use ibc_eureka_utils::light_block::LightBlockExt;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
@@ -455,7 +455,7 @@ impl TxBuilder {
             .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
 
         // Get the target light block (latest from source chain)
-        let target_light_block = self.source_tm_client.get_light_block(None).await?;
+        let target_light_block = self.src_listener.get_light_block(None).await?;
 
         // Query the client state to get the actual trusted height
         let chain_id = latest_block.block.header.chain_id.to_string();
@@ -1042,7 +1042,7 @@ impl TxBuilder {
             target_height,
             trusted_height,
             proposed_header,
-        } = tm_proposed_header_for_client_update(
+        } = tm_update_client_params(
             self.client_state(&self.src_listener.chain_id().await?)?,
             tm_client,
             Some(target_height),

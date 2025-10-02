@@ -5192,6 +5192,7 @@ dependencies = [
  "ethereum-types 0.1.0",
  "futures",
  "futures-timer",
+ "ibc-client-tendermint-types",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils 0.1.0",
