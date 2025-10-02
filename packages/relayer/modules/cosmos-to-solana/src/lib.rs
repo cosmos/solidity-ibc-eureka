@@ -140,7 +140,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
         let src_txs = parse_cosmos_tx_hashes(inner_req.source_tx_ids)?;
 
-        let target_txs = parse_solana_tx_hashes(inner_req.timeout_tx_ids);
+        let target_txs = parse_solana_tx_hashes(inner_req.timeout_tx_ids)?;
 
         let src_events = self
             .src_listener
