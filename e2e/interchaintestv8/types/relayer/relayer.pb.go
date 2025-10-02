@@ -142,7 +142,7 @@ type RelayByTxResponse struct {
 	Tx []byte `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`
 	// The contract address to submit the transaction, if applicable
 	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	// Optional transactions when more than one is required (for instance Solana needs to split header update to multi tx)
+	// Optional transactions when more than one is required (for instance Solana needs to split packet to multi tx)
 	Txs           [][]byte `protobuf:"bytes,3,rep,name=txs,proto3" json:"txs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

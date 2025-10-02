@@ -49,7 +49,7 @@ message RelayByTxResponse {
     bytes tx = 1;
     // The contract address to submit the transaction, if applicable
     string address = 2;
-    // Optional transactions when more than one is required (for instance Solana needs to split header update to multi tx)
+    // Optional transactions when more than one is required (for instance Solana needs to split packet to multi tx)
     repeated bytes txs = 3;
 }
 
