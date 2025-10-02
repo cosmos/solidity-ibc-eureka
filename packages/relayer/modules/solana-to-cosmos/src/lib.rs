@@ -24,6 +24,11 @@ use ibc_eureka_relayer_core::{
     modules::RelayerModule,
 };
 
+enum SolanaToCosmosTxBuilder {
+    Real(),
+    Mock(tx_builder::MockTxBuilder),
+}
+
 /// The `SolanaToCosmosRelayerModule` struct defines the Solana to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
 pub struct SolanaToCosmosRelayerModule;

@@ -36,29 +36,29 @@ const MOCK_HEADER_DATA: &[u8] = b"mock";
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from Solana.
 #[allow(dead_code)]
-pub struct TxBuilder {
+pub struct MockTxBuilder {
     /// The Solana RPC client
     pub solana_client: Arc<RpcClient>,
     /// The HTTP client for the Cosmos SDK.
-    pub target_tm_client: HttpClient,
+    pub tm_client: HttpClient,
     /// The signer address for the Cosmos messages.
     pub signer_address: String,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: Pubkey,
 }
 
-impl TxBuilder {
+impl MockTxBuilder {
     /// Creates a new `TxBuilder`.
     #[must_use]
     pub const fn new(
         solana_client: Arc<RpcClient>,
-        target_tm_client: HttpClient,
+        tm_client: HttpClient,
         signer_address: String,
         solana_ics26_program_id: Pubkey,
     ) -> Self {
         Self {
             solana_client,
-            target_tm_client,
+            tm_client,
             signer_address,
             solana_ics26_program_id,
         }
@@ -281,7 +281,6 @@ impl TxBuilder {
     ///
     /// Returns an error if failed to get Solana slot
     fn build_update_client_msg(&self, client_id: &str) -> anyhow::Result<MsgUpdateClient> {
-        // Get latest Solana slot/block information
         let slot = self
             .solana_client
             .get_slot()
@@ -381,7 +380,7 @@ impl TxBuilder {
 }
 
 #[async_trait::async_trait]
-impl TxBuilderService<SolanaEureka, CosmosSdk> for TxBuilder {
+impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
     async fn relay_events(
         &self,
         src_events: Vec<SolanaEurekaEventWithHeight>,
