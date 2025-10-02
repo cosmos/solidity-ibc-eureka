@@ -9,6 +9,7 @@ use futures::future;
 use ibc_client_tendermint_types::ConsensusState;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 use ibc_eureka_utils::{light_block::LightBlockExt as _, rpc::TendermintRpcExt};
+use ibc_proto_eureka::google::protobuf::Duration;
 use ibc_proto_eureka::{
     ibc::{
         core::{
@@ -189,6 +190,16 @@ pub struct TmCreateClientParams {
     pub consensus_state: ConsensusState,
 }
 
+/// Generates parameters for creating a new Tendermint IBC light client.
+/// # Arguments
+/// * `src_tm_client` - HTTP client connected to the source Tendermint chain
+///
+/// # Returns
+/// Client creation parameters with
+///
+/// # Errors
+/// - Missing unbonding time in staking parameters
+/// - Failed to fetch light block or chain parameters
 pub async fn tm_create_client_params(
     src_tm_client: &HttpClient,
 ) -> anyhow::Result<TmCreateClientParams> {

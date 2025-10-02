@@ -32,7 +32,6 @@ tendermint-rpc = { workspace = true, features = ["http-client"] }
 tendermint-light-client-verifier = { workspace = true }
 tonic = { workspace = true }
 anchor-lang = { workspace = true }
-anchor-client = { workspace = true }
 solana-sdk = { workspace = true }
 solana-client = { workspace = true }
 solana-transaction-status = { workspace = true }
