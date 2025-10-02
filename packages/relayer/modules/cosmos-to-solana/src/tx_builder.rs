@@ -953,58 +953,44 @@ impl TxBuilder {
     /// - Failed to parse chain ID
     /// - Failed to serialize instruction data
     pub async fn build_create_client_tx(&self) -> Result<Transaction> {
-        let latest_light_block = self.source_tm_client.get_light_block(None).await?;
+        let chain_id = self.source_tm_client.get_light_block(None).await?;
 
-        tracing::info!(
-            "Creating client at height: {}",
-            latest_light_block.height().value()
-        );
-
-        let chain_id =
-            ChainId::from_str(latest_light_block.signed_header.header.chain_id.as_str())?;
-        let height = Height {
-            revision_number: chain_id.revision_number(),
-            revision_height: latest_light_block.height().value(),
-        };
-
-        let unbonding_period = self
-            .source_tm_client
-            .sdk_staking_params()
-            .await?
-            .unbonding_time
-            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
-
-        // Defaults to the recommended 2/3 of the UnbondingPeriod
-        let trusting_period = Duration {
-            seconds: 2 * (unbonding_period.seconds / 3),
-            nanos: 0,
-        };
-
-        let trusting_period = Duration {
-            seconds: 2 * (unbonding_period.seconds / 3),
-            nanos: 0,
-        };
-
-        let client_state = build_tendermint_client_state(
-            chain_id.to_string(),
-            height,
-            trusting_period,
-            unbonding_period,
-            vec![ics23::iavl_spec(), ics23::tendermint_spec()],
-        );
-
-        let consensus_state = latest_light_block.to_consensus_state();
-
-        let instruction = self.build_create_client_instruction(
-            &chain_id_str,
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+        let (consensus_state_pda, _) = derive_ics07_consensus_state(
+            &client_state_pda,
             latest_height,
-            &client_state,
-            &consensus_state,
-        )?;
+            &self.solana_ics07_program_id,
+        );
+
+        let accounts = vec![
+            AccountMeta::new(client_state_pda, false),
+            AccountMeta::new(consensus_state_pda, false),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        let discriminator = ICS07_INITIALIZE_DISCRIMINATOR;
+
+        let mut instruction_data = Vec::new();
+
+        instruction_data.extend_from_slice(&discriminator);
+
+        instruction_data.extend_from_slice(&chain_id.try_to_vec()?);
+        instruction_data.extend_from_slice(&latest_height.try_to_vec()?);
+        instruction_data.extend_from_slice(&client_state.try_to_vec()?);
+        instruction_data.extend_from_slice(&consensus_state.try_to_vec()?);
+
+        tracing::debug!("Instruction data length: {} bytes", instruction_data.len());
+
+        let instruction = Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data: instruction_data,
+        };
 
         let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
 
-        // Get recent blockhash
         let recent_blockhash = self
             .solana_client
             .get_latest_blockhash()
