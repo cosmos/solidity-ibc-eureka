@@ -1062,13 +1062,14 @@ impl TxBuilder {
         for (index, chunk_data) in chunks.iter().enumerate() {
             let chunk_index = u8::try_from(index)
                 .map_err(|_| anyhow::anyhow!("Chunk index {} exceeds u8 max", index))?;
-            let chunk_tx = self.build_single_chunk_transaction(&ChunkTxParams {
-                chunk_data,
+            let upload_ix = self.build_upload_header_chunk_instruction(
                 chain_id,
                 target_height,
                 chunk_index,
-                recent_blockhash,
-            })?;
+                chunk_data.to_vec(),
+            )?;
+
+            let mut chunk_tx = Transaction::new_with_payer(&[upload_ix], Some(&self.fee_payer));
             chunk_txs.push(chunk_tx);
         }
 
