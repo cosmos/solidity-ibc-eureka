@@ -127,6 +127,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         }))
     }
 
+    // NOTE: Client would not be automatically updated and should be done manually
     #[tracing::instrument(skip_all)]
     async fn relay_by_tx(
         &self,
@@ -134,7 +135,6 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
         tracing::info!("Handling relay by tx request for Cosmos to Solana...");
 
-        let update_txs = self.update_client(request).await?;
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
