@@ -1304,19 +1304,6 @@ impl TxBuilder {
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
         cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
-
-        let all_msgs = timeout_msgs
-            .into_iter()
-            .map(|m| Any::from_msg(&m))
-            .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
-            .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let tx_body = TxBody {
-            messages: all_msgs,
-            ..Default::default()
-        };
-        Ok(tx_body.encode_to_vec())
     }
 
     #[tracing::instrument(skip_all)]
