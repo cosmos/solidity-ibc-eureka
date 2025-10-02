@@ -948,7 +948,7 @@ impl TxBuilder {
             trusted_height,
             proposed_header,
         } = tm_update_client_params(
-            self.client_state(&self.src_listener.chain_id().await?)?,
+            self.cosmos_client_state(&self.src_listener.chain_id().await?)?,
             tm_client,
             Some(target_height),
         )
@@ -1003,7 +1003,7 @@ impl TxBuilder {
     /// Fetch Cosmos client state from the light client on Solana.
     /// # Errors
     /// Returns an error if the client state cannot be fetched or decoded.
-    fn client_state(&self, chain_id: &str) -> Result<ClientState> {
+    fn cosmos_client_state(&self, chain_id: &str) -> Result<ClientState> {
         let (client_state_pda, _) =
             derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
 
@@ -1359,7 +1359,7 @@ impl TxBuilder {
 
         assembly_tx.message.recent_blockhash = recent_blockhash;
 
-        let client_state = self.client_state(chain_id)?;
+        let client_state = self.cosmos_client_state(chain_id)?;
 
         let target_light_block = self.src_listener.get_light_block(None).await?;
         let trusted_light_block = self
