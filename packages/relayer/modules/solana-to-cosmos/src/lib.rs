@@ -8,16 +8,16 @@ pub mod tx_builder;
 use std::collections::HashMap;
 
 use ibc_eureka_relayer_lib::events::EurekaEventWithHeight;
-use ibc_eureka_relayer_lib::events::SolanaEurekaEvent;
+use ibc_eureka_relayer_lib::events::SolanaEurekaEventWithHeight;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana_eureka;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
 use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
+use ibc_eureka_relayer_lib::tx_builder::TxBuilderService;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use prost::Message;
-use solana_sdk::pubkey::Pubkey;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
@@ -26,6 +26,7 @@ use ibc_eureka_relayer_core::{
     modules::RelayerModule,
 };
 
+#[allow(dead_code)]
 enum SolanaToCosmosTxBuilder {
     Real(),
     Mock(tx_builder::MockTxBuilder),
@@ -165,15 +166,20 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             cosmos_events.len()
         );
 
-        let mut tx = self
+        let tx = self
             .tx_builder
-            .build_relay_tx(&inner_req.dst_client_id, solana_events, cosmos_events)
+            .relay_events(
+                solana_events,
+                cosmos_events,
+                inner_req.src_client_id,
+                inner_req.dst_client_id,
+                inner_req.src_packet_sequences,
+                inner_req.dst_packet_sequences,
+            )
+            .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::info!(
-            "Built {} messages for Solana to Cosmos relay.",
-            tx.messages.len()
-        );
+        tracing::info!("Relay by tx request completed.");
 
         Ok(Response::new(api::RelayByTxResponse {
             tx: tx.encode_to_vec(),
@@ -247,7 +253,7 @@ impl RelayerModule for SolanaToCosmosRelayerModule {
 impl SolanaToCosmosTxBuilder {
     async fn relay_events(
         &self,
-        src_events: Vec<SolanaEurekaEvent>,
+        src_events: Vec<SolanaEurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
         src_client_id: String,
         dst_client_id: String,
@@ -275,21 +281,14 @@ impl SolanaToCosmosTxBuilder {
     async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Real() => unreachable!(),
-            Self::Mock(tb) => tb.create_client(parameters),
+            Self::Mock(tb) => tb.create_client(parameters).await,
         }
     }
 
     async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Real() => unreachable!(),
-            Self::Mock(tb) => tb.update_client(dst_client_id),
-        }
-    }
-
-    const fn ics26_program_id(&self) -> &Pubkey {
-        match self {
-            Self::Real() => unreachable!(),
-            Self::Mock(tb) => &tb.ics26_program_id,
+            Self::Mock(tb) => tb.update_client(dst_client_id).await,
         }
     }
 }
