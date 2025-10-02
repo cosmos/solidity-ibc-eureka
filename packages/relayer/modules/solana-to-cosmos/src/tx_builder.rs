@@ -17,9 +17,9 @@ use ibc_proto_eureka::{
     google::protobuf::Any,
     ibc::{
         core::{
-            channel::v2::{
-                Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout, Packet, Payload,
-            },
+            // channel::v2::{
+            //     Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout, Packet, Payload,
+            // },
             client::v1::{Height, MsgCreateClient, MsgUpdateClient},
         },
         lightclients::wasm::v1::{
