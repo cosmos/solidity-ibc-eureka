@@ -199,8 +199,7 @@ impl RelayerService for EthToCosmosCompatRelayerModuleService {
             Ok(Response::new(api::UpdateClientResponse {
                 tx: resp.tx,
                 address: resp.address,
-                chunked_metadata: None,
-                chunked_txs: vec![],
+                txs: vec![],
             }))
         } else {
             self.new_service.update_client(request).await

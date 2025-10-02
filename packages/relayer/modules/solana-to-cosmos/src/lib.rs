@@ -227,8 +227,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         Ok(Response::new(api::UpdateClientResponse {
             tx: tx.encode_to_vec(),
             address: String::new(),
-            chunked_metadata: None,
-            chunked_txs: vec![],
+            txs: vec![],
         }))
     }
 }

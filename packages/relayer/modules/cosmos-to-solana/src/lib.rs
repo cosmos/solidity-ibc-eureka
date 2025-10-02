@@ -135,6 +135,8 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
         tracing::info!("Handling relay by tx request for Cosmos to Solana...");
+
+        let update_txs = self.update_client(request).await?;
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
@@ -364,10 +366,9 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         });
 
         Ok(Response::new(api::UpdateClientResponse {
-            tx: vec![], // Empty for backward compatibility
+            tx: vec![],
             address: self.solana_ics07_program_id.to_string(),
-            chunked_txs: serialized_txs,
-            chunked_metadata,
+            txs: serialized_txs,
         }))
     }
 }

@@ -232,8 +232,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         Ok(Response::new(api::UpdateClientResponse {
             tx,
             address: String::new(),
-            chunked_metadata: None,
-            chunked_txs: vec![],
+            txs: vec![],
         }))
     }
 }
