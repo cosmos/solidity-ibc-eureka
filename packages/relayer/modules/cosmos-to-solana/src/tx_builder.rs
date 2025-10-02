@@ -7,7 +7,11 @@ use std::sync::Arc;
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use hex;
-use ibc_eureka_relayer_lib::{events::EurekaEvent, listener::solana_eureka};
+use ibc_eureka_relayer_lib::{
+    events::EurekaEvent,
+    listener::{cosmos_sdk, solana_eureka},
+    utils::cosmos::tm_proposed_header_for_client_update,
+};
 use ibc_eureka_utils::light_block::LightBlockExt;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::Protobuf;
@@ -1182,26 +1186,8 @@ impl TxBuilder {
 
         let client_state = self.client_state(chain_id)?;
 
-        let trusted_light_block = self
-            .source_tm_client
-            .get_light_block(Some(
-                client_state
-                    .latest_height
-                    .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
-                    .revision_height,
-            ))
-            .await?;
-
-        tracing::info!(
-            "Generating tx to update '{}' from height: {} to height: {}",
-            dst_client_id,
-            trusted_light_block.height().value(),
-            target_light_block.height().value()
-        );
-
-        let proposed_header = target_light_block.into_header(&trusted_light_block);
-
-        let header_bytes = proposed_header.encode_to_vec();
+        let proposed_header =
+            tm_proposed_header_for_client_update(client_state, &self.src_listener.client()).await?;
 
         Ok((header_bytes, chain_id, target_height, trusted_height))
     }

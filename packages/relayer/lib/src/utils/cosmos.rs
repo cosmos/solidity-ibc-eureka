@@ -132,7 +132,18 @@ pub fn src_events_to_recv_and_ack_msgs(
     (recv_msgs, ack_msgs)
 }
 
-/// Generates a Tendermint header for IBC client update from trusted height to latest.
+/// Parameters for updating a Tendermint IBC light client.
+pub struct TmUpdateClientParams {
+    /// Height the client will be updated to (proof height for packet verification).
+    pub target_height: u64,
+    /// Current trusted height of the client.
+    pub trusted_height: u64,
+    /// Header proving valid transition from `trusted_height` to `target_height`.
+    pub proposed_header: ibc_proto::ibc::lightclients::tendermint::v1::Header,
+}
+
+/// Generates a Tendermint header for IBC client update from trusted height to height (latest if
+/// omitted).
 ///
 /// # Errors
 /// - Missing `latest_height` in client state
@@ -140,18 +151,17 @@ pub fn src_events_to_recv_and_ack_msgs(
 pub async fn tm_proposed_header_for_client_update(
     client_state: ClientState,
     tm_client: &HttpClient,
-) -> Result<ibc_proto::ibc::lightclients::tendermint::v1::Header> {
-    let target_light_block = tm_client.get_light_block(None).await?;
+    target_height: Option<u64>,
+) -> Result<TmUpdateClientParams> {
+    let target_light_block = tm_client.get_light_block(target_height).await?;
+    let target_height = target_light_block.signed_header.header.height.value();
     let chain_id = target_light_block.chain_id()?;
+    let trusted_height = client_state
+        .latest_height
+        .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
+        .revision_height;
 
-    let trusted_light_block = tm_client
-        .get_light_block(Some(
-            client_state
-                .latest_height
-                .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
-                .revision_height,
-        ))
-        .await?;
+    let trusted_light_block = tm_client.get_light_block(Some(trusted_height)).await?;
 
     tracing::info!(
         "Generating header to update '{}' from height: {} to height: {}",
@@ -162,7 +172,11 @@ pub async fn tm_proposed_header_for_client_update(
 
     let proposed_header = target_light_block.into_header(&trusted_light_block);
 
-    Ok(proposed_header)
+    Ok(TmUpdateClientParams {
+        target_height,
+        trusted_height,
+        proposed_header,
+    })
 }
 
 /// Generates and injects tendermint proofs for rec, ack and timeout messages.
