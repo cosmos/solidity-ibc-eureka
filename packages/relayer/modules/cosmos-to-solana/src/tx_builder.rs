@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use hex;
 use ibc_eureka_relayer_lib::{
     chain::{CosmosSdk, SolanaEureka},
-    events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight},
+    events::{solana, EurekaEventWithHeight, SolanaEurekaEventWithHeight},
     listener::{cosmos_sdk, solana_eureka},
     tx_builder::TxBuilderService,
     utils::{
@@ -17,7 +17,7 @@ use ibc_eureka_relayer_lib::{
             self, tm_create_client_params, tm_update_client_params, TmCreateClientParams,
             TmUpdateClientParams,
         },
-        solana_eureka::convert_client_state,
+        solana_eureka::{convert_client_state, target_events_to_timeout_msgs},
     },
 };
 use ibc_eureka_utils::light_block::LightBlockExt;
@@ -1267,7 +1267,7 @@ impl TxBuilder {
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
         dst_packet_seqs: Vec<u64>,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<Vec<Transaction>> {
         tracing::info!(
             "Relaying events from Cosmos to Solana for client {}",
             dst_client_id
@@ -1275,12 +1275,17 @@ impl TxBuilder {
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
-        let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
-            dest_events,
+        let slot = self
+            .solana_client
+            .get_slot_with_commitment(CommitmentConfig::finalized())
+            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
+
+        let mut timeout_msgs = target_events_to_timeout_msgs(
+            des,
             &src_client_id,
             &dst_client_id,
             &dst_packet_seqs,
-            &self.signer_address,
+            slot,
             now_since_unix.as_secs(),
         );
 

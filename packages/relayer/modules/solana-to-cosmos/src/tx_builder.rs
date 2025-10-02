@@ -23,7 +23,7 @@ use ibc_proto_eureka::{
     },
 };
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use tendermint_rpc::HttpClient;
 
 /// Mock header data for Solana client testing
@@ -131,7 +131,7 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
 
         let slot = self
             .solana_client
-            .get_slot()
+            .get_slot_with_commitment(CommitmentConfig::finalized())
             .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
 
         let checksum_hex = parameters
@@ -172,7 +172,7 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
     async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
         let slot = self
             .solana_client
-            .get_slot()
+            .get_slot_with_commitment(CommitmentConfig::finalized())
             .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
 
         tracing::info!(dst_client_id, slot, "Updating Solana client");

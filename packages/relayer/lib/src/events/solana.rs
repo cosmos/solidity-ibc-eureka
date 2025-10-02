@@ -10,8 +10,10 @@ use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::{
 };
 use solana_ibc_types::{
     events::{SendPacketEvent, WriteAcknowledgementEvent},
-    Packet as SolanaPacket, Payload as SolanaPayload,
+    MsgTimeoutPacket as SolanaTimeoutPacket, Packet as SolanaPacket, Payload as SolanaPayload,
 };
+
+use ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout as SolMsgTimeout;
 
 use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
@@ -65,6 +67,16 @@ fn to_sol_packet(value: SolanaPacket) -> SolPacket {
         destClient: value.dest_client.clone(),
         timeoutTimestamp: u64::try_from(value.timeout_timestamp).unwrap_or(0),
         payloads: value.payloads.into_iter().map(to_sol_payload).collect(),
+    }
+}
+
+fn to_sol_payload(value: SolanaPayload) -> SolPayload {
+    SolPayload {
+        sourcePort: value.source_port,
+        destPort: value.dest_port,
+        version: value.version,
+        encoding: value.encoding,
+        value: value.value.into(),
     }
 }
 
