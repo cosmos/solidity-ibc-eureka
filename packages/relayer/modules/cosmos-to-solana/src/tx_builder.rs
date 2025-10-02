@@ -10,7 +10,7 @@ use hex;
 use ibc_eureka_relayer_lib::{
     events::EurekaEvent,
     listener::{cosmos_sdk, solana_eureka},
-    utils::cosmos::tm_proposed_header_for_client_update,
+    utils::cosmos::{tm_proposed_header_for_client_update, TmUpdateClientParams},
 };
 use ibc_eureka_utils::light_block::LightBlockExt;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
@@ -39,13 +39,13 @@ use solana_ibc_types::{
 
 use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
 
-/// Default trust level for ICS07 Tendermint light client (1/3)
-const DEFAULT_TRUST_LEVEL_NUMERATOR: u64 = 1;
-const DEFAULT_TRUST_LEVEL_DENOMINATOR: u64 = 3;
-
-/// Maximum allowed clock drift in seconds
-const MAX_CLOCK_DRIFT_SECONDS: u64 = 15;
-
+// /// Default trust level for ICS07 Tendermint light client (1/3)
+// const DEFAULT_TRUST_LEVEL_NUMERATOR: u64 = 1;
+// const DEFAULT_TRUST_LEVEL_DENOMINATOR: u64 = 3;
+//
+// /// Maximum allowed clock drift in seconds
+// const MAX_CLOCK_DRIFT_SECONDS: u64 = 15;
+//
 /// Mock proof data for testing purposes
 const MOCK_PROOF_DATA: &[u8] = b"mock";
 
@@ -1030,7 +1030,7 @@ impl TxBuilder {
     pub async fn build_chunked_update_client_txs_to_height(
         &self,
         client_id: String,
-        target_height_override: Option<u64>,
+        target_height: u64,
     ) -> Result<ChunkedUpdateTransactions> {
         tracing::info!(
             "Building chunked update client transactions for client {} to height {:?}",
@@ -1038,22 +1038,61 @@ impl TxBuilder {
             target_height_override
         );
 
-        // Fetch block data and create header
-        let (header_bytes, chain_id, target_height, trusted_height) =
-            if let Some(height) = target_height_override {
-                self.prepare_header_for_chunking_at_height(height).await?
-            } else {
-                self.prepare_header_for_chunking().await?
-            };
-
-        self.build_chunked_update_client_txs_internal(
-            client_id,
-            header_bytes,
-            chain_id,
+        let TmUpdateClientParams {
             target_height,
             trusted_height,
+            proposed_header,
+        } = tm_proposed_header_for_client_update(
+            self.client_state(&self.src_listener.chain_id().await?)?,
+            tm_client,
+            Some(target_height),
         )
-        .await
+        .await?;
+
+        let header_bytes = proposed_header.encode_to_vec();
+
+        let header_commitment = keccak::hash(&header_bytes).0;
+        let chunks = Self::split_header_into_chunks(&header_bytes);
+        let total_chunks = u8::try_from(chunks.len())
+            .map_err(|_| anyhow::anyhow!("Too many chunks: {} exceeds u8 max", chunks.len()))?;
+
+        tracing::info!(
+            "Header size: {} bytes, split into {} chunks",
+            header_bytes.len(),
+            total_chunks
+        );
+
+        let recent_blockhash = self
+            .solana_client
+            .get_latest_blockhash()
+            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
+
+        let metadata_tx = self.build_create_metadata_transaction(
+            &chain_id,
+            target_height,
+            total_chunks,
+            header_commitment,
+            recent_blockhash,
+        );
+
+        let chunk_txs =
+            self.build_chunk_transactions(&chunks, &chain_id, target_height, recent_blockhash)?;
+
+        let assembly_tx = self.build_assembly_transaction(
+            &chain_id,
+            target_height,
+            trusted_height,
+            total_chunks,
+            recent_blockhash,
+        );
+
+        Ok(ChunkedUpdateTransactions {
+            metadata_tx,
+            chunk_txs,
+            assembly_tx,
+            total_chunks: total_chunks as usize,
+            target_height,
+        })
     }
 
     pub async fn build_chunked_update_client_txs(
@@ -1142,44 +1181,6 @@ impl TxBuilder {
         Ok(client_state)
     }
 
-    /// Prepare header data for chunking by fetching blocks and creating header
-    async fn prepare_header_for_chunking_at_height(
-        &self,
-        height: u64,
-    ) -> Result<(Vec<u8>, String, u64, u64)> {
-        // Get block at specific height from Cosmos
-        let target_light_block = self
-            .source_tm_client
-            .get_light_block(Some(height))
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to get block at height {}: {e}", height))?;
-
-        // Get chain_id
-        let chain_id = target_light_block.signed_header.header.chain_id.to_string();
-        let target_height = height;
-
-        // Query the client state to get the actual trusted height
-        let trusted_height = self.query_client_latest_height(&chain_id)?;
-
-        // Get trusted light block from the height that actually has a consensus state
-        let trusted_light_block = self
-            .source_tm_client
-            .get_light_block(Some(trusted_height))
-            .await?;
-
-        tracing::info!(
-            "Generating chunked Solana update client header from height: {} to height: {}",
-            trusted_height,
-            target_light_block.height().value()
-        );
-
-        // Create the header
-        let proposed_header = target_light_block.into_header(&trusted_light_block);
-        let header_bytes = proposed_header.encode_to_vec();
-
-        Ok((header_bytes, chain_id, target_height, trusted_height))
-    }
-
     async fn prepare_header_for_chunking(&self) -> Result<(Vec<u8>, String, u64, u64)> {
         let latest_light_block = self.src_listener.get_light_block(None).await?;
         let chain_id = latest_light_block.chain_id()?;
@@ -1188,6 +1189,27 @@ impl TxBuilder {
 
         let proposed_header =
             tm_proposed_header_for_client_update(client_state, &self.src_listener.client()).await?;
+
+        let trusted_light_block = self
+            .source_tm_client
+            .get_light_block(Some(
+                client_state
+                    .latest_height
+                    .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
+                    .revision_height,
+            ))
+            .await?;
+
+        tracing::info!(
+            "Generating tx to update '{}' from height: {} to height: {}",
+            dst_client_id,
+            trusted_light_block.height().value(),
+            target_light_block.height().value()
+        );
+
+        let proposed_header = target_light_block.into_header(&trusted_light_block);
+
+        let header_bytes = proposed_header.encode_to_vec();
 
         Ok((header_bytes, chain_id, target_height, trusted_height))
     }
