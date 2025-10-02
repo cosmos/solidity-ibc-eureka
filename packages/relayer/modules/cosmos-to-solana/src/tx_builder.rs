@@ -10,6 +10,7 @@ use hex;
 use ibc_eureka_relayer_lib::{
     events::EurekaEvent,
     listener::{cosmos_sdk, solana_eureka},
+    tx_builder::TxBuilderService,
     utils::cosmos::{tm_update_client_params, TmUpdateClientParams},
 };
 use ibc_eureka_utils::light_block::LightBlockExt;
@@ -437,87 +438,6 @@ impl TxBuilder {
             tx.message.recent_blockhash = recent_blockhash;
             Ok(Some(tx))
         }
-    }
-
-    /// Build instruction to update Tendermint light client on Solana
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Failed to get latest block from Cosmos
-    /// - Failed to serialize header
-    async fn build_update_client_instruction(&self) -> Result<Instruction> {
-        // Get latest block from Cosmos
-        let latest_block = self
-            .source_tm_client
-            .latest_block()
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
-
-        // Get the target light block (latest from source chain)
-        let target_light_block = self.src_listener.get_light_block(None).await?;
-
-        // Query the client state to get the actual trusted height
-        let chain_id = latest_block.block.header.chain_id.to_string();
-        let trusted_height = self.query_client_latest_height(&chain_id)?;
-
-        // Get trusted light block from the height that actually has a consensus state
-        let trusted_light_block = self
-            .source_tm_client
-            .get_light_block(Some(trusted_height))
-            .await?;
-
-        tracing::info!(
-            "Generating Solana update client header from height: {} to height: {}",
-            trusted_height,
-            target_light_block.height().value()
-        );
-
-        let proposed_header = target_light_block.into_header(&trusted_light_block);
-        let header_bytes = proposed_header.encode_to_vec();
-
-        let update_msg = UpdateClientMsg {
-            client_message: header_bytes,
-        };
-
-        // Get the chain ID for PDA derivation
-        let chain_id = latest_block.block.header.chain_id.to_string();
-        let (client_state_pda, _) =
-            derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
-
-        // Use heights already calculated above
-        let new_height = latest_block.block.header.height.value();
-
-        let trusted_height = new_height.saturating_sub(1);
-        let (trusted_consensus_state, _) = derive_ics07_consensus_state(
-            &client_state_pda,
-            trusted_height,
-            &self.solana_ics07_program_id,
-        );
-        let (new_consensus_state, _) = derive_ics07_consensus_state(
-            &client_state_pda,
-            new_height,
-            &self.solana_ics07_program_id,
-        );
-
-        // Build the instruction
-        let accounts = vec![
-            AccountMeta::new(client_state_pda, false),
-            AccountMeta::new_readonly(trusted_consensus_state, false),
-            AccountMeta::new(new_consensus_state, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        ];
-
-        let discriminator = get_instruction_discriminator("update_client");
-        let mut data = discriminator.to_vec();
-        data.extend_from_slice(&update_msg.try_to_vec()?);
-
-        Ok(Instruction {
-            program_id: self.solana_ics07_program_id,
-            accounts,
-            data,
-        })
     }
 
     /// Build instruction for `RecvPacket` on Solana
@@ -1081,14 +1001,6 @@ impl TxBuilder {
         })
     }
 
-    pub async fn build_chunked_update_client_txs(
-        &self,
-        client_id: String,
-    ) -> Result<ChunkedUpdateTransactions> {
-        self.build_chunked_update_client_txs_to_height(client_id, None)
-            .await
-    }
-
     fn client_state(&self, chain_id: &str) -> Result<ClientState> {
         let (client_state_pda, _) =
             derive_ics07_client_state(actual_chain_id, &self.solana_ics07_program_id);
@@ -1196,11 +1108,6 @@ impl TxBuilder {
         assembly_tx
     }
 
-    /// Build instruction for creating metadata
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if serialization fails
     fn build_create_metadata_instruction(
         &self,
         chain_id: &str,
@@ -1208,7 +1115,6 @@ impl TxBuilder {
         total_chunks: u8,
         header_commitment: [u8; 32],
     ) -> Instruction {
-        // Derive PDAs
         let (client_state_pda, _) =
             derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
         let (metadata_pda, _) = derive_header_metadata(
@@ -1218,7 +1124,6 @@ impl TxBuilder {
             &self.solana_ics07_program_id,
         );
 
-        // Build accounts
         let accounts = vec![
             AccountMeta::new(metadata_pda, false),
             AccountMeta::new_readonly(client_state_pda, false),
@@ -1226,11 +1131,9 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
-        // Build instruction data
         let discriminator = get_instruction_discriminator("create_metadata");
         let mut data = discriminator.to_vec();
 
-        // Serialize parameters
         let chain_id_len = u32::try_from(chain_id.len()).expect("chain_id too long");
         data.extend_from_slice(&chain_id_len.to_le_bytes());
         data.extend_from_slice(chain_id.as_bytes());
@@ -1245,11 +1148,6 @@ impl TxBuilder {
         }
     }
 
-    /// Build instruction for uploading a header chunk
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if serialization fails
     fn build_upload_header_chunk_instruction(
         &self,
         chain_id: &str,
@@ -1296,7 +1194,6 @@ impl TxBuilder {
         })
     }
 
-    /// Build instruction for assembling chunks and updating the client
     fn build_assemble_and_update_client_instruction(
         &self,
         chain_id: &str,
@@ -1347,7 +1244,6 @@ impl TxBuilder {
             accounts.push(AccountMeta::new(chunk_pda, false));
         }
 
-        // Build instruction data
         let discriminator = get_instruction_discriminator("assemble_and_update_client");
 
         Instruction {
@@ -1518,64 +1414,5 @@ impl TxBuilderService<CosmosSdk, SolanaEureka> for TxBuilder {
             ..Default::default()
         }
         .encode_to_vec())
-    }
-
-    fn build_assemble_and_update_client_instruction(
-        &self,
-        chain_id: &str,
-        target_height: u64,
-        trusted_height: u64,
-        total_chunks: u8,
-    ) -> Instruction {
-        // Derive PDAs
-        let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
-        let (metadata_pda, _) = derive_header_metadata(
-            &self.fee_payer,
-            chain_id,
-            target_height,
-            &self.solana_ics07_program_id,
-        );
-        let (trusted_consensus_state, _) = derive_ics07_consensus_state(
-            &client_state_pda,
-            trusted_height,
-            &self.solana_ics07_program_id,
-        );
-        let (new_consensus_state, _) = derive_ics07_consensus_state(
-            &client_state_pda,
-            target_height,
-            &self.solana_ics07_program_id,
-        );
-
-        let mut accounts = vec![
-            AccountMeta::new(client_state_pda, false),
-            AccountMeta::new(metadata_pda, false),
-            AccountMeta::new_readonly(trusted_consensus_state, false),
-            AccountMeta::new(new_consensus_state, false),
-            AccountMeta::new(self.fee_payer, false), // submitter who gets rent back
-            AccountMeta::new(self.fee_payer, true),  // payer for new consensus state
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        ];
-
-        // Add chunk accounts as remaining accounts
-        for chunk_index in 0..total_chunks {
-            let (chunk_pda, _) = derive_header_chunk(
-                &self.fee_payer,
-                chain_id,
-                target_height,
-                chunk_index,
-                &self.solana_ics07_program_id,
-            );
-            accounts.push(AccountMeta::new(chunk_pda, false));
-        }
-
-        // Build instruction data
-        let discriminator = get_instruction_discriminator("assemble_and_update_client");
-
-        Instruction {
-            program_id: self.solana_ics07_program_id,
-            accounts,
-            data: discriminator.to_vec(),
-        }
     }
 }
