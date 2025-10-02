@@ -8,7 +8,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use ibc_eureka_relayer_lib::{
     chain::{CosmosSdk, SolanaEureka},
-    events::{solana::SolanaEurekaEvent, EurekaEventWithHeight, SolanaEurekaEventWithHeight},
+    events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight},
     tx_builder::TxBuilderService,
     utils::cosmos,
 };
@@ -162,143 +162,129 @@ impl MockTxBuilder {
         //     }
     }
 
-    /// Convert Solana payloads to IBC v2 Payload format
-    fn convert_payloads_to_ibc(payloads: Vec<Vec<u8>>) -> Vec<Payload> {
-        payloads
-            .into_iter()
-            .map(|value| Payload {
-                source_port: "transfer".to_string(), // Default for ICS20
-                destination_port: "transfer".to_string(),
-                version: "ics20-1".to_string(),
-                encoding: "application/json".to_string(),
-                value,
-            })
-            .collect()
-    }
-
     /// Build a `RecvPacket` message for Cosmos
-    #[allow(clippy::cognitive_complexity)]
-    fn build_recv_packet_msg(
-        &self,
-        sequence: u64,
-        source_client: String,
-        destination_client: String,
-        payloads: Vec<Vec<u8>>,
-        timeout_timestamp: u64,
-    ) -> anyhow::Result<Any> {
-        let converted_payloads = Self::convert_payloads_to_ibc(payloads);
-        tracing::info!("Converted payloads count: {}", converted_payloads.len());
-
-        let packet = Packet {
-            sequence,
-            source_client,
-            destination_client,
-            timeout_timestamp,
-            payloads: converted_payloads,
-        };
-
-        let msg = MsgRecvPacket {
-            packet: Some(packet.clone()),
-            proof_height: None,       // Will be filled by proof injection
-            proof_commitment: vec![], // Mock proof for now
-            signer: self.signer_address.clone(),
-        };
-
-        tracing::info!(
-            "Created RecvPacket message for sequence {} with signer: {}",
-            sequence,
-            self.signer_address
-        );
-        tracing::info!("Packet details: {:?}", packet);
-        Any::from_msg(&msg).map_err(Into::into)
-    }
-
-    /// Build an Acknowledgement message for Cosmos
-    fn build_acknowledgement_msg(
-        &self,
-        sequence: u64,
-        source_client: String,
-        destination_client: String,
-        payloads: Vec<Vec<u8>>,
-        timeout_timestamp: u64,
-        acknowledgements: Vec<Vec<u8>>,
-    ) -> anyhow::Result<Any> {
-        let packet = Packet {
-            sequence,
-            source_client,
-            destination_client,
-            timeout_timestamp,
-            payloads: Self::convert_payloads_to_ibc(payloads),
-        };
-
-        let ack = Acknowledgement {
-            app_acknowledgements: acknowledgements,
-        };
-
-        let msg = MsgAcknowledgement {
-            packet: Some(packet),
-            acknowledgement: Some(ack),
-            proof_height: None,  // Will be filled by proof injection
-            proof_acked: vec![], // Mock proof for now
-            signer: self.signer_address.clone(),
-        };
-
-        tracing::debug!("Created Acknowledgement message for sequence {}", sequence);
-        Any::from_msg(&msg).map_err(Into::into)
-    }
-
-    /// Build a Timeout message for Cosmos
-    fn build_timeout_msg(
-        &self,
-        sequence: u64,
-        source_client: String,
-        destination_client: String,
-        payloads: Vec<Vec<u8>>,
-        timeout_timestamp: u64,
-    ) -> anyhow::Result<Any> {
-        let packet = Packet {
-            sequence,
-            source_client,
-            destination_client,
-            timeout_timestamp,
-            payloads: Self::convert_payloads_to_ibc(payloads),
-        };
-
-        let msg = MsgTimeout {
-            packet: Some(packet),
-            proof_height: None,       // Will be filled by proof injection
-            proof_unreceived: vec![], // Mock proof for now
-            signer: self.signer_address.clone(),
-        };
-
-        tracing::debug!("Created Timeout message for sequence {}", sequence);
-        Any::from_msg(&msg).map_err(Into::into)
-    }
+    // #[allow(clippy::cognitive_complexity)]
+    // fn build_recv_packet_msg(
+    //     &self,
+    //     sequence: u64,
+    //     source_client: String,
+    //     destination_client: String,
+    //     payloads: Vec<Vec<u8>>,
+    //     timeout_timestamp: u64,
+    // ) -> anyhow::Result<Any> {
+    //     let converted_payloads = Self::convert_payloads_to_ibc(payloads);
+    //     tracing::info!("Converted payloads count: {}", converted_payloads.len());
+    //
+    //     let packet = Packet {
+    //         sequence,
+    //         source_client,
+    //         destination_client,
+    //         timeout_timestamp,
+    //         payloads: converted_payloads,
+    //     };
+    //
+    //     let msg = MsgRecvPacket {
+    //         packet: Some(packet.clone()),
+    //         proof_height: None,       // Will be filled by proof injection
+    //         proof_commitment: vec![], // Mock proof for now
+    //         signer: self.signer_address.clone(),
+    //     };
+    //
+    //     tracing::info!(
+    //         "Created RecvPacket message for sequence {} with signer: {}",
+    //         sequence,
+    //         self.signer_address
+    //     );
+    //     tracing::info!("Packet details: {:?}", packet);
+    //     Any::from_msg(&msg).map_err(Into::into)
+    // }
+    //
+    // /// Build an Acknowledgement message for Cosmos
+    // fn build_acknowledgement_msg(
+    //     &self,
+    //     sequence: u64,
+    //     source_client: String,
+    //     destination_client: String,
+    //     payloads: Vec<Vec<u8>>,
+    //     timeout_timestamp: u64,
+    //     acknowledgements: Vec<Vec<u8>>,
+    // ) -> anyhow::Result<Any> {
+    //     let packet = Packet {
+    //         sequence,
+    //         source_client,
+    //         destination_client,
+    //         timeout_timestamp,
+    //         payloads: Self::convert_payloads_to_ibc(payloads),
+    //     };
+    //
+    //     let ack = Acknowledgement {
+    //         app_acknowledgements: acknowledgements,
+    //     };
+    //
+    //     let msg = MsgAcknowledgement {
+    //         packet: Some(packet),
+    //         acknowledgement: Some(ack),
+    //         proof_height: None,  // Will be filled by proof injection
+    //         proof_acked: vec![], // Mock proof for now
+    //         signer: self.signer_address.clone(),
+    //     };
+    //
+    //     tracing::debug!("Created Acknowledgement message for sequence {}", sequence);
+    //     Any::from_msg(&msg).map_err(Into::into)
+    // }
+    //
+    // /// Build a Timeout message for Cosmos
+    // fn build_timeout_msg(
+    //     &self,
+    //     sequence: u64,
+    //     source_client: String,
+    //     destination_client: String,
+    //     payloads: Vec<Vec<u8>>,
+    //     timeout_timestamp: u64,
+    // ) -> anyhow::Result<Any> {
+    //     let packet = Packet {
+    //         sequence,
+    //         source_client,
+    //         destination_client,
+    //         timeout_timestamp,
+    //         payloads: Self::convert_payloads_to_ibc(payloads),
+    //     };
+    //
+    //     let msg = MsgTimeout {
+    //         packet: Some(packet),
+    //         proof_height: None,       // Will be filled by proof injection
+    //         proof_unreceived: vec![], // Mock proof for now
+    //         signer: self.signer_address.clone(),
+    //     };
+    //
+    //     tracing::debug!("Created Timeout message for sequence {}", sequence);
+    //     Any::from_msg(&msg).map_err(Into::into)
+    // }
 
     /// Build an update client message for the Solana light client on Cosmos
     ///
     /// # Errors
     ///
     /// Returns an error if failed to get Solana slot
-    fn build_update_client_msg(&self, client_id: &str) -> anyhow::Result<MsgUpdateClient> {
-        let slot = self
-            .solana_client
-            .get_slot()
-            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
-
-        tracing::info!(slot, "Updating Solana client");
-
-        // Create update message with latest Solana state
-        // This would include proof-of-history verification data
-        let header_data = MOCK_HEADER_DATA.to_vec(); // Mock Solana header for testing
-        let client_msg = Any::from_msg(&ClientMessage { data: header_data })?;
-
-        Ok(MsgUpdateClient {
-            client_id: client_id.to_string(),
-            client_message: Some(client_msg),
-            signer: self.signer_address.clone(),
-        })
-    }
+    // fn build_update_client_msg(&self, client_id: &str) -> anyhow::Result<MsgUpdateClient> {
+    //     let slot = self
+    //         .solana_client
+    //         .get_slot()
+    //         .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
+    //
+    //     tracing::info!(slot, "Updating Solana client");
+    //
+    //     // Create update message with latest Solana state
+    //     // This would include proof-of-history verification data
+    //     let header_data = MOCK_HEADER_DATA.to_vec(); // Mock Solana header for testing
+    //     let client_msg = Any::from_msg(&ClientMessage { data: header_data })?;
+    //
+    //     Ok(MsgUpdateClient {
+    //         client_id: client_id.to_string(),
+    //         client_message: Some(client_msg),
+    //         signer: self.signer_address.clone(),
+    //     })
+    // }
 
     pub fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
         tracing::info!("Creating Solana light client on Cosmos");
