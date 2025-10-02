@@ -1103,63 +1103,6 @@ impl TxBuilder {
             .await
     }
 
-    async fn build_chunked_update_client_txs_internal(
-        &self,
-        _client_id: String,
-        header_bytes: Vec<u8>,
-        chain_id: String,
-        target_height: u64,
-        trusted_height: u64,
-    ) -> Result<ChunkedUpdateTransactions> {
-        // Calculate header commitment and split into chunks
-        let header_commitment = keccak::hash(&header_bytes).0;
-        let chunks = Self::split_header_into_chunks(&header_bytes);
-        let total_chunks = u8::try_from(chunks.len())
-            .map_err(|_| anyhow::anyhow!("Too many chunks: {} exceeds u8 max", chunks.len()))?;
-
-        tracing::info!(
-            "Header size: {} bytes, split into {} chunks",
-            header_bytes.len(),
-            total_chunks
-        );
-
-        // Get recent blockhash for all transactions
-        let recent_blockhash = self
-            .solana_client
-            .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
-
-        // Build metadata creation transaction
-        let metadata_tx = self.build_create_metadata_transaction(
-            &chain_id,
-            target_height,
-            total_chunks,
-            header_commitment,
-            recent_blockhash,
-        );
-
-        // Build all chunk upload transactions
-        let chunk_txs =
-            self.build_chunk_transactions(&chunks, &chain_id, target_height, recent_blockhash)?;
-
-        // Build assembly transaction
-        let assembly_tx = self.build_assembly_transaction(
-            &chain_id,
-            target_height,
-            trusted_height,
-            total_chunks,
-            recent_blockhash,
-        );
-
-        Ok(ChunkedUpdateTransactions {
-            metadata_tx,
-            chunk_txs,
-            assembly_tx,
-            total_chunks: total_chunks as usize,
-            target_height,
-        })
-    }
-
     fn client_state(&self, chain_id: &str) -> Result<ClientState> {
         let (client_state_pda, _) =
             derive_ics07_client_state(actual_chain_id, &self.solana_ics07_program_id);
@@ -1179,39 +1122,6 @@ impl TxBuilder {
             .context("Failed to deserialize client state")?;
 
         Ok(client_state)
-    }
-
-    async fn prepare_header_for_chunking(&self) -> Result<(Vec<u8>, String, u64, u64)> {
-        let latest_light_block = self.src_listener.get_light_block(None).await?;
-        let chain_id = latest_light_block.chain_id()?;
-
-        let client_state = self.client_state(chain_id)?;
-
-        let proposed_header =
-            tm_proposed_header_for_client_update(client_state, &self.src_listener.client()).await?;
-
-        let trusted_light_block = self
-            .source_tm_client
-            .get_light_block(Some(
-                client_state
-                    .latest_height
-                    .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
-                    .revision_height,
-            ))
-            .await?;
-
-        tracing::info!(
-            "Generating tx to update '{}' from height: {} to height: {}",
-            dst_client_id,
-            trusted_light_block.height().value(),
-            target_light_block.height().value()
-        );
-
-        let proposed_header = target_light_block.into_header(&trusted_light_block);
-
-        let header_bytes = proposed_header.encode_to_vec();
-
-        Ok((header_bytes, chain_id, target_height, trusted_height))
     }
 
     fn split_header_into_chunks(header_bytes: &[u8]) -> Vec<Vec<u8>> {
@@ -1242,7 +1152,6 @@ impl TxBuilder {
         tx
     }
 
-    /// Build chunk upload transactions (all can be submitted in parallel after metadata creation)
     fn build_chunk_transactions(
         &self,
         chunks: &[Vec<u8>],
@@ -1266,20 +1175,6 @@ impl TxBuilder {
         }
 
         Ok(chunk_txs)
-    }
-
-    fn build_single_chunk_transaction(&self, params: &ChunkTxParams) -> Result<Transaction> {
-        let upload_ix = self.build_upload_header_chunk_instruction(
-            params.chain_id,
-            params.target_height,
-            params.chunk_index,
-            params.chunk_data.to_vec(),
-        )?;
-
-        let mut tx = Transaction::new_with_payer(&[upload_ix], Some(&self.fee_payer));
-        tx.message.recent_blockhash = params.recent_blockhash;
-
-        Ok(tx)
     }
 
     fn build_assembly_transaction(
