@@ -938,6 +938,7 @@ impl TxBuilder {
         })
     }
 
+    /// NOTE: reuse
     /// Build a create client transaction for Solana
     ///
     /// # Errors
@@ -948,100 +949,48 @@ impl TxBuilder {
     /// - Failed to parse chain ID
     /// - Failed to serialize instruction data
     pub async fn build_create_client_tx(&self) -> Result<Transaction> {
-        // Get latest block from Cosmos for initial client state
-        let latest_light_block = self
-            .source_tm_client
-            .get_light_block(None)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
+        let latest_light_block = self.source_tm_client.get_light_block(None).await?;
 
         tracing::info!(
             "Creating client at height: {}",
             latest_light_block.height().value()
         );
 
-        let chain_id_str = latest_light_block.signed_header.header.chain_id.to_string();
-        let latest_height = latest_light_block.signed_header.header.height.value();
+        let chain_id =
+            ChainId::from_str(latest_light_block.signed_header.header.chain_id.as_str())?;
+        let height = Height {
+            revision_number: chain_id.revision_number(),
+            revision_height: latest_light_block.height().value(),
+        };
 
-        // Extract revision number from chain ID (format: {chain_name}-{revision_number})
-        let revision_number = chain_id_str
-            .rsplit('-')
-            .next()
-            .and_then(|s| s.parse::<u64>().ok())
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Invalid chain ID format: expected {{chain_name}}-{{revision_number}}, got {}",
-                    chain_id_str
-                )
-            })?;
-
-        // Query staking parameters to get unbonding period
         let unbonding_period = self
             .source_tm_client
             .sdk_staking_params()
             .await?
             .unbonding_time
-            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?
-            .seconds
-            .try_into()?;
-        let trusting_period = 2 * (unbonding_period / 3);
+            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
 
-        tracing::info!(
-            "Creating client for chain {} at height {}, revision: {}",
-            chain_id_str,
-            latest_height,
-            revision_number
-        );
+        // Defaults to the recommended 2/3 of the UnbondingPeriod
+        let trusting_period = Duration {
+            seconds: 2 * (unbonding_period.seconds / 3),
+            nanos: 0,
+        };
 
-        tracing::info!(
-            "Using client parameters: trust_level={}/{}, trusting_period={}, unbonding_period={}, max_clock_drift={}",
-            DEFAULT_TRUST_LEVEL_NUMERATOR, DEFAULT_TRUST_LEVEL_DENOMINATOR, trusting_period, unbonding_period, MAX_CLOCK_DRIFT_SECONDS
-        );
+        let trusting_period = Duration {
+            seconds: 2 * (unbonding_period.seconds / 3),
+            nanos: 0,
+        };
 
-        // Create proper ClientState matching ICS07 program expectations
-        let client_state = ClientState {
-            chain_id: chain_id_str.clone(),
-            trust_level_numerator: DEFAULT_TRUST_LEVEL_NUMERATOR,
-            trust_level_denominator: DEFAULT_TRUST_LEVEL_DENOMINATOR,
+        let client_state = build_tendermint_client_state(
+            chain_id.to_string(),
+            height,
             trusting_period,
             unbonding_period,
-            max_clock_drift: MAX_CLOCK_DRIFT_SECONDS,
-            frozen_height: IbcHeight {
-                revision_number: 0,
-                revision_height: 0,
-            },
-            latest_height: IbcHeight {
-                revision_number,
-                revision_height: latest_height,
-            },
-        };
+            vec![ics23::iavl_spec(), ics23::tendermint_spec()],
+        );
 
-        // Get the light block to create consensus state properly
-        let latest_light_block = self
-            .source_tm_client
-            .get_light_block(Some(latest_height))
-            .await?;
+        let consensus_state = latest_light_block.to_consensus_state();
 
-        // Use the LightBlockExt trait to get the proper consensus state
-        let ibc_consensus_state = latest_light_block.to_consensus_state();
-
-        // Convert IBC ConsensusState to Solana ConsensusState
-        // This matches what the Solana program does in its TryFrom implementation
-        let consensus_state = ConsensusState {
-            timestamp: ibc_consensus_state.timestamp.unix_timestamp_nanos() as u64,
-            root: ibc_consensus_state
-                .root
-                .into_vec()
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Invalid root hash length"))?,
-            next_validators_hash: ibc_consensus_state
-                .next_validators_hash
-                .as_bytes()
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Invalid validators hash length"))?,
-        };
-
-        // Build the instruction for creating the client
         let instruction = self.build_create_client_instruction(
             &chain_id_str,
             latest_height,
@@ -1049,7 +998,6 @@ impl TxBuilder {
             &consensus_state,
         )?;
 
-        // Create unsigned transaction
         let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
 
         // Get recent blockhash
@@ -1229,37 +1177,30 @@ impl TxBuilder {
     }
 
     async fn prepare_header_for_chunking(&self) -> Result<(Vec<u8>, String, u64, u64)> {
-        // Get latest block from Cosmos
-        let latest_block = self
-            .source_tm_client
-            .latest_block()
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
+        let latest_light_block = self.src_listener.get_light_block(None).await?;
+        let chain_id = latest_light_block.chain_id()?;
 
-        // Get chain_id first
-        let chain_id = latest_block.block.header.chain_id.to_string();
-        let target_height = latest_block.block.header.height.value();
+        let client_state = self.client_state(chain_id)?;
 
-        // Get the target light block (latest from source chain)
-        let target_light_block = self.source_tm_client.get_light_block(None).await?;
-
-        // Query the client state to get the actual trusted height
-        let trusted_height = self.query_client_latest_height(&chain_id)?;
-
-        // Get trusted light block from the height that actually has a consensus state
         let trusted_light_block = self
             .source_tm_client
-            .get_light_block(Some(trusted_height))
+            .get_light_block(Some(
+                client_state
+                    .latest_height
+                    .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
+                    .revision_height,
+            ))
             .await?;
 
         tracing::info!(
-            "Generating chunked Solana update client header from height: {} to height: {}",
-            trusted_height,
+            "Generating tx to update '{}' from height: {} to height: {}",
+            dst_client_id,
+            trusted_light_block.height().value(),
             target_light_block.height().value()
         );
 
-        // Create the header
         let proposed_header = target_light_block.into_header(&trusted_light_block);
+
         let header_bytes = proposed_header.encode_to_vec();
 
         Ok((header_bytes, chain_id, target_height, trusted_height))
