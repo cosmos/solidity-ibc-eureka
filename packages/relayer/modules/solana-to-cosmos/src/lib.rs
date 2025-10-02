@@ -8,6 +8,8 @@ pub mod tx_builder;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use ibc_eureka_relayer_lib::events::EurekaEventWithHeight;
+use ibc_eureka_relayer_lib::events::SolanaEurekaEvent;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana_eureka;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
@@ -41,9 +43,7 @@ struct SolanaToCosmosRelayerModuleService {
     /// The target chain listener for Cosmos SDK.
     pub target_listener: cosmos_sdk::ChainListener,
     /// The transaction builder from Solana to Cosmos.
-    pub tx_builder: tx_builder::TxBuilder,
-    /// Whether to use mock proofs for testing.
-    pub mock: bool,
+    pub tx_builder: SolanaToCosmosTxBuilder,
 }
 
 /// The configuration for the Solana to Cosmos relayer module.
@@ -60,7 +60,8 @@ pub struct SolanaToCosmosConfig {
     pub signer_address: String,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: String,
-    /// Whether to use mock proofs for testing.
+    /// Whether to run in mock mode.
+    #[serde(default)]
     pub mock: bool,
 }
 
@@ -77,18 +78,22 @@ impl SolanaToCosmosRelayerModuleService {
         let target_listener =
             cosmos_sdk::ChainListener::new(HttpClient::from_rpc_url(&config.target_rpc_url));
 
-        let tx_builder = tx_builder::TxBuilder::new(
-            Arc::clone(src_listener.client()),
-            target_listener.client().clone(),
-            config.signer_address,
-            solana_ics26_program_id,
-        );
+        let tx_builder = if config.mock {
+            SolanaToCosmosTxBuilder::Mock(tx_builder::MockTxBuilder::new(
+                src_listener.client().clone(),
+                target_listener.client().clone(),
+                config.signer_address,
+                solana_ics26_program_id,
+            ))
+        } else {
+            // TODO: Implement once solana client for cosmos is ready
+            unimplemented!()
+        };
 
         Ok(Self {
             src_listener,
             target_listener,
             tx_builder,
-            mock: config.mock,
         })
     }
 }
@@ -234,5 +239,55 @@ impl RelayerModule for SolanaToCosmosRelayerModule {
         let config: SolanaToCosmosConfig = serde_json::from_value(config)?;
         let service = SolanaToCosmosRelayerModuleService::new(config)?;
         Ok(Box::new(service))
+    }
+}
+
+impl SolanaToCosmosTxBuilder {
+    async fn relay_events(
+        &self,
+        src_events: Vec<SolanaEurekaEvent>,
+        target_events: Vec<EurekaEventWithHeight>,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
+    ) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Real() => {
+                unreachable!()
+            }
+            Self::Mock(tb) => {
+                tb.relay_events(
+                    src_events,
+                    target_events,
+                    src_client_id,
+                    dst_client_id,
+                    src_packet_seqs,
+                    dst_packet_seqs,
+                )
+                .await
+            }
+        }
+    }
+
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Real() => unreachable!(),
+            Self::Mock(tb) => tb.create_client(parameters).await,
+        }
+    }
+
+    async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Real() => unreachable!(),
+            Self::Mock(tb) => tb.update_client(dst_client_id).await,
+        }
+    }
+
+    const fn ics26_router_address(&self) -> &pu {
+        match self {
+            Self::Real() => unreachable!(),
+            Self::Mock(tb) => tb.ics26_program_id.address(),
+        }
     }
 }

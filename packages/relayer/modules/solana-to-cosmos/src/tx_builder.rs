@@ -44,7 +44,7 @@ pub struct MockTxBuilder {
     /// The signer address for the Cosmos messages.
     pub signer_address: String,
     /// The Solana ICS26 router program ID.
-    pub solana_ics26_program_id: Pubkey,
+    pub ics26_program_id: Pubkey,
 }
 
 impl MockTxBuilder {
@@ -60,7 +60,7 @@ impl MockTxBuilder {
             solana_client,
             tm_client,
             signer_address,
-            solana_ics26_program_id,
+            ics26_program_id: solana_ics26_program_id,
         }
     }
 
@@ -315,8 +315,6 @@ impl MockTxBuilder {
         let checksum = hex::decode(checksum_hex)
             .map_err(|e| anyhow::anyhow!("Failed to decode checksum hex: {e}"))?;
 
-        // Create WASM client state for Solana verification with proper checksum
-        // This would contain the Solana validator set and consensus parameters
         let client_state = WasmClientState {
             data: b"mock_client_state".to_vec(), // Mock Solana-specific client state
             checksum,                            // Use actual WASM code checksum from parameters
@@ -381,6 +379,7 @@ impl MockTxBuilder {
 
 #[async_trait::async_trait]
 impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
+    #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
         src_events: Vec<SolanaEurekaEventWithHeight>,
@@ -394,9 +393,8 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
             "Relaying events from Solana to Cosmos for client {}",
             dst_client_id
         );
-        let now_since_unix = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
@@ -404,7 +402,7 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
             &dst_client_id,
             &dst_packet_seqs,
             &self.signer_address,
-            now_since_unix,
+            now_since_unix.as_secs(),
         );
 
         // NOTE: Convert to eureka event to reuse to recvs/ack msg fn
@@ -420,7 +418,7 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
             &src_packet_seqs,
             &dst_packet_seqs,
             &self.signer_address,
-            now_since_unix,
+            now_since_unix.as_secs(),
         );
 
         tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
