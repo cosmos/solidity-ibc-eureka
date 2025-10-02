@@ -45,10 +45,8 @@ type RelayByTxRequest struct {
 	// The optional destination chain send packet sequences for acks and timeouts
 	// Used for event filtering, no filtering if empty
 	DstPacketSequences []uint64 `protobuf:"varint,8,rep,packed,name=dst_packet_sequences,json=dstPacketSequences,proto3" json:"dst_packet_sequences,omitempty"`
-	// Skip update client instruction (for chunked or separate update client)
-	SkipUpdateClient bool `protobuf:"varint,9,opt,name=skip_update_client,json=skipUpdateClient,proto3" json:"skip_update_client,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *RelayByTxRequest) Reset() {
@@ -135,13 +133,6 @@ func (x *RelayByTxRequest) GetDstPacketSequences() []uint64 {
 		return x.DstPacketSequences
 	}
 	return nil
-}
-
-func (x *RelayByTxRequest) GetSkipUpdateClient() bool {
-	if x != nil {
-		return x.SkipUpdateClient
-	}
-	return false
 }
 
 // The relay by tx response message
@@ -706,7 +697,7 @@ var File_relayer_relayer_proto protoreflect.FileDescriptor
 
 const file_relayer_relayer_proto_rawDesc = "" +
 	"\n" +
-	"\x15relayer/relayer.proto\x12\arelayer\"\xf0\x02\n" +
+	"\x15relayer/relayer.proto\x12\arelayer\"\xc2\x02\n" +
 	"\x10RelayByTxRequest\x12\x1b\n" +
 	"\tsrc_chain\x18\x01 \x01(\tR\bsrcChain\x12\x1b\n" +
 	"\tdst_chain\x18\x02 \x01(\tR\bdstChain\x12\"\n" +
@@ -715,8 +706,7 @@ const file_relayer_relayer_proto_rawDesc = "" +
 	"\rsrc_client_id\x18\x05 \x01(\tR\vsrcClientId\x12\"\n" +
 	"\rdst_client_id\x18\x06 \x01(\tR\vdstClientId\x120\n" +
 	"\x14src_packet_sequences\x18\a \x03(\x04R\x12srcPacketSequences\x120\n" +
-	"\x14dst_packet_sequences\x18\b \x03(\x04R\x12dstPacketSequences\x12,\n" +
-	"\x12skip_update_client\x18\t \x01(\bR\x10skipUpdateClient\"O\n" +
+	"\x14dst_packet_sequences\x18\b \x03(\x04R\x12dstPacketSequences\"O\n" +
 	"\x11RelayByTxResponse\x12\x0e\n" +
 	"\x02tx\x18\x01 \x01(\fR\x02tx\x12\x18\n" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x10\n" +
