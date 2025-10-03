@@ -386,7 +386,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		receiver := cosmosUserWallet.FormattedAddress()
 		memo := "Test transfer from Solana to Cosmos"
 
-		accounts := s.prepareTransferAccounts(ctx, s.DummyAppProgramID, destPort, SolanaClientID)
+		accounts := s.prepareTransferAccounts(ctx, s.DummyAppProgramID, transfertypes.PortID, SolanaClientID)
 
 		timeoutTimestamp := time.Now().Unix() + 3600
 
