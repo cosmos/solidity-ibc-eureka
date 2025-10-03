@@ -846,27 +846,25 @@ impl TxBuilder {
     /// - Failed to serialize header
     /// - Failed to get blockhash from Solana
     /// Build chunked update client transactions to a specific height
-    pub async fn build_chunked_update_client_txs_to_height(
+    pub async fn build_chunked_update_client_params(
         &self,
         client_id: String,
-        target_height: u64,
     ) -> Result<ChunkedUpdateTransactions> {
-        tracing::info!(
-            "Building chunked update client transactions for client {} to height {:?}",
-            client_id,
-            target_height_override
-        );
-
+        let chain_id = self.src_listener.chain_id().await?;
         let TmUpdateClientParams {
             target_height,
             trusted_height,
             proposed_header,
         } = tm_update_client_params(
-            self.cosmos_client_state(&self.src_listener.chain_id().await?)?,
-            tm_client,
-            Some(target_height),
+            self.cosmos_client_state(&chain_id?),
+            self.src_listener.client(),
+            None
         )
         .await?;
+
+        tracing::info!(
+            "Building chunked update client transactions for client {client_id} to height {target_height}",
+        );
 
         let header_bytes = proposed_header.encode_to_vec();
 
@@ -882,7 +880,8 @@ impl TxBuilder {
         );
 
         let recent_blockhash = self
-            .solana_client
+            .target_listener
+            .client()
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
