@@ -819,7 +819,7 @@ impl TxBuilder {
         );
 
         // we don't care about signer address as no cosmos tx will be sent here
-        let mock_signer_address = "".to_string();
+        let mock_signer_address = String::new();
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
