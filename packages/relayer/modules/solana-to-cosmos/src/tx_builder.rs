@@ -26,9 +26,6 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use tendermint_rpc::HttpClient;
 
-/// Mock header data for Solana client testing
-const MOCK_HEADER_DATA: &[u8] = b"mock";
-
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from Solana.
 #[allow(dead_code)]
 pub struct MockTxBuilder {
@@ -177,7 +174,7 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
 
         tracing::info!(dst_client_id, slot, "Updating Solana client");
 
-        let header_data = MOCK_HEADER_DATA.to_vec();
+        let header_data = b"mock".to_vec();
         let client_msg = Any::from_msg(&ClientMessage { data: header_data })?;
 
         let update_msg = MsgUpdateClient {
