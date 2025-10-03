@@ -743,6 +743,7 @@ impl TxBuilder {
             )?;
 
             let mut chunk_tx = Transaction::new_with_payer(&[upload_ix], Some(&self.fee_payer));
+            chunk_tx.message.recent_blockhash = recent_blockhash;
             chunk_txs.push(chunk_tx);
         }
 
