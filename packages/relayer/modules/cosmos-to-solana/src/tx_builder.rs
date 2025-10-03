@@ -558,7 +558,7 @@ impl TxBuilder {
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: solana_ics26_program_id.clone(),
+            program_id: solana_ics26_program_id,
             accounts,
             data,
         })
@@ -651,7 +651,7 @@ impl TxBuilder {
                 chain_id,
                 target_height,
                 chunk_index,
-                chunk_data.to_vec(),
+                chunk_data.clone(),
             )?;
 
             let chunk_tx = self.create_tx_bytes(&[upload_ix])?;
@@ -779,6 +779,14 @@ impl TxBuilder {
 }
 
 impl TxBuilder {
+    /// Build relay transaction from Cosmos events to Solana
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to convert events to messages
+    /// - Failed to build Solana instructions
+    /// - Failed to create transaction bytes
     #[tracing::instrument(skip_all)]
     pub async fn relay_events(
         &self,
@@ -855,7 +863,7 @@ impl TxBuilder {
     }
 
     fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>> {
-        let mut tx = Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
+        let mut tx = Transaction::new_with_payer(instructions, Some(&self.fee_payer));
 
         let recent_blockhash = self
             .target_solana_client
