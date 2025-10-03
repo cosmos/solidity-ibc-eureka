@@ -151,19 +151,14 @@ pub struct TmUpdateClientParams {
 /// omitted).
 ///
 /// # Errors
-/// - Missing `latest_height` in client state
 /// - Failed light block retrieval from Tendermint node
 pub async fn tm_update_client_params(
-    client_state: ClientState,
+    trusted_height: u64,
     src_tm_client: &HttpClient,
     target_height: Option<u64>,
 ) -> anyhow::Result<TmUpdateClientParams> {
     let target_light_block = src_tm_client.get_light_block(target_height).await?;
     let target_height = target_light_block.signed_header.header.height.value();
-    let trusted_height = client_state
-        .latest_height
-        .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
-        .revision_height;
 
     let trusted_light_block = src_tm_client.get_light_block(Some(trusted_height)).await?;
 

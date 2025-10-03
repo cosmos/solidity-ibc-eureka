@@ -1042,7 +1042,12 @@ impl TxBuilder {
             target_height,
             trusted_height,
             proposed_header,
-        } = tm_update_client_params(client_state, &self.src_tm_client, None).await?;
+        } = tm_update_client_params(
+            client_state.latest_height.revision_height,
+            &self.src_tm_client,
+            None,
+        )
+        .await?;
 
         tracing::info!(
             "Building chunked update client transactions for client {dst_client_id} to height {target_height}",
