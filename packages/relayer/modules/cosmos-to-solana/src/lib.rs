@@ -212,13 +212,13 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     #[tracing::instrument(skip_all)]
     async fn update_client(
         &self,
-        _request: Request<api::UpdateClientRequest>,
+        request: Request<api::UpdateClientRequest>,
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
         tracing::info!("Handling update client request for Cosmos to Solana...");
 
         let chunked_txs = self
             .tx_builder
-            .update_client()
+            .update_client(request.into_inner().dst_client_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 

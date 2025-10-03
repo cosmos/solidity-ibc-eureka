@@ -1039,20 +1039,16 @@ impl TxBuilder {
     #[tracing::instrument(skip_all)]
     pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
         let chain_id = self.chain_id().await?;
+        let client_state = self.cosmos_client_state(&chain_id?)?;
 
         let TmUpdateClientParams {
             target_height,
             trusted_height,
             proposed_header,
-        } = tm_update_client_params(
-            self.cosmos_client_state(&chain_id?),
-            self.src_tm_client.client(),
-            None,
-        )
-        .await?;
+        } = tm_update_client_params(client_state, &self.src_tm_client, None).await?;
 
         tracing::info!(
-            "Building chunked update client transactions for client {client_id} to height {target_height}",
+            "Building chunked update client transactions for client {dst_client_id} to height {target_height}",
         );
 
         let header_bytes = proposed_header.encode_to_vec();
