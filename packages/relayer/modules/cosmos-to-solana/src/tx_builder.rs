@@ -246,7 +246,7 @@ impl TxBuilder {
         let (client_state, _) =
             derive_ics07_client_state(&msg.packet.source_client, &self.solana_ics07_program_id);
 
-        let latest_height = self.query_client_latest_height(&msg.packet.source_client)?;
+        let latest_height = self.query_client_latest_height(&msg.packet.dest_client)?;
 
         let (consensus_state, _) = derive_ics07_consensus_state(
             &client_state,
@@ -582,56 +582,6 @@ impl TxBuilder {
             accounts,
             data,
         })
-    }
-
-    /// NOTE: reuse
-    /// Build a create client transaction for Solana
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Failed to get genesis block
-    /// - Failed to query staking parameters
-    /// - Failed to parse chain ID
-    /// - Failed to serialize instruction data
-    pub async fn build_create_client_tx(&self) -> Result<Vec<u8>> {
-        let chain_id = self.chain_id().await?;
-
-        let (client_state_pda, _) =
-            derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
-        let (consensus_state_pda, _) = derive_ics07_consensus_state(
-            &client_state_pda,
-            latest_height,
-            &self.solana_ics07_program_id,
-        );
-
-        let accounts = vec![
-            AccountMeta::new(client_state_pda, false),
-            AccountMeta::new(consensus_state_pda, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        ];
-
-        let discriminator = ICS07_INITIALIZE_DISCRIMINATOR;
-
-        let mut instruction_data = Vec::new();
-
-        instruction_data.extend_from_slice(&discriminator);
-
-        instruction_data.extend_from_slice(&chain_id.try_to_vec()?);
-        instruction_data.extend_from_slice(&latest_height.try_to_vec()?);
-        instruction_data.extend_from_slice(&client_state.try_to_vec()?);
-        instruction_data.extend_from_slice(&consensus_state.try_to_vec()?);
-
-        tracing::debug!("Instruction data length: {} bytes", instruction_data.len());
-
-        let instruction = Instruction {
-            program_id: self.solana_ics07_program_id,
-            accounts,
-            data: instruction_data,
-        };
-
-        Ok(self.create_tx_bytes(&[instruction])?)
     }
 
     /// Fetch Cosmos client state from the light client on Solana.
