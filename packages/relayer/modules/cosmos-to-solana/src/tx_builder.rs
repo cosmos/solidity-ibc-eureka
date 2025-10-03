@@ -1016,7 +1016,7 @@ impl TxBuilder {
             latest_height,
             client_state,
             consensus_state,
-        } = tm_create_client_params(self.src_tm_client.client()).await?;
+        } = tm_create_client_params(&self.src_tm_client).await?;
 
         let client_state = convert_client_state(client_state)?;
 
