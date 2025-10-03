@@ -70,7 +70,7 @@ struct ChunkTxParams<'a> {
 
 /// Organized transactions for chunked update client
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct ChunkedUpdateTransactions {
+pub struct UpdateClientChunkedTxs {
     /// Metadata creation transaction (must be submitted first)
     pub metadata_tx: Transaction,
     /// All chunk upload transactions (can be submitted in parallel after metadata)
@@ -663,7 +663,7 @@ impl TxBuilder {
     pub async fn build_chunked_update_client_params(
         &self,
         client_id: String,
-    ) -> Result<ChunkedUpdateTransactions> {
+    ) -> Result<UpdateClientChunkedTxs> {
         let chain_id = self.chain_id().await?;
 
         let TmUpdateClientParams {
@@ -718,7 +718,7 @@ impl TxBuilder {
             recent_blockhash,
         );
 
-        Ok(ChunkedUpdateTransactions {
+        Ok(UpdateClientChunkedTxs {
             metadata_tx,
             chunk_txs,
             assembly_tx,
@@ -1014,7 +1014,7 @@ impl TxBuilder {
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
         dst_packet_seqs: Vec<u64>,
-    ) -> Result<Vec<Transaction>> {
+    ) -> Result<Vec<Vec<u8>>> {
         tracing::info!(
             "Relaying events from Cosmos to Solana for client {}",
             dst_client_id
@@ -1083,7 +1083,6 @@ impl TxBuilder {
             //     &[&self.fee_payer_keypair],
             //     recent_blockhash,
             // );
-            transactions.push(tx);
         }
 
         Ok(transactions)
@@ -1117,7 +1116,7 @@ impl TxBuilder {
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn update_client(&self) -> Result<Vec<Transaction>> {
+    pub async fn update_client(&self) -> Result<UpdateClientChunkedTxs> {
         let chain_id = self.chain_id().await?;
         // Add compute budget instructions to increase the limit
         // Request 1.4M compute units (maximum allowed)

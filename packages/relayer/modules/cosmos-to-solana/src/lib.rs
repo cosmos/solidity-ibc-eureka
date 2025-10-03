@@ -169,10 +169,10 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .relay_events(
                 src_events,
                 target_events,
-                src_client_id,
-                dst_client_id,
-                src_packet_seqs,
-                dst_packet_seqs,
+                inner_req.src_client_id,
+                inner_req.dst_client_id,
+                inner_req.src_packet_sequences,
+                inner_req.dst_packet_sequences,
             )
             .await
             .map_err(to_tonic_status)?;
@@ -212,12 +212,9 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     #[tracing::instrument(skip_all)]
     async fn update_client(
         &self,
-        request: Request<api::UpdateClientRequest>,
+        _request: Request<api::UpdateClientRequest>,
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
         tracing::info!("Handling update client request for Cosmos to Solana...");
-
-        let inner_req = request.into_inner();
-        let client_id = inner_req.dst_client_id;
 
         let chunked_txs = self
             .tx_builder
