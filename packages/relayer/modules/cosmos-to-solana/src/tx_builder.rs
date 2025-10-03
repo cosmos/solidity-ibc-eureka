@@ -37,7 +37,7 @@ use solana_ibc_types::{
     derive_ics07_consensus_state, derive_packet_ack, derive_packet_commitment,
     derive_packet_receipt, derive_router_state, get_instruction_discriminator,
     ics07::{ClientState, ConsensusState, ICS07_INITIALIZE_DISCRIMINATOR},
-    MsgAckPacket, MsgTimeoutPacket,
+    MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket,
 };
 use tendermint_rpc::{Client as _, HttpClient};
 
@@ -944,18 +944,17 @@ impl TxBuilder {
         let mut instructions = Vec::new();
 
         for recv_msg in recv_msgs {
-            let recv_msd = ibc_to_solana_recv_packet(recv_msg)?;
+            let recv_msg = ibc_to_solana_recv_packet(recv_msg)?;
             let instruction = self.build_recv_packet_instruction(&recv_msg)?;
             instructions.push(instruction);
         }
 
         for ack_msg in ack_msgs {
-            let ack_msd = ibc_to_solana_ack_packet(ack_msg)?;
+            let ack_msg = ibc_to_solana_ack_packet(ack_msg)?;
             let instruction = self.build_ack_packet_instruction(&ack_msg).await?;
             instructions.push(instruction);
         }
 
-        // Convert timeout messages to Solana instructions and build transactions
         for timeout_msg in timeout_msgs {
             let instruction = self.build_timeout_packet_instruction(&timeout_msg)?;
             instructions.push(instruction);
