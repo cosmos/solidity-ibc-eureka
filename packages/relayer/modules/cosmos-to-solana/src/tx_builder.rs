@@ -8,7 +8,6 @@ use anyhow::{Context, Result};
 use hex;
 use ibc_eureka_relayer_lib::{
     events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight},
-    listener::{cosmos_sdk, solana_eureka},
     utils::{
         cosmos::{
             self, tm_create_client_params, tm_update_client_params, TmCreateClientParams,
@@ -17,7 +16,6 @@ use ibc_eureka_relayer_lib::{
         solana_eureka::{convert_client_state, target_events_to_timeout_msgs},
     },
 };
-use ibc_eureka_utils::light_block::LightBlockExt;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::Protobuf;
 use prost::Message;
@@ -37,8 +35,7 @@ use solana_ibc_types::{
     derive_ics07_consensus_state, derive_packet_ack, derive_packet_commitment,
     derive_packet_receipt, derive_router_state, get_instruction_discriminator,
     ics07::{ClientState, ConsensusState, ICS07_INITIALIZE_DISCRIMINATOR},
-    Height, MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, Packet, Payload, TimeoutPacket,
-    UpdateClientMsg,
+    MsgAckPacket, MsgRecvPacket,
 };
 use tendermint_rpc::{Client as _, HttpClient};
 
