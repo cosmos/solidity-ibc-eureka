@@ -596,7 +596,7 @@ impl TxBuilder {
     /// - Failed to query staking parameters
     /// - Failed to parse chain ID
     /// - Failed to serialize instruction data
-    pub async fn build_create_client_tx(&self) -> Result<Transaction> {
+    pub async fn build_create_client_tx(&self) -> Result<Vec<u8>> {
         let chain_id = self.chain_id().await?;
 
         let (client_state_pda, _) =
@@ -633,16 +633,7 @@ impl TxBuilder {
             data: instruction_data,
         };
 
-        let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
-
-        let recent_blockhash = self
-            .target_solana_client
-            .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
-
-        tx.message.recent_blockhash = recent_blockhash;
-
-        Ok(tx)
+        Ok(self.create_tx_bytes(&[instruction])?)
     }
 
     /// Fetch Cosmos client state from the light client on Solana.
@@ -1005,7 +996,7 @@ impl TxBuilder {
             &consensus_state,
         )?;
 
-        Ok(self.create_tx_bytes(&[instruction])?);
+        Ok(self.create_tx_bytes(&[instruction])?)
     }
 
     #[tracing::instrument(skip_all)]
