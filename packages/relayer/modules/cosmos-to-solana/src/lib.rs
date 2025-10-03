@@ -65,7 +65,7 @@ impl CosmosToSolanaRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana ICS26 program ID: {}", e))?;
 
-        let solana_ics07_program_id = config
+        let solana_ics07_program_id: Pubkey = config
             .solana_ics07_program_id
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {}", e))?;
