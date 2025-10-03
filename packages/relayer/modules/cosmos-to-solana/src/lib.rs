@@ -81,10 +81,9 @@ impl CosmosToSolanaRelayerModuleService {
             .map_err(|e| anyhow::anyhow!("Invalid fee payer address: {}", e))?;
 
         let tx_builder = tx_builder::TxBuilder::new(
-            src_listener.client().clone(),
-            target_listener.client().clone(),
-            solana_ics26_program_id,
-            solana_ics07_program_id,
+            src_listener.clone(),
+            target_listener.clone(),
+            solana_ics07_program_id.clone(),
             fee_payer,
         )?;
 
@@ -119,7 +118,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             target_chain: Some(api::Chain {
                 chain_id: "solana".to_string(), // Solana doesn't have chain IDs like Cosmos
                 ibc_version: "2".to_string(),
-                ibc_contract: self.target_listener.ics26_router_program_id().to_string(),
+                ibc_contract: self.target_listener.ics26_program_id().to_string(),
             }),
             metadata: HashMap::default(),
         }))
