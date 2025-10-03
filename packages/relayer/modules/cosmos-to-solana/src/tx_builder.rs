@@ -27,7 +27,7 @@ use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     keccak,
     pubkey::Pubkey,
-    signature::{Keypair, Signature},
+    signature::Keypair,
     sysvar,
     transaction::Transaction,
 };
@@ -37,7 +37,7 @@ use solana_ibc_types::{
     derive_ics07_consensus_state, derive_packet_ack, derive_packet_commitment,
     derive_packet_receipt, derive_router_state, get_instruction_discriminator,
     ics07::{ClientState, ConsensusState, ICS07_INITIALIZE_DISCRIMINATOR},
-    MsgAckPacket, MsgRecvPacket,
+    MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket,
 };
 use tendermint_rpc::{Client as _, HttpClient};
 
@@ -329,7 +329,7 @@ impl TxBuilder {
         );
 
         // FIXME: wrong???? Query the acknowledgment COMMITMENT from Cosmos chain
-        let (commitment_value, merkle_proof) = self
+        let (_commitment_value, merkle_proof) = self
             .src_tm_client
             .prove_path(&[b"ibc".to_vec(), ack_path.clone()], query_height)
             .await?;
@@ -544,7 +544,7 @@ impl TxBuilder {
     /// # Errors
     ///
     /// Returns an error if serialization fails
-    fn build_timeout_packet_instruction(&self, msg: &TimeoutPacket) -> Result<Instruction> {
+    fn build_timeout_packet_instruction(&self, msg: &MsgTimeoutPacket) -> Result<Instruction> {
         tracing::info!(
             "Building timeout packet instruction for packet from {} to {}, sequence {}",
             msg.packet.source_client,
@@ -1017,7 +1017,7 @@ impl TxBuilder {
         } = tm_create_client_params(&self.src_tm_client).await?;
 
         let client_state = convert_client_state(tm_client_state)?;
-        let consensus_state = convert_consensus_state(tm_consensus_state)?;
+        let consensus_state = convert_consensus_state(&tm_consensus_state)?;
 
         let tx = self.build_create_client_instruction(
             &chain_id,

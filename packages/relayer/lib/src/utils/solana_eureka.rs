@@ -1,4 +1,5 @@
 //! Relayer utilities for `solana-eureka` chains.
+use anyhow::Context;
 use solana_ibc_types::{
     IbcHeight, MsgAckPacket as SolanaAckPacket, MsgRecvPacket as SolanaMsgRecvPacket,
     MsgTimeoutPacket, Packet, Payload,
@@ -21,26 +22,27 @@ fn convert_payload(payload: IbcPayload) -> Payload {
     }
 }
 
-/// Converts an IBC protobuf `ConsensusState` to Solana IBC `ConsensusState` format.
+/// Converts an IBC domain `ConsensusState` to Solana IBC `ConsensusState` format.
 ///
 /// # Arguments
-/// * `tm_consensus_state` - Tendermint consensus state from IBC protobuf format
+/// * `tm_consensus_state` - Tendermint consensus state from IBC domain types
 ///
 /// # Returns
 /// * `Ok(ConsensusState)` - Successfully converted Solana IBC consensus state
-/// * `Err` - If root or next_validators_hash have invalid length
+/// * `Err` - If root or `next_validators_hash` have invalid length
 ///
 /// # Errors
 /// - Root is not exactly 32 bytes
 /// - Next validators hash is not exactly 32 bytes
 pub fn convert_consensus_state(
-    tm_consensus_state: ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState,
+    tm_consensus_state: &ibc_client_tendermint_types::ConsensusState,
 ) -> anyhow::Result<solana_ibc_types::ConsensusState> {
     Ok(solana_ibc_types::ConsensusState {
-        timestamp: tm_consensus_state.timestamp.unix_timestamp_nanos() as u64,
+        timestamp: u64::try_from(tm_consensus_state.timestamp.unix_timestamp())
+            .context("incorrect consensus timestamp")?,
         root: tm_consensus_state
             .root
-            .into_vec()
+            .as_bytes()
             .try_into()
             .map_err(|_| anyhow::anyhow!("Invalid root length"))?,
         next_validators_hash: tm_consensus_state
