@@ -121,7 +121,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             source_chain: Some(api::Chain {
                 chain_id: "solana".to_string(), // Solana doesn't have chain IDs like Cosmos
                 ibc_version: "2".to_string(),
-                ibc_contract: self.src_listener.ics26_router_program_id().to_string(),
+                ibc_contract: self.src_listener.ics26_program_id().to_string(),
             }),
             metadata: HashMap::default(),
         }))
