@@ -168,11 +168,6 @@ impl TxBuilder {
             .into())
     }
 
-    /// Build instruction for creating a client
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if serialization fails
     fn build_create_client_instruction(
         &self,
         chain_id: &str,
@@ -180,7 +175,6 @@ impl TxBuilder {
         client_state: &ClientState,
         consensus_state: &ConsensusState,
     ) -> Result<Instruction> {
-        // Derive PDAs
         let (client_state_pda, _) =
             derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
         let (consensus_state_pda, _) = derive_ics07_consensus_state(
@@ -217,7 +211,11 @@ impl TxBuilder {
         })
     }
 
-    fn build_recv_packet_instruction(&self, msg: &MsgRecvPacket) -> Result<Instruction> {
+    fn build_recv_packet_instruction(
+        &self,
+        chain_id: &str,
+        msg: &MsgRecvPacket,
+    ) -> Result<Instruction> {
         let [payload] = msg.packet.payloads.as_slice() else {
             return Err(anyhow::anyhow!(
                 "Expected exactly one recv packet payload element"
@@ -226,7 +224,6 @@ impl TxBuilder {
 
         let solana_ics26_program_id = &self.solana_ics26_program_id;
 
-        // Derive all required PDAs
         let (router_state, _) = derive_router_state(solana_ics26_program_id);
         let (ibc_app, _) = derive_ibc_app(&payload.dest_port, solana_ics26_program_id);
         let (client_sequence, _) =
@@ -239,14 +236,17 @@ impl TxBuilder {
         let (packet_ack, _) = derive_packet_ack(
             &msg.packet.dest_client,
             msg.packet.sequence,
-            &solana_ics26_program_id,
+            solana_ics26_program_id,
         );
         let (client, _) = derive_client(&msg.packet.dest_client, solana_ics26_program_id);
 
         let (client_state, _) =
             derive_ics07_client_state(&msg.packet.source_client, &self.solana_ics07_program_id);
 
-        let latest_height = self.query_client_latest_height(&msg.packet.dest_client)?;
+        let latest_height = self
+            .cosmos_client_state(chain_id)?
+            .latest_height
+            .revision_height;
 
         let (consensus_state, _) = derive_ics07_consensus_state(
             &client_state,
@@ -894,9 +894,11 @@ impl TxBuilder {
 
         let mut instructions = Vec::new();
 
+        let chain_id = self.chain_id().await?;
+
         for recv_msg in recv_msgs {
             let recv_msg = ibc_to_solana_recv_packet(recv_msg)?;
-            let instruction = self.build_recv_packet_instruction(&recv_msg)?;
+            let instruction = self.build_recv_packet_instruction(&chain_id, &recv_msg)?;
             instructions.push(instruction);
         }
 
