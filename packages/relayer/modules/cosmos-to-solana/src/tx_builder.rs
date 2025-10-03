@@ -973,7 +973,6 @@ impl TxBuilder {
 
         let mut transactions = vec![];
 
-        // Build Solana transactions from the messages
         let mut instructions = Vec::new();
 
         let recent_blockhash = self
@@ -1018,25 +1017,33 @@ impl TxBuilder {
         let client_state = convert_client_state(client_state)?;
 
         let consensus_state = solana_ibc_types::ConsensusState {
-            timestamp: consensus_state.timestamp,
-            root: consensus_state.root,
-            next_validators_hash: consensus_state.next_validators_hash,
+            timestamp: consensus_state.timestamp.unix_timestamp_nanos() as u64,
+            root: consensus_state
+                .root
+                .into_vec()
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("Invalid root length"))?,
+            next_validators_hash: consensus_state
+                .next_validators_hash
+                .as_bytes()
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("Invalid next_validators_hash length"))?,
         };
 
-        let instruction = self.build_create_client_instruction(
+        let tx = self.build_create_client_instruction(
             &chain_id,
             latest_height,
             &client_state,
             &consensus_state,
         )?;
 
-        Ok(tx)
+        Ok(tx.to_bytes())
     }
 
     #[tracing::instrument(skip_all)]
     pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
         let chain_id = self.chain_id().await?;
-        let client_state = self.cosmos_client_state(&chain_id?)?;
+        let client_state = self.cosmos_client_state(&chain_id)?;
 
         let TmUpdateClientParams {
             target_height,
