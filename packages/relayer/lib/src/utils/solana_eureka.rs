@@ -128,6 +128,14 @@ pub fn target_events_to_timeout_msgs(
         .collect()
 }
 
+/// Injects mock proofs into the provided messages for testing purposes.
+pub fn inject_mock_proofs(timeout_msgs: &mut [MsgTimeoutPacket]) {
+    for msg in timeout_msgs.iter_mut() {
+        msg.proof_timeout = b"mock".to_vec();
+        msg.proof_height = Default::default();
+    }
+}
+
 /// Convert IBC cosmos message types to Solana `MsgRecvPacket`
 ///
 /// # Arguments

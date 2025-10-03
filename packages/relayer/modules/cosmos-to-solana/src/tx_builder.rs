@@ -1,17 +1,12 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! Solana from events received from a Cosmos SDK chain.
 
-use std::str::FromStr;
-use std::sync::Arc;
-
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use hex;
 use ibc_eureka_relayer_lib::{
-    chain::{CosmosSdk, SolanaEureka},
-    events::{solana, EurekaEventWithHeight, SolanaEurekaEventWithHeight},
+    events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight},
     listener::{cosmos_sdk, solana_eureka},
-    tx_builder::TxBuilderService,
     utils::{
         cosmos::{
             self, tm_create_client_params, tm_update_client_params, TmCreateClientParams,
@@ -24,7 +19,6 @@ use ibc_eureka_utils::light_block::LightBlockExt;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::Protobuf;
 use prost::Message;
-use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
@@ -34,7 +28,6 @@ use solana_sdk::{
     sysvar,
     transaction::Transaction,
 };
-use tendermint_rpc::HttpClient;
 
 use solana_ibc_types::{
     derive_client, derive_client_sequence, derive_ibc_app, derive_ics07_client_state,
@@ -45,7 +38,7 @@ use solana_ibc_types::{
     UpdateClientMsg,
 };
 
-use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
+// use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
 
 /// Mock proof data for testing purposes
 const MOCK_PROOF_DATA: &[u8] = b"mock";
@@ -413,26 +406,26 @@ impl TxBuilder {
     // }
 
     fn build_recv_packet_instruction(&self, msg: &MsgRecvPacket) -> Result<Instruction> {
-        let [dest_port] = msg.packet.payloads.as_slice() else {
+        let [payload] = msg.packet.payloads.as_slice() else {
             return Err(anyhow::anyhow!("Expected exactly one recv packet payload element"));
         }
 
         // Derive all required PDAs
         let (router_state, _) = derive_router_state(&self.solana_ics26_program_id);
-        let (ibc_app, _) = derive_ibc_app(dest_port, &self.solana_ics26_program_id);
+        let (ibc_app, _) = derive_ibc_app(&payload.dest_port, &self.target_listener.solana_ics26_program_id());
         let (client_sequence, _) =
             derive_client_sequence(&msg.packet.dest_client, &self.solana_ics26_program_id);
         let (packet_receipt, _) = derive_packet_receipt(
             &msg.packet.dest_client,
             msg.packet.sequence,
-            &self.solana_ics26_program_id,
+            &self.target_listener.ics26_router_program_id(),
         );
         let (packet_ack, _) = derive_packet_ack(
             &msg.packet.dest_client,
             msg.packet.sequence,
             &self.target_listener.ics26_router_program_id(),
         );
-        let (client, _) = derive_client(&msg.packet.dest_client, &self.solana_ics26_program_id);
+        let (client, _) = derive_client(&msg.packet.dest_client, &self.target_listener.ics26_router_program_id());
 
         let (client_state, _) =
             derive_ics07_client_state(&msg.packet.source_client, &self.solana_ics07_program_id);
@@ -466,7 +459,7 @@ impl TxBuilder {
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: self.solana_ics26_program_id,
+            program_id: self.target_listener.solana_ics26_program_id(),
             accounts,
             data,
         })
@@ -1220,7 +1213,8 @@ impl TxBuilder {
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
         let slot = self
-            .solana_client
+            .target_listener
+            .client()
             .get_slot_with_commitment(CommitmentConfig::finalized())
             .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
 
@@ -1247,51 +1241,41 @@ impl TxBuilder {
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
+        cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut vec![]);
+        ibc_eureka_relayer_lib::utils::solana_eureka::inject_mock_proofs(&mut timeout_msgs);
+
+        let mut transactions = vec![];
+
 
         // Build Solana transactions from the messages
-        let mut transactions = Vec::new();
+        let mut instructions = Vec::new();
+
         let recent_blockhash = self
-            .solana_client
+            .target_listener
+            .client()
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
-        // Convert recv messages to Solana instructions and build transactions
         for recv_msg in recv_msgs {
             let instruction = self.build_recv_packet_instruction(&recv_msg)?;
-
-            let tx = Transaction::new_signed_with_payer(
-                &[instruction],
-                Some(&self.fee_payer),
-                &[&self.fee_payer_keypair],
-                recent_blockhash,
-            );
-            transactions.push(tx);
+            instructions.push(instruction);
         }
 
-        // Convert ack messages to Solana instructions and build transactions
         for ack_msg in ack_msgs {
             let instruction = self.build_ack_packet_instruction(&ack_msg).await?;
-
-            let tx = Transaction::new_signed_with_payer(
-                &[instruction],
-                Some(&self.fee_payer),
-                &[&self.fee_payer_keypair],
-                recent_blockhash,
-            );
-            transactions.push(tx);
+            instructions.push(instruction);
         }
 
         // Convert timeout messages to Solana instructions and build transactions
         for timeout_msg in timeout_msgs {
             let instruction = self.build_timeout_packet_instruction(&timeout_msg)?;
-
-            let tx = Transaction::new_signed_with_payer(
-                &[instruction],
-                Some(&self.fee_payer),
-                &[&self.fee_payer_keypair],
-                recent_blockhash,
-            );
+            instructions.push(instruction);
+            // let tx = Transaction::new_signed_with_payer(
+            //     &[instruction],
+            //     Some(&self.fee_payer),
+            //     &[&self.fee_payer_keypair],
+            //     recent_blockhash,
+            // );
             transactions.push(tx);
         }
 

@@ -6,7 +6,6 @@
 pub mod tx_builder;
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana_eureka;
@@ -15,7 +14,6 @@ use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
-use solana_client::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
