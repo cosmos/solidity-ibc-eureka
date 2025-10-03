@@ -72,11 +72,11 @@ pub struct UpdateClientChunkedTxs {
 
 /// Helper to derive header chunk PDA
 fn derive_header_chunk(
-    submitter: &Pubkey,
+    submitter: Pubkey,
     chain_id: &str,
     height: u64,
     chunk_index: u8,
-    program_id: &Pubkey,
+    program_id: Pubkey,
 ) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[
@@ -86,16 +86,16 @@ fn derive_header_chunk(
             &height.to_le_bytes(),
             &[chunk_index],
         ],
-        program_id,
+        &program_id,
     )
 }
 
 /// Helper to derive header metadata PDA
 fn derive_header_metadata(
-    submitter: &Pubkey,
+    submitter: Pubkey,
     chain_id: &str,
     height: u64,
-    program_id: &Pubkey,
+    program_id: Pubkey,
 ) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[
@@ -104,7 +104,7 @@ fn derive_header_metadata(
             chain_id.as_bytes(),
             &height.to_le_bytes(),
         ],
-        program_id,
+        &program_id,
     )
 }
 
@@ -164,11 +164,11 @@ impl TxBuilder {
         consensus_state: &ConsensusState,
     ) -> Result<Instruction> {
         let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
         let (consensus_state_pda, _) = derive_ics07_consensus_state(
-            &client_state_pda,
+            client_state_pda,
             latest_height,
-            &self.solana_ics07_program_id,
+            self.solana_ics07_program_id,
         );
 
         tracing::debug!("Client state PDA: {}", client_state_pda);
@@ -210,37 +210,32 @@ impl TxBuilder {
             ));
         };
 
-        let solana_ics26_program_id = &self.solana_ics26_program_id;
-
-        let (router_state, _) = derive_router_state(solana_ics26_program_id);
-        let (ibc_app, _) = derive_ibc_app(&payload.dest_port, solana_ics26_program_id);
+        let (router_state, _) = derive_router_state(self.solana_ics26_program_id);
+        let (ibc_app, _) = derive_ibc_app(&payload.dest_port, self.solana_ics26_program_id);
         let (client_sequence, _) =
-            derive_client_sequence(&msg.packet.dest_client, solana_ics26_program_id);
+            derive_client_sequence(&msg.packet.dest_client, self.solana_ics26_program_id);
         let (packet_receipt, _) = derive_packet_receipt(
             &msg.packet.dest_client,
             msg.packet.sequence,
-            solana_ics26_program_id,
+            self.solana_ics26_program_id,
         );
         let (packet_ack, _) = derive_packet_ack(
             &msg.packet.dest_client,
             msg.packet.sequence,
-            solana_ics26_program_id,
+            self.solana_ics26_program_id,
         );
-        let (client, _) = derive_client(&msg.packet.dest_client, solana_ics26_program_id);
+        let (client, _) = derive_client(&msg.packet.dest_client, self.solana_ics26_program_id);
 
         let (client_state, _) =
-            derive_ics07_client_state(&msg.packet.source_client, &self.solana_ics07_program_id);
+            derive_ics07_client_state(&msg.packet.source_client, self.solana_ics07_program_id);
 
         let latest_height = self
             .cosmos_client_state(chain_id)?
             .latest_height
             .revision_height;
 
-        let (consensus_state, _) = derive_ics07_consensus_state(
-            &client_state,
-            latest_height,
-            &self.solana_ics07_program_id,
-        );
+        let (consensus_state, _) =
+            derive_ics07_consensus_state(client_state, latest_height, self.solana_ics07_program_id);
 
         let accounts = vec![
             AccountMeta::new_readonly(router_state, false),
@@ -269,6 +264,7 @@ impl TxBuilder {
         })
     }
 
+    #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
     async fn build_ack_packet_instruction(&self, msg: &MsgAckPacket) -> Result<Instruction> {
         let ack_path = msg.packet.ack_commitment_path();
 
@@ -381,7 +377,7 @@ impl TxBuilder {
         tracing::info!("Block time: {:?}", light_block.signed_header.header.time);
         tracing::info!(
             "Validators hash: {}",
-            hex::encode(&light_block.signed_header.header.validators_hash)
+            hex::encode(light_block.signed_header.header.validators_hash)
         );
 
         // Log the merkle proof details before encoding (which consumes it)
@@ -397,7 +393,7 @@ impl TxBuilder {
             msg.proof_height
         );
 
-        let solana_ics26_program_id = &self.solana_ics26_program_id;
+        let solana_ics26_program_id = self.solana_ics26_program_id;
 
         let (router_state, _) = derive_router_state(solana_ics26_program_id);
 
@@ -486,14 +482,14 @@ impl TxBuilder {
         let (client, _) = derive_client(&chain_id, solana_ics26_program_id);
 
         let (client_state, _) =
-            derive_ics07_client_state(&msg.packet.source_client, &self.solana_ics07_program_id);
+            derive_ics07_client_state(&msg.packet.source_client, self.solana_ics07_program_id);
 
         // Use the proof height for the consensus state lookup (NOT query_height)
         // The proof from query_height (N+1) verifies against app hash at proof_height (N)
         let (consensus_state, _) = derive_ics07_consensus_state(
-            &client_state,
+            client_state,
             msg.proof_height, // Use proof_height, not query_height
-            &self.solana_ics07_program_id,
+            self.solana_ics07_program_id,
         );
 
         let accounts = vec![
@@ -502,7 +498,7 @@ impl TxBuilder {
             AccountMeta::new(packet_commitment, false), // Will be closed after ack
             AccountMeta::new_readonly(ibc_app_program, false), // IBC app program
             AccountMeta::new(app_state, false),         // IBC app state
-            AccountMeta::new_readonly(solana_ics26_program_id.clone(), false), // Router program
+            AccountMeta::new_readonly(self.solana_ics26_program_id, false), // Router program
             AccountMeta::new_readonly(self.fee_payer, true), // relayer
             AccountMeta::new(self.fee_payer, true),     // payer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
@@ -517,7 +513,7 @@ impl TxBuilder {
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: solana_ics26_program_id.clone(),
+            program_id: self.solana_ics26_program_id,
             accounts,
             data,
         })
@@ -536,18 +532,16 @@ impl TxBuilder {
             msg.packet.sequence
         );
 
-        let solana_ics26_program_id = &self.solana_ics26_program_id;
+        let solana_ics26_program_id = self.solana_ics26_program_id;
 
         let (router_state, _) = derive_router_state(solana_ics26_program_id);
 
-        // Derive packet commitment PDA
         let (packet_commitment, _) = derive_packet_commitment(
             &msg.packet.source_client,
             msg.packet.sequence,
             solana_ics26_program_id,
         );
 
-        // Derive the client PDA
         let (client, _) = derive_client(&msg.packet.dest_client, solana_ics26_program_id);
 
         // Build accounts list for timeout_packet
@@ -577,7 +571,7 @@ impl TxBuilder {
     /// Returns an error if the client state cannot be fetched or decoded.
     fn cosmos_client_state(&self, chain_id: &str) -> Result<ClientState> {
         let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
 
         let account = self
             .target_solana_client
@@ -610,12 +604,12 @@ impl TxBuilder {
         header_commitment: [u8; 32],
     ) -> Result<Vec<u8>> {
         let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
         let (metadata_pda, _) = derive_header_metadata(
-            &self.fee_payer,
+            self.fee_payer,
             chain_id,
             target_height,
-            &self.solana_ics07_program_id,
+            self.solana_ics07_program_id,
         );
 
         let accounts = vec![
@@ -699,13 +693,13 @@ impl TxBuilder {
 
         // Derive PDAs
         let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
         let (chunk_pda, _) = derive_header_chunk(
-            &self.fee_payer,
+            self.fee_payer,
             chain_id,
             target_height,
             chunk_index,
-            &self.solana_ics07_program_id,
+            self.solana_ics07_program_id,
         );
 
         let accounts = vec![
@@ -734,22 +728,22 @@ impl TxBuilder {
         total_chunks: u8,
     ) -> Result<Vec<u8>> {
         let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
         let (metadata_pda, _) = derive_header_metadata(
-            &self.fee_payer,
+            self.fee_payer,
             chain_id,
             target_height,
-            &self.solana_ics07_program_id,
+            self.solana_ics07_program_id,
         );
         let (trusted_consensus_state, _) = derive_ics07_consensus_state(
-            &client_state_pda,
+            client_state_pda,
             trusted_height,
-            &self.solana_ics07_program_id,
+            self.solana_ics07_program_id,
         );
         let (new_consensus_state, _) = derive_ics07_consensus_state(
-            &client_state_pda,
+            client_state_pda,
             target_height,
-            &self.solana_ics07_program_id,
+            self.solana_ics07_program_id,
         );
 
         let mut accounts = vec![
@@ -764,11 +758,11 @@ impl TxBuilder {
 
         for chunk_index in 0..total_chunks {
             let (chunk_pda, _) = derive_header_chunk(
-                &self.fee_payer,
+                self.fee_payer,
                 chain_id,
                 target_height,
                 chunk_index,
-                &self.solana_ics07_program_id,
+                self.solana_ics07_program_id,
             );
             accounts.push(AccountMeta::new(chunk_pda, false));
         }
@@ -877,6 +871,16 @@ impl TxBuilder {
         Ok(bincode::serialize(&tx)?)
     }
 
+    /// Create a new ICS07 Tendermint client on Solana
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to fetch chain ID from Tendermint RPC
+    /// - Failed to fetch client creation parameters (latest height, client state, consensus state)
+    /// - Failed to convert Tendermint types to Solana types
+    /// - Failed to serialize instruction data
+    /// - Failed to get recent blockhash from Solana
     #[tracing::instrument(skip_all)]
     pub async fn create_client(&self) -> Result<Vec<u8>> {
         let chain_id = self.chain_id().await?;
@@ -899,6 +903,16 @@ impl TxBuilder {
         Ok(self.create_tx_bytes(&[instruction])?)
     }
 
+    /// Build chunked update client transactions
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to fetch chain ID or client state from Solana
+    /// - Header size requires more than 255 chunks (`u8::MAX`)
+    /// - Failed to serialize header or instruction data
+    /// - Failed to get recent blockhash from Solana
+    /// - Chain ID string is too long for serialization
     #[tracing::instrument(skip_all)]
     pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
         let chain_id = self.chain_id().await?;
