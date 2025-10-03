@@ -682,46 +682,6 @@ impl TxBuilder {
         vec![compute_budget_ix, priority_fee_ix]
     }
 
-    fn build_create_metadata_instruction(
-        &self,
-        chain_id: &str,
-        target_height: u64,
-        total_chunks: u8,
-        header_commitment: [u8; 32],
-    ) -> Instruction {
-        let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
-        let (metadata_pda, _) = derive_header_metadata(
-            &self.fee_payer,
-            chain_id,
-            target_height,
-            &self.solana_ics07_program_id,
-        );
-
-        let accounts = vec![
-            AccountMeta::new(metadata_pda, false),
-            AccountMeta::new_readonly(client_state_pda, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        ];
-
-        let discriminator = get_instruction_discriminator("create_metadata");
-        let mut data = discriminator.to_vec();
-
-        let chain_id_len = u32::try_from(chain_id.len()).expect("chain_id too long");
-        data.extend_from_slice(&chain_id_len.to_le_bytes());
-        data.extend_from_slice(chain_id.as_bytes());
-        data.extend_from_slice(&target_height.to_le_bytes());
-        data.push(total_chunks);
-        data.extend_from_slice(&header_commitment);
-
-        Instruction {
-            program_id: self.solana_ics07_program_id,
-            accounts,
-            data,
-        }
-    }
-
     fn build_upload_header_chunk_instruction(
         &self,
         chain_id: &str,

@@ -256,10 +256,6 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     }
 }
 
-struct ChunkedUpdateClient {
-    pub header_chunks: Vec<u8>,
-}
-
 #[tonic::async_trait]
 impl RelayerModule for CosmosToSolanaRelayerModule {
     fn name(&self) -> &'static str {
