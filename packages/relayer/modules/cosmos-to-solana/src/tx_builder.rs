@@ -835,7 +835,7 @@ impl TxBuilder {
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut vec![]);
+        cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut []);
         ibc_eureka_relayer_lib::utils::solana_eureka::inject_mock_proofs(&mut timeout_msgs);
 
         let mut instructions = Vec::new();
