@@ -648,85 +648,6 @@ impl TxBuilder {
         Ok(tx)
     }
 
-    /// Build chunked update client transactions for Solana
-    ///
-    /// Since Tendermint headers always exceed Solana's transaction size limit,
-    /// this method splits the header into chunks and creates multiple transactions.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Failed to get latest block from Cosmos
-    /// - Failed to serialize header
-    /// - Failed to get blockhash from Solana
-    /// Build chunked update client transactions to a specific height
-    pub async fn build_chunked_update_client_params(
-        &self,
-        client_id: String,
-    ) -> Result<UpdateClientChunkedTxs> {
-        let chain_id = self.chain_id().await?;
-
-        let TmUpdateClientParams {
-            target_height,
-            trusted_height,
-            proposed_header,
-        } = tm_update_client_params(
-            self.cosmos_client_state(&chain_id?),
-            self.src_tm_client.client(),
-            None,
-        )
-        .await?;
-
-        tracing::info!(
-            "Building chunked update client transactions for client {client_id} to height {target_height}",
-        );
-
-        let header_bytes = proposed_header.encode_to_vec();
-
-        let header_commitment = keccak::hash(&header_bytes).0;
-        let chunks = Self::split_header_into_chunks(&header_bytes);
-        let total_chunks = u8::try_from(chunks.len())
-            .map_err(|_| anyhow::anyhow!("Too many chunks: {} exceeds u8 max", chunks.len()))?;
-
-        tracing::info!(
-            "Header size: {} bytes, split into {} chunks",
-            header_bytes.len(),
-            total_chunks
-        );
-
-        let recent_blockhash = self
-            .target_solana_client
-            .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
-
-        let metadata_tx = self.build_create_metadata_transaction(
-            &chain_id,
-            target_height,
-            total_chunks,
-            header_commitment,
-            recent_blockhash,
-        );
-
-        let chunk_txs =
-            self.build_chunk_transactions(&chunks, &chain_id, target_height, recent_blockhash)?;
-
-        let assembly_tx = self.build_assembly_transaction(
-            &chain_id,
-            target_height,
-            trusted_height,
-            total_chunks,
-            recent_blockhash,
-        );
-
-        Ok(UpdateClientChunkedTxs {
-            metadata_tx,
-            chunk_txs,
-            assembly_tx,
-            total_chunks: total_chunks as usize,
-            target_height,
-        })
-    }
-
     /// Fetch Cosmos client state from the light client on Solana.
     /// # Errors
     /// Returns an error if the client state cannot be fetched or decoded.
@@ -1116,50 +1037,67 @@ impl TxBuilder {
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn update_client(&self) -> Result<UpdateClientChunkedTxs> {
+    pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
         let chain_id = self.chain_id().await?;
-        // Add compute budget instructions to increase the limit
-        // Request 1.4M compute units (maximum allowed)
-        let compute_budget_ix =
-            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
 
-        // Optionally set a priority fee to ensure the transaction gets processed
-        let priority_fee_ix =
-            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(1000);
-
-        let mut assembly_tx = Transaction::new_with_payer(
-            &[compute_budget_ix, priority_fee_ix, assembly_instruction],
-            Some(&self.fee_payer),
-        );
-
-        assembly_tx.message.recent_blockhash = recent_blockhash;
-
-        let client_state = self.cosmos_client_state(chain_id)?;
-
-        let target_light_block = self.src_tm_client.get_light_block(None).await?;
-        let trusted_light_block = self
-            .src_tm_client
-            .get_light_block(Some(
-                client_state
-                    .latest_height
-                    .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
-                    .revision_height,
-            ))
-            .await?;
+        let TmUpdateClientParams {
+            target_height,
+            trusted_height,
+            proposed_header,
+        } = tm_update_client_params(
+            self.cosmos_client_state(&chain_id?),
+            self.src_tm_client.client(),
+            None,
+        )
+        .await?;
 
         tracing::info!(
-            "Generating tx to update '{}' from height: {} to height: {}",
-            chain_id,
-            trusted_light_block.height().value(),
-            target_light_block.height().value()
+            "Building chunked update client transactions for client {client_id} to height {target_height}",
         );
 
-        let proposed_header = target_light_block.into_header(&trusted_light_block);
+        let header_bytes = proposed_header.encode_to_vec();
 
-        Ok(TxBody {
-            messages: vec![Any::from_msg(&msg)?],
-            ..Default::default()
-        }
-        .encode_to_vec())
+        let header_commitment = keccak::hash(&header_bytes).0;
+        let chunks = Self::split_header_into_chunks(&header_bytes);
+        let total_chunks = u8::try_from(chunks.len())
+            .map_err(|_| anyhow::anyhow!("Too many chunks: {} exceeds u8 max", chunks.len()))?;
+
+        tracing::info!(
+            "Header size: {} bytes, split into {} chunks",
+            header_bytes.len(),
+            total_chunks
+        );
+
+        let recent_blockhash = self
+            .target_solana_client
+            .get_latest_blockhash()
+            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
+
+        let metadata_tx = self.build_create_metadata_transaction(
+            &chain_id,
+            target_height,
+            total_chunks,
+            header_commitment,
+            recent_blockhash,
+        );
+
+        let chunk_txs =
+            self.build_chunk_transactions(&chunks, &chain_id, target_height, recent_blockhash)?;
+
+        let assembly_tx = self.build_assembly_transaction(
+            &chain_id,
+            target_height,
+            trusted_height,
+            total_chunks,
+            recent_blockhash,
+        );
+
+        Ok(UpdateClientChunkedTxs {
+            metadata_tx,
+            chunk_txs,
+            assembly_tx,
+            total_chunks: total_chunks as usize,
+            target_height,
+        })
     }
 }
