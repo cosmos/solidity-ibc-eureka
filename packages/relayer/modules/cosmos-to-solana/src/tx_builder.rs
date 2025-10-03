@@ -1006,7 +1006,7 @@ impl TxBuilder {
 
 impl TxBuilder {
     #[tracing::instrument(skip_all)]
-    async fn relay_events(
+    pub async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         dest_events: Vec<SolanaEurekaEventWithHeight>,
@@ -1090,7 +1090,7 @@ impl TxBuilder {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn create_client(&self) -> Result<Vec<u8>> {
+    pub async fn create_client(&self) -> Result<Vec<u8>> {
         let chain_id = self.chain_id().await?;
         let TmCreateClientParams {
             latest_height,
@@ -1117,7 +1117,8 @@ impl TxBuilder {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn update_client(&self, chain_id: &str) -> Result<Vec<Transaction>> {
+    pub async fn update_client(&self) -> Result<Vec<Transaction>> {
+        let chain_id = self.chain_id().await?;
         // Add compute budget instructions to increase the limit
         // Request 1.4M compute units (maximum allowed)
         let compute_budget_ix =

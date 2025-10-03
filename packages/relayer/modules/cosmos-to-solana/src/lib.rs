@@ -164,8 +164,26 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             target_events.len()
         );
 
-        // TODO: get tx
-        unimplemented!()
+        let txs = self
+            .tx_builder
+            .relay_events(
+                src_events,
+                target_events,
+                src_client_id,
+                dst_client_id,
+                src_packet_seqs,
+                dst_packet_seqs,
+            )
+            .await
+            .map_err(to_tonic_status)?;
+
+        tracing::info!("Relay by tx request completed.");
+
+        Ok(Response::new(api::RelayByTxResponse {
+            tx: vec![],
+            address: String::new(),
+            txs,
+        }))
     }
 
     #[tracing::instrument(skip_all)]
@@ -177,7 +195,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         let tx = self
             .tx_builder
-            .build_create_client_tx()
+            .create_client()
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
@@ -203,7 +221,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         let chunked_txs = self
             .tx_builder
-            .build_chunked_update_client_params(client_id)
+            .update_client()
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
