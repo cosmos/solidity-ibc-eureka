@@ -13,7 +13,9 @@ use ibc_eureka_relayer_lib::{
             self, tm_create_client_params, tm_update_client_params, TmCreateClientParams,
             TmUpdateClientParams,
         },
-        solana_eureka::{convert_client_state, target_events_to_timeout_msgs},
+        solana_eureka::{
+            convert_client_state, convert_consensus_state, target_events_to_timeout_msgs,
+        },
     },
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
@@ -1015,20 +1017,7 @@ impl TxBuilder {
         } = tm_create_client_params(&self.src_tm_client).await?;
 
         let client_state = convert_client_state(tm_client_state)?;
-
-        let consensus_state = solana_ibc_types::ConsensusState {
-            timestamp: tm_consensus_state.timestamp.unix_timestamp_nanos() as u64,
-            root: tm_consensus_state
-                .root
-                .into_vec()
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Invalid root length"))?,
-            next_validators_hash: tm_consensus_state
-                .next_validators_hash
-                .as_bytes()
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Invalid next_validators_hash length"))?,
-        };
+        let consensus_state = convert_consensus_state(tm_consensus_state)?;
 
         let tx = self.build_create_client_instruction(
             &chain_id,

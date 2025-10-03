@@ -21,6 +21,36 @@ fn convert_payload(payload: IbcPayload) -> Payload {
     }
 }
 
+/// Converts an IBC protobuf `ConsensusState` to Solana IBC `ConsensusState` format.
+///
+/// # Arguments
+/// * `tm_consensus_state` - Tendermint consensus state from IBC protobuf format
+///
+/// # Returns
+/// * `Ok(ConsensusState)` - Successfully converted Solana IBC consensus state
+/// * `Err` - If root or next_validators_hash have invalid length
+///
+/// # Errors
+/// - Root is not exactly 32 bytes
+/// - Next validators hash is not exactly 32 bytes
+pub fn convert_consensus_state(
+    tm_consensus_state: ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState,
+) -> anyhow::Result<solana_ibc_types::ConsensusState> {
+    Ok(solana_ibc_types::ConsensusState {
+        timestamp: tm_consensus_state.timestamp.unix_timestamp_nanos() as u64,
+        root: tm_consensus_state
+            .root
+            .into_vec()
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("Invalid root length"))?,
+        next_validators_hash: tm_consensus_state
+            .next_validators_hash
+            .as_bytes()
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("Invalid next_validators_hash length"))?,
+    })
+}
+
 /// Converts an IBC protobuf `ClientState` to Solana IBC `ClientState` format.
 ///
 /// # Arguments
