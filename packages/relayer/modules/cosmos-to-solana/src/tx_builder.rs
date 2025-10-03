@@ -244,7 +244,7 @@ impl TxBuilder {
         let (packet_ack, _) = derive_packet_ack(
             &msg.packet.dest_client,
             msg.packet.sequence,
-            &self.target_solana_client.ics26_program_id(),
+            &solana_ics26_program_id,
         );
         let (client, _) = derive_client(&msg.packet.dest_client, solana_ics26_program_id);
 
