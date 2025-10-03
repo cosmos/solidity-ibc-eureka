@@ -1019,14 +1019,25 @@ impl TxBuilder {
         let client_state = convert_client_state(tm_client_state)?;
         let consensus_state = convert_consensus_state(&tm_consensus_state)?;
 
-        let tx = self.build_create_client_instruction(
+        let instruction = self.build_create_client_instruction(
             &chain_id,
             latest_height,
             &client_state,
             &consensus_state,
         )?;
 
-        Ok(tx.to_bytes())
+        let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
+
+        let recent_blockhash = self
+            .target_solana_client
+            .get_latest_blockhash()
+            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
+
+        tx.message.recent_blockhash = recent_blockhash;
+
+        tx.sign(&[&self.fee_payer_keypair], recent_blockhash);
+
+        Ok(bincode::serialize(&tx)?)
     }
 
     #[tracing::instrument(skip_all)]

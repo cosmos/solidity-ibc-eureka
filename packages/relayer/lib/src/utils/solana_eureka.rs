@@ -75,7 +75,7 @@ pub fn convert_consensus_state(
 /// - Frozen height defaults to 0/0 if not set
 /// - Proof specs are not included in the conversion as Solana Tendemint client hardcodes them
 pub fn convert_client_state(
-    ibc_client: ibc_proto::ibc::lightclients::tendermint::v1::ClientState,
+    ibc_client: ibc_proto_eureka::ibc::lightclients::tendermint::v1::ClientState,
 ) -> anyhow::Result<solana_ibc_types::ClientState> {
     let trust_level = ibc_client
         .trust_level
