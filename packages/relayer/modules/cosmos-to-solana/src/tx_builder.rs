@@ -211,204 +211,10 @@ impl TxBuilder {
         })
     }
 
-    /// Build packet relay transactions from events
-    ///
-    /// This can be called separately from update client for better control
-    /// over transaction submission on Solana.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Failed to get blockhash from Solana
-    /// - Failed to build packet instructions
-    pub async fn build_packet_transactions(
-        &self,
-        src_events: Vec<CosmosIbcEvent>,
-        target_events: Vec<CosmosIbcEvent>,
-    ) -> Result<Vec<Transaction>> {
-        let mut packet_txs = Vec::new();
-
-        let recent_blockhash = self
-            .solana_client
-            .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
-
-        for event in src_events {
-            if let Some(tx) = self
-                .build_packet_tx_from_event(event, recent_blockhash)
-                .await?
-            {
-                packet_txs.push(tx);
-            }
-        }
-
-        for event in target_events {
-            tracing::debug!(?event, "Processing timeout event from Solana");
-        }
-
-        Ok(packet_txs)
-    }
-
-    /// Build a packet transaction from a single event
-    // async fn build_packet_tx_from_event(
-    //     &self,
-    //     event: CosmosIbcEvent,
-    //     recent_blockhash: solana_sdk::hash::Hash,
-    // ) -> Result<Option<Transaction>> {
-    //     let mut instructions = Vec::new();
-    //
-    //     match event {
-    //         CosmosIbcEvent::SendPacket {
-    //             sequence,
-    //             source_client,
-    //             destination_client,
-    //             payloads,
-    //             timeout_timestamp,
-    //         } => {
-    //             // Convert payloads from raw bytes to Payload structs
-    //             let ibc_payloads = if payloads.is_empty() {
-    //                 vec![]
-    //             } else {
-    //                 vec![Payload {
-    //                     source_port: "transfer".to_string(),
-    //                     dest_port: "transfer".to_string(),
-    //                     version: "ics20-1".to_string(),
-    //                     encoding: "json".to_string(),
-    //                     value: payloads[0].clone(),
-    //                 }]
-    //             };
-    //
-    //             let msg = MsgRecvPacket {
-    //                 packet: Packet {
-    //                     sequence,
-    //                     source_client,
-    //                     dest_client: destination_client,
-    //                     timeout_timestamp: i64::try_from(timeout_timestamp)
-    //                         .map_err(|e| anyhow::anyhow!("Invalid timeout timestamp: {e}"))?,
-    //                     payloads: ibc_payloads,
-    //                 },
-    //                 proof_commitment: MOCK_PROOF_DATA.to_vec(),
-    //                 proof_height: 1,
-    //             };
-    //             let recv_packet_ix = self.build_recv_packet_instruction(&msg)?;
-    //             instructions.push(recv_packet_ix);
-    //         }
-    //         CosmosIbcEvent::AcknowledgePacket {
-    //             sequence,
-    //             source_client,
-    //             destination_client,
-    //             payloads,
-    //             timeout_timestamp,
-    //             acknowledgements,
-    //             proof_height,
-    //         } => {
-    //             tracing::debug!(
-    //                 "Building acknowledgement instruction for sequence {}",
-    //                 sequence
-    //             );
-    //             // Convert payloads from raw bytes to Payload structs
-    //             let ibc_payloads = if payloads.is_empty() {
-    //                 vec![]
-    //             } else {
-    //                 vec![Payload {
-    //                     source_port: "transfer".to_string(),
-    //                     dest_port: "transfer".to_string(),
-    //                     version: "ics20-1".to_string(),
-    //                     encoding: "json".to_string(),
-    //                     value: payloads[0].clone(),
-    //                 }]
-    //             };
-    //
-    //             let acknowledgement = if acknowledgements.is_empty() {
-    //                 vec![]
-    //             } else {
-    //                 acknowledgements[0].clone()
-    //             };
-    //
-    //             let msg = MsgAckPacket {
-    //                 packet: Packet {
-    //                     sequence,
-    //                     source_client,
-    //                     dest_client: destination_client,
-    //                     timeout_timestamp: i64::try_from(timeout_timestamp)
-    //                         .map_err(|e| anyhow::anyhow!("Invalid timeout timestamp: {e}"))?,
-    //                     payloads: ibc_payloads,
-    //                 },
-    //                 acknowledgement,
-    //                 proof_acked: vec![], // Will be populated by build_ack_packet_instruction
-    //                 proof_height,
-    //             };
-    //             let ack_packet_ix = self.build_ack_packet_instruction(&msg).await?;
-    //             instructions.push(ack_packet_ix);
-    //         }
-    //         CosmosIbcEvent::TimeoutPacket {
-    //             sequence,
-    //             source_client,
-    //             destination_client,
-    //             payloads,
-    //             timeout_timestamp,
-    //         } => {
-    //             // Convert payloads from raw bytes to Payload structs
-    //             let ibc_payloads = if payloads.is_empty() {
-    //                 vec![]
-    //             } else {
-    //                 vec![Payload {
-    //                     source_port: "transfer".to_string(),
-    //                     dest_port: "transfer".to_string(),
-    //                     version: "ics20-1".to_string(),
-    //                     encoding: "json".to_string(),
-    //                     value: payloads[0].clone(),
-    //                 }]
-    //             };
-    //
-    //             let msg = TimeoutPacket {
-    //                 packet: Packet {
-    //                     sequence,
-    //                     source_client,
-    //                     dest_client: destination_client,
-    //                     timeout_timestamp: i64::try_from(timeout_timestamp)
-    //                         .map_err(|e| anyhow::anyhow!("Invalid timeout timestamp: {e}"))?,
-    //                     payloads: ibc_payloads,
-    //                 },
-    //                 proof_height: Height {
-    //                     revision_number: 0,
-    //                     revision_height: 0,
-    //                 },
-    //                 proof: vec![],
-    //             };
-    //             let timeout_packet_ix = self.build_timeout_packet_instruction(&msg)?;
-    //             instructions.push(timeout_packet_ix);
-    //         }
-    //     }
-    //
-    //     if instructions.is_empty() {
-    //         Ok(None)
-    //     } else {
-    //         // Add compute budget instructions to handle complex operations
-    //         // Request 400K compute units (enough for ack packet verification)
-    //         let compute_budget_ix =
-    //             solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(
-    //                 400_000,
-    //             );
-    //
-    //         // Add priority fee to ensure transaction gets processed
-    //         let priority_fee_ix =
-    //             solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(1000);
-    //
-    //         // Prepend compute budget instructions
-    //         let mut all_instructions = vec![compute_budget_ix, priority_fee_ix];
-    //         all_instructions.extend(instructions);
-    //
-    //         let mut tx = Transaction::new_with_payer(&all_instructions, Some(&self.fee_payer));
-    //         tx.message.recent_blockhash = recent_blockhash;
-    //         Ok(Some(tx))
-    //     }
-    // }
-
     fn build_recv_packet_instruction(&self, msg: &MsgRecvPacket) -> Result<Instruction> {
         let [payload] = msg.packet.payloads.as_slice() else {
             return Err(anyhow::anyhow!("Expected exactly one recv packet payload element"));
-        }
+        };
 
         let ics26_program_id = self.target_listener.ics26_program_id();
 
@@ -1115,7 +921,6 @@ impl TxBuilder {
             &self.solana_ics07_program_id,
         );
 
-        // Build accounts
         let accounts = vec![
             AccountMeta::new(chunk_pda, false),
             AccountMeta::new_readonly(client_state_pda, false),
@@ -1123,7 +928,6 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
-        // Build instruction data
         let discriminator = get_instruction_discriminator("upload_header_chunk");
         let mut data = discriminator.to_vec();
         data.extend_from_slice(&params.try_to_vec()?);
@@ -1142,7 +946,6 @@ impl TxBuilder {
         trusted_height: u64,
         total_chunks: u8,
     ) -> Instruction {
-        // Derive PDAs
         let (client_state_pda, _) =
             derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
         let (metadata_pda, _) = derive_header_metadata(
@@ -1173,7 +976,6 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
-        // Add chunk accounts as remaining accounts
         for chunk_index in 0..total_chunks {
             let (chunk_pda, _) = derive_header_chunk(
                 &self.fee_payer,
