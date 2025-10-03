@@ -132,8 +132,6 @@ pub struct TxBuilder {
     pub solana_ics07_program_id: Pubkey,
     /// The fee payer address for transactions.
     pub fee_payer: Pubkey,
-    /// The fee payer keypair for signing transactions.
-    pub fee_payer_keypair: Keypair,
     /// The signer address for Cosmos transactions.
     pub signer_address: String,
 }
@@ -1035,8 +1033,6 @@ impl TxBuilder {
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
         tx.message.recent_blockhash = recent_blockhash;
-
-        tx.sign(&[&self.fee_payer_keypair], recent_blockhash);
 
         Ok(bincode::serialize(&tx)?)
     }
