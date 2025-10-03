@@ -520,27 +520,20 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Txs, "Update client should return chunked transactions")
 
-			switch {
-			case len(resp.ChunkedTxs) > 0:
-				err = s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
-				s.Require().NoError(err, "Failed to submit chunked update client transactions")
-				s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.ChunkedTxs))
-			case len(resp.Tx) > 0:
-				s.Require().Fail("Only chunked tx are supported on Solana due to tx size limit")
-			default:
-				s.Require().Fail("No update client transactions received")
-			}
+			err = s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
+			s.Require().NoError(err, "Failed to submit chunked update client transactions")
+			s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.Txs))
 		}))
 
-		s.Require().True(s.Run("Relay acknowledgment without update client", func() {
+		s.Require().True(s.Run("Relay acknowledgment", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:         simd.Config().ChainID,
-				DstChain:         testvalues.SolanaChainID,
-				SourceTxIds:      [][]byte{cosmosRelayTxHash},
-				SrcClientId:      CosmosClientID,
-				DstClientId:      SolanaClientID,
-				SkipUpdateClient: true, // Skip update client since we did it separately via chunks
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    testvalues.SolanaChainID,
+				SourceTxIds: [][]byte{cosmosRelayTxHash},
+				SrcClientId: CosmosClientID,
+				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -730,44 +723,35 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		s.T().Log("Waiting 3 seconds for acknowledgment to be fully committed on Cosmos...")
 		time.Sleep(3 * time.Second)
 
-		s.Require().True(s.Run("Relay acknowledgment with automatic update client", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:         simd.Config().ChainID,
-				DstChain:         testvalues.SolanaChainID,
-				SourceTxIds:      [][]byte{cosmosPacketRelayTxHash},
-				SrcClientId:      CosmosClientID,
-				DstClientId:      SolanaClientID,
-				SkipUpdateClient: false, // Relayer returns chunked update client txs
+		s.Require().True(s.Run("Update Tendermint client on Solana via chunks", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    testvalues.SolanaChainID,
+				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Txs, "Update client should return chunked transactions")
 
-			// Check if we have chunked update client transactions to submit first
-			if len(resp.ChunkedTxs) > 0 {
-				s.T().Logf("Received %d chunked update client transactions", len(resp.ChunkedTxs))
-				s.T().Logf("ChunkedMetadata present: %v", resp.ChunkedMetadata != nil)
-				if resp.ChunkedMetadata != nil {
-					s.T().Logf("ChunkedMetadata - TargetHeight: %d, TotalChunks: %d",
-						resp.ChunkedMetadata.TargetHeight, resp.ChunkedMetadata.TotalChunks)
-				}
+			err = s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
+			s.Require().NoError(err, "Failed to submit chunked update client transactions")
+			s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.Txs))
+		}))
 
-				// Submit the chunked update client transactions
-				err = s.submitChunkedUpdateClientFromRelay(ctx, resp, s.SolanaUser)
-				s.Require().NoError(err, "Failed to submit chunked update client")
-				s.T().Log("Successfully submitted chunked update client transactions")
-			}
-
-			// Now submit the acknowledgment transaction
+		s.Require().True(s.Run("Relay acknowledgment", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    testvalues.SolanaChainID,
+				SourceTxIds: [][]byte{cosmosPacketRelayTxHash},
+				SrcClientId: CosmosClientID,
+				DstClientId: SolanaClientID,
+			})
+			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Acknowledgment transaction should not be empty")
 			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(resp.Tx))
 
 			unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
 			s.Require().NoError(err)
 			s.T().Logf("Acknowledgment transaction contains %d instructions", len(unsignedSolanaTx.Message.Instructions))
-
-			// Update blockhash before submitting acknowledgment transaction
-			recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-			s.Require().NoError(err, "Failed to get recent blockhash for acknowledgment tx")
-			unsignedSolanaTx.Message.RecentBlockhash = recent.Value.Blockhash
 
 			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
 			s.Require().NoError(err)
@@ -782,66 +766,41 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 // Helpers
 
-// submitChunkedUpdateClientFromRelay submits chunked update client transactions from RelayByTxResponse
-func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClientFromRelay(ctx context.Context, resp *relayertypes.RelayByTxResponse, user *solanago.Wallet) error {
-	if len(resp.ChunkedTxs) == 0 {
+func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context, resp *relayertypes.UpdateClientResponse, user *solanago.Wallet) error {
+	if len(resp.Txs) == 0 {
 		return fmt.Errorf("no chunked transactions provided")
 	}
 
-	// Log what we received
-	s.T().Logf("submitChunkedUpdateClientFromRelay: received %d transactions", len(resp.ChunkedTxs))
-
-	// Handle missing metadata - infer from transaction count
-	var targetHeight uint64
-	var totalChunks uint32
-	if resp.ChunkedMetadata != nil {
-		targetHeight = resp.ChunkedMetadata.TargetHeight
-		totalChunks = resp.ChunkedMetadata.TotalChunks
-	} else {
-		// If metadata is missing, infer chunk count from transaction structure
-		// Transaction structure: [metadata, chunk1, chunk2, ..., chunkN, assembly]
-		// So total chunks = len(txs) - 2 (minus metadata and assembly)
-		if len(resp.ChunkedTxs) > 2 {
-			totalChunks = uint32(len(resp.ChunkedTxs) - 2)
-		} else {
-			totalChunks = 0
-		}
-		s.T().Logf("WARNING: ChunkedMetadata is nil, inferring totalChunks as %d", totalChunks)
-	}
-
 	// Transaction structure: [metadata, chunk1, chunk2, ..., chunkN, assembly]
-	chunkCount := len(resp.ChunkedTxs) - 2 // Total minus metadata and assembly
-	s.T().Logf("Submitting %d transactions for height %d: 1 metadata + %d chunks (parallel) + 1 assembly",
-		len(resp.ChunkedTxs),
-		targetHeight,
+	chunkCount := len(resp.Txs) - 2 // Total minus metadata and assembly
+	s.T().Logf("Submitting %d transactions: 1 metadata + %d chunks (parallel) + 1 assembly",
+		len(resp.Txs),
 		chunkCount)
 
 	// Submit metadata creation transaction first (always the first transaction)
-	if len(resp.ChunkedTxs) > 0 {
-		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[0]))
-		if err != nil {
-			return fmt.Errorf("failed to decode metadata tx: %w", err)
-		}
-
-		// Update blockhash before submitting
-		recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-		if err != nil {
-			return fmt.Errorf("failed to get recent blockhash for metadata tx: %w", err)
-		}
-		tx.Message.RecentBlockhash = recent.Value.Blockhash
-
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
-		if err != nil {
-			return fmt.Errorf("failed to submit metadata tx: %w", err)
-		}
-		s.T().Logf("Metadata transaction submitted: %s", sig)
-
-		// Wait for metadata account to be created
-		time.Sleep(1 * time.Second)
+	tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[0]))
+	if err != nil {
+		return fmt.Errorf("failed to decode metadata tx: %w", err)
 	}
 
+	// Update blockhash before submitting
+	recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+	if err != nil {
+		return fmt.Errorf("failed to get recent blockhash for metadata tx: %w", err)
+	}
+	tx.Message.RecentBlockhash = recent.Value.Blockhash
+
+	sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
+	if err != nil {
+		return fmt.Errorf("failed to submit metadata tx: %w", err)
+	}
+	s.T().Logf("Metadata transaction submitted: %s", sig)
+
+	// Wait for metadata account to be created
+	time.Sleep(1 * time.Second)
+
 	chunkStart := 1
-	chunkEnd := len(resp.ChunkedTxs) - 1 // Everything except first (metadata) and last (assembly)
+	chunkEnd := len(resp.Txs) - 1 // Everything except first (metadata) and last (assembly)
 
 	type chunkResult struct {
 		index int
@@ -850,131 +809,10 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClientFromRelay(ctx contex
 	}
 
 	// Submit chunks in parallel
-	if chunkEnd > chunkStart {
-		resultsCh := make(chan chunkResult, chunkEnd-chunkStart)
-
-		for i := chunkStart; i < chunkEnd; i++ {
-			go func(index int) {
-				tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[index]))
-				if err != nil {
-					resultsCh <- chunkResult{index: index, err: fmt.Errorf("failed to decode chunk %d: %w", index-1, err)}
-					return
-				}
-
-				// Update blockhash before submitting
-				recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-				if err != nil {
-					resultsCh <- chunkResult{index: index, err: fmt.Errorf("failed to get recent blockhash for chunk %d: %w", index-1, err)}
-					return
-				}
-				tx.Message.RecentBlockhash = recent.Value.Blockhash
-
-				sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
-				if err != nil {
-					resultsCh <- chunkResult{index: index, err: fmt.Errorf("failed to submit chunk %d: %w", index-1, err)}
-					return
-				}
-
-				resultsCh <- chunkResult{index: index, sig: sig}
-			}(i)
-		}
-
-		// Collect results
-		for i := chunkStart; i < chunkEnd; i++ {
-			result := <-resultsCh
-			if result.err != nil {
-				return result.err
-			}
-			s.T().Logf("Chunk %d transaction submitted: %s", result.index-1, result.sig)
-		}
-		close(resultsCh)
-
-		// Wait for all chunks to be processed
-		time.Sleep(1 * time.Second)
-	}
-
-	// Submit assembly transaction last
-	if len(resp.ChunkedTxs) > 1 {
-		assemblyTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[len(resp.ChunkedTxs)-1]))
-		if err != nil {
-			return fmt.Errorf("failed to decode assembly tx: %w", err)
-		}
-
-		// Update blockhash before submitting
-		recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-		if err != nil {
-			return fmt.Errorf("failed to get recent blockhash for assembly tx: %w", err)
-		}
-		assemblyTx.Message.RecentBlockhash = recent.Value.Blockhash
-
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, assemblyTx, user)
-		if err != nil {
-			return fmt.Errorf("failed to submit assembly tx: %w", err)
-		}
-		s.T().Logf("Assembly transaction submitted: %s", sig)
-
-		// Wait for assembly to complete
-		time.Sleep(2 * time.Second)
-	}
-
-	s.T().Log("Successfully submitted all chunked update client transactions")
-	return nil
-}
-
-func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context, resp *relayertypes.UpdateClientResponse, user *solanago.Wallet) error {
-	if resp.ChunkedMetadata == nil {
-		return fmt.Errorf("chunked metadata is required")
-	}
-
-	if len(resp.ChunkedTxs) == 0 {
-		return fmt.Errorf("no chunked transactions provided")
-	}
-
-	// Transaction structure: [metadata, chunk1, chunk2, ..., chunkN, assembly]
-	chunkCount := len(resp.ChunkedTxs) - 2 // Total minus metadata and assembly
-	s.T().Logf("Submitting %d transactions for height %d: 1 metadata + %d chunks (parallel) + 1 assembly",
-		len(resp.ChunkedTxs),
-		resp.ChunkedMetadata.TargetHeight,
-		chunkCount)
-
-	// Submit metadata creation transaction first (always the first transaction)
-	if len(resp.ChunkedTxs) > 0 {
-		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[0]))
-		if err != nil {
-			return fmt.Errorf("failed to decode metadata tx: %w", err)
-		}
-
-		// Update blockhash before submitting
-		recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-		if err != nil {
-			return fmt.Errorf("failed to get recent blockhash for metadata tx: %w", err)
-		}
-		tx.Message.RecentBlockhash = recent.Value.Blockhash
-
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
-		if err != nil {
-			return fmt.Errorf("failed to submit metadata tx: %w", err)
-		}
-		s.T().Logf("Metadata transaction submitted: %s", sig)
-
-		// Wait for metadata account to be created
-		time.Sleep(1 * time.Second)
-	}
-
-	chunkStart := 1
-	chunkEnd := len(resp.ChunkedTxs) - 1 // Everything except first (metadata) and last (assembly)
-
-	type chunkResult struct {
-		index int
-		sig   solanago.Signature
-		err   error
-	}
-
-	// Submit cshunks
 	chunkResults := make(chan chunkResult, chunkEnd-chunkStart)
 	for i := chunkStart; i < chunkEnd; i++ {
 		go func(idx int) {
-			tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[idx]))
+			tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[idx]))
 			if err != nil {
 				chunkResults <- chunkResult{index: idx - chunkStart, err: fmt.Errorf("failed to decode chunk %d: %w", idx-chunkStart, err)}
 				return
@@ -1000,23 +838,21 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 	close(chunkResults)
 
 	// Submit assembly transaction - must be done last (always the last transaction)
-	if len(resp.ChunkedTxs) > 0 {
-		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.ChunkedTxs[len(resp.ChunkedTxs)-1]))
-		if err != nil {
-			return fmt.Errorf("failed to decode assembly tx: %w", err)
-		}
-
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
-		if err != nil {
-			return fmt.Errorf("failed to submit assembly tx: %w", err)
-		}
-		s.T().Logf("Assembly transaction submitted: %s", sig)
-
-		// Small delay to ensure transaction is processed
-		time.Sleep(500 * time.Millisecond)
+	tx, err = solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[len(resp.Txs)-1]))
+	if err != nil {
+		return fmt.Errorf("failed to decode assembly tx: %w", err)
 	}
 
-	s.T().Logf("Successfully submitted all %d chunked transactions", len(resp.ChunkedTxs))
+	sig, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
+	if err != nil {
+		return fmt.Errorf("failed to submit assembly tx: %w", err)
+	}
+	s.T().Logf("Assembly transaction submitted: %s", sig)
+
+	// Small delay to ensure transaction is processed
+	time.Sleep(500 * time.Millisecond)
+
+	s.T().Logf("Successfully submitted all %d chunked transactions", len(resp.Txs))
 	return nil
 }
 

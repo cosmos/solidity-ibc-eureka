@@ -41,8 +41,6 @@ use solana_ibc_types::{
 };
 use tendermint_rpc::{Client as _, HttpClient};
 
-// use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
-
 /// Maximum size for a header chunk (matches `CHUNK_DATA_SIZE` in Solana program)
 const MAX_CHUNK_SIZE: usize = 700;
 
