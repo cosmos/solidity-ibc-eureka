@@ -81,9 +81,10 @@ impl CosmosToSolanaRelayerModuleService {
             .map_err(|e| anyhow::anyhow!("Invalid fee payer address: {}", e))?;
 
         let tx_builder = tx_builder::TxBuilder::new(
-            src_listener.clone(),
-            target_listener.clone(),
+            src_listener.client().clone(),
+            target_listener.client().clone(),
             solana_ics07_program_id.clone(),
+            solana_ics26_program_id.clone(),
             fee_payer,
         )?;
 
