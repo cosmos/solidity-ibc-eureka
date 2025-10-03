@@ -1,6 +1,6 @@
 //! Relayer utilities for `solana-eureka` chains.
 use solana_ibc_types::{
-    Height, IbcHeight, MsgAckPacket as SolanaAckPacket, MsgRecvPacket as SolanaMsgRecvPacket,
+    IbcHeight, MsgAckPacket as SolanaAckPacket, MsgRecvPacket as SolanaMsgRecvPacket,
     MsgTimeoutPacket, Packet, Payload,
 };
 
@@ -128,10 +128,10 @@ pub fn target_events_to_timeout_msgs(
         .collect()
 }
 
-/// Convert IBC cosmos message types to Solana MsgRecvPacket
+/// Convert IBC cosmos message types to Solana `MsgRecvPacket`
 ///
 /// # Arguments
-/// * `value` - IBC protobuf MsgRecvPacket containing packet data and proofs
+/// * `value` - IBC protobuf `MsgRecvPacket` containing packet data and proofs
 ///
 /// # Returns
 /// * `Ok(SolanaMsgRecvPacket)` - Successfully converted message
@@ -141,7 +141,7 @@ pub fn target_events_to_timeout_msgs(
 /// - Missing packet in the input message
 /// - Missing proof commitment
 /// - Missing proof height
-/// - Invalid timeout timestamp (exceeds i64::MAX)
+/// - Invalid timeout timestamp (exceeds `i64::MAX`)
 pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<SolanaMsgRecvPacket> {
     let ibc_packet = value
         .packet
@@ -178,10 +178,10 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Sola
     })
 }
 
-/// Convert IBC cosmos message types to Solana MsgAckPacket
+/// Convert IBC cosmos message types to Solana `MsgAckPacket`
 ///
 /// # Arguments
-/// * `value` - IBC protobuf MsgAcknowledgement containing packet data and proofs
+/// * `value` - IBC protobuf `MsgAcknowledgement` containing packet data and proofs
 ///
 /// # Returns
 /// * `Ok(SolanaAckPacket)` - Successfully converted message
@@ -192,7 +192,7 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Sola
 /// - Missing acknowledgements
 /// - Missing proof acked
 /// - Missing proof height
-/// - Invalid timeout timestamp (exceeds i64::MAX)
+/// - Invalid timeout timestamp (exceeds `i64::MAX`)
 pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<SolanaAckPacket> {
     let ibc_packet = value
         .packet
