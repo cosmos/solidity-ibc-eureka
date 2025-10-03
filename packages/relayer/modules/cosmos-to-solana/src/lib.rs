@@ -83,8 +83,8 @@ impl CosmosToSolanaRelayerModuleService {
         let tx_builder = tx_builder::TxBuilder::new(
             src_listener.client().clone(),
             target_listener.client().clone(),
-            solana_ics07_program_id.clone(),
-            solana_ics26_program_id.clone(),
+            solana_ics07_program_id,
+            solana_ics26_program_id,
             fee_payer,
         )?;
 

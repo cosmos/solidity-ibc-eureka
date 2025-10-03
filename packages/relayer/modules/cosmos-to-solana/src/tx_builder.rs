@@ -43,9 +43,6 @@ use tendermint_rpc::{Client as _, HttpClient};
 
 // use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
 
-/// Mock proof data for testing purposes
-const MOCK_PROOF_DATA: &[u8] = b"mock";
-
 /// Maximum size for a header chunk (matches `CHUNK_DATA_SIZE` in Solana program)
 const MAX_CHUNK_SIZE: usize = 700;
 
@@ -56,15 +53,6 @@ struct UploadChunkParams {
     target_height: u64,
     chunk_index: u8,
     chunk_data: Vec<u8>,
-}
-
-/// Parameters for building chunk transactions
-struct ChunkTxParams<'a> {
-    chunk_data: &'a [u8],
-    chain_id: &'a str,
-    target_height: u64,
-    chunk_index: u8,
-    recent_blockhash: solana_sdk::hash::Hash,
 }
 
 /// Organized transactions for chunked update client
@@ -141,18 +129,18 @@ impl TxBuilder {
     ///
     /// Returns an error if:
     /// - Failed to parse program IDs
-    pub fn new(
-        src_listener: HttpClient,
+    pub const fn new(
+        src_tm_client: HttpClient,
         target_solana_client: Arc<RpcClient>,
         solana_ics07_program_id: Pubkey,
         solana_ics26_program_id: Pubkey,
         fee_payer: Pubkey,
     ) -> Result<Self> {
         Ok(Self {
-            src_tm_client: src_listener,
+            src_tm_client,
             target_solana_client,
-            solana_ics07_program_id,
             solana_ics26_program_id,
+            solana_ics07_program_id,
             fee_payer,
         })
     }
@@ -176,7 +164,7 @@ impl TxBuilder {
         consensus_state: &ConsensusState,
     ) -> Result<Instruction> {
         let (client_state_pda, _) =
-            derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
+            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
         let (consensus_state_pda, _) = derive_ics07_consensus_state(
             &client_state_pda,
             latest_height,
