@@ -19,7 +19,7 @@ pub struct ChainListener {
     /// Client
     rpc_client: Arc<RpcClient>,
     /// The Solana ICS26 router program ID.
-    ics26_router_program_id: Pubkey,
+    ics26_program_id: Pubkey,
 }
 
 impl ChainListener {
@@ -37,7 +37,7 @@ impl ChainListener {
 
         Self {
             rpc_client,
-            ics26_router_program_id,
+            ics26_program_id: ics26_router_program_id,
         }
     }
 
@@ -49,8 +49,8 @@ impl ChainListener {
 
     /// Get Router program id
     #[must_use]
-    pub const fn ics26_router_program_id(&self) -> &Pubkey {
-        &self.ics26_router_program_id
+    pub const fn ics26_program_id(&self) -> &Pubkey {
+        &self.ics26_program_id
     }
 
     /// Parse IBC events from Solana transaction logs.
@@ -147,7 +147,7 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
 
                         let involves_ibc = logs
                             .iter()
-                            .any(|log| log.contains(&self.ics26_router_program_id.to_string()));
+                            .any(|log| log.contains(&self.ics26_program_id.to_string()));
 
                         if involves_ibc {
                             let parsed_events = Self::parse_events_from_logs(&meta, slot)?;

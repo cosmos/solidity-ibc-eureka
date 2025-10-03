@@ -410,22 +410,24 @@ impl TxBuilder {
             return Err(anyhow::anyhow!("Expected exactly one recv packet payload element"));
         }
 
+        let ics26_program_id = self.target_listener.ics26_program_id();
+
         // Derive all required PDAs
-        let (router_state, _) = derive_router_state(&self.solana_ics26_program_id);
-        let (ibc_app, _) = derive_ibc_app(&payload.dest_port, &self.target_listener.solana_ics26_program_id());
+        let (router_state, _) = derive_router_state(ics26_program_id);
+        let (ibc_app, _) = derive_ibc_app(&payload.dest_port, ics26_program_id);
         let (client_sequence, _) =
-            derive_client_sequence(&msg.packet.dest_client, &self.solana_ics26_program_id);
+            derive_client_sequence(&msg.packet.dest_client, ics26_program_id);
         let (packet_receipt, _) = derive_packet_receipt(
             &msg.packet.dest_client,
             msg.packet.sequence,
-            &self.target_listener.ics26_router_program_id(),
+            &self.target_listener.ics26_program_id(),
         );
         let (packet_ack, _) = derive_packet_ack(
             &msg.packet.dest_client,
             msg.packet.sequence,
-            &self.target_listener.ics26_router_program_id(),
+            &self.target_listener.ics26_program_id(),
         );
-        let (client, _) = derive_client(&msg.packet.dest_client, &self.target_listener.ics26_router_program_id());
+        let (client, _) = derive_client(&msg.packet.dest_client, ics26_program_id);
 
         let (client_state, _) =
             derive_ics07_client_state(&msg.packet.source_client, &self.solana_ics07_program_id);
@@ -459,7 +461,7 @@ impl TxBuilder {
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: self.target_listener.solana_ics26_program_id(),
+            program_id: ics26_program_id,
             accounts,
             data,
         })
@@ -511,7 +513,8 @@ impl TxBuilder {
 
         // FIXME: wrong???? Query the acknowledgment COMMITMENT from Cosmos chain
         let (commitment_value, merkle_proof) = self
-            .source_tm_client
+            .src_listener
+            .client()
             .prove_path(&[b"ibc".to_vec(), ack_path.clone()], query_height)
             .await?;
         //
@@ -565,7 +568,8 @@ impl TxBuilder {
 
         // Query the actual app hash at the proof height from Cosmos
         let light_block = self
-            .source_tm_client
+            .src_listener
+            .client()
             .get_light_block(Some(msg.proof_height))
             .await?;
 
@@ -594,12 +598,15 @@ impl TxBuilder {
             msg.proof_height
         );
 
-        let (router_state, _) = derive_router_state(&self.target_listener.solana_ics26_program_id());
+        let ics26_program_id = self.target_listener.ics26_program_id();
 
-        let (ibc_app_pda, _) = derive_ibc_app("transfer", &self.target_listener.ics26_router_program_id());
+        let (router_state, _) = derive_router_state(ics26_program_id);
+
+        let (ibc_app_pda, _) = derive_ibc_app("transfer", ics26_program_id);
 
         let ibc_app_account = self
-            .solana_client
+            .target_listener
+            .client()
             .get_account(&ibc_app_pda)
             .map_err(|e| anyhow::anyhow!("Failed to get IBC app account: {e}"))?;
 
@@ -645,18 +652,11 @@ impl TxBuilder {
         // Derive the app state PDA
         let (app_state, _) = Pubkey::find_program_address(&[b"state"], &ibc_app_program);
 
-        // For ack, the packet commitment is stored under the SOURCE client (where packet originated)
-        // Need to use the ICS26 client ID for the commitment lookup
-        // let commitment_client_id = if msg.packet.source_client == "cosmoshub-1" {
-        //     "cosmoshub-1"
-        // } else {
-        //     msg.packet.source_client.as_str()
-        // };
 
         let (packet_commitment, _) = derive_packet_commitment(
-            msg.packet.source_client, // Use ICS26 client ID for commitment lookup
+            &msg.packet.source_client,
             msg.packet.sequence,
-            &self.solana_ics26_program_id,
+            ics26_program_id,
         );
 
         // IMPORTANT: The test setup uses different client IDs:
@@ -685,7 +685,8 @@ impl TxBuilder {
         // );
         //
         // Derive the client PDA using ICS26 client ID
-        let (client, _) = derive_client(&ics26_client_id, &self.target_listener.ics26_router_program_id());
+        let chain_id = self.src_listener.chain_id().await?;
+        let (client, _) = derive_client(&chain_id, ics26_program_id);
 
         let (client_state, _) =
             derive_ics07_client_state(&msg.packet.source_client, &self.solana_ics07_program_id);
@@ -704,7 +705,7 @@ impl TxBuilder {
             AccountMeta::new(packet_commitment, false), // Will be closed after ack
             AccountMeta::new_readonly(ibc_app_program, false), // IBC app program
             AccountMeta::new(app_state, false),         // IBC app state
-            AccountMeta::new_readonly(self.solana_ics26_program_id, false), // Router program
+            AccountMeta::new_readonly(ics26_program_id.clone(), false), // Router program
             AccountMeta::new_readonly(self.fee_payer, true), // relayer
             AccountMeta::new(self.fee_payer, true),     // payer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
@@ -719,7 +720,7 @@ impl TxBuilder {
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: self.solana_ics26_program_id,
+            program_id: ics26_program_id.clone(),
             accounts,
             data,
         })
@@ -738,18 +739,19 @@ impl TxBuilder {
             msg.packet.sequence
         );
 
-        // Derive the router state PDA
-        let (router_state, _) = derive_router_state(&self.solana_ics26_program_id);
+        let ics26_program_id = self.target_listener.ics26_program_id();
+
+        let (router_state, _) = derive_router_state(ics26_program_id);
 
         // Derive packet commitment PDA
         let (packet_commitment, _) = derive_packet_commitment(
             &msg.packet.source_client,
             msg.packet.sequence,
-            &self.solana_ics26_program_id,
+            ics26_program_id,
         );
 
         // Derive the client PDA
-        let (client, _) = derive_client(&msg.packet.dest_client, &self.solana_ics26_program_id);
+        let (client, _) = derive_client(&msg.packet.dest_client, ics26_program_id);
 
         // Build accounts list for timeout_packet
         let accounts = vec![
@@ -767,7 +769,7 @@ impl TxBuilder {
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: self.solana_ics26_program_id,
+            program_id: ics26_program_id.clone(),
             accounts,
             data,
         })
@@ -784,7 +786,7 @@ impl TxBuilder {
     /// - Failed to parse chain ID
     /// - Failed to serialize instruction data
     pub async fn build_create_client_tx(&self) -> Result<Transaction> {
-        let chain_id = self.source_tm_client.get_light_block(None).await?;
+        let chain_id = self.source_tm_client.get_light_block(None).await?.chain_id()?;
 
         let (client_state_pda, _) =
             derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
