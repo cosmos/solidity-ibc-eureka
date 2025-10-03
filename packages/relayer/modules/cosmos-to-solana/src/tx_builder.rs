@@ -132,8 +132,6 @@ pub struct TxBuilder {
     pub solana_ics07_program_id: Pubkey,
     /// The fee payer address for transactions.
     pub fee_payer: Pubkey,
-    /// The signer address for Cosmos transactions.
-    pub signer_address: String,
 }
 
 impl TxBuilder {
@@ -924,13 +922,16 @@ impl TxBuilder {
             now_since_unix.as_secs(),
         );
 
+        // we don't care about signer address as no cosmos tx will be sent here
+        let mock_signer_address = "".to_string();
+
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
             &src_client_id,
             &dst_client_id,
             &src_packet_seqs,
             &dst_packet_seqs,
-            &self.signer_address,
+            &mock_signer_address,
             now_since_unix.as_secs(),
         );
 
