@@ -1,7 +1,25 @@
 //! Relayer utilities for `solana-eureka` chains.
-use solana_ibc_types::{IbcHeight, MsgTimeoutPacket};
+use solana_ibc_types::{
+    Height, IbcHeight, MsgAckPacket as SolanaAckPacket, MsgRecvPacket as SolanaMsgRecvPacket,
+    MsgTimeoutPacket, Packet, Payload,
+};
+
+use ibc_proto_eureka::ibc::core::channel::v2::{
+    MsgAcknowledgement as IbcMsgAcknowledgement, MsgRecvPacket as IbcMsgRecvPacket,
+    Payload as IbcPayload,
+};
 
 use crate::events::{SolanaEurekaEvent, SolanaEurekaEventWithHeight};
+
+fn convert_payload(payload: IbcPayload) -> Payload {
+    Payload {
+        source_port: payload.source_port,
+        dest_port: payload.destination_port,
+        version: payload.version,
+        encoding: payload.encoding,
+        value: payload.value,
+    }
+}
 
 /// Converts an IBC protobuf `ClientState` to Solana IBC `ClientState` format.
 ///
@@ -108,4 +126,115 @@ pub fn target_events_to_timeout_msgs(
             SolanaEurekaEvent::WriteAcknowledgement(..) => None,
         })
         .collect()
+}
+
+/// Convert IBC cosmos message types to Solana MsgRecvPacket
+///
+/// # Arguments
+/// * `value` - IBC protobuf MsgRecvPacket containing packet data and proofs
+///
+/// # Returns
+/// * `Ok(SolanaMsgRecvPacket)` - Successfully converted message
+/// * `Err` - If required fields are missing or invalid
+///
+/// # Errors
+/// - Missing packet in the input message
+/// - Missing proof commitment
+/// - Missing proof height
+/// - Invalid timeout timestamp (exceeds i64::MAX)
+pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<SolanaMsgRecvPacket> {
+    let ibc_packet = value
+        .packet
+        .ok_or_else(|| anyhow::anyhow!("Missing packet in MsgRecvPacket"))?;
+
+    let proof_commitment = value.proof_commitment;
+
+    let proof_height = value
+        .proof_height
+        .ok_or_else(|| anyhow::anyhow!("Missing proof height"))?;
+
+    if ibc_packet.payloads.is_empty() {
+        return Err(anyhow::anyhow!("Packet payloads cannot be empty"));
+    }
+
+    let payloads = ibc_packet
+        .payloads
+        .into_iter()
+        .map(convert_payload)
+        .collect();
+
+    let packet = Packet {
+        sequence: ibc_packet.sequence,
+        source_client: ibc_packet.source_client,
+        dest_client: ibc_packet.destination_client,
+        timeout_timestamp: i64::try_from(ibc_packet.timeout_timestamp).unwrap_or_default(),
+        payloads,
+    };
+
+    Ok(SolanaMsgRecvPacket {
+        packet,
+        proof_commitment,
+        proof_height: proof_height.revision_height,
+    })
+}
+
+/// Convert IBC cosmos message types to Solana MsgAckPacket
+///
+/// # Arguments
+/// * `value` - IBC protobuf MsgAcknowledgement containing packet data and proofs
+///
+/// # Returns
+/// * `Ok(SolanaAckPacket)` - Successfully converted message
+/// * `Err` - If required fields are missing or invalid
+///
+/// # Errors
+/// - Missing packet in the input message
+/// - Missing acknowledgements
+/// - Missing proof acked
+/// - Missing proof height
+/// - Invalid timeout timestamp (exceeds i64::MAX)
+pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<SolanaAckPacket> {
+    let ibc_packet = value
+        .packet
+        .ok_or_else(|| anyhow::anyhow!("Missing packet in MsgAcknowledgement"))?;
+
+    let acknowledgements = value
+        .acknowledgements
+        .ok_or_else(|| anyhow::anyhow!("Missing acknowledgements"))?;
+
+    if acknowledgements.acknowledgements.is_empty() {
+        return Err(anyhow::anyhow!("Acknowledgements cannot be empty"));
+    }
+    let acknowledgement = acknowledgements.acknowledgements[0].clone();
+
+    let proof_acked = value.proof_acked;
+
+    let proof_height = value
+        .proof_height
+        .ok_or_else(|| anyhow::anyhow!("Missing proof height"))?;
+
+    if ibc_packet.payloads.is_empty() {
+        return Err(anyhow::anyhow!("Packet payloads cannot be empty"));
+    }
+
+    let payloads = ibc_packet
+        .payloads
+        .into_iter()
+        .map(convert_payload)
+        .collect();
+
+    let packet = Packet {
+        sequence: ibc_packet.sequence,
+        source_client: ibc_packet.source_client,
+        dest_client: ibc_packet.destination_client,
+        timeout_timestamp: i64::try_from(ibc_packet.timeout_timestamp).unwrap_or_default(),
+        payloads,
+    };
+
+    Ok(SolanaAckPacket {
+        packet,
+        acknowledgement,
+        proof_acked,
+        proof_height: proof_height.revision_height,
+    })
 }
