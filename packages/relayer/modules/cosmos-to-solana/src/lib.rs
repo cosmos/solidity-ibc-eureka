@@ -164,7 +164,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             target_events.len()
         );
 
-        let txs = self
+        let tx = self
             .tx_builder
             .relay_events(
                 src_events,
@@ -180,9 +180,9 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         tracing::info!("Relay by tx request completed.");
 
         Ok(Response::new(api::RelayByTxResponse {
-            tx: vec![],
+            tx,
             address: String::new(),
-            txs,
+            txs: vec![],
         }))
     }
 

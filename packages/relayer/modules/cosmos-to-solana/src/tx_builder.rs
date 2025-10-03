@@ -14,7 +14,8 @@ use ibc_eureka_relayer_lib::{
             TmUpdateClientParams,
         },
         solana_eureka::{
-            convert_client_state, convert_consensus_state, target_events_to_timeout_msgs,
+            convert_client_state, convert_consensus_state, ibc_to_solana_ack_packet,
+            ibc_to_solana_recv_packet, target_events_to_timeout_msgs,
         },
     },
 };
@@ -27,7 +28,6 @@ use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     keccak,
     pubkey::Pubkey,
-    signature::Keypair,
     sysvar,
     transaction::Transaction,
 };
@@ -37,7 +37,7 @@ use solana_ibc_types::{
     derive_ics07_consensus_state, derive_packet_ack, derive_packet_commitment,
     derive_packet_receipt, derive_router_state, get_instruction_discriminator,
     ics07::{ClientState, ConsensusState, ICS07_INITIALIZE_DISCRIMINATOR},
-    MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket,
+    MsgAckPacket, MsgTimeoutPacket,
 };
 use tendermint_rpc::{Client as _, HttpClient};
 
@@ -71,11 +71,11 @@ struct ChunkTxParams<'a> {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct UpdateClientChunkedTxs {
     /// Metadata creation transaction (must be submitted first)
-    pub metadata_tx: Transaction,
+    pub metadata_tx: Vec<u8>,
     /// All chunk upload transactions (can be submitted in parallel after metadata)
-    pub chunk_txs: Vec<Transaction>,
+    pub chunk_txs: Vec<Vec<u8>>,
     /// Final assembly transaction (must be submitted last)
-    pub assembly_tx: Transaction,
+    pub assembly_tx: Vec<u8>,
     /// Total number of chunks
     pub total_chunks: usize,
     /// Target height being updated to
@@ -675,14 +675,13 @@ impl TxBuilder {
             .collect()
     }
 
-    fn build_create_metadata_transaction(
+    fn build_create_metadata_tx(
         &self,
         chain_id: &str,
         target_height: u64,
         total_chunks: u8,
         header_commitment: [u8; 32],
-        recent_blockhash: solana_sdk::hash::Hash,
-    ) -> Transaction {
+    ) -> Result<Vec<u8>> {
         let (client_state_pda, _) =
             derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
         let (metadata_pda, _) = derive_header_metadata(
@@ -715,10 +714,7 @@ impl TxBuilder {
             data,
         };
 
-        let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
-        tx.message.recent_blockhash = recent_blockhash;
-
-        tx
+        Ok(self.create_tx_bytes(&[instruction])?)
     }
 
     fn build_chunk_transactions(
@@ -726,8 +722,7 @@ impl TxBuilder {
         chunks: &[Vec<u8>],
         chain_id: &str,
         target_height: u64,
-        recent_blockhash: solana_sdk::hash::Hash,
-    ) -> Result<Vec<Transaction>> {
+    ) -> Result<Vec<Vec<u8>>> {
         let mut chunk_txs = Vec::new();
 
         for (index, chunk_data) in chunks.iter().enumerate() {
@@ -740,29 +735,14 @@ impl TxBuilder {
                 chunk_data.to_vec(),
             )?;
 
-            let mut chunk_tx = Transaction::new_with_payer(&[upload_ix], Some(&self.fee_payer));
-            chunk_tx.message.recent_blockhash = recent_blockhash;
+            let chunk_tx = self.create_tx_bytes(&[upload_ix])?;
             chunk_txs.push(chunk_tx);
         }
 
         Ok(chunk_txs)
     }
 
-    fn build_assembly_transaction(
-        &self,
-        chain_id: &str,
-        target_height: u64,
-        trusted_height: u64,
-        total_chunks: u8,
-        recent_blockhash: solana_sdk::hash::Hash,
-    ) -> Transaction {
-        let assembly_instruction = self.build_assemble_and_update_client_instruction(
-            chain_id,
-            target_height,
-            trusted_height,
-            total_chunks,
-        );
-
+    fn extend_compute_ix() -> Vec<Instruction> {
         // Add compute budget instructions to increase the limit
         // Request 1.4M compute units (maximum allowed)
         let compute_budget_ix =
@@ -772,13 +752,7 @@ impl TxBuilder {
         let priority_fee_ix =
             solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(1000);
 
-        let mut assembly_tx = Transaction::new_with_payer(
-            &[compute_budget_ix, priority_fee_ix, assembly_instruction],
-            Some(&self.fee_payer),
-        );
-        assembly_tx.message.recent_blockhash = recent_blockhash;
-
-        assembly_tx
+        vec![compute_budget_ix, priority_fee_ix]
     }
 
     fn build_create_metadata_instruction(
@@ -865,13 +839,13 @@ impl TxBuilder {
         })
     }
 
-    fn build_assemble_and_update_client_instruction(
+    fn build_assemble_and_update_client_tx(
         &self,
         chain_id: &str,
         target_height: u64,
         trusted_height: u64,
         total_chunks: u8,
-    ) -> Instruction {
+    ) -> Result<Vec<u8>> {
         let (client_state_pda, _) =
             derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
         let (metadata_pda, _) = derive_header_metadata(
@@ -891,7 +865,6 @@ impl TxBuilder {
             &self.solana_ics07_program_id,
         );
 
-        // Build accounts
         let mut accounts = vec![
             AccountMeta::new(client_state_pda, false),
             AccountMeta::new(metadata_pda, false),
@@ -915,11 +888,16 @@ impl TxBuilder {
 
         let discriminator = get_instruction_discriminator("assemble_and_update_client");
 
-        Instruction {
+        let ix = Instruction {
             program_id: self.solana_ics07_program_id,
             accounts,
             data: discriminator.to_vec(),
-        }
+        };
+
+        let mut instructions = Self::extend_compute_ix();
+        instructions.push(ix);
+
+        Ok(self.create_tx_bytes(&instructions)?)
     }
 }
 
@@ -933,7 +911,7 @@ impl TxBuilder {
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
         dst_packet_seqs: Vec<u64>,
-    ) -> Result<Vec<Vec<u8>>> {
+    ) -> Result<Vec<u8>> {
         tracing::info!(
             "Relaying events from Cosmos to Solana for client {}",
             dst_client_id
@@ -972,21 +950,16 @@ impl TxBuilder {
         cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut vec![]);
         ibc_eureka_relayer_lib::utils::solana_eureka::inject_mock_proofs(&mut timeout_msgs);
 
-        let mut transactions = vec![];
-
         let mut instructions = Vec::new();
 
-        let recent_blockhash = self
-            .target_solana_client
-            .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
-
         for recv_msg in recv_msgs {
+            let recv_msd = ibc_to_solana_recv_packet(recv_msg)?;
             let instruction = self.build_recv_packet_instruction(&recv_msg)?;
             instructions.push(instruction);
         }
 
         for ack_msg in ack_msgs {
+            let ack_msd = ibc_to_solana_ack_packet(ack_msg)?;
             let instruction = self.build_ack_packet_instruction(&ack_msg).await?;
             instructions.push(instruction);
         }
@@ -995,15 +968,22 @@ impl TxBuilder {
         for timeout_msg in timeout_msgs {
             let instruction = self.build_timeout_packet_instruction(&timeout_msg)?;
             instructions.push(instruction);
-            // let tx = Transaction::new_signed_with_payer(
-            //     &[instruction],
-            //     Some(&self.fee_payer),
-            //     &[&self.fee_payer_keypair],
-            //     recent_blockhash,
-            // );
         }
 
-        Ok(transactions)
+        self.create_tx_bytes(&instructions)
+    }
+
+    fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>> {
+        let mut tx = Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
+
+        let recent_blockhash = self
+            .target_solana_client
+            .get_latest_blockhash()
+            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
+
+        tx.message.recent_blockhash = recent_blockhash;
+
+        Ok(bincode::serialize(&tx)?)
     }
 
     #[tracing::instrument(skip_all)]
@@ -1025,16 +1005,7 @@ impl TxBuilder {
             &consensus_state,
         )?;
 
-        let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
-
-        let recent_blockhash = self
-            .target_solana_client
-            .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
-
-        tx.message.recent_blockhash = recent_blockhash;
-
-        Ok(bincode::serialize(&tx)?)
+        Ok(self.create_tx_bytes(&[instruction])?);
     }
 
     #[tracing::instrument(skip_all)]
@@ -1070,29 +1041,21 @@ impl TxBuilder {
             total_chunks
         );
 
-        let recent_blockhash = self
-            .target_solana_client
-            .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
-
-        let metadata_tx = self.build_create_metadata_transaction(
+        let metadata_tx = self.build_create_metadata_tx(
             &chain_id,
             target_height,
             total_chunks,
             header_commitment,
-            recent_blockhash,
-        );
+        )?;
 
-        let chunk_txs =
-            self.build_chunk_transactions(&chunks, &chain_id, target_height, recent_blockhash)?;
+        let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
 
-        let assembly_tx = self.build_assembly_transaction(
+        let assembly_tx = self.build_assemble_and_update_client_tx(
             &chain_id,
             target_height,
             trusted_height,
             total_chunks,
-            recent_blockhash,
-        );
+        )?;
 
         Ok(UpdateClientChunkedTxs {
             metadata_tx,
