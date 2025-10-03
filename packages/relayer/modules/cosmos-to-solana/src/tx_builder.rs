@@ -1,6 +1,8 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! Solana from events received from a Cosmos SDK chain.
 
+use std::sync::Arc;
+
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use hex;
@@ -19,6 +21,7 @@ use ibc_eureka_utils::light_block::LightBlockExt;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::Protobuf;
 use prost::Message;
+use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
@@ -37,6 +40,7 @@ use solana_ibc_types::{
     Height, MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, Packet, Payload, TimeoutPacket,
     UpdateClientMsg,
 };
+use tendermint_rpc::{Client as _, HttpClient};
 
 // use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
 
@@ -79,15 +83,6 @@ pub struct ChunkedUpdateTransactions {
     pub target_height: u64,
 }
 
-/// Solana relay transactions including chunked update and packet processing
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct SolanaRelayTransactions {
-    /// Chunked update client transactions (must be submitted first)
-    pub update_client: Option<ChunkedUpdateTransactions>,
-    /// Packet relay transactions (submitted after client update)
-    pub packet_txs: Vec<Transaction>,
-}
-
 /// Helper to derive header chunk PDA
 fn derive_header_chunk(
     submitter: &Pubkey,
@@ -128,10 +123,12 @@ fn derive_header_metadata(
 
 /// The `TxBuilder` produces Solana transactions based on events from Cosmos SDK.
 pub struct TxBuilder {
-    /// The source chain listener for Cosmos SDK.
-    pub src_listener: cosmos_sdk::ChainListener,
-    /// The target chain listener for Solana.
-    pub target_listener: solana_eureka::ChainListener,
+    /// The HTTP client for Cosmos chain.
+    pub src_tm_client: HttpClient,
+    /// The target Rpc Client for Solana.
+    pub target_solana_client: Arc<RpcClient>,
+    /// The Solana ICS26 router program ID.
+    pub solana_ics26_program_id: Pubkey,
     /// The Solana ICS07 program ID.
     pub solana_ics07_program_id: Pubkey,
     /// The fee payer address for transactions.
@@ -150,18 +147,32 @@ impl TxBuilder {
     /// Returns an error if:
     /// - Failed to parse program IDs
     pub fn new(
-        src_listener: cosmos_sdk::ChainListener,
-        target_listener: solana_eureka::ChainListener,
+        src_listener: HttpClient,
+        target_solana_client: Arc<RpcClient>,
         solana_ics07_program_id: Pubkey,
+        solana_ics26_program_id: Pubkey,
         fee_payer: Pubkey,
     ) -> Result<Self> {
         Ok(Self {
-            src_listener,
-            target_listener,
+            src_tm_client: src_listener,
+            target_solana_client,
             solana_ics07_program_id,
+            solana_ics26_program_id,
             fee_payer,
         })
     }
+
+    async fn chain_id(&self) -> Result<String> {
+        Ok(self
+            .src_tm_client
+            .latest_block()
+            .await?
+            .block
+            .header
+            .chain_id
+            .into())
+    }
+
     /// Build instruction for creating a client
     ///
     /// # Errors
@@ -176,7 +187,7 @@ impl TxBuilder {
     ) -> Result<Instruction> {
         // Derive PDAs
         let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+            derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
         let (consensus_state_pda, _) = derive_ics07_consensus_state(
             &client_state_pda,
             latest_height,
@@ -213,27 +224,29 @@ impl TxBuilder {
 
     fn build_recv_packet_instruction(&self, msg: &MsgRecvPacket) -> Result<Instruction> {
         let [payload] = msg.packet.payloads.as_slice() else {
-            return Err(anyhow::anyhow!("Expected exactly one recv packet payload element"));
+            return Err(anyhow::anyhow!(
+                "Expected exactly one recv packet payload element"
+            ));
         };
 
-        let ics26_program_id = self.target_listener.ics26_program_id();
+        let solana_ics26_program_id = &self.solana_ics26_program_id;
 
         // Derive all required PDAs
-        let (router_state, _) = derive_router_state(ics26_program_id);
-        let (ibc_app, _) = derive_ibc_app(&payload.dest_port, ics26_program_id);
+        let (router_state, _) = derive_router_state(solana_ics26_program_id);
+        let (ibc_app, _) = derive_ibc_app(&payload.dest_port, solana_ics26_program_id);
         let (client_sequence, _) =
-            derive_client_sequence(&msg.packet.dest_client, ics26_program_id);
+            derive_client_sequence(&msg.packet.dest_client, solana_ics26_program_id);
         let (packet_receipt, _) = derive_packet_receipt(
             &msg.packet.dest_client,
             msg.packet.sequence,
-            &self.target_listener.ics26_program_id(),
+            solana_ics26_program_id,
         );
         let (packet_ack, _) = derive_packet_ack(
             &msg.packet.dest_client,
             msg.packet.sequence,
-            &self.target_listener.ics26_program_id(),
+            &self.target_solana_client.ics26_program_id(),
         );
-        let (client, _) = derive_client(&msg.packet.dest_client, ics26_program_id);
+        let (client, _) = derive_client(&msg.packet.dest_client, solana_ics26_program_id);
 
         let (client_state, _) =
             derive_ics07_client_state(&msg.packet.source_client, &self.solana_ics07_program_id);
@@ -267,14 +280,13 @@ impl TxBuilder {
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: ics26_program_id,
+            program_id: self.solana_ics26_program_id,
             accounts,
             data,
         })
     }
 
     async fn build_ack_packet_instruction(&self, msg: &MsgAckPacket) -> Result<Instruction> {
-
         let ack_path = msg.packet.ack_commitment_path();
 
         // tracing::info!("=== DEBUGGING ACK PATH ===");
@@ -319,8 +331,7 @@ impl TxBuilder {
 
         // FIXME: wrong???? Query the acknowledgment COMMITMENT from Cosmos chain
         let (commitment_value, merkle_proof) = self
-            .src_listener
-            .client()
+            .src_tm_client
             .prove_path(&[b"ibc".to_vec(), ack_path.clone()], query_height)
             .await?;
         //
@@ -374,8 +385,7 @@ impl TxBuilder {
 
         // Query the actual app hash at the proof height from Cosmos
         let light_block = self
-            .src_listener
-            .client()
+            .src_tm_client
             .get_light_block(Some(msg.proof_height))
             .await?;
 
@@ -404,15 +414,14 @@ impl TxBuilder {
             msg.proof_height
         );
 
-        let ics26_program_id = self.target_listener.ics26_program_id();
+        let solana_ics26_program_id = &self.solana_ics26_program_id;
 
-        let (router_state, _) = derive_router_state(ics26_program_id);
+        let (router_state, _) = derive_router_state(solana_ics26_program_id);
 
-        let (ibc_app_pda, _) = derive_ibc_app("transfer", ics26_program_id);
+        let (ibc_app_pda, _) = derive_ibc_app("transfer", solana_ics26_program_id);
 
         let ibc_app_account = self
-            .target_listener
-            .client()
+            .target_solana_client
             .get_account(&ibc_app_pda)
             .map_err(|e| anyhow::anyhow!("Failed to get IBC app account: {e}"))?;
 
@@ -458,11 +467,10 @@ impl TxBuilder {
         // Derive the app state PDA
         let (app_state, _) = Pubkey::find_program_address(&[b"state"], &ibc_app_program);
 
-
         let (packet_commitment, _) = derive_packet_commitment(
             &msg.packet.source_client,
             msg.packet.sequence,
-            ics26_program_id,
+            solana_ics26_program_id,
         );
 
         // IMPORTANT: The test setup uses different client IDs:
@@ -491,8 +499,8 @@ impl TxBuilder {
         // );
         //
         // Derive the client PDA using ICS26 client ID
-        let chain_id = self.src_listener.chain_id().await?;
-        let (client, _) = derive_client(&chain_id, ics26_program_id);
+        let chain_id = self.chain_id().await?;
+        let (client, _) = derive_client(&chain_id, solana_ics26_program_id);
 
         let (client_state, _) =
             derive_ics07_client_state(&msg.packet.source_client, &self.solana_ics07_program_id);
@@ -511,7 +519,7 @@ impl TxBuilder {
             AccountMeta::new(packet_commitment, false), // Will be closed after ack
             AccountMeta::new_readonly(ibc_app_program, false), // IBC app program
             AccountMeta::new(app_state, false),         // IBC app state
-            AccountMeta::new_readonly(ics26_program_id.clone(), false), // Router program
+            AccountMeta::new_readonly(solana_ics26_program_id.clone(), false), // Router program
             AccountMeta::new_readonly(self.fee_payer, true), // relayer
             AccountMeta::new(self.fee_payer, true),     // payer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
@@ -526,7 +534,7 @@ impl TxBuilder {
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: ics26_program_id.clone(),
+            program_id: solana_ics26_program_id.clone(),
             accounts,
             data,
         })
@@ -545,19 +553,19 @@ impl TxBuilder {
             msg.packet.sequence
         );
 
-        let ics26_program_id = self.target_listener.ics26_program_id();
+        let solana_ics26_program_id = &self.solana_ics26_program_id;
 
-        let (router_state, _) = derive_router_state(ics26_program_id);
+        let (router_state, _) = derive_router_state(solana_ics26_program_id);
 
         // Derive packet commitment PDA
         let (packet_commitment, _) = derive_packet_commitment(
             &msg.packet.source_client,
             msg.packet.sequence,
-            ics26_program_id,
+            solana_ics26_program_id,
         );
 
         // Derive the client PDA
-        let (client, _) = derive_client(&msg.packet.dest_client, ics26_program_id);
+        let (client, _) = derive_client(&msg.packet.dest_client, solana_ics26_program_id);
 
         // Build accounts list for timeout_packet
         let accounts = vec![
@@ -575,7 +583,7 @@ impl TxBuilder {
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: ics26_program_id.clone(),
+            program_id: solana_ics26_program_id.clone(),
             accounts,
             data,
         })
@@ -592,10 +600,10 @@ impl TxBuilder {
     /// - Failed to parse chain ID
     /// - Failed to serialize instruction data
     pub async fn build_create_client_tx(&self) -> Result<Transaction> {
-        let chain_id = self.source_tm_client.get_light_block(None).await?.chain_id()?;
+        let chain_id = self.chain_id().await?;
 
         let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+            derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
         let (consensus_state_pda, _) = derive_ics07_consensus_state(
             &client_state_pda,
             latest_height,
@@ -631,7 +639,7 @@ impl TxBuilder {
         let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
 
         let recent_blockhash = self
-            .solana_client
+            .target_solana_client
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
@@ -656,15 +664,16 @@ impl TxBuilder {
         &self,
         client_id: String,
     ) -> Result<ChunkedUpdateTransactions> {
-        let chain_id = self.src_listener.chain_id().await?;
+        let chain_id = self.chain_id().await?;
+
         let TmUpdateClientParams {
             target_height,
             trusted_height,
             proposed_header,
         } = tm_update_client_params(
             self.cosmos_client_state(&chain_id?),
-            self.src_listener.client(),
-            None
+            self.src_tm_client.client(),
+            None,
         )
         .await?;
 
@@ -686,8 +695,7 @@ impl TxBuilder {
         );
 
         let recent_blockhash = self
-            .target_listener
-            .client()
+            .target_solana_client
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
@@ -727,8 +735,7 @@ impl TxBuilder {
             derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
 
         let account = self
-            .target_listener
-            .client()
+            .target_solana_client
             .get_account(&client_state_pda)
             .context("Failed to fetch client state account")?;
 
@@ -788,7 +795,7 @@ impl TxBuilder {
             program_id: self.solana_ics07_program_id,
             accounts,
             data,
-        }
+        };
 
         let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
         tx.message.recent_blockhash = recent_blockhash;
@@ -1016,8 +1023,7 @@ impl TxBuilder {
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
         let slot = self
-            .target_listener
-            .client()
+            .target_solana_client
             .get_slot_with_commitment(CommitmentConfig::finalized())
             .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
 
@@ -1049,13 +1055,11 @@ impl TxBuilder {
 
         let mut transactions = vec![];
 
-
         // Build Solana transactions from the messages
         let mut instructions = Vec::new();
 
         let recent_blockhash = self
-            .target_listener
-            .client()
+            .target_solana_client
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
@@ -1087,12 +1091,12 @@ impl TxBuilder {
 
     #[tracing::instrument(skip_all)]
     async fn create_client(&self) -> Result<Vec<u8>> {
-        let chain_id = self.src_listener.chain_id().await?;
+        let chain_id = self.chain_id().await?;
         let TmCreateClientParams {
             latest_height,
             client_state,
             consensus_state,
-        } = tm_create_client_params(self.src_listener.client()).await?;
+        } = tm_create_client_params(self.src_tm_client.client()).await?;
 
         let client_state = convert_client_state(client_state)?;
 
@@ -1132,9 +1136,9 @@ impl TxBuilder {
 
         let client_state = self.cosmos_client_state(chain_id)?;
 
-        let target_light_block = self.src_listener.get_light_block(None).await?;
+        let target_light_block = self.src_tm_client.get_light_block(None).await?;
         let trusted_light_block = self
-            .src_listener
+            .src_tm_client
             .get_light_block(Some(
                 client_state
                     .latest_height
