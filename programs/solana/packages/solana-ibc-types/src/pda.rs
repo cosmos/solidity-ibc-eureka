@@ -6,8 +6,6 @@ use crate::ics07::CONSENSUS_STATE_SEED;
 use crate::router::*;
 use anchor_lang::prelude::*;
 
-// Use default program IDs from the constants crate
-// These can be overridden by passing explicit program IDs to the functions
 use core::str::FromStr;
 use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
 
@@ -105,31 +103,4 @@ pub fn get_instruction_discriminator(instruction_name: &str) -> [u8; 8] {
         &anchor_lang::solana_program::hash::hash(preimage.as_bytes()).to_bytes()[..8],
     );
     hash
-}
-
-// Convenience functions that use default program IDs
-// These can be used when the standard deployed program IDs are being used
-
-/// Derive router state PDA using the default ICS26 program ID
-pub fn derive_router_state_default() -> (Pubkey, u8) {
-    let program_id = Pubkey::from_str(ICS26_ROUTER_ID).expect("Invalid ICS26 program ID");
-    derive_router_state(program_id)
-}
-
-/// Derive IBC app PDA using the default ICS26 program ID
-pub fn derive_ibc_app_default(port_id: &str) -> (Pubkey, u8) {
-    let program_id = Pubkey::from_str(ICS26_ROUTER_ID).expect("Invalid ICS26 program ID");
-    derive_ibc_app(port_id, program_id)
-}
-
-/// Derive client PDA using the default ICS26 program ID
-pub fn derive_client_default(client_id: &str) -> (Pubkey, u8) {
-    let program_id = Pubkey::from_str(ICS26_ROUTER_ID).expect("Invalid ICS26 program ID");
-    derive_client(client_id, program_id)
-}
-
-/// Derive ICS07 client state PDA using the default ICS07 program ID
-pub fn derive_ics07_client_state_default(chain_id: &str) -> (Pubkey, u8) {
-    let program_id = Pubkey::from_str(ICS07_TENDERMINT_ID).expect("Invalid ICS07 program ID");
-    derive_ics07_client_state(chain_id, program_id)
 }
