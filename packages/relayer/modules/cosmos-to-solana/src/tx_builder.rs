@@ -683,7 +683,6 @@ impl TxBuilder {
         chunk_index: u8,
         chunk_data: Vec<u8>,
     ) -> Result<Instruction> {
-        // Create upload chunk params
         let params = UploadChunkParams {
             chain_id: chain_id.to_string(),
             target_height,
@@ -691,7 +690,6 @@ impl TxBuilder {
             chunk_data,
         };
 
-        // Derive PDAs
         let (client_state_pda, _) =
             derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
         let (chunk_pda, _) = derive_header_chunk(
