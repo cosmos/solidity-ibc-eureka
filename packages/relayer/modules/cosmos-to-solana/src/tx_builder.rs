@@ -633,7 +633,7 @@ impl TxBuilder {
             data,
         };
 
-        Ok(self.create_tx_bytes(&[instruction])?)
+        self.create_tx_bytes(&[instruction])
     }
 
     fn build_chunk_transactions(
@@ -774,7 +774,7 @@ impl TxBuilder {
         let mut instructions = Self::extend_compute_ix();
         instructions.push(ix);
 
-        Ok(self.create_tx_bytes(&instructions)?)
+        self.create_tx_bytes(&instructions)
     }
 }
 
@@ -896,7 +896,7 @@ impl TxBuilder {
             &consensus_state,
         )?;
 
-        Ok(self.create_tx_bytes(&[instruction])?)
+        self.create_tx_bytes(&[instruction])
     }
 
     /// Build chunked update client transactions
