@@ -198,14 +198,14 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
         .packet
         .ok_or_else(|| anyhow::anyhow!("Missing packet in MsgAcknowledgement"))?;
 
-    let acknowledgements = value
-        .acknowledgements
+    let acknowledgement = value
+        .acknowledgement
         .ok_or_else(|| anyhow::anyhow!("Missing acknowledgements"))?;
 
-    if acknowledgements.acknowledgements.is_empty() {
+    if acknowledgement.app_acknowledgements.is_empty() {
         return Err(anyhow::anyhow!("Acknowledgements cannot be empty"));
     }
-    let acknowledgement = acknowledgements.acknowledgements[0].clone();
+    let acknowledgement = acknowledgement.app_acknowledgements[0].clone();
 
     let proof_acked = value.proof_acked;
 
