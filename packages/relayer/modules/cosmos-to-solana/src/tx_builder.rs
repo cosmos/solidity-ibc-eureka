@@ -1010,20 +1010,20 @@ impl TxBuilder {
         let chain_id = self.chain_id().await?;
         let TmCreateClientParams {
             latest_height,
-            client_state,
-            consensus_state,
+            client_state: tm_client_state,
+            consensus_state: tm_consensus_state,
         } = tm_create_client_params(&self.src_tm_client).await?;
 
-        let client_state = convert_client_state(client_state)?;
+        let client_state = convert_client_state(tm_client_state)?;
 
         let consensus_state = solana_ibc_types::ConsensusState {
-            timestamp: consensus_state.timestamp.unix_timestamp_nanos() as u64,
-            root: consensus_state
+            timestamp: tm_consensus_state.timestamp.unix_timestamp_nanos() as u64,
+            root: tm_consensus_state
                 .root
                 .into_vec()
                 .try_into()
                 .map_err(|_| anyhow::anyhow!("Invalid root length"))?,
-            next_validators_hash: consensus_state
+            next_validators_hash: tm_consensus_state
                 .next_validators_hash
                 .as_bytes()
                 .try_into()
