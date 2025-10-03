@@ -264,7 +264,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			s.Require().True(programAvailable, "Program failed to become available within timeout")
 
 			// Initialize dummy app state
-			appStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("dummy_app_state")}, dummyAppProgramID)
+			appStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(transfertypes.PortID)}, dummyAppProgramID)
 			s.Require().NoError(err)
 
 			initInstruction, err := dummy_ibc_app.NewInitializeInstruction(
@@ -285,17 +285,14 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
 			s.Require().NoError(err)
 
-			ibcAppAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("ibc_app"), []byte("transfer")}, ics26_router.ProgramID)
-			s.Require().NoError(err)
-
-			routerCallerAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_caller")}, dummyAppProgramID)
+			ibcAppAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("ibc_app"), []byte(transfertypes.PortID)}, ics26_router.ProgramID)
 			s.Require().NoError(err)
 
 			registerInstruction, err := ics26_router.NewAddIbcAppInstruction(
-				"transfer",
+				transfertypes.PortID,
 				routerStateAccount,
 				ibcAppAccount,
-				routerCallerAccount,
+				dummyAppProgramID,
 				s.SolanaUser.PublicKey(),
 				s.SolanaUser.PublicKey(),
 				solanago.SystemProgramID,
@@ -387,7 +384,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		transferAmount := fmt.Sprintf("%d", TestTransferAmount)
 		cosmosUserWallet := s.CosmosUsers[0]
 		receiver := cosmosUserWallet.FormattedAddress()
-		destPort := "transfer"
 		memo := "Test transfer from Solana to Cosmos"
 
 		accounts := s.prepareTransferAccounts(ctx, s.DummyAppProgramID, destPort, SolanaClientID)
@@ -399,7 +395,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			Amount:           transferAmount,
 			Receiver:         receiver,
 			SourceClient:     SolanaClientID,
-			DestPort:         destPort,
+			DestPort:         transfertypes.PortID,
 			TimeoutTimestamp: timeoutTimestamp,
 			Memo:             memo,
 		}
