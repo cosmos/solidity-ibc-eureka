@@ -6,9 +6,6 @@ use crate::ics07::CONSENSUS_STATE_SEED;
 use crate::router::*;
 use anchor_lang::prelude::*;
 
-use core::str::FromStr;
-use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
-
 /// Derive router state PDA
 pub fn derive_router_state(program_id: Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[ROUTER_STATE_SEED], &program_id)
