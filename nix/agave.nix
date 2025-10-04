@@ -367,9 +367,6 @@ let
           fi
         done
 
-        echo ""
-        echo "📊 IDL Generation Summary: $idl_success succeeded, $idl_failed failed out of $idl_total total"
-
         # Report results and return appropriate exit code
         if [ "$idl_success" -gt 0 ] && [ "$idl_failed" -eq 0 ]; then
           echo "✅ Build complete: generated $idl_success IDL file(s)"
