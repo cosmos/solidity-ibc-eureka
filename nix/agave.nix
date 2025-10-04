@@ -259,9 +259,7 @@ let
         return 1
       fi
 
-      echo "🔍 Checking for IDL build feature..."
       if cargo_toml=$(has_idl_build_feature); then
-        echo "   Found idl-build feature in $cargo_toml"
         echo "📝 Generating IDL with nightly toolchain..."
 
         setup_nightly
@@ -269,13 +267,24 @@ let
         echo "📤 Extracting IDL files..."
         mkdir -p target/idl
 
+        local idl_success=0
+        local idl_failed=0
+        local idl_total=0
+
         # Extract IDL from each program using cargo test with idl-build feature
         for program_dir in programs/*/; do
           program_name=$(basename "$program_dir")
 
-          # Check if this program has the idl-build feature
-          if grep -q "idl-build" "$program_dir/Cargo.toml" 2>/dev/null; then
-            echo "   Extracting IDL for $program_name..."
+          has_idl_build=false
+          if [ -f "$program_dir/Cargo.toml" ]; then
+            if grep -q "idl-build" "$program_dir/Cargo.toml" 2>/dev/null || true; then
+              has_idl_build=true
+            fi
+          fi
+
+          if [ "$has_idl_build" = "true" ]; then
+            ((idl_total++)) || true
+            echo "   [✓] $program_name has idl-build feature ($idl_total)..."
 
             # Set required environment variables for IDL generation (from idl/src/build.rs:156-169)
             export ANCHOR_IDL_BUILD_PROGRAM_PATH="$program_dir"
@@ -284,20 +293,41 @@ let
             export ANCHOR_IDL_BUILD_SKIP_LINT="TRUE"
             export RUSTFLAGS="-A warnings"
 
-            # Run the IDL generation test with proper flags
-            # CRITICAL: Must use --show-output --quiet (see idl/src/build.rs:155)
-            # Pattern __anchor_private_print_idl catches all IDL tests (see idl/src/build.rs:150)
-            temp_output="/tmp/idl_$program_name.txt"
-
-            if cargo test \
+            # Build this specific program with idl-build feature first
+            echo "      Building with idl-build feature..."
+            build_output=$(cargo build \
               --manifest-path "$program_dir/Cargo.toml" \
               --features idl-build \
+              --lib 2>&1) || build_exit=$?
+            build_exit=''${build_exit:-0}
+
+            if [ "$build_exit" -ne 0 ]; then
+              echo "   ⚠️  Build failed for $program_name, skipping IDL extraction"
+              echo "   Build output (last 10 lines):" >&2
+              echo "$build_output" | tail -10 >&2
+              ((idl_failed++)) || true
+              unset ANCHOR_IDL_BUILD_PROGRAM_PATH ANCHOR_IDL_BUILD_RESOLUTION
+              unset ANCHOR_IDL_BUILD_NO_DOCS ANCHOR_IDL_BUILD_SKIP_LINT RUSTFLAGS
+              continue
+            fi
+
+            echo "      Build succeeded, now extracting IDL..."
+            temp_output="/tmp/idl_$program_name.txt"
+
+            set +e  # Temporarily disable exit on error for test command
+            cargo test \
+              --manifest-path "$program_dir/Cargo.toml" \
+              --features idl-build \
+              --lib \
               __anchor_private_print_idl \
               -- \
               --show-output \
               --quiet \
-              --test-threads=1 > "$temp_output" 2>&1; then
+              --test-threads=1 > "$temp_output" 2>&1
+            test_exit=$?
+            set -e  # Re-enable exit on error
 
+            if [ "$test_exit" -eq 0 ]; then
               # Extract IDL JSON from program section (see idl/src/build.rs:202-280)
               idl_json=$(cat "$temp_output" | awk '
                 BEGIN { in_program=0; program="" }
@@ -309,7 +339,8 @@ let
 
               if [ -n "$idl_json" ] && [ "$(echo "$idl_json" | tr -d '[:space:]')" != "" ]; then
                 echo "$idl_json" > "target/idl/$program_name.json"
-                echo "   ✓ Generated target/idl/$program_name.json"
+                echo "    ✓ Generated target/idl/$program_name.json"
+                ((idl_success++)) || true
                 rm -f "$temp_output"
               else
                 echo "   ⚠️  Failed to extract IDL for $program_name (no program section found)"
@@ -317,22 +348,37 @@ let
                 head -30 "$temp_output" >&2
                 echo "   [DEBUG] Searching for IDL markers:"
                 grep -n "IDL" "$temp_output" >&2 || echo "   No IDL markers found" >&2
+                ((idl_failed++)) || true
                 rm -f "$temp_output"
               fi
             else
-              echo "   ❌ IDL test failed for $program_name"
+              echo "   ❌ IDL test failed for $program_name (exit code: $test_exit)"
               echo "   [DEBUG] Last 30 lines of output:"
               tail -30 "$temp_output" >&2
+              ((idl_failed++)) || true
               rm -f "$temp_output"
             fi
 
             # Clean up env vars
             unset ANCHOR_IDL_BUILD_PROGRAM_PATH ANCHOR_IDL_BUILD_RESOLUTION
             unset ANCHOR_IDL_BUILD_NO_DOCS ANCHOR_IDL_BUILD_SKIP_LINT RUSTFLAGS
+          else
+            echo "   [✗] $program_name does not have idl-build feature, skipping"
           fi
         done
 
-        echo "✅ Build complete with IDL generation"
+        # Report results and return appropriate exit code
+        if [ "$idl_success" -gt 0 ] && [ "$idl_failed" -eq 0 ]; then
+          echo "✅ Build complete: generated $idl_success IDL file(s)"
+        elif [ "$idl_success" -gt 0 ] && [ "$idl_failed" -gt 0 ]; then
+          echo "⚠️  Build complete: generated $idl_success IDL file(s), $idl_failed failed"
+          return 1
+        elif [ "$idl_failed" -gt 0 ]; then
+          echo "❌ Build complete but all IDL generation failed ($idl_failed program(s))"
+          return 1
+        else
+          echo "ℹ️  No programs with idl-build feature found"
+        fi
       else
         echo "ℹ️  Skipping IDL generation (no idl-build feature found in Cargo.toml)"
         echo "✅ Build complete: program built with Solana toolchain"

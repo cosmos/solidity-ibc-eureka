@@ -73,6 +73,7 @@
           };
           solana = pkgs.mkShell {
             buildInputs = with pkgs; [
+              gawk
               openssl
               openssl.dev
               pkg-config
