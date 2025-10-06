@@ -193,15 +193,11 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
         tracing::info!("Handling create client request for Cosmos to Solana...");
 
-        let tx = self
+        let tx_bytes = self
             .tx_builder
             .create_client()
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
-
-        let tx_bytes = bincode::serialize(&tx).map_err(|e| {
-            tonic::Status::internal(format!("Failed to serialize transaction: {e}"))
-        })?;
 
         Ok(Response::new(api::CreateClientResponse {
             tx: tx_bytes,
@@ -228,25 +224,12 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             chunked_txs.total_chunks
         );
 
-        // Serialize all transactions for the chunked_txs field
         let mut serialized_txs = Vec::new();
-
-        // Add metadata
-        serialized_txs.push(bincode::serialize(&chunked_txs.metadata_tx).map_err(|e| {
-            tonic::Status::internal(format!("Failed to serialize metadata tx: {e}"))
-        })?);
-
-        // Add all chunk transactions (can be sent in parallel after metadata)
-        for tx in &chunked_txs.chunk_txs {
-            serialized_txs.push(bincode::serialize(tx).map_err(|e| {
-                tonic::Status::internal(format!("Failed to serialize chunk tx: {e}"))
-            })?);
+        serialized_txs.push(chunked_txs.metadata_tx);
+        for tx in chunked_txs.chunk_txs {
+            serialized_txs.push(tx);
         }
-
-        // Add assembly transaction (must be last)
-        serialized_txs.push(bincode::serialize(&chunked_txs.assembly_tx).map_err(|e| {
-            tonic::Status::internal(format!("Failed to serialize assembly tx: {e}"))
-        })?);
+        serialized_txs.push(chunked_txs.assembly_tx);
 
         Ok(Response::new(api::UpdateClientResponse {
             tx: vec![],
