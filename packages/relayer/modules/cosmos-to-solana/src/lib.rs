@@ -97,7 +97,7 @@ impl CosmosToSolanaRelayerModuleService {
     }
 }
 
-#[async_trait::async_trait]
+#[tonic::async_trait]
 impl RelayerService for CosmosToSolanaRelayerModuleService {
     #[tracing::instrument(skip_all)]
     async fn info(

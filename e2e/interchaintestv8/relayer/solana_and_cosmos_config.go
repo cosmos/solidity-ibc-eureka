@@ -40,8 +40,8 @@ type SolanaToCosmosModuleConfig struct {
 type CosmosToSolanaModuleConfig struct {
 	// Source tendermint RPC URL (must be "source_rpc_url")
 	SourceRpcUrl string `json:"source_rpc_url"`
-	// Solana RPC URL
-	SolanaRpcUrl string `json:"solana_rpc_url"`
+	// Target RPC URL (Solana) - must be "target_rpc_url"
+	TargetRpcUrl string `json:"target_rpc_url"`
 	// Solana ICS26 router program ID (must be "solana_ics26_program_id")
 	SolanaIcs26ProgramId string `json:"solana_ics26_program_id"`
 	// Solana ICS07 Tendermint light client program ID (must be "solana_ics07_program_id")
@@ -71,7 +71,7 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 			DstChain: configInfo.SolanaChainID,
 			Config: CosmosToSolanaModuleConfig{
 				SourceRpcUrl:         configInfo.TmRPC,
-				SolanaRpcUrl:         configInfo.SolanaRPC,
+				TargetRpcUrl:         configInfo.SolanaRPC,
 				SolanaIcs26ProgramId: configInfo.ICS26RouterProgramID,
 				SolanaIcs07ProgramId: configInfo.ICS07ProgramID,
 				SolanaFeePayer:       configInfo.SolanaFeePayer,
