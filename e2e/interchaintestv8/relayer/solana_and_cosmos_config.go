@@ -25,8 +25,8 @@ type SolanaCosmosConfigInfo struct {
 type SolanaToCosmosModuleConfig struct {
 	// Solana chain ID
 	SolanaChainId string `json:"solana_chain_id"`
-	// Solana RPC URL
-	SolanaRpcUrl string `json:"solana_rpc_url"`
+	// Source RPC URL (Solana) - must be "src_rpc_url"
+	SrcRpcUrl string `json:"src_rpc_url"`
 	// Target tendermint RPC URL (must be "target_rpc_url" not "tm_rpc_url")
 	TargetRpcUrl string `json:"target_rpc_url"`
 	// Signer address for submitting to Cosmos
@@ -58,7 +58,7 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 			DstChain: configInfo.CosmosChainID,
 			Config: SolanaToCosmosModuleConfig{
 				SolanaChainId:        configInfo.SolanaChainID,
-				SolanaRpcUrl:         configInfo.SolanaRPC,
+				SrcRpcUrl:            configInfo.SolanaRPC,
 				TargetRpcUrl:         configInfo.TmRPC,
 				SignerAddress:        configInfo.CosmosSignerAddress,
 				SolanaIcs26ProgramId: configInfo.ICS26RouterProgramID,
