@@ -15,15 +15,10 @@ use ibc_eureka_relayer_lib::{
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
-    ibc::{
-        core::client::v1::{Height, MsgCreateClient, MsgUpdateClient},
-        lightclients::wasm::v1::{
-            ClientMessage, ClientState as WasmClientState, ConsensusState as WasmConsensusState,
-        },
-    },
+    ibc::{core::client::v1::Height, lightclients::wasm::v1::ConsensusState as WasmConsensusState},
 };
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
+use solana_sdk::pubkey::Pubkey;
 use tendermint_rpc::HttpClient;
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from Solana.

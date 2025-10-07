@@ -259,8 +259,7 @@ impl SolanaToCosmosTxBuilder {
         dst_packet_seqs: Vec<u64>,
     ) -> anyhow::Result<Vec<u8>> {
         match self {
-            Self::Real() =>
-                unreachable!()
+            Self::Real() => unreachable!(),
             Self::Mock(tb) => {
                 tb.relay_events(
                     src_events,
