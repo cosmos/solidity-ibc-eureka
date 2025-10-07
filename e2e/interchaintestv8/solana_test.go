@@ -256,6 +256,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 		s.Require().True(s.Run("Deploy and Register Dummy App", func() {
 			dummyAppProgramID := s.deploySolanaProgram(ctx, "dummy_ibc_app")
+			dummy_ibc_app.ProgramID = dummyAppProgramID
 
 			programAvailable := s.SolanaChain.WaitForProgramAvailabilityWithTimeout(ctx, dummyAppProgramID, 120)
 			s.Require().True(programAvailable, "Program failed to become available within timeout")
@@ -1077,7 +1078,7 @@ func (s *IbcEurekaSolanaTestSuite) deploySolanaProgram(ctx context.Context, prog
 	keypairPath := fmt.Sprintf("e2e/interchaintestv8/solana/%s-keypair.json", programName)
 	walletPath := "e2e/interchaintestv8/solana/deployer_wallet.json"
 	programID, _, err := solana.AnchorDeploy(ctx, "programs/solana", programName, keypairPath, walletPath)
-	s.Require().NoError(err)
+	s.Require().NoError(err, "%s program deployment has failed", programName)
 	s.T().Logf("%s program deployed at: %s", programName, programID.String())
 	return programID
 }
