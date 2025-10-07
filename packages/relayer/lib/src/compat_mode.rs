@@ -1,7 +1,6 @@
 //!  Cosmos backwards compatible relayer module.
 
 #![deny(clippy::nursery, clippy::pedantic, warnings, missing_docs)]
-#![allow(unused_crate_dependencies)] // Temporary until v1.2 is implemented
 
 use ibc_eureka_utils::rpc::TendermintRpcExt as _;
 use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientState;
