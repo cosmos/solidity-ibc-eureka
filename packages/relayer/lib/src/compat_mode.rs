@@ -9,7 +9,7 @@ use prost::Message;
 
 use crate::listener::cosmos_sdk;
 
-// Which IBC version supports counterparty chain lightclient deployed on Cosmos
+/// Which IBC version supports counterparty chain lightclient deployed on Cosmos
 pub enum LightClientVersion {
     /// Version 1
     V1_2,
