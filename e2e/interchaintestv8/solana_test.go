@@ -264,7 +264,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			s.Require().True(programAvailable, "Program failed to become available within timeout")
 
 			// Initialize dummy app state
-			appStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("dummy_app_state"), []byte(transfertypes.PortID)}, dummyAppProgramID)
+			appStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(transfertypes.PortID)}, dummyAppProgramID)
 			s.Require().NoError(err)
 
 			initInstruction, err := dummy_ibc_app.NewInitializeInstruction(
@@ -911,7 +911,7 @@ func (s *IbcEurekaSolanaTestSuite) prepareBaseAccounts(ctx context.Context, dumm
 	accounts := AccountSet{}
 	var err error
 
-	accounts.AppState, _, err = solanago.FindProgramAddress([][]byte{[]byte("dummy_app_state")}, dummyAppProgramID)
+	accounts.AppState, _, err = solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(port)}, dummyAppProgramID)
 	s.Require().NoError(err)
 
 	accounts.RouterCaller, _, err = solanago.FindProgramAddress([][]byte{[]byte("router_caller")}, dummyAppProgramID)
