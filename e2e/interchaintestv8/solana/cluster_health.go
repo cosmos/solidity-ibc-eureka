@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
+
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
-
-	testvalues "github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 // WaitForClusterReady waits for the Solana cluster to be fully initialized
@@ -152,4 +152,3 @@ func (s *Solana) FundUserWithRetry(ctx context.Context, pubkey solana.PublicKey,
 
 	return solana.Signature{}, fmt.Errorf("failed to fund user after %d retries: %w", retries, lastErr)
 }
-
