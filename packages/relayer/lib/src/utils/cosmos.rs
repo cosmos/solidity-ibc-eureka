@@ -1,5 +1,8 @@
 //! Relayer utilities for `CosmosSDK` chains.
 
+use std::collections::HashMap;
+use std::hash::BuildHasher;
+
 use alloy::{hex, primitives::U256, providers::Provider};
 use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
@@ -11,15 +14,21 @@ use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 use ibc_eureka_utils::{light_block::LightBlockExt as _, rpc::TendermintRpcExt};
 use ibc_proto_eureka::google::protobuf::Duration;
 use ibc_proto_eureka::{
+    cosmos::tx::v1beta1::TxBody,
+    google::protobuf::Any,
     ibc::{
         core::{
             channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
-            client::v1::Height,
+            client::v1::{Height, MsgCreateClient, MsgUpdateClient},
         },
         lightclients::tendermint::v1::ClientState,
+        lightclients::wasm::v1::{
+            ClientState as WasmClientState, ConsensusState as WasmConsensusState,
+        },
     },
     Protobuf,
 };
+use prost::Message;
 use tendermint_rpc::HttpClient;
 
 use crate::{
@@ -238,6 +247,98 @@ pub async fn tm_create_client_params(
         client_state,
         consensus_state,
     })
+}
+
+/// Creates a Cosmos transaction for creating an IBC client with WASM light client support.
+///
+/// # Arguments
+/// * `parameters` - Must contain `checksum_hex` key with the WASM code checksum
+/// * `client_state_bytes` - Serialized client state data
+/// * `consensus_state` - Serialized consensus state data
+/// * `height` - Height parameter (currently unused in implementation)
+/// * `signer_address` - Address of the transaction signer
+///
+/// # Returns
+/// Encoded transaction body bytes
+///
+/// # Errors
+/// * If parameters contains keys other than `checksum_hex`
+/// * If `checksum_hex` parameter is missing
+/// * If checksum hex decoding fails
+pub fn cosmos_create_client_tx<H: BuildHasher>(
+    parameters: &HashMap<String, String, H>,
+    client_state_bytes: Vec<u8>,
+    consensus_state: &WasmConsensusState,
+    height: Height,
+    signer_address: String,
+) -> Result<Vec<u8>> {
+    const CHECKSUM_HEX: &str = "checksum_hex";
+    parameters
+        .keys()
+        .find(|k| k.as_str() != CHECKSUM_HEX)
+        .map_or(Ok(()), |param| {
+            Err(anyhow::anyhow!(
+                "Unexpected parameter: `{param}`, only `{CHECKSUM_HEX}` is allowed"
+            ))
+        })?;
+    let checksum = hex::decode(
+        parameters
+            .get(CHECKSUM_HEX)
+            .ok_or_else(|| anyhow::anyhow!("Missing `{CHECKSUM_HEX}` parameter"))?,
+    )?;
+
+    let client_state = WasmClientState {
+        data: client_state_bytes,
+        checksum,
+        latest_height: Some(height),
+    };
+
+    let msg = MsgCreateClient {
+        client_state: Some(Any::from_msg(&client_state)?),
+        consensus_state: Some(Any::from_msg(consensus_state)?),
+        signer: signer_address,
+    };
+
+    Ok(TxBody {
+        messages: vec![Any::from_msg(&msg)?],
+        ..Default::default()
+    }
+    .encode_to_vec())
+}
+
+/// Creates a Cosmos transaction for updating an IBC client with a new consensus state.
+///
+/// # Arguments
+/// * `dst_client_id` - The identifier of the client to update
+/// * `consensus_state` - The consensus state of update
+/// * `signer_address` - Address of the transaction signer
+///
+/// # Returns
+/// Encoded transaction body bytes ready for signing and submission
+///
+/// # Errors
+/// * If message encoding fails
+pub fn cosmos_update_client_tx(
+    dst_client_id: String,
+    consensus_state: &WasmConsensusState,
+    signer_address: String,
+) -> Result<Vec<u8>> {
+    tracing::info!(
+        "Generating tx to update light client on cosmos: {}",
+        dst_client_id
+    );
+
+    let msg = MsgUpdateClient {
+        client_id: dst_client_id,
+        client_message: Some(Any::from_msg(consensus_state)?),
+        signer: signer_address,
+    };
+
+    Ok(TxBody {
+        messages: vec![Any::from_msg(&msg)?],
+        ..Default::default()
+    }
+    .encode_to_vec())
 }
 
 /// Generates and injects tendermint proofs for rec, ack and timeout messages.

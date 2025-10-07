@@ -126,67 +126,33 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
     async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
         tracing::info!("Creating Solana light client on Cosmos");
 
-        let slot = self
-            .solana_client
-            .get_slot_with_commitment(CommitmentConfig::finalized())
-            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
-
-        let checksum_hex = parameters
-            .get("checksum_hex")
-            .ok_or_else(|| anyhow::anyhow!("Missing checksum_hex parameter"))?;
-
-        let checksum = hex::decode(checksum_hex)
-            .map_err(|e| anyhow::anyhow!("Failed to decode checksum hex: {e}"))?;
-
-        let client_state = WasmClientState {
-            data: b"mock_client_state".to_vec(), // Mock Solana-specific client state
-            checksum,                            // Use actual WASM code checksum from parameters
-            latest_height: Some(Height {
-                revision_number: 0, // Solana doesn't have revision numbers
-                revision_height: slot,
-            }),
-        };
-
+        let client_state = b"test".to_vec();
         let consensus_state = WasmConsensusState {
-            data: b"mock_consensus_state".to_vec(), // Mock Solana-specific consensus state
+            data: b"test".to_vec(),
         };
 
-        let create_msg = MsgCreateClient {
-            client_state: Some(Any::from_msg(&client_state)?),
-            consensus_state: Some(Any::from_msg(&consensus_state)?),
-            signer: self.signer_address.clone(),
-        };
-
-        let tx = TxBody {
-            messages: vec![Any::from_msg(&create_msg)?],
-            ..Default::default()
-        };
-
-        Ok(tx.encode_to_vec())
+        cosmos::cosmos_create_client_tx(
+            parameters,
+            client_state,
+            &consensus_state,
+            Height {
+                revision_number: 0,
+                revision_height: 1,
+            },
+            self.signer_address.clone(),
+        )
     }
 
     #[tracing::instrument(skip_all)]
     async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
-        let slot = self
-            .solana_client
-            .get_slot_with_commitment(CommitmentConfig::finalized())
-            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
-
-        tracing::info!(dst_client_id, slot, "Updating Solana client");
-
-        let header_data = b"mock".to_vec();
-        let client_msg = Any::from_msg(&ClientMessage { data: header_data })?;
-
-        let update_msg = MsgUpdateClient {
-            client_id: dst_client_id,
-            client_message: Some(client_msg),
-            signer: self.signer_address.clone(),
+        let consensus_state = WasmConsensusState {
+            data: b"test".to_vec(),
         };
 
-        Ok(TxBody {
-            messages: vec![Any::from_msg(&update_msg)?],
-            ..Default::default()
-        }
-        .encode_to_vec())
+        cosmos::cosmos_update_client_tx(
+            dst_client_id,
+            &consensus_state,
+            self.signer_address.clone(),
+        )
     }
 }

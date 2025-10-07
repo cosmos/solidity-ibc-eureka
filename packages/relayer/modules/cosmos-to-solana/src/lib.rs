@@ -218,12 +218,6 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::info!(
-            "Built {} transactions for chunked update client (1 metadata + {} chunks + 1 assembly)",
-            header_update.total_chunks + 2, // metadata + chunks + assembly
-            header_update.total_chunks
-        );
-
         let mut txs = Vec::new();
         txs.push(header_update.metadata_tx);
         for tx in header_update.chunk_txs {
