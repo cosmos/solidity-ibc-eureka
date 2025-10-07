@@ -966,6 +966,12 @@ impl TxBuilder {
             total_chunks,
         )?;
 
+        tracing::info!(
+            "Built {} transactions for chunked update client (1 metadata + {} chunks + 1 assembly)",
+            total_chunks + 2, // metadata + chunks + assembly
+            total_chunks
+        );
+
         Ok(UpdateClientChunkedTxs {
             metadata_tx,
             chunk_txs,

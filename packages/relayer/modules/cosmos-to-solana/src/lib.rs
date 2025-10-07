@@ -193,14 +193,14 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
         tracing::info!("Handling create client request for Cosmos to Solana...");
 
-        let tx_bytes = self
+        let tx = self
             .tx_builder
             .create_client()
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         Ok(Response::new(api::CreateClientResponse {
-            tx: tx_bytes,
+            tx,
             address: self.solana_ics07_program_id.to_string(),
         }))
     }
@@ -212,7 +212,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
         tracing::info!("Handling update client request for Cosmos to Solana...");
 
-        let chunked_txs = self
+        let header_update = self
             .tx_builder
             .update_client(request.into_inner().dst_client_id)
             .await
@@ -220,21 +220,21 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         tracing::info!(
             "Built {} transactions for chunked update client (1 metadata + {} chunks + 1 assembly)",
-            chunked_txs.total_chunks + 2, // metadata + chunks + assembly
-            chunked_txs.total_chunks
+            header_update.total_chunks + 2, // metadata + chunks + assembly
+            header_update.total_chunks
         );
 
-        let mut serialized_txs = Vec::new();
-        serialized_txs.push(chunked_txs.metadata_tx);
-        for tx in chunked_txs.chunk_txs {
-            serialized_txs.push(tx);
+        let mut txs = Vec::new();
+        txs.push(header_update.metadata_tx);
+        for tx in header_update.chunk_txs {
+            txs.push(tx);
         }
-        serialized_txs.push(chunked_txs.assembly_tx);
+        txs.push(header_update.assembly_tx);
 
         Ok(Response::new(api::UpdateClientResponse {
             tx: vec![],
             address: self.solana_ics07_program_id.to_string(),
-            txs: serialized_txs,
+            txs,
         }))
     }
 }
