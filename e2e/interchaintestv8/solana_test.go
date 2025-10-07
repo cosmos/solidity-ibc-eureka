@@ -612,8 +612,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		s.T().Logf("Solana packet transaction %s ready for relaying", solanaTxSig)
 	}))
 
-	s.Require().True(s.Run("Relay packet to Cosmos", func() {
-		var relayTxBodyBz []byte
+	s.Require().True(s.Run("Relay acknowledgment back to Cosmos", func() {
+		var ackRelayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SrcChain:    testvalues.SolanaChainID,
@@ -626,40 +626,17 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.Require().NotEmpty(resp.Tx)
 			s.Require().Empty(resp.Address)
 
-			relayTxBodyBz = resp.Tx
-			s.T().Logf("Retrieved relay transaction with %d bytes", len(relayTxBodyBz))
+			ackRelayTxBodyBz = resp.Tx
+			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(ackRelayTxBodyBz))
 		}))
 
-		s.Require().True(s.Run("Broadcast relay tx on Cosmos", func() {
-			var txBody txtypes.TxBody
-			err := proto.Unmarshal(relayTxBodyBz, &txBody)
-			s.Require().NoError(err)
+		s.Require().True(s.Run("Broadcast acknowledgment relay tx on Cosmos", func() {
+			relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 200_000, ackRelayTxBodyBz)
+			s.T().Logf("Acknowledgment relay transaction: %s (code: %d, gas: %d)",
+				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
 
-			s.T().Logf("=== COSMOS RELAY TX DEBUG ===")
-			s.T().Logf("Transaction body contains %d messages", len(txBody.Messages))
-
-			var msgs []sdk.Msg
-			for i, msg := range txBody.Messages {
-				var sdkMsg sdk.Msg
-				err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
-				s.Require().NoError(err)
-				msgs = append(msgs, sdkMsg)
-				s.T().Logf("Message %d type: %T", i, sdkMsg)
-				s.T().Logf("Message %d: %+v", i, sdkMsg)
-			}
-			s.Require().NotZero(len(msgs))
-
-			s.T().Logf("Broadcasting %d messages to Cosmos...", len(msgs))
-			relayTxResult, err := s.BroadcastMessages(ctx, simd, s.CosmosUsers[0], 200_000, msgs...)
-			s.Require().NoError(err)
 			s.T().Logf("Relay transaction broadcasted: %s with %d messages", relayTxResult.TxHash, len(msgs))
-			s.T().Logf("Transaction result code: %d", relayTxResult.Code)
-			s.T().Logf("Transaction gas used: %d", relayTxResult.GasUsed)
 
-			// Check if the transaction was successful
-			s.Require().Equal(uint32(0), relayTxResult.Code, "MsgRecvPacket transaction should succeed with code 0")
-
-			// Query the transaction to check for events
 			txResp, err := simd.GetTransaction(relayTxResult.TxHash)
 			s.Require().NoError(err)
 			s.T().Logf("Transaction events count: %d", len(txResp.Events))
