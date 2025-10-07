@@ -366,6 +366,190 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	}))
 }
 
+func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	simd := s.CosmosChains[0]
+
+	var solanaTxSig solanago.Signature
+	var cosmosPacketRelayTxHash []byte
+
+	s.Require().True(s.Run("Send ICS20 transfer using send_packet", func() {
+		initialBalance := s.SolanaUser.PublicKey()
+		balanceResp, err := s.SolanaChain.RPCClient.GetBalance(ctx, initialBalance, "confirmed")
+		s.Require().NoError(err)
+		initialLamports := balanceResp.Value
+
+		s.T().Logf("Initial SOL balance: %d lamports", initialLamports)
+
+		cosmosUserWallet := s.CosmosUsers[0]
+		receiver := cosmosUserWallet.FormattedAddress()
+
+		transferData := transfertypes.NewFungibleTokenPacketData(
+			SolDenom,                              // denom
+			fmt.Sprintf("%d", TestTransferAmount), // amount as string
+			s.SolanaUser.PublicKey().String(),     // sender
+			receiver,                              // receiver
+			"Test via send_packet",                // memo
+		)
+		packetData := transferData.GetBytes()
+
+		accounts := s.preparePacketAccounts(ctx, s.DummyAppProgramID, "transfer", SolanaClientID)
+
+		packetMsg := dummy_ibc_app.SendPacketMsg{
+			SourceClient:     SolanaClientID,
+			SourcePort:       transfertypes.PortID,
+			DestPort:         transfertypes.PortID,
+			Version:          transfertypes.V1,
+			Encoding:         "application/json",
+			PacketData:       packetData,
+			TimeoutTimestamp: time.Now().Unix() + 3600,
+		}
+
+		sendPacketInstruction, err := dummy_ibc_app.NewSendPacketInstruction(
+			packetMsg,
+			accounts.AppState,
+			s.SolanaUser.PublicKey(),
+			accounts.RouterState,
+			accounts.IBCApp,
+			accounts.ClientSequence,
+			accounts.PacketCommitment,
+			accounts.Client,
+			ics26_router.ProgramID,
+			solanago.SystemProgramID,
+			solanago.SysVarClockPubkey,
+			accounts.RouterCaller,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), sendPacketInstruction)
+		s.Require().NoError(err)
+
+		solanaTxSig, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Logf("send_packet transaction: %s", solanaTxSig)
+		s.T().Logf("Sent ICS20 transfer packet with %d bytes of data", len(packetData))
+
+		finalBalance, err := s.SolanaChain.RPCClient.GetBalance(ctx, s.SolanaUser.PublicKey(), "confirmed")
+		s.Require().NoError(err)
+		s.T().Logf("Final SOL balance: %d lamports (change: %d lamports for fees)", finalBalance.Value, initialLamports-finalBalance.Value)
+		s.T().Logf("Note: send_packet sends IBC transfer data without local escrow - tokens should be minted on destination")
+
+		s.T().Logf("Solana packet transaction %s ready for relaying", solanaTxSig)
+	}))
+
+	s.Require().True(s.Run("Relay acknowledgment back to Cosmos", func() {
+		var ackRelayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    testvalues.SolanaChainID,
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{[]byte(solanaTxSig.String())},
+				SrcClientId: SolanaClientID,
+				DstClientId: CosmosClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			ackRelayTxBodyBz = resp.Tx
+			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(ackRelayTxBodyBz))
+		}))
+
+		s.Require().True(s.Run("Broadcast acknowledgment relay tx on Cosmos", func() {
+			relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 200_000, ackRelayTxBodyBz)
+			s.T().Logf("Acknowledgment relay transaction: %s (code: %d, gas: %d)",
+				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
+
+			txResp, err := simd.GetTransaction(relayTxResult.TxHash)
+			s.Require().NoError(err)
+			s.T().Logf("Transaction events count: %d", len(txResp.Events))
+
+			cosmosPacketRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
+			s.Require().NoError(err)
+			cosmosPacketRelayTxHash = cosmosPacketRelayTxHashBytes
+
+			// Add a small delay to ensure the acknowledgment is fully written to state
+			s.T().Log("Waiting 2 seconds for acknowledgment to be written to state...")
+			time.Sleep(2 * time.Second)
+		}))
+	}))
+
+	var denomOnCosmos transfertypes.Denom
+	s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+		cosmosUserAddress := s.CosmosUsers[0].FormattedAddress()
+
+		denomOnCosmos = getSolDenomOnCosmos()
+
+		allBalancesResp, err := e2esuite.GRPCQuery[banktypes.QueryAllBalancesResponse](ctx, simd, &banktypes.QueryAllBalancesRequest{
+			Address: cosmosUserAddress,
+		})
+		s.Require().NoError(err)
+		s.T().Logf("All balances for user %s:", cosmosUserAddress)
+		for _, balance := range allBalancesResp.Balances {
+			s.T().Logf("  - %s: %s", balance.Denom, balance.Amount.String())
+		}
+
+		resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+			Address: cosmosUserAddress,
+			Denom:   denomOnCosmos.IBCDenom(),
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp.Balance)
+		s.T().Logf("Current balance for %s: %s %s", denomOnCosmos.IBCDenom(), resp.Balance.Amount.String(), resp.Balance.Denom)
+
+		expectedAmount := sdkmath.NewInt(TestTransferAmount)
+		s.Require().Equal(expectedAmount, resp.Balance.Amount)
+		s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
+	}))
+
+	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
+		// Add a small delay to ensure acknowledgment is fully committed on Cosmos
+		s.T().Log("Waiting 3 seconds for acknowledgment to be fully committed on Cosmos...")
+		time.Sleep(3 * time.Second)
+
+		s.Require().True(s.Run("Update Tendermint client on Solana via chunks", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    testvalues.SolanaChainID,
+				DstClientId: SolanaClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Txs, "Update client should return chunked transactions")
+
+			err = s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
+			s.Require().NoError(err, "Failed to submit chunked update client transactions")
+			s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.Txs))
+		}))
+
+		s.Require().True(s.Run("Relay acknowledgment", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    testvalues.SolanaChainID,
+				SourceTxIds: [][]byte{cosmosPacketRelayTxHash},
+				SrcClientId: CosmosClientID,
+				DstClientId: SolanaClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx, "Acknowledgment transaction should not be empty")
+			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(resp.Tx))
+
+			unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
+			s.Require().NoError(err)
+			s.T().Logf("Acknowledgment transaction contains %d instructions", len(unsignedSolanaTx.Message.Instructions))
+
+			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
+			s.Require().NoError(err)
+			s.T().Logf("Acknowledgment transaction broadcasted: %s", sig)
+
+			// Verify acknowledgment was processed correctly on Solana
+			// The packet should have sequence 1 since it's our first packet
+			s.verifyAcknowledgmentOnSolana(ctx, SolanaClientID, 1)
+		}))
+	}))
+}
+
 func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
@@ -524,192 +708,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(resp.Tx))
 
 			// Submit the acknowledgment transaction
-			unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
-			s.Require().NoError(err)
-			s.T().Logf("Acknowledgment transaction contains %d instructions", len(unsignedSolanaTx.Message.Instructions))
-
-			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
-			s.Require().NoError(err)
-			s.T().Logf("Acknowledgment transaction broadcasted: %s", sig)
-
-			// Verify acknowledgment was processed correctly on Solana
-			// The packet should have sequence 1 since it's our first packet
-			s.verifyAcknowledgmentOnSolana(ctx, SolanaClientID, 1)
-		}))
-	}))
-}
-
-func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
-	ctx := context.Background()
-	s.SetupSuite(ctx)
-
-	simd := s.CosmosChains[0]
-
-	var solanaTxSig solanago.Signature
-	var cosmosPacketRelayTxHash []byte
-
-	s.Require().True(s.Run("Send ICS20 transfer using send_packet", func() {
-		initialBalance := s.SolanaUser.PublicKey()
-		balanceResp, err := s.SolanaChain.RPCClient.GetBalance(ctx, initialBalance, "confirmed")
-		s.Require().NoError(err)
-		initialLamports := balanceResp.Value
-
-		s.T().Logf("Initial SOL balance: %d lamports", initialLamports)
-
-		cosmosUserWallet := s.CosmosUsers[0]
-		receiver := cosmosUserWallet.FormattedAddress()
-
-		transferData := transfertypes.NewFungibleTokenPacketData(
-			SolDenom,                              // denom
-			fmt.Sprintf("%d", TestTransferAmount), // amount as string
-			s.SolanaUser.PublicKey().String(),     // sender
-			receiver,                              // receiver
-			"Test via send_packet",                // memo
-		)
-		packetData := transferData.GetBytes()
-
-		accounts := s.preparePacketAccounts(ctx, s.DummyAppProgramID, "transfer", SolanaClientID)
-
-		packetMsg := dummy_ibc_app.SendPacketMsg{
-			SourceClient:     SolanaClientID,
-			SourcePort:       transfertypes.PortID,
-			DestPort:         transfertypes.PortID,
-			Version:          transfertypes.V1,
-			Encoding:         "application/json",
-			PacketData:       packetData,
-			TimeoutTimestamp: time.Now().Unix() + 3600,
-		}
-
-		sendPacketInstruction, err := dummy_ibc_app.NewSendPacketInstruction(
-			packetMsg,
-			accounts.AppState,
-			s.SolanaUser.PublicKey(),
-			accounts.RouterState,
-			accounts.IBCApp,
-			accounts.ClientSequence,
-			accounts.PacketCommitment,
-			accounts.Client,
-			ics26_router.ProgramID,
-			solanago.SystemProgramID,
-			solanago.SysVarClockPubkey,
-			accounts.RouterCaller,
-		)
-		s.Require().NoError(err)
-
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), sendPacketInstruction)
-		s.Require().NoError(err)
-
-		solanaTxSig, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
-		s.Require().NoError(err)
-		s.T().Logf("send_packet transaction: %s", solanaTxSig)
-		s.T().Logf("Sent ICS20 transfer packet with %d bytes of data", len(packetData))
-
-		finalBalance, err := s.SolanaChain.RPCClient.GetBalance(ctx, s.SolanaUser.PublicKey(), "confirmed")
-		s.Require().NoError(err)
-		s.T().Logf("Final SOL balance: %d lamports (change: %d lamports for fees)", finalBalance.Value, initialLamports-finalBalance.Value)
-		s.T().Logf("Note: send_packet sends IBC transfer data without local escrow - tokens should be minted on destination")
-
-		s.T().Logf("Solana packet transaction %s ready for relaying", solanaTxSig)
-	}))
-
-	s.Require().True(s.Run("Relay acknowledgment back to Cosmos", func() {
-		var ackRelayTxBodyBz []byte
-		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    testvalues.SolanaChainID,
-				DstChain:    simd.Config().ChainID,
-				SourceTxIds: [][]byte{[]byte(solanaTxSig.String())},
-				SrcClientId: SolanaClientID,
-				DstClientId: CosmosClientID,
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx)
-			s.Require().Empty(resp.Address)
-
-			ackRelayTxBodyBz = resp.Tx
-			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(ackRelayTxBodyBz))
-		}))
-
-		s.Require().True(s.Run("Broadcast acknowledgment relay tx on Cosmos", func() {
-			relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 200_000, ackRelayTxBodyBz)
-			s.T().Logf("Acknowledgment relay transaction: %s (code: %d, gas: %d)",
-				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
-
-			s.T().Logf("Relay transaction broadcasted: %s with %d messages", relayTxResult.TxHash, len(msgs))
-
-			txResp, err := simd.GetTransaction(relayTxResult.TxHash)
-			s.Require().NoError(err)
-			s.T().Logf("Transaction events count: %d", len(txResp.Events))
-
-			cosmosPacketRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
-			s.Require().NoError(err)
-			cosmosPacketRelayTxHash = cosmosPacketRelayTxHashBytes
-
-			// Add a small delay to ensure the acknowledgment is fully written to state
-			s.T().Log("Waiting 2 seconds for acknowledgment to be written to state...")
-			time.Sleep(2 * time.Second)
-		}))
-	}))
-
-	var denomOnCosmos transfertypes.Denom
-	s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
-		cosmosUserAddress := s.CosmosUsers[0].FormattedAddress()
-
-		denomOnCosmos = getSolDenomOnCosmos()
-
-		allBalancesResp, err := e2esuite.GRPCQuery[banktypes.QueryAllBalancesResponse](ctx, simd, &banktypes.QueryAllBalancesRequest{
-			Address: cosmosUserAddress,
-		})
-		s.Require().NoError(err)
-		s.T().Logf("All balances for user %s:", cosmosUserAddress)
-		for _, balance := range allBalancesResp.Balances {
-			s.T().Logf("  - %s: %s", balance.Denom, balance.Amount.String())
-		}
-
-		resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
-			Address: cosmosUserAddress,
-			Denom:   denomOnCosmos.IBCDenom(),
-		})
-		s.Require().NoError(err)
-		s.Require().NotNil(resp.Balance)
-		s.T().Logf("Current balance for %s: %s %s", denomOnCosmos.IBCDenom(), resp.Balance.Amount.String(), resp.Balance.Denom)
-
-		expectedAmount := sdkmath.NewInt(TestTransferAmount)
-		s.Require().Equal(expectedAmount, resp.Balance.Amount)
-		s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
-	}))
-
-	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
-		// Add a small delay to ensure acknowledgment is fully committed on Cosmos
-		s.T().Log("Waiting 3 seconds for acknowledgment to be fully committed on Cosmos...")
-		time.Sleep(3 * time.Second)
-
-		s.Require().True(s.Run("Update Tendermint client on Solana via chunks", func() {
-			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Txs, "Update client should return chunked transactions")
-
-			err = s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
-			s.Require().NoError(err, "Failed to submit chunked update client transactions")
-			s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.Txs))
-		}))
-
-		s.Require().True(s.Run("Relay acknowledgment", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				SourceTxIds: [][]byte{cosmosPacketRelayTxHash},
-				SrcClientId: CosmosClientID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx, "Acknowledgment transaction should not be empty")
-			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(resp.Tx))
-
 			unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
 			s.Require().NoError(err)
 			s.T().Logf("Acknowledgment transaction contains %d instructions", len(unsignedSolanaTx.Message.Instructions))
