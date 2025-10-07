@@ -257,8 +257,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().True(s.Run("Deploy and Register Dummy App", func() {
 			dummyAppProgramID := s.deploySolanaProgram(ctx, "dummy_ibc_app")
 
-			dummy_ibc_app.ProgramID = dummyAppProgramID
-
 			programAvailable := s.SolanaChain.WaitForProgramAvailabilityWithTimeout(ctx, dummyAppProgramID, 120)
 			s.Require().True(programAvailable, "Program failed to become available within timeout")
 
