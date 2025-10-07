@@ -676,7 +676,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 				DstChain:    testvalues.SolanaChainID,
 				DstClientId: SolanaClientID,
 			})
-			s.Require().NoError(err)
+			s.Require().NoError(err, "Relayer failed to generate update txs")
 			s.Require().NotEmpty(resp.Txs, "Update client should return chunked transactions")
 
 			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
@@ -959,7 +959,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 
 	// Submit assembly transaction - must be done last (always the last transaction)
 	tx, err = solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[len(resp.Txs)-1]))
-	s.Require().NoError(err, "Failed to decode tx")
+	s.Require().NoError(err, "Failed to decode assembly tx")
 
 	sig, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
 	s.Require().NoError(err)
