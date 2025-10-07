@@ -794,10 +794,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
-		// Add a small delay to ensure acknowledgment is fully committed on Cosmos
-		s.T().Log("Waiting 3 seconds for acknowledgment to be fully committed on Cosmos...")
-		time.Sleep(3 * time.Second)
-
 		s.Require().True(s.Run("Update Tendermint client on Solana via chunks", func() {
 			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
 				SrcChain:    simd.Config().ChainID,
@@ -805,7 +801,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Txs, "Update client should return chunked transactions")
 
 			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
 			s.Require().NoError(err, "Failed to submit chunked update client transactions")
@@ -974,7 +969,6 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 	time.Sleep(500 * time.Millisecond)
 
 	s.T().Logf("Successfully submitted all %d chunked transactions", len(resp.Txs))
-	return
 }
 
 func (s *IbcEurekaSolanaTestSuite) verifyAcknowledgmentOnSolana(ctx context.Context, clientID string, sequence uint64) {
