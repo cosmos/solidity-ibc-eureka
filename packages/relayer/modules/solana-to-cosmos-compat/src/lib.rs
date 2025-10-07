@@ -19,7 +19,7 @@ use ibc_eureka_relayer_lib::{
     listener::cosmos_sdk,
     utils::cosmos::CHECKSUM_HEX,
 };
-use ibc_eureka_relayer_solana_to_cosmos::{SolanaToCosmosConfig, SolanaToCosmosRelayerModule};
+use ibc_eureka_relayer_solana_to_cosmos::SolanaToCosmosConfig;
 use ibc_eureka_utils::rpc::TendermintRpcExt as _;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
