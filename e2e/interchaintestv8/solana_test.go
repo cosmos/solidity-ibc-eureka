@@ -393,7 +393,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		)
 		packetData := transferData.GetBytes()
 
-		accounts := s.preparePacketAccounts(ctx, s.DummyAppProgramID, "transfer", SolanaClientID)
+		accounts := s.preparePacketAccounts(ctx, s.DummyAppProgramID, transfertypes.PortID, SolanaClientID)
 
 		packetMsg := dummy_ibc_app.SendPacketMsg{
 			SourceClient:     SolanaClientID,

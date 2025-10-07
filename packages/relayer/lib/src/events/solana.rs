@@ -146,7 +146,7 @@ pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurek
                 }
             };
 
-            tracing::debug!(?event, "parsed event");
+            tracing::info!(?event, "parsed event");
 
             events.push(event);
         }

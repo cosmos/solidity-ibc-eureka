@@ -102,6 +102,13 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
 
         cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
 
+        for recv in &recv_msgs {
+            tracing::info!(?recv, "recv_msgs");
+        }
+
+        for ack in &ack_msgs {
+            tracing::info!(?ack, "ack_msgs");
+        }
         let all_msgs = timeout_msgs
             .into_iter()
             .map(|m| Any::from_msg(&m))
