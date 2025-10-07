@@ -523,7 +523,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Acknowledgment transaction should not be empty")
-			s.T().Logf("Retrieved acknowledgment relay transaction with %d bytes", len(resp.Tx))
 
 			unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
 			s.Require().NoError(err)
@@ -794,7 +793,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 		}))
 	}))
 
-	// gogoproto
 	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
 		// Add a small delay to ensure acknowledgment is fully committed on Cosmos
 		s.T().Log("Waiting 3 seconds for acknowledgment to be fully committed on Cosmos...")
@@ -828,7 +826,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 
 			unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
 			s.Require().NoError(err)
-			s.T().Logf("Acknowledgment transaction contains %d instructions", len(unsignedSolanaTx.Message.Instructions))
 
 			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
 			s.Require().NoError(err)
