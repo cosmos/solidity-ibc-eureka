@@ -64,7 +64,7 @@ func (s *Solana) WaitForClusterReady(ctx context.Context, timeout time.Duration)
 func (s *Solana) CreateAndFundWalletWithRetry(ctx context.Context, retries int) (*solana.Wallet, error) {
 	var lastErr error
 
-	for i := 0; i < retries; i++ {
+	for i := range retries {
 		// Wait a bit before retry (except first attempt)
 		if i > 0 {
 			time.Sleep(time.Duration(i) * time.Second)
@@ -92,7 +92,7 @@ func (s *Solana) CreateAndFundWalletWithRetry(ctx context.Context, retries int) 
 func (s *Solana) FundUserWithRetry(ctx context.Context, pubkey solana.PublicKey, amount uint64, retries int) (solana.Signature, error) {
 	var lastErr error
 
-	for i := 0; i < retries; i++ {
+	for i := range retries {
 		// Wait a bit before retry (except first attempt)
 		if i > 0 {
 			time.Sleep(time.Duration(i) * time.Second)
@@ -152,3 +152,4 @@ func (s *Solana) FundUserWithRetry(ctx context.Context, pubkey solana.PublicKey,
 
 	return solana.Signature{}, fmt.Errorf("failed to fund user after %d retries: %w", retries, lastErr)
 }
+

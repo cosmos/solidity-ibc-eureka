@@ -881,16 +881,6 @@ func (s *IbcEurekaSolanaTestSuite) verifyAcknowledgmentOnSolana(ctx context.Cont
 	s.T().Logf("  - Owner: %s", accountInfo.Value.Owner.String())
 }
 
-// isPrintable checks if a string contains only printable ASCII characters
-func isPrintable(s string) bool {
-	for _, r := range s {
-		if r < 32 || r > 126 {
-			return false
-		}
-	}
-	return true
-}
-
 func getSolDenomOnCosmos() transfertypes.Denom {
 	return transfertypes.NewDenom(SolDenom, transfertypes.NewHop("transfer", CosmosClientID))
 }
