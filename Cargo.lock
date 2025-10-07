@@ -4993,6 +4993,7 @@ dependencies = [
  "ibc-eureka-relayer-eth-to-cosmos 0.1.0",
  "ibc-eureka-relayer-eth-to-cosmos-compat",
  "ibc-eureka-relayer-solana-to-cosmos",
+ "ibc-eureka-relayer-solana-to-cosmos-compat",
  "prometheus",
  "serde_json",
  "tokio",
@@ -5267,6 +5268,25 @@ dependencies = [
  "solana-sdk",
  "solana-transaction-status",
  "tendermint",
+ "tendermint-rpc",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
+name = "ibc-eureka-relayer-solana-to-cosmos-compat"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-core 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ibc-eureka-relayer-lib 0.1.0",
+ "ibc-eureka-relayer-solana-to-cosmos",
+ "ibc-eureka-utils 0.1.0",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "prost",
+ "serde_json",
  "tendermint-rpc",
  "tonic 0.13.1",
  "tracing",

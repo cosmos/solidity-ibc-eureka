@@ -36,6 +36,9 @@ use crate::{
     tendermint_client::build_tendermint_client_state,
 };
 
+/// The key for the checksum hex in the tendermint create client parameters map.
+pub const CHECKSUM_HEX: &str = "checksum_hex";
+
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgTimeout`]s.
 ///
 /// # Arguments
@@ -272,7 +275,6 @@ pub fn cosmos_create_client_tx<H: BuildHasher>(
     height: Height,
     signer_address: String,
 ) -> Result<Vec<u8>> {
-    const CHECKSUM_HEX: &str = "checksum_hex";
     parameters
         .keys()
         .find(|k| k.as_str() != CHECKSUM_HEX)

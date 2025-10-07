@@ -17,6 +17,7 @@ members = [
     "packages/relayer/modules/cosmos-to-cosmos",
     "packages/relayer/modules/eth-to-cosmos-compat",
     "packages/relayer/modules/solana-to-cosmos",
+    "packages/relayer/modules/solana-to-cosmos-compat",
     "packages/relayer/modules/cosmos-to-solana",
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
@@ -43,6 +44,7 @@ ibc-eureka-relayer-cosmos-to-eth        = { path = "packages/relayer/modules/cos
 ibc-eureka-relayer-cosmos-to-cosmos     = { path = "packages/relayer/modules/cosmos-to-cosmos", default-features = false }
 ibc-eureka-relayer-eth-to-cosmos-compat = { path = "packages/relayer/modules/eth-to-cosmos-compat", default-features = false }
 ibc-eureka-relayer-solana-to-cosmos     = { path = "packages/relayer/modules/solana-to-cosmos", default-features = false }
+ibc-eureka-relayer-solana-to-cosmos-compat = { path = "packages/relayer/modules/solana-to-cosmos-compat", default-features = false }
 ibc-eureka-relayer-cosmos-to-solana     = { path = "packages/relayer/modules/cosmos-to-solana", default-features = false }
 ibc-eureka-utils                        = { path = "packages/utils", default-features = false }
 sp1-ics07-tendermint-prover             = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }

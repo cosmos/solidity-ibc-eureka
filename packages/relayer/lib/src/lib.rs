@@ -13,6 +13,7 @@ use solana_sdk as _;
 use tonic as _;
 
 pub mod chain;
+pub mod compat_mode;
 pub mod events;
 pub mod listener;
 pub mod service_utils;

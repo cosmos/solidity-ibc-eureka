@@ -1,0 +1,26 @@
+[package]
+name = "ibc-eureka-relayer-solana-to-cosmos-compat"
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+version = { workspace = true }
+
+[dependencies]
+ibc-eureka-relayer-solana-to-cosmos = { workspace = true }
+
+ibc-eureka-relayer-lib       = { workspace = true, default-features = false }
+ibc-eureka-relayer-core      = { workspace = true, default-features = false }
+ibc-eureka-relayer-core-v1_2 = { workspace = true, default-features = false }
+ibc-eureka-utils             = { workspace = true }
+
+ibc-proto-eureka = { workspace = true }
+
+hex        = { workspace = true }
+prost      = { workspace = true, features = ["std"] }
+serde_json = { workspace = true }
+
+tonic         = { workspace = true, default-features = true }
+anyhow        = { workspace = true, features = ["std"] }
+tracing       = { workspace = true, default-features = true }
+
+tendermint-rpc = { workspace = true, features = ["http-client"] }
