@@ -942,7 +942,7 @@ impl TxBuilder {
         let header_commitment = keccak::hash(&header_bytes).0;
         let chunks = Self::split_header_into_chunks(&header_bytes);
         let total_chunks = u8::try_from(chunks.len())
-            .map_err(|_| anyhow::anyhow!("Too many chunks: {} exceeds u8 max", chunks.len()))?;
+            .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
 
         tracing::info!(
             "Header size: {} bytes, split into {} chunks",
