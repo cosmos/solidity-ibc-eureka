@@ -38,7 +38,7 @@ pub fn convert_consensus_state(
     tm_consensus_state: &ibc_client_tendermint_types::ConsensusState,
 ) -> anyhow::Result<solana_ibc_types::ConsensusState> {
     Ok(solana_ibc_types::ConsensusState {
-        timestamp: u64::try_from(tm_consensus_state.timestamp.unix_timestamp())
+        timestamp: u64::try_from(tm_consensus_state.timestamp.unix_timestamp_nanos())
             .context("incorrect consensus timestamp")?,
         root: tm_consensus_state
             .root
