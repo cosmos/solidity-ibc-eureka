@@ -527,8 +527,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.Require().NoError(err)
 			s.T().Logf("Acknowledgment transaction broadcasted: %s", sig)
 
-			// Verify acknowledgment was processed correctly on Solana
-			// The packet should have sequence 1 since it's our first packet
 			s.verifyAcknowledgmentOnSolana(ctx, SolanaClientID, 1)
 		}))
 	}))
@@ -700,8 +698,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			s.Require().NoError(err)
 			s.T().Logf("Acknowledgment transaction broadcasted: %s", sig)
 
-			// Verify acknowledgment was processed correctly on Solana
-			// The packet should have sequence 1 since it's our first packet
 			s.verifyAcknowledgmentOnSolana(ctx, SolanaClientID, 1)
 		}))
 	}))
@@ -821,8 +817,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			s.Require().NoError(err)
 			s.T().Logf("Acknowledgment transaction broadcasted: %s", sig)
 
-			// Verify acknowledgment was processed correctly on Solana
-			// The packet should have sequence 1 since it's our first packet
 			s.verifyAcknowledgmentOnSolana(ctx, SolanaClientID, 1)
 		}))
 	}))
