@@ -259,7 +259,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			programAvailable := s.SolanaChain.WaitForProgramAvailabilityWithTimeout(ctx, dummyAppProgramID, 120)
 			s.Require().True(programAvailable, "Program failed to become available within timeout")
 
-			// Initialize dummy app state
 			appStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(transfertypes.PortID)}, dummyAppProgramID)
 			s.Require().NoError(err)
 
