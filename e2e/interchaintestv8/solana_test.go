@@ -307,7 +307,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 }
 
 // Tests
-
 func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
