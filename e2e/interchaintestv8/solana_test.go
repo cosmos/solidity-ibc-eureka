@@ -76,11 +76,11 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	// Create and fund wallet with retry logic
 	s.T().Log("Creating and funding Solana test wallet...")
 	s.SolanaUser, err = s.SolanaChain.CreateAndFundWalletWithRetry(ctx, 5)
-	s.Require().NoError(err)
+	s.Require().NoError(err, "Solana create/fund wallet has failed")
 
 	s.Require().True(s.Run("Deploy contracts", func() {
 		_, err := s.SolanaChain.FundUser(solana.DeployerPubkey, 20*testvalues.InitialSolBalance)
-		s.Require().NoError(err)
+		s.Require().NoError(err, "FundUser user failed")
 
 		ics07ProgramID := s.deploySolanaProgram(ctx, "ics07_tendermint")
 		s.Require().Equal(ics07_tendermint.ProgramID, ics07ProgramID)
@@ -117,7 +117,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 
 		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
-		s.Require().NoError(err)
+		s.Require().NoError(err, "Relayer failed to start")
 
 		s.T().Cleanup(func() {
 			os.Remove(testvalues.RelayerConfigFilePath)
@@ -143,7 +143,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	s.Require().True(s.Run("Initialize Contracts", func() {
 		s.Require().True(s.Run("Initialize ICS26 Router", func() {
 			routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
-			s.Require().NoError(err)
+			s.Require().NoError(err, "Could not find router_state")
 			initInstruction, err := ics26_router.NewInitializeInstruction(s.SolanaUser.PublicKey(), routerStateAccount, s.SolanaUser.PublicKey(), solanago.SystemProgramID)
 			s.Require().NoError(err)
 
@@ -488,8 +488,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			Address: cosmosUserAddress,
 			Denom:   denomOnCosmos.IBCDenom(),
 		})
-		s.Require().NoError(err)
-		s.Require().NotNil(resp.Balance)
+		s.Require().NoError(err, "Balances query failed")
+		s.Require().NotNil(resp.Balance, "Balance should not be nil")
 		s.T().Logf("Current balance for %s: %s %s", denomOnCosmos.IBCDenom(), resp.Balance.Amount.String(), resp.Balance.Denom)
 
 		expectedAmount := sdkmath.NewInt(TestTransferAmount)
@@ -504,8 +504,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 				DstChain:    testvalues.SolanaChainID,
 				DstClientId: SolanaClientID,
 			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Txs, "Update client should return chunked transactions")
+			s.Require().NoError(err, "Relayer Update Client failed")
+			s.Require().NotEmpty(resp.Txs, "Relayer Update client should return chunked transactions")
 
 			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
 			s.Require().NoError(err, "Failed to submit chunked update client transactions")
