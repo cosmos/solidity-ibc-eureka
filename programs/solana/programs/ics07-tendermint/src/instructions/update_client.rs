@@ -18,7 +18,6 @@ struct ConsensusStateStorageContext<'info, 'a> {
     payer: &'a Signer<'info>,
     system_program: &'a Program<'info, System>,
     program_id: &'a Pubkey,
-    client_key: Pubkey,
     revision_height: u64,
 }
 
@@ -32,7 +31,6 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
 
     let trusted_consensus_state = validate_and_load_trusted_state(
         &ctx.accounts.trusted_consensus_state,
-        client_state.key(),
         trusted_height.revision_height(),
         ctx.program_id,
     )?;
@@ -51,7 +49,6 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
 
     verify_consensus_state_pda(
         &ctx.accounts.new_consensus_state_store,
-        client_state.key(),
         new_height.revision_height(),
         ctx.program_id,
     )?;
@@ -61,7 +58,6 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
         payer: &ctx.accounts.payer,
         system_program: &ctx.accounts.system_program,
         program_id: ctx.program_id,
-        client_key: client_state.key(),
         revision_height: new_height.revision_height(),
     };
 
@@ -77,17 +73,12 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
 
 fn validate_and_load_trusted_state(
     trusted_consensus_state_account: &UncheckedAccount<'_>,
-    client_key: Pubkey,
     trusted_height: u64,
     program_id: &Pubkey,
 ) -> Result<ConsensusStateStore> {
-    // Validate the PDA
+    // Validate the PDA with simplified seeds
     let (expected_pda, _) = Pubkey::find_program_address(
-        &[
-            b"consensus_state",
-            client_key.as_ref(),
-            &trusted_height.to_le_bytes(),
-        ],
+        &[b"consensus_state", &trusted_height.to_le_bytes()],
         program_id,
     );
 
@@ -159,16 +150,11 @@ fn verify_header_and_get_state(
 
 fn verify_consensus_state_pda(
     new_consensus_state_store: &UncheckedAccount,
-    client_key: Pubkey,
     revision_height: u64,
     program_id: &Pubkey,
 ) -> Result<()> {
     let (expected_pda, _) = Pubkey::find_program_address(
-        &[
-            b"consensus_state",
-            client_key.as_ref(),
-            &revision_height.to_le_bytes(),
-        ],
+        &[b"consensus_state", &revision_height.to_le_bytes()],
         program_id,
     );
 
@@ -192,7 +178,6 @@ fn handle_consensus_state_storage(
             ctx.payer,
             ctx.system_program,
             ctx.program_id,
-            ctx.client_key,
             ctx.revision_height,
             new_consensus_state,
         )?;
@@ -225,10 +210,9 @@ fn check_existing_consensus_state(
 }
 
 /// Creates seeds for deriving consensus state store PDAs
-fn consensus_state_seeds(client_key: &Pubkey, revision_height: u64) -> [Vec<u8>; 3] {
+fn consensus_state_seeds(revision_height: u64) -> [Vec<u8>; 2] {
     [
         b"consensus_state".to_vec(),
-        client_key.as_ref().to_vec(),
         revision_height.to_le_bytes().to_vec(),
     ]
 }
@@ -242,11 +226,10 @@ fn vecs_as_slices<const N: usize>(seeds: &[Vec<u8>; N]) -> [&[u8]; N] {
 /// Validates that the provided account matches the expected PDA for consensus state storage
 fn validate_consensus_state_pda(
     consensus_state_account: &UncheckedAccount,
-    client_key: &Pubkey,
     revision_height: u64,
     program_id: &Pubkey,
 ) -> Result<u8> {
-    let seeds = consensus_state_seeds(client_key, revision_height);
+    let seeds = consensus_state_seeds(revision_height);
     let seeds_slices = vecs_as_slices(&seeds);
     let (expected_pda, bump) = Pubkey::find_program_address(&seeds_slices, program_id);
 
@@ -266,14 +249,9 @@ fn calculate_consensus_state_rent() -> Result<(usize, u64)> {
 }
 
 /// Creates signer seeds for consensus state PDA with the bump
-fn create_consensus_state_signer_seeds(
-    client_key: &Pubkey,
-    revision_height: u64,
-    bump: u8,
-) -> [Vec<u8>; 4] {
+fn create_consensus_state_signer_seeds(revision_height: u64, bump: u8) -> [Vec<u8>; 3] {
     [
         b"consensus_state".to_vec(),
-        client_key.as_ref().to_vec(),
         revision_height.to_le_bytes().to_vec(),
         vec![bump],
     ]
@@ -329,23 +307,17 @@ fn create_consensus_state_account<'info>(
     payer: &Signer<'info>,
     system_program: &Program<'info, System>,
     program_id: &Pubkey,
-    client_key: Pubkey,
     revision_height: u64,
     new_consensus_state: &ConsensusState,
 ) -> Result<()> {
     // Validate the PDA and get the bump seed
-    let bump = validate_consensus_state_pda(
-        consensus_state_account,
-        &client_key,
-        revision_height,
-        program_id,
-    )?;
+    let bump = validate_consensus_state_pda(consensus_state_account, revision_height, program_id)?;
 
     // Calculate required space and rent
     let (space, rent) = calculate_consensus_state_rent()?;
 
     // Prepare signing seeds for account creation
-    let signer_seeds = create_consensus_state_signer_seeds(&client_key, revision_height, bump);
+    let signer_seeds = create_consensus_state_signer_seeds(revision_height, bump);
     let signer_seeds_slices = vecs_as_slices(&signer_seeds);
     let signer_seeds_slice = [&signer_seeds_slices[..]];
 
@@ -525,11 +497,7 @@ mod tests {
         let initialized_accounts = initialized_client.resulting_accounts;
 
         let (new_consensus_state_pda, _) = Pubkey::find_program_address(
-            &[
-                b"consensus_state",
-                client_state_pda.as_ref(),
-                &new_height.to_le_bytes(),
-            ],
+            &[b"consensus_state", &new_height.to_le_bytes()],
             &crate::ID,
         );
 
@@ -586,24 +554,17 @@ mod tests {
         // Load from primary fixtures efficiently (single JSON parse)
         let (client_state, consensus_state, update_message) = load_primary_fixtures();
 
-        let chain_id = &client_state.chain_id;
         let payer = Pubkey::new_unique();
 
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID);
+        let (client_state_pda, _) = Pubkey::find_program_address(&[b"client"], &crate::ID);
 
         let latest_height = client_state.latest_height.revision_height;
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
-            &[
-                b"consensus_state",
-                client_state_pda.as_ref(),
-                &latest_height.to_le_bytes(),
-            ],
+            &[b"consensus_state", &latest_height.to_le_bytes()],
             &crate::ID,
         );
 
         let instruction_data = crate::instruction::Initialize {
-            chain_id: chain_id.clone(),
             latest_height,
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
@@ -879,22 +840,14 @@ mod tests {
         let scenario = setup_update_client_test_scenario(client_message.clone(), new_height, None);
         let mut accounts = scenario.accounts;
 
-        // Use wrong trusted consensus state PDA
+        // Use wrong trusted consensus state PDA with simplified seeds
         let (wrong_trusted_consensus_state_pda, _) = Pubkey::find_program_address(
-            &[
-                b"consensus_state",
-                scenario.client_state_pda.as_ref(),
-                &wrong_height.to_le_bytes(),
-            ],
+            &[b"consensus_state", &wrong_height.to_le_bytes()],
             &crate::ID,
         );
 
         let (new_consensus_state_pda, _) = Pubkey::find_program_address(
-            &[
-                b"consensus_state",
-                scenario.client_state_pda.as_ref(),
-                &new_height.to_le_bytes(),
-            ],
+            &[b"consensus_state", &new_height.to_le_bytes()],
             &crate::ID,
         );
 
