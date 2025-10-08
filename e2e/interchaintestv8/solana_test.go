@@ -107,7 +107,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				ICS26RouterProgramID: ics26_router.ProgramID.String(),
 				CosmosSignerAddress:  s.CosmosUsers[0].FormattedAddress(),
 				SolanaFeePayer:       s.SolanaUser.PublicKey().String(),
-				MockWasmClient:       true, // Use mock proofs for testing
+				Mock:                 true, // Use mock proofs for testing
 			}),
 		)
 
