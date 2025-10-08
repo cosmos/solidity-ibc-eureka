@@ -17,7 +17,6 @@ use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_relayer_lib::tx_builder::TxBuilderService;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
-use prost::Message;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
@@ -182,7 +181,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         tracing::info!("Relay by tx request completed.");
 
         Ok(Response::new(api::RelayByTxResponse {
-            tx: tx.encode_to_vec(),
+            tx,
             address: String::new(),
             txs: vec![],
         }))
@@ -225,7 +224,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         tracing::info!("Update client request completed.");
 
         Ok(Response::new(api::UpdateClientResponse {
-            tx: tx.encode_to_vec(),
+            tx,
             address: String::new(),
             txs: vec![],
         }))
