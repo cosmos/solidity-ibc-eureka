@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
-use hex;
 use ibc_eureka_relayer_lib::{
     events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight},
     utils::{
@@ -19,8 +18,6 @@ use ibc_eureka_relayer_lib::{
         },
     },
 };
-use ibc_eureka_utils::rpc::TendermintRpcExt;
-use ibc_proto_eureka::Protobuf;
 use prost::Message;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
@@ -264,133 +261,6 @@ impl TxBuilder {
 
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
     async fn build_ack_packet_instruction(&self, msg: &MsgAckPacket) -> Result<Instruction> {
-        let ack_path = msg.packet.ack_commitment_path();
-
-        // tracing::info!("=== DEBUGGING ACK PATH ===");
-        // tracing::info!("Packet flow: Solana -> Cosmos (now acknowledging back to Solana)");
-        // tracing::info!("Source client (Cosmos on Solana): {}", params.source_client);
-        // tracing::info!(
-        //     "Dest client (Solana on Cosmos): {}",
-        //     params.destination_client
-        // );
-        // tracing::info!("Sequence: {}", params.sequence);
-        // tracing::info!("Proof height: {}", params.proof_height);
-        // tracing::info!("Expected ack path (IBC v2 Eureka): destClient + 0x03 + sequence");
-        // tracing::info!("Constructed path: {:?}", ack_path);
-        // tracing::info!("Path as hex: {}", hex::encode(&ack_path));
-        // tracing::info!("Path as string: {}", String::from_utf8_lossy(&ack_path));
-        // tracing::info!("Path breakdown:");
-        // tracing::info!(
-        //     "  - Client ID bytes: {} ({})",
-        //     hex::encode(params.destination_client.as_bytes()),
-        //     params.destination_client
-        // );
-        // tracing::info!("  - Separator: 0x03");
-        // tracing::info!(
-        //     "  - Sequence big-endian: {}",
-        //     hex::encode(&params.sequence.to_be_bytes())
-        // );
-
-        // Acknowledgment is written at the NEXT height after the packet is received
-        // Cosmos SDK state model: ack written at height N is provable at height N+1
-        // But the proof at height N+1 proves against the app hash from height N
-        let query_height = msg.proof_height + 1;
-
-        tracing::info!(
-            "Querying acknowledgment proof at height {} (event height {} + 1)",
-            query_height,
-            msg.proof_height
-        );
-        tracing::info!(
-            "Will verify proof against consensus state at height {}",
-            msg.proof_height
-        );
-
-        // FIXME: wrong???? Query the acknowledgment COMMITMENT from Cosmos chain
-        let (_commitment_value, merkle_proof) = self
-            .src_tm_client
-            .prove_path(&[b"ibc".to_vec(), ack_path.clone()], query_height)
-            .await?;
-        //
-        // if commitment_value.is_empty() {
-        //     tracing::error!("No acknowledgment commitment found at expected IBC v2 path");
-        //     tracing::error!("Path: {}", String::from_utf8_lossy(&ack_path));
-        //     tracing::error!("Path hex: {}", hex::encode(&ack_path));
-        //     tracing::error!("Queried at height: {} (proof_height + 1)", query_height);
-        //     return Err(anyhow::anyhow!(
-        //         "Acknowledgment commitment not found on chain"
-        //     ));
-        // }
-        //
-        // tracing::info!(
-        //     "✓ Found acknowledgment commitment at IBC v2 path (value: {} bytes)",
-        //     commitment_value.len()
-        // );
-        // tracing::info!("Commitment value (hex): {}", hex::encode(&commitment_value));
-        //
-        // // The acknowledgement we have from the event should hash to this commitment
-        // tracing::info!(
-        //     "Acknowledgment from event (hex): {}",
-        //     hex::encode(&msg.acknowledgement)
-        // );
-        //
-        // // IBC v2 commitment: sha256_hash(0x02 + sha256_hash(ack))
-        // // For single payload, it's: sha256(0x02 + sha256(acknowledgement))
-        // use sha2::{Digest, Sha256};
-        //
-        // // First hash the acknowledgement
-        // let mut inner_hasher = Sha256::new();
-        // inner_hasher.update(&msg.acknowledgement);
-        // let inner_hash = inner_hasher.finalize();
-        //
-        // // Then compute the commitment with 0x02 prefix
-        // let mut outer_hasher = Sha256::new();
-        // outer_hasher.update(&[0x02]); // IBC v2 acknowledgment prefix
-        // outer_hasher.update(&inner_hash);
-        // let computed_commitment = outer_hasher.finalize().to_vec();
-        //
-        // if computed_commitment != commitment_value {
-        //     tracing::error!("Acknowledgment commitment mismatch!");
-        //     tracing::error!("Computed: {}", hex::encode(&computed_commitment));
-        //     tracing::error!("Expected: {}", hex::encode(&commitment_value));
-        //     return Err(anyhow::anyhow!(
-        //         "Acknowledgment commitment verification failed"
-        //     ));
-        // }
-        //
-        // tracing::info!("✓ Acknowledgment commitment verified");
-
-        // Query the actual app hash at the proof height from Cosmos
-        let light_block = self
-            .src_tm_client
-            .get_light_block(Some(msg.proof_height))
-            .await?;
-
-        let app_hash_at_proof_height = light_block.signed_header.header.app_hash;
-        tracing::info!("=== COSMOS STATE AT HEIGHT {} ===", msg.proof_height);
-        tracing::info!(
-            "App hash from Cosmos: {}",
-            hex::encode(&app_hash_at_proof_height)
-        );
-        tracing::info!("Block time: {:?}", light_block.signed_header.header.time);
-        tracing::info!(
-            "Validators hash: {}",
-            hex::encode(light_block.signed_header.header.validators_hash)
-        );
-
-        // Log the merkle proof details before encoding (which consumes it)
-        tracing::debug!("Proof structure: {:?}", merkle_proof);
-
-        let proof = merkle_proof.encode_vec();
-        tracing::info!("Generated proof: {} bytes", proof.len());
-
-        // Log critical debugging info
-        tracing::info!(
-            "Proof from height {} will verify against consensus state at height {}",
-            query_height,
-            msg.proof_height
-        );
-
         let solana_ics26_program_id = self.solana_ics26_program_id;
 
         let (router_state, _) = derive_router_state(solana_ics26_program_id);
@@ -450,31 +320,6 @@ impl TxBuilder {
             solana_ics26_program_id,
         );
 
-        // IMPORTANT: The test setup uses different client IDs:
-        // - ICS26 router has "cosmoshub-1" registered as the client
-        // - ICS07 Tendermint has the actual chain ID "simd-1" for the client state
-        // We need to use the correct ID for each component
-
-        // // For ICS26 router operations, use the registered client ID
-        // let ics26_client_id = if msg.packet.source_client == "cosmoshub-1" {
-        //     "cosmoshub-1".to_string()
-        // } else {
-        //     msg.packet.source_client.to_string()
-        // };
-
-        // For ICS07 Tendermint operations, use the actual chain ID
-        // let ics07_chain_id = if msg.packet.source_client == "cosmoshub-1" {
-        //     "simd-1".to_string() // The actual Cosmos chain ID
-        // } else {
-        //     msg.packet.source_client.to_string()
-        // };
-
-        // tracing::info!(
-        //     "Client ID mapping - ICS26: {}, ICS07: {}",
-        //     ics26_client_id,
-        //     ics07_chain_id
-        // );
-        //
         // Derive the client PDA using ICS26 client ID
         let chain_id = self.chain_id().await?;
         let (client, _) = derive_client(&chain_id, solana_ics26_program_id);
