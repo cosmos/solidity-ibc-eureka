@@ -12,6 +12,10 @@ use tendermint_light_client_update_client::ClientState as UpdateClientState;
 pub fn assemble_and_update_client(
     mut ctx: Context<AssembleAndUpdateClient>,
 ) -> Result<UpdateResult> {
+    require!(
+        !ctx.accounts.client_state.is_frozen(),
+        ErrorCode::ClientFrozen
+    );
     let start_cu: u64 = anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
 
     let metadata = &ctx.accounts.metadata;

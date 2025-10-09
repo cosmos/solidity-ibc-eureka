@@ -8,6 +8,10 @@ pub fn upload_header_chunk(
     ctx: Context<UploadHeaderChunk>,
     params: UploadChunkParams,
 ) -> Result<()> {
+    require!(
+        !ctx.accounts.client_state.is_frozen(),
+        ErrorCode::ClientFrozen
+    );
     let chunk = &mut ctx.accounts.chunk;
 
     require!(
