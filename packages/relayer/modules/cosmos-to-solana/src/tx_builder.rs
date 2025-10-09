@@ -6,7 +6,10 @@ use std::sync::Arc;
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use ibc_eureka_relayer_lib::{
-    events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight},
+    events::{
+        solana::solana_timeout_packet_to_tm_timeout, EurekaEventWithHeight,
+        SolanaEurekaEventWithHeight,
+    },
     utils::{
         cosmos::{
             self, get_latest_tm_heigth, tm_create_client_params, tm_update_client_params,
@@ -671,6 +674,12 @@ impl TxBuilder {
         // we don't care about signer address as no cosmos tx will be sent here
         let mock_signer_address = String::new();
 
+        let mut sol_timeout_events = timeout_msgs
+            .clone()
+            .into_iter()
+            .map(|msg| solana_timeout_packet_to_tm_timeout(msg, mock_signer_address.clone()))
+            .collect::<Result<Vec<_>, _>>()?;
+
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
             &src_client_id,
@@ -681,14 +690,14 @@ impl TxBuilder {
             now_since_unix.as_secs(),
         );
 
-        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
+        tracing::debug!("Timeout messages: #{}", sol_timeout_events.len());
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
         cosmos::inject_tendermint_proofs(
             &mut recv_msgs,
             &mut ack_msgs,
-            &mut [],
+            &mut sol_timeout_events,
             &self.src_tm_client,
             &target_height,
         )

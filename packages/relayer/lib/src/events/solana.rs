@@ -4,6 +4,7 @@
 
 use alloy::primitives::Bytes;
 use anchor_lang::AnchorDeserialize as _;
+use anyhow::Context as _;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::{
     Packet as SolPacket, Payload as SolPayload,
@@ -56,6 +57,56 @@ impl From<SolanaEurekaEventWithHeight> for EurekaEventWithHeight {
             height: event_with_height.height,
         }
     }
+}
+
+/// Converts a Solana timeout packet message to a Tendermint timeout message.
+///
+/// # Arguments
+/// * `msg` - The Solana timeout packet message
+/// * `signer` - The signer address string
+///
+/// # Returns
+/// A Tendermint `MsgTimeout` for processing by IBC
+///
+/// # Errors
+/// * this function will return error if timeout timestamp is 0 or negative
+pub fn solana_timeout_packet_to_tm_timeout(
+    msg: solana_ibc_types::MsgTimeoutPacket,
+    signer: String,
+) -> anyhow::Result<ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout> {
+    let packet = ibc_proto_eureka::ibc::core::channel::v2::Packet {
+        sequence: msg.packet.sequence,
+        source_client: msg.packet.source_client.clone(),
+        destination_client: msg.packet.dest_client.clone(),
+        timeout_timestamp: u64::try_from(msg.packet.timeout_timestamp)
+            .context("timeout should be u64 compatible")?,
+        payloads: msg
+            .packet
+            .payloads
+            .into_iter()
+            .map(|p| ibc_proto_eureka::ibc::core::channel::v2::Payload {
+                source_port: p.source_port,
+                destination_port: p.dest_port,
+                version: p.version,
+                encoding: p.encoding,
+                value: p.value,
+            })
+            .collect(),
+    };
+
+    let height = ibc_proto_eureka::ibc::core::client::v1::Height {
+        revision_number: 0, // Solana doesn't have revision numbers
+        revision_height: msg.proof_height,
+    };
+
+    let msg = ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout {
+        proof_unreceived: msg.proof_timeout,
+        proof_height: Some(height),
+        packet: Some(packet),
+        signer,
+    };
+
+    Ok(msg)
 }
 
 fn to_sol_packet(value: SolanaPacket) -> SolPacket {
