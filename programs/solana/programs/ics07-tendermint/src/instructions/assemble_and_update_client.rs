@@ -164,14 +164,12 @@ fn process_header_update(
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
-    // Check if client is frozen
     require!(!client_state.is_frozen(), ErrorCode::ClientFrozen);
 
     // Deserialize and validate header
     let header = deserialize_header(&header_bytes)?;
     let trusted_height = header.trusted_height.revision_height();
 
-    // Load trusted consensus state
     let trusted_consensus_state = load_consensus_state(
         &ctx.accounts.trusted_consensus_state,
         client_state.key(),
@@ -179,7 +177,6 @@ fn process_header_update(
         ctx.program_id,
     )?;
 
-    // Verify header and get new state
     let (new_height, new_consensus_state) = verify_and_update_header(
         client_state,
         &trusted_consensus_state.consensus_state,
@@ -210,7 +207,6 @@ fn process_header_update(
     Ok(result)
 }
 
-/// Verify header and extract new consensus state
 fn verify_and_update_header(
     client_state: &crate::types::ClientState,
     trusted_state: &ConsensusState,
