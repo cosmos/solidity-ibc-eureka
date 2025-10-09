@@ -10,12 +10,12 @@ use ibc_eureka_relayer_lib::{
     events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight},
     utils::{
         cosmos::{
-            self, tm_create_client_params, tm_update_client_params, TmCreateClientParams,
-            TmUpdateClientParams,
+            self, get_latest_tm_heigth, tm_create_client_params, tm_update_client_params,
+            TmCreateClientParams, TmUpdateClientParams,
         },
         solana_eureka::{
-            convert_client_state, convert_consensus_state, ibc_to_solana_ack_packet,
-            ibc_to_solana_recv_packet, target_events_to_timeout_msgs,
+            convert_client_state_to_ibc, convert_client_state_to_sol, convert_consensus_state,
+            ibc_to_solana_ack_packet, ibc_to_solana_recv_packet, target_events_to_timeout_msgs,
         },
     },
 };
@@ -802,6 +802,11 @@ impl TxBuilder {
             dst_client_id
         );
 
+        let chain_id = self.chain_id().await?;
+        let client_state = self.cosmos_client_state(&chain_id)?;
+        let client_state = convert_client_state_to_ibc(client_state)?;
+        let target_height = get_latest_tm_heigth(client_state, &self.src_tm_client).await?;
+
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
         let slot = self
@@ -809,7 +814,7 @@ impl TxBuilder {
             .get_slot_with_commitment(CommitmentConfig::finalized())
             .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
 
-        let mut timeout_msgs = target_events_to_timeout_msgs(
+        let timeout_msgs = target_events_to_timeout_msgs(
             dest_events,
             &src_client_id,
             &dst_client_id,
@@ -835,8 +840,14 @@ impl TxBuilder {
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut []);
-        ibc_eureka_relayer_lib::utils::solana_eureka::inject_mock_proofs(&mut timeout_msgs);
+        cosmos::inject_tendermint_proofs(
+            &mut recv_msgs,
+            &mut ack_msgs,
+            &mut [],
+            &self.src_tm_client,
+            &target_height,
+        )
+        .await?;
 
         let mut instructions = Vec::new();
 
@@ -894,7 +905,7 @@ impl TxBuilder {
             consensus_state: tm_consensus_state,
         } = tm_create_client_params(&self.src_tm_client).await?;
 
-        let client_state = convert_client_state(tm_client_state)?;
+        let client_state = convert_client_state_to_sol(tm_client_state)?;
         let consensus_state = convert_consensus_state(&tm_consensus_state)?;
 
         let instruction = self.build_create_client_instruction(

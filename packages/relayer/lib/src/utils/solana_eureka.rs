@@ -74,7 +74,7 @@ pub fn convert_consensus_state(
 /// - Durations are converted to seconds (u64)
 /// - Frozen height defaults to 0/0 if not set
 /// - Proof specs are not included in the conversion as Solana Tendemint client hardcodes them
-pub fn convert_client_state(
+pub fn convert_client_state_to_sol(
     ibc_client: ibc_proto_eureka::ibc::lightclients::tendermint::v1::ClientState,
 ) -> anyhow::Result<solana_ibc_types::ClientState> {
     let trust_level = ibc_client
@@ -121,6 +121,90 @@ pub fn convert_client_state(
             revision_height: latest_height.revision_height,
         },
     })
+}
+
+/// Converts a Solana IBC `ClientState` to IBC protobuf `ClientState` format.
+///
+/// # Arguments
+/// * `solana_client` - Solana IBC client state format
+///
+/// # Errors
+/// * Returns an error if any of the following duration fields exceed `i64::MAX`:
+///   - `trusting_period`
+///   - `unbonding_period`
+///   - `max_clock_drift`
+///
+/// # Returns
+/// * `Ok(ClientState)` - Successfully converted IBC protobuf client state
+///
+/// # Note
+/// - Durations are converted from seconds (u64) to protobuf Duration format
+/// - Proof specs are set to default ICS23 specs (IAVL and Tendermint)
+/// - Upgrade path is left empty as it's not used in Solana
+pub fn convert_client_state_to_ibc(
+    solana_client: solana_ibc_types::ClientState,
+) -> anyhow::Result<ibc_proto_eureka::ibc::lightclients::tendermint::v1::ClientState> {
+    use ibc_proto_eureka::google::protobuf::Duration;
+    use ibc_proto_eureka::ibc::core::client::v1::Height;
+    use ibc_proto_eureka::ibc::lightclients::tendermint::v1::Fraction;
+
+    let trust_level = Some(Fraction {
+        numerator: solana_client.trust_level_numerator,
+        denominator: solana_client.trust_level_denominator,
+    });
+
+    let trusting_period = Some(Duration {
+        seconds: i64::try_from(solana_client.trusting_period)
+            .map_err(|_| anyhow::anyhow!("Trusting period exceeds i64::MAX"))?,
+        nanos: 0,
+    });
+
+    let unbonding_period = Some(Duration {
+        seconds: i64::try_from(solana_client.unbonding_period)
+            .map_err(|_| anyhow::anyhow!("Unbonding period exceeds i64::MAX"))?,
+        nanos: 0,
+    });
+
+    let max_clock_drift = Some(Duration {
+        seconds: i64::try_from(solana_client.max_clock_drift)
+            .map_err(|_| anyhow::anyhow!("Max clock drift exceeds i64::MAX"))?,
+        nanos: 0,
+    });
+
+    let frozen_height = if solana_client.frozen_height.revision_number == 0
+        && solana_client.frozen_height.revision_height == 0
+    {
+        None
+    } else {
+        Some(Height {
+            revision_number: solana_client.frozen_height.revision_number,
+            revision_height: solana_client.frozen_height.revision_height,
+        })
+    };
+
+    let latest_height = Some(Height {
+        revision_number: solana_client.latest_height.revision_number,
+        revision_height: solana_client.latest_height.revision_height,
+    });
+
+    let proof_specs = vec![ics23::iavl_spec(), ics23::tendermint_spec()];
+
+    #[allow(deprecated)]
+    Ok(
+        ibc_proto_eureka::ibc::lightclients::tendermint::v1::ClientState {
+            chain_id: solana_client.chain_id,
+            trust_level,
+            trusting_period,
+            unbonding_period,
+            max_clock_drift,
+            frozen_height,
+            latest_height,
+            proof_specs,
+            upgrade_path: vec![],                  // Not used in Solana
+            allow_update_after_expiry: true,       // Deprecated but required field
+            allow_update_after_misbehaviour: true, // Deprecated but required field
+        },
+    )
 }
 
 /// Converts a list of [`SolanaEurekaEvent`]s to a list of [`MsgTimeout`]s.

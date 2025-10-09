@@ -342,6 +342,36 @@ pub fn cosmos_update_client_tx(
     }
     .encode_to_vec())
 }
+/// Fetches the latest Tendermint height from the source chain while preserving the revision number.
+///
+/// # Arguments
+/// * `client_state` - The IBC client state containing the current revision number
+/// * `source_tm_client` - HTTP client for querying the source Tendermint chain
+///
+/// # Returns
+/// * `Height` with the latest block height from source chain and preserved revision number
+///
+/// # Errors
+/// * If the light block cannot be fetched from the source chain
+/// * If the client state has no latest height set
+pub async fn get_latest_tm_heigth(
+    client_state: ClientState,
+    source_tm_client: &HttpClient,
+) -> Result<Height> {
+    let target_light_block = source_tm_client.get_light_block(None).await?;
+    let revision_height = target_light_block.height().value();
+    let revision_number = client_state
+        .latest_height
+        .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
+        .revision_number;
+
+    let latest_height = Height {
+        revision_number,
+        revision_height,
+    };
+
+    Ok(latest_height)
+}
 
 /// Generates and injects tendermint proofs for rec, ack and timeout messages.
 /// # Errors
