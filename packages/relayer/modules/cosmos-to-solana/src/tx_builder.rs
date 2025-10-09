@@ -684,12 +684,12 @@ impl TxBuilder {
             now_since_unix.as_secs(),
         );
 
-        tracing::debug!("Timeout messages: #{}", sol_timeout_events.len());
+        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
         // convert to tm events so we can inject proofs
-        let timeout_events = timeout_msgs
+        let mut timeout_msgs = timeout_msgs
             .clone()
             .into_iter()
             .map(|msg| solana_timeout_packet_to_tm_timeout(msg, mock_signer_address.clone()))
@@ -698,17 +698,17 @@ impl TxBuilder {
         cosmos::inject_tendermint_proofs(
             &mut recv_msgs,
             &mut ack_msgs,
-            &mut timeout_events,
+            &mut timeout_msgs,
             &self.src_tm_client,
             &target_height,
         )
         .await?;
 
-        let timeout_events = timeout_msgs
+        let timeout_msgs: Vec<_> = timeout_msgs
             .clone()
             .into_iter()
             .map(|msg| tm_timeout_to_solana_timeout_packet(msg))
-            .collect();
+            .collect::<Result<Vec<_>, _>>()?;
 
         let mut instructions = Vec::new();
 
