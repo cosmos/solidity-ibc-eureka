@@ -7,8 +7,8 @@ use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use ibc_eureka_relayer_lib::{
     events::{
-        solana::solana_timeout_packet_to_tm_timeout, EurekaEventWithHeight,
-        SolanaEurekaEventWithHeight,
+        solana::{solana_timeout_packet_to_tm_timeout, tm_timeout_to_solana_timeout_packet},
+        EurekaEventWithHeight, SolanaEurekaEventWithHeight,
     },
     utils::{
         cosmos::{
@@ -674,12 +674,6 @@ impl TxBuilder {
         // we don't care about signer address as no cosmos tx will be sent here
         let mock_signer_address = String::new();
 
-        let mut sol_timeout_events = timeout_msgs
-            .clone()
-            .into_iter()
-            .map(|msg| solana_timeout_packet_to_tm_timeout(msg, mock_signer_address.clone()))
-            .collect::<Result<Vec<_>, _>>()?;
-
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
             &src_client_id,
@@ -694,14 +688,27 @@ impl TxBuilder {
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
+        // convert to tm events so we can inject proofs
+        let timeout_events = timeout_msgs
+            .clone()
+            .into_iter()
+            .map(|msg| solana_timeout_packet_to_tm_timeout(msg, mock_signer_address.clone()))
+            .collect::<Result<Vec<_>, _>>()?;
+
         cosmos::inject_tendermint_proofs(
             &mut recv_msgs,
             &mut ack_msgs,
-            &mut sol_timeout_events,
+            &mut timeout_events,
             &self.src_tm_client,
             &target_height,
         )
         .await?;
+
+        let timeout_events = timeout_msgs
+            .clone()
+            .into_iter()
+            .map(|msg| tm_timeout_to_solana_timeout_packet(msg))
+            .collect();
 
         let mut instructions = Vec::new();
 
