@@ -1030,4 +1030,38 @@ mod tests {
             "Conflicting consensus state",
         );
     }
+
+    #[test]
+    fn test_update_client_with_frozen_client() {
+        use crate::test_helpers::fixtures::load_primary_fixtures;
+
+        let mut scenario = setup_happy_path_test_scenario();
+        let (client_state, _, _) = load_primary_fixtures();
+
+        // Create frozen client state
+        let mut frozen_client_state = client_state;
+        frozen_client_state.frozen_height = crate::types::IbcHeight {
+            revision_number: 0,
+            revision_height: 50, // Frozen at height 50
+        };
+
+        // Serialize with Anchor discriminator
+        let mut frozen_client_data = vec![];
+        frozen_client_state
+            .try_serialize(&mut frozen_client_data)
+            .expect("Failed to serialize frozen client state");
+
+        // Replace the client state account
+        if let Some((_, account)) = scenario
+            .accounts
+            .iter_mut()
+            .find(|(key, _)| *key == scenario.client_state_pda)
+        {
+            account.data = frozen_client_data;
+        }
+
+        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
+
+        assert_error_code(result, ErrorCode::ClientFrozen, "frozen client");
+    }
 }

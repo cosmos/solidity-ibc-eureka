@@ -164,8 +164,6 @@ fn process_header_update(
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
-    require!(!client_state.is_frozen(), ErrorCode::ClientFrozen);
-
     // Deserialize and validate header
     let header = deserialize_header(&header_bytes)?;
     let trusted_height = header.trusted_height.revision_height();

@@ -529,3 +529,55 @@ fn test_upload_chunk_exceeding_max_size_fails() {
         ErrorCode::ChunkDataTooLarge,
     );
 }
+
+#[test]
+fn test_upload_chunk_with_frozen_client_fails() {
+    let chain_id = "test-chain";
+    let target_height = 200;
+    let chunk_index = 0;
+    let submitter = Pubkey::new_unique();
+
+    let mut test_accounts =
+        setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
+
+    // Freeze the client by setting frozen_height
+    let client_state_pda =
+        Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID).0;
+
+    if let Some((_, account)) = test_accounts
+        .accounts
+        .iter_mut()
+        .find(|(key, _)| *key == client_state_pda)
+    {
+        let frozen_client_state = ClientState {
+            chain_id: chain_id.to_string(),
+            trust_level_numerator: 2,
+            trust_level_denominator: 3,
+            trusting_period: 86400,
+            unbonding_period: 172_800,
+            max_clock_drift: 600,
+            frozen_height: IbcHeight {
+                revision_number: 0,
+                revision_height: 100, // Frozen at height 100
+            },
+            latest_height: IbcHeight {
+                revision_number: 0,
+                revision_height: 150,
+            },
+        };
+
+        let mut data = vec![];
+        frozen_client_state.try_serialize(&mut data).unwrap();
+        account.data = data;
+    }
+
+    let chunk_data = vec![1u8; 100];
+    let params = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data);
+    let instruction = create_upload_instruction(&test_accounts, params);
+
+    assert_instruction_fails_with_error(
+        &instruction,
+        &test_accounts.accounts,
+        ErrorCode::ClientFrozen,
+    );
+}
