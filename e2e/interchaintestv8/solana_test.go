@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/binary"
-	"encoding/hex"
+	// "encoding/hex"
 	"fmt"
 	"os"
 	"testing"
@@ -366,7 +366,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	simd := s.CosmosChains[0]
 
 	var solanaTxSig solanago.Signature
-	var cosmosPacketRelayTxHash []byte
+	// var cosmosPacketRelayTxHash []byte
 
 	s.Require().True(s.Run("Send ICS20 transfer using send_packet", func() {
 		initialBalance := s.SolanaUser.PublicKey()
@@ -459,9 +459,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.Require().NoError(err)
 			s.T().Logf("Transaction events count: %d", len(txResp.Events))
 
-			cosmosPacketRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
+			// cosmosPacketRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
 			s.Require().NoError(err)
-			cosmosPacketRelayTxHash = cosmosPacketRelayTxHashBytes
+			// cosmosPacketRelayTxHash = cosmosPacketRelayTxHashBytes
 		}))
 	}))
 
@@ -540,7 +540,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	simd := s.CosmosChains[0]
 
 	var solanaTxSig solanago.Signature
-	var cosmosRelayTxHash []byte
+	// var cosmosRelayTxHash []byte
 	s.Require().True(s.Run("Send SOL transfer from Solana", func() {
 		initialBalance := s.SolanaUser.PublicKey()
 		balanceResp, err := s.SolanaChain.RPCClient.GetBalance(ctx, initialBalance, "confirmed")
@@ -642,9 +642,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			s.T().Logf("Relay transaction: %s (code: %d, gas: %d)",
 				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
 
-			cosmosRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
-			s.Require().NoError(err)
-			cosmosRelayTxHash = cosmosRelayTxHashBytes
+			// cosmosRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
+			// s.Require().NoError(err)
+			// cosmosRelayTxHash = cosmosRelayTxHashBytes
 		}))
 	}))
 
@@ -711,8 +711,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 
 	simd := s.CosmosChains[0]
 
-	var cosmosPacketTxHash []byte
-	var solanaRelayTxSig solanago.Signature
+	// var cosmosPacketTxHash []byte
+	// var solanaRelayTxSig solanago.Signature
 
 	s.Require().True(s.Run("Send ICS20 transfer from Cosmos to Solana", func() {
 		cosmosUserWallet := s.CosmosUsers[0]
@@ -765,9 +765,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.TxHash)
 
-			cosmosPacketTxHashBytes, err := hex.DecodeString(resp.TxHash)
-			s.Require().NoError(err)
-			cosmosPacketTxHash = cosmosPacketTxHashBytes
+			// cosmosPacketTxHashBytes, err := hex.DecodeString(resp.TxHash)
+			// s.Require().NoError(err)
+			// cosmosPacketTxHash = cosmosPacketTxHashBytes
 
 			s.T().Logf("Cosmos packet transaction sent: %s", resp.TxHash)
 		}))
