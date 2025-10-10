@@ -964,7 +964,6 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 
 //nolint:unused // Will be used after chunked router is merged
 func (s *IbcEurekaSolanaTestSuite) verifyAcknowledgmentOnSolana(ctx context.Context, clientID string, sequence uint64) {
-	// Derive the packet acknowledgment PDA
 	packetAckPDA, _, err := solanago.FindProgramAddress(
 		[][]byte{
 			[]byte("packet_ack"),
@@ -981,11 +980,9 @@ func (s *IbcEurekaSolanaTestSuite) verifyAcknowledgmentOnSolana(ctx context.Cont
 	s.Require().NotNil(accountInfo.Value, "Acknowledgment account should exist")
 	s.Require().NotNil(accountInfo.Value.Data, "Acknowledgment account should have data")
 
-	// The account should be owned by the ICS26 router program
 	s.Require().Equal(ics26_router.ProgramID.String(), accountInfo.Value.Owner.String(),
 		"Acknowledgment account should be owned by ICS26 router")
 
-	// Log the acknowledgment data for debugging
 	s.T().Logf("Acknowledgment verified on Solana for client %s, sequence %d", clientID, sequence)
 	s.T().Logf("  - Account: %s", packetAckPDA.String())
 	s.T().Logf("  - Data length: %d bytes", len(accountInfo.Value.Data.GetBinary()))
