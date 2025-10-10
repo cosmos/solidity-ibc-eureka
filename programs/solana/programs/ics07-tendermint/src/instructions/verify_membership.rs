@@ -17,7 +17,7 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
     let kv_pair = KVPair::new(msg.path.clone(), msg.value);
     let app_hash = consensus_state_store.consensus_state.root;
     tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)])
-        .map_err(|e| error!(ErrorCode::MembershipVerificationFailed))?;
+        .map_err(|_| error!(ErrorCode::MembershipVerificationFailed))?;
 
     Ok(())
 }
