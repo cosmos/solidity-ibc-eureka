@@ -962,6 +962,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 	s.T().Logf("Successfully submitted all %d chunked transactions", len(resp.Txs))
 }
 
+//nolint:unused // Will be used after chunked router is merged
 func (s *IbcEurekaSolanaTestSuite) verifyAcknowledgmentOnSolana(ctx context.Context, clientID string, sequence uint64) {
 	// Derive the packet acknowledgment PDA
 	packetAckPDA, _, err := solanago.FindProgramAddress(
