@@ -119,15 +119,13 @@ pub fn solana_timeout_packet_to_tm_timeout(
 ///
 /// # Errors
 /// * Returns error if the packet field is missing
-/// * Returns error if the proof_height field is missing
-/// * Returns error if timeout_timestamp cannot be converted to i64
+/// * Returns error if the `proof_height` field is missing
+/// * Returns error if `timeout_timestamp` cannot be converted to i64
 pub fn tm_timeout_to_solana_timeout_packet(
     msg: ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout,
 ) -> anyhow::Result<solana_ibc_types::MsgTimeoutPacket> {
     let packet = msg.packet.context("packet field is required")?;
-    let proof_height = msg
-        .proof_height
-        .context("proof_height field is required")?;
+    let proof_height = msg.proof_height.context("proof_height field is required")?;
 
     let solana_packet = solana_ibc_types::Packet {
         sequence: packet.sequence,
