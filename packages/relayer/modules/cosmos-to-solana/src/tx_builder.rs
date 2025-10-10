@@ -707,7 +707,7 @@ impl TxBuilder {
         let timeout_msgs: Vec<_> = timeout_msgs
             .clone()
             .into_iter()
-            .map(|msg| tm_timeout_to_solana_timeout_packet(msg))
+            .map(tm_timeout_to_solana_timeout_packet)
             .collect::<Result<Vec<_>, _>>()?;
 
         let mut instructions = Vec::new();
