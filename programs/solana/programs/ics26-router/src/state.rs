@@ -89,6 +89,3 @@ pub struct Commitment {
 
 /// Maximum timeout duration (1 day in seconds)
 pub const MAX_TIMEOUT_DURATION: i64 = 86400;
-
-#[event]
-pub struct NoopEvent {}

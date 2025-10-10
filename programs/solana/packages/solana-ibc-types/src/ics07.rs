@@ -41,6 +41,7 @@ pub struct ClientState {
 /// Consensus state for ICS07 Tendermint
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct ConsensusState {
+    /// Timestamp in nanoseconds since Unix epoch
     pub timestamp: u64,
     pub root: [u8; 32],
     pub next_validators_hash: [u8; 32],

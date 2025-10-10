@@ -64,6 +64,18 @@ pub enum ErrorCode {
     #[msg("Invalid length: state root or next validators hash is not 32 bytes long")]
     InvalidRootLength,
 
+    // Chunking errors
+    #[msg("Invalid chunk count: unexpected number of chunk accounts")]
+    InvalidChunkCount,
+    #[msg("Metadata already initialized: cannot reinitialize upload metadata")]
+    MetadataAlreadyInitialized,
+    #[msg("Invalid chunk account: chunk account PDA mismatch")]
+    InvalidChunkAccount,
+    #[msg("Too many chunks: exceeds maximum supported chunks")]
+    TooManyChunks,
+    #[msg("Chunk data too large: exceeds maximum chunk size")]
+    ChunkDataTooLarge,
+
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]
     SerializationError,

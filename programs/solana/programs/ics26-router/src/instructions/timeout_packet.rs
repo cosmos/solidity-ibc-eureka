@@ -5,6 +5,7 @@ use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
+use solana_ibc_types::events::{NoopEvent, TimeoutPacketEvent};
 #[cfg(test)]
 use solana_ibc_types::router::APP_STATE_SEED;
 
@@ -108,12 +109,13 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     let receipt_path =
         ics24::packet_receipt_commitment_path(&msg.packet.dest_client, msg.packet.sequence);
 
+    // The proof from Cosmos is generated with path segments ["ibc", receipt_path]
     let non_membership_msg = MembershipMsg {
         height: msg.proof_height,
         delay_time_period: 0,
         delay_block_period: 0,
         proof: msg.proof_timeout.clone(),
-        path: vec![receipt_path],
+        path: vec![b"ibc".to_vec(), receipt_path],
         value: vec![], // Empty value for non-membership
     };
 
@@ -149,6 +151,8 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         &ctx.accounts.ibc_app_program,
         &ctx.accounts.ibc_app_state,
         &ctx.accounts.router_program,
+        &ctx.accounts.payer,
+        &ctx.accounts.system_program,
         &msg.packet,
         &msg.packet.payloads[0],
         &ctx.accounts.relayer.key(),
@@ -168,17 +172,10 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     emit!(TimeoutPacketEvent {
         client_id: msg.packet.source_client.clone(),
         sequence: msg.packet.sequence,
-        packet_data: msg.packet.try_to_vec()?,
+        packet: msg.packet,
     });
 
     Ok(())
-}
-
-#[event]
-pub struct TimeoutPacketEvent {
-    pub client_id: String,
-    pub sequence: u64,
-    pub packet_data: Vec<u8>,
 }
 
 #[cfg(test)]

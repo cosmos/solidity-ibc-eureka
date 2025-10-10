@@ -1,23 +1,43 @@
 //! Relayer utilities for `CosmosSDK` chains.
 
+use std::collections::HashMap;
+use std::hash::BuildHasher;
+
 use alloy::{hex, primitives::U256, providers::Provider};
 use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
 use ethereum_light_client::membership::{evm_ics26_commitment_path, MembershipProof};
 use ethereum_types::execution::{account_proof::AccountProof, storage_proof::StorageProof};
 use futures::future;
+use ibc_client_tendermint_types::ConsensusState;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
-use ibc_eureka_utils::rpc::TendermintRpcExt;
+use ibc_eureka_utils::{light_block::LightBlockExt as _, rpc::TendermintRpcExt};
+use ibc_proto_eureka::google::protobuf::Duration;
 use ibc_proto_eureka::{
-    ibc::core::{
-        channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
-        client::v1::Height,
+    cosmos::tx::v1beta1::TxBody,
+    google::protobuf::Any,
+    ibc::{
+        core::{
+            channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
+            client::v1::{Height, MsgCreateClient, MsgUpdateClient},
+        },
+        lightclients::tendermint::v1::ClientState,
+        lightclients::wasm::v1::{
+            ClientState as WasmClientState, ConsensusState as WasmConsensusState,
+        },
     },
     Protobuf,
 };
+use prost::Message;
 use tendermint_rpc::HttpClient;
 
-use crate::events::{EurekaEvent, EurekaEventWithHeight};
+use crate::{
+    events::{EurekaEvent, EurekaEventWithHeight},
+    tendermint_client::build_tendermint_client_state,
+};
+
+/// The key for the checksum hex in the tendermint create client parameters map.
+pub const CHECKSUM_HEX: &str = "checksum_hex";
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgTimeout`]s.
 ///
@@ -127,6 +147,230 @@ pub fn src_events_to_recv_and_ack_msgs(
         .collect::<Vec<MsgAcknowledgement>>();
 
     (recv_msgs, ack_msgs)
+}
+
+/// Parameters for updating a Tendermint IBC light client.
+pub struct TmUpdateClientParams {
+    /// Height the client will be updated to (proof height for packet verification).
+    pub target_height: u64,
+    /// Current trusted height of the client.
+    pub trusted_height: u64,
+    /// Header proving valid transition from `trusted_height` to `target_height`.
+    pub proposed_header: ibc_proto::ibc::lightclients::tendermint::v1::Header,
+}
+
+/// Generates a Tendermint header for IBC client update from trusted height to height (latest if
+/// omitted).
+///
+/// # Errors
+/// - Failed light block retrieval from Tendermint node
+pub async fn tm_update_client_params(
+    trusted_height: u64,
+    src_tm_client: &HttpClient,
+    target_height: Option<u64>,
+) -> anyhow::Result<TmUpdateClientParams> {
+    let target_light_block = src_tm_client.get_light_block(target_height).await?;
+    let target_height = target_light_block.signed_header.header.height.value();
+
+    let trusted_light_block = src_tm_client.get_light_block(Some(trusted_height)).await?;
+
+    tracing::info!(
+        "Generating header to update from height: {} to height: {}",
+        trusted_light_block.height().value(),
+        target_light_block.height().value()
+    );
+
+    let proposed_header = target_light_block.into_header(&trusted_light_block);
+
+    Ok(TmUpdateClientParams {
+        target_height,
+        trusted_height,
+        proposed_header,
+    })
+}
+
+/// Parameters for creating a new Tendermint IBC light client.
+pub struct TmCreateClientParams {
+    /// Latest height
+    pub latest_height: u64,
+    /// Consensus state
+    pub client_state: ClientState,
+    /// Initial trusted consensus state
+    pub consensus_state: ConsensusState,
+}
+
+/// Generates parameters for creating a new Tendermint IBC light client.
+/// # Arguments
+/// * `src_tm_client` - HTTP client connected to the source Tendermint chain
+///
+/// # Returns
+/// Client creation parameters with
+///
+/// # Errors
+/// - Missing unbonding time in staking parameters
+/// - Failed to fetch light block or chain parameters
+pub async fn tm_create_client_params(
+    src_tm_client: &HttpClient,
+) -> anyhow::Result<TmCreateClientParams> {
+    let latest_light_block = src_tm_client.get_light_block(None).await?;
+    // NOTE: might cache
+    let chain_id = latest_light_block.chain_id()?;
+
+    let latest_height = latest_light_block.height().value();
+
+    tracing::info!("Creating client at height: {latest_height}",);
+
+    let height = Height {
+        revision_number: chain_id.revision_number(),
+        revision_height: latest_light_block.height().value(),
+    };
+    let unbonding_period = src_tm_client
+        .sdk_staking_params()
+        .await?
+        .unbonding_time
+        .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
+
+    // Defaults to the recommended 2/3 of the UnbondingPeriod
+    let trusting_period = Duration {
+        seconds: 2 * (unbonding_period.seconds / 3),
+        nanos: 0,
+    };
+
+    let client_state = build_tendermint_client_state(
+        chain_id.to_string(),
+        height,
+        trusting_period,
+        unbonding_period,
+        vec![ics23::iavl_spec(), ics23::tendermint_spec()],
+    );
+
+    let consensus_state = latest_light_block.to_consensus_state();
+    Ok(TmCreateClientParams {
+        latest_height,
+        client_state,
+        consensus_state,
+    })
+}
+
+/// Creates a Cosmos transaction for creating an IBC client with WASM light client support.
+///
+/// # Arguments
+/// * `parameters` - Must contain `checksum_hex` key with the WASM code checksum
+/// * `client_state_bytes` - Serialized client state data
+/// * `consensus_state` - Serialized consensus state data
+/// * `height` - Height parameter (currently unused in implementation)
+/// * `signer_address` - Address of the transaction signer
+///
+/// # Returns
+/// Encoded transaction body bytes
+///
+/// # Errors
+/// * If parameters contains keys other than `checksum_hex`
+/// * If `checksum_hex` parameter is missing
+/// * If checksum hex decoding fails
+pub fn cosmos_create_client_tx<H: BuildHasher>(
+    parameters: &HashMap<String, String, H>,
+    client_state_bytes: Vec<u8>,
+    consensus_state: &WasmConsensusState,
+    height: Height,
+    signer_address: String,
+) -> Result<Vec<u8>> {
+    parameters
+        .keys()
+        .find(|k| k.as_str() != CHECKSUM_HEX)
+        .map_or(Ok(()), |param| {
+            Err(anyhow::anyhow!(
+                "Unexpected parameter: `{param}`, only `{CHECKSUM_HEX}` is allowed"
+            ))
+        })?;
+    let checksum = hex::decode(
+        parameters
+            .get(CHECKSUM_HEX)
+            .ok_or_else(|| anyhow::anyhow!("Missing `{CHECKSUM_HEX}` parameter"))?,
+    )?;
+
+    let client_state = WasmClientState {
+        data: client_state_bytes,
+        checksum,
+        latest_height: Some(height),
+    };
+
+    let msg = MsgCreateClient {
+        client_state: Some(Any::from_msg(&client_state)?),
+        consensus_state: Some(Any::from_msg(consensus_state)?),
+        signer: signer_address,
+    };
+
+    Ok(TxBody {
+        messages: vec![Any::from_msg(&msg)?],
+        ..Default::default()
+    }
+    .encode_to_vec())
+}
+
+/// Creates a Cosmos transaction for updating an IBC client with a new consensus state.
+///
+/// # Arguments
+/// * `dst_client_id` - The identifier of the client to update
+/// * `consensus_state` - The consensus state of update
+/// * `signer_address` - Address of the transaction signer
+///
+/// # Returns
+/// Encoded transaction body bytes ready for signing and submission
+///
+/// # Errors
+/// * If message encoding fails
+pub fn cosmos_update_client_tx(
+    dst_client_id: String,
+    consensus_state: &WasmConsensusState,
+    signer_address: String,
+) -> Result<Vec<u8>> {
+    tracing::info!(
+        "Generating tx to update light client on cosmos: {}",
+        dst_client_id
+    );
+
+    let msg = MsgUpdateClient {
+        client_id: dst_client_id,
+        client_message: Some(Any::from_msg(consensus_state)?),
+        signer: signer_address,
+    };
+
+    Ok(TxBody {
+        messages: vec![Any::from_msg(&msg)?],
+        ..Default::default()
+    }
+    .encode_to_vec())
+}
+/// Fetches the latest Tendermint height from the source chain while preserving the revision number.
+///
+/// # Arguments
+/// * `client_state` - The IBC client state containing the current revision number
+/// * `source_tm_client` - HTTP client for querying the source Tendermint chain
+///
+/// # Returns
+/// * `Height` with the latest block height from source chain and preserved revision number
+///
+/// # Errors
+/// * If the light block cannot be fetched from the source chain
+/// * If the client state has no latest height set
+pub async fn get_latest_tm_heigth(
+    client_state: ClientState,
+    source_tm_client: &HttpClient,
+) -> Result<Height> {
+    let target_light_block = source_tm_client.get_light_block(None).await?;
+    let revision_height = target_light_block.height().value();
+    let revision_number = client_state
+        .latest_height
+        .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
+        .revision_number;
+
+    let latest_height = Height {
+        revision_number,
+        revision_height,
+    };
+
+    Ok(latest_height)
 }
 
 /// Generates and injects tendermint proofs for rec, ack and timeout messages.

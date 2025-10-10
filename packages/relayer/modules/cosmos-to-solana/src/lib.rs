@@ -6,12 +6,15 @@
 pub mod tx_builder;
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
+use ibc_eureka_relayer_lib::listener::cosmos_sdk;
+use ibc_eureka_relayer_lib::listener::solana_eureka;
+use ibc_eureka_relayer_lib::listener::ChainListenerService;
+use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
+use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
+use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
-use solana_client::rpc_client::RpcClient;
-use tendermint::Hash;
-use tendermint_rpc::Client;
+use solana_sdk::pubkey::Pubkey;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
@@ -27,16 +30,14 @@ pub struct CosmosToSolanaRelayerModule;
 /// The `CosmosToSolanaRelayerModuleService` defines the relayer service from Cosmos to Solana.
 #[allow(dead_code)]
 struct CosmosToSolanaRelayerModuleService {
-    /// The source Cosmos tendermint client.
-    pub source_tm_client: HttpClient,
-    /// The target Solana RPC client
-    pub solana_client: Arc<RpcClient>,
+    /// The souce chain listener for Cosmos.
+    pub src_listener: cosmos_sdk::ChainListener,
+    /// The target chain listener for Solana.
+    pub target_listener: solana_eureka::ChainListener,
     /// The transaction builder from Cosmos to Solana.
     pub tx_builder: tx_builder::TxBuilder,
-    /// The Solana ICS26 router program ID.
-    pub solana_ics26_program_id: solana_sdk::pubkey::Pubkey,
-    /// The Solana ICS07 Tendermint light client program ID.
-    pub solana_ics07_program_id: solana_sdk::pubkey::Pubkey,
+    /// The Solana ICS07 program ID.
+    pub solana_ics07_program_id: Pubkey,
 }
 
 /// The configuration for the Cosmos to Solana relayer module.
@@ -45,7 +46,7 @@ pub struct CosmosToSolanaConfig {
     /// The source tendermint RPC URL.
     pub source_rpc_url: String,
     /// The Solana RPC URL.
-    pub solana_rpc_url: String,
+    pub target_rpc_url: String,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: String,
     /// The Solana ICS07 Tendermint light client program ID.
@@ -56,18 +57,23 @@ pub struct CosmosToSolanaConfig {
 
 impl CosmosToSolanaRelayerModuleService {
     fn new(config: &CosmosToSolanaConfig) -> anyhow::Result<Self> {
-        let source_client = HttpClient::from_rpc_url(&config.source_rpc_url);
-        let solana_client = Arc::new(RpcClient::new(config.solana_rpc_url.clone()));
+        let src_listener =
+            cosmos_sdk::ChainListener::new(HttpClient::from_rpc_url(&config.source_rpc_url));
 
         let solana_ics26_program_id = config
             .solana_ics26_program_id
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana ICS26 program ID: {}", e))?;
 
-        let solana_ics07_program_id = config
+        let solana_ics07_program_id: Pubkey = config
             .solana_ics07_program_id
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {}", e))?;
+
+        let target_listener = solana_eureka::ChainListener::new(
+            config.target_rpc_url.clone(),
+            solana_ics26_program_id,
+        );
 
         let fee_payer = config
             .solana_fee_payer
@@ -75,18 +81,17 @@ impl CosmosToSolanaRelayerModuleService {
             .map_err(|e| anyhow::anyhow!("Invalid fee payer address: {}", e))?;
 
         let tx_builder = tx_builder::TxBuilder::new(
-            source_client.clone(),
-            solana_client.clone(),
-            solana_ics26_program_id,
+            src_listener.client().clone(),
+            target_listener.client().clone(),
             solana_ics07_program_id,
+            solana_ics26_program_id,
             fee_payer,
         )?;
 
         Ok(Self {
-            source_tm_client: source_client,
-            solana_client,
+            src_listener,
+            target_listener,
             tx_builder,
-            solana_ics26_program_id,
             solana_ics07_program_id,
         })
     }
@@ -101,28 +106,26 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
         tracing::info!("Handling info request for Cosmos to Solana...");
 
-        // Get Cosmos chain ID
-        let status = self
-            .source_tm_client
-            .status()
-            .await
-            .map_err(|e| tonic::Status::internal(format!("Failed to get chain ID: {e}")))?;
-
         Ok(Response::new(api::InfoResponse {
             source_chain: Some(api::Chain {
-                chain_id: status.node_info.network.to_string(),
+                chain_id: self
+                    .src_listener
+                    .chain_id()
+                    .await
+                    .map_err(to_tonic_status)?,
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
             target_chain: Some(api::Chain {
-                chain_id: "solana".to_string(), // Solana doesn't have chain IDs like Cosmos
+                chain_id: "solana-localnet".to_string(), // Solana doesn't have chain IDs like Cosmos
                 ibc_version: "2".to_string(),
-                ibc_contract: self.solana_ics26_program_id.to_string(),
+                ibc_contract: self.target_listener.ics26_program_id().to_string(),
             }),
             metadata: HashMap::default(),
         }))
     }
 
+    // NOTE: Client would not be automatically updated and should be done manually
     #[tracing::instrument(skip_all)]
     async fn relay_by_tx(
         &self,
@@ -133,46 +136,26 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
+        let src_txs = parse_cosmos_tx_hashes(inner_req.source_tx_ids)?;
 
-        // Parse Cosmos transaction hashes
-        let src_txs = inner_req
-            .source_tx_ids
-            .into_iter()
-            .map(Hash::try_from)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| tonic::Status::from_error(e.into()))?;
+        let target_txs = parse_solana_tx_hashes(inner_req.timeout_tx_ids)?;
 
-        // Parse Solana transaction signatures for timeouts
-        let target_txs: Vec<solana_sdk::signature::Signature> = inner_req
-            .timeout_tx_ids
-            .into_iter()
-            .map(|tx_id| {
-                let sig_str = String::from_utf8(tx_id).map_err(|e| {
-                    tonic::Status::invalid_argument(format!("Invalid signature: {e}"))
-                })?;
-                sig_str
-                    .parse::<solana_sdk::signature::Signature>()
-                    .map_err(|e| tonic::Status::invalid_argument(format!("Invalid signature: {e}")))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        // Fetch events from Cosmos transactions
         let src_events = self
-            .tx_builder
-            .fetch_cosmos_events(src_txs)
+            .src_listener
+            .fetch_tx_events(src_txs)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(cosmos_src_events = ?src_events, "Fetched source Cosmos events.");
+        tracing::debug!(cosmos_src_events = ?src_events, "Fetched source cosmos events.");
         tracing::info!(
-            "Fetched {} source eureka events from Cosmos.",
+            "Fetched {} source eureka events from CosmosSDK.",
             src_events.len()
         );
 
-        // Fetch events from Solana for timeouts
         let target_events = self
-            .tx_builder
-            .fetch_solana_timeout_events(target_txs)
+            .target_listener
+            .fetch_tx_events(target_txs)
+            .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::debug!(solana_target_events = ?target_events, "Fetched target Solana events.");
@@ -183,20 +166,23 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         let tx = self
             .tx_builder
-            .build_solana_tx(src_events, target_events)
+            .relay_events(
+                src_events,
+                target_events,
+                inner_req.src_client_id,
+                inner_req.dst_client_id,
+                inner_req.src_packet_sequences,
+                inner_req.dst_packet_sequences,
+            )
             .await
-            .map_err(|e| tonic::Status::from_error(e.into()))?;
+            .map_err(to_tonic_status)?;
 
-        tracing::info!("Built Solana transaction for Cosmos to Solana relay.");
-
-        // Serialize the unsigned transaction
-        let tx_bytes = bincode::serialize(&tx).map_err(|e| {
-            tonic::Status::internal(format!("Failed to serialize transaction: {e}"))
-        })?;
+        tracing::info!("Relay by tx request completed.");
 
         Ok(Response::new(api::RelayByTxResponse {
-            tx: tx_bytes,
-            address: self.solana_ics26_program_id.to_string(),
+            tx,
+            address: String::new(),
+            txs: vec![],
         }))
     }
 
@@ -209,16 +195,12 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         let tx = self
             .tx_builder
-            .build_create_client_tx()
+            .create_client()
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        let tx_bytes = bincode::serialize(&tx).map_err(|e| {
-            tonic::Status::internal(format!("Failed to serialize transaction: {e}"))
-        })?;
-
         Ok(Response::new(api::CreateClientResponse {
-            tx: tx_bytes,
+            tx,
             address: self.solana_ics07_program_id.to_string(),
         }))
     }
@@ -230,21 +212,23 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
         tracing::info!("Handling update client request for Cosmos to Solana...");
 
-        let inner_req = request.into_inner();
-
-        let tx = self
+        let header_update = self
             .tx_builder
-            .build_update_client_tx(inner_req.dst_client_id)
+            .update_client(request.into_inner().dst_client_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        let tx_bytes = bincode::serialize(&tx).map_err(|e| {
-            tonic::Status::internal(format!("Failed to serialize transaction: {e}"))
-        })?;
+        let mut txs = Vec::new();
+        txs.push(header_update.metadata_tx);
+        for tx in header_update.chunk_txs {
+            txs.push(tx);
+        }
+        txs.push(header_update.assembly_tx);
 
         Ok(Response::new(api::UpdateClientResponse {
-            tx: tx_bytes,
+            tx: vec![],
             address: self.solana_ics07_program_id.to_string(),
+            txs,
         }))
     }
 }

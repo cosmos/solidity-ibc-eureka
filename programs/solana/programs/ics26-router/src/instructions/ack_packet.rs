@@ -5,6 +5,7 @@ use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
+use solana_ibc_types::events::{AckPacketEvent, NoopEvent};
 #[cfg(test)]
 use solana_ibc_types::router::APP_STATE_SEED;
 
@@ -112,7 +113,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         delay_time_period: 0,
         delay_block_period: 0,
         proof: msg.proof_acked.clone(),
-        path: vec![ack_path],
+        path: vec![b"ibc".to_vec(), ack_path],
         value: msg.acknowledgement.clone(),
     };
 
@@ -141,6 +142,8 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         &ctx.accounts.ibc_app_program,
         &ctx.accounts.ibc_app_state,
         &ctx.accounts.router_program,
+        &ctx.accounts.payer,
+        &ctx.accounts.system_program,
         &msg.packet,
         &msg.packet.payloads[0],
         &msg.acknowledgement,
@@ -160,19 +163,11 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     emit!(AckPacketEvent {
         client_id: msg.packet.source_client.clone(),
         sequence: msg.packet.sequence,
-        packet_data: msg.packet.try_to_vec()?,
-        acknowledgement: msg.acknowledgement,
+        packet: msg.packet.clone(),
+        acknowledgement: vec![msg.acknowledgement],
     });
 
     Ok(())
-}
-
-#[event]
-pub struct AckPacketEvent {
-    pub client_id: String,
-    pub sequence: u64,
-    pub packet_data: Vec<u8>,
-    pub acknowledgement: Vec<u8>,
 }
 
 #[cfg(test)]

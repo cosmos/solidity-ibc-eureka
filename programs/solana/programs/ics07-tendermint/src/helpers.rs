@@ -1,5 +1,4 @@
 use crate::error::ErrorCode;
-use crate::state::ConsensusStateStore;
 use crate::types::ClientState;
 use anchor_lang::prelude::*;
 use ibc_client_tendermint::types::{Header, Misbehaviour};
@@ -25,15 +24,9 @@ pub fn deserialize_misbehaviour(bytes: &[u8]) -> Result<Misbehaviour> {
 
 pub fn validate_proof_params(
     client_state: &Account<ClientState>,
-    consensus_state_store: &ConsensusStateStore,
     msg: &MembershipMsg,
 ) -> Result<()> {
     require!(!client_state.is_frozen(), ErrorCode::ClientFrozen);
-
-    require!(
-        consensus_state_store.height == msg.height,
-        ErrorCode::ProofHeightNotFound
-    );
 
     require!(
         msg.height <= client_state.latest_height.revision_height,

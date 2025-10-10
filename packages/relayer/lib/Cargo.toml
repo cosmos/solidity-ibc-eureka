@@ -33,10 +33,14 @@ tendermint-light-client-verifier = { workspace = true }
 tonic = { workspace = true }
 anchor-lang = { workspace = true }
 solana-sdk = { workspace = true }
+solana-client = { workspace = true }
+solana-transaction-status = { workspace = true }
 solana-ibc-types = { workspace = true }
 
+ibc-proto                 = { workspace = true }
 ibc-proto-eureka          = { workspace = true }
 ibc-core-commitment-types = { workspace = true }
+ibc-client-tendermint-types      = { workspace = true }
 
 alloy = { workspace = true, features = ["full", "node-bindings"] }
 

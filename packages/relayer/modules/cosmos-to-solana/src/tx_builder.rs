@@ -1,136 +1,159 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! Solana from events received from a Cosmos SDK chain.
 
-use std::str::FromStr;
 use std::sync::Arc;
 
-use anchor_lang::AnchorSerialize;
-use anyhow::Result;
-use ibc_eureka_relayer_lib::events::EurekaEvent;
-use ibc_eureka_relayer_lib::utils::{to_32_bytes_exact, to_32_bytes_padded};
-use ibc_eureka_utils::light_block::LightBlockExt;
-use ibc_eureka_utils::rpc::TendermintRpcExt;
+use anchor_lang::prelude::*;
+use anyhow::{Context, Result};
+use ibc_eureka_relayer_lib::{
+    events::{
+        solana::{solana_timeout_packet_to_tm_timeout, tm_timeout_to_solana_timeout_packet},
+        EurekaEventWithHeight, SolanaEurekaEventWithHeight,
+    },
+    utils::{
+        cosmos::{
+            self, get_latest_tm_heigth, tm_create_client_params, tm_update_client_params,
+            TmCreateClientParams, TmUpdateClientParams,
+        },
+        solana_eureka::{
+            convert_client_state_to_ibc, convert_client_state_to_sol, convert_consensus_state,
+            ibc_to_solana_ack_packet, ibc_to_solana_recv_packet, target_events_to_timeout_msgs,
+        },
+    },
+};
 use prost::Message;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
+    keccak,
     pubkey::Pubkey,
-    signature::Signature,
     sysvar,
     transaction::Transaction,
 };
-use tendermint::Hash;
-use tendermint_rpc::{Client, HttpClient};
 
 use solana_ibc_types::{
     derive_client, derive_client_sequence, derive_ibc_app, derive_ics07_client_state,
-    derive_ics07_consensus_state, derive_packet_ack, derive_packet_receipt, derive_router_state,
-    get_instruction_discriminator,
-    ics07::{ClientState, ConsensusState, IbcHeight, ICS07_INITIALIZE_DISCRIMINATOR},
-    MsgRecvPacket, Packet, Payload, UpdateClientMsg,
+    derive_ics07_consensus_state, derive_packet_ack, derive_packet_commitment,
+    derive_packet_receipt, derive_router_state, get_instruction_discriminator,
+    ics07::{ClientState, ConsensusState, ICS07_INITIALIZE_DISCRIMINATOR},
+    MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket,
 };
+use tendermint_rpc::{Client as _, HttpClient};
 
-use solana_ibc_constants::{ICS07_TENDERMINT_ID, ICS26_ROUTER_ID};
+/// Maximum size for a header chunk (matches `CHUNK_DATA_SIZE` in Solana program)
+const MAX_CHUNK_SIZE: usize = 700;
 
-/// Default trust level for ICS07 Tendermint light client (1/3)
-const DEFAULT_TRUST_LEVEL_NUMERATOR: u64 = 1;
-const DEFAULT_TRUST_LEVEL_DENOMINATOR: u64 = 3;
-
-/// Maximum allowed clock drift in seconds
-const MAX_CLOCK_DRIFT_SECONDS: u64 = 15;
-
-/// Mock proof data for testing purposes
-const MOCK_PROOF_DATA: &[u8] = b"mock";
-
-/// Parameters for building a `RecvPacket` instruction
-struct RecvPacketParams<'a> {
-    sequence: u64,
-    source_client: &'a str,
-    destination_client: &'a str,
-    payloads: &'a [Vec<u8>],
-    timeout_timestamp: u64,
+/// Parameters for uploading a header chunk (mirrors the Solana program's type)
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+struct UploadChunkParams {
+    chain_id: String,
+    target_height: u64,
+    chunk_index: u8,
+    chunk_data: Vec<u8>,
 }
 
-/// IBC Eureka event types from Cosmos
-#[derive(Debug, Clone)]
-pub enum CosmosIbcEvent {
-    SendPacket {
-        /// Packet sequence
-        sequence: u64,
-        /// Source client ID
-        source_client: String,
-        /// Destination client ID
-        destination_client: String,
-        /// Packet payloads
-        payloads: Vec<Vec<u8>>,
-        /// Timeout timestamp
-        timeout_timestamp: u64,
-    },
-    AcknowledgePacket {
-        /// Packet sequence
-        sequence: u64,
-        /// Source client ID
-        source_client: String,
-        /// Acknowledgement data (one per payload)
-        acknowledgements: Vec<Vec<u8>>,
-    },
-    TimeoutPacket {
-        /// Packet sequence
-        sequence: u64,
-        /// Source client ID
-        source_client: String,
-    },
+/// Organized transactions for chunked update client
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct UpdateClientChunkedTxs {
+    /// Metadata creation transaction (must be submitted first)
+    pub metadata_tx: Vec<u8>,
+    /// All chunk upload transactions (can be submitted in parallel after metadata)
+    pub chunk_txs: Vec<Vec<u8>>,
+    /// Final assembly transaction (must be submitted last)
+    pub assembly_tx: Vec<u8>,
+    /// Total number of chunks
+    pub total_chunks: usize,
+    /// Target height being updated to
+    pub target_height: u64,
+}
+
+/// Helper to derive header chunk PDA
+fn derive_header_chunk(
+    submitter: Pubkey,
+    chain_id: &str,
+    height: u64,
+    chunk_index: u8,
+    program_id: Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            b"header_chunk",
+            submitter.as_ref(),
+            chain_id.as_bytes(),
+            &height.to_le_bytes(),
+            &[chunk_index],
+        ],
+        &program_id,
+    )
+}
+
+/// Helper to derive header metadata PDA
+fn derive_header_metadata(
+    submitter: Pubkey,
+    chain_id: &str,
+    height: u64,
+    program_id: Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            b"header_metadata",
+            submitter.as_ref(),
+            chain_id.as_bytes(),
+            &height.to_le_bytes(),
+        ],
+        &program_id,
+    )
 }
 
 /// The `TxBuilder` produces Solana transactions based on events from Cosmos SDK.
 pub struct TxBuilder {
-    /// The source Cosmos HTTP client.
-    pub source_tm_client: HttpClient,
-    /// The Solana RPC client (wrapped in Arc since `RpcClient` doesn't implement Clone in 2.0).
-    pub solana_client: Arc<RpcClient>,
+    /// The HTTP client for Cosmos chain.
+    pub src_tm_client: HttpClient,
+    /// The target Rpc Client for Solana.
+    pub target_solana_client: Arc<RpcClient>,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: Pubkey,
-    /// The Solana ICS07 Tendermint light client program ID.
+    /// The Solana ICS07 program ID.
     pub solana_ics07_program_id: Pubkey,
     /// The fee payer address for transactions.
     pub fee_payer: Pubkey,
 }
 
 impl TxBuilder {
-    /// Create consensus state from Tendermint block
+    /// Creates a new `TxBuilder`.
     ///
     /// # Errors
     ///
-    /// Returns an error if the timestamp cannot be converted to u64
-    fn create_consensus_state_from_block(
-        block: &tendermint_rpc::endpoint::block::Response,
-    ) -> Result<ConsensusState> {
-        let app_hash = to_32_bytes_padded(block.block.header.app_hash.as_bytes(), "app_hash");
-
-        let validators_hash = to_32_bytes_exact(
-            block.block.header.validators_hash.as_bytes(),
-            "validators_hash",
-        );
-
-        Ok(ConsensusState {
-            timestamp: block
-                .block
-                .header
-                .time
-                .unix_timestamp()
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Invalid timestamp: negative value"))?,
-            root: app_hash,
-            next_validators_hash: validators_hash,
+    /// Returns an error if:
+    /// - Failed to parse program IDs
+    pub const fn new(
+        src_tm_client: HttpClient,
+        target_solana_client: Arc<RpcClient>,
+        solana_ics07_program_id: Pubkey,
+        solana_ics26_program_id: Pubkey,
+        fee_payer: Pubkey,
+    ) -> Result<Self> {
+        Ok(Self {
+            src_tm_client,
+            target_solana_client,
+            solana_ics26_program_id,
+            solana_ics07_program_id,
+            fee_payer,
         })
     }
 
-    /// Build instruction for creating a client
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if serialization fails
+    async fn chain_id(&self) -> Result<String> {
+        Ok(self
+            .src_tm_client
+            .latest_block()
+            .await?
+            .block
+            .header
+            .chain_id
+            .into())
+    }
+
     fn build_create_client_instruction(
         &self,
         chain_id: &str,
@@ -138,19 +161,17 @@ impl TxBuilder {
         client_state: &ClientState,
         consensus_state: &ConsensusState,
     ) -> Result<Instruction> {
-        // Derive PDAs
         let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, &self.solana_ics07_program_id);
+            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
         let (consensus_state_pda, _) = derive_ics07_consensus_state(
-            &client_state_pda,
+            client_state_pda,
             latest_height,
-            &self.solana_ics07_program_id,
+            self.solana_ics07_program_id,
         );
 
         tracing::debug!("Client state PDA: {}", client_state_pda);
         tracing::debug!("Consensus state PDA: {}", consensus_state_pda);
 
-        // Build accounts for the instruction
         let accounts = vec![
             AccountMeta::new(client_state_pda, false),
             AccountMeta::new(consensus_state_pda, false),
@@ -158,22 +179,16 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
-        // Use the correct ICS07 initialize discriminator
         let discriminator = ICS07_INITIALIZE_DISCRIMINATOR;
 
-        // Serialize instruction data using Anchor format
         let mut instruction_data = Vec::new();
 
-        // Add discriminator
         instruction_data.extend_from_slice(&discriminator);
 
-        // Serialize parameters in order: chain_id, latest_height, client_state, consensus_state
         instruction_data.extend_from_slice(&chain_id.try_to_vec()?);
         instruction_data.extend_from_slice(&latest_height.try_to_vec()?);
         instruction_data.extend_from_slice(&client_state.try_to_vec()?);
         instruction_data.extend_from_slice(&consensus_state.try_to_vec()?);
-
-        tracing::debug!("Instruction data length: {} bytes", instruction_data.len());
 
         Ok(Instruction {
             program_id: self.solana_ics07_program_id,
@@ -182,360 +197,44 @@ impl TxBuilder {
         })
     }
 
-    /// Creates a new `TxBuilder`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Failed to parse program IDs
-    pub fn new(
-        source_tm_client: HttpClient,
-        solana_client: Arc<RpcClient>,
-        _solana_ics26_program_id: Pubkey, // Use hardcoded for now
-        _solana_ics07_program_id: Pubkey, // Use hardcoded for now
-        fee_payer: Pubkey,
-    ) -> Result<Self> {
-        Ok(Self {
-            source_tm_client,
-            solana_client,
-            solana_ics26_program_id: Pubkey::from_str(ICS26_ROUTER_ID)
-                .map_err(|e| anyhow::anyhow!("Invalid ICS26 program ID: {e}"))?,
-            solana_ics07_program_id: Pubkey::from_str(ICS07_TENDERMINT_ID)
-                .map_err(|e| anyhow::anyhow!("Invalid ICS07 program ID: {e}"))?,
-            fee_payer,
-        })
-    }
-
-    /// Fetch events from Cosmos transactions
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if failed to fetch Cosmos transaction
-    #[allow(clippy::cognitive_complexity)] // Event parsing is inherently complex
-    pub async fn fetch_cosmos_events(&self, tx_hashes: Vec<Hash>) -> Result<Vec<CosmosIbcEvent>> {
-        let mut events = Vec::new();
-
-        for tx_hash in tx_hashes {
-            // Fetch transaction from Tendermint
-            let tx_result = self
-                .source_tm_client
-                .tx(tx_hash, false)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to fetch Cosmos transaction: {e}"))?;
-
-            let _height = tx_result.height.value();
-
-            for tm_event in tx_result.tx_result.events {
-                if let Ok(eureka_event) = EurekaEvent::try_from(tm_event.clone()) {
-                    match eureka_event {
-                        EurekaEvent::SendPacket(packet) => {
-                            tracing::debug!(
-                                "Parsed send_packet: seq={}, src={}, dst={}",
-                                packet.sequence,
-                                packet.sourceClient,
-                                packet.destClient
-                            );
-
-                            // Convert payloads to Vec<Vec<u8>>
-                            let payloads = packet
-                                .payloads
-                                .into_iter()
-                                .map(|p| p.value.to_vec())
-                                .collect();
-
-                            events.push(CosmosIbcEvent::SendPacket {
-                                sequence: packet.sequence,
-                                source_client: packet.sourceClient,
-                                destination_client: packet.destClient,
-                                payloads,
-                                timeout_timestamp: packet.timeoutTimestamp,
-                            });
-                        }
-                        EurekaEvent::WriteAcknowledgement(packet, _acks) => {
-                            tracing::debug!(
-                                "Parsed write_acknowledgement: seq={}, src={}",
-                                packet.sequence,
-                                packet.sourceClient
-                            );
-
-                            // For now, we'll skip WriteAck as it's not the same as AcknowledgePacket
-                            // WriteAck is when the destination writes an ack,
-                            // AcknowledgePacket is when source processes the ack
-                        }
-                    }
-                } else {
-                    // Handle events not yet supported by EurekaEvent
-                    // For now, just log them
-                    match tm_event.kind.as_str() {
-                        "acknowledge_packet" => {
-                            tracing::debug!("Found acknowledge_packet event (not yet implemented in EurekaEvent)");
-                            // TODO: When EurekaEvent supports AcknowledgePacket, handle it
-                        }
-                        "timeout_packet" => {
-                            tracing::debug!(
-                                "Found timeout_packet event (not yet implemented in EurekaEvent)"
-                            );
-                            // TODO: When EurekaEvent supports TimeoutPacket, handle it
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-
-        Ok(events)
-    }
-
-    /// Fetch timeout events from Solana transactions
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if failed to fetch Solana transaction
-    pub fn fetch_solana_timeout_events(
+    fn build_recv_packet_instruction(
         &self,
-        tx_signatures: Vec<Signature>,
-    ) -> Result<Vec<CosmosIbcEvent>> {
-        let events = Vec::new();
-
-        for signature in tx_signatures {
-            // Get transaction details
-            let _tx = self
-                .solana_client
-                .get_transaction_with_config(
-                    &signature,
-                    solana_client::rpc_config::RpcTransactionConfig {
-                        encoding: Some(solana_transaction_status::UiTransactionEncoding::Json),
-                        commitment: Some(CommitmentConfig::confirmed()),
-                        max_supported_transaction_version: Some(0),
-                    },
-                )
-                .map_err(|e| anyhow::anyhow!("Failed to fetch Solana transaction: {e}"))?;
-
-            // Parse timeout events from transaction logs
-            // In production, you'd parse the actual instruction data
-            tracing::debug!("Processing Solana transaction for timeouts");
-        }
-
-        Ok(events)
-    }
-
-    /// Build a Solana transaction from IBC events
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Failed to build update client instruction
-    /// - No instructions to execute
-    #[allow(clippy::cognitive_complexity)] // TODO: Refactor when all event types are fully implemented
-    pub async fn build_solana_tx(
-        &self,
-        src_events: Vec<CosmosIbcEvent>,
-        target_events: Vec<CosmosIbcEvent>,
-    ) -> Result<Transaction> {
-        let mut instructions = Vec::new();
-
-        // First, update the Tendermint light client on Solana
-        let update_client_ix = self.build_update_client_instruction().await?;
-        instructions.push(update_client_ix);
-
-        // Process source events from Cosmos
-        for event in src_events {
-            match event {
-                CosmosIbcEvent::SendPacket {
-                    sequence,
-                    source_client,
-                    destination_client,
-                    payloads,
-                    timeout_timestamp,
-                } => {
-                    let recv_packet_ix = self.build_recv_packet_instruction(&RecvPacketParams {
-                        sequence,
-                        source_client: &source_client,
-                        destination_client: &destination_client,
-                        payloads: &payloads,
-                        timeout_timestamp,
-                    })?;
-                    instructions.push(recv_packet_ix);
-                }
-                CosmosIbcEvent::AcknowledgePacket { .. } => {
-                    tracing::debug!("Building acknowledgement instruction");
-                }
-                CosmosIbcEvent::TimeoutPacket { .. } => {
-                    tracing::debug!("Building timeout instruction");
-                }
-            }
-        }
-
-        for event in target_events {
-            tracing::debug!(?event, "Processing timeout event");
-        }
-
-        if instructions.is_empty() {
-            anyhow::bail!("No instructions to execute on Solana");
-        }
-
-        // Create unsigned transaction
-        let mut tx = Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
-
-        // Get recent blockhash for the transaction
-        let recent_blockhash = self
-            .solana_client
-            .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
-
-        tx.message.recent_blockhash = recent_blockhash;
-
-        Ok(tx)
-    }
-
-    /// Build instruction to update Tendermint light client on Solana
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Failed to get latest block from Cosmos
-    /// - Failed to serialize header
-    async fn build_update_client_instruction(&self) -> Result<Instruction> {
-        // Get latest block from Cosmos
-        let latest_block = self
-            .source_tm_client
-            .latest_block()
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
-
-        // Get the target light block (latest from source chain)
-        let target_light_block = self.source_tm_client.get_light_block(None).await?;
-
-        // Get trusted light block from previous height
-        let trusted_height = latest_block.block.header.height.value().saturating_sub(1);
-        let trusted_light_block = self
-            .source_tm_client
-            .get_light_block(Some(trusted_height))
-            .await?;
-
-        tracing::info!(
-            "Generating Solana update client header from height: {} to height: {}",
-            trusted_height,
-            target_light_block.height().value()
-        );
-
-        let proposed_header = target_light_block.into_header(&trusted_light_block);
-        let header_bytes = proposed_header.encode_to_vec();
-
-        let update_msg = UpdateClientMsg {
-            client_message: header_bytes,
+        chain_id: &str,
+        msg: &MsgRecvPacket,
+    ) -> Result<Instruction> {
+        let [payload] = msg.packet.payloads.as_slice() else {
+            return Err(anyhow::anyhow!(
+                "Expected exactly one recv packet payload element"
+            ));
         };
 
-        // Get the chain ID for PDA derivation
-        let chain_id = latest_block.block.header.chain_id.to_string();
-        let (client_state_pda, _) =
-            derive_ics07_client_state(&chain_id, &self.solana_ics07_program_id);
-
-        // Use heights already calculated above
-        let new_height = latest_block.block.header.height.value();
-
-        let trusted_height = new_height.saturating_sub(1);
-        let (trusted_consensus_state, _) = derive_ics07_consensus_state(
-            &client_state_pda,
-            trusted_height,
-            &self.solana_ics07_program_id,
-        );
-        let (new_consensus_state, _) = derive_ics07_consensus_state(
-            &client_state_pda,
-            new_height,
-            &self.solana_ics07_program_id,
-        );
-
-        // Build the instruction
-        let accounts = vec![
-            AccountMeta::new(client_state_pda, false),
-            AccountMeta::new_readonly(trusted_consensus_state, false),
-            AccountMeta::new(new_consensus_state, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        ];
-
-        // Get instruction discriminator for "update_client"
-        let discriminator = get_instruction_discriminator("update_client");
-        let mut data = discriminator.to_vec();
-        data.extend_from_slice(&update_msg.try_to_vec()?);
-
-        Ok(Instruction {
-            program_id: self.solana_ics07_program_id,
-            accounts,
-            data,
-        })
-    }
-
-    /// Build instruction for `RecvPacket` on Solana
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if packet data cannot be serialized
-    fn build_recv_packet_instruction(&self, params: &RecvPacketParams) -> Result<Instruction> {
-        // Build the packet structure (IBC v2)
-        // For now, we'll handle single payload case (ICS20 transfer)
-        // TODO: Handle multiple payloads properly
-        let payloads = if params.payloads.is_empty() {
-            vec![]
-        } else {
-            // Extract the first payload and assume it's an ICS20 transfer
-            vec![Payload {
-                source_port: "transfer".to_string(), // Default ICS20 port
-                dest_port: "transfer".to_string(),
-                version: "ics20-1".to_string(),
-                encoding: "json".to_string(),
-                value: params.payloads[0].clone(),
-            }]
-        };
-
-        // Get dest_port for PDA derivation before moving packet
-        let dest_port = if payloads.is_empty() {
-            "transfer".to_string()
-        } else {
-            payloads[0].dest_port.clone()
-        };
-
-        let packet = Packet {
-            sequence: params.sequence,
-            source_client: params.source_client.to_string(),
-            dest_client: params.destination_client.to_string(),
-            timeout_timestamp: i64::try_from(params.timeout_timestamp)
-                .map_err(|e| anyhow::anyhow!("Invalid timeout timestamp: {e}"))?,
-            payloads,
-        };
-
-        // Create the message with mock proofs for now
-        let msg = MsgRecvPacket {
-            packet,
-            proof_commitment: MOCK_PROOF_DATA.to_vec(), // Mock proof for testing
-            proof_height: 1,                            // Mock height for testing
-        };
-
-        // Derive all required PDAs
-        let (router_state, _) = derive_router_state(&self.solana_ics26_program_id);
-        let (ibc_app, _) = derive_ibc_app(&dest_port, &self.solana_ics26_program_id);
+        let (router_state, _) = derive_router_state(self.solana_ics26_program_id);
+        let (ibc_app, _) = derive_ibc_app(&payload.dest_port, self.solana_ics26_program_id);
         let (client_sequence, _) =
-            derive_client_sequence(params.destination_client, &self.solana_ics26_program_id);
+            derive_client_sequence(&msg.packet.dest_client, self.solana_ics26_program_id);
         let (packet_receipt, _) = derive_packet_receipt(
-            params.destination_client,
-            params.sequence,
-            &self.solana_ics26_program_id,
+            &msg.packet.dest_client,
+            msg.packet.sequence,
+            self.solana_ics26_program_id,
         );
         let (packet_ack, _) = derive_packet_ack(
-            params.destination_client,
-            params.sequence,
-            &self.solana_ics26_program_id,
+            &msg.packet.dest_client,
+            msg.packet.sequence,
+            self.solana_ics26_program_id,
         );
-        let (client, _) = derive_client(params.destination_client, &self.solana_ics26_program_id);
+        let (client, _) = derive_client(&msg.packet.dest_client, self.solana_ics26_program_id);
 
-        // For light client verification, we also need ICS07 accounts
         let (client_state, _) =
-            derive_ics07_client_state(params.source_client, &self.solana_ics07_program_id);
-        let (consensus_state, _) =
-            derive_ics07_consensus_state(&client_state, 0, &self.solana_ics07_program_id); // Use appropriate height
+            derive_ics07_client_state(&msg.packet.source_client, self.solana_ics07_program_id);
 
-        // Build accounts list
+        let latest_height = self
+            .cosmos_client_state(chain_id)?
+            .latest_height
+            .revision_height;
+
+        let (consensus_state, _) =
+            derive_ics07_consensus_state(client_state, latest_height, self.solana_ics07_program_id);
+
         let accounts = vec![
             AccountMeta::new_readonly(router_state, false),
             AccountMeta::new_readonly(ibc_app, false),
@@ -552,7 +251,6 @@ impl TxBuilder {
             AccountMeta::new_readonly(consensus_state, false),
         ];
 
-        // Build instruction data
         let discriminator = get_instruction_discriminator("recv_packet");
         let mut data = discriminator.to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
@@ -564,332 +262,594 @@ impl TxBuilder {
         })
     }
 
-    /// Build a create client transaction for Solana
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Failed to get genesis block
-    /// - Failed to query staking parameters
-    /// - Failed to parse chain ID
-    /// - Failed to serialize instruction data
-    pub async fn build_create_client_tx(&self) -> Result<Transaction> {
-        // Get latest block from Cosmos for initial client state
-        let latest_block = self
-            .source_tm_client
-            .latest_block()
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to get latest block: {e}"))?;
+    #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
+    async fn build_ack_packet_instruction(&self, msg: &MsgAckPacket) -> Result<Instruction> {
+        let solana_ics26_program_id = self.solana_ics26_program_id;
 
-        let chain_id_str = latest_block.block.header.chain_id.to_string();
-        let latest_height = latest_block.block.header.height.value();
+        let (router_state, _) = derive_router_state(solana_ics26_program_id);
 
-        // Extract revision number from chain ID (format: {chain_name}-{revision_number})
-        let revision_number = chain_id_str
-            .rsplit('-')
-            .next()
-            .and_then(|s| s.parse::<u64>().ok())
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Invalid chain ID format: expected {{chain_name}}-{{revision_number}}, got {}",
-                    chain_id_str
-                )
-            })?;
+        let (ibc_app_pda, _) = derive_ibc_app("transfer", solana_ics26_program_id);
 
-        // Query staking parameters to get unbonding period
-        let unbonding_period = self
-            .source_tm_client
-            .sdk_staking_params()
-            .await?
-            .unbonding_time
-            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?
-            .seconds
-            .try_into()?;
-        let trusting_period = 2 * (unbonding_period / 3);
+        let ibc_app_account = self
+            .target_solana_client
+            .get_account(&ibc_app_pda)
+            .map_err(|e| anyhow::anyhow!("Failed to get IBC app account: {e}"))?;
 
-        tracing::info!(
-            "Creating client for chain {} at height {}, revision: {}",
-            chain_id_str,
-            latest_height,
-            revision_number
-        );
+        // The IBC app account data structure:
+        // - discriminator (8 bytes)
+        // - port_id string (4 bytes length + string data)
+        // - app_program_id (32 bytes)
+        // - authority (32 bytes)
 
-        tracing::info!(
-            "Using client parameters: trust_level={}/{}, trusting_period={}, unbonding_period={}, max_clock_drift={}",
-            DEFAULT_TRUST_LEVEL_NUMERATOR, DEFAULT_TRUST_LEVEL_DENOMINATOR, trusting_period, unbonding_period, MAX_CLOCK_DRIFT_SECONDS
-        );
+        // Parse the IBC app account to get the program ID
+        let ibc_app_program = if ibc_app_account.data.len() >= 44 {
+            // Skip discriminator (8 bytes)
+            let mut offset = 8;
 
-        // Create proper ClientState matching ICS07 program expectations
-        let client_state = ClientState {
-            chain_id: chain_id_str.clone(),
-            trust_level_numerator: DEFAULT_TRUST_LEVEL_NUMERATOR,
-            trust_level_denominator: DEFAULT_TRUST_LEVEL_DENOMINATOR,
-            trusting_period,
-            unbonding_period,
-            max_clock_drift: MAX_CLOCK_DRIFT_SECONDS,
-            frozen_height: IbcHeight {
-                revision_number: 0,
-                revision_height: 0,
-            },
-            latest_height: IbcHeight {
-                revision_number,
-                revision_height: latest_height,
-            },
-        };
+            // Read port_id string length (4 bytes, little-endian)
+            let port_len = u32::from_le_bytes(
+                ibc_app_account.data[offset..offset + 4]
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("Invalid port length"))?,
+            ) as usize;
+            offset += 4;
 
-        // Create proper ConsensusState from the block
-        let consensus_state = Self::create_consensus_state_from_block(&latest_block)?;
+            // Skip the port string data
+            offset += port_len;
 
-        // Build the instruction for creating the client
-        let instruction = self.build_create_client_instruction(
-            &chain_id_str,
-            latest_height,
-            &client_state,
-            &consensus_state,
-        )?;
-
-        // Create unsigned transaction
-        let mut tx = Transaction::new_with_payer(&[instruction], Some(&self.fee_payer));
-
-        // Get recent blockhash
-        let recent_blockhash = self
-            .solana_client
-            .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
-
-        tx.message.recent_blockhash = recent_blockhash;
-
-        Ok(tx)
-    }
-
-    /// Build an update client transaction for Solana
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Failed to get latest block
-    /// - Failed to serialize header
-    pub async fn build_update_client_tx(&self, client_id: String) -> Result<Transaction> {
-        tracing::info!(
-            "Building update client transaction for client {}",
-            client_id
-        );
-
-        let update_ix = self.build_update_client_instruction().await?;
-
-        // Create unsigned transaction
-        let mut tx = Transaction::new_with_payer(&[update_ix], Some(&self.fee_payer));
-
-        // Get recent blockhash
-        let recent_blockhash = self
-            .solana_client
-            .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
-
-        tx.message.recent_blockhash = recent_blockhash;
-
-        Ok(tx)
-    }
-}
-
-/// Mock `TxBuilder` for testing that uses mock proofs instead of real ones
-pub struct MockTxBuilder {
-    /// The underlying real `TxBuilder`
-    pub inner: TxBuilder,
-}
-
-impl MockTxBuilder {
-    /// Creates a new `MockTxBuilder`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the inner `TxBuilder` creation fails
-    pub fn new(
-        source_tm_client: HttpClient,
-        solana_client: Arc<RpcClient>,
-        solana_ics26_program_id: Pubkey,
-        solana_ics07_program_id: Pubkey,
-        fee_payer: Pubkey,
-    ) -> Result<Self> {
-        Ok(Self {
-            inner: TxBuilder::new(
-                source_tm_client,
-                solana_client,
-                solana_ics26_program_id,
-                solana_ics07_program_id,
-                fee_payer,
-            )?,
-        })
-    }
-
-    /// Build instruction for `RecvPacket` on Solana with mock proofs
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if packet data cannot be serialized
-    fn build_recv_packet_instruction_mock(&self, params: &RecvPacketParams) -> Result<Instruction> {
-        // Build the packet structure (IBC v2)
-        let payloads = if params.payloads.is_empty() {
-            vec![]
+            // Now read the app_program_id (32 bytes)
+            if offset + 32 <= ibc_app_account.data.len() {
+                let program_bytes: [u8; 32] = ibc_app_account.data[offset..offset + 32]
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("Invalid program ID bytes"))?;
+                Pubkey::new_from_array(program_bytes)
+            } else {
+                return Err(anyhow::anyhow!(
+                    "IBC app account data too short for program ID"
+                ));
+            }
         } else {
-            // Extract the first payload and assume it's an ICS20 transfer
-            vec![Payload {
-                source_port: "transfer".to_string(), // Default ICS20 port
-                dest_port: "transfer".to_string(),
-                version: "ics20-1".to_string(),
-                encoding: "json".to_string(),
-                value: params.payloads[0].clone(),
-            }]
+            return Err(anyhow::anyhow!("Invalid IBC app account data length"));
         };
 
-        // Get dest_port for PDA derivation before moving packet
-        let dest_port = if payloads.is_empty() {
-            "transfer".to_string()
-        } else {
-            payloads[0].dest_port.clone()
-        };
+        tracing::info!("IBC app program ID: {}", ibc_app_program);
 
-        let packet = Packet {
-            sequence: params.sequence,
-            source_client: params.source_client.to_string(),
-            dest_client: params.destination_client.to_string(),
-            timeout_timestamp: i64::try_from(params.timeout_timestamp)
-                .map_err(|e| anyhow::anyhow!("Invalid timeout timestamp: {e}"))?,
-            payloads,
-        };
+        // Derive the app state PDA
+        let (app_state, _) = Pubkey::find_program_address(&[b"state"], &ibc_app_program);
 
-        // Create the message with mock proofs
-        let msg = MsgRecvPacket {
-            packet,
-            proof_commitment: MOCK_PROOF_DATA.to_vec(), // Mock proof
-            proof_height: 1,                            // Mock height
-        };
-
-        // Derive all required PDAs
-        let (router_state, _) = derive_router_state(&self.inner.solana_ics26_program_id);
-        let (ibc_app, _) = derive_ibc_app(&dest_port, &self.inner.solana_ics26_program_id);
-        let (client_sequence, _) = derive_client_sequence(
-            params.destination_client,
-            &self.inner.solana_ics26_program_id,
-        );
-        let (packet_receipt, _) = derive_packet_receipt(
-            params.destination_client,
-            params.sequence,
-            &self.inner.solana_ics26_program_id,
-        );
-        let (packet_ack, _) = derive_packet_ack(
-            params.destination_client,
-            params.sequence,
-            &self.inner.solana_ics26_program_id,
-        );
-        let (client, _) = derive_client(
-            params.destination_client,
-            &self.inner.solana_ics26_program_id,
+        let (packet_commitment, _) = derive_packet_commitment(
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            solana_ics26_program_id,
         );
 
-        // For light client verification, we also need ICS07 accounts
+        // Derive the client PDA using ICS26 client ID
+        let chain_id = self.chain_id().await?;
+        let (client, _) = derive_client(&chain_id, solana_ics26_program_id);
+
         let (client_state, _) =
-            derive_ics07_client_state(params.source_client, &self.inner.solana_ics07_program_id);
-        let (consensus_state, _) =
-            derive_ics07_consensus_state(&client_state, 0, &self.inner.solana_ics07_program_id);
+            derive_ics07_client_state(&msg.packet.source_client, self.solana_ics07_program_id);
 
-        // Build accounts list
+        // Use the proof height for the consensus state lookup (NOT query_height)
+        // The proof from query_height (N+1) verifies against app hash at proof_height (N)
+        let (consensus_state, _) = derive_ics07_consensus_state(
+            client_state,
+            msg.proof_height, // Use proof_height, not query_height
+            self.solana_ics07_program_id,
+        );
+
         let accounts = vec![
             AccountMeta::new_readonly(router_state, false),
-            AccountMeta::new_readonly(ibc_app, false),
-            AccountMeta::new(client_sequence, false),
-            AccountMeta::new(packet_receipt, false),
-            AccountMeta::new(packet_ack, false),
-            AccountMeta::new_readonly(self.inner.fee_payer, true), // relayer
-            AccountMeta::new(self.inner.fee_payer, true),          // payer
+            AccountMeta::new_readonly(ibc_app_pda, false),
+            AccountMeta::new(packet_commitment, false), // Will be closed after ack
+            AccountMeta::new_readonly(ibc_app_program, false), // IBC app program
+            AccountMeta::new(app_state, false),         // IBC app state
+            AccountMeta::new_readonly(self.solana_ics26_program_id, false), // Router program
+            AccountMeta::new_readonly(self.fee_payer, true), // relayer
+            AccountMeta::new(self.fee_payer, true),     // payer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-            AccountMeta::new_readonly(sysvar::clock::id(), false),
             AccountMeta::new_readonly(client, false),
-            AccountMeta::new_readonly(self.inner.solana_ics07_program_id, false), // light client program
+            AccountMeta::new_readonly(self.solana_ics07_program_id, false), // light client program
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
 
-        // Build instruction data
-        let discriminator = get_instruction_discriminator("recv_packet");
+        let discriminator = get_instruction_discriminator("ack_packet");
         let mut data = discriminator.to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: self.inner.solana_ics26_program_id,
+            program_id: self.solana_ics26_program_id,
             accounts,
             data,
         })
     }
 
-    /// Build a Solana transaction from IBC events using mock proofs
+    /// Build instruction for timeout packet
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails
+    fn build_timeout_packet_instruction(&self, msg: &MsgTimeoutPacket) -> Result<Instruction> {
+        tracing::info!(
+            "Building timeout packet instruction for packet from {} to {}, sequence {}",
+            msg.packet.source_client,
+            msg.packet.dest_client,
+            msg.packet.sequence
+        );
+
+        let solana_ics26_program_id = self.solana_ics26_program_id;
+
+        let (router_state, _) = derive_router_state(solana_ics26_program_id);
+
+        let (packet_commitment, _) = derive_packet_commitment(
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            solana_ics26_program_id,
+        );
+
+        let (client, _) = derive_client(&msg.packet.dest_client, solana_ics26_program_id);
+
+        // Build accounts list for timeout_packet
+        let accounts = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new(packet_commitment, false), // Will be closed after timeout
+            AccountMeta::new_readonly(self.fee_payer, true), // relayer
+            AccountMeta::new(self.fee_payer, true),     // payer
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(client, false),
+        ];
+
+        // Build instruction data
+        let discriminator = get_instruction_discriminator("timeout_packet");
+        let mut data = discriminator.to_vec();
+        data.extend_from_slice(&msg.try_to_vec()?);
+
+        Ok(Instruction {
+            program_id: solana_ics26_program_id,
+            accounts,
+            data,
+        })
+    }
+
+    /// Fetch Cosmos client state from the light client on Solana.
+    /// # Errors
+    /// Returns an error if the client state cannot be fetched or decoded.
+    fn cosmos_client_state(&self, chain_id: &str) -> Result<ClientState> {
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
+
+        let account = self
+            .target_solana_client
+            .get_account(&client_state_pda)
+            .context("Failed to fetch client state account")?;
+
+        let client_state = ClientState::try_from_slice(&account.data[8..])
+            .or_else(|_| {
+                // If try_from_slice fails due to extra bytes, use deserialize which is more lenient
+                let mut data = &account.data[8..];
+                ClientState::deserialize(&mut data)
+            })
+            .context("Failed to deserialize client state")?;
+
+        Ok(client_state)
+    }
+
+    fn split_header_into_chunks(header_bytes: &[u8]) -> Vec<Vec<u8>> {
+        header_bytes
+            .chunks(MAX_CHUNK_SIZE)
+            .map(<[u8]>::to_vec)
+            .collect()
+    }
+
+    fn build_create_metadata_tx(
+        &self,
+        chain_id: &str,
+        target_height: u64,
+        total_chunks: u8,
+        header_commitment: [u8; 32],
+    ) -> Result<Vec<u8>> {
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
+        let (metadata_pda, _) = derive_header_metadata(
+            self.fee_payer,
+            chain_id,
+            target_height,
+            self.solana_ics07_program_id,
+        );
+
+        let accounts = vec![
+            AccountMeta::new(metadata_pda, false),
+            AccountMeta::new_readonly(client_state_pda, false),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        let discriminator = get_instruction_discriminator("create_metadata");
+        let mut data = discriminator.to_vec();
+
+        let chain_id_len = u32::try_from(chain_id.len()).expect("chain_id too long");
+        data.extend_from_slice(&chain_id_len.to_le_bytes());
+        data.extend_from_slice(chain_id.as_bytes());
+        data.extend_from_slice(&target_height.to_le_bytes());
+        data.push(total_chunks);
+        data.extend_from_slice(&header_commitment);
+
+        let instruction = Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data,
+        };
+
+        self.create_tx_bytes(&[instruction])
+    }
+
+    fn build_chunk_transactions(
+        &self,
+        chunks: &[Vec<u8>],
+        chain_id: &str,
+        target_height: u64,
+    ) -> Result<Vec<Vec<u8>>> {
+        let mut chunk_txs = Vec::new();
+
+        for (index, chunk_data) in chunks.iter().enumerate() {
+            let chunk_index = u8::try_from(index)
+                .map_err(|_| anyhow::anyhow!("Chunk index {} exceeds u8 max", index))?;
+            let upload_ix = self.build_upload_header_chunk_instruction(
+                chain_id,
+                target_height,
+                chunk_index,
+                chunk_data.clone(),
+            )?;
+
+            let chunk_tx = self.create_tx_bytes(&[upload_ix])?;
+            chunk_txs.push(chunk_tx);
+        }
+
+        Ok(chunk_txs)
+    }
+
+    fn extend_compute_ix() -> Vec<Instruction> {
+        // Add compute budget instructions to increase the limit
+        // Request 1.4M compute units (maximum allowed)
+        let compute_budget_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+
+        // Optionally set a priority fee to ensure the transaction gets processed
+        let priority_fee_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(1000);
+
+        vec![compute_budget_ix, priority_fee_ix]
+    }
+
+    fn build_upload_header_chunk_instruction(
+        &self,
+        chain_id: &str,
+        target_height: u64,
+        chunk_index: u8,
+        chunk_data: Vec<u8>,
+    ) -> Result<Instruction> {
+        let params = UploadChunkParams {
+            chain_id: chain_id.to_string(),
+            target_height,
+            chunk_index,
+            chunk_data,
+        };
+
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
+        let (chunk_pda, _) = derive_header_chunk(
+            self.fee_payer,
+            chain_id,
+            target_height,
+            chunk_index,
+            self.solana_ics07_program_id,
+        );
+
+        let accounts = vec![
+            AccountMeta::new(chunk_pda, false),
+            AccountMeta::new_readonly(client_state_pda, false),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        let discriminator = get_instruction_discriminator("upload_header_chunk");
+        let mut data = discriminator.to_vec();
+        data.extend_from_slice(&params.try_to_vec()?);
+
+        Ok(Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data,
+        })
+    }
+
+    fn build_assemble_and_update_client_tx(
+        &self,
+        chain_id: &str,
+        target_height: u64,
+        trusted_height: u64,
+        total_chunks: u8,
+    ) -> Result<Vec<u8>> {
+        let (client_state_pda, _) =
+            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
+        let (metadata_pda, _) = derive_header_metadata(
+            self.fee_payer,
+            chain_id,
+            target_height,
+            self.solana_ics07_program_id,
+        );
+        let (trusted_consensus_state, _) = derive_ics07_consensus_state(
+            client_state_pda,
+            trusted_height,
+            self.solana_ics07_program_id,
+        );
+        let (new_consensus_state, _) = derive_ics07_consensus_state(
+            client_state_pda,
+            target_height,
+            self.solana_ics07_program_id,
+        );
+
+        let mut accounts = vec![
+            AccountMeta::new(client_state_pda, false),
+            AccountMeta::new(metadata_pda, false),
+            AccountMeta::new_readonly(trusted_consensus_state, false),
+            AccountMeta::new(new_consensus_state, false),
+            AccountMeta::new(self.fee_payer, false), // submitter who gets rent back
+            AccountMeta::new(self.fee_payer, true),  // payer for new consensus state
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        for chunk_index in 0..total_chunks {
+            let (chunk_pda, _) = derive_header_chunk(
+                self.fee_payer,
+                chain_id,
+                target_height,
+                chunk_index,
+                self.solana_ics07_program_id,
+            );
+            accounts.push(AccountMeta::new(chunk_pda, false));
+        }
+
+        let discriminator = get_instruction_discriminator("assemble_and_update_client");
+
+        let ix = Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data: discriminator.to_vec(),
+        };
+
+        let mut instructions = Self::extend_compute_ix();
+        instructions.push(ix);
+
+        self.create_tx_bytes(&instructions)
+    }
+}
+
+impl TxBuilder {
+    /// Build relay transaction from Cosmos events to Solana
     ///
     /// # Errors
     ///
     /// Returns an error if:
-    /// - Failed to build update client instruction
-    /// - No instructions to execute
-    #[allow(clippy::cognitive_complexity)]
-    pub async fn build_solana_tx_mock(
+    /// - Failed to convert events to messages
+    /// - Failed to build Solana instructions
+    /// - Failed to create transaction bytes
+    #[tracing::instrument(skip_all)]
+    pub async fn relay_events(
         &self,
-        src_events: Vec<CosmosIbcEvent>,
-        target_events: Vec<CosmosIbcEvent>,
-    ) -> Result<Transaction> {
+        src_events: Vec<EurekaEventWithHeight>,
+        dest_events: Vec<SolanaEurekaEventWithHeight>,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
+    ) -> Result<Vec<u8>> {
+        tracing::info!(
+            "Relaying events from Cosmos to Solana for client {}",
+            dst_client_id
+        );
+
+        let chain_id = self.chain_id().await?;
+        let client_state = self.cosmos_client_state(&chain_id)?;
+        let client_state = convert_client_state_to_ibc(client_state)?;
+        let target_height = get_latest_tm_heigth(client_state, &self.src_tm_client).await?;
+
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+
+        let slot = self
+            .target_solana_client
+            .get_slot_with_commitment(CommitmentConfig::finalized())
+            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
+
+        let timeout_msgs = target_events_to_timeout_msgs(
+            dest_events,
+            &src_client_id,
+            &dst_client_id,
+            &dst_packet_seqs,
+            slot,
+            now_since_unix.as_secs(),
+        );
+
+        // we don't care about signer address as no cosmos tx will be sent here
+        let mock_signer_address = String::new();
+
+        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+            src_events,
+            &src_client_id,
+            &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
+            &mock_signer_address,
+            now_since_unix.as_secs(),
+        );
+
+        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
+        tracing::debug!("Recv messages: #{}", recv_msgs.len());
+        tracing::debug!("Ack messages: #{}", ack_msgs.len());
+
+        // convert to tm events so we can inject proofs
+        let mut timeout_msgs = timeout_msgs
+            .clone()
+            .into_iter()
+            .map(|msg| solana_timeout_packet_to_tm_timeout(msg, mock_signer_address.clone()))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        cosmos::inject_tendermint_proofs(
+            &mut recv_msgs,
+            &mut ack_msgs,
+            &mut timeout_msgs,
+            &self.src_tm_client,
+            &target_height,
+        )
+        .await?;
+
+        let timeout_msgs: Vec<_> = timeout_msgs
+            .clone()
+            .into_iter()
+            .map(tm_timeout_to_solana_timeout_packet)
+            .collect::<Result<Vec<_>, _>>()?;
+
         let mut instructions = Vec::new();
 
-        // First, update the Tendermint light client on Solana
-        let update_client_ix = self.inner.build_update_client_instruction().await?;
-        instructions.push(update_client_ix);
+        let chain_id = self.chain_id().await?;
 
-        // Process source events from Cosmos with mock proofs
-        for event in src_events {
-            match event {
-                CosmosIbcEvent::SendPacket {
-                    sequence,
-                    source_client,
-                    destination_client,
-                    payloads,
-                    timeout_timestamp,
-                } => {
-                    let recv_packet_ix =
-                        self.build_recv_packet_instruction_mock(&RecvPacketParams {
-                            sequence,
-                            source_client: &source_client,
-                            destination_client: &destination_client,
-                            payloads: &payloads,
-                            timeout_timestamp,
-                        })?;
-                    instructions.push(recv_packet_ix);
-                }
-                CosmosIbcEvent::AcknowledgePacket { .. } => {
-                    tracing::debug!("Building acknowledgement instruction with mock proof");
-                }
-                CosmosIbcEvent::TimeoutPacket { .. } => {
-                    tracing::debug!("Building timeout instruction with mock proof");
-                }
-            }
+        for recv_msg in recv_msgs {
+            let recv_msg = ibc_to_solana_recv_packet(recv_msg)?;
+            let instruction = self.build_recv_packet_instruction(&chain_id, &recv_msg)?;
+            instructions.push(instruction);
         }
 
-        for event in target_events {
-            tracing::debug!(?event, "Processing timeout event with mock proof");
+        for ack_msg in ack_msgs {
+            let ack_msg = ibc_to_solana_ack_packet(ack_msg)?;
+            let instruction = self.build_ack_packet_instruction(&ack_msg).await?;
+            instructions.push(instruction);
         }
 
-        if instructions.is_empty() {
-            anyhow::bail!("No instructions to execute on Solana");
+        for timeout_msg in timeout_msgs {
+            let instruction = self.build_timeout_packet_instruction(&timeout_msg)?;
+            instructions.push(instruction);
         }
 
-        // Create unsigned transaction
-        let mut tx = Transaction::new_with_payer(&instructions, Some(&self.inner.fee_payer));
+        self.create_tx_bytes(&instructions)
+    }
 
-        // Get recent blockhash
+    fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>> {
+        let mut tx = Transaction::new_with_payer(instructions, Some(&self.fee_payer));
+
         let recent_blockhash = self
-            .inner
-            .solana_client
+            .target_solana_client
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
         tx.message.recent_blockhash = recent_blockhash;
 
-        Ok(tx)
+        Ok(bincode::serialize(&tx)?)
+    }
+
+    /// Create a new ICS07 Tendermint client on Solana
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to fetch chain ID from Tendermint RPC
+    /// - Failed to fetch client creation parameters (latest height, client state, consensus state)
+    /// - Failed to convert Tendermint types to Solana types
+    /// - Failed to serialize instruction data
+    /// - Failed to get recent blockhash from Solana
+    #[tracing::instrument(skip_all)]
+    pub async fn create_client(&self) -> Result<Vec<u8>> {
+        let chain_id = self.chain_id().await?;
+        let TmCreateClientParams {
+            latest_height,
+            client_state: tm_client_state,
+            consensus_state: tm_consensus_state,
+        } = tm_create_client_params(&self.src_tm_client).await?;
+
+        let client_state = convert_client_state_to_sol(tm_client_state)?;
+        let consensus_state = convert_consensus_state(&tm_consensus_state)?;
+
+        let instruction = self.build_create_client_instruction(
+            &chain_id,
+            latest_height,
+            &client_state,
+            &consensus_state,
+        )?;
+
+        self.create_tx_bytes(&[instruction])
+    }
+
+    /// Build chunked update client transactions
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to fetch chain ID or client state from Solana
+    /// - Header size requires more than 255 chunks (`u8::MAX`)
+    /// - Failed to serialize header or instruction data
+    /// - Failed to get recent blockhash from Solana
+    /// - Chain ID string is too long for serialization
+    #[tracing::instrument(skip_all)]
+    pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
+        let chain_id = self.chain_id().await?;
+        let client_state = self.cosmos_client_state(&chain_id)?;
+
+        let TmUpdateClientParams {
+            target_height,
+            trusted_height,
+            proposed_header,
+        } = tm_update_client_params(
+            client_state.latest_height.revision_height,
+            &self.src_tm_client,
+            None,
+        )
+        .await?;
+
+        tracing::info!(
+            "Building chunked update client transactions for client {dst_client_id} to height {target_height}",
+        );
+
+        let header_bytes = proposed_header.encode_to_vec();
+
+        let header_commitment = keccak::hash(&header_bytes).0;
+        let chunks = Self::split_header_into_chunks(&header_bytes);
+        let total_chunks = u8::try_from(chunks.len())
+            .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
+
+        tracing::info!(
+            "Header size: {} bytes, split into {} chunks",
+            header_bytes.len(),
+            total_chunks
+        );
+
+        let metadata_tx = self.build_create_metadata_tx(
+            &chain_id,
+            target_height,
+            total_chunks,
+            header_commitment,
+        )?;
+
+        let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
+
+        let assembly_tx = self.build_assemble_and_update_client_tx(
+            &chain_id,
+            target_height,
+            trusted_height,
+            total_chunks,
+        )?;
+
+        tracing::info!(
+            "Built {} transactions for chunked update client (1 metadata + {} chunks + 1 assembly)",
+            total_chunks + 2, // metadata + chunks + assembly
+            total_chunks
+        );
+
+        Ok(UpdateClientChunkedTxs {
+            metadata_tx,
+            chunk_txs,
+            assembly_tx,
+            total_chunks: total_chunks as usize,
+            target_height,
+        })
     }
 }

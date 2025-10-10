@@ -1,5 +1,6 @@
 //! Define the events that can be retrieved by the relayer.
 
+use super::cosmos_sdk;
 use alloy::{
     primitives::{hex, Bytes},
     rpc::types::Log,
@@ -12,8 +13,6 @@ use ibc_eureka_solidity_types::ics26::{
 use ibc_proto_eureka::ibc::core::channel::v2::{Acknowledgement, Packet};
 use prost::Message;
 use tendermint::abci::Event as TmEvent;
-
-use super::cosmos_sdk;
 
 /// Events emitted by IBC Eureka implementations that the relayer is interested in.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,6 +53,7 @@ impl TryFrom<&Log> for EurekaEventWithHeight {
                 e.to_string()
             )
         })?;
+
         let event_type = match sol_event.data {
             routerEvents::SendPacket(event) => Ok(EurekaEvent::SendPacket(event.packet)),
             routerEvents::WriteAcknowledgement(event) => Ok(EurekaEvent::WriteAcknowledgement(

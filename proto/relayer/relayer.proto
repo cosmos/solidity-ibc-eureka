@@ -49,6 +49,8 @@ message RelayByTxResponse {
     bytes tx = 1;
     // The contract address to submit the transaction, if applicable
     string address = 2;
+    // Optional transactions when more than one is required (for instance Solana needs to split packet to multi tx)
+    repeated bytes txs = 3;
 }
 
 // The create client request message
@@ -81,10 +83,20 @@ message UpdateClientRequest {
 
 // The update client response message
 message UpdateClientResponse {
-    // The transaction to be submitted by caller
+    // Single transaction for chains where header could fit in single tx
     bytes tx = 1;
     // The contract address to submit the transaction, if applicable
     string address = 2;
+    // Multiple transactions for chunked update (used by Solana)
+    repeated bytes txs = 3;
+}
+
+// Metadata for chunked transaction uploads
+message ChunkedMetadata {
+    // The target height being updated to
+    uint64 target_height = 1;
+    // Total number of chunks in the header
+    uint32 total_chunks = 2;
 }
 
 // Information request message

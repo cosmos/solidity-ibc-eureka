@@ -62,3 +62,6 @@ pub fn submit_misbehaviour(ctx: Context<SubmitMisbehaviour>, msg: MisbehaviourMs
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

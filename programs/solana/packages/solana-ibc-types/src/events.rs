@@ -2,6 +2,7 @@
 //!
 //! These events are emitted by the ICS26 router and other IBC programs.
 
+use crate::router::Packet;
 use anchor_lang::prelude::*;
 
 /// Event emitted when a packet is sent
@@ -10,7 +11,8 @@ use anchor_lang::prelude::*;
 pub struct SendPacketEvent {
     pub client_id: String,
     pub sequence: u64,
-    pub packet_data: Vec<u8>,
+    pub packet: Packet,
+    pub timeout_timestamp: i64,
 }
 
 /// Event emitted when a packet acknowledgement is written
@@ -19,8 +21,8 @@ pub struct SendPacketEvent {
 pub struct WriteAcknowledgementEvent {
     pub client_id: String,
     pub sequence: u64,
-    pub packet_data: Vec<u8>,
-    pub acknowledgements: Vec<u8>,
+    pub packet: Packet,
+    pub acknowledgements: Vec<Vec<u8>>,
 }
 
 /// Event emitted when a packet is acknowledged
@@ -29,8 +31,8 @@ pub struct WriteAcknowledgementEvent {
 pub struct AckPacketEvent {
     pub client_id: String,
     pub sequence: u64,
-    pub packet_data: Vec<u8>,
-    pub acknowledgement: Vec<u8>,
+    pub packet: Packet,
+    pub acknowledgement: Vec<Vec<u8>>,
 }
 
 /// Event emitted when a packet times out
@@ -39,7 +41,7 @@ pub struct AckPacketEvent {
 pub struct TimeoutPacketEvent {
     pub client_id: String,
     pub sequence: u64,
-    pub packet_data: Vec<u8>,
+    pub packet: Packet,
 }
 
 /// Event emitted when a client is added
@@ -47,7 +49,8 @@ pub struct TimeoutPacketEvent {
 #[derive(Debug, Clone)]
 pub struct ClientAddedEvent {
     pub client_id: String,
-    pub client_type: String,
+    pub client_program_id: Pubkey,
+    pub authority: Pubkey,
 }
 
 /// Event emitted when a client status is updated
@@ -55,7 +58,7 @@ pub struct ClientAddedEvent {
 #[derive(Debug, Clone)]
 pub struct ClientStatusUpdatedEvent {
     pub client_id: String,
-    pub new_status: String,
+    pub active: bool,
 }
 
 /// Event emitted when an IBC app is added
@@ -63,7 +66,7 @@ pub struct ClientStatusUpdatedEvent {
 #[derive(Debug, Clone)]
 pub struct IBCAppAdded {
     pub port_id: String,
-    pub app_address: Pubkey,
+    pub app_program_id: Pubkey,
 }
 
 /// No-op event for testing

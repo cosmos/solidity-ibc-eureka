@@ -19,14 +19,14 @@ type SolanaCosmosConfigInfo struct {
 	// Solana fee payer address (for cosmos-to-solana)
 	SolanaFeePayer string
 	// Whether we use the mock client in Cosmos
-	MockWasmClient bool
+	Mock bool
 }
 
 type SolanaToCosmosModuleConfig struct {
 	// Solana chain ID
 	SolanaChainId string `json:"solana_chain_id"`
-	// Solana RPC URL
-	SolanaRpcUrl string `json:"solana_rpc_url"`
+	// Source RPC URL (Solana) - must be "src_rpc_url"
+	SrcRpcUrl string `json:"src_rpc_url"`
 	// Target tendermint RPC URL (must be "target_rpc_url" not "tm_rpc_url")
 	TargetRpcUrl string `json:"target_rpc_url"`
 	// Signer address for submitting to Cosmos
@@ -40,8 +40,8 @@ type SolanaToCosmosModuleConfig struct {
 type CosmosToSolanaModuleConfig struct {
 	// Source tendermint RPC URL (must be "source_rpc_url")
 	SourceRpcUrl string `json:"source_rpc_url"`
-	// Solana RPC URL
-	SolanaRpcUrl string `json:"solana_rpc_url"`
+	// Target RPC URL (Solana) - must be "target_rpc_url"
+	TargetRpcUrl string `json:"target_rpc_url"`
 	// Solana ICS26 router program ID (must be "solana_ics26_program_id")
 	SolanaIcs26ProgramId string `json:"solana_ics26_program_id"`
 	// Solana ICS07 Tendermint light client program ID (must be "solana_ics07_program_id")
@@ -58,11 +58,11 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 			DstChain: configInfo.CosmosChainID,
 			Config: SolanaToCosmosModuleConfig{
 				SolanaChainId:        configInfo.SolanaChainID,
-				SolanaRpcUrl:         configInfo.SolanaRPC,
+				SrcRpcUrl:            configInfo.SolanaRPC,
 				TargetRpcUrl:         configInfo.TmRPC,
 				SignerAddress:        configInfo.CosmosSignerAddress,
 				SolanaIcs26ProgramId: configInfo.ICS26RouterProgramID,
-				Mock:                 configInfo.MockWasmClient,
+				Mock:                 configInfo.Mock,
 			},
 		},
 		{
@@ -71,7 +71,7 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 			DstChain: configInfo.SolanaChainID,
 			Config: CosmosToSolanaModuleConfig{
 				SourceRpcUrl:         configInfo.TmRPC,
-				SolanaRpcUrl:         configInfo.SolanaRPC,
+				TargetRpcUrl:         configInfo.SolanaRPC,
 				SolanaIcs26ProgramId: configInfo.ICS26RouterProgramID,
 				SolanaIcs07ProgramId: configInfo.ICS07ProgramID,
 				SolanaFeePayer:       configInfo.SolanaFeePayer,

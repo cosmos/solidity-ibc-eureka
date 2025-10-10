@@ -8,7 +8,7 @@ pub struct OnTimeoutPacket<'info> {
         init_if_needed,
         payer = payer,
         space = 8 + DummyIbcAppState::INIT_SPACE,
-        seeds = [APP_STATE_SEED],
+        seeds = [APP_STATE_SEED, TRANSFER_PORT.as_bytes()],
         bump
     )]
     pub app_state: Account<'info, DummyIbcAppState>,

@@ -7,11 +7,15 @@ use anchor_lang::solana_program::program::get_return_data;
 use anchor_lang::solana_program::program::invoke;
 use solana_ibc_types::{OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload};
 
+// TODO: Params struct
 /// CPI helper for calling IBC app's `on_recv_packet` instruction
+#[allow(clippy::too_many_arguments)]
 pub fn on_recv_packet_cpi<'a>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
     router_program: &AccountInfo<'a>,
+    payer: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
     packet: &Packet,
     payload: &Payload,
     relayer: &Pubkey,
@@ -28,6 +32,8 @@ pub fn on_recv_packet_cpi<'a>(
         ibc_app_program,
         app_state,
         router_program,
+        payer,
+        system_program,
         "global:on_recv_packet",
         msg,
     )?;
@@ -44,11 +50,15 @@ pub fn on_recv_packet_cpi<'a>(
     }
 }
 
+// TODO: Params struct
 /// CPI helper for calling IBC app's `on_acknowledgement_packet` instruction
+#[allow(clippy::too_many_arguments)]
 pub fn on_acknowledgement_packet_cpi<'a>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
     router_program: &AccountInfo<'a>,
+    payer: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
     packet: &Packet,
     payload: &Payload,
     acknowledgement: &[u8],
@@ -67,16 +77,22 @@ pub fn on_acknowledgement_packet_cpi<'a>(
         ibc_app_program,
         app_state,
         router_program,
+        payer,
+        system_program,
         "global:on_acknowledgement_packet",
         msg,
     )
 }
 
+// TODO: Params struct
 /// CPI helper for calling IBC app's `on_timeout_packet` instruction
+#[allow(clippy::too_many_arguments)]
 pub fn on_timeout_packet_cpi<'a>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
     router_program: &AccountInfo<'a>,
+    payer: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
     packet: &Packet,
     payload: &Payload,
     relayer: &Pubkey,
@@ -93,6 +109,8 @@ pub fn on_timeout_packet_cpi<'a>(
         ibc_app_program,
         app_state,
         router_program,
+        payer,
+        system_program,
         "global:on_timeout_packet",
         msg,
     )
@@ -103,6 +121,8 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
     router_program: &AccountInfo<'a>,
+    payer: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
     discriminator: &str,
     msg: T,
 ) -> Result<()> {
@@ -119,6 +139,8 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
         accounts: vec![
             AccountMeta::new(*app_state.key, false),
             AccountMeta::new_readonly(*router_program.key, false), // router_program account
+            AccountMeta::new(*payer.key, true),                    // payer account
+            AccountMeta::new_readonly(*system_program.key, false), // system_program account
         ],
         data: instruction_data,
     };
@@ -127,6 +149,8 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
     let account_infos = &[
         app_state.clone(),
         router_program.clone(), // Pass the router program for auth check
+        payer.clone(),
+        system_program.clone(),
     ];
     invoke(&instruction, account_infos)?;
 

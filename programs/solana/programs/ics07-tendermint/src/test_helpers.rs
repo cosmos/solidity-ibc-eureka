@@ -1,4 +1,11 @@
-#[cfg(test)]
+use std::sync::LazyLock;
+
+use mollusk_svm::result::Check;
+
+pub const PROGRAM_BINARY_PATH: &str = "../../target/deploy/ics07_tendermint";
+
+pub static SUCCESS_CHECK: LazyLock<Vec<Check>> = LazyLock::new(|| vec![Check::success()]);
+
 pub mod fixtures {
     use crate::types::{ClientState, ConsensusState, IbcHeight};
     use serde::Deserialize;
@@ -268,5 +275,254 @@ pub mod fixtures {
                 );
             }
         }
+    }
+
+    /// Helper functions for misbehaviour testing
+    pub mod misbehaviour {
+        use super::*;
+
+        pub fn create_mock_tendermint_misbehaviour(
+            _chain_id: &str,
+            _header1_height: u64,
+            _header2_height: u64,
+            _trusted_height_1: u64,
+            _trusted_height_2: u64,
+            _conflicting_app_hashes: bool,
+        ) -> Vec<u8> {
+            vec![0xDE, 0xAD, 0xBE, 0xEF] // Mock data
+        }
+
+        pub fn misbehaviour_fixture_exists(filename: &str) -> bool {
+            fixture_exists(filename)
+        }
+
+        pub fn load_misbehaviour_fixture(_filename: &str) -> Vec<u8> {
+            vec![0xDE, 0xAD, 0xBE, 0xEF]
+        }
+    }
+}
+
+#[cfg(test)]
+pub mod chunk_test_utils {
+    use crate::state::{HeaderChunk, HeaderMetadata, CHUNK_DATA_SIZE};
+    use crate::types::{ClientState, ConsensusState, IbcHeight, UploadChunkParams};
+    use anchor_lang::solana_program::keccak;
+    use solana_sdk::account::Account;
+    use solana_sdk::pubkey::Pubkey;
+    use solana_sdk::system_program;
+
+    pub struct ChunkTestData {
+        pub chunk_data: Vec<u8>,
+        pub chunk_hash: [u8; 32],
+    }
+
+    pub fn create_test_chunk_data(index: u8, size: usize) -> ChunkTestData {
+        let chunk_data = vec![index + 1; size];
+        let chunk_hash = keccak::hash(&chunk_data).0;
+        ChunkTestData {
+            chunk_data,
+            chunk_hash,
+        }
+    }
+
+    pub fn create_chunk_account(
+        chain_id: &str,
+        target_height: u64,
+        chunk_index: u8,
+        chunk_data: Vec<u8>,
+    ) -> Account {
+        use anchor_lang::AccountSerialize;
+
+        let chunk = HeaderChunk {
+            chain_id: chain_id.to_string(),
+            target_height,
+            chunk_index,
+            chunk_data,
+        };
+
+        let mut data = vec![];
+        chunk.try_serialize(&mut data).unwrap();
+
+        Account {
+            lamports: 1_500_000, // Rent
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        }
+    }
+
+    pub fn create_metadata_account(
+        chain_id: &str,
+        target_height: u64,
+        total_chunks: u8,
+        header_commitment: [u8; 32],
+    ) -> Account {
+        use anchor_lang::AccountSerialize;
+
+        let metadata = HeaderMetadata {
+            chain_id: chain_id.to_string(),
+            target_height,
+            total_chunks,
+            header_commitment,
+            created_at: 1000,
+            updated_at: 2000,
+        };
+
+        let mut data = vec![];
+        metadata.try_serialize(&mut data).unwrap();
+
+        Account {
+            lamports: 2_000_000, // Rent
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        }
+    }
+
+    pub fn create_client_state_account(chain_id: &str, latest_height: u64) -> Account {
+        use anchor_lang::AccountSerialize;
+
+        let client_state = ClientState {
+            chain_id: chain_id.to_string(),
+            trust_level_numerator: 2,
+            trust_level_denominator: 3,
+            trusting_period: 86400,
+            unbonding_period: 172_800,
+            max_clock_drift: 600,
+            frozen_height: IbcHeight {
+                revision_number: 0,
+                revision_height: 0,
+            },
+            latest_height: IbcHeight {
+                revision_number: 0,
+                revision_height: latest_height,
+            },
+        };
+
+        let mut data = vec![];
+        client_state.try_serialize(&mut data).unwrap();
+
+        Account {
+            lamports: 1_000_000,
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        }
+    }
+
+    pub fn create_consensus_state_account(
+        root: [u8; 32],
+        next_validators_hash: [u8; 32],
+        timestamp: u64,
+    ) -> Account {
+        use crate::state::ConsensusStateStore;
+        use anchor_lang::AccountSerialize;
+
+        let consensus_state_store = ConsensusStateStore {
+            height: 0, // Will be set by the actual instruction
+            consensus_state: ConsensusState {
+                timestamp,
+                root,
+                next_validators_hash,
+            },
+        };
+
+        let mut data = vec![];
+        consensus_state_store.try_serialize(&mut data).unwrap();
+
+        Account {
+            lamports: 1_000_000,
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        }
+    }
+
+    pub fn create_submitter_account(lamports: u64) -> Account {
+        Account {
+            lamports,
+            data: vec![],
+            owner: system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        }
+    }
+
+    pub fn create_upload_chunk_params(
+        chain_id: &str,
+        target_height: u64,
+        chunk_index: u8,
+        chunk_data: Vec<u8>,
+    ) -> UploadChunkParams {
+        UploadChunkParams {
+            chain_id: chain_id.to_string(),
+            target_height,
+            chunk_index,
+            chunk_data,
+        }
+    }
+
+    pub fn derive_chunk_pda(
+        submitter: &Pubkey,
+        chain_id: &str,
+        target_height: u64,
+        chunk_index: u8,
+    ) -> Pubkey {
+        Pubkey::find_program_address(
+            &[
+                b"header_chunk",
+                submitter.as_ref(),
+                chain_id.as_bytes(),
+                &target_height.to_le_bytes(),
+                &[chunk_index],
+            ],
+            &crate::ID,
+        )
+        .0
+    }
+
+    pub fn derive_metadata_pda(submitter: &Pubkey, chain_id: &str, target_height: u64) -> Pubkey {
+        Pubkey::find_program_address(
+            &[
+                b"header_metadata",
+                submitter.as_ref(),
+                chain_id.as_bytes(),
+                &target_height.to_le_bytes(),
+            ],
+            &crate::ID,
+        )
+        .0
+    }
+
+    pub fn derive_client_state_pda(chain_id: &str) -> Pubkey {
+        Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID).0
+    }
+
+    pub fn derive_consensus_state_pda(chain_id: &str, height: u64) -> Pubkey {
+        Pubkey::find_program_address(
+            &[b"consensus", chain_id.as_bytes(), &height.to_le_bytes()],
+            &crate::ID,
+        )
+        .0
+    }
+
+    pub fn create_valid_header_chunks(num_chunks: u8) -> (Vec<Vec<u8>>, [u8; 32]) {
+        // Create realistic header data that can be reassembled
+        let mut all_chunks = vec![];
+        let mut full_header = vec![];
+
+        for i in 0..num_chunks {
+            let chunk_data = vec![i + 1; CHUNK_DATA_SIZE / 2]; // Half size for testing
+            all_chunks.push(chunk_data.clone());
+            full_header.extend(&chunk_data);
+        }
+
+        let header_commitment = keccak::hash(&full_header).0;
+
+        (all_chunks, header_commitment)
     }
 }

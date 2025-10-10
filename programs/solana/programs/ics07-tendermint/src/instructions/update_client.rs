@@ -374,7 +374,7 @@ fn create_consensus_state_account<'info>(
 mod tests {
     use super::*;
     use crate::state::ConsensusStateStore;
-    use crate::test_helpers::fixtures::*;
+    use crate::test_helpers::{fixtures::*, PROGRAM_BINARY_PATH};
     use crate::types::UpdateClientMsg;
     use anchor_lang::{AnchorDeserialize, InstructionData};
     use mollusk_svm::result::Check;
@@ -494,7 +494,7 @@ mod tests {
         instruction: &Instruction,
         accounts: &[(Pubkey, Account)],
     ) -> mollusk_svm::result::InstructionResult {
-        let mut mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
+        let mut mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         mollusk.compute_budget.compute_unit_limit = 20_000_000;
         mollusk.process_instruction(instruction, accounts)
     }
@@ -670,7 +670,7 @@ mod tests {
             (clock_pubkey, clock_account),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, "../../target/deploy/ics07_tendermint");
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
 
         let checks = vec![
             Check::success(),
@@ -1029,5 +1029,39 @@ mod tests {
             ErrorCode::MisbehaviourConflictingState,
             "Conflicting consensus state",
         );
+    }
+
+    #[test]
+    fn test_update_client_with_frozen_client() {
+        use crate::test_helpers::fixtures::load_primary_fixtures;
+
+        let mut scenario = setup_happy_path_test_scenario();
+        let (client_state, _, _) = load_primary_fixtures();
+
+        // Create frozen client state
+        let mut frozen_client_state = client_state;
+        frozen_client_state.frozen_height = crate::types::IbcHeight {
+            revision_number: 0,
+            revision_height: 50, // Frozen at height 50
+        };
+
+        // Serialize with Anchor discriminator
+        let mut frozen_client_data = vec![];
+        frozen_client_state
+            .try_serialize(&mut frozen_client_data)
+            .expect("Failed to serialize frozen client state");
+
+        // Replace the client state account
+        if let Some((_, account)) = scenario
+            .accounts
+            .iter_mut()
+            .find(|(key, _)| *key == scenario.client_state_pda)
+        {
+            account.data = frozen_client_data;
+        }
+
+        let result = execute_update_client_instruction(&scenario.instruction, &scenario.accounts);
+
+        assert_error_code(result, ErrorCode::ClientFrozen, "frozen client");
     }
 }

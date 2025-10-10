@@ -119,6 +119,7 @@ impl RelayerService for EthToCosmosCompatRelayerModuleService {
             Ok(Response::new(api::RelayByTxResponse {
                 tx: resp.tx,
                 address: resp.address,
+                txs: vec![],
             }))
         } else {
             self.new_service.relay_by_tx(request).await
@@ -198,6 +199,7 @@ impl RelayerService for EthToCosmosCompatRelayerModuleService {
             Ok(Response::new(api::UpdateClientResponse {
                 tx: resp.tx,
                 address: resp.address,
+                txs: vec![],
             }))
         } else {
             self.new_service.update_client(request).await

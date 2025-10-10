@@ -8,12 +8,13 @@ pub mod state;
 pub mod test_helpers;
 pub mod types;
 
-use crate::state::ConsensusStateStore;
+use crate::state::{ConsensusStateStore, HeaderChunk, HeaderMetadata};
 
 declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 
 pub use types::{
     ClientState, ConsensusState, IbcHeight, MisbehaviourMsg, UpdateClientMsg, UpdateResult,
+    UploadChunkParams,
 };
 
 pub use ics25_handler::MembershipMsg;
@@ -88,10 +89,144 @@ pub struct SubmitMisbehaviour<'info> {
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 }
 
+#[derive(Accounts)]
+#[instruction(chain_id: String, target_height: u64, total_chunks: u8, header_commitment: [u8; 32])]
+pub struct CreateMetadata<'info> {
+    /// Header metadata account to create for this specific height
+    #[account(
+        init,
+        payer = submitter,
+        space = 8 + HeaderMetadata::INIT_SPACE,
+        seeds = [
+            b"header_metadata",
+            submitter.key().as_ref(),
+            chain_id.as_bytes(),
+            &target_height.to_le_bytes(),
+        ],
+        bump
+    )]
+    pub metadata: Account<'info, HeaderMetadata>,
+
+    /// Client state to verify this is a valid client
+    #[account(
+        constraint = client_state.chain_id == chain_id,
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    /// The submitter who pays for and owns these accounts
+    #[account(mut)]
+    pub submitter: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(params: types::UploadChunkParams)]
+pub struct UploadHeaderChunk<'info> {
+    /// The header chunk account to create (fails if already exists)
+    #[account(
+        init,
+        payer = submitter,
+        space = 8 + HeaderChunk::INIT_SPACE,
+        seeds = [
+            b"header_chunk",
+            submitter.key().as_ref(),
+            params.chain_id.as_bytes(),
+            &params.target_height.to_le_bytes(),
+            &[params.chunk_index]
+        ],
+        bump
+    )]
+    pub chunk: Account<'info, HeaderChunk>,
+
+    /// Client state to verify this is a valid client
+    #[account(
+        constraint = client_state.chain_id == params.chain_id,
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    /// The submitter who pays for and owns these accounts
+    #[account(mut)]
+    pub submitter: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+/// Context for assembling chunks and updating the client
+/// This will automatically clean up any old chunks at the same height
+#[derive(Accounts)]
+pub struct AssembleAndUpdateClient<'info> {
+    #[account(
+        mut,
+        constraint = client_state.chain_id == metadata.chain_id.as_str(),
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    /// Header metadata for this height
+    #[account(
+        mut,
+        close = submitter  // Close metadata and return rent to original submitter
+    )]
+    pub metadata: Account<'info, HeaderMetadata>,
+
+    /// Trusted consensus state (will be validated after header assembly)
+    /// CHECK: Validated in instruction handler after header reassembly
+    pub trusted_consensus_state: UncheckedAccount<'info>,
+
+    /// New consensus state store
+    /// CHECK: Validated in instruction handler
+    pub new_consensus_state_store: UncheckedAccount<'info>,
+
+    /// The original submitter who paid for the chunks (receives rent back)
+    /// CHECK: Must be the same submitter who created the metadata/chunks
+    #[account(mut)]
+    pub submitter: UncheckedAccount<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+    // Remaining accounts are the chunk accounts in order
+    // They will be validated and closed in the instruction handler
+}
+
+/// Context for cleaning up incomplete header uploads at lower heights
+#[derive(Accounts)]
+#[instruction(chain_id: String, cleanup_height: u64, submitter: Pubkey)]
+pub struct CleanupIncompleteUpload<'info> {
+    /// Client state to verify this is a valid client
+    #[account(
+        constraint = client_state.chain_id == chain_id,
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    /// Header metadata for the height and submitter to clean up
+    #[account(
+        mut,
+        seeds = [
+            b"header_metadata",
+            submitter.as_ref(),
+            chain_id.as_bytes(),
+            &cleanup_height.to_le_bytes(),
+        ],
+        bump,
+        close = submitter_account  // Close metadata and return rent to submitter
+    )]
+    pub metadata: Account<'info, HeaderMetadata>,
+
+    /// The original submitter who gets their rent back
+    /// Must be the signer to prove they own the upload
+    #[account(
+        mut,
+        constraint = submitter_account.key() == submitter
+    )]
+    pub submitter_account: Signer<'info>,
+    // Remaining accounts are the chunk accounts to close
+}
+
 #[program]
 pub mod ics07_tendermint {
     use super::*;
-    use crate::types::{ClientState, ConsensusState, MisbehaviourMsg, UpdateClientMsg};
+    use crate::types::{
+        ClientState, ConsensusState, MisbehaviourMsg, UpdateClientMsg, UploadChunkParams,
+    };
 
     pub fn initialize(
         ctx: Context<Initialize>,
@@ -128,5 +263,55 @@ pub mod ics07_tendermint {
         msg: MisbehaviourMsg,
     ) -> Result<()> {
         instructions::submit_misbehaviour::submit_misbehaviour(ctx, msg)
+    }
+
+    /// Create metadata for chunked header upload
+    pub fn create_metadata(
+        ctx: Context<CreateMetadata>,
+        chain_id: String,
+        target_height: u64,
+        total_chunks: u8,
+        header_commitment: [u8; 32],
+    ) -> Result<()> {
+        instructions::create_metadata::create_metadata(
+            ctx,
+            chain_id,
+            target_height,
+            total_chunks,
+            header_commitment,
+        )
+    }
+
+    /// Upload a chunk of header data for multi-transaction updates
+    /// Fails if a chunk already exists at this position (no overwrites allowed)
+    pub fn upload_header_chunk(
+        ctx: Context<UploadHeaderChunk>,
+        params: UploadChunkParams,
+    ) -> Result<()> {
+        instructions::upload_header_chunk::upload_header_chunk(ctx, params)
+    }
+
+    /// Assemble chunks and update the client
+    /// Automatically cleans up all chunks after successful update
+    pub fn assemble_and_update_client(
+        ctx: Context<AssembleAndUpdateClient>,
+    ) -> Result<UpdateResult> {
+        instructions::assemble_and_update_client::assemble_and_update_client(ctx)
+    }
+
+    /// Clean up incomplete header uploads at lower heights
+    /// This can be called to reclaim rent from failed or abandoned uploads
+    pub fn cleanup_incomplete_upload(
+        ctx: Context<CleanupIncompleteUpload>,
+        chain_id: String,
+        cleanup_height: u64,
+        submitter: Pubkey,
+    ) -> Result<()> {
+        instructions::cleanup_incomplete_upload::cleanup_incomplete_upload(
+            ctx,
+            chain_id,
+            cleanup_height,
+            submitter,
+        )
     }
 }

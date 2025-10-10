@@ -13,6 +13,15 @@ pub enum UpdateResult {
     NoOp,
 }
 
+/// Parameters for uploading a header chunk
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct UploadChunkParams {
+    pub chain_id: String,
+    pub target_height: u64,
+    pub chunk_index: u8,
+    pub chunk_data: Vec<u8>,
+}
+
 #[account]
 #[derive(InitSpace)]
 pub struct ClientState {

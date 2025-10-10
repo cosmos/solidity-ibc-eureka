@@ -5,6 +5,7 @@ use crate::state::*;
 use crate::utils::ics24;
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
+use solana_ibc_types::events::{NoopEvent, WriteAcknowledgementEvent};
 
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
@@ -139,12 +140,13 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     let expected_commitment = ics24::packet_commitment_bytes32(&msg.packet);
 
     // Verify membership proof via CPI to light client
+    // The proof from Cosmos is generated with path segments ["ibc", commitment_path]
     let membership_msg = MembershipMsg {
         height: msg.proof_height,
         delay_time_period: 0,
         delay_block_period: 0,
         proof: msg.proof_commitment.clone(),
-        path: vec![commitment_path],
+        path: vec![b"ibc".to_vec(), commitment_path],
         value: expected_commitment.to_vec(),
     };
 
@@ -172,6 +174,8 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         &ctx.accounts.ibc_app_program,
         &ctx.accounts.ibc_app_state,
         &ctx.accounts.router_program,
+        &ctx.accounts.payer,
+        &ctx.accounts.system_program,
         &msg.packet,
         &msg.packet.payloads[0],
         &ctx.accounts.relayer.key(),
@@ -198,26 +202,18 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         }
     };
 
-    let acks = vec![acknowledgement];
-    let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&acks)?;
+    let acknowledgements = vec![acknowledgement];
+    let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&acknowledgements)?;
     packet_ack.value = ack_commitment;
 
     emit!(WriteAcknowledgementEvent {
         client_id: msg.packet.dest_client.clone(),
         sequence: msg.packet.sequence,
-        packet_data: msg.packet.try_to_vec()?,
-        acknowledgements: acks,
+        packet: msg.packet,
+        acknowledgements,
     });
 
     Ok(())
-}
-
-#[event]
-pub struct WriteAcknowledgementEvent {
-    pub client_id: String,
-    pub sequence: u64,
-    pub packet_data: Vec<u8>,
-    pub acknowledgements: Vec<Vec<u8>>,
 }
 
 #[cfg(test)]

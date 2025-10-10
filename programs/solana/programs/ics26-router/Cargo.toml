@@ -30,6 +30,7 @@ solana-ibc-types.workspace = true
 ics25-handler.workspace = true
 anchor-spl = "0.31"
 sha2 = "0.10"
+hex = "0.4"
 
 [dev-dependencies]
 mollusk-svm.workspace = true
