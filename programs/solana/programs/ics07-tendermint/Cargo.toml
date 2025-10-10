@@ -28,14 +28,12 @@ idl-build = ["anchor-lang/idl-build"]
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 ics25-handler.workspace = true
-hex.workspace = true
 
 tendermint-light-client-update-client = { workspace = true, features = ["solana"] }
 tendermint-light-client-membership.workspace = true
 tendermint-light-client-misbehaviour.workspace = true
 tendermint-light-client-uc-and-membership.workspace = true
 
-# TODO:cleanup
 ibc-client-tendermint.workspace = true
 ibc-core-client-types.workspace = true
 ibc-core-host-types.workspace = true

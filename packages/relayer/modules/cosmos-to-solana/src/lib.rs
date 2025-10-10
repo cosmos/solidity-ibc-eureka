@@ -117,7 +117,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
                 ibc_contract: String::new(),
             }),
             target_chain: Some(api::Chain {
-                chain_id: "solana".to_string(), // Solana doesn't have chain IDs like Cosmos
+                chain_id: "solana-localnet".to_string(), // Solana doesn't have chain IDs like Cosmos
                 ibc_version: "2".to_string(),
                 ibc_contract: self.target_listener.ics26_program_id().to_string(),
             }),
