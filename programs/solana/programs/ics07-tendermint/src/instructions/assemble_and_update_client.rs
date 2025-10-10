@@ -16,7 +16,6 @@ pub fn assemble_and_update_client(
         !ctx.accounts.client_state.is_frozen(),
         ErrorCode::ClientFrozen
     );
-    let start_cu: u64 = anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
 
     let metadata = &ctx.accounts.metadata;
     let chain_id = &metadata.chain_id;
@@ -40,43 +39,11 @@ pub fn assemble_and_update_client(
         ErrorCode::AccountValidationFailed
     );
 
-    let cu_after_validation: u64 =
-        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
-    msg!(
-        "CU used for PDA validation: {}",
-        start_cu.saturating_sub(cu_after_validation)
-    );
-
     let header_bytes = assemble_chunks(&ctx)?;
-
-    let cu_after_assembly: u64 =
-        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
-    msg!(
-        "CU used for chunk assembly: {}",
-        cu_after_validation.saturating_sub(cu_after_assembly)
-    );
 
     let result = process_header_update(&mut ctx, header_bytes)?;
 
-    let cu_after_update: u64 =
-        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
-    msg!(
-        "CU used for header update: {}",
-        cu_after_assembly.saturating_sub(cu_after_update)
-    );
-
     cleanup_chunks(&ctx)?;
-
-    let cu_after_cleanup: u64 =
-        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
-    msg!(
-        "CU used for cleanup: {}",
-        cu_after_update.saturating_sub(cu_after_cleanup)
-    );
-    msg!(
-        "Total CU used: {}",
-        start_cu.saturating_sub(cu_after_cleanup)
-    );
 
     Ok(result)
 }
@@ -276,7 +243,6 @@ fn check_misbehaviour(
     Ok(())
 }
 
-/// Clean up chunk accounts to reclaim rent
 fn cleanup_chunks(ctx: &Context<AssembleAndUpdateClient>) -> Result<()> {
     for chunk_account in ctx.remaining_accounts {
         let mut lamports = chunk_account.try_borrow_mut_lamports()?;
@@ -310,7 +276,6 @@ fn load_consensus_state(
         ErrorCode::AccountValidationFailed
     );
 
-    // Load and deserialize
     let account_data = account.try_borrow_data()?;
     require!(!account_data.is_empty(), ErrorCode::ConsensusStateNotFound);
 
