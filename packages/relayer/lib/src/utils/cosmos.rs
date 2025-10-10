@@ -373,7 +373,6 @@ pub async fn get_latest_tm_heigth(
     Ok(latest_height)
 }
 
-
 /// Generates and injects tendermint proofs for rec, ack and timeout messages.
 /// # Errors
 /// Returns an error a proof cannot be generated for any of the provided messages.
