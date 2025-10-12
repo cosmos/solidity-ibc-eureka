@@ -164,9 +164,10 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             target_events.len()
         );
 
-        let tx = self
+        // Use the new chunked relay_events method that returns multiple transactions
+        let txs = self
             .tx_builder
-            .relay_events(
+            .relay_events_chunked(
                 src_events,
                 target_events,
                 inner_req.src_client_id,
@@ -177,12 +178,16 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .await
             .map_err(to_tonic_status)?;
 
-        tracing::info!("Relay by tx request completed.");
+        tracing::info!(
+            "Relay by tx request completed with {} transactions.",
+            txs.len()
+        );
 
+        // Return transactions in the txs field similar to update_client
         Ok(Response::new(api::RelayByTxResponse {
-            tx,
+            tx: vec![], // Empty for chunked transactions
             address: String::new(),
-            txs: vec![],
+            txs, // All chunk and packet transactions
         }))
     }
 

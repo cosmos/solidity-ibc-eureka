@@ -2,7 +2,7 @@
 use anyhow::Context;
 use solana_ibc_types::{
     IbcHeight, MsgAckPacket as SolanaAckPacket, MsgRecvPacket as SolanaMsgRecvPacket,
-    MsgTimeoutPacket, Packet, Payload,
+    MsgTimeoutPacket, Packet, Payload, PayloadMetadata, ProofMetadata,
 };
 
 use ibc_proto_eureka::ibc::core::channel::v2::{
@@ -11,6 +11,9 @@ use ibc_proto_eureka::ibc::core::channel::v2::{
 };
 
 use crate::events::{SolanaEurekaEvent, SolanaEurekaEventWithHeight};
+
+/// Maximum size for a chunk (matches `CHUNK_DATA_SIZE` in Solana program)
+const MAX_CHUNK_SIZE: usize = 700;
 
 fn convert_payload(payload: IbcPayload) -> Payload {
     Payload {
@@ -234,10 +237,37 @@ pub fn target_events_to_timeout_msgs(
                 && event.packet.dest_client == src_client_id
                 && (dst_packet_seqs.is_empty()
                     || dst_packet_seqs.contains(&event.packet.sequence)))
-            .then_some(MsgTimeoutPacket {
-                packet: event.packet,
-                proof_height: target_height,
-                proof_timeout: vec![],
+            .then_some({
+                // Convert payloads to metadata
+                let payloads_metadata: Vec<PayloadMetadata> = event.packet.payloads
+                    .iter()
+                    .map(|p| {
+                        let commitment = solana_sdk::keccak::hash(&p.value).0;
+                        let total_chunks = if p.value.len() > MAX_CHUNK_SIZE {
+                            ((p.value.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+                        } else {
+                            0
+                        };
+                        PayloadMetadata {
+                            source_port: p.source_port.clone(),
+                            dest_port: p.dest_port.clone(),
+                            version: p.version.clone(),
+                            encoding: p.encoding.clone(),
+                            commitment,
+                            total_chunks,
+                        }
+                    })
+                    .collect();
+
+                MsgTimeoutPacket {
+                    packet: event.packet,
+                    payloads: payloads_metadata,
+                    proof: ProofMetadata {
+                        height: target_height,
+                        commitment: [0u8; 32],  // Will be filled later with actual proof
+                        total_chunks: 0,
+                    },
+                }
             }),
             SolanaEurekaEvent::WriteAcknowledgement(..) => None,
         })
@@ -247,8 +277,10 @@ pub fn target_events_to_timeout_msgs(
 /// Injects mock proofs into the provided messages for testing purposes.
 pub fn inject_mock_proofs(timeout_msgs: &mut [MsgTimeoutPacket]) {
     for msg in timeout_msgs.iter_mut() {
-        msg.proof_timeout = b"mock".to_vec();
-        msg.proof_height = Default::default();
+        // Update proof metadata with mock values
+        msg.proof.commitment = solana_sdk::keccak::hash(b"mock").0;
+        msg.proof.total_chunks = 0;  // No chunking for mock proof
+        msg.proof.height = 0;  // Default height for mock
     }
 }
 
@@ -271,8 +303,6 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Sola
         .packet
         .ok_or_else(|| anyhow::anyhow!("Missing packet in MsgRecvPacket"))?;
 
-    let proof_commitment = value.proof_commitment;
-
     let proof_height = value
         .proof_height
         .ok_or_else(|| anyhow::anyhow!("Missing proof height"))?;
@@ -281,10 +311,11 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Sola
         return Err(anyhow::anyhow!("Packet payloads cannot be empty"));
     }
 
+    // Convert packet payloads
     let payloads = ibc_packet
         .payloads
-        .into_iter()
-        .map(convert_payload)
+        .iter()
+        .map(|p| convert_payload(p.clone()))
         .collect();
 
     let packet = Packet {
@@ -295,10 +326,46 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Sola
         payloads,
     };
 
+    // Convert payloads to metadata
+    let payloads_metadata: Vec<PayloadMetadata> = ibc_packet
+        .payloads
+        .into_iter()
+        .map(|p| {
+            let commitment = solana_sdk::keccak::hash(&p.value).0;
+            let total_chunks = if p.value.len() > MAX_CHUNK_SIZE {
+                ((p.value.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+            } else {
+                0
+            };
+            PayloadMetadata {
+                source_port: p.source_port,
+                dest_port: p.destination_port,
+                version: p.version,
+                encoding: p.encoding,
+                commitment,
+                total_chunks,
+            }
+        })
+        .collect();
+
+    // Create proof metadata
+    let proof_commitment = solana_sdk::keccak::hash(&value.proof_commitment).0;
+    let proof_total_chunks = if value.proof_commitment.len() > MAX_CHUNK_SIZE {
+        ((value.proof_commitment.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+    } else {
+        0
+    };
+
+    let proof_metadata = ProofMetadata {
+        height: proof_height.revision_height,
+        commitment: proof_commitment,
+        total_chunks: proof_total_chunks,
+    };
+
     Ok(SolanaMsgRecvPacket {
         packet,
-        proof_commitment,
-        proof_height: proof_height.revision_height,
+        payloads: payloads_metadata,
+        proof: proof_metadata,
     })
 }
 
@@ -329,9 +396,7 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
     if acknowledgement.app_acknowledgements.is_empty() {
         return Err(anyhow::anyhow!("Acknowledgements cannot be empty"));
     }
-    let acknowledgement = acknowledgement.app_acknowledgements[0].clone();
-
-    let proof_acked = value.proof_acked;
+    let acknowledgement_data = acknowledgement.app_acknowledgements[0].clone();
 
     let proof_height = value
         .proof_height
@@ -341,10 +406,11 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
         return Err(anyhow::anyhow!("Packet payloads cannot be empty"));
     }
 
+    // Convert packet payloads
     let payloads = ibc_packet
         .payloads
-        .into_iter()
-        .map(convert_payload)
+        .iter()
+        .map(|p| convert_payload(p.clone()))
         .collect();
 
     let packet = Packet {
@@ -355,10 +421,46 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
         payloads,
     };
 
+    // Convert payloads to metadata
+    let payloads_metadata: Vec<PayloadMetadata> = ibc_packet
+        .payloads
+        .into_iter()
+        .map(|p| {
+            let commitment = solana_sdk::keccak::hash(&p.value).0;
+            let total_chunks = if p.value.len() > MAX_CHUNK_SIZE {
+                ((p.value.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+            } else {
+                0
+            };
+            PayloadMetadata {
+                source_port: p.source_port,
+                dest_port: p.destination_port,
+                version: p.version,
+                encoding: p.encoding,
+                commitment,
+                total_chunks,
+            }
+        })
+        .collect();
+
+    // Create proof metadata
+    let proof_commitment = solana_sdk::keccak::hash(&value.proof_acked).0;
+    let proof_total_chunks = if value.proof_acked.len() > MAX_CHUNK_SIZE {
+        ((value.proof_acked.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+    } else {
+        0
+    };
+
+    let proof_metadata = ProofMetadata {
+        height: proof_height.revision_height,
+        commitment: proof_commitment,
+        total_chunks: proof_total_chunks,
+    };
+
     Ok(SolanaAckPacket {
         packet,
-        acknowledgement,
-        proof_acked,
-        proof_height: proof_height.revision_height,
+        payloads: payloads_metadata,
+        acknowledgement: acknowledgement_data,
+        proof: proof_metadata,
     })
 }

@@ -35,13 +35,14 @@ use solana_sdk::{
 use solana_ibc_types::{
     derive_client, derive_client_sequence, derive_ibc_app, derive_ics07_client_state,
     derive_ics07_consensus_state, derive_packet_ack, derive_packet_commitment,
-    derive_packet_receipt, derive_router_state, get_instruction_discriminator,
+    derive_packet_receipt, derive_payload_chunk, derive_proof_chunk, derive_router_state,
+    get_instruction_discriminator,
     ics07::{ClientState, ConsensusState, ICS07_INITIALIZE_DISCRIMINATOR},
-    MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket,
+    MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
 };
 use tendermint_rpc::{Client as _, HttpClient};
 
-/// Maximum size for a header chunk (matches `CHUNK_DATA_SIZE` in Solana program)
+/// Maximum size for a chunk (matches `CHUNK_DATA_SIZE` in Solana program)
 const MAX_CHUNK_SIZE: usize = 700;
 
 /// Parameters for uploading a header chunk (mirrors the Solana program's type)
@@ -66,6 +67,33 @@ pub struct UpdateClientChunkedTxs {
     pub total_chunks: usize,
     /// Target height being updated to
     pub target_height: u64,
+}
+
+/// Organized transactions for chunked recv packet
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct RecvPacketChunkedTxs {
+    /// All chunk upload transactions for payloads and proof
+    pub chunk_txs: Vec<Vec<u8>>,
+    /// Final recv packet transaction
+    pub recv_tx: Vec<u8>,
+}
+
+/// Organized transactions for chunked ack packet
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct AckPacketChunkedTxs {
+    /// All chunk upload transactions for payloads and proof
+    pub chunk_txs: Vec<Vec<u8>>,
+    /// Final ack packet transaction
+    pub ack_tx: Vec<u8>,
+}
+
+/// Organized transactions for chunked timeout packet
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct TimeoutPacketChunkedTxs {
+    /// All chunk upload transactions for payloads and proof
+    pub chunk_txs: Vec<Vec<u8>>,
+    /// Final timeout packet transaction
+    pub timeout_tx: Vec<u8>,
 }
 
 /// Helper to derive header chunk PDA
@@ -334,7 +362,7 @@ impl TxBuilder {
         // The proof from query_height (N+1) verifies against app hash at proof_height (N)
         let (consensus_state, _) = derive_ics07_consensus_state(
             client_state,
-            msg.proof_height, // Use proof_height, not query_height
+            msg.proof.height, // Use proof metadata height
             self.solana_ics07_program_id,
         );
 
@@ -435,11 +463,12 @@ impl TxBuilder {
         Ok(client_state)
     }
 
+    fn split_into_chunks(data: &[u8]) -> Vec<Vec<u8>> {
+        data.chunks(MAX_CHUNK_SIZE).map(<[u8]>::to_vec).collect()
+    }
+
     fn split_header_into_chunks(header_bytes: &[u8]) -> Vec<Vec<u8>> {
-        header_bytes
-            .chunks(MAX_CHUNK_SIZE)
-            .map(<[u8]>::to_vec)
-            .collect()
+        Self::split_into_chunks(header_bytes)
     }
 
     fn build_create_metadata_tx(
@@ -520,6 +549,90 @@ impl TxBuilder {
             solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(1000);
 
         vec![compute_budget_ix, priority_fee_ix]
+    }
+
+    #[allow(dead_code)]
+    fn build_upload_payload_chunk_instruction(
+        &self,
+        client_id: &str,
+        sequence: u64,
+        payload_index: u8,
+        chunk_index: u8,
+        chunk_data: Vec<u8>,
+    ) -> Result<Instruction> {
+        let msg = MsgUploadChunk {
+            client_id: client_id.to_string(),
+            sequence,
+            payload_index,
+            chunk_index,
+            chunk_data,
+        };
+
+        let (chunk_pda, _) = derive_payload_chunk(
+            self.fee_payer,
+            client_id,
+            sequence,
+            payload_index,
+            chunk_index,
+            self.solana_ics26_program_id,
+        );
+
+        let accounts = vec![
+            AccountMeta::new(chunk_pda, false),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        let discriminator = get_instruction_discriminator("upload_payload_chunk");
+        let mut data = discriminator.to_vec();
+        data.extend_from_slice(&msg.try_to_vec()?);
+
+        Ok(Instruction {
+            program_id: self.solana_ics26_program_id,
+            accounts,
+            data,
+        })
+    }
+
+    #[allow(dead_code)]
+    fn build_upload_proof_chunk_instruction(
+        &self,
+        client_id: &str,
+        sequence: u64,
+        chunk_index: u8,
+        chunk_data: Vec<u8>,
+    ) -> Result<Instruction> {
+        let msg = MsgUploadChunk {
+            client_id: client_id.to_string(),
+            sequence,
+            payload_index: 0, // Not used for proof chunks
+            chunk_index,
+            chunk_data,
+        };
+
+        let (chunk_pda, _) = derive_proof_chunk(
+            self.fee_payer,
+            client_id,
+            sequence,
+            chunk_index,
+            self.solana_ics26_program_id,
+        );
+
+        let accounts = vec![
+            AccountMeta::new(chunk_pda, false),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        let discriminator = get_instruction_discriminator("upload_proof_chunk");
+        let mut data = discriminator.to_vec();
+        data.extend_from_slice(&msg.try_to_vec()?);
+
+        Ok(Instruction {
+            program_id: self.solana_ics26_program_id,
+            accounts,
+            data,
+        })
     }
 
     fn build_upload_header_chunk_instruction(
@@ -627,7 +740,303 @@ impl TxBuilder {
 }
 
 impl TxBuilder {
+    /// Build chunked recv packet transactions
+    #[allow(dead_code)]
+    fn build_recv_packet_chunked(
+        &self,
+        chain_id: &str,
+        msg: &MsgRecvPacket,
+        payload_data: &[Vec<u8>], // Actual payload data for each payload
+        proof_data: &[u8],        // Actual proof data
+    ) -> Result<RecvPacketChunkedTxs> {
+        let mut chunk_txs = Vec::new();
+
+        for (payload_idx, data) in payload_data.iter().enumerate() {
+            let payload_index = u8::try_from(payload_idx)
+                .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
+
+            if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
+                let chunks = Self::split_into_chunks(data);
+                for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
+                    let chunk_index = u8::try_from(chunk_idx)
+                        .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
+
+                    let instruction = self.build_upload_payload_chunk_instruction(
+                        &msg.packet.dest_client,
+                        msg.packet.sequence,
+                        payload_index,
+                        chunk_index,
+                        chunk_data.clone(),
+                    )?;
+
+                    chunk_txs.push(self.create_tx_bytes(&[instruction])?);
+                }
+            }
+        }
+
+        // Process proof if it needs chunking (based on metadata)
+        if msg.proof.total_chunks > 0 {
+            let chunks = Self::split_into_chunks(proof_data);
+            for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
+                let chunk_index = u8::try_from(chunk_idx)
+                    .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
+
+                let instruction = self.build_upload_proof_chunk_instruction(
+                    &msg.packet.dest_client,
+                    msg.packet.sequence,
+                    chunk_index,
+                    chunk_data.clone(),
+                )?;
+
+                chunk_txs.push(self.create_tx_bytes(&[instruction])?);
+            }
+        }
+
+        // Build the main recv packet instruction with metadata
+        let recv_instruction = self.build_recv_packet_instruction(chain_id, msg)?;
+        let recv_tx = self.create_tx_bytes(&[recv_instruction])?;
+
+        Ok(RecvPacketChunkedTxs { chunk_txs, recv_tx })
+    }
+
+    /// Build chunked ack packet transactions
+    #[allow(dead_code)]
+    async fn build_ack_packet_chunked(
+        &self,
+        msg: &MsgAckPacket,
+        payload_data: &[Vec<u8>], // Actual payload data for each payload
+        proof_data: &[u8],        // Actual proof data
+    ) -> Result<AckPacketChunkedTxs> {
+        let mut chunk_txs = Vec::new();
+
+        // Process each payload
+        for (payload_idx, data) in payload_data.iter().enumerate() {
+            let payload_index = u8::try_from(payload_idx)
+                .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
+
+            // Check if payload needs chunking (based on metadata)
+            if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
+                let chunks = Self::split_into_chunks(data);
+                for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
+                    let chunk_index = u8::try_from(chunk_idx)
+                        .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
+
+                    let instruction = self.build_upload_payload_chunk_instruction(
+                        &msg.packet.source_client,
+                        msg.packet.sequence,
+                        payload_index,
+                        chunk_index,
+                        chunk_data.clone(),
+                    )?;
+
+                    chunk_txs.push(self.create_tx_bytes(&[instruction])?);
+                }
+            }
+        }
+
+        // Process proof if it needs chunking (based on metadata)
+        if msg.proof.total_chunks > 0 {
+            let chunks = Self::split_into_chunks(proof_data);
+            for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
+                let chunk_index = u8::try_from(chunk_idx)
+                    .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
+
+                let instruction = self.build_upload_proof_chunk_instruction(
+                    &msg.packet.source_client,
+                    msg.packet.sequence,
+                    chunk_index,
+                    chunk_data.clone(),
+                )?;
+
+                chunk_txs.push(self.create_tx_bytes(&[instruction])?);
+            }
+        }
+
+        // Build the main ack packet instruction with metadata
+        let ack_instruction = self.build_ack_packet_instruction(msg).await?;
+        let ack_tx = self.create_tx_bytes(&[ack_instruction])?;
+
+        Ok(AckPacketChunkedTxs { chunk_txs, ack_tx })
+    }
+
+    /// Build chunked timeout packet transactions
+    #[allow(dead_code)]
+    fn build_timeout_packet_chunked(
+        &self,
+        msg: &MsgTimeoutPacket,
+        payload_data: &[Vec<u8>], // Actual payload data for each payload
+        proof_data: &[u8],        // Actual proof data
+    ) -> Result<TimeoutPacketChunkedTxs> {
+        let mut chunk_txs = Vec::new();
+
+        // Process each payload
+        for (payload_idx, data) in payload_data.iter().enumerate() {
+            let payload_index = u8::try_from(payload_idx)
+                .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
+
+            // Check if payload needs chunking (based on metadata)
+            if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
+                let chunks = Self::split_into_chunks(data);
+                for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
+                    let chunk_index = u8::try_from(chunk_idx)
+                        .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
+
+                    let instruction = self.build_upload_payload_chunk_instruction(
+                        &msg.packet.source_client,
+                        msg.packet.sequence,
+                        payload_index,
+                        chunk_index,
+                        chunk_data.clone(),
+                    )?;
+
+                    chunk_txs.push(self.create_tx_bytes(&[instruction])?);
+                }
+            }
+        }
+
+        // Process proof if it needs chunking (based on metadata)
+        if msg.proof.total_chunks > 0 {
+            let chunks = Self::split_into_chunks(proof_data);
+            for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
+                let chunk_index = u8::try_from(chunk_idx)
+                    .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
+
+                let instruction = self.build_upload_proof_chunk_instruction(
+                    &msg.packet.source_client,
+                    msg.packet.sequence,
+                    chunk_index,
+                    chunk_data.clone(),
+                )?;
+
+                chunk_txs.push(self.create_tx_bytes(&[instruction])?);
+            }
+        }
+
+        // Build the main timeout packet instruction with metadata
+        let timeout_instruction = self.build_timeout_packet_instruction(msg)?;
+        let timeout_tx = self.create_tx_bytes(&[timeout_instruction])?;
+
+        Ok(TimeoutPacketChunkedTxs {
+            chunk_txs,
+            timeout_tx,
+        })
+    }
+
     /// Build relay transaction from Cosmos events to Solana
+    /// Returns a vector of transactions to support chunking
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to convert events to messages
+    /// - Failed to build Solana instructions
+    /// - Failed to create transaction bytes
+    #[tracing::instrument(skip_all)]
+    pub async fn relay_events_chunked(
+        &self,
+        src_events: Vec<EurekaEventWithHeight>,
+        dest_events: Vec<SolanaEurekaEventWithHeight>,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
+    ) -> Result<Vec<Vec<u8>>> {
+        tracing::info!(
+            "Relaying chunked events from Cosmos to Solana for client {}",
+            dst_client_id
+        );
+
+        let chain_id = self.chain_id().await?;
+        let client_state = self.cosmos_client_state(&chain_id)?;
+        let client_state = convert_client_state_to_ibc(client_state)?;
+        let target_height = get_latest_tm_heigth(client_state, &self.src_tm_client).await?;
+
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+
+        let slot = self
+            .target_solana_client
+            .get_slot_with_commitment(CommitmentConfig::finalized())
+            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
+
+        let timeout_msgs = target_events_to_timeout_msgs(
+            dest_events,
+            &src_client_id,
+            &dst_client_id,
+            &dst_packet_seqs,
+            slot,
+            now_since_unix.as_secs(),
+        );
+
+        // we don't care about signer address as no cosmos tx will be sent here
+        let mock_signer_address = String::new();
+
+        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+            src_events,
+            &src_client_id,
+            &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
+            &mock_signer_address,
+            now_since_unix.as_secs(),
+        );
+
+        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
+        tracing::debug!("Recv messages: #{}", recv_msgs.len());
+        tracing::debug!("Ack messages: #{}", ack_msgs.len());
+
+        // convert to tm events so we can inject proofs
+        let mut timeout_msgs = timeout_msgs
+            .clone()
+            .into_iter()
+            .map(|msg| solana_timeout_packet_to_tm_timeout(msg, mock_signer_address.clone()))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        cosmos::inject_tendermint_proofs(
+            &mut recv_msgs,
+            &mut ack_msgs,
+            &mut timeout_msgs,
+            &self.src_tm_client,
+            &target_height,
+        )
+        .await?;
+
+        let timeout_msgs: Vec<_> = timeout_msgs
+            .clone()
+            .into_iter()
+            .map(tm_timeout_to_solana_timeout_packet)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut all_txs = Vec::new();
+        let chain_id = self.chain_id().await?;
+
+        // Process recv messages - for now, just create single transactions
+        // TODO: Implement proper chunking when payload/proof data is available
+        for recv_msg in recv_msgs {
+            let recv_msg = ibc_to_solana_recv_packet(recv_msg)?;
+            let instruction = self.build_recv_packet_instruction(&chain_id, &recv_msg)?;
+            let tx = self.create_tx_bytes(&[instruction])?;
+            all_txs.push(tx);
+        }
+
+        // Process ack messages
+        for ack_msg in ack_msgs {
+            let ack_msg = ibc_to_solana_ack_packet(ack_msg)?;
+            let instruction = self.build_ack_packet_instruction(&ack_msg).await?;
+            let tx = self.create_tx_bytes(&[instruction])?;
+            all_txs.push(tx);
+        }
+
+        // Process timeout messages
+        for timeout_msg in timeout_msgs {
+            let instruction = self.build_timeout_packet_instruction(&timeout_msg)?;
+            let tx = self.create_tx_bytes(&[instruction])?;
+            all_txs.push(tx);
+        }
+
+        Ok(all_txs)
+    }
+
+    /// Build relay transaction from Cosmos events to Solana (legacy single transaction)
     ///
     /// # Errors
     ///

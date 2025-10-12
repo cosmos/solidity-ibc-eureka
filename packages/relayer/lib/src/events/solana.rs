@@ -16,6 +16,9 @@ use solana_ibc_types::{
 
 use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
+/// Maximum size for a chunk (matches `CHUNK_DATA_SIZE` in Solana program)
+const MAX_CHUNK_SIZE: usize = 700;
+
 /// Parsed IBC event from Solana transaction logs
 #[derive(Debug, Clone)]
 pub enum SolanaEurekaEvent {
@@ -96,11 +99,14 @@ pub fn solana_timeout_packet_to_tm_timeout(
 
     let height = ibc_proto_eureka::ibc::core::client::v1::Height {
         revision_number: 0, // Solana doesn't have revision numbers
-        revision_height: msg.proof_height,
+        revision_height: msg.proof.height,  // Use ProofMetadata height
     };
 
+    // TODO: Extract actual proof data from chunks if needed
+    let proof_unreceived = vec![];  // Placeholder - actual proof would be assembled from chunks
+
     let msg = ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout {
-        proof_unreceived: msg.proof_timeout,
+        proof_unreceived,
         proof_height: Some(height),
         packet: Some(packet),
         signer,
@@ -129,27 +135,65 @@ pub fn tm_timeout_to_solana_timeout_packet(
 
     let solana_packet = solana_ibc_types::Packet {
         sequence: packet.sequence,
-        source_client: packet.source_client,
-        dest_client: packet.destination_client,
+        source_client: packet.source_client.clone(),
+        dest_client: packet.destination_client.clone(),
         timeout_timestamp: i64::try_from(packet.timeout_timestamp)
             .context("timeout_timestamp should be i64 compatible")?,
         payloads: packet
             .payloads
-            .into_iter()
+            .iter()
             .map(|p| solana_ibc_types::Payload {
-                source_port: p.source_port,
-                dest_port: p.destination_port,
-                version: p.version,
-                encoding: p.encoding,
-                value: p.value,
+                source_port: p.source_port.clone(),
+                dest_port: p.destination_port.clone(),
+                version: p.version.clone(),
+                encoding: p.encoding.clone(),
+                value: p.value.clone(),
             })
             .collect(),
     };
 
+    // Convert payloads to metadata
+    let payload_metadata: Vec<solana_ibc_types::PayloadMetadata> = packet
+        .payloads
+        .into_iter()
+        .map(|p| {
+            // Calculate commitment and total chunks for each payload
+            let commitment = solana_sdk::keccak::hash(&p.value).0;
+            let total_chunks = if p.value.len() > MAX_CHUNK_SIZE {
+                ((p.value.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+            } else {
+                0  // No chunking needed
+            };
+
+            solana_ibc_types::PayloadMetadata {
+                source_port: p.source_port,
+                dest_port: p.destination_port,
+                version: p.version,
+                encoding: p.encoding,
+                commitment,
+                total_chunks,
+            }
+        })
+        .collect();
+
+    // Create proof metadata
+    let proof_commitment = solana_sdk::keccak::hash(&msg.proof_unreceived).0;
+    let proof_total_chunks = if msg.proof_unreceived.len() > MAX_CHUNK_SIZE {
+        ((msg.proof_unreceived.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+    } else {
+        0  // No chunking needed
+    };
+
+    let proof_metadata = solana_ibc_types::ProofMetadata {
+        height: proof_height.revision_height,
+        commitment: proof_commitment,
+        total_chunks: proof_total_chunks,
+    };
+
     let msg = solana_ibc_types::MsgTimeoutPacket {
         packet: solana_packet,
-        proof_timeout: msg.proof_unreceived,
-        proof_height: proof_height.revision_height,
+        payloads: payload_metadata,
+        proof: proof_metadata,
     };
 
     Ok(msg)
