@@ -11,7 +11,7 @@ use ics26_router::{
     },
 };
 use prost::Message;
-use solana_ibc_types::Payload;
+use solana_ibc_types::{Payload, PayloadMetadata};
 
 /// Message for sending a transfer via IBC
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -192,20 +192,34 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
     // Serialize to protobuf bytes
     let packet_data = fungible_token_data.encode_to_vec();
 
-    // Create payload for router
+    // Create payload for the commitment
     let payload = Payload {
+        source_port: "transfer".to_string(),
+        dest_port: msg.dest_port.clone(),
+        version: "ics20-1".to_string(),
+        encoding: "application/x-protobuf".to_string(),
+        value: packet_data,
+    };
+
+    // Calculate keccak256 commitment of the payload
+    let payload_bytes = payload.try_to_vec()?;
+    let commitment = anchor_lang::solana_program::keccak::hash(&payload_bytes).to_bytes();
+
+    // Create payload metadata for router (no chunking for test app)
+    let payload_metadata = PayloadMetadata {
         source_port: "transfer".to_string(),
         dest_port: msg.dest_port,
         version: "ics20-1".to_string(),
         encoding: "application/x-protobuf".to_string(),
-        value: packet_data,
+        commitment,
+        total_chunks: 0, // No chunking for test app
     };
 
     // Call router via CPI to send packet
     let router_msg = MsgSendPacket {
         source_client: msg.source_client.clone(),
         timeout_timestamp: msg.timeout_timestamp,
-        payload,
+        payloads: vec![payload_metadata],  // Single payload in a vector for multi-payload support
     };
 
     let cpi_accounts = RouterSendPacket {

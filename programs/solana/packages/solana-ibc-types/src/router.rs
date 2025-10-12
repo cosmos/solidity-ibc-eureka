@@ -50,37 +50,75 @@ impl Packet {
     }
 }
 
-/// Message for sending a packet
+/// Payload metadata for chunked operations
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct PayloadMetadata {
+    pub source_port: String,
+    pub dest_port: String,
+    pub version: String,
+    pub encoding: String,
+    pub commitment: [u8; 32],
+    pub total_chunks: u8,
+}
+
+/// Proof metadata for chunked operations
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct ProofMetadata {
+    pub height: u64,
+    pub commitment: [u8; 32],
+    pub total_chunks: u8,
+}
+
+/// Message for sending a packet - updated for chunking with multi-payload support
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgSendPacket {
     pub source_client: String,
     pub timeout_timestamp: i64,
-    pub payload: Payload,
+    pub payloads: Vec<PayloadMetadata>,
 }
 
-/// Message for receiving a packet
+/// Message for receiving a packet - updated for chunking with multi-payload support
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgRecvPacket {
-    pub packet: Packet,
-    pub proof_commitment: Vec<u8>,
-    pub proof_height: u64,
+    pub packet: Packet,  // But without the actual payload data
+    pub payloads: Vec<PayloadMetadata>,
+    pub proof: ProofMetadata,
 }
 
-/// Message for acknowledging a packet
+/// Message for acknowledging a packet - updated for chunking with multi-payload support
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgAckPacket {
-    pub packet: Packet,
-    pub acknowledgement: Vec<u8>,
-    pub proof_acked: Vec<u8>,
-    pub proof_height: u64,
+    pub packet: Packet,  // But without the actual payload data
+    pub payloads: Vec<PayloadMetadata>,
+    pub acknowledgement: Vec<u8>,  // Not chunked
+    pub proof: ProofMetadata,
 }
 
-/// Message for timing out a packet
+/// Message for timing out a packet - updated for chunking with multi-payload support
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgTimeoutPacket {
-    pub packet: Packet,
-    pub proof_timeout: Vec<u8>,
-    pub proof_height: u64,
+    pub packet: Packet,  // But without the actual payload data
+    pub payloads: Vec<PayloadMetadata>,
+    pub proof: ProofMetadata,
+}
+
+/// Message for uploading chunks
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgUploadChunk {
+    pub client_id: String,
+    pub sequence: u64,
+    pub payload_index: u8,  // Which payload this chunk belongs to (for multi-payload support)
+    pub chunk_index: u8,
+    pub chunk_data: Vec<u8>,
+}
+
+/// Message for cleanup
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgCleanupChunks {
+    pub client_id: String,
+    pub sequence: u64,
+    pub payload_chunks: Vec<u8>,  // Number of chunks for each payload
+    pub total_proof_chunks: u8,
 }
 
 /// IBCApp mapping port IDs to IBC app program IDs

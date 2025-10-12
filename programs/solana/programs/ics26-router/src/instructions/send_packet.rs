@@ -1,8 +1,9 @@
 use crate::errors::RouterError;
 use crate::state::*;
-use crate::utils::ics24;
+use crate::utils::{chunking, ics24};
 use anchor_lang::prelude::*;
 use solana_ibc_types::events::SendPacketEvent;
+use solana_ibc_types::Payload;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgSendPacket)]
@@ -13,10 +14,7 @@ pub struct SendPacket<'info> {
     )]
     pub router_state: Account<'info, RouterState>,
 
-    #[account(
-        seeds = [IBC_APP_SEED, msg.payload.source_port.as_bytes()],
-        bump
-    )]
+    // Note: Port validation is done in the handler function to avoid Anchor macro issues
     pub ibc_app: Account<'info, IBCApp>,
 
     #[account(
@@ -58,11 +56,23 @@ pub struct SendPacket<'info> {
 }
 
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
-    // TODO: Support multi-payload packets #602
     let ibc_app = &ctx.accounts.ibc_app;
     let client_sequence = &mut ctx.accounts.client_sequence;
     let packet_commitment = &mut ctx.accounts.packet_commitment;
     let clock = &ctx.accounts.clock;
+
+    // Validate we have at least one payload
+    require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
+
+    // Validate the IBC app is registered for the source port of the first payload
+    let expected_ibc_app = Pubkey::find_program_address(
+        &[IBC_APP_SEED, msg.payloads[0].source_port.as_bytes()],
+        ctx.program_id,
+    ).0;
+    require!(
+        ctx.accounts.ibc_app.key() == expected_ibc_app,
+        RouterError::IbcAppNotFound
+    );
 
     // Check if app_caller is authorized - it must be a PDA derived from the registered program
     // (since program IDs cannot sign transactions in Solana)
@@ -87,6 +97,29 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     let sequence = client_sequence.next_sequence_send;
     client_sequence.next_sequence_send += 1;
 
+    // Assemble multiple payloads from chunks
+    let payload_data_vec = chunking::assemble_multiple_payloads(
+        ctx.remaining_accounts,
+        ctx.accounts.payer.key(),
+        &msg.source_client,
+        sequence,
+        &msg.payloads,
+        ctx.program_id,
+    )?;
+
+    // Reconstruct the full payloads
+    let mut payloads = Vec::new();
+    for (i, metadata) in msg.payloads.iter().enumerate() {
+        let payload = Payload {
+            source_port: metadata.source_port.clone(),
+            dest_port: metadata.dest_port.clone(),
+            version: metadata.version.clone(),
+            encoding: metadata.encoding.clone(),
+            value: payload_data_vec[i].clone(),
+        };
+        payloads.push(payload);
+    }
+
     let counterparty_client_id = ctx.accounts.client.counterparty_info.client_id.clone();
 
     let packet = Packet {
@@ -94,7 +127,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
         source_client: msg.source_client.clone(),
         dest_client: counterparty_client_id,
         timeout_timestamp: msg.timeout_timestamp,
-        payloads: vec![msg.payload],
+        payloads,
     };
 
     let commitment = ics24::packet_commitment_bytes32(&packet);
@@ -117,7 +150,7 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_ibc_types::Payload;
+    use solana_ibc_types::{Payload, PayloadMetadata};
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
@@ -180,16 +213,21 @@ mod tests {
 
         let clock_data = create_clock_data(params.current_timestamp);
 
+        // For tests, we'll simulate having already uploaded chunks
+        let test_payload_value = b"test data".to_vec();
+        let payload_commitment = anchor_lang::solana_program::keccak::hash(&test_payload_value).0;
+
         let msg = MsgSendPacket {
             source_client: params.client_id.to_string(),
             timeout_timestamp: params.timeout_timestamp,
-            payload: Payload {
+            payloads: vec![PayloadMetadata {
                 source_port: params.port_id.to_string(),
                 dest_port: "dest-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                value: b"test data".to_vec(),
-            },
+                commitment: payload_commitment,
+                total_chunks: 0, // 0 chunks for testing without actual chunks
+            }],
         };
 
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
@@ -220,12 +258,13 @@ mod tests {
         let accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
-            create_account(client_pda, client_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda),
-            create_system_account(payer),
+            create_system_account(app_caller), // app_caller is a signer
+            create_system_account(payer),       // payer is also a signer
             create_program_account(system_program::ID),
             create_clock_account_with_data(clock_data),
+            create_account(client_pda, client_data, crate::ID),
         ];
 
         SendPacketTestContext {
@@ -277,6 +316,7 @@ mod tests {
         let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
 
         // Check packet commitment
+        // Note: With 0 chunks, the payload value will be empty (test mode)
         let expected_packet = Packet {
             sequence: ctx.sequence,
             source_client: "test-client".to_string(),
@@ -287,7 +327,7 @@ mod tests {
                 dest_port: "dest-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                value: b"test data".to_vec(),
+                value: vec![], // Empty because no chunks were uploaded (total_chunks = 0)
             }],
         };
         let expected_commitment = crate::utils::ics24::packet_commitment_bytes32(&expected_packet);
@@ -433,16 +473,20 @@ mod tests {
         let clock_data = create_clock_data(1000);
 
         // Test sending packet on client 1
+        let test_payload_value_1 = b"test data 1".to_vec();
+        let payload_commitment_1 = anchor_lang::solana_program::keccak::hash(&test_payload_value_1).0;
+
         let msg_1 = MsgSendPacket {
             source_client: client_id_1.to_string(),
             timeout_timestamp: 2000,
-            payload: Payload {
+            payloads: vec![PayloadMetadata {
                 source_port: port_id.to_string(),
                 dest_port: "dest-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                value: b"test data 1".to_vec(),
-            },
+                commitment: payload_commitment_1,
+                total_chunks: 0, // 0 chunks for testing
+            }],
         };
 
         let (packet_commitment_pda_1, _) = Pubkey::find_program_address(
@@ -473,13 +517,13 @@ mod tests {
         let accounts_1 = vec![
             create_account(router_state_pda, router_state_data.clone(), crate::ID),
             create_account(ibc_app_pda, ibc_app_data.clone(), crate::ID),
-            create_account(client_pda_1, client_data_1, crate::ID),
             create_account(client_sequence_pda_1, client_sequence_data_1, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_1),
             create_system_account(app_caller_pda),
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_clock_account_with_data(clock_data.clone()),
+            create_account(client_pda_1, client_data_1, crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
@@ -492,16 +536,20 @@ mod tests {
         assert_eq!(client_1_sequence, 11);
 
         // Test sending packet on client 2
+        let test_payload_value_2 = b"test data 2".to_vec();
+        let payload_commitment_2 = anchor_lang::solana_program::keccak::hash(&test_payload_value_2).0;
+
         let msg_2 = MsgSendPacket {
             source_client: client_id_2.to_string(),
             timeout_timestamp: 2000,
-            payload: Payload {
+            payloads: vec![PayloadMetadata {
                 source_port: port_id.to_string(),
                 dest_port: "dest-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                value: b"test data 2".to_vec(),
-            },
+                commitment: payload_commitment_2,
+                total_chunks: 0, // 0 chunks for testing
+            }],
         };
 
         let (packet_commitment_pda_2, _) = Pubkey::find_program_address(
@@ -532,13 +580,13 @@ mod tests {
         let accounts_2 = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
-            create_account(client_pda_2, client_data_2, crate::ID),
             create_account(client_sequence_pda_2, client_sequence_data_2, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_2),
             create_system_account(app_caller_pda),
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_clock_account_with_data(clock_data),
+            create_account(client_pda_2, client_data_2, crate::ID),
         ];
 
         let result_2 = mollusk.process_instruction(&instruction_2, &accounts_2);

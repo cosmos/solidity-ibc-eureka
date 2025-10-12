@@ -1,11 +1,18 @@
 use anchor_lang::prelude::*;
 
 // Re-export types from solana_ibc_types for use in instructions
-pub use solana_ibc_types::{MsgAckPacket, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket, Packet};
+pub use solana_ibc_types::{
+    MsgAckPacket, MsgCleanupChunks, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket,
+    MsgUploadChunk, Packet, PayloadMetadata, ProofMetadata,
+};
 pub use solana_ibc_types::{CLIENT_SEED, CLIENT_SEQUENCE_SEED, IBC_APP_SEED, ROUTER_STATE_SEED};
 pub use solana_ibc_types::{
     COMMITMENT_SEED, PACKET_ACK_SEED, PACKET_COMMITMENT_SEED, PACKET_RECEIPT_SEED,
 };
+
+// PDA seeds for chunks
+pub const PAYLOAD_CHUNK_SEED: &[u8] = b"payload_chunk";
+pub const PROOF_CHUNK_SEED: &[u8] = b"proof_chunk";
 
 pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
@@ -89,3 +96,40 @@ pub struct Commitment {
 
 /// Maximum timeout duration (1 day in seconds)
 pub const MAX_TIMEOUT_DURATION: i64 = 86400;
+
+/// Maximum size of chunk data
+pub const CHUNK_DATA_SIZE: usize = 700;
+
+/// Storage for payload chunks during multi-transaction upload
+#[account]
+#[derive(InitSpace)]
+pub struct PayloadChunk {
+    /// Client ID this chunk belongs to
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
+    pub client_id: String,
+    /// Packet sequence number
+    pub sequence: u64,
+    /// Index of the payload this chunk belongs to (for multi-payload packets)
+    pub payload_index: u8,
+    /// Index of this chunk (0-based)
+    pub chunk_index: u8,
+    /// The chunk data
+    #[max_len(CHUNK_DATA_SIZE)]
+    pub chunk_data: Vec<u8>,
+}
+
+/// Storage for proof chunks during multi-transaction upload
+#[account]
+#[derive(InitSpace)]
+pub struct ProofChunk {
+    /// Client ID this chunk belongs to
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
+    pub client_id: String,
+    /// Packet sequence number
+    pub sequence: u64,
+    /// Index of this chunk (0-based)
+    pub chunk_index: u8,
+    /// The chunk data
+    #[max_len(CHUNK_DATA_SIZE)]
+    pub chunk_data: Vec<u8>,
+}

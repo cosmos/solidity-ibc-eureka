@@ -9,7 +9,7 @@ use ics26_router::{
         CLIENT_SEQUENCE_SEED, IBC_APP_SEED, ROUTER_STATE_SEED,
     },
 };
-use solana_ibc_types::Payload;
+use solana_ibc_types::{Payload, PayloadMetadata};
 
 /// Message for sending an arbitrary packet via IBC
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -104,20 +104,34 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
         return Err(error!(DummyIbcAppError::InvalidPacketData));
     }
 
-    // Create payload for router
+    // Create payload for the commitment
     let payload = Payload {
+        source_port: msg.source_port.clone(),
+        dest_port: msg.dest_port.clone(),
+        version: msg.version.clone(),
+        encoding: msg.encoding.clone(),
+        value: msg.packet_data.clone(),
+    };
+
+    // Calculate keccak256 commitment of the payload
+    let payload_bytes = payload.try_to_vec()?;
+    let commitment = anchor_lang::solana_program::keccak::hash(&payload_bytes).to_bytes();
+
+    // Create payload metadata for router (no chunking for test app)
+    let payload_metadata = PayloadMetadata {
         source_port: msg.source_port.clone(),
         dest_port: msg.dest_port.clone(),
         version: msg.version,
         encoding: msg.encoding,
-        value: msg.packet_data.clone(),
+        commitment,
+        total_chunks: 0, // No chunking for test app
     };
 
     // Call router via CPI to send packet
     let router_msg = MsgSendPacket {
         source_client: msg.source_client.clone(),
         timeout_timestamp: msg.timeout_timestamp,
-        payload,
+        payloads: vec![payload_metadata],  // Single payload in a vector for multi-payload support
     };
 
     let cpi_accounts = RouterSendPacket {

@@ -60,4 +60,14 @@ pub enum RouterError {
     InvalidAppResponse,
     #[msg("IBC app not found")]
     IbcAppNotFound,
+    #[msg("Chunk data too large")]
+    ChunkDataTooLarge,
+    #[msg("Invalid chunk account")]
+    InvalidChunkAccount,
+    #[msg("Invalid chunk count")]
+    InvalidChunkCount,
+    #[msg("Invalid chunk commitment")]
+    InvalidChunkCommitment,
+    #[msg("Invalid payload count")]
+    InvalidPayloadCount,
 }

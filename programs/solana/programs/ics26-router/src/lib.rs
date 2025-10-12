@@ -10,7 +10,10 @@ pub mod test_utils;
 pub mod utils;
 
 use instructions::*;
-use state::{CounterpartyInfo, MsgAckPacket, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket};
+use state::{
+    CounterpartyInfo, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket, MsgSendPacket,
+    MsgTimeoutPacket, MsgUploadChunk,
+};
 
 declare_id!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx");
 
@@ -89,5 +92,23 @@ pub mod ics26_router {
         active: bool,
     ) -> Result<()> {
         instructions::update_client(ctx, client_id, active)
+    }
+
+    pub fn upload_payload_chunk(
+        ctx: Context<UploadPayloadChunk>,
+        msg: MsgUploadChunk,
+    ) -> Result<()> {
+        instructions::upload_payload_chunk(ctx, msg)
+    }
+
+    pub fn upload_proof_chunk(
+        ctx: Context<UploadProofChunk>,
+        msg: MsgUploadChunk,
+    ) -> Result<()> {
+        instructions::upload_proof_chunk(ctx, msg)
+    }
+
+    pub fn cleanup_chunks<'info>(ctx: Context<'_, '_, '_, 'info, CleanupChunks<'info>>, msg: MsgCleanupChunks) -> Result<()> {
+        instructions::cleanup_chunks(ctx, msg)
     }
 }

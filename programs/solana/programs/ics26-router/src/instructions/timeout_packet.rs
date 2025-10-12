@@ -2,10 +2,11 @@ use crate::errors::RouterError;
 use crate::router_cpi::on_timeout_packet_cpi;
 use crate::router_cpi::{verify_non_membership_cpi, LightClientVerification};
 use crate::state::*;
-use crate::utils::ics24;
+use crate::utils::{chunking, ics24};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::events::{NoopEvent, TimeoutPacketEvent};
+use solana_ibc_types::Payload;
 #[cfg(test)]
 use solana_ibc_types::router::APP_STATE_SEED;
 
@@ -18,10 +19,7 @@ pub struct TimeoutPacket<'info> {
     )]
     pub router_state: Account<'info, RouterState>,
 
-    #[account(
-        seeds = [IBC_APP_SEED, msg.packet.payloads[0].source_port.as_bytes()],
-        bump
-    )]
+    // Note: Port validation is done in the handler function to avoid Anchor macro issues
     pub ibc_app: Account<'info, IBCApp>,
 
     #[account(
@@ -51,6 +49,7 @@ pub struct TimeoutPacket<'info> {
     #[account(address = crate::ID)]
     pub router_program: AccountInfo<'info>,
 
+    #[account(mut)]
     pub relayer: Signer<'info>,
 
     #[account(mut)]
@@ -78,10 +77,22 @@ pub struct TimeoutPacket<'info> {
 }
 
 pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Result<()> {
-    // TODO: Support multi-payload packets #602
     let router_state = &ctx.accounts.router_state;
     let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;
+
+    // Validate we have at least one payload
+    require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
+
+    // Validate the IBC app is registered for the source port of the first payload
+    let expected_ibc_app = Pubkey::find_program_address(
+        &[IBC_APP_SEED, msg.payloads[0].source_port.as_bytes()],
+        ctx.program_id,
+    ).0;
+    require!(
+        ctx.accounts.ibc_app.key() == expected_ibc_app,
+        RouterError::IbcAppNotFound
+    );
 
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
@@ -89,17 +100,59 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     );
 
     require!(
-        msg.packet.payloads.len() == 1,
-        RouterError::MultiPayloadPacketNotSupported
-    );
-
-    require!(
         msg.packet.dest_client == client.counterparty_info.client_id,
         RouterError::InvalidCounterpartyClient
     );
 
+    // Assemble multiple payloads from chunks
+    let payload_data_vec = chunking::assemble_multiple_payloads(
+        ctx.remaining_accounts,
+        ctx.accounts.relayer.key(),
+        &msg.packet.source_client,
+        msg.packet.sequence,
+        &msg.payloads,
+        ctx.program_id,
+    )?;
+
+    // Reconstruct the full payloads
+    let mut payloads = Vec::new();
+    for (i, metadata) in msg.payloads.iter().enumerate() {
+        let payload = Payload {
+            source_port: metadata.source_port.clone(),
+            dest_port: metadata.dest_port.clone(),
+            version: metadata.version.clone(),
+            encoding: metadata.encoding.clone(),
+            value: payload_data_vec[i].clone(),
+        };
+        payloads.push(payload);
+    }
+
+    // Calculate total payload chunks for proof start index
+    let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
+
+    // Assemble proof from chunks (starting after payload chunks, using relayer as the chunk owner)
+    let proof_start_index = total_payload_chunks;
+    let proof_data = chunking::assemble_proof_chunks(
+        ctx.remaining_accounts,
+        ctx.accounts.relayer.key(),
+        &msg.packet.source_client,
+        msg.packet.sequence,
+        msg.proof.total_chunks,
+        msg.proof.commitment,
+        ctx.program_id,
+        proof_start_index,
+    )?;
+
+    // Reconstruct the full packet with payloads
+    let packet = Packet {
+        sequence: msg.packet.sequence,
+        source_client: msg.packet.source_client.clone(),
+        dest_client: msg.packet.dest_client.clone(),
+        timeout_timestamp: msg.packet.timeout_timestamp,
+        payloads: payloads.clone(),
+    };
+
     // Verify non-membership proof on counterparty chain via light client
-    let client = &ctx.accounts.client;
     let light_client_verification = LightClientVerification {
         light_client_program: ctx.accounts.light_client_program.clone(),
         client_state: ctx.accounts.client_state.clone(),
@@ -107,14 +160,14 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     };
 
     let receipt_path =
-        ics24::packet_receipt_commitment_path(&msg.packet.dest_client, msg.packet.sequence);
+        ics24::packet_receipt_commitment_path(&packet.dest_client, packet.sequence);
 
     // The proof from Cosmos is generated with path segments ["ibc", receipt_path]
     let non_membership_msg = MembershipMsg {
-        height: msg.proof_height,
+        height: msg.proof.height,
         delay_time_period: 0,
         delay_block_period: 0,
-        proof: msg.proof_timeout.clone(),
+        proof: proof_data,
         path: vec![b"ibc".to_vec(), receipt_path],
         value: vec![], // Empty value for non-membership
     };
@@ -123,7 +176,7 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         verify_non_membership_cpi(client, &light_client_verification, non_membership_msg)?;
 
     require!(
-        counterparty_timestamp >= msg.packet.timeout_timestamp as u64,
+        counterparty_timestamp >= packet.timeout_timestamp as u64,
         RouterError::InvalidTimeoutTimestamp
     );
 
@@ -139,12 +192,16 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     {
         let data = packet_commitment_account.try_borrow_data()?;
         let packet_commitment = Commitment::try_from_slice(&data[8..])?;
-        let expected_commitment = ics24::packet_commitment_bytes32(&msg.packet);
+        let expected_commitment = ics24::packet_commitment_bytes32(&packet);
         require!(
             packet_commitment.value == expected_commitment,
             RouterError::PacketCommitmentMismatch
         );
     }
+
+    // For now, we only handle the first payload for CPI
+    // TODO: In the future, we may need to handle multiple payloads differently
+    let first_payload = &payloads[0];
 
     // CPI to IBC app's onTimeoutPacket
     on_timeout_packet_cpi(
@@ -153,8 +210,8 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         &ctx.accounts.router_program,
         &ctx.accounts.payer,
         &ctx.accounts.system_program,
-        &msg.packet,
-        &msg.packet.payloads[0],
+        &packet,
+        first_payload,
         &ctx.accounts.relayer.key(),
     )?;
 
@@ -170,9 +227,9 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     data.fill(0);
 
     emit!(TimeoutPacketEvent {
-        client_id: msg.packet.source_client.clone(),
-        sequence: msg.packet.sequence,
-        packet: msg.packet,
+        client_id: packet.source_client.clone(),
+        sequence: packet.sequence,
+        packet,
     });
 
     Ok(())
@@ -185,6 +242,7 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
+    use solana_ibc_types::{PayloadMetadata, ProofMetadata};
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
@@ -255,14 +313,21 @@ mod tests {
             Pubkey::find_program_address(&[APP_STATE_SEED], &app_program_id);
 
         let packet_dest_client = params.wrong_dest_client.unwrap_or(params.dest_client_id);
-        let packet = create_test_packet(
-            params.initial_sequence,
-            params.source_client_id,
-            packet_dest_client,
-            params.port_id,
-            "dest-port",
-            params.timeout_timestamp,
-        );
+
+        // For tests, we'll simulate having already uploaded chunks
+        let test_payload_value = b"test data".to_vec();
+        let payload_commitment = anchor_lang::solana_program::keccak::hash(&test_payload_value).0;
+
+        let test_proof = vec![0u8; 32];
+        let proof_commitment = anchor_lang::solana_program::keccak::hash(&test_proof).0;
+
+        let packet = Packet {
+            sequence: params.initial_sequence,
+            source_client: params.source_client_id.to_string(),
+            dest_client: packet_dest_client.to_string(),
+            timeout_timestamp: params.timeout_timestamp,
+            payloads: vec![], // Empty for the message, will be reconstructed from chunks
+        };
 
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
             &[
@@ -275,8 +340,19 @@ mod tests {
 
         let msg = MsgTimeoutPacket {
             packet: packet.clone(),
-            proof_timeout: vec![0u8; 32],
-            proof_height: params.proof_height,
+            payloads: vec![PayloadMetadata {
+                source_port: params.port_id.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                commitment: payload_commitment,
+                total_chunks: 0, // 0 chunks for testing
+            }],
+            proof: ProofMetadata {
+                height: params.proof_height,
+                commitment: proof_commitment,
+                total_chunks: 0, // 0 chunks for testing
+            },
         };
 
         let client_state = Pubkey::new_unique();
@@ -291,7 +367,7 @@ mod tests {
                 AccountMeta::new_readonly(app_program_id, false),
                 AccountMeta::new(dummy_app_state_pda, false),
                 AccountMeta::new_readonly(crate::ID, false), // router_program
-                AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new(relayer, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda, false),
@@ -303,8 +379,22 @@ mod tests {
         };
 
         let packet_commitment_account = if params.with_existing_commitment {
+            // Reconstruct full packet with payload for commitment
+            let full_packet = Packet {
+                sequence: packet.sequence,
+                source_client: packet.source_client.clone(),
+                dest_client: packet.dest_client.clone(),
+                timeout_timestamp: packet.timeout_timestamp,
+                payloads: vec![Payload {
+                    source_port: params.port_id.to_string(),
+                    dest_port: "dest-port".to_string(),
+                    version: "1".to_string(),
+                    encoding: "json".to_string(),
+                    value: vec![], // Empty because no chunks were uploaded (total_chunks = 0)
+                }],
+            };
             let (_, data) =
-                setup_packet_commitment(params.source_client_id, packet.sequence, &packet);
+                setup_packet_commitment(params.source_client_id, full_packet.sequence, &full_packet);
             create_account(packet_commitment_pda, data, crate::ID)
         } else {
             create_uninitialized_account(packet_commitment_pda, 0)
