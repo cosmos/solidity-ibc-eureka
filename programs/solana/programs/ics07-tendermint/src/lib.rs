@@ -124,7 +124,7 @@ pub struct UploadHeaderChunk<'info> {
 /// Context for assembling chunks and updating the client
 /// This will automatically clean up any old chunks at the same height
 #[derive(Accounts)]
-#[instruction(chain_id: String, target_height: u64, total_chunks: u8, header_commitment: [u8; 32])]
+#[instruction(chain_id: String, target_height: u64)]
 pub struct AssembleAndUpdateClient<'info> {
     #[account(
         mut,
@@ -232,15 +232,11 @@ pub mod ics07_tendermint {
         ctx: Context<AssembleAndUpdateClient>,
         chain_id: String,
         target_height: u64,
-        total_chunks: u8,
-        header_commitment: [u8; 32],
     ) -> Result<UpdateResult> {
         instructions::assemble_and_update_client::assemble_and_update_client(
             ctx,
             chain_id,
             target_height,
-            total_chunks,
-            header_commitment,
         )
     }
 

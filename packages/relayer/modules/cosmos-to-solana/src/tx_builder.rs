@@ -27,7 +27,6 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
-    keccak,
     pubkey::Pubkey,
     sysvar,
     transaction::Transaction,
@@ -642,7 +641,6 @@ impl TxBuilder {
         target_height: u64,
         trusted_height: u64,
         total_chunks: u8,
-        header_commitment: [u8; 32],
     ) -> Result<Vec<u8>> {
         let (client_state_pda, _) =
             derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
@@ -680,13 +678,11 @@ impl TxBuilder {
         let discriminator = get_instruction_discriminator("assemble_and_update_client");
         let mut data = discriminator.to_vec();
 
-        // Serialize metadata parameters
+        // Serialize parameters (chain_id, target_height)
         let chain_id_len = u32::try_from(chain_id.len()).expect("chain_id too long");
         data.extend_from_slice(&chain_id_len.to_le_bytes());
         data.extend_from_slice(chain_id.as_bytes());
         data.extend_from_slice(&target_height.to_le_bytes());
-        data.push(total_chunks);
-        data.extend_from_slice(&header_commitment);
 
         let ix = Instruction {
             program_id: self.solana_ics07_program_id,
@@ -1192,8 +1188,6 @@ impl TxBuilder {
         );
 
         let header_bytes = proposed_header.encode_to_vec();
-
-        let header_commitment = keccak::hash(&header_bytes).0;
         let chunks = Self::split_header_into_chunks(&header_bytes);
         let total_chunks = u8::try_from(chunks.len())
             .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
@@ -1211,7 +1205,6 @@ impl TxBuilder {
             target_height,
             trusted_height,
             total_chunks,
-            header_commitment,
         )?;
 
         tracing::info!(

@@ -8,7 +8,6 @@ use crate::test_helpers::{
     },
     PROGRAM_BINARY_PATH,
 };
-use anchor_lang::solana_program::keccak;
 use anchor_lang::{AccountDeserialize, AccountSerialize, InstructionData};
 use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
 use solana_sdk::account::Account;
@@ -44,15 +43,12 @@ fn create_clock_account(unix_timestamp: i64) -> (Pubkey, Account) {
 }
 
 /// Create real header data from fixtures that can be properly deserialized
-fn create_real_header_and_chunks() -> (Vec<u8>, Vec<Vec<u8>>, [u8; 32], UpdateClientMessage) {
+fn create_real_header_and_chunks() -> (Vec<u8>, Vec<Vec<u8>>, UpdateClientMessage) {
     let (_, _, update_msg) = load_primary_fixtures();
 
     // Get the actual header bytes from the client message
     let header_bytes = hex::decode(&update_msg.client_message_hex)
         .expect("Failed to decode header hex from fixture");
-
-    // Calculate commitment
-    let header_commitment = keccak::hash(&header_bytes).0;
 
     // Split into chunks - determine optimal number of chunks
     let num_chunks = (header_bytes.len().div_ceil(CHUNK_DATA_SIZE)).max(2) as u8;
@@ -65,10 +61,10 @@ fn create_real_header_and_chunks() -> (Vec<u8>, Vec<Vec<u8>>, [u8; 32], UpdateCl
         chunks.push(header_bytes[start..end].to_vec());
     }
 
-    (header_bytes, chunks, header_commitment, update_msg)
+    (header_bytes, chunks, update_msg)
 }
 
-fn create_test_header_and_chunks(num_chunks: u8) -> (Vec<u8>, Vec<Vec<u8>>, [u8; 32]) {
+fn create_test_header_and_chunks(num_chunks: u8) -> (Vec<u8>, Vec<Vec<u8>>) {
     // Create a mock header that can be split into chunks
     let header_size = (CHUNK_DATA_SIZE * num_chunks as usize) / 2;
     let mut full_header = vec![];
@@ -77,9 +73,6 @@ fn create_test_header_and_chunks(num_chunks: u8) -> (Vec<u8>, Vec<Vec<u8>>, [u8;
     for i in 0..header_size {
         full_header.push((i % 256) as u8);
     }
-
-    // Calculate commitment
-    let header_commitment = keccak::hash(&full_header).0;
 
     // Split into chunks
     let chunk_size = full_header.len() / num_chunks as usize;
@@ -94,7 +87,7 @@ fn create_test_header_and_chunks(num_chunks: u8) -> (Vec<u8>, Vec<Vec<u8>>, [u8;
         chunks.push(full_header[start..end].to_vec());
     }
 
-    (full_header, chunks, header_commitment)
+    (full_header, chunks)
 }
 
 fn get_chunk_pdas(
@@ -122,8 +115,6 @@ fn create_assemble_instruction(
     chunk_pdas: Vec<Pubkey>,
     chain_id: String,
     target_height: u64,
-    total_chunks: u8,
-    header_commitment: [u8; 32],
 ) -> Instruction {
     let mut account_metas = vec![
         AccountMeta::new(client_state_pda, false),
@@ -145,8 +136,6 @@ fn create_assemble_instruction(
         data: crate::instruction::AssembleAndUpdateClient {
             chain_id,
             target_height,
-            total_chunks,
-            header_commitment,
         }
         .data(),
     }
@@ -167,7 +156,6 @@ fn test_successful_assembly_and_update() {
     let submitter = Pubkey::new_unique();
 
     // Split the real header into chunks
-    let header_commitment = keccak::hash(&client_message_bytes).0;
     let chunk_size = client_message_bytes.len() / 3 + 1;
     let mut chunks = vec![];
     for i in 0..3 {
@@ -216,8 +204,6 @@ fn test_successful_assembly_and_update() {
         chunk_pdas.clone(),
         chain_id.to_string(),
         target_height,
-        chunks.len() as u8,
-        header_commitment,
     );
 
     // Create submitter account
@@ -284,143 +270,9 @@ fn test_successful_assembly_and_update() {
     }
 }
 
-#[test]
-fn test_assembly_with_missing_chunks() {
-    let mollusk = setup_mollusk();
-
-    let chain_id = "test-chain";
-    let target_height = 100u64;
-    let submitter = Pubkey::new_unique();
-
-    // Create test header with 3 chunks but only provide 2
-    let (_, chunks, header_commitment) = create_test_header_and_chunks(3);
-
-    // Set up PDAs
-    let client_state_pda = derive_client_state_pda(chain_id);
-    // New consensus state PDA also needs client state PDA in its seeds
-    let (consensus_state_pda, _) = Pubkey::find_program_address(
-        &[
-            b"consensus_state",
-            client_state_pda.as_ref(),
-            &target_height.to_le_bytes(),
-        ],
-        &crate::ID,
-    );
-
-    // Create accounts
-    let client_state_account = create_client_state_account(chain_id, 90);
-
-    // Get all chunk PDAs
-    let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 3);
-
-    let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
-
-    // Only pass 2 chunk PDAs instead of 3 to test InvalidChunkCount error
-    let instruction = create_assemble_instruction(
-        client_state_pda,
-        trusted_consensus_pda,
-        consensus_state_pda,
-        submitter,
-        payer,
-        chunk_pdas[0..2].to_vec(), // Only pass first 2 chunks
-        chain_id.to_string(),
-        target_height,
-        3, // Expecting 3 chunks
-        header_commitment,
-    );
-
-    // Setup accounts - only provide 2 chunks
-    let mut accounts = vec![
-        (client_state_pda, client_state_account),
-        (
-            trusted_consensus_pda,
-            create_consensus_state_account([0; 32], [0; 32], 0),
-        ),
-        (consensus_state_pda, Account::default()),
-        (submitter, create_submitter_account(10_000_000_000)),
-        (payer, create_submitter_account(1_000_000_000)),
-        keyed_account_for_system_program(),
-    ];
-
-    // Add only 2 chunks (missing the 3rd)
-    for i in 0..2 {
-        let chunk_account =
-            create_chunk_account(chain_id, target_height, i as u8, chunks[i as usize].clone());
-        accounts.push((chunk_pdas[i as usize], chunk_account));
-    }
-    // Don't add the third chunk at all - this will make remaining_accounts count wrong
-
-    let result = mollusk.process_instruction(&instruction, &accounts);
-
-    assert_error_code(result, ErrorCode::InvalidChunkCount, "missing chunk");
-}
-
-#[test]
-fn test_assembly_with_invalid_chunk_count() {
-    let mollusk = setup_mollusk();
-
-    let chain_id = "test-chain";
-    let target_height = 100u64;
-    let submitter = Pubkey::new_unique();
-
-    let (_, chunks, header_commitment) = create_test_header_and_chunks(3);
-
-    // Set up PDAs
-    let client_state_pda = derive_client_state_pda(chain_id);
-    // New consensus state PDA also needs client state PDA in its seeds
-    let (consensus_state_pda, _) = Pubkey::find_program_address(
-        &[
-            b"consensus_state",
-            client_state_pda.as_ref(),
-            &target_height.to_le_bytes(),
-        ],
-        &crate::ID,
-    );
-
-    // Create metadata expecting 2 chunks but provide 3 // Get PDAs for 3 chunks
-    let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 3);
-
-    let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
-
-    let instruction = create_assemble_instruction(
-        client_state_pda,
-        trusted_consensus_pda,
-        consensus_state_pda,
-        submitter,
-        payer,
-        chunk_pdas.clone(),
-        chain_id.to_string(),
-        target_height,
-        2, // Wrong count - expecting 2 but providing 3
-        header_commitment,
-    );
-
-    // Setup all accounts
-    let mut accounts = vec![
-        (client_state_pda, create_client_state_account(chain_id, 90)),
-        (
-            trusted_consensus_pda,
-            create_consensus_state_account([0; 32], [0; 32], 0),
-        ),
-        (consensus_state_pda, Account::default()),
-        (submitter, create_submitter_account(10_000_000_000)),
-        (payer, create_submitter_account(1_000_000_000)),
-        keyed_account_for_system_program(),
-    ];
-
-    // Add all 3 chunk accounts
-    for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
-        let chunk_account =
-            create_chunk_account(chain_id, target_height, i as u8, chunks[i].clone());
-        accounts.push((*chunk_pda, chunk_account));
-    }
-
-    let result = mollusk.process_instruction(&instruction, &accounts);
-
-    assert_error_code(result, ErrorCode::InvalidChunkCount, "wrong chunk count");
-}
+// Removed test_assembly_with_missing_chunks and test_assembly_with_invalid_chunk_count
+// because they tested the `total_chunks` validation which was removed.
+// Now the instruction just processes whatever chunks are provided in remaining_accounts.
 
 #[test]
 fn test_assembly_with_corrupted_chunk() {
@@ -430,7 +282,7 @@ fn test_assembly_with_corrupted_chunk() {
     let target_height = 100u64;
     let submitter = Pubkey::new_unique();
 
-    let (_, chunks, header_commitment) = create_test_header_and_chunks(2);
+    let (_, chunks) = create_test_header_and_chunks(2);
 
     // Set up PDAs
     let client_state_pda = derive_client_state_pda(chain_id);
@@ -460,8 +312,6 @@ fn test_assembly_with_corrupted_chunk() {
         chunk_pdas.clone(),
         chain_id.to_string(),
         target_height,
-        2,
-        header_commitment,
     );
 
     // Setup accounts with corrupted second chunk
@@ -493,7 +343,7 @@ fn test_assembly_with_corrupted_chunk() {
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
-    // When chunk data is corrupted, the header commitment check fails first
+    // When chunk data is corrupted, the header deserialization or validation will fail
     assert_error_code(result, ErrorCode::InvalidHeader, "corrupted chunk data");
 }
 
@@ -506,7 +356,7 @@ fn test_assembly_wrong_submitter() {
     let original_submitter = Pubkey::new_unique();
     let wrong_submitter = Pubkey::new_unique();
 
-    let (_, chunks, header_commitment) = create_test_header_and_chunks(2);
+    let (_, chunks) = create_test_header_and_chunks(2);
 
     // Create metadata with original submitter
     let chunk_pdas = get_chunk_pdas(&original_submitter, chain_id, target_height, 2);
@@ -535,8 +385,6 @@ fn test_assembly_wrong_submitter() {
         chunk_pdas.clone(),
         chain_id.to_string(),
         target_height,
-        2,
-        header_commitment,
     );
 
     let mut accounts = vec![
@@ -577,7 +425,7 @@ fn test_assembly_chunks_in_wrong_order() {
     let target_height = 100u64;
     let submitter = Pubkey::new_unique();
 
-    let (_, chunks, header_commitment) = create_test_header_and_chunks(3);
+    let (_, chunks) = create_test_header_and_chunks(3);
 
     // Set up PDAs
     let client_state_pda = derive_client_state_pda(chain_id);
@@ -609,8 +457,6 @@ fn test_assembly_chunks_in_wrong_order() {
         wrong_order_pdas,
         chain_id.to_string(),
         target_height,
-        3,
-        header_commitment,
     );
 
     let mut accounts = vec![
@@ -656,7 +502,7 @@ fn test_rent_reclaim_after_assembly() {
     let target_height = 100u64;
     let submitter = Pubkey::new_unique();
 
-    let (_, chunks, header_commitment) = create_test_header_and_chunks(2);
+    let (_, chunks) = create_test_header_and_chunks(2);
 
     let initial_balance = 10_000_000_000u64;
 
@@ -688,8 +534,6 @@ fn test_rent_reclaim_after_assembly() {
         chunk_pdas.clone(),
         chain_id.to_string(),
         target_height,
-        2,
-        header_commitment,
     );
 
     let mut accounts = vec![
@@ -742,7 +586,6 @@ fn test_assemble_and_update_client_happy_path() {
     let submitter = Pubkey::new_unique();
 
     // Split the real header into chunks
-    let header_commitment = keccak::hash(&client_message_bytes).0;
     let chunk_size = client_message_bytes.len() / 3 + 1;
     let mut chunks = vec![];
     for i in 0..3 {
@@ -795,8 +638,6 @@ fn test_assemble_and_update_client_happy_path() {
         chunk_pdas.clone(),
         chain_id.to_string(),
         target_height,
-        2,
-        header_commitment,
     );
 
     // Add Clock sysvar for update client validation
@@ -892,7 +733,7 @@ fn test_assemble_with_frozen_client() {
 
     // Load real fixture data
     let (client_state, consensus_state, _) = load_primary_fixtures();
-    let (_header_bytes, chunks, header_commitment, update_msg) = create_real_header_and_chunks();
+    let (_header_bytes, chunks, update_msg) = create_real_header_and_chunks();
 
     let chain_id = &client_state.chain_id;
     let submitter = Pubkey::new_unique();
@@ -953,8 +794,6 @@ fn test_assemble_with_frozen_client() {
         chunk_pdas.clone(),
         chain_id.to_string(),
         target_height,
-        2,
-        header_commitment,
     );
 
     // Create proper trusted consensus state from fixture
@@ -1012,7 +851,7 @@ fn test_assemble_with_existing_consensus_state() {
 
     // Load real fixture data
     let (client_state, consensus_state, _) = load_primary_fixtures();
-    let (_header_bytes, chunks, header_commitment, update_msg) = create_real_header_and_chunks();
+    let (_header_bytes, chunks, update_msg) = create_real_header_and_chunks();
 
     let chain_id = &client_state.chain_id;
     let submitter = Pubkey::new_unique();
@@ -1097,8 +936,6 @@ fn test_assemble_with_existing_consensus_state() {
         chunk_pdas.clone(),
         chain_id.to_string(),
         target_height,
-        2,
-        header_commitment,
     );
 
     let mut accounts = vec![
@@ -1158,7 +995,6 @@ fn test_assemble_with_invalid_header_after_assembly() {
     // Create chunks that assemble but form an invalid header
     let mut full_header = vec![0xDE, 0xAD, 0xBE, 0xEF]; // Invalid header bytes
     full_header.resize(300, 0xFF);
-    let header_commitment = keccak::hash(&full_header).0;
 
     // Split into chunks
     let chunk1 = full_header[0..150].to_vec();
@@ -1188,8 +1024,6 @@ fn test_assemble_with_invalid_header_after_assembly() {
         chunk_pdas.clone(),
         chain_id.to_string(),
         target_height,
-        2,
-        header_commitment,
     );
 
     let mut accounts = vec![
@@ -1235,7 +1069,6 @@ fn test_assemble_updates_latest_height() {
     let submitter = Pubkey::new_unique();
 
     // Split the real header into chunks
-    let header_commitment = keccak::hash(&client_message_bytes).0;
     let chunks = [
         client_message_bytes[0..client_message_bytes.len() / 2].to_vec(),
         client_message_bytes[client_message_bytes.len() / 2..].to_vec(),
@@ -1266,8 +1099,6 @@ fn test_assemble_updates_latest_height() {
         chunk_pdas.clone(),
         chain_id.to_string(),
         target_height,
-        2,
-        header_commitment,
     );
 
     // Create initial client state with real data at old height

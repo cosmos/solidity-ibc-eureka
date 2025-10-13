@@ -4,7 +4,6 @@ use crate::state::{ConsensusStateStore, HeaderChunk};
 use crate::types::{ConsensusState, UpdateResult};
 use crate::AssembleAndUpdateClient;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::keccak;
 use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
@@ -13,25 +12,15 @@ pub fn assemble_and_update_client(
     mut ctx: Context<AssembleAndUpdateClient>,
     chain_id: String,
     target_height: u64,
-    total_chunks: u8,
-    header_commitment: [u8; 32],
 ) -> Result<UpdateResult> {
     require!(
         !ctx.accounts.client_state.is_frozen(),
         ErrorCode::ClientFrozen
     );
 
-    require!(total_chunks > 0, ErrorCode::InvalidChunkCount);
-
     let submitter = ctx.accounts.submitter.key();
 
-    let header_bytes = assemble_chunks(
-        &ctx,
-        &chain_id,
-        target_height,
-        total_chunks,
-        header_commitment,
-    )?;
+    let header_bytes = assemble_chunks(&ctx, &chain_id, target_height)?;
 
     let result = process_header_update(&mut ctx, header_bytes)?;
 
@@ -44,17 +33,9 @@ fn assemble_chunks(
     ctx: &Context<AssembleAndUpdateClient>,
     chain_id: &str,
     target_height: u64,
-    total_chunks: u8,
-    header_commitment: [u8; 32],
 ) -> Result<Vec<u8>> {
     let submitter = ctx.accounts.submitter.key();
     let mut header_bytes = Vec::new();
-
-    require_eq!(
-        ctx.remaining_accounts.len(),
-        total_chunks as usize,
-        ErrorCode::InvalidChunkCount
-    );
 
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
         validate_and_load_chunk(
@@ -67,20 +48,6 @@ fn assemble_chunks(
             &mut header_bytes,
         )?;
     }
-
-    let cu_before_keccak: u64 =
-        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
-    let computed_commitment = keccak::hash(&header_bytes).0;
-    let cu_after_keccak: u64 =
-        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
-    msg!(
-        "CU used for keccak hash: {}",
-        cu_before_keccak.saturating_sub(cu_after_keccak)
-    );
-    require!(
-        header_commitment == computed_commitment,
-        ErrorCode::InvalidHeader
-    );
 
     Ok(header_bytes)
 }
@@ -109,12 +76,9 @@ fn validate_and_load_chunk(
         ErrorCode::InvalidChunkAccount
     );
 
-    // Load and validate chunk
+    // Load chunk
     let chunk_data = chunk_account.try_borrow_data()?;
     let chunk: HeaderChunk = HeaderChunk::try_deserialize(&mut &chunk_data[..])?;
-    require_eq!(&chunk.chain_id, chain_id);
-    require_eq!(chunk.target_height, target_height);
-    require_eq!(chunk.chunk_index, index);
 
     header_bytes.extend_from_slice(&chunk.chunk_data);
     Ok(())

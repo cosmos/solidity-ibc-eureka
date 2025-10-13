@@ -235,9 +235,6 @@ fn test_upload_first_chunk_success() {
     let chunk: HeaderChunk = HeaderChunk::try_deserialize(&mut &chunk_account.1.data[..])
         .expect("should deserialize chunk");
 
-    assert_eq!(chunk.chain_id, chain_id);
-    assert_eq!(chunk.target_height, target_height);
-    assert_eq!(chunk.chunk_index, chunk_index);
     assert_eq!(chunk.chunk_data, expected_data);
 }
 

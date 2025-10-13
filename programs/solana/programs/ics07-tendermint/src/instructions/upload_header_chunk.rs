@@ -19,9 +19,6 @@ pub fn upload_header_chunk(
         ErrorCode::ChunkDataTooLarge
     );
 
-    chunk.chain_id = params.chain_id;
-    chunk.target_height = params.target_height;
-    chunk.chunk_index = params.chunk_index;
     chunk.chunk_data = params.chunk_data;
 
     Ok(())

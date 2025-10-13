@@ -900,7 +900,12 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 	for i := chunkStart; i < chunkEnd; i++ {
 		go func(idx int) {
 			chunkTxStart := time.Now()
+
+			// Decode
+			decodeStart := time.Now()
 			tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[idx]))
+			decodeTime := time.Since(decodeStart)
+
 			if err != nil {
 				chunkResults <- chunkResult{
 					index:    idx,
@@ -910,17 +915,25 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 				return
 			}
 
-			sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, user, true, rpc.CommitmentConfirmed)
+			// Sign and broadcast (with processed confirmation for fast feedback)
+			broadcastStart := time.Now()
+			sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, user, rpc.ConfirmationStatusProcessed)
+			broadcastTime := time.Since(broadcastStart)
 			chunkDuration := time.Since(chunkTxStart)
 
 			if err != nil {
 				chunkResults <- chunkResult{
 					index:    idx,
-					err:      fmt.Errorf("failed to submit chunk %d: %w", idx, err),
+					err:      fmt.Errorf("failed to submit chunk %d (decode: %v, broadcast: %v): %w", idx, decodeTime, broadcastTime, err),
 					duration: chunkDuration,
 				}
 				return
 			}
+
+			// Log breakdown for debugging
+			s.T().Logf("[Chunk %d timing] decode: %v, sign+broadcast+confirm: %v, total: %v",
+				idx, decodeTime, broadcastTime, chunkDuration)
+
 			chunkResults <- chunkResult{
 				index:    idx,
 				sig:      sig,
@@ -935,7 +948,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 		result := <-chunkResults
 		s.Require().NoError(result.err, "Chunk was not submitted")
 		completedChunks++
-		s.T().Logf("✓ Chunk %d/%d downloaded in %v - tx: %s",
+		s.T().Logf("✓ Chunk %d/%d uploaded in %v - tx: %s",
 			completedChunks, chunkCount, result.duration, result.sig)
 	}
 	close(chunkResults)
@@ -949,14 +962,19 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 	s.T().Logf("--- Phase 2: Assembling and updating client ---")
 	assemblyStart := time.Now()
 
+	decodeStart := time.Now()
 	tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[len(resp.Txs)-1]))
+	decodeTime := time.Since(decodeStart)
 	s.Require().NoError(err, "Failed to decode assembly tx")
 
-	sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, user, true, rpc.CommitmentConfirmed)
+	broadcastStart := time.Now()
+	sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, user, rpc.ConfirmationStatusConfirmed)
+	broadcastTime := time.Since(broadcastStart)
 	s.Require().NoError(err)
 
 	assemblyDuration := time.Since(assemblyStart)
 	s.T().Logf("✓ Assembly transaction completed in %v - tx: %s", assemblyDuration, sig)
+	s.T().Logf("[Assembly timing] decode: %v, sign+broadcast+confirm: %v", decodeTime, broadcastTime)
 
 	totalDuration := time.Since(totalStart)
 	s.T().Logf("=== Chunked Update Client Complete ===")

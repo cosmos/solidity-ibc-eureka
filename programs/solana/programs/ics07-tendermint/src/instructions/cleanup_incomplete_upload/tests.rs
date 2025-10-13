@@ -96,9 +96,6 @@ fn setup_test_accounts_with_chunks(
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
         if with_populated_chunks {
             let chunk = HeaderChunk {
-                chain_id: chain_id.to_string(),
-                target_height: cleanup_height,
-                chunk_index: i as u8,
                 chunk_data: vec![i as u8; 100],
             };
 
@@ -322,9 +319,6 @@ fn test_cleanup_with_missing_chunks() {
         .0;
 
         let chunk = HeaderChunk {
-            chain_id: chain_id.to_string(),
-            target_height: cleanup_height,
-            chunk_index: i,
             chunk_data: vec![i; 100],
         };
 

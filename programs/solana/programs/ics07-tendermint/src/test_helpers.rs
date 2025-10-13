@@ -333,12 +333,7 @@ pub mod chunk_test_utils {
     ) -> Account {
         use anchor_lang::AccountSerialize;
 
-        let chunk = HeaderChunk {
-            chain_id: chain_id.to_string(),
-            target_height,
-            chunk_index,
-            chunk_data,
-        };
+        let chunk = HeaderChunk { chunk_data };
 
         let mut data = vec![];
         chunk.try_serialize(&mut data).unwrap();

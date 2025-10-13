@@ -95,12 +95,19 @@ func (s *Solana) BroadcastTx(ctx context.Context, tx *solana.Transaction) (solan
 	)
 }
 
-func (s *Solana) WaitForTxConfirmation(txSig solana.Signature) error {
-	return s.WaitForTxStatus(txSig, rpc.ConfirmationStatusConfirmed)
-}
-
-func (s *Solana) WaitForTxFinalization(txSig solana.Signature) error {
-	return s.WaitForTxStatus(txSig, rpc.ConfirmationStatusFinalized)
+// confirmationStatusLevel returns a numeric level for comparison.
+// Higher numbers indicate higher confirmation levels.
+func confirmationStatusLevel(status rpc.ConfirmationStatusType) int {
+	switch status {
+	case rpc.ConfirmationStatusProcessed:
+		return 1
+	case rpc.ConfirmationStatusConfirmed:
+		return 2
+	case rpc.ConfirmationStatusFinalized:
+		return 3
+	default:
+		return 0
+	}
 }
 
 func (s *Solana) WaitForTxStatus(txSig solana.Signature, status rpc.ConfirmationStatusType) error {
@@ -114,7 +121,8 @@ func (s *Solana) WaitForTxStatus(txSig solana.Signature, status rpc.Confirmation
 			return false, fmt.Errorf("transaction %s failed with error: %s", txSig, out.Value[0].Err)
 		}
 
-		if out.Value[0].ConfirmationStatus == status {
+		// Accept the requested status or any higher confirmation level
+		if confirmationStatusLevel(out.Value[0].ConfirmationStatus) >= confirmationStatusLevel(status) {
 			return true, nil
 		}
 		return false, nil
@@ -189,41 +197,31 @@ func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *sol
 	return solana.Signature{}, fmt.Errorf("transaction broadcast timed out after %d seconds: %w", timeoutSeconds, lastErr)
 }
 
-// SignAndBroadcastTxWithOpts signs and broadcasts a transaction with custom options and retry logic.
-func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, skipPreflight bool, commitment rpc.CommitmentType) (solana.Signature, error) {
-	return s.SignAndBroadcastTxWithOptsAndTimeout(ctx, tx, wallet, skipPreflight, commitment, 30)
+// SignAndBroadcastTxWithOpts signs, broadcasts a transaction (skipping preflight), and waits for the specified confirmation status.
+// This is useful for transactions that need custom confirmation levels (e.g., processed for fast feedback, confirmed for safety).
+func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, status rpc.ConfirmationStatusType) (solana.Signature, error) {
+	return s.SignAndBroadcastTxWithOptsAndTimeout(ctx, tx, wallet, status, 30)
 }
 
-// SignAndBroadcastTxWithOptsAndTimeout signs and broadcasts a transaction with custom options, retry logic, and timeout
-func (s *Solana) SignAndBroadcastTxWithOptsAndTimeout(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, skipPreflight bool, commitment rpc.CommitmentType, timeoutSeconds int) (solana.Signature, error) {
-	var lastErr error
-	for range timeoutSeconds {
-		_, err := s.SignTx(ctx, tx, wallet)
-		if err != nil {
-			lastErr = err
-			time.Sleep(1 * time.Second)
-			continue
-		}
+// SignAndBroadcastTxWithOptsAndTimeout signs, broadcasts a transaction (skipping preflight), and waits for the specified confirmation status with timeout.
+// Always skips preflight for faster submission. The status parameter controls when to consider the transaction confirmed.
+func (s *Solana) SignAndBroadcastTxWithOptsAndTimeout(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, status rpc.ConfirmationStatusType, timeoutSeconds int) (solana.Signature, error) {
+	_, err := s.SignTx(ctx, tx, wallet)
 
-		opts := rpc.TransactionOpts{
-			SkipPreflight:       skipPreflight,
-			PreflightCommitment: commitment,
-		}
-		sig, err := confirm.SendAndConfirmTransactionWithOpts(
-			ctx,
-			s.RPCClient,
-			s.WSClient,
-			tx,
-			opts,
-			nil,
-		)
-		if err == nil {
-			return sig, nil
-		}
-		lastErr = err
-		time.Sleep(1 * time.Second)
+	sig, err := s.RPCClient.SendTransactionWithOpts(
+		ctx,
+		tx,
+		rpc.TransactionOpts{
+			SkipPreflight: true,
+		},
+	)
+
+	err = s.WaitForTxStatus(sig, status)
+	if err == nil {
+		return sig, nil
 	}
-	return solana.Signature{}, fmt.Errorf("transaction broadcast timed out after %d seconds: %w", timeoutSeconds, lastErr)
+
+	return sig, err
 }
 
 // WaitForBalanceChange waits for an account balance to change from the initial value
