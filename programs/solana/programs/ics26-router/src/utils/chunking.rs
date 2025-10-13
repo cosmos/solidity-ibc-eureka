@@ -106,6 +106,21 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
 
     // Verify commitment
     let computed_commitment = keccak::hash(&payload_data).0;
+    msg!(
+        "Payload chunk commitment check - seq: {}, payload_idx: {}, chunks: {}, data_len: {}",
+        params.sequence,
+        params.payload_index,
+        params.total_chunks,
+        payload_data.len()
+    );
+    msg!(
+        "Expected: {:?}",
+        params.expected_commitment
+    );
+    msg!(
+        "Computed: {:?}",
+        computed_commitment
+    );
     require!(
         computed_commitment == params.expected_commitment,
         RouterError::InvalidChunkCommitment
@@ -169,6 +184,20 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
 
     // Verify commitment
     let computed_commitment = keccak::hash(&proof_data).0;
+    msg!(
+        "Proof chunk commitment check - seq: {}, chunks: {}, data_len: {}",
+        params.sequence,
+        params.total_chunks,
+        proof_data.len()
+    );
+    msg!(
+        "Expected: {:?}",
+        params.expected_commitment
+    );
+    msg!(
+        "Computed: {:?}",
+        computed_commitment
+    );
     require!(
         computed_commitment == params.expected_commitment,
         RouterError::InvalidChunkCommitment

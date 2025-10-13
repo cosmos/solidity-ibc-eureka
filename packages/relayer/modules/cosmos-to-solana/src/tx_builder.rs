@@ -58,11 +58,9 @@ struct UploadChunkParams {
 /// Organized transactions for chunked update client
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct UpdateClientChunkedTxs {
-    /// Metadata creation transaction (must be submitted first)
-    pub metadata_tx: Vec<u8>,
-    /// All chunk upload transactions (can be submitted in parallel after metadata)
+    /// All chunk upload transactions (can be submitted in parallel)
     pub chunk_txs: Vec<Vec<u8>>,
-    /// Final assembly transaction (must be submitted last)
+    /// Final assembly transaction (must be submitted last, includes metadata as parameters)
     pub assembly_tx: Vec<u8>,
     /// Total number of chunks
     pub total_chunks: usize,
@@ -117,23 +115,6 @@ fn derive_header_chunk(
     )
 }
 
-/// Helper to derive header metadata PDA
-fn derive_header_metadata(
-    submitter: Pubkey,
-    chain_id: &str,
-    height: u64,
-    program_id: Pubkey,
-) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[
-            b"header_metadata",
-            submitter.as_ref(),
-            chain_id.as_bytes(),
-            &height.to_le_bytes(),
-        ],
-        &program_id,
-    )
-}
 
 /// The `TxBuilder` produces Solana transactions based on events from Cosmos SDK.
 pub struct TxBuilder {
@@ -492,47 +473,6 @@ impl TxBuilder {
         Self::split_into_chunks(header_bytes)
     }
 
-    fn build_create_metadata_tx(
-        &self,
-        chain_id: &str,
-        target_height: u64,
-        total_chunks: u8,
-        header_commitment: [u8; 32],
-    ) -> Result<Vec<u8>> {
-        let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
-        let (metadata_pda, _) = derive_header_metadata(
-            self.fee_payer,
-            chain_id,
-            target_height,
-            self.solana_ics07_program_id,
-        );
-
-        let accounts = vec![
-            AccountMeta::new(metadata_pda, false),
-            AccountMeta::new_readonly(client_state_pda, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        ];
-
-        let discriminator = get_instruction_discriminator("create_metadata");
-        let mut data = discriminator.to_vec();
-
-        let chain_id_len = u32::try_from(chain_id.len()).expect("chain_id too long");
-        data.extend_from_slice(&chain_id_len.to_le_bytes());
-        data.extend_from_slice(chain_id.as_bytes());
-        data.extend_from_slice(&target_height.to_le_bytes());
-        data.push(total_chunks);
-        data.extend_from_slice(&header_commitment);
-
-        let instruction = Instruction {
-            program_id: self.solana_ics07_program_id,
-            accounts,
-            data,
-        };
-
-        self.create_tx_bytes(&[instruction])
-    }
 
     fn build_chunk_transactions(
         &self,
@@ -702,15 +642,10 @@ impl TxBuilder {
         target_height: u64,
         trusted_height: u64,
         total_chunks: u8,
+        header_commitment: [u8; 32],
     ) -> Result<Vec<u8>> {
         let (client_state_pda, _) =
             derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
-        let (metadata_pda, _) = derive_header_metadata(
-            self.fee_payer,
-            chain_id,
-            target_height,
-            self.solana_ics07_program_id,
-        );
         let (trusted_consensus_state, _) = derive_ics07_consensus_state(
             client_state_pda,
             trusted_height,
@@ -724,7 +659,6 @@ impl TxBuilder {
 
         let mut accounts = vec![
             AccountMeta::new(client_state_pda, false),
-            AccountMeta::new(metadata_pda, false),
             AccountMeta::new_readonly(trusted_consensus_state, false),
             AccountMeta::new(new_consensus_state, false),
             AccountMeta::new(self.fee_payer, false), // submitter who gets rent back
@@ -744,11 +678,20 @@ impl TxBuilder {
         }
 
         let discriminator = get_instruction_discriminator("assemble_and_update_client");
+        let mut data = discriminator.to_vec();
+
+        // Serialize metadata parameters
+        let chain_id_len = u32::try_from(chain_id.len()).expect("chain_id too long");
+        data.extend_from_slice(&chain_id_len.to_le_bytes());
+        data.extend_from_slice(chain_id.as_bytes());
+        data.extend_from_slice(&target_height.to_le_bytes());
+        data.push(total_chunks);
+        data.extend_from_slice(&header_commitment);
 
         let ix = Instruction {
             program_id: self.solana_ics07_program_id,
             accounts,
-            data: discriminator.to_vec(),
+            data,
         };
 
         let mut instructions = Self::extend_compute_ix();
@@ -964,11 +907,59 @@ impl TxBuilder {
 
         let chain_id = self.chain_id().await?;
         let solana_client_state = self.cosmos_client_state(&chain_id)?;
+        let solana_latest_height = solana_client_state.latest_height.revision_height;
 
+        tracing::info!(
+            "Solana client's latest height: {}",
+            solana_latest_height
+        );
+
+        // Find the maximum height among all source events
+        // This is the height where the latest event (e.g., acknowledgment) was written
+        let max_event_height = src_events
+            .iter()
+            .map(|e| e.height)
+            .max()
+            .unwrap_or(solana_latest_height);
+
+        tracing::info!(
+            "Maximum event height from source: {}",
+            max_event_height
+        );
+
+        // In Tendermint, data written at height N is committed to the Merkle tree
+        // with an app_hash that appears in block N+1's header. Therefore, to prove
+        // data written at height N, we need to query at height N and verify against
+        // the app_hash from height N+1.
+        let proof_height = max_event_height + 1;
+
+        // Verify Solana has been updated to at least the proof height
+        if solana_latest_height < proof_height {
+            anyhow::bail!(
+                "Solana client is at height {} but need height {} to prove events at height {}. Update Solana client to at least height {} first!",
+                solana_latest_height,
+                proof_height,
+                max_event_height,
+                proof_height
+            );
+        }
+
+        // Use proof_height for proof generation
+        // This ensures:
+        // 1. The data exists on Cosmos at max_event_height (events were emitted there)
+        // 2. The proof queries at max_event_height and verifies against app_hash at proof_height
+        // 3. Solana has the consensus_state for proof_height (we verified above)
         let target_height = ibc_proto_eureka::ibc::core::client::v1::Height {
             revision_number: solana_client_state.latest_height.revision_number,
-            revision_height: solana_client_state.latest_height.revision_height,
+            revision_height: proof_height,
         };
+
+        tracing::info!(
+            "Using height {} for proof generation (proves data at height {} using app_hash from height {})",
+            target_height.revision_height,
+            max_event_height,
+            proof_height
+        );
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
@@ -999,9 +990,23 @@ impl TxBuilder {
             now_since_unix.as_secs(),
         );
 
-        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
-        tracing::debug!("Recv messages: #{}", recv_msgs.len());
-        tracing::debug!("Ack messages: #{}", ack_msgs.len());
+        tracing::info!("Events to relay to Solana:");
+        tracing::info!("  - Timeout messages: {}", timeout_msgs.len());
+        tracing::info!("  - Recv messages: {}", recv_msgs.len());
+        tracing::info!("  - Ack messages: {}", ack_msgs.len());
+
+        // Log details of ack messages
+        for (idx, ack_msg) in ack_msgs.iter().enumerate() {
+            if let Some(packet) = &ack_msg.packet {
+                tracing::info!(
+                    "  Ack #{}: sequence={}, src_client={}, dest_client={}",
+                    idx + 1,
+                    packet.sequence,
+                    packet.source_client,
+                    packet.destination_client
+                );
+            }
+        }
 
         // convert to tm events so we can inject proofs
         let mut timeout_msgs = timeout_msgs
@@ -1199,13 +1204,6 @@ impl TxBuilder {
             total_chunks
         );
 
-        let metadata_tx = self.build_create_metadata_tx(
-            &chain_id,
-            target_height,
-            total_chunks,
-            header_commitment,
-        )?;
-
         let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
 
         let assembly_tx = self.build_assemble_and_update_client_tx(
@@ -1213,16 +1211,16 @@ impl TxBuilder {
             target_height,
             trusted_height,
             total_chunks,
+            header_commitment,
         )?;
 
         tracing::info!(
-            "Built {} transactions for chunked update client (1 metadata + {} chunks + 1 assembly)",
-            total_chunks + 2, // metadata + chunks + assembly
+            "Built {} transactions for chunked update client ({} chunks + 1 assembly with metadata as parameters)",
+            total_chunks + 1, // chunks + assembly
             total_chunks
         );
 
         Ok(UpdateClientChunkedTxs {
-            metadata_tx,
             chunk_txs,
             assembly_tx,
             total_chunks: total_chunks as usize,

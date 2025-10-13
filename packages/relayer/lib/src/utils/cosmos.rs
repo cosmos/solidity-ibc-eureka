@@ -407,11 +407,35 @@ pub async fn inject_tendermint_proofs(
     future::try_join_all(ack_msgs.iter_mut().map(|msg| async {
         let packet: Packet = msg.packet.clone().unwrap().into();
         let ack_path = packet.ack_commitment_path();
+
+        tracing::info!(
+            "Generating ack proof for packet sequence {} from {} to {} at height {}",
+            packet.sequence,
+            packet.sourceClient,
+            packet.destClient,
+            target_height.revision_height
+        );
+        tracing::info!(
+            "Ack commitment path: {:?}",
+            hex::encode(&ack_path)
+        );
+
         let (value, proof) = source_tm_client
-            .prove_path(&[b"ibc".to_vec(), ack_path], target_height.revision_height)
+            .prove_path(&[b"ibc".to_vec(), ack_path.clone()], target_height.revision_height)
             .await?;
+
+        tracing::info!(
+            "Ack proof generated - value length: {}, proof ops: {}",
+            value.len(),
+            proof.proofs.len()
+        );
+        tracing::info!(
+            "Ack value (commitment): {}",
+            hex::encode(&value)
+        );
+
         if value.is_empty() {
-            anyhow::bail!("Membership value is empty")
+            anyhow::bail!("Membership value is empty at height {}", target_height.revision_height)
         }
 
         msg.proof_acked = proof.encode_vec();

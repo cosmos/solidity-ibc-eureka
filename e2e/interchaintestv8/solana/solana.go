@@ -189,6 +189,43 @@ func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *sol
 	return solana.Signature{}, fmt.Errorf("transaction broadcast timed out after %d seconds: %w", timeoutSeconds, lastErr)
 }
 
+// SignAndBroadcastTxWithOpts signs and broadcasts a transaction with custom options and retry logic.
+func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, skipPreflight bool, commitment rpc.CommitmentType) (solana.Signature, error) {
+	return s.SignAndBroadcastTxWithOptsAndTimeout(ctx, tx, wallet, skipPreflight, commitment, 30)
+}
+
+// SignAndBroadcastTxWithOptsAndTimeout signs and broadcasts a transaction with custom options, retry logic, and timeout
+func (s *Solana) SignAndBroadcastTxWithOptsAndTimeout(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, skipPreflight bool, commitment rpc.CommitmentType, timeoutSeconds int) (solana.Signature, error) {
+	var lastErr error
+	for range timeoutSeconds {
+		_, err := s.SignTx(ctx, tx, wallet)
+		if err != nil {
+			lastErr = err
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		opts := rpc.TransactionOpts{
+			SkipPreflight:       skipPreflight,
+			PreflightCommitment: commitment,
+		}
+		sig, err := confirm.SendAndConfirmTransactionWithOpts(
+			ctx,
+			s.RPCClient,
+			s.WSClient,
+			tx,
+			opts,
+			nil,
+		)
+		if err == nil {
+			return sig, nil
+		}
+		lastErr = err
+		time.Sleep(1 * time.Second)
+	}
+	return solana.Signature{}, fmt.Errorf("transaction broadcast timed out after %d seconds: %w", timeoutSeconds, lastErr)
+}
+
 // WaitForBalanceChange waits for an account balance to change from the initial value
 func (s *Solana) WaitForBalanceChange(ctx context.Context, account solana.PublicKey, initialBalance uint64) (uint64, bool) {
 	return s.WaitForBalanceChangeWithTimeout(ctx, account, initialBalance, 30)

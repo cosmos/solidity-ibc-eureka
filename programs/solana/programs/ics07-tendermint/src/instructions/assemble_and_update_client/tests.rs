@@ -115,16 +115,18 @@ fn get_chunk_pdas(
 
 fn create_assemble_instruction(
     client_state_pda: Pubkey,
-    metadata_pda: Pubkey,
     trusted_consensus_state_pda: Pubkey,
     new_consensus_state_pda: Pubkey,
     submitter: Pubkey,
     payer: Pubkey,
     chunk_pdas: Vec<Pubkey>,
+    chain_id: String,
+    target_height: u64,
+    total_chunks: u8,
+    header_commitment: [u8; 32],
 ) -> Instruction {
     let mut account_metas = vec![
         AccountMeta::new(client_state_pda, false),
-        AccountMeta::new(metadata_pda, false),
         AccountMeta::new_readonly(trusted_consensus_state_pda, false),
         AccountMeta::new(new_consensus_state_pda, false),
         AccountMeta::new(submitter, false),
@@ -140,7 +142,13 @@ fn create_assemble_instruction(
     Instruction {
         program_id: crate::ID,
         accounts: account_metas,
-        data: crate::instruction::AssembleAndUpdateClient {}.data(),
+        data: crate::instruction::AssembleAndUpdateClient {
+            chain_id,
+            target_height,
+            total_chunks,
+            header_commitment,
+        }
+        .data(),
     }
 }
 
@@ -172,7 +180,6 @@ fn test_successful_assembly_and_update() {
 
     // Set up PDAs
     let client_state_pda = derive_client_state_pda(chain_id);
-    let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
@@ -202,17 +209,12 @@ fn test_successful_assembly_and_update() {
 
     let instruction = create_assemble_instruction(
         client_state_pda,
-        metadata_pda,
         trusted_consensus_pda,
         consensus_state_pda,
         submitter,
         payer,
         chunk_pdas.clone(),
-    );
-
-    // Create metadata account
-    let metadata_account = create_metadata_account(
-        chain_id,
+        chain_id.to_string(),
         target_height,
         chunks.len() as u8,
         header_commitment,
@@ -231,7 +233,6 @@ fn test_successful_assembly_and_update() {
     // Setup accounts for instruction
     let mut accounts = vec![
         (client_state_pda, client_state_account),
-        (metadata_pda, metadata_account),
         (trusted_consensus_pda, trusted_consensus_account),
         (consensus_state_pda, Account::default()),
         (submitter, submitter_account),
@@ -296,7 +297,6 @@ fn test_assembly_with_missing_chunks() {
 
     // Set up PDAs
     let client_state_pda = derive_client_state_pda(chain_id);
-    let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
@@ -310,13 +310,6 @@ fn test_assembly_with_missing_chunks() {
     // Create accounts
     let client_state_account = create_client_state_account(chain_id, 90);
 
-    let metadata_account = create_metadata_account(
-        chain_id,
-        target_height,
-        3, // Expecting 3 chunks
-        header_commitment,
-    );
-
     // Get all chunk PDAs
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 3);
 
@@ -326,18 +319,20 @@ fn test_assembly_with_missing_chunks() {
     // Only pass 2 chunk PDAs instead of 3 to test InvalidChunkCount error
     let instruction = create_assemble_instruction(
         client_state_pda,
-        metadata_pda,
         trusted_consensus_pda,
         consensus_state_pda,
         submitter,
         payer,
         chunk_pdas[0..2].to_vec(), // Only pass first 2 chunks
+        chain_id.to_string(),
+        target_height,
+        3, // Expecting 3 chunks
+        header_commitment,
     );
 
     // Setup accounts - only provide 2 chunks
     let mut accounts = vec![
         (client_state_pda, client_state_account),
-        (metadata_pda, metadata_account),
         (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
@@ -373,7 +368,6 @@ fn test_assembly_with_invalid_chunk_count() {
 
     // Set up PDAs
     let client_state_pda = derive_client_state_pda(chain_id);
-    let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
@@ -384,15 +378,7 @@ fn test_assembly_with_invalid_chunk_count() {
         &crate::ID,
     );
 
-    // Create metadata expecting 2 chunks but provide 3
-    let metadata_account = create_metadata_account(
-        chain_id,
-        target_height,
-        2, // Wrong count!
-        header_commitment,
-    );
-
-    // Get PDAs for 3 chunks
+    // Create metadata expecting 2 chunks but provide 3 // Get PDAs for 3 chunks
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 3);
 
     let payer = Pubkey::new_unique();
@@ -400,18 +386,20 @@ fn test_assembly_with_invalid_chunk_count() {
 
     let instruction = create_assemble_instruction(
         client_state_pda,
-        metadata_pda,
         trusted_consensus_pda,
         consensus_state_pda,
         submitter,
         payer,
         chunk_pdas.clone(),
+        chain_id.to_string(),
+        target_height,
+        2, // Wrong count - expecting 2 but providing 3
+        header_commitment,
     );
 
     // Setup all accounts
     let mut accounts = vec![
         (client_state_pda, create_client_state_account(chain_id, 90)),
-        (metadata_pda, metadata_account),
         (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
@@ -446,7 +434,6 @@ fn test_assembly_with_corrupted_chunk() {
 
     // Set up PDAs
     let client_state_pda = derive_client_state_pda(chain_id);
-    let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
@@ -457,10 +444,7 @@ fn test_assembly_with_corrupted_chunk() {
         &crate::ID,
     );
 
-    // Create metadata
-    let metadata_account = create_metadata_account(chain_id, target_height, 2, header_commitment);
-
-    // Get chunk PDAs
+    // Create metadata // Get chunk PDAs
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 2);
 
     // Create instruction
@@ -469,18 +453,20 @@ fn test_assembly_with_corrupted_chunk() {
 
     let instruction = create_assemble_instruction(
         client_state_pda,
-        metadata_pda,
         trusted_consensus_pda,
         consensus_state_pda,
         submitter,
         payer,
         chunk_pdas.clone(),
+        chain_id.to_string(),
+        target_height,
+        2,
+        header_commitment,
     );
 
     // Setup accounts with corrupted second chunk
     let mut accounts = vec![
         (client_state_pda, create_client_state_account(chain_id, 90)),
-        (metadata_pda, metadata_account),
         (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
@@ -523,10 +509,6 @@ fn test_assembly_wrong_submitter() {
     let (_, chunks, header_commitment) = create_test_header_and_chunks(2);
 
     // Create metadata with original submitter
-    let metadata_pda = derive_metadata_pda(&original_submitter, chain_id, target_height);
-    let metadata_account = create_metadata_account(chain_id, target_height, 2, header_commitment);
-
-    // Get chunk PDAs for original submitter
     let chunk_pdas = get_chunk_pdas(&original_submitter, chain_id, target_height, 2);
 
     // Try to assemble with wrong submitter
@@ -546,18 +528,19 @@ fn test_assembly_wrong_submitter() {
 
     let instruction = create_assemble_instruction(
         client_state_pda,
-        metadata_pda,
         trusted_consensus_pda,
         consensus_state_pda,
         wrong_submitter, // Wrong!
         payer,
         chunk_pdas.clone(),
+        chain_id.to_string(),
+        target_height,
+        2,
+        header_commitment,
     );
 
     let mut accounts = vec![
-        (client_state_pda, create_client_state_account(chain_id, 90)),
-        (metadata_pda, metadata_account),
-        (
+        (client_state_pda, create_client_state_account(chain_id, 90)), (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
         ),
@@ -577,9 +560,11 @@ fn test_assembly_wrong_submitter() {
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
+    // When the submitter is wrong, the PDA validation fails because chunks were created
+    // with a different submitter, so we get InvalidChunkAccount
     assert_error_code(
         result,
-        ErrorCode::AccountValidationFailed,
+        ErrorCode::InvalidChunkAccount,
         "wrong submitter",
     );
 }
@@ -596,7 +581,6 @@ fn test_assembly_chunks_in_wrong_order() {
 
     // Set up PDAs
     let client_state_pda = derive_client_state_pda(chain_id);
-    let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
@@ -607,10 +591,7 @@ fn test_assembly_chunks_in_wrong_order() {
         &crate::ID,
     );
 
-    // Create accounts
-    let metadata_account = create_metadata_account(chain_id, target_height, 3, header_commitment);
-
-    // Get chunk PDAs
+    // Create accounts // Get chunk PDAs
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 3);
 
     // Pass chunks in wrong order (2, 0, 1 instead of 0, 1, 2)
@@ -621,18 +602,19 @@ fn test_assembly_chunks_in_wrong_order() {
 
     let instruction = create_assemble_instruction(
         client_state_pda,
-        metadata_pda,
         trusted_consensus_pda,
         consensus_state_pda,
         submitter,
         payer,
         wrong_order_pdas,
+        chain_id.to_string(),
+        target_height,
+        3,
+        header_commitment,
     );
 
     let mut accounts = vec![
-        (client_state_pda, create_client_state_account(chain_id, 90)),
-        (metadata_pda, metadata_account),
-        (
+        (client_state_pda, create_client_state_account(chain_id, 90)), (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
         ),
@@ -680,7 +662,6 @@ fn test_rent_reclaim_after_assembly() {
 
     // Set up accounts
     let client_state_pda = derive_client_state_pda(chain_id);
-    let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
@@ -689,11 +670,7 @@ fn test_rent_reclaim_after_assembly() {
             &target_height.to_le_bytes(),
         ],
         &crate::ID,
-    );
-
-    let metadata_account = create_metadata_account(chain_id, target_height, 2, header_commitment);
-
-    // Get chunk PDAs
+    ); // Get chunk PDAs
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 2);
 
     // Submitter account
@@ -704,18 +681,19 @@ fn test_rent_reclaim_after_assembly() {
 
     let instruction = create_assemble_instruction(
         client_state_pda,
-        metadata_pda,
         trusted_consensus_pda,
         consensus_state_pda,
         submitter,
         payer,
         chunk_pdas.clone(),
+        chain_id.to_string(),
+        target_height,
+        2,
+        header_commitment,
     );
 
     let mut accounts = vec![
-        (client_state_pda, create_client_state_account(chain_id, 90)),
-        (metadata_pda, metadata_account),
-        (
+        (client_state_pda, create_client_state_account(chain_id, 90)), (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
         ),
@@ -777,7 +755,6 @@ fn test_assemble_and_update_client_happy_path() {
     let num_chunks = chunks.len() as u8;
 
     let client_state_pda = derive_client_state_pda(chain_id);
-    let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
@@ -811,12 +788,15 @@ fn test_assemble_and_update_client_happy_path() {
 
     let instruction = create_assemble_instruction(
         client_state_pda,
-        metadata_pda,
         trusted_consensus_pda,
         consensus_state_pda,
         submitter,
         payer,
         chunk_pdas.clone(),
+        chain_id.to_string(),
+        target_height,
+        2,
+        header_commitment,
     );
 
     // Add Clock sysvar for update client validation
@@ -833,10 +813,6 @@ fn test_assemble_and_update_client_happy_path() {
 
     let mut accounts = vec![
         (client_state_pda, client_state_account),
-        (
-            metadata_pda,
-            create_metadata_account(chain_id, target_height, num_chunks, header_commitment),
-        ),
         (trusted_consensus_pda, trusted_consensus_account),
         (consensus_state_pda, Account::default()),
         (submitter, create_submitter_account(10_000_000_000)),
@@ -927,7 +903,6 @@ fn test_assemble_with_frozen_client() {
     let target_height = update_msg.new_height;
 
     let client_state_pda = derive_client_state_pda(chain_id);
-    let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
@@ -971,12 +946,15 @@ fn test_assemble_with_frozen_client() {
 
     let instruction = create_assemble_instruction(
         client_state_pda,
-        metadata_pda,
         trusted_consensus_pda,
         consensus_state_pda,
         submitter,
         payer,
         chunk_pdas.clone(),
+        chain_id.to_string(),
+        target_height,
+        2,
+        header_commitment,
     );
 
     // Create proper trusted consensus state from fixture
@@ -990,10 +968,6 @@ fn test_assemble_with_frozen_client() {
 
     let mut accounts = vec![
         (client_state_pda, frozen_client),
-        (
-            metadata_pda,
-            create_metadata_account(chain_id, target_height, num_chunks, header_commitment),
-        ),
         (
             trusted_consensus_pda,
             Account {
@@ -1049,7 +1023,6 @@ fn test_assemble_with_existing_consensus_state() {
     let target_height = update_msg.new_height;
 
     let client_state_pda = derive_client_state_pda(chain_id);
-    let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
@@ -1117,20 +1090,19 @@ fn test_assemble_with_existing_consensus_state() {
 
     let instruction = create_assemble_instruction(
         client_state_pda,
-        metadata_pda,
         trusted_consensus_pda,
         consensus_state_pda,
         submitter,
         payer,
         chunk_pdas.clone(),
+        chain_id.to_string(),
+        target_height,
+        2,
+        header_commitment,
     );
 
     let mut accounts = vec![
         (client_state_pda, client_account),
-        (
-            metadata_pda,
-            create_metadata_account(chain_id, target_height, num_chunks, header_commitment),
-        ),
         (
             trusted_consensus_pda,
             Account {
@@ -1193,7 +1165,6 @@ fn test_assemble_with_invalid_header_after_assembly() {
     let chunk2 = full_header[150..300].to_vec();
 
     let client_state_pda = derive_client_state_pda(chain_id);
-    let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
@@ -1210,20 +1181,19 @@ fn test_assemble_with_invalid_header_after_assembly() {
 
     let instruction = create_assemble_instruction(
         client_state_pda,
-        metadata_pda,
         trusted_consensus_pda,
         consensus_state_pda,
         submitter,
         payer,
         chunk_pdas.clone(),
+        chain_id.to_string(),
+        target_height,
+        2,
+        header_commitment,
     );
 
     let mut accounts = vec![
         (client_state_pda, create_client_state_account(chain_id, 90)),
-        (
-            metadata_pda,
-            create_metadata_account(chain_id, target_height, 2, header_commitment),
-        ),
         (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
@@ -1272,7 +1242,6 @@ fn test_assemble_updates_latest_height() {
     ];
 
     let client_state_pda = derive_client_state_pda(chain_id);
-    let metadata_pda = derive_metadata_pda(&submitter, chain_id, target_height);
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
@@ -1290,12 +1259,15 @@ fn test_assemble_updates_latest_height() {
 
     let instruction = create_assemble_instruction(
         client_state_pda,
-        metadata_pda,
         trusted_consensus_pda,
         consensus_state_pda,
         submitter,
         payer,
         chunk_pdas.clone(),
+        chain_id.to_string(),
+        target_height,
+        2,
+        header_commitment,
     );
 
     // Create initial client state with real data at old height
@@ -1316,10 +1288,6 @@ fn test_assemble_updates_latest_height() {
 
     let mut accounts = vec![
         (client_state_pda, initial_client),
-        (
-            metadata_pda,
-            create_metadata_account(chain_id, target_height, 2, header_commitment),
-        ),
         (trusted_consensus_pda, trusted_consensus_account),
         (consensus_state_pda, Account::default()),
         (submitter, create_submitter_account(10_000_000_000)),

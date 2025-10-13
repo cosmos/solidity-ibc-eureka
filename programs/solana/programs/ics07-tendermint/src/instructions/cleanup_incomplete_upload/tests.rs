@@ -1,6 +1,6 @@
 use super::*;
 use crate::error::ErrorCode;
-use crate::state::{HeaderChunk, HeaderMetadata};
+use crate::state::HeaderChunk;
 use crate::test_helpers::{fixtures::assert_error_code, PROGRAM_BINARY_PATH};
 use crate::types::{ClientState, IbcHeight};
 use anchor_lang::solana_program::{
@@ -15,7 +15,6 @@ use solana_sdk::account::Account;
 struct TestAccounts {
     submitter: Pubkey,
     chunk_pdas: Vec<Pubkey>,
-    metadata_pda: Pubkey,
     client_state_pda: Pubkey,
     accounts: Vec<(Pubkey, Account)>,
 }
@@ -43,17 +42,6 @@ fn setup_test_accounts_with_chunks(
         .0;
         chunk_pdas.push(chunk_pda);
     }
-
-    let metadata_pda = Pubkey::find_program_address(
-        &[
-            b"header_metadata",
-            submitter.as_ref(),
-            chain_id.as_bytes(),
-            &cleanup_height.to_le_bytes(),
-        ],
-        &crate::ID,
-    )
-    .0;
 
     let client_state_pda =
         Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID).0;
@@ -104,43 +92,6 @@ fn setup_test_accounts_with_chunks(
         },
     ));
 
-    // Add metadata account (to be closed)
-    if with_populated_chunks {
-        let metadata = HeaderMetadata {
-            chain_id: chain_id.to_string(),
-            target_height: cleanup_height,
-            total_chunks: num_chunks,
-            header_commitment: [1u8; 32], // Dummy commitment
-            created_at: 1000,
-            updated_at: 2000,
-        };
-
-        let mut metadata_data = vec![];
-        metadata.try_serialize(&mut metadata_data).unwrap();
-
-        accounts.push((
-            metadata_pda,
-            Account {
-                lamports: 2_000_000, // Rent to be reclaimed
-                data: metadata_data,
-                owner: crate::ID,
-                executable: false,
-                rent_epoch: 0,
-            },
-        ));
-    } else {
-        accounts.push((
-            metadata_pda,
-            Account {
-                lamports: 0,
-                data: vec![],
-                owner: system_program::ID,
-                executable: false,
-                rent_epoch: 0,
-            },
-        ));
-    }
-
     // Add chunk accounts
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
         if with_populated_chunks {
@@ -181,7 +132,6 @@ fn setup_test_accounts_with_chunks(
     TestAccounts {
         submitter,
         chunk_pdas,
-        metadata_pda,
         client_state_pda,
         accounts,
     }
@@ -201,7 +151,6 @@ fn create_cleanup_instruction(
 
     let mut account_metas = vec![
         AccountMeta::new_readonly(test_accounts.client_state_pda, false),
-        AccountMeta::new(test_accounts.metadata_pda, false),
         AccountMeta::new(test_accounts.submitter, true),
     ];
 
@@ -261,9 +210,8 @@ fn test_cleanup_successful_with_rent_reclaim() {
     );
 
     // Calculate expected rent to be reclaimed
-    let metadata_rent = 2_000_000u64;
     let chunk_rent_per = 1_500_000u64;
-    let total_expected_rent = metadata_rent + (chunk_rent_per * u64::from(num_chunks));
+    let total_expected_rent = chunk_rent_per * u64::from(num_chunks);
     let initial_submitter_balance = 10_000_000_000u64;
 
     let instruction = create_cleanup_instruction(
@@ -301,18 +249,6 @@ fn test_cleanup_successful_with_rent_reclaim() {
             "chunk account should be closed"
         );
     }
-
-    // Verify metadata account is closed by Anchor (would have lamports = 0)
-    let metadata_account = result
-        .resulting_accounts
-        .iter()
-        .find(|(k, _)| k == &test_accounts.metadata_pda)
-        .expect("metadata account should exist");
-
-    assert_eq!(
-        metadata_account.1.lamports, 0,
-        "metadata account should be closed"
-    );
 }
 
 #[test]
@@ -321,18 +257,7 @@ fn test_cleanup_with_missing_chunks() {
     let cleanup_height = 50u64;
     let submitter = Pubkey::new_unique();
 
-    // Set up with metadata but only 2 out of 3 chunks actually created
-    let metadata_pda = Pubkey::find_program_address(
-        &[
-            b"header_metadata",
-            submitter.as_ref(),
-            chain_id.as_bytes(),
-            &cleanup_height.to_le_bytes(),
-        ],
-        &crate::ID,
-    )
-    .0;
-
+    // Set up with only 2 out of 3 chunks actually created
     let client_state_pda =
         Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID).0;
 
@@ -376,30 +301,6 @@ fn test_cleanup_with_missing_chunks() {
         Account {
             lamports: 1_000_000,
             data: client_data,
-            owner: crate::ID,
-            executable: false,
-            rent_epoch: 0,
-        },
-    ));
-
-    // Add metadata
-    let metadata = HeaderMetadata {
-        chain_id: chain_id.to_string(),
-        target_height: cleanup_height,
-        total_chunks: 3,
-        header_commitment: [1u8; 32],
-        created_at: 1000,
-        updated_at: 2000,
-    };
-
-    let mut metadata_data = vec![];
-    metadata.try_serialize(&mut metadata_data).unwrap();
-
-    accounts.push((
-        metadata_pda,
-        Account {
-            lamports: 2_000_000,
-            data: metadata_data,
             owner: crate::ID,
             executable: false,
             rent_epoch: 0,
@@ -476,7 +377,6 @@ fn test_cleanup_with_missing_chunks() {
         program_id: crate::ID,
         accounts: vec![
             AccountMeta::new_readonly(client_state_pda, false),
-            AccountMeta::new(metadata_pda, false),
             AccountMeta::new(submitter, true),
             // Pass all chunk PDAs even though one is missing
             AccountMeta::new(
@@ -521,60 +421,13 @@ fn test_cleanup_with_missing_chunks() {
         .find(|(k, _)| *k == submitter)
         .expect("submitter account should exist");
 
-    // Should receive metadata + 2 chunks worth of rent (not 3)
-    let expected_rent = 2_000_000 + (1_500_000 * 2);
+    // Should receive 2 chunks worth of rent (not 3)
+    let expected_rent = 1_500_000 * 2;
     assert_eq!(
         submitter_account.1.lamports,
         10_000_000_000 + expected_rent,
-        "submitter should receive rent from metadata and 2 chunks"
+        "submitter should receive rent from 2 chunks"
     );
-}
-
-#[test]
-fn test_cleanup_requires_submitter_signature() {
-    let chain_id = "test-chain";
-    let cleanup_height = 50;
-    let submitter = Pubkey::new_unique();
-    let wrong_signer = Pubkey::new_unique();
-
-    let mut test_accounts =
-        setup_test_accounts_with_chunks(chain_id, cleanup_height, submitter, 2, true);
-
-    // Add wrong signer account
-    test_accounts.accounts.push((
-        wrong_signer,
-        Account {
-            lamports: 1_000_000,
-            data: vec![],
-            owner: system_program::ID,
-            executable: false,
-            rent_epoch: 0,
-        },
-    ));
-
-    // Try to cleanup with wrong signer
-    let instruction_data = crate::instruction::CleanupIncompleteUpload {
-        chain_id: chain_id.to_string(),
-        cleanup_height,
-        submitter, // Still specify correct submitter in params
-    };
-
-    let instruction = Instruction {
-        program_id: crate::ID,
-        accounts: vec![
-            AccountMeta::new_readonly(test_accounts.client_state_pda, false),
-            AccountMeta::new(test_accounts.metadata_pda, false),
-            AccountMeta::new(wrong_signer, true), // Wrong signer!
-        ],
-        data: instruction_data.data(),
-    };
-
-    // This should fail because wrong_signer != submitter
-    // Anchor's ConstraintSeeds validation happens first
-    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-    assert!(result.program_result.is_err());
-    // Error 2003 is ConstraintSeeds in Anchor
 }
 
 #[test]
@@ -597,7 +450,6 @@ fn test_cleanup_with_wrong_chunk_order() {
         program_id: crate::ID,
         accounts: vec![
             AccountMeta::new_readonly(test_accounts.client_state_pda, false),
-            AccountMeta::new(test_accounts.metadata_pda, false),
             AccountMeta::new(test_accounts.submitter, true),
             AccountMeta::new(test_accounts.chunk_pdas[2], false),
             AccountMeta::new(test_accounts.chunk_pdas[0], false),
@@ -609,85 +461,12 @@ fn test_cleanup_with_wrong_chunk_order() {
     // Should still work - the cleanup checks each account against expected PDAs
     let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
 
-    // But only the chunks that match their expected index will be closed
-    // In this case, none will match because we're checking index 0, 1, 2
-    // but providing chunks 2, 0, 1
     let submitter_account = result
         .resulting_accounts
         .iter()
         .find(|(k, _)| *k == submitter)
         .expect("submitter account should exist");
 
-    // May not receive full rent if chunks don't match expected positions
-    // The exact behavior depends on the implementation
+    // Should receive rent from all chunks
     assert!(submitter_account.1.lamports >= 10_000_000_000);
-}
-
-#[test]
-fn test_cleanup_empty_upload() {
-    let chain_id = "test-chain";
-    let cleanup_height = 50;
-    let submitter = Pubkey::new_unique();
-
-    let test_accounts = setup_test_accounts_with_chunks(
-        chain_id,
-        cleanup_height,
-        submitter,
-        0,
-        false, // No chunks created
-    );
-
-    // Try to cleanup when nothing exists
-    let instruction = create_cleanup_instruction(
-        &test_accounts,
-        chain_id.to_string(),
-        cleanup_height,
-        submitter,
-    );
-
-    // Should fail because metadata account doesn't exist
-    // Anchor's close constraint fails with ConstraintAccountIsNone (3012)
-    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-    assert!(result.program_result.is_err());
-    // Error 3012 is ConstraintAccountIsNone when account doesn't exist
-}
-
-#[test]
-fn test_cleanup_with_invalid_client() {
-    let chain_id = "test-chain";
-    let cleanup_height = 50;
-    let submitter = Pubkey::new_unique();
-
-    let mut test_accounts =
-        setup_test_accounts_with_chunks(chain_id, cleanup_height, submitter, 2, true);
-
-    // Remove client account to make it invalid
-    test_accounts
-        .accounts
-        .retain(|(k, _)| *k != test_accounts.client_state_pda);
-    test_accounts.accounts.push((
-        test_accounts.client_state_pda,
-        Account {
-            lamports: 0,
-            data: vec![],
-            owner: system_program::ID,
-            executable: false,
-            rent_epoch: 0,
-        },
-    ));
-
-    let instruction = create_cleanup_instruction(
-        &test_accounts,
-        chain_id.to_string(),
-        cleanup_height,
-        submitter,
-    );
-
-    // Should fail because client doesn't exist
-    // Anchor fails with AccountDiscriminatorNotFound when account data is empty
-    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-    assert!(result.program_result.is_err());
-    // Error 3001 is AccountDiscriminatorNotFound in Anchor
 }

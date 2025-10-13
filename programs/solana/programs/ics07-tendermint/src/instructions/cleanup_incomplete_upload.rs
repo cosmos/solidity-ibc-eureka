@@ -7,12 +7,6 @@ pub fn cleanup_incomplete_upload(
     cleanup_height: u64,
     submitter: Pubkey,
 ) -> Result<()> {
-    let metadata = &ctx.accounts.metadata;
-
-    // Validate metadata
-    require_eq!(&metadata.chain_id, &chain_id);
-    require_eq!(metadata.target_height, cleanup_height);
-
     // Close all chunk accounts that were uploaded
     // IMPORTANT: We must validate that these are actually chunk PDAs to avoid
     // accidentally closing other accounts
@@ -47,8 +41,6 @@ pub fn cleanup_incomplete_upload(
         }
         // If account doesn't exist or isn't owned by us, skip it
     }
-
-    // Metadata account will be closed automatically by Anchor due to close = submitter_account
 
     msg!(
         "Cleaned up incomplete upload at height {} ({} chunks closed)",

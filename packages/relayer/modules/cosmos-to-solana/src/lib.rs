@@ -222,7 +222,6 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         let mut txs = Vec::new();
-        txs.push(header_update.metadata_tx);
         for tx in header_update.chunk_txs {
             txs.push(tx);
         }
