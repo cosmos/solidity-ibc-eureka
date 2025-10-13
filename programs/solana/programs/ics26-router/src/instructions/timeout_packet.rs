@@ -6,9 +6,9 @@ use crate::utils::{chunking, ics24};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::events::{NoopEvent, TimeoutPacketEvent};
-use solana_ibc_types::Payload;
 #[cfg(test)]
 use solana_ibc_types::router::APP_STATE_SEED;
+use solana_ibc_types::Payload;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgTimeoutPacket)]
@@ -88,7 +88,8 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
     let expected_ibc_app = Pubkey::find_program_address(
         &[IBC_APP_SEED, msg.payloads[0].source_port.as_bytes()],
         ctx.program_id,
-    ).0;
+    )
+    .0;
     require!(
         ctx.accounts.ibc_app.key() == expected_ibc_app,
         RouterError::IbcAppNotFound
@@ -159,8 +160,7 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         consensus_state: ctx.accounts.consensus_state.clone(),
     };
 
-    let receipt_path =
-        ics24::packet_receipt_commitment_path(&packet.dest_client, packet.sequence);
+    let receipt_path = ics24::packet_receipt_commitment_path(&packet.dest_client, packet.sequence);
 
     // The proof from Cosmos is generated with path segments ["ibc", receipt_path]
     let non_membership_msg = MembershipMsg {
@@ -373,7 +373,7 @@ mod tests {
             params.source_client_id,
             params.initial_sequence,
             0, // chunk_index
-            test_proof.clone(),
+            test_proof,
         );
 
         let mut instruction_accounts = vec![
@@ -414,11 +414,14 @@ mod tests {
                     dest_port: "dest-port".to_string(),
                     version: "1".to_string(),
                     encoding: "json".to_string(),
-                    value: test_payload_value.clone(), // Value from chunk
+                    value: test_payload_value, // Value from chunk
                 }],
             };
-            let (_, data) =
-                setup_packet_commitment(params.source_client_id, full_packet.sequence, &full_packet);
+            let (_, data) = setup_packet_commitment(
+                params.source_client_id,
+                full_packet.sequence,
+                &full_packet,
+            );
             create_account(packet_commitment_pda, data, crate::ID)
         } else {
             create_uninitialized_account(packet_commitment_pda, 0)

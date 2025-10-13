@@ -456,15 +456,12 @@ mod tests {
             1,
             0, // payload_index
             0, // chunk_index
-            test_payload_value.clone(),
+            test_payload_value,
         );
 
         let proof_chunk_account = create_proof_chunk_account(
-            relayer,
-            client_id,
-            1,
-            0, // chunk_index
-            test_proof.clone(),
+            relayer, client_id, 1, 0, // chunk_index
+            test_proof,
         );
 
         let mut instruction_accounts = vec![

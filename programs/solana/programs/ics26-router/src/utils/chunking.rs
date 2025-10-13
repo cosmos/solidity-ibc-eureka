@@ -188,7 +188,7 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
 }
 
 /// Clean up payload chunks and return rent to submitter
-/// Note: This function expects the submitter account to NOT be in chunk_accounts
+/// Note: This function expects the submitter account to NOT be in `chunk_accounts`
 /// as it will be in the main accounts list as a mutable account
 fn cleanup_payload_chunks(
     chunk_accounts: &[AccountInfo],
@@ -234,7 +234,7 @@ fn cleanup_payload_chunks(
 }
 
 /// Clean up proof chunks and return rent to submitter
-/// Note: This function expects the submitter account to NOT be in chunk_accounts
+/// Note: This function expects the submitter account to NOT be in `chunk_accounts`
 /// as it will be in the main accounts list as a mutable account
 fn cleanup_proof_chunks(
     chunk_accounts: &[AccountInfo],

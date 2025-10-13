@@ -365,7 +365,7 @@ mod tests {
             params.source_client_id,
             params.initial_sequence,
             0, // chunk_index
-            test_proof.clone(),
+            test_proof,
         );
 
         let mut instruction_accounts = vec![
@@ -406,7 +406,7 @@ mod tests {
                     dest_port: "dest-port".to_string(),
                     version: "1".to_string(),
                     encoding: "json".to_string(),
-                    value: test_payload_value.clone(), // Value from chunk
+                    value: test_payload_value, // Value from chunk
                 }],
             };
             let (_, data) = setup_packet_commitment(
