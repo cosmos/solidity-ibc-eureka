@@ -337,36 +337,60 @@ mod tests {
                 version: "1".to_string(),
                 encoding: "json".to_string(),
                 commitment: payload_commitment,
-                total_chunks: 0, // 0 chunks for testing
+                total_chunks: 1, // 1 chunk for testing
             }],
             acknowledgement: params.acknowledgement,
             proof: ProofMetadata {
                 height: params.proof_height,
                 commitment: proof_commitment,
-                total_chunks: 0, // 0 chunks for testing
+                total_chunks: 1, // 1 chunk for testing
             },
         };
 
         let client_state = Pubkey::new_unique();
         let consensus_state = Pubkey::new_unique();
 
+        // Create chunk accounts for 1 payload chunk and 1 proof chunk
+        let payload_chunk_account = create_payload_chunk_account(
+            relayer,
+            params.source_client_id,
+            params.initial_sequence,
+            0, // payload_index
+            0, // chunk_index
+            test_payload_value.clone(),
+        );
+
+        let proof_chunk_account = create_proof_chunk_account(
+            relayer,
+            params.source_client_id,
+            params.initial_sequence,
+            0, // chunk_index
+            test_proof.clone(),
+        );
+
+        let mut instruction_accounts = vec![
+            AccountMeta::new_readonly(router_state_pda, false),
+            AccountMeta::new_readonly(ibc_app_pda, false),
+            AccountMeta::new(packet_commitment_pda, false),
+            AccountMeta::new_readonly(app_program_id, false),
+            AccountMeta::new(dummy_app_state_pda, false),
+            AccountMeta::new_readonly(crate::ID, false), // router_program
+            AccountMeta::new(relayer, true),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(client_pda, false),
+            AccountMeta::new_readonly(light_client_program, false),
+            AccountMeta::new_readonly(client_state, false),
+            AccountMeta::new_readonly(consensus_state, false),
+        ];
+
+        // Add chunk accounts as remaining accounts
+        instruction_accounts.push(AccountMeta::new(payload_chunk_account.0, false));
+        instruction_accounts.push(AccountMeta::new(proof_chunk_account.0, false));
+
         let instruction = Instruction {
             program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new_readonly(router_state_pda, false),
-                AccountMeta::new_readonly(ibc_app_pda, false),
-                AccountMeta::new(packet_commitment_pda, false),
-                AccountMeta::new_readonly(app_program_id, false),
-                AccountMeta::new(dummy_app_state_pda, false),
-                AccountMeta::new_readonly(crate::ID, false), // router_program
-                AccountMeta::new(relayer, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(client_pda, false),
-                AccountMeta::new_readonly(light_client_program, false),
-                AccountMeta::new_readonly(client_state, false),
-                AccountMeta::new_readonly(consensus_state, false),
-            ],
+            accounts: instruction_accounts,
             data: crate::instruction::AckPacket { msg }.data(),
         };
 
@@ -382,7 +406,7 @@ mod tests {
                     dest_port: "dest-port".to_string(),
                     version: "1".to_string(),
                     encoding: "json".to_string(),
-                    value: vec![], // Empty because no chunks were uploaded (total_chunks = 0)
+                    value: test_payload_value.clone(), // Value from chunk
                 }],
             };
             let (_, data) = setup_packet_commitment(
@@ -395,7 +419,7 @@ mod tests {
             create_uninitialized_account(packet_commitment_pda, 0)
         };
 
-        let accounts = vec![
+        let mut accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             packet_commitment_account,
@@ -410,6 +434,10 @@ mod tests {
             create_account(client_state, vec![0u8; 100], light_client_program),
             create_account(consensus_state, vec![0u8; 100], light_client_program),
         ];
+
+        // Add chunk accounts as remaining accounts
+        accounts.push(payload_chunk_account);
+        accounts.push(proof_chunk_account);
 
         AckPacketTestContext {
             instruction,

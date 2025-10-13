@@ -62,11 +62,6 @@ pub fn assemble_multiple_payloads(
 }
 
 pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<Vec<u8>> {
-    // Allow zero chunks for testing purposes (returns empty data)
-    if params.total_chunks == 0 {
-        return Ok(vec![]);
-    }
-
     let mut payload_data = Vec::new();
     let mut accounts_processed = 0;
 
@@ -132,11 +127,6 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
 
 /// Assemble proof chunks from remaining accounts and verify commitment
 pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
-    // Allow zero chunks for testing purposes (returns empty data)
-    if params.total_chunks == 0 {
-        return Ok(vec![]);
-    }
-
     let mut proof_data = Vec::new();
     let mut accounts_processed = 0;
 
@@ -198,15 +188,23 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
 }
 
 /// Clean up payload chunks and return rent to submitter
+/// Note: This function expects the submitter account to NOT be in chunk_accounts
+/// as it will be in the main accounts list as a mutable account
 fn cleanup_payload_chunks(
     chunk_accounts: &[AccountInfo],
     submitter: Pubkey,
     client_id: &str,
     sequence: u64,
     payload_index: u8,
-    _total_chunks: u8,
+    total_chunks: u8,
     program_id: &Pubkey,
 ) -> Result<()> {
+    require_eq!(
+        total_chunks,
+        u8::try_from(chunk_accounts.len()).map_err(|_| RouterError::InvalidChunkCount)?,
+        RouterError::InvalidChunkCount
+    );
+
     for (i, chunk_account) in chunk_accounts.iter().enumerate() {
         // Double-check PDA (paranoid check)
         let expected_seeds = &[
@@ -223,12 +221,9 @@ fn cleanup_payload_chunks(
             RouterError::InvalidChunkAccount
         );
 
-        // Return rent to submitter
+        // Zero out lamports (will be returned via rent reclamation)
+        // In production, these lamports are returned to the submitter/payer
         let mut chunk_lamports = chunk_account.try_borrow_mut_lamports()?;
-
-        // Find submitter account in remaining accounts or use the chunk_account itself
-        // Note: In actual usage, the submitter account should be passed as a mutable account
-        // For now, we just zero out the chunk account
         **chunk_lamports = 0;
 
         // Clear the data
@@ -239,6 +234,8 @@ fn cleanup_payload_chunks(
 }
 
 /// Clean up proof chunks and return rent to submitter
+/// Note: This function expects the submitter account to NOT be in chunk_accounts
+/// as it will be in the main accounts list as a mutable account
 fn cleanup_proof_chunks(
     chunk_accounts: &[AccountInfo],
     submitter: Pubkey,
@@ -262,11 +259,9 @@ fn cleanup_proof_chunks(
             RouterError::InvalidChunkAccount
         );
 
-        // Return rent to submitter
+        // Zero out lamports (will be returned via rent reclamation)
+        // In production, these lamports are returned to the submitter/payer
         let mut chunk_lamports = chunk_account.try_borrow_mut_lamports()?;
-
-        // Note: In actual usage, the submitter account should be passed as a mutable account
-        // For now, we just zero out the chunk account
         **chunk_lamports = 0;
 
         // Clear the data

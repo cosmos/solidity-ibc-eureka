@@ -419,12 +419,12 @@ mod tests {
                 version: "1".to_string(),
                 encoding: "json".to_string(),
                 commitment: payload_commitment,
-                total_chunks: 0, // 0 chunks for testing without actual chunks
+                total_chunks: 1, // 1 chunk for testing
             }],
             proof: ProofMetadata {
                 height: 100,
                 commitment: proof_commitment,
-                total_chunks: 0, // 0 chunks for testing
+                total_chunks: 1, // 1 chunk for testing
             },
         };
 
@@ -449,26 +449,50 @@ mod tests {
         let client_state = Pubkey::new_unique();
         let consensus_state = Pubkey::new_unique();
 
+        // Create chunk accounts for 1 payload chunk and 1 proof chunk
+        let payload_chunk_account = create_payload_chunk_account(
+            relayer,
+            client_id,
+            1,
+            0, // payload_index
+            0, // chunk_index
+            test_payload_value.clone(),
+        );
+
+        let proof_chunk_account = create_proof_chunk_account(
+            relayer,
+            client_id,
+            1,
+            0, // chunk_index
+            test_proof.clone(),
+        );
+
+        let mut instruction_accounts = vec![
+            AccountMeta::new_readonly(router_state_pda, false),
+            AccountMeta::new_readonly(ibc_app_pda, false),
+            AccountMeta::new(client_sequence_pda, false),
+            AccountMeta::new(packet_receipt_pda, false),
+            AccountMeta::new(packet_ack_pda, false),
+            AccountMeta::new_readonly(ibc_app_program_id, false),
+            AccountMeta::new(ibc_app_state, false),
+            AccountMeta::new_readonly(crate::ID, false), // router_program
+            AccountMeta::new(relayer, true),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(Clock::id(), false),
+            AccountMeta::new_readonly(client_pda, false),
+            AccountMeta::new_readonly(light_client_program, false),
+            AccountMeta::new_readonly(client_state, false),
+            AccountMeta::new_readonly(consensus_state, false),
+        ];
+
+        // Add chunk accounts as remaining accounts
+        instruction_accounts.push(AccountMeta::new(payload_chunk_account.0, false));
+        instruction_accounts.push(AccountMeta::new(proof_chunk_account.0, false));
+
         let instruction = Instruction {
             program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new_readonly(router_state_pda, false),
-                AccountMeta::new_readonly(ibc_app_pda, false),
-                AccountMeta::new(client_sequence_pda, false),
-                AccountMeta::new(packet_receipt_pda, false),
-                AccountMeta::new(packet_ack_pda, false),
-                AccountMeta::new_readonly(ibc_app_program_id, false),
-                AccountMeta::new(ibc_app_state, false),
-                AccountMeta::new_readonly(crate::ID, false), // router_program
-                AccountMeta::new(relayer, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(Clock::id(), false),
-                AccountMeta::new_readonly(client_pda, false),
-                AccountMeta::new_readonly(light_client_program, false),
-                AccountMeta::new_readonly(client_state, false),
-                AccountMeta::new_readonly(consensus_state, false),
-            ],
+            accounts: instruction_accounts,
             data: crate::instruction::RecvPacket { msg }.data(),
         };
 
@@ -479,7 +503,7 @@ mod tests {
         let signer_account = create_system_account(relayer);
 
         // Accounts must be in the exact order of the instruction
-        let accounts = vec![
+        let mut accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
@@ -497,6 +521,10 @@ mod tests {
             create_account(client_state, vec![0u8; 100], light_client_program),
             create_account(consensus_state, vec![0u8; 100], light_client_program),
         ];
+
+        // Add chunk accounts as remaining accounts
+        accounts.push(payload_chunk_account);
+        accounts.push(proof_chunk_account);
 
         RecvPacketTestContext {
             instruction,
@@ -559,7 +587,7 @@ mod tests {
         let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
 
         // Check packet receipt
-        // Note: The handler reconstructs the packet with payloads (empty value when total_chunks=0)
+        // Note: The handler reconstructs the packet with payloads from chunks
         let expected_packet = Packet {
             sequence: ctx.packet.sequence,
             source_client: ctx.packet.source_client.clone(),
@@ -570,7 +598,7 @@ mod tests {
                 dest_port: "test-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                value: vec![], // Empty because no chunks were uploaded (total_chunks = 0)
+                value: b"test data".to_vec(), // Value from chunk
             }],
         };
         let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&expected_packet);
@@ -593,8 +621,8 @@ mod tests {
         // This test now verifies normal success acknowledgement flow
         let mut ctx = setup_recv_packet_test(true, 1000);
 
-        // Update payload data (mock app doesn't actually check this)
-        let test_payload_value = b"test_data".to_vec();
+        // Use same payload data as in the chunks (mock app doesn't actually check this)
+        let test_payload_value = b"test data".to_vec();
         let payload_commitment = anchor_lang::solana_program::keccak::hash(&test_payload_value).0;
 
         let test_proof = vec![0u8; 32];
@@ -609,12 +637,12 @@ mod tests {
                 version: "1".to_string(),
                 encoding: "json".to_string(),
                 commitment: payload_commitment,
-                total_chunks: 0,
+                total_chunks: 1,
             }],
             proof: ProofMetadata {
                 height: 100,
                 commitment: proof_commitment,
-                total_chunks: 0,
+                total_chunks: 1,
             },
         };
 
@@ -647,7 +675,7 @@ mod tests {
         let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
 
         // Check packet receipt first
-        // Note: The handler reconstructs the packet with payloads (empty value when total_chunks=0)
+        // Note: The handler reconstructs the packet with payloads from chunks
         let expected_packet = Packet {
             sequence: ctx.packet.sequence,
             source_client: ctx.packet.source_client.clone(),
@@ -658,7 +686,7 @@ mod tests {
                 dest_port: "test-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                value: vec![], // Empty because no chunks were uploaded
+                value: b"test data".to_vec(), // Value from chunk (with space, matching test data)
             }],
         };
         let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&expected_packet);
