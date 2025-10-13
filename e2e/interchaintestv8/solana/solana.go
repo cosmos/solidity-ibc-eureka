@@ -121,7 +121,6 @@ func (s *Solana) WaitForTxStatus(txSig solana.Signature, status rpc.Confirmation
 			return false, fmt.Errorf("transaction %s failed with error: %s", txSig, out.Value[0].Err)
 		}
 
-		// Accept the requested status or any higher confirmation level
 		if confirmationStatusLevel(out.Value[0].ConfirmationStatus) >= confirmationStatusLevel(status) {
 			return true, nil
 		}
@@ -150,7 +149,7 @@ func (s *Solana) FundUser(pubkey solana.PublicKey, amount uint64) (solana.Signat
 		return solana.Signature{}, err
 	}
 
-	return s.SignAndBroadcastTx(context.TODO(), tx, s.Faucet)
+	return s.SignAndBroadcastTxWithConfirmedStatus(context.TODO(), tx, s.Faucet)
 }
 
 func (s *Solana) CreateAndFundWallet() (*solana.Wallet, error) {
@@ -178,12 +177,10 @@ func (s *Solana) WaitForProgramAvailabilityWithTimeout(ctx context.Context, prog
 	return false
 }
 
-// SignAndBroadcastTxWithRetry retries transaction broadcasting with default timeout
 func (s *Solana) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet) (solana.Signature, error) {
 	return s.SignAndBroadcastTxWithRetryTimeout(ctx, tx, wallet, 30)
 }
 
-// SignAndBroadcastTxWithRetryTimeout retries transaction broadcasting with specified timeout
 func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, timeoutSeconds int) (solana.Signature, error) {
 	var lastErr error
 	for range timeoutSeconds {
@@ -197,16 +194,16 @@ func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *sol
 	return solana.Signature{}, fmt.Errorf("transaction broadcast timed out after %d seconds: %w", timeoutSeconds, lastErr)
 }
 
-// SignAndBroadcastTxWithOpts signs, broadcasts a transaction (skipping preflight), and waits for the specified confirmation status.
-// This is useful for transactions that need custom confirmation levels (e.g., processed for fast feedback, confirmed for safety).
-func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, status rpc.ConfirmationStatusType) (solana.Signature, error) {
-	return s.SignAndBroadcastTxWithOptsAndTimeout(ctx, tx, wallet, status, 30)
+func (s *Solana) SignAndBroadcastTxWithConfirmedStatus(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet) (solana.Signature, error) {
+	return s.SignAndBroadcastTxWithOpts(ctx, tx, wallet, rpc.ConfirmationStatusConfirmed)
 }
 
-// SignAndBroadcastTxWithOptsAndTimeout signs, broadcasts a transaction (skipping preflight), and waits for the specified confirmation status with timeout.
-// Always skips preflight for faster submission. The status parameter controls when to consider the transaction confirmed.
-func (s *Solana) SignAndBroadcastTxWithOptsAndTimeout(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, status rpc.ConfirmationStatusType, timeoutSeconds int) (solana.Signature, error) {
+func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, status rpc.ConfirmationStatusType) (solana.Signature, error) {
 	_, err := s.SignTx(ctx, tx, wallet)
+
+	if err != nil {
+		return solana.Signature{}, err
+	}
 
 	sig, err := s.RPCClient.SendTransactionWithOpts(
 		ctx,
@@ -216,9 +213,13 @@ func (s *Solana) SignAndBroadcastTxWithOptsAndTimeout(ctx context.Context, tx *s
 		},
 	)
 
+	if err != nil {
+		return solana.Signature{}, err
+	}
+
 	err = s.WaitForTxStatus(sig, status)
-	if err == nil {
-		return sig, nil
+	if err != nil {
+		return solana.Signature{}, err
 	}
 
 	return sig, err
@@ -232,7 +233,7 @@ func (s *Solana) WaitForBalanceChange(ctx context.Context, account solana.Public
 // WaitForBalanceChangeWithTimeout waits for an account balance to change with specified timeout
 func (s *Solana) WaitForBalanceChangeWithTimeout(ctx context.Context, account solana.PublicKey, initialBalance uint64, timeoutSeconds int) (uint64, bool) {
 	for range timeoutSeconds {
-		balanceResp, err := s.RPCClient.GetBalance(ctx, account, "confirmed")
+		balanceResp, err := s.RPCClient.GetBalance(ctx, account, rpc.CommitmentConfirmed)
 		if err == nil {
 			currentBalance := balanceResp.Value
 			if currentBalance != initialBalance {

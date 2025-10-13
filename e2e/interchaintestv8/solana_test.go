@@ -968,7 +968,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 	s.Require().NoError(err, "Failed to decode assembly tx")
 
 	broadcastStart := time.Now()
-	sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, user, rpc.ConfirmationStatusConfirmed)
+	sig, err := s.SolanaChain.SignAndBroadcastTxWithConfirmedStatus(ctx, tx, user)
 	broadcastTime := time.Since(broadcastStart)
 	s.Require().NoError(err)
 
@@ -997,7 +997,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedRelayPackets(ctx context.Context
 		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(txBytes))
 		s.Require().NoError(err, "Failed to decode transaction %d", i)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithConfirmedStatus(ctx, tx, user)
 		s.Require().NoError(err, "Failed to submit transaction %d", i)
 
 		txDuration := time.Since(txStart)
