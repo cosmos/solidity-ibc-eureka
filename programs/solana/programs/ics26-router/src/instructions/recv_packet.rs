@@ -111,7 +111,8 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     let expected_ibc_app = Pubkey::find_program_address(
         &[IBC_APP_SEED, msg.payloads[0].dest_port.as_bytes()],
         ctx.program_id,
-    ).0;
+    )
+    .0;
     require!(
         ctx.accounts.ibc_app.key() == expected_ibc_app,
         RouterError::IbcAppNotFound
@@ -133,7 +134,6 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         RouterError::InvalidTimeoutTimestamp
     );
 
-    // Assemble multiple payloads from chunks
     let payload_data_vec = chunking::assemble_multiple_payloads(
         ctx.remaining_accounts,
         ctx.accounts.relayer.key(),
@@ -143,7 +143,6 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         ctx.program_id,
     )?;
 
-    // Reconstruct the full payloads
     let mut payloads = Vec::new();
     for (i, metadata) in msg.payloads.iter().enumerate() {
         let payload = Payload {
@@ -156,7 +155,6 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         payloads.push(payload);
     }
 
-    // Calculate total payload chunks for proof start index
     let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
 
     // Assemble proof from chunks (starting after payload chunks, using relayer as the chunk owner)
@@ -188,8 +186,7 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         consensus_state: ctx.accounts.consensus_state.clone(),
     };
 
-    let commitment_path =
-        ics24::packet_commitment_path(&packet.source_client, packet.sequence);
+    let commitment_path = ics24::packet_commitment_path(&packet.source_client, packet.sequence);
 
     let expected_commitment = ics24::packet_commitment_bytes32(&packet);
 

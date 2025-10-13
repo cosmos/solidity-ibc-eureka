@@ -10,7 +10,10 @@ pub struct CleanupChunks<'info> {
     pub relayer: Signer<'info>,
 }
 
-pub fn cleanup_chunks<'info>(ctx: Context<'_, '_, '_, 'info, CleanupChunks<'info>>, msg: MsgCleanupChunks) -> Result<()> {
+pub fn cleanup_chunks<'info>(
+    ctx: Context<'_, '_, '_, 'info, CleanupChunks<'info>>,
+    msg: MsgCleanupChunks,
+) -> Result<()> {
     let relayer_key = ctx.accounts.relayer.key();
     let mut chunk_index = 0;
 
@@ -90,9 +93,9 @@ fn cleanup_single_chunk<'info>(
         .ok_or(RouterError::ArithmeticOverflow)?;
     **chunk_lamports = 0;
 
-    // Clear the data
     let mut data = chunk_account.try_borrow_mut_data()?;
     data.fill(0);
 
     Ok(())
 }
+

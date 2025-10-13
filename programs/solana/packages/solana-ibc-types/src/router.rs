@@ -69,18 +69,18 @@ pub struct ProofMetadata {
     pub total_chunks: u8,
 }
 
-/// Message for sending a packet - updated for chunking with multi-payload support
+/// Message for sending a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgSendPacket {
     pub source_client: String,
     pub timeout_timestamp: i64,
-    pub payloads: Vec<PayloadMetadata>,
+    pub payload: Payload,
 }
 
-/// Message for receiving a packet - updated for chunking with multi-payload support
+/// Message for receiving a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgRecvPacket {
-    pub packet: Packet,  // But without the actual payload data
+    pub packet: Packet,
     pub payloads: Vec<PayloadMetadata>,
     pub proof: ProofMetadata,
 }
@@ -88,16 +88,16 @@ pub struct MsgRecvPacket {
 /// Message for acknowledging a packet - updated for chunking with multi-payload support
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgAckPacket {
-    pub packet: Packet,  // But without the actual payload data
+    pub packet: Packet,
     pub payloads: Vec<PayloadMetadata>,
-    pub acknowledgement: Vec<u8>,  // Not chunked
+    pub acknowledgement: Vec<u8>, // Not chunked
     pub proof: ProofMetadata,
 }
 
 /// Message for timing out a packet - updated for chunking with multi-payload support
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgTimeoutPacket {
-    pub packet: Packet,  // But without the actual payload data
+    pub packet: Packet,
     pub payloads: Vec<PayloadMetadata>,
     pub proof: ProofMetadata,
 }
@@ -107,7 +107,7 @@ pub struct MsgTimeoutPacket {
 pub struct MsgUploadChunk {
     pub client_id: String,
     pub sequence: u64,
-    pub payload_index: u8,  // Which payload this chunk belongs to (for multi-payload support)
+    pub payload_index: u8, // Which payload this chunk belongs to (for multi-payload support)
     pub chunk_index: u8,
     pub chunk_data: Vec<u8>,
 }
@@ -117,7 +117,7 @@ pub struct MsgUploadChunk {
 pub struct MsgCleanupChunks {
     pub client_id: String,
     pub sequence: u64,
-    pub payload_chunks: Vec<u8>,  // Number of chunks for each payload
+    pub payload_chunks: Vec<u8>, // Number of chunks for each payload
     pub total_proof_chunks: u8,
 }
 

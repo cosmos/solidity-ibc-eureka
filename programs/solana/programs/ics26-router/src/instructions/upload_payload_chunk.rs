@@ -11,7 +11,7 @@ pub struct UploadPayloadChunk<'info> {
         space = 8 + PayloadChunk::INIT_SPACE,
         seeds = [
             PAYLOAD_CHUNK_SEED,
-            payer.key().as_ref(),  // Using payer as the chunk owner
+            payer.key().as_ref(),
             msg.client_id.as_bytes(),
             &msg.sequence.to_le_bytes(),
             &[msg.payload_index],
@@ -27,10 +27,7 @@ pub struct UploadPayloadChunk<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn upload_payload_chunk(
-    ctx: Context<UploadPayloadChunk>,
-    msg: MsgUploadChunk,
-) -> Result<()> {
+pub fn upload_payload_chunk(ctx: Context<UploadPayloadChunk>, msg: MsgUploadChunk) -> Result<()> {
     let chunk = &mut ctx.accounts.chunk;
 
     require!(
@@ -46,3 +43,4 @@ pub fn upload_payload_chunk(
 
     Ok(())
 }
+

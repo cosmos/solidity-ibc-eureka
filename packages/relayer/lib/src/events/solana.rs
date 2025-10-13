@@ -289,6 +289,43 @@ pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurek
 
             tracing::info!(?event, "parsed event");
 
+            // Debug: Log payload details for parsed events
+            match &event {
+                SolanaEurekaEvent::SendPacket(send_event) => {
+                    tracing::debug!(
+                        "SendPacketEvent: sequence={}, {} payloads",
+                        send_event.sequence,
+                        send_event.packet.payloads.len()
+                    );
+                    for (i, payload) in send_event.packet.payloads.iter().enumerate() {
+                        tracing::debug!(
+                            "  Payload {}: source_port={}, dest_port={}, value_len={}",
+                            i,
+                            payload.source_port,
+                            payload.dest_port,
+                            payload.value.len()
+                        );
+                    }
+                }
+                SolanaEurekaEvent::WriteAcknowledgement(ack_event) => {
+                    tracing::debug!(
+                        "WriteAcknowledgementEvent: sequence={}, {} payloads, {} acks",
+                        ack_event.sequence,
+                        ack_event.packet.payloads.len(),
+                        ack_event.acknowledgements.len()
+                    );
+                    for (i, payload) in ack_event.packet.payloads.iter().enumerate() {
+                        tracing::debug!(
+                            "  Payload {}: source_port={}, dest_port={}, value_len={}",
+                            i,
+                            payload.source_port,
+                            payload.dest_port,
+                            payload.value.len()
+                        );
+                    }
+                }
+            }
+
             events.push(event);
         }
     }

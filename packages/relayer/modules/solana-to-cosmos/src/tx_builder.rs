@@ -81,10 +81,47 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
         );
 
         // NOTE: Convert to eureka event to reuse to recvs/ack msg fn
-        let src_events_as_sol_events = src_events
+        let src_events_as_sol_events: Vec<EurekaEventWithHeight> = src_events
             .into_iter()
             .map(EurekaEventWithHeight::from)
             .collect();
+
+        // Debug: Log payload values after conversion to EurekaEvent
+        for (i, event) in src_events_as_sol_events.iter().enumerate() {
+            match &event.event {
+                ibc_eureka_relayer_lib::events::EurekaEvent::SendPacket(packet) => {
+                    tracing::info!(
+                        "Event {}: SendPacket with {} payloads",
+                        i,
+                        packet.payloads.len()
+                    );
+                    for (j, payload) in packet.payloads.iter().enumerate() {
+                        tracing::info!(
+                            "  Payload {}: port={}, value_len={}",
+                            j,
+                            payload.sourcePort,
+                            payload.value.len()
+                        );
+                    }
+                }
+                ibc_eureka_relayer_lib::events::EurekaEvent::WriteAcknowledgement(packet, acks) => {
+                    tracing::info!(
+                        "Event {}: WriteAcknowledgement with {} payloads, {} acks",
+                        i,
+                        packet.payloads.len(),
+                        acks.len()
+                    );
+                    for (j, payload) in packet.payloads.iter().enumerate() {
+                        tracing::info!(
+                            "  Payload {}: port={}, value_len={}",
+                            j,
+                            payload.sourcePort,
+                            payload.value.len()
+                        );
+                    }
+                }
+            }
+        }
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events_as_sol_events,
@@ -99,6 +136,44 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
         tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
+
+        // Debug: Log payload values in recv messages
+        for (i, msg) in recv_msgs.iter().enumerate() {
+            if let Some(packet) = &msg.packet {
+                tracing::debug!(
+                    "RecvMsg {}: packet with {} payloads",
+                    i,
+                    packet.payloads.len()
+                );
+                for (j, payload) in packet.payloads.iter().enumerate() {
+                    tracing::debug!(
+                        "  Payload {}: source_port={}, value_len={}",
+                        j,
+                        payload.source_port,
+                        payload.value.len()
+                    );
+                }
+            }
+        }
+
+        // Debug: Log payload values in ack messages
+        for (i, msg) in ack_msgs.iter().enumerate() {
+            if let Some(packet) = &msg.packet {
+                tracing::debug!(
+                    "AckMsg {}: packet with {} payloads",
+                    i,
+                    packet.payloads.len()
+                );
+                for (j, payload) in packet.payloads.iter().enumerate() {
+                    tracing::debug!(
+                        "  Payload {}: source_port={}, value_len={}",
+                        j,
+                        payload.source_port,
+                        payload.value.len()
+                    );
+                }
+            }
+        }
 
         cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
 

@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/binary"
-	// "encoding/hex"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"testing"
@@ -366,7 +366,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	simd := s.CosmosChains[0]
 
 	var solanaTxSig solanago.Signature
-	// var cosmosPacketRelayTxHash []byte
+	var cosmosPacketRelayTxHash []byte
 
 	s.Require().True(s.Run("Send ICS20 transfer using send_packet", func() {
 		initialBalance := s.SolanaUser.PublicKey()
@@ -459,9 +459,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.Require().NoError(err)
 			s.T().Logf("Transaction events count: %d", len(txResp.Events))
 
-			// cosmosPacketRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
+			cosmosPacketRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
 			s.Require().NoError(err)
-			// cosmosPacketRelayTxHash = cosmosPacketRelayTxHashBytes
+			cosmosPacketRelayTxHash = cosmosPacketRelayTxHashBytes
 		}))
 	}))
 
@@ -508,28 +508,23 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.Txs))
 		}))
 
-		// Uncommment once chunked instructions are done
-		// s.Require().True(s.Run("Relay acknowledgment", func() {
-		// 	resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-		// 		SrcChain:    simd.Config().ChainID,
-		// 		DstChain:    testvalues.SolanaChainID,
-		// 		SourceTxIds: [][]byte{cosmosPacketRelayTxHash},
-		// 		SrcClientId: CosmosClientID,
-		// 		DstClientId: SolanaClientID,
-		// 	})
-		// 	s.Require().NoError(err)
-		// 	s.Require().NotEmpty(resp.Tx, "Acknowledgment transaction should not be empty")
-		//
-		// 	unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
-		// 	s.Require().NoError(err)
-		// 	s.T().Logf("Acknowledgment transaction contains %d instructions", len(unsignedSolanaTx.Message.Instructions))
+		s.Require().True(s.Run("Relay acknowledgment", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    testvalues.SolanaChainID,
+				SourceTxIds: [][]byte{cosmosPacketRelayTxHash},
+				SrcClientId: CosmosClientID,
+				DstClientId: SolanaClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Txs, "Relay should return chunked transactions")
+			s.T().Logf("Retrieved %d relay transactions (chunks + final instructions)", len(resp.Txs))
 
-		// 	sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
-		// 	s.Require().NoError(err, "Acknowledgment tx failed")
-		// 	s.T().Logf("Acknowledgment transaction broadcasted: %s", sig)
-		//
-		// 	s.verifyAcknowledgmentOnSolana(ctx, SolanaClientID, 1)
-		// }))
+			s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
+			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
+
+			s.verifyAcknowledgmentOnSolana(ctx, SolanaClientID, 1)
+		}))
 	}))
 }
 
@@ -960,6 +955,25 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 	time.Sleep(500 * time.Millisecond)
 
 	s.T().Logf("Successfully submitted all %d chunked transactions", len(resp.Txs))
+}
+
+func (s *IbcEurekaSolanaTestSuite) submitChunkedRelayPackets(ctx context.Context, resp *relayertypes.RelayByTxResponse, user *solanago.Wallet) {
+	s.Require().NotEqual(0, len(resp.Txs), "no relay transactions provided")
+
+	s.T().Logf("Submitting %d relay transactions sequentially (chunks + final instructions)", len(resp.Txs))
+
+	// Submit all transactions sequentially
+	// Structure: [packet1_chunk0, packet1_chunk1, ..., packet1_final, packet2_chunk0, ...]
+	for i, txBytes := range resp.Txs {
+		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(txBytes))
+		s.Require().NoError(err, "Failed to decode transaction %d", i)
+
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, user)
+		s.Require().NoError(err, "Failed to submit transaction %d", i)
+		s.T().Logf("Transaction %d submitted: %s", i, sig)
+	}
+
+	s.T().Logf("Successfully submitted all %d relay transactions", len(resp.Txs))
 }
 
 //nolint:unused // Will be used after chunked router is merged

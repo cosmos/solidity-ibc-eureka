@@ -197,8 +197,8 @@ impl TxBuilder {
             self.solana_ics07_program_id,
         );
 
-        tracing::debug!("Client state PDA: {}", client_state_pda);
-        tracing::debug!("Consensus state PDA: {}", consensus_state_pda);
+        tracing::info!("Client state PDA: {}", client_state_pda);
+        tracing::info!("Consensus state PDA: {}", consensus_state_pda);
 
         let accounts = vec![
             AccountMeta::new(client_state_pda, false),
@@ -292,6 +292,13 @@ impl TxBuilder {
 
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
     async fn build_ack_packet_instruction(&self, msg: &MsgAckPacket) -> Result<Instruction> {
+        tracing::info!(
+            "Building ack packet instruction for packet from {} to {}, sequence {}",
+            msg.packet.source_client,
+            msg.packet.dest_client,
+            msg.packet.sequence
+        );
+
         let solana_ics26_program_id = self.solana_ics26_program_id;
 
         let (router_state, _) = derive_router_state(solana_ics26_program_id);
@@ -351,12 +358,17 @@ impl TxBuilder {
             solana_ics26_program_id,
         );
 
-        // Derive the client PDA using ICS26 client ID
+        // Derive the router client PDA using the packet's source_client (the ICS26 client on Solana)
+        let (client, _) = derive_client(&msg.packet.source_client, solana_ics26_program_id);
+        tracing::info!("Router client PDA for '{}': {}", msg.packet.source_client, client);
+
+        // For ICS07, we need the Cosmos chain ID (the chain being tracked by the light client)
         let chain_id = self.chain_id().await?;
-        let (client, _) = derive_client(&chain_id, solana_ics26_program_id);
+        tracing::info!("Cosmos chain ID for ICS07 derivation: {}", chain_id);
 
         let (client_state, _) =
-            derive_ics07_client_state(&msg.packet.source_client, self.solana_ics07_program_id);
+            derive_ics07_client_state(&chain_id, self.solana_ics07_program_id);
+        tracing::info!("ICS07 client state PDA: {}", client_state);
 
         // Use the proof height for the consensus state lookup (NOT query_height)
         // The proof from query_height (N+1) verifies against app hash at proof_height (N)
@@ -364,6 +376,11 @@ impl TxBuilder {
             client_state,
             msg.proof.height, // Use proof metadata height
             self.solana_ics07_program_id,
+        );
+        tracing::info!(
+            "Consensus state PDA (height {}): {}",
+            msg.proof.height,
+            consensus_state
         );
 
         let accounts = vec![
@@ -551,7 +568,6 @@ impl TxBuilder {
         vec![compute_budget_ix, priority_fee_ix]
     }
 
-    #[allow(dead_code)]
     fn build_upload_payload_chunk_instruction(
         &self,
         client_id: &str,
@@ -594,7 +610,6 @@ impl TxBuilder {
         })
     }
 
-    #[allow(dead_code)]
     fn build_upload_proof_chunk_instruction(
         &self,
         client_id: &str,
@@ -741,7 +756,6 @@ impl TxBuilder {
 
 impl TxBuilder {
     /// Build chunked recv packet transactions
-    #[allow(dead_code)]
     fn build_recv_packet_chunked(
         &self,
         chain_id: &str,
@@ -800,7 +814,6 @@ impl TxBuilder {
     }
 
     /// Build chunked ack packet transactions
-    #[allow(dead_code)]
     async fn build_ack_packet_chunked(
         &self,
         msg: &MsgAckPacket,
@@ -860,7 +873,6 @@ impl TxBuilder {
     }
 
     /// Build chunked timeout packet transactions
-    #[allow(dead_code)]
     fn build_timeout_packet_chunked(
         &self,
         msg: &MsgTimeoutPacket,
@@ -1000,8 +1012,10 @@ impl TxBuilder {
         )
         .await?;
 
+        // Keep the TM timeout messages to access proof data
+        let timeout_msgs_tm = timeout_msgs.clone();
+
         let timeout_msgs: Vec<_> = timeout_msgs
-            .clone()
             .into_iter()
             .map(tm_timeout_to_solana_timeout_packet)
             .collect::<Result<Vec<_>, _>>()?;
@@ -1009,28 +1023,82 @@ impl TxBuilder {
         let mut all_txs = Vec::new();
         let chain_id = self.chain_id().await?;
 
-        // Process recv messages - for now, just create single transactions
-        // TODO: Implement proper chunking when payload/proof data is available
+        // Process recv messages with chunking
         for recv_msg in recv_msgs {
+            // Extract actual payload and proof data before conversion
+            let payload_data: Vec<Vec<u8>> = recv_msg
+                .packet
+                .as_ref()
+                .map(|p| {
+                    p.payloads
+                        .iter()
+                        .map(|payload| payload.value.clone())
+                        .collect()
+                })
+                .unwrap_or_default();
+            let proof_data = recv_msg.proof_commitment.clone();
+
+            // Convert to Solana format (creates metadata)
             let recv_msg = ibc_to_solana_recv_packet(recv_msg)?;
-            let instruction = self.build_recv_packet_instruction(&chain_id, &recv_msg)?;
-            let tx = self.create_tx_bytes(&[instruction])?;
-            all_txs.push(tx);
+
+            // Build chunked transactions
+            let chunked =
+                self.build_recv_packet_chunked(&chain_id, &recv_msg, &payload_data, &proof_data)?;
+
+            // Add all chunks first, then the final recv instruction
+            all_txs.extend(chunked.chunk_txs);
+            all_txs.push(chunked.recv_tx);
         }
 
-        // Process ack messages
+        // Process ack messages with chunking
         for ack_msg in ack_msgs {
+            // Extract actual payload and proof data before conversion
+            let payload_data: Vec<Vec<u8>> = ack_msg
+                .packet
+                .as_ref()
+                .map(|p| {
+                    p.payloads
+                        .iter()
+                        .map(|payload| payload.value.clone())
+                        .collect()
+                })
+                .unwrap_or_default();
+            let proof_data = ack_msg.proof_acked.clone();
+
+            // Convert to Solana format (creates metadata)
             let ack_msg = ibc_to_solana_ack_packet(ack_msg)?;
-            let instruction = self.build_ack_packet_instruction(&ack_msg).await?;
-            let tx = self.create_tx_bytes(&[instruction])?;
-            all_txs.push(tx);
+
+            // Build chunked transactions
+            let chunked = self
+                .build_ack_packet_chunked(&ack_msg, &payload_data, &proof_data)
+                .await?;
+
+            // Add all chunks first, then the final ack instruction
+            all_txs.extend(chunked.chunk_txs);
+            all_txs.push(chunked.ack_tx);
         }
 
-        // Process timeout messages
-        for timeout_msg in timeout_msgs {
-            let instruction = self.build_timeout_packet_instruction(&timeout_msg)?;
-            let tx = self.create_tx_bytes(&[instruction])?;
-            all_txs.push(tx);
+        // Process timeout messages with chunking
+        for (idx, timeout_msg) in timeout_msgs.iter().enumerate() {
+            // Extract actual payload data (packet is a direct field, not Option)
+            let payload_data: Vec<Vec<u8>> = timeout_msg
+                .packet
+                .payloads
+                .iter()
+                .map(|payload| payload.value.clone())
+                .collect();
+
+            // Get the corresponding TM message to access the actual proof data
+            let tm_msg = &timeout_msgs_tm[idx];
+            let proof_data = tm_msg.proof_unreceived.clone();
+
+            // Build chunked transactions (already in Solana format with metadata)
+            let chunked =
+                self.build_timeout_packet_chunked(timeout_msg, &payload_data, &proof_data)?;
+
+            // Add all chunks first, then the final timeout instruction
+            all_txs.extend(chunked.chunk_txs);
+            all_txs.push(chunked.timeout_tx);
         }
 
         Ok(all_txs)

@@ -11,7 +11,7 @@ pub struct UploadProofChunk<'info> {
         space = 8 + ProofChunk::INIT_SPACE,
         seeds = [
             PROOF_CHUNK_SEED,
-            payer.key().as_ref(),  // Using payer as the chunk owner
+            payer.key().as_ref(),
             msg.client_id.as_bytes(),
             &msg.sequence.to_le_bytes(),
             &[msg.chunk_index]
@@ -26,10 +26,7 @@ pub struct UploadProofChunk<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn upload_proof_chunk(
-    ctx: Context<UploadProofChunk>,
-    msg: MsgUploadChunk,
-) -> Result<()> {
+pub fn upload_proof_chunk(ctx: Context<UploadProofChunk>, msg: MsgUploadChunk) -> Result<()> {
     let chunk = &mut ctx.accounts.chunk;
 
     require!(
@@ -44,3 +41,4 @@ pub fn upload_proof_chunk(
 
     Ok(())
 }
+
