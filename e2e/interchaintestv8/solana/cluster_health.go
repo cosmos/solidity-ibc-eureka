@@ -39,10 +39,10 @@ func (s *Solana) WaitForClusterReady(ctx context.Context, timeout time.Duration)
 				continue
 			}
 
-			// Ensure faucet has at least 1000 SOL for funding operations
-			minBalance := uint64(1000_000_000_000) // 1000 SOL in lamports
+			// Ensure faucet has at least 10 SOL for funding operations
+			minBalance := uint64(10_000_000_000) // 1000 SOL in lamports
 			if balance.Value < minBalance {
-				time.Sleep(1 * time.Second)
+				return fmt.Errorf("faucet balance too low: %d lamports (need at least %d). Re-create solana validator node", balance.Value, minBalance)
 			}
 		}
 
