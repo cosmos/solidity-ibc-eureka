@@ -6,9 +6,9 @@ use crate::utils::{chunking, ics24};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::events::{AckPacketEvent, NoopEvent};
-use solana_ibc_types::Payload;
 #[cfg(test)]
 use solana_ibc_types::router::APP_STATE_SEED;
+use solana_ibc_types::Payload;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgAckPacket)]
@@ -88,7 +88,8 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     let expected_ibc_app = Pubkey::find_program_address(
         &[IBC_APP_SEED, msg.payloads[0].source_port.as_bytes()],
         ctx.program_id,
-    ).0;
+    )
+    .0;
     require!(
         ctx.accounts.ibc_app.key() == expected_ibc_app,
         RouterError::IbcAppNotFound
@@ -221,7 +222,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     emit!(AckPacketEvent {
         client_id: packet.source_client.clone(),
         sequence: packet.sequence,
-        packet: packet.clone(),
+        packet,
         acknowledgement: vec![msg.acknowledgement],
     });
 
@@ -384,8 +385,11 @@ mod tests {
                     value: vec![], // Empty because no chunks were uploaded (total_chunks = 0)
                 }],
             };
-            let (_, data) =
-                setup_packet_commitment(params.source_client_id, full_packet.sequence, &full_packet);
+            let (_, data) = setup_packet_commitment(
+                params.source_client_id,
+                full_packet.sequence,
+                &full_packet,
+            );
             create_account(packet_commitment_pda, data, crate::ID)
         } else {
             create_uninitialized_account(packet_commitment_pda, 0)

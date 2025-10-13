@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
+use ibc_eureka_relayer_lib::utils::solana_eureka::convert_client_state_to_sol;
 use ibc_eureka_relayer_lib::{
     events::{
         solana::{solana_timeout_packet_to_tm_timeout, tm_timeout_to_solana_timeout_packet},
@@ -12,12 +13,12 @@ use ibc_eureka_relayer_lib::{
     },
     utils::{
         cosmos::{
-            self, get_latest_tm_heigth, tm_create_client_params, tm_update_client_params,
-            TmCreateClientParams, TmUpdateClientParams,
+            self, tm_create_client_params, tm_update_client_params, TmCreateClientParams,
+            TmUpdateClientParams,
         },
         solana_eureka::{
-            convert_client_state_to_ibc, convert_client_state_to_sol, convert_consensus_state,
-            ibc_to_solana_ack_packet, ibc_to_solana_recv_packet, target_events_to_timeout_msgs,
+            convert_consensus_state, ibc_to_solana_ack_packet, ibc_to_solana_recv_packet,
+            target_events_to_timeout_msgs,
         },
     },
 };
@@ -360,14 +361,17 @@ impl TxBuilder {
 
         // Derive the router client PDA using the packet's source_client (the ICS26 client on Solana)
         let (client, _) = derive_client(&msg.packet.source_client, solana_ics26_program_id);
-        tracing::info!("Router client PDA for '{}': {}", msg.packet.source_client, client);
+        tracing::info!(
+            "Router client PDA for '{}': {}",
+            msg.packet.source_client,
+            client
+        );
 
         // For ICS07, we need the Cosmos chain ID (the chain being tracked by the light client)
         let chain_id = self.chain_id().await?;
         tracing::info!("Cosmos chain ID for ICS07 derivation: {}", chain_id);
 
-        let (client_state, _) =
-            derive_ics07_client_state(&chain_id, self.solana_ics07_program_id);
+        let (client_state, _) = derive_ics07_client_state(&chain_id, self.solana_ics07_program_id);
         tracing::info!("ICS07 client state PDA: {}", client_state);
 
         // Use the proof height for the consensus state lookup (NOT query_height)
@@ -959,9 +963,12 @@ impl TxBuilder {
         );
 
         let chain_id = self.chain_id().await?;
-        let client_state = self.cosmos_client_state(&chain_id)?;
-        let client_state = convert_client_state_to_ibc(client_state)?;
-        let target_height = get_latest_tm_heigth(client_state, &self.src_tm_client).await?;
+        let solana_client_state = self.cosmos_client_state(&chain_id)?;
+
+        let target_height = ibc_proto_eureka::ibc::core::client::v1::Height {
+            revision_number: solana_client_state.latest_height.revision_number,
+            revision_height: solana_client_state.latest_height.revision_height,
+        };
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
@@ -1102,113 +1109,6 @@ impl TxBuilder {
         }
 
         Ok(all_txs)
-    }
-
-    /// Build relay transaction from Cosmos events to Solana (legacy single transaction)
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Failed to convert events to messages
-    /// - Failed to build Solana instructions
-    /// - Failed to create transaction bytes
-    #[tracing::instrument(skip_all)]
-    pub async fn relay_events(
-        &self,
-        src_events: Vec<EurekaEventWithHeight>,
-        dest_events: Vec<SolanaEurekaEventWithHeight>,
-        src_client_id: String,
-        dst_client_id: String,
-        src_packet_seqs: Vec<u64>,
-        dst_packet_seqs: Vec<u64>,
-    ) -> Result<Vec<u8>> {
-        tracing::info!(
-            "Relaying events from Cosmos to Solana for client {}",
-            dst_client_id
-        );
-
-        let chain_id = self.chain_id().await?;
-        let client_state = self.cosmos_client_state(&chain_id)?;
-        let client_state = convert_client_state_to_ibc(client_state)?;
-        let target_height = get_latest_tm_heigth(client_state, &self.src_tm_client).await?;
-
-        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
-
-        let slot = self
-            .target_solana_client
-            .get_slot_with_commitment(CommitmentConfig::finalized())
-            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
-
-        let timeout_msgs = target_events_to_timeout_msgs(
-            dest_events,
-            &src_client_id,
-            &dst_client_id,
-            &dst_packet_seqs,
-            slot,
-            now_since_unix.as_secs(),
-        );
-
-        // we don't care about signer address as no cosmos tx will be sent here
-        let mock_signer_address = String::new();
-
-        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
-            src_events,
-            &src_client_id,
-            &dst_client_id,
-            &src_packet_seqs,
-            &dst_packet_seqs,
-            &mock_signer_address,
-            now_since_unix.as_secs(),
-        );
-
-        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
-        tracing::debug!("Recv messages: #{}", recv_msgs.len());
-        tracing::debug!("Ack messages: #{}", ack_msgs.len());
-
-        // convert to tm events so we can inject proofs
-        let mut timeout_msgs = timeout_msgs
-            .clone()
-            .into_iter()
-            .map(|msg| solana_timeout_packet_to_tm_timeout(msg, mock_signer_address.clone()))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        cosmos::inject_tendermint_proofs(
-            &mut recv_msgs,
-            &mut ack_msgs,
-            &mut timeout_msgs,
-            &self.src_tm_client,
-            &target_height,
-        )
-        .await?;
-
-        let timeout_msgs: Vec<_> = timeout_msgs
-            .clone()
-            .into_iter()
-            .map(tm_timeout_to_solana_timeout_packet)
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let mut instructions = Vec::new();
-
-        let chain_id = self.chain_id().await?;
-
-        for recv_msg in recv_msgs {
-            let recv_msg = ibc_to_solana_recv_packet(recv_msg)?;
-            let instruction = self.build_recv_packet_instruction(&chain_id, &recv_msg)?;
-            instructions.push(instruction);
-        }
-
-        for ack_msg in ack_msgs {
-            let ack_msg = ibc_to_solana_ack_packet(ack_msg)?;
-            let instruction = self.build_ack_packet_instruction(&ack_msg).await?;
-            instructions.push(instruction);
-        }
-
-        for timeout_msg in timeout_msgs {
-            let instruction = self.build_timeout_packet_instruction(&timeout_msg)?;
-            instructions.push(instruction);
-        }
-
-        self.create_tx_bytes(&instructions)
     }
 
     fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>> {

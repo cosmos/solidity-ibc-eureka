@@ -219,6 +219,9 @@ pub fn convert_client_state_to_ibc(
 /// - `dst_packet_seqs` - The list of dest packet sequences to filter. If empty, no filtering.
 /// - `target_height`: The target height for the proofs.
 /// - `now` - The current time.
+///
+/// # Panics
+/// too big payload/proof
 #[must_use]
 pub fn target_events_to_timeout_msgs(
     target_events: Vec<SolanaEurekaEventWithHeight>,
@@ -239,32 +242,36 @@ pub fn target_events_to_timeout_msgs(
                     || dst_packet_seqs.contains(&event.packet.sequence)))
             .then_some({
                 // Convert payloads to metadata
-                let payloads_metadata: Vec<PayloadMetadata> = event.packet.payloads
+                let payloads_metadata: Vec<PayloadMetadata> = event
+                    .packet
+                    .payloads
                     .iter()
                     .map(|p| {
                         let commitment = solana_sdk::keccak::hash(&p.value).0;
                         let total_chunks = if p.value.len() > MAX_CHUNK_SIZE {
-                            ((p.value.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+                            u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE))
+                                .context("payload too big")?
                         } else {
                             0
                         };
-                        PayloadMetadata {
+                        Ok::<_, anyhow::Error>(PayloadMetadata {
                             source_port: p.source_port.clone(),
                             dest_port: p.dest_port.clone(),
                             version: p.version.clone(),
                             encoding: p.encoding.clone(),
                             commitment,
                             total_chunks,
-                        }
+                        })
                     })
-                    .collect();
+                    .collect::<Result<Vec<_>, _>>()
+                    .unwrap();
 
                 MsgTimeoutPacket {
                     packet: event.packet,
                     payloads: payloads_metadata,
                     proof: ProofMetadata {
                         height: target_height,
-                        commitment: [0u8; 32],  // Will be filled later with actual proof
+                        commitment: [0u8; 32], // Will be filled later with actual proof
                         total_chunks: 0,
                     },
                 }
@@ -279,8 +286,8 @@ pub fn inject_mock_proofs(timeout_msgs: &mut [MsgTimeoutPacket]) {
     for msg in timeout_msgs.iter_mut() {
         // Update proof metadata with mock values
         msg.proof.commitment = solana_sdk::keccak::hash(b"mock").0;
-        msg.proof.total_chunks = 0;  // No chunking for mock proof
-        msg.proof.height = 0;  // Default height for mock
+        msg.proof.total_chunks = 0; // No chunking for mock proof
+        msg.proof.height = 0; // Default height for mock
     }
 }
 
@@ -333,25 +340,27 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Sola
         .map(|p| {
             let commitment = solana_sdk::keccak::hash(&p.value).0;
             let total_chunks = if p.value.len() > MAX_CHUNK_SIZE {
-                ((p.value.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+                u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE))
+                    .context("payload too big to fit in u8")?
             } else {
                 0
             };
-            PayloadMetadata {
+            Ok::<_, anyhow::Error>(PayloadMetadata {
                 source_port: p.source_port,
                 dest_port: p.destination_port,
                 version: p.version,
                 encoding: p.encoding,
                 commitment,
                 total_chunks,
-            }
+            })
         })
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
 
     // Create proof metadata
     let proof_commitment = solana_sdk::keccak::hash(&value.proof_commitment).0;
     let proof_total_chunks = if value.proof_commitment.len() > MAX_CHUNK_SIZE {
-        ((value.proof_commitment.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+        u8::try_from(proof_commitment.len().div_ceil(MAX_CHUNK_SIZE))
+            .context("proof too big to fit in u8")?
     } else {
         0
     };
@@ -428,25 +437,25 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
         .map(|p| {
             let commitment = solana_sdk::keccak::hash(&p.value).0;
             let total_chunks = if p.value.len() > MAX_CHUNK_SIZE {
-                ((p.value.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+                u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE)).context("payload too big")?
             } else {
                 0
             };
-            PayloadMetadata {
+            Ok::<_, anyhow::Error>(PayloadMetadata {
                 source_port: p.source_port,
                 dest_port: p.destination_port,
                 version: p.version,
                 encoding: p.encoding,
                 commitment,
                 total_chunks,
-            }
+            })
         })
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
 
     // Create proof metadata
     let proof_commitment = solana_sdk::keccak::hash(&value.proof_acked).0;
     let proof_total_chunks = if value.proof_acked.len() > MAX_CHUNK_SIZE {
-        ((value.proof_acked.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+        u8::try_from(value.proof_acked.len().div_ceil(MAX_CHUNK_SIZE)).context("proof too big")?
     } else {
         0
     };
