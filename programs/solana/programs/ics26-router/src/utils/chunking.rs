@@ -1,9 +1,35 @@
 use crate::errors::RouterError;
-use crate::state::{PayloadChunk, ProofChunk, PayloadMetadata, PAYLOAD_CHUNK_SEED, PROOF_CHUNK_SEED};
+use crate::state::{
+    PayloadChunk, PayloadMetadata, ProofChunk, PAYLOAD_CHUNK_SEED, PROOF_CHUNK_SEED,
+};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::keccak;
 
-/// Assemble multiple payloads from chunks
+/// Parameters for assembling single payload chunks
+pub struct AssemblePayloadParams<'a, 'b> {
+    pub remaining_accounts: &'a [AccountInfo<'b>],
+    pub submitter: Pubkey,
+    pub client_id: &'a str,
+    pub sequence: u64,
+    pub payload_index: u8,
+    pub total_chunks: u8,
+    pub expected_commitment: [u8; 32],
+    pub program_id: &'a Pubkey,
+    pub start_index: usize,
+}
+
+/// Parameters for assembling proof chunks
+pub struct AssembleProofParams<'a, 'b> {
+    pub remaining_accounts: &'a [AccountInfo<'b>],
+    pub submitter: Pubkey,
+    pub client_id: &'a str,
+    pub sequence: u64,
+    pub total_chunks: u8,
+    pub expected_commitment: [u8; 32],
+    pub program_id: &'a Pubkey,
+    pub start_index: usize,
+}
+
 pub fn assemble_multiple_payloads(
     remaining_accounts: &[AccountInfo],
     submitter: Pubkey,
@@ -16,17 +42,17 @@ pub fn assemble_multiple_payloads(
     let mut account_offset = 0;
 
     for (payload_index, metadata) in payloads_metadata.iter().enumerate() {
-        let payload_data = assemble_single_payload_chunks(
+        let payload_data = assemble_single_payload_chunks(AssemblePayloadParams {
             remaining_accounts,
             submitter,
             client_id,
             sequence,
-            payload_index as u8,
-            metadata.total_chunks,
-            metadata.commitment,
+            payload_index: payload_index as u8,
+            total_chunks: metadata.total_chunks,
+            expected_commitment: metadata.commitment,
             program_id,
-            account_offset,
-        )?;
+            start_index: account_offset,
+        })?;
 
         all_payloads.push(payload_data);
         account_offset += metadata.total_chunks as usize;
@@ -35,20 +61,9 @@ pub fn assemble_multiple_payloads(
     Ok(all_payloads)
 }
 
-/// Assemble a single payload's chunks from remaining accounts and verify commitment
-pub fn assemble_single_payload_chunks(
-    remaining_accounts: &[AccountInfo],
-    submitter: Pubkey,
-    client_id: &str,
-    sequence: u64,
-    payload_index: u8,
-    total_chunks: u8,
-    expected_commitment: [u8; 32],
-    program_id: &Pubkey,
-    start_index: usize,
-) -> Result<Vec<u8>> {
-    // If no chunks, return empty data (for testing)
-    if total_chunks == 0 {
+pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<Vec<u8>> {
+    // Allow zero chunks for testing purposes (returns empty data)
+    if params.total_chunks == 0 {
         return Ok(vec![]);
     }
 
@@ -56,25 +71,25 @@ pub fn assemble_single_payload_chunks(
     let mut accounts_processed = 0;
 
     // Collect and validate chunks
-    for i in 0..total_chunks {
-        let account_index = start_index + accounts_processed;
+    for i in 0..params.total_chunks {
+        let account_index = params.start_index + accounts_processed;
         require!(
-            account_index < remaining_accounts.len(),
+            account_index < params.remaining_accounts.len(),
             RouterError::InvalidChunkCount
         );
 
-        let chunk_account = &remaining_accounts[account_index];
+        let chunk_account = &params.remaining_accounts[account_index];
 
         // Verify PDA
         let expected_seeds = &[
             PAYLOAD_CHUNK_SEED,
-            submitter.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-            &[payload_index],
+            params.submitter.as_ref(),
+            params.client_id.as_bytes(),
+            &params.sequence.to_le_bytes(),
+            &[params.payload_index],
             &[i],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, params.program_id);
 
         require!(
             chunk_account.key() == expected_pda,
@@ -85,9 +100,9 @@ pub fn assemble_single_payload_chunks(
         let chunk_data = chunk_account.try_borrow_data()?;
         let chunk: PayloadChunk = PayloadChunk::try_deserialize(&mut &chunk_data[..])?;
 
-        require_eq!(&chunk.client_id, client_id);
-        require_eq!(chunk.sequence, sequence);
-        require_eq!(chunk.payload_index, payload_index);
+        require_eq!(&chunk.client_id, params.client_id);
+        require_eq!(chunk.sequence, params.sequence);
+        require_eq!(chunk.payload_index, params.payload_index);
         require_eq!(chunk.chunk_index, i);
 
         payload_data.extend_from_slice(&chunk.chunk_data);
@@ -97,60 +112,28 @@ pub fn assemble_single_payload_chunks(
     // Verify commitment
     let computed_commitment = keccak::hash(&payload_data).0;
     require!(
-        computed_commitment == expected_commitment,
+        computed_commitment == params.expected_commitment,
         RouterError::InvalidChunkCommitment
     );
 
     // Clean up chunks and return rent
     cleanup_payload_chunks(
-        &remaining_accounts[start_index..start_index + accounts_processed],
-        submitter,
-        client_id,
-        sequence,
-        payload_index,
-        total_chunks,
-        program_id,
+        &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
+        params.submitter,
+        params.client_id,
+        params.sequence,
+        params.payload_index,
+        params.total_chunks,
+        params.program_id,
     )?;
 
     Ok(payload_data)
 }
 
-/// Backward compatibility function for single payload (assumes payload_index = 0)
-pub fn assemble_payload_chunks(
-    remaining_accounts: &[AccountInfo],
-    submitter: Pubkey,
-    client_id: &str,
-    sequence: u64,
-    total_chunks: u8,
-    expected_commitment: [u8; 32],
-    program_id: &Pubkey,
-) -> Result<Vec<u8>> {
-    assemble_single_payload_chunks(
-        remaining_accounts,
-        submitter,
-        client_id,
-        sequence,
-        0, // Default to payload_index 0 for backward compatibility
-        total_chunks,
-        expected_commitment,
-        program_id,
-        0, // Start from index 0
-    )
-}
-
 /// Assemble proof chunks from remaining accounts and verify commitment
-pub fn assemble_proof_chunks(
-    remaining_accounts: &[AccountInfo],
-    submitter: Pubkey,
-    client_id: &str,
-    sequence: u64,
-    total_chunks: u8,
-    expected_commitment: [u8; 32],
-    program_id: &Pubkey,
-    start_index: usize, // Where to start in remaining_accounts
-) -> Result<Vec<u8>> {
-    // If no chunks, return empty data (for testing)
-    if total_chunks == 0 {
+pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
+    // Allow zero chunks for testing purposes (returns empty data)
+    if params.total_chunks == 0 {
         return Ok(vec![]);
     }
 
@@ -158,24 +141,24 @@ pub fn assemble_proof_chunks(
     let mut accounts_processed = 0;
 
     // Collect and validate chunks
-    for i in 0..total_chunks {
-        let account_index = start_index + accounts_processed;
+    for i in 0..params.total_chunks {
+        let account_index = params.start_index + accounts_processed;
         require!(
-            account_index < remaining_accounts.len(),
+            account_index < params.remaining_accounts.len(),
             RouterError::InvalidChunkCount
         );
 
-        let chunk_account = &remaining_accounts[account_index];
+        let chunk_account = &params.remaining_accounts[account_index];
 
         // Verify PDA
         let expected_seeds = &[
             PROOF_CHUNK_SEED,
-            submitter.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
+            params.submitter.as_ref(),
+            params.client_id.as_bytes(),
+            &params.sequence.to_le_bytes(),
             &[i],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, params.program_id);
 
         require!(
             chunk_account.key() == expected_pda,
@@ -186,8 +169,8 @@ pub fn assemble_proof_chunks(
         let chunk_data = chunk_account.try_borrow_data()?;
         let chunk: ProofChunk = ProofChunk::try_deserialize(&mut &chunk_data[..])?;
 
-        require_eq!(&chunk.client_id, client_id);
-        require_eq!(chunk.sequence, sequence);
+        require_eq!(&chunk.client_id, params.client_id);
+        require_eq!(chunk.sequence, params.sequence);
         require_eq!(chunk.chunk_index, i);
 
         proof_data.extend_from_slice(&chunk.chunk_data);
@@ -197,18 +180,18 @@ pub fn assemble_proof_chunks(
     // Verify commitment
     let computed_commitment = keccak::hash(&proof_data).0;
     require!(
-        computed_commitment == expected_commitment,
+        computed_commitment == params.expected_commitment,
         RouterError::InvalidChunkCommitment
     );
 
     // Clean up chunks and return rent
     cleanup_proof_chunks(
-        &remaining_accounts[start_index..start_index + accounts_processed],
-        submitter,
-        client_id,
-        sequence,
-        total_chunks,
-        program_id,
+        &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
+        params.submitter,
+        params.client_id,
+        params.sequence,
+        params.total_chunks,
+        params.program_id,
     )?;
 
     Ok(proof_data)

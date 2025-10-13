@@ -133,16 +133,16 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
 
     // Assemble proof from chunks (starting after payload chunks, using relayer as the chunk owner)
     let proof_start_index = total_payload_chunks;
-    let proof_data = chunking::assemble_proof_chunks(
-        ctx.remaining_accounts,
-        ctx.accounts.relayer.key(),
-        &msg.packet.source_client,
-        msg.packet.sequence,
-        msg.proof.total_chunks,
-        msg.proof.commitment,
-        ctx.program_id,
-        proof_start_index,
-    )?;
+    let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
+        remaining_accounts: ctx.remaining_accounts,
+        submitter: ctx.accounts.relayer.key(),
+        client_id: &msg.packet.source_client,
+        sequence: msg.packet.sequence,
+        total_chunks: msg.proof.total_chunks,
+        expected_commitment: msg.proof.commitment,
+        program_id: ctx.program_id,
+        start_index: proof_start_index,
+    })?;
 
     // Reconstruct the full packet with payloads
     let packet = Packet {

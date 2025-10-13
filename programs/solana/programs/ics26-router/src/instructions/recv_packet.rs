@@ -104,7 +104,6 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     let client = &ctx.accounts.client;
     let clock = &ctx.accounts.clock;
 
-    // Validate we have at least one payload
     require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
 
     // Validate the IBC app is registered for the dest port of the first payload
@@ -159,16 +158,16 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
 
     // Assemble proof from chunks (starting after payload chunks, using relayer as the chunk owner)
     let proof_start_index = total_payload_chunks;
-    let proof_data = chunking::assemble_proof_chunks(
-        ctx.remaining_accounts,
-        ctx.accounts.relayer.key(),
-        &msg.packet.dest_client,
-        msg.packet.sequence,
-        msg.proof.total_chunks,
-        msg.proof.commitment,
-        ctx.program_id,
-        proof_start_index,
-    )?;
+    let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
+        remaining_accounts: ctx.remaining_accounts,
+        submitter: ctx.accounts.relayer.key(),
+        client_id: &msg.packet.dest_client,
+        sequence: msg.packet.sequence,
+        total_chunks: msg.proof.total_chunks,
+        expected_commitment: msg.proof.commitment,
+        program_id: ctx.program_id,
+        start_index: proof_start_index,
+    })?;
 
     // Reconstruct the full packet with payloads
     let packet = Packet {
