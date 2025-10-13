@@ -48,7 +48,7 @@ let
   platformConfig = {
     x86_64-darwin = {
       archive = "platform-tools-osx-x86_64.tar.bz2";
-      sha256 = "sha256-0qik6gpvcq2rav1qy43n5vjipfa3m756p452y0fikir4cl5fvd5w=";
+      sha256 = "sha256-vLTtCmUkxxkd8KKQa8qpQ7kb5S52EI/DVllgtu8zM2I=";
     };
     aarch64-darwin = {
       archive = "platform-tools-osx-aarch64.tar.bz2";
@@ -56,11 +56,11 @@ let
     };
     x86_64-linux = {
       archive = "platform-tools-linux-x86_64.tar.bz2";
-      sha256 = "sha256-vHeOPs7B7WptUJ/mVvyt7ue+MqfqAsbwAHM+xlN/tgQ=";
+      sha256 = "sha256-qdMVf5N9X2+vQyGjWoA14PgnEUpmOwFQ20kuiT7CdZc=";
     };
     aarch64-linux = {
       archive = "platform-tools-linux-aarch64.tar.bz2";
-      sha256 = "sha256-1wkh3vry4sc83ia8zfbv6yb6d7ygqsy88r1nj13y5fgp48i05imf=";
+      sha256 = "sha256-rsYCIiL3ueJHkDZkhLzGz59mljd7uY9UHIhp4vMecPI=";
     };
   };
 
