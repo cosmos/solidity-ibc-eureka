@@ -8,8 +8,8 @@ use anyhow::{Context, Result};
 use ibc_eureka_relayer_lib::utils::solana_eureka::convert_client_state_to_sol;
 use ibc_eureka_relayer_lib::{
     events::{
-        solana::{solana_timeout_packet_to_tm_timeout, tm_timeout_to_solana_timeout_packet},
-        EurekaEventWithHeight, SolanaEurekaEventWithHeight,
+        solana::solana_timeout_packet_to_tm_timeout, EurekaEventWithHeight,
+        SolanaEurekaEventWithHeight,
     },
     utils::{
         cosmos::{
@@ -1005,53 +1005,63 @@ impl TxBuilder {
         }
 
         // convert to tm events so we can inject proofs
-        let mut timeout_msgs = timeout_msgs
-            .clone()
-            .into_iter()
-            .map(|msg| solana_timeout_packet_to_tm_timeout(msg, mock_signer_address.clone()))
+        let mut timeout_msgs_tm: Vec<_> = timeout_msgs
+            .iter()
+            .map(|timeout_with_chunks| {
+                solana_timeout_packet_to_tm_timeout(
+                    timeout_with_chunks.msg.clone(),
+                    mock_signer_address.clone(),
+                )
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         cosmos::inject_tendermint_proofs(
             &mut recv_msgs,
             &mut ack_msgs,
-            &mut timeout_msgs,
+            &mut timeout_msgs_tm,
             &self.src_tm_client,
             &target_height,
         )
         .await?;
 
-        // Keep the TM timeout messages to access proof data
-        let timeout_msgs_tm = timeout_msgs.clone();
+        // Convert back to Solana format and update proof data
+        let mut timeout_msgs_with_chunks = timeout_msgs;
+        for (idx, timeout_with_chunks) in timeout_msgs_with_chunks.iter_mut().enumerate() {
+            let tm_msg = &timeout_msgs_tm[idx];
 
-        let timeout_msgs: Vec<_> = timeout_msgs
-            .into_iter()
-            .map(tm_timeout_to_solana_timeout_packet)
-            .collect::<Result<Vec<_>, _>>()?;
+            // Update proof chunks with actual proof data
+            timeout_with_chunks.proof_chunks = tm_msg.proof_unreceived.clone();
+
+            // Update proof metadata
+            let proof_commitment = solana_sdk::keccak::hash(&tm_msg.proof_unreceived).0;
+            let proof_total_chunks = u8::try_from(
+                tm_msg
+                    .proof_unreceived
+                    .len()
+                    .div_ceil(700) // MAX_CHUNK_SIZE
+                    .max(1),
+            )
+            .context("proof too big to fit in u8")?;
+
+            timeout_with_chunks.msg.proof.commitment = proof_commitment;
+            timeout_with_chunks.msg.proof.total_chunks = proof_total_chunks;
+        }
 
         let mut all_txs = Vec::new();
         let chain_id = self.chain_id().await?;
 
         // Process recv messages with chunking
         for recv_msg in recv_msgs {
-            // Extract actual payload and proof data before conversion
-            let payload_data: Vec<Vec<u8>> = recv_msg
-                .packet
-                .as_ref()
-                .map(|p| {
-                    p.payloads
-                        .iter()
-                        .map(|payload| payload.value.clone())
-                        .collect()
-                })
-                .unwrap_or_default();
-            let proof_data = recv_msg.proof_commitment.clone();
-
-            // Convert to Solana format (creates metadata)
-            let recv_msg = ibc_to_solana_recv_packet(recv_msg)?;
+            // Convert to Solana format with chunk data
+            let recv_with_chunks = ibc_to_solana_recv_packet(recv_msg)?;
 
             // Build chunked transactions
-            let chunked =
-                self.build_recv_packet_chunked(&chain_id, &recv_msg, &payload_data, &proof_data)?;
+            let chunked = self.build_recv_packet_chunked(
+                &chain_id,
+                &recv_with_chunks.msg,
+                &recv_with_chunks.payload_chunks,
+                &recv_with_chunks.proof_chunks,
+            )?;
 
             // Add all chunks first, then the final recv instruction
             all_txs.extend(chunked.chunk_txs);
@@ -1060,25 +1070,16 @@ impl TxBuilder {
 
         // Process ack messages with chunking
         for ack_msg in ack_msgs {
-            // Extract actual payload and proof data before conversion
-            let payload_data: Vec<Vec<u8>> = ack_msg
-                .packet
-                .as_ref()
-                .map(|p| {
-                    p.payloads
-                        .iter()
-                        .map(|payload| payload.value.clone())
-                        .collect()
-                })
-                .unwrap_or_default();
-            let proof_data = ack_msg.proof_acked.clone();
-
-            // Convert to Solana format (creates metadata)
-            let ack_msg = ibc_to_solana_ack_packet(ack_msg)?;
+            // Convert to Solana format with chunk data
+            let ack_with_chunks = ibc_to_solana_ack_packet(ack_msg)?;
 
             // Build chunked transactions
             let chunked = self
-                .build_ack_packet_chunked(&ack_msg, &payload_data, &proof_data)
+                .build_ack_packet_chunked(
+                    &ack_with_chunks.msg,
+                    &ack_with_chunks.payload_chunks,
+                    &ack_with_chunks.proof_chunks,
+                )
                 .await?;
 
             // Add all chunks first, then the final ack instruction
@@ -1087,22 +1088,13 @@ impl TxBuilder {
         }
 
         // Process timeout messages with chunking
-        for (idx, timeout_msg) in timeout_msgs.iter().enumerate() {
-            // Extract actual payload data (packet is a direct field, not Option)
-            let payload_data: Vec<Vec<u8>> = timeout_msg
-                .packet
-                .payloads
-                .iter()
-                .map(|payload| payload.value.clone())
-                .collect();
-
-            // Get the corresponding TM message to access the actual proof data
-            let tm_msg = &timeout_msgs_tm[idx];
-            let proof_data = tm_msg.proof_unreceived.clone();
-
-            // Build chunked transactions (already in Solana format with metadata)
-            let chunked =
-                self.build_timeout_packet_chunked(timeout_msg, &payload_data, &proof_data)?;
+        for timeout_with_chunks in timeout_msgs_with_chunks {
+            // Build chunked transactions
+            let chunked = self.build_timeout_packet_chunked(
+                &timeout_with_chunks.msg,
+                &timeout_with_chunks.payload_chunks,
+                &timeout_with_chunks.proof_chunks,
+            )?;
 
             // Add all chunks first, then the final timeout instruction
             all_txs.extend(chunked.chunk_txs);

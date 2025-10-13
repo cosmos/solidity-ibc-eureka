@@ -85,7 +85,7 @@ pub struct MsgRecvPacket {
     pub proof: ProofMetadata,
 }
 
-/// Message for acknowledging a packet - updated for chunking with multi-payload support
+/// Message for acknowledging a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgAckPacket {
     pub packet: Packet,
@@ -94,7 +94,7 @@ pub struct MsgAckPacket {
     pub proof: ProofMetadata,
 }
 
-/// Message for timing out a packet - updated for chunking with multi-payload support
+/// Message for timing out a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgTimeoutPacket {
     pub packet: Packet,

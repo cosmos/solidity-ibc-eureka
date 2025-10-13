@@ -162,7 +162,7 @@ pub fn tm_timeout_to_solana_timeout_packet(
             let total_chunks = if p.value.len() > MAX_CHUNK_SIZE {
                 u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE)).context("payload too big")?
             } else {
-                1 // No chunking needed
+                0
             };
 
             anyhow::Ok(solana_ibc_types::PayloadMetadata {
@@ -182,7 +182,7 @@ pub fn tm_timeout_to_solana_timeout_packet(
         u8::try_from(msg.proof_unreceived.len().div_ceil(MAX_CHUNK_SIZE))
             .context("proof too big")?
     } else {
-        1 // No chunking needed
+        0
     };
 
     let proof_metadata = solana_ibc_types::ProofMetadata {

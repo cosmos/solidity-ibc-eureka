@@ -6,7 +6,6 @@ use crate::utils::{chunking, ics24};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::events::{NoopEvent, WriteAcknowledgementEvent};
-use solana_ibc_types::Payload;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
@@ -133,26 +132,15 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         RouterError::InvalidTimeoutTimestamp
     );
 
-    let payload_data_vec = chunking::assemble_multiple_payloads(
+    // Reconstruct packet from either inline or chunked mode
+    let packet = chunking::reconstruct_packet(
+        &msg.packet,
+        &msg.payloads,
         ctx.remaining_accounts,
         ctx.accounts.relayer.key(),
         &msg.packet.dest_client,
-        msg.packet.sequence,
-        &msg.payloads,
         ctx.program_id,
     )?;
-
-    let mut payloads = Vec::new();
-    for (i, metadata) in msg.payloads.iter().enumerate() {
-        let payload = Payload {
-            source_port: metadata.source_port.clone(),
-            dest_port: metadata.dest_port.clone(),
-            version: metadata.version.clone(),
-            encoding: metadata.encoding.clone(),
-            value: payload_data_vec[i].clone(),
-        };
-        payloads.push(payload);
-    }
 
     let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
 
@@ -168,15 +156,6 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         program_id: ctx.program_id,
         start_index: proof_start_index,
     })?;
-
-    // Reconstruct the full packet with payloads
-    let packet = Packet {
-        sequence: msg.packet.sequence,
-        source_client: msg.packet.source_client.clone(),
-        dest_client: msg.packet.dest_client.clone(),
-        timeout_timestamp: msg.packet.timeout_timestamp,
-        payloads: payloads.clone(),
-    };
 
     // Verify packet commitment on counterparty chain via light client
     let light_client_verification = LightClientVerification {
@@ -222,7 +201,7 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
 
     // For now, we only handle the first payload for CPI
     // TODO: In the future, we may need to handle multiple payloads differently
-    let first_payload = &payloads[0];
+    let first_payload = &packet.payloads[0];
 
     let acknowledgement = match on_recv_packet_cpi(
         &ctx.accounts.ibc_app_program,
@@ -277,7 +256,7 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_ibc_types::{PayloadMetadata, ProofMetadata};
+    use solana_ibc_types::{Payload, PayloadMetadata, ProofMetadata};
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;

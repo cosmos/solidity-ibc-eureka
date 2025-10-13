@@ -299,3 +299,73 @@ fn cleanup_proof_chunks(
     }
     Ok(())
 }
+
+/// Reconstruct a complete packet from either inline mode or chunked mode
+///
+/// This function provides a unified interface for packet reconstruction, handling both:
+/// - **Inline mode**: When packet.payloads is not empty, the packet is returned as-is
+/// - **Chunked mode**: When packet.payloads is empty, payloads are assembled from chunks and packet is reconstructed
+///
+/// # Arguments
+/// * `packet` - The packet from the message (with or without payloads)
+/// * `payloads_metadata` - Metadata for reconstructing payloads (empty in inline mode)
+/// * `remaining_accounts` - Chunk accounts for chunked mode
+/// * `submitter` - Submitter pubkey for chunk verification
+/// * `client_id` - Client ID for chunk verification
+/// * `program_id` - Program ID for PDA verification
+///
+/// # Returns
+/// * `Ok(solana_ibc_types::Packet)` - Reconstructed packet with payloads
+/// * `Err` - If validation fails or chunks cannot be assembled
+pub fn reconstruct_packet(
+    packet: &solana_ibc_types::Packet,
+    payloads_metadata: &[PayloadMetadata],
+    remaining_accounts: &[AccountInfo],
+    submitter: Pubkey,
+    client_id: &str,
+    program_id: &Pubkey,
+) -> Result<solana_ibc_types::Packet> {
+    let payloads = if !packet.payloads.is_empty() {
+        // Inline mode: Use payloads directly from packet (no metadata needed)
+        // The packet commitment is already verified via light client membership proof
+        msg!(
+            "Using inline payloads for packet {} (count: {})",
+            packet.sequence,
+            packet.payloads.len()
+        );
+        packet.payloads.clone()
+    } else {
+        // Chunked mode: Assemble payloads from chunks
+        let payload_data_vec = assemble_multiple_payloads(
+            remaining_accounts,
+            submitter,
+            client_id,
+            packet.sequence,
+            payloads_metadata,
+            program_id,
+        )?;
+
+        // Reconstruct the full payloads
+        let mut assembled_payloads = Vec::new();
+        for (i, metadata) in payloads_metadata.iter().enumerate() {
+            let payload = solana_ibc_types::Payload {
+                source_port: metadata.source_port.clone(),
+                dest_port: metadata.dest_port.clone(),
+                version: metadata.version.clone(),
+                encoding: metadata.encoding.clone(),
+                value: payload_data_vec[i].clone(),
+            };
+            assembled_payloads.push(payload);
+        }
+        assembled_payloads
+    };
+
+    // Return reconstructed packet
+    Ok(solana_ibc_types::Packet {
+        sequence: packet.sequence,
+        source_client: packet.source_client.clone(),
+        dest_client: packet.dest_client.clone(),
+        timeout_timestamp: packet.timeout_timestamp,
+        payloads,
+    })
+}

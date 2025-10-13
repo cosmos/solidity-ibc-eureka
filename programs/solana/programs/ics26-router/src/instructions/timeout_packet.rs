@@ -8,7 +8,6 @@ use ics25_handler::MembershipMsg;
 use solana_ibc_types::events::{NoopEvent, TimeoutPacketEvent};
 #[cfg(test)]
 use solana_ibc_types::router::APP_STATE_SEED;
-use solana_ibc_types::Payload;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgTimeoutPacket)]
@@ -105,28 +104,15 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         RouterError::InvalidCounterpartyClient
     );
 
-    // Assemble multiple payloads from chunks
-    let payload_data_vec = chunking::assemble_multiple_payloads(
+    // Reconstruct packet from either inline or chunked mode
+    let packet = chunking::reconstruct_packet(
+        &msg.packet,
+        &msg.payloads,
         ctx.remaining_accounts,
         ctx.accounts.relayer.key(),
         &msg.packet.source_client,
-        msg.packet.sequence,
-        &msg.payloads,
         ctx.program_id,
     )?;
-
-    // Reconstruct the full payloads
-    let mut payloads = Vec::new();
-    for (i, metadata) in msg.payloads.iter().enumerate() {
-        let payload = Payload {
-            source_port: metadata.source_port.clone(),
-            dest_port: metadata.dest_port.clone(),
-            version: metadata.version.clone(),
-            encoding: metadata.encoding.clone(),
-            value: payload_data_vec[i].clone(),
-        };
-        payloads.push(payload);
-    }
 
     // Calculate total payload chunks for proof start index
     let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
@@ -143,15 +129,6 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         program_id: ctx.program_id,
         start_index: proof_start_index,
     })?;
-
-    // Reconstruct the full packet with payloads
-    let packet = Packet {
-        sequence: msg.packet.sequence,
-        source_client: msg.packet.source_client.clone(),
-        dest_client: msg.packet.dest_client.clone(),
-        timeout_timestamp: msg.packet.timeout_timestamp,
-        payloads: payloads.clone(),
-    };
 
     // Verify non-membership proof on counterparty chain via light client
     let light_client_verification = LightClientVerification {
@@ -201,7 +178,7 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
 
     // For now, we only handle the first payload for CPI
     // TODO: In the future, we may need to handle multiple payloads differently
-    let first_payload = &payloads[0];
+    let first_payload = &packet.payloads[0];
 
     // CPI to IBC app's onTimeoutPacket
     on_timeout_packet_cpi(
@@ -242,7 +219,7 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_ibc_types::{PayloadMetadata, ProofMetadata};
+    use solana_ibc_types::{Payload, PayloadMetadata, ProofMetadata};
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;

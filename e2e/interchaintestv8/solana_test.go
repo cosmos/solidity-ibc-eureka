@@ -994,15 +994,24 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedRelayPackets(ctx context.Context
 	// Structure: [packet1_chunk0, packet1_chunk1, ..., packet1_final, packet2_chunk0, ...]
 	for i, txBytes := range resp.Txs {
 		txStart := time.Now()
+
+		// Decode transaction
+		decodeStart := time.Now()
 		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(txBytes))
+		decodeTime := time.Since(decodeStart)
 		s.Require().NoError(err, "Failed to decode transaction %d", i)
 
+		// Sign and broadcast
+		broadcastStart := time.Now()
 		sig, err := s.SolanaChain.SignAndBroadcastTxWithConfirmedStatus(ctx, tx, user)
+		broadcastTime := time.Since(broadcastStart)
 		s.Require().NoError(err, "Failed to submit transaction %d", i)
 
 		txDuration := time.Since(txStart)
 		s.T().Logf("✓ Transaction %d/%d completed in %v - tx: %s",
 			i+1, len(resp.Txs), txDuration, sig)
+		s.T().Logf("[Transaction %d timing] decode: %v, sign+broadcast+confirm: %v, total: %v",
+			i, decodeTime, broadcastTime, txDuration)
 	}
 
 	totalDuration := time.Since(totalStart)
