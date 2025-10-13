@@ -98,12 +98,12 @@ pub fn solana_timeout_packet_to_tm_timeout(
     };
 
     let height = ibc_proto_eureka::ibc::core::client::v1::Height {
-        revision_number: 0, // Solana doesn't have revision numbers
-        revision_height: msg.proof.height,  // Use ProofMetadata height
+        revision_number: 0,                // Solana doesn't have revision numbers
+        revision_height: msg.proof.height, // Use ProofMetadata height
     };
 
     // TODO: Extract actual proof data from chunks if needed
-    let proof_unreceived = vec![];  // Placeholder - actual proof would be assembled from chunks
+    let proof_unreceived = vec![]; // Placeholder - actual proof would be assembled from chunks
 
     let msg = ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout {
         proof_unreceived,
@@ -160,28 +160,29 @@ pub fn tm_timeout_to_solana_timeout_packet(
             // Calculate commitment and total chunks for each payload
             let commitment = solana_sdk::keccak::hash(&p.value).0;
             let total_chunks = if p.value.len() > MAX_CHUNK_SIZE {
-                ((p.value.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+                u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE)).context("payload too big")?
             } else {
-                0  // No chunking needed
+                1 // No chunking needed
             };
 
-            solana_ibc_types::PayloadMetadata {
+            anyhow::Ok(solana_ibc_types::PayloadMetadata {
                 source_port: p.source_port,
                 dest_port: p.destination_port,
                 version: p.version,
                 encoding: p.encoding,
                 commitment,
                 total_chunks,
-            }
+            })
         })
-        .collect();
+        .collect::<anyhow::Result<Vec<_>>>()?;
 
     // Create proof metadata
     let proof_commitment = solana_sdk::keccak::hash(&msg.proof_unreceived).0;
     let proof_total_chunks = if msg.proof_unreceived.len() > MAX_CHUNK_SIZE {
-        ((msg.proof_unreceived.len() + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE) as u8
+        u8::try_from(msg.proof_unreceived.len().div_ceil(MAX_CHUNK_SIZE))
+            .context("proof too big")?
     } else {
-        0  // No chunking needed
+        1 // No chunking needed
     };
 
     let proof_metadata = solana_ibc_types::ProofMetadata {
