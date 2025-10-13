@@ -10,6 +10,8 @@
 , protobuf
 , perl
 , hidapi
+, udev
+, llvmPackages
 , rust-bin
 , writeShellScriptBin
 , anchor
@@ -167,12 +169,31 @@ let
       pkg-config
       protobuf
       perl
+      llvmPackages.clang
     ];
 
     buildInputs = [
       openssl
       zlib
-    ] ++ optionals isLinux [ hidapi ];
+      llvmPackages.libclang.lib
+    ] ++ optionals isLinux [
+      hidapi
+      udev
+    ];
+
+    LIBCLANG_PATH = "${llvmPackages.libclang.lib}/lib";
+
+    BINDGEN_EXTRA_CLANG_ARGS = toString (
+      [
+        "-isystem ${llvmPackages.libclang.lib}/lib/clang/${lib.getVersion llvmPackages.clang}/include"
+      ]
+      ++ optionals isLinux [
+        "-isystem ${stdenv.cc.libc.dev}/include"
+      ]
+      ++ optionals hostPlatform.isDarwin [
+        "-isystem ${stdenv.cc.libc}/include"
+      ]
+    );
 
     postPatch = ''
       substituteInPlace scripts/cargo-install-all.sh \
