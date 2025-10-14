@@ -33,7 +33,7 @@ build-sp1-programs:
 build-cw-ics08-wasm-eth:
   -@docker image rm cosmwasm-builder:latest
   cd programs/cw-ics08-wasm-eth && docker buildx build --platform linux/amd64 -t cosmwasm-builder:latest .
-  docker run --rm -t \
+  docker run --rm --platform=linux/amd64  -t \
     -v "$PWD":/code \
     cosmwasm-builder:latest
   cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
