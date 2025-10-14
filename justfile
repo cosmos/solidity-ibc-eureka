@@ -32,7 +32,7 @@ build-sp1-programs:
 [group('build')]
 build-cw-ics08-wasm-eth:
   -@docker image rm cosmwasm-builder:latest
-  cd programs/cw-ics08-wasm-eth && docker build -t cosmwasm-builder:latest .
+  cd programs/cw-ics08-wasm-eth && docker buildx build --platform linux/amd64 -t cosmwasm-builder:latest .
   docker run --rm -t \
     -v "$PWD":/code \
     cosmwasm-builder:latest
