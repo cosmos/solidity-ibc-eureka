@@ -1001,9 +1001,14 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedRelayPackets(ctx context.Context
 		decodeTime := time.Since(decodeStart)
 		s.Require().NoError(err, "Failed to decode transaction %d", i)
 
+		// Update blockhash to prevent expiration
+		recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+		s.Require().NoError(err, "Failed to get latest blockhash for transaction %d", i)
+		tx.Message.RecentBlockhash = recent.Value.Blockhash
+
 		// Sign and broadcast
 		broadcastStart := time.Now()
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithConfirmedStatus(ctx, tx, user)
+		sig, err := s.SolanaChain.SignAndBroadcastTx(ctx, tx, user)
 		broadcastTime := time.Since(broadcastStart)
 		s.Require().NoError(err, "Failed to submit transaction %d", i)
 
