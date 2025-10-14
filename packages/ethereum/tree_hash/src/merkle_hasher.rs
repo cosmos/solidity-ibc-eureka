@@ -238,12 +238,14 @@ impl MerkleHasher {
 
         let max_leaves = 1 << (self.depth + 1);
 
+        #[allow(clippy::manual_is_multiple_of)]
+        // TODO: replace when <https://github.com/CosmWasm/cosmwasm/issues/2485> is resolved
         if self.next_leaf > max_leaves {
             return Err(Error::MaximumLeavesExceeded { max_leaves });
         } else if self.next_leaf == 1 {
             // A tree of depth one has a root that is equal to the first given leaf.
             self.root = Some(Hash256::from_slice(leaf))
-        } else if self.next_leaf.is_multiple_of(2) {
+        } else if self.next_leaf % 2 == 0 {
             self.process_left_node(self.next_leaf, Preimage::Slice(leaf))
         } else {
             self.process_right_node(self.next_leaf, Preimage::Slice(leaf))
