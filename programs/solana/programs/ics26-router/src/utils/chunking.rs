@@ -62,16 +62,39 @@ pub fn assemble_multiple_payloads(
 }
 
 pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<Vec<u8>> {
+    msg!(
+        "assemble_single_payload_chunks: total_chunks={}, start_index={}, remaining_accounts={}",
+        params.total_chunks,
+        params.start_index,
+        params.remaining_accounts.len()
+    );
+
     let mut payload_data = Vec::new();
     let mut accounts_processed = 0;
 
     // Collect and validate chunks
     for i in 0..params.total_chunks {
         let account_index = params.start_index + accounts_processed;
-        require!(
-            account_index < params.remaining_accounts.len(),
-            RouterError::InvalidChunkCount
+        msg!(
+            "Processing payload chunk {}/{}: account_index={}, remaining_accounts.len()={}",
+            i,
+            params.total_chunks,
+            account_index,
+            params.remaining_accounts.len()
         );
+        // TEMPORARILY COMMENTED OUT FOR DEBUGGING
+        // require!(
+        //     account_index < params.remaining_accounts.len(),
+        //     RouterError::InvalidChunkCount
+        // );
+        if account_index >= params.remaining_accounts.len() {
+            msg!(
+                "ERROR (PAYLOAD): account_index {} >= remaining_accounts.len() {}",
+                account_index,
+                params.remaining_accounts.len()
+            );
+            return Err(RouterError::PortAlreadyBound.into()); // Changed to unique error for debugging (6001)
+        }
 
         let chunk_account = &params.remaining_accounts[account_index];
 
@@ -113,14 +136,8 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
         params.total_chunks,
         payload_data.len()
     );
-    msg!(
-        "Expected: {:?}",
-        params.expected_commitment
-    );
-    msg!(
-        "Computed: {:?}",
-        computed_commitment
-    );
+    msg!("Expected: {:?}", params.expected_commitment);
+    msg!("Computed: {:?}", computed_commitment);
     require!(
         computed_commitment == params.expected_commitment,
         RouterError::InvalidChunkCommitment
@@ -140,18 +157,45 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
     Ok(payload_data)
 }
 
+pub fn total_payload_chunks(metadata: &[PayloadMetadata]) -> usize {
+    metadata.iter().map(|p| p.total_chunks as usize).sum()
+}
+
 /// Assemble proof chunks from remaining accounts and verify commitment
 pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
+    msg!(
+        "assemble_proof_chunks: total_chunks={}, start_index={}, remaining_accounts={}",
+        params.total_chunks,
+        params.start_index,
+        params.remaining_accounts.len()
+    );
+
     let mut proof_data = Vec::new();
     let mut accounts_processed = 0;
 
     // Collect and validate chunks
     for i in 0..params.total_chunks {
         let account_index = params.start_index + accounts_processed;
-        require!(
-            account_index < params.remaining_accounts.len(),
-            RouterError::InvalidChunkCount
+        msg!(
+            "Processing proof chunk {}/{}: account_index={}, remaining_accounts.len()={}",
+            i,
+            params.total_chunks,
+            account_index,
+            params.remaining_accounts.len()
         );
+        // TEMPORARILY COMMENTED OUT FOR DEBUGGING
+        // require!(
+        //     account_index < params.remaining_accounts.len(),
+        //     RouterError::InvalidChunkCount
+        // );
+        if account_index >= params.remaining_accounts.len() {
+            msg!(
+                "ERROR (PROOF): account_index {} >= remaining_accounts.len() {}",
+                account_index,
+                params.remaining_accounts.len()
+            );
+            return Err(RouterError::PortNotFound.into()); // Changed to unique error for debugging (6002)
+        }
 
         let chunk_account = &params.remaining_accounts[account_index];
 
@@ -190,14 +234,8 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
         params.total_chunks,
         proof_data.len()
     );
-    msg!(
-        "Expected: {:?}",
-        params.expected_commitment
-    );
-    msg!(
-        "Computed: {:?}",
-        computed_commitment
-    );
+    msg!("Expected: {:?}", params.expected_commitment);
+    msg!("Computed: {:?}", computed_commitment);
     require!(
         computed_commitment == params.expected_commitment,
         RouterError::InvalidChunkCommitment
@@ -325,16 +363,7 @@ pub fn reconstruct_packet(
     client_id: &str,
     program_id: &Pubkey,
 ) -> Result<solana_ibc_types::Packet> {
-    let payloads = if !packet.payloads.is_empty() {
-        // Inline mode: Use payloads directly from packet (no metadata needed)
-        // The packet commitment is already verified via light client membership proof
-        msg!(
-            "Using inline payloads for packet {} (count: {})",
-            packet.sequence,
-            packet.payloads.len()
-        );
-        packet.payloads.clone()
-    } else {
+    let payloads = if packet.payloads.is_empty() {
         // Chunked mode: Assemble payloads from chunks
         let payload_data_vec = assemble_multiple_payloads(
             remaining_accounts,
@@ -358,6 +387,15 @@ pub fn reconstruct_packet(
             assembled_payloads.push(payload);
         }
         assembled_payloads
+    } else {
+        // Inline mode: Use payloads directly from packet (no metadata needed)
+        // The packet commitment is already verified via light client membership proof
+        msg!(
+            "Using inline payloads for packet {} (count: {})",
+            packet.sequence,
+            packet.payloads.len()
+        );
+        packet.payloads.clone()
     };
 
     // Return reconstructed packet

@@ -76,13 +76,19 @@ pub struct AckPacket<'info> {
 }
 
 pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
+    msg!("=== ack_packet START ===");
+    msg!("Sequence: {}, src_client: {}, dest_client: {}",
+        msg.packet.sequence, msg.packet.source_client, msg.packet.dest_client);
+
     let router_state = &ctx.accounts.router_state;
     let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;
 
+    msg!("Validating payload metadata count: {}", msg.payloads.len());
     // Validate we have at least one payload
     require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
 
+    msg!("Validating IBC app for port: {}", msg.payloads[0].source_port);
     // Validate the IBC app is registered for the source port of the first payload
     let expected_ibc_app = Pubkey::find_program_address(
         &[IBC_APP_SEED, msg.payloads[0].source_port.as_bytes()],
@@ -94,15 +100,21 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         RouterError::IbcAppNotFound
     );
 
+    msg!("Validating relayer authority");
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
         RouterError::UnauthorizedSender
     );
 
+    msg!("Validating counterparty client");
     require!(
         msg.packet.dest_client == client.counterparty_info.client_id,
         RouterError::InvalidCounterpartyClient
     );
+
+    msg!("Reconstructing packet - inline payloads: {}, metadata chunks: {:?}",
+        msg.packet.payloads.len(),
+        msg.payloads.iter().map(|p| p.total_chunks).collect::<Vec<_>>());
 
     // Reconstruct packet from either inline or chunked mode
     let packet = chunking::reconstruct_packet(
@@ -114,11 +126,16 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         ctx.program_id,
     )?;
 
+    msg!("Packet reconstructed with {} payloads", packet.payloads.len());
+
     // Calculate total payload chunks for proof start index
     let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
+    msg!("Total payload chunks: {}, proof chunks: {}, proof start index: {}",
+        total_payload_chunks, msg.proof.total_chunks, total_payload_chunks);
 
     // Assemble proof from chunks (starting after payload chunks, using relayer as the chunk owner)
     let proof_start_index = total_payload_chunks;
+    msg!("Assembling proof from chunks...");
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
         submitter: ctx.accounts.relayer.key(),
@@ -129,8 +146,10 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         program_id: ctx.program_id,
         start_index: proof_start_index,
     })?;
+    msg!("Proof assembled, length: {}", proof_data.len());
 
     // Verify acknowledgement proof on counterparty chain via light client
+    msg!("Verifying membership via light client...");
     let light_client_verification = LightClientVerification {
         light_client_program: ctx.accounts.light_client_program.clone(),
         client_state: ctx.accounts.client_state.clone(),
@@ -150,16 +169,20 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     };
 
     verify_membership_cpi(client, &light_client_verification, membership_msg)?;
+    msg!("Membership verified");
 
     // Check if packet commitment exists (no-op case)
     // An uninitialized account will be owned by System Program
+    msg!("Checking packet commitment...");
     if packet_commitment_account.owner != &crate::ID || packet_commitment_account.data_is_empty() {
+        msg!("No packet commitment found - emitting NoopEvent");
         emit!(NoopEvent {});
         return Ok(());
     }
 
     // Safe to deserialize since we know it's owned by our program
     // Verify the commitment value
+    msg!("Verifying packet commitment...");
     {
         let data = packet_commitment_account.try_borrow_data()?;
         let packet_commitment = Commitment::try_from_slice(&data[8..])?;
@@ -169,10 +192,12 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
             RouterError::PacketCommitmentMismatch
         );
     }
+    msg!("Packet commitment verified");
 
     // For now, we only handle the first payload for CPI
     // TODO: In the future, we may need to handle multiple payloads differently
     let first_payload = &packet.payloads[0];
+    msg!("Calling IBC app on_acknowledgement_packet - port: {}", first_payload.source_port);
 
     on_acknowledgement_packet_cpi(
         &ctx.accounts.ibc_app_program,
@@ -185,8 +210,10 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         &msg.acknowledgement,
         &ctx.accounts.relayer.key(),
     )?;
+    msg!("IBC app callback completed");
 
     // Close the account and return rent to payer
+    msg!("Closing packet commitment and returning rent");
     let dest_starting_lamports = ctx.accounts.payer.lamports();
     **ctx.accounts.payer.lamports.borrow_mut() = dest_starting_lamports
         .checked_add(packet_commitment_account.lamports())
@@ -196,6 +223,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     let mut data = packet_commitment_account.try_borrow_mut_data()?;
     data.fill(0);
 
+    msg!("Emitting AckPacketEvent");
     emit!(AckPacketEvent {
         client_id: packet.source_client.clone(),
         sequence: packet.sequence,
@@ -203,6 +231,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         acknowledgement: vec![msg.acknowledgement],
     });
 
+    msg!("=== ack_packet SUCCESS ===");
     Ok(())
 }
 

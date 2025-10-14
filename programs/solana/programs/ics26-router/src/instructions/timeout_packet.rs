@@ -2,6 +2,7 @@ use crate::errors::RouterError;
 use crate::router_cpi::on_timeout_packet_cpi;
 use crate::router_cpi::{verify_non_membership_cpi, LightClientVerification};
 use crate::state::*;
+use crate::utils::chunking::total_payload_chunks;
 use crate::utils::{chunking, ics24};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
@@ -104,7 +105,6 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         RouterError::InvalidCounterpartyClient
     );
 
-    // Reconstruct packet from either inline or chunked mode
     let packet = chunking::reconstruct_packet(
         &msg.packet,
         &msg.payloads,
@@ -114,11 +114,7 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         ctx.program_id,
     )?;
 
-    // Calculate total payload chunks for proof start index
-    let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
-
-    // Assemble proof from chunks (starting after payload chunks, using relayer as the chunk owner)
-    let proof_start_index = total_payload_chunks;
+    let proof_start_index = total_payload_chunks(&msg.payloads);
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
         submitter: ctx.accounts.relayer.key(),

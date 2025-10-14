@@ -290,7 +290,7 @@ pub fn target_events_to_timeout_msgs(
                 let sequence = event.packet.sequence;
 
                 let payloads_metadata: Vec<PayloadMetadata> = if total_payload_size < INLINE_THRESHOLD {
-                    // Inline mode: No metadata needed
+                    // Inline mode: Metadata with port info but total_chunks=0
                     // The packet commitment is already verified via light client membership proof
                     tracing::info!(
                         "timeout_packet seq={}: INLINE mode (total_size={} < {}, num_payloads={})",
@@ -299,7 +299,19 @@ pub fn target_events_to_timeout_msgs(
                         INLINE_THRESHOLD,
                         num_payloads
                     );
-                    vec![]
+                    event
+                        .packet
+                        .payloads
+                        .iter()
+                        .map(|p| PayloadMetadata {
+                            source_port: p.source_port.clone(),
+                            dest_port: p.dest_port.clone(),
+                            version: p.version.clone(),
+                            encoding: p.encoding.clone(),
+                            commitment: [0u8; 32], // Not used in inline mode
+                            total_chunks: 0, // 0 indicates inline mode
+                        })
+                        .collect()
                 } else {
                     // Chunked mode
                     tracing::info!(
@@ -416,7 +428,7 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Recv
     let num_payloads = ibc_packet.payloads.len();
 
     let (packet, payloads_metadata) = if total_payload_size < INLINE_THRESHOLD {
-        // Inline mode: Put all payloads in packet, no metadata needed
+        // Inline mode: Put all payloads in packet, metadata with port info but total_chunks=0
         // The packet commitment is already verified via light client membership proof
         tracing::info!(
             "recv_packet seq={}: INLINE mode (total_size={} < {}, num_payloads={})",
@@ -432,6 +444,20 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Recv
             .map(|p| convert_payload(p.clone()))
             .collect();
 
+        // Create metadata with port info but total_chunks=0 to indicate inline mode
+        let payloads_metadata: Vec<PayloadMetadata> = ibc_packet
+            .payloads
+            .iter()
+            .map(|p| PayloadMetadata {
+                source_port: p.source_port.clone(),
+                dest_port: p.destination_port.clone(),
+                version: p.version.clone(),
+                encoding: p.encoding.clone(),
+                commitment: [0u8; 32], // Not used in inline mode
+                total_chunks: 0, // 0 indicates inline mode
+            })
+            .collect();
+
         let packet = Packet {
             sequence: ibc_packet.sequence,
             source_client: ibc_packet.source_client,
@@ -441,12 +467,13 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Recv
         };
 
         tracing::info!(
-            "recv_packet seq={}: packet.payloads={}, metadata=[]",
+            "recv_packet seq={}: packet.payloads={}, metadata={} (inline mode with port info)",
             packet.sequence,
-            packet.payloads.len()
+            packet.payloads.len(),
+            payloads_metadata.len()
         );
 
-        (packet, vec![])
+        (packet, payloads_metadata)
     } else {
         // Chunked mode: Empty packet payloads, metadata with chunk count
         tracing::info!(
@@ -579,7 +606,7 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
     let num_payloads = ibc_packet.payloads.len();
 
     let (packet, payloads_metadata) = if total_payload_size < INLINE_THRESHOLD {
-        // Inline mode: Put all payloads in packet, no metadata needed
+        // Inline mode: Put all payloads in packet, metadata with port info but total_chunks=0
         // The packet commitment is already verified via light client membership proof
         tracing::info!(
             "ack_packet seq={}: INLINE mode (total_size={} < {}, num_payloads={})",
@@ -595,6 +622,20 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
             .map(|p| convert_payload(p.clone()))
             .collect();
 
+        // Create metadata with port info but total_chunks=0 to indicate inline mode
+        let payloads_metadata: Vec<PayloadMetadata> = ibc_packet
+            .payloads
+            .iter()
+            .map(|p| PayloadMetadata {
+                source_port: p.source_port.clone(),
+                dest_port: p.destination_port.clone(),
+                version: p.version.clone(),
+                encoding: p.encoding.clone(),
+                commitment: [0u8; 32], // Not used in inline mode
+                total_chunks: 0, // 0 indicates inline mode
+            })
+            .collect();
+
         let packet = Packet {
             sequence: ibc_packet.sequence,
             source_client: ibc_packet.source_client,
@@ -604,12 +645,13 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
         };
 
         tracing::info!(
-            "ack_packet seq={}: packet.payloads={}, metadata=[]",
+            "ack_packet seq={}: packet.payloads={}, metadata={} (inline mode with port info)",
             packet.sequence,
-            packet.payloads.len()
+            packet.payloads.len(),
+            payloads_metadata.len()
         );
 
-        (packet, vec![])
+        (packet, payloads_metadata)
     } else {
         // Chunked mode: Empty packet payloads, metadata with chunk count
         tracing::info!(

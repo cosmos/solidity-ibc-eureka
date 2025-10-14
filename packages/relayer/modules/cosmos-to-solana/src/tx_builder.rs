@@ -210,6 +210,7 @@ impl TxBuilder {
         &self,
         chain_id: &str,
         msg: &MsgRecvPacket,
+        chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
         let [payload] = msg.packet.payloads.as_slice() else {
             return Err(anyhow::anyhow!(
@@ -244,7 +245,7 @@ impl TxBuilder {
         let (consensus_state, _) =
             derive_ics07_consensus_state(client_state, latest_height, self.solana_ics07_program_id);
 
-        let accounts = vec![
+        let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
             AccountMeta::new_readonly(ibc_app, false),
             AccountMeta::new(client_sequence, false),
@@ -260,6 +261,11 @@ impl TxBuilder {
             AccountMeta::new_readonly(consensus_state, false),
         ];
 
+        // Add chunk accounts as remaining_accounts (mutable since they'll be closed)
+        for chunk_account in chunk_accounts {
+            accounts.push(AccountMeta::new(chunk_account, false));
+        }
+
         let discriminator = get_instruction_discriminator("recv_packet");
         let mut data = discriminator.to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
@@ -272,7 +278,11 @@ impl TxBuilder {
     }
 
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
-    async fn build_ack_packet_instruction(&self, msg: &MsgAckPacket) -> Result<Instruction> {
+    async fn build_ack_packet_instruction(
+        &self,
+        msg: &MsgAckPacket,
+        chunk_accounts: Vec<Pubkey>,
+    ) -> Result<Instruction> {
         tracing::info!(
             "Building ack packet instruction for packet from {} to {}, sequence {}",
             msg.packet.source_client,
@@ -367,7 +377,7 @@ impl TxBuilder {
             consensus_state
         );
 
-        let accounts = vec![
+        let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
             AccountMeta::new_readonly(ibc_app_pda, false),
             AccountMeta::new(packet_commitment, false), // Will be closed after ack
@@ -382,6 +392,11 @@ impl TxBuilder {
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
+
+        // Add chunk accounts as remaining_accounts (mutable since they'll be closed)
+        for chunk_account in chunk_accounts {
+            accounts.push(AccountMeta::new(chunk_account, false));
+        }
 
         let discriminator = get_instruction_discriminator("ack_packet");
         let mut data = discriminator.to_vec();
@@ -399,7 +414,11 @@ impl TxBuilder {
     /// # Errors
     ///
     /// Returns an error if serialization fails
-    fn build_timeout_packet_instruction(&self, msg: &MsgTimeoutPacket) -> Result<Instruction> {
+    fn build_timeout_packet_instruction(
+        &self,
+        msg: &MsgTimeoutPacket,
+        chunk_accounts: Vec<Pubkey>,
+    ) -> Result<Instruction> {
         tracing::info!(
             "Building timeout packet instruction for packet from {} to {}, sequence {}",
             msg.packet.source_client,
@@ -420,7 +439,7 @@ impl TxBuilder {
         let (client, _) = derive_client(&msg.packet.dest_client, solana_ics26_program_id);
 
         // Build accounts list for timeout_packet
-        let accounts = vec![
+        let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
             AccountMeta::new(packet_commitment, false), // Will be closed after timeout
             AccountMeta::new_readonly(self.fee_payer, true), // relayer
@@ -428,6 +447,11 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(client, false),
         ];
+
+        // Add chunk accounts as remaining_accounts (mutable since they'll be closed)
+        for chunk_account in chunk_accounts {
+            accounts.push(AccountMeta::new(chunk_account, false));
+        }
 
         // Build instruction data
         let discriminator = get_instruction_discriminator("timeout_packet");
@@ -749,8 +773,45 @@ impl TxBuilder {
             }
         }
 
+        // Build list of chunk account PDAs for remaining_accounts
+        let mut remaining_account_pubkeys = Vec::new();
+
+        // Add payload chunk accounts
+        for (payload_idx, _data) in payload_data.iter().enumerate() {
+            let payload_index = u8::try_from(payload_idx)
+                .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
+
+            if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
+                for chunk_idx in 0..msg.payloads[payload_idx].total_chunks {
+                    let (chunk_pda, _) = derive_payload_chunk(
+                        self.fee_payer,
+                        &msg.packet.dest_client,
+                        msg.packet.sequence,
+                        payload_index,
+                        chunk_idx,
+                        self.solana_ics26_program_id,
+                    );
+                    remaining_account_pubkeys.push(chunk_pda);
+                }
+            }
+        }
+
+        // Add proof chunk accounts
+        if msg.proof.total_chunks > 0 {
+            for chunk_idx in 0..msg.proof.total_chunks {
+                let (chunk_pda, _) = derive_proof_chunk(
+                    self.fee_payer,
+                    &msg.packet.dest_client,
+                    msg.packet.sequence,
+                    chunk_idx,
+                    self.solana_ics26_program_id,
+                );
+                remaining_account_pubkeys.push(chunk_pda);
+            }
+        }
+
         // Build the main recv packet instruction with metadata
-        let recv_instruction = self.build_recv_packet_instruction(chain_id, msg)?;
+        let recv_instruction = self.build_recv_packet_instruction(chain_id, msg, remaining_account_pubkeys)?;
         let recv_tx = self.create_tx_bytes(&[recv_instruction])?;
 
         Ok(RecvPacketChunkedTxs { chunk_txs, recv_tx })
@@ -763,7 +824,11 @@ impl TxBuilder {
         payload_data: &[Vec<u8>], // Actual payload data for each payload
         proof_data: &[u8],        // Actual proof data
     ) -> Result<AckPacketChunkedTxs> {
+        tracing::info!("build_ack_packet_chunked: seq={}, payloads.len={}, proof.total_chunks={}",
+            msg.packet.sequence, msg.payloads.len(), msg.proof.total_chunks);
+
         let mut chunk_txs = Vec::new();
+        let mut total_payload_chunk_accounts = 0usize;
 
         // Process each payload
         for (payload_idx, data) in payload_data.iter().enumerate() {
@@ -772,7 +837,10 @@ impl TxBuilder {
 
             // Check if payload needs chunking (based on metadata)
             if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
+                tracing::info!("  Payload {}: total_chunks={}, data_len={}",
+                    payload_idx, msg.payloads[payload_idx].total_chunks, data.len());
                 let chunks = Self::split_into_chunks(data);
+                tracing::info!("    Split into {} chunk transactions", chunks.len());
                 for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
                     let chunk_index = u8::try_from(chunk_idx)
                         .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
@@ -786,13 +854,20 @@ impl TxBuilder {
                     )?;
 
                     chunk_txs.push(self.create_tx_bytes(&[instruction])?);
+                    total_payload_chunk_accounts += 1;
                 }
             }
         }
 
+        tracing::info!("  Total payload chunk accounts: {}", total_payload_chunk_accounts);
+
+        let mut total_proof_chunk_accounts = 0usize;
+
         // Process proof if it needs chunking (based on metadata)
         if msg.proof.total_chunks > 0 {
             let chunks = Self::split_into_chunks(proof_data);
+            tracing::info!("  Proof: total_chunks={}, data_len={}, split into {} chunk transactions",
+                msg.proof.total_chunks, proof_data.len(), chunks.len());
             for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
                 let chunk_index = u8::try_from(chunk_idx)
                     .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
@@ -805,11 +880,56 @@ impl TxBuilder {
                 )?;
 
                 chunk_txs.push(self.create_tx_bytes(&[instruction])?);
+                total_proof_chunk_accounts += 1;
             }
         }
 
+        tracing::info!("  Total proof chunk accounts: {}", total_proof_chunk_accounts);
+        tracing::info!("  Total chunk upload txs: {}, then 1 final ack_packet tx",
+            total_payload_chunk_accounts + total_proof_chunk_accounts);
+
+        // Build list of chunk account PDAs for remaining_accounts
+        let mut remaining_account_pubkeys = Vec::new();
+
+        // Add payload chunk accounts
+        for (payload_idx, _data) in payload_data.iter().enumerate() {
+            let payload_index = u8::try_from(payload_idx)
+                .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
+
+            if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
+                for chunk_idx in 0..msg.payloads[payload_idx].total_chunks {
+                    let (chunk_pda, _) = derive_payload_chunk(
+                        self.fee_payer,
+                        &msg.packet.source_client,
+                        msg.packet.sequence,
+                        payload_index,
+                        chunk_idx,
+                        self.solana_ics26_program_id,
+                    );
+                    remaining_account_pubkeys.push(chunk_pda);
+                }
+            }
+        }
+
+        // Add proof chunk accounts
+        if msg.proof.total_chunks > 0 {
+            for chunk_idx in 0..msg.proof.total_chunks {
+                let (chunk_pda, _) = derive_proof_chunk(
+                    self.fee_payer,
+                    &msg.packet.source_client,
+                    msg.packet.sequence,
+                    chunk_idx,
+                    self.solana_ics26_program_id,
+                );
+                remaining_account_pubkeys.push(chunk_pda);
+            }
+        }
+
+        tracing::info!("  Adding {} remaining_accounts (chunk PDAs) to ack_packet instruction",
+            remaining_account_pubkeys.len());
+
         // Build the main ack packet instruction with metadata
-        let ack_instruction = self.build_ack_packet_instruction(msg).await?;
+        let ack_instruction = self.build_ack_packet_instruction(msg, remaining_account_pubkeys).await?;
         let ack_tx = self.create_tx_bytes(&[ack_instruction])?;
 
         Ok(AckPacketChunkedTxs { chunk_txs, ack_tx })
@@ -867,8 +987,45 @@ impl TxBuilder {
             }
         }
 
+        // Build list of chunk account PDAs for remaining_accounts
+        let mut remaining_account_pubkeys = Vec::new();
+
+        // Add payload chunk accounts
+        for (payload_idx, _data) in payload_data.iter().enumerate() {
+            let payload_index = u8::try_from(payload_idx)
+                .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
+
+            if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
+                for chunk_idx in 0..msg.payloads[payload_idx].total_chunks {
+                    let (chunk_pda, _) = derive_payload_chunk(
+                        self.fee_payer,
+                        &msg.packet.source_client,
+                        msg.packet.sequence,
+                        payload_index,
+                        chunk_idx,
+                        self.solana_ics26_program_id,
+                    );
+                    remaining_account_pubkeys.push(chunk_pda);
+                }
+            }
+        }
+
+        // Add proof chunk accounts
+        if msg.proof.total_chunks > 0 {
+            for chunk_idx in 0..msg.proof.total_chunks {
+                let (chunk_pda, _) = derive_proof_chunk(
+                    self.fee_payer,
+                    &msg.packet.source_client,
+                    msg.packet.sequence,
+                    chunk_idx,
+                    self.solana_ics26_program_id,
+                );
+                remaining_account_pubkeys.push(chunk_pda);
+            }
+        }
+
         // Build the main timeout packet instruction with metadata
-        let timeout_instruction = self.build_timeout_packet_instruction(msg)?;
+        let timeout_instruction = self.build_timeout_packet_instruction(msg, remaining_account_pubkeys)?;
         let timeout_tx = self.create_tx_bytes(&[timeout_instruction])?;
 
         Ok(TimeoutPacketChunkedTxs {
