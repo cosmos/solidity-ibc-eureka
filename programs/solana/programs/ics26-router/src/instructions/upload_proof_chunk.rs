@@ -41,4 +41,3 @@ pub fn upload_proof_chunk(ctx: Context<UploadProofChunk>, msg: MsgUploadChunk) -
 
     Ok(())
 }
-

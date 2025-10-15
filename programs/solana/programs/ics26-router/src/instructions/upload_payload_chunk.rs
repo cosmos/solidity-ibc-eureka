@@ -43,4 +43,3 @@ pub fn upload_payload_chunk(ctx: Context<UploadPayloadChunk>, msg: MsgUploadChun
 
     Ok(())
 }
-

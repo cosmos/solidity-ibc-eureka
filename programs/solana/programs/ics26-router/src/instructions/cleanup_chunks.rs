@@ -98,4 +98,3 @@ fn cleanup_single_chunk<'info>(
 
     Ok(())
 }
-

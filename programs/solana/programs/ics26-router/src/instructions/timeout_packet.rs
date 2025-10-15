@@ -76,7 +76,10 @@ pub struct TimeoutPacket<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
-pub fn timeout_packet<'info>(ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info>>, msg: MsgTimeoutPacket) -> Result<()> {
+pub fn timeout_packet<'info>(
+    ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info>>,
+    msg: MsgTimeoutPacket,
+) -> Result<()> {
     let router_state = &ctx.accounts.router_state;
     let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;

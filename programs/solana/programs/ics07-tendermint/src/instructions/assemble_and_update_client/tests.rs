@@ -388,7 +388,8 @@ fn test_assembly_wrong_submitter() {
     );
 
     let mut accounts = vec![
-        (client_state_pda, create_client_state_account(chain_id, 90)), (
+        (client_state_pda, create_client_state_account(chain_id, 90)),
+        (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
         ),
@@ -410,11 +411,7 @@ fn test_assembly_wrong_submitter() {
 
     // When the submitter is wrong, the PDA validation fails because chunks were created
     // with a different submitter, so we get InvalidChunkAccount
-    assert_error_code(
-        result,
-        ErrorCode::InvalidChunkAccount,
-        "wrong submitter",
-    );
+    assert_error_code(result, ErrorCode::InvalidChunkAccount, "wrong submitter");
 }
 
 #[test]
@@ -460,7 +457,8 @@ fn test_assembly_chunks_in_wrong_order() {
     );
 
     let mut accounts = vec![
-        (client_state_pda, create_client_state_account(chain_id, 90)), (
+        (client_state_pda, create_client_state_account(chain_id, 90)),
+        (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
         ),
@@ -537,7 +535,8 @@ fn test_rent_reclaim_after_assembly() {
     );
 
     let mut accounts = vec![
-        (client_state_pda, create_client_state_account(chain_id, 90)), (
+        (client_state_pda, create_client_state_account(chain_id, 90)),
+        (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
         ),

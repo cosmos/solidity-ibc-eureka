@@ -223,7 +223,7 @@ mod tests {
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda),
             create_system_account(app_caller), // app_caller is a signer
-            create_system_account(payer),       // payer is also a signer
+            create_system_account(payer),      // payer is also a signer
             create_program_account(system_program::ID),
             create_clock_account_with_data(clock_data),
             create_account(client_pda, client_data, crate::ID),
