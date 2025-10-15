@@ -10,7 +10,6 @@ pub fn cleanup_incomplete_upload(
     // Close all chunk accounts that were uploaded
     // IMPORTANT: We must validate that these are actually chunk PDAs to avoid
     // accidentally closing other accounts
-    let mut closed_count = 0u8;
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
         // Derive the expected chunk PDA for this index
         let expected_seeds = &[
@@ -37,16 +36,10 @@ pub fn cleanup_incomplete_upload(
                 ctx.accounts.submitter_account.try_borrow_mut_lamports()?;
             **submitter_lamports += **lamports;
             **lamports = 0;
-            closed_count += 1;
         }
         // If account doesn't exist or isn't owned by us, skip it
     }
 
-    msg!(
-        "Cleaned up incomplete upload at height {} ({} chunks closed)",
-        cleanup_height,
-        closed_count
-    );
     Ok(())
 }
 
