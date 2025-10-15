@@ -25,13 +25,7 @@ import { AccessControl } from "@openzeppelin-contracts/access/AccessControl.sol"
 /// @title SP1 ICS07 Tendermint Light Client
 /// @author srdtrk
 /// @notice This contract implements an ICS07 IBC tendermint light client using SP1.
-contract SP1ICS07Tendermint is
-    ISP1ICS07TendermintErrors,
-    ISP1ICS07Tendermint,
-    ILightClient,
-    Multicall,
-    AccessControl
-{
+contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, ILightClient, Multicall, AccessControl {
     using TransientSlot for *;
 
     /// @inheritdoc ISP1ICS07Tendermint
@@ -457,10 +451,7 @@ contract SP1ICS07Tendermint is
     /// @dev This function does not check the equality of the latest height and isFrozen.
     /// @param publicClientState The public client state.
     /// @param time The time in unix nanoseconds.
-    function _validateClientStateAndTime(
-        IICS07TendermintMsgs.ClientState memory publicClientState,
-        uint128 time
-    )
+    function _validateClientStateAndTime(IICS07TendermintMsgs.ClientState memory publicClientState, uint128 time)
         private
         view
     {
@@ -553,14 +544,7 @@ contract SP1ICS07Tendermint is
     /// @param proofHeight The height of the proof.
     /// @param kvPair The key-value pair.
     /// @return The timestamp of the cached key-value pair in unix nanoseconds.
-    function _getCachedKvPair(
-        uint64 proofHeight,
-        IMembershipMsgs.KVPair memory kvPair
-    )
-        private
-        view
-        returns (uint256)
-    {
+    function _getCachedKvPair(uint64 proofHeight, IMembershipMsgs.KVPair memory kvPair) private view returns (uint256) {
         bytes32 kvPairHash = keccak256(abi.encode(proofHeight, kvPair));
         uint256 timestamp = kvPairHash.asUint256().tload();
         require(timestamp != 0, KeyValuePairNotInCache(kvPair.path, kvPair.value));
