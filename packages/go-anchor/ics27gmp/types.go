@@ -11,161 +11,6 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-// Individual account state managed as PDAs
-type AccountState struct {
-	// Client ID that created this account
-	ClientId string `json:"clientId"`
-
-	// Original sender (checksummed hex address from source chain)
-	Sender string `json:"sender"`
-
-	// Salt for unique account generation
-	Salt []byte `json:"salt"`
-
-	// Execution nonce for replay protection
-	Nonce uint64 `json:"nonce"`
-
-	// Whether account is frozen (emergency stop)
-	Frozen bool `json:"frozen"`
-
-	// Account creation timestamp
-	CreatedAt int64 `json:"createdAt"`
-
-	// Last execution timestamp
-	LastExecutedAt int64 `json:"lastExecutedAt"`
-
-	// Total successful executions
-	ExecutionCount uint64 `json:"executionCount"`
-
-	// PDA bump seed
-	Bump uint8 `json:"bump"`
-}
-
-func (obj AccountState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `Sender`:
-	err = encoder.Encode(obj.Sender)
-	if err != nil {
-		return errors.NewField("Sender", err)
-	}
-	// Serialize `Salt`:
-	err = encoder.Encode(obj.Salt)
-	if err != nil {
-		return errors.NewField("Salt", err)
-	}
-	// Serialize `Nonce`:
-	err = encoder.Encode(obj.Nonce)
-	if err != nil {
-		return errors.NewField("Nonce", err)
-	}
-	// Serialize `Frozen`:
-	err = encoder.Encode(obj.Frozen)
-	if err != nil {
-		return errors.NewField("Frozen", err)
-	}
-	// Serialize `CreatedAt`:
-	err = encoder.Encode(obj.CreatedAt)
-	if err != nil {
-		return errors.NewField("CreatedAt", err)
-	}
-	// Serialize `LastExecutedAt`:
-	err = encoder.Encode(obj.LastExecutedAt)
-	if err != nil {
-		return errors.NewField("LastExecutedAt", err)
-	}
-	// Serialize `ExecutionCount`:
-	err = encoder.Encode(obj.ExecutionCount)
-	if err != nil {
-		return errors.NewField("ExecutionCount", err)
-	}
-	// Serialize `Bump`:
-	err = encoder.Encode(obj.Bump)
-	if err != nil {
-		return errors.NewField("Bump", err)
-	}
-	return nil
-}
-
-func (obj AccountState) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding AccountState: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *AccountState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `Sender`:
-	err = decoder.Decode(&obj.Sender)
-	if err != nil {
-		return errors.NewField("Sender", err)
-	}
-	// Deserialize `Salt`:
-	err = decoder.Decode(&obj.Salt)
-	if err != nil {
-		return errors.NewField("Salt", err)
-	}
-	// Deserialize `Nonce`:
-	err = decoder.Decode(&obj.Nonce)
-	if err != nil {
-		return errors.NewField("Nonce", err)
-	}
-	// Deserialize `Frozen`:
-	err = decoder.Decode(&obj.Frozen)
-	if err != nil {
-		return errors.NewField("Frozen", err)
-	}
-	// Deserialize `CreatedAt`:
-	err = decoder.Decode(&obj.CreatedAt)
-	if err != nil {
-		return errors.NewField("CreatedAt", err)
-	}
-	// Deserialize `LastExecutedAt`:
-	err = decoder.Decode(&obj.LastExecutedAt)
-	if err != nil {
-		return errors.NewField("LastExecutedAt", err)
-	}
-	// Deserialize `ExecutionCount`:
-	err = decoder.Decode(&obj.ExecutionCount)
-	if err != nil {
-		return errors.NewField("ExecutionCount", err)
-	}
-	// Deserialize `Bump`:
-	err = decoder.Decode(&obj.Bump)
-	if err != nil {
-		return errors.NewField("Bump", err)
-	}
-	return nil
-}
-
-func (obj *AccountState) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling AccountState: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalAccountState(buf []byte) (*AccountState, error) {
-	obj := new(AccountState)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
 // Event emitted when a new account is created
 type GmpAccountCreated struct {
 	// Account address (PDA)
@@ -262,160 +107,6 @@ func (obj *GmpAccountCreated) Unmarshal(buf []byte) error {
 
 func UnmarshalGmpAccountCreated(buf []byte) (*GmpAccountCreated, error) {
 	obj := new(GmpAccountCreated)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Event emitted when an account is frozen
-type GmpAccountFrozen struct {
-	// Account that was frozen
-	Account solanago.PublicKey `json:"account"`
-
-	// Admin who froze the account
-	Admin solanago.PublicKey `json:"admin"`
-
-	// Freeze timestamp
-	Timestamp int64 `json:"timestamp"`
-}
-
-func (obj GmpAccountFrozen) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Account`:
-	err = encoder.Encode(obj.Account)
-	if err != nil {
-		return errors.NewField("Account", err)
-	}
-	// Serialize `Admin`:
-	err = encoder.Encode(obj.Admin)
-	if err != nil {
-		return errors.NewField("Admin", err)
-	}
-	// Serialize `Timestamp`:
-	err = encoder.Encode(obj.Timestamp)
-	if err != nil {
-		return errors.NewField("Timestamp", err)
-	}
-	return nil
-}
-
-func (obj GmpAccountFrozen) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding GmpAccountFrozen: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *GmpAccountFrozen) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Account`:
-	err = decoder.Decode(&obj.Account)
-	if err != nil {
-		return errors.NewField("Account", err)
-	}
-	// Deserialize `Admin`:
-	err = decoder.Decode(&obj.Admin)
-	if err != nil {
-		return errors.NewField("Admin", err)
-	}
-	// Deserialize `Timestamp`:
-	err = decoder.Decode(&obj.Timestamp)
-	if err != nil {
-		return errors.NewField("Timestamp", err)
-	}
-	return nil
-}
-
-func (obj *GmpAccountFrozen) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling GmpAccountFrozen: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalGmpAccountFrozen(buf []byte) (*GmpAccountFrozen, error) {
-	obj := new(GmpAccountFrozen)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Event emitted when an account is unfrozen
-type GmpAccountUnfrozen struct {
-	// Account that was unfrozen
-	Account solanago.PublicKey `json:"account"`
-
-	// Admin who unfroze the account
-	Admin solanago.PublicKey `json:"admin"`
-
-	// Unfreeze timestamp
-	Timestamp int64 `json:"timestamp"`
-}
-
-func (obj GmpAccountUnfrozen) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Account`:
-	err = encoder.Encode(obj.Account)
-	if err != nil {
-		return errors.NewField("Account", err)
-	}
-	// Serialize `Admin`:
-	err = encoder.Encode(obj.Admin)
-	if err != nil {
-		return errors.NewField("Admin", err)
-	}
-	// Serialize `Timestamp`:
-	err = encoder.Encode(obj.Timestamp)
-	if err != nil {
-		return errors.NewField("Timestamp", err)
-	}
-	return nil
-}
-
-func (obj GmpAccountUnfrozen) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding GmpAccountUnfrozen: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *GmpAccountUnfrozen) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Account`:
-	err = decoder.Decode(&obj.Account)
-	if err != nil {
-		return errors.NewField("Account", err)
-	}
-	// Deserialize `Admin`:
-	err = decoder.Decode(&obj.Admin)
-	if err != nil {
-		return errors.NewField("Admin", err)
-	}
-	// Deserialize `Timestamp`:
-	err = decoder.Decode(&obj.Timestamp)
-	if err != nil {
-		return errors.NewField("Timestamp", err)
-	}
-	return nil
-}
-
-func (obj *GmpAccountUnfrozen) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling GmpAccountUnfrozen: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalGmpAccountUnfrozen(buf []byte) (*GmpAccountUnfrozen, error) {
-	obj := new(GmpAccountUnfrozen)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -672,9 +363,6 @@ type GmpAppState struct {
 	// ICS26 Router program that manages this app
 	RouterProgram solanago.PublicKey `json:"routerProgram"`
 
-	// Port ID this app is bound to
-	PortId string `json:"portId"`
-
 	// Administrative authority
 	Authority solanago.PublicKey `json:"authority"`
 
@@ -683,15 +371,6 @@ type GmpAppState struct {
 
 	// Emergency pause flag
 	Paused bool `json:"paused"`
-
-	// Total accounts created
-	TotalAccounts uint64 `json:"totalAccounts"`
-
-	// Total packets sent
-	TotalPacketsSent uint64 `json:"totalPacketsSent"`
-
-	// Total packets received
-	TotalPacketsReceived uint64 `json:"totalPacketsReceived"`
 
 	// PDA bump seed
 	Bump uint8 `json:"bump"`
@@ -702,11 +381,6 @@ func (obj GmpAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	err = encoder.Encode(obj.RouterProgram)
 	if err != nil {
 		return errors.NewField("RouterProgram", err)
-	}
-	// Serialize `PortId`:
-	err = encoder.Encode(obj.PortId)
-	if err != nil {
-		return errors.NewField("PortId", err)
 	}
 	// Serialize `Authority`:
 	err = encoder.Encode(obj.Authority)
@@ -722,21 +396,6 @@ func (obj GmpAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	err = encoder.Encode(obj.Paused)
 	if err != nil {
 		return errors.NewField("Paused", err)
-	}
-	// Serialize `TotalAccounts`:
-	err = encoder.Encode(obj.TotalAccounts)
-	if err != nil {
-		return errors.NewField("TotalAccounts", err)
-	}
-	// Serialize `TotalPacketsSent`:
-	err = encoder.Encode(obj.TotalPacketsSent)
-	if err != nil {
-		return errors.NewField("TotalPacketsSent", err)
-	}
-	// Serialize `TotalPacketsReceived`:
-	err = encoder.Encode(obj.TotalPacketsReceived)
-	if err != nil {
-		return errors.NewField("TotalPacketsReceived", err)
 	}
 	// Serialize `Bump`:
 	err = encoder.Encode(obj.Bump)
@@ -762,11 +421,6 @@ func (obj *GmpAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error
 	if err != nil {
 		return errors.NewField("RouterProgram", err)
 	}
-	// Deserialize `PortId`:
-	err = decoder.Decode(&obj.PortId)
-	if err != nil {
-		return errors.NewField("PortId", err)
-	}
 	// Deserialize `Authority`:
 	err = decoder.Decode(&obj.Authority)
 	if err != nil {
@@ -781,21 +435,6 @@ func (obj *GmpAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error
 	err = decoder.Decode(&obj.Paused)
 	if err != nil {
 		return errors.NewField("Paused", err)
-	}
-	// Deserialize `TotalAccounts`:
-	err = decoder.Decode(&obj.TotalAccounts)
-	if err != nil {
-		return errors.NewField("TotalAccounts", err)
-	}
-	// Deserialize `TotalPacketsSent`:
-	err = decoder.Decode(&obj.TotalPacketsSent)
-	if err != nil {
-		return errors.NewField("TotalPacketsSent", err)
-	}
-	// Deserialize `TotalPacketsReceived`:
-	err = decoder.Decode(&obj.TotalPacketsReceived)
-	if err != nil {
-		return errors.NewField("TotalPacketsReceived", err)
 	}
 	// Deserialize `Bump`:
 	err = decoder.Decode(&obj.Bump)

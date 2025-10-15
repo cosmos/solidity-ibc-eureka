@@ -362,13 +362,9 @@ fn test_app_state_can_operate_when_not_paused() {
 
     let app_state = GMPAppState {
         router_program,
-        port_id: "gmpport".to_string(),
         authority,
         version: 1,
         paused: false,
-        total_accounts: 0,
-        total_packets_sent: 0,
-        total_packets_received: 0,
         bump,
     };
 
@@ -387,65 +383,15 @@ fn test_app_state_cannot_operate_when_paused() {
 
     let app_state = GMPAppState {
         router_program,
-        port_id: "gmpport".to_string(),
         authority,
         version: 1,
         paused: true, // Paused
-        total_accounts: 0,
-        total_packets_sent: 0,
-        total_packets_received: 0,
         bump,
     };
 
     assert!(
         app_state.can_operate().is_err(),
         "App should not be operational when paused"
-    );
-}
-
-#[test]
-fn test_account_state_can_execute_when_not_frozen() {
-    let (_account_pda, bump) =
-        AccountState::derive_address("cosmoshub-1", "cosmos1test", b"", &ID).unwrap();
-
-    let account_state = AccountState {
-        client_id: "cosmoshub-1".to_string(),
-        sender: "cosmos1test".to_string(),
-        salt: vec![],
-        nonce: 0,
-        frozen: false,
-        created_at: 1_600_000_000,
-        last_executed_at: 1_600_000_000,
-        execution_count: 0,
-        bump,
-    };
-
-    assert!(
-        account_state.can_execute().is_ok(),
-        "Account should be executable when not frozen"
-    );
-}
-
-#[test]
-fn test_account_state_cannot_execute_when_frozen() {
-    let (_account_pda, bump) =
-        AccountState::derive_address("cosmoshub-1", "cosmos1test", b"", &ID).unwrap();
-
-    let account_state = AccountState {
-        client_id: "cosmoshub-1".to_string(),
-        sender: "cosmos1test".to_string(),
-        salt: vec![],
-        nonce: 0,
-        frozen: true, // Frozen
-        created_at: 1_600_000_000,
-        last_executed_at: 1_600_000_000,
-        execution_count: 0,
-        bump,
-    };
-
-    assert!(
-        account_state.can_execute().is_err(),
-        "Account should not be executable when frozen"
     );
 }
 
@@ -459,7 +405,6 @@ fn test_account_state_nonce_increment() {
         sender: "cosmos1test".to_string(),
         salt: vec![],
         nonce: 5,
-        frozen: false,
         created_at: 1_600_000_000,
         last_executed_at: 1_600_000_000,
         execution_count: 10,

@@ -11,72 +11,11 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-// Builds a "freeze_account" instruction.
-// Freeze an account (admin only)
-func NewFreezeAccountInstruction(
-	// Params:
-	clientIdParam string,
-	senderParam string,
-	saltParam []byte,
-
-	// Accounts:
-	appStateAccount solanago.PublicKey,
-	accountStateAccount solanago.PublicKey,
-	authorityAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_FreezeAccount[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `clientIdParam`:
-		err = enc__.Encode(clientIdParam)
-		if err != nil {
-			return nil, errors.NewField("clientIdParam", err)
-		}
-		// Serialize `senderParam`:
-		err = enc__.Encode(senderParam)
-		if err != nil {
-			return nil, errors.NewField("senderParam", err)
-		}
-		// Serialize `saltParam`:
-		err = enc__.Encode(saltParam)
-		if err != nil {
-			return nil, errors.NewField("saltParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "app_state": Read-only, Non-signer, Required
-		// App state account - PDA validation done in handler
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
-		// Account 1 "account_state": Writable, Non-signer, Required
-		// Account state - PDA validation done in handler since sender is hashed
-		accounts__.Append(solanago.NewAccountMeta(accountStateAccount, true, false))
-		// Account 2 "authority": Read-only, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
 // Builds a "initialize" instruction.
 // Initialize the ICS27 GMP application
 func NewInitializeInstruction(
 	// Params:
 	routerProgramParam solanago.PublicKey,
-	portIdParam string,
 
 	// Accounts:
 	appStateAccount solanago.PublicKey,
@@ -98,11 +37,6 @@ func NewInitializeInstruction(
 		err = enc__.Encode(routerProgramParam)
 		if err != nil {
 			return nil, errors.NewField("routerProgramParam", err)
-		}
-		// Serialize `portIdParam`:
-		err = enc__.Encode(portIdParam)
-		if err != nil {
-			return nil, errors.NewField("portIdParam", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
@@ -162,7 +96,7 @@ func NewOnAcknowledgementPacketInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Read-only, Non-signer, Required
-		// App state account - PDA validation done in handler since `port_id` comes from router message
+		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 1 "router_program": Read-only, Non-signer, Required
 		// Router program calling this instruction
@@ -214,7 +148,7 @@ func NewOnRecvPacketInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
-		// App state account - PDA validation done in handler since `port_id` comes from router message
+		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "router_program": Read-only, Non-signer, Required
 		// Router program calling this instruction
@@ -269,7 +203,7 @@ func NewOnTimeoutPacketInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Read-only, Non-signer, Required
-		// App state account - PDA validation done in handler since `port_id` comes from router message
+		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 1 "router_program": Read-only, Non-signer, Required
 		// Router program calling this instruction
@@ -300,7 +234,7 @@ func NewPauseAppInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
-		// App state account - PDA validation done in handler
+		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "authority": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
@@ -353,7 +287,7 @@ func NewSendCallInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
-		// App state account - PDA validation done in handler
+		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "sender": Read-only, Signer, Required
 		// Sender of the call
@@ -393,66 +327,6 @@ func NewSendCallInstruction(
 	), nil
 }
 
-// Builds a "unfreeze_account" instruction.
-// Unfreeze an account (admin only)
-func NewUnfreezeAccountInstruction(
-	// Params:
-	clientIdParam string,
-	senderParam string,
-	saltParam []byte,
-
-	// Accounts:
-	appStateAccount solanago.PublicKey,
-	accountStateAccount solanago.PublicKey,
-	authorityAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_UnfreezeAccount[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `clientIdParam`:
-		err = enc__.Encode(clientIdParam)
-		if err != nil {
-			return nil, errors.NewField("clientIdParam", err)
-		}
-		// Serialize `senderParam`:
-		err = enc__.Encode(senderParam)
-		if err != nil {
-			return nil, errors.NewField("senderParam", err)
-		}
-		// Serialize `saltParam`:
-		err = enc__.Encode(saltParam)
-		if err != nil {
-			return nil, errors.NewField("saltParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "app_state": Read-only, Non-signer, Required
-		// App state account - PDA validation done in handler
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
-		// Account 1 "account_state": Writable, Non-signer, Required
-		// Account state - PDA validation done in handler since sender is hashed
-		accounts__.Append(solanago.NewAccountMeta(accountStateAccount, true, false))
-		// Account 2 "authority": Read-only, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
 // Builds a "unpause_app" instruction.
 // Unpause the entire GMP app (admin only)
 func NewUnpauseAppInstruction(
@@ -464,7 +338,7 @@ func NewUnpauseAppInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
-		// App state account - PDA validation done in handler
+		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "authority": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
@@ -490,7 +364,7 @@ func NewUpdateAuthorityInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
-		// App state account - PDA validation done in handler
+		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "current_authority": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(currentAuthorityAccount, false, true))

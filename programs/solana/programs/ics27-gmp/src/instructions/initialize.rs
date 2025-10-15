@@ -1,18 +1,17 @@
 use crate::constants::*;
-use crate::errors::GMPError;
 use crate::events::{GMPAppInitialized, RouterCallerCreated};
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 
 /// Initialize the ICS27 GMP application
 #[derive(Accounts)]
-#[instruction(router_program: Pubkey, port_id: String)]
+#[instruction(router_program: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
         space = 8 + GMPAppState::INIT_SPACE,
-        seeds = [GMP_APP_STATE_SEED, port_id.as_bytes()],
+        seeds = [GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
         bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -22,7 +21,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8, // Minimal space for account existence
+        space = 8,
         seeds = [b"router_caller"],
         bump,
     )]
@@ -35,18 +34,12 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn initialize(ctx: Context<Initialize>, router_program: Pubkey, port_id: String) -> Result<()> {
+pub fn initialize(ctx: Context<Initialize>, router_program: Pubkey) -> Result<()> {
     let app_state = &mut ctx.accounts.app_state;
-    // Get clock directly via syscall
     let clock = Clock::get()?;
-
-    // Validate inputs
-    require!(!port_id.is_empty(), GMPError::InvalidPacketData);
-    require!(port_id.len() <= MAX_PORT_ID_LENGTH, GMPError::PortIdTooLong);
 
     // Initialize app state
     app_state.router_program = router_program;
-    app_state.port_id.clone_from(&port_id);
     app_state.authority = ctx.accounts.authority.key();
     app_state.version = 1;
     app_state.paused = false;
@@ -56,7 +49,7 @@ pub fn initialize(ctx: Context<Initialize>, router_program: Pubkey, port_id: Str
     emit!(GMPAppInitialized {
         router_program,
         authority: app_state.authority,
-        port_id,
+        port_id: GMP_PORT_ID.to_string(),
         timestamp: clock.unix_timestamp,
     });
 
@@ -66,8 +59,9 @@ pub fn initialize(ctx: Context<Initialize>, router_program: Pubkey, port_id: Str
     });
 
     msg!(
-        "ICS27 GMP app initialized with router: {}, router_caller: {}",
+        "ICS27 GMP app initialized with router: {}, port_id: {}, router_caller: {}",
         router_program,
+        GMP_PORT_ID,
         ctx.accounts.router_caller.key()
     );
     Ok(())
@@ -89,12 +83,8 @@ mod tests {
         payer: Pubkey,
         authority: Pubkey,
         router_program: Pubkey,
-        port_id: String,
     ) -> Instruction {
-        let instruction_data = crate::instruction::Initialize {
-            router_program,
-            port_id,
-        };
+        let instruction_data = crate::instruction::Initialize { router_program };
 
         Instruction {
             program_id: crate::ID,
@@ -114,10 +104,9 @@ mod tests {
         let authority = Pubkey::new_unique();
         let payer = authority;
         let router_program = Pubkey::new_unique();
-        let port_id = "gmp".to_string();
 
         let (app_state_pda, _) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, port_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
 
@@ -127,7 +116,6 @@ mod tests {
             payer,
             authority,
             router_program,
-            port_id,
         );
 
         let accounts = vec![
@@ -163,122 +151,13 @@ mod tests {
     }
 
     #[test]
-    fn test_initialize_port_id_too_long() {
-        let authority = Pubkey::new_unique();
-        let payer = authority;
-        let router_program = Pubkey::new_unique();
-        let port_id_too_long = "a".repeat(MAX_PORT_ID_LENGTH + 1);
-
-        // Use a valid short port_id for PDA derivation, but pass the too-long one to instruction
-        let valid_port_id = "gmp";
-        let (app_state_pda, _) = Pubkey::find_program_address(
-            &[GMP_APP_STATE_SEED, valid_port_id.as_bytes()],
-            &crate::ID,
-        );
-
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let instruction = create_initialize_instruction(
-            app_state_pda,
-            router_caller_pda,
-            payer,
-            authority,
-            router_program,
-            port_id_too_long,
-        );
-
-        let accounts = vec![
-            (app_state_pda, solana_sdk::account::Account::default()),
-            (router_caller_pda, solana_sdk::account::Account::default()),
-            (
-                payer,
-                solana_sdk::account::Account {
-                    lamports: 1_000_000_000,
-                    owner: system_program::ID,
-                    ..Default::default()
-                },
-            ),
-            (
-                system_program::ID,
-                solana_sdk::account::Account {
-                    lamports: 1,
-                    executable: true,
-                    owner: solana_sdk::native_loader::ID,
-                    ..Default::default()
-                },
-            ),
-        ];
-
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
-    }
-
-    #[test]
-    fn test_initialize_empty_port_id() {
-        let authority = Pubkey::new_unique();
-        let payer = authority;
-        let router_program = Pubkey::new_unique();
-        let empty_port_id = String::new();
-
-        let valid_port_id = "gmp";
-        let (app_state_pda, _) = Pubkey::find_program_address(
-            &[GMP_APP_STATE_SEED, valid_port_id.as_bytes()],
-            &crate::ID,
-        );
-
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let instruction = create_initialize_instruction(
-            app_state_pda,
-            router_caller_pda,
-            payer,
-            authority,
-            router_program,
-            empty_port_id,
-        );
-
-        let accounts = vec![
-            (app_state_pda, solana_sdk::account::Account::default()),
-            (router_caller_pda, solana_sdk::account::Account::default()),
-            (
-                payer,
-                solana_sdk::account::Account {
-                    lamports: 1_000_000_000,
-                    owner: system_program::ID,
-                    ..Default::default()
-                },
-            ),
-            (
-                system_program::ID,
-                solana_sdk::account::Account {
-                    lamports: 1,
-                    executable: true,
-                    owner: solana_sdk::native_loader::ID,
-                    ..Default::default()
-                },
-            ),
-        ];
-
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "Initialize should fail with empty port_id"
-        );
-    }
-
-    #[test]
     fn test_initialize_already_initialized() {
         let authority = Pubkey::new_unique();
         let payer = authority;
         let router_program = Pubkey::new_unique();
-        let port_id = "gmp".to_string();
 
         let (app_state_pda, _) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, port_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
 
@@ -288,7 +167,6 @@ mod tests {
             payer,
             authority,
             router_program,
-            port_id,
         );
 
         // Create accounts that are already initialized (owned by program, not system)

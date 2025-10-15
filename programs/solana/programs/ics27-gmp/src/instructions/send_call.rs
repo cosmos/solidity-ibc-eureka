@@ -11,8 +11,12 @@ use solana_ibc_types::{MsgSendPacket, Payload};
 #[derive(Accounts)]
 #[instruction(msg: SendCallMsg)]
 pub struct SendCall<'info> {
-    /// App state account - PDA validation done in handler
-    #[account(mut)]
+    /// App state account - validated by Anchor PDA constraints
+    #[account(
+        mut,
+        seeds = [GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+        bump = app_state.bump
+    )]
     pub app_state: Account<'info, GMPAppState>,
 
     /// Sender of the call
@@ -65,23 +69,8 @@ pub struct SendCall<'info> {
 }
 
 pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
-    // Get clock directly via syscall
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
-
-    // Validate app_state PDA using port_id from state
-    let (expected_app_state_pda, _bump) = Pubkey::find_program_address(
-        &[
-            GMP_APP_STATE_SEED,
-            ctx.accounts.app_state.port_id.as_bytes(),
-        ],
-        ctx.program_id,
-    );
-    require!(
-        ctx.accounts.app_state.key() == expected_app_state_pda,
-        GMPError::InvalidAccountAddress
-    );
-
     let app_state = &mut ctx.accounts.app_state;
 
     // Check if app is operational
@@ -114,8 +103,8 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
 
     // Create IBC packet payload
     let ibc_payload = Payload {
-        source_port: app_state.port_id.clone(),
-        dest_port: app_state.port_id.clone(),
+        source_port: GMP_PORT_ID.to_string(),
+        dest_port: GMP_PORT_ID.to_string(),
         version: ICS27_VERSION.to_string(),
         encoding: ICS27_ENCODING.to_string(),
         value: packet_data_bytes,
@@ -189,10 +178,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let ibc_app = Pubkey::new_unique();
         let client = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -232,7 +219,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 router_program,
-                port_id,
                 authority,
                 app_state_bump,
                 true, // paused
@@ -269,10 +255,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let ibc_app = Pubkey::new_unique();
         let client = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -312,7 +296,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 router_program,
-                port_id,
                 authority,
                 app_state_bump,
                 false, // not paused
@@ -394,7 +377,6 @@ mod tests {
             create_gmp_app_state_account(
                 wrong_app_state_pda,
                 router_program,
-                port_id,
                 authority,
                 app_state_bump,
                 false,
@@ -432,10 +414,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let ibc_app = Pubkey::new_unique();
         let client = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -474,7 +454,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 correct_router_program, // Stored in state
-                port_id,
                 authority,
                 app_state_bump,
                 false,
@@ -511,10 +490,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let ibc_app = Pubkey::new_unique();
         let client = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -553,7 +530,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 router_program,
-                port_id,
                 authority,
                 app_state_bump,
                 false,
@@ -590,10 +566,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let ibc_app = Pubkey::new_unique();
         let client = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -632,7 +606,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 router_program,
-                port_id,
                 authority,
                 app_state_bump,
                 false,
@@ -669,10 +642,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let ibc_app = Pubkey::new_unique();
         let client = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -711,7 +682,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 router_program,
-                port_id,
                 authority,
                 app_state_bump,
                 false,

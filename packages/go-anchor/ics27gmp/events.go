@@ -22,20 +22,6 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal event as GmpAccountCreated: %w", err)
 		}
 		return value, nil
-	case Event_GmpAccountFrozen:
-		value := new(GmpAccountFrozen)
-		err := value.UnmarshalWithDecoder(decoder)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as GmpAccountFrozen: %w", err)
-		}
-		return value, nil
-	case Event_GmpAccountUnfrozen:
-		value := new(GmpAccountUnfrozen)
-		err := value.UnmarshalWithDecoder(decoder)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as GmpAccountUnfrozen: %w", err)
-		}
-		return value, nil
 	case Event_GmpAcknowledgementProcessed:
 		value := new(GmpAcknowledgementProcessed)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -117,40 +103,6 @@ func ParseEvent_GmpAccountCreated(eventData []byte) (*GmpAccountCreated, error) 
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal event of type GmpAccountCreated: %w", err)
-	}
-	return event, nil
-}
-
-func ParseEvent_GmpAccountFrozen(eventData []byte) (*GmpAccountFrozen, error) {
-	decoder := binary.NewBorshDecoder(eventData)
-	discriminator, err := decoder.ReadDiscriminator()
-	if err != nil {
-		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
-	}
-	if discriminator != Event_GmpAccountFrozen {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_GmpAccountFrozen, binary.FormatDiscriminator(discriminator))
-	}
-	event := new(GmpAccountFrozen)
-	err = event.UnmarshalWithDecoder(decoder)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type GmpAccountFrozen: %w", err)
-	}
-	return event, nil
-}
-
-func ParseEvent_GmpAccountUnfrozen(eventData []byte) (*GmpAccountUnfrozen, error) {
-	decoder := binary.NewBorshDecoder(eventData)
-	discriminator, err := decoder.ReadDiscriminator()
-	if err != nil {
-		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
-	}
-	if discriminator != Event_GmpAccountUnfrozen {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_GmpAccountUnfrozen, binary.FormatDiscriminator(discriminator))
-	}
-	event := new(GmpAccountUnfrozen)
-	err = event.UnmarshalWithDecoder(decoder)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type GmpAccountUnfrozen: %w", err)
 	}
 	return event, nil
 }

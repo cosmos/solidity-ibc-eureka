@@ -1322,7 +1322,6 @@ func (s *IbcEurekaSolanaTestSuite) deployAndInitializeICS27GMP(ctx context.Conte
 		// Using GMP port for proper GMP functionality
 		initInstruction, err := ics27_gmp.NewInitializeInstruction(
 			ics26_router.ProgramID,   // router program
-			GMPPortID,                // port ID (using gmp port)
 			gmpAppStatePDA,           // app state account
 			routerCallerPDA,          // router caller account
 			s.SolanaUser.PublicKey(), // payer

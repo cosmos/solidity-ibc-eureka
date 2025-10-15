@@ -5,14 +5,12 @@ use solana_sdk::{account::Account as SolanaAccount, pubkey::Pubkey, system_progr
 pub fn create_gmp_app_state_account(
     pubkey: Pubkey,
     router_program: Pubkey,
-    port_id: String,
     authority: Pubkey,
     bump: u8,
     paused: bool,
 ) -> (Pubkey, SolanaAccount) {
     let app_state = GMPAppState {
         router_program,
-        port_id,
         authority,
         version: 1,
         paused,

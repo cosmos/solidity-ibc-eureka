@@ -34,12 +34,8 @@ pub mod ics27_gmp {
     use super::*;
 
     /// Initialize the ICS27 GMP application
-    pub fn initialize(
-        ctx: Context<Initialize>,
-        router_program: Pubkey,
-        port_id: String,
-    ) -> Result<()> {
-        instructions::initialize(ctx, router_program, port_id)
+    pub fn initialize(ctx: Context<Initialize>, router_program: Pubkey) -> Result<()> {
+        instructions::initialize(ctx, router_program)
     }
 
     /// Send a GMP call packet

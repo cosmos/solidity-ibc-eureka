@@ -14,8 +14,12 @@ const EXECUTION_SUCCESS_RESULT: &[u8] = b"execution_success";
 #[derive(Accounts)]
 #[instruction(msg: solana_ibc_types::OnRecvPacketMsg)]
 pub struct OnRecvPacket<'info> {
-    /// App state account - PDA validation done in handler since `port_id` comes from router message
-    #[account(mut)]
+    /// App state account - validated by Anchor PDA constraints
+    #[account(
+        mut,
+        seeds = [GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+        bump = app_state.bump
+    )]
     pub app_state: Account<'info, GMPAppState>,
 
     /// Router program calling this instruction
@@ -42,21 +46,8 @@ pub fn on_recv_packet<'info>(
     ctx: Context<'_, '_, '_, 'info, OnRecvPacket<'info>>,
     msg: solana_ibc_types::OnRecvPacketMsg,
 ) -> Result<Vec<u8>> {
-    // Get clock directly via syscall
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
-
-    // Validate app_state PDA using port_id from state
-    let port_id = &ctx.accounts.app_state.port_id;
-
-    let (expected_app_state_pda, _bump) =
-        Pubkey::find_program_address(&[GMP_APP_STATE_SEED, port_id.as_bytes()], ctx.program_id);
-
-    require!(
-        ctx.accounts.app_state.key() == expected_app_state_pda,
-        GMPError::InvalidAccountAddress
-    );
-
     let app_state = &mut ctx.accounts.app_state;
 
     // Validate router program
@@ -70,7 +61,7 @@ pub fn on_recv_packet<'info>(
 
     // Validate the payload is for our app (check dest_port matches our port_id)
     require!(
-        msg.payload.dest_port == app_state.port_id,
+        msg.payload.dest_port == GMP_PORT_ID,
         GMPError::InvalidPacketData
     );
 
@@ -378,6 +369,7 @@ fn map_and_validate_accounts<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::GMP_PORT_ID;
     use crate::state::{AccountState, GMPPacketData, SolanaAccountMeta, SolanaInstruction};
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
@@ -402,7 +394,6 @@ mod tests {
             sender: sender.to_string(),
             salt: salt.to_vec(),
             nonce: 0,
-            frozen: false,
             created_at: 1_600_000_000,
             last_executed_at: 1_600_000_000,
             execution_count: 0,
@@ -431,7 +422,6 @@ mod tests {
             sender: "cosmos1test".to_string(),
             salt: vec![],
             nonce: 0,
-            frozen: false,
             created_at: 1_600_000_000,
             last_executed_at: 1_600_000_000,
             execution_count: 0,
@@ -460,7 +450,6 @@ mod tests {
             sender: "cosmos1test".to_string(),
             salt: vec![],
             nonce: 5,
-            frozen: false,
             created_at: 1_600_000_000,
             last_executed_at: 1_600_000_000,
             execution_count: 10,
@@ -476,35 +465,6 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(account_state.nonce, old_nonce + 1);
-    }
-
-    #[test]
-    fn test_execute_with_nonce_protection_rejects_frozen_account() {
-        let (_account_pda, bump) =
-            AccountState::derive_address("cosmoshub-1", "cosmos1test", b"", &crate::ID).unwrap();
-
-        let mut account_state = AccountState {
-            client_id: "cosmoshub-1".to_string(),
-            sender: "cosmos1test".to_string(),
-            salt: vec![],
-            nonce: 5,
-            frozen: true,
-            created_at: 1_600_000_000,
-            last_executed_at: 1_600_000_000,
-            execution_count: 10,
-            bump,
-        };
-
-        let current_time = 1_700_000_000;
-        let old_nonce = account_state.nonce;
-
-        let result: Result<String> =
-            execute_with_nonce_protection(&mut account_state, current_time, || {
-                Ok("should not execute".to_string())
-            });
-
-        assert!(result.is_err());
-        assert_eq!(account_state.nonce, old_nonce);
     }
 
     #[test]
@@ -558,10 +518,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -588,8 +546,8 @@ mod tests {
             dest_client: "solana-1".to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
-                source_port: port_id.clone(),
-                dest_port: port_id.clone(),
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
                 version: "gmp-1".to_string(),
                 encoding: "proto3".to_string(),
                 value: packet_data_bytes,
@@ -614,7 +572,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 router_program,
-                port_id,
                 authority,
                 app_state_bump,
                 true, // paused
@@ -637,10 +594,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -667,8 +622,8 @@ mod tests {
             dest_client: "solana-1".to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
-                source_port: port_id.clone(),
-                dest_port: port_id,
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
                 version: "gmp-1".to_string(),
                 encoding: "proto3".to_string(),
                 value: packet_data_bytes,
@@ -693,7 +648,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 router_program,
-                "gmpport".to_string(),
                 authority,
                 app_state_bump,
                 false, // not paused
@@ -706,7 +660,6 @@ mod tests {
                 client_id.to_string(),
                 sender.to_string(),
                 salt,
-                true, // frozen
                 account_bump,
             ),
             create_system_program_account(),
@@ -724,10 +677,8 @@ mod tests {
         let correct_router = Pubkey::new_unique();
         let wrong_router = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -754,8 +705,8 @@ mod tests {
             dest_client: "solana-1".to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
-                source_port: port_id.clone(),
-                dest_port: port_id.clone(),
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
                 version: "gmp-1".to_string(),
                 encoding: "proto3".to_string(),
                 value: packet_data_bytes,
@@ -780,7 +731,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 correct_router, // State has correct router
-                port_id,
                 authority,
                 app_state_bump,
                 false, // not paused
@@ -839,8 +789,8 @@ mod tests {
             dest_client: "solana-1".to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
-                source_port: port_id.clone(),
-                dest_port: port_id.clone(),
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
                 version: "gmp-1".to_string(),
                 encoding: "proto3".to_string(),
                 value: packet_data_bytes,
@@ -867,7 +817,6 @@ mod tests {
             create_gmp_app_state_account(
                 wrong_app_state_pda,
                 router_program,
-                port_id,
                 authority,
                 wrong_bump,
                 false, // not paused
@@ -893,10 +842,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -926,8 +873,8 @@ mod tests {
             dest_client: "solana-1".to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
-                source_port: port_id.clone(),
-                dest_port: port_id.clone(),
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
                 version: "gmp-1".to_string(),
                 encoding: "proto3".to_string(),
                 value: packet_data_bytes,
@@ -952,7 +899,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 router_program,
-                port_id,
                 authority,
                 app_state_bump,
                 false, // not paused
@@ -965,7 +911,6 @@ mod tests {
                 client_id.to_string(),
                 original_sender.to_string(), // Account owned by original sender
                 salt,
-                false, // not frozen
                 account_bump,
             ),
             create_system_program_account(),
@@ -985,10 +930,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -1018,8 +961,8 @@ mod tests {
             dest_client: "solana-1".to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
-                source_port: port_id.clone(),
-                dest_port: port_id.clone(),
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
                 version: "gmp-1".to_string(),
                 encoding: "proto3".to_string(),
                 value: packet_data_bytes,
@@ -1044,7 +987,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 router_program,
-                port_id,
                 authority,
                 app_state_bump,
                 false, // not paused
@@ -1057,7 +999,6 @@ mod tests {
                 client_id.to_string(),
                 sender.to_string(),
                 original_salt, // Account has original salt
-                false,         // not frozen
                 account_bump,
             ),
             create_system_program_account(),
@@ -1077,10 +1018,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -1104,8 +1043,8 @@ mod tests {
             dest_client: "solana-1".to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
-                source_port: port_id.clone(),
-                dest_port: port_id.clone(),
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
                 version: "gmp-1".to_string(),
                 encoding: "proto3".to_string(),
                 value: packet_data_bytes,
@@ -1131,7 +1070,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 router_program,
-                port_id,
                 authority,
                 app_state_bump,
                 false, // not paused
@@ -1156,10 +1094,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -1189,8 +1125,8 @@ mod tests {
             dest_client: "solana-1".to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
-                source_port: port_id.clone(),
-                dest_port: port_id.clone(),
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
                 version: "gmp-1".to_string(),
                 encoding: "proto3".to_string(),
                 value: packet_data_bytes,
@@ -1215,7 +1151,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 router_program,
-                port_id,
                 authority,
                 app_state_bump,
                 false, // not paused
@@ -1255,10 +1190,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
         let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
             &crate::ID,
         );
 
@@ -1344,8 +1277,8 @@ mod tests {
             dest_client: "solana-1".to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
-                source_port: port_id.clone(),
-                dest_port: port_id,
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
                 version: "gmp-1".to_string(),
                 encoding: "proto3".to_string(),
                 value: packet_data_bytes,
@@ -1391,7 +1324,6 @@ mod tests {
             create_gmp_app_state_account(
                 app_state_pda,
                 router_program,
-                "gmpport".to_string(),
                 authority,
                 app_state_bump,
                 false, // not paused
@@ -1488,6 +1420,5 @@ mod tests {
         assert_eq!(account_state.client_id, client_id);
         assert_eq!(account_state.sender, sender);
         assert_eq!(account_state.salt, salt);
-        assert!(!account_state.frozen, "Account should not be frozen");
     }
 }

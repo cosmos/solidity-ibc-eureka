@@ -9,10 +9,6 @@ pub struct GMPAppState {
     /// ICS26 Router program that manages this app
     pub router_program: Pubkey,
 
-    /// Port ID this app is bound to
-    #[max_len(MAX_PORT_ID_LENGTH)]
-    pub port_id: String,
-
     /// Administrative authority
     pub authority: Pubkey,
 
@@ -28,11 +24,11 @@ pub struct GMPAppState {
 
 impl GMPAppState {
     /// Get signer seeds for this app state
-    /// Seeds: [`b"app_state`", `port_id.as_bytes()`, bump]
+    /// Seeds: [`b"app_state`", `GMP_PORT_ID.as_bytes()`, bump]
     pub fn signer_seeds(&self) -> Vec<Vec<u8>> {
         vec![
             GMP_APP_STATE_SEED.to_vec(),
-            self.port_id.as_bytes().to_vec(),
+            GMP_PORT_ID.as_bytes().to_vec(),
             vec![self.bump],
         ]
     }
