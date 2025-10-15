@@ -761,29 +761,30 @@ impl TxBuilder {
 }
 
 impl TxBuilder {
-    /// Build chunked recv packet transactions
-    fn build_recv_packet_chunked(
+    fn build_packet_chunk_txs(
         &self,
-        chain_id: &str,
-        msg: &MsgRecvPacket,
+        client_id: &str,
+        sequence: u64,
+        msg_payloads: &[solana_ibc_types::PayloadMetadata],
         payload_data: &[Vec<u8>],
+        proof_total_chunks: u8,
         proof_data: &[u8],
-    ) -> Result<RecvPacketChunkedTxs> {
+    ) -> Result<Vec<Vec<u8>>> {
         let mut chunk_txs = Vec::new();
 
         for (payload_idx, data) in payload_data.iter().enumerate() {
             let payload_index = u8::try_from(payload_idx)
                 .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
 
-            if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
+            if payload_idx < msg_payloads.len() && msg_payloads[payload_idx].total_chunks > 0 {
                 let chunks = Self::split_into_chunks(data);
                 for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
                     let chunk_index = u8::try_from(chunk_idx)
                         .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
 
                     let instruction = self.build_upload_payload_chunk_instruction(
-                        &msg.packet.dest_client,
-                        msg.packet.sequence,
+                        client_id,
+                        sequence,
                         payload_index,
                         chunk_index,
                         chunk_data.clone(),
@@ -794,15 +795,15 @@ impl TxBuilder {
             }
         }
 
-        if msg.proof.total_chunks > 0 {
+        if proof_total_chunks > 0 {
             let chunks = Self::split_into_chunks(proof_data);
             for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
                 let chunk_index = u8::try_from(chunk_idx)
                     .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
 
                 let instruction = self.build_upload_proof_chunk_instruction(
-                    &msg.packet.dest_client,
-                    msg.packet.sequence,
+                    client_id,
+                    sequence,
                     chunk_index,
                     chunk_data.clone(),
                 )?;
@@ -811,20 +812,29 @@ impl TxBuilder {
             }
         }
 
-        // Build list of chunk account PDAs for remaining_accounts
+        Ok(chunk_txs)
+    }
+
+    fn build_chunk_remaining_accounts(
+        &self,
+        client_id: &str,
+        sequence: u64,
+        msg_payloads: &[solana_ibc_types::PayloadMetadata],
+        payload_data: &[Vec<u8>],
+        proof_total_chunks: u8,
+    ) -> Result<Vec<Pubkey>> {
         let mut remaining_account_pubkeys = Vec::new();
 
-        // Add payload chunk accounts
         for (payload_idx, _data) in payload_data.iter().enumerate() {
             let payload_index = u8::try_from(payload_idx)
                 .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
 
-            if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
-                for chunk_idx in 0..msg.payloads[payload_idx].total_chunks {
+            if payload_idx < msg_payloads.len() && msg_payloads[payload_idx].total_chunks > 0 {
+                for chunk_idx in 0..msg_payloads[payload_idx].total_chunks {
                     let (chunk_pda, _) = derive_payload_chunk(
                         self.fee_payer,
-                        &msg.packet.dest_client,
-                        msg.packet.sequence,
+                        client_id,
+                        sequence,
                         payload_index,
                         chunk_idx,
                         self.solana_ics26_program_id,
@@ -834,18 +844,45 @@ impl TxBuilder {
             }
         }
 
-        if msg.proof.total_chunks > 0 {
-            for chunk_idx in 0..msg.proof.total_chunks {
+        if proof_total_chunks > 0 {
+            for chunk_idx in 0..proof_total_chunks {
                 let (chunk_pda, _) = derive_proof_chunk(
                     self.fee_payer,
-                    &msg.packet.dest_client,
-                    msg.packet.sequence,
+                    client_id,
+                    sequence,
                     chunk_idx,
                     self.solana_ics26_program_id,
                 );
                 remaining_account_pubkeys.push(chunk_pda);
             }
         }
+
+        Ok(remaining_account_pubkeys)
+    }
+
+    fn build_recv_packet_chunked(
+        &self,
+        chain_id: &str,
+        msg: &MsgRecvPacket,
+        payload_data: &[Vec<u8>],
+        proof_data: &[u8],
+    ) -> Result<RecvPacketChunkedTxs> {
+        let chunk_txs = self.build_packet_chunk_txs(
+            &msg.packet.dest_client,
+            msg.packet.sequence,
+            &msg.payloads,
+            payload_data,
+            msg.proof.total_chunks,
+            proof_data,
+        )?;
+
+        let remaining_account_pubkeys = self.build_chunk_remaining_accounts(
+            &msg.packet.dest_client,
+            msg.packet.sequence,
+            &msg.payloads,
+            payload_data,
+            msg.proof.total_chunks,
+        )?;
 
         let recv_instruction =
             self.build_recv_packet_instruction(chain_id, msg, remaining_account_pubkeys)?;
@@ -871,117 +908,27 @@ impl TxBuilder {
             msg.proof.total_chunks
         );
 
-        let mut chunk_txs = Vec::new();
-        let mut total_payload_chunk_accounts = 0usize;
+        let chunk_txs = self.build_packet_chunk_txs(
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            &msg.payloads,
+            payload_data,
+            msg.proof.total_chunks,
+            proof_data,
+        )?;
 
-        // Process each payload
-        for (payload_idx, data) in payload_data.iter().enumerate() {
-            let payload_index = u8::try_from(payload_idx)
-                .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
-
-            // Check if payload needs chunking (based on metadata)
-            if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
-                tracing::info!(
-                    "  Payload {}: total_chunks={}, data_len={}",
-                    payload_idx,
-                    msg.payloads[payload_idx].total_chunks,
-                    data.len()
-                );
-                let chunks = Self::split_into_chunks(data);
-                tracing::info!("    Split into {} chunk transactions", chunks.len());
-                for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
-                    let chunk_index = u8::try_from(chunk_idx)
-                        .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
-
-                    let instruction = self.build_upload_payload_chunk_instruction(
-                        &msg.packet.source_client,
-                        msg.packet.sequence,
-                        payload_index,
-                        chunk_index,
-                        chunk_data.clone(),
-                    )?;
-
-                    chunk_txs.push(self.create_tx_bytes(&[instruction])?);
-                    total_payload_chunk_accounts += 1;
-                }
-            }
-        }
-
-        tracing::info!(
-            "  Total payload chunk accounts: {}",
-            total_payload_chunk_accounts
-        );
-
-        let mut total_proof_chunk_accounts = 0usize;
-
-        if msg.proof.total_chunks > 0 {
-            let chunks = Self::split_into_chunks(proof_data);
-            tracing::info!(
-                "  Proof: total_chunks={}, data_len={}, split into {} chunk transactions",
-                msg.proof.total_chunks,
-                proof_data.len(),
-                chunks.len()
-            );
-            for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
-                let chunk_index = u8::try_from(chunk_idx)
-                    .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
-
-                let instruction = self.build_upload_proof_chunk_instruction(
-                    &msg.packet.source_client,
-                    msg.packet.sequence,
-                    chunk_index,
-                    chunk_data.clone(),
-                )?;
-
-                chunk_txs.push(self.create_tx_bytes(&[instruction])?);
-                total_proof_chunk_accounts += 1;
-            }
-        }
-
-        tracing::info!(
-            "  Total proof chunk accounts: {}",
-            total_proof_chunk_accounts
-        );
         tracing::info!(
             "  Total chunk upload txs: {}, then 1 final ack_packet tx",
-            total_payload_chunk_accounts + total_proof_chunk_accounts
+            chunk_txs.len()
         );
 
-        // Build list of chunk account PDAs for remaining_accounts
-        let mut remaining_account_pubkeys = Vec::new();
-
-        // Add payload chunk accounts
-        for (payload_idx, _data) in payload_data.iter().enumerate() {
-            let payload_index = u8::try_from(payload_idx)
-                .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
-
-            if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
-                for chunk_idx in 0..msg.payloads[payload_idx].total_chunks {
-                    let (chunk_pda, _) = derive_payload_chunk(
-                        self.fee_payer,
-                        &msg.packet.source_client,
-                        msg.packet.sequence,
-                        payload_index,
-                        chunk_idx,
-                        self.solana_ics26_program_id,
-                    );
-                    remaining_account_pubkeys.push(chunk_pda);
-                }
-            }
-        }
-
-        if msg.proof.total_chunks > 0 {
-            for chunk_idx in 0..msg.proof.total_chunks {
-                let (chunk_pda, _) = derive_proof_chunk(
-                    self.fee_payer,
-                    &msg.packet.source_client,
-                    msg.packet.sequence,
-                    chunk_idx,
-                    self.solana_ics26_program_id,
-                );
-                remaining_account_pubkeys.push(chunk_pda);
-            }
-        }
+        let remaining_account_pubkeys = self.build_chunk_remaining_accounts(
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            &msg.payloads,
+            payload_data,
+            msg.proof.total_chunks,
+        )?;
 
         tracing::info!(
             "  Adding {} remaining_accounts (chunk PDAs) to ack_packet instruction",
@@ -1006,85 +953,22 @@ impl TxBuilder {
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
     ) -> Result<TimeoutPacketChunkedTxs> {
-        let mut chunk_txs = Vec::new();
+        let chunk_txs = self.build_packet_chunk_txs(
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            &msg.payloads,
+            payload_data,
+            msg.proof.total_chunks,
+            proof_data,
+        )?;
 
-        // Process each payload
-        for (payload_idx, data) in payload_data.iter().enumerate() {
-            let payload_index = u8::try_from(payload_idx)
-                .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
-
-            // Check if payload needs chunking (based on metadata)
-            if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
-                let chunks = Self::split_into_chunks(data);
-                for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
-                    let chunk_index = u8::try_from(chunk_idx)
-                        .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
-
-                    let instruction = self.build_upload_payload_chunk_instruction(
-                        &msg.packet.source_client,
-                        msg.packet.sequence,
-                        payload_index,
-                        chunk_index,
-                        chunk_data.clone(),
-                    )?;
-
-                    chunk_txs.push(self.create_tx_bytes(&[instruction])?);
-                }
-            }
-        }
-
-        if msg.proof.total_chunks > 0 {
-            let chunks = Self::split_into_chunks(proof_data);
-            for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
-                let chunk_index = u8::try_from(chunk_idx)
-                    .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
-
-                let instruction = self.build_upload_proof_chunk_instruction(
-                    &msg.packet.source_client,
-                    msg.packet.sequence,
-                    chunk_index,
-                    chunk_data.clone(),
-                )?;
-
-                chunk_txs.push(self.create_tx_bytes(&[instruction])?);
-            }
-        }
-
-        // Build list of chunk account PDAs for remaining_accounts
-        let mut remaining_account_pubkeys = Vec::new();
-
-        // Add payload chunk accounts
-        for (payload_idx, _data) in payload_data.iter().enumerate() {
-            let payload_index = u8::try_from(payload_idx)
-                .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
-
-            if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
-                for chunk_idx in 0..msg.payloads[payload_idx].total_chunks {
-                    let (chunk_pda, _) = derive_payload_chunk(
-                        self.fee_payer,
-                        &msg.packet.source_client,
-                        msg.packet.sequence,
-                        payload_index,
-                        chunk_idx,
-                        self.solana_ics26_program_id,
-                    );
-                    remaining_account_pubkeys.push(chunk_pda);
-                }
-            }
-        }
-
-        if msg.proof.total_chunks > 0 {
-            for chunk_idx in 0..msg.proof.total_chunks {
-                let (chunk_pda, _) = derive_proof_chunk(
-                    self.fee_payer,
-                    &msg.packet.source_client,
-                    msg.packet.sequence,
-                    chunk_idx,
-                    self.solana_ics26_program_id,
-                );
-                remaining_account_pubkeys.push(chunk_pda);
-            }
-        }
+        let remaining_account_pubkeys = self.build_chunk_remaining_accounts(
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            &msg.payloads,
+            payload_data,
+            msg.proof.total_chunks,
+        )?;
 
         let timeout_instruction =
             self.build_timeout_packet_instruction(msg, remaining_account_pubkeys)?;
