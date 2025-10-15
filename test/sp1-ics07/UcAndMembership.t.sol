@@ -141,9 +141,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
 
         // submit cached non-membership proof
         MsgVerifyNonMembership memory nonMembershipMsg = MsgVerifyNonMembership({
-            proof: bytes(""),
-            proofHeight: fixture.proofHeight,
-            path: verifyNonMembershipPath
+            proof: bytes(""), proofHeight: fixture.proofHeight, path: verifyNonMembershipPath
         });
 
         // run verify
@@ -164,14 +162,11 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
         ucAndMemProof.sp1Proof.proof = bytes("invalid");
 
         MembershipProof memory nonMembershipProof = MembershipProof({
-            proofType: MembershipProofType.SP1MembershipAndUpdateClientProof,
-            proof: abi.encode(ucAndMemProof)
+            proofType: MembershipProofType.SP1MembershipAndUpdateClientProof, proof: abi.encode(ucAndMemProof)
         });
 
         MsgVerifyNonMembership memory nonMembershipMsg = MsgVerifyNonMembership({
-            proof: abi.encode(nonMembershipProof),
-            proofHeight: fixture.proofHeight,
-            path: verifyNonMembershipPath
+            proof: abi.encode(nonMembershipProof), proofHeight: fixture.proofHeight, path: verifyNonMembershipPath
         });
 
         vm.expectRevert();
@@ -190,14 +185,11 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
         ucAndMemProof.sp1Proof.proof = bytes("");
 
         MembershipProof memory nonMembershipProof = MembershipProof({
-            proofType: MembershipProofType.SP1MembershipAndUpdateClientProof,
-            proof: abi.encode(ucAndMemProof)
+            proofType: MembershipProofType.SP1MembershipAndUpdateClientProof, proof: abi.encode(ucAndMemProof)
         });
 
         MsgVerifyNonMembership memory nonMembershipMsg = MsgVerifyNonMembership({
-            proof: abi.encode(nonMembershipProof),
-            proofHeight: fixture.proofHeight,
-            path: verifyNonMembershipPath
+            proof: abi.encode(nonMembershipProof), proofHeight: fixture.proofHeight, path: verifyNonMembershipPath
         });
 
         mockIcs07Tendermint.verifyNonMembership(nonMembershipMsg);

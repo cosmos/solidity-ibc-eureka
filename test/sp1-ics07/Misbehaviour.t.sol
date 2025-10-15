@@ -107,7 +107,7 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         ics07Tendermint.upgradeClient(bytes(""));
     }
 
-    //solhint-disable-next-line function-max-lines
+    // solhint-disable-next-line function-max-lines
     function test_InvalidMisbehaviour() public {
         setUpMisbehaviour("misbehaviour_double_sign-plonk_fixture.json");
 

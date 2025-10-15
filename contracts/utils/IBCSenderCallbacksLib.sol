@@ -35,10 +35,7 @@ library IBCSenderCallbacksLib {
     /// @notice Make a callback to the sender contract when a packet times out if it supports IIBCSenderCallbacks.
     /// @param callbackAddress The address of the callback contract
     /// @param msg_ The callback message containing details about the timeout
-    function timeoutPacketCallback(
-        address callbackAddress,
-        IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_
-    )
+    function timeoutPacketCallback(address callbackAddress, IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_)
         internal
     {
         if (_supportsCallbacks(callbackAddress)) {

@@ -17,8 +17,9 @@ import { IIBCERC20 } from "./interfaces/IIBCERC20.sol";
 import { IDeprecatedIBCUUPSUpgradeable } from "./utils/ICS26AdminsDeprecated.sol";
 import { IPausable } from "./interfaces/IPausable.sol";
 
-import { ReentrancyGuardTransientUpgradeable } from
-    "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
+import {
+    ReentrancyGuardTransientUpgradeable
+} from "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
 import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { ICS20Lib } from "./utils/ICS20Lib.sol";
@@ -196,12 +197,13 @@ contract ICS20Transfer is
         );
         // transfer the tokens to us with permit
         IEscrow escrow = _getOrCreateEscrow(msg_.sourceClient);
-        _getPermit2().permitTransferFrom(
-            permit,
-            ISignatureTransfer.SignatureTransferDetails({ to: address(escrow), requestedAmount: msg_.amount }),
-            _msgSender(),
-            signature
-        );
+        _getPermit2()
+            .permitTransferFrom(
+                permit,
+                ISignatureTransfer.SignatureTransferDetails({ to: address(escrow), requestedAmount: msg_.amount }),
+                _msgSender(),
+                signature
+            );
         escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
         return _sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
@@ -210,10 +212,7 @@ contract ICS20Transfer is
     /// @inheritdoc IICS20TransferAccessControlled
     // NOTE: Reentrancy disabled for this function via the `nonReentrant` modifier.
     // slither-disable-next-line reentrancy-no-eth
-    function sendTransferWithSender(
-        IICS20TransferMsgs.SendTransferMsg calldata msg_,
-        address sender
-    )
+    function sendTransferWithSender(IICS20TransferMsgs.SendTransferMsg calldata msg_, address sender)
         external
         whenNotPaused
         nonReentrant
@@ -268,19 +267,20 @@ contract ICS20Transfer is
             memo: msg_.memo
         });
 
-        return _getICS26Router().sendPacket(
-            IICS26RouterMsgs.MsgSendPacket({
-                sourceClient: msg_.sourceClient,
-                timeoutTimestamp: msg_.timeoutTimestamp,
-                payload: IICS26RouterMsgs.Payload({
-                    sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-                    destPort: ICS20Lib.DEFAULT_PORT_ID,
-                    version: ICS20Lib.ICS20_VERSION,
-                    encoding: ICS20Lib.ICS20_ENCODING,
-                    value: abi.encode(packetData)
+        return _getICS26Router()
+            .sendPacket(
+                IICS26RouterMsgs.MsgSendPacket({
+                    sourceClient: msg_.sourceClient,
+                    timeoutTimestamp: msg_.timeoutTimestamp,
+                    payload: IICS26RouterMsgs.Payload({
+                        sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+                        destPort: ICS20Lib.DEFAULT_PORT_ID,
+                        version: ICS20Lib.ICS20_VERSION,
+                        encoding: ICS20Lib.ICS20_ENCODING,
+                        value: abi.encode(packetData)
+                    })
                 })
-            })
-        );
+            );
     }
 
     /// @inheritdoc IICS20TransferAccessControlled
@@ -538,6 +538,7 @@ contract ICS20Transfer is
 
     /// @inheritdoc UUPSUpgradeable
     function _authorizeUpgrade(address) internal override restricted { }
+
     // solhint-disable-previous-line no-empty-blocks
 
     /// @inheritdoc IICS20TransferAccessControlled
