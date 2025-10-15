@@ -75,10 +75,17 @@ pub struct AckPacket<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
-pub fn ack_packet<'info>(ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>, msg: MsgAckPacket) -> Result<()> {
+pub fn ack_packet<'info>(
+    ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>,
+    msg: MsgAckPacket,
+) -> Result<()> {
     msg!("=== ack_packet START ===");
-    msg!("Sequence: {}, src_client: {}, dest_client: {}",
-        msg.packet.sequence, msg.packet.source_client, msg.packet.dest_client);
+    msg!(
+        "Sequence: {}, src_client: {}, dest_client: {}",
+        msg.packet.sequence,
+        msg.packet.source_client,
+        msg.packet.dest_client
+    );
 
     let router_state = &ctx.accounts.router_state;
     let packet_commitment_account = &ctx.accounts.packet_commitment;
@@ -88,7 +95,10 @@ pub fn ack_packet<'info>(ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>, msg:
     // Validate we have at least one payload
     require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
 
-    msg!("Validating IBC app for port: {}", msg.payloads[0].source_port);
+    msg!(
+        "Validating IBC app for port: {}",
+        msg.payloads[0].source_port
+    );
     // Validate the IBC app is registered for the source port of the first payload
     let expected_ibc_app = Pubkey::find_program_address(
         &[IBC_APP_SEED, msg.payloads[0].source_port.as_bytes()],
@@ -112,9 +122,14 @@ pub fn ack_packet<'info>(ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>, msg:
         RouterError::InvalidCounterpartyClient
     );
 
-    msg!("Reconstructing packet - inline payloads: {}, metadata chunks: {:?}",
+    msg!(
+        "Reconstructing packet - inline payloads: {}, metadata chunks: {:?}",
         msg.packet.payloads.len(),
-        msg.payloads.iter().map(|p| p.total_chunks).collect::<Vec<_>>());
+        msg.payloads
+            .iter()
+            .map(|p| p.total_chunks)
+            .collect::<Vec<_>>()
+    );
 
     // Reconstruct packet from either inline or chunked mode
     let packet = chunking::reconstruct_packet(chunking::ReconstructPacketParams {
@@ -127,12 +142,19 @@ pub fn ack_packet<'info>(ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>, msg:
         program_id: ctx.program_id,
     })?;
 
-    msg!("Packet reconstructed with {} payloads", packet.payloads.len());
+    msg!(
+        "Packet reconstructed with {} payloads",
+        packet.payloads.len()
+    );
 
     // Calculate total payload chunks for proof start index
     let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
-    msg!("Total payload chunks: {}, proof chunks: {}, proof start index: {}",
-        total_payload_chunks, msg.proof.total_chunks, total_payload_chunks);
+    msg!(
+        "Total payload chunks: {}, proof chunks: {}, proof start index: {}",
+        total_payload_chunks,
+        msg.proof.total_chunks,
+        total_payload_chunks
+    );
 
     // Assemble proof from chunks (starting after payload chunks, using relayer as the chunk owner)
     let proof_start_index = total_payload_chunks;
@@ -161,9 +183,8 @@ pub fn ack_packet<'info>(ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>, msg:
     let ack_path =
         ics24::packet_acknowledgement_commitment_path(&packet.dest_client, packet.sequence);
 
-    // Compute acknowledgment commitment (matching Ethereum's implementation)
-    // In IBC, acknowledgments are stored as commitments (hashes) in the Merkle tree
-    let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&[msg.acknowledgement.clone()])?;
+    let ack_commitment =
+        ics24::packet_acknowledgement_commitment_bytes32(&[msg.acknowledgement.clone()])?;
 
     let membership_msg = MembershipMsg {
         height: msg.proof.height,
@@ -203,7 +224,10 @@ pub fn ack_packet<'info>(ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>, msg:
     // For now, we only handle the first payload for CPI
     // TODO: In the future, we may need to handle multiple payloads differently
     let first_payload = &packet.payloads[0];
-    msg!("Calling IBC app on_acknowledgement_packet - port: {}", first_payload.source_port);
+    msg!(
+        "Calling IBC app on_acknowledgement_packet - port: {}",
+        first_payload.source_port
+    );
 
     on_acknowledgement_packet_cpi(
         &ctx.accounts.ibc_app_program,

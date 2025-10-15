@@ -114,7 +114,6 @@ fn derive_header_chunk(
     )
 }
 
-
 /// The `TxBuilder` produces Solana transactions based on events from Cosmos SDK.
 pub struct TxBuilder {
     /// The HTTP client for Cosmos chain.
@@ -221,12 +220,13 @@ impl TxBuilder {
         let (router_state, _) = derive_router_state(self.solana_ics26_program_id);
         let (ibc_app, _) = derive_ibc_app(&payload.dest_port, self.solana_ics26_program_id);
 
-        // Query the ibc_app account to get the app_program_id (same pattern as ack_packet)
+        // Query the ibc_app account to get the app_program_id
         let ibc_app_account = self
             .target_solana_client
             .get_account(&ibc_app)
             .map_err(|e| anyhow::anyhow!("Failed to get IBC app account: {e}"))?;
 
+        // TODO: simplify
         // Parse the IBC app account to get the program ID
         let ibc_app_program = if ibc_app_account.data.len() >= 44 {
             let mut offset = 8; // Skip discriminator
@@ -257,7 +257,6 @@ impl TxBuilder {
             return Err(anyhow::anyhow!("Invalid IBC app account data length"));
         };
 
-        // Derive the app state PDA
         let (app_state, _) = Pubkey::find_program_address(
             &[b"app_state", payload.dest_port.as_bytes()],
             &ibc_app_program,
@@ -277,15 +276,11 @@ impl TxBuilder {
         );
         let (client, _) = derive_client(&msg.packet.dest_client, self.solana_ics26_program_id);
 
-        // For ICS07, we need the Cosmos chain ID (the chain being tracked by the light client)
-        let (client_state, _) =
-            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
+        let (client_state, _) = derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
 
-        // Use the proof height for the consensus state lookup
-        // The proof verifies against the app_hash at the proof height
         let (consensus_state, _) = derive_ics07_consensus_state(
             client_state,
-            msg.proof.height, // Use proof metadata height
+            msg.proof.height,
             self.solana_ics07_program_id,
         );
 
@@ -295,19 +290,20 @@ impl TxBuilder {
             AccountMeta::new(client_sequence, false),
             AccountMeta::new(packet_receipt, false),
             AccountMeta::new(packet_ack, false),
-            AccountMeta::new_readonly(ibc_app_program, false), // IBC app program
-            AccountMeta::new(app_state, false),                 // IBC app state
-            AccountMeta::new_readonly(self.solana_ics26_program_id, false), // Router program
-            AccountMeta::new_readonly(self.fee_payer, true), // relayer
-            AccountMeta::new(self.fee_payer, true),          // payer
+            AccountMeta::new_readonly(ibc_app_program, false),
+            AccountMeta::new(app_state, false),
+            AccountMeta::new_readonly(self.solana_ics26_program_id, false),
+            AccountMeta::new_readonly(self.fee_payer, true),
+            AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(sysvar::clock::id(), false),
             AccountMeta::new_readonly(client, false),
-            AccountMeta::new_readonly(self.solana_ics07_program_id, false), // light client program
+            AccountMeta::new_readonly(self.solana_ics07_program_id, false),
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
 
+        // TODO: fix closing
         // Add chunk accounts as remaining_accounts (mutable since they'll be closed)
         for chunk_account in chunk_accounts {
             accounts.push(AccountMeta::new(chunk_account, false));
@@ -348,12 +344,7 @@ impl TxBuilder {
             .get_account(&ibc_app_pda)
             .map_err(|e| anyhow::anyhow!("Failed to get IBC app account: {e}"))?;
 
-        // The IBC app account data structure:
-        // - discriminator (8 bytes)
-        // - port_id string (4 bytes length + string data)
-        // - app_program_id (32 bytes)
-        // - authority (32 bytes)
-
+        // TODO: simplify
         // Parse the IBC app account to get the program ID
         let ibc_app_program = if ibc_app_account.data.len() >= 44 {
             // Skip discriminator (8 bytes)
@@ -387,8 +378,8 @@ impl TxBuilder {
 
         tracing::info!("IBC app program ID: {}", ibc_app_program);
 
-        // Derive the app state PDA (using correct seeds: app_state + port_id)
-        let (app_state, _) = Pubkey::find_program_address(&[b"app_state", b"transfer"], &ibc_app_program);
+        let (app_state, _) =
+            Pubkey::find_program_address(&[b"app_state", b"transfer"], &ibc_app_program);
 
         let (packet_commitment, _) = derive_packet_commitment(
             &msg.packet.source_client,
@@ -396,7 +387,6 @@ impl TxBuilder {
             solana_ics26_program_id,
         );
 
-        // Derive the router client PDA using the packet's source_client (the ICS26 client on Solana)
         let (client, _) = derive_client(&msg.packet.source_client, solana_ics26_program_id);
         tracing::info!(
             "Router client PDA for '{}': {}",
@@ -404,41 +394,44 @@ impl TxBuilder {
             client
         );
 
-        // For ICS07, we need the Cosmos chain ID (the chain being tracked by the light client)
         let chain_id = self.chain_id().await?;
         tracing::info!("Cosmos chain ID for ICS07 derivation: {}", chain_id);
 
         let (client_state, _) = derive_ics07_client_state(&chain_id, self.solana_ics07_program_id);
         tracing::info!("ICS07 client state PDA: {}", client_state);
 
-        // Use the proof height for the consensus state lookup (NOT query_height)
-        // The proof from query_height (N+1) verifies against app hash at proof_height (N)
         tracing::info!("=== ACK PACKET CONSENSUS STATE DERIVATION ===");
         tracing::info!("  Proof height from message: {}", msg.proof.height);
-        tracing::info!("  Will derive consensus state PDA for height: {}", msg.proof.height);
+        tracing::info!(
+            "  Will derive consensus state PDA for height: {}",
+            msg.proof.height
+        );
 
         let (consensus_state, _) = derive_ics07_consensus_state(
             client_state,
-            msg.proof.height, // Use proof metadata height
+            msg.proof.height,
             self.solana_ics07_program_id,
         );
 
         tracing::info!("  Consensus state PDA: {}", consensus_state);
-        tracing::info!("  This PDA should contain app_hash for height: {}", msg.proof.height);
+        tracing::info!(
+            "  This PDA should contain app_hash for height: {}",
+            msg.proof.height
+        );
         tracing::info!("  Proof will be verified against this app_hash");
 
         let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
             AccountMeta::new_readonly(ibc_app_pda, false),
             AccountMeta::new(packet_commitment, false), // Will be closed after ack
-            AccountMeta::new_readonly(ibc_app_program, false), // IBC app program
-            AccountMeta::new(app_state, false),         // IBC app state
-            AccountMeta::new_readonly(self.solana_ics26_program_id, false), // Router program
-            AccountMeta::new_readonly(self.fee_payer, true), // relayer
-            AccountMeta::new(self.fee_payer, true),     // payer
+            AccountMeta::new_readonly(ibc_app_program, false),
+            AccountMeta::new(app_state, false),
+            AccountMeta::new_readonly(self.solana_ics26_program_id, false),
+            AccountMeta::new_readonly(self.fee_payer, true),
+            AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(client, false),
-            AccountMeta::new_readonly(self.solana_ics07_program_id, false), // light client program
+            AccountMeta::new_readonly(self.solana_ics07_program_id, false),
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
@@ -488,12 +481,11 @@ impl TxBuilder {
 
         let (client, _) = derive_client(&msg.packet.dest_client, solana_ics26_program_id);
 
-        // Build accounts list for timeout_packet
         let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
             AccountMeta::new(packet_commitment, false), // Will be closed after timeout
-            AccountMeta::new_readonly(self.fee_payer, true), // relayer
-            AccountMeta::new(self.fee_payer, true),     // payer
+            AccountMeta::new_readonly(self.fee_payer, true),
+            AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(client, false),
         ];
@@ -546,7 +538,6 @@ impl TxBuilder {
         Self::split_into_chunks(header_bytes)
     }
 
-
     fn build_chunk_transactions(
         &self,
         chunks: &[Vec<u8>],
@@ -578,7 +569,6 @@ impl TxBuilder {
         let compute_budget_ix =
             solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
 
-        // Optionally set a priority fee to ensure the transaction gets processed
         let priority_fee_ix =
             solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(1000);
 
@@ -752,7 +742,6 @@ impl TxBuilder {
         let discriminator = get_instruction_discriminator("assemble_and_update_client");
         let mut data = discriminator.to_vec();
 
-        // Serialize parameters (chain_id, target_height)
         let chain_id_len = u32::try_from(chain_id.len()).expect("chain_id too long");
         data.extend_from_slice(&chain_id_len.to_le_bytes());
         data.extend_from_slice(chain_id.as_bytes());
@@ -777,8 +766,8 @@ impl TxBuilder {
         &self,
         chain_id: &str,
         msg: &MsgRecvPacket,
-        payload_data: &[Vec<u8>], // Actual payload data for each payload
-        proof_data: &[u8],        // Actual proof data
+        payload_data: &[Vec<u8>],
+        proof_data: &[u8],
     ) -> Result<RecvPacketChunkedTxs> {
         let mut chunk_txs = Vec::new();
 
@@ -805,7 +794,6 @@ impl TxBuilder {
             }
         }
 
-        // Process proof if it needs chunking (based on metadata)
         if msg.proof.total_chunks > 0 {
             let chunks = Self::split_into_chunks(proof_data);
             for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
@@ -846,7 +834,6 @@ impl TxBuilder {
             }
         }
 
-        // Add proof chunk accounts
         if msg.proof.total_chunks > 0 {
             for chunk_idx in 0..msg.proof.total_chunks {
                 let (chunk_pda, _) = derive_proof_chunk(
@@ -860,10 +847,9 @@ impl TxBuilder {
             }
         }
 
-        // Build the main recv packet instruction with metadata
-        let recv_instruction = self.build_recv_packet_instruction(chain_id, msg, remaining_account_pubkeys)?;
+        let recv_instruction =
+            self.build_recv_packet_instruction(chain_id, msg, remaining_account_pubkeys)?;
 
-        // Add compute budget instructions to handle expensive proof verification
         let mut instructions = Self::extend_compute_ix();
         instructions.push(recv_instruction);
 
@@ -872,15 +858,18 @@ impl TxBuilder {
         Ok(RecvPacketChunkedTxs { chunk_txs, recv_tx })
     }
 
-    /// Build chunked ack packet transactions
     async fn build_ack_packet_chunked(
         &self,
         msg: &MsgAckPacket,
-        payload_data: &[Vec<u8>], // Actual payload data for each payload
-        proof_data: &[u8],        // Actual proof data
+        payload_data: &[Vec<u8>],
+        proof_data: &[u8],
     ) -> Result<AckPacketChunkedTxs> {
-        tracing::info!("build_ack_packet_chunked: seq={}, payloads.len={}, proof.total_chunks={}",
-            msg.packet.sequence, msg.payloads.len(), msg.proof.total_chunks);
+        tracing::info!(
+            "build_ack_packet_chunked: seq={}, payloads.len={}, proof.total_chunks={}",
+            msg.packet.sequence,
+            msg.payloads.len(),
+            msg.proof.total_chunks
+        );
 
         let mut chunk_txs = Vec::new();
         let mut total_payload_chunk_accounts = 0usize;
@@ -892,8 +881,12 @@ impl TxBuilder {
 
             // Check if payload needs chunking (based on metadata)
             if payload_idx < msg.payloads.len() && msg.payloads[payload_idx].total_chunks > 0 {
-                tracing::info!("  Payload {}: total_chunks={}, data_len={}",
-                    payload_idx, msg.payloads[payload_idx].total_chunks, data.len());
+                tracing::info!(
+                    "  Payload {}: total_chunks={}, data_len={}",
+                    payload_idx,
+                    msg.payloads[payload_idx].total_chunks,
+                    data.len()
+                );
                 let chunks = Self::split_into_chunks(data);
                 tracing::info!("    Split into {} chunk transactions", chunks.len());
                 for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
@@ -914,15 +907,21 @@ impl TxBuilder {
             }
         }
 
-        tracing::info!("  Total payload chunk accounts: {}", total_payload_chunk_accounts);
+        tracing::info!(
+            "  Total payload chunk accounts: {}",
+            total_payload_chunk_accounts
+        );
 
         let mut total_proof_chunk_accounts = 0usize;
 
-        // Process proof if it needs chunking (based on metadata)
         if msg.proof.total_chunks > 0 {
             let chunks = Self::split_into_chunks(proof_data);
-            tracing::info!("  Proof: total_chunks={}, data_len={}, split into {} chunk transactions",
-                msg.proof.total_chunks, proof_data.len(), chunks.len());
+            tracing::info!(
+                "  Proof: total_chunks={}, data_len={}, split into {} chunk transactions",
+                msg.proof.total_chunks,
+                proof_data.len(),
+                chunks.len()
+            );
             for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
                 let chunk_index = u8::try_from(chunk_idx)
                     .map_err(|_| anyhow::anyhow!("Chunk index exceeds u8 max"))?;
@@ -939,9 +938,14 @@ impl TxBuilder {
             }
         }
 
-        tracing::info!("  Total proof chunk accounts: {}", total_proof_chunk_accounts);
-        tracing::info!("  Total chunk upload txs: {}, then 1 final ack_packet tx",
-            total_payload_chunk_accounts + total_proof_chunk_accounts);
+        tracing::info!(
+            "  Total proof chunk accounts: {}",
+            total_proof_chunk_accounts
+        );
+        tracing::info!(
+            "  Total chunk upload txs: {}, then 1 final ack_packet tx",
+            total_payload_chunk_accounts + total_proof_chunk_accounts
+        );
 
         // Build list of chunk account PDAs for remaining_accounts
         let mut remaining_account_pubkeys = Vec::new();
@@ -966,7 +970,6 @@ impl TxBuilder {
             }
         }
 
-        // Add proof chunk accounts
         if msg.proof.total_chunks > 0 {
             for chunk_idx in 0..msg.proof.total_chunks {
                 let (chunk_pda, _) = derive_proof_chunk(
@@ -980,13 +983,15 @@ impl TxBuilder {
             }
         }
 
-        tracing::info!("  Adding {} remaining_accounts (chunk PDAs) to ack_packet instruction",
-            remaining_account_pubkeys.len());
+        tracing::info!(
+            "  Adding {} remaining_accounts (chunk PDAs) to ack_packet instruction",
+            remaining_account_pubkeys.len()
+        );
 
-        // Build the main ack packet instruction with metadata
-        let ack_instruction = self.build_ack_packet_instruction(msg, remaining_account_pubkeys).await?;
+        let ack_instruction = self
+            .build_ack_packet_instruction(msg, remaining_account_pubkeys)
+            .await?;
 
-        // Add compute budget instructions to handle expensive proof verification
         let mut instructions = Self::extend_compute_ix();
         instructions.push(ack_instruction);
 
@@ -995,12 +1000,11 @@ impl TxBuilder {
         Ok(AckPacketChunkedTxs { chunk_txs, ack_tx })
     }
 
-    /// Build chunked timeout packet transactions
     fn build_timeout_packet_chunked(
         &self,
         msg: &MsgTimeoutPacket,
-        payload_data: &[Vec<u8>], // Actual payload data for each payload
-        proof_data: &[u8],        // Actual proof data
+        payload_data: &[Vec<u8>],
+        proof_data: &[u8],
     ) -> Result<TimeoutPacketChunkedTxs> {
         let mut chunk_txs = Vec::new();
 
@@ -1029,7 +1033,6 @@ impl TxBuilder {
             }
         }
 
-        // Process proof if it needs chunking (based on metadata)
         if msg.proof.total_chunks > 0 {
             let chunks = Self::split_into_chunks(proof_data);
             for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
@@ -1070,7 +1073,6 @@ impl TxBuilder {
             }
         }
 
-        // Add proof chunk accounts
         if msg.proof.total_chunks > 0 {
             for chunk_idx in 0..msg.proof.total_chunks {
                 let (chunk_pda, _) = derive_proof_chunk(
@@ -1084,10 +1086,9 @@ impl TxBuilder {
             }
         }
 
-        // Build the main timeout packet instruction with metadata
-        let timeout_instruction = self.build_timeout_packet_instruction(msg, remaining_account_pubkeys)?;
+        let timeout_instruction =
+            self.build_timeout_packet_instruction(msg, remaining_account_pubkeys)?;
 
-        // Add compute budget instructions to handle expensive proof verification
         let mut instructions = Self::extend_compute_ix();
         instructions.push(timeout_instruction);
 
@@ -1142,21 +1143,25 @@ impl TxBuilder {
 
         tracing::info!("=== EVENT HEIGHTS ===");
         tracing::info!("  Maximum event height from source: {}", max_event_height);
-        tracing::info!("  Individual event heights: {:?}", src_events.iter().map(|e| e.height).collect::<Vec<_>>());
+        tracing::info!(
+            "  Individual event heights: {:?}",
+            src_events.iter().map(|e| e.height).collect::<Vec<_>>()
+        );
 
-        // In Tendermint, data written at height N is committed to the Merkle tree
-        // with an app_hash that appears in block N+1's header. Therefore, to prove
-        // data written at height N, we need to query at height N and verify against
-        // the app_hash from height N+1.
         let proof_height = max_event_height + 1;
 
         tracing::info!("=== PROOF HEIGHT CALCULATION ===");
         tracing::info!("  Max event height: {}", max_event_height);
-        tracing::info!("  Calculated proof_height (max_event + 1): {}", proof_height);
+        tracing::info!(
+            "  Calculated proof_height (max_event + 1): {}",
+            proof_height
+        );
         tracing::info!("  Solana latest height: {}", solana_latest_height);
-        tracing::info!("  Solana has consensus state at height: {}", solana_latest_height);
+        tracing::info!(
+            "  Solana has consensus state at height: {}",
+            solana_latest_height
+        );
 
-        // Verify Solana has been updated to at least the proof height
         if solana_latest_height < proof_height {
             anyhow::bail!(
                 "Solana client is at height {} but need height {} to prove events at height {}. Update Solana client to at least height {} first!",
@@ -1176,9 +1181,18 @@ impl TxBuilder {
         };
 
         tracing::info!("=== TARGET HEIGHT FOR PROOF ===");
-        tracing::info!("  Using Solana's latest height: {}", target_height.revision_height);
-        tracing::info!("  This means: prove_path will query Cosmos at height: {}", target_height.revision_height - 1);
-        tracing::info!("  Proof will verify against app_hash from Solana consensus state at height: {}", target_height.revision_height);
+        tracing::info!(
+            "  Using Solana's latest height: {}",
+            target_height.revision_height
+        );
+        tracing::info!(
+            "  This means: prove_path will query Cosmos at height: {}",
+            target_height.revision_height - 1
+        );
+        tracing::info!(
+            "  Proof will verify against app_hash from Solana consensus state at height: {}",
+            target_height.revision_height
+        );
         tracing::info!("  Events occurred at height: {}", max_event_height);
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
