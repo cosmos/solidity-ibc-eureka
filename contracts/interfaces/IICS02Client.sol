@@ -27,10 +27,7 @@ interface IICS02ClientAccessControlled {
     /// @param clientId The client identifier
     /// @param updateMsg The encoded update message e.g., an SP1 proof.
     /// @return The result of the update operation
-    function updateClient(
-        string calldata clientId,
-        bytes calldata updateMsg
-    )
+    function updateClient(string calldata clientId, bytes calldata updateMsg)
         external
         returns (ILightClientMsgs.UpdateResult);
 
@@ -53,10 +50,7 @@ interface IICS02Client is IICS02ClientAccessControlled {
     /// @notice Returns the counterparty client information given the client identifier.
     /// @param clientId The client identifier
     /// @return The counterparty client information
-    function getCounterparty(string calldata clientId)
-        external
-        view
-        returns (IICS02ClientMsgs.CounterpartyInfo memory);
+    function getCounterparty(string calldata clientId) external view returns (IICS02ClientMsgs.CounterpartyInfo memory);
 
     /// @notice Returns the address of the client contract given the client identifier.
     /// @param clientId The client identifier
@@ -72,10 +66,7 @@ interface IICS02Client is IICS02ClientAccessControlled {
     /// @param counterpartyInfo The counterparty client information
     /// @param client The address of the client contract
     /// @return The client identifier
-    function addClient(
-        IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
-        address client
-    )
+    function addClient(IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo, address client)
         external
         returns (string memory);
 

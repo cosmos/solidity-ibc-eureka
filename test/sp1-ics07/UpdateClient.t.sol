@@ -144,9 +144,7 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
         bytes memory updateMsg = json.readBytes(".updateMsg");
 
         SP1ICS07UpdateClientFixtureJson memory fix = SP1ICS07UpdateClientFixtureJson({
-            trustedClientState: trustedClientState,
-            trustedConsensusState: trustedConsensusState,
-            updateMsg: updateMsg
+            trustedClientState: trustedClientState, trustedConsensusState: trustedConsensusState, updateMsg: updateMsg
         });
 
         return fix;
