@@ -2,8 +2,8 @@ use anchor_lang::prelude::*;
 
 // Re-export types from solana_ibc_types for use in instructions
 pub use solana_ibc_types::{
-    MsgAckPacket, MsgCleanupChunks, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket,
-    MsgUploadChunk, Packet, PayloadMetadata, ProofMetadata,
+    MsgAckPacket, MsgCleanupChunks, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk,
+    Packet, PayloadMetadata, ProofMetadata,
 };
 pub use solana_ibc_types::{CLIENT_SEED, CLIENT_SEQUENCE_SEED, IBC_APP_SEED, ROUTER_STATE_SEED};
 pub use solana_ibc_types::{

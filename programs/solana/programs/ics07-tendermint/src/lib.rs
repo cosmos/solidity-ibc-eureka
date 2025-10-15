@@ -89,7 +89,6 @@ pub struct SubmitMisbehaviour<'info> {
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 }
 
-
 #[derive(Accounts)]
 #[instruction(params: types::UploadChunkParams)]
 pub struct UploadHeaderChunk<'info> {

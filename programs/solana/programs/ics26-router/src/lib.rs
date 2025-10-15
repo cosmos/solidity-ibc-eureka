@@ -66,15 +66,24 @@ pub mod ics26_router {
         instructions::send_packet(ctx, msg)
     }
 
-    pub fn recv_packet<'info>(ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>, msg: MsgRecvPacket) -> Result<()> {
+    pub fn recv_packet<'info>(
+        ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>,
+        msg: MsgRecvPacket,
+    ) -> Result<()> {
         instructions::recv_packet(ctx, msg)
     }
 
-    pub fn ack_packet<'info>(ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>, msg: MsgAckPacket) -> Result<()> {
+    pub fn ack_packet<'info>(
+        ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>,
+        msg: MsgAckPacket,
+    ) -> Result<()> {
         instructions::ack_packet(ctx, msg)
     }
 
-    pub fn timeout_packet<'info>(ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info>>, msg: MsgTimeoutPacket) -> Result<()> {
+    pub fn timeout_packet<'info>(
+        ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info>>,
+        msg: MsgTimeoutPacket,
+    ) -> Result<()> {
         instructions::timeout_packet(ctx, msg)
     }
 
@@ -101,14 +110,14 @@ pub mod ics26_router {
         instructions::upload_payload_chunk(ctx, msg)
     }
 
-    pub fn upload_proof_chunk(
-        ctx: Context<UploadProofChunk>,
-        msg: MsgUploadChunk,
-    ) -> Result<()> {
+    pub fn upload_proof_chunk(ctx: Context<UploadProofChunk>, msg: MsgUploadChunk) -> Result<()> {
         instructions::upload_proof_chunk(ctx, msg)
     }
 
-    pub fn cleanup_chunks<'info>(ctx: Context<'_, '_, '_, 'info, CleanupChunks<'info>>, msg: MsgCleanupChunks) -> Result<()> {
+    pub fn cleanup_chunks<'info>(
+        ctx: Context<'_, '_, '_, 'info, CleanupChunks<'info>>,
+        msg: MsgCleanupChunks,
+    ) -> Result<()> {
         instructions::cleanup_chunks(ctx, msg)
     }
 }
