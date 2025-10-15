@@ -35,7 +35,9 @@ use solana_sdk::{
     transaction::{Transaction, VersionedTransaction},
 };
 
-use crate::constants::{GMP_ACCOUNT_STATE_SEED, GMP_PORT_ID, PROTOBUF_ENCODING};
+use crate::constants::{
+    ANCHOR_DISCRIMINATOR_SIZE, GMP_ACCOUNT_STATE_SEED, GMP_PORT_ID, PROTOBUF_ENCODING,
+};
 use crate::proto::{GmpPacketData, SolanaInstruction};
 
 use solana_ibc_types::{
@@ -348,43 +350,17 @@ impl TxBuilder {
             .get_account(&ibc_app_pda)
             .map_err(|e| anyhow::anyhow!("Failed to get IBC app account: {e}"))?;
 
-        // The IBC app account data structure:
-        // - discriminator (8 bytes)
-        // - port_id string (4 bytes length + string data)
-        // - app_program_id (32 bytes)
-        // - authority (32 bytes)
+        if ibc_app_account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
+            return Err(anyhow::anyhow!("Account data too short for IBCApp account"));
+        }
 
-        // Parse the IBC app account to get the program ID
-        let ibc_app_program = if ibc_app_account.data.len() >= 44 {
-            // Skip discriminator (8 bytes)
-            let mut offset = 8;
+        // Deserialize IBCApp account using borsh (skip discriminator)
+        // Use deserialize instead of try_from_slice to handle extra bytes gracefully
+        let mut data = &ibc_app_account.data[ANCHOR_DISCRIMINATOR_SIZE..];
+        let ibc_app = solana_ibc_types::IBCApp::deserialize(&mut data)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account: {e}"))?;
 
-            // Read port_id string length (4 bytes, little-endian)
-            let port_len = u32::from_le_bytes(
-                ibc_app_account.data[offset..offset + 4]
-                    .try_into()
-                    .map_err(|_| anyhow::anyhow!("Invalid port length"))?,
-            ) as usize;
-            offset += 4;
-
-            // Skip the port string data
-            offset += port_len;
-
-            // Now read the app_program_id (32 bytes)
-            if offset + 32 <= ibc_app_account.data.len() {
-                let program_bytes: [u8; 32] = ibc_app_account.data[offset..offset + 32]
-                    .try_into()
-                    .map_err(|_| anyhow::anyhow!("Invalid program ID bytes"))?;
-                Pubkey::new_from_array(program_bytes)
-            } else {
-                return Err(anyhow::anyhow!(
-                    "IBC app account data too short for program ID"
-                ));
-            }
-        } else {
-            return Err(anyhow::anyhow!("Invalid IBC app account data length"));
-        };
-
+        let ibc_app_program = ibc_app.app_program_id;
         tracing::info!("IBC app program ID: {}", ibc_app_program);
 
         // Derive the app state PDA using the correct derivation (same as timeout handler)
@@ -528,10 +504,10 @@ impl TxBuilder {
             .get_account(&client_state_pda)
             .context("Failed to fetch client state account")?;
 
-        let client_state = ClientState::try_from_slice(&account.data[8..])
+        let client_state = ClientState::try_from_slice(&account.data[ANCHOR_DISCRIMINATOR_SIZE..])
             .or_else(|_| {
                 // If try_from_slice fails due to extra bytes, use deserialize which is more lenient
-                let mut data = &account.data[8..];
+                let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
                 ClientState::deserialize(&mut data)
             })
             .context("Failed to deserialize client state")?;
@@ -549,60 +525,30 @@ impl TxBuilder {
     fn resolve_port_program_id(&self, port_id: &str) -> Result<Pubkey> {
         let (ibc_app_account, _) = derive_ibc_app(port_id, self.solana_ics26_program_id);
 
-        let account_data = self
+        let account = self
             .target_solana_client
-            .get_account_data(&ibc_app_account)
+            .get_account(&ibc_app_account)
             .map_err(|e| {
                 anyhow::anyhow!("Failed to fetch IBCApp account for port '{}': {e}", port_id)
             })?;
 
-        if account_data.len() < 8 {
+        if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
             return Err(anyhow::anyhow!("Account data too short for IBCApp account"));
         }
 
-        let data_without_discriminator = &account_data[8..];
-        let mut offset: usize = 0;
-
-        // port_id: String with max_len(128) => 4 bytes length + string data
-        if data_without_discriminator.len() < offset.saturating_add(4) {
-            return Err(anyhow::anyhow!(
-                "Invalid IBCApp data: port_id length missing"
-            ));
-        }
-        let port_id_len = u32::from_le_bytes([
-            data_without_discriminator[offset],
-            data_without_discriminator[offset.saturating_add(1)],
-            data_without_discriminator[offset.saturating_add(2)],
-            data_without_discriminator[offset.saturating_add(3)],
-        ]) as usize;
-        offset = offset.saturating_add(4);
-
-        if data_without_discriminator.len() < offset.saturating_add(port_id_len) {
-            return Err(anyhow::anyhow!(
-                "Invalid IBCApp data: port_id data truncated"
-            ));
-        }
-        offset = offset.saturating_add(port_id_len);
-
-        // app_program_id: Pubkey (32 bytes)
-        if data_without_discriminator.len() < offset.saturating_add(32) {
-            return Err(anyhow::anyhow!(
-                "Invalid IBCApp data: app_program_id missing"
-            ));
-        }
-        let app_program_id_bytes: [u8; 32] = data_without_discriminator
-            [offset..offset.saturating_add(32)]
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("Invalid app_program_id length"))?;
-        let app_program_id = Pubkey::new_from_array(app_program_id_bytes);
+        // Deserialize IBCApp account using borsh (skip discriminator)
+        // Use deserialize instead of try_from_slice to handle extra bytes gracefully
+        let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
+        let ibc_app = solana_ibc_types::IBCApp::deserialize(&mut data)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account: {e}"))?;
 
         tracing::info!(
             "Resolved port '{}' to program ID: {}",
             port_id,
-            app_program_id
+            ibc_app.app_program_id
         );
 
-        Ok(app_program_id)
+        Ok(ibc_app.app_program_id)
     }
 
     fn split_header_into_chunks(header_bytes: &[u8]) -> Vec<Vec<u8>> {
