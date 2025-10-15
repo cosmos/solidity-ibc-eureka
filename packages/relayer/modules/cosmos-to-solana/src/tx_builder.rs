@@ -220,6 +220,49 @@ impl TxBuilder {
 
         let (router_state, _) = derive_router_state(self.solana_ics26_program_id);
         let (ibc_app, _) = derive_ibc_app(&payload.dest_port, self.solana_ics26_program_id);
+
+        // Query the ibc_app account to get the app_program_id (same pattern as ack_packet)
+        let ibc_app_account = self
+            .target_solana_client
+            .get_account(&ibc_app)
+            .map_err(|e| anyhow::anyhow!("Failed to get IBC app account: {e}"))?;
+
+        // Parse the IBC app account to get the program ID
+        let ibc_app_program = if ibc_app_account.data.len() >= 44 {
+            let mut offset = 8; // Skip discriminator
+
+            // Read port_id string length (4 bytes, little-endian)
+            let port_len = u32::from_le_bytes(
+                ibc_app_account.data[offset..offset + 4]
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("Invalid port length"))?,
+            ) as usize;
+            offset += 4;
+
+            // Skip the port string data
+            offset += port_len;
+
+            // Read the app_program_id (32 bytes)
+            if offset + 32 <= ibc_app_account.data.len() {
+                let program_bytes: [u8; 32] = ibc_app_account.data[offset..offset + 32]
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("Invalid program ID bytes"))?;
+                Pubkey::new_from_array(program_bytes)
+            } else {
+                return Err(anyhow::anyhow!(
+                    "IBC app account data too short for program ID"
+                ));
+            }
+        } else {
+            return Err(anyhow::anyhow!("Invalid IBC app account data length"));
+        };
+
+        // Derive the app state PDA
+        let (app_state, _) = Pubkey::find_program_address(
+            &[b"app_state", payload.dest_port.as_bytes()],
+            &ibc_app_program,
+        );
+
         let (client_sequence, _) =
             derive_client_sequence(&msg.packet.dest_client, self.solana_ics26_program_id);
         let (packet_receipt, _) = derive_packet_receipt(
@@ -234,16 +277,17 @@ impl TxBuilder {
         );
         let (client, _) = derive_client(&msg.packet.dest_client, self.solana_ics26_program_id);
 
+        // For ICS07, we need the Cosmos chain ID (the chain being tracked by the light client)
         let (client_state, _) =
-            derive_ics07_client_state(&msg.packet.source_client, self.solana_ics07_program_id);
+            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
 
-        let latest_height = self
-            .cosmos_client_state(chain_id)?
-            .latest_height
-            .revision_height;
-
-        let (consensus_state, _) =
-            derive_ics07_consensus_state(client_state, latest_height, self.solana_ics07_program_id);
+        // Use the proof height for the consensus state lookup
+        // The proof verifies against the app_hash at the proof height
+        let (consensus_state, _) = derive_ics07_consensus_state(
+            client_state,
+            msg.proof.height, // Use proof metadata height
+            self.solana_ics07_program_id,
+        );
 
         let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
@@ -251,6 +295,9 @@ impl TxBuilder {
             AccountMeta::new(client_sequence, false),
             AccountMeta::new(packet_receipt, false),
             AccountMeta::new(packet_ack, false),
+            AccountMeta::new_readonly(ibc_app_program, false), // IBC app program
+            AccountMeta::new(app_state, false),                 // IBC app state
+            AccountMeta::new_readonly(self.solana_ics26_program_id, false), // Router program
             AccountMeta::new_readonly(self.fee_payer, true), // relayer
             AccountMeta::new(self.fee_payer, true),          // payer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
