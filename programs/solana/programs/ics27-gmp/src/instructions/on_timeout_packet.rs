@@ -56,12 +56,9 @@ pub fn on_timeout_packet(
     // Check if app is operational
     app_state.can_operate()?;
 
-    // Parse packet data and timeout info from router message
+    // Parse packet data from router message
     let packet_data = crate::router_cpi::parse_timeout_data_from_router_cpi(&msg)?;
     let sequence = msg.sequence;
-
-    // Extract timeout info from router message
-    let timeout_info = extract_timeout_info_from_router_msg(&msg);
 
     // Validate packet data
     packet_data.validate()?;
@@ -72,55 +69,17 @@ pub fn on_timeout_packet(
     emit!(GMPTimeoutProcessed {
         sender,
         sequence,
-        timeout_info: format_timeout_info(&timeout_info),
+        timeout_info: format!("timestamp:{}", clock.unix_timestamp),
         timestamp: clock.unix_timestamp,
     });
 
     msg!(
-        "GMP call timed out: sender={}, sequence={}, timeout={}",
+        "GMP call timed out: sender={}, sequence={}",
         sender,
-        sequence,
-        format_timeout_info(&timeout_info)
+        sequence
     );
 
     Ok(())
-}
-
-/// Extract timeout info from router message
-const fn extract_timeout_info_from_router_msg(
-    router_msg: &solana_ibc_types::OnTimeoutPacketMsg,
-) -> TimeoutInfo {
-    // The OnTimeoutPacketMsg currently doesn't include explicit timeout info
-    // In IBC v2/Eureka, timeout information would be part of the packet metadata
-    // that the router processes. Since the router already validated the timeout
-    // condition before calling us, we can infer this was a valid timeout.
-
-    // We can use the sequence number and current context to provide meaningful info
-    // For now, we'll use the sequence as a proxy for timeout ordering
-    // In a full implementation, the router would provide more timeout details
-
-    // Extract sequence as timestamp (simplified approach)
-    // Real implementation would need timeout height/timestamp from router context
-    TimeoutInfo::Timestamp(router_msg.sequence as i64)
-}
-
-/// Timeout information structure
-#[derive(Debug, Clone)]
-pub enum TimeoutInfo {
-    Height(u64),
-    Timestamp(i64),
-    Both { height: u64, timestamp: i64 },
-}
-
-/// Format timeout info for display/logging
-fn format_timeout_info(timeout_info: &TimeoutInfo) -> String {
-    match timeout_info {
-        TimeoutInfo::Height(height) => format!("height:{height}"),
-        TimeoutInfo::Timestamp(timestamp) => format!("timestamp:{timestamp}"),
-        TimeoutInfo::Both { height, timestamp } => {
-            format!("height:{height},timestamp:{timestamp}")
-        }
-    }
 }
 
 #[cfg(test)]
