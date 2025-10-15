@@ -287,11 +287,9 @@ pub fn target_events_to_timeout_msgs(
                 let sequence = event.packet.sequence;
 
                 // Build metadata using helper function
-                let payloads_metadata = build_metadata_from_solana_payloads(
-                    &event.packet.payloads,
-                    sequence,
-                )
-                .expect("Failed to build payload metadata");
+                let payloads_metadata =
+                    build_metadata_from_solana_payloads(&event.packet.payloads, sequence)
+                        .expect("Failed to build payload metadata");
 
                 tracing::info!(
                     "timeout_packet seq={}: metadata.len()={}, proof will be filled later",
@@ -328,9 +326,7 @@ pub fn inject_mock_proofs(timeout_msgs: &mut [TimeoutPacketWithChunks]) {
 }
 
 /// Build inline mode metadata from Solana payloads
-fn build_inline_metadata_from_solana_payloads(
-    payloads: &[Payload],
-) -> Vec<PayloadMetadata> {
+fn build_inline_metadata_from_solana_payloads(payloads: &[Payload]) -> Vec<PayloadMetadata> {
     payloads
         .iter()
         .map(|p| PayloadMetadata {

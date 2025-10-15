@@ -1087,7 +1087,9 @@ impl TxBuilder {
             let tm_msg = &timeout_msgs_tm[idx];
 
             // Update proof chunks with actual proof data
-            timeout_with_chunks.proof_chunks.clone_from(&tm_msg.proof_unreceived);
+            timeout_with_chunks
+                .proof_chunks
+                .clone_from(&tm_msg.proof_unreceived);
 
             // Update proof metadata
             let proof_total_chunks = u8::try_from(
