@@ -96,7 +96,7 @@ pub struct RecvPacket<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
-pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
+pub fn recv_packet<'info>(ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>, msg: MsgRecvPacket) -> Result<()> {
     let router_state = &ctx.accounts.router_state;
     let packet_receipt = &mut ctx.accounts.packet_receipt;
     let packet_ack = &mut ctx.accounts.packet_ack;
@@ -133,14 +133,15 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     );
 
     // Reconstruct packet from either inline or chunked mode
-    let packet = chunking::reconstruct_packet(
-        &msg.packet,
-        &msg.payloads,
-        ctx.remaining_accounts,
-        ctx.accounts.relayer.key(),
-        &msg.packet.dest_client,
-        ctx.program_id,
-    )?;
+    let packet = chunking::reconstruct_packet(chunking::ReconstructPacketParams {
+        packet: &msg.packet,
+        payloads_metadata: &msg.payloads,
+        remaining_accounts: ctx.remaining_accounts,
+        payer: &ctx.accounts.payer,
+        submitter: ctx.accounts.relayer.key(),
+        client_id: &msg.packet.dest_client,
+        program_id: ctx.program_id,
+    })?;
 
     let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
 
@@ -148,6 +149,7 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
     let proof_start_index = total_payload_chunks;
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
+        payer: &ctx.accounts.payer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.dest_client,
         sequence: msg.packet.sequence,

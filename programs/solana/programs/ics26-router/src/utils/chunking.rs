@@ -6,8 +6,9 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::keccak;
 
 /// Parameters for assembling single payload chunks
-pub struct AssemblePayloadParams<'a, 'b> {
+pub struct AssemblePayloadParams<'a, 'b, 'c> {
     pub remaining_accounts: &'a [AccountInfo<'b>],
+    pub payer: &'c AccountInfo<'b>,
     pub submitter: Pubkey,
     pub client_id: &'a str,
     pub sequence: u64,
@@ -19,8 +20,9 @@ pub struct AssemblePayloadParams<'a, 'b> {
 }
 
 /// Parameters for assembling proof chunks
-pub struct AssembleProofParams<'a, 'b> {
+pub struct AssembleProofParams<'a, 'b, 'c> {
     pub remaining_accounts: &'a [AccountInfo<'b>],
+    pub payer: &'c AccountInfo<'b>,
     pub submitter: Pubkey,
     pub client_id: &'a str,
     pub sequence: u64,
@@ -30,8 +32,20 @@ pub struct AssembleProofParams<'a, 'b> {
     pub start_index: usize,
 }
 
-pub fn assemble_multiple_payloads(
-    remaining_accounts: &[AccountInfo],
+/// Parameters for reconstructing a packet
+pub struct ReconstructPacketParams<'a, 'b, 'c> {
+    pub packet: &'a solana_ibc_types::Packet,
+    pub payloads_metadata: &'a [PayloadMetadata],
+    pub remaining_accounts: &'a [AccountInfo<'b>],
+    pub payer: &'c AccountInfo<'b>,
+    pub submitter: Pubkey,
+    pub client_id: &'a str,
+    pub program_id: &'a Pubkey,
+}
+
+pub fn assemble_multiple_payloads<'a, 'b, 'c>(
+    remaining_accounts: &'a [AccountInfo<'b>],
+    payer: &'c AccountInfo<'b>,
     submitter: Pubkey,
     client_id: &str,
     sequence: u64,
@@ -44,6 +58,7 @@ pub fn assemble_multiple_payloads(
     for (payload_index, metadata) in payloads_metadata.iter().enumerate() {
         let payload_data = assemble_single_payload_chunks(AssemblePayloadParams {
             remaining_accounts,
+            payer,
             submitter,
             client_id,
             sequence,
@@ -146,6 +161,7 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
     // Clean up chunks and return rent
     cleanup_payload_chunks(
         &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
+        params.payer,
         params.submitter,
         params.client_id,
         params.sequence,
@@ -244,6 +260,7 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
     // Clean up chunks and return rent
     cleanup_proof_chunks(
         &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
+        params.payer,
         params.submitter,
         params.client_id,
         params.sequence,
@@ -254,11 +271,10 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
     Ok(proof_data)
 }
 
-/// Clean up payload chunks and return rent to submitter
-/// Note: This function expects the submitter account to NOT be in `chunk_accounts`
-/// as it will be in the main accounts list as a mutable account
+/// Clean up payload chunks by zeroing data (lamports remain for later reclaim via cleanup_chunks)
 fn cleanup_payload_chunks(
     chunk_accounts: &[AccountInfo],
+    _payer: &AccountInfo,
     submitter: Pubkey,
     client_id: &str,
     sequence: u64,
@@ -288,23 +304,19 @@ fn cleanup_payload_chunks(
             RouterError::InvalidChunkAccount
         );
 
-        // Zero out lamports (will be returned via rent reclamation)
-        // In production, these lamports are returned to the submitter/payer
-        let mut chunk_lamports = chunk_account.try_borrow_mut_lamports()?;
-        **chunk_lamports = 0;
-
-        // Clear the data
+        // Clear the chunk data to prevent replay
+        // Note: Lamports are NOT transferred here to avoid UnbalancedInstruction errors.
+        // Users must call cleanup_chunks separately to reclaim rent.
         let mut data = chunk_account.try_borrow_mut_data()?;
         data.fill(0);
     }
     Ok(())
 }
 
-/// Clean up proof chunks and return rent to submitter
-/// Note: This function expects the submitter account to NOT be in `chunk_accounts`
-/// as it will be in the main accounts list as a mutable account
+/// Clean up proof chunks by zeroing data (lamports remain for later reclaim via cleanup_chunks)
 fn cleanup_proof_chunks(
     chunk_accounts: &[AccountInfo],
+    _payer: &AccountInfo,
     submitter: Pubkey,
     client_id: &str,
     sequence: u64,
@@ -326,12 +338,9 @@ fn cleanup_proof_chunks(
             RouterError::InvalidChunkAccount
         );
 
-        // Zero out lamports (will be returned via rent reclamation)
-        // In production, these lamports are returned to the submitter/payer
-        let mut chunk_lamports = chunk_account.try_borrow_mut_lamports()?;
-        **chunk_lamports = 0;
-
-        // Clear the data
+        // Clear the chunk data to prevent replay
+        // Note: Lamports are NOT transferred here to avoid UnbalancedInstruction errors.
+        // Users must call cleanup_chunks separately to reclaim rent.
         let mut data = chunk_account.try_borrow_mut_data()?;
         data.fill(0);
     }
@@ -344,39 +353,25 @@ fn cleanup_proof_chunks(
 /// - **Inline mode**: When packet.payloads is not empty, the packet is returned as-is
 /// - **Chunked mode**: When packet.payloads is empty, payloads are assembled from chunks and packet is reconstructed
 ///
-/// # Arguments
-/// * `packet` - The packet from the message (with or without payloads)
-/// * `payloads_metadata` - Metadata for reconstructing payloads (empty in inline mode)
-/// * `remaining_accounts` - Chunk accounts for chunked mode
-/// * `submitter` - Submitter pubkey for chunk verification
-/// * `client_id` - Client ID for chunk verification
-/// * `program_id` - Program ID for PDA verification
-///
 /// # Returns
 /// * `Ok(solana_ibc_types::Packet)` - Reconstructed packet with payloads
 /// * `Err` - If validation fails or chunks cannot be assembled
-pub fn reconstruct_packet(
-    packet: &solana_ibc_types::Packet,
-    payloads_metadata: &[PayloadMetadata],
-    remaining_accounts: &[AccountInfo],
-    submitter: Pubkey,
-    client_id: &str,
-    program_id: &Pubkey,
-) -> Result<solana_ibc_types::Packet> {
-    let payloads = if packet.payloads.is_empty() {
+pub fn reconstruct_packet(params: ReconstructPacketParams) -> Result<solana_ibc_types::Packet> {
+    let payloads = if params.packet.payloads.is_empty() {
         // Chunked mode: Assemble payloads from chunks
         let payload_data_vec = assemble_multiple_payloads(
-            remaining_accounts,
-            submitter,
-            client_id,
-            packet.sequence,
-            payloads_metadata,
-            program_id,
+            params.remaining_accounts,
+            params.payer,
+            params.submitter,
+            params.client_id,
+            params.packet.sequence,
+            params.payloads_metadata,
+            params.program_id,
         )?;
 
         // Reconstruct the full payloads
         let mut assembled_payloads = Vec::new();
-        for (i, metadata) in payloads_metadata.iter().enumerate() {
+        for (i, metadata) in params.payloads_metadata.iter().enumerate() {
             let payload = solana_ibc_types::Payload {
                 source_port: metadata.source_port.clone(),
                 dest_port: metadata.dest_port.clone(),
@@ -392,18 +387,18 @@ pub fn reconstruct_packet(
         // The packet commitment is already verified via light client membership proof
         msg!(
             "Using inline payloads for packet {} (count: {})",
-            packet.sequence,
-            packet.payloads.len()
+            params.packet.sequence,
+            params.packet.payloads.len()
         );
-        packet.payloads.clone()
+        params.packet.payloads.clone()
     };
 
     // Return reconstructed packet
     Ok(solana_ibc_types::Packet {
-        sequence: packet.sequence,
-        source_client: packet.source_client.clone(),
-        dest_client: packet.dest_client.clone(),
-        timeout_timestamp: packet.timeout_timestamp,
+        sequence: params.packet.sequence,
+        source_client: params.packet.source_client.clone(),
+        dest_client: params.packet.dest_client.clone(),
+        timeout_timestamp: params.packet.timeout_timestamp,
         payloads,
     })
 }

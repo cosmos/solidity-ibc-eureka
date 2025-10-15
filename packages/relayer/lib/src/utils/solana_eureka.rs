@@ -708,19 +708,22 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
     let proof_total_chunks = u8::try_from(value.proof_acked.len().div_ceil(MAX_CHUNK_SIZE).max(1))
         .context("proof too big")?;
 
-    tracing::info!(
-        "ack_packet seq={}: proof_size={}, proof_chunks={}, ack_size={}",
-        packet.sequence,
-        value.proof_acked.len(),
-        proof_total_chunks,
-        acknowledgement_data.len()
-    );
+    tracing::info!("=== CONVERTING TO SOLANA FORMAT ===");
+    tracing::info!("  Packet sequence: {}", packet.sequence);
+    tracing::info!("  IBC proof_height from message: {:?}", proof_height);
+    tracing::info!("  IBC proof_height.revision_height: {}", proof_height.revision_height);
+    tracing::info!("  Setting Solana proof.height = {}", proof_height.revision_height);
+    tracing::info!("  Proof size: {} bytes", value.proof_acked.len());
+    tracing::info!("  Proof chunks: {}", proof_total_chunks);
+    tracing::info!("  Ack size: {} bytes", acknowledgement_data.len());
 
     let proof_metadata = ProofMetadata {
         height: proof_height.revision_height,
         commitment: proof_commitment,
         total_chunks: proof_total_chunks,
     };
+
+    tracing::info!("  Final ProofMetadata.height = {}", proof_metadata.height);
 
     Ok(AckPacketWithChunks {
         msg: SolanaAckPacket {

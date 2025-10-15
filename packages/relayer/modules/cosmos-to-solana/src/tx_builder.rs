@@ -340,8 +340,8 @@ impl TxBuilder {
 
         tracing::info!("IBC app program ID: {}", ibc_app_program);
 
-        // Derive the app state PDA
-        let (app_state, _) = Pubkey::find_program_address(&[b"state"], &ibc_app_program);
+        // Derive the app state PDA (using correct seeds: app_state + port_id)
+        let (app_state, _) = Pubkey::find_program_address(&[b"app_state", b"transfer"], &ibc_app_program);
 
         let (packet_commitment, _) = derive_packet_commitment(
             &msg.packet.source_client,
@@ -366,16 +366,19 @@ impl TxBuilder {
 
         // Use the proof height for the consensus state lookup (NOT query_height)
         // The proof from query_height (N+1) verifies against app hash at proof_height (N)
+        tracing::info!("=== ACK PACKET CONSENSUS STATE DERIVATION ===");
+        tracing::info!("  Proof height from message: {}", msg.proof.height);
+        tracing::info!("  Will derive consensus state PDA for height: {}", msg.proof.height);
+
         let (consensus_state, _) = derive_ics07_consensus_state(
             client_state,
             msg.proof.height, // Use proof metadata height
             self.solana_ics07_program_id,
         );
-        tracing::info!(
-            "Consensus state PDA (height {}): {}",
-            msg.proof.height,
-            consensus_state
-        );
+
+        tracing::info!("  Consensus state PDA: {}", consensus_state);
+        tracing::info!("  This PDA should contain app_hash for height: {}", msg.proof.height);
+        tracing::info!("  Proof will be verified against this app_hash");
 
         let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
@@ -812,7 +815,12 @@ impl TxBuilder {
 
         // Build the main recv packet instruction with metadata
         let recv_instruction = self.build_recv_packet_instruction(chain_id, msg, remaining_account_pubkeys)?;
-        let recv_tx = self.create_tx_bytes(&[recv_instruction])?;
+
+        // Add compute budget instructions to handle expensive proof verification
+        let mut instructions = Self::extend_compute_ix();
+        instructions.push(recv_instruction);
+
+        let recv_tx = self.create_tx_bytes(&instructions)?;
 
         Ok(RecvPacketChunkedTxs { chunk_txs, recv_tx })
     }
@@ -930,7 +938,12 @@ impl TxBuilder {
 
         // Build the main ack packet instruction with metadata
         let ack_instruction = self.build_ack_packet_instruction(msg, remaining_account_pubkeys).await?;
-        let ack_tx = self.create_tx_bytes(&[ack_instruction])?;
+
+        // Add compute budget instructions to handle expensive proof verification
+        let mut instructions = Self::extend_compute_ix();
+        instructions.push(ack_instruction);
+
+        let ack_tx = self.create_tx_bytes(&instructions)?;
 
         Ok(AckPacketChunkedTxs { chunk_txs, ack_tx })
     }
@@ -1026,7 +1039,12 @@ impl TxBuilder {
 
         // Build the main timeout packet instruction with metadata
         let timeout_instruction = self.build_timeout_packet_instruction(msg, remaining_account_pubkeys)?;
-        let timeout_tx = self.create_tx_bytes(&[timeout_instruction])?;
+
+        // Add compute budget instructions to handle expensive proof verification
+        let mut instructions = Self::extend_compute_ix();
+        instructions.push(timeout_instruction);
+
+        let timeout_tx = self.create_tx_bytes(&instructions)?;
 
         Ok(TimeoutPacketChunkedTxs {
             chunk_txs,
@@ -1062,10 +1080,10 @@ impl TxBuilder {
         let solana_client_state = self.cosmos_client_state(&chain_id)?;
         let solana_latest_height = solana_client_state.latest_height.revision_height;
 
-        tracing::info!(
-            "Solana client's latest height: {}",
-            solana_latest_height
-        );
+        tracing::info!("=== SOLANA CLIENT STATE ===");
+        tracing::info!("  Chain ID: {}", chain_id);
+        tracing::info!("  Solana client's latest height: {}", solana_latest_height);
+        tracing::info!("  Solana client state: {:?}", solana_client_state);
 
         // Find the maximum height among all source events
         // This is the height where the latest event (e.g., acknowledgment) was written
@@ -1075,16 +1093,21 @@ impl TxBuilder {
             .max()
             .unwrap_or(solana_latest_height);
 
-        tracing::info!(
-            "Maximum event height from source: {}",
-            max_event_height
-        );
+        tracing::info!("=== EVENT HEIGHTS ===");
+        tracing::info!("  Maximum event height from source: {}", max_event_height);
+        tracing::info!("  Individual event heights: {:?}", src_events.iter().map(|e| e.height).collect::<Vec<_>>());
 
         // In Tendermint, data written at height N is committed to the Merkle tree
         // with an app_hash that appears in block N+1's header. Therefore, to prove
         // data written at height N, we need to query at height N and verify against
         // the app_hash from height N+1.
         let proof_height = max_event_height + 1;
+
+        tracing::info!("=== PROOF HEIGHT CALCULATION ===");
+        tracing::info!("  Max event height: {}", max_event_height);
+        tracing::info!("  Calculated proof_height (max_event + 1): {}", proof_height);
+        tracing::info!("  Solana latest height: {}", solana_latest_height);
+        tracing::info!("  Solana has consensus state at height: {}", solana_latest_height);
 
         // Verify Solana has been updated to at least the proof height
         if solana_latest_height < proof_height {
@@ -1097,22 +1120,19 @@ impl TxBuilder {
             );
         }
 
-        // Use proof_height for proof generation
-        // This ensures:
-        // 1. The data exists on Cosmos at max_event_height (events were emitted there)
-        // 2. The proof queries at max_event_height and verifies against app_hash at proof_height
-        // 3. Solana has the consensus_state for proof_height (we verified above)
+        // Use solana_latest_height for proof generation
+        // This ensures we use a height where the consensus state actually exists on Solana
+        // Solana only stores consensus states at heights where update_client was executed
         let target_height = ibc_proto_eureka::ibc::core::client::v1::Height {
             revision_number: solana_client_state.latest_height.revision_number,
-            revision_height: proof_height,
+            revision_height: solana_latest_height,
         };
 
-        tracing::info!(
-            "Using height {} for proof generation (proves data at height {} using app_hash from height {})",
-            target_height.revision_height,
-            max_event_height,
-            proof_height
-        );
+        tracing::info!("=== TARGET HEIGHT FOR PROOF ===");
+        tracing::info!("  Using Solana's latest height: {}", target_height.revision_height);
+        tracing::info!("  This means: prove_path will query Cosmos at height: {}", target_height.revision_height - 1);
+        tracing::info!("  Proof will verify against app_hash from Solana consensus state at height: {}", target_height.revision_height);
+        tracing::info!("  Events occurred at height: {}", max_event_height);
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 

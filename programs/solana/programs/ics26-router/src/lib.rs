@@ -66,15 +66,15 @@ pub mod ics26_router {
         instructions::send_packet(ctx, msg)
     }
 
-    pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
+    pub fn recv_packet<'info>(ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>, msg: MsgRecvPacket) -> Result<()> {
         instructions::recv_packet(ctx, msg)
     }
 
-    pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
+    pub fn ack_packet<'info>(ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>, msg: MsgAckPacket) -> Result<()> {
         instructions::ack_packet(ctx, msg)
     }
 
-    pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Result<()> {
+    pub fn timeout_packet<'info>(ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info>>, msg: MsgTimeoutPacket) -> Result<()> {
         instructions::timeout_packet(ctx, msg)
     }
 

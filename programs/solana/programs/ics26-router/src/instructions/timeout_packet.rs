@@ -76,7 +76,7 @@ pub struct TimeoutPacket<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
-pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Result<()> {
+pub fn timeout_packet<'info>(ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info>>, msg: MsgTimeoutPacket) -> Result<()> {
     let router_state = &ctx.accounts.router_state;
     let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;
@@ -105,18 +105,20 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         RouterError::InvalidCounterpartyClient
     );
 
-    let packet = chunking::reconstruct_packet(
-        &msg.packet,
-        &msg.payloads,
-        ctx.remaining_accounts,
-        ctx.accounts.relayer.key(),
-        &msg.packet.source_client,
-        ctx.program_id,
-    )?;
+    let packet = chunking::reconstruct_packet(chunking::ReconstructPacketParams {
+        packet: &msg.packet,
+        payloads_metadata: &msg.payloads,
+        remaining_accounts: ctx.remaining_accounts,
+        payer: &ctx.accounts.payer,
+        submitter: ctx.accounts.relayer.key(),
+        client_id: &msg.packet.source_client,
+        program_id: ctx.program_id,
+    })?;
 
     let proof_start_index = total_payload_chunks(&msg.payloads);
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
+        payer: &ctx.accounts.payer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.source_client,
         sequence: msg.packet.sequence,

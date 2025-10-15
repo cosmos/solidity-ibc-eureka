@@ -523,7 +523,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
 			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
 
-			s.verifyAcknowledgmentOnSolana(ctx, SolanaClientID, 1)
+			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
 		}))
 	}))
 }
@@ -688,7 +688,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
 			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
 
-			s.verifyAcknowledgmentOnSolana(ctx, SolanaClientID, 1)
+			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
 		}))
 	}))
 }
@@ -776,6 +776,19 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 
 	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
 		s.Require().True(s.Run("Update Tendermint client on Solana via chunks", func() {
+			// Query Solana client height BEFORE update_client
+			cosmosChainID := simd.Config().ChainID
+			clientStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(cosmosChainID)}, ics07_tendermint.ProgramID)
+			s.Require().NoError(err)
+
+			accountInfoBefore, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
+			s.Require().NoError(err)
+
+			clientStateBefore, err := ics07_tendermint.ParseAccount_ClientState(accountInfoBefore.Value.Data.GetBinary())
+			s.Require().NoError(err)
+			s.T().Logf("=== SOLANA CLIENT HEIGHT BEFORE UPDATE_CLIENT ===")
+			s.T().Logf("  Height: %d", clientStateBefore.LatestHeight.RevisionHeight)
+
 			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    testvalues.SolanaChainID,
@@ -786,6 +799,39 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
 			s.Require().NoError(err, "Failed to submit chunked update client transactions")
 			s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.Txs))
+
+			// Query Solana client height AFTER update_client
+			accountInfoAfter, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
+			s.Require().NoError(err)
+
+			clientStateAfter, err := ics07_tendermint.ParseAccount_ClientState(accountInfoAfter.Value.Data.GetBinary())
+			s.Require().NoError(err)
+			s.T().Logf("=== SOLANA CLIENT HEIGHT AFTER UPDATE_CLIENT ===")
+			s.T().Logf("  Height: %d", clientStateAfter.LatestHeight.RevisionHeight)
+			s.T().Logf("  Updated from %d to %d", clientStateBefore.LatestHeight.RevisionHeight, clientStateAfter.LatestHeight.RevisionHeight)
+
+			// Query the consensus state that was just created/updated
+			consensusStateAccount, _, err := solanago.FindProgramAddress(
+				[][]byte{
+					clientStateAccount.Bytes(),
+					[]byte("consensus_state"),
+					binary.BigEndian.AppendUint64(nil, clientStateAfter.LatestHeight.RevisionHeight),
+				},
+				ics07_tendermint.ProgramID,
+			)
+			s.Require().NoError(err)
+
+			consensusAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, consensusStateAccount)
+			s.Require().NoError(err)
+			s.Require().NotNil(consensusAccountInfo.Value, "Consensus state should exist at height %d", clientStateAfter.LatestHeight.RevisionHeight)
+
+			consensusStateStore, err := ics07_tendermint.ParseAccount_ConsensusStateStore(consensusAccountInfo.Value.Data.GetBinary())
+			s.Require().NoError(err)
+
+			s.T().Logf("=== SOLANA CONSENSUS STATE AT HEIGHT %d ===", clientStateAfter.LatestHeight.RevisionHeight)
+			s.T().Logf("  App hash (root): %x", consensusStateStore.ConsensusState.Root)
+			s.T().Logf("  App hash length: %d bytes", len(consensusStateStore.ConsensusState.Root))
+			s.T().Logf("  Timestamp: %d", consensusStateStore.ConsensusState.Timestamp)
 		}))
 
 		s.Require().True(s.Run("Relay acknowledgment", func() {
@@ -803,7 +849,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
 			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
 
-			s.verifyAcknowledgmentOnSolana(ctx, SolanaClientID, 1)
+			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
 		}))
 	}))
 
@@ -1026,10 +1072,10 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedRelayPackets(ctx context.Context
 		totalDuration, len(resp.Txs), avgTxTime)
 }
 
-func (s *IbcEurekaSolanaTestSuite) verifyAcknowledgmentOnSolana(ctx context.Context, clientID string, sequence uint64) {
-	packetAckPDA, _, err := solanago.FindProgramAddress(
+func (s *IbcEurekaSolanaTestSuite) verifyPacketCommitmentDeleted(ctx context.Context, clientID string, sequence uint64) {
+	packetCommitmentPDA, _, err := solanago.FindProgramAddress(
 		[][]byte{
-			[]byte("packet_ack"),
+			[]byte("packet_commitment"),
 			[]byte(clientID),
 			binary.LittleEndian.AppendUint64(nil, sequence),
 		},
@@ -1037,19 +1083,24 @@ func (s *IbcEurekaSolanaTestSuite) verifyAcknowledgmentOnSolana(ctx context.Cont
 	)
 	s.Require().NoError(err)
 
-	// Query the account to verify it exists
-	accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, packetAckPDA)
-	s.Require().NoError(err)
-	s.Require().NotNil(accountInfo.Value, "Acknowledgment account should exist")
-	s.Require().NotNil(accountInfo.Value.Data, "Acknowledgment account should have data")
+	// Query the account - it should either not exist or have 0 lamports (closed)
+	accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, packetCommitmentPDA)
 
-	s.Require().Equal(ics26_router.ProgramID.String(), accountInfo.Value.Owner.String(),
-		"Acknowledgment account should be owned by ICS26 router")
+	// The account should either not be found (nil) or have been closed (0 lamports)
+	if err != nil {
+		// Account not found is expected - commitment was deleted
+		s.T().Logf("Packet commitment deleted (account not found) for client %s, sequence %d", clientID, sequence)
+		return
+	}
 
-	s.T().Logf("Acknowledgment verified on Solana for client %s, sequence %d", clientID, sequence)
-	s.T().Logf("  - Account: %s", packetAckPDA.String())
-	s.T().Logf("  - Data length: %d bytes", len(accountInfo.Value.Data.GetBinary()))
-	s.T().Logf("  - Owner: %s", accountInfo.Value.Owner.String())
+	if accountInfo.Value == nil || accountInfo.Value.Lamports == 0 {
+		s.T().Logf("Packet commitment deleted (account closed) for client %s, sequence %d", clientID, sequence)
+		return
+	}
+
+	// If we get here, the account still exists with lamports - this is an error
+	s.Require().Fail("Packet commitment should have been deleted after acknowledgment",
+		"Account %s still exists with %d lamports", packetCommitmentPDA.String(), accountInfo.Value.Lamports)
 }
 
 func getSolDenomOnCosmos() transfertypes.Denom {

@@ -60,11 +60,11 @@ pub struct MembershipOutput {
 #[derive(Debug, thiserror::Error)]
 pub enum MembershipError {
     /// Non-membership verification failed
-    #[error("non-membership verification failed")]
-    NonMembershipVerificationFailed,
+    #[error("non-membership verification failed: {0}")]
+    NonMembershipVerificationFailed(String),
     /// Membership verification failed
-    #[error("membership verification failed")]
-    MembershipVerificationFailed,
+    #[error("membership verification failed: {0}")]
+    MembershipVerificationFailed(String),
 }
 
 /// IBC membership verification
@@ -89,7 +89,7 @@ pub fn membership(
                     commitment_root.clone().into(),
                     merkle_path,
                 )
-                .map_err(|_| MembershipError::NonMembershipVerificationFailed)?;
+                .map_err(|e| MembershipError::NonMembershipVerificationFailed(e.to_string()))?;
         } else {
             merkle_proof
                 .verify_membership::<HostFunctionsManager>(
@@ -99,7 +99,7 @@ pub fn membership(
                     value,
                     0,
                 )
-                .map_err(|_| MembershipError::MembershipVerificationFailed)?;
+                .map_err(|e| MembershipError::MembershipVerificationFailed(e.to_string()))?;
         }
     }
     Ok(())

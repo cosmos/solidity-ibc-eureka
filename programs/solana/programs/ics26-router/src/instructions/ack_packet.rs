@@ -75,7 +75,7 @@ pub struct AckPacket<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
-pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
+pub fn ack_packet<'info>(ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>, msg: MsgAckPacket) -> Result<()> {
     msg!("=== ack_packet START ===");
     msg!("Sequence: {}, src_client: {}, dest_client: {}",
         msg.packet.sequence, msg.packet.source_client, msg.packet.dest_client);
@@ -117,14 +117,15 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         msg.payloads.iter().map(|p| p.total_chunks).collect::<Vec<_>>());
 
     // Reconstruct packet from either inline or chunked mode
-    let packet = chunking::reconstruct_packet(
-        &msg.packet,
-        &msg.payloads,
-        ctx.remaining_accounts,
-        ctx.accounts.relayer.key(),
-        &msg.packet.source_client,
-        ctx.program_id,
-    )?;
+    let packet = chunking::reconstruct_packet(chunking::ReconstructPacketParams {
+        packet: &msg.packet,
+        payloads_metadata: &msg.payloads,
+        remaining_accounts: ctx.remaining_accounts,
+        payer: &ctx.accounts.payer,
+        submitter: ctx.accounts.relayer.key(),
+        client_id: &msg.packet.source_client,
+        program_id: ctx.program_id,
+    })?;
 
     msg!("Packet reconstructed with {} payloads", packet.payloads.len());
 
@@ -138,6 +139,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     msg!("Assembling proof from chunks...");
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
+        payer: &ctx.accounts.payer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.source_client,
         sequence: msg.packet.sequence,
@@ -159,13 +161,17 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     let ack_path =
         ics24::packet_acknowledgement_commitment_path(&packet.dest_client, packet.sequence);
 
+    // Compute acknowledgment commitment (matching Ethereum's implementation)
+    // In IBC, acknowledgments are stored as commitments (hashes) in the Merkle tree
+    let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&[msg.acknowledgement.clone()])?;
+
     let membership_msg = MembershipMsg {
         height: msg.proof.height,
         delay_time_period: 0,
         delay_block_period: 0,
         proof: proof_data,
         path: vec![b"ibc".to_vec(), ack_path],
-        value: msg.acknowledgement.clone(),
+        value: ack_commitment.to_vec(),
     };
 
     verify_membership_cpi(client, &light_client_verification, membership_msg)?;

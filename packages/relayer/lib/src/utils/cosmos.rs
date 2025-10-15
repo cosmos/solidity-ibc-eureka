@@ -408,31 +408,36 @@ pub async fn inject_tendermint_proofs(
         let packet: Packet = msg.packet.clone().unwrap().into();
         let ack_path = packet.ack_commitment_path();
 
-        tracing::info!(
-            "Generating ack proof for packet sequence {} from {} to {} at height {}",
-            packet.sequence,
-            packet.sourceClient,
-            packet.destClient,
-            target_height.revision_height
-        );
-        tracing::info!(
-            "Ack commitment path: {:?}",
-            hex::encode(&ack_path)
-        );
+        tracing::info!("=== GENERATING ACK PROOF ===");
+        tracing::info!("  Packet sequence: {}", packet.sequence);
+        tracing::info!("  From: {} -> To: {}", packet.sourceClient, packet.destClient);
+        tracing::info!("  Target height for proof: {}", target_height.revision_height);
+        tracing::info!("  prove_path will query Cosmos at: {} (target - 1)", target_height.revision_height - 1);
+        tracing::info!("  Proof will verify against app_hash from height: {}", target_height.revision_height);
+
+        // Log the exact path components
+        let path_component_0 = b"ibc".to_vec();
+        let path_component_1 = ack_path.clone();
+        tracing::info!("  Path component [0] (string): {}", String::from_utf8_lossy(&path_component_0));
+        tracing::info!("  Path component [0] (hex): {}", hex::encode(&path_component_0));
+        tracing::info!("  Path component [1] (hex): {}", hex::encode(&path_component_1));
+        tracing::info!("  Path component [1] length: {} bytes", path_component_1.len());
+
+        // Query Cosmos to get the app_hash at target height
+        let target_light_block = source_tm_client.get_light_block(Some(target_height.revision_height)).await?;
+        let cosmos_app_hash = target_light_block.signed_header.header.app_hash;
+        tracing::info!("  Cosmos app_hash at height {}: {:?}", target_height.revision_height, cosmos_app_hash.as_bytes());
+        tracing::info!("  Cosmos app_hash (hex): {}", hex::encode(cosmos_app_hash.as_bytes()));
 
         let (value, proof) = source_tm_client
-            .prove_path(&[b"ibc".to_vec(), ack_path.clone()], target_height.revision_height)
+            .prove_path(&[path_component_0, path_component_1], target_height.revision_height)
             .await?;
 
-        tracing::info!(
-            "Ack proof generated - value length: {}, proof ops: {}",
-            value.len(),
-            proof.proofs.len()
-        );
-        tracing::info!(
-            "Ack value (commitment): {}",
-            hex::encode(&value)
-        );
+        tracing::info!("=== ACK PROOF GENERATED ===");
+        tracing::info!("  Value length: {} bytes", value.len());
+        tracing::info!("  Value (ack commitment, hex): {}", hex::encode(&value));
+        tracing::info!("  Proof ops count: {}", proof.proofs.len());
+        tracing::info!("  Setting msg.proof_height = {}", target_height.revision_height);
 
         if value.is_empty() {
             anyhow::bail!("Membership value is empty at height {}", target_height.revision_height)
@@ -440,6 +445,10 @@ pub async fn inject_tendermint_proofs(
 
         msg.proof_acked = proof.encode_vec();
         msg.proof_height = Some(*target_height);
+
+        tracing::info!("  Proof encoded size: {} bytes", msg.proof_acked.len());
+        tracing::info!("  Final proof_height in message: {:?}", msg.proof_height);
+
         anyhow::Ok(())
     }))
     .await?;
