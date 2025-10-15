@@ -1269,7 +1269,7 @@ impl TxBuilder {
         self.create_tx_bytes(&[instruction])
     }
 
-    /// Build chunked update client transactions
+    /// Build chunked update client transactions to latest tendermint height
     ///
     /// # Errors
     ///
