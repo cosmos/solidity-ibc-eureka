@@ -59,10 +59,31 @@ pub fn on_recv_packet<'info>(
     // Check if app is operational
     app_state.can_operate()?;
 
-    // Validate the payload is for our app (check dest_port matches our port_id)
+    // Validate IBC payload fields (matching Solidity ICS27GMP validations)
+    // See: ICS27GMP.sol lines 115-130
+
+    // Validate version
+    require!(
+        msg.payload.version == ICS27_VERSION,
+        GMPError::InvalidVersion
+    );
+
+    // Validate source port
+    require!(
+        msg.payload.source_port == GMP_PORT_ID,
+        GMPError::InvalidPort
+    );
+
+    // Validate encoding
+    require!(
+        msg.payload.encoding == ICS27_ENCODING,
+        GMPError::InvalidEncoding
+    );
+
+    // Validate dest port
     require!(
         msg.payload.dest_port == GMP_PORT_ID,
-        GMPError::InvalidPacketData
+        GMPError::InvalidPort
     );
 
     // Parse packet data from router message
@@ -1084,6 +1105,322 @@ mod tests {
         assert!(
             result.program_result.is_err(),
             "OnRecvPacket should fail with insufficient accounts"
+        );
+    }
+
+    #[test]
+    fn test_on_recv_packet_invalid_version() {
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let authority = Pubkey::new_unique();
+        let router_program = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+            &crate::ID,
+        );
+
+        let client_id = "cosmoshub-1";
+        let sender = "cosmos1test";
+        let salt = vec![1u8, 2, 3];
+
+        let (account_state_pda, _account_bump) =
+            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
+
+        let packet_data = GMPPacketData {
+            client_id: client_id.to_string(),
+            sender: sender.to_string(),
+            receiver: system_program::ID.to_string(),
+            salt,
+            payload: vec![1, 2, 3],
+            memo: String::new(),
+        };
+
+        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+
+        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
+            source_client: client_id.to_string(),
+            dest_client: "solana-1".to_string(),
+            sequence: 1,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: "wrong-version".to_string(), // Invalid version!
+                encoding: crate::constants::ICS27_ENCODING.to_string(),
+                value: packet_data_bytes,
+            },
+            relayer: Pubkey::new_unique(),
+        };
+
+        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
+
+        let instruction = SolanaInstructionSDK {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new(payer, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_gmp_app_state_account(
+                app_state_pda,
+                router_program,
+                authority,
+                app_state_bump,
+                false, // not paused
+            ),
+            create_router_program_account(router_program),
+            create_authority_account(payer),
+            create_system_program_account(),
+            create_uninitialized_account_for_pda(account_state_pda),
+            create_system_program_account(),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            result.program_result.is_err(),
+            "OnRecvPacket should fail with invalid version"
+        );
+    }
+
+    #[test]
+    fn test_on_recv_packet_invalid_source_port() {
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let authority = Pubkey::new_unique();
+        let router_program = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+            &crate::ID,
+        );
+
+        let client_id = "cosmoshub-1";
+        let sender = "cosmos1test";
+        let salt = vec![1u8, 2, 3];
+
+        let (account_state_pda, _account_bump) =
+            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
+
+        let packet_data = GMPPacketData {
+            client_id: client_id.to_string(),
+            sender: sender.to_string(),
+            receiver: system_program::ID.to_string(),
+            salt,
+            payload: vec![1, 2, 3],
+            memo: String::new(),
+        };
+
+        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+
+        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
+            source_client: client_id.to_string(),
+            dest_client: "solana-1".to_string(),
+            sequence: 1,
+            payload: solana_ibc_types::Payload {
+                source_port: "transfer".to_string(), // Invalid source port!
+                dest_port: GMP_PORT_ID.to_string(),
+                version: crate::constants::ICS27_VERSION.to_string(),
+                encoding: crate::constants::ICS27_ENCODING.to_string(),
+                value: packet_data_bytes,
+            },
+            relayer: Pubkey::new_unique(),
+        };
+
+        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
+
+        let instruction = SolanaInstructionSDK {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new(payer, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_gmp_app_state_account(
+                app_state_pda,
+                router_program,
+                authority,
+                app_state_bump,
+                false, // not paused
+            ),
+            create_router_program_account(router_program),
+            create_authority_account(payer),
+            create_system_program_account(),
+            create_uninitialized_account_for_pda(account_state_pda),
+            create_system_program_account(),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            result.program_result.is_err(),
+            "OnRecvPacket should fail with invalid source port"
+        );
+    }
+
+    #[test]
+    fn test_on_recv_packet_invalid_encoding() {
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let authority = Pubkey::new_unique();
+        let router_program = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+            &crate::ID,
+        );
+
+        let client_id = "cosmoshub-1";
+        let sender = "cosmos1test";
+        let salt = vec![1u8, 2, 3];
+
+        let (account_state_pda, _account_bump) =
+            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
+
+        let packet_data = GMPPacketData {
+            client_id: client_id.to_string(),
+            sender: sender.to_string(),
+            receiver: system_program::ID.to_string(),
+            salt,
+            payload: vec![1, 2, 3],
+            memo: String::new(),
+        };
+
+        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+
+        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
+            source_client: client_id.to_string(),
+            dest_client: "solana-1".to_string(),
+            sequence: 1,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: crate::constants::ICS27_VERSION.to_string(),
+                encoding: "application/json".to_string(), // Invalid encoding!
+                value: packet_data_bytes,
+            },
+            relayer: Pubkey::new_unique(),
+        };
+
+        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
+
+        let instruction = SolanaInstructionSDK {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new(payer, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_gmp_app_state_account(
+                app_state_pda,
+                router_program,
+                authority,
+                app_state_bump,
+                false, // not paused
+            ),
+            create_router_program_account(router_program),
+            create_authority_account(payer),
+            create_system_program_account(),
+            create_uninitialized_account_for_pda(account_state_pda),
+            create_system_program_account(),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            result.program_result.is_err(),
+            "OnRecvPacket should fail with invalid encoding"
+        );
+    }
+
+    #[test]
+    fn test_on_recv_packet_invalid_dest_port() {
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let authority = Pubkey::new_unique();
+        let router_program = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
+            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+            &crate::ID,
+        );
+
+        let client_id = "cosmoshub-1";
+        let sender = "cosmos1test";
+        let salt = vec![1u8, 2, 3];
+
+        let (account_state_pda, _account_bump) =
+            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
+
+        let packet_data = GMPPacketData {
+            client_id: client_id.to_string(),
+            sender: sender.to_string(),
+            receiver: system_program::ID.to_string(),
+            salt,
+            payload: vec![1, 2, 3],
+            memo: String::new(),
+        };
+
+        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+
+        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
+            source_client: client_id.to_string(),
+            dest_client: "solana-1".to_string(),
+            sequence: 1,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: "transfer".to_string(), // Invalid dest port!
+                version: crate::constants::ICS27_VERSION.to_string(),
+                encoding: crate::constants::ICS27_ENCODING.to_string(),
+                value: packet_data_bytes,
+            },
+            relayer: Pubkey::new_unique(),
+        };
+
+        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
+
+        let instruction = SolanaInstructionSDK {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new(payer, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_gmp_app_state_account(
+                app_state_pda,
+                router_program,
+                authority,
+                app_state_bump,
+                false, // not paused
+            ),
+            create_router_program_account(router_program),
+            create_authority_account(payer),
+            create_system_program_account(),
+            create_uninitialized_account_for_pda(account_state_pda),
+            create_system_program_account(),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            result.program_result.is_err(),
+            "OnRecvPacket should fail with invalid dest port"
         );
     }
 

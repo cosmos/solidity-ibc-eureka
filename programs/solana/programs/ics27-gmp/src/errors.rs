@@ -116,4 +116,13 @@ pub enum GMPError {
 
     #[msg("Invalid payer position")]
     InvalidPayerPosition,
+
+    #[msg("Invalid IBC version")]
+    InvalidVersion,
+
+    #[msg("Invalid IBC port")]
+    InvalidPort,
+
+    #[msg("Invalid IBC encoding")]
+    InvalidEncoding,
 }
