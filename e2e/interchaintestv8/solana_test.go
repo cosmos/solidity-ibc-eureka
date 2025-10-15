@@ -325,7 +325,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			s.T().Logf("Client added to router")
 		}))
 	}))
-
 }
 
 // SetupDummyIBCApp deploys and registers the dummy IBC app for transfer tests
