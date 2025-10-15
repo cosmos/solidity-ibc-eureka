@@ -213,6 +213,95 @@ fn to_sol_payload(value: SolanaPayload) -> SolPayload {
     }
 }
 
+fn try_parse_event_from_log(
+    log: &str,
+    log_idx: usize,
+) -> anyhow::Result<Option<SolanaEurekaEvent>> {
+    use anchor_lang::Discriminator;
+    use anyhow::{anyhow, Context};
+
+    let Some(data_str) = log.strip_prefix("Program data: ") else {
+        return Ok(None);
+    };
+
+    let data = BASE64
+        .decode(data_str)
+        .with_context(|| format!("Failed to decode base64 in log {log_idx}: {data_str}"))?;
+
+    if data.len() < 8 {
+        // Not an Anchor event, skip
+        return Ok(None);
+    }
+
+    let discriminator = &data[..8];
+    let event_data = &data[8..];
+
+    let is_ibc_event = discriminator == SendPacketEvent::DISCRIMINATOR
+        || discriminator == WriteAcknowledgementEvent::DISCRIMINATOR;
+
+    if !is_ibc_event {
+        return Ok(None);
+    }
+
+    let event = match discriminator {
+        disc if disc == SendPacketEvent::DISCRIMINATOR => {
+            SendPacketEvent::try_from_slice(event_data)
+                .map(SolanaEurekaEvent::SendPacket)
+                .with_context(|| {
+                    format!("Failed to deserialize SendPacketEvent in log {log_idx}")
+                })?
+        }
+        disc if disc == WriteAcknowledgementEvent::DISCRIMINATOR => {
+            WriteAcknowledgementEvent::try_from_slice(event_data)
+                .map(SolanaEurekaEvent::WriteAcknowledgement)
+                .with_context(|| {
+                    format!("Failed to deserialize WriteAcknowledgementEvent in log {log_idx}")
+                })?
+        }
+        _ => {
+            return Err(anyhow!("Unexpected discriminator match in log {log_idx}"));
+        }
+    };
+
+    Ok(Some(event))
+}
+
+fn log_payload_list(payloads: &[solana_ibc_types::Payload]) {
+    for (i, payload) in payloads.iter().enumerate() {
+        tracing::debug!(
+            "  Payload {}: source_port={}, dest_port={}, value_len={}",
+            i,
+            payload.source_port,
+            payload.dest_port,
+            payload.value.len()
+        );
+    }
+}
+
+fn log_event_details(event: &SolanaEurekaEvent) {
+    tracing::info!(?event, "parsed event");
+
+    match event {
+        SolanaEurekaEvent::SendPacket(send_event) => {
+            tracing::debug!(
+                "SendPacketEvent: sequence={}, {} payloads",
+                send_event.sequence,
+                send_event.packet.payloads.len()
+            );
+            log_payload_list(&send_event.packet.payloads);
+        }
+        SolanaEurekaEvent::WriteAcknowledgement(ack_event) => {
+            tracing::debug!(
+                "WriteAcknowledgementEvent: sequence={}, {} payloads, {} acks",
+                ack_event.sequence,
+                ack_event.packet.payloads.len(),
+                ack_event.acknowledgements.len()
+            );
+            log_payload_list(&ack_event.packet.payloads);
+        }
+    }
+}
+
 /// Parse events from Solana transaction logs
 ///
 /// This function extracts and deserializes Anchor events from the transaction logs.
@@ -225,95 +314,14 @@ fn to_sol_payload(value: SolanaPayload) -> SolPayload {
 /// - Base64 decoding fails for any "Program data:" log entry
 /// - Deserialization fails for any recognized IBC event (`SendPacket`, `WriteAcknowledgement`)
 /// - An impossible discriminator match occurs (internal logic error)
-/// TODO: Might be easier to parse via `anchor_client` but dependencies get kinda messy so manual parse
+///
+///   TODO: Might be easier to parse via `anchor_client` but dependencies get kinda messy so manual parse
 pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurekaEvent>> {
-    use anchor_lang::Discriminator;
-    use anyhow::{anyhow, Context};
-
     let mut events = Vec::new();
 
     for (log_idx, log) in logs.iter().enumerate() {
-        if let Some(data_str) = log.strip_prefix("Program data: ") {
-            let data = BASE64
-                .decode(data_str)
-                .with_context(|| format!("Failed to decode base64 in log {log_idx}: {data_str}"))?;
-
-            if data.len() < 8 {
-                // Not an Anchor event, skip
-                continue;
-            }
-
-            let discriminator = &data[..8];
-            let event_data = &data[8..];
-
-            // Check if this is an IBC event we care about
-            let is_ibc_event = discriminator == SendPacketEvent::DISCRIMINATOR
-                || discriminator == WriteAcknowledgementEvent::DISCRIMINATOR;
-
-            if !is_ibc_event {
-                continue;
-            }
-
-            let event = match discriminator {
-                disc if disc == SendPacketEvent::DISCRIMINATOR => {
-                    SendPacketEvent::try_from_slice(event_data)
-                        .map(SolanaEurekaEvent::SendPacket)
-                        .with_context(|| {
-                            format!("Failed to deserialize SendPacketEvent in log {log_idx}")
-                        })?
-                }
-                disc if disc == WriteAcknowledgementEvent::DISCRIMINATOR => {
-                    WriteAcknowledgementEvent::try_from_slice(event_data)
-                        .map(SolanaEurekaEvent::WriteAcknowledgement)
-                        .with_context(|| {
-                            format!(
-                                "Failed to deserialize WriteAcknowledgementEvent in log {log_idx}",
-                            )
-                        })?
-                }
-                _ => {
-                    return Err(anyhow!("Unexpected discriminator match in log {log_idx}"));
-                }
-            };
-
-            tracing::info!(?event, "parsed event");
-
-            match &event {
-                SolanaEurekaEvent::SendPacket(send_event) => {
-                    tracing::debug!(
-                        "SendPacketEvent: sequence={}, {} payloads",
-                        send_event.sequence,
-                        send_event.packet.payloads.len()
-                    );
-                    for (i, payload) in send_event.packet.payloads.iter().enumerate() {
-                        tracing::debug!(
-                            "  Payload {}: source_port={}, dest_port={}, value_len={}",
-                            i,
-                            payload.source_port,
-                            payload.dest_port,
-                            payload.value.len()
-                        );
-                    }
-                }
-                SolanaEurekaEvent::WriteAcknowledgement(ack_event) => {
-                    tracing::debug!(
-                        "WriteAcknowledgementEvent: sequence={}, {} payloads, {} acks",
-                        ack_event.sequence,
-                        ack_event.packet.payloads.len(),
-                        ack_event.acknowledgements.len()
-                    );
-                    for (i, payload) in ack_event.packet.payloads.iter().enumerate() {
-                        tracing::debug!(
-                            "  Payload {}: source_port={}, dest_port={}, value_len={}",
-                            i,
-                            payload.source_port,
-                            payload.dest_port,
-                            payload.value.len()
-                        );
-                    }
-                }
-            }
-
+        if let Some(event) = try_parse_event_from_log(log, log_idx)? {
+            log_event_details(&event);
             events.push(event);
         }
     }
