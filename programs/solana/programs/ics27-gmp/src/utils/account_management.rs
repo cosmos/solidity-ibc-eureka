@@ -69,7 +69,6 @@ pub fn get_or_create_account<'a>(
             sender: sender.to_string(),
             salt: salt.to_vec(),
             nonce: 0,
-            frozen: false,
             created_at: current_time,
             last_executed_at: 0,
             execution_count: 0,

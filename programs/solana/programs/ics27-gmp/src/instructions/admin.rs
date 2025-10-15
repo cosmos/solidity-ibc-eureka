@@ -1,182 +1,8 @@
 use crate::constants::*;
 use crate::errors::GMPError;
-use crate::events::{GMPAccountFrozen, GMPAccountUnfrozen, GMPAppPaused, GMPAppUnpaused};
-use crate::state::{AccountState, GMPAppState};
+use crate::events::{GMPAppPaused, GMPAppUnpaused};
+use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
-
-/// Freeze an account (admin only)
-#[derive(Accounts)]
-#[instruction(client_id: String, sender: String, salt: Vec<u8>)]
-pub struct FreezeAccount<'info> {
-    /// App state account - PDA validation done in handler
-    #[account()]
-    pub app_state: Account<'info, GMPAppState>,
-
-    /// Account state - PDA validation done in handler since sender is hashed
-    #[account(mut)]
-    pub account_state: Account<'info, AccountState>,
-
-    #[account(
-        constraint = authority.key() == app_state.authority @ GMPError::UnauthorizedAdmin
-    )]
-    pub authority: Signer<'info>,
-}
-
-pub fn freeze_account(
-    ctx: Context<FreezeAccount>,
-    client_id: String,
-    sender: String,
-    salt: Vec<u8>,
-) -> Result<()> {
-    let app_state = &ctx.accounts.app_state;
-    // Get clock directly via syscall
-    let clock = Clock::get()?;
-
-    // Validate app_state PDA using port_id from state
-    let (expected_app_state_pda, _bump) = Pubkey::find_program_address(
-        &[GMP_APP_STATE_SEED, app_state.port_id.as_bytes()],
-        ctx.program_id,
-    );
-    require!(
-        ctx.accounts.app_state.key() == expected_app_state_pda,
-        GMPError::InvalidAccountAddress
-    );
-
-    // Validate inputs
-    require!(
-        client_id.len() <= MAX_CLIENT_ID_LENGTH,
-        GMPError::ClientIdTooLong
-    );
-    require!(sender.len() <= MAX_SENDER_LENGTH, GMPError::SenderTooLong);
-    require!(salt.len() <= MAX_SALT_LENGTH, GMPError::SaltTooLong);
-
-    // Validate account_state PDA (sender is hashed in derive_address)
-    let (expected_account_pda, _) =
-        AccountState::derive_address(&client_id, &sender, &salt, ctx.program_id)?;
-    let account_key = ctx.accounts.account_state.key();
-    require!(
-        account_key == expected_account_pda,
-        GMPError::InvalidAccountAddress
-    );
-
-    // Get mutable reference after key checks
-    let account_state = &mut ctx.accounts.account_state;
-
-    // Verify the account state matches the provided parameters
-    require!(
-        account_state.client_id == client_id,
-        GMPError::InvalidAccountAddress
-    );
-    require!(
-        account_state.sender == sender,
-        GMPError::InvalidAccountAddress
-    );
-    require!(account_state.salt == salt, GMPError::InvalidAccountAddress);
-
-    // Freeze the account
-    account_state.frozen = true;
-
-    emit!(GMPAccountFrozen {
-        account: ctx.accounts.account_state.key(),
-        admin: ctx.accounts.authority.key(),
-        timestamp: clock.unix_timestamp,
-    });
-
-    msg!(
-        "Account frozen: {}, by admin: {}",
-        ctx.accounts.account_state.key(),
-        ctx.accounts.authority.key()
-    );
-
-    Ok(())
-}
-
-/// Unfreeze an account (admin only)
-#[derive(Accounts)]
-#[instruction(client_id: String, sender: String, salt: Vec<u8>)]
-pub struct UnfreezeAccount<'info> {
-    /// App state account - PDA validation done in handler
-    #[account()]
-    pub app_state: Account<'info, GMPAppState>,
-
-    /// Account state - PDA validation done in handler since sender is hashed
-    #[account(mut)]
-    pub account_state: Account<'info, AccountState>,
-
-    #[account(
-        constraint = authority.key() == app_state.authority @ GMPError::UnauthorizedAdmin
-    )]
-    pub authority: Signer<'info>,
-}
-
-pub fn unfreeze_account(
-    ctx: Context<UnfreezeAccount>,
-    client_id: String,
-    sender: String,
-    salt: Vec<u8>,
-) -> Result<()> {
-    let app_state = &ctx.accounts.app_state;
-    // Get clock directly via syscall
-    let clock = Clock::get()?;
-
-    // Validate app_state PDA using port_id from state
-    let (expected_app_state_pda, _bump) = Pubkey::find_program_address(
-        &[GMP_APP_STATE_SEED, app_state.port_id.as_bytes()],
-        ctx.program_id,
-    );
-    require!(
-        ctx.accounts.app_state.key() == expected_app_state_pda,
-        GMPError::InvalidAccountAddress
-    );
-
-    // Validate inputs
-    require!(
-        client_id.len() <= MAX_CLIENT_ID_LENGTH,
-        GMPError::ClientIdTooLong
-    );
-    require!(sender.len() <= MAX_SENDER_LENGTH, GMPError::SenderTooLong);
-    require!(salt.len() <= MAX_SALT_LENGTH, GMPError::SaltTooLong);
-
-    // Validate account_state PDA (sender is hashed in derive_address)
-    let (expected_account_pda, _) =
-        AccountState::derive_address(&client_id, &sender, &salt, ctx.program_id)?;
-    let account_key = ctx.accounts.account_state.key();
-    require!(
-        account_key == expected_account_pda,
-        GMPError::InvalidAccountAddress
-    );
-
-    // Get mutable reference after key checks
-    let account_state = &mut ctx.accounts.account_state;
-
-    // Verify the account state matches the provided parameters
-    require!(
-        account_state.client_id == client_id,
-        GMPError::InvalidAccountAddress
-    );
-    require!(
-        account_state.sender == sender,
-        GMPError::InvalidAccountAddress
-    );
-    require!(account_state.salt == salt, GMPError::InvalidAccountAddress);
-
-    // Unfreeze the account
-    account_state.frozen = false;
-
-    emit!(GMPAccountUnfrozen {
-        account: ctx.accounts.account_state.key(),
-        admin: ctx.accounts.authority.key(),
-        timestamp: clock.unix_timestamp,
-    });
-
-    msg!(
-        "Account unfrozen: {}, by admin: {}",
-        ctx.accounts.account_state.key(),
-        ctx.accounts.authority.key()
-    );
-
-    Ok(())
-}
 
 /// Pause the entire GMP app (admin only)
 #[derive(Accounts)]
@@ -495,9 +321,6 @@ mod tests {
             authority,
             version: 1,
             paused: true,
-            total_accounts: 0,
-            total_packets_sent: 0,
-            total_packets_received: 0,
             bump: app_state_bump,
         };
 
@@ -588,11 +411,11 @@ mod tests {
     }
 
     // ========================================================================
-    // Freeze/Unfreeze Account Tests
+    // Update Authority Tests
     // ========================================================================
 
     #[test]
-    fn test_freeze_account_success() {
+    fn test_update_authority_success() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         let authority = Pubkey::new_unique();

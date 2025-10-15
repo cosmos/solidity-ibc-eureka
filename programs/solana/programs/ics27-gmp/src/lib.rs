@@ -71,26 +71,6 @@ pub mod ics27_gmp {
         instructions::on_timeout_packet(ctx, msg)
     }
 
-    /// Freeze an account (admin only)
-    pub fn freeze_account(
-        ctx: Context<FreezeAccount>,
-        client_id: String,
-        sender: String,
-        salt: Vec<u8>,
-    ) -> Result<()> {
-        instructions::freeze_account(ctx, client_id, sender, salt)
-    }
-
-    /// Unfreeze an account (admin only)
-    pub fn unfreeze_account(
-        ctx: Context<UnfreezeAccount>,
-        client_id: String,
-        sender: String,
-        salt: Vec<u8>,
-    ) -> Result<()> {
-        instructions::unfreeze_account(ctx, client_id, sender, salt)
-    }
-
     /// Pause the entire GMP app (admin only)
     pub fn pause_app(ctx: Context<PauseApp>) -> Result<()> {
         instructions::pause_app(ctx)

@@ -22,15 +22,6 @@ pub struct GMPAppState {
     /// Emergency pause flag
     pub paused: bool,
 
-    /// Total accounts created
-    pub total_accounts: u64,
-
-    /// Total packets sent
-    pub total_packets_sent: u64,
-
-    /// Total packets received
-    pub total_packets_received: u64,
-
     /// PDA bump seed
     pub bump: u8,
 }
@@ -71,9 +62,6 @@ pub struct AccountState {
 
     /// Execution nonce for replay protection
     pub nonce: u64,
-
-    /// Whether account is frozen (emergency stop)
-    pub frozen: bool,
 
     /// Account creation timestamp
     pub created_at: i64,
@@ -132,12 +120,6 @@ impl AccountState {
             self.salt.clone(),
             vec![self.bump],
         ]
-    }
-
-    /// Check if account can execute
-    pub fn can_execute(&self) -> Result<()> {
-        require!(!self.frozen, GMPError::AccountFrozen);
-        Ok(())
     }
 
     /// Increment nonce and update execution stats

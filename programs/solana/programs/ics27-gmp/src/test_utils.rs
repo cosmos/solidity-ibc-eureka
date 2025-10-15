@@ -16,9 +16,6 @@ pub fn create_gmp_app_state_account(
         authority,
         version: 1,
         paused,
-        total_accounts: 0,
-        total_packets_sent: 0,
-        total_packets_received: 0,
         bump,
     };
 
@@ -43,7 +40,6 @@ pub fn create_account_state(
     client_id: String,
     sender: String,
     salt: Vec<u8>,
-    frozen: bool,
     bump: u8,
 ) -> (Pubkey, SolanaAccount) {
     let account_state = AccountState {
@@ -51,7 +47,6 @@ pub fn create_account_state(
         sender,
         salt,
         nonce: 0,
-        frozen,
         created_at: 1_600_000_000,
         last_executed_at: 1_600_000_000,
         execution_count: 0,
@@ -80,7 +75,6 @@ pub fn create_account_state_with_nonce(
     sender: String,
     salt: Vec<u8>,
     nonce: u64,
-    frozen: bool,
     bump: u8,
 ) -> (Pubkey, SolanaAccount) {
     let account_state = AccountState {
@@ -88,7 +82,6 @@ pub fn create_account_state_with_nonce(
         sender,
         salt,
         nonce,
-        frozen,
         created_at: 1_600_000_000,
         last_executed_at: 1_600_000_000,
         execution_count: 0,

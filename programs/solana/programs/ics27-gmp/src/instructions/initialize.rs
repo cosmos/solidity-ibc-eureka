@@ -50,9 +50,6 @@ pub fn initialize(ctx: Context<Initialize>, router_program: Pubkey, port_id: Str
     app_state.authority = ctx.accounts.authority.key();
     app_state.version = 1;
     app_state.paused = false;
-    app_state.total_accounts = 0;
-    app_state.total_packets_sent = 0;
-    app_state.total_packets_received = 0;
     app_state.bump = ctx.bumps.app_state;
 
     // Emit initialization events

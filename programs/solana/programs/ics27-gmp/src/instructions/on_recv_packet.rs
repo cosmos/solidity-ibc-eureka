@@ -177,10 +177,8 @@ pub fn on_recv_packet<'info>(
     let account_info = &ctx.remaining_accounts[0];
     crate::utils::save_account_state(account_info, &account_state)?;
 
-    // Update app stats
+    // Emit event for new accounts
     if is_new_account {
-        app_state.total_accounts = app_state.total_accounts.saturating_add(1);
-
         emit!(GMPAccountCreated {
             account: ctx.remaining_accounts[0].key(),
             client_id: packet_data.client_id.clone(),
@@ -189,8 +187,6 @@ pub fn on_recv_packet<'info>(
             created_at: current_time,
         });
     }
-
-    app_state.total_packets_received = app_state.total_packets_received.saturating_add(1);
 
     // Handle execution result and create acknowledgement
     match execution_result {
@@ -269,9 +265,6 @@ pub fn execute_with_nonce_protection<F, T>(
 where
     F: FnOnce() -> Result<T>,
 {
-    // Verify account is not frozen
-    account_state.can_execute()?;
-
     // Increment nonce BEFORE execution to prevent replay attacks
     // Even if execution fails, the nonce is incremented
     account_state.execute_nonce_increment(current_time);
@@ -1496,15 +1489,5 @@ mod tests {
         assert_eq!(account_state.sender, sender);
         assert_eq!(account_state.salt, salt);
         assert!(!account_state.frozen, "Account should not be frozen");
-
-        // Verify app state stats were updated
-        let app_state_account = result.get_account(&app_state_pda).unwrap();
-
-        let app_state = GMPAppState::try_from_slice(&app_state_account.data[8..]).unwrap();
-        assert_eq!(app_state.total_accounts, 1, "Should have 1 account created");
-        assert_eq!(
-            app_state.total_packets_received, 1,
-            "Should have 1 packet received"
-        );
     }
 }

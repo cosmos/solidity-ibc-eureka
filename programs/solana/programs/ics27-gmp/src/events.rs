@@ -68,28 +68,6 @@ pub struct GMPAccountCreated {
     pub created_at: i64,
 }
 
-/// Event emitted when an account is frozen
-#[event]
-pub struct GMPAccountFrozen {
-    /// Account that was frozen
-    pub account: Pubkey,
-    /// Admin who froze the account
-    pub admin: Pubkey,
-    /// Freeze timestamp
-    pub timestamp: i64,
-}
-
-/// Event emitted when an account is unfrozen
-#[event]
-pub struct GMPAccountUnfrozen {
-    /// Account that was unfrozen
-    pub account: Pubkey,
-    /// Admin who unfroze the account
-    pub admin: Pubkey,
-    /// Unfreeze timestamp
-    pub timestamp: i64,
-}
-
 /// Event emitted when app is paused
 #[event]
 pub struct GMPAppPaused {

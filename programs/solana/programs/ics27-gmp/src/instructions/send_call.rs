@@ -143,9 +143,6 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         ctx.bumps.router_caller,
     )?;
 
-    // Update app state
-    app_state.total_packets_sent = sequence;
-
     // Emit event
     emit!(GMPCallSent {
         sequence,

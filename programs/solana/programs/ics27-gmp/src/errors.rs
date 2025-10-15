@@ -21,9 +21,6 @@ pub enum GMPError {
     #[msg("Timeout too soon")]
     TimeoutTooSoon,
 
-    #[msg("Account is frozen")]
-    AccountFrozen,
-
     #[msg("Unauthorized sender")]
     UnauthorizedSender,
 
