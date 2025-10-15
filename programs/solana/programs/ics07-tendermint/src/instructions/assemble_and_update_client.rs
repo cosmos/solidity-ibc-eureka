@@ -76,7 +76,6 @@ fn validate_and_load_chunk(
         ErrorCode::InvalidChunkAccount
     );
 
-    // Load chunk
     let chunk_data = chunk_account.try_borrow_data()?;
     let chunk: HeaderChunk = HeaderChunk::try_deserialize(&mut &chunk_data[..])?;
 

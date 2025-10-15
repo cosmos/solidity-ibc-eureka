@@ -516,10 +516,10 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Recv
         (packet, payloads_metadata)
     };
 
-    // Create proof metadata
     // Always create at least 1 chunk for proof
-    let proof_total_chunks = u8::try_from(value.proof_commitment.len().div_ceil(MAX_CHUNK_SIZE).max(1))
-        .context("proof too big to fit in u8")?;
+    let proof_total_chunks =
+        u8::try_from(value.proof_commitment.len().div_ceil(MAX_CHUNK_SIZE).max(1))
+            .context("proof too big to fit in u8")?;
 
     tracing::info!(
         "recv_packet seq={}: proof_size={}, proof_chunks={}",
@@ -559,7 +559,9 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Recv
 /// - Missing proof acked
 /// - Missing proof height
 /// - Invalid timeout timestamp (exceeds `i64::MAX`)
-pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<AckPacketWithChunks> {
+pub fn ibc_to_solana_ack_packet(
+    value: IbcMsgAcknowledgement,
+) -> anyhow::Result<AckPacketWithChunks> {
     let ibc_packet = value
         .packet
         .ok_or_else(|| anyhow::anyhow!("Missing packet in MsgAcknowledgement"))?;
@@ -697,8 +699,14 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
     tracing::info!("=== CONVERTING TO SOLANA FORMAT ===");
     tracing::info!("  Packet sequence: {}", packet.sequence);
     tracing::info!("  IBC proof_height from message: {:?}", proof_height);
-    tracing::info!("  IBC proof_height.revision_height: {}", proof_height.revision_height);
-    tracing::info!("  Setting Solana proof.height = {}", proof_height.revision_height);
+    tracing::info!(
+        "  IBC proof_height.revision_height: {}",
+        proof_height.revision_height
+    );
+    tracing::info!(
+        "  Setting Solana proof.height = {}",
+        proof_height.revision_height
+    );
     tracing::info!("  Proof size: {} bytes", value.proof_acked.len());
     tracing::info!("  Proof chunks: {}", proof_total_chunks);
     tracing::info!("  Ack size: {} bytes", acknowledgement_data.len());

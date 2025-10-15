@@ -151,7 +151,6 @@ pub fn tm_timeout_to_solana_timeout_packet(
             .collect(),
     };
 
-    // Convert payloads to metadata
     let payload_metadata: Vec<solana_ibc_types::PayloadMetadata> = packet
         .payloads
         .into_iter()
@@ -173,7 +172,6 @@ pub fn tm_timeout_to_solana_timeout_packet(
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
 
-    // Create proof metadata
     let proof_total_chunks = if msg.proof_unreceived.len() > MAX_CHUNK_SIZE {
         u8::try_from(msg.proof_unreceived.len().div_ceil(MAX_CHUNK_SIZE))
             .context("proof too big")?
@@ -280,7 +278,6 @@ pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurek
 
             tracing::info!(?event, "parsed event");
 
-            // Debug: Log payload details for parsed events
             match &event {
                 SolanaEurekaEvent::SendPacket(send_event) => {
                     tracing::debug!(

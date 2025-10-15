@@ -86,7 +86,6 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
             .map(EurekaEventWithHeight::from)
             .collect();
 
-        // Debug: Log payload values after conversion to EurekaEvent
         for (i, event) in src_events_as_sol_events.iter().enumerate() {
             match &event.event {
                 ibc_eureka_relayer_lib::events::EurekaEvent::SendPacket(packet) => {
@@ -137,7 +136,6 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        // Debug: Log payload values in recv messages
         for (i, msg) in recv_msgs.iter().enumerate() {
             if let Some(packet) = &msg.packet {
                 tracing::debug!(
@@ -156,7 +154,6 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
             }
         }
 
-        // Debug: Log payload values in ack messages
         for (i, msg) in ack_msgs.iter().enumerate() {
             if let Some(packet) = &msg.packet {
                 tracing::debug!(

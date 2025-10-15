@@ -213,7 +213,6 @@ fn test_upload_first_chunk_success() {
 
     let expected_data = params.chunk_data.clone();
 
-    // Upload the chunk
     let instruction = create_upload_instruction(&test_accounts, params);
     let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
 
@@ -323,7 +322,10 @@ fn test_upload_multiple_chunks_independently() {
         .iter()
         .find(|(k, _)| *k == test_accounts0.chunk_pda)
         .expect("chunk 0 should exist");
-    assert!(chunk_account0.1.lamports > 0, "chunk 0 should be rent-exempt");
+    assert!(
+        chunk_account0.1.lamports > 0,
+        "chunk 0 should be rent-exempt"
+    );
 
     // Upload chunk 1 independently
     let test_accounts1 = setup_test_accounts(chain_id, target_height, 1, submitter, true);
@@ -337,7 +339,10 @@ fn test_upload_multiple_chunks_independently() {
         .iter()
         .find(|(k, _)| *k == test_accounts1.chunk_pda)
         .expect("chunk 1 should exist");
-    assert!(chunk_account1.1.lamports > 0, "chunk 1 should be rent-exempt");
+    assert!(
+        chunk_account1.1.lamports > 0,
+        "chunk 1 should be rent-exempt"
+    );
 }
 
 #[test]
@@ -347,8 +352,7 @@ fn test_upload_chunk_exceeding_max_size_fails() {
     let chunk_index = 0;
     let submitter = Pubkey::new_unique();
 
-    let test_accounts =
-        setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
+    let test_accounts = setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
 
     // Create chunk data that exceeds max size
     let oversized_data = vec![1u8; CHUNK_DATA_SIZE + 1];

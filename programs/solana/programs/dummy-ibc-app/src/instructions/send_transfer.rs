@@ -192,7 +192,7 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
     // Serialize to protobuf bytes
     let packet_data = fungible_token_data.encode_to_vec();
 
-    // Create payload with actual data (no chunking)
+    // Create payload for router
     let payload = Payload {
         source_port: "transfer".to_string(),
         dest_port: msg.dest_port.clone(),
@@ -205,7 +205,7 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
     let router_msg = MsgSendPacket {
         source_client: msg.source_client.clone(),
         timeout_timestamp: msg.timeout_timestamp,
-        payload,  // Pass payload directly without chunking
+        payload,
     };
 
     let cpi_accounts = RouterSendPacket {
