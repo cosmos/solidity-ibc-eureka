@@ -25,11 +25,13 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCStore")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant IBCSTORE_STORAGE_SLOT = 0x1260944489272988d9df285149b5aa1b0f48f2136d6f416159f840a3e0747600;
 
+    /* solhint-disable no-empty-blocks */
+
     /// @dev This function has no initialization logic
     // natlint-disable-next-line
     function __IBCStore_init() internal onlyInitializing { }
 
-    // solhint-disable-previous-line no-empty-blocks
+    /* solhint-enable no-empty-blocks */
 
     /// @inheritdoc IIBCStore
     function getCommitment(bytes32 hashedPath) public view returns (bytes32) {

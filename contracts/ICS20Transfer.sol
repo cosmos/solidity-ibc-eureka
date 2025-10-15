@@ -537,9 +537,8 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc UUPSUpgradeable
+    // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override restricted { }
-
-    // solhint-disable-previous-line no-empty-blocks
 
     /// @inheritdoc IICS20TransferAccessControlled
     function upgradeEscrowTo(address newEscrowLogic) external restricted {
