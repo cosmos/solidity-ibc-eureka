@@ -257,35 +257,41 @@ test-e2e testname: clean-foundry install-relayer
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 
-# Run e2e tests in the IbcEurekaTestSuite. Run all tests if no parameter given, or a specific test if provided. For example, `just test-e2e-eureka Test_Deploy`
+# Run any e2e test in the IbcEurekaTestSuite. For example, `just test-e2e-eureka Test_Deploy`
 [group('test')]
-test-e2e-eureka testname="":
-	just test-e2e TestWithIbcEurekaTestSuite{{ if testname == "" { "" } else { "/" + testname } }}
+test-e2e-eureka testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaTestSuite/{{testname}}
 
-# Run e2e tests in the RelayerTestSuite. Run all tests if no parameter given, or a specific test if provided. For example, `just test-e2e-relayer Test_RelayerInfo`
+# Run any e2e test in the RelayerTestSuite. For example, `just test-e2e-relayer Test_RelayerInfo`
 [group('test')]
-test-e2e-relayer testname="":
-	just test-e2e TestWithRelayerTestSuite{{ if testname == "" { "" } else { "/" + testname } }}
+test-e2e-relayer testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithRelayerTestSuite/{{testname}}
 
-# Run e2e tests in the CosmosRelayerTestSuite. Run all tests if no parameter given, or a specific test if provided. For example, `just test-e2e-cosmos-relayer Test_RelayerInfo`
+# Run any e2e test in the CosmosRelayerTestSuite. For example, `just test-e2e-cosmos-relayer Test_RelayerInfo`
 [group('test')]
-test-e2e-cosmos-relayer testname="":
-	just test-e2e TestWithCosmosRelayerTestSuite{{ if testname == "" { "" } else { "/" + testname } }}
+test-e2e-cosmos-relayer testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithCosmosRelayerTestSuite/{{testname}}
 
-# Run e2e tests in the SP1ICS07TendermintTestSuite. Run all tests if no parameter given, or a specific test if provided. For example, `just test-e2e-sp1-ics07 Test_Deploy`
+# Run anu e2e test in the SP1ICS07TendermintTestSuite. For example, `just test-e2e-sp1-ics07 Test_Deploy`
 [group('test')]
-test-e2e-sp1-ics07 testname="": install-operator
-	just test-e2e TestWithSP1ICS07TendermintTestSuite{{ if testname == "" { "" } else { "/" + testname } }}
+test-e2e-sp1-ics07 testname: install-operator
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithSP1ICS07TendermintTestSuite/{{testname}}
 
-# Run e2e tests in the MultichainTestSuite. Run all tests if no parameter given, or a specific test if provided. For example, `just test-e2e-multichain Test_Deploy`
+# Run any e2e test in the MultichainTestSuite. For example, `just test-e2e-multichain Test_Deploy`
 [group('test')]
-test-e2e-multichain testname="":
-	just test-e2e TestWithMultichainTestSuite{{ if testname == "" { "" } else { "/" + testname } }}
+test-e2e-multichain testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
-# Run e2e tests in the IbcEurekaSolanaTestSuite. Run all tests if no parameter given, or a specific test if provided. For example, `just test-e2e-solana Test_Deploy`
+# Run the e2e tests in the IbcEurekaSolanaTestSuite. For example, `just test-e2e-solana Test_Deploy`
 [group('test')]
-test-e2e-solana testname="":
-	just test-e2e TestWithIbcEurekaSolanaTestSuite{{ if testname == "" { "" } else { "/" + testname } }}
+test-e2e-solana testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaSolanaTestSuite/{{testname}}
 
 # Run the Solana Anchor e2e tests
 [group('test')]
@@ -312,12 +318,6 @@ test-solana *ARGS:
 		echo "✅ Build successful, running cargo tests" && \
 		(cd programs/solana && cargo test {{ARGS}}); \
 	fi
-
-# Stream logs from Docker containers matching 'simd-*' pattern
-[group('utils')]
-stream-simd-logs:
-	@echo "Streaming logs from simd-* containers..."
-	bash scripts/stream-simd-logs.sh
 
 # Clean up the foundry cache and out directories
 [group('clean')]
