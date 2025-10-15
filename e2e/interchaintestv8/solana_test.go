@@ -776,62 +776,17 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 
 	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
 		s.Require().True(s.Run("Update Tendermint client on Solana via chunks", func() {
-			// Query Solana client height BEFORE update_client
-			cosmosChainID := simd.Config().ChainID
-			clientStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(cosmosChainID)}, ics07_tendermint.ProgramID)
-			s.Require().NoError(err)
-
-			accountInfoBefore, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
-			s.Require().NoError(err)
-
-			clientStateBefore, err := ics07_tendermint.ParseAccount_ClientState(accountInfoBefore.Value.Data.GetBinary())
-			s.Require().NoError(err)
-			s.T().Logf("=== SOLANA CLIENT HEIGHT BEFORE UPDATE_CLIENT ===")
-			s.T().Logf("  Height: %d", clientStateBefore.LatestHeight.RevisionHeight)
-
 			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    testvalues.SolanaChainID,
 				DstClientId: SolanaClientID,
 			})
-			s.Require().NoError(err)
+			s.Require().NoError(err, "Relayer Update Client failed")
+			s.Require().NotEmpty(resp.Txs, "Relayer Update client should return chunked transactions")
 
 			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
 			s.Require().NoError(err, "Failed to submit chunked update client transactions")
 			s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.Txs))
-
-			// Query Solana client height AFTER update_client
-			accountInfoAfter, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
-			s.Require().NoError(err)
-
-			clientStateAfter, err := ics07_tendermint.ParseAccount_ClientState(accountInfoAfter.Value.Data.GetBinary())
-			s.Require().NoError(err)
-			s.T().Logf("=== SOLANA CLIENT HEIGHT AFTER UPDATE_CLIENT ===")
-			s.T().Logf("  Height: %d", clientStateAfter.LatestHeight.RevisionHeight)
-			s.T().Logf("  Updated from %d to %d", clientStateBefore.LatestHeight.RevisionHeight, clientStateAfter.LatestHeight.RevisionHeight)
-
-			// Query the consensus state that was just created/updated
-			consensusStateAccount, _, err := solanago.FindProgramAddress(
-				[][]byte{
-					clientStateAccount.Bytes(),
-					[]byte("consensus_state"),
-					binary.BigEndian.AppendUint64(nil, clientStateAfter.LatestHeight.RevisionHeight),
-				},
-				ics07_tendermint.ProgramID,
-			)
-			s.Require().NoError(err)
-
-			consensusAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, consensusStateAccount)
-			s.Require().NoError(err)
-			s.Require().NotNil(consensusAccountInfo.Value, "Consensus state should exist at height %d", clientStateAfter.LatestHeight.RevisionHeight)
-
-			consensusStateStore, err := ics07_tendermint.ParseAccount_ConsensusStateStore(consensusAccountInfo.Value.Data.GetBinary())
-			s.Require().NoError(err)
-
-			s.T().Logf("=== SOLANA CONSENSUS STATE AT HEIGHT %d ===", clientStateAfter.LatestHeight.RevisionHeight)
-			s.T().Logf("  App hash (root): %x", consensusStateStore.ConsensusState.Root)
-			s.T().Logf("  App hash length: %d bytes", len(consensusStateStore.ConsensusState.Root))
-			s.T().Logf("  Timestamp: %d", consensusStateStore.ConsensusState.Timestamp)
 		}))
 
 		s.Require().True(s.Run("Relay acknowledgment", func() {
