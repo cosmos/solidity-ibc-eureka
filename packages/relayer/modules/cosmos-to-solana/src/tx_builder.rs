@@ -36,7 +36,8 @@ use solana_sdk::{
 };
 
 use crate::constants::{
-    ANCHOR_DISCRIMINATOR_SIZE, GMP_ACCOUNT_STATE_SEED, GMP_PORT_ID, PROTOBUF_ENCODING,
+    ANCHOR_DISCRIMINATOR_SIZE, GMP_ACCOUNT_STATE_SEED, GMP_PORT_ID, JSON_ENCODING,
+    PROTOBUF_ENCODING,
 };
 use crate::proto::{GmpPacketData, SolanaInstruction};
 
@@ -857,17 +858,6 @@ impl TxBuilder {
             anyhow::bail!("No instructions to execute on Solana");
         }
 
-        // Log instruction details for debugging
-        for (idx, ix) in instructions.iter().enumerate() {
-            tracing::info!(
-                "Instruction {}: program_id={}, accounts={}, data_size={} bytes",
-                idx,
-                ix.program_id,
-                ix.accounts.len(),
-                ix.data.len()
-            );
-        }
-
         let recent_blockhash = self
             .target_solana_client
             .get_latest_blockhash()
@@ -1072,7 +1062,6 @@ impl TxBuilder {
     /// - Failed to decode GMP packet data
     /// - Invalid receiver pubkey
     /// - Missing IBC app program ID in existing accounts
-    #[allow(dead_code)]
     fn extract_payload_accounts(
         payload: &Payload,
         port_id: &str,
@@ -1208,7 +1197,7 @@ impl TxBuilder {
                     }
                 }
             }
-            "application/json" => {
+            JSON_ENCODING => {
                 // For JSON encoding, we could parse structured JSON here if needed
                 // The payload should contain all required accounts in structured format
                 tracing::info!("JSON encoding detected, no additional accounts extracted yet");

@@ -9,5 +9,8 @@ pub const GMP_PORT_ID: &str = "gmpport";
 /// Protobuf encoding type for GMP packets
 pub const PROTOBUF_ENCODING: &str = "application/x-protobuf";
 
+/// JSON encoding type for IBC packets
+pub const JSON_ENCODING: &str = "application/json";
+
 /// GMP account state PDA seed
 pub const GMP_ACCOUNT_STATE_SEED: &[u8] = b"gmp_account";
