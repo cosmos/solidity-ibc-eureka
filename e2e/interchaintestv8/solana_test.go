@@ -105,6 +105,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				TmRPC:                simd.GetHostRPCAddress(),
 				ICS07ProgramID:       ics07_tendermint.ProgramID.String(),
 				ICS26RouterProgramID: ics26_router.ProgramID.String(),
+				IBCAppProgramID:      dummy_ibc_app.ProgramID.String(),
 				CosmosSignerAddress:  s.CosmosUsers[0].FormattedAddress(),
 				SolanaFeePayer:       s.SolanaUser.PublicKey().String(),
 				Mock:                 true,

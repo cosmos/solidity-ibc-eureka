@@ -124,6 +124,8 @@ pub struct TxBuilder {
     pub solana_ics26_program_id: Pubkey,
     /// The Solana ICS07 program ID.
     pub solana_ics07_program_id: Pubkey,
+    /// The IBC app program ID.
+    pub ibc_app_program_id: Pubkey,
     /// The fee payer address for transactions.
     pub fee_payer: Pubkey,
 }
@@ -140,6 +142,7 @@ impl TxBuilder {
         target_solana_client: Arc<RpcClient>,
         solana_ics07_program_id: Pubkey,
         solana_ics26_program_id: Pubkey,
+        ibc_app_program_id: Pubkey,
         fee_payer: Pubkey,
     ) -> Result<Self> {
         Ok(Self {
@@ -147,6 +150,7 @@ impl TxBuilder {
             target_solana_client,
             solana_ics26_program_id,
             solana_ics07_program_id,
+            ibc_app_program_id,
             fee_payer,
         })
     }
@@ -220,42 +224,8 @@ impl TxBuilder {
         let (router_state, _) = derive_router_state(self.solana_ics26_program_id);
         let (ibc_app, _) = derive_ibc_app(&payload.dest_port, self.solana_ics26_program_id);
 
-        // Query the ibc_app account to get the app_program_id
-        let ibc_app_account = self
-            .target_solana_client
-            .get_account(&ibc_app)
-            .map_err(|e| anyhow::anyhow!("Failed to get IBC app account: {e}"))?;
-
-        // TODO: simplify
-        // Parse the IBC app account to get the program ID
-        let ibc_app_program = if ibc_app_account.data.len() >= 44 {
-            let mut offset = 8; // Skip discriminator
-
-            // Read port_id string length (4 bytes, little-endian)
-            let port_len = u32::from_le_bytes(
-                ibc_app_account.data[offset..offset + 4]
-                    .try_into()
-                    .map_err(|_| anyhow::anyhow!("Invalid port length"))?,
-            ) as usize;
-            offset += 4;
-
-            // Skip the port string data
-            offset += port_len;
-
-            // Read the app_program_id (32 bytes)
-            if offset + 32 <= ibc_app_account.data.len() {
-                let program_bytes: [u8; 32] = ibc_app_account.data[offset..offset + 32]
-                    .try_into()
-                    .map_err(|_| anyhow::anyhow!("Invalid program ID bytes"))?;
-                Pubkey::new_from_array(program_bytes)
-            } else {
-                return Err(anyhow::anyhow!(
-                    "IBC app account data too short for program ID"
-                ));
-            }
-        } else {
-            return Err(anyhow::anyhow!("Invalid IBC app account data length"));
-        };
+        // Use configured IBC app program ID
+        let ibc_app_program = self.ibc_app_program_id;
 
         let (app_state, _) = Pubkey::find_program_address(
             &[b"app_state", payload.dest_port.as_bytes()],
@@ -339,42 +309,8 @@ impl TxBuilder {
 
         let (ibc_app_pda, _) = derive_ibc_app("transfer", solana_ics26_program_id);
 
-        let ibc_app_account = self
-            .target_solana_client
-            .get_account(&ibc_app_pda)
-            .map_err(|e| anyhow::anyhow!("Failed to get IBC app account: {e}"))?;
-
-        // TODO: simplify
-        // Parse the IBC app account to get the program ID
-        let ibc_app_program = if ibc_app_account.data.len() >= 44 {
-            // Skip discriminator (8 bytes)
-            let mut offset = 8;
-
-            // Read port_id string length (4 bytes, little-endian)
-            let port_len = u32::from_le_bytes(
-                ibc_app_account.data[offset..offset + 4]
-                    .try_into()
-                    .map_err(|_| anyhow::anyhow!("Invalid port length"))?,
-            ) as usize;
-            offset += 4;
-
-            // Skip the port string data
-            offset += port_len;
-
-            // Now read the app_program_id (32 bytes)
-            if offset + 32 <= ibc_app_account.data.len() {
-                let program_bytes: [u8; 32] = ibc_app_account.data[offset..offset + 32]
-                    .try_into()
-                    .map_err(|_| anyhow::anyhow!("Invalid program ID bytes"))?;
-                Pubkey::new_from_array(program_bytes)
-            } else {
-                return Err(anyhow::anyhow!(
-                    "IBC app account data too short for program ID"
-                ));
-            }
-        } else {
-            return Err(anyhow::anyhow!("Invalid IBC app account data length"));
-        };
+        // Use configured IBC app program ID
+        let ibc_app_program = self.ibc_app_program_id;
 
         tracing::info!("IBC app program ID: {}", ibc_app_program);
 
@@ -564,8 +500,6 @@ impl TxBuilder {
     }
 
     fn extend_compute_ix() -> Vec<Instruction> {
-        // Add compute budget instructions to increase the limit
-        // Request 1.4M compute units (maximum allowed)
         let compute_budget_ix =
             solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
 

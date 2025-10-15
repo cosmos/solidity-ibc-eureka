@@ -51,6 +51,8 @@ pub struct CosmosToSolanaConfig {
     pub solana_ics26_program_id: String,
     /// The Solana ICS07 Tendermint light client program ID.
     pub solana_ics07_program_id: String,
+    /// The Solana IBC app program ID.
+    pub solana_ibc_app_program_id: String,
     /// The Solana fee payer address.
     pub solana_fee_payer: String,
 }
@@ -70,6 +72,11 @@ impl CosmosToSolanaRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {}", e))?;
 
+        let ibc_app_program_id: Pubkey = config
+            .solana_ibc_app_program_id
+            .parse()
+            .map_err(|e| anyhow::anyhow!("Invalid Solana IBC app program ID: {}", e))?;
+
         let target_listener = solana_eureka::ChainListener::new(
             config.target_rpc_url.clone(),
             solana_ics26_program_id,
@@ -85,6 +92,7 @@ impl CosmosToSolanaRelayerModuleService {
             target_listener.client().clone(),
             solana_ics07_program_id,
             solana_ics26_program_id,
+            ibc_app_program_id,
             fee_payer,
         )?;
 
