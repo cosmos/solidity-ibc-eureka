@@ -100,12 +100,6 @@ func TestWithIbcEurekaSolanaTestSuite(t *testing.T) {
 
 // SetupSuite provides the core IBC infrastructure setup (without transfer app)
 func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
-	s.SetupCoreInfrastructure(ctx)
-	s.SetupIBCInfrastructure(ctx)
-}
-
-// SetupCoreInfrastructure sets up basic chains and wallets
-func (s *IbcEurekaSolanaTestSuite) SetupCoreInfrastructure(ctx context.Context) {
 	var err error
 
 	err = os.Chdir("../..")
@@ -122,12 +116,8 @@ func (s *IbcEurekaSolanaTestSuite) SetupCoreInfrastructure(ctx context.Context) 
 	s.T().Log("Creating and funding Solana test wallet...")
 	s.SolanaUser, err = s.SolanaChain.CreateAndFundWalletWithRetry(ctx, 5)
 	s.Require().NoError(err, "Solana create/fund wallet has failed")
-}
 
-// SetupIBCInfrastructure deploys core IBC programs and sets up relayer
-func (s *IbcEurekaSolanaTestSuite) SetupIBCInfrastructure(ctx context.Context) {
 	simd := s.CosmosChains[0]
-	var err error
 
 	s.Require().True(s.Run("Deploy IBC core contracts", func() {
 		_, err := s.SolanaChain.FundUser(solana.DeployerPubkey, 20*testvalues.InitialSolBalance)
@@ -335,10 +325,11 @@ func (s *IbcEurekaSolanaTestSuite) SetupIBCInfrastructure(ctx context.Context) {
 			s.T().Logf("Client added to router")
 		}))
 	}))
+
 }
 
-// SetupTransferApp deploys and registers the dummy IBC app for transfer tests
-func (s *IbcEurekaSolanaTestSuite) SetupTransferApp(ctx context.Context) {
+// SetupDummyIBCApp deploys and registers the dummy IBC app for transfer tests
+func (s *IbcEurekaSolanaTestSuite) SetupDummyIBCApp(ctx context.Context) {
 	s.Require().True(s.Run("Deploy and Register Dummy App", func() {
 		dummyAppProgramID := s.deploySolanaProgram(ctx, "dummy_ibc_app")
 
@@ -457,7 +448,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	s.UseMockSolanaClient = true
 
 	s.SetupSuite(ctx)
-	s.SetupTransferApp(ctx) // Explicitly set up transfer app for this test
+	s.SetupDummyIBCApp(ctx) // Explicitly set up transfer app for this test
 
 	simd := s.CosmosChains[0]
 
@@ -634,7 +625,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	s.UseMockSolanaClient = true
 
 	s.SetupSuite(ctx)
-	s.SetupTransferApp(ctx)
+	s.SetupDummyIBCApp(ctx)
 
 	simd := s.CosmosChains[0]
 
@@ -807,7 +798,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
-	s.SetupTransferApp(ctx) // Explicitly set up transfer app for this test
+	s.SetupDummyIBCApp(ctx) // Explicitly set up transfer app for this test
 
 	simd := s.CosmosChains[0]
 
