@@ -26,8 +26,8 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl.workspace = true
 solana-ibc-types.workspace = true
-anchor-spl = "0.31"
 
 [dev-dependencies]
 mollusk-svm.workspace = true
