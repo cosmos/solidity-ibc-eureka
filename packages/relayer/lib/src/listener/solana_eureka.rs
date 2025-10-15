@@ -82,7 +82,14 @@ impl ChainListenerService<SolanaEureka> for ChainListener {
         for tx in tx_ids {
             let (tx, meta) = self
                 .rpc_client
-                .get_transaction(&tx, UiTransactionEncoding::Json)
+                .get_transaction_with_config(
+                    &tx,
+                    solana_client::rpc_config::RpcTransactionConfig {
+                        encoding: Some(UiTransactionEncoding::Json),
+                        commitment: Some(CommitmentConfig::confirmed()),
+                        max_supported_transaction_version: Some(0),
+                    },
+                )
                 .map_err(|e| anyhow::anyhow!("Failed to fetch Solana transaction: {e}"))
                 .and_then(|tx| {
                     tx.transaction

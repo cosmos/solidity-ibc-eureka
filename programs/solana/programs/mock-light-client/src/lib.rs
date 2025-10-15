@@ -36,9 +36,9 @@ pub mod mock_light_client {
     ) -> Result<()> {
         msg!("Mock light client: verify_non_membership always returns success");
 
-        // For non-membership (timeout), return a timestamp value
-        // Using 2000 as a mock timestamp (greater than typical test timeout values)
-        let timestamp: u64 = 2000;
+        // For non-membership (timeout), return a very large timestamp
+        // Using u64::MAX to ensure it's always greater than any test timeout value
+        let timestamp: u64 = u64::MAX;
         let timestamp_bytes = timestamp.to_le_bytes();
         set_return_data(&timestamp_bytes);
 

@@ -1,6 +1,7 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! Solana from events received from a Cosmos SDK chain.
 
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anchor_lang::prelude::*;
@@ -24,25 +25,37 @@ use ibc_eureka_relayer_lib::{
 use prost::Message;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
+    address_lookup_table::{state::AddressLookupTable, AddressLookupTableAccount},
     commitment_config::CommitmentConfig,
+    hash::hash,
     instruction::{AccountMeta, Instruction},
     keccak,
+    message::{v0, VersionedMessage},
     pubkey::Pubkey,
-    sysvar,
-    transaction::Transaction,
+    transaction::{Transaction, VersionedTransaction},
 };
 
+use crate::constants::{GMP_ACCOUNT_STATE_SEED, GMP_PORT_ID, PROTOBUF_ENCODING};
+use crate::proto::{GmpPacketData, SolanaInstruction};
+
 use solana_ibc_types::{
-    derive_client, derive_client_sequence, derive_ibc_app, derive_ics07_client_state,
-    derive_ics07_consensus_state, derive_packet_ack, derive_packet_commitment,
-    derive_packet_receipt, derive_router_state, get_instruction_discriminator,
+    derive_app_state, derive_client, derive_client_sequence, derive_ibc_app,
+    derive_ics07_client_state, derive_ics07_consensus_state, derive_packet_ack,
+    derive_packet_commitment, derive_packet_receipt, derive_router_state,
+    get_instruction_discriminator,
     ics07::{ClientState, ConsensusState, ICS07_INITIALIZE_DISCRIMINATOR},
-    MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket,
+    MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, Payload,
 };
 use tendermint_rpc::{Client as _, HttpClient};
 
 /// Maximum size for a header chunk (matches `CHUNK_DATA_SIZE` in Solana program)
 const MAX_CHUNK_SIZE: usize = 700;
+
+/// Maximum compute units allowed per Solana transaction
+const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
+
+/// Priority fee in micro-lamports per compute unit
+const DEFAULT_PRIORITY_FEE: u64 = 1000;
 
 /// Parameters for uploading a header chunk (mirrors the Solana program's type)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -66,6 +79,21 @@ pub struct UpdateClientChunkedTxs {
     pub total_chunks: usize,
     /// Target height being updated to
     pub target_height: u64,
+}
+
+/// Update client response that can be either chunked or single transaction
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum UpdateClientResponse {
+    /// Chunked update (metadata + chunks + assembly)
+    Chunked(UpdateClientChunkedTxs),
+    /// Single transaction update (for mock)
+    Single {
+        /// The single transaction to submit
+        tx: Vec<u8>,
+        /// Target height being updated to
+        target_height: u64,
+    },
 }
 
 /// Helper to derive header chunk PDA
@@ -118,6 +146,8 @@ pub struct TxBuilder {
     pub solana_ics07_program_id: Pubkey,
     /// The fee payer address for transactions.
     pub fee_payer: Pubkey,
+    /// Address Lookup Table address for reducing transaction size (optional).
+    pub alt_address: Option<Pubkey>,
 }
 
 impl TxBuilder {
@@ -133,6 +163,7 @@ impl TxBuilder {
         solana_ics07_program_id: Pubkey,
         solana_ics26_program_id: Pubkey,
         fee_payer: Pubkey,
+        alt_address: Option<Pubkey>,
     ) -> Result<Self> {
         Ok(Self {
             src_tm_client,
@@ -140,6 +171,7 @@ impl TxBuilder {
             solana_ics26_program_id,
             solana_ics07_program_id,
             fee_payer,
+            alt_address,
         })
     }
 
@@ -208,8 +240,10 @@ impl TxBuilder {
             ));
         };
 
+        let dest_port = payload.dest_port.clone();
+
         let (router_state, _) = derive_router_state(self.solana_ics26_program_id);
-        let (ibc_app, _) = derive_ibc_app(&payload.dest_port, self.solana_ics26_program_id);
+        let (ibc_app, _) = derive_ibc_app(&dest_port, self.solana_ics26_program_id);
         let (client_sequence, _) =
             derive_client_sequence(&msg.packet.dest_client, self.solana_ics26_program_id);
         let (packet_receipt, _) = derive_packet_receipt(
@@ -235,21 +269,52 @@ impl TxBuilder {
         let (consensus_state, _) =
             derive_ics07_consensus_state(client_state, latest_height, self.solana_ics07_program_id);
 
-        let accounts = vec![
+        // Resolve the actual IBC app program ID for this port
+        let ibc_app_program_id = self.resolve_port_program_id(&dest_port)?;
+
+        // Derive the app state account for the resolved IBC app
+        let (ibc_app_state, _) = derive_app_state(&dest_port, ibc_app_program_id);
+
+        // Build base accounts list for recv_packet (matches router program's RecvPacket account structure)
+        let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
             AccountMeta::new_readonly(ibc_app, false),
             AccountMeta::new(client_sequence, false),
             AccountMeta::new(packet_receipt, false),
             AccountMeta::new(packet_ack, false),
-            AccountMeta::new_readonly(self.fee_payer, true), // relayer
-            AccountMeta::new(self.fee_payer, true),          // payer
+            AccountMeta::new_readonly(ibc_app_program_id, false), // IBC app program (e.g., ICS27 GMP)
+            AccountMeta::new(ibc_app_state, false),               // IBC app state
+            AccountMeta::new_readonly(self.solana_ics26_program_id, false), // router program
+            AccountMeta::new_readonly(self.fee_payer, true),      // relayer
+            AccountMeta::new(self.fee_payer, true),               // payer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-            AccountMeta::new_readonly(sysvar::clock::id(), false),
             AccountMeta::new_readonly(client, false),
             AccountMeta::new_readonly(self.solana_ics07_program_id, false), // light client program
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
+
+        // Parse payload for additional accounts needed for transaction building
+        // IMPORTANT: We only extract account information - the payload itself is NOT modified
+        // The packet must be forwarded exactly as received (IBC security invariant)
+        if let Ok(additional_accounts) = Self::extract_payload_accounts(
+            payload,
+            &payload.dest_port,
+            &msg.packet.source_client,
+            &accounts,
+        ) {
+            tracing::info!(
+                "Found {} additional accounts from GMP payload for port {}",
+                additional_accounts.len(),
+                payload.dest_port
+            );
+            accounts.extend(additional_accounts);
+        } else {
+            tracing::debug!(
+                "No additional GMP accounts found in payload for port {} (non-GMP or parsing failed)",
+                payload.dest_port
+            );
+        }
 
         let discriminator = get_instruction_discriminator("recv_packet");
         let mut data = discriminator.to_vec();
@@ -263,12 +328,20 @@ impl TxBuilder {
     }
 
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
-    async fn build_ack_packet_instruction(&self, msg: &MsgAckPacket) -> Result<Instruction> {
+    fn build_ack_packet_instruction(&self, msg: &MsgAckPacket) -> Result<Instruction> {
         let solana_ics26_program_id = self.solana_ics26_program_id;
 
         let (router_state, _) = derive_router_state(solana_ics26_program_id);
 
-        let (ibc_app_pda, _) = derive_ibc_app("transfer", solana_ics26_program_id);
+        let [payload] = msg.packet.payloads.as_slice() else {
+            return Err(anyhow::anyhow!(
+                "Expected exactly one ack packet payload element"
+            ));
+        };
+
+        let source_port = payload.source_port.clone();
+
+        let (ibc_app_pda, _) = derive_ibc_app(&source_port, solana_ics26_program_id);
 
         let ibc_app_account = self
             .target_solana_client
@@ -314,8 +387,8 @@ impl TxBuilder {
 
         tracing::info!("IBC app program ID: {}", ibc_app_program);
 
-        // Derive the app state PDA
-        let (app_state, _) = Pubkey::find_program_address(&[b"state"], &ibc_app_program);
+        // Derive the app state PDA using the correct derivation (same as timeout handler)
+        let (app_state, _) = derive_app_state(&source_port, ibc_app_program);
 
         let (packet_commitment, _) = derive_packet_commitment(
             &msg.packet.source_client,
@@ -323,9 +396,8 @@ impl TxBuilder {
             solana_ics26_program_id,
         );
 
-        // Derive the client PDA using ICS26 client ID
-        let chain_id = self.chain_id().await?;
-        let (client, _) = derive_client(&chain_id, solana_ics26_program_id);
+        // Derive the client PDA using ICS26 client ID (from packet source_client)
+        let (client, _) = derive_client(&msg.packet.source_client, solana_ics26_program_id);
 
         let (client_state, _) =
             derive_ics07_client_state(&msg.packet.source_client, self.solana_ics07_program_id);
@@ -380,7 +452,16 @@ impl TxBuilder {
 
         let solana_ics26_program_id = self.solana_ics26_program_id;
 
+        let [payload] = msg.packet.payloads.as_slice() else {
+            return Err(anyhow::anyhow!(
+                "Expected exactly one timeout packet payload element"
+            ));
+        };
+
+        let source_port = payload.source_port.clone();
+
         let (router_state, _) = derive_router_state(solana_ics26_program_id);
+        let (ibc_app, _) = derive_ibc_app(&source_port, solana_ics26_program_id);
 
         let (packet_commitment, _) = derive_packet_commitment(
             &msg.packet.source_client,
@@ -388,16 +469,39 @@ impl TxBuilder {
             solana_ics26_program_id,
         );
 
-        let (client, _) = derive_client(&msg.packet.dest_client, solana_ics26_program_id);
+        // Resolve the actual IBC app program ID for this port
+        let ibc_app_program_id = self.resolve_port_program_id(&source_port)?;
 
-        // Build accounts list for timeout_packet
+        // Derive the app state account for the resolved IBC app
+        let (ibc_app_state, _) = derive_app_state(&source_port, ibc_app_program_id);
+
+        let (client, _) = derive_client(&msg.packet.source_client, solana_ics26_program_id);
+
+        let (client_state, _) =
+            derive_ics07_client_state(&msg.packet.dest_client, self.solana_ics07_program_id);
+
+        // Use the proof height for the consensus state lookup
+        let (consensus_state, _) = derive_ics07_consensus_state(
+            client_state,
+            msg.proof_height,
+            self.solana_ics07_program_id,
+        );
+
+        // Build accounts list for timeout_packet (must match router's TimeoutPacket account structure)
         let accounts = vec![
             AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(ibc_app, false),
             AccountMeta::new(packet_commitment, false), // Will be closed after timeout
+            AccountMeta::new_readonly(ibc_app_program_id, false), // IBC app program
+            AccountMeta::new(ibc_app_state, false),     // IBC app state
+            AccountMeta::new_readonly(self.solana_ics26_program_id, false), // router program
             AccountMeta::new_readonly(self.fee_payer, true), // relayer
             AccountMeta::new(self.fee_payer, true),     // payer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(client, false),
+            AccountMeta::new_readonly(self.solana_ics07_program_id, false), // light client program
+            AccountMeta::new_readonly(client_state, false),
+            AccountMeta::new_readonly(consensus_state, false),
         ];
 
         // Build instruction data
@@ -433,6 +537,72 @@ impl TxBuilder {
             .context("Failed to deserialize client state")?;
 
         Ok(client_state)
+    }
+
+    /// Resolve the IBC app program ID for a given port
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to fetch `IBCApp` account
+    /// - Failed to deserialize account data
+    fn resolve_port_program_id(&self, port_id: &str) -> Result<Pubkey> {
+        let (ibc_app_account, _) = derive_ibc_app(port_id, self.solana_ics26_program_id);
+
+        let account_data = self
+            .target_solana_client
+            .get_account_data(&ibc_app_account)
+            .map_err(|e| {
+                anyhow::anyhow!("Failed to fetch IBCApp account for port '{}': {e}", port_id)
+            })?;
+
+        if account_data.len() < 8 {
+            return Err(anyhow::anyhow!("Account data too short for IBCApp account"));
+        }
+
+        let data_without_discriminator = &account_data[8..];
+        let mut offset: usize = 0;
+
+        // port_id: String with max_len(128) => 4 bytes length + string data
+        if data_without_discriminator.len() < offset.saturating_add(4) {
+            return Err(anyhow::anyhow!(
+                "Invalid IBCApp data: port_id length missing"
+            ));
+        }
+        let port_id_len = u32::from_le_bytes([
+            data_without_discriminator[offset],
+            data_without_discriminator[offset.saturating_add(1)],
+            data_without_discriminator[offset.saturating_add(2)],
+            data_without_discriminator[offset.saturating_add(3)],
+        ]) as usize;
+        offset = offset.saturating_add(4);
+
+        if data_without_discriminator.len() < offset.saturating_add(port_id_len) {
+            return Err(anyhow::anyhow!(
+                "Invalid IBCApp data: port_id data truncated"
+            ));
+        }
+        offset = offset.saturating_add(port_id_len);
+
+        // app_program_id: Pubkey (32 bytes)
+        if data_without_discriminator.len() < offset.saturating_add(32) {
+            return Err(anyhow::anyhow!(
+                "Invalid IBCApp data: app_program_id missing"
+            ));
+        }
+        let app_program_id_bytes: [u8; 32] = data_without_discriminator
+            [offset..offset.saturating_add(32)]
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("Invalid app_program_id length"))?;
+        let app_program_id = Pubkey::new_from_array(app_program_id_bytes);
+
+        tracing::info!(
+            "Resolved port '{}' to program ID: {}",
+            port_id,
+            app_program_id
+        );
+
+        Ok(app_program_id)
     }
 
     fn split_header_into_chunks(header_bytes: &[u8]) -> Vec<Vec<u8>> {
@@ -510,14 +680,15 @@ impl TxBuilder {
     }
 
     fn extend_compute_ix() -> Vec<Instruction> {
-        // Add compute budget instructions to increase the limit
-        // Request 1.4M compute units (maximum allowed)
         let compute_budget_ix =
-            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(
+                MAX_COMPUTE_UNIT_LIMIT,
+            );
 
-        // Optionally set a priority fee to ensure the transaction gets processed
         let priority_fee_ix =
-            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(1000);
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(
+                DEFAULT_PRIORITY_FEE,
+            );
 
         vec![compute_budget_ix, priority_fee_ix]
     }
@@ -722,7 +893,7 @@ impl TxBuilder {
 
         for ack_msg in ack_msgs {
             let ack_msg = ibc_to_solana_ack_packet(ack_msg)?;
-            let instruction = self.build_ack_packet_instruction(&ack_msg).await?;
+            let instruction = self.build_ack_packet_instruction(&ack_msg)?;
             instructions.push(instruction);
         }
 
@@ -734,17 +905,100 @@ impl TxBuilder {
         self.create_tx_bytes(&instructions)
     }
 
+    #[allow(clippy::cognitive_complexity)]
     fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>> {
-        let mut tx = Transaction::new_with_payer(instructions, Some(&self.fee_payer));
+        if instructions.is_empty() {
+            anyhow::bail!("No instructions to execute on Solana");
+        }
+
+        // Log instruction details for debugging
+        for (idx, ix) in instructions.iter().enumerate() {
+            tracing::info!(
+                "Instruction {}: program_id={}, accounts={}, data_size={} bytes",
+                idx,
+                ix.program_id,
+                ix.accounts.len(),
+                ix.data.len()
+            );
+        }
 
         let recent_blockhash = self
             .target_solana_client
             .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
 
-        tx.message.recent_blockhash = recent_blockhash;
+        // If ALT is configured, create a v0 transaction with lookup table
+        if let Some(alt_address) = self.alt_address {
+            tracing::info!(
+                "Building transaction with Address Lookup Table: {}",
+                alt_address
+            );
 
-        Ok(bincode::serialize(&tx)?)
+            // Fetch the ALT account data
+            let alt_account = self
+                .target_solana_client
+                .get_account(&alt_address)
+                .map_err(|e| anyhow::anyhow!("Failed to fetch ALT account {}: {e}", alt_address))?;
+
+            // Deserialize the ALT state from account data
+            let lookup_table = AddressLookupTable::deserialize(&alt_account.data)
+                .map_err(|e| anyhow::anyhow!("Failed to deserialize ALT: {e}"))?;
+
+            tracing::info!("ALT contains {} addresses", lookup_table.addresses.len());
+            tracing::info!("ALT addresses: {:?}", lookup_table.addresses);
+
+            // Create AddressLookupTableAccount for v0 message compilation
+            let alt_account_for_compile = AddressLookupTableAccount {
+                key: alt_address,
+                addresses: lookup_table.addresses.to_vec(),
+            };
+
+            // Compile v0 message with ALT
+            // This will automatically use ALT indices for accounts that are in the lookup table
+            let v0_message = v0::Message::try_compile(
+                &self.fee_payer,
+                instructions,
+                &[alt_account_for_compile],
+                recent_blockhash,
+            )
+            .map_err(|e| anyhow::anyhow!("Failed to compile v0 message with ALT: {e}"))?;
+
+            tracing::info!(
+                "Compiled v0 message: {} static accounts, {} ALT accounts",
+                v0_message.account_keys.len(),
+                v0_message
+                    .address_table_lookups
+                    .iter()
+                    .map(|lookup| lookup.readonly_indexes.len() + lookup.writable_indexes.len())
+                    .sum::<usize>()
+            );
+
+            tracing::info!("Static account keys: {:?}", v0_message.account_keys);
+
+            // Create VersionedTransaction with v0 message
+            // Number of signatures must match num_required_signatures in the message header
+            let num_signatures = v0_message.header.num_required_signatures as usize;
+            let versioned_tx = VersionedTransaction {
+                signatures: vec![solana_sdk::signature::Signature::default(); num_signatures],
+                message: VersionedMessage::V0(v0_message),
+            };
+
+            let serialized_tx = bincode::serialize(&versioned_tx)?;
+            tracing::warn!(
+                "Transaction size: {} bytes (limit: 1232 bytes raw, 1644 bytes encoded)",
+                serialized_tx.len()
+            );
+
+            Ok(serialized_tx)
+        } else {
+            // Legacy transaction without ALT - wrap it in VersionedTransaction
+            let mut tx = Transaction::new_with_payer(instructions, Some(&self.fee_payer));
+            tx.message.recent_blockhash = recent_blockhash;
+
+            // Convert legacy Transaction to VersionedTransaction for consistency
+            let versioned_tx = VersionedTransaction::from(tx);
+            Ok(bincode::serialize(&versioned_tx)?)
+        }
     }
 
     /// Create a new ICS07 Tendermint client on Solana
@@ -790,7 +1044,7 @@ impl TxBuilder {
     /// - Failed to get recent blockhash from Solana
     /// - Chain ID string is too long for serialization
     #[tracing::instrument(skip_all)]
-    pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
+    pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientResponse> {
         let chain_id = self.chain_id().await?;
         let client_state = self.cosmos_client_state(&chain_id)?;
 
@@ -844,12 +1098,407 @@ impl TxBuilder {
             total_chunks
         );
 
-        Ok(UpdateClientChunkedTxs {
+        Ok(UpdateClientResponse::Chunked(UpdateClientChunkedTxs {
             metadata_tx,
             chunk_txs,
             assembly_tx,
             total_chunks: total_chunks as usize,
             target_height,
+        }))
+    }
+
+    /// Extract additional accounts from payload for transaction building.
+    /// IMPORTANT: This function does NOT modify the payload - it only extracts account information.
+    /// The payload must be forwarded exactly as received (IBC security invariant).
+    ///
+    /// # Arguments
+    /// * `payload` - The IBC packet payload
+    /// * `port_id` - The destination port ID
+    /// * `source_client` - The source client ID (used for PDA derivation)
+    /// * `existing_accounts` - Existing accounts list (used to extract IBC app program ID)
+    ///
+    /// # Returns
+    /// Vector of additional accounts needed for GMP transaction execution
+    ///
+    /// # Errors
+    /// Returns error if:
+    /// - Payload is not a GMP payload
+    /// - Failed to decode GMP packet data
+    /// - Invalid receiver pubkey
+    /// - Missing IBC app program ID in existing accounts
+    #[allow(dead_code)]
+    fn extract_payload_accounts(
+        payload: &Payload,
+        port_id: &str,
+        source_client: &str,
+        existing_accounts: &[AccountMeta],
+    ) -> Result<Vec<AccountMeta>, anyhow::Error> {
+        let mut account_metas = Vec::new();
+
+        // Only process GMP port payloads
+        if port_id != GMP_PORT_ID || payload.encoding != PROTOBUF_ENCODING {
+            return Err(anyhow::anyhow!("Not a GMP payload"));
+        }
+
+        let gmp_packet = GmpPacketData::decode(payload.value.as_slice())
+            .map_err(|e| anyhow::anyhow!("Failed to parse GMPPacketData: {e}"))?;
+
+        // Parse receiver as Solana Pubkey (target program)
+        let receiver_pubkey = Pubkey::from_str(&gmp_packet.receiver)
+            .map_err(|e| anyhow::anyhow!("Invalid receiver pubkey: {e}"))?;
+
+        // Derive GMP account_state PDA
+        // Note: We need the IBC app program ID (ICS27 GMP program) to derive the account_state
+        // For now, we'll extract it from existing_accounts - it's account index 5 (ibc_app_program)
+        let ibc_app_program_id = if existing_accounts.len() > 5 {
+            existing_accounts[5].pubkey
+        } else {
+            return Err(anyhow::anyhow!(
+                "Missing ibc_app_program in existing accounts"
+            ));
+        };
+
+        // Derive account_state PDA: seeds = [b"gmp_account", client_id, sender_hash, salt]
+        // The client_id is the source_client from the IBC packet (the Cosmos chain's client)
+        // Always hash the sender for consistent PDA derivation regardless of address format
+        let sender_hash = hash(gmp_packet.sender.as_bytes()).to_bytes();
+
+        let account_state_seeds = [
+            GMP_ACCOUNT_STATE_SEED,
+            source_client.as_bytes(),
+            &sender_hash,
+            gmp_packet.salt.as_slice(),
+        ];
+        let (account_state_pda, _) =
+            Pubkey::find_program_address(&account_state_seeds, &ibc_app_program_id);
+
+        // Add GMP-specific accounts first
+        // 1. account_state PDA (writable, created if needed)
+        // Note: At transaction level is_signer=false (PDAs cannot sign transactions)
+        // But GMP program marks it is_signer=true at CPI instruction level via invoke_signed
+        // This allows target programs to verify the call is authorized by the legitimate owner
+        account_metas.push(AccountMeta {
+            pubkey: account_state_pda,
+            is_signer: false, // No keypair at transaction level (PDA signs via invoke_signed in GMP program)
+            is_writable: true,
+        });
+
+        // 2. target_program (receiver from GMPPacketData)
+        account_metas.push(AccountMeta {
+            pubkey: receiver_pubkey,
+            is_signer: false,
+            is_writable: true, // Might be writable depending on use case
+        });
+
+        // Parse SolanaInstruction from the inner payload to extract additional accounts
+        match SolanaInstruction::decode(gmp_packet.payload.as_slice()) {
+            Ok(solana_instruction) => {
+                // Extract all accounts from the instruction and add them to the transaction
+                // Note: All accounts are added with is_signer=false at transaction level
+                // PDAs will be marked as signers by the GMP program via invoke_signed
+                for account_meta in &solana_instruction.accounts {
+                    let pubkey = Pubkey::try_from(account_meta.pubkey.as_slice())
+                        .map_err(|e| anyhow::anyhow!("Invalid pubkey: {e}"))?;
+
+                    // At transaction level, no payload accounts need to sign
+                    // The GMP program handles PDA signing via invoke_signed
+                    account_metas.push(AccountMeta {
+                        pubkey,
+                        is_signer: false,
+                        is_writable: account_meta.is_writable,
+                    });
+                }
+
+                Ok(account_metas)
+            }
+            Err(e) => Err(anyhow::anyhow!(
+                "Failed to parse inner SolanaInstruction: {e}"
+            )),
+        }
+    }
+
+    /// Parse payload to extract additional accounts required for execution
+    /// This follows the ADR design where all accounts are included in the payload
+    ///
+    /// # Arguments
+    /// * `payload` - The IBC packet payload
+    /// * `port_id` - The destination port ID
+    ///
+    /// # Returns
+    /// Vector of additional accounts needed for execution
+    ///
+    /// # Errors
+    /// Returns error if failed to parse payload
+    #[allow(dead_code, clippy::unused_self)]
+    fn parse_payload_accounts(
+        payload: &Payload,
+        port_id: &str,
+    ) -> Result<Vec<AccountMeta>, anyhow::Error> {
+        let mut account_metas = Vec::new();
+
+        if port_id != GMP_PORT_ID {
+            tracing::info!("Skipping payload parsing for non-GMP port: {}", port_id);
+            return Ok(account_metas);
+        }
+
+        match payload.encoding.as_str() {
+            PROTOBUF_ENCODING => {
+                match Self::parse_solana_instruction_from_payload(&payload.value) {
+                    Ok(solana_instruction) => {
+                        for account_meta in &solana_instruction.accounts {
+                            let pubkey = Pubkey::try_from(account_meta.pubkey.as_slice())
+                                .map_err(|e| anyhow::anyhow!("Invalid pubkey in payload: {e}"))?;
+
+                            // At transaction level, no payload accounts need to sign
+                            account_metas.push(AccountMeta {
+                                pubkey,
+                                is_signer: false,
+                                is_writable: account_meta.is_writable,
+                            });
+                        }
+                    }
+                    Err(e) => {
+                        return Err(e);
+                    }
+                }
+            }
+            "application/json" => {
+                // For JSON encoding, we could parse structured JSON here if needed
+                // The payload should contain all required accounts in structured format
+                tracing::info!("JSON encoding detected, no additional accounts extracted yet");
+            }
+            _ => {
+                // For other encodings (like raw bytes), no additional parsing
+                tracing::info!(
+                    "No structured payload parsing for encoding: {}",
+                    payload.encoding
+                );
+            }
+        }
+
+        Ok(account_metas)
+    }
+
+    /// Parse `SolanaInstruction` from protobuf-encoded payload
+    ///
+    /// # Arguments
+    /// * `payload_data` - The raw payload bytes
+    ///
+    /// # Returns
+    /// Decoded `SolanaInstruction`
+    ///
+    /// # Errors
+    /// Returns error if failed to decode payload
+    fn parse_solana_instruction_from_payload(
+        payload_data: &[u8],
+    ) -> Result<SolanaInstruction, anyhow::Error> {
+        match GmpPacketData::decode(payload_data) {
+            Ok(gmp_packet) => {
+                SolanaInstruction::decode(gmp_packet.payload.as_slice())
+                    .map_err(|e| anyhow::anyhow!("Failed to parse inner SolanaInstruction from GMP payload: {e}"))
+            }
+            Err(e) => {
+                SolanaInstruction::decode(payload_data)
+                    .map_err(|e2| anyhow::anyhow!("Failed to parse payload as either GMPPacketData or SolanaInstruction: GMP error: {e}, Direct error: {e2}"))
+            }
+        }
+    }
+}
+
+/// Mock transaction builder that wraps the real `TxBuilder` but uses simplified `update_client`
+pub struct MockTxBuilder {
+    /// The underlying real `TxBuilder`
+    pub inner: TxBuilder,
+}
+
+impl MockTxBuilder {
+    /// Creates a new `MockTxBuilder`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to create the underlying `TxBuilder`
+    pub fn new(
+        src_tm_client: HttpClient,
+        target_solana_client: Arc<RpcClient>,
+        solana_ics07_program_id: Pubkey,
+        solana_ics26_program_id: Pubkey,
+        fee_payer: Pubkey,
+        alt_address: Option<Pubkey>,
+    ) -> Result<Self> {
+        Ok(Self {
+            inner: TxBuilder::new(
+                src_tm_client,
+                target_solana_client,
+                solana_ics07_program_id,
+                solana_ics26_program_id,
+                fee_payer,
+                alt_address,
+            )?,
+        })
+    }
+
+    /// Build relay transactions with MOCK proofs (4 bytes instead of 600-800 bytes)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to convert events to messages
+    /// - Failed to build Solana instructions
+    /// - Failed to create transaction bytes
+    #[tracing::instrument(skip_all)]
+    pub async fn relay_events(
+        &self,
+        src_events: Vec<EurekaEventWithHeight>,
+        dest_events: Vec<SolanaEurekaEventWithHeight>,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
+    ) -> Result<Vec<u8>> {
+        tracing::info!(
+            "Mock relay_events: using MOCK proofs for client {} (4 bytes instead of 600-800 bytes)",
+            dst_client_id
+        );
+
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+
+        let slot = self
+            .inner
+            .target_solana_client
+            .get_slot_with_commitment(CommitmentConfig::finalized())
+            .map_err(|e| anyhow::anyhow!("Failed to get Solana slot: {e}"))?;
+
+        let timeout_msgs = target_events_to_timeout_msgs(
+            dest_events,
+            &src_client_id,
+            &dst_client_id,
+            &dst_packet_seqs,
+            slot,
+            now_since_unix.as_secs(),
+        );
+
+        let mock_signer_address = String::new();
+
+        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+            src_events,
+            &src_client_id,
+            &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
+            &mock_signer_address,
+            now_since_unix.as_secs(),
+        );
+
+        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
+        tracing::debug!("Recv messages: #{}", recv_msgs.len());
+        tracing::debug!("Ack messages: #{}", ack_msgs.len());
+
+        let mut timeout_msgs = timeout_msgs
+            .clone()
+            .into_iter()
+            .map(|msg| solana_timeout_packet_to_tm_timeout(msg, mock_signer_address.clone()))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // CRITICAL: Inject MOCK proofs instead of real Tendermint proofs
+        // This reduces proof size from ~600-800 bytes to just 4 bytes (b"mock")
+        tracing::info!("Injecting MOCK proofs (4 bytes each) instead of real Tendermint proofs");
+        cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
+
+        let timeout_msgs: Vec<_> = timeout_msgs
+            .clone()
+            .into_iter()
+            .map(tm_timeout_to_solana_timeout_packet)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut instructions = Vec::new();
+
+        let chain_id = self.inner.chain_id().await?;
+
+        for recv_msg in recv_msgs {
+            let recv_msg = ibc_to_solana_recv_packet(recv_msg)?;
+            let instruction = self
+                .inner
+                .build_recv_packet_instruction(&chain_id, &recv_msg)?;
+            instructions.push(instruction);
+        }
+
+        for ack_msg in ack_msgs {
+            let ack_msg = ibc_to_solana_ack_packet(ack_msg)?;
+            let instruction = self.inner.build_ack_packet_instruction(&ack_msg)?;
+            instructions.push(instruction);
+        }
+
+        for timeout_msg in timeout_msgs {
+            let instruction = self.inner.build_timeout_packet_instruction(&timeout_msg)?;
+            instructions.push(instruction);
+        }
+
+        instructions.extend(TxBuilder::extend_compute_ix());
+
+        self.inner.create_tx_bytes(&instructions)
+    }
+
+    /// Delegate to real `create_client` logic
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying `TxBuilder::create_client` fails
+    #[tracing::instrument(skip_all)]
+    pub async fn create_client(&self) -> Result<Vec<u8>> {
+        tracing::info!("Mock create_client: delegating to real TxBuilder");
+        self.inner.create_client().await
+    }
+
+    /// Build a normal (non-chunked) mock `update_client` instruction
+    fn build_mock_update_client_instruction(&self) -> Result<Instruction> {
+        tracing::debug!("Building MOCK update client instruction with minimal data");
+
+        // The mock light client will accept any payload, so we use minimal mock data
+        let mock_client_message = b"mock_client_message".to_vec();
+
+        let discriminator = get_instruction_discriminator("update_client");
+        let mut data = discriminator.to_vec();
+        data.extend_from_slice(&mock_client_message.try_to_vec()?);
+
+        tracing::debug!("Mock update client instruction: {} bytes total", data.len());
+
+        // Build with mock accounts - the mock light client doesn't validate these
+        Ok(Instruction {
+            program_id: self.inner.solana_ics07_program_id,
+            accounts: vec![
+                AccountMeta::new(self.inner.fee_payer, false), // Mock client state
+                AccountMeta::new(self.inner.fee_payer, false), // Mock trusted consensus state
+                AccountMeta::new(self.inner.fee_payer, false), // Mock new consensus state
+                AccountMeta::new(self.inner.fee_payer, true),  // Payer
+                AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            ],
+            data,
+        })
+    }
+
+    /// Build mock update client with a single simple instruction (no chunking)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to build mock update client instruction
+    /// - Failed to create transaction bytes
+    #[tracing::instrument(skip_all)]
+    pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientResponse> {
+        tracing::info!(
+            "Building MOCK update client for {} - using single instruction instead of chunked headers",
+            dst_client_id
+        );
+
+        // Build a single mock update instruction
+        let mock_update_ix = self.build_mock_update_client_instruction()?;
+        let mock_tx = self.inner.create_tx_bytes(&[mock_update_ix])?;
+
+        // Return as a single transaction (no chunking)
+        Ok(UpdateClientResponse::Single {
+            tx: mock_tx,
+            target_height: 1,
         })
     }
 }

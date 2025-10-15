@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -77,7 +78,9 @@ func (s *Solana) SignTx(ctx context.Context, tx *solana.Transaction, signers ...
 			return signer.PublicKey().Equals(key)
 		})
 		if keyIdx == -1 {
-			panic(fmt.Sprintf("signer %s not found in provided signers", key))
+			// PDAs don't have private keys - they sign via invoke_signed within programs
+			// Return nil to skip signing for PDAs
+			return nil
 		}
 		return &signers[keyIdx].PrivateKey
 	}
@@ -110,13 +113,30 @@ func (s *Solana) WaitForTxStatus(txSig solana.Signature, status rpc.Confirmation
 			return false, err
 		}
 
+		// Check if transaction status exists
+		if len(out.Value) == 0 || out.Value[0] == nil {
+			// Transaction not yet processed
+			return false, nil
+		}
+
 		if out.Value[0].Err != nil {
 			return false, fmt.Errorf("transaction %s failed with error: %s", txSig, out.Value[0].Err)
 		}
 
-		if out.Value[0].ConfirmationStatus == status {
+		currentStatus := out.Value[0].ConfirmationStatus
+
+		// Check if transaction has reached the desired status
+		// Note: finalized > confirmed > processed, so if we're waiting for confirmed
+		// and the tx is finalized, that's also acceptable
+		if currentStatus == status {
 			return true, nil
 		}
+
+		// If waiting for confirmed, also accept finalized
+		if status == rpc.ConfirmationStatusConfirmed && currentStatus == rpc.ConfirmationStatusFinalized {
+			return true, nil
+		}
+
 		return false, nil
 	})
 }
@@ -171,15 +191,15 @@ func (s *Solana) WaitForProgramAvailabilityWithTimeout(ctx context.Context, prog
 }
 
 // SignAndBroadcastTxWithRetry retries transaction broadcasting with default timeout
-func (s *Solana) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet) (solana.Signature, error) {
-	return s.SignAndBroadcastTxWithRetryTimeout(ctx, tx, wallet, 30)
+func (s *Solana) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Transaction, signers ...*solana.Wallet) (solana.Signature, error) {
+	return s.SignAndBroadcastTxWithRetryTimeout(ctx, tx, 30, signers...)
 }
 
 // SignAndBroadcastTxWithRetryTimeout retries transaction broadcasting with specified timeout
-func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, timeoutSeconds int) (solana.Signature, error) {
+func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *solana.Transaction, timeoutSeconds int, signers ...*solana.Wallet) (solana.Signature, error) {
 	var lastErr error
 	for range timeoutSeconds {
-		sig, err := s.SignAndBroadcastTx(ctx, tx, wallet)
+		sig, err := s.SignAndBroadcastTx(ctx, tx, signers...)
 		if err == nil {
 			return sig, nil
 		}
@@ -209,17 +229,119 @@ func (s *Solana) WaitForBalanceChangeWithTimeout(ctx context.Context, account so
 	return initialBalance, false
 }
 
+// ComputeBudgetProgramID returns the Solana Compute Budget program ID
+func ComputeBudgetProgramID() solana.PublicKey {
+	return solana.MustPublicKeyFromBase58("ComputeBudget111111111111111111111111111111")
+}
+
 // NewComputeBudgetInstruction creates a SetComputeUnitLimit instruction to increase available compute units
 func NewComputeBudgetInstruction(computeUnits uint32) solana.Instruction {
-	// Compute Budget Program ID
-	computeBudgetProgramID := solana.MustPublicKeyFromBase58("ComputeBudget111111111111111111111111111111")
 	data := make([]byte, 5)
 	data[0] = 0x02 // SetComputeUnitLimit instruction discriminator
 	binary.LittleEndian.PutUint32(data[1:], computeUnits)
 
 	return solana.NewInstruction(
-		computeBudgetProgramID,
+		ComputeBudgetProgramID(),
 		solana.AccountMetaSlice{},
 		data,
 	)
+}
+
+// CreateAddressLookupTable creates an Address Lookup Table and extends it with the given accounts.
+// Returns the ALT address. Requires at least one account.
+func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana.Wallet, accounts []solana.PublicKey) (solana.PublicKey, error) {
+	if len(accounts) == 0 {
+		return solana.PublicKey{}, fmt.Errorf("at least one account is required for ALT")
+	}
+
+	// Get recent slot for ALT creation
+	slot, err := s.RPCClient.GetSlot(ctx, "confirmed")
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to get slot: %w", err)
+	}
+
+	// Derive ALT address with bump seed
+	// The derivation uses: [authority, recent_slot] seeds
+	altAddress, bumpSeed, err := solana.FindProgramAddress(
+		[][]byte{authority.PublicKey().Bytes(), Uint64ToLeBytes(slot)},
+		solana.AddressLookupTableProgramID,
+	)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to derive ALT address: %w", err)
+	}
+
+	// Create ALT instruction
+	// ProgramInstruction enum is serialized with bincode
+	// CreateLookupTable { recent_slot: u64, bump_seed: u8 }
+	// Bincode format: [variant: u32, recent_slot: u64, bump_seed: u8]
+	createInstructionData := make([]byte, 13)
+	binary.LittleEndian.PutUint32(createInstructionData[0:4], 0)     // CreateLookupTable variant = 0
+	binary.LittleEndian.PutUint64(createInstructionData[4:12], slot) // recent_slot
+	createInstructionData[12] = bumpSeed                             // bump_seed
+
+	createAltIx := solana.NewInstruction(
+		solana.AddressLookupTableProgramID,
+		solana.AccountMetaSlice{
+			solana.Meta(altAddress).WRITE(),                     // lookup_table (to be created)
+			solana.Meta(authority.PublicKey()).WRITE().SIGNER(), // authority
+			solana.Meta(authority.PublicKey()).WRITE().SIGNER(), // payer
+			solana.Meta(solana.SystemProgramID),                 // system_program
+		},
+		createInstructionData,
+	)
+
+	// Create ALT
+	createTx, err := s.NewTransactionFromInstructions(authority.PublicKey(), createAltIx)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to create ALT transaction: %w", err)
+	}
+
+	_, err = s.SignAndBroadcastTxWithRetry(ctx, createTx, authority)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to create ALT: %w", err)
+	}
+
+	// Extend ALT with accounts
+	// ProgramInstruction::ExtendLookupTable { new_addresses: Vec<Pubkey> }
+	// Bincode format: [variant: u32, vec_length: u64, ...addresses (32 bytes each)]
+	var extendBuf bytes.Buffer
+	if err := binary.Write(&extendBuf, binary.LittleEndian, uint32(2)); err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to write ExtendLookupTable variant: %w", err)
+	}
+	if err := binary.Write(&extendBuf, binary.LittleEndian, uint64(len(accounts))); err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to write accounts length: %w", err)
+	}
+	for _, acc := range accounts {
+		extendBuf.Write(acc.Bytes())
+	}
+
+	extendAltIx := solana.NewInstruction(
+		solana.AddressLookupTableProgramID,
+		solana.AccountMetaSlice{
+			solana.Meta(altAddress).WRITE(),                     // lookup_table
+			solana.Meta(authority.PublicKey()).WRITE().SIGNER(), // authority
+			solana.Meta(authority.PublicKey()).WRITE().SIGNER(), // payer (for reallocation)
+			solana.Meta(solana.SystemProgramID),                 // system_program
+		},
+		extendBuf.Bytes(),
+	)
+
+	extendTx, err := s.NewTransactionFromInstructions(authority.PublicKey(), extendAltIx)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to create extend ALT transaction: %w", err)
+	}
+
+	_, err = s.SignAndBroadcastTxWithRetry(ctx, extendTx, authority)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to extend ALT: %w", err)
+	}
+
+	return altAddress, nil
+}
+
+// Uint64ToLeBytes converts a uint64 to little-endian byte slice
+func Uint64ToLeBytes(n uint64) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, n)
+	return b
 }

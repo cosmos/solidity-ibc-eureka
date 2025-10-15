@@ -18,8 +18,12 @@ type SolanaCosmosConfigInfo struct {
 	CosmosSignerAddress string
 	// Solana fee payer address (for cosmos-to-solana)
 	SolanaFeePayer string
-	// Whether we use the mock client in Cosmos
-	Mock bool
+	// Address Lookup Table address for reducing transaction size (optional)
+	SolanaAltAddress string
+	// Whether we use the mock WASM client in Cosmos (for Solana->Cosmos)
+	MockWasmClient bool
+	// Whether we use the mock Solana light client (for Cosmos->Solana)
+	MockSolanaClient bool
 }
 
 type SolanaToCosmosModuleConfig struct {
@@ -33,8 +37,10 @@ type SolanaToCosmosModuleConfig struct {
 	SignerAddress string `json:"signer_address"`
 	// Solana ICS26 router program ID (must be "solana_ics26_program_id")
 	SolanaIcs26ProgramId string `json:"solana_ics26_program_id"`
-	// Whether to use mock proofs for testing
-	Mock bool `json:"mock"`
+	// Whether to use mock WASM client on Cosmos for testing
+	MockWasmClient bool `json:"mock_wasm_client"`
+	// Whether to use mock Solana light client updates for testing
+	MockSolanaClient bool `json:"mock_solana_client"`
 }
 
 type CosmosToSolanaModuleConfig struct {
@@ -48,9 +54,21 @@ type CosmosToSolanaModuleConfig struct {
 	SolanaIcs07ProgramId string `json:"solana_ics07_program_id"`
 	// Solana fee payer address for unsigned transactions
 	SolanaFeePayer string `json:"solana_fee_payer"`
+	// Address Lookup Table address for reducing transaction size (optional)
+	SolanaAltAddress *string `json:"solana_alt_address,omitempty"`
+	// Whether to use mock WASM client on Cosmos for testing
+	MockWasmClient bool `json:"mock_wasm_client"`
+	// Whether to use mock Solana light client updates for testing
+	MockSolanaClient bool `json:"mock_solana_client"`
 }
 
 func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig {
+	// Prepare ALT address pointer (only if non-empty)
+	var altAddress *string
+	if configInfo.SolanaAltAddress != "" {
+		altAddress = &configInfo.SolanaAltAddress
+	}
+
 	return []ModuleConfig{
 		{
 			Name:     ModuleSolanaToCosmos,
@@ -62,7 +80,8 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 				TargetRpcUrl:         configInfo.TmRPC,
 				SignerAddress:        configInfo.CosmosSignerAddress,
 				SolanaIcs26ProgramId: configInfo.ICS26RouterProgramID,
-				Mock:                 configInfo.Mock,
+				MockWasmClient:       configInfo.MockWasmClient,
+				MockSolanaClient:     configInfo.MockSolanaClient,
 			},
 		},
 		{
@@ -75,6 +94,9 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 				SolanaIcs26ProgramId: configInfo.ICS26RouterProgramID,
 				SolanaIcs07ProgramId: configInfo.ICS07ProgramID,
 				SolanaFeePayer:       configInfo.SolanaFeePayer,
+				SolanaAltAddress:     altAddress,
+				MockWasmClient:       configInfo.MockWasmClient,
+				MockSolanaClient:     configInfo.MockSolanaClient,
 			},
 		},
 	}
