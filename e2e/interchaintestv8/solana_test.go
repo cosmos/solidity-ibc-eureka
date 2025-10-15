@@ -905,7 +905,6 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 
 			// Decode
 			tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[idx]))
-
 			if err != nil {
 				chunkResults <- chunkResult{
 					index:    idx,
@@ -1028,7 +1027,6 @@ func (s *IbcEurekaSolanaTestSuite) verifyPacketCommitmentDeleted(ctx context.Con
 
 	// Query the account - it should either not exist or have 0 lamports (closed)
 	accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, packetCommitmentPDA)
-
 	// The account should either not be found (nil) or have been closed (0 lamports)
 	if err != nil {
 		// Account not found is expected - commitment was deleted

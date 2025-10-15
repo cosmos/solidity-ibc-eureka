@@ -200,7 +200,6 @@ func (s *Solana) SignAndBroadcastTxWithConfirmedStatus(ctx context.Context, tx *
 
 func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, status rpc.ConfirmationStatusType) (solana.Signature, error) {
 	_, err := s.SignTx(ctx, tx, wallet)
-
 	if err != nil {
 		return solana.Signature{}, err
 	}
@@ -212,7 +211,6 @@ func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Tran
 			SkipPreflight: true,
 		},
 	)
-
 	if err != nil {
 		return solana.Signature{}, err
 	}
