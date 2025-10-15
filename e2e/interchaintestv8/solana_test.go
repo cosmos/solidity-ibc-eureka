@@ -1274,6 +1274,14 @@ func (s *IbcEurekaSolanaTestSuite) createAddressLookupTable(ctx context.Context)
 	clientStatePDA, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(cosmosChainID)}, ics07_tendermint.ProgramID)
 	s.Require().NoError(err)
 
+	// Derive router caller PDA (GMP's CPI signer, constant for all GMP packets)
+	routerCallerPDA, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_caller")}, ics27_gmp.ProgramID)
+	s.Require().NoError(err)
+
+	// Derive client sequence PDA (tracks packet sequence for destination client)
+	clientSequencePDA, _, err := solanago.FindProgramAddress([][]byte{[]byte("client_sequence"), []byte(SolanaClientID)}, ics26_router.ProgramID)
+	s.Require().NoError(err)
+
 	// NOTE: We do NOT include target app-specific accounts (like gmp_counter_app.ProgramID or its state)
 	// because those vary per application. ALT should only contain universal GMP infrastructure accounts.
 	commonAccounts := []solanago.PublicKey{
@@ -1288,6 +1296,8 @@ func (s *IbcEurekaSolanaTestSuite) createAddressLookupTable(ctx context.Context)
 		gmpAppStatePDA,                  // GMP app state PDA
 		clientPDA,                       // Client PDA
 		clientStatePDA,                  // ICS07 client state PDA
+		routerCallerPDA,                 // GMP router caller PDA (CPI signer)
+		clientSequencePDA,               // Client sequence PDA (tracks packet sequence)
 	}
 
 	// Create ALT with common accounts
