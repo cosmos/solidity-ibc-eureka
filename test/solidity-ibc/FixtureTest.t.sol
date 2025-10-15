@@ -145,11 +145,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs, DeployAccessManager
         vm.warp(timestamp);
 
         return Fixture({
-            genesisFixture: genesisFixture,
-            msg: msgBz,
-            erc20Address: erc20Address,
-            timestamp: timestamp,
-            packet: packet
+            genesisFixture: genesisFixture, msg: msgBz, erc20Address: erc20Address, timestamp: timestamp, packet: packet
         });
     }
 }
