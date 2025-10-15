@@ -81,10 +81,7 @@ pub fn on_recv_packet<'info>(
     );
 
     // Validate dest port
-    require!(
-        msg.payload.dest_port == GMP_PORT_ID,
-        GMPError::InvalidPort
-    );
+    require!(msg.payload.dest_port == GMP_PORT_ID, GMPError::InvalidPort);
 
     // Parse packet data from router message
     let packet_data = crate::router_cpi::parse_packet_data_from_router_cpi(&msg)?;
