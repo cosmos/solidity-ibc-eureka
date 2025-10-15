@@ -78,9 +78,7 @@ func (s *Solana) SignTx(ctx context.Context, tx *solana.Transaction, signers ...
 			return signer.PublicKey().Equals(key)
 		})
 		if keyIdx == -1 {
-			// PDAs don't have private keys - they sign via invoke_signed within programs
-			// Return nil to skip signing for PDAs
-			return nil
+			panic(fmt.Sprintf("signer %s not found in provided signers", key))
 		}
 		return &signers[keyIdx].PrivateKey
 	}
