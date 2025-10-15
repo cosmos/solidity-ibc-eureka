@@ -1009,7 +1009,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedRelayPackets(ctx context.Context
 	s.T().Logf("=== Chunked Relay Packets Complete ===")
 	s.T().Logf("Total time: %v for %d transactions (avg: %v/tx)",
 		totalDuration, len(resp.Txs), avgTxTime)
-	s.T().Logf("NOTE: for simplicity all tx chunks are waiting for finalization")
+	s.T().Logf("NOTE: for simplicity all tx chunks are waiting for finalization and are sent sequentially")
 	s.T().Logf("In real use only final packet tx (recv/ack/timeout) needs to be finalized")
 	return lastSig
 }
