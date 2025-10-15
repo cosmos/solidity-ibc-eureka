@@ -308,7 +308,6 @@ pub fn target_events_to_timeout_msgs(
                             dest_port: p.dest_port.clone(),
                             version: p.version.clone(),
                             encoding: p.encoding.clone(),
-                            commitment: [0u8; 32], // Not used in inline mode
                             total_chunks: 0, // 0 indicates inline mode
                         })
                         .collect()
@@ -327,7 +326,6 @@ pub fn target_events_to_timeout_msgs(
                         .payloads
                         .iter()
                         .map(|p| {
-                            let commitment = solana_sdk::keccak::hash(&p.value).0;
                             // Always create at least 1 chunk for payloads
                             let total_chunks = u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE).max(1))
                                 .context("payload too big")?;
@@ -342,7 +340,6 @@ pub fn target_events_to_timeout_msgs(
                                 dest_port: p.dest_port.clone(),
                                 version: p.version.clone(),
                                 encoding: p.encoding.clone(),
-                                commitment,
                                 total_chunks,
                             })
                         })
@@ -362,7 +359,6 @@ pub fn target_events_to_timeout_msgs(
                         payloads: payloads_metadata,
                         proof: ProofMetadata {
                             height: target_height,
-                            commitment: [0u8; 32], // Will be filled later with actual proof
                             total_chunks: 0,
                         },
                     },
@@ -379,7 +375,6 @@ pub fn target_events_to_timeout_msgs(
 pub fn inject_mock_proofs(timeout_msgs: &mut [TimeoutPacketWithChunks]) {
     for timeout_with_chunks in timeout_msgs.iter_mut() {
         // Update proof metadata with mock values
-        timeout_with_chunks.msg.proof.commitment = solana_sdk::keccak::hash(b"mock").0;
         timeout_with_chunks.msg.proof.total_chunks = 0; // No chunking for mock proof
         timeout_with_chunks.msg.proof.height = 0; // Default height for mock
         timeout_with_chunks.proof_chunks = b"mock".to_vec(); // Mock proof data
@@ -453,7 +448,6 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Recv
                 dest_port: p.destination_port.clone(),
                 version: p.version.clone(),
                 encoding: p.encoding.clone(),
-                commitment: [0u8; 32], // Not used in inline mode
                 total_chunks: 0, // 0 indicates inline mode
             })
             .collect();
@@ -488,7 +482,6 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Recv
             .payloads
             .into_iter()
             .map(|p| {
-                let commitment = solana_sdk::keccak::hash(&p.value).0;
                 let total_chunks = u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE).max(1))
                     .context("payload too big to fit in u8")?;
                 tracing::info!(
@@ -501,7 +494,6 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Recv
                     dest_port: p.destination_port,
                     version: p.version,
                     encoding: p.encoding,
-                    commitment,
                     total_chunks,
                 })
             })
@@ -525,7 +517,6 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Recv
     };
 
     // Create proof metadata
-    let proof_commitment = solana_sdk::keccak::hash(&value.proof_commitment).0;
     // Always create at least 1 chunk for proof
     let proof_total_chunks = u8::try_from(value.proof_commitment.len().div_ceil(MAX_CHUNK_SIZE).max(1))
         .context("proof too big to fit in u8")?;
@@ -539,7 +530,6 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Recv
 
     let proof_metadata = ProofMetadata {
         height: proof_height.revision_height,
-        commitment: proof_commitment,
         total_chunks: proof_total_chunks,
     };
 
@@ -631,7 +621,6 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
                 dest_port: p.destination_port.clone(),
                 version: p.version.clone(),
                 encoding: p.encoding.clone(),
-                commitment: [0u8; 32], // Not used in inline mode
                 total_chunks: 0, // 0 indicates inline mode
             })
             .collect();
@@ -666,7 +655,6 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
             .payloads
             .into_iter()
             .map(|p| {
-                let commitment = solana_sdk::keccak::hash(&p.value).0;
                 let total_chunks = u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE).max(1))
                     .context("payload too big")?;
                 tracing::info!(
@@ -679,7 +667,6 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
                     dest_port: p.destination_port,
                     version: p.version,
                     encoding: p.encoding,
-                    commitment,
                     total_chunks,
                 })
             })
@@ -703,7 +690,6 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
     };
 
     // Create proof metadata
-    let proof_commitment = solana_sdk::keccak::hash(&value.proof_acked).0;
     // Always create at least 1 chunk for proof
     let proof_total_chunks = u8::try_from(value.proof_acked.len().div_ceil(MAX_CHUNK_SIZE).max(1))
         .context("proof too big")?;
@@ -719,7 +705,6 @@ pub fn ibc_to_solana_ack_packet(value: IbcMsgAcknowledgement) -> anyhow::Result<
 
     let proof_metadata = ProofMetadata {
         height: proof_height.revision_height,
-        commitment: proof_commitment,
         total_chunks: proof_total_chunks,
     };
 

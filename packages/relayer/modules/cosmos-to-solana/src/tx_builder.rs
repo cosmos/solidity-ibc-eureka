@@ -1271,7 +1271,6 @@ impl TxBuilder {
             timeout_with_chunks.proof_chunks = tm_msg.proof_unreceived.clone();
 
             // Update proof metadata
-            let proof_commitment = solana_sdk::keccak::hash(&tm_msg.proof_unreceived).0;
             let proof_total_chunks = u8::try_from(
                 tm_msg
                     .proof_unreceived
@@ -1281,7 +1280,6 @@ impl TxBuilder {
             )
             .context("proof too big to fit in u8")?;
 
-            timeout_with_chunks.msg.proof.commitment = proof_commitment;
             timeout_with_chunks.msg.proof.total_chunks = proof_total_chunks;
         }
 

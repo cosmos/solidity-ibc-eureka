@@ -123,7 +123,6 @@ pub fn timeout_packet<'info>(ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info
         client_id: &msg.packet.source_client,
         sequence: msg.packet.sequence,
         total_chunks: msg.proof.total_chunks,
-        expected_commitment: msg.proof.commitment,
         program_id: ctx.program_id,
         start_index: proof_start_index,
     })?;
@@ -291,10 +290,8 @@ mod tests {
 
         // For tests, we'll simulate having already uploaded chunks
         let test_payload_value = b"test data".to_vec();
-        let payload_commitment = anchor_lang::solana_program::keccak::hash(&test_payload_value).0;
 
         let test_proof = vec![0u8; 32];
-        let proof_commitment = anchor_lang::solana_program::keccak::hash(&test_proof).0;
 
         let packet = Packet {
             sequence: params.initial_sequence,
@@ -320,12 +317,10 @@ mod tests {
                 dest_port: "dest-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                commitment: payload_commitment,
                 total_chunks: 1, // 1 chunk for testing
             }],
             proof: ProofMetadata {
                 height: params.proof_height,
-                commitment: proof_commitment,
                 total_chunks: 1, // 1 chunk for testing
             },
         };

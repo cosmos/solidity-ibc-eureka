@@ -98,8 +98,8 @@ pub fn solana_timeout_packet_to_tm_timeout(
     };
 
     let height = ibc_proto_eureka::ibc::core::client::v1::Height {
-        revision_number: 0,                // Solana doesn't have revision numbers
-        revision_height: msg.proof.height, // Use ProofMetadata height
+        revision_number: 0, // Solana doesn't have revision numbers
+        revision_height: msg.proof.height,
     };
 
     // TODO: Extract actual proof data from chunks if needed
@@ -157,8 +157,7 @@ pub fn tm_timeout_to_solana_timeout_packet(
         .payloads
         .into_iter()
         .map(|p| {
-            // Calculate commitment and total chunks for each payload
-            let commitment = solana_sdk::keccak::hash(&p.value).0;
+            // Calculate total chunks for each payload
             let total_chunks = if p.value.len() > MAX_CHUNK_SIZE {
                 u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE)).context("payload too big")?
             } else {
@@ -170,14 +169,12 @@ pub fn tm_timeout_to_solana_timeout_packet(
                 dest_port: p.destination_port,
                 version: p.version,
                 encoding: p.encoding,
-                commitment,
                 total_chunks,
             })
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
 
     // Create proof metadata
-    let proof_commitment = solana_sdk::keccak::hash(&msg.proof_unreceived).0;
     let proof_total_chunks = if msg.proof_unreceived.len() > MAX_CHUNK_SIZE {
         u8::try_from(msg.proof_unreceived.len().div_ceil(MAX_CHUNK_SIZE))
             .context("proof too big")?
@@ -187,7 +184,6 @@ pub fn tm_timeout_to_solana_timeout_packet(
 
     let proof_metadata = solana_ibc_types::ProofMetadata {
         height: proof_height.revision_height,
-        commitment: proof_commitment,
         total_chunks: proof_total_chunks,
     };
 
@@ -224,9 +220,6 @@ fn to_sol_payload(value: SolanaPayload) -> SolPayload {
 ///
 /// This function extracts and deserializes Anchor events from the transaction logs.
 ///
-/// Events are emitted as "Program data: <base64>" in the logs.
-/// The data format is: [discriminator (8 bytes)][borsh-serialized event data]
-///
 /// Returns an error if any IBC event fails to parse, but ignores non-IBC events.
 ///
 /// # Errors
@@ -235,8 +228,6 @@ fn to_sol_payload(value: SolanaPayload) -> SolPayload {
 /// - Base64 decoding fails for any "Program data:" log entry
 /// - Deserialization fails for any recognized IBC event (`SendPacket`, `WriteAcknowledgement`)
 /// - An impossible discriminator match occurs (internal logic error)
-///
-/// Non-IBC events and logs without "Program data:" prefix are silently skipped.
 /// TODO: Might be easier to parse via `anchor_client` but dependencies get kinda messy so manual parse
 pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurekaEvent>> {
     use anchor_lang::Discriminator;

@@ -157,7 +157,6 @@ pub fn recv_packet<'info>(
         client_id: &msg.packet.dest_client,
         sequence: msg.packet.sequence,
         total_chunks: msg.proof.total_chunks,
-        expected_commitment: msg.proof.commitment,
         program_id: ctx.program_id,
         start_index: proof_start_index,
     })?;
@@ -381,10 +380,8 @@ mod tests {
         // Packet uses the source_client_id from params (could be different)
         // For tests, we'll simulate having already uploaded chunks
         let test_payload_value = b"test data".to_vec();
-        let payload_commitment = anchor_lang::solana_program::keccak::hash(&test_payload_value).0;
 
         let test_proof = vec![0u8; 32];
-        let proof_commitment = anchor_lang::solana_program::keccak::hash(&test_proof).0;
 
         let packet = Packet {
             sequence: 1,
@@ -401,12 +398,10 @@ mod tests {
                 dest_port: port_id.to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                commitment: payload_commitment,
                 total_chunks: 1, // 1 chunk for testing
             }],
             proof: ProofMetadata {
                 height: 100,
-                commitment: proof_commitment,
                 total_chunks: 1, // 1 chunk for testing
             },
         };
@@ -603,10 +598,8 @@ mod tests {
 
         // Use same payload data as in the chunks (mock app doesn't actually check this)
         let test_payload_value = b"test data".to_vec();
-        let payload_commitment = anchor_lang::solana_program::keccak::hash(&test_payload_value).0;
 
         let test_proof = vec![0u8; 32];
-        let proof_commitment = anchor_lang::solana_program::keccak::hash(&test_proof).0;
 
         // Update the instruction with modified metadata
         let msg = MsgRecvPacket {
@@ -616,12 +609,10 @@ mod tests {
                 dest_port: "test-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                commitment: payload_commitment,
                 total_chunks: 1,
             }],
             proof: ProofMetadata {
                 height: 100,
-                commitment: proof_commitment,
                 total_chunks: 1,
             },
         };

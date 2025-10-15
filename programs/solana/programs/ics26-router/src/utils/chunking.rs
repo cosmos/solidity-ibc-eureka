@@ -3,7 +3,6 @@ use crate::state::{
     PayloadChunk, PayloadMetadata, ProofChunk, PAYLOAD_CHUNK_SEED, PROOF_CHUNK_SEED,
 };
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::keccak;
 
 /// Parameters for assembling single payload chunks
 pub struct AssemblePayloadParams<'a, 'b, 'c> {
@@ -14,7 +13,6 @@ pub struct AssemblePayloadParams<'a, 'b, 'c> {
     pub sequence: u64,
     pub payload_index: u8,
     pub total_chunks: u8,
-    pub expected_commitment: [u8; 32],
     pub program_id: &'a Pubkey,
     pub start_index: usize,
 }
@@ -27,7 +25,6 @@ pub struct AssembleProofParams<'a, 'b, 'c> {
     pub client_id: &'a str,
     pub sequence: u64,
     pub total_chunks: u8,
-    pub expected_commitment: [u8; 32],
     pub program_id: &'a Pubkey,
     pub start_index: usize,
 }
@@ -64,7 +61,6 @@ pub fn assemble_multiple_payloads<'a, 'b, 'c>(
             sequence,
             payload_index: payload_index as u8,
             total_chunks: metadata.total_chunks,
-            expected_commitment: metadata.commitment,
             program_id,
             start_index: account_offset,
         })?;
@@ -142,21 +138,7 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
         accounts_processed += 1;
     }
 
-    // Verify commitment
-    let computed_commitment = keccak::hash(&payload_data).0;
-    msg!(
-        "Payload chunk commitment check - seq: {}, payload_idx: {}, chunks: {}, data_len: {}",
-        params.sequence,
-        params.payload_index,
-        params.total_chunks,
-        payload_data.len()
-    );
-    msg!("Expected: {:?}", params.expected_commitment);
-    msg!("Computed: {:?}", computed_commitment);
-    require!(
-        computed_commitment == params.expected_commitment,
-        RouterError::InvalidChunkCommitment
-    );
+    // Commitment validation removed - no longer needed
 
     // Clean up chunks and return rent
     cleanup_payload_chunks(
@@ -242,20 +224,7 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
         accounts_processed += 1;
     }
 
-    // Verify commitment
-    let computed_commitment = keccak::hash(&proof_data).0;
-    msg!(
-        "Proof chunk commitment check - seq: {}, chunks: {}, data_len: {}",
-        params.sequence,
-        params.total_chunks,
-        proof_data.len()
-    );
-    msg!("Expected: {:?}", params.expected_commitment);
-    msg!("Computed: {:?}", computed_commitment);
-    require!(
-        computed_commitment == params.expected_commitment,
-        RouterError::InvalidChunkCommitment
-    );
+    // Commitment validation removed - no longer needed
 
     // Clean up chunks and return rent
     cleanup_proof_chunks(

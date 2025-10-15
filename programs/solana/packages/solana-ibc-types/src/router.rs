@@ -57,7 +57,6 @@ pub struct PayloadMetadata {
     pub dest_port: String,
     pub version: String,
     pub encoding: String,
-    pub commitment: [u8; 32],
     pub total_chunks: u8,
 }
 
@@ -65,7 +64,6 @@ pub struct PayloadMetadata {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct ProofMetadata {
     pub height: u64,
-    pub commitment: [u8; 32],
     pub total_chunks: u8,
 }
 
