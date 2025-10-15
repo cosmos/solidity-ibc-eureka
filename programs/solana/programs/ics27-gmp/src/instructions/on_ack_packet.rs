@@ -1,13 +1,8 @@
 use crate::constants::*;
 use crate::errors::GMPError;
 use crate::events::GMPAcknowledgementProcessed;
-use crate::state::{GMPAcknowledgementExt, GMPAppState, GMPPacketData};
+use crate::state::{GMPAcknowledgementExt, GMPAppState};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::invoke;
-
-/// Standard discriminator for GMP acknowledgment callbacks
-/// This serves as a standardized interface identifier similar to ERC165
-const GMP_ACK_CALLBACK_DISCRIMINATOR: [u8; 8] = [0x4A, 0x69, 0x62, 0x63, 0x41, 0x63, 0x6B, 0x00]; // "JibcAck\0"
 
 /// Process IBC packet acknowledgement (called by router via CPI)
 #[derive(Accounts)]
@@ -74,29 +69,6 @@ pub fn on_acknowledgement_packet(
     // Determine if acknowledgement indicates success
     let ack_success = is_acknowledgement_success(&acknowledgement);
 
-    // Attempt callback to original sender if they implement callback interface
-    // Note: We handle callback failures gracefully to avoid breaking packet processing
-    if let Err(callback_error) = attempt_ack_callback(
-        &sender,
-        ack_success,
-        &packet_data,
-        &acknowledgement,
-        sequence,
-        ctx.remaining_accounts,
-    ) {
-        // Handle callback errors gracefully - check error code
-        let error_string = format!("{callback_error:?}");
-        if error_string.contains("CallbackInterfaceNotSupported") {
-            msg!("Sender does not support callbacks, continuing without callback");
-        } else if error_string.contains("InvalidCallbackAccount") {
-            msg!("Invalid callback account provided, continuing without callback");
-        } else if error_string.contains("CallbackExecutionFailed") {
-            msg!("Callback execution failed, continuing packet processing");
-        } else {
-            msg!("Callback failed with error: {}", error_string);
-        }
-    }
-
     emit!(GMPAcknowledgementProcessed {
         sender,
         sequence,
@@ -142,144 +114,6 @@ fn is_acknowledgement_success(acknowledgement: &[u8]) -> bool {
         // If we can't parse it, assume it's a success (non-empty, non-error)
         true
     }
-}
-
-/// Attempt to make a callback to the original sender for acknowledgment processing
-/// This is similar to Ethereum's IBCSenderCallbacksLib.ackPacketCallback
-fn attempt_ack_callback(
-    sender: &Pubkey,
-    success: bool,
-    packet_data: &GMPPacketData,
-    acknowledgement: &[u8],
-    sequence: u64,
-    remaining_accounts: &[AccountInfo],
-) -> Result<()> {
-    // We need the sender program account to make the callback
-    // This would typically be passed as an additional remaining account
-    if remaining_accounts.is_empty() {
-        msg!("No callback account provided, skipping callback");
-        return Ok(());
-    }
-
-    let callback_account = &remaining_accounts[0];
-
-    // Verify the callback account matches the sender
-    if callback_account.key() != *sender {
-        msg!(
-            "Callback account key mismatch: expected {}, got {}",
-            sender,
-            callback_account.key()
-        );
-        return Err(GMPError::InvalidCallbackAccount.into());
-    }
-
-    // Enhanced interface detection for callback support
-    if !supports_gmp_callbacks(callback_account) {
-        msg!("Sender program does not support GMP callbacks");
-        return Err(GMPError::CallbackInterfaceNotSupported.into());
-    }
-
-    // Create standardized callback instruction data
-    let callback_data = create_ack_callback_data(success, packet_data, acknowledgement, sequence)?;
-
-    // Create callback instruction with proper discriminator for acknowledgment callbacks
-    let mut instruction_data = Vec::new();
-    instruction_data.extend_from_slice(&GMP_ACK_CALLBACK_DISCRIMINATOR);
-    instruction_data.extend_from_slice(&callback_data);
-
-    let callback_instruction = anchor_lang::solana_program::instruction::Instruction {
-        program_id: *sender,
-        accounts: vec![],
-        data: instruction_data,
-    };
-
-    // Attempt the callback with proper error handling
-    match invoke(
-        &callback_instruction,
-        std::slice::from_ref(callback_account),
-    ) {
-        Ok(()) => {
-            msg!(
-                "Successfully executed acknowledgment callback for sender: {}",
-                sender
-            );
-        }
-        Err(e) => {
-            msg!(
-                "Acknowledgment callback execution failed for sender {}: {:?}",
-                sender,
-                e
-            );
-            return Err(GMPError::CallbackExecutionFailed.into());
-        }
-    }
-
-    Ok(())
-}
-
-/// Create callback data for acknowledgment
-/// Matches Ethereum's `OnAcknowledgementPacketCallback` structure
-fn create_ack_callback_data(
-    success: bool,
-    packet_data: &GMPPacketData,
-    acknowledgement: &[u8],
-    sequence: u64,
-) -> Result<Vec<u8>> {
-    // Standard IBC callback data structure matching Ethereum implementation
-    #[derive(AnchorSerialize)]
-    struct PayloadData {
-        source_port: String,
-        dest_port: String,
-        version: String,
-        encoding: String,
-        value: Vec<u8>,
-    }
-
-    #[derive(AnchorSerialize)]
-    struct OnAcknowledgementPacketCallback {
-        source_client: String,
-        destination_client: String,
-        sequence: u64,
-        payload: PayloadData,
-        acknowledgement: Vec<u8>,
-        relayer: [u8; 32], // Pubkey as 32 bytes
-        success: bool,     // Additional field for Solana convenience
-    }
-
-    let callback_data = OnAcknowledgementPacketCallback {
-        source_client: packet_data.client_id.clone(),
-        destination_client: "solana-client".to_string(), // Default for now
-        sequence,
-        payload: PayloadData {
-            source_port: "gmp".to_string(),
-            dest_port: "gmp".to_string(),
-            version: "gmp-1".to_string(),
-            encoding: "proto3".to_string(),
-            value: packet_data.payload.clone(),
-        },
-        acknowledgement: acknowledgement.to_vec(),
-        relayer: [0u8; 32], // Default relayer for now
-        success,
-    };
-
-    callback_data
-        .try_to_vec()
-        .map_err(|_| GMPError::CallbackDataSerializationFailed.into())
-}
-
-/// Check if a program supports GMP callbacks
-/// This is a simplified version of ERC165 interface detection for Solana
-/// TODO: Add more robust detection
-fn supports_gmp_callbacks(program_account: &AccountInfo) -> bool {
-    // Check if account is executable (i.e., a program)
-    if !program_account.executable {
-        return false;
-    }
-
-    if program_account.data_len() == 0 {
-        return false;
-    }
-    true
 }
 
 #[cfg(test)]

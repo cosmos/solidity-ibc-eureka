@@ -18,7 +18,6 @@ use instructions::*;
 /// - `increment`: Increment a user's counter (called by GMP)
 /// - `decrement`: Decrement a user's counter (called by GMP)
 /// - `get_counter`: Get a user's current counter value
-/// - GMP callback support for acknowledgements and timeouts
 ///
 #[program]
 pub mod gmp_counter_app {
@@ -43,15 +42,5 @@ pub mod gmp_counter_app {
     /// Get a user's counter value
     pub fn get_counter(ctx: Context<GetCounter>, user: Pubkey) -> Result<()> {
         instructions::get_counter(ctx, user)
-    }
-
-    /// Handle GMP acknowledgement callback (called by GMP program)
-    pub fn on_gmp_ack(ctx: Context<OnGMPAck>, success: bool, data: Vec<u8>) -> Result<()> {
-        instructions::on_gmp_ack(ctx, success, data)
-    }
-
-    /// Handle GMP timeout callback (called by GMP program)
-    pub fn on_gmp_timeout(ctx: Context<OnGMPTimeout>, data: Vec<u8>) -> Result<()> {
-        instructions::on_gmp_timeout(ctx, data)
     }
 }

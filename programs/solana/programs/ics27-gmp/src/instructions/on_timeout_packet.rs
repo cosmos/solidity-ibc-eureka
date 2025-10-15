@@ -1,14 +1,8 @@
 use crate::constants::*;
 use crate::errors::GMPError;
 use crate::events::GMPTimeoutProcessed;
-use crate::state::{GMPAppState, GMPPacketData};
+use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::invoke;
-
-/// Standard discriminator for GMP timeout callbacks
-/// This serves as a standardized interface identifier similar to ERC165
-const GMP_TIMEOUT_CALLBACK_DISCRIMINATOR: [u8; 8] =
-    [0x4A, 0x69, 0x62, 0x63, 0x54, 0x6D, 0x4F, 0x00]; // "JibcTmO\0"
 
 /// Process IBC packet timeout (called by router via CPI)
 #[derive(Accounts)]
@@ -75,29 +69,6 @@ pub fn on_timeout_packet(
     // Convert cross-chain sender address to deterministic Solana pubkey
     let sender = crate::utils::derive_pubkey_from_address(&packet_data.sender)?;
 
-    // Attempt callback to original sender if they implement callback interface
-    // This is similar to Ethereum's IBCSenderCallbacksLib.timeoutPacketCallback
-    // Note: We handle callback failures gracefully to avoid breaking packet processing
-    if let Err(callback_error) = attempt_timeout_callback(
-        &sender,
-        &packet_data,
-        &timeout_info,
-        sequence,
-        ctx.remaining_accounts,
-    ) {
-        // Handle callback errors gracefully - check error code
-        let error_string = format!("{callback_error:?}");
-        if error_string.contains("CallbackInterfaceNotSupported") {
-            msg!("Sender does not support callbacks, continuing without callback");
-        } else if error_string.contains("InvalidCallbackAccount") {
-            msg!("Invalid callback account provided, continuing without callback");
-        } else if error_string.contains("CallbackExecutionFailed") {
-            msg!("Callback execution failed, continuing packet processing");
-        } else {
-            msg!("Callback failed with error: {}", error_string);
-        }
-    }
-
     emit!(GMPTimeoutProcessed {
         sender,
         sequence,
@@ -150,140 +121,6 @@ fn format_timeout_info(timeout_info: &TimeoutInfo) -> String {
             format!("height:{height},timestamp:{timestamp}")
         }
     }
-}
-
-/// Attempt to make a callback to the original sender for timeout processing
-/// This is similar to Ethereum's IBCSenderCallbacksLib.timeoutPacketCallback
-fn attempt_timeout_callback(
-    sender: &Pubkey,
-    packet_data: &GMPPacketData,
-    timeout_info: &TimeoutInfo,
-    sequence: u64,
-    remaining_accounts: &[AccountInfo],
-) -> Result<()> {
-    // We need the sender program account to make the callback
-    // This would typically be passed as an additional remaining account
-    if remaining_accounts.is_empty() {
-        msg!("No callback account provided, skipping timeout callback");
-        return Ok(());
-    }
-
-    let callback_account = &remaining_accounts[0];
-
-    // Verify the callback account matches the sender
-    if callback_account.key() != *sender {
-        msg!(
-            "Timeout callback account key mismatch: expected {}, got {}",
-            sender,
-            callback_account.key()
-        );
-        return Err(GMPError::InvalidCallbackAccount.into());
-    }
-
-    // Enhanced interface detection for callback support
-    if !supports_gmp_callbacks(callback_account) {
-        msg!("Sender program does not support GMP callbacks");
-        return Err(GMPError::CallbackInterfaceNotSupported.into());
-    }
-
-    // Create standardized callback instruction data
-    let callback_data = create_timeout_callback_data(packet_data, timeout_info, sequence)?;
-
-    // Create callback instruction with proper discriminator for timeout callbacks
-    let mut instruction_data = Vec::new();
-    instruction_data.extend_from_slice(&GMP_TIMEOUT_CALLBACK_DISCRIMINATOR);
-    instruction_data.extend_from_slice(&callback_data);
-
-    let callback_instruction = anchor_lang::solana_program::instruction::Instruction {
-        program_id: *sender,
-        accounts: vec![],
-        data: instruction_data,
-    };
-
-    // Attempt the callback with proper error handling
-    match invoke(
-        &callback_instruction,
-        std::slice::from_ref(callback_account),
-    ) {
-        Ok(()) => {
-            msg!(
-                "Successfully executed timeout callback for sender: {}",
-                sender
-            );
-        }
-        Err(e) => {
-            msg!(
-                "Timeout callback execution failed for sender {}: {:?}",
-                sender,
-                e
-            );
-            return Err(GMPError::CallbackExecutionFailed.into());
-        }
-    }
-
-    Ok(())
-}
-
-/// Create callback data for timeout
-/// Matches Ethereum's `OnTimeoutPacketCallback` structure
-fn create_timeout_callback_data(
-    packet_data: &GMPPacketData,
-    timeout_info: &TimeoutInfo,
-    sequence: u64,
-) -> Result<Vec<u8>> {
-    // Standard IBC callback data structure matching Ethereum implementation
-    #[derive(AnchorSerialize)]
-    struct PayloadData {
-        source_port: String,
-        dest_port: String,
-        version: String,
-        encoding: String,
-        value: Vec<u8>,
-    }
-
-    #[derive(AnchorSerialize)]
-    struct OnTimeoutPacketCallback {
-        source_client: String,
-        destination_client: String,
-        sequence: u64,
-        payload: PayloadData,
-        relayer: [u8; 32],    // Pubkey as 32 bytes
-        timeout_info: String, // Additional field for Solana with timeout details
-    }
-
-    let callback_data = OnTimeoutPacketCallback {
-        source_client: packet_data.client_id.clone(),
-        destination_client: "solana-client".to_string(), // Default for now
-        sequence,
-        payload: PayloadData {
-            source_port: "gmp".to_string(),
-            dest_port: "gmp".to_string(),
-            version: "gmp-1".to_string(),
-            encoding: "proto3".to_string(),
-            value: packet_data.payload.clone(),
-        },
-        relayer: [0u8; 32], // Default relayer for now
-        timeout_info: format_timeout_info(timeout_info),
-    };
-
-    callback_data
-        .try_to_vec()
-        .map_err(|_| GMPError::CallbackDataSerializationFailed.into())
-}
-
-/// Check if a program supports GMP callbacks
-/// This is a simplified version of ERC165 interface detection for Solana
-/// TODO: Add more robust detection
-fn supports_gmp_callbacks(program_account: &AccountInfo) -> bool {
-    // Check if account is executable (i.e., a program)
-    if !program_account.executable {
-        return false;
-    }
-
-    if program_account.data_len() == 0 {
-        return false;
-    }
-    true
 }
 
 #[cfg(test)]

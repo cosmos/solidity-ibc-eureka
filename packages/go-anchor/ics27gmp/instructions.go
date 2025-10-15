@@ -139,6 +139,8 @@ func NewOnAcknowledgementPacketInstruction(
 	// Accounts:
 	appStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -165,6 +167,11 @@ func NewOnAcknowledgementPacketInstruction(
 		// Account 1 "router_program": Read-only, Non-signer, Required
 		// Router program calling this instruction
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
+		// Account 2 "payer": Writable, Non-signer, Required
+		// Relayer fee payer (passed by router but not used in acknowledgement handler)
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, false))
+		// Account 3 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -239,6 +246,8 @@ func NewOnTimeoutPacketInstruction(
 	// Accounts:
 	appStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -265,6 +274,11 @@ func NewOnTimeoutPacketInstruction(
 		// Account 1 "router_program": Read-only, Non-signer, Required
 		// Router program calling this instruction
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
+		// Account 2 "payer": Writable, Non-signer, Required
+		// Relayer fee payer (passed by router but not used in timeout handler)
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, false))
+		// Account 3 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
 	// Create the instruction.

@@ -114,18 +114,6 @@ pub enum GMPError {
     #[msg("Invalid router CPI call")]
     InvalidRouterCall,
 
-    #[msg("Callback interface not supported")]
-    CallbackInterfaceNotSupported,
-
-    #[msg("Callback data serialization failed")]
-    CallbackDataSerializationFailed,
-
-    #[msg("Invalid callback account")]
-    InvalidCallbackAccount,
-
-    #[msg("Callback execution failed")]
-    CallbackExecutionFailed,
-
     #[msg("Insufficient funds for account creation")]
     InsufficientFunds,
 
