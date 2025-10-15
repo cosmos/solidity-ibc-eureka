@@ -230,10 +230,14 @@ pub fn ack_packet<'info>(
 
     // For now, we only handle the first payload for CPI
     // TODO: In the future, we may need to handle multiple payloads differently
-    let first_payload = &packet.payloads[0];
+    let payload = match packet.payloads.len() {
+        0 => Err(RouterError::PacketNoPayload),
+        n if n > 1 => Err(RouterError::MultiPayloadPacketNotSupported),
+        _ => Ok(&packet.payloads[0]),
+    }?;
     msg!(
         "Calling IBC app on_acknowledgement_packet - port: {}",
-        first_payload.source_port
+        payload.source_port
     );
 
     on_acknowledgement_packet_cpi(
@@ -243,7 +247,7 @@ pub fn ack_packet<'info>(
         &ctx.accounts.payer,
         &ctx.accounts.system_program,
         &packet,
-        first_payload,
+        payload,
         &msg.acknowledgement,
         &ctx.accounts.relayer.key(),
     )?;

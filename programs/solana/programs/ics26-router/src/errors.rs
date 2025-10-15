@@ -20,6 +20,8 @@ pub enum RouterError {
     PacketCommitmentAlreadyExists,
     #[msg("Packet commitment mismatch")]
     PacketCommitmentMismatch,
+    #[msg("Packet should have payload")]
+    PacketNoPayload,
     #[msg("Packet receipt mismatch")]
     PacketReceiptMismatch,
     #[msg("Packet acknowledgement already exists")]

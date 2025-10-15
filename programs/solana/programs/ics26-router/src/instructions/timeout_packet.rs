@@ -186,7 +186,11 @@ pub fn timeout_packet<'info>(
 
     // For now, we only handle the first payload for CPI
     // TODO: In the future, we may need to handle multiple payloads differently
-    let first_payload = &packet.payloads[0];
+    let payload = match packet.payloads.len() {
+        0 => Err(RouterError::PacketNoPayload),
+        n if n > 1 => Err(RouterError::MultiPayloadPacketNotSupported),
+        _ => Ok(&packet.payloads[0]),
+    }?;
 
     // CPI to IBC app's onTimeoutPacket
     on_timeout_packet_cpi(
@@ -196,7 +200,7 @@ pub fn timeout_packet<'info>(
         &ctx.accounts.payer,
         &ctx.accounts.system_program,
         &packet,
-        first_payload,
+        payload,
         &ctx.accounts.relayer.key(),
     )?;
 
