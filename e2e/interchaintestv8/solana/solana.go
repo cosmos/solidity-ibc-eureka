@@ -196,9 +196,19 @@ func (s *Solana) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Tra
 }
 
 // SignAndBroadcastTxWithRetryTimeout retries transaction broadcasting with specified timeout
+// It refreshes the blockhash on each attempt to handle expired blockhashes
 func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *solana.Transaction, timeoutSeconds int, signers ...*solana.Wallet) (solana.Signature, error) {
 	var lastErr error
 	for range timeoutSeconds {
+		// Refresh blockhash on each retry attempt (blockhashes expire after ~60 seconds)
+		recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to get latest blockhash: %w", err)
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		tx.Message.RecentBlockhash = recent.Value.Blockhash
+
 		sig, err := s.SignAndBroadcastTx(ctx, tx, signers...)
 		if err == nil {
 			return sig, nil

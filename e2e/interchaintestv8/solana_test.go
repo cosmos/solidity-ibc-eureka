@@ -2578,11 +2578,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 		unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
 		s.Require().NoError(err)
 
-		// Refresh blockhash since we slept for 65 seconds and the original blockhash has expired
-		recentBlockhash, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-		s.Require().NoError(err, "Failed to get latest blockhash")
-		unsignedSolanaTx.Message.RecentBlockhash = recentBlockhash.Value.Blockhash
-
 		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
 		s.Require().NoError(err, "Timeout tx failed")
 		s.T().Logf("Timeout transaction broadcasted: %s", sig)
