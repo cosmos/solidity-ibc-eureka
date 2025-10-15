@@ -102,7 +102,6 @@ pub fn solana_timeout_packet_to_tm_timeout(
         revision_height: msg.proof.height,
     };
 
-    // TODO: Extract actual proof data from chunks if needed
     let proof_unreceived = vec![]; // Placeholder - actual proof would be assembled from chunks
 
     let msg = ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout {
