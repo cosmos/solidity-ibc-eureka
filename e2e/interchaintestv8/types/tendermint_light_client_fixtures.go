@@ -74,8 +74,9 @@ func (g *TendermintLightClientFixtureGenerator) GenerateUpdateClientHappyPath(
 func (g *TendermintLightClientFixtureGenerator) GenerateMembershipVerificationScenarios(
 	ctx context.Context,
 	chainA *cosmos.CosmosChain,
+	chainB *cosmos.CosmosChain,
 	keyPaths []KeyPath,
 	clientId string,
 ) {
-	g.membershipGenerator.GenerateMembershipVerificationScenarios(ctx, chainA, keyPaths, clientId)
+	g.membershipGenerator.GenerateMembershipVerificationScenarios(ctx, chainA, chainB, keyPaths, clientId)
 }
