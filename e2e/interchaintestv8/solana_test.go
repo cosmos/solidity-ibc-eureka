@@ -903,9 +903,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 			chunkTxStart := time.Now()
 
 			// Decode
-			decodeStart := time.Now()
 			tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[idx]))
-			decodeTime := time.Since(decodeStart)
 
 			if err != nil {
 				chunkResults <- chunkResult{
@@ -917,23 +915,20 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 			}
 
 			// Sign and broadcast (with processed confirmation for fast feedback)
-			broadcastStart := time.Now()
 			sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, user, rpc.ConfirmationStatusProcessed)
-			broadcastTime := time.Since(broadcastStart)
 			chunkDuration := time.Since(chunkTxStart)
 
 			if err != nil {
 				chunkResults <- chunkResult{
 					index:    idx,
-					err:      fmt.Errorf("failed to submit chunk %d (decode: %v, broadcast: %v): %w", idx, decodeTime, broadcastTime, err),
+					err:      fmt.Errorf("failed to submit chunk %d: %w", idx, err),
 					duration: chunkDuration,
 				}
 				return
 			}
 
-			// Log breakdown for debugging
-			s.T().Logf("[Chunk %d timing] decode: %v, sign+broadcast+confirm: %v, total: %v",
-				idx, decodeTime, broadcastTime, chunkDuration)
+			s.T().Logf("[Chunk %d timing] total duration: %v",
+				idx, chunkDuration)
 
 			chunkResults <- chunkResult{
 				index:    idx,
@@ -963,19 +958,14 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 	s.T().Logf("--- Phase 2: Assembling and updating client ---")
 	assemblyStart := time.Now()
 
-	decodeStart := time.Now()
 	tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[len(resp.Txs)-1]))
-	decodeTime := time.Since(decodeStart)
 	s.Require().NoError(err, "Failed to decode assembly tx")
 
-	broadcastStart := time.Now()
 	sig, err := s.SolanaChain.SignAndBroadcastTxWithConfirmedStatus(ctx, tx, user)
-	broadcastTime := time.Since(broadcastStart)
 	s.Require().NoError(err)
 
 	assemblyDuration := time.Since(assemblyStart)
 	s.T().Logf("✓ Assembly transaction completed in %v - tx: %s", assemblyDuration, sig)
-	s.T().Logf("[Assembly timing] decode: %v, sign+broadcast+confirm: %v", decodeTime, broadcastTime)
 
 	totalDuration := time.Since(totalStart)
 	s.T().Logf("=== Chunked Update Client Complete ===")
@@ -997,29 +987,21 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedRelayPackets(ctx context.Context
 	for i, txBytes := range resp.Txs {
 		txStart := time.Now()
 
-		// Decode transaction
-		decodeStart := time.Now()
 		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(txBytes))
-		decodeTime := time.Since(decodeStart)
 		s.Require().NoError(err, "Failed to decode transaction %d", i)
 
-		// Update blockhash to prevent expiration
 		recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
 		s.Require().NoError(err, "Failed to get latest blockhash for transaction %d", i)
 		tx.Message.RecentBlockhash = recent.Value.Blockhash
 
-		// Sign and broadcast
-		broadcastStart := time.Now()
+		// TODO: We can speed up test by waiting for processed on all chunks and then finalized on relay assemble tx
 		sig, err := s.SolanaChain.SignAndBroadcastTx(ctx, tx, user)
-		broadcastTime := time.Since(broadcastStart)
 		s.Require().NoError(err, "Failed to submit transaction %d", i)
 
 		lastSig = sig
 		txDuration := time.Since(txStart)
 		s.T().Logf("✓ Transaction %d/%d completed in %v - tx: %s",
 			i+1, len(resp.Txs), txDuration, sig)
-		s.T().Logf("[Transaction %d timing] decode: %v, sign+broadcast+confirm: %v, total: %v",
-			i, decodeTime, broadcastTime, txDuration)
 	}
 
 	totalDuration := time.Since(totalStart)
@@ -1056,7 +1038,6 @@ func (s *IbcEurekaSolanaTestSuite) verifyPacketCommitmentDeleted(ctx context.Con
 		return
 	}
 
-	// If we get here, the account still exists with lamports - this is an error
 	s.Require().Fail("Packet commitment should have been deleted after acknowledgment",
 		"Account %s still exists with %d lamports", packetCommitmentPDA.String(), accountInfo.Value.Lamports)
 }
