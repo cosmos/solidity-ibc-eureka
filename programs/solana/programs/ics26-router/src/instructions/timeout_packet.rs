@@ -108,6 +108,14 @@ pub fn timeout_packet<'info>(
         RouterError::InvalidCounterpartyClient
     );
 
+    // Validate that we don't have both inline payloads AND chunked metadata
+    let has_inline_payloads = !msg.packet.payloads.is_empty();
+    let has_chunked_metadata = msg.payloads.iter().any(|p| p.total_chunks > 0);
+    require!(
+        !(has_inline_payloads && has_chunked_metadata),
+        RouterError::InvalidPayloadCount
+    );
+
     let packet = chunking::reconstruct_packet(chunking::ReconstructPacketParams {
         packet: &msg.packet,
         payloads_metadata: &msg.payloads,

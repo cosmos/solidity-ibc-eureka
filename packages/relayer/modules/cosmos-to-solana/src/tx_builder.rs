@@ -927,6 +927,7 @@ impl TxBuilder {
     /// - Failed to convert events to messages
     /// - Failed to build Solana instructions
     /// - Failed to create transaction bytes
+    #[allow(clippy::too_many_lines)]
     #[tracing::instrument(skip_all)]
     pub async fn relay_events_chunked(
         &self,
@@ -1086,7 +1087,7 @@ impl TxBuilder {
             let tm_msg = &timeout_msgs_tm[idx];
 
             // Update proof chunks with actual proof data
-            timeout_with_chunks.proof_chunks = tm_msg.proof_unreceived.clone();
+            timeout_with_chunks.proof_chunks.clone_from(&tm_msg.proof_unreceived);
 
             // Update proof metadata
             let proof_total_chunks = u8::try_from(

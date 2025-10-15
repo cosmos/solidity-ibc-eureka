@@ -135,7 +135,14 @@ pub fn recv_packet<'info>(
         RouterError::InvalidTimeoutTimestamp
     );
 
-    // Reconstruct packet from either inline or chunked mode
+    // Validate that we don't have both inline payloads AND chunked metadata
+    let has_inline_payloads = !msg.packet.payloads.is_empty();
+    let has_chunked_metadata = msg.payloads.iter().any(|p| p.total_chunks > 0);
+    require!(
+        !(has_inline_payloads && has_chunked_metadata),
+        RouterError::InvalidPayloadCount
+    );
+
     let packet = chunking::reconstruct_packet(chunking::ReconstructPacketParams {
         packet: &msg.packet,
         payloads_metadata: &msg.payloads,
@@ -595,11 +602,6 @@ mod tests {
         // Note: Since the mock app always returns success, we can't actually test error ack
         // This test now verifies normal success acknowledgement flow
         let mut ctx = setup_recv_packet_test(true, 1000);
-
-        // Use same payload data as in the chunks (mock app doesn't actually check this)
-        let test_payload_value = b"test data".to_vec();
-
-        let test_proof = vec![0u8; 32];
 
         // Update the instruction with modified metadata
         let msg = MsgRecvPacket {

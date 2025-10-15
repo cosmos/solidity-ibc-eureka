@@ -105,7 +105,7 @@ pub struct MsgTimeoutPacket {
 pub struct MsgUploadChunk {
     pub client_id: String,
     pub sequence: u64,
-    pub payload_index: u8, // Which payload this chunk belongs to (for multi-payload support)
+    pub payload_index: u8,
     pub chunk_index: u8,
     pub chunk_data: Vec<u8>,
 }

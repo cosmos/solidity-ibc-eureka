@@ -195,7 +195,7 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
     // Create payload for router
     let payload = Payload {
         source_port: "transfer".to_string(),
-        dest_port: msg.dest_port.clone(),
+        dest_port: msg.dest_port,
         version: "ics20-1".to_string(),
         encoding: "application/x-protobuf".to_string(),
         value: packet_data,

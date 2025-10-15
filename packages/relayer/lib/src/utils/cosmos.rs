@@ -378,6 +378,7 @@ pub async fn get_latest_tm_heigth(
 /// Returns an error a proof cannot be generated for any of the provided messages.
 /// # Panics
 /// Panics if the provided messages do not contain a valid packet.
+#[allow(clippy::too_many_lines)]
 pub async fn inject_tendermint_proofs(
     recv_msgs: &mut [MsgRecvPacket],
     ack_msgs: &mut [MsgAcknowledgement],

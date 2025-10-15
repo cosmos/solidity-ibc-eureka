@@ -107,8 +107,8 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
     let payload = Payload {
         source_port: msg.source_port.clone(),
         dest_port: msg.dest_port.clone(),
-        version: msg.version.clone(),
-        encoding: msg.encoding.clone(),
+        version: msg.version,
+        encoding: msg.encoding,
         value: msg.packet_data.clone(),
     };
 
