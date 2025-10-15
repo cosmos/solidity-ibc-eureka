@@ -183,8 +183,9 @@ pub fn ack_packet<'info>(
     let ack_path =
         ics24::packet_acknowledgement_commitment_path(&packet.dest_client, packet.sequence);
 
-    let ack_commitment =
-        ics24::packet_acknowledgement_commitment_bytes32(&[msg.acknowledgement.clone()])?;
+    let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(std::slice::from_ref(
+        &msg.acknowledgement,
+    ))?;
 
     let membership_msg = MembershipMsg {
         height: msg.proof.height,

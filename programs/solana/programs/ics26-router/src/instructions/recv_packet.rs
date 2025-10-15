@@ -96,7 +96,10 @@ pub struct RecvPacket<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
-pub fn recv_packet<'info>(ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>, msg: MsgRecvPacket) -> Result<()> {
+pub fn recv_packet<'info>(
+    ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>,
+    msg: MsgRecvPacket,
+) -> Result<()> {
     let router_state = &ctx.accounts.router_state;
     let packet_receipt = &mut ctx.accounts.packet_receipt;
     let packet_ack = &mut ctx.accounts.packet_ack;
@@ -171,7 +174,6 @@ pub fn recv_packet<'info>(ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>, ms
     let expected_commitment = ics24::packet_commitment_bytes32(&packet);
 
     // Verify membership proof via CPI to light client
-    // The proof from Cosmos is generated with path segments ["ibc", commitment_path]
     let membership_msg = MembershipMsg {
         height: msg.proof.height,
         delay_time_period: 0,
