@@ -204,7 +204,7 @@ fn test_successful_assembly_and_update() {
         submitter,
         payer,
         chunk_pdas: chunk_pdas.clone(),
-        chain_id: chain_id.to_string(),
+        chain_id: chain_id.clone(),
         target_height,
     });
 
@@ -615,7 +615,7 @@ fn test_assemble_and_update_client_happy_path() {
         submitter,
         payer,
         chunk_pdas: chunk_pdas.clone(),
-        chain_id: chain_id.to_string(),
+        chain_id: chain_id.clone(),
         target_height,
     });
 
@@ -768,7 +768,7 @@ fn test_assemble_with_frozen_client() {
         submitter,
         payer,
         chunk_pdas: chunk_pdas.clone(),
-        chain_id: chain_id.to_string(),
+        chain_id: chain_id.clone(),
         target_height,
     });
 
@@ -907,7 +907,7 @@ fn test_assemble_with_existing_consensus_state() {
         submitter,
         payer,
         chunk_pdas: chunk_pdas.clone(),
-        chain_id: chain_id.to_string(),
+        chain_id: chain_id.clone(),
         target_height,
     });
 
@@ -1061,7 +1061,7 @@ fn test_assemble_updates_latest_height() {
         submitter,
         payer,
         chunk_pdas: chunk_pdas.clone(),
-        chain_id: chain_id.to_string(),
+        chain_id: chain_id.clone(),
         target_height,
     });
 
