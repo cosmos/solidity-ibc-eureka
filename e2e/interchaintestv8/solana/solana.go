@@ -55,7 +55,7 @@ func (s *Solana) NewTransactionFromInstructions(payerPubKey solana.PublicKey, in
 	)
 }
 
-// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it.
+// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is finalized.
 func (s *Solana) SignAndBroadcastTx(ctx context.Context, tx *solana.Transaction, signers ...*solana.Wallet) (solana.Signature, error) {
 	_, err := s.SignTx(ctx, tx, signers...)
 	if err != nil {
@@ -110,6 +110,7 @@ func confirmationStatusLevel(status rpc.ConfirmationStatusType) int {
 	}
 }
 
+// Waits for transaction reaching status
 func (s *Solana) WaitForTxStatus(txSig solana.Signature, status rpc.ConfirmationStatusType) error {
 	return testutil.WaitForCondition(time.Second*30, time.Second, func() (bool, error) {
 		out, err := s.RPCClient.GetSignatureStatuses(context.TODO(), false, txSig)
@@ -177,10 +178,12 @@ func (s *Solana) WaitForProgramAvailabilityWithTimeout(ctx context.Context, prog
 	return false
 }
 
+// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is finalized, retries with default timeout
 func (s *Solana) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet) (solana.Signature, error) {
 	return s.SignAndBroadcastTxWithRetryTimeout(ctx, tx, wallet, 30)
 }
 
+// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is finalized, retries with timeout
 func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, timeoutSeconds int) (solana.Signature, error) {
 	var lastErr error
 	for range timeoutSeconds {
@@ -194,10 +197,12 @@ func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *sol
 	return solana.Signature{}, fmt.Errorf("transaction broadcast timed out after %d seconds: %w", timeoutSeconds, lastErr)
 }
 
+// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is in confirmed status
 func (s *Solana) SignAndBroadcastTxWithConfirmedStatus(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet) (solana.Signature, error) {
 	return s.SignAndBroadcastTxWithOpts(ctx, tx, wallet, rpc.ConfirmationStatusConfirmed)
 }
 
+// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is in requested status
 func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, status rpc.ConfirmationStatusType) (solana.Signature, error) {
 	_, err := s.SignTx(ctx, tx, wallet)
 	if err != nil {

@@ -43,14 +43,34 @@ message RelayByTxRequest {
     repeated uint64 dst_packet_sequences = 8;
 }
 
+// Transaction batch wrapper for multiple transactions
+message TransactionBatch {
+    // List of transaction bytes
+    repeated bytes txs = 1;
+}
+
+// Transactions for a single packet (chunks + final instruction)
+message PacketTransactions {
+    // Chunk upload transactions (can be submitted in parallel)
+    repeated bytes chunks = 1;
+    // Final packet transaction (recv_packet, ack_packet, or timeout_packet)
+    bytes final_tx = 2;
+}
+
+// Batch of packet transactions for relay operations
+message RelayPacketBatch {
+    // List of packet transactions
+    repeated PacketTransactions packets = 1;
+}
+
 // The relay by tx response message
 message RelayByTxResponse {
-    // The multicall transaction to be submitted by caller
+    // Transaction(s) to be submitted by caller.
+    // For single transactions: contains the raw transaction bytes
+    // For multiple transactions (e.g., Solana chunks): contains serialized TransactionBatch
     bytes tx = 1;
     // The contract address to submit the transaction, if applicable
     string address = 2;
-    // Optional transactions when more than one is required (for instance Solana needs to split packet to multi tx)
-    repeated bytes txs = 3;
 }
 
 // The create client request message
@@ -83,12 +103,12 @@ message UpdateClientRequest {
 
 // The update client response message
 message UpdateClientResponse {
-    // Single transaction for chains where header could fit in single tx
+    // Transaction(s) to be submitted by caller.
+    // For single transactions: contains the raw transaction bytes
+    // For multiple transactions (e.g., Solana chunks): contains serialized TransactionBatch
     bytes tx = 1;
     // The contract address to submit the transaction, if applicable
     string address = 2;
-    // Multiple transactions for chunked update (used by Solana)
-    repeated bytes txs = 3;
 }
 
 // Information request message
