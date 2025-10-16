@@ -64,11 +64,7 @@ contract Integration2Test is Test {
     /// @notice Create a foreign ibc denom on ibcImplA and client on a specified user
     /// @dev We do this by transferring the native erc20 from the counterparty chain
 
-    function setup_createForeignDenomOnImplA(
-        address receiver,
-        uint256 amount,
-        string memory clientId
-    )
+    function setup_createForeignDenomOnImplA(address receiver, uint256 amount, string memory clientId)
         public
         returns (IERC20)
     {

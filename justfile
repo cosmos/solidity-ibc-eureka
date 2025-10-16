@@ -28,12 +28,16 @@ build-sp1-programs:
   cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-uc-and-membership --locked
   cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-misbehaviour --locked
 
-# Build and optimize the eth wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
+# Build and optimize the eth wasm light client using a local docker image. Requires `docker` and `gzip`
 [group('build')]
 build-cw-ics08-wasm-eth:
-	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.17.0 ./programs/cw-ics08-wasm-eth
-	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
-	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
+  -@docker image rm cosmwasm-builder:latest
+  cd programs/cw-ics08-wasm-eth && docker buildx build --platform linux/amd64 -t cosmwasm-builder:latest .
+  docker run --rm --platform=linux/amd64  -t \
+    -v "$PWD":/code \
+    cosmwasm-builder:latest
+  cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
+  gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
 # Build the relayer docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built

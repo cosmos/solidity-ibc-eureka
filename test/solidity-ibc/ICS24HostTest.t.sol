@@ -49,11 +49,7 @@ contract ICS24HostTest is Test {
     function test_packetCommitment() public pure {
         // Test against the ibc-go implementations output
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData = IICS20TransferMsgs.FungibleTokenPacketData({
-            denom: "uatom",
-            amount: 1_000_000,
-            sender: "sender",
-            receiver: "receiver",
-            memo: "memo"
+            denom: "uatom", amount: 1_000_000, sender: "sender", receiver: "receiver", memo: "memo"
         });
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
@@ -66,11 +62,7 @@ contract ICS24HostTest is Test {
         });
 
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
-            sequence: 1,
-            sourceClient: "channel-0",
-            destClient: "channel-1",
-            timeoutTimestamp: 100,
-            payloads: payloads
+            sequence: 1, sourceClient: "channel-0", destClient: "channel-1", timeoutTimestamp: 100, payloads: payloads
         });
 
         bytes32 commitmentBytes = ICS24Host.packetCommitmentBytes32(packet);

@@ -1,4 +1,4 @@
-FROM rust:1.85-bookworm AS build
+FROM rust:1.90-bookworm AS build
 
 RUN apt update && apt install -y build-essential protobuf-compiler ca-certificates
 
