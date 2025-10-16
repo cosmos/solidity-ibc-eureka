@@ -603,9 +603,7 @@ contract Integration2Test is Test {
 
         // precompute account address
         IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
-            clientId: th.FIRST_CLIENT_ID(),
-            sender: Strings.toChecksumHexString(user),
-            salt: vm.randomBytes(saltLen)
+            clientId: th.FIRST_CLIENT_ID(), sender: Strings.toChecksumHexString(user), salt: vm.randomBytes(saltLen)
         });
         address computedAccount = ibcImplB.ics27Gmp().getOrComputeAccountAddress(accountId);
 
@@ -648,9 +646,7 @@ contract Integration2Test is Test {
 
         // precompute account address
         IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
-            clientId: th.FIRST_CLIENT_ID(),
-            sender: Strings.toChecksumHexString(user),
-            salt: vm.randomBytes(saltLen)
+            clientId: th.FIRST_CLIENT_ID(), sender: Strings.toChecksumHexString(user), salt: vm.randomBytes(saltLen)
         });
 
         // send packet
@@ -687,9 +683,7 @@ contract Integration2Test is Test {
 
         // precompute account address
         IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
-            clientId: th.FIRST_CLIENT_ID(),
-            sender: Strings.toChecksumHexString(user),
-            salt: vm.randomBytes(saltLen)
+            clientId: th.FIRST_CLIENT_ID(), sender: Strings.toChecksumHexString(user), salt: vm.randomBytes(saltLen)
         });
 
         // send packet

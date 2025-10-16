@@ -11,8 +11,9 @@ import { IICS27GMP } from "./interfaces/IICS27GMP.sol";
 import { IICS27Account } from "./interfaces/IICS27Account.sol";
 import { IICS27Errors } from "./errors/IICS27Errors.sol";
 
-import { ReentrancyGuardTransientUpgradeable } from
-    "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
+import {
+    ReentrancyGuardTransientUpgradeable
+} from "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Create2 } from "@openzeppelin-contracts/utils/Create2.sol";
@@ -90,19 +91,20 @@ contract ICS27GMP is
             memo: msg_.memo
         });
 
-        return _getICS27GMPStorage()._ics26.sendPacket(
-            IICS26RouterMsgs.MsgSendPacket({
-                sourceClient: msg_.sourceClient,
-                timeoutTimestamp: msg_.timeoutTimestamp,
-                payload: IICS26RouterMsgs.Payload({
-                    sourcePort: ICS27Lib.DEFAULT_PORT_ID,
-                    destPort: ICS27Lib.DEFAULT_PORT_ID,
-                    version: ICS27Lib.ICS27_VERSION,
-                    encoding: ICS27Lib.ICS27_ENCODING,
-                    value: abi.encode(packetData)
+        return _getICS27GMPStorage()._ics26
+            .sendPacket(
+                IICS26RouterMsgs.MsgSendPacket({
+                    sourceClient: msg_.sourceClient,
+                    timeoutTimestamp: msg_.timeoutTimestamp,
+                    payload: IICS26RouterMsgs.Payload({
+                        sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                        destPort: ICS27Lib.DEFAULT_PORT_ID,
+                        version: ICS27Lib.ICS27_VERSION,
+                        encoding: ICS27Lib.ICS27_ENCODING,
+                        value: abi.encode(packetData)
+                    })
                 })
-            })
-        );
+            );
     }
 
     /// @inheritdoc IIBCApp
@@ -133,9 +135,7 @@ contract ICS27GMP is
         require(packetData.payload.length != 0, ICS27PayloadEmpty());
 
         IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
-            clientId: msg_.destinationClient,
-            sender: packetData.sender,
-            salt: packetData.salt
+            clientId: msg_.destinationClient, sender: packetData.sender, salt: packetData.salt
         });
         IICS27Account account = _getOrCreateAccount(accountId);
 

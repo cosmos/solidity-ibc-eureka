@@ -60,8 +60,7 @@ contract ICS27GMPTest is Test {
 
         bytes memory expCall = abi.encodeCall(
             IICS26Router.sendPacket,
-            (
-                IICS26RouterMsgs.MsgSendPacket({
+            (IICS26RouterMsgs.MsgSendPacket({
                     sourceClient: th.FIRST_CLIENT_ID(),
                     timeoutTimestamp: th.DEFAULT_TIMEOUT_TIMESTAMP(),
                     payload: IICS26RouterMsgs.Payload({
@@ -79,8 +78,7 @@ contract ICS27GMPTest is Test {
                             })
                         )
                     })
-                })
-            )
+                }))
         );
 
         vm.mockCall(mockIcs26, expCall, abi.encode(seq));
@@ -111,8 +109,7 @@ contract ICS27GMPTest is Test {
 
         bytes memory expCall = abi.encodeCall(
             IICS26Router.sendPacket,
-            (
-                IICS26RouterMsgs.MsgSendPacket({
+            (IICS26RouterMsgs.MsgSendPacket({
                     sourceClient: th.FIRST_CLIENT_ID(),
                     timeoutTimestamp: th.DEFAULT_TIMEOUT_TIMESTAMP(),
                     payload: IICS26RouterMsgs.Payload({
@@ -130,8 +127,7 @@ contract ICS27GMPTest is Test {
                             })
                         )
                     })
-                })
-            )
+                }))
         );
 
         uint64 defaultTimeoutTimestamp = th.DEFAULT_TIMEOUT_TIMESTAMP();
@@ -255,11 +251,7 @@ contract ICS27GMPTest is Test {
                 encoding: ICS27Lib.ICS27_ENCODING,
                 value: abi.encode(
                     IICS27GMPMsgs.GMPPacketData({
-                        sender: sender,
-                        receiver: Strings.toHexString(receiver),
-                        salt: salt,
-                        payload: payload,
-                        memo: ""
+                        sender: sender, receiver: Strings.toHexString(receiver), salt: salt, payload: payload, memo: ""
                     })
                 )
             }),
@@ -313,11 +305,7 @@ contract ICS27GMPTest is Test {
         // ===== Case 5: Empty Payload =====
         msg_.payload.value = abi.encode(
             IICS27GMPMsgs.GMPPacketData({
-                sender: sender,
-                receiver: Strings.toHexString(receiver),
-                salt: salt,
-                payload: bytes(""),
-                memo: ""
+                sender: sender, receiver: Strings.toHexString(receiver), salt: salt, payload: bytes(""), memo: ""
             })
         );
         vm.expectRevert(IICS27Errors.ICS27PayloadEmpty.selector);
@@ -327,11 +315,7 @@ contract ICS27GMPTest is Test {
         // ===== Case 6: Call reverts with the mock error =====
         msg_.payload.value = abi.encode(
             IICS27GMPMsgs.GMPPacketData({
-                sender: sender,
-                receiver: Strings.toHexString(receiver),
-                salt: salt,
-                payload: errPayload,
-                memo: ""
+                sender: sender, receiver: Strings.toHexString(receiver), salt: salt, payload: errPayload, memo: ""
             })
         );
         vm.prank(mockIcs26);
@@ -341,11 +325,7 @@ contract ICS27GMPTest is Test {
         // ===== Case 7: Invalid Receiver =====
         msg_.payload.value = abi.encode(
             IICS27GMPMsgs.GMPPacketData({
-                sender: sender,
-                receiver: th.INVALID_ID(),
-                salt: salt,
-                payload: payload,
-                memo: ""
+                sender: sender, receiver: th.INVALID_ID(), salt: salt, payload: payload, memo: ""
             })
         );
         vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidReceiver.selector, th.INVALID_ID()));
@@ -353,12 +333,7 @@ contract ICS27GMPTest is Test {
         ics27Gmp.onRecvPacket(msg_);
     }
 
-    function testFuzz_success_onAcknowledgementPacket(
-        uint16 payloadLen,
-        uint16 ackLen,
-        uint16 saltLen,
-        uint64 seq
-    )
+    function testFuzz_success_onAcknowledgementPacket(uint16 payloadLen, uint16 ackLen, uint16 saltLen, uint64 seq)
         public
     {
         vm.assume(payloadLen > 0);
@@ -404,12 +379,7 @@ contract ICS27GMPTest is Test {
         ics27Gmp.onAcknowledgementPacket(msg_);
     }
 
-    function testFuzz_failure_onAcknowledgementPacket(
-        uint16 payloadLen,
-        uint16 ackLen,
-        uint16 saltLen,
-        uint64 seq
-    )
+    function testFuzz_failure_onAcknowledgementPacket(uint16 payloadLen, uint16 ackLen, uint16 saltLen, uint64 seq)
         public
     {
         vm.assume(payloadLen > 0);
@@ -456,11 +426,7 @@ contract ICS27GMPTest is Test {
         // ===== Case 2: Invalid Sender =====
         msg_.payload.value = abi.encode(
             IICS27GMPMsgs.GMPPacketData({
-                sender: th.INVALID_ID(),
-                receiver: receiver,
-                salt: salt,
-                payload: payload,
-                memo: memo
+                sender: th.INVALID_ID(), receiver: receiver, salt: salt, payload: payload, memo: memo
             })
         );
         vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidSender.selector, th.INVALID_ID()));
@@ -548,11 +514,7 @@ contract ICS27GMPTest is Test {
         // ===== Case 2: Invalid Sender =====
         msg_.payload.value = abi.encode(
             IICS27GMPMsgs.GMPPacketData({
-                sender: th.INVALID_ID(),
-                receiver: receiver,
-                salt: salt,
-                payload: payload,
-                memo: memo
+                sender: th.INVALID_ID(), receiver: receiver, salt: salt, payload: payload, memo: memo
             })
         );
         vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27InvalidSender.selector, th.INVALID_ID()));
