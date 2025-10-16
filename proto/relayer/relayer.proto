@@ -91,14 +91,6 @@ message UpdateClientResponse {
     repeated bytes txs = 3;
 }
 
-// Metadata for chunked transaction uploads
-message ChunkedMetadata {
-    // The target height being updated to
-    uint64 target_height = 1;
-    // Total number of chunks in the header
-    uint32 total_chunks = 2;
-}
-
 // Information request message
 message InfoRequest {
     // The source chain identifier

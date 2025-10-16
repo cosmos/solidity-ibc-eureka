@@ -14,13 +14,6 @@ pub struct ConsensusStateStore {
 #[account]
 #[derive(InitSpace)]
 pub struct HeaderChunk {
-    /// Chain ID this chunk belongs to
-    #[max_len(32)]
-    pub chain_id: String,
-    /// Target height for this header
-    pub target_height: u64,
-    /// Index of this chunk (0-based)
-    pub chunk_index: u8,
     /// The chunk data
     #[max_len(CHUNK_DATA_SIZE)]
     pub chunk_data: Vec<u8>,

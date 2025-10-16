@@ -85,6 +85,8 @@
               golangci-lint
               go
               gopls
+              gofumpt
+              gci
               protobuf
               buf
               protoc-gen-go

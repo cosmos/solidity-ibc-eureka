@@ -16,6 +16,9 @@ use solana_ibc_types::{
 
 use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
+/// Maximum size for a chunk (matches `CHUNK_DATA_SIZE` in Solana program)
+const MAX_CHUNK_SIZE: usize = 700;
+
 /// Parsed IBC event from Solana transaction logs
 #[derive(Debug, Clone)]
 pub enum SolanaEurekaEvent {
@@ -96,11 +99,13 @@ pub fn solana_timeout_packet_to_tm_timeout(
 
     let height = ibc_proto_eureka::ibc::core::client::v1::Height {
         revision_number: 0, // Solana doesn't have revision numbers
-        revision_height: msg.proof_height,
+        revision_height: msg.proof.height,
     };
 
+    let proof_unreceived = vec![]; // Placeholder - actual proof would be assembled from chunks
+
     let msg = ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout {
-        proof_unreceived: msg.proof_timeout,
+        proof_unreceived,
         proof_height: Some(height),
         packet: Some(packet),
         signer,
@@ -129,27 +134,60 @@ pub fn tm_timeout_to_solana_timeout_packet(
 
     let solana_packet = solana_ibc_types::Packet {
         sequence: packet.sequence,
-        source_client: packet.source_client,
-        dest_client: packet.destination_client,
+        source_client: packet.source_client.clone(),
+        dest_client: packet.destination_client.clone(),
         timeout_timestamp: i64::try_from(packet.timeout_timestamp)
             .context("timeout_timestamp should be i64 compatible")?,
         payloads: packet
             .payloads
-            .into_iter()
+            .iter()
             .map(|p| solana_ibc_types::Payload {
-                source_port: p.source_port,
-                dest_port: p.destination_port,
-                version: p.version,
-                encoding: p.encoding,
-                value: p.value,
+                source_port: p.source_port.clone(),
+                dest_port: p.destination_port.clone(),
+                version: p.version.clone(),
+                encoding: p.encoding.clone(),
+                value: p.value.clone(),
             })
             .collect(),
     };
 
+    let payload_metadata: Vec<solana_ibc_types::PayloadMetadata> = packet
+        .payloads
+        .into_iter()
+        .map(|p| {
+            // Calculate total chunks for each payload
+            let total_chunks = if p.value.len() > MAX_CHUNK_SIZE {
+                u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE)).context("payload too big")?
+            } else {
+                0
+            };
+
+            anyhow::Ok(solana_ibc_types::PayloadMetadata {
+                source_port: p.source_port,
+                dest_port: p.destination_port,
+                version: p.version,
+                encoding: p.encoding,
+                total_chunks,
+            })
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    let proof_total_chunks = if msg.proof_unreceived.len() > MAX_CHUNK_SIZE {
+        u8::try_from(msg.proof_unreceived.len().div_ceil(MAX_CHUNK_SIZE))
+            .context("proof too big")?
+    } else {
+        0
+    };
+
+    let proof_metadata = solana_ibc_types::ProofMetadata {
+        height: proof_height.revision_height,
+        total_chunks: proof_total_chunks,
+    };
+
     let msg = solana_ibc_types::MsgTimeoutPacket {
         packet: solana_packet,
-        proof_timeout: msg.proof_unreceived,
-        proof_height: proof_height.revision_height,
+        payloads: payload_metadata,
+        proof: proof_metadata,
     };
 
     Ok(msg)
@@ -175,12 +213,98 @@ fn to_sol_payload(value: SolanaPayload) -> SolPayload {
     }
 }
 
+fn try_parse_event_from_log(
+    log: &str,
+    log_idx: usize,
+) -> anyhow::Result<Option<SolanaEurekaEvent>> {
+    use anchor_lang::Discriminator;
+    use anyhow::{anyhow, Context};
+
+    let Some(data_str) = log.strip_prefix("Program data: ") else {
+        return Ok(None);
+    };
+
+    let data = BASE64
+        .decode(data_str)
+        .with_context(|| format!("Failed to decode base64 in log {log_idx}: {data_str}"))?;
+
+    if data.len() < 8 {
+        // Not an Anchor event, skip
+        return Ok(None);
+    }
+
+    let discriminator = &data[..8];
+    let event_data = &data[8..];
+
+    let is_ibc_event = discriminator == SendPacketEvent::DISCRIMINATOR
+        || discriminator == WriteAcknowledgementEvent::DISCRIMINATOR;
+
+    if !is_ibc_event {
+        return Ok(None);
+    }
+
+    let event = match discriminator {
+        disc if disc == SendPacketEvent::DISCRIMINATOR => {
+            SendPacketEvent::try_from_slice(event_data)
+                .map(SolanaEurekaEvent::SendPacket)
+                .with_context(|| {
+                    format!("Failed to deserialize SendPacketEvent in log {log_idx}")
+                })?
+        }
+        disc if disc == WriteAcknowledgementEvent::DISCRIMINATOR => {
+            WriteAcknowledgementEvent::try_from_slice(event_data)
+                .map(SolanaEurekaEvent::WriteAcknowledgement)
+                .with_context(|| {
+                    format!("Failed to deserialize WriteAcknowledgementEvent in log {log_idx}")
+                })?
+        }
+        _ => {
+            return Err(anyhow!("Unexpected discriminator match in log {log_idx}"));
+        }
+    };
+
+    Ok(Some(event))
+}
+
+fn log_payload_list(payloads: &[solana_ibc_types::Payload]) {
+    for (i, payload) in payloads.iter().enumerate() {
+        tracing::debug!(
+            "  Payload {}: source_port={}, dest_port={}, value_len={}",
+            i,
+            payload.source_port,
+            payload.dest_port,
+            payload.value.len()
+        );
+    }
+}
+
+fn log_event_details(event: &SolanaEurekaEvent) {
+    tracing::info!(?event, "parsed event");
+
+    match event {
+        SolanaEurekaEvent::SendPacket(send_event) => {
+            tracing::debug!(
+                "SendPacketEvent: sequence={}, {} payloads",
+                send_event.sequence,
+                send_event.packet.payloads.len()
+            );
+            log_payload_list(&send_event.packet.payloads);
+        }
+        SolanaEurekaEvent::WriteAcknowledgement(ack_event) => {
+            tracing::debug!(
+                "WriteAcknowledgementEvent: sequence={}, {} payloads, {} acks",
+                ack_event.sequence,
+                ack_event.packet.payloads.len(),
+                ack_event.acknowledgements.len()
+            );
+            log_payload_list(&ack_event.packet.payloads);
+        }
+    }
+}
+
 /// Parse events from Solana transaction logs
 ///
 /// This function extracts and deserializes Anchor events from the transaction logs.
-///
-/// Events are emitted as "Program data: <base64>" in the logs.
-/// The data format is: [discriminator (8 bytes)][borsh-serialized event data]
 ///
 /// Returns an error if any IBC event fails to parse, but ignores non-IBC events.
 ///
@@ -191,60 +315,13 @@ fn to_sol_payload(value: SolanaPayload) -> SolPayload {
 /// - Deserialization fails for any recognized IBC event (`SendPacket`, `WriteAcknowledgement`)
 /// - An impossible discriminator match occurs (internal logic error)
 ///
-/// Non-IBC events and logs without "Program data:" prefix are silently skipped.
-/// TODO: Might be easier to parse via `anchor_client` but dependencies get kinda messy so manual parse
+///   TODO: Might be easier to parse via `anchor_client` but dependencies get kinda messy so manual parse
 pub fn parse_events_from_logs(logs: &[String]) -> anyhow::Result<Vec<SolanaEurekaEvent>> {
-    use anchor_lang::Discriminator;
-    use anyhow::{anyhow, Context};
-
     let mut events = Vec::new();
 
     for (log_idx, log) in logs.iter().enumerate() {
-        if let Some(data_str) = log.strip_prefix("Program data: ") {
-            let data = BASE64
-                .decode(data_str)
-                .with_context(|| format!("Failed to decode base64 in log {log_idx}: {data_str}"))?;
-
-            if data.len() < 8 {
-                // Not an Anchor event, skip
-                continue;
-            }
-
-            let discriminator = &data[..8];
-            let event_data = &data[8..];
-
-            // Check if this is an IBC event we care about
-            let is_ibc_event = discriminator == SendPacketEvent::DISCRIMINATOR
-                || discriminator == WriteAcknowledgementEvent::DISCRIMINATOR;
-
-            if !is_ibc_event {
-                continue;
-            }
-
-            let event = match discriminator {
-                disc if disc == SendPacketEvent::DISCRIMINATOR => {
-                    SendPacketEvent::try_from_slice(event_data)
-                        .map(SolanaEurekaEvent::SendPacket)
-                        .with_context(|| {
-                            format!("Failed to deserialize SendPacketEvent in log {log_idx}")
-                        })?
-                }
-                disc if disc == WriteAcknowledgementEvent::DISCRIMINATOR => {
-                    WriteAcknowledgementEvent::try_from_slice(event_data)
-                        .map(SolanaEurekaEvent::WriteAcknowledgement)
-                        .with_context(|| {
-                            format!(
-                                "Failed to deserialize WriteAcknowledgementEvent in log {log_idx}",
-                            )
-                        })?
-                }
-                _ => {
-                    return Err(anyhow!("Unexpected discriminator match in log {log_idx}"));
-                }
-            };
-
-            tracing::info!(?event, "parsed event");
-
+        if let Some(event) = try_parse_event_from_log(log, log_idx)? {
+            log_event_details(&event);
             events.push(event);
         }
     }

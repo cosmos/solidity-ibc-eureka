@@ -4,62 +4,38 @@ use crate::state::{ConsensusStateStore, HeaderChunk};
 use crate::types::{ConsensusState, UpdateResult};
 use crate::AssembleAndUpdateClient;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::keccak;
 use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
 pub fn assemble_and_update_client(
     mut ctx: Context<AssembleAndUpdateClient>,
+    chain_id: String,
+    target_height: u64,
 ) -> Result<UpdateResult> {
     require!(
         !ctx.accounts.client_state.is_frozen(),
         ErrorCode::ClientFrozen
     );
 
-    let metadata = &ctx.accounts.metadata;
-    let chain_id = &metadata.chain_id;
-    let target_height = metadata.target_height;
     let submitter = ctx.accounts.submitter.key();
 
-    // Verify metadata PDA was created by this submitter
-    let (expected_metadata_pda, _) = Pubkey::find_program_address(
-        &[
-            b"header_metadata",
-            submitter.as_ref(),
-            chain_id.as_bytes(),
-            &target_height.to_le_bytes(),
-        ],
-        ctx.program_id,
-    );
-
-    require_eq!(
-        ctx.accounts.metadata.key(),
-        expected_metadata_pda,
-        ErrorCode::AccountValidationFailed
-    );
-
-    let header_bytes = assemble_chunks(&ctx)?;
+    let header_bytes = assemble_chunks(&ctx, &chain_id, target_height)?;
 
     let result = process_header_update(&mut ctx, header_bytes)?;
 
-    cleanup_chunks(&ctx)?;
+    cleanup_chunks(&ctx, &chain_id, target_height, submitter)?;
 
     Ok(result)
 }
 
-fn assemble_chunks(ctx: &Context<AssembleAndUpdateClient>) -> Result<Vec<u8>> {
-    let metadata = &ctx.accounts.metadata;
-    let chain_id = &metadata.chain_id;
-    let target_height = metadata.target_height;
+fn assemble_chunks(
+    ctx: &Context<AssembleAndUpdateClient>,
+    chain_id: &str,
+    target_height: u64,
+) -> Result<Vec<u8>> {
     let submitter = ctx.accounts.submitter.key();
     let mut header_bytes = Vec::new();
-
-    require_eq!(
-        ctx.remaining_accounts.len(),
-        metadata.total_chunks as usize,
-        ErrorCode::InvalidChunkCount
-    );
 
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
         validate_and_load_chunk(
@@ -72,20 +48,6 @@ fn assemble_chunks(ctx: &Context<AssembleAndUpdateClient>) -> Result<Vec<u8>> {
             &mut header_bytes,
         )?;
     }
-
-    let cu_before_keccak: u64 =
-        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
-    let computed_commitment = keccak::hash(&header_bytes).0;
-    let cu_after_keccak: u64 =
-        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
-    msg!(
-        "CU used for keccak hash: {}",
-        cu_before_keccak.saturating_sub(cu_after_keccak)
-    );
-    require!(
-        metadata.header_commitment == computed_commitment,
-        ErrorCode::InvalidHeader
-    );
 
     Ok(header_bytes)
 }
@@ -114,12 +76,8 @@ fn validate_and_load_chunk(
         ErrorCode::InvalidChunkAccount
     );
 
-    // Load and validate chunk
     let chunk_data = chunk_account.try_borrow_data()?;
     let chunk: HeaderChunk = HeaderChunk::try_deserialize(&mut &chunk_data[..])?;
-    require_eq!(&chunk.chain_id, chain_id);
-    require_eq!(chunk.target_height, target_height);
-    require_eq!(chunk.chunk_index, index);
 
     header_bytes.extend_from_slice(&chunk.chunk_data);
     Ok(())
@@ -177,29 +135,10 @@ fn verify_and_update_header(
     trusted_state: &ConsensusState,
     header: Header,
 ) -> Result<(ibc_core_client_types::Height, ConsensusState)> {
-    // Always perform real verification
     let update_client_state: UpdateClientState = client_state.clone().into();
     let trusted_ibc_state: IbcConsensusState = trusted_state.clone().into();
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
-    msg!("Starting header verification");
-    msg!("Client state chain_id: {}", client_state.chain_id);
-    msg!(
-        "Trusted height: {}",
-        header.trusted_height.revision_height()
-    );
-    msg!(
-        "New header height: {}",
-        header.signed_header.header.height.value()
-    );
-    msg!(
-        "Trusted consensus timestamp (ns): {}",
-        trusted_state.timestamp
-    );
-    msg!("Current time (ns): {}", current_time);
-
-    let cu_before_verify: u64 =
-        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
         &trusted_ibc_state,
@@ -210,14 +149,6 @@ fn verify_and_update_header(
         msg!("Header verification failed: {:?}", e);
         ErrorCode::UpdateClientFailed
     })?;
-
-    let cu_after_verify: u64 =
-        anchor_lang::solana_program::compute_units::sol_remaining_compute_units();
-    msg!(
-        "CU used for tendermint verification: {}",
-        cu_before_verify.saturating_sub(cu_after_verify)
-    );
-    msg!("Header verification successful");
 
     Ok((
         output.latest_height,
@@ -243,14 +174,33 @@ fn check_misbehaviour(
     Ok(())
 }
 
-fn cleanup_chunks(ctx: &Context<AssembleAndUpdateClient>) -> Result<()> {
-    for chunk_account in ctx.remaining_accounts {
+fn cleanup_chunks(
+    ctx: &Context<AssembleAndUpdateClient>,
+    chain_id: &str,
+    target_height: u64,
+    submitter: Pubkey,
+) -> Result<()> {
+    for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
+        // Double-check PDA (paranoid check)
+        let expected_seeds = &[
+            b"header_chunk".as_ref(),
+            submitter.as_ref(),
+            chain_id.as_bytes(),
+            &target_height.to_le_bytes(),
+            &[index as u8],
+        ];
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, ctx.program_id);
+        require_eq!(
+            chunk_account.key(),
+            expected_pda,
+            ErrorCode::InvalidChunkAccount
+        );
+
         let mut lamports = chunk_account.try_borrow_mut_lamports()?;
         let mut submitter_lamports = ctx.accounts.submitter.try_borrow_mut_lamports()?;
         **submitter_lamports += **lamports;
         **lamports = 0;
     }
-    // Metadata account will be closed automatically by Anchor due to close = submitter
     Ok(())
 }
 

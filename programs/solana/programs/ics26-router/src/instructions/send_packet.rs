@@ -220,12 +220,13 @@ mod tests {
         let accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
-            create_account(client_pda, client_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda),
-            create_system_account(payer),
+            create_system_account(app_caller), // app_caller is a signer
+            create_system_account(payer),      // payer is also a signer
             create_program_account(system_program::ID),
             create_clock_account_with_data(clock_data),
+            create_account(client_pda, client_data, crate::ID),
         ];
 
         SendPacketTestContext {
@@ -473,13 +474,13 @@ mod tests {
         let accounts_1 = vec![
             create_account(router_state_pda, router_state_data.clone(), crate::ID),
             create_account(ibc_app_pda, ibc_app_data.clone(), crate::ID),
-            create_account(client_pda_1, client_data_1, crate::ID),
             create_account(client_sequence_pda_1, client_sequence_data_1, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_1),
             create_system_account(app_caller_pda),
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_clock_account_with_data(clock_data.clone()),
+            create_account(client_pda_1, client_data_1, crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
@@ -532,13 +533,13 @@ mod tests {
         let accounts_2 = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
-            create_account(client_pda_2, client_data_2, crate::ID),
             create_account(client_sequence_pda_2, client_sequence_data_2, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_2),
             create_system_account(app_caller_pda),
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_clock_account_with_data(clock_data),
+            create_account(client_pda_2, client_data_2, crate::ID),
         ];
 
         let result_2 = mollusk.process_instruction(&instruction_2, &accounts_2);

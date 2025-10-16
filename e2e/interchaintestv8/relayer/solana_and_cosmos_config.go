@@ -14,6 +14,8 @@ type SolanaCosmosConfigInfo struct {
 	ICS07ProgramID string
 	// ICS26 Router program ID on Solana
 	ICS26RouterProgramID string
+	// IBC app program ID on Solana
+	IBCAppProgramID string
 	// Signer address for Cosmos transactions
 	CosmosSignerAddress string
 	// Solana fee payer address (for cosmos-to-solana)
@@ -46,6 +48,8 @@ type CosmosToSolanaModuleConfig struct {
 	SolanaIcs26ProgramId string `json:"solana_ics26_program_id"`
 	// Solana ICS07 Tendermint light client program ID (must be "solana_ics07_program_id")
 	SolanaIcs07ProgramId string `json:"solana_ics07_program_id"`
+	// Solana IBC app program ID (must be "solana_ibc_app_program_id")
+	SolanaIbcAppProgramId string `json:"solana_ibc_app_program_id"`
 	// Solana fee payer address for unsigned transactions
 	SolanaFeePayer string `json:"solana_fee_payer"`
 }
@@ -70,11 +74,12 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 			SrcChain: configInfo.CosmosChainID,
 			DstChain: configInfo.SolanaChainID,
 			Config: CosmosToSolanaModuleConfig{
-				SourceRpcUrl:         configInfo.TmRPC,
-				TargetRpcUrl:         configInfo.SolanaRPC,
-				SolanaIcs26ProgramId: configInfo.ICS26RouterProgramID,
-				SolanaIcs07ProgramId: configInfo.ICS07ProgramID,
-				SolanaFeePayer:       configInfo.SolanaFeePayer,
+				SourceRpcUrl:          configInfo.TmRPC,
+				TargetRpcUrl:          configInfo.SolanaRPC,
+				SolanaIcs26ProgramId:  configInfo.ICS26RouterProgramID,
+				SolanaIcs07ProgramId:  configInfo.ICS07ProgramID,
+				SolanaIbcAppProgramId: configInfo.IBCAppProgramID,
+				SolanaFeePayer:        configInfo.SolanaFeePayer,
 			},
 		},
 	}

@@ -2,7 +2,7 @@
 
 pub mod cosmos_sdk;
 pub mod eth_eureka;
-pub mod solana_eureka;
+pub mod solana;
 mod r#trait;
 
 pub use r#trait::ChainListenerService;

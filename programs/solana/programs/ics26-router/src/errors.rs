@@ -20,6 +20,8 @@ pub enum RouterError {
     PacketCommitmentAlreadyExists,
     #[msg("Packet commitment mismatch")]
     PacketCommitmentMismatch,
+    #[msg("Packet should have payload")]
+    PacketNoPayload,
     #[msg("Packet receipt mismatch")]
     PacketReceiptMismatch,
     #[msg("Packet acknowledgement already exists")]
@@ -60,4 +62,14 @@ pub enum RouterError {
     InvalidAppResponse,
     #[msg("IBC app not found")]
     IbcAppNotFound,
+    #[msg("Chunk data too large")]
+    ChunkDataTooLarge,
+    #[msg("Invalid chunk account")]
+    InvalidChunkAccount,
+    #[msg("Invalid chunk count")]
+    InvalidChunkCount,
+    #[msg("Invalid chunk commitment")]
+    InvalidChunkCommitment,
+    #[msg("Invalid payload count")]
+    InvalidPayloadCount,
 }

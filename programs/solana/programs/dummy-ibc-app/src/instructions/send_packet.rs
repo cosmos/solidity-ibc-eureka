@@ -104,7 +104,6 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
         return Err(error!(DummyIbcAppError::InvalidPacketData));
     }
 
-    // Create payload for router
     let payload = Payload {
         source_port: msg.source_port.clone(),
         dest_port: msg.dest_port.clone(),
