@@ -17,7 +17,10 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
     msg!("  Value length: {} bytes", msg.value.len());
     msg!("  Full value (hex): {:?}", &msg.value);
     msg!("  Proof length: {} bytes", msg.proof.len());
-    msg!("  Proof (first 128 bytes): {:?}", &msg.proof[..msg.proof.len().min(128)]);
+    msg!(
+        "  Proof (first 128 bytes): {:?}",
+        &msg.proof[..msg.proof.len().min(128)]
+    );
 
     msg!("=== PATH COMPONENTS ===");
     for (idx, segment) in msg.path.iter().enumerate() {
@@ -27,9 +30,18 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
 
     msg!("=== CONSENSUS STATE ===");
     msg!("  Consensus state height: {}", msg.height);
-    msg!("  Full app_hash from consensus state: {:?}", consensus_state_store.consensus_state.root);
-    msg!("  App hash length: {} bytes", consensus_state_store.consensus_state.root.len());
-    msg!("  Consensus state timestamp: {}", consensus_state_store.consensus_state.timestamp);
+    msg!(
+        "  Full app_hash from consensus state: {:?}",
+        consensus_state_store.consensus_state.root
+    );
+    msg!(
+        "  App hash length: {} bytes",
+        consensus_state_store.consensus_state.root.len()
+    );
+    msg!(
+        "  Consensus state timestamp: {}",
+        consensus_state_store.consensus_state.timestamp
+    );
 
     validate_proof_params(client_state, &msg)?;
 
@@ -39,7 +51,10 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
 
     let kv_pair = KVPair::new(msg.path.clone(), msg.value.clone());
     msg!("=== MEMBERSHIP VERIFICATION ===");
-    msg!("  Verifying path against app_hash: {:?}", consensus_state_store.consensus_state.root);
+    msg!(
+        "  Verifying path against app_hash: {:?}",
+        consensus_state_store.consensus_state.root
+    );
     msg!("  Path[0] (hex): {:?}", &msg.path[0]);
     if msg.path.len() > 1 {
         msg!("  Path[1] (hex): {:?}", &msg.path[1]);
@@ -47,14 +62,16 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
 
     let app_hash = consensus_state_store.consensus_state.root;
 
-    tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)])
-        .map_err(|e| {
-            msg!("=== MEMBERSHIP VERIFICATION FAILED ===");
-            msg!("  Error: {:?}", e);
-            msg!("  Expected app_hash: {:?}", app_hash);
-            msg!("  Value being verified: {:?}", &msg.value[..msg.value.len().min(32)]);
-            error!(ErrorCode::MembershipVerificationFailed)
-        })?;
+    tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)]).map_err(|e| {
+        msg!("=== MEMBERSHIP VERIFICATION FAILED ===");
+        msg!("  Error: {:?}", e);
+        msg!("  Expected app_hash: {:?}", app_hash);
+        msg!(
+            "  Value being verified: {:?}",
+            &msg.value[..msg.value.len().min(32)]
+        );
+        error!(ErrorCode::MembershipVerificationFailed)
+    })?;
 
     msg!("=== MEMBERSHIP VERIFICATION SUCCEEDED ===");
     Ok(())

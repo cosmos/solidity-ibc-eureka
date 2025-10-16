@@ -106,7 +106,7 @@ fn get_chunk_pdas(
     chunk_pdas
 }
 
-fn create_assemble_instruction(
+struct AssembleInstructionParams {
     client_state_pda: Pubkey,
     trusted_consensus_state_pda: Pubkey,
     new_consensus_state_pda: Pubkey,
@@ -115,18 +115,20 @@ fn create_assemble_instruction(
     chunk_pdas: Vec<Pubkey>,
     chain_id: String,
     target_height: u64,
-) -> Instruction {
+}
+
+fn create_assemble_instruction(params: AssembleInstructionParams) -> Instruction {
     let mut account_metas = vec![
-        AccountMeta::new(client_state_pda, false),
-        AccountMeta::new_readonly(trusted_consensus_state_pda, false),
-        AccountMeta::new(new_consensus_state_pda, false),
-        AccountMeta::new(submitter, false),
-        AccountMeta::new(payer, true),
+        AccountMeta::new(params.client_state_pda, false),
+        AccountMeta::new_readonly(params.trusted_consensus_state_pda, false),
+        AccountMeta::new(params.new_consensus_state_pda, false),
+        AccountMeta::new(params.submitter, false),
+        AccountMeta::new(params.payer, true),
         AccountMeta::new_readonly(system_program::ID, false),
     ];
 
     // Add chunk accounts
-    for chunk_pda in chunk_pdas {
+    for chunk_pda in params.chunk_pdas {
         account_metas.push(AccountMeta::new(chunk_pda, false));
     }
 
@@ -134,8 +136,8 @@ fn create_assemble_instruction(
         program_id: crate::ID,
         accounts: account_metas,
         data: crate::instruction::AssembleAndUpdateClient {
-            chain_id,
-            target_height,
+            chain_id: params.chain_id,
+            target_height: params.target_height,
         }
         .data(),
     }
@@ -195,16 +197,16 @@ fn test_successful_assembly_and_update() {
     let trusted_height = update_message.trusted_height;
     let trusted_consensus_pda = derive_consensus_state_pda(chain_id, trusted_height);
 
-    let instruction = create_assemble_instruction(
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
-        trusted_consensus_pda,
-        consensus_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
         submitter,
         payer,
-        chunk_pdas.clone(),
-        chain_id.to_string(),
+        chunk_pdas: chunk_pdas.clone(),
+        chain_id: chain_id.to_string(),
         target_height,
-    );
+    });
 
     // Create submitter account
     let submitter_account = create_submitter_account(10_000_000_000);
@@ -228,8 +230,7 @@ fn test_successful_assembly_and_update() {
 
     // Add chunk accounts
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
-        let chunk_account =
-            create_chunk_account(chain_id, target_height, i as u8, chunks[i].clone());
+        let chunk_account = create_chunk_account(chunks[i].clone());
         accounts.push((*chunk_pda, chunk_account));
     }
 
@@ -303,16 +304,16 @@ fn test_assembly_with_corrupted_chunk() {
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
 
-    let instruction = create_assemble_instruction(
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
-        trusted_consensus_pda,
-        consensus_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
         submitter,
         payer,
-        chunk_pdas.clone(),
-        chain_id.to_string(),
+        chunk_pdas: chunk_pdas.clone(),
+        chain_id: chain_id.to_string(),
         target_height,
-    );
+    });
 
     // Setup accounts with corrupted second chunk
     let mut accounts = vec![
@@ -328,18 +329,12 @@ fn test_assembly_with_corrupted_chunk() {
     ];
 
     // First chunk is correct
-    accounts.push((
-        chunk_pdas[0],
-        create_chunk_account(chain_id, target_height, 0, chunks[0].clone()),
-    ));
+    accounts.push((chunk_pdas[0], create_chunk_account(chunks[0].clone())));
 
     // Second chunk has corrupted data
     let mut corrupted_data = chunks[1].clone();
     corrupted_data[0] ^= 0xFF; // Flip bits to corrupt
-    accounts.push((
-        chunk_pdas[1],
-        create_chunk_account(chain_id, target_height, 1, corrupted_data),
-    ));
+    accounts.push((chunk_pdas[1], create_chunk_account(corrupted_data)));
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
@@ -376,16 +371,16 @@ fn test_assembly_wrong_submitter() {
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
 
-    let instruction = create_assemble_instruction(
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
-        trusted_consensus_pda,
-        consensus_state_pda,
-        wrong_submitter, // Wrong!
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
+        submitter: wrong_submitter, // Wrong!
         payer,
-        chunk_pdas.clone(),
-        chain_id.to_string(),
+        chunk_pdas: chunk_pdas.clone(),
+        chain_id: chain_id.to_string(),
         target_height,
-    );
+    });
 
     let mut accounts = vec![
         (client_state_pda, create_client_state_account(chain_id, 90)),
@@ -401,10 +396,7 @@ fn test_assembly_wrong_submitter() {
 
     // Add chunk accounts
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
-        accounts.push((
-            *chunk_pda,
-            create_chunk_account(chain_id, target_height, i as u8, chunks[i].clone()),
-        ));
+        accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
     }
 
     let result = mollusk.process_instruction(&instruction, &accounts);
@@ -445,16 +437,16 @@ fn test_assembly_chunks_in_wrong_order() {
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
 
-    let instruction = create_assemble_instruction(
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
-        trusted_consensus_pda,
-        consensus_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
         submitter,
         payer,
-        wrong_order_pdas,
-        chain_id.to_string(),
+        chunk_pdas: wrong_order_pdas,
+        chain_id: chain_id.to_string(),
         target_height,
-    );
+    });
 
     let mut accounts = vec![
         (client_state_pda, create_client_state_account(chain_id, 90)),
@@ -469,18 +461,9 @@ fn test_assembly_chunks_in_wrong_order() {
     ];
 
     // Add chunks in wrong order
-    accounts.push((
-        chunk_pdas[2],
-        create_chunk_account(chain_id, target_height, 2, chunks[2].clone()),
-    ));
-    accounts.push((
-        chunk_pdas[0],
-        create_chunk_account(chain_id, target_height, 0, chunks[0].clone()),
-    ));
-    accounts.push((
-        chunk_pdas[1],
-        create_chunk_account(chain_id, target_height, 1, chunks[1].clone()),
-    ));
+    accounts.push((chunk_pdas[2], create_chunk_account(chunks[2].clone())));
+    accounts.push((chunk_pdas[0], create_chunk_account(chunks[0].clone())));
+    accounts.push((chunk_pdas[1], create_chunk_account(chunks[1].clone())));
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
@@ -523,16 +506,16 @@ fn test_rent_reclaim_after_assembly() {
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
 
-    let instruction = create_assemble_instruction(
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
-        trusted_consensus_pda,
-        consensus_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
         submitter,
         payer,
-        chunk_pdas.clone(),
-        chain_id.to_string(),
+        chunk_pdas: chunk_pdas.clone(),
+        chain_id: chain_id.to_string(),
         target_height,
-    );
+    });
 
     let mut accounts = vec![
         (client_state_pda, create_client_state_account(chain_id, 90)),
@@ -548,10 +531,7 @@ fn test_rent_reclaim_after_assembly() {
 
     // Add chunk accounts
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
-        accounts.push((
-            *chunk_pda,
-            create_chunk_account(chain_id, target_height, i as u8, chunks[i].clone()),
-        ));
+        accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
     }
 
     let result = mollusk.process_instruction(&instruction, &accounts);
@@ -628,16 +608,16 @@ fn test_assemble_and_update_client_happy_path() {
 
     let payer = Pubkey::new_unique();
 
-    let instruction = create_assemble_instruction(
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
-        trusted_consensus_pda,
-        consensus_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
         submitter,
         payer,
-        chunk_pdas.clone(),
-        chain_id.to_string(),
+        chunk_pdas: chunk_pdas.clone(),
+        chain_id: chain_id.to_string(),
         target_height,
-    );
+    });
 
     // Add Clock sysvar for update client validation
     let clock = solana_sdk::sysvar::clock::Clock {
@@ -671,10 +651,7 @@ fn test_assemble_and_update_client_happy_path() {
     ];
 
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
-        accounts.push((
-            *chunk_pda,
-            create_chunk_account(chain_id, target_height, i as u8, chunks[i].clone()),
-        ));
+        accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
     }
 
     let result = mollusk.process_instruction(&instruction, &accounts);
@@ -784,16 +761,16 @@ fn test_assemble_with_frozen_client() {
         &crate::ID,
     );
 
-    let instruction = create_assemble_instruction(
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
-        trusted_consensus_pda,
-        consensus_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
         submitter,
         payer,
-        chunk_pdas.clone(),
-        chain_id.to_string(),
+        chunk_pdas: chunk_pdas.clone(),
+        chain_id: chain_id.to_string(),
         target_height,
-    );
+    });
 
     // Create proper trusted consensus state from fixture
     let mut trusted_consensus_data = vec![];
@@ -823,10 +800,7 @@ fn test_assemble_with_frozen_client() {
     ];
 
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
-        accounts.push((
-            *chunk_pda,
-            create_chunk_account(chain_id, target_height, i as u8, chunks[i].clone()),
-        ));
+        accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
     }
 
     // Add Clock sysvar for timestamp validation
@@ -926,16 +900,16 @@ fn test_assemble_with_existing_consensus_state() {
     .try_serialize(&mut trusted_consensus_data)
     .unwrap();
 
-    let instruction = create_assemble_instruction(
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
-        trusted_consensus_pda,
-        consensus_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
         submitter,
         payer,
-        chunk_pdas.clone(),
-        chain_id.to_string(),
+        chunk_pdas: chunk_pdas.clone(),
+        chain_id: chain_id.to_string(),
         target_height,
-    );
+    });
 
     let mut accounts = vec![
         (client_state_pda, client_account),
@@ -956,10 +930,7 @@ fn test_assemble_with_existing_consensus_state() {
     ];
 
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
-        accounts.push((
-            *chunk_pda,
-            create_chunk_account(chain_id, target_height, i as u8, chunks[i].clone()),
-        ));
+        accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
     }
 
     // Add Clock sysvar for timestamp validation
@@ -1014,16 +985,16 @@ fn test_assemble_with_invalid_header_after_assembly() {
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
 
-    let instruction = create_assemble_instruction(
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
-        trusted_consensus_pda,
-        consensus_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
         submitter,
         payer,
-        chunk_pdas.clone(),
-        chain_id.to_string(),
+        chunk_pdas: chunk_pdas.clone(),
+        chain_id: chain_id.to_string(),
         target_height,
-    );
+    });
 
     let mut accounts = vec![
         (client_state_pda, create_client_state_account(chain_id, 90)),
@@ -1039,11 +1010,11 @@ fn test_assemble_with_invalid_header_after_assembly() {
 
     accounts.push((
         chunk_pdas[0],
-        create_chunk_account(chain_id, target_height, 0, chunk1),
+        create_chunk_account(chunk1),
     ));
     accounts.push((
         chunk_pdas[1],
-        create_chunk_account(chain_id, target_height, 1, chunk2),
+        create_chunk_account(chunk2),
     ));
 
     let result = mollusk.process_instruction(&instruction, &accounts);
@@ -1089,16 +1060,16 @@ fn test_assemble_updates_latest_height() {
     let trusted_height = update_message.trusted_height;
     let trusted_consensus_pda = derive_consensus_state_pda(chain_id, trusted_height);
 
-    let instruction = create_assemble_instruction(
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
-        trusted_consensus_pda,
-        consensus_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
         submitter,
         payer,
-        chunk_pdas.clone(),
-        chain_id.to_string(),
+        chunk_pdas: chunk_pdas.clone(),
+        chain_id: chain_id.to_string(),
         target_height,
-    );
+    });
 
     // Create initial client state with real data at old height
     let mut initial_client =
@@ -1128,7 +1099,7 @@ fn test_assemble_updates_latest_height() {
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
         accounts.push((
             *chunk_pda,
-            create_chunk_account(chain_id, target_height, i as u8, chunks[i].clone()),
+            create_chunk_account(chunks[i].clone()),
         ));
     }
 

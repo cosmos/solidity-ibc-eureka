@@ -40,9 +40,9 @@ pub struct ReconstructPacketParams<'a, 'b, 'c> {
     pub program_id: &'a Pubkey,
 }
 
-pub fn assemble_multiple_payloads<'a, 'b, 'c>(
-    remaining_accounts: &'a [AccountInfo<'b>],
-    payer: &'c AccountInfo<'b>,
+pub fn assemble_multiple_payloads<'b>(
+    remaining_accounts: &[AccountInfo<'b>],
+    payer: &AccountInfo<'b>,
     submitter: Pubkey,
     client_id: &str,
     sequence: u64,
@@ -240,7 +240,9 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
     Ok(proof_data)
 }
 
-/// Clean up payload chunks by zeroing data (lamports remain for later reclaim via cleanup_chunks)
+/// Clean up payload chunks by zeroing data (lamports remain for later reclaim via `cleanup_chunks`)
+// TODO: remove clippy allow after fix
+#[allow(clippy::too_many_arguments)]
 fn cleanup_payload_chunks(
     chunk_accounts: &[AccountInfo],
     _payer: &AccountInfo,
@@ -273,6 +275,7 @@ fn cleanup_payload_chunks(
             RouterError::InvalidChunkAccount
         );
 
+        // TODO: Fix this, data should be cleaned up
         // Clear the chunk data to prevent replay
         // Note: Lamports are NOT transferred here to avoid UnbalancedInstruction errors.
         // Users must call cleanup_chunks separately to reclaim rent.
@@ -282,7 +285,7 @@ fn cleanup_payload_chunks(
     Ok(())
 }
 
-/// Clean up proof chunks by zeroing data (lamports remain for later reclaim via cleanup_chunks)
+/// Clean up proof chunks by zeroing data (lamports remain for later reclaim via `cleanup_chunks`)
 fn cleanup_proof_chunks(
     chunk_accounts: &[AccountInfo],
     _payer: &AccountInfo,

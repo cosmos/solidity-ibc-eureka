@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
-use ibc_eureka_relayer_lib::utils::solana_eureka::convert_client_state_to_sol;
+use ibc_eureka_relayer_lib::utils::solana::convert_client_state_to_sol;
 use ibc_eureka_relayer_lib::{
     events::{
         solana::solana_timeout_packet_to_tm_timeout, EurekaEventWithHeight,
@@ -16,7 +16,7 @@ use ibc_eureka_relayer_lib::{
             self, tm_create_client_params, tm_update_client_params, TmCreateClientParams,
             TmUpdateClientParams,
         },
-        solana_eureka::{
+        solana::{
             convert_consensus_state, ibc_to_solana_ack_packet, ibc_to_solana_recv_packet,
             target_events_to_timeout_msgs,
         },

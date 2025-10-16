@@ -8,7 +8,7 @@ pub mod tx_builder;
 use std::collections::HashMap;
 
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
-use ibc_eureka_relayer_lib::listener::solana_eureka;
+use ibc_eureka_relayer_lib::listener::solana;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
 use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
@@ -33,7 +33,7 @@ struct CosmosToSolanaRelayerModuleService {
     /// The souce chain listener for Cosmos.
     pub src_listener: cosmos_sdk::ChainListener,
     /// The target chain listener for Solana.
-    pub target_listener: solana_eureka::ChainListener,
+    pub target_listener: solana::ChainListener,
     /// The transaction builder from Cosmos to Solana.
     pub tx_builder: tx_builder::TxBuilder,
     /// The Solana ICS07 program ID.
@@ -77,7 +77,7 @@ impl CosmosToSolanaRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana IBC app program ID: {}", e))?;
 
-        let target_listener = solana_eureka::ChainListener::new(
+        let target_listener = solana::ChainListener::new(
             config.target_rpc_url.clone(),
             solana_ics26_program_id,
         );
