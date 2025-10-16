@@ -852,89 +852,124 @@ impl TxBuilder {
         self.create_tx_bytes(&instructions)
     }
 
-    #[allow(clippy::cognitive_complexity)]
     fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>> {
         if instructions.is_empty() {
             anyhow::bail!("No instructions to execute on Solana");
         }
 
-        let recent_blockhash = self
-            .target_solana_client
+        let recent_blockhash = self.get_recent_blockhash()?;
+
+        self.alt_address.map_or_else(
+            || self.create_legacy_tx(instructions, recent_blockhash),
+            |alt_address| self.create_v0_tx_with_alt(instructions, recent_blockhash, alt_address),
+        )
+    }
+
+    fn get_recent_blockhash(&self) -> Result<solana_sdk::hash::Hash> {
+        self.target_solana_client
             .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))?;
+            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))
+    }
 
-        // If ALT is configured, create a v0 transaction with lookup table
-        if let Some(alt_address) = self.alt_address {
-            tracing::info!(
-                "Building transaction with Address Lookup Table: {}",
-                alt_address
-            );
+    fn create_v0_tx_with_alt(
+        &self,
+        instructions: &[Instruction],
+        recent_blockhash: solana_sdk::hash::Hash,
+        alt_address: Pubkey,
+    ) -> Result<Vec<u8>> {
+        tracing::info!(
+            "Building transaction with Address Lookup Table: {}",
+            alt_address
+        );
 
-            // Fetch the ALT account data
-            let alt_account = self
-                .target_solana_client
-                .get_account(&alt_address)
-                .map_err(|e| anyhow::anyhow!("Failed to fetch ALT account {}: {e}", alt_address))?;
+        let addresses = self.fetch_alt_addresses(alt_address)?;
 
-            // Deserialize the ALT state from account data
-            let lookup_table = AddressLookupTable::deserialize(&alt_account.data)
-                .map_err(|e| anyhow::anyhow!("Failed to deserialize ALT: {e}"))?;
+        tracing::info!("ALT contains {} addresses", addresses.len());
+        tracing::info!("ALT addresses: {:?}", addresses);
 
-            tracing::info!("ALT contains {} addresses", lookup_table.addresses.len());
-            tracing::info!("ALT addresses: {:?}", lookup_table.addresses);
+        let alt_account_for_compile = AddressLookupTableAccount {
+            key: alt_address,
+            addresses,
+        };
 
-            // Create AddressLookupTableAccount for v0 message compilation
-            let alt_account_for_compile = AddressLookupTableAccount {
-                key: alt_address,
-                addresses: lookup_table.addresses.to_vec(),
-            };
+        let v0_message = self.compile_v0_message_with_alt(
+            instructions,
+            recent_blockhash,
+            alt_account_for_compile,
+        )?;
 
-            // Compile v0 message with ALT
-            // This will automatically use ALT indices for accounts that are in the lookup table
-            let v0_message = v0::Message::try_compile(
-                &self.fee_payer,
-                instructions,
-                &[alt_account_for_compile],
-                recent_blockhash,
-            )
-            .map_err(|e| anyhow::anyhow!("Failed to compile v0 message with ALT: {e}"))?;
+        Self::log_v0_message_stats(&v0_message);
 
-            tracing::info!(
-                "Compiled v0 message: {} static accounts, {} ALT accounts",
-                v0_message.account_keys.len(),
-                v0_message
-                    .address_table_lookups
-                    .iter()
-                    .map(|lookup| lookup.readonly_indexes.len() + lookup.writable_indexes.len())
-                    .sum::<usize>()
-            );
+        Self::serialize_v0_transaction(v0_message)
+    }
 
-            tracing::info!("Static account keys: {:?}", v0_message.account_keys);
+    fn compile_v0_message_with_alt(
+        &self,
+        instructions: &[Instruction],
+        recent_blockhash: solana_sdk::hash::Hash,
+        alt_account: AddressLookupTableAccount,
+    ) -> Result<v0::Message> {
+        v0::Message::try_compile(
+            &self.fee_payer,
+            instructions,
+            &[alt_account],
+            recent_blockhash,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to compile v0 message with ALT: {e}"))
+    }
 
-            // Create VersionedTransaction with v0 message
-            // Number of signatures must match num_required_signatures in the message header
-            let num_signatures = v0_message.header.num_required_signatures as usize;
-            let versioned_tx = VersionedTransaction {
-                signatures: vec![solana_sdk::signature::Signature::default(); num_signatures],
-                message: VersionedMessage::V0(v0_message),
-            };
+    fn serialize_v0_transaction(v0_message: v0::Message) -> Result<Vec<u8>> {
+        let num_signatures = v0_message.header.num_required_signatures as usize;
+        let versioned_tx = VersionedTransaction {
+            signatures: vec![solana_sdk::signature::Signature::default(); num_signatures],
+            message: VersionedMessage::V0(v0_message),
+        };
 
-            let serialized_tx = bincode::serialize(&versioned_tx)?;
-            tracing::warn!(
-                "Transaction size: {} bytes (limit: 1232 bytes raw, 1644 bytes encoded)",
-                serialized_tx.len()
-            );
+        let serialized_tx = bincode::serialize(&versioned_tx)?;
+        tracing::warn!(
+            "Transaction size: {} bytes (limit: 1232 bytes raw, 1644 bytes encoded)",
+            serialized_tx.len()
+        );
 
-            Ok(serialized_tx)
-        } else {
-            // Legacy transaction without ALT - wrap it in VersionedTransaction
-            let mut tx = Transaction::new_with_payer(instructions, Some(&self.fee_payer));
-            tx.message.recent_blockhash = recent_blockhash;
+        Ok(serialized_tx)
+    }
 
-            // Convert legacy Transaction to VersionedTransaction for consistency
-            let versioned_tx = VersionedTransaction::from(tx);
-            Ok(bincode::serialize(&versioned_tx)?)
-        }
+    fn fetch_alt_addresses(&self, alt_address: Pubkey) -> Result<Vec<Pubkey>> {
+        let alt_account = self
+            .target_solana_client
+            .get_account(&alt_address)
+            .map_err(|e| anyhow::anyhow!("Failed to fetch ALT account {}: {e}", alt_address))?;
+
+        let lookup_table = AddressLookupTable::deserialize(&alt_account.data)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize ALT: {e}"))?;
+
+        Ok(lookup_table.addresses.to_vec())
+    }
+
+    fn log_v0_message_stats(v0_message: &v0::Message) {
+        tracing::info!(
+            "Compiled v0 message: {} static accounts, {} ALT accounts",
+            v0_message.account_keys.len(),
+            v0_message
+                .address_table_lookups
+                .iter()
+                .map(|lookup| lookup.readonly_indexes.len() + lookup.writable_indexes.len())
+                .sum::<usize>()
+        );
+
+        tracing::info!("Static account keys: {:?}", v0_message.account_keys);
+    }
+
+    fn create_legacy_tx(
+        &self,
+        instructions: &[Instruction],
+        recent_blockhash: solana_sdk::hash::Hash,
+    ) -> Result<Vec<u8>> {
+        let mut tx = Transaction::new_with_payer(instructions, Some(&self.fee_payer));
+        tx.message.recent_blockhash = recent_blockhash;
+
+        let versioned_tx = VersionedTransaction::from(tx);
+        Ok(bincode::serialize(&versioned_tx)?)
     }
 
     /// Create a new ICS07 Tendermint client on Solana
