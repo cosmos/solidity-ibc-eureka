@@ -1,8 +1,6 @@
 module github.com/srdtrk/solidity-ibc-eureka/e2e/v8
 
-go 1.23.8
-
-toolchain go1.24.3
+go 1.25.0
 
 require (
 	cosmossdk.io/api v0.9.2
@@ -19,10 +17,10 @@ require (
 	github.com/cosmos/ics23/go v0.11.0
 	github.com/cosmos/interchaintest/v10 v10.0.0
 	github.com/cosmos/solidity-ibc-eureka/packages/go-abigen v0.0.0
-	github.com/docker/docker v27.5.1+incompatible
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/holiman/uint256 v1.3.2
 	github.com/kurtosis-tech/kurtosis/api/golang v1.10.3
+	github.com/moby/moby v27.5.1+incompatible
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
@@ -104,6 +102,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.2.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
+	github.com/docker/docker v27.5.1+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
@@ -194,7 +193,6 @@ require (
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
-	github.com/moby/moby v27.5.1+incompatible // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
