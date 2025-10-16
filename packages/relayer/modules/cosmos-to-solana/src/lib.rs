@@ -8,7 +8,7 @@ pub mod tx_builder;
 use std::collections::HashMap;
 
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
-use ibc_eureka_relayer_lib::listener::solana_eureka;
+use ibc_eureka_relayer_lib::listener::solana;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
 use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
@@ -33,7 +33,7 @@ struct CosmosToSolanaRelayerModuleService {
     /// The souce chain listener for Cosmos.
     pub src_listener: cosmos_sdk::ChainListener,
     /// The target chain listener for Solana.
-    pub target_listener: solana_eureka::ChainListener,
+    pub target_listener: solana::ChainListener,
     /// The transaction builder from Cosmos to Solana.
     pub tx_builder: tx_builder::TxBuilder,
     /// The Solana ICS07 program ID.
@@ -51,6 +51,8 @@ pub struct CosmosToSolanaConfig {
     pub solana_ics26_program_id: String,
     /// The Solana ICS07 Tendermint light client program ID.
     pub solana_ics07_program_id: String,
+    /// The Solana IBC app program ID.
+    pub solana_ibc_app_program_id: String,
     /// The Solana fee payer address.
     pub solana_fee_payer: String,
 }
@@ -70,10 +72,13 @@ impl CosmosToSolanaRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {}", e))?;
 
-        let target_listener = solana_eureka::ChainListener::new(
-            config.target_rpc_url.clone(),
-            solana_ics26_program_id,
-        );
+        let ibc_app_program_id: Pubkey = config
+            .solana_ibc_app_program_id
+            .parse()
+            .map_err(|e| anyhow::anyhow!("Invalid Solana IBC app program ID: {}", e))?;
+
+        let target_listener =
+            solana::ChainListener::new(config.target_rpc_url.clone(), solana_ics26_program_id);
 
         let fee_payer = config
             .solana_fee_payer
@@ -85,6 +90,7 @@ impl CosmosToSolanaRelayerModuleService {
             target_listener.client().clone(),
             solana_ics07_program_id,
             solana_ics26_program_id,
+            ibc_app_program_id,
             fee_payer,
         )?;
 
@@ -164,9 +170,9 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             target_events.len()
         );
 
-        let tx = self
+        let txs = self
             .tx_builder
-            .relay_events(
+            .relay_events_chunked(
                 src_events,
                 target_events,
                 inner_req.src_client_id,
@@ -177,12 +183,15 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .await
             .map_err(to_tonic_status)?;
 
-        tracing::info!("Relay by tx request completed.");
+        tracing::info!(
+            "Relay by tx request completed with {} transactions.",
+            txs.len()
+        );
 
         Ok(Response::new(api::RelayByTxResponse {
-            tx,
+            tx: vec![],
             address: String::new(),
-            txs: vec![],
+            txs,
         }))
     }
 
@@ -219,7 +228,6 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         let mut txs = Vec::new();
-        txs.push(header_update.metadata_tx);
         for tx in header_update.chunk_txs {
             txs.push(tx);
         }

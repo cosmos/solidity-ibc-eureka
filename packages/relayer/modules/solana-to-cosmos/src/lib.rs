@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use ibc_eureka_relayer_lib::events::EurekaEventWithHeight;
 use ibc_eureka_relayer_lib::events::SolanaEurekaEventWithHeight;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
-use ibc_eureka_relayer_lib::listener::solana_eureka;
+use ibc_eureka_relayer_lib::listener::solana;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
 use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
@@ -39,7 +39,7 @@ pub struct SolanaToCosmosRelayerModule;
 #[allow(dead_code)]
 struct SolanaToCosmosRelayerModuleService {
     /// The souce chain listener for Solana.
-    pub src_listener: solana_eureka::ChainListener,
+    pub src_listener: solana::ChainListener,
     /// The target chain listener for Cosmos SDK.
     pub target_listener: cosmos_sdk::ChainListener,
     /// The transaction builder from Solana to Cosmos.
@@ -73,7 +73,7 @@ impl SolanaToCosmosRelayerModuleService {
             .map_err(|e| anyhow::anyhow!("Invalid Solana program ID: {e}"))?;
 
         let src_listener =
-            solana_eureka::ChainListener::new(config.src_rpc_url.clone(), solana_ics26_program_id);
+            solana::ChainListener::new(config.src_rpc_url.clone(), solana_ics26_program_id);
 
         let target_listener =
             cosmos_sdk::ChainListener::new(HttpClient::from_rpc_url(&config.target_rpc_url));

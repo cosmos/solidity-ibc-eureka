@@ -92,6 +92,48 @@ pub fn derive_ics07_consensus_state(
     )
 }
 
+/// Derive payload chunk PDA
+pub fn derive_payload_chunk(
+    payer: Pubkey,
+    client_id: &str,
+    sequence: u64,
+    payload_index: u8,
+    chunk_index: u8,
+    program_id: Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            b"payload_chunk",
+            payer.as_ref(),
+            client_id.as_bytes(),
+            &sequence.to_le_bytes(),
+            &[payload_index],
+            &[chunk_index],
+        ],
+        &program_id,
+    )
+}
+
+/// Derive proof chunk PDA
+pub fn derive_proof_chunk(
+    payer: Pubkey,
+    client_id: &str,
+    sequence: u64,
+    chunk_index: u8,
+    program_id: Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            b"proof_chunk",
+            payer.as_ref(),
+            client_id.as_bytes(),
+            &sequence.to_le_bytes(),
+            &[chunk_index],
+        ],
+        &program_id,
+    )
+}
+
 /// Build instruction discriminator for Anchor
 pub fn get_instruction_discriminator(instruction_name: &str) -> [u8; 8] {
     let preimage = format!("global:{}", instruction_name);

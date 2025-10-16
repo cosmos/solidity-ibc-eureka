@@ -50,6 +50,23 @@ impl Packet {
     }
 }
 
+/// Payload metadata for chunked operations
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct PayloadMetadata {
+    pub source_port: String,
+    pub dest_port: String,
+    pub version: String,
+    pub encoding: String,
+    pub total_chunks: u8,
+}
+
+/// Proof metadata for chunked operations
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct ProofMetadata {
+    pub height: u64,
+    pub total_chunks: u8,
+}
+
 /// Message for sending a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgSendPacket {
@@ -62,25 +79,44 @@ pub struct MsgSendPacket {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgRecvPacket {
     pub packet: Packet,
-    pub proof_commitment: Vec<u8>,
-    pub proof_height: u64,
+    pub payloads: Vec<PayloadMetadata>,
+    pub proof: ProofMetadata,
 }
 
 /// Message for acknowledging a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgAckPacket {
     pub packet: Packet,
-    pub acknowledgement: Vec<u8>,
-    pub proof_acked: Vec<u8>,
-    pub proof_height: u64,
+    pub payloads: Vec<PayloadMetadata>,
+    pub acknowledgement: Vec<u8>, // Not chunked
+    pub proof: ProofMetadata,
 }
 
 /// Message for timing out a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgTimeoutPacket {
     pub packet: Packet,
-    pub proof_timeout: Vec<u8>,
-    pub proof_height: u64,
+    pub payloads: Vec<PayloadMetadata>,
+    pub proof: ProofMetadata,
+}
+
+/// Message for uploading chunks
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgUploadChunk {
+    pub client_id: String,
+    pub sequence: u64,
+    pub payload_index: u8,
+    pub chunk_index: u8,
+    pub chunk_data: Vec<u8>,
+}
+
+/// Message for cleanup
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgCleanupChunks {
+    pub client_id: String,
+    pub sequence: u64,
+    pub payload_chunks: Vec<u8>, // Number of chunks for each payload
+    pub total_proof_chunks: u8,
 }
 
 /// IBCApp mapping port IDs to IBC app program IDs

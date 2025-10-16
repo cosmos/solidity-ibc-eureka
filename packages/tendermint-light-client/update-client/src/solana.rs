@@ -27,7 +27,7 @@ impl signature::Verifier for SolanaSignatureVerifier {
             // that wasn't included as Ed25519Program instructions in current transaction i.e.
             // header chunks)
             // Alternative: Multi-transaction batching with Ed25519Program but adds complexity,
-            // state management overhead, and atomicity concerns which
+            // state management overhead, and atomicity concerns
             PublicKey::Ed25519(pk) => {
                 brine_ed25519::sig_verify(pk.as_bytes(), signature.as_bytes(), msg)
                     .map_err(|_| Error::VerificationFailed)

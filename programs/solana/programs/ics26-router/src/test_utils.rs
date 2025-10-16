@@ -421,3 +421,90 @@ pub fn create_bpf_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::accoun
         },
     )
 }
+
+/// Helper function to create a payload chunk account for tests
+/// Note: Creates accounts with 0 lamports since they will be cleaned up during test execution
+pub fn create_payload_chunk_account(
+    submitter: Pubkey,
+    client_id: &str,
+    sequence: u64,
+    payload_index: u8,
+    chunk_index: u8,
+    chunk_data: Vec<u8>,
+) -> (Pubkey, solana_sdk::account::Account) {
+    let (chunk_pda, _) = Pubkey::find_program_address(
+        &[
+            PAYLOAD_CHUNK_SEED,
+            submitter.as_ref(),
+            client_id.as_bytes(),
+            &sequence.to_le_bytes(),
+            &[payload_index],
+            &[chunk_index],
+        ],
+        &crate::ID,
+    );
+
+    let payload_chunk = PayloadChunk {
+        client_id: client_id.to_string(),
+        sequence,
+        payload_index,
+        chunk_index,
+        chunk_data,
+    };
+
+    let chunk_account_data = create_account_data(&payload_chunk);
+
+    // Create account with 0 lamports to avoid UnbalancedInstruction errors when cleaned up
+    (
+        chunk_pda,
+        solana_sdk::account::Account {
+            lamports: 0,
+            data: chunk_account_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+/// Helper function to create a proof chunk account for tests
+/// Note: Creates accounts with 0 lamports since they will be cleaned up during test execution
+pub fn create_proof_chunk_account(
+    submitter: Pubkey,
+    client_id: &str,
+    sequence: u64,
+    chunk_index: u8,
+    chunk_data: Vec<u8>,
+) -> (Pubkey, solana_sdk::account::Account) {
+    let (chunk_pda, _) = Pubkey::find_program_address(
+        &[
+            PROOF_CHUNK_SEED,
+            submitter.as_ref(),
+            client_id.as_bytes(),
+            &sequence.to_le_bytes(),
+            &[chunk_index],
+        ],
+        &crate::ID,
+    );
+
+    let proof_chunk = ProofChunk {
+        client_id: client_id.to_string(),
+        sequence,
+        chunk_index,
+        chunk_data,
+    };
+
+    let chunk_account_data = create_account_data(&proof_chunk);
+
+    // Create account with 0 lamports to avoid UnbalancedInstruction errors when cleaned up
+    (
+        chunk_pda,
+        solana_sdk::account::Account {
+            lamports: 0,
+            data: chunk_account_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}

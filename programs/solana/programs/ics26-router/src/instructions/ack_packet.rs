@@ -2,7 +2,7 @@ use crate::errors::RouterError;
 use crate::router_cpi::on_acknowledgement_packet_cpi;
 use crate::router_cpi::{verify_membership_cpi, LightClientVerification};
 use crate::state::*;
-use crate::utils::ics24;
+use crate::utils::{chunking, ics24};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::events::{AckPacketEvent, NoopEvent};
@@ -18,10 +18,7 @@ pub struct AckPacket<'info> {
     )]
     pub router_state: Account<'info, RouterState>,
 
-    #[account(
-        seeds = [IBC_APP_SEED, msg.packet.payloads[0].source_port.as_bytes()],
-        bump
-    )]
+    // Note: Port validation is done in the handler function to avoid Anchor macro issues
     pub ibc_app: Account<'info, IBCApp>,
 
     #[account(
@@ -51,6 +48,7 @@ pub struct AckPacket<'info> {
     #[account(address = crate::ID)]
     pub router_program: AccountInfo<'info>,
 
+    #[account(mut)]
     pub relayer: Signer<'info>,
 
     #[account(mut)]
@@ -77,28 +75,111 @@ pub struct AckPacket<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
-pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
-    // TODO: Support multi-payload packets #602
+pub fn ack_packet<'info>(
+    ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>,
+    msg: MsgAckPacket,
+) -> Result<()> {
+    msg!("=== ack_packet START ===");
+    msg!(
+        "Sequence: {}, src_client: {}, dest_client: {}",
+        msg.packet.sequence,
+        msg.packet.source_client,
+        msg.packet.dest_client
+    );
+
     let router_state = &ctx.accounts.router_state;
     let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;
 
+    msg!("Validating payload metadata count: {}", msg.payloads.len());
+    // Validate we have at least one payload
+    require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
+
+    msg!(
+        "Validating IBC app for port: {}",
+        msg.payloads[0].source_port
+    );
+    // Validate the IBC app is registered for the source port of the first payload
+    let expected_ibc_app = Pubkey::find_program_address(
+        &[IBC_APP_SEED, msg.payloads[0].source_port.as_bytes()],
+        ctx.program_id,
+    )
+    .0;
+    require!(
+        ctx.accounts.ibc_app.key() == expected_ibc_app,
+        RouterError::IbcAppNotFound
+    );
+
+    msg!("Validating relayer authority");
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
         RouterError::UnauthorizedSender
     );
 
-    require!(
-        msg.packet.payloads.len() == 1,
-        RouterError::MultiPayloadPacketNotSupported
-    );
-
+    msg!("Validating counterparty client");
     require!(
         msg.packet.dest_client == client.counterparty_info.client_id,
         RouterError::InvalidCounterpartyClient
     );
 
+    // Validate that we don't have both inline payloads AND chunked metadata
+    let has_inline_payloads = !msg.packet.payloads.is_empty();
+    let has_chunked_metadata = msg.payloads.iter().any(|p| p.total_chunks > 0);
+    require!(
+        !(has_inline_payloads && has_chunked_metadata),
+        RouterError::InvalidPayloadCount
+    );
+
+    msg!(
+        "Reconstructing packet - inline payloads: {}, metadata chunks: {:?}",
+        msg.packet.payloads.len(),
+        msg.payloads
+            .iter()
+            .map(|p| p.total_chunks)
+            .collect::<Vec<_>>()
+    );
+
+    let packet = chunking::reconstruct_packet(chunking::ReconstructPacketParams {
+        packet: &msg.packet,
+        payloads_metadata: &msg.payloads,
+        remaining_accounts: ctx.remaining_accounts,
+        payer: &ctx.accounts.payer,
+        submitter: ctx.accounts.relayer.key(),
+        client_id: &msg.packet.source_client,
+        program_id: ctx.program_id,
+    })?;
+
+    msg!(
+        "Packet reconstructed with {} payloads",
+        packet.payloads.len()
+    );
+
+    // Calculate total payload chunks for proof start index
+    let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
+    msg!(
+        "Total payload chunks: {}, proof chunks: {}, proof start index: {}",
+        total_payload_chunks,
+        msg.proof.total_chunks,
+        total_payload_chunks
+    );
+
+    // Assemble proof from chunks (starting after payload chunks, using relayer as the chunk owner)
+    let proof_start_index = total_payload_chunks;
+    msg!("Assembling proof from chunks...");
+    let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
+        remaining_accounts: ctx.remaining_accounts,
+        payer: &ctx.accounts.payer,
+        submitter: ctx.accounts.relayer.key(),
+        client_id: &msg.packet.source_client,
+        sequence: msg.packet.sequence,
+        total_chunks: msg.proof.total_chunks,
+        program_id: ctx.program_id,
+        start_index: proof_start_index,
+    })?;
+    msg!("Proof assembled, length: {}", proof_data.len());
+
     // Verify acknowledgement proof on counterparty chain via light client
+    msg!("Verifying membership via light client...");
     let light_client_verification = LightClientVerification {
         light_client_program: ctx.accounts.light_client_program.clone(),
         client_state: ctx.accounts.client_state.clone(),
@@ -106,37 +187,58 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     };
 
     let ack_path =
-        ics24::packet_acknowledgement_commitment_path(&msg.packet.dest_client, msg.packet.sequence);
+        ics24::packet_acknowledgement_commitment_path(&packet.dest_client, packet.sequence);
+
+    let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(std::slice::from_ref(
+        &msg.acknowledgement,
+    ))?;
 
     let membership_msg = MembershipMsg {
-        height: msg.proof_height,
+        height: msg.proof.height,
         delay_time_period: 0,
         delay_block_period: 0,
-        proof: msg.proof_acked.clone(),
+        proof: proof_data,
         path: vec![b"ibc".to_vec(), ack_path],
-        value: msg.acknowledgement.clone(),
+        value: ack_commitment.to_vec(),
     };
 
     verify_membership_cpi(client, &light_client_verification, membership_msg)?;
+    msg!("Membership verified");
 
     // Check if packet commitment exists (no-op case)
     // An uninitialized account will be owned by System Program
+    msg!("Checking packet commitment...");
     if packet_commitment_account.owner != &crate::ID || packet_commitment_account.data_is_empty() {
+        msg!("No packet commitment found - emitting NoopEvent");
         emit!(NoopEvent {});
         return Ok(());
     }
 
     // Safe to deserialize since we know it's owned by our program
     // Verify the commitment value
+    msg!("Verifying packet commitment...");
     {
         let data = packet_commitment_account.try_borrow_data()?;
         let packet_commitment = Commitment::try_from_slice(&data[8..])?;
-        let expected_commitment = ics24::packet_commitment_bytes32(&msg.packet);
+        let expected_commitment = ics24::packet_commitment_bytes32(&packet);
         require!(
             packet_commitment.value == expected_commitment,
             RouterError::PacketCommitmentMismatch
         );
     }
+    msg!("Packet commitment verified");
+
+    // For now, we only handle the first payload for CPI
+    // TODO: In the future, we may need to handle multiple payloads differently
+    let payload = match packet.payloads.len() {
+        0 => Err(RouterError::PacketNoPayload),
+        n if n > 1 => Err(RouterError::MultiPayloadPacketNotSupported),
+        _ => Ok(&packet.payloads[0]),
+    }?;
+    msg!(
+        "Calling IBC app on_acknowledgement_packet - port: {}",
+        payload.source_port
+    );
 
     on_acknowledgement_packet_cpi(
         &ctx.accounts.ibc_app_program,
@@ -144,13 +246,15 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         &ctx.accounts.router_program,
         &ctx.accounts.payer,
         &ctx.accounts.system_program,
-        &msg.packet,
-        &msg.packet.payloads[0],
+        &packet,
+        payload,
         &msg.acknowledgement,
         &ctx.accounts.relayer.key(),
     )?;
+    msg!("IBC app callback completed");
 
     // Close the account and return rent to payer
+    msg!("Closing packet commitment and returning rent");
     let dest_starting_lamports = ctx.accounts.payer.lamports();
     **ctx.accounts.payer.lamports.borrow_mut() = dest_starting_lamports
         .checked_add(packet_commitment_account.lamports())
@@ -160,13 +264,15 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
     let mut data = packet_commitment_account.try_borrow_mut_data()?;
     data.fill(0);
 
+    msg!("Emitting AckPacketEvent");
     emit!(AckPacketEvent {
-        client_id: msg.packet.source_client.clone(),
-        sequence: msg.packet.sequence,
-        packet: msg.packet.clone(),
+        client_id: packet.source_client.clone(),
+        sequence: packet.sequence,
+        packet,
         acknowledgement: vec![msg.acknowledgement],
     });
 
+    msg!("=== ack_packet SUCCESS ===");
     Ok(())
 }
 
@@ -177,6 +283,7 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
+    use solana_ibc_types::{Payload, PayloadMetadata, ProofMetadata};
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
@@ -244,14 +351,19 @@ mod tests {
             Pubkey::find_program_address(&[APP_STATE_SEED], &app_program_id);
 
         let packet_dest_client = params.wrong_dest_client.unwrap_or(params.dest_client_id);
-        let packet = create_test_packet(
-            params.initial_sequence,
-            params.source_client_id,
-            packet_dest_client,
-            params.port_id,
-            "dest-port",
-            1000,
-        );
+
+        // For tests, we'll simulate having already uploaded chunks
+        let test_payload_value = b"test data".to_vec();
+
+        let test_proof = vec![0u8; 32];
+
+        let packet = Packet {
+            sequence: params.initial_sequence,
+            source_client: params.source_client_id.to_string(),
+            dest_client: packet_dest_client.to_string(),
+            timeout_timestamp: 1000,
+            payloads: vec![], // Empty for the message, will be reconstructed from chunks
+        };
 
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
             &[
@@ -264,43 +376,93 @@ mod tests {
 
         let msg = MsgAckPacket {
             packet: packet.clone(),
+            payloads: vec![PayloadMetadata {
+                source_port: params.port_id.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                total_chunks: 1, // 1 chunk for testing
+            }],
             acknowledgement: params.acknowledgement,
-            proof_acked: vec![0u8; 32],
-            proof_height: params.proof_height,
+            proof: ProofMetadata {
+                height: params.proof_height,
+                total_chunks: 1, // 1 chunk for testing
+            },
         };
 
         let client_state = Pubkey::new_unique();
         let consensus_state = Pubkey::new_unique();
 
+        // Create chunk accounts for 1 payload chunk and 1 proof chunk
+        let payload_chunk_account = create_payload_chunk_account(
+            relayer,
+            params.source_client_id,
+            params.initial_sequence,
+            0, // payload_index
+            0, // chunk_index
+            test_payload_value.clone(),
+        );
+
+        let proof_chunk_account = create_proof_chunk_account(
+            relayer,
+            params.source_client_id,
+            params.initial_sequence,
+            0, // chunk_index
+            test_proof,
+        );
+
+        let mut instruction_accounts = vec![
+            AccountMeta::new_readonly(router_state_pda, false),
+            AccountMeta::new_readonly(ibc_app_pda, false),
+            AccountMeta::new(packet_commitment_pda, false),
+            AccountMeta::new_readonly(app_program_id, false),
+            AccountMeta::new(dummy_app_state_pda, false),
+            AccountMeta::new_readonly(crate::ID, false), // router_program
+            AccountMeta::new(relayer, true),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(client_pda, false),
+            AccountMeta::new_readonly(light_client_program, false),
+            AccountMeta::new_readonly(client_state, false),
+            AccountMeta::new_readonly(consensus_state, false),
+        ];
+
+        // Add chunk accounts as remaining accounts
+        instruction_accounts.push(AccountMeta::new(payload_chunk_account.0, false));
+        instruction_accounts.push(AccountMeta::new(proof_chunk_account.0, false));
+
         let instruction = Instruction {
             program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new_readonly(router_state_pda, false),
-                AccountMeta::new_readonly(ibc_app_pda, false),
-                AccountMeta::new(packet_commitment_pda, false),
-                AccountMeta::new_readonly(app_program_id, false),
-                AccountMeta::new(dummy_app_state_pda, false),
-                AccountMeta::new_readonly(crate::ID, false), // router_program
-                AccountMeta::new_readonly(relayer, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(client_pda, false),
-                AccountMeta::new_readonly(light_client_program, false),
-                AccountMeta::new_readonly(client_state, false),
-                AccountMeta::new_readonly(consensus_state, false),
-            ],
+            accounts: instruction_accounts,
             data: crate::instruction::AckPacket { msg }.data(),
         };
 
         let packet_commitment_account = if params.with_existing_commitment {
-            let (_, data) =
-                setup_packet_commitment(params.source_client_id, packet.sequence, &packet);
+            // Reconstruct full packet with payload for commitment
+            let full_packet = Packet {
+                sequence: packet.sequence,
+                source_client: packet.source_client.clone(),
+                dest_client: packet.dest_client.clone(),
+                timeout_timestamp: packet.timeout_timestamp,
+                payloads: vec![Payload {
+                    source_port: params.port_id.to_string(),
+                    dest_port: "dest-port".to_string(),
+                    version: "1".to_string(),
+                    encoding: "json".to_string(),
+                    value: test_payload_value, // Value from chunk
+                }],
+            };
+            let (_, data) = setup_packet_commitment(
+                params.source_client_id,
+                full_packet.sequence,
+                &full_packet,
+            );
             create_account(packet_commitment_pda, data, crate::ID)
         } else {
             create_uninitialized_account(packet_commitment_pda, 0)
         };
 
-        let accounts = vec![
+        let mut accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             packet_commitment_account,
@@ -315,6 +477,10 @@ mod tests {
             create_account(client_state, vec![0u8; 100], light_client_program),
             create_account(consensus_state, vec![0u8; 100], light_client_program),
         ];
+
+        // Add chunk accounts as remaining accounts
+        accounts.push(payload_chunk_account);
+        accounts.push(proof_chunk_account);
 
         AckPacketTestContext {
             instruction,
@@ -331,7 +497,7 @@ mod tests {
 
         let mollusk = setup_mollusk_with_mock_programs();
 
-        let payer_pubkey = ctx.accounts[7].0; // Payer is at index 7
+        let payer_pubkey = ctx.accounts[7].0; // Payer is at index 7 (after removing submitter)
         let initial_payer_lamports = ctx.accounts[7].1.lamports;
         let commitment_lamports = ctx.accounts[2].1.lamports; // Packet commitment is at index 2
 

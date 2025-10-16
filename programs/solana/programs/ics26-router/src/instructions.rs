@@ -1,15 +1,21 @@
 pub mod ack_packet;
 pub mod add_ibc_app;
+pub mod cleanup_chunks;
 pub mod client;
 pub mod initialize;
 pub mod recv_packet;
 pub mod send_packet;
 pub mod timeout_packet;
+pub mod upload_payload_chunk;
+pub mod upload_proof_chunk;
 
 pub use ack_packet::*;
 pub use add_ibc_app::*;
+pub use cleanup_chunks::*;
 pub use client::*;
 pub use initialize::*;
 pub use recv_packet::*;
 pub use send_packet::*;
 pub use timeout_packet::*;
+pub use upload_payload_chunk::*;
+pub use upload_proof_chunk::*;
