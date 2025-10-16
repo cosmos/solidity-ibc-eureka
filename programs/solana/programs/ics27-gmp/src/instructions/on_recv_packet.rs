@@ -165,11 +165,11 @@ pub fn on_recv_packet<'info>(
     // Build signer seeds on stack for invoke_signed
     let bump_array = [bump];
     let signer_seeds: &[&[u8]] = &[
-        crate::constants::ACCOUNT_STATE_SEED, // b"gmp_account"
-        &client_id_bytes,                     // Source chain client ID
-        &sender_hash,                         // Hashed sender address (32 bytes)
-        &salt_bytes,                          // User-provided salt
-        &bump_array,                          // PDA bump seed
+        ACCOUNT_STATE_SEED, // b"gmp_account"
+        &client_id_bytes,   // Source chain client ID
+        &sender_hash,       // Hashed sender address (32 bytes)
+        &salt_bytes,        // User-provided salt
+        &bump_array,        // PDA bump seed
     ];
 
     // Execute with nonce protection and record result
@@ -387,7 +387,6 @@ fn map_and_validate_accounts<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::GMP_PORT_ID;
     use crate::state::{AccountState, GMPPacketData, SolanaAccountMeta, SolanaInstruction};
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
@@ -536,10 +535,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -566,8 +563,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -612,10 +609,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -642,8 +637,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -695,10 +690,8 @@ mod tests {
         let correct_router = Pubkey::new_unique();
         let wrong_router = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -725,8 +718,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -776,10 +769,8 @@ mod tests {
         let payer = Pubkey::new_unique();
         let port_id = "gmpport".to_string();
 
-        let (_correct_app_state_pda, _correct_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
-            &crate::ID,
-        );
+        let (_correct_app_state_pda, _correct_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, port_id.as_bytes()], &crate::ID);
 
         // Use wrong PDA
         let wrong_app_state_pda = Pubkey::new_unique();
@@ -809,8 +800,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -860,10 +851,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let client_id = "cosmoshub-1";
         let original_sender = "cosmos1original";
@@ -893,8 +882,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -948,10 +937,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -981,8 +968,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -1036,10 +1023,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -1063,8 +1048,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -1112,10 +1097,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -1143,7 +1126,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: "wrong-version".to_string(), // Invalid version!
-                encoding: crate::constants::ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -1191,10 +1174,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -1221,8 +1202,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: "transfer".to_string(), // Invalid source port!
                 dest_port: GMP_PORT_ID.to_string(),
-                version: crate::constants::ICS27_VERSION.to_string(),
-                encoding: crate::constants::ICS27_ENCODING.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -1270,10 +1251,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -1300,7 +1279,7 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
-                version: crate::constants::ICS27_VERSION.to_string(),
+                version: ICS27_VERSION.to_string(),
                 encoding: "application/json".to_string(), // Invalid encoding!
                 value: packet_data_bytes,
             },
@@ -1349,10 +1328,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -1379,8 +1356,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: "transfer".to_string(), // Invalid dest port!
-                version: crate::constants::ICS27_VERSION.to_string(),
-                encoding: crate::constants::ICS27_ENCODING.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -1428,10 +1405,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -1461,8 +1436,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -1524,10 +1499,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         // Create packet data that will call the counter app
         let client_id = "cosmoshub-1";
@@ -1613,8 +1586,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
