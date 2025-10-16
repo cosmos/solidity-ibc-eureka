@@ -5,7 +5,9 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
 use anchor_lang::solana_program::program::get_return_data;
 use anchor_lang::solana_program::program::invoke;
-use solana_ibc_types::{OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload};
+use solana_ibc_types::{
+    instruction_names, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload,
+};
 
 // TODO: Params struct
 /// CPI helper for calling IBC app's `on_recv_packet` instruction
@@ -19,6 +21,7 @@ pub fn on_recv_packet_cpi<'a>(
     packet: &Packet,
     payload: &Payload,
     relayer: &Pubkey,
+    remaining_accounts: &[AccountInfo<'a>],
 ) -> Result<Vec<u8>> {
     let msg = OnRecvPacketMsg {
         source_client: packet.source_client.clone(),
@@ -34,8 +37,9 @@ pub fn on_recv_packet_cpi<'a>(
         router_program,
         payer,
         system_program,
-        "global:on_recv_packet",
+        instruction_names::ON_RECV_PACKET,
         msg,
+        remaining_accounts,
     )?;
 
     // Get the return data (acknowledgement)
@@ -63,6 +67,7 @@ pub fn on_acknowledgement_packet_cpi<'a>(
     payload: &Payload,
     acknowledgement: &[u8],
     relayer: &Pubkey,
+    remaining_accounts: &[AccountInfo<'a>],
 ) -> Result<()> {
     let msg = OnAcknowledgementPacketMsg {
         source_client: packet.source_client.clone(),
@@ -79,8 +84,9 @@ pub fn on_acknowledgement_packet_cpi<'a>(
         router_program,
         payer,
         system_program,
-        "global:on_acknowledgement_packet",
+        instruction_names::ON_ACKNOWLEDGEMENT_PACKET,
         msg,
+        remaining_accounts,
     )
 }
 
@@ -96,6 +102,7 @@ pub fn on_timeout_packet_cpi<'a>(
     packet: &Packet,
     payload: &Payload,
     relayer: &Pubkey,
+    remaining_accounts: &[AccountInfo<'a>],
 ) -> Result<()> {
     let msg = OnTimeoutPacketMsg {
         source_client: packet.source_client.clone(),
@@ -111,12 +118,14 @@ pub fn on_timeout_packet_cpi<'a>(
         router_program,
         payer,
         system_program,
-        "global:on_timeout_packet",
+        instruction_names::ON_TIMEOUT_PACKET,
         msg,
+        remaining_accounts,
     )
 }
 
 /// Generic CPI helper for calling IBC app instructions
+#[allow(clippy::too_many_arguments)]
 fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
     ibc_app_program: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
@@ -125,6 +134,7 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
     system_program: &AccountInfo<'a>,
     discriminator: &str,
     msg: T,
+    remaining_accounts: &[AccountInfo<'a>],
 ) -> Result<()> {
     let mut instruction_data = Vec::with_capacity(IBC_CPI_INSTRUCTION_CAPACITY);
     instruction_data.extend_from_slice(
@@ -133,26 +143,39 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
     );
     msg.serialize(&mut instruction_data)?;
 
-    // Create the instruction
+    // Create the instruction with fixed accounts plus remaining accounts
+    let mut account_metas = vec![
+        AccountMeta::new(*app_state.key, false),
+        AccountMeta::new_readonly(*router_program.key, false),
+        AccountMeta::new(*payer.key, true),
+        AccountMeta::new_readonly(*system_program.key, false),
+    ];
+
+    // Add remaining accounts to instruction
+    for account_info in remaining_accounts {
+        account_metas.push(AccountMeta {
+            pubkey: *account_info.key,
+            is_signer: account_info.is_signer,
+            is_writable: account_info.is_writable,
+        });
+    }
+
     let instruction = Instruction {
         program_id: *ibc_app_program.key,
-        accounts: vec![
-            AccountMeta::new(*app_state.key, false),
-            AccountMeta::new_readonly(*router_program.key, false), // router_program account
-            AccountMeta::new(*payer.key, true),                    // payer account
-            AccountMeta::new_readonly(*system_program.key, false), // system_program account
-        ],
+        accounts: account_metas,
         data: instruction_data,
     };
 
-    // Invoke the CPI
-    let account_infos = &[
+    // Build account_infos array with both fixed and remaining accounts
+    let mut account_infos = vec![
         app_state.clone(),
-        router_program.clone(), // Pass the router program for auth check
+        router_program.clone(),
         payer.clone(),
         system_program.clone(),
     ];
-    invoke(&instruction, account_infos)?;
+    account_infos.extend_from_slice(remaining_accounts);
+
+    invoke(&instruction, &account_infos)?;
 
     Ok(())
 }

@@ -267,7 +267,6 @@ func NewRecvPacketInstruction(
 	relayerAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
-	clockAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
 	lightClientProgramAccount solanago.PublicKey,
 	clientStateAccount solanago.PublicKey,
@@ -315,15 +314,13 @@ func NewRecvPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 10 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 11 "clock": Read-only, Non-signer, Required, Address: SysvarC1ock11111111111111111111111111111111
-		accounts__.Append(solanago.NewAccountMeta(clockAccount, false, false))
-		// Account 12 "client": Read-only, Non-signer, Required
+		// Account 11 "client": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 13 "light_client_program": Read-only, Non-signer, Required
+		// Account 12 "light_client_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 14 "client_state": Read-only, Non-signer, Required
+		// Account 13 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 15 "consensus_state": Read-only, Non-signer, Required
+		// Account 14 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
@@ -348,7 +345,6 @@ func NewSendPacketInstruction(
 	appCallerAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
-	clockAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -385,9 +381,7 @@ func NewSendPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 6 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 7 "clock": Read-only, Non-signer, Required, Address: SysvarC1ock11111111111111111111111111111111
-		accounts__.Append(solanago.NewAccountMeta(clockAccount, false, false))
-		// Account 8 "client": Read-only, Non-signer, Required
+		// Account 7 "client": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
 	}
 

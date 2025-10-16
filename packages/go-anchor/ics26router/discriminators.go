@@ -13,16 +13,7 @@ var (
 )
 
 // Event discriminators
-var (
-	Event_AckPacketEvent            = [8]byte{77, 168, 233, 72, 104, 170, 223, 187}
-	Event_ClientAddedEvent          = [8]byte{115, 228, 28, 166, 212, 126, 80, 103}
-	Event_ClientStatusUpdatedEvent  = [8]byte{234, 161, 185, 104, 128, 87, 102, 179}
-	Event_IbcAppAdded               = [8]byte{203, 71, 209, 220, 197, 188, 7, 160}
-	Event_NoopEvent                 = [8]byte{59, 182, 57, 141, 7, 255, 75, 55}
-	Event_SendPacketEvent           = [8]byte{193, 230, 168, 142, 93, 141, 211, 151}
-	Event_TimeoutPacketEvent        = [8]byte{175, 73, 51, 208, 241, 155, 242, 254}
-	Event_WriteAcknowledgementEvent = [8]byte{10, 54, 186, 209, 240, 25, 50, 0}
-)
+var ()
 
 // Instruction discriminators
 var (

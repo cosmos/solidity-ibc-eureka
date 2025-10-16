@@ -267,6 +267,208 @@ func UnmarshalConsensusStateStore(buf []byte) (*ConsensusStateStore, error) {
 	return obj, nil
 }
 
+// Storage for a single chunk of header data during multi-transaction upload
+type HeaderChunk struct {
+	// Chain ID this chunk belongs to
+	ChainId string `json:"chainId"`
+
+	// Target height for this header
+	TargetHeight uint64 `json:"targetHeight"`
+
+	// Index of this chunk (0-based)
+	ChunkIndex uint8 `json:"chunkIndex"`
+
+	// The chunk data
+	ChunkData []byte `json:"chunkData"`
+}
+
+func (obj HeaderChunk) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ChainId`:
+	err = encoder.Encode(obj.ChainId)
+	if err != nil {
+		return errors.NewField("ChainId", err)
+	}
+	// Serialize `TargetHeight`:
+	err = encoder.Encode(obj.TargetHeight)
+	if err != nil {
+		return errors.NewField("TargetHeight", err)
+	}
+	// Serialize `ChunkIndex`:
+	err = encoder.Encode(obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Serialize `ChunkData`:
+	err = encoder.Encode(obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj HeaderChunk) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding HeaderChunk: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *HeaderChunk) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ChainId`:
+	err = decoder.Decode(&obj.ChainId)
+	if err != nil {
+		return errors.NewField("ChainId", err)
+	}
+	// Deserialize `TargetHeight`:
+	err = decoder.Decode(&obj.TargetHeight)
+	if err != nil {
+		return errors.NewField("TargetHeight", err)
+	}
+	// Deserialize `ChunkIndex`:
+	err = decoder.Decode(&obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Deserialize `ChunkData`:
+	err = decoder.Decode(&obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj *HeaderChunk) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling HeaderChunk: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalHeaderChunk(buf []byte) (*HeaderChunk, error) {
+	obj := new(HeaderChunk)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Metadata for tracking header upload by height
+type HeaderMetadata struct {
+	// Chain ID this header is for
+	ChainId string `json:"chainId"`
+
+	// Target height for this update
+	TargetHeight uint64 `json:"targetHeight"`
+
+	// Expected total chunks
+	TotalChunks uint8 `json:"totalChunks"`
+
+	// Commitment to the complete header (hash of all chunks concatenated)
+	HeaderCommitment [32]uint8 `json:"headerCommitment"`
+	CreatedAt        int64     `json:"createdAt"`
+	UpdatedAt        int64     `json:"updatedAt"`
+}
+
+func (obj HeaderMetadata) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ChainId`:
+	err = encoder.Encode(obj.ChainId)
+	if err != nil {
+		return errors.NewField("ChainId", err)
+	}
+	// Serialize `TargetHeight`:
+	err = encoder.Encode(obj.TargetHeight)
+	if err != nil {
+		return errors.NewField("TargetHeight", err)
+	}
+	// Serialize `TotalChunks`:
+	err = encoder.Encode(obj.TotalChunks)
+	if err != nil {
+		return errors.NewField("TotalChunks", err)
+	}
+	// Serialize `HeaderCommitment`:
+	err = encoder.Encode(obj.HeaderCommitment)
+	if err != nil {
+		return errors.NewField("HeaderCommitment", err)
+	}
+	// Serialize `CreatedAt`:
+	err = encoder.Encode(obj.CreatedAt)
+	if err != nil {
+		return errors.NewField("CreatedAt", err)
+	}
+	// Serialize `UpdatedAt`:
+	err = encoder.Encode(obj.UpdatedAt)
+	if err != nil {
+		return errors.NewField("UpdatedAt", err)
+	}
+	return nil
+}
+
+func (obj HeaderMetadata) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding HeaderMetadata: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *HeaderMetadata) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ChainId`:
+	err = decoder.Decode(&obj.ChainId)
+	if err != nil {
+		return errors.NewField("ChainId", err)
+	}
+	// Deserialize `TargetHeight`:
+	err = decoder.Decode(&obj.TargetHeight)
+	if err != nil {
+		return errors.NewField("TargetHeight", err)
+	}
+	// Deserialize `TotalChunks`:
+	err = decoder.Decode(&obj.TotalChunks)
+	if err != nil {
+		return errors.NewField("TotalChunks", err)
+	}
+	// Deserialize `HeaderCommitment`:
+	err = decoder.Decode(&obj.HeaderCommitment)
+	if err != nil {
+		return errors.NewField("HeaderCommitment", err)
+	}
+	// Deserialize `CreatedAt`:
+	err = decoder.Decode(&obj.CreatedAt)
+	if err != nil {
+		return errors.NewField("CreatedAt", err)
+	}
+	// Deserialize `UpdatedAt`:
+	err = decoder.Decode(&obj.UpdatedAt)
+	if err != nil {
+		return errors.NewField("UpdatedAt", err)
+	}
+	return nil
+}
+
+func (obj *HeaderMetadata) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling HeaderMetadata: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalHeaderMetadata(buf []byte) (*HeaderMetadata, error) {
+	obj := new(HeaderMetadata)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 type IbcHeight struct {
 	RevisionNumber uint64 `json:"revisionNumber"`
 	RevisionHeight uint64 `json:"revisionHeight"`
@@ -569,4 +771,87 @@ func (value UpdateResult) String() string {
 	default:
 		return ""
 	}
+}
+
+// Parameters for uploading a header chunk
+type UploadChunkParams struct {
+	ChainId      string `json:"chainId"`
+	TargetHeight uint64 `json:"targetHeight"`
+	ChunkIndex   uint8  `json:"chunkIndex"`
+	ChunkData    []byte `json:"chunkData"`
+}
+
+func (obj UploadChunkParams) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ChainId`:
+	err = encoder.Encode(obj.ChainId)
+	if err != nil {
+		return errors.NewField("ChainId", err)
+	}
+	// Serialize `TargetHeight`:
+	err = encoder.Encode(obj.TargetHeight)
+	if err != nil {
+		return errors.NewField("TargetHeight", err)
+	}
+	// Serialize `ChunkIndex`:
+	err = encoder.Encode(obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Serialize `ChunkData`:
+	err = encoder.Encode(obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj UploadChunkParams) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding UploadChunkParams: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *UploadChunkParams) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ChainId`:
+	err = decoder.Decode(&obj.ChainId)
+	if err != nil {
+		return errors.NewField("ChainId", err)
+	}
+	// Deserialize `TargetHeight`:
+	err = decoder.Decode(&obj.TargetHeight)
+	if err != nil {
+		return errors.NewField("TargetHeight", err)
+	}
+	// Deserialize `ChunkIndex`:
+	err = decoder.Decode(&obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Deserialize `ChunkData`:
+	err = decoder.Decode(&obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj *UploadChunkParams) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling UploadChunkParams: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalUploadChunkParams(buf []byte) (*UploadChunkParams, error) {
+	obj := new(UploadChunkParams)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
 }

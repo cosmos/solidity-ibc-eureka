@@ -77,7 +77,10 @@ pub struct AckPacket<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
-pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
+pub fn ack_packet<'info>(
+    ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>,
+    msg: MsgAckPacket,
+) -> Result<()> {
     // TODO: Support multi-payload packets #602
     let router_state = &ctx.accounts.router_state;
     let packet_commitment_account = &ctx.accounts.packet_commitment;
@@ -148,6 +151,7 @@ pub fn ack_packet(ctx: Context<AckPacket>, msg: MsgAckPacket) -> Result<()> {
         &msg.packet.payloads[0],
         &msg.acknowledgement,
         &ctx.accounts.relayer.key(),
+        ctx.remaining_accounts,
     )?;
 
     // Close the account and return rent to payer

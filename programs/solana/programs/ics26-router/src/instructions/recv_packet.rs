@@ -77,8 +77,6 @@ pub struct RecvPacket<'info> {
 
     pub system_program: Program<'info, System>,
 
-    pub clock: Sysvar<'info, Clock>,
-
     // Client for light client lookup
     #[account(
         seeds = [CLIENT_SEED, msg.packet.dest_client.as_bytes()],
@@ -98,13 +96,17 @@ pub struct RecvPacket<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
-pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
+pub fn recv_packet<'info>(
+    ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>,
+    msg: MsgRecvPacket,
+) -> Result<()> {
     // TODO: Support multi-payload packets #602
     let router_state = &ctx.accounts.router_state;
     let packet_receipt = &mut ctx.accounts.packet_receipt;
     let packet_ack = &mut ctx.accounts.packet_ack;
     let client = &ctx.accounts.client;
-    let clock = &ctx.accounts.clock;
+    // Get clock directly via syscall
+    let clock = Clock::get()?;
 
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
@@ -179,6 +181,7 @@ pub fn recv_packet(ctx: Context<RecvPacket>, msg: MsgRecvPacket) -> Result<()> {
         &msg.packet,
         &msg.packet.payloads[0],
         &ctx.accounts.relayer.key(),
+        ctx.remaining_accounts,
     ) {
         Ok(ack) => {
             require!(
@@ -226,7 +229,6 @@ mod tests {
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::sysvar::SysvarId;
     use solana_sdk::{clock::Clock, system_program};
 
     #[test]
@@ -264,9 +266,14 @@ mod tests {
 
     #[test]
     fn test_recv_packet_timeout_expired() {
-        let ctx = setup_recv_packet_test(true, -100); // Expired timeout
+        let mut ctx = setup_recv_packet_test(true, -100); // Expired timeout
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+
+        // Add Clock sysvar with current timestamp (1000) - packet timeout is 900 (expired)
+        let clock_data = create_clock_data(1000);
+        ctx.accounts
+            .push(create_clock_account_with_data(clock_data));
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::InvalidTimeoutTimestamp as u32,
@@ -338,7 +345,6 @@ mod tests {
         let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 0);
 
         let current_timestamp = 1000;
-        let clock_data = create_clock_data(current_timestamp);
 
         // Packet uses the source_client_id from params (could be different)
         let packet = create_test_packet(
@@ -391,7 +397,6 @@ mod tests {
                 AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(Clock::id(), false),
                 AccountMeta::new_readonly(client_pda, false),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(client_state, false),
@@ -419,7 +424,6 @@ mod tests {
             signer_account.clone(),                // relayer
             signer_account,                        // payer (same account as relayer)
             create_program_account(system_program::ID),
-            create_clock_account_with_data(clock_data),
             create_account(client_pda, client_data, crate::ID),
             create_bpf_program_account(light_client_program),
             create_account(client_state, vec![0u8; 100], light_client_program),

@@ -77,7 +77,10 @@ pub struct TimeoutPacket<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
-pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Result<()> {
+pub fn timeout_packet<'info>(
+    ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info>>,
+    msg: MsgTimeoutPacket,
+) -> Result<()> {
     // TODO: Support multi-payload packets #602
     let router_state = &ctx.accounts.router_state;
     let packet_commitment_account = &ctx.accounts.packet_commitment;
@@ -156,6 +159,7 @@ pub fn timeout_packet(ctx: Context<TimeoutPacket>, msg: MsgTimeoutPacket) -> Res
         &msg.packet,
         &msg.packet.payloads[0],
         &ctx.accounts.relayer.key(),
+        ctx.remaining_accounts,
     )?;
 
     // Close the account and return rent to payer

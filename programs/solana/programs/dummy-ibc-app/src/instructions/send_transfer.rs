@@ -105,9 +105,6 @@ pub struct SendTransfer<'info> {
 
     pub system_program: Program<'info, System>,
 
-    /// Clock sysvar for timeout validation
-    pub clock: Sysvar<'info, Clock>,
-
     /// PDA that acts as the router caller for CPI calls to the IBC router.
     #[account(
         seeds = [ROUTER_CALLER_SEED],
@@ -118,7 +115,8 @@ pub struct SendTransfer<'info> {
 
 pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result<()> {
     let app_state = &mut ctx.accounts.app_state;
-    let clock = &ctx.accounts.clock;
+    // Get clock directly via syscall
+    let clock = Clock::get()?;
 
     // No need to validate router_caller since it's a PDA derived by Anchor
 
@@ -216,7 +214,6 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
         app_caller: ctx.accounts.router_caller.to_account_info(),
         payer: ctx.accounts.user.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),
-        clock: ctx.accounts.clock.to_account_info(),
         client: ctx.accounts.client.to_account_info(),
     };
 

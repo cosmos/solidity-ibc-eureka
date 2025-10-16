@@ -3,6 +3,8 @@
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 #![allow(missing_docs, unused_crate_dependencies)]
 
+pub mod constants;
+pub mod proto;
 pub mod tx_builder;
 
 use std::collections::HashMap;
@@ -23,6 +25,12 @@ use ibc_eureka_relayer_core::{
     modules::RelayerModule,
 };
 
+/// Transaction builder for Cosmos to Solana relaying
+enum CosmosToSolanaTxBuilder {
+    Real(tx_builder::TxBuilder),
+    Mock(tx_builder::MockTxBuilder),
+}
+
 /// The `CosmosToSolanaRelayerModule` struct defines the Cosmos to Solana relayer module.
 #[derive(Clone, Copy, Debug)]
 pub struct CosmosToSolanaRelayerModule;
@@ -35,7 +43,7 @@ struct CosmosToSolanaRelayerModuleService {
     /// The target chain listener for Solana.
     pub target_listener: solana_eureka::ChainListener,
     /// The transaction builder from Cosmos to Solana.
-    pub tx_builder: tx_builder::TxBuilder,
+    pub tx_builder: CosmosToSolanaTxBuilder,
     /// The Solana ICS07 program ID.
     pub solana_ics07_program_id: Pubkey,
 }
@@ -53,6 +61,12 @@ pub struct CosmosToSolanaConfig {
     pub solana_ics07_program_id: String,
     /// The Solana fee payer address.
     pub solana_fee_payer: String,
+    /// Address Lookup Table address for reducing transaction size (optional).
+    pub solana_alt_address: Option<String>,
+    /// Whether to use mock WASM client on Cosmos for testing.
+    pub mock_wasm_client: bool,
+    /// Whether to use mock Solana light client updates for testing.
+    pub mock_solana_client: bool,
 }
 
 impl CosmosToSolanaRelayerModuleService {
@@ -80,13 +94,32 @@ impl CosmosToSolanaRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid fee payer address: {}", e))?;
 
-        let tx_builder = tx_builder::TxBuilder::new(
-            src_listener.client().clone(),
-            target_listener.client().clone(),
-            solana_ics07_program_id,
-            solana_ics26_program_id,
-            fee_payer,
-        )?;
+        let alt_address = config
+            .solana_alt_address
+            .as_ref()
+            .map(|addr| addr.parse())
+            .transpose()
+            .map_err(|e| anyhow::anyhow!("Invalid ALT address: {}", e))?;
+
+        let tx_builder = if config.mock_solana_client {
+            CosmosToSolanaTxBuilder::Mock(tx_builder::MockTxBuilder::new(
+                src_listener.client().clone(),
+                target_listener.client().clone(),
+                solana_ics07_program_id,
+                solana_ics26_program_id,
+                fee_payer,
+                alt_address,
+            )?)
+        } else {
+            CosmosToSolanaTxBuilder::Real(tx_builder::TxBuilder::new(
+                src_listener.client().clone(),
+                target_listener.client().clone(),
+                solana_ics07_program_id,
+                solana_ics26_program_id,
+                fee_payer,
+                alt_address,
+            )?)
+        };
 
         Ok(Self {
             src_listener,
@@ -212,18 +245,34 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
         tracing::info!("Handling update client request for Cosmos to Solana...");
 
-        let header_update = self
+        let update_response = self
             .tx_builder
             .update_client(request.into_inner().dst_client_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        let mut txs = Vec::new();
-        txs.push(header_update.metadata_tx);
-        for tx in header_update.chunk_txs {
-            txs.push(tx);
-        }
-        txs.push(header_update.assembly_tx);
+        let txs = match update_response {
+            tx_builder::UpdateClientResponse::Chunked(chunked) => {
+                tracing::info!(
+                    "Using chunked update client with {} chunks",
+                    chunked.total_chunks
+                );
+                let mut txs = Vec::new();
+                txs.push(chunked.metadata_tx);
+                for tx in chunked.chunk_txs {
+                    txs.push(tx);
+                }
+                txs.push(chunked.assembly_tx);
+                txs
+            }
+            tx_builder::UpdateClientResponse::Single { tx, target_height } => {
+                tracing::info!(
+                    "Using single update client transaction (mock) to height {}",
+                    target_height
+                );
+                vec![tx]
+            }
+        };
 
         Ok(Response::new(api::UpdateClientResponse {
             tx: vec![],
@@ -246,5 +295,59 @@ impl RelayerModule for CosmosToSolanaRelayerModule {
         let config: CosmosToSolanaConfig = serde_json::from_value(config)?;
         let service = CosmosToSolanaRelayerModuleService::new(&config)?;
         Ok(Box::new(service))
+    }
+}
+
+impl CosmosToSolanaTxBuilder {
+    async fn relay_events(
+        &self,
+        src_events: Vec<ibc_eureka_relayer_lib::events::EurekaEventWithHeight>,
+        target_events: Vec<ibc_eureka_relayer_lib::events::SolanaEurekaEventWithHeight>,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
+    ) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Real(tb) => {
+                tb.relay_events(
+                    src_events,
+                    target_events,
+                    src_client_id,
+                    dst_client_id,
+                    src_packet_seqs,
+                    dst_packet_seqs,
+                )
+                .await
+            }
+            Self::Mock(tb) => {
+                tb.relay_events(
+                    src_events,
+                    target_events,
+                    src_client_id,
+                    dst_client_id,
+                    src_packet_seqs,
+                    dst_packet_seqs,
+                )
+                .await
+            }
+        }
+    }
+
+    async fn create_client(&self) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Real(tb) => tb.create_client().await,
+            Self::Mock(tb) => tb.create_client().await,
+        }
+    }
+
+    async fn update_client(
+        &self,
+        client_id: String,
+    ) -> anyhow::Result<tx_builder::UpdateClientResponse> {
+        match self {
+            Self::Real(tb) => tb.update_client(client_id).await,
+            Self::Mock(tb) => tb.update_client(client_id).await,
+        }
     }
 }

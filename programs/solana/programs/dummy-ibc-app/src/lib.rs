@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use solana_ibc_macros::ibc_app;
 use solana_ibc_types::{OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg};
 
 declare_id!("5E73beFMq9QZvbwPN5i84psh2WcyJ9PgqF4avBaRDgCC");
@@ -26,7 +27,7 @@ pub use state::{PACKETS_ACKNOWLEDGED_OFFSET, PACKETS_RECEIVED_OFFSET, PACKETS_TI
 /// - `on_acknowledgement_packet`: Handles packet acknowledgements
 /// - `on_timeout_packet`: Handles packet timeouts
 ///
-#[program]
+#[ibc_app]
 pub mod dummy_ibc_app {
     use super::*;
 

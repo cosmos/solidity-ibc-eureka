@@ -230,7 +230,6 @@ func NewSendPacketInstruction(
 	clientAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
-	clockAccount solanago.PublicKey,
 	routerCallerAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -273,10 +272,7 @@ func NewSendPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
 		// Account 8 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 9 "clock": Read-only, Non-signer, Required, Address: SysvarC1ock11111111111111111111111111111111
-		// Clock sysvar for timeout validation
-		accounts__.Append(solanago.NewAccountMeta(clockAccount, false, false))
-		// Account 10 "router_caller": Read-only, Non-signer, Required
+		// Account 9 "router_caller": Read-only, Non-signer, Required
 		// PDA that acts as the router caller for CPI calls to the IBC router.
 		accounts__.Append(solanago.NewAccountMeta(routerCallerAccount, false, false))
 	}
@@ -307,7 +303,6 @@ func NewSendTransferInstruction(
 	clientAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
-	clockAccount solanago.PublicKey,
 	routerCallerAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -356,10 +351,7 @@ func NewSendTransferInstruction(
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
 		// Account 10 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 11 "clock": Read-only, Non-signer, Required, Address: SysvarC1ock11111111111111111111111111111111
-		// Clock sysvar for timeout validation
-		accounts__.Append(solanago.NewAccountMeta(clockAccount, false, false))
-		// Account 12 "router_caller": Read-only, Non-signer, Required
+		// Account 11 "router_caller": Read-only, Non-signer, Required
 		// PDA that acts as the router caller for CPI calls to the IBC router.
 		accounts__.Append(solanago.NewAccountMeta(routerCallerAccount, false, false))
 	}

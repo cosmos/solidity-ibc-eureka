@@ -109,7 +109,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.2.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v27.5.1+incompatible // indirect
+	github.com/docker/docker v28.0.0+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
@@ -323,5 +323,11 @@ replace github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anc
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 replace github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
+
+// GMP Support: Using remote ibc-go PR that includes the 27-gmp module for General Message Passing
+// Reference: https://github.com/cosmos/ibc-go/pull/8660
+replace github.com/cosmos/ibc-go/v10 => github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20251009124337-8b13a7f221a3
+
+replace github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 => github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.0.0-20251009124337-8b13a7f221a3
 
 // this line is used by go-codegen # suite/module
