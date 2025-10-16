@@ -116,7 +116,7 @@ func GetEvmEvent[T any](receipt *ethtypes.Receipt, parseFn func(log ethtypes.Log
 		err = fmt.Errorf("event not found")
 	}
 
-	return
+	return event, err
 }
 
 func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey, chain ethereum.Ethereum) *bind.TransactOpts {
