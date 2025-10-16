@@ -1008,14 +1008,8 @@ fn test_assemble_with_invalid_header_after_assembly() {
         keyed_account_for_system_program(),
     ];
 
-    accounts.push((
-        chunk_pdas[0],
-        create_chunk_account(chunk1),
-    ));
-    accounts.push((
-        chunk_pdas[1],
-        create_chunk_account(chunk2),
-    ));
+    accounts.push((chunk_pdas[0], create_chunk_account(chunk1)));
+    accounts.push((chunk_pdas[1], create_chunk_account(chunk2)));
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
@@ -1097,10 +1091,7 @@ fn test_assemble_updates_latest_height() {
     ];
 
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
-        accounts.push((
-            *chunk_pda,
-            create_chunk_account(chunks[i].clone()),
-        ));
+        accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
     }
 
     // Add Clock sysvar

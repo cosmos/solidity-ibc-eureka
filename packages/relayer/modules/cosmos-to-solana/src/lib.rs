@@ -77,10 +77,8 @@ impl CosmosToSolanaRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana IBC app program ID: {}", e))?;
 
-        let target_listener = solana::ChainListener::new(
-            config.target_rpc_url.clone(),
-            solana_ics26_program_id,
-        );
+        let target_listener =
+            solana::ChainListener::new(config.target_rpc_url.clone(), solana_ics26_program_id);
 
         let fee_payer = config
             .solana_fee_payer
