@@ -17,8 +17,11 @@ The core IBC contracts utilize the UUPS proxy pattern, ensuring controlled and e
 
 ## Solana Programs
 
-Solana programs are deployed using the BPF Loader Upgradeable, which allows the program's executable code to be upgraded while preserving existing program-derived addresses (PDAs) and account data.
+Solana programs are deployed using the [BPF Loader Upgradeable](https://solana.com/docs/core/programs#loader-programs), which allows the program's executable code to be upgraded while preserving existing program-derived addresses (PDAs) and account data.
 
+### Upgrade Authority
+
+The upgrade authority is set when deploying a program with the BPF Loader Upgradeable and controls who can upgrade the program. The default authority is the account which [initially deployed](https://solana.com/docs/core/programs#updating-solana-programs) the program. The authority [can always be transferred](https://solana.com/docs/programs/deploying#transfer-program-authority) to some other account.
 
 ### Account State Versioning
 
