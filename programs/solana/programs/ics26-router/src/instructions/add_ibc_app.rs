@@ -1,5 +1,5 @@
 use crate::errors::RouterError;
-use crate::state::{IBCApp, RouterState, IBC_APP_SEED, ROUTER_STATE_SEED};
+use crate::state::{AccountVersion, IBCApp, RouterState, IBC_APP_SEED, ROUTER_STATE_SEED};
 use anchor_lang::prelude::*;
 use solana_ibc_types::events::IBCAppAdded;
 
@@ -44,9 +44,11 @@ pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
 
     require!(!port_id.is_empty(), RouterError::InvalidPortIdentifier);
 
+    ibc_app.version = AccountVersion::V1;
     ibc_app.port_id = port_id;
     ibc_app.app_program_id = ctx.accounts.app_program.key();
     ibc_app.authority = ctx.accounts.authority.key();
+    ibc_app._reserved = [0u8; 256];
 
     emit!(IBCAppAdded {
         port_id: ibc_app.port_id.clone(),

@@ -1,4 +1,4 @@
-use crate::state::{RouterState, ROUTER_STATE_SEED};
+use crate::state::{AccountVersion, RouterState, ROUTER_STATE_SEED};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -20,7 +20,9 @@ pub struct Initialize<'info> {
 
 pub fn initialize(ctx: Context<Initialize>, authority: Pubkey) -> Result<()> {
     let router_state = &mut ctx.accounts.router_state;
+    router_state.version = AccountVersion::V1;
     router_state.authority = authority;
+    router_state._reserved = [0u8; 256];
     Ok(())
 }
 
