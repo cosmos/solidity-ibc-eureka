@@ -18,19 +18,31 @@ pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
 pub const MAX_CLIENT_ID_LENGTH: usize = 64;
 
+/// Account schema version
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace)]
+pub enum AccountVersion {
+    V1,
+}
+
 /// Router state account
 /// TODO: Implement multi-router ACL
 #[account]
 #[derive(InitSpace)]
 pub struct RouterState {
+    /// Schema version for upgrades
+    pub version: AccountVersion,
     /// Authority that can perform restricted operations
     pub authority: Pubkey,
+    /// Reserved space for future fields
+    pub _reserved: [u8; 256],
 }
 
 /// `IBCApp` mapping port IDs to IBC app program IDs
 #[account]
 #[derive(InitSpace)]
 pub struct IBCApp {
+    /// Schema version for upgrades
+    pub version: AccountVersion,
     /// The port identifier
     #[max_len(MAX_PORT_ID_LENGTH)]
     pub port_id: String,
@@ -38,6 +50,8 @@ pub struct IBCApp {
     pub app_program_id: Pubkey,
     /// Authority that registered this port
     pub authority: Pubkey,
+    /// Reserved space for future fields
+    pub _reserved: [u8; 256],
 }
 
 /// Counterparty chain information
@@ -55,6 +69,8 @@ pub struct CounterpartyInfo {
 #[account]
 #[derive(InitSpace)]
 pub struct Client {
+    /// Schema version for upgrades
+    pub version: AccountVersion,
     /// The client identifier
     #[max_len(MAX_CLIENT_ID_LENGTH)]
     pub client_id: String,
@@ -66,20 +82,28 @@ pub struct Client {
     pub authority: Pubkey,
     /// Whether the client is active
     pub active: bool,
+    /// Reserved space for future fields
+    pub _reserved: [u8; 256],
 }
 
 /// Client sequence tracking
 #[account]
 #[derive(InitSpace)]
 pub struct ClientSequence {
+    /// Schema version for upgrades
+    pub version: AccountVersion,
     /// Next sequence number for sending packets
     pub next_sequence_send: u64,
+    /// Reserved space for future fields
+    pub _reserved: [u8; 256],
 }
 
 impl Default for ClientSequence {
     fn default() -> Self {
         Self {
             next_sequence_send: 1, // IBC sequences start from 1
+            version: AccountVersion::V1,
+            _reserved: [0; 256],
         }
     }
 }

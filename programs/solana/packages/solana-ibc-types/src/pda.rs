@@ -136,7 +136,7 @@ pub fn derive_proof_chunk(
 
 /// Build instruction discriminator for Anchor
 pub fn get_instruction_discriminator(instruction_name: &str) -> [u8; 8] {
-    let preimage = format!("global:{}", instruction_name);
+    let preimage = format!("global:{instruction_name}");
     let mut hash = [0u8; 8];
     hash.copy_from_slice(
         &anchor_lang::solana_program::hash::hash(preimage.as_bytes()).to_bytes()[..8],

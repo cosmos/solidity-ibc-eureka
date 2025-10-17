@@ -72,4 +72,6 @@ pub enum RouterError {
     InvalidChunkCommitment,
     #[msg("Invalid payload count")]
     InvalidPayloadCount,
+    #[msg("Unsupported account version")]
+    UnsupportedVersion,
 }
