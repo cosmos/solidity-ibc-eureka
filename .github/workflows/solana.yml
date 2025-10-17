@@ -28,7 +28,7 @@ jobs:
           submodules: recursive
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@nightly-2024-11-15
+        uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt, clippy
 

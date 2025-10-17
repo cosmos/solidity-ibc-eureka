@@ -107,6 +107,7 @@ pub enum PacketChunkedTxs {
 
 impl PacketChunkedTxs {
     /// Get the chunk transactions for this packet
+    #[must_use]
     pub fn chunks(&self) -> &[Vec<u8>] {
         match self {
             Self::Recv(r) => &r.chunk_txs,
@@ -116,6 +117,7 @@ impl PacketChunkedTxs {
     }
 
     /// Get the final transaction for this packet
+    #[must_use]
     pub fn final_tx(&self) -> &[u8] {
         match self {
             Self::Recv(r) => &r.recv_tx,
