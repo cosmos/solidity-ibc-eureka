@@ -250,6 +250,7 @@ pub fn ack_packet<'info>(
         payload,
         &msg.acknowledgement,
         &ctx.accounts.relayer.key(),
+        ctx.remaining_accounts,
     )?;
     msg!("IBC app callback completed");
 

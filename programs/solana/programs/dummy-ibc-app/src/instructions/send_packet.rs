@@ -84,9 +84,6 @@ pub struct SendPacket<'info> {
 
     pub system_program: Program<'info, System>,
 
-    /// Clock sysvar for timeout validation
-    pub clock: Sysvar<'info, Clock>,
-
     /// PDA that acts as the router caller for CPI calls to the IBC router.
     #[account(
         seeds = [ROUTER_CALLER_SEED],
@@ -97,7 +94,8 @@ pub struct SendPacket<'info> {
 
 pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
     let app_state = &mut ctx.accounts.app_state;
-    let clock = &ctx.accounts.clock;
+    // Get clock directly via syscall
+    let clock = Clock::get()?;
 
     // Validate timeout
     if msg.timeout_timestamp <= clock.unix_timestamp {
@@ -127,7 +125,6 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
         app_caller: ctx.accounts.router_caller.to_account_info(),
         payer: ctx.accounts.user.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),
-        clock: ctx.accounts.clock.to_account_info(),
         client: ctx.accounts.client.to_account_info(),
     };
 

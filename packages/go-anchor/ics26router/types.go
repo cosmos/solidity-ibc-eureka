@@ -11,88 +11,6 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-type AckPacketEvent struct {
-	ClientId        string `json:"clientId"`
-	Sequence        uint64 `json:"sequence"`
-	PacketData      []byte `json:"packetData"`
-	Acknowledgement []byte `json:"acknowledgement"`
-}
-
-func (obj AckPacketEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Serialize `PacketData`:
-	err = encoder.Encode(obj.PacketData)
-	if err != nil {
-		return errors.NewField("PacketData", err)
-	}
-	// Serialize `Acknowledgement`:
-	err = encoder.Encode(obj.Acknowledgement)
-	if err != nil {
-		return errors.NewField("Acknowledgement", err)
-	}
-	return nil
-}
-
-func (obj AckPacketEvent) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding AckPacketEvent: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *AckPacketEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Deserialize `PacketData`:
-	err = decoder.Decode(&obj.PacketData)
-	if err != nil {
-		return errors.NewField("PacketData", err)
-	}
-	// Deserialize `Acknowledgement`:
-	err = decoder.Decode(&obj.Acknowledgement)
-	if err != nil {
-		return errors.NewField("Acknowledgement", err)
-	}
-	return nil
-}
-
-func (obj *AckPacketEvent) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling AckPacketEvent: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalAckPacketEvent(buf []byte) (*AckPacketEvent, error) {
-	obj := new(AckPacketEvent)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
 // Client mapping client IDs to light client program IDs
 type Client struct {
 	// The client identifier
@@ -196,77 +114,6 @@ func UnmarshalClient(buf []byte) (*Client, error) {
 	return obj, nil
 }
 
-type ClientAddedEvent struct {
-	ClientId        string             `json:"clientId"`
-	ClientProgramId solanago.PublicKey `json:"clientProgramId"`
-	Authority       solanago.PublicKey `json:"authority"`
-}
-
-func (obj ClientAddedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `ClientProgramId`:
-	err = encoder.Encode(obj.ClientProgramId)
-	if err != nil {
-		return errors.NewField("ClientProgramId", err)
-	}
-	// Serialize `Authority`:
-	err = encoder.Encode(obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	return nil
-}
-
-func (obj ClientAddedEvent) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding ClientAddedEvent: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *ClientAddedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `ClientProgramId`:
-	err = decoder.Decode(&obj.ClientProgramId)
-	if err != nil {
-		return errors.NewField("ClientProgramId", err)
-	}
-	// Deserialize `Authority`:
-	err = decoder.Decode(&obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	return nil
-}
-
-func (obj *ClientAddedEvent) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling ClientAddedEvent: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalClientAddedEvent(buf []byte) (*ClientAddedEvent, error) {
-	obj := new(ClientAddedEvent)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
 // Client sequence tracking
 type ClientSequence struct {
 	// Next sequence number for sending packets
@@ -311,66 +158,6 @@ func (obj *ClientSequence) Unmarshal(buf []byte) error {
 
 func UnmarshalClientSequence(buf []byte) (*ClientSequence, error) {
 	obj := new(ClientSequence)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type ClientStatusUpdatedEvent struct {
-	ClientId string `json:"clientId"`
-	Active   bool   `json:"active"`
-}
-
-func (obj ClientStatusUpdatedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `Active`:
-	err = encoder.Encode(obj.Active)
-	if err != nil {
-		return errors.NewField("Active", err)
-	}
-	return nil
-}
-
-func (obj ClientStatusUpdatedEvent) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding ClientStatusUpdatedEvent: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *ClientStatusUpdatedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `Active`:
-	err = decoder.Decode(&obj.Active)
-	if err != nil {
-		return errors.NewField("Active", err)
-	}
-	return nil
-}
-
-func (obj *ClientStatusUpdatedEvent) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling ClientStatusUpdatedEvent: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalClientStatusUpdatedEvent(buf []byte) (*ClientStatusUpdatedEvent, error) {
-	obj := new(ClientStatusUpdatedEvent)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -570,72 +357,12 @@ func UnmarshalIbcApp(buf []byte) (*IbcApp, error) {
 	return obj, nil
 }
 
-type IbcAppAdded struct {
-	PortId       string             `json:"portId"`
-	AppProgramId solanago.PublicKey `json:"appProgramId"`
-}
-
-func (obj IbcAppAdded) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `PortId`:
-	err = encoder.Encode(obj.PortId)
-	if err != nil {
-		return errors.NewField("PortId", err)
-	}
-	// Serialize `AppProgramId`:
-	err = encoder.Encode(obj.AppProgramId)
-	if err != nil {
-		return errors.NewField("AppProgramId", err)
-	}
-	return nil
-}
-
-func (obj IbcAppAdded) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding IbcAppAdded: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *IbcAppAdded) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `PortId`:
-	err = decoder.Decode(&obj.PortId)
-	if err != nil {
-		return errors.NewField("PortId", err)
-	}
-	// Deserialize `AppProgramId`:
-	err = decoder.Decode(&obj.AppProgramId)
-	if err != nil {
-		return errors.NewField("AppProgramId", err)
-	}
-	return nil
-}
-
-func (obj *IbcAppAdded) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling IbcAppAdded: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalIbcAppAdded(buf []byte) (*IbcAppAdded, error) {
-	obj := new(IbcAppAdded)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
 // Message for acknowledging a packet
 type MsgAckPacket struct {
-	Packet          Packet `json:"packet"`
-	Acknowledgement []byte `json:"acknowledgement"`
-	ProofAcked      []byte `json:"proofAcked"`
-	ProofHeight     uint64 `json:"proofHeight"`
+	Packet          Packet            `json:"packet"`
+	Payloads        []PayloadMetadata `json:"payloads"`
+	Acknowledgement []byte            `json:"acknowledgement"`
+	Proof           ProofMetadata     `json:"proof"`
 }
 
 func (obj MsgAckPacket) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -644,20 +371,20 @@ func (obj MsgAckPacket) MarshalWithEncoder(encoder *binary.Encoder) (err error) 
 	if err != nil {
 		return errors.NewField("Packet", err)
 	}
+	// Serialize `Payloads`:
+	err = encoder.Encode(obj.Payloads)
+	if err != nil {
+		return errors.NewField("Payloads", err)
+	}
 	// Serialize `Acknowledgement`:
 	err = encoder.Encode(obj.Acknowledgement)
 	if err != nil {
 		return errors.NewField("Acknowledgement", err)
 	}
-	// Serialize `ProofAcked`:
-	err = encoder.Encode(obj.ProofAcked)
+	// Serialize `Proof`:
+	err = encoder.Encode(obj.Proof)
 	if err != nil {
-		return errors.NewField("ProofAcked", err)
-	}
-	// Serialize `ProofHeight`:
-	err = encoder.Encode(obj.ProofHeight)
-	if err != nil {
-		return errors.NewField("ProofHeight", err)
+		return errors.NewField("Proof", err)
 	}
 	return nil
 }
@@ -678,20 +405,20 @@ func (obj *MsgAckPacket) UnmarshalWithDecoder(decoder *binary.Decoder) (err erro
 	if err != nil {
 		return errors.NewField("Packet", err)
 	}
+	// Deserialize `Payloads`:
+	err = decoder.Decode(&obj.Payloads)
+	if err != nil {
+		return errors.NewField("Payloads", err)
+	}
 	// Deserialize `Acknowledgement`:
 	err = decoder.Decode(&obj.Acknowledgement)
 	if err != nil {
 		return errors.NewField("Acknowledgement", err)
 	}
-	// Deserialize `ProofAcked`:
-	err = decoder.Decode(&obj.ProofAcked)
+	// Deserialize `Proof`:
+	err = decoder.Decode(&obj.Proof)
 	if err != nil {
-		return errors.NewField("ProofAcked", err)
-	}
-	// Deserialize `ProofHeight`:
-	err = decoder.Decode(&obj.ProofHeight)
-	if err != nil {
-		return errors.NewField("ProofHeight", err)
+		return errors.NewField("Proof", err)
 	}
 	return nil
 }
@@ -713,11 +440,94 @@ func UnmarshalMsgAckPacket(buf []byte) (*MsgAckPacket, error) {
 	return obj, nil
 }
 
+// Message for cleanup
+type MsgCleanupChunks struct {
+	ClientId         string `json:"clientId"`
+	Sequence         uint64 `json:"sequence"`
+	PayloadChunks    []byte `json:"payloadChunks"`
+	TotalProofChunks uint8  `json:"totalProofChunks"`
+}
+
+func (obj MsgCleanupChunks) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Serialize `PayloadChunks`:
+	err = encoder.Encode(obj.PayloadChunks)
+	if err != nil {
+		return errors.NewField("PayloadChunks", err)
+	}
+	// Serialize `TotalProofChunks`:
+	err = encoder.Encode(obj.TotalProofChunks)
+	if err != nil {
+		return errors.NewField("TotalProofChunks", err)
+	}
+	return nil
+}
+
+func (obj MsgCleanupChunks) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding MsgCleanupChunks: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *MsgCleanupChunks) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Deserialize `PayloadChunks`:
+	err = decoder.Decode(&obj.PayloadChunks)
+	if err != nil {
+		return errors.NewField("PayloadChunks", err)
+	}
+	// Deserialize `TotalProofChunks`:
+	err = decoder.Decode(&obj.TotalProofChunks)
+	if err != nil {
+		return errors.NewField("TotalProofChunks", err)
+	}
+	return nil
+}
+
+func (obj *MsgCleanupChunks) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling MsgCleanupChunks: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalMsgCleanupChunks(buf []byte) (*MsgCleanupChunks, error) {
+	obj := new(MsgCleanupChunks)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Message for receiving a packet
 type MsgRecvPacket struct {
-	Packet          Packet `json:"packet"`
-	ProofCommitment []byte `json:"proofCommitment"`
-	ProofHeight     uint64 `json:"proofHeight"`
+	Packet   Packet            `json:"packet"`
+	Payloads []PayloadMetadata `json:"payloads"`
+	Proof    ProofMetadata     `json:"proof"`
 }
 
 func (obj MsgRecvPacket) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -726,15 +536,15 @@ func (obj MsgRecvPacket) MarshalWithEncoder(encoder *binary.Encoder) (err error)
 	if err != nil {
 		return errors.NewField("Packet", err)
 	}
-	// Serialize `ProofCommitment`:
-	err = encoder.Encode(obj.ProofCommitment)
+	// Serialize `Payloads`:
+	err = encoder.Encode(obj.Payloads)
 	if err != nil {
-		return errors.NewField("ProofCommitment", err)
+		return errors.NewField("Payloads", err)
 	}
-	// Serialize `ProofHeight`:
-	err = encoder.Encode(obj.ProofHeight)
+	// Serialize `Proof`:
+	err = encoder.Encode(obj.Proof)
 	if err != nil {
-		return errors.NewField("ProofHeight", err)
+		return errors.NewField("Proof", err)
 	}
 	return nil
 }
@@ -755,15 +565,15 @@ func (obj *MsgRecvPacket) UnmarshalWithDecoder(decoder *binary.Decoder) (err err
 	if err != nil {
 		return errors.NewField("Packet", err)
 	}
-	// Deserialize `ProofCommitment`:
-	err = decoder.Decode(&obj.ProofCommitment)
+	// Deserialize `Payloads`:
+	err = decoder.Decode(&obj.Payloads)
 	if err != nil {
-		return errors.NewField("ProofCommitment", err)
+		return errors.NewField("Payloads", err)
 	}
-	// Deserialize `ProofHeight`:
-	err = decoder.Decode(&obj.ProofHeight)
+	// Deserialize `Proof`:
+	err = decoder.Decode(&obj.Proof)
 	if err != nil {
-		return errors.NewField("ProofHeight", err)
+		return errors.NewField("Proof", err)
 	}
 	return nil
 }
@@ -859,9 +669,9 @@ func UnmarshalMsgSendPacket(buf []byte) (*MsgSendPacket, error) {
 
 // Message for timing out a packet
 type MsgTimeoutPacket struct {
-	Packet       Packet `json:"packet"`
-	ProofTimeout []byte `json:"proofTimeout"`
-	ProofHeight  uint64 `json:"proofHeight"`
+	Packet   Packet            `json:"packet"`
+	Payloads []PayloadMetadata `json:"payloads"`
+	Proof    ProofMetadata     `json:"proof"`
 }
 
 func (obj MsgTimeoutPacket) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -870,15 +680,15 @@ func (obj MsgTimeoutPacket) MarshalWithEncoder(encoder *binary.Encoder) (err err
 	if err != nil {
 		return errors.NewField("Packet", err)
 	}
-	// Serialize `ProofTimeout`:
-	err = encoder.Encode(obj.ProofTimeout)
+	// Serialize `Payloads`:
+	err = encoder.Encode(obj.Payloads)
 	if err != nil {
-		return errors.NewField("ProofTimeout", err)
+		return errors.NewField("Payloads", err)
 	}
-	// Serialize `ProofHeight`:
-	err = encoder.Encode(obj.ProofHeight)
+	// Serialize `Proof`:
+	err = encoder.Encode(obj.Proof)
 	if err != nil {
-		return errors.NewField("ProofHeight", err)
+		return errors.NewField("Proof", err)
 	}
 	return nil
 }
@@ -899,15 +709,15 @@ func (obj *MsgTimeoutPacket) UnmarshalWithDecoder(decoder *binary.Decoder) (err 
 	if err != nil {
 		return errors.NewField("Packet", err)
 	}
-	// Deserialize `ProofTimeout`:
-	err = decoder.Decode(&obj.ProofTimeout)
+	// Deserialize `Payloads`:
+	err = decoder.Decode(&obj.Payloads)
 	if err != nil {
-		return errors.NewField("ProofTimeout", err)
+		return errors.NewField("Payloads", err)
 	}
-	// Deserialize `ProofHeight`:
-	err = decoder.Decode(&obj.ProofHeight)
+	// Deserialize `Proof`:
+	err = decoder.Decode(&obj.Proof)
 	if err != nil {
-		return errors.NewField("ProofHeight", err)
+		return errors.NewField("Proof", err)
 	}
 	return nil
 }
@@ -929,36 +739,93 @@ func UnmarshalMsgTimeoutPacket(buf []byte) (*MsgTimeoutPacket, error) {
 	return obj, nil
 }
 
-type NoopEvent struct{}
+// Message for uploading chunks
+type MsgUploadChunk struct {
+	ClientId     string `json:"clientId"`
+	Sequence     uint64 `json:"sequence"`
+	PayloadIndex uint8  `json:"payloadIndex"`
+	ChunkIndex   uint8  `json:"chunkIndex"`
+	ChunkData    []byte `json:"chunkData"`
+}
 
-func (obj NoopEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj MsgUploadChunk) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Serialize `PayloadIndex`:
+	err = encoder.Encode(obj.PayloadIndex)
+	if err != nil {
+		return errors.NewField("PayloadIndex", err)
+	}
+	// Serialize `ChunkIndex`:
+	err = encoder.Encode(obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Serialize `ChunkData`:
+	err = encoder.Encode(obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
 	return nil
 }
 
-func (obj NoopEvent) Marshal() ([]byte, error) {
+func (obj MsgUploadChunk) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding NoopEvent: %w", err)
+		return nil, fmt.Errorf("error while encoding MsgUploadChunk: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *NoopEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	return nil
-}
-
-func (obj *NoopEvent) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+func (obj *MsgUploadChunk) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling NoopEvent: %w", err)
+		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Deserialize `PayloadIndex`:
+	err = decoder.Decode(&obj.PayloadIndex)
+	if err != nil {
+		return errors.NewField("PayloadIndex", err)
+	}
+	// Deserialize `ChunkIndex`:
+	err = decoder.Decode(&obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Deserialize `ChunkData`:
+	err = decoder.Decode(&obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
 	}
 	return nil
 }
 
-func UnmarshalNoopEvent(buf []byte) (*NoopEvent, error) {
-	obj := new(NoopEvent)
+func (obj *MsgUploadChunk) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling MsgUploadChunk: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalMsgUploadChunk(buf []byte) (*MsgUploadChunk, error) {
+	obj := new(MsgUploadChunk)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -1154,6 +1021,354 @@ func UnmarshalPayload(buf []byte) (*Payload, error) {
 	return obj, nil
 }
 
+// Storage for payload chunks during multi-transaction upload
+type PayloadChunk struct {
+	// Client ID this chunk belongs to
+	ClientId string `json:"clientId"`
+
+	// Packet sequence number
+	Sequence uint64 `json:"sequence"`
+
+	// Index of the payload this chunk belongs to (for multi-payload packets)
+	PayloadIndex uint8 `json:"payloadIndex"`
+
+	// Index of this chunk (0-based)
+	ChunkIndex uint8 `json:"chunkIndex"`
+
+	// The chunk data
+	ChunkData []byte `json:"chunkData"`
+}
+
+func (obj PayloadChunk) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Serialize `PayloadIndex`:
+	err = encoder.Encode(obj.PayloadIndex)
+	if err != nil {
+		return errors.NewField("PayloadIndex", err)
+	}
+	// Serialize `ChunkIndex`:
+	err = encoder.Encode(obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Serialize `ChunkData`:
+	err = encoder.Encode(obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj PayloadChunk) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding PayloadChunk: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *PayloadChunk) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Deserialize `PayloadIndex`:
+	err = decoder.Decode(&obj.PayloadIndex)
+	if err != nil {
+		return errors.NewField("PayloadIndex", err)
+	}
+	// Deserialize `ChunkIndex`:
+	err = decoder.Decode(&obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Deserialize `ChunkData`:
+	err = decoder.Decode(&obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj *PayloadChunk) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling PayloadChunk: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalPayloadChunk(buf []byte) (*PayloadChunk, error) {
+	obj := new(PayloadChunk)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Payload metadata for chunked operations
+type PayloadMetadata struct {
+	SourcePort  string `json:"sourcePort"`
+	DestPort    string `json:"destPort"`
+	Version     string `json:"version"`
+	Encoding    string `json:"encoding"`
+	TotalChunks uint8  `json:"totalChunks"`
+}
+
+func (obj PayloadMetadata) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `SourcePort`:
+	err = encoder.Encode(obj.SourcePort)
+	if err != nil {
+		return errors.NewField("SourcePort", err)
+	}
+	// Serialize `DestPort`:
+	err = encoder.Encode(obj.DestPort)
+	if err != nil {
+		return errors.NewField("DestPort", err)
+	}
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Serialize `Encoding`:
+	err = encoder.Encode(obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
+	}
+	// Serialize `TotalChunks`:
+	err = encoder.Encode(obj.TotalChunks)
+	if err != nil {
+		return errors.NewField("TotalChunks", err)
+	}
+	return nil
+}
+
+func (obj PayloadMetadata) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding PayloadMetadata: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *PayloadMetadata) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `SourcePort`:
+	err = decoder.Decode(&obj.SourcePort)
+	if err != nil {
+		return errors.NewField("SourcePort", err)
+	}
+	// Deserialize `DestPort`:
+	err = decoder.Decode(&obj.DestPort)
+	if err != nil {
+		return errors.NewField("DestPort", err)
+	}
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Deserialize `Encoding`:
+	err = decoder.Decode(&obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
+	}
+	// Deserialize `TotalChunks`:
+	err = decoder.Decode(&obj.TotalChunks)
+	if err != nil {
+		return errors.NewField("TotalChunks", err)
+	}
+	return nil
+}
+
+func (obj *PayloadMetadata) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling PayloadMetadata: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalPayloadMetadata(buf []byte) (*PayloadMetadata, error) {
+	obj := new(PayloadMetadata)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Storage for proof chunks during multi-transaction upload
+type ProofChunk struct {
+	// Client ID this chunk belongs to
+	ClientId string `json:"clientId"`
+
+	// Packet sequence number
+	Sequence uint64 `json:"sequence"`
+
+	// Index of this chunk (0-based)
+	ChunkIndex uint8 `json:"chunkIndex"`
+
+	// The chunk data
+	ChunkData []byte `json:"chunkData"`
+}
+
+func (obj ProofChunk) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Serialize `ChunkIndex`:
+	err = encoder.Encode(obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Serialize `ChunkData`:
+	err = encoder.Encode(obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj ProofChunk) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding ProofChunk: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *ProofChunk) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Deserialize `ChunkIndex`:
+	err = decoder.Decode(&obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Deserialize `ChunkData`:
+	err = decoder.Decode(&obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj *ProofChunk) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling ProofChunk: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalProofChunk(buf []byte) (*ProofChunk, error) {
+	obj := new(ProofChunk)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Proof metadata for chunked operations
+type ProofMetadata struct {
+	Height      uint64 `json:"height"`
+	TotalChunks uint8  `json:"totalChunks"`
+}
+
+func (obj ProofMetadata) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Height`:
+	err = encoder.Encode(obj.Height)
+	if err != nil {
+		return errors.NewField("Height", err)
+	}
+	// Serialize `TotalChunks`:
+	err = encoder.Encode(obj.TotalChunks)
+	if err != nil {
+		return errors.NewField("TotalChunks", err)
+	}
+	return nil
+}
+
+func (obj ProofMetadata) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding ProofMetadata: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *ProofMetadata) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Height`:
+	err = decoder.Decode(&obj.Height)
+	if err != nil {
+		return errors.NewField("Height", err)
+	}
+	// Deserialize `TotalChunks`:
+	err = decoder.Decode(&obj.TotalChunks)
+	if err != nil {
+		return errors.NewField("TotalChunks", err)
+	}
+	return nil
+}
+
+func (obj *ProofMetadata) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling ProofMetadata: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalProofMetadata(buf []byte) (*ProofMetadata, error) {
+	obj := new(ProofMetadata)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Router state account
 // TODO: Implement multi-router ACL
 type RouterState struct {
@@ -1199,230 +1414,6 @@ func (obj *RouterState) Unmarshal(buf []byte) error {
 
 func UnmarshalRouterState(buf []byte) (*RouterState, error) {
 	obj := new(RouterState)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type SendPacketEvent struct {
-	ClientId   string `json:"clientId"`
-	Sequence   uint64 `json:"sequence"`
-	PacketData []byte `json:"packetData"`
-}
-
-func (obj SendPacketEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Serialize `PacketData`:
-	err = encoder.Encode(obj.PacketData)
-	if err != nil {
-		return errors.NewField("PacketData", err)
-	}
-	return nil
-}
-
-func (obj SendPacketEvent) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding SendPacketEvent: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *SendPacketEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Deserialize `PacketData`:
-	err = decoder.Decode(&obj.PacketData)
-	if err != nil {
-		return errors.NewField("PacketData", err)
-	}
-	return nil
-}
-
-func (obj *SendPacketEvent) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling SendPacketEvent: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalSendPacketEvent(buf []byte) (*SendPacketEvent, error) {
-	obj := new(SendPacketEvent)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type TimeoutPacketEvent struct {
-	ClientId   string `json:"clientId"`
-	Sequence   uint64 `json:"sequence"`
-	PacketData []byte `json:"packetData"`
-}
-
-func (obj TimeoutPacketEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Serialize `PacketData`:
-	err = encoder.Encode(obj.PacketData)
-	if err != nil {
-		return errors.NewField("PacketData", err)
-	}
-	return nil
-}
-
-func (obj TimeoutPacketEvent) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding TimeoutPacketEvent: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *TimeoutPacketEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Deserialize `PacketData`:
-	err = decoder.Decode(&obj.PacketData)
-	if err != nil {
-		return errors.NewField("PacketData", err)
-	}
-	return nil
-}
-
-func (obj *TimeoutPacketEvent) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling TimeoutPacketEvent: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalTimeoutPacketEvent(buf []byte) (*TimeoutPacketEvent, error) {
-	obj := new(TimeoutPacketEvent)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type WriteAcknowledgementEvent struct {
-	ClientId         string   `json:"clientId"`
-	Sequence         uint64   `json:"sequence"`
-	PacketData       []byte   `json:"packetData"`
-	Acknowledgements [][]byte `json:"acknowledgements"`
-}
-
-func (obj WriteAcknowledgementEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Serialize `PacketData`:
-	err = encoder.Encode(obj.PacketData)
-	if err != nil {
-		return errors.NewField("PacketData", err)
-	}
-	// Serialize `Acknowledgements`:
-	err = encoder.Encode(obj.Acknowledgements)
-	if err != nil {
-		return errors.NewField("Acknowledgements", err)
-	}
-	return nil
-}
-
-func (obj WriteAcknowledgementEvent) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding WriteAcknowledgementEvent: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *WriteAcknowledgementEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Deserialize `PacketData`:
-	err = decoder.Decode(&obj.PacketData)
-	if err != nil {
-		return errors.NewField("PacketData", err)
-	}
-	// Deserialize `Acknowledgements`:
-	err = decoder.Decode(&obj.Acknowledgements)
-	if err != nil {
-		return errors.NewField("Acknowledgements", err)
-	}
-	return nil
-}
-
-func (obj *WriteAcknowledgementEvent) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling WriteAcknowledgementEvent: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalWriteAcknowledgementEvent(buf []byte) (*WriteAcknowledgementEvent, error) {
-	obj := new(WriteAcknowledgementEvent)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

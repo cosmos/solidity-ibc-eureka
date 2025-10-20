@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use solana_ibc_macros::ibc_app;
 use solana_ibc_types::{OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg};
 
 declare_id!("9qnEj3T1NsaGkN3Sj7hgJZiKrVbKVBNmVphJ6PW1PDAB");
@@ -8,7 +9,7 @@ declare_id!("9qnEj3T1NsaGkN3Sj7hgJZiKrVbKVBNmVphJ6PW1PDAB");
 /// This program is a minimal implementation of the IBC app interface
 /// used only for testing the router. It has no state and no logic,
 /// just accepts the calls and returns success.
-#[program]
+#[ibc_app]
 pub mod mock_ibc_app {
     use super::*;
     use anchor_lang::solana_program::program::set_return_data;

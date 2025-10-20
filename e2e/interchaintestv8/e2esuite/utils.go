@@ -90,7 +90,12 @@ func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosC
 
 // CreateAndFundCosmosUser returns a new cosmos user with the given initial balance and funds it with the native chain denom.
 func (s *TestSuite) CreateAndFundCosmosUser(ctx context.Context, chain *cosmos.CosmosChain) ibc.Wallet {
-	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)
+	return s.CreateAndFundCosmosUserWithBalance(ctx, chain, testvalues.InitialBalance)
+}
+
+// CreateAndFundCosmosUserWithBalance returns a new cosmos user with the given balance and funds it with the native chain denom.
+func (s *TestSuite) CreateAndFundCosmosUserWithBalance(ctx context.Context, chain *cosmos.CosmosChain, balance int64) ibc.Wallet {
+	cosmosUserFunds := sdkmath.NewInt(balance)
 	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, chain)
 
 	return cosmosUsers[0]

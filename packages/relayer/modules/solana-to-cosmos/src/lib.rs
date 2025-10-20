@@ -60,9 +60,12 @@ pub struct SolanaToCosmosConfig {
     pub signer_address: String,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: String,
-    /// Whether to run in mock mode.
+    /// Whether to use mock WASM client on Cosmos for testing.
     #[serde(default)]
-    pub mock: bool,
+    pub mock_wasm_client: bool,
+    /// Whether to use mock Solana light client updates for testing.
+    #[serde(default)]
+    pub mock_solana_client: bool,
 }
 
 impl SolanaToCosmosRelayerModuleService {
@@ -78,7 +81,7 @@ impl SolanaToCosmosRelayerModuleService {
         let target_listener =
             cosmos_sdk::ChainListener::new(HttpClient::from_rpc_url(&config.target_rpc_url));
 
-        let tx_builder = if config.mock {
+        let tx_builder = if config.mock_wasm_client {
             SolanaToCosmosTxBuilder::Mock(tx_builder::MockTxBuilder::new(
                 src_listener.client().clone(),
                 target_listener.client().clone(),
