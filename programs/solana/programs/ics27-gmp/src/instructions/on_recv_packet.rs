@@ -529,13 +529,7 @@ mod tests {
 
     #[test]
     fn test_on_recv_packet_app_paused() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let ctx = create_gmp_test_context();
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -544,72 +538,40 @@ mod tests {
         let (account_state_pda, _account_bump) =
             AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
 
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
-            sender: sender.to_string(),
-            receiver: system_program::ID.to_string(),
-            salt,
-            payload: vec![],
-            memo: String::new(),
-        };
-
+        let packet_data =
+            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![]);
         let packet_data_bytes = packet_data.try_to_vec().unwrap();
 
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
-
-        let instruction = SolanaInstructionSDK {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new(payer, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let instruction = create_recv_packet_instruction(
+            ctx.app_state_pda,
+            ctx.router_program,
+            ctx.payer,
+            recv_msg,
+        );
 
         let accounts = vec![
             create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
+                ctx.app_state_pda,
+                ctx.router_program,
+                ctx.authority,
+                ctx.app_state_bump,
                 true, // paused
             ),
-            create_router_program_account(router_program),
-            create_authority_account(payer),
+            create_router_program_account(ctx.router_program),
+            create_authority_account(ctx.payer),
             create_system_program_account(),
             create_uninitialized_account_for_pda(account_state_pda),
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(result.program_result.is_err());
     }
 
     #[test]
     fn test_on_recv_packet_frozen_account() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let ctx = create_gmp_test_context();
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -618,54 +580,28 @@ mod tests {
         let (account_state_pda, account_bump) =
             AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
 
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
-            sender: sender.to_string(),
-            receiver: system_program::ID.to_string(),
-            salt: salt.clone(),
-            payload: vec![],
-            memo: String::new(),
-        };
-
+        let packet_data =
+            create_gmp_packet_data(client_id, sender, system_program::ID, salt.clone(), vec![]);
         let packet_data_bytes = packet_data.try_to_vec().unwrap();
 
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
-
-        let instruction = SolanaInstructionSDK {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new(payer, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let instruction = create_recv_packet_instruction(
+            ctx.app_state_pda,
+            ctx.router_program,
+            ctx.payer,
+            recv_msg,
+        );
 
         let accounts = vec![
             create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
+                ctx.app_state_pda,
+                ctx.router_program,
+                ctx.authority,
+                ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
-            create_authority_account(payer),
+            create_router_program_account(ctx.router_program),
+            create_authority_account(ctx.payer),
             create_system_program_account(),
             create_account_state(
                 account_state_pda,
@@ -677,20 +613,14 @@ mod tests {
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(result.program_result.is_err());
     }
 
     #[test]
     fn test_on_recv_packet_unauthorized_router() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let correct_router = Pubkey::new_unique();
+        let ctx = create_gmp_test_context();
         let wrong_router = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -699,60 +629,30 @@ mod tests {
         let (account_state_pda, _account_bump) =
             AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
 
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
-            sender: sender.to_string(),
-            receiver: system_program::ID.to_string(),
-            salt,
-            payload: vec![],
-            memo: String::new(),
-        };
-
+        let packet_data =
+            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![]);
         let packet_data_bytes = packet_data.try_to_vec().unwrap();
 
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
-
-        let instruction = SolanaInstructionSDK {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(wrong_router, false), // Wrong router!
-                AccountMeta::new(payer, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, wrong_router, ctx.payer, recv_msg);
 
         let accounts = vec![
             create_gmp_app_state_account(
-                app_state_pda,
-                correct_router, // State has correct router
-                authority,
-                app_state_bump,
+                ctx.app_state_pda,
+                ctx.router_program, // State has correct router
+                ctx.authority,
+                ctx.app_state_bump,
                 false, // not paused
             ),
             create_router_program_account(wrong_router),
-            create_authority_account(payer),
+            create_authority_account(ctx.payer),
             create_system_program_account(),
             create_uninitialized_account_for_pda(account_state_pda),
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "OnRecvPacket should fail with unauthorized router"
@@ -845,13 +745,7 @@ mod tests {
 
     #[test]
     fn test_on_recv_packet_wrong_sender() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let ctx = create_gmp_test_context();
 
         let client_id = "cosmoshub-1";
         let original_sender = "cosmos1original";
@@ -863,54 +757,33 @@ mod tests {
             AccountState::derive_address(client_id, original_sender, &salt, &crate::ID).unwrap();
 
         // Packet claims to be from wrong_sender
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
-            sender: wrong_sender.to_string(),
-            receiver: system_program::ID.to_string(),
-            salt: salt.clone(),
-            payload: vec![],
-            memo: String::new(),
-        };
-
+        let packet_data = create_gmp_packet_data(
+            client_id,
+            wrong_sender,
+            system_program::ID,
+            salt.clone(),
+            vec![],
+        );
         let packet_data_bytes = packet_data.try_to_vec().unwrap();
 
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
-
-        let instruction = SolanaInstructionSDK {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new(payer, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let instruction = create_recv_packet_instruction(
+            ctx.app_state_pda,
+            ctx.router_program,
+            ctx.payer,
+            recv_msg,
+        );
 
         let accounts = vec![
             create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
+                ctx.app_state_pda,
+                ctx.router_program,
+                ctx.authority,
+                ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
-            create_authority_account(payer),
+            create_router_program_account(ctx.router_program),
+            create_authority_account(ctx.payer),
             create_system_program_account(),
             create_account_state(
                 account_state_pda,
@@ -922,7 +795,7 @@ mod tests {
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "OnRecvPacket should fail when sender doesn't match account owner"
@@ -931,13 +804,7 @@ mod tests {
 
     #[test]
     fn test_on_recv_packet_wrong_salt() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let ctx = create_gmp_test_context();
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -949,54 +816,28 @@ mod tests {
             AccountState::derive_address(client_id, sender, &original_salt, &crate::ID).unwrap();
 
         // Packet uses wrong_salt
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
-            sender: sender.to_string(),
-            receiver: system_program::ID.to_string(),
-            salt: wrong_salt,
-            payload: vec![],
-            memo: String::new(),
-        };
-
+        let packet_data =
+            create_gmp_packet_data(client_id, sender, system_program::ID, wrong_salt, vec![]);
         let packet_data_bytes = packet_data.try_to_vec().unwrap();
 
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
-
-        let instruction = SolanaInstructionSDK {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new(payer, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let instruction = create_recv_packet_instruction(
+            ctx.app_state_pda,
+            ctx.router_program,
+            ctx.payer,
+            recv_msg,
+        );
 
         let accounts = vec![
             create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
+                ctx.app_state_pda,
+                ctx.router_program,
+                ctx.authority,
+                ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
-            create_authority_account(payer),
+            create_router_program_account(ctx.router_program),
+            create_authority_account(ctx.payer),
             create_system_program_account(),
             create_account_state(
                 account_state_pda,
@@ -1008,7 +849,7 @@ mod tests {
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "OnRecvPacket should fail when salt doesn't match"
@@ -1017,72 +858,39 @@ mod tests {
 
     #[test]
     fn test_on_recv_packet_insufficient_accounts() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let ctx = create_gmp_test_context();
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
         let salt = vec![1u8, 2, 3];
 
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
-            sender: sender.to_string(),
-            receiver: system_program::ID.to_string(),
-            salt,
-            payload: vec![],
-            memo: String::new(),
-        };
-
+        let packet_data =
+            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![]);
         let packet_data_bytes = packet_data.try_to_vec().unwrap();
 
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
-
-        let instruction = SolanaInstructionSDK {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new(payer, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-                // Not providing remaining_accounts (account_state and target_program)!
-            ],
-            data: instruction_data.data(),
-        };
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let instruction = create_recv_packet_instruction(
+            ctx.app_state_pda,
+            ctx.router_program,
+            ctx.payer,
+            recv_msg,
+        );
 
         let accounts = vec![
             create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
+                ctx.app_state_pda,
+                ctx.router_program,
+                ctx.authority,
+                ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
-            create_authority_account(payer),
+            create_router_program_account(ctx.router_program),
+            create_authority_account(ctx.payer),
             create_system_program_account(),
             // Missing remaining accounts!
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "OnRecvPacket should fail with insufficient accounts"
@@ -1091,13 +899,7 @@ mod tests {
 
     #[test]
     fn test_on_recv_packet_invalid_version() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let ctx = create_gmp_test_context();
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -1106,17 +908,11 @@ mod tests {
         let (account_state_pda, _account_bump) =
             AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
 
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
-            sender: sender.to_string(),
-            receiver: system_program::ID.to_string(),
-            salt,
-            payload: vec![1, 2, 3],
-            memo: String::new(),
-        };
-
+        let packet_data =
+            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![1, 2, 3]);
         let packet_data_bytes = packet_data.try_to_vec().unwrap();
 
+        // Create custom recv_msg with invalid version
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
             source_client: client_id.to_string(),
             dest_client: "solana-1".to_string(),
@@ -1131,35 +927,29 @@ mod tests {
             relayer: Pubkey::new_unique(),
         };
 
-        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
-
-        let instruction = SolanaInstructionSDK {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new(payer, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
+        let instruction = create_recv_packet_instruction(
+            ctx.app_state_pda,
+            ctx.router_program,
+            ctx.payer,
+            recv_msg,
+        );
 
         let accounts = vec![
             create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
+                ctx.app_state_pda,
+                ctx.router_program,
+                ctx.authority,
+                ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
-            create_authority_account(payer),
+            create_router_program_account(ctx.router_program),
+            create_authority_account(ctx.payer),
             create_system_program_account(),
             create_uninitialized_account_for_pda(account_state_pda),
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "OnRecvPacket should fail with invalid version"
@@ -1168,13 +958,7 @@ mod tests {
 
     #[test]
     fn test_on_recv_packet_invalid_source_port() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let ctx = create_gmp_test_context();
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -1183,17 +967,11 @@ mod tests {
         let (account_state_pda, _account_bump) =
             AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
 
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
-            sender: sender.to_string(),
-            receiver: system_program::ID.to_string(),
-            salt,
-            payload: vec![1, 2, 3],
-            memo: String::new(),
-        };
-
+        let packet_data =
+            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![1, 2, 3]);
         let packet_data_bytes = packet_data.try_to_vec().unwrap();
 
+        // Create custom recv_msg with invalid source port
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
             source_client: client_id.to_string(),
             dest_client: "solana-1".to_string(),
@@ -1208,35 +986,29 @@ mod tests {
             relayer: Pubkey::new_unique(),
         };
 
-        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
-
-        let instruction = SolanaInstructionSDK {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new(payer, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
+        let instruction = create_recv_packet_instruction(
+            ctx.app_state_pda,
+            ctx.router_program,
+            ctx.payer,
+            recv_msg,
+        );
 
         let accounts = vec![
             create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
+                ctx.app_state_pda,
+                ctx.router_program,
+                ctx.authority,
+                ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
-            create_authority_account(payer),
+            create_router_program_account(ctx.router_program),
+            create_authority_account(ctx.payer),
             create_system_program_account(),
             create_uninitialized_account_for_pda(account_state_pda),
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "OnRecvPacket should fail with invalid source port"
@@ -1245,13 +1017,7 @@ mod tests {
 
     #[test]
     fn test_on_recv_packet_invalid_encoding() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let ctx = create_gmp_test_context();
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -1260,17 +1026,11 @@ mod tests {
         let (account_state_pda, _account_bump) =
             AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
 
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
-            sender: sender.to_string(),
-            receiver: system_program::ID.to_string(),
-            salt,
-            payload: vec![1, 2, 3],
-            memo: String::new(),
-        };
-
+        let packet_data =
+            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![1, 2, 3]);
         let packet_data_bytes = packet_data.try_to_vec().unwrap();
 
+        // Create custom recv_msg with invalid encoding
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
             source_client: client_id.to_string(),
             dest_client: "solana-1".to_string(),
@@ -1285,35 +1045,29 @@ mod tests {
             relayer: Pubkey::new_unique(),
         };
 
-        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
-
-        let instruction = SolanaInstructionSDK {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new(payer, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
+        let instruction = create_recv_packet_instruction(
+            ctx.app_state_pda,
+            ctx.router_program,
+            ctx.payer,
+            recv_msg,
+        );
 
         let accounts = vec![
             create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
+                ctx.app_state_pda,
+                ctx.router_program,
+                ctx.authority,
+                ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
-            create_authority_account(payer),
+            create_router_program_account(ctx.router_program),
+            create_authority_account(ctx.payer),
             create_system_program_account(),
             create_uninitialized_account_for_pda(account_state_pda),
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "OnRecvPacket should fail with invalid encoding"
@@ -1322,13 +1076,7 @@ mod tests {
 
     #[test]
     fn test_on_recv_packet_invalid_dest_port() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let ctx = create_gmp_test_context();
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -1337,17 +1085,11 @@ mod tests {
         let (account_state_pda, _account_bump) =
             AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
 
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
-            sender: sender.to_string(),
-            receiver: system_program::ID.to_string(),
-            salt,
-            payload: vec![1, 2, 3],
-            memo: String::new(),
-        };
-
+        let packet_data =
+            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![1, 2, 3]);
         let packet_data_bytes = packet_data.try_to_vec().unwrap();
 
+        // Create custom recv_msg with invalid dest port
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
             source_client: client_id.to_string(),
             dest_client: "solana-1".to_string(),
@@ -1362,35 +1104,29 @@ mod tests {
             relayer: Pubkey::new_unique(),
         };
 
-        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
-
-        let instruction = SolanaInstructionSDK {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new(payer, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
+        let instruction = create_recv_packet_instruction(
+            ctx.app_state_pda,
+            ctx.router_program,
+            ctx.payer,
+            recv_msg,
+        );
 
         let accounts = vec![
             create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
+                ctx.app_state_pda,
+                ctx.router_program,
+                ctx.authority,
+                ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
-            create_authority_account(payer),
+            create_router_program_account(ctx.router_program),
+            create_authority_account(ctx.payer),
             create_system_program_account(),
             create_uninitialized_account_for_pda(account_state_pda),
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "OnRecvPacket should fail with invalid dest port"
@@ -1399,13 +1135,7 @@ mod tests {
 
     #[test]
     fn test_on_recv_packet_account_key_mismatch() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let ctx = create_gmp_test_context();
 
         let client_id = "cosmoshub-1";
         let sender = "cosmos1test";
@@ -1417,60 +1147,34 @@ mod tests {
         // Use a different account key than expected
         let wrong_account_key = Pubkey::new_unique();
 
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
-            sender: sender.to_string(),
-            receiver: system_program::ID.to_string(),
-            salt,
-            payload: vec![],
-            memo: String::new(),
-        };
-
+        let packet_data =
+            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![]);
         let packet_data_bytes = packet_data.try_to_vec().unwrap();
 
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
-
-        let instruction = SolanaInstructionSDK {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new(payer, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let instruction = create_recv_packet_instruction(
+            ctx.app_state_pda,
+            ctx.router_program,
+            ctx.payer,
+            recv_msg,
+        );
 
         let accounts = vec![
             create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
+                ctx.app_state_pda,
+                ctx.router_program,
+                ctx.authority,
+                ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
-            create_authority_account(payer),
+            create_router_program_account(ctx.router_program),
+            create_authority_account(ctx.payer),
             create_system_program_account(),
             create_uninitialized_account_for_pda(wrong_account_key), // Wrong account key!
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "OnRecvPacket should fail when account key doesn't match expected PDA (expected: {expected_account_state_pda}, got: {wrong_account_key})"
