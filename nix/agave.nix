@@ -15,6 +15,7 @@
 , rust-bin
 , writeShellScriptBin
 , anchor
+, jq
 , solanaPkgs ? [
     "cargo-build-sbf"
     "cargo-test-sbf"
@@ -359,8 +360,19 @@ let
               ')
 
               if [ -n "$idl_json" ] && [ "$(echo "$idl_json" | tr -d '[:space:]')" != "" ]; then
-                echo "$idl_json" > "target/idl/$program_name.json"
-                echo "    ✓ Generated target/idl/$program_name.json"
+                idl_filename=$(echo "$program_name" | tr '-' '_')
+
+                # Get program ID from keypair if it exists
+                keypair_file="target/deploy/''${idl_filename}-keypair.json"
+                if [ -f "$keypair_file" ]; then
+                  program_id=$(${agave}/bin/solana-keygen pubkey "$keypair_file")
+                  # Add the address field to the IDL JSON
+                  idl_json=$(echo "$idl_json" | ${jq}/bin/jq --arg addr "$program_id" '. + {address: $addr}')
+                  echo "    → Added program ID: $program_id"
+                fi
+
+                echo "$idl_json" > "target/idl/''${idl_filename}.json"
+                echo "    ✓ Generated target/idl/''${idl_filename}.json"
                 ((idl_success++)) || true
                 rm -f "$temp_output"
               else
