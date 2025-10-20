@@ -21,6 +21,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 
 	sdkmath "cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
@@ -44,21 +45,11 @@ const (
 	TestTransferAmount = OneSolInLamports / 1_000 // 0.001 SOL in lamports
 	SolDenom           = "sol"
 	TransferPortID     = transfertypes.PortID
-	// GMP App
-	DefaultIncrementAmount = uint64(5)
-	DefaultDecrementAmount = uint64(2)
-	GMPPortID              = testvalues.SolanaGMPPortID
-	// SPL Token amounts (with 6 decimals)
-	SPLTokenDecimals       = uint8(6)
-	SPLTokenMintAmount     = uint64(10_000_000) // 10 tokens
-	SPLTokenTransferAmount = uint64(1_000_000)  // 1 token
 	// Compute Units
 	DefaultComputeUnits = uint32(400_000)
 	// Cosmos Gas Limits
 	CosmosDefaultGasLimit      = uint64(200_000)
 	CosmosCreateClientGasLimit = uint64(20_000_000)
-	// Test amounts
-	CosmosTestAmount = int64(1000) // stake denom
 )
 
 type IbcEurekaSolanaTestSuite struct {
@@ -1213,4 +1204,3 @@ func (s *IbcEurekaSolanaTestSuite) waitForProgramAvailabilityWithTimeout(ctx con
 	s.T().Logf("Warning: Program %s still not available after %d seconds", programID.String(), timeoutSeconds)
 	return false
 }
-

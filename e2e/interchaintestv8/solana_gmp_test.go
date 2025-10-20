@@ -10,6 +10,7 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
+	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/gmphelpers"
@@ -21,6 +22,7 @@ import (
 	"github.com/gagliardetto/solana-go/programs/token"
 
 	sdkmath "cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
@@ -28,10 +30,22 @@ import (
 
 	"github.com/cosmos/interchaintest/v10/ibc"
 
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
+)
+
+const (
+	// GMP App
+	DefaultIncrementAmount = uint64(5)
+	DefaultDecrementAmount = uint64(2)
+	GMPPortID              = testvalues.SolanaGMPPortID
+	// SPL Token amounts (with 6 decimals)
+	SPLTokenDecimals       = uint8(6)
+	SPLTokenMintAmount     = uint64(10_000_000) // 10 tokens
+	SPLTokenTransferAmount = uint64(1_000_000)  // 1 token
+	// Test amounts
+	CosmosTestAmount = int64(1000) // stake denom
 )
 
 func (s *IbcEurekaSolanaTestSuite) deployAndInitializeGMPCounterApp(ctx context.Context) solanago.PublicKey {
