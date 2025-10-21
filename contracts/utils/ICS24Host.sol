@@ -22,7 +22,10 @@ library ICS24Host {
     /// @param clientId The client identifier
     /// @param sequence The sequence number
     /// @return The full path of the packet commitment
-    function packetCommitmentPathCalldata(string memory clientId, uint64 sequence)
+    function packetCommitmentPathCalldata(
+        string memory clientId,
+        uint64 sequence
+    )
         internal
         pure
         returns (bytes memory)
@@ -34,7 +37,10 @@ library ICS24Host {
     /// @param clientId The client identifier
     /// @param sequence The sequence number
     /// @return The full path of the packet acknowledgement commitment
-    function packetAcknowledgementCommitmentPathCalldata(string memory clientId, uint64 sequence)
+    function packetAcknowledgementCommitmentPathCalldata(
+        string memory clientId,
+        uint64 sequence
+    )
         internal
         pure
         returns (bytes memory)
@@ -46,7 +52,10 @@ library ICS24Host {
     /// @param clientId The client identifier
     /// @param sequence The sequence number
     /// @return The full path of the packet receipt commitment
-    function packetReceiptCommitmentPathCalldata(string memory clientId, uint64 sequence)
+    function packetReceiptCommitmentPathCalldata(
+        string memory clientId,
+        uint64 sequence
+    )
         internal
         pure
         returns (bytes memory)
@@ -68,7 +77,10 @@ library ICS24Host {
     /// @param clientId The client identifier
     /// @param sequence The sequence number
     /// @return The keccak256 hash of the packet acknowledgement commitment path
-    function packetAcknowledgementCommitmentKeyCalldata(string memory clientId, uint64 sequence)
+    function packetAcknowledgementCommitmentKeyCalldata(
+        string memory clientId,
+        uint64 sequence
+    )
         internal
         pure
         returns (bytes32)
@@ -80,7 +92,10 @@ library ICS24Host {
     /// @param clientId The client identifier
     /// @param sequence The sequence number
     /// @return The keccak256 hash of the packet receipt commitment path
-    function packetReceiptCommitmentKeyCalldata(string calldata clientId, uint64 sequence)
+    function packetReceiptCommitmentKeyCalldata(
+        string calldata clientId,
+        uint64 sequence
+    )
         internal
         pure
         returns (bytes32)

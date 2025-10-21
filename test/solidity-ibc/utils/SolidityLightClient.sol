@@ -44,10 +44,6 @@ contract SolidityLightClient is ILightClient {
         revert("not implemented");
     }
 
-    function upgradeClient(bytes calldata) external pure {
-        revert("not implemented");
-    }
-
     function getClientState() external view returns (bytes memory) {
         return abi.encodePacked(address(_COUNTERPARTY_ICS26));
     }

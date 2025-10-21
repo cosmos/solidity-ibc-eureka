@@ -75,14 +75,23 @@ contract IntegrationEnv is Test, DeployPermit2 {
         token.mint(user, amount);
     }
 
-    function getPermitAndSignature(address user, address spender, uint256 amount)
+    function getPermitAndSignature(
+        address user,
+        address spender,
+        uint256 amount
+    )
         public
         returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory)
     {
         return getPermitAndSignature(user, spender, amount, address(_erc20));
     }
 
-    function getPermitAndSignature(address user, address spender, uint256 amount, address token)
+    function getPermitAndSignature(
+        address user,
+        address spender,
+        uint256 amount,
+        address token
+    )
         public
         returns (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
     {
