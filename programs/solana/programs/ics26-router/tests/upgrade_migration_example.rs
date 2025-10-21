@@ -157,7 +157,7 @@ fn test_client_migration_v1_to_v2() {
     assert_eq!(state.client_id, client_id);
     assert_eq!(state.client_program_id, light_client);
     assert_eq!(state.authority, authority);
-    assert_eq!(state.active, true);
+    assert!(state.active);
     assert_eq!(state.counterparty_info.client_id, counterparty);
 
     // Verify new V2 fields
