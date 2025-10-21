@@ -88,6 +88,10 @@ pub mod fixtures {
                 revision_number: latest_height.revision_number,
                 revision_height: latest_height.revision_height,
             },
+            // Initialize pruning fields with defaults
+            earliest_height: latest_height.revision_height,
+            consensus_state_count: 1,
+            max_consensus_states: 100,
         }
     }
 
@@ -389,6 +393,10 @@ pub mod chunk_test_utils {
                 revision_number: 0,
                 revision_height: latest_height,
             },
+            // Initialize pruning fields with defaults
+            earliest_height: latest_height,
+            consensus_state_count: 1,
+            max_consensus_states: 100,
         };
 
         let mut data = vec![];

@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+pub mod constants;
 pub mod error;
 pub mod helpers;
 pub mod instructions;
@@ -18,6 +19,7 @@ pub use types::{
 };
 
 pub use ics25_handler::MembershipMsg;
+pub use instructions::PruneConsensusStatesMsg;
 
 #[derive(Accounts)]
 #[instruction(chain_id: String, latest_height: u64, client_state: ClientState)]
@@ -172,6 +174,19 @@ pub struct CleanupIncompleteUpload<'info> {
     // Remaining accounts are the chunk accounts to close
 }
 
+/// Context for pruning old consensus states
+#[derive(Accounts)]
+pub struct PruneConsensusStates<'info> {
+    #[account(mut)]
+    pub client_state: Account<'info, ClientState>,
+
+    /// The account that will receive the reclaimed rent (incentive for pruning)
+    #[account(mut)]
+    pub pruner: Signer<'info>,
+
+    // Remaining accounts are the consensus state PDAs to prune
+}
+
 #[program]
 pub mod ics07_tendermint {
     use super::*;
@@ -253,5 +268,14 @@ pub mod ics07_tendermint {
             cleanup_height,
             submitter,
         )
+    }
+
+    /// Prune old consensus states below the earliest_height threshold
+    /// Anyone can call this to reclaim rent as an incentive
+    pub fn prune_consensus_states<'info>(
+        ctx: Context<'_, '_, '_, 'info, PruneConsensusStates<'info>>,
+        msg: PruneConsensusStatesMsg,
+    ) -> Result<()> {
+        instructions::prune_consensus_states(ctx, msg)
     }
 }

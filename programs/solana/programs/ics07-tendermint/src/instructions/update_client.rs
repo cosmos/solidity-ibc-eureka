@@ -195,6 +195,7 @@ fn handle_consensus_state_storage(
             ctx.client_key,
             ctx.revision_height,
             new_consensus_state,
+            client_state,
         )?;
         Ok(UpdateResult::Update)
     } else {
@@ -332,6 +333,7 @@ fn create_consensus_state_account<'info>(
     client_key: Pubkey,
     revision_height: u64,
     new_consensus_state: &ConsensusState,
+    client_state: &mut ClientState,
 ) -> Result<()> {
     // Validate the PDA and get the bump seed
     let bump = validate_consensus_state_pda(
@@ -366,6 +368,34 @@ fn create_consensus_state_account<'info>(
         revision_height,
         new_consensus_state,
     )?;
+
+    // Update consensus state tracking for pruning
+    client_state.consensus_state_count = client_state.consensus_state_count.saturating_add(1);
+
+    // Check if we need to signal for pruning
+    if client_state.consensus_state_count > client_state.max_consensus_states {
+        // NOTE: Actual pruning will be handled by a separate instruction
+        // This is because we need an additional account (the oldest consensus state)
+        // which isn't available in the current UpdateClient context.
+        // The pruning can be triggered by anyone to reclaim rent as an incentive.
+
+        // Update earliest_height to the next one that should be kept
+        // This signals that consensus states below this height can be pruned
+        let states_to_keep = client_state.max_consensus_states as u64;
+        let approx_new_earliest = revision_height.saturating_sub(states_to_keep);
+
+        // Only update if moving forward (never go backwards)
+        if approx_new_earliest > client_state.earliest_height {
+            client_state.earliest_height = approx_new_earliest;
+        }
+
+        msg!(
+            "Consensus state window exceeded: count={}, max={}, earliest_height can be pruned up to {}",
+            client_state.consensus_state_count,
+            client_state.max_consensus_states,
+            client_state.earliest_height
+        );
+    }
 
     Ok(())
 }
