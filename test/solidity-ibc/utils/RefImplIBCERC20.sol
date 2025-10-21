@@ -39,7 +39,12 @@ contract RefImplIBCERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradea
     /// @param ics20_ The ICS20 contract address
     /// @param name_ The name of the token
     /// @param symbol_ The symbol of the token
-    function initialize(address owner_, address ics20_, string calldata name_, string calldata symbol_)
+    function initialize(
+        address owner_,
+        address ics20_,
+        string calldata name_,
+        string calldata symbol_
+    )
         external
         initializer
     {

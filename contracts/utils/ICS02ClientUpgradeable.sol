@@ -75,7 +75,10 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     }
 
     /// @inheritdoc IICS02Client
-    function addClient(IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo, address client)
+    function addClient(
+        IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
+        address client
+    )
         external
         returns (string memory)
     {
@@ -122,7 +125,10 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     }
 
     /// @inheritdoc IICS02ClientAccessControlled
-    function updateClient(string calldata clientId, bytes calldata updateMsg)
+    function updateClient(
+        string calldata clientId,
+        bytes calldata updateMsg
+    )
         external
         restricted
         returns (ILightClientMsgs.UpdateResult)

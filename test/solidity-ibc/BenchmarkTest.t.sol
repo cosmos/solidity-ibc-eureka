@@ -40,7 +40,13 @@ contract BenchmarkTest is FixtureTest {
         );
     }
 
-    function ICS20TransferWithSP1FixturesTest(string memory ackFix, string memory recvFix, uint64 numPackets) public {
+    function ICS20TransferWithSP1FixturesTest(
+        string memory ackFix,
+        string memory recvFix,
+        uint64 numPackets
+    )
+        public
+    {
         Fixture memory ackFixture = loadInitialFixture(ackFix);
 
         // Step 1: Transfer from Ethereum to Cosmos

@@ -13,7 +13,10 @@ interface IICS20TransferAccessControlled {
     /// @param msg_ The message for sending a transfer
     /// @param sender The sender of the transfer
     /// @return sequence The sequence number of the packet created
-    function sendTransferWithSender(IICS20TransferMsgs.SendTransferMsg calldata msg_, address sender)
+    function sendTransferWithSender(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        address sender
+    )
         external
         returns (uint64 sequence);
 
