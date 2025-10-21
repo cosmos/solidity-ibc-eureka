@@ -13,7 +13,11 @@ interface IIBCSenderCallbacks {
     /// @notice Called when a packet acknowledgement is received by the IBC application.
     /// @param success Whether the packet was successfully received by the destination chain
     /// @param msg_ The callback message
-    function onAckPacket(bool success, IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_) external;
+    function onAckPacket(
+        bool success,
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_
+    )
+        external;
 
     /// @notice Called when a packet is timed out by the IBC application.
     /// @param msg_ The callback message

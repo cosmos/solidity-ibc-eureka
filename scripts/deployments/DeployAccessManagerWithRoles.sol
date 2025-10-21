@@ -7,7 +7,12 @@ import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
 
 abstract contract DeployAccessManagerWithRoles {
-    function accessManagerSetTargetRoles(IAccessManager accessManager, address ics26, address ics20, bool pubRelay)
+    function accessManagerSetTargetRoles(
+        IAccessManager accessManager,
+        address ics26,
+        address ics20,
+        bool pubRelay
+    )
         public
     {
         accessManager.setTargetFunctionRole(

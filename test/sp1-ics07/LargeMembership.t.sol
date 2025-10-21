@@ -31,7 +31,13 @@ contract SP1ICS07LargeMembershipTest is MembershipTest {
         );
     }
 
-    function ValidCachedMulticallMembershipTest(string memory fileName, uint32 n, string memory metadata) public {
+    function ValidCachedMulticallMembershipTest(
+        string memory fileName,
+        uint32 n,
+        string memory metadata
+    )
+        public
+    {
         require(n > 0, "n must be greater than 0");
 
         setUpLargeMembershipTestWithFixture(fileName);
