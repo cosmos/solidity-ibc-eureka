@@ -78,7 +78,13 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
     /// @notice Adds a counterparty implementation by creating a solidity light client
     /// @param counterparty The counterparty implementation
     /// @param counterpartyId The counterparty identifier
-    function addCounterpartyImpl(IbcImpl counterparty, string calldata counterpartyId) public returns (string memory) {
+    function addCounterpartyImpl(
+        IbcImpl counterparty,
+        string calldata counterpartyId
+    )
+        public
+        returns (string memory)
+    {
         ICS26Router counterpartyIcs26 = counterparty.ics26Router();
         SolidityLightClient lightClient = new SolidityLightClient(counterpartyIcs26);
 
@@ -90,7 +96,12 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         );
     }
 
-    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, uint256 amount)
+    function sendTransferAsUser(
+        IERC20 token,
+        address sender,
+        string calldata receiver,
+        uint256 amount
+    )
         external
         returns (IICS26RouterMsgs.Packet memory)
     {

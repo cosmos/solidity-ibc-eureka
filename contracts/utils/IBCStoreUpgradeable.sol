@@ -105,7 +105,12 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     /// @notice Commits the successful packet acknowledgements for the given packet
     /// @param packet Packet to commit the acknowledgements for
     /// @param acks Acknowledgements to commit
-    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet calldata packet, bytes[] memory acks) internal {
+    function commitPacketAcknowledgement(
+        IICS26RouterMsgs.Packet calldata packet,
+        bytes[] memory acks
+    )
+        internal
+    {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
         bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destClient, packet.sequence);

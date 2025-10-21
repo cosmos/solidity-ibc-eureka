@@ -192,7 +192,9 @@ contract ICS26Router is
                     payload: payload,
                     relayer: _msgSender()
                 })
-            ) returns (bytes memory ack) {
+            ) returns (
+            bytes memory ack
+        ) {
             require(ack.length != 0, IBCAsyncAcknowledgementNotSupported());
             require(keccak256(ack) != ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK, IBCErrorUniversalAcknowledgement());
             acks[0] = ack;
