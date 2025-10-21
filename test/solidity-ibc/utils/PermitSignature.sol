@@ -112,11 +112,7 @@ contract PermitSignature {
         return bytes.concat(r, vs);
     }
 
-    function _getCompactSignature(
-        uint8 vRaw,
-        bytes32 rRaw,
-        bytes32 sRaw
-    )
+    function _getCompactSignature(uint8 vRaw, bytes32 rRaw, bytes32 sRaw)
         internal
         pure
         returns (bytes32 r, bytes32 vs)
@@ -301,31 +297,20 @@ contract PermitSignature {
         return bytes.concat(r, s, bytes1(v));
     }
 
-    function defaultERC20PermitAllowance(
-        address token0,
-        uint160 amount,
-        uint48 expiration,
-        uint48 nonce
-    )
+    function defaultERC20PermitAllowance(address token0, uint160 amount, uint48 expiration, uint48 nonce)
         internal
         view
         returns (IAllowanceTransfer.PermitSingle memory)
     {
-        IAllowanceTransfer.PermitDetails memory details =
-            IAllowanceTransfer.PermitDetails({ token: token0, amount: amount, expiration: expiration, nonce: nonce });
+        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer.PermitDetails({
+            token: token0, amount: amount, expiration: expiration, nonce: nonce
+        });
         return IAllowanceTransfer.PermitSingle({
-            details: details,
-            spender: address(this),
-            sigDeadline: block.timestamp + 100
+            details: details, spender: address(this), sigDeadline: block.timestamp + 100
         });
     }
 
-    function defaultERC20PermitBatchAllowance(
-        address[] memory tokens,
-        uint160 amount,
-        uint48 expiration,
-        uint48 nonce
-    )
+    function defaultERC20PermitBatchAllowance(address[] memory tokens, uint160 amount, uint48 expiration, uint48 nonce)
         internal
         view
         returns (IAllowanceTransfer.PermitBatch memory)
@@ -334,24 +319,16 @@ contract PermitSignature {
 
         for (uint256 i = 0; i < tokens.length; ++i) {
             details[i] = IAllowanceTransfer.PermitDetails({
-                token: tokens[i],
-                amount: amount,
-                expiration: expiration,
-                nonce: nonce
+                token: tokens[i], amount: amount, expiration: expiration, nonce: nonce
             });
         }
 
         return IAllowanceTransfer.PermitBatch({
-            details: details,
-            spender: address(this),
-            sigDeadline: block.timestamp + 100
+            details: details, spender: address(this), sigDeadline: block.timestamp + 100
         });
     }
 
-    function defaultERC20PermitTransfer(
-        address token0,
-        uint256 nonce
-    )
+    function defaultERC20PermitTransfer(address token0, uint256 nonce)
         internal
         view
         returns (ISignatureTransfer.PermitTransferFrom memory)
@@ -363,10 +340,7 @@ contract PermitSignature {
         });
     }
 
-    function defaultERC20PermitWitnessTransfer(
-        address token0,
-        uint256 nonce
-    )
+    function defaultERC20PermitWitnessTransfer(address token0, uint256 nonce)
         internal
         view
         returns (ISignatureTransfer.PermitTransferFrom memory)
@@ -378,10 +352,7 @@ contract PermitSignature {
         });
     }
 
-    function defaultERC20PermitMultiple(
-        address[] memory tokens,
-        uint256 nonce
-    )
+    function defaultERC20PermitMultiple(address[] memory tokens, uint256 nonce)
         internal
         view
         returns (ISignatureTransfer.PermitBatchTransferFrom memory)
@@ -392,9 +363,7 @@ contract PermitSignature {
             permitted[i] = ISignatureTransfer.TokenPermissions({ token: tokens[i], amount: 1 ** 18 });
         }
         return ISignatureTransfer.PermitBatchTransferFrom({
-            permitted: permitted,
-            nonce: nonce,
-            deadline: block.timestamp + 100
+            permitted: permitted, nonce: nonce, deadline: block.timestamp + 100
         });
     }
 }

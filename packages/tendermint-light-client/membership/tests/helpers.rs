@@ -6,6 +6,7 @@ use std::path::Path;
 
 use ibc_core_commitment_types::merkle::MerkleProof;
 use ibc_proto::ibc::core::commitment::v1::MerkleProof as ProtoMerkleProof;
+use ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState as ProtoConsensusState;
 use prost::Message;
 use tendermint_light_client_membership::{membership, KVPair, MembershipError};
 
@@ -19,7 +20,7 @@ pub struct MembershipMsgFixture {
 #[derive(Debug, Clone, Deserialize)]
 pub struct MembershipVerificationFixture {
     pub membership_msg: MembershipMsgFixture,
-    pub app_hash_hex: String,
+    pub consensus_state_hex: String,
 }
 
 impl From<&MembershipMsgFixture> for KVPair {
@@ -70,10 +71,19 @@ pub struct TestContext {
 }
 
 pub fn setup_test_context(fixture: MembershipVerificationFixture) -> TestContext {
-    let app_hash_bytes =
-        hex::decode(&fixture.app_hash_hex).expect("Failed to decode app_hash_hex from fixture");
+    // Decode consensus state and extract app hash
+    let consensus_state_bytes = hex::decode(&fixture.consensus_state_hex)
+        .expect("Failed to decode consensus_state_hex from fixture");
 
-    let app_hash: [u8; 32] = app_hash_bytes
+    let proto_consensus_state = ProtoConsensusState::decode(consensus_state_bytes.as_slice())
+        .expect("Failed to decode consensus state");
+
+    let root = proto_consensus_state
+        .root
+        .expect("Missing root in consensus state");
+
+    let app_hash: [u8; 32] = root
+        .hash
         .try_into()
         .expect("App hash must be exactly 32 bytes");
 

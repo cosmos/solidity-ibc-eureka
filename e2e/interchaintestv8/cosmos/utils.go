@@ -22,7 +22,7 @@ func CloneAppend(bz []byte, tail []byte) (res []byte) {
 	res = make([]byte, len(bz)+len(tail))
 	copy(res, bz)
 	copy(res[len(bz):], tail)
-	return
+	return res
 }
 
 // BankBalanceKey returns the store key for a given address and denomination pair.

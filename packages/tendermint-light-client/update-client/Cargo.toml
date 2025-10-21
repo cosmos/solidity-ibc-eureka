@@ -30,3 +30,11 @@ ibc-core-commitment-types        = { workspace = true }
 prost                            = { workspace = true }
 tendermint                       = { workspace = true }
 
+[dev-dependencies]
+serde                            = { workspace = true, features = ["derive"] }
+serde_json                       = { workspace = true, features = ["std"] }
+hex                              = { workspace = true }
+ibc-core-commitment-types        = { workspace = true }
+prost                            = { workspace = true }
+tendermint                       = { workspace = true }
+

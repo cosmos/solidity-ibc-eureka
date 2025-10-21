@@ -1,6 +1,6 @@
 module github.com/cosmos/solidity-ibc-eureka/scripts/go-test-matrix
 
-go 1.23.8
+go 1.25.0
 
 require github.com/stretchr/testify v1.10.0
 

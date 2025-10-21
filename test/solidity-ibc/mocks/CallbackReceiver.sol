@@ -11,10 +11,7 @@ import { IBCCallbackReceiver } from "../../../contracts/utils/IBCCallbackReceive
 /// @notice A contract that implements the IIBCSenderCallbacks interface to receive callbacks from IBC applications.
 contract CallbackReceiver is IBCCallbackReceiver {
     /// @inheritdoc IIBCSenderCallbacks
-    function onAckPacket(
-        bool success,
-        IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_
-    )
+    function onAckPacket(bool success, IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_)
         external
         override
     {

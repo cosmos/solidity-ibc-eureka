@@ -63,15 +63,9 @@ abstract contract SP1ICS07MockTest is Test {
     /// @notice Create a new mock consensus state
     /// @param timestamp The timestamp of the consensus state in unix nanoseconds
     /// @return The new consensus state
-    function newMockConsensusState(uint128 timestamp)
-        public
-        pure
-        returns (IICS07TendermintMsgs.ConsensusState memory)
-    {
+    function newMockConsensusState(uint128 timestamp) public pure returns (IICS07TendermintMsgs.ConsensusState memory) {
         return IICS07TendermintMsgs.ConsensusState({
-            timestamp: timestamp,
-            root: MOCK_ROOT,
-            nextValidatorsHash: MOCK_VAL_HASH
+            timestamp: timestamp, root: MOCK_ROOT, nextValidatorsHash: MOCK_VAL_HASH
         });
     }
 
@@ -109,8 +103,7 @@ abstract contract SP1ICS07MockTest is Test {
         });
 
         IMembershipMsgs.MembershipProof memory proof = IMembershipMsgs.MembershipProof({
-            proofType: IMembershipMsgs.MembershipProofType.SP1MembershipProof,
-            proof: abi.encode(sp1Proof)
+            proofType: IMembershipMsgs.MembershipProofType.SP1MembershipProof, proof: abi.encode(sp1Proof)
         });
 
         return ILightClientMsgs.MsgVerifyMembership({
@@ -132,8 +125,7 @@ abstract contract SP1ICS07MockTest is Test {
         });
 
         IMembershipMsgs.MembershipProof memory proof = IMembershipMsgs.MembershipProof({
-            proofType: IMembershipMsgs.MembershipProofType.SP1MembershipProof,
-            proof: abi.encode(sp1Proof)
+            proofType: IMembershipMsgs.MembershipProofType.SP1MembershipProof, proof: abi.encode(sp1Proof)
         });
 
         return ILightClientMsgs.MsgVerifyNonMembership({
