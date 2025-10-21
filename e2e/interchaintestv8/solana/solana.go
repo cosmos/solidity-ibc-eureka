@@ -207,7 +207,7 @@ func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *sol
 		}
 		tx.Message.RecentBlockhash = recent.Value.Blockhash
 
-		sig, err := s.SignAndBroadcastTx(ctx, tx, signers...)
+		sig, err := s.SignAndBroadcastTx(ctx, tx, wallet)
 		if err == nil {
 			return sig, nil
 		}
