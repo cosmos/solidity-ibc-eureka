@@ -12065,6 +12065,7 @@ dependencies = [
 name = "tendermint-light-client-update-client"
 version = "0.1.0"
 dependencies = [
+ "brine-ed25519",
  "hex",
  "ibc-client-tendermint",
  "ibc-core-client",
