@@ -1,0 +1,42 @@
+[package]
+name = "ics27-gmp"
+version.workspace = true
+description = "ICS27 General Message Passing (GMP) for Solana"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "gmp", "anchor"]
+categories = ["cryptography", "blockchain"]
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ics27_gmp"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl.workspace = true
+solana-ibc-types.workspace = true
+solana-ibc-macros.workspace = true
+prost = { workspace = true, features = ["prost-derive"] }
+
+[build-dependencies]
+prost-build = { workspace = true }
+
+[dev-dependencies]
+mollusk-svm.workspace = true
+mollusk-svm-bencher.workspace = true
+solana-sdk.workspace = true
+bincode.workspace = true
+gmp-counter-app = { path = "../gmp-counter-app", features = ["cpi"] }

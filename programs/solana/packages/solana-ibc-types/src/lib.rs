@@ -6,6 +6,7 @@
 
 pub mod app_msgs;
 pub mod events;
+pub mod ibc_app_interface;
 pub mod ics07;
 pub mod pda;
 pub mod router;
@@ -33,3 +34,5 @@ pub use events::{
     AckPacketEvent, ClientAddedEvent, ClientStatusUpdatedEvent, IBCAppAdded, NoopEvent,
     SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
 };
+
+pub use ibc_app_interface::instruction_names;

@@ -9,29 +9,25 @@ var (
 	Account_ClientSequence = [8]byte{18, 97, 143, 135, 107, 101, 53, 226}
 	Account_Commitment     = [8]byte{61, 112, 129, 128, 24, 147, 77, 87}
 	Account_IbcApp         = [8]byte{204, 125, 117, 159, 158, 163, 105, 66}
+	Account_PayloadChunk   = [8]byte{82, 192, 37, 21, 4, 6, 71, 89}
+	Account_ProofChunk     = [8]byte{44, 69, 61, 168, 202, 104, 103, 207}
 	Account_RouterState    = [8]byte{141, 157, 194, 155, 75, 208, 200, 27}
 )
 
 // Event discriminators
-var (
-	Event_AckPacketEvent            = [8]byte{77, 168, 233, 72, 104, 170, 223, 187}
-	Event_ClientAddedEvent          = [8]byte{115, 228, 28, 166, 212, 126, 80, 103}
-	Event_ClientStatusUpdatedEvent  = [8]byte{234, 161, 185, 104, 128, 87, 102, 179}
-	Event_IbcAppAdded               = [8]byte{203, 71, 209, 220, 197, 188, 7, 160}
-	Event_NoopEvent                 = [8]byte{59, 182, 57, 141, 7, 255, 75, 55}
-	Event_SendPacketEvent           = [8]byte{193, 230, 168, 142, 93, 141, 211, 151}
-	Event_TimeoutPacketEvent        = [8]byte{175, 73, 51, 208, 241, 155, 242, 254}
-	Event_WriteAcknowledgementEvent = [8]byte{10, 54, 186, 209, 240, 25, 50, 0}
-)
+var ()
 
 // Instruction discriminators
 var (
-	Instruction_AckPacket     = [8]byte{43, 194, 45, 54, 2, 40, 211, 228}
-	Instruction_AddClient     = [8]byte{97, 103, 215, 121, 86, 53, 223, 241}
-	Instruction_AddIbcApp     = [8]byte{233, 201, 201, 149, 2, 13, 134, 27}
-	Instruction_Initialize    = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
-	Instruction_RecvPacket    = [8]byte{130, 14, 240, 161, 35, 63, 45, 71}
-	Instruction_SendPacket    = [8]byte{242, 7, 23, 143, 124, 157, 42, 102}
-	Instruction_TimeoutPacket = [8]byte{224, 56, 82, 83, 77, 13, 120, 103}
-	Instruction_UpdateClient  = [8]byte{184, 89, 17, 76, 97, 57, 165, 10}
+	Instruction_AckPacket          = [8]byte{43, 194, 45, 54, 2, 40, 211, 228}
+	Instruction_AddClient          = [8]byte{97, 103, 215, 121, 86, 53, 223, 241}
+	Instruction_AddIbcApp          = [8]byte{233, 201, 201, 149, 2, 13, 134, 27}
+	Instruction_CleanupChunks      = [8]byte{161, 232, 178, 127, 188, 117, 9, 18}
+	Instruction_Initialize         = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_RecvPacket         = [8]byte{130, 14, 240, 161, 35, 63, 45, 71}
+	Instruction_SendPacket         = [8]byte{242, 7, 23, 143, 124, 157, 42, 102}
+	Instruction_TimeoutPacket      = [8]byte{224, 56, 82, 83, 77, 13, 120, 103}
+	Instruction_UpdateClient       = [8]byte{184, 89, 17, 76, 97, 57, 165, 10}
+	Instruction_UploadPayloadChunk = [8]byte{191, 138, 167, 248, 208, 192, 24, 82}
+	Instruction_UploadProofChunk   = [8]byte{60, 215, 88, 47, 168, 107, 123, 150}
 )

@@ -541,17 +541,14 @@ mod tests {
             client_message,
         );
 
-        let accounts = custom_accounts.map_or_else(
-            || {
-                setup_test_accounts_with_new_consensus_state(
-                    initialized_accounts,
-                    new_consensus_state_pda,
-                    payer,
-                    100_000_000_000,
-                )
-            },
-            |custom_accounts| custom_accounts,
-        );
+        let accounts = custom_accounts.unwrap_or_else(|| {
+            setup_test_accounts_with_new_consensus_state(
+                initialized_accounts,
+                new_consensus_state_pda,
+                payer,
+                100_000_000_000,
+            )
+        });
 
         UpdateClientTestScenario {
             client_state_pda,

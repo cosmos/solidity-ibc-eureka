@@ -47,8 +47,6 @@ pub struct SendPacket<'info> {
 
     pub system_program: Program<'info, System>,
 
-    pub clock: Sysvar<'info, Clock>,
-
     #[account(
         seeds = [CLIENT_SEED, msg.source_client.as_bytes()],
         bump,
@@ -58,11 +56,11 @@ pub struct SendPacket<'info> {
 }
 
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
-    // TODO: Support multi-payload packets #602
     let ibc_app = &ctx.accounts.ibc_app;
     let client_sequence = &mut ctx.accounts.client_sequence;
     let packet_commitment = &mut ctx.accounts.packet_commitment;
-    let clock = &ctx.accounts.clock;
+    // Get clock directly via syscall
+    let clock = Clock::get()?;
 
     // Check if app_caller is authorized - it must be a PDA derived from the registered program
     // (since program IDs cannot sign transactions in Solana)
@@ -121,7 +119,6 @@ mod tests {
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::sysvar::SysvarId;
     use solana_sdk::{clock::Clock, system_program};
 
     struct SendPacketTestContext {
@@ -178,8 +175,6 @@ mod tests {
             setup_client_sequence(params.client_id, params.initial_sequence);
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(params.port_id, app_program_id);
 
-        let clock_data = create_clock_data(params.current_timestamp);
-
         let msg = MsgSendPacket {
             source_client: params.client_id.to_string(),
             timeout_timestamp: params.timeout_timestamp,
@@ -211,7 +206,6 @@ mod tests {
                 AccountMeta::new_readonly(app_caller, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(Clock::id(), false),
                 AccountMeta::new_readonly(client_pda, false),
             ],
             data: crate::instruction::SendPacket { msg }.data(),
@@ -225,7 +219,6 @@ mod tests {
             create_system_account(app_caller), // app_caller is a signer
             create_system_account(payer),      // payer is also a signer
             create_program_account(system_program::ID),
-            create_clock_account_with_data(clock_data),
             create_account(client_pda, client_data, crate::ID),
         ];
 
@@ -337,13 +330,18 @@ mod tests {
 
     #[test]
     fn test_send_packet_invalid_timeout() {
-        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
+        let mut ctx = setup_send_packet_test_with_params(SendPacketTestParams {
             current_timestamp: 1000,
             timeout_timestamp: 900, // Past timestamp
             ..Default::default()
         });
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+
+        // Add Clock sysvar with current timestamp (1000) - packet timeout is 900 (expired)
+        let clock_data = create_clock_data(1000);
+        ctx.accounts
+            .push(create_clock_account_with_data(clock_data));
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::InvalidTimeoutTimestamp as u32,
@@ -431,8 +429,6 @@ mod tests {
         let (client_sequence_pda_2, client_sequence_data_2) =
             setup_client_sequence(client_id_2, 20);
 
-        let clock_data = create_clock_data(1000);
-
         // Test sending packet on client 1
         let msg_1 = MsgSendPacket {
             source_client: client_id_1.to_string(),
@@ -465,7 +461,6 @@ mod tests {
                 AccountMeta::new_readonly(app_caller_pda, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(Clock::id(), false),
                 AccountMeta::new_readonly(client_pda_1, false),
             ],
             data: crate::instruction::SendPacket { msg: msg_1 }.data(),
@@ -479,7 +474,6 @@ mod tests {
             create_system_account(app_caller_pda),
             create_system_account(payer),
             create_program_account(system_program::ID),
-            create_clock_account_with_data(clock_data.clone()),
             create_account(client_pda_1, client_data_1, crate::ID),
         ];
 
@@ -524,7 +518,6 @@ mod tests {
                 AccountMeta::new_readonly(app_caller_pda, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(Clock::id(), false),
                 AccountMeta::new_readonly(client_pda_2, false),
             ],
             data: crate::instruction::SendPacket { msg: msg_2 }.data(),
@@ -538,7 +531,6 @@ mod tests {
             create_system_account(app_caller_pda),
             create_system_account(payer),
             create_program_account(system_program::ID),
-            create_clock_account_with_data(clock_data),
             create_account(client_pda_2, client_data_2, crate::ID),
         ];
 

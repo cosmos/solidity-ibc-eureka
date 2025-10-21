@@ -105,6 +105,13 @@ const (
 	SolanaChainID = "solana-localnet"
 	// SolanaLocalnetRPC is the default RPC URL for Solana localnet.
 	SolanaLocalnetRPC = "http://localhost:8899"
+	// SolanaGMPPortID is the port identifier for GMP (General Message Passing) application.
+	SolanaGMPPortID = "gmpport"
+
+	// Ics27AbiEncoding is the solidity abi encoding type for the ICS27 packets.
+	Ics27AbiEncoding = "application/x-solidity-abi"
+	// Ics27ProtobufEncoding is the protobuf encoding type for ICS27 packets (used for Solana).
+	Ics27ProtobufEncoding = "application/x-protobuf"
 
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.

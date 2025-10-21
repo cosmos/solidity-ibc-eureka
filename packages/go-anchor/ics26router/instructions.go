@@ -63,8 +63,8 @@ func NewAckPacketInstruction(
 		// Account 5 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
 		// The router program account (this program)
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 6 "relayer": Read-only, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(relayerAccount, false, true))
+		// Account 6 "relayer": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
 		// Account 7 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 8 "system_program": Read-only, Non-signer, Required
@@ -205,6 +205,46 @@ func NewAddIbcAppInstruction(
 	), nil
 }
 
+// Builds a "cleanup_chunks" instruction.
+func NewCleanupChunksInstruction(
+	// Params:
+	msgParam MsgCleanupChunks,
+
+	// Accounts:
+	relayerAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_CleanupChunks[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "relayer": Writable, Signer, Required
+		// Relayer who created the chunks and can clean them up
+		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
 // Builds a "initialize" instruction.
 func NewInitializeInstruction(
 	// Params:
@@ -267,7 +307,6 @@ func NewRecvPacketInstruction(
 	relayerAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
-	clockAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
 	lightClientProgramAccount solanago.PublicKey,
 	clientStateAccount solanago.PublicKey,
@@ -309,21 +348,19 @@ func NewRecvPacketInstruction(
 		// Account 7 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
 		// The router program account (this program)
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 8 "relayer": Read-only, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(relayerAccount, false, true))
+		// Account 8 "relayer": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
 		// Account 9 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 10 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 11 "clock": Read-only, Non-signer, Required, Address: SysvarC1ock11111111111111111111111111111111
-		accounts__.Append(solanago.NewAccountMeta(clockAccount, false, false))
-		// Account 12 "client": Read-only, Non-signer, Required
+		// Account 11 "client": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 13 "light_client_program": Read-only, Non-signer, Required
+		// Account 12 "light_client_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 14 "client_state": Read-only, Non-signer, Required
+		// Account 13 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 15 "consensus_state": Read-only, Non-signer, Required
+		// Account 14 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
@@ -348,7 +385,6 @@ func NewSendPacketInstruction(
 	appCallerAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
-	clockAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -385,9 +421,7 @@ func NewSendPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 6 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 7 "clock": Read-only, Non-signer, Required, Address: SysvarC1ock11111111111111111111111111111111
-		accounts__.Append(solanago.NewAccountMeta(clockAccount, false, false))
-		// Account 8 "client": Read-only, Non-signer, Required
+		// Account 7 "client": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
 	}
 
@@ -451,8 +485,8 @@ func NewTimeoutPacketInstruction(
 		// Account 5 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
 		// The router program account (this program)
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 6 "relayer": Read-only, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(relayerAccount, false, true))
+		// Account 6 "relayer": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
 		// Account 7 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 8 "system_program": Read-only, Non-signer, Required
@@ -519,6 +553,96 @@ func NewUpdateClientInstruction(
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, true, false))
 		// Account 3 "relayer": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, false, true))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "upload_payload_chunk" instruction.
+func NewUploadPayloadChunkInstruction(
+	// Params:
+	msgParam MsgUploadChunk,
+
+	// Accounts:
+	chunkAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_UploadPayloadChunk[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "chunk": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
+		// Account 1 "payer": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 2 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "upload_proof_chunk" instruction.
+func NewUploadProofChunkInstruction(
+	// Params:
+	msgParam MsgUploadChunk,
+
+	// Accounts:
+	chunkAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_UploadProofChunk[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "chunk": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
+		// Account 1 "payer": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 2 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
 	// Create the instruction.

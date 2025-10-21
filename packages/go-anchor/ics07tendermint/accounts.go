@@ -29,6 +29,13 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal account as ConsensusStateStore: %w", err)
 		}
 		return value, nil
+	case Account_HeaderChunk:
+		value := new(HeaderChunk)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal account as HeaderChunk: %w", err)
+		}
+		return value, nil
 	default:
 		return nil, fmt.Errorf("unknown discriminator: %s", binary.FormatDiscriminator(discriminator))
 	}
@@ -64,6 +71,23 @@ func ParseAccount_ConsensusStateStore(accountData []byte) (*ConsensusStateStore,
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal account of type ConsensusStateStore: %w", err)
+	}
+	return acc, nil
+}
+
+func ParseAccount_HeaderChunk(accountData []byte) (*HeaderChunk, error) {
+	decoder := binary.NewBorshDecoder(accountData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Account_HeaderChunk {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_HeaderChunk, binary.FormatDiscriminator(discriminator))
+	}
+	acc := new(HeaderChunk)
+	err = acc.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal account of type HeaderChunk: %w", err)
 	}
 	return acc, nil
 }
