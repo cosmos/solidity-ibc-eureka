@@ -1,4 +1,4 @@
-module github.com/cosmos/solidity-ibc-eureka/e2e/v8
+module github.com/srdtrk/solidity-ibc-eureka/e2e/v8
 
 go 1.25.0
 
