@@ -221,12 +221,6 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         clientState.isFrozen = true;
     }
 
-    /// @inheritdoc ILightClient
-    function upgradeClient(bytes calldata) external view notFrozen onlyProofSubmitter {
-        // NOTE: This feature will not be supported. (#130)
-        revert FeatureNotSupported();
-    }
-
     /// @notice Handles the `SP1MembershipProof` proof type.
     /// @param proofHeight The height of the proof.
     /// @param proofBytes The encoded proof.
