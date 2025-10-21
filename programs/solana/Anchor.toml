@@ -7,6 +7,7 @@ skip-lint = false
 [programs.localnet]
 ics07_tendermint = "8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV"
 ics26_router = "HsCyuYgKgoN9wUPiJyNZvvWg2N1uyZhDjvJfKJFu3jvU"
+ics27_gmp = "FHsRDbCxXxv1wWsAFccaPz2BSphGEEcnVNHXCBTP92Am"
 
 [registry]
 url = "https://api.apr.dev"

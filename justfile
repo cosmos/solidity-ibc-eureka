@@ -139,8 +139,11 @@ generate-solana-types: build-solana
 	@echo "Generating SVM types..."
 	anchor-go --idl ./programs/solana/target/idl/ics07_tendermint.json --output packages/go-anchor/ics07tendermint --no-go-mod
 	anchor-go --idl ./programs/solana/target/idl/ics26_router.json --output packages/go-anchor/ics26router --no-go-mod
+	anchor-go --idl ./programs/solana/target/idl/ics27_gmp.json --output packages/go-anchor/ics27gmp --no-go-mod
 	anchor-go --idl ./programs/solana/target/idl/dummy_ibc_app.json --output packages/go-anchor/dummyibcapp --no-go-mod
 	anchor-go --idl ./programs/solana/target/idl/mock_light_client.json --output e2e/interchaintestv8/solana/go-anchor/mocklightclient --no-go-mod
+	anchor-go --idl ./programs/solana/target/idl/gmp_counter_app.json --output e2e/interchaintestv8/solana/go-anchor/gmpcounter --no-go-mod
+
 # Generate the fixtures for the wasm tests using the e2e tests
 [group('generate')]
 generate-fixtures-wasm: clean-foundry install-relayer

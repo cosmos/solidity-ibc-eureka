@@ -43,6 +43,20 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal account as IbcApp: %w", err)
 		}
 		return value, nil
+	case Account_PayloadChunk:
+		value := new(PayloadChunk)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal account as PayloadChunk: %w", err)
+		}
+		return value, nil
+	case Account_ProofChunk:
+		value := new(ProofChunk)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal account as ProofChunk: %w", err)
+		}
+		return value, nil
 	case Account_RouterState:
 		value := new(RouterState)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -119,6 +133,40 @@ func ParseAccount_IbcApp(accountData []byte) (*IbcApp, error) {
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal account of type IbcApp: %w", err)
+	}
+	return acc, nil
+}
+
+func ParseAccount_PayloadChunk(accountData []byte) (*PayloadChunk, error) {
+	decoder := binary.NewBorshDecoder(accountData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Account_PayloadChunk {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_PayloadChunk, binary.FormatDiscriminator(discriminator))
+	}
+	acc := new(PayloadChunk)
+	err = acc.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal account of type PayloadChunk: %w", err)
+	}
+	return acc, nil
+}
+
+func ParseAccount_ProofChunk(accountData []byte) (*ProofChunk, error) {
+	decoder := binary.NewBorshDecoder(accountData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Account_ProofChunk {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_ProofChunk, binary.FormatDiscriminator(discriminator))
+	}
+	acc := new(ProofChunk)
+	err = acc.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal account of type ProofChunk: %w", err)
 	}
 	return acc, nil
 }

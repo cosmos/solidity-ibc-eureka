@@ -80,6 +80,9 @@
               solana-agave
               anchor-go
               protobuf
+              buf
+              protoc-gen-go
+              protoc-gen-go-grpc
               just
               rust
               golangci-lint

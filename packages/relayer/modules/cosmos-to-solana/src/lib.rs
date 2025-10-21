@@ -3,6 +3,9 @@
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 #![allow(missing_docs, unused_crate_dependencies)]
 
+pub mod constants;
+pub mod gmp;
+pub mod proto;
 pub mod tx_builder;
 
 use std::collections::HashMap;
@@ -51,10 +54,12 @@ pub struct CosmosToSolanaConfig {
     pub solana_ics26_program_id: String,
     /// The Solana ICS07 Tendermint light client program ID.
     pub solana_ics07_program_id: String,
-    /// The Solana IBC app program ID.
-    pub solana_ibc_app_program_id: String,
     /// The Solana fee payer address.
     pub solana_fee_payer: String,
+    /// Address Lookup Table address for reducing transaction size (optional).
+    pub solana_alt_address: Option<String>,
+    /// Whether to use mock WASM client on Cosmos for testing.
+    pub mock_wasm_client: bool,
 }
 
 impl CosmosToSolanaRelayerModuleService {
@@ -72,11 +77,6 @@ impl CosmosToSolanaRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {}", e))?;
 
-        let ibc_app_program_id: Pubkey = config
-            .solana_ibc_app_program_id
-            .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid Solana IBC app program ID: {}", e))?;
-
         let target_listener =
             solana::ChainListener::new(config.target_rpc_url.clone(), solana_ics26_program_id);
 
@@ -85,13 +85,20 @@ impl CosmosToSolanaRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid fee payer address: {}", e))?;
 
+        let alt_address = config
+            .solana_alt_address
+            .as_ref()
+            .map(|addr| addr.parse())
+            .transpose()
+            .map_err(|e| anyhow::anyhow!("Invalid ALT address: {}", e))?;
+
         let tx_builder = tx_builder::TxBuilder::new(
             src_listener.client().clone(),
             target_listener.client().clone(),
             solana_ics07_program_id,
             solana_ics26_program_id,
-            ibc_app_program_id,
             fee_payer,
+            alt_address,
         )?;
 
         Ok(Self {
@@ -232,17 +239,22 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
         tracing::info!("Handling update client request for Cosmos to Solana...");
 
-        let header_update = self
+        let chunked = self
             .tx_builder
             .update_client(request.into_inner().dst_client_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
+        tracing::info!(
+            "Using chunked update client with {} chunks",
+            chunked.total_chunks
+        );
+
         let mut txs = Vec::new();
-        for tx in header_update.chunk_txs {
+        for tx in chunked.chunk_txs {
             txs.push(tx);
         }
-        txs.push(header_update.assembly_tx);
+        txs.push(chunked.assembly_tx);
 
         // Serialize multiple transactions into TransactionBatch
         let batch = api::TransactionBatch { txs };
