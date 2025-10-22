@@ -238,7 +238,7 @@ impl MerkleHasher {
 
         let max_leaves = 1 << (self.depth + 1);
 
-        #[allow(clippy::manual_is_multiple_of)]
+        #[allow(unknown_lints, clippy::manual_is_multiple_of)]
         // TODO: replace when <https://github.com/CosmWasm/cosmwasm/issues/2485> is resolved
         if self.next_leaf > max_leaves {
             return Err(Error::MaximumLeavesExceeded { max_leaves });
