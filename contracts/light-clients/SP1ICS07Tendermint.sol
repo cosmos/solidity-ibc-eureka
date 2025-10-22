@@ -25,13 +25,7 @@ import { AccessControl } from "@openzeppelin-contracts/access/AccessControl.sol"
 /// @title SP1 ICS07 Tendermint Light Client
 /// @author srdtrk
 /// @notice This contract implements an ICS07 IBC tendermint light client using SP1.
-contract SP1ICS07Tendermint is
-    ISP1ICS07TendermintErrors,
-    ISP1ICS07Tendermint,
-    ILightClient,
-    Multicall,
-    AccessControl
-{
+contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, ILightClient, Multicall, AccessControl {
     using TransientSlot for *;
 
     /// @inheritdoc ISP1ICS07Tendermint
@@ -225,12 +219,6 @@ contract SP1ICS07Tendermint is
 
         // If the misbehaviour and proof is valid, the client needs to be frozen
         clientState.isFrozen = true;
-    }
-
-    /// @inheritdoc ILightClient
-    function upgradeClient(bytes calldata) external view notFrozen onlyProofSubmitter {
-        // NOTE: This feature will not be supported. (#130)
-        revert FeatureNotSupported();
     }
 
     /// @notice Handles the `SP1MembershipProof` proof type.
@@ -542,7 +530,13 @@ contract SP1ICS07Tendermint is
     /// @param timestamp The timestamp of the trusted consensus state in unix nanoseconds.
     /// @dev WARNING: Transient store is not reverted even if a message within a transaction reverts.
     /// @dev WARNING: This function must be called after all proof and validation checks.
-    function _cacheKvPairs(uint64 proofHeight, IMembershipMsgs.KVPair[] memory kvPairs, uint256 timestamp) private {
+    function _cacheKvPairs(
+        uint64 proofHeight,
+        IMembershipMsgs.KVPair[] memory kvPairs,
+        uint256 timestamp
+    )
+        private
+    {
         for (uint256 i = 0; i < kvPairs.length; ++i) {
             bytes32 kvPairHash = keccak256(abi.encode(proofHeight, kvPairs[i]));
             kvPairHash.asUint256().tstore(timestamp);

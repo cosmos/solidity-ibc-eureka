@@ -109,9 +109,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
 
         // resubmit cached non-membership proof
         MsgVerifyNonMembership memory cachedNonMembershipMsg = MsgVerifyNonMembership({
-            proof: bytes(""),
-            proofHeight: fixture.proofHeight,
-            path: verifyNonMembershipPath
+            proof: bytes(""), proofHeight: fixture.proofHeight, path: verifyNonMembershipPath
         });
 
         ics07Tendermint.verifyNonMembership(cachedNonMembershipMsg);
@@ -120,10 +118,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
 
         // resubmit invalid cached membership proof
         MsgVerifyMembership memory invalidCachedMembershipMsg = MsgVerifyMembership({
-            proof: bytes(""),
-            proofHeight: fixture.proofHeight,
-            path: verifyMembershipPath,
-            value: bytes("invalid")
+            proof: bytes(""), proofHeight: fixture.proofHeight, path: verifyMembershipPath, value: bytes("invalid")
         });
         vm.expectRevert(abi.encodeWithSelector(KeyValuePairNotInCache.selector, verifyMembershipPath, bytes("invalid")));
         ics07Tendermint.verifyMembership(invalidCachedMembershipMsg);
@@ -144,9 +139,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
                 MembershipProof({ proofType: MembershipProofType.SP1MembershipProof, proof: abi.encode(proofMsg) });
 
             MsgVerifyNonMembership memory nonMembershipMsg = MsgVerifyNonMembership({
-                proof: abi.encode(membershipProof),
-                proofHeight: fixture.proofHeight,
-                path: verifyNonMembershipPath
+                proof: abi.encode(membershipProof), proofHeight: fixture.proofHeight, path: verifyNonMembershipPath
             });
 
             vm.expectRevert();
@@ -162,7 +155,9 @@ contract SP1ICS07MembershipTest is MembershipTest {
         MockInvalidMembershipTestCase[] memory testCases = new MockInvalidMembershipTestCase[](10);
         testCases[0] = MockInvalidMembershipTestCase({
             name: "success: valid mock",
-            sp1Proof: SP1Proof({ proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey }),
+            sp1Proof: SP1Proof({
+                proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey
+            }),
             proofHeight: fixture.proofHeight.revisionHeight,
             path: verifyNonMembershipPath,
             value: bytes(""),
@@ -171,9 +166,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
         testCases[1] = MockInvalidMembershipTestCase({
             name: "Invalid proof",
             sp1Proof: SP1Proof({
-                proof: bytes("invalid"),
-                publicValues: proof.sp1Proof.publicValues,
-                vKey: proof.sp1Proof.vKey
+                proof: bytes("invalid"), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey
             }),
             proofHeight: fixture.proofHeight.revisionHeight,
             path: verifyNonMembershipPath,
@@ -182,7 +175,9 @@ contract SP1ICS07MembershipTest is MembershipTest {
         });
         testCases[2] = MockInvalidMembershipTestCase({
             name: "Invalid proof height",
-            sp1Proof: SP1Proof({ proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey }),
+            sp1Proof: SP1Proof({
+                proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey
+            }),
             proofHeight: fixture.proofHeight.revisionHeight + 1,
             path: verifyNonMembershipPath,
             value: bytes(""),
@@ -190,7 +185,9 @@ contract SP1ICS07MembershipTest is MembershipTest {
         });
         testCases[3] = MockInvalidMembershipTestCase({
             name: "Empty path",
-            sp1Proof: SP1Proof({ proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey }),
+            sp1Proof: SP1Proof({
+                proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey
+            }),
             proofHeight: fixture.proofHeight.revisionHeight,
             path: new bytes[](0),
             value: bytes(""),
@@ -198,7 +195,9 @@ contract SP1ICS07MembershipTest is MembershipTest {
         });
         testCases[4] = MockInvalidMembershipTestCase({
             name: "Invalid prefix",
-            sp1Proof: SP1Proof({ proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey }),
+            sp1Proof: SP1Proof({
+                proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey
+            }),
             proofHeight: fixture.proofHeight.revisionHeight,
             path: verifyNonMembershipPath,
             value: bytes(""),
@@ -207,7 +206,9 @@ contract SP1ICS07MembershipTest is MembershipTest {
         testCases[4].path[0] = bytes("abc");
         testCases[5] = MockInvalidMembershipTestCase({
             name: "Invalid prefix, same length",
-            sp1Proof: SP1Proof({ proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey }),
+            sp1Proof: SP1Proof({
+                proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey
+            }),
             proofHeight: fixture.proofHeight.revisionHeight,
             path: verifyNonMembershipPath,
             value: bytes(""),
@@ -216,7 +217,9 @@ contract SP1ICS07MembershipTest is MembershipTest {
         testCases[5].path[0] = bytes("invalid");
         testCases[6] = MockInvalidMembershipTestCase({
             name: "Invalid suffix",
-            sp1Proof: SP1Proof({ proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey }),
+            sp1Proof: SP1Proof({
+                proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey
+            }),
             proofHeight: fixture.proofHeight.revisionHeight,
             path: verifyNonMembershipPath,
             value: bytes(""),
@@ -225,7 +228,9 @@ contract SP1ICS07MembershipTest is MembershipTest {
         testCases[6].path[1] = bytes("invalid");
         testCases[7] = MockInvalidMembershipTestCase({
             name: "Invalid value",
-            sp1Proof: SP1Proof({ proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey }),
+            sp1Proof: SP1Proof({
+                proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey
+            }),
             proofHeight: fixture.proofHeight.revisionHeight,
             path: verifyNonMembershipPath,
             value: bytes("invalid"),
@@ -234,9 +239,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
         testCases[8] = MockInvalidMembershipTestCase({
             name: "Invalid vKey",
             sp1Proof: SP1Proof({
-                proof: bytes(""),
-                publicValues: proof.sp1Proof.publicValues,
-                vKey: genesisFixture.ucAndMembershipVkey
+                proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: genesisFixture.ucAndMembershipVkey
             }),
             proofHeight: fixture.proofHeight.revisionHeight,
             path: verifyNonMembershipPath,
@@ -267,35 +270,25 @@ contract SP1ICS07MembershipTest is MembershipTest {
             if (tc.expPass) {
                 if (tc.value.length > 0) {
                     MsgVerifyMembership memory membershipMsg = MsgVerifyMembership({
-                        proof: abi.encode(membershipProof),
-                        proofHeight: proofHeight,
-                        path: tc.path,
-                        value: tc.value
+                        proof: abi.encode(membershipProof), proofHeight: proofHeight, path: tc.path, value: tc.value
                     });
                     mockIcs07Tendermint.verifyMembership(membershipMsg);
                 } else {
                     MsgVerifyNonMembership memory membershipMsg = MsgVerifyNonMembership({
-                        proof: abi.encode(membershipProof),
-                        proofHeight: proofHeight,
-                        path: tc.path
+                        proof: abi.encode(membershipProof), proofHeight: proofHeight, path: tc.path
                     });
                     mockIcs07Tendermint.verifyNonMembership(membershipMsg);
                 }
             } else {
                 if (tc.value.length > 0) {
                     MsgVerifyMembership memory membershipMsg = MsgVerifyMembership({
-                        proof: abi.encode(membershipProof),
-                        proofHeight: proofHeight,
-                        path: tc.path,
-                        value: tc.value
+                        proof: abi.encode(membershipProof), proofHeight: proofHeight, path: tc.path, value: tc.value
                     });
                     vm.expectRevert();
                     mockIcs07Tendermint.verifyMembership(membershipMsg);
                 } else {
                     MsgVerifyNonMembership memory membershipMsg = MsgVerifyNonMembership({
-                        proof: abi.encode(membershipProof),
-                        proofHeight: proofHeight,
-                        path: tc.path
+                        proof: abi.encode(membershipProof), proofHeight: proofHeight, path: tc.path
                     });
                     vm.expectRevert();
                     mockIcs07Tendermint.verifyNonMembership(membershipMsg);

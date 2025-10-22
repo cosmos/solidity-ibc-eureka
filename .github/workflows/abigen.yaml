@@ -23,9 +23,9 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: 1.23
+          go-version: 1.25
 
       - uses: extractions/setup-just@v3
 
@@ -48,24 +48,24 @@ jobs:
     runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: 1.23
+          go-version: 1.25
           cache-dependency-path: packages/go-abigen/go.sum
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1
+          version: v2.5
           working-directory: packages/go-abigen
 
   test:
     runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: 1.23
+          go-version: 1.25
           cache-dependency-path: packages/go-abigen/go.sum
 
       - name: Unit test abigen

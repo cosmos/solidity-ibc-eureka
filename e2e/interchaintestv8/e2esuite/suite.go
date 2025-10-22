@@ -4,10 +4,6 @@ import (
 	"context"
 	"os"
 
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/chainconfig"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/solana"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
 	dockerclient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
@@ -21,6 +17,11 @@ import (
 	icfoundry "github.com/cosmos/interchaintest/v10/chain/ethereum/foundry"
 	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/cosmos/interchaintest/v10/testreporter"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 const anvilFaucetPrivateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"

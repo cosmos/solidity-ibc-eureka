@@ -7,14 +7,15 @@ import (
 	"strings"
 
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
-	ethereumtypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/ethereum"
 	"github.com/stretchr/testify/suite"
 
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 
 	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
 type WasmFixtureGenerator struct {
