@@ -5,6 +5,12 @@
 use crate::Payload;
 use anchor_lang::prelude::*;
 
+/// Account schema version for upgradability
+#[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+pub enum AccountVersion {
+    V1,
+}
+
 /// Packet structure matching Ethereum's ICS26RouterMsgs.Packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct Packet {
@@ -123,12 +129,16 @@ pub struct MsgCleanupChunks {
 /// This matches the on-chain account structure in the ICS26 router
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct IBCApp {
+    /// Schema version for upgrades
+    pub version: AccountVersion,
     /// The port identifier
     pub port_id: String,
     /// The program ID of the IBC application
     pub app_program_id: Pubkey,
     /// Authority that registered this port
     pub authority: Pubkey,
+    /// Reserved space for future fields
+    pub _reserved: [u8; 256],
 }
 
 /// PDA seed constants for the ICS26 router
