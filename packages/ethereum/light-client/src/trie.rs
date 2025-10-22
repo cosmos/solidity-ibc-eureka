@@ -60,10 +60,9 @@ pub fn validate_merkle_branch(
         if (index / 2u64.checked_pow(u32::try_from(i).unwrap()).unwrap()) % 2 != 0 {
             hasher.update(branch_node);
             hasher.update(value);
-            hasher.update(branch_node);
         } else {
-            hasher.update(branch_node);
             hasher.update(value);
+            hasher.update(branch_node);
         }
         value = B256::from_slice(&hasher.finalize()[..]);
     }
