@@ -56,12 +56,12 @@ pub fn validate_merkle_branch(
     for (i, branch_node) in branch.iter().take(depth).enumerate() {
         let mut hasher = Sha256::new();
         // TODO: replace when <https://github.com/CosmWasm/cosmwasm/issues/2485> is resolved
-        if (index / 2u64.checked_pow(u32::try_from(i).unwrap()).unwrap()) % 2 != 0 {
-            hasher.update(branch_node);
+        if (index / 2u64.checked_pow(u32::try_from(i).unwrap()).unwrap()).is_multiple_of(2) {
             hasher.update(value);
+            hasher.update(branch_node);
         } else {
-            hasher.update(value);
             hasher.update(branch_node);
+            hasher.update(value);
         }
         value = B256::from_slice(&hasher.finalize()[..]);
     }
