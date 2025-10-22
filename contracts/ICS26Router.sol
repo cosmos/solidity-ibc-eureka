@@ -10,8 +10,9 @@ import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router, IICS26RouterAccessControlled } from "./interfaces/IICS26Router.sol";
 
-import { ReentrancyGuardTransientUpgradeable } from
-    "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
+import {
+    ReentrancyGuardTransientUpgradeable
+} from "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
 import { IBCStoreUpgradeable } from "./utils/IBCStoreUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
@@ -182,15 +183,18 @@ contract ICS26Router is
         }
 
         bytes[] memory acks = new bytes[](1);
-        try getIBCApp(payload.destPort).onRecvPacket(
-            IIBCAppCallbacks.OnRecvPacketCallback({
-                sourceClient: msg_.packet.sourceClient,
-                destinationClient: msg_.packet.destClient,
-                sequence: msg_.packet.sequence,
-                payload: payload,
-                relayer: _msgSender()
-            })
-        ) returns (bytes memory ack) {
+        try getIBCApp(payload.destPort)
+            .onRecvPacket(
+                IIBCAppCallbacks.OnRecvPacketCallback({
+                    sourceClient: msg_.packet.sourceClient,
+                    destinationClient: msg_.packet.destClient,
+                    sequence: msg_.packet.sequence,
+                    payload: payload,
+                    relayer: _msgSender()
+                })
+            ) returns (
+            bytes memory ack
+        ) {
             require(ack.length != 0, IBCAsyncAcknowledgementNotSupported());
             require(keccak256(ack) != ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK, IBCErrorUniversalAcknowledgement());
             acks[0] = ack;
@@ -243,16 +247,17 @@ contract ICS26Router is
             return;
         }
 
-        getIBCApp(payload.sourcePort).onAcknowledgementPacket(
-            IIBCAppCallbacks.OnAcknowledgementPacketCallback({
-                sourceClient: msg_.packet.sourceClient,
-                destinationClient: msg_.packet.destClient,
-                sequence: msg_.packet.sequence,
-                payload: payload,
-                acknowledgement: msg_.acknowledgement,
-                relayer: _msgSender()
-            })
-        );
+        getIBCApp(payload.sourcePort)
+            .onAcknowledgementPacket(
+                IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+                    sourceClient: msg_.packet.sourceClient,
+                    destinationClient: msg_.packet.destClient,
+                    sequence: msg_.packet.sequence,
+                    payload: payload,
+                    acknowledgement: msg_.acknowledgement,
+                    relayer: _msgSender()
+                })
+            );
 
         emit AckPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet, msg_.acknowledgement);
     }
@@ -291,15 +296,16 @@ contract ICS26Router is
             return;
         }
 
-        getIBCApp(payload.sourcePort).onTimeoutPacket(
-            IIBCAppCallbacks.OnTimeoutPacketCallback({
-                sourceClient: msg_.packet.sourceClient,
-                destinationClient: msg_.packet.destClient,
-                sequence: msg_.packet.sequence,
-                payload: payload,
-                relayer: _msgSender()
-            })
-        );
+        getIBCApp(payload.sourcePort)
+            .onTimeoutPacket(
+                IIBCAppCallbacks.OnTimeoutPacketCallback({
+                    sourceClient: msg_.packet.sourceClient,
+                    destinationClient: msg_.packet.destClient,
+                    sequence: msg_.packet.sequence,
+                    payload: payload,
+                    relayer: _msgSender()
+                })
+            );
 
         emit TimeoutPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet);
     }

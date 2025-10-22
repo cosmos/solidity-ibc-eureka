@@ -10,12 +10,6 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/solana"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/gmphelpers"
-	relayertypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/relayer"
-	solanatypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/solana"
 
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
@@ -33,6 +27,13 @@ import (
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/gmphelpers"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	solanatypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/solana"
 )
 
 const (

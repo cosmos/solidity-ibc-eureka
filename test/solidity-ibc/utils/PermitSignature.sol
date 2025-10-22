@@ -314,9 +314,7 @@ contract PermitSignature {
         IAllowanceTransfer.PermitDetails memory details =
             IAllowanceTransfer.PermitDetails({ token: token0, amount: amount, expiration: expiration, nonce: nonce });
         return IAllowanceTransfer.PermitSingle({
-            details: details,
-            spender: address(this),
-            sigDeadline: block.timestamp + 100
+            details: details, spender: address(this), sigDeadline: block.timestamp + 100
         });
     }
 
@@ -334,17 +332,12 @@ contract PermitSignature {
 
         for (uint256 i = 0; i < tokens.length; ++i) {
             details[i] = IAllowanceTransfer.PermitDetails({
-                token: tokens[i],
-                amount: amount,
-                expiration: expiration,
-                nonce: nonce
+                token: tokens[i], amount: amount, expiration: expiration, nonce: nonce
             });
         }
 
         return IAllowanceTransfer.PermitBatch({
-            details: details,
-            spender: address(this),
-            sigDeadline: block.timestamp + 100
+            details: details, spender: address(this), sigDeadline: block.timestamp + 100
         });
     }
 
@@ -392,9 +385,7 @@ contract PermitSignature {
             permitted[i] = ISignatureTransfer.TokenPermissions({ token: tokens[i], amount: 1 ** 18 });
         }
         return ISignatureTransfer.PermitBatchTransferFrom({
-            permitted: permitted,
-            nonce: nonce,
-            deadline: block.timestamp + 100
+            permitted: permitted, nonce: nonce, deadline: block.timestamp + 100
         });
     }
 }

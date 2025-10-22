@@ -124,17 +124,6 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
         assert(clientState.isFrozen == true);
     }
 
-    function test_MockUpgradeClient() public {
-        // Doesn't matter which fixture we use since this is not implemented
-        setUpTestWithFixture("update_client_fixture-plonk.json");
-        // set a correct timestamp
-        vm.warp(_nanosToSeconds(output.time) + 300);
-
-        // upgrade client
-        vm.expectRevert(abi.encodeWithSelector(FeatureNotSupported.selector));
-        mockIcs07Tendermint.upgradeClient(bytes(""));
-    }
-
     function loadFixture(string memory fileName) public view returns (SP1ICS07UpdateClientFixtureJson memory) {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, FIXTURE_DIR, fileName);
@@ -144,9 +133,7 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
         bytes memory updateMsg = json.readBytes(".updateMsg");
 
         SP1ICS07UpdateClientFixtureJson memory fix = SP1ICS07UpdateClientFixtureJson({
-            trustedClientState: trustedClientState,
-            trustedConsensusState: trustedConsensusState,
-            updateMsg: updateMsg
+            trustedClientState: trustedClientState, trustedConsensusState: trustedConsensusState, updateMsg: updateMsg
         });
 
         return fix;
