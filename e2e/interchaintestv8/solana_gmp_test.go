@@ -1199,7 +1199,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transactions")
 
 			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
-			s.T().Logf("Successfully updated Tendermint client on Solana using %d transaction(s)", len(resp.Tx))
 		}))
 
 		s.Require().True(s.Run("Relay acknowledgement", func() {
