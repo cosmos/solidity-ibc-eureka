@@ -191,12 +191,12 @@ func (s *Solana) WaitForProgramAvailabilityWithTimeout(ctx context.Context, prog
 }
 
 // SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is finalized, retries with default timeout
-func (s *Solana) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet) (solana.Signature, error) {
-	return s.SignAndBroadcastTxWithRetryTimeout(ctx, tx, wallet, 30)
+func (s *Solana) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Transaction, signers *solana.Wallet) (solana.Signature, error) {
+	return s.SignAndBroadcastTxWithRetryTimeout(ctx, tx, signers, 30)
 }
 
 // SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is finalized, retries with timeout
-func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, timeoutSeconds int) (solana.Signature, error) {
+func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *solana.Transaction, signers *solana.Wallet, timeoutSeconds int) (solana.Signature, error) {
 	var lastErr error
 	for range timeoutSeconds {
 		// Refresh blockhash on each retry attempt (blockhashes expire after ~60 seconds)
@@ -208,7 +208,7 @@ func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *sol
 		}
 		tx.Message.RecentBlockhash = recent.Value.Blockhash
 
-		sig, err := s.SignAndBroadcastTx(ctx, tx, wallet)
+		sig, err := s.SignAndBroadcastTx(ctx, tx, signers)
 		if err == nil {
 			return sig, nil
 		}
