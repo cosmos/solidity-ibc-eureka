@@ -287,7 +287,7 @@ type RelayByTxResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The multicall transaction to be submitted by caller
 	// For single transactions: contains the raw transaction bytes
-	// For multiple transactions (e.g., Solana chunks): contains serialized TransactionBatch
+	// For multiple transactions (e.g. Solana chunks): contains serialized RelayPacketBatch
 	Tx []byte `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`
 	// The contract address to submit the transaction, if applicable
 	Address       string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
@@ -527,7 +527,7 @@ type UpdateClientResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The transaction to be submitted by caller
 	// For single transactions: contains the raw transaction bytes
-	// For multiple transactions (e.g., Solana chunks): contains serialized TransactionBatch
+	// For multiple transactions (e.g. Solana chunks): contains serialized TransactionBatch
 	Tx []byte `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`
 	// The contract address to submit the transaction, if applicable
 	Address       string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`

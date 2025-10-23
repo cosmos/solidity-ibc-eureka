@@ -67,7 +67,7 @@ message RelayPacketBatch {
 message RelayByTxResponse {
     // The multicall transaction to be submitted by caller
     // For single transactions: contains the raw transaction bytes
-    // For multiple transactions (e.g., Solana chunks): contains serialized TransactionBatch
+    // For multiple transactions (e.g. Solana chunks): contains serialized RelayPacketBatch
     bytes tx = 1;
     // The contract address to submit the transaction, if applicable
     string address = 2;
@@ -105,7 +105,7 @@ message UpdateClientRequest {
 message UpdateClientResponse {
     // The transaction to be submitted by caller
     // For single transactions: contains the raw transaction bytes
-    // For multiple transactions (e.g., Solana chunks): contains serialized TransactionBatch
+    // For multiple transactions (e.g. Solana chunks): contains serialized TransactionBatch
     bytes tx = 1;
     // The contract address to submit the transaction, if applicable
     string address = 2;
