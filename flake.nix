@@ -89,6 +89,8 @@
               go
               gopls
               gofumpt
+            ] ++ lib.optionals stdenv.isDarwin [
+              apple-sdk_15
             ];
             shellHook = ''
               export RUST_SRC_PATH="${rust}/lib/rustlib/src/rust/library"
@@ -112,7 +114,7 @@
               # - libcxx uses SDK 15.5 (linked into binaries)
               # - rust toolchain tries to use SDK 12.3 (sets DEVELOPER_DIR_FOR_TARGET)
               # This causes "Multiple conflicting values defined for DEVELOPER_DIR" linker errors.
-              # We unset the conflicting *_FOR_TARGET variables to force everything to use SDK 11.3.
+              # We unset the conflicting *_FOR_TARGET variables to force everything to use installed apple-sdk_15.
               # Remove this workaround when nixpkgs fixes the SDK version mismatch upstream.
               if [[ "$OSTYPE" == "darwin"* ]]; then
                 unset DEVELOPER_DIR_FOR_TARGET
