@@ -433,7 +433,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return chunked transactions")
-			s.T().Logf("%s: Retrieved %d relay transactions (chunks + final instructions)", userLabel, len(resp.Tx))
 
 			// Execute on Solana using chunked submission
 			solanaRelayTxSig = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
@@ -1428,7 +1427,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return chunked transactions")
-			s.T().Logf("Retrieved %d relay transactions (chunks + final instructions)", len(resp.Tx))
 
 			sig := s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
 			s.T().Logf("Timeout transaction broadcasted: %s", sig)
