@@ -26,9 +26,17 @@ func binaryPath() string {
 	return "solana-test-validator"
 }
 
+func cleanupLedgerDir() error {
+	return os.RemoveAll(testvalues.SolanaLedgerDir)
+}
+
 func StartLocalnet(context.Context) (SolanaLocalnetChain, error) {
 	solanaChain := SolanaLocalnetChain{}
 	solanaChain.Faucet = solana.NewWallet()
+
+	if err := cleanupLedgerDir(); err != nil {
+		return SolanaLocalnetChain{}, err
+	}
 
 	cmd := exec.Command(binaryPath(), "--reset", "--mint", solanaChain.Faucet.PublicKey().String(), "--ledger", testvalues.SolanaLedgerDir)
 	if err := cmd.Start(); err != nil {
@@ -50,7 +58,7 @@ func (s SolanaLocalnetChain) Destroy() error {
 			return err
 		}
 
-		if err := os.RemoveAll(testvalues.SolanaLedgerDir); err != nil {
+		if err := cleanupLedgerDir(); err != nil {
 			return err
 		}
 	}

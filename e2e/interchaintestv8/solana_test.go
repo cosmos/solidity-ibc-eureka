@@ -572,7 +572,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.Require().NotEmpty(resp.Txs, "Relay should return chunked transactions")
 			s.T().Logf("Retrieved %d relay transactions (chunks + final instructions)", len(resp.Txs))
 
-			_ = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
+			_ = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), s.Require(), resp, s.SolanaUser)
 			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
 
 			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
@@ -740,7 +740,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			s.Require().NotEmpty(resp.Txs, "Relay should return chunked transactions")
 			s.T().Logf("Retrieved %d relay transactions (chunks + final instructions)", len(resp.Txs))
 
-			_ = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
+			_ = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), s.Require(), resp, s.SolanaUser)
 			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
 
 			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
@@ -859,7 +859,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			s.Require().NotEmpty(resp.Txs, "Relay should return chunked transactions")
 			s.T().Logf("Retrieved %d relay transactions (chunks + final instructions)", len(resp.Txs))
 
-			solanaRelayTxSig = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
+			solanaRelayTxSig = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), s.Require(), resp, s.SolanaUser)
 			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
 
 			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
@@ -1029,46 +1029,6 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 	s.T().Logf("Total time: %v", totalDuration)
 	s.T().Logf("  - Chunk upload phase: %v (%d chunks in parallel)", chunksTotal, chunkCount)
 	s.T().Logf("  - Assembly phase: %v", assemblyDuration)
-}
-
-func (s *IbcEurekaSolanaTestSuite) submitChunkedRelayPackets(ctx context.Context, resp *relayertypes.RelayByTxResponse, user *solanago.Wallet) solanago.Signature {
-	s.Require().NotEqual(0, len(resp.Txs), "no relay transactions provided")
-
-	totalStart := time.Now()
-	s.T().Logf("=== Starting Chunked Relay Packets ===")
-	s.T().Logf("Total transactions: %d (chunks + final instructions)", len(resp.Txs))
-
-	var lastSig solanago.Signature
-	// Submit all transactions sequentially
-	// Structure: [packet1_chunk0, packet1_chunk1, ..., packet1_final, packet2_chunk0, ...]
-	for i, txBytes := range resp.Txs {
-		txStart := time.Now()
-
-		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(txBytes))
-		s.Require().NoError(err, "Failed to decode transaction %d", i)
-
-		recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-		s.Require().NoError(err, "Failed to get latest blockhash for transaction %d", i)
-		tx.Message.RecentBlockhash = recent.Value.Blockhash
-
-		// TODO: We can speed up test by waiting for processed on all chunks and then finalized on relay assemble tx
-		sig, err := s.SolanaChain.SignAndBroadcastTx(ctx, tx, user)
-		s.Require().NoError(err, "Failed to submit transaction %d", i)
-
-		lastSig = sig
-		txDuration := time.Since(txStart)
-		s.T().Logf("✓ Transaction %d/%d completed in %v - tx: %s",
-			i+1, len(resp.Txs), txDuration, sig)
-	}
-
-	totalDuration := time.Since(totalStart)
-	avgTxTime := totalDuration / time.Duration(len(resp.Txs))
-	s.T().Logf("=== Chunked Relay Packets Complete ===")
-	s.T().Logf("Total time: %v for %d transactions (avg: %v/tx)",
-		totalDuration, len(resp.Txs), avgTxTime)
-	s.T().Logf("NOTE: for simplicity all tx chunks are waiting for finalization and are sent sequentially")
-	s.T().Logf("In real use only final packet tx (recv/ack/timeout) needs to be finalized")
-	return lastSig
 }
 
 func (s *IbcEurekaSolanaTestSuite) verifyPacketCommitmentDeleted(ctx context.Context, clientID string, sequence uint64) {

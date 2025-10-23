@@ -6,9 +6,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"slices"
+	"strings"
+	"testing"
 	"time"
 
 	bin "github.com/gagliardetto/binary"
+	"github.com/stretchr/testify/require"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
@@ -19,6 +22,7 @@ import (
 	"github.com/cosmos/interchaintest/v10/testutil"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
 type Solana struct {
@@ -386,4 +390,188 @@ func mustWrite(err error) {
 	if err != nil {
 		panic(fmt.Sprintf("unexpected encoding error: %v", err))
 	}
+}
+
+// GetSolanaClockTime retrieves the current on-chain clock time from the Solana Clock sysvar
+func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
+	clockSysvarPubkey := solana.MustPublicKeyFromBase58("SysvarC1ock11111111111111111111111111111111")
+
+	accountInfo, err := s.RPCClient.GetAccountInfo(ctx, clockSysvarPubkey)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get clock sysvar account: %w", err)
+	}
+	if accountInfo.Value == nil {
+		return 0, fmt.Errorf("clock sysvar account is nil")
+	}
+
+	data := accountInfo.Value.Data.GetBinary()
+	// Clock sysvar structure: [slot: 8 bytes][epoch_start_timestamp: 8 bytes][epoch: 8 bytes][leader_schedule_epoch: 8 bytes][unix_timestamp: 8 bytes]
+	// unix_timestamp is at offset 32
+	if len(data) < 40 {
+		return 0, fmt.Errorf("clock sysvar data too short: expected >= 40 bytes, got %d", len(data))
+	}
+
+	unixTimestamp := int64(binary.LittleEndian.Uint64(data[32:40]))
+	return unixTimestamp, nil
+}
+
+// GetNextSequenceNumber retrieves the next sequence number from a ClientSequence account
+// Returns 1 if the account doesn't exist yet (IBC sequences start from 1)
+func (s *Solana) GetNextSequenceNumber(ctx context.Context, clientSequencePDA solana.PublicKey) (uint64, error) {
+	clientSequenceAccount, err := s.RPCClient.GetAccountInfo(ctx, clientSequencePDA)
+	if err != nil || clientSequenceAccount.Value == nil {
+		// Account doesn't exist yet, default to sequence 1
+		return 1, nil
+	}
+
+	data := clientSequenceAccount.Value.Data.GetBinary()
+	// ClientSequence layout: [discriminator: 8 bytes][version: 1 byte][next_sequence_send: 8 bytes][reserved: 256 bytes]
+	if len(data) < 17 {
+		return 0, fmt.Errorf("client sequence account data too short: expected >= 17 bytes, got %d", len(data))
+	}
+
+	nextSequence := binary.LittleEndian.Uint64(data[9:17])
+	return nextSequence, nil
+}
+
+// GetNextSequenceAndCommitmentPDA retrieves the next sequence number and derives the packet commitment PDA
+// This is a convenience function that combines GetNextSequenceNumber with PDA derivation
+func (s *Solana) GetNextSequenceAndCommitmentPDA(
+	ctx context.Context,
+	clientSequencePDA solana.PublicKey,
+	clientID string,
+	routerProgramID solana.PublicKey,
+) (sequence uint64, packetCommitmentPDA solana.PublicKey, err error) {
+	sequence, err = s.GetNextSequenceNumber(ctx, clientSequencePDA)
+	if err != nil {
+		return 0, solana.PublicKey{}, fmt.Errorf("failed to get next sequence number: %w", err)
+	}
+
+	sequenceBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
+
+	packetCommitmentPDA, _, err = solana.FindProgramAddress(
+		[][]byte{
+			[]byte("packet_commitment"),
+			[]byte(clientID),
+			sequenceBytes,
+		},
+		routerProgramID,
+	)
+	if err != nil {
+		return 0, solana.PublicKey{}, fmt.Errorf("failed to derive packet commitment PDA: %w", err)
+	}
+
+	return sequence, packetCommitmentPDA, nil
+}
+
+// SubmitChunkedRelayPackets submits chunked relay packets successfully
+func (s *Solana) SubmitChunkedRelayPackets(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	resp *relayertypes.RelayByTxResponse,
+	user *solana.Wallet,
+) solana.Signature {
+	t.Helper()
+	require.NotEqual(0, len(resp.Txs), "no relay transactions provided")
+
+	totalStart := time.Now()
+	t.Logf("=== Starting Chunked Relay Packets ===")
+	t.Logf("Total transactions: %d (chunks + final instructions)", len(resp.Txs))
+
+	var lastSig solana.Signature
+	// Submit all transactions sequentially
+	// Structure: [packet1_chunk0, packet1_chunk1, ..., packet1_final, packet2_chunk0, ...]
+	for i, txBytes := range resp.Txs {
+		txStart := time.Now()
+
+		tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(txBytes))
+		require.NoError(err, "Failed to decode transaction %d", i)
+
+		recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+		require.NoError(err, "Failed to get latest blockhash for transaction %d", i)
+		tx.Message.RecentBlockhash = recent.Value.Blockhash
+
+		// TODO: We can speed up test by waiting for processed on all chunks and then finalized on relay assemble tx
+		sig, err := s.SignAndBroadcastTx(ctx, tx, user)
+		require.NoError(err, "Failed to submit transaction %d", i)
+
+		lastSig = sig
+		txDuration := time.Since(txStart)
+		t.Logf("✓ Transaction %d/%d completed in %v - tx: %s",
+			i+1, len(resp.Txs), txDuration, sig)
+	}
+
+	totalDuration := time.Since(totalStart)
+	avgTxTime := totalDuration / time.Duration(len(resp.Txs))
+	t.Logf("=== Chunked Relay Packets Complete ===")
+	t.Logf("Total time: %v for %d transactions (avg: %v/tx)",
+		totalDuration, len(resp.Txs), avgTxTime)
+	t.Logf("NOTE: for simplicity all tx chunks are waiting for finalization and are sent sequentially")
+	t.Logf("In real use only final packet tx (recv/ack/timeout) needs to be finalized")
+	return lastSig
+}
+
+// SubmitChunkedRelayPacketsExpectingError submits chunked relay packets expecting an error.
+// It asserts that an error occurred and optionally validates the error message.
+//
+// Parameters:
+//   - expectedErrorSubstring: If non-empty, asserts the error contains this substring (case-insensitive)
+//
+// Returns the signature for further inspection if needed.
+func (s *Solana) SubmitChunkedRelayPacketsExpectingError(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	resp *relayertypes.RelayByTxResponse,
+	user *solana.Wallet,
+	expectedErrorSubstring string,
+) solana.Signature {
+	t.Helper()
+	require.NotEmpty(resp.Txs, "Expected relay transactions to submit")
+
+	var lastSig solana.Signature
+	var encounteredError error
+
+	for i, txBytes := range resp.Txs {
+		tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(txBytes))
+		if err != nil {
+			require.Fail("Failed to decode transaction", "Transaction %d decode error: %v", i, err)
+			return lastSig
+		}
+
+		recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+		if err != nil {
+			require.Fail("Failed to get latest blockhash", "Transaction %d blockhash error: %v", i, err)
+			return lastSig
+		}
+		tx.Message.RecentBlockhash = recent.Value.Blockhash
+
+		sig, err := s.SignAndBroadcastTx(ctx, tx, user)
+		if err != nil {
+			encounteredError = err
+			lastSig = sig
+			t.Logf("Transaction %d failed as expected: %v", i, err)
+			break
+		}
+
+		lastSig = sig
+		t.Logf("Transaction %d/%d succeeded: %s", i+1, len(resp.Txs), sig)
+	}
+
+	// Assert that an error occurred
+	require.Error(encounteredError, "Expected transaction to fail but it succeeded")
+
+	// If expected error pattern provided, validate it
+	if expectedErrorSubstring != "" {
+		errorMsg := strings.ToLower(encounteredError.Error())
+		expectedLower := strings.ToLower(expectedErrorSubstring)
+		require.Contains(errorMsg, expectedLower,
+			"Error message should contain expected substring.\nExpected substring: %s\nActual error: %s",
+			expectedErrorSubstring, encounteredError.Error())
+		t.Logf("Error validation passed: contains '%s'", expectedErrorSubstring)
+	}
+
+	return lastSig
 }
