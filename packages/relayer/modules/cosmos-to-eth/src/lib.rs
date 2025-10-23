@@ -323,7 +323,6 @@ impl RelayerService for CosmosToEthRelayerModuleService {
         Ok(Response::new(api::RelayByTxResponse {
             tx: multicall_tx,
             address: self.tx_builder.ics26_router.address().to_string(),
-            txs: vec![],
         }))
     }
 
@@ -368,7 +367,6 @@ impl RelayerService for CosmosToEthRelayerModuleService {
         Ok(Response::new(api::UpdateClientResponse {
             tx,
             address: self.tx_builder.ics26_router.address().to_string(),
-            txs: vec![],
         }))
     }
 }

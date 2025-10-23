@@ -419,10 +419,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(updateResp.Txs, "Relayer Update client should return chunked transactions")
+			s.Require().NotEmpty(updateResp.Tx, "Relayer Update client should return chunked transactions")
 
 			s.submitChunkedUpdateClient(ctx, updateResp, s.SolanaUser)
-			s.T().Logf("%s: Updated Tendermint client on Solana using %d chunked transactions", userLabel, len(updateResp.Txs))
 
 			// Now retrieve and relay the GMP packet
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -433,8 +432,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Txs, "Relay should return chunked transactions")
-			s.T().Logf("%s: Retrieved %d relay transactions (chunks + final instructions)", userLabel, len(resp.Txs))
+			s.Require().NotEmpty(resp.Tx, "Relay should return chunked transactions")
 
 			// Execute on Solana using chunked submission
 			solanaRelayTxSig = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
@@ -716,10 +714,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(updateResp.Txs, "Relayer Update client should return chunked transactions")
+			s.Require().NotEmpty(updateResp.Tx, "Relayer Update client should return chunked transactions")
 
 			s.submitChunkedUpdateClient(ctx, updateResp, s.SolanaUser)
-			s.T().Logf("Updated Tendermint client on Solana using %d chunked transactions", len(updateResp.Txs))
 		}))
 
 		s.Require().True(s.Run("Retrieve relay tx from relayer", func() {
@@ -731,8 +728,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Txs, "Relay should return chunked transactions")
-			s.T().Logf("Retrieved %d relay transactions (chunks + final instructions)", len(resp.Txs))
+			s.Require().NotEmpty(resp.Tx, "Relay should return chunked transactions")
 
 			solanaRelayTxSig = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
 			s.T().Logf("SPL transfer executed on Solana: %s", solanaRelayTxSig)
@@ -831,8 +827,8 @@ func (s *IbcEurekaSolanaTestSuite) createSPLTokenMint(ctx context.Context, decim
 		return solanago.PublicKey{}, err
 	}
 
-	// Sign and broadcast with both payer and mint account (with retry)
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser, mintAccount)
+	// Sign and broadcast with both payer and mint account
+	_, err = s.SolanaChain.SignAndBroadcastTx(ctx, tx, s.SolanaUser, mintAccount)
 	if err != nil {
 		return solanago.PublicKey{}, err
 	}
@@ -881,8 +877,8 @@ func (s *IbcEurekaSolanaTestSuite) createTokenAccount(ctx context.Context, mint,
 		return solanago.PublicKey{}, err
 	}
 
-	// Sign and broadcast with both payer and token account (with retry)
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser, tokenAccount)
+	// Sign and broadcast with both payer and token account
+	_, err = s.SolanaChain.SignAndBroadcastTx(ctx, tx, s.SolanaUser, tokenAccount)
 	if err != nil {
 		return solanago.PublicKey{}, err
 	}
@@ -1199,10 +1195,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(resp.Txs, "Relayer Update client should return transactions")
+			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transactions")
 
 			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
-			s.T().Logf("Successfully updated Tendermint client on Solana using %d transaction(s)", len(resp.Txs))
 		}))
 
 		s.Require().True(s.Run("Relay acknowledgement", func() {
@@ -1214,8 +1209,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Txs, "Relay should return chunked transactions")
-			s.T().Logf("Retrieved %d relay transactions (chunks + final instructions)", len(resp.Txs))
+			s.Require().NotEmpty(resp.Tx, "Relay should return chunked transactions")
 
 			sig := s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
 			s.T().Logf("Acknowledgement transaction broadcasted: %s", sig)
@@ -1418,10 +1412,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(resp.Txs, "Relayer Update client should return transactions")
+			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transactions")
 
 			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
-			s.T().Logf("Successfully updated Tendermint client on Solana using %d transaction(s)", len(resp.Txs))
 		}))
 
 		s.Require().True(s.Run("Relay timeout transaction", func() {
@@ -1433,8 +1426,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 				DstClientId:  SolanaClientID,
 			})
 			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Txs, "Relay should return chunked transactions")
-			s.T().Logf("Retrieved %d relay transactions (chunks + final instructions)", len(resp.Txs))
+			s.Require().NotEmpty(resp.Tx, "Relay should return chunked transactions")
 
 			sig := s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
 			s.T().Logf("Timeout transaction broadcasted: %s", sig)
