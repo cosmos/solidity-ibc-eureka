@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
-	sdkmath "cosmossdk.io/math"
 	bin "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/suite"
+
+	sdkmath "cosmossdk.io/math"
 	"google.golang.org/protobuf/proto"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -23,11 +24,6 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/relayer"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/solana"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
-	relayertypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/relayer"
 	dummy_ibc_app "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/dummyibcapp"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
