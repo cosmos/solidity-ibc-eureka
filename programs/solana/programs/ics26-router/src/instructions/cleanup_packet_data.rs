@@ -11,14 +11,15 @@ pub struct CleanupTarget {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct MsgCleanupReceipts {
+pub struct MsgCleanupPacketData {
     pub receipts: Vec<CleanupTarget>,
     pub acks: Vec<CleanupTarget>,
+    pub commitments: Vec<CleanupTarget>,
 }
 
 #[derive(Accounts)]
-#[instruction(msg: MsgCleanupReceipts)]
-pub struct CleanupReceipts<'info> {
+#[instruction(msg: MsgCleanupPacketData)]
+pub struct CleanupPacketData<'info> {
     #[account(
         seeds = [ROUTER_STATE_SEED],
         bump
@@ -32,31 +33,29 @@ pub struct CleanupReceipts<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn cleanup_receipts<'info>(
-    ctx: Context<'_, '_, '_, 'info, CleanupReceipts<'info>>,
-    msg: MsgCleanupReceipts,
+pub fn cleanup_packet_data<'info>(
+    ctx: Context<'_, '_, '_, 'info, CleanupPacketData<'info>>,
+    msg: MsgCleanupPacketData,
 ) -> Result<()> {
-    msg!("=== cleanup_receipts START ===");
+    msg!("=== cleanup_packet_data START ===");
 
     // Get current timestamp
     let clock = Clock::get()?;
     let current_timestamp = clock.unix_timestamp;
 
     // Validate batch size
-    let total_cleanups = msg.receipts.len() + msg.acks.len();
+    let total_cleanups = msg.receipts.len() + msg.acks.len() + msg.commitments.len();
     require!(
         total_cleanups <= MAX_CLEANUP_BATCH_SIZE as usize,
         RouterError::ExceedsMaxBatchSize
     );
-    require!(
-        total_cleanups > 0,
-        RouterError::EmptyCleanupBatch
-    );
+    require!(total_cleanups > 0, RouterError::EmptyCleanupBatch);
 
     msg!(
-        "Cleaning up {} receipts and {} acks",
+        "Cleaning up {} receipts, {} acks, and {} commitments",
         msg.receipts.len(),
-        msg.acks.len()
+        msg.acks.len(),
+        msg.commitments.len()
     );
 
     let rent_recipient = &ctx.accounts.rent_recipient;
@@ -206,8 +205,80 @@ pub fn cleanup_receipts<'info>(
         );
     }
 
+    // Process commitment cleanups (similar logic, different PDA seeds)
+    let commitment_start_idx = msg.receipts.len() + msg.acks.len();
+    for (idx, target) in msg.commitments.iter().enumerate() {
+        // Check if enough time has passed since creation
+        let age = current_timestamp.saturating_sub(target.created_at);
+        if age < CLEANUP_GRACE_PERIOD as i64 {
+            msg!(
+                "Skipping commitment {}/{}: too recent (age: {}s < {}s)",
+                target.client_id,
+                target.sequence,
+                age,
+                CLEANUP_GRACE_PERIOD
+            );
+            continue;
+        }
+
+        // Get the commitment PDA from remaining accounts
+        let commitment_account = ctx
+            .remaining_accounts
+            .get(commitment_start_idx + idx)
+            .ok_or(RouterError::MissingAccount)?;
+
+        // Verify PDA address matches expected
+        let (expected_pda, _) = Pubkey::find_program_address(
+            &[
+                PACKET_COMMITMENT_SEED,
+                target.client_id.as_bytes(),
+                &target.sequence.to_le_bytes(),
+            ],
+            ctx.program_id,
+        );
+
+        require!(
+            commitment_account.key() == expected_pda,
+            RouterError::InvalidAccount
+        );
+
+        // Check if account is owned by our program and not already closed
+        if commitment_account.owner != ctx.program_id || commitment_account.lamports() == 0 {
+            msg!(
+                "Skipping commitment {}/{}: not owned by program or already closed",
+                target.client_id,
+                target.sequence
+            );
+            continue;
+        }
+
+        // Close the account and reclaim rent
+        let lamports_to_reclaim = commitment_account.lamports();
+        **rent_recipient.to_account_info().lamports.borrow_mut() = rent_recipient
+            .lamports()
+            .checked_add(lamports_to_reclaim)
+            .ok_or(RouterError::ArithmeticOverflow)?;
+        **commitment_account.lamports.borrow_mut() = 0;
+
+        // Clear account data
+        let mut data = commitment_account.try_borrow_mut_data()?;
+        data.fill(0);
+
+        total_reclaimed = total_reclaimed
+            .checked_add(lamports_to_reclaim)
+            .ok_or(RouterError::ArithmeticOverflow)?;
+        cleaned_count += 1;
+
+        msg!(
+            "Cleaned commitment {}/{}, reclaimed {} lamports",
+            target.client_id,
+            target.sequence,
+            lamports_to_reclaim
+        );
+    }
+
     msg!(
-        "=== cleanup_receipts SUCCESS: cleaned {} PDAs, reclaimed {} lamports ===",
+        "=== cleanup_packet_data SUCCESS: cleaned {} PDAs, reclaimed {} lamports ===",
         cleaned_count,
         total_reclaimed
     );
@@ -227,18 +298,20 @@ mod tests {
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::{clock::Clock, system_program};
 
-    struct CleanupReceiptsTestContext {
+    struct CleanupPacketDataTestContext {
         instruction: Instruction,
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
         receipt_pubkeys: Vec<Pubkey>,
         ack_pubkeys: Vec<Pubkey>,
+        commitment_pubkeys: Vec<Pubkey>,
     }
 
     fn setup_cleanup_test(
         num_receipts: usize,
         num_acks: usize,
+        num_commitments: usize,
         created_at: i64,
-    ) -> CleanupReceiptsTestContext {
+    ) -> CleanupPacketDataTestContext {
         let authority = Pubkey::new_unique();
         let rent_recipient = Pubkey::new_unique();
         let client_id = "test-client";
@@ -247,8 +320,10 @@ mod tests {
 
         let mut receipts = Vec::new();
         let mut acks = Vec::new();
+        let mut commitments = Vec::new();
         let mut receipt_pubkeys = Vec::new();
         let mut ack_pubkeys = Vec::new();
+        let mut commitment_pubkeys = Vec::new();
         let mut remaining_accounts = Vec::new();
 
         // Create receipt targets and accounts
@@ -271,7 +346,10 @@ mod tests {
             receipt_pubkeys.push(receipt_pda);
 
             // Create a commitment account with some lamports (simulating rent)
-            let commitment_data = Commitment { value: [0u8; 32] };
+            let commitment_data = Commitment {
+                value: [0u8; 32],
+                created_at,
+            };
             let mut data = vec![];
             commitment_data.try_serialize(&mut data).unwrap();
 
@@ -307,7 +385,10 @@ mod tests {
             ack_pubkeys.push(ack_pda);
 
             // Create a commitment account with some lamports (simulating rent)
-            let commitment_data = Commitment { value: [1u8; 32] }; // Different value for acks
+            let commitment_data = Commitment {
+                value: [1u8; 32], // Different value for acks
+                created_at,
+            };
             let mut data = vec![];
             commitment_data.try_serialize(&mut data).unwrap();
 
@@ -323,7 +404,50 @@ mod tests {
             ));
         }
 
-        let msg = MsgCleanupReceipts { receipts, acks };
+        // Create commitment targets and accounts
+        for i in 0..num_commitments {
+            let sequence = (i + 200) as u64; // Different sequence range
+            commitments.push(CleanupTarget {
+                client_id: client_id.to_string(),
+                sequence,
+                created_at,
+            });
+
+            let (commitment_pda, _) = Pubkey::find_program_address(
+                &[
+                    PACKET_COMMITMENT_SEED,
+                    client_id.as_bytes(),
+                    &sequence.to_le_bytes(),
+                ],
+                &crate::ID,
+            );
+            commitment_pubkeys.push(commitment_pda);
+
+            // Create a commitment account with some lamports (simulating rent)
+            let commitment_data = Commitment {
+                value: [2u8; 32], // Different value for commitments
+                created_at,       // Store the timestamp
+            };
+            let mut data = vec![];
+            commitment_data.try_serialize(&mut data).unwrap();
+
+            remaining_accounts.push((
+                commitment_pda,
+                solana_sdk::account::Account {
+                    lamports: 2_000_000, // ~0.002 SOL rent
+                    data,
+                    owner: crate::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ));
+        }
+
+        let msg = MsgCleanupPacketData {
+            receipts,
+            acks,
+            commitments,
+        };
 
         let mut instruction_accounts = vec![
             AccountMeta::new_readonly(router_state_pda, false),
@@ -339,7 +463,7 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: instruction_accounts,
-            data: crate::instruction::CleanupReceipts { msg }.data(),
+            data: crate::instruction::CleanupPacketData { msg }.data(),
         };
 
         let mut accounts = vec![
@@ -351,11 +475,12 @@ mod tests {
         // Add remaining accounts
         accounts.extend(remaining_accounts);
 
-        CleanupReceiptsTestContext {
+        CleanupPacketDataTestContext {
             instruction,
             accounts,
             receipt_pubkeys,
             ack_pubkeys,
+            commitment_pubkeys,
         }
     }
 
@@ -373,20 +498,22 @@ mod tests {
     }
 
     #[test]
-    fn test_cleanup_receipts_success() {
+    fn test_cleanup_packet_data_success() {
         let created_at = 1000;
         let current_time = created_at + CLEANUP_GRACE_PERIOD as i64 + 100; // Past grace period
 
-        let mut ctx = setup_cleanup_test(2, 2, created_at);
+        let mut ctx = setup_cleanup_test(2, 2, 2, created_at);
 
         // Add clock sysvar
         ctx.accounts
-            .push(create_clock_account_with_data(create_clock_data(current_time)));
+            .push(create_clock_account_with_data(create_clock_data(
+                current_time,
+            )));
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
 
-        // Calculate expected rent reclaimed (2 receipts + 2 acks) * 2_000_000 lamports
-        let expected_reclaimed = 4 * 2_000_000;
+        // Calculate expected rent reclaimed (2 receipts + 2 acks + 2 commitments) * 2_000_000 lamports
+        let expected_reclaimed = 6 * 2_000_000;
         let rent_recipient_pubkey = ctx.accounts[1].0;
         let initial_balance = ctx.accounts[1].1.lamports;
 
@@ -397,10 +524,9 @@ mod tests {
                 .lamports(initial_balance + expected_reclaimed)
                 .build(),
             // Verify PDAs are closed (0 lamports)
-            Check::account(&ctx.receipt_pubkeys[0])
-                .lamports(0)
-                .build(),
-            Check::account(&ctx.ack_pubkeys[0])
+            Check::account(&ctx.receipt_pubkeys[0]).lamports(0).build(),
+            Check::account(&ctx.ack_pubkeys[0]).lamports(0).build(),
+            Check::account(&ctx.commitment_pubkeys[0])
                 .lamports(0)
                 .build(),
         ];
@@ -409,15 +535,17 @@ mod tests {
     }
 
     #[test]
-    fn test_cleanup_receipts_grace_period_not_met() {
+    fn test_cleanup_packet_data_grace_period_not_met() {
         let created_at = 1000;
         let current_time = created_at + CLEANUP_GRACE_PERIOD as i64 - 100; // Still within grace period
 
-        let mut ctx = setup_cleanup_test(1, 1, created_at);
+        let mut ctx = setup_cleanup_test(1, 1, 1, created_at);
 
         // Add clock sysvar
         ctx.accounts
-            .push(create_clock_account_with_data(create_clock_data(current_time)));
+            .push(create_clock_account_with_data(create_clock_data(
+                current_time,
+            )));
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
 
@@ -440,11 +568,12 @@ mod tests {
     }
 
     #[test]
-    fn test_cleanup_receipts_batch_size_exceeded() {
+    fn test_cleanup_packet_data_batch_size_exceeded() {
         // Try to cleanup more than MAX_CLEANUP_BATCH_SIZE
         let ctx = setup_cleanup_test(
-            MAX_CLEANUP_BATCH_SIZE as usize / 2 + 1,
-            MAX_CLEANUP_BATCH_SIZE as usize / 2 + 1,
+            MAX_CLEANUP_BATCH_SIZE as usize / 3 + 1,
+            MAX_CLEANUP_BATCH_SIZE as usize / 3 + 1,
+            MAX_CLEANUP_BATCH_SIZE as usize / 3 + 1,
             0,
         );
 
@@ -458,8 +587,8 @@ mod tests {
     }
 
     #[test]
-    fn test_cleanup_receipts_empty_batch() {
-        let ctx = setup_cleanup_test(0, 0, 0);
+    fn test_cleanup_packet_data_empty_batch() {
+        let ctx = setup_cleanup_test(0, 0, 0, 0);
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
 
@@ -470,3 +599,4 @@ mod tests {
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }
+

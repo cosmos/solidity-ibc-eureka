@@ -97,6 +97,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
 
     let commitment = ics24::packet_commitment_bytes32(&packet);
     packet_commitment.value = commitment;
+    packet_commitment.created_at = current_timestamp;
 
     emit!(SendPacketEvent {
         client_id: msg.source_client,

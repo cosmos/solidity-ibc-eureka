@@ -273,6 +273,7 @@ pub fn setup_packet_commitment(
     let commitment_value = crate::utils::ics24::packet_commitment_bytes32(packet);
     let commitment = Commitment {
         value: commitment_value,
+        created_at: 1000, // Default timestamp for tests
     };
     let commitment_data = create_account_data(&commitment);
 

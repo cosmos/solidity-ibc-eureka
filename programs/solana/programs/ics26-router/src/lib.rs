@@ -121,10 +121,10 @@ pub mod ics26_router {
         instructions::cleanup_chunks(ctx, msg)
     }
 
-    pub fn cleanup_receipts<'info>(
-        ctx: Context<'_, '_, '_, 'info, CleanupReceipts<'info>>,
-        msg: MsgCleanupReceipts,
+    pub fn cleanup_packet_data<'info>(
+        ctx: Context<'_, '_, '_, 'info, CleanupPacketData<'info>>,
+        msg: MsgCleanupPacketData,
     ) -> Result<()> {
-        instructions::cleanup_receipts(ctx, msg)
+        instructions::cleanup_packet_data(ctx, msg)
     }
 }

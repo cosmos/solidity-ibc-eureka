@@ -1,7 +1,7 @@
 pub mod ack_packet;
 pub mod add_ibc_app;
 pub mod cleanup_chunks;
-pub mod cleanup_receipts;
+pub mod cleanup_packet_data;
 pub mod client;
 pub mod initialize;
 pub mod recv_packet;
@@ -13,7 +13,7 @@ pub mod upload_proof_chunk;
 pub use ack_packet::*;
 pub use add_ibc_app::*;
 pub use cleanup_chunks::*;
-pub use cleanup_receipts::*;
+pub use cleanup_packet_data::*;
 pub use client::*;
 pub use initialize::*;
 pub use recv_packet::*;

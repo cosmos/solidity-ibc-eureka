@@ -90,6 +90,8 @@ impl Default for ClientSequence {
 pub struct Commitment {
     /// The commitment value (sha256 hash)
     pub value: [u8; 32],
+    /// Timestamp when the commitment was created
+    pub created_at: i64,
 }
 
 // Types are now imported from solana_ibc_types

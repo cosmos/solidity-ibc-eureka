@@ -206,16 +206,7 @@ pub fn timeout_packet<'info>(
         ctx.remaining_accounts,
     )?;
 
-    // Close the account and return rent to payer
-    // TODO: Find more idiomatic way since we can't use auto close of anchor due to noop
-    let dest_starting_lamports = ctx.accounts.payer.lamports();
-    **ctx.accounts.payer.lamports.borrow_mut() = dest_starting_lamports
-        .checked_add(packet_commitment_account.lamports())
-        .ok_or(RouterError::ArithmeticOverflow)?;
-    **packet_commitment_account.lamports.borrow_mut() = 0;
-
-    let mut data = packet_commitment_account.try_borrow_mut_data()?;
-    data.fill(0);
+    // Keep packet commitment for deferred cleanup
 
     emit!(TimeoutPacketEvent {
         client_id: packet.source_client.clone(),
@@ -467,13 +458,12 @@ mod tests {
 
         let checks = vec![
             Check::success(),
-            // Verify packet commitment account is closed (0 lamports)
             Check::account(&ctx.packet_commitment_pubkey)
-                .lamports(0)
+                .lamports(commitment_lamports) // Should still have lamports
                 .build(),
-            // Verify payer received the rent back
+            // Payer should not receive rent back immediately
             Check::account(&ctx.payer_pubkey)
-                .lamports(initial_payer_lamports + commitment_lamports)
+                .lamports(initial_payer_lamports) // No change
                 .build(),
         ];
 
