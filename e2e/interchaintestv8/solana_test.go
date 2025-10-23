@@ -10,15 +10,17 @@ import (
 	"time"
 
 	bin "github.com/gagliardetto/binary"
+	"github.com/stretchr/testify/suite"
+	"google.golang.org/protobuf/proto"
+
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/stretchr/testify/suite"
 
 	sdkmath "cosmossdk.io/math"
-	"google.golang.org/protobuf/proto"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
