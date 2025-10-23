@@ -56,6 +56,9 @@
             protoc-gen-go-grpc
             quicktype
             inputs.natlint.packages.${system}.default
+          ]
+          ++ lib.optionals pkgs.stdenv.isDarwin [
+              apple-sdk_12
           ];
 
           NIX_LD_LIBRARY_PATH = with pkgs.buildPackages; lib.makeLibraryPath [
