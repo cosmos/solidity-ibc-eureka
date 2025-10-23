@@ -1283,17 +1283,21 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 //   - Timeout: 35 seconds from current time
 //   - Packet commitment created on Solana (stores hash of packet data)
 //
-// 3. Timeout Expiry
+// 3. Retrieve Recv Transaction Before Timeout
+//   - Retrieve the recv relay transaction from relayer (before timeout expires)
+//   - This transaction will be used later to verify it fails after timeout
+//
+// 4. Timeout Expiry
 //   - Packet expires on Cosmos (not processed in time)
 //   - Wait 40 seconds for timeout to occur
 //
-// 4. Update Light Client
+// 5. Update Light Client
 //
 //   - Update Tendermint client on Solana
 //
 //   - Ensures client can verify latest Cosmos state for timeout proof
 //
-//     5. Relay Timeout (Cosmos → Solana)
+//     6. Relay Timeout (Cosmos → Solana)
 //     NOTE: This test provides solanaPacketTxHash via TimeoutTxIds for explicit control.
 //     In production, the relayer discovers timeouts automatically by:
 //
@@ -1318,7 +1322,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 //
 //   - Final on_timeout_packet instruction with assembled absence proof
 //
-//     6. Process Timeout on Solana
+//     7. Process Timeout on Solana
 //     On-chain verification via on_timeout_packet instruction:
 //     a) ICS26 router verifies timeout proof against Tendermint consensus state
 //     b) Validate proof_height <= latest_client_height
@@ -1328,9 +1332,13 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 //     f) Call ICS27 GMP app's on_timeout_packet via CPI
 //     g) App performs application-specific timeout handling
 //
-// 7. Verification
+// 8. Verify Timeout Effects
 //   - Packet commitment deleted on Solana
 //   - ICS27 account balance on Cosmos unchanged (MsgSend never executed)
+//
+// 9. Verify RecvPacket Fails After Timeout
+//   - Attempt to broadcast the recv transaction that was retrieved before timeout
+//   - Transaction should fail on Cosmos (packet already timed out)
 func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 	ctx := context.Background()
 
@@ -1498,6 +1506,21 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 		}))
 	}))
 
+	// Retrieve the recv relay tx before timeout - we'll try to use it after timeout
+	var recvRelayTxBodyBz []byte
+	s.Require().True(s.Run("Retrieve recv relay tx before timeout", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    testvalues.SolanaChainID,
+			DstChain:    simd.Config().ChainID,
+			SourceTxIds: [][]byte{solanaPacketTxHash},
+			SrcClientId: SolanaClientID,
+			DstClientId: CosmosClientID,
+		})
+		s.Require().NoError(err)
+		recvRelayTxBodyBz = resp.Tx
+		s.T().Log("Retrieved recv relay transaction before timeout")
+	}))
+
 	// Sleep for 40 seconds to let the packet timeout (timeout is set to solana_time + 35 seconds)
 	s.T().Log("Sleeping 40 seconds to let packet timeout...")
 	time.Sleep(40 * time.Second)
@@ -1554,6 +1577,11 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 					"ICS27 account balance should remain unchanged after timeout")
 				s.T().Logf("ICS27 account balance: %s (unchanged)", balanceResp.Balance.Amount.String())
 			}))
+
+			s.Require().True(s.Run("Verify recvPacket fails on Cosmos after timeout", func() {
+				_, err := s.BroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 2_000_000, recvRelayTxBodyBz)
+				s.Require().Error(err)
+			}))
 		}))
 	}))
 }
@@ -1574,13 +1602,17 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 //   - Timeout: 35 seconds from current time
 //   - Packet commitment created on Cosmos (stores hash of packet data)
 //
-// 3. Timeout Expiry
+// 3. Retrieve Recv Transactions Before Timeout
+//   - Retrieve the recv relay transactions from relayer (before timeout expires)
+//   - These transactions will be used later to verify they fail after timeout
+//
+// 4. Timeout Expiry
 //
 //   - Packet expires on Solana (not relayed/processed in time)
 //
 //   - Wait 40 seconds for timeout to occur
 //
-//     4. Relay Timeout (Solana → Cosmos)
+//     5. Relay Timeout (Solana → Cosmos)
 //     NOTE: This test provides cosmosGMPTxHash via TimeoutTxIds for explicit control.
 //     In production, the relayer discovers timeouts automatically by:
 //
@@ -1602,7 +1634,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 //     f) Update Wasm light client if needed for proof verification
 //     g) Return single Cosmos transaction (MsgTimeout) with absence proof
 //
-//     5. Process Timeout on Cosmos
+//     6. Process Timeout on Cosmos
 //     On-chain verification via MsgTimeout transaction:
 //     a) x/gmp module receives MsgTimeout transaction
 //     b) Wasm light client verifies absence proof against Solana consensus state
@@ -1614,10 +1646,14 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 //     h) App performs application-specific timeout handling (refunds, state reversion)
 //     i) Emit TimeoutPacket event
 //
-// 6. Verification
+// 7. Verify Timeout Effects
 //   - Packet commitment deleted on Cosmos
 //   - Source SPL token account still has all 1M tokens (transfer never executed)
 //   - Destination SPL token account has 0 tokens (never received)
+//
+// 8. Verify RecvPacket Fails After Timeout
+//   - Attempt to broadcast the recv transactions that were retrieved before timeout
+//   - Transactions should fail on Solana (packet already timed out)
 func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromCosmos() {
 	ctx := context.Background()
 
@@ -1723,6 +1759,21 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromCosmos() {
 		s.T().Logf("Send call transaction (will timeout): %s", resp.TxHash)
 	}))
 
+	// Retrieve the recv relay txs before timeout - we'll try to use them after timeout
+	var recvRelayTxs *relayertypes.RelayByTxResponse
+	s.Require().True(s.Run("Retrieve recv relay txs before timeout", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosGMPTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		recvRelayTxs = resp
+		s.T().Log("Retrieved recv relay transactions before timeout")
+	}))
+
 	// Sleep for 40 seconds to let the packet timeout (timeout is set to 35 seconds)
 	s.T().Log("Sleeping 40 seconds to let packet timeout...")
 	time.Sleep(40 * time.Second)
@@ -1769,6 +1820,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromCosmos() {
 				s.Require().NoError(err)
 				s.Require().Equal(uint64(0), destBalance, "Destination token account should have 0 tokens after timeout")
 				s.T().Logf("Destination token account balance: %d (no transfer occurred)", destBalance)
+			}))
+
+			s.Require().True(s.Run("Verify recvPacket fails on Solana after timeout", func() {
+				_ = s.SolanaChain.SubmitChunkedRelayPacketsExpectingError(ctx, s.T(), s.Require(), recvRelayTxs, s.SolanaUser, "")
 			}))
 		}))
 	}))
