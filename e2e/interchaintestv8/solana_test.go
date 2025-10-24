@@ -433,7 +433,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		)
 		packetData := transferData.GetBytes()
 
-		accounts := s.preparePacketAccounts(ctx, s.DummyAppProgramID, transfertypes.PortID, SolanaClientID)
+		accounts := s.prepareBaseAccounts(ctx, s.DummyAppProgramID, transfertypes.PortID, SolanaClientID)
 
 		packetMsg := dummy_ibc_app.SendPacketMsg{
 			SourceClient:     SolanaClientID,
@@ -597,7 +597,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		receiver := cosmosUserWallet.FormattedAddress()
 		memo := "Test transfer from Solana to Cosmos"
 
-		accounts := s.prepareTransferAccounts(ctx, s.DummyAppProgramID, transfertypes.PortID, SolanaClientID)
+		accounts := s.prepareBaseAccounts(ctx, s.DummyAppProgramID, transfertypes.PortID, SolanaClientID)
+		accounts.Escrow, _ = solana.DummyAppEscrowPDA(SolanaClientID, s.DummyAppProgramID)
+		accounts.EscrowState, _ = solana.DummyAppEscrowStatePDA(SolanaClientID, s.DummyAppProgramID)
 
 		timeoutTimestamp := time.Now().Unix() + 3600
 
@@ -1079,19 +1081,6 @@ func (s *IbcEurekaSolanaTestSuite) prepareBaseAccounts(ctx context.Context, dumm
 	accounts.PacketCommitment, _ = solana.RouterPacketCommitmentPDA(clientID, nextSequence)
 
 	return accounts
-}
-
-func (s *IbcEurekaSolanaTestSuite) prepareTransferAccounts(ctx context.Context, dummyAppProgramID solanago.PublicKey, port, clientID string) AccountSet {
-	accounts := s.prepareBaseAccounts(ctx, dummyAppProgramID, port, clientID)
-
-	accounts.Escrow, _ = solana.DummyAppEscrowPDA(clientID, dummyAppProgramID)
-	accounts.EscrowState, _ = solana.DummyAppEscrowStatePDA(clientID, dummyAppProgramID)
-
-	return accounts
-}
-
-func (s *IbcEurekaSolanaTestSuite) preparePacketAccounts(ctx context.Context, dummyAppProgramID solanago.PublicKey, port, clientID string) AccountSet {
-	return s.prepareBaseAccounts(ctx, dummyAppProgramID, port, clientID)
 }
 
 func uint64ToLeBytes(val uint64) []byte {
