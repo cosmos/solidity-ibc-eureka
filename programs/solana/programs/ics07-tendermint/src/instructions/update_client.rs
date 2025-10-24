@@ -43,11 +43,10 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
         &msg.client_message,
     )?;
 
-    check_timestamp_misbehaviour(
-        &new_consensus_state,
-        &trusted_consensus_state.consensus_state,
-        client_state,
-    )?;
+    if new_consensus_state.timestamp <= trusted_consensus_state.consensus_state.timestamp {
+        client_state.freeze();
+        return err!(ErrorCode::MisbehaviourNonIncreasingTime);
+    }
 
     verify_consensus_state_pda(
         &ctx.accounts.new_consensus_state_store,
@@ -103,23 +102,6 @@ fn validate_and_load_trusted_state(
     // Deserialize the consensus state (include discriminator for proper validation)
     ConsensusStateStore::try_deserialize(&mut &account_data[..])
         .map_err(|_e| error!(ErrorCode::SerializationError))
-}
-
-fn check_timestamp_misbehaviour(
-    new_consensus_state: &ConsensusState,
-    trusted_consensus_state: &ConsensusState,
-    client_state: &mut ClientState,
-) -> Result<()> {
-    let trusted_timestamp = Into::<IbcConsensusState>::into(trusted_consensus_state.clone())
-        .timestamp
-        .unix_timestamp_nanos() as u64;
-
-    if new_consensus_state.timestamp <= trusted_timestamp {
-        client_state.freeze();
-        return err!(ErrorCode::MisbehaviourNonIncreasingTime);
-    }
-
-    Ok(())
 }
 
 fn verify_header_and_get_state(

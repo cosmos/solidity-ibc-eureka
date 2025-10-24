@@ -308,7 +308,7 @@ pub mod fixtures {
 
 #[cfg(test)]
 pub mod chunk_test_utils {
-    use crate::state::{HeaderChunk, HeaderMetadata, CHUNK_DATA_SIZE};
+    use crate::state::{HeaderChunk, CHUNK_DATA_SIZE};
     use crate::types::{ClientState, ConsensusState, IbcHeight, UploadChunkParams};
     use anchor_lang::solana_program::keccak;
     use solana_sdk::account::Account;
@@ -339,35 +339,6 @@ pub mod chunk_test_utils {
 
         Account {
             lamports: 1_500_000, // Rent
-            data,
-            owner: crate::ID,
-            executable: false,
-            rent_epoch: 0,
-        }
-    }
-
-    pub fn create_metadata_account(
-        chain_id: &str,
-        target_height: u64,
-        total_chunks: u8,
-        header_commitment: [u8; 32],
-    ) -> Account {
-        use anchor_lang::AccountSerialize;
-
-        let metadata = HeaderMetadata {
-            chain_id: chain_id.to_string(),
-            target_height,
-            total_chunks,
-            header_commitment,
-            created_at: 1000,
-            updated_at: 2000,
-        };
-
-        let mut data = vec![];
-        metadata.try_serialize(&mut data).unwrap();
-
-        Account {
-            lamports: 2_000_000, // Rent
             data,
             owner: crate::ID,
             executable: false,
