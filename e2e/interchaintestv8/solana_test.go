@@ -431,7 +431,24 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		)
 		packetData := transferData.GetBytes()
 
-		accounts := s.prepareBaseAccounts(ctx, s.DummyAppProgramID, transfertypes.PortID, SolanaClientID)
+		var appState, routerCaller, routerState, ibcApp, client, clientSequence, packetCommitment solanago.PublicKey
+		s.Require().True(s.Run("Prepare accounts", func() {
+			appState, _ = solana.DummyAppStatePDA(transfertypes.PortID, s.DummyAppProgramID)
+			routerCaller, _ = solana.DummyAppRouterCallerPDA(s.DummyAppProgramID)
+			routerState, _ = solana.RouterStatePDA()
+			ibcApp, _ = solana.RouterIBCAppPDA(transfertypes.PortID)
+			client, _ = solana.RouterClientPDA(SolanaClientID)
+			clientSequence, _ = solana.RouterClientSequencePDA(SolanaClientID)
+
+			clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequence)
+			s.Require().NoError(err)
+
+			clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
+			s.Require().NoError(err)
+
+			nextSequence := clientSequenceData.NextSequenceSend
+			packetCommitment, _ = solana.RouterPacketCommitmentPDA(SolanaClientID, nextSequence)
+		}))
 
 		packetMsg := dummy_ibc_app.SendPacketMsg{
 			SourceClient:     SolanaClientID,
@@ -445,16 +462,16 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 		sendPacketInstruction, err := dummy_ibc_app.NewSendPacketInstruction(
 			packetMsg,
-			accounts.AppState,
+			appState,
 			s.SolanaUser.PublicKey(),
-			accounts.RouterState,
-			accounts.IBCApp,
-			accounts.ClientSequence,
-			accounts.PacketCommitment,
-			accounts.Client,
+			routerState,
+			ibcApp,
+			clientSequence,
+			packetCommitment,
+			client,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
-			accounts.RouterCaller,
+			routerCaller,
 		)
 		s.Require().NoError(err)
 
@@ -595,9 +612,27 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		receiver := cosmosUserWallet.FormattedAddress()
 		memo := "Test transfer from Solana to Cosmos"
 
-		accounts := s.prepareBaseAccounts(ctx, s.DummyAppProgramID, transfertypes.PortID, SolanaClientID)
-		accounts.Escrow, _ = solana.DummyAppEscrowPDA(SolanaClientID, s.DummyAppProgramID)
-		accounts.EscrowState, _ = solana.DummyAppEscrowStatePDA(SolanaClientID, s.DummyAppProgramID)
+		var appState, routerCaller, routerState, ibcApp, client, clientSequence, packetCommitment, escrow, escrowState solanago.PublicKey
+		s.Require().True(s.Run("Prepare accounts", func() {
+			appState, _ = solana.DummyAppStatePDA(transfertypes.PortID, s.DummyAppProgramID)
+			routerCaller, _ = solana.DummyAppRouterCallerPDA(s.DummyAppProgramID)
+			routerState, _ = solana.RouterStatePDA()
+			ibcApp, _ = solana.RouterIBCAppPDA(transfertypes.PortID)
+			client, _ = solana.RouterClientPDA(SolanaClientID)
+			clientSequence, _ = solana.RouterClientSequencePDA(SolanaClientID)
+
+			clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequence)
+			s.Require().NoError(err)
+
+			clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
+			s.Require().NoError(err)
+
+			nextSequence := clientSequenceData.NextSequenceSend
+			packetCommitment, _ = solana.RouterPacketCommitmentPDA(SolanaClientID, nextSequence)
+
+			escrow, _ = solana.DummyAppEscrowPDA(SolanaClientID, s.DummyAppProgramID)
+			escrowState, _ = solana.DummyAppEscrowStatePDA(SolanaClientID, s.DummyAppProgramID)
+		}))
 
 		timeoutTimestamp := time.Now().Unix() + 3600
 
@@ -613,18 +648,18 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 
 		sendTransferInstruction, err := dummy_ibc_app.NewSendTransferInstruction(
 			transferMsg,
-			accounts.AppState,
+			appState,
 			s.SolanaUser.PublicKey(),
-			accounts.Escrow,
-			accounts.EscrowState,
-			accounts.RouterState,
-			accounts.IBCApp,
-			accounts.ClientSequence,
-			accounts.PacketCommitment,
-			accounts.Client,
+			escrow,
+			escrowState,
+			routerState,
+			ibcApp,
+			clientSequence,
+			packetCommitment,
+			client,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
-			accounts.RouterCaller,
+			routerCaller,
 		)
 		s.Require().NoError(err)
 
@@ -649,7 +684,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 
 		s.Require().Less(finalLamports, initialLamports, "Balance should decrease after transfer")
 
-		escrowBalance, balanceChanged := s.SolanaChain.WaitForBalanceChange(ctx, accounts.Escrow, 0)
+		escrowBalance, balanceChanged := s.SolanaChain.WaitForBalanceChange(ctx, escrow, 0)
 		s.Require().True(balanceChanged, "Escrow account should receive SOL")
 
 		s.T().Logf("Escrow account balance: %d lamports", escrowBalance)
@@ -923,37 +958,3 @@ func getSolDenomOnCosmos() transfertypes.Denom {
 	return transfertypes.NewDenom(SolDenom, transfertypes.NewHop("transfer", CosmosClientID))
 }
 
-type AccountSet struct {
-	AppState         solanago.PublicKey
-	RouterState      solanago.PublicKey
-	IBCApp           solanago.PublicKey
-	Client           solanago.PublicKey
-	ClientSequence   solanago.PublicKey
-	RouterCaller     solanago.PublicKey
-	PacketCommitment solanago.PublicKey
-	Escrow           solanago.PublicKey
-	EscrowState      solanago.PublicKey
-}
-
-func (s *IbcEurekaSolanaTestSuite) prepareBaseAccounts(ctx context.Context, dummyAppProgramID solanago.PublicKey, port, clientID string) AccountSet {
-	accounts := AccountSet{}
-	var err error
-
-	accounts.AppState, _ = solana.DummyAppStatePDA(port, dummyAppProgramID)
-	accounts.RouterCaller, _ = solana.DummyAppRouterCallerPDA(dummyAppProgramID)
-	accounts.RouterState, _ = solana.RouterStatePDA()
-	accounts.IBCApp, _ = solana.RouterIBCAppPDA(port)
-	accounts.Client, _ = solana.RouterClientPDA(clientID)
-	accounts.ClientSequence, _ = solana.RouterClientSequencePDA(clientID)
-
-	clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, accounts.ClientSequence)
-	s.Require().NoError(err)
-
-	clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
-	s.Require().NoError(err)
-
-	nextSequence := clientSequenceData.NextSequenceSend
-	accounts.PacketCommitment, _ = solana.RouterPacketCommitmentPDA(clientID, nextSequence)
-
-	return accounts
-}

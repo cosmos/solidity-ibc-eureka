@@ -54,11 +54,11 @@ func (s *IbcEurekaSolanaTestSuite) deployAndInitializeGMPCounterApp(ctx context.
 	var gmpCounterProgramID solanago.PublicKey
 
 	s.Require().True(s.Run("Deploy and Initialize GMP Counter App", func() {
-		gmpCounterProgramID = s.deploySolanaProgram(ctx, "gmp_counter_app")
+		gmpCounterProgramID = s.SolanaChain.DeploySolanaProgram(ctx, s.T(), s.Require(), "gmp_counter_app")
 
 		gmp_counter_app.ProgramID = gmpCounterProgramID
 
-		programAvailable := s.SolanaChain.WaitForProgramAvailabilityWithTimeout(ctx, gmpCounterProgramID, 120)
+		programAvailable := s.SolanaChain.WaitForProgramAvailabilityWithTimeout(ctx, s.T(), gmpCounterProgramID, 120)
 		s.Require().True(programAvailable, "GMP Counter program failed to become available within timeout")
 
 		// Initialize GMP counter app state
@@ -144,12 +144,12 @@ func (s *IbcEurekaSolanaTestSuite) deployAndInitializeICS27GMP(ctx context.Conte
 	var ics27GMPProgramID solanago.PublicKey
 
 	s.Require().True(s.Run("Deploy and Initialize ICS27 GMP Program", func() {
-		ics27GMPProgramID = s.deploySolanaProgram(ctx, "ics27_gmp")
+		ics27GMPProgramID = s.SolanaChain.DeploySolanaProgram(ctx, s.T(), s.Require(), "ics27_gmp")
 
 		// Set the program ID in the bindings
 		ics27_gmp.ProgramID = ics27GMPProgramID
 
-		programAvailable := s.SolanaChain.WaitForProgramAvailabilityWithTimeout(ctx, ics27GMPProgramID, 120)
+		programAvailable := s.SolanaChain.WaitForProgramAvailabilityWithTimeout(ctx, s.T(), ics27GMPProgramID, 120)
 		s.Require().True(programAvailable, "ICS27 GMP program failed to become available within timeout")
 
 		// Find GMP app state PDA (using standard pattern with port_id)
@@ -376,7 +376,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(updateResp.Txs, "Relayer Update client should return chunked transactions")
 
-			s.submitChunkedUpdateClient(ctx, updateResp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
 			s.T().Logf("%s: Updated Tendermint client on Solana using %d chunked transactions", userLabel, len(updateResp.Txs))
 
 			// Now retrieve and relay the GMP packet
@@ -671,7 +671,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(updateResp.Txs, "Relayer Update client should return chunked transactions")
 
-			s.submitChunkedUpdateClient(ctx, updateResp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
 			s.T().Logf("Updated Tendermint client on Solana using %d chunked transactions", len(updateResp.Txs))
 		}))
 
@@ -1144,7 +1144,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(resp.Txs, "Relayer Update client should return transactions")
 
-			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaUser)
 			s.T().Logf("Successfully updated Tendermint client on Solana using %d transaction(s)", len(resp.Txs))
 		}))
 
@@ -1165,7 +1165,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 		}))
 
 		s.Require().True(s.Run("Verify acknowledgement was processed", func() {
-			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
+			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1)
 		}))
 	}))
 }
@@ -1409,7 +1409,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(resp.Txs, "Relayer Update client should return transactions")
 
-			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaUser)
 			s.T().Logf("Successfully updated Tendermint client on Solana using %d transaction(s)", len(resp.Txs))
 		}))
 
@@ -1433,7 +1433,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 
 		s.Require().True(s.Run("Verify timeout effects", func() {
 			s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
-				s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, nextSequence)
+				s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, nextSequence)
 				s.T().Logf("Packet commitment successfully deleted from Solana for sequence %d", nextSequence)
 			}))
 
@@ -1895,7 +1895,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromCosmos() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(updateResp.Txs, "Relayer Update client should return chunked transactions")
 
-			s.submitChunkedUpdateClient(ctx, updateResp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
 			s.T().Logf("Updated Tendermint client on Solana using %d chunked transactions", len(updateResp.Txs))
 		}))
 
@@ -2120,7 +2120,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromSolana() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(updateResp.Txs, "Relayer Update client should return chunked transactions")
 
-			s.submitChunkedUpdateClient(ctx, updateResp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
 			s.T().Logf("Updated Tendermint client on Solana using %d chunked transactions", len(updateResp.Txs))
 		}))
 
@@ -2156,7 +2156,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromSolana() {
 		// The sequence we used was (current - 1)
 		usedSequence := sequence - 1
 
-		s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, usedSequence)
+		s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, usedSequence)
 		s.T().Logf("Verified packet commitment deleted for sequence %d", usedSequence)
 	}))
 }
