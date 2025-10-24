@@ -30,7 +30,7 @@ use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     message::{v0, VersionedMessage},
     pubkey::Pubkey,
-    transaction::{Transaction, VersionedTransaction},
+    transaction::VersionedTransaction,
 };
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
@@ -1427,10 +1427,12 @@ impl TxBuilder {
 
         let recent_blockhash = self.get_recent_blockhash()?;
 
-        self.alt_address.map_or_else(
-            || self.create_legacy_tx(instructions, recent_blockhash),
-            |alt_address| self.create_v0_tx_with_alt(instructions, recent_blockhash, alt_address),
-        )
+        let alt_addresses = match self.alt_address {
+            Some(alt_address) => self.fetch_alt_addresses(alt_address)?,
+            None => vec![],
+        };
+
+        self.create_v0_tx(instructions, recent_blockhash, alt_addresses)
     }
 
     fn get_recent_blockhash(&self) -> Result<solana_sdk::hash::Hash> {
@@ -1439,36 +1441,42 @@ impl TxBuilder {
             .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))
     }
 
-    fn create_v0_tx_with_alt(
+    fn create_v0_tx(
         &self,
         instructions: &[Instruction],
         recent_blockhash: solana_sdk::hash::Hash,
-        alt_address: Pubkey,
+        alt_addresses: Vec<Pubkey>,
     ) -> Result<Vec<u8>> {
-        tracing::info!(
-            "Building transaction with Address Lookup Table: {}",
-            alt_address
-        );
+        let v0_message = if alt_addresses.is_empty() {
+            tracing::info!("Building v0 transaction without ALT");
+            self.compile_v0_message(instructions, recent_blockhash)?
+        } else {
+            tracing::info!(
+                "Building v0 transaction with ALT ({} addresses)",
+                alt_addresses.len()
+            );
+            tracing::info!("ALT addresses: {:?}", alt_addresses);
 
-        let addresses = self.fetch_alt_addresses(alt_address)?;
+            let alt_account = AddressLookupTableAccount {
+                key: self.alt_address.expect("ALT address should be set"),
+                addresses: alt_addresses,
+            };
 
-        tracing::info!("ALT contains {} addresses", addresses.len());
-        tracing::info!("ALT addresses: {:?}", addresses);
-
-        let alt_account_for_compile = AddressLookupTableAccount {
-            key: alt_address,
-            addresses,
+            self.compile_v0_message_with_alt(instructions, recent_blockhash, alt_account)?
         };
-
-        let v0_message = self.compile_v0_message_with_alt(
-            instructions,
-            recent_blockhash,
-            alt_account_for_compile,
-        )?;
 
         Self::log_v0_message_stats(&v0_message);
 
         Self::serialize_v0_transaction(v0_message)
+    }
+
+    fn compile_v0_message(
+        &self,
+        instructions: &[Instruction],
+        recent_blockhash: solana_sdk::hash::Hash,
+    ) -> Result<v0::Message> {
+        v0::Message::try_compile(&self.fee_payer, instructions, &[], recent_blockhash)
+            .map_err(|e| anyhow::anyhow!("Failed to compile v0 message: {e}"))
     }
 
     fn compile_v0_message_with_alt(
@@ -1526,18 +1534,6 @@ impl TxBuilder {
         );
 
         tracing::info!("Static account keys: {:?}", v0_message.account_keys);
-    }
-
-    fn create_legacy_tx(
-        &self,
-        instructions: &[Instruction],
-        recent_blockhash: solana_sdk::hash::Hash,
-    ) -> Result<Vec<u8>> {
-        let mut tx = Transaction::new_with_payer(instructions, Some(&self.fee_payer));
-        tx.message.recent_blockhash = recent_blockhash;
-
-        let versioned_tx = VersionedTransaction::from(tx);
-        Ok(bincode::serialize(&versioned_tx)?)
     }
 
     /// Create a new ICS07 Tendermint client on Solana
