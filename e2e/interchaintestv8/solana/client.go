@@ -250,7 +250,7 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 		return solana.PublicKey{}, fmt.Errorf("at least one account is required for ALT")
 	}
 
-	slot, err := s.RPCClient.GetSlot(ctx, "confirmed")
+	slot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentProcessed)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to get slot: %w", err)
 	}
