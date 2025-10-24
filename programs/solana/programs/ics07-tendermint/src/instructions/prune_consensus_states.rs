@@ -57,15 +57,17 @@ pub fn prune_consensus_states<'info>(
         );
 
         // Load and verify the consensus state
-        let data = consensus_state_account.try_borrow_data()?;
-        if data.is_empty() {
-            continue; // Already pruned, skip
-        }
+        // Extract data in a scope to ensure borrow is dropped before mutable operations
+        let consensus_state_store = {
+            let data = consensus_state_account.try_borrow_data()?;
+            if data.is_empty() {
+                continue; // Already pruned, skip
+            }
 
-        // Deserialize to verify it's a valid consensus state
-        let consensus_state_store: ConsensusStateStore =
+            // Deserialize to verify it's a valid consensus state
             ConsensusStateStore::try_deserialize(&mut &data[..])
-                .map_err(|_| error!(ErrorCode::SerializationError))?;
+                .map_err(|_| error!(ErrorCode::SerializationError))?
+        }; // data borrow is dropped here
 
         // Verify the height matches
         require!(
@@ -81,13 +83,22 @@ pub fn prune_consensus_states<'info>(
             ErrorCode::PruningGracePeriodNotMet
         );
 
-        // Close the account and reclaim rent
-        let lamports = consensus_state_account.lamports();
-        **consensus_state_account.try_borrow_mut_lamports()? = 0;
-        **ctx.accounts.pruner.try_borrow_mut_lamports()? += lamports;
+        // Close the account and reclaim rent (using pattern from cleanup_utils)
+        let lamports_to_reclaim = consensus_state_account.lamports();
+
+        // Transfer lamports to pruner
+        **ctx.accounts.pruner.lamports.borrow_mut() = ctx
+            .accounts
+            .pruner
+            .lamports()
+            + lamports_to_reclaim;
+
+        // Zero out consensus state account lamports
+        **consensus_state_account.lamports.borrow_mut() = 0;
 
         // Clear the data to mark as closed
-        consensus_state_account.try_borrow_mut_data()?.fill(0);
+        let mut data = consensus_state_account.try_borrow_mut_data()?;
+        data.fill(0);
 
         pruned_count += 1;
     }
