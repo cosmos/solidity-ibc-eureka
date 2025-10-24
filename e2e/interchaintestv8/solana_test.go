@@ -134,7 +134,9 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		// Create Address Lookup Table after GMP deployment (if not already set)
 		if s.SolanaAltAddress == "" {
 			s.Require().True(s.Run("Create Address Lookup Table", func() {
-				altAddress := s.createAddressLookupTable(ctx)
+				simd := s.CosmosChains[0]
+				cosmosChainID := simd.Config().ChainID
+				altAddress := s.SolanaChain.CreateIBCAddressLookupTable(ctx, s.T(), s.Require(), s.SolanaUser, cosmosChainID, GMPPortID, SolanaClientID)
 				s.SolanaAltAddress = altAddress.String()
 				s.T().Logf("Created Address Lookup Table: %s", s.SolanaAltAddress)
 			}))

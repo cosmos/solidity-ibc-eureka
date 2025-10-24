@@ -25,7 +25,6 @@ import (
 
 	"github.com/cosmos/interchaintest/v10/ibc"
 
-	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
 
@@ -81,63 +80,6 @@ func (s *IbcEurekaSolanaTestSuite) deployAndInitializeGMPCounterApp(ctx context.
 	}))
 
 	return gmpCounterProgramID
-}
-
-// createAddressLookupTable creates an Address Lookup Table with common IBC accounts
-// to reduce transaction size. Returns the ALT address.
-func (s *IbcEurekaSolanaTestSuite) createAddressLookupTable(ctx context.Context) solanago.PublicKey {
-	// Define common accounts to add to ALT
-	// These are accounts that appear in every IBC packet transaction
-	// Derive router_state PDA (same as relayer uses)
-	routerStatePDA, _ := solana.RouterStatePDA()
-
-	// Get Cosmos chain ID for deriving ICS07 accounts
-	simd := s.CosmosChains[0]
-	cosmosChainID := simd.Config().ChainID
-
-	// Derive IBC app PDA (port-specific, constant for all GMP packets)
-	ibcAppPDA, _ := solana.RouterIBCAppPDA(GMPPortID)
-
-	// Derive ICS27 GMP app state PDA (port-specific, constant for all GMP packets)
-	gmpAppStatePDA, _ := solana.GMPAppStatePDA(GMPPortID)
-
-	// Derive client PDA (client-specific, constant if using same destination client)
-	// Assuming destination client is "solclient-0"
-	clientPDA, _ := solana.RouterClientsPDA("solclient-0")
-
-	// Derive ICS07 client state PDA (source chain specific, constant for all packets from Cosmos)
-	clientStatePDA, _ := solana.TendermintClientStatePDA(cosmosChainID)
-
-	// Derive router caller PDA (GMP's CPI signer, constant for all GMP packets)
-	routerCallerPDA, _ := solana.GMPRouterCallerPDA()
-
-	// Derive client sequence PDA (tracks packet sequence for destination client)
-	clientSequencePDA, _ := solana.RouterClientSequencePDA(SolanaClientID)
-
-	// NOTE: We do NOT include target app-specific accounts (like gmp_counter_app.ProgramID or its state)
-	// because those vary per application. ALT should only contain universal GMP infrastructure accounts.
-	commonAccounts := []solanago.PublicKey{
-		solanago.SystemProgramID,
-		solana.ComputeBudgetProgramID(), // Compute Budget program (used by update_client)
-		ics26_router.ProgramID,          // Router program
-		ics07_tendermint.ProgramID,      // Light client program
-		ics27_gmp.ProgramID,             // GMP program (ibc_app_program)
-		routerStatePDA,                  // Router state PDA
-		s.SolanaUser.PublicKey(),        // Fee payer / relayer
-		ibcAppPDA,                       // IBC app PDA for GMP port
-		gmpAppStatePDA,                  // GMP app state PDA
-		clientPDA,                       // Client PDA
-		clientStatePDA,                  // ICS07 client state PDA
-		routerCallerPDA,                 // GMP router caller PDA (CPI signer)
-		clientSequencePDA,               // Client sequence PDA (tracks packet sequence)
-	}
-
-	// Create ALT with common accounts
-	altAddress, err := s.SolanaChain.CreateAddressLookupTable(ctx, s.SolanaUser, commonAccounts)
-	s.Require().NoError(err)
-	s.T().Logf("Created and extended ALT %s with %d common accounts", altAddress, len(commonAccounts))
-
-	return altAddress
 }
 
 func (s *IbcEurekaSolanaTestSuite) deployAndInitializeICS27GMP(ctx context.Context) solanago.PublicKey {
