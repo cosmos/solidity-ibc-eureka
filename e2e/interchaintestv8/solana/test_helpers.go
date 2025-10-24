@@ -115,6 +115,7 @@ func (s *Solana) SubmitChunkedRelayPacketsExpectingError(
 }
 
 func (s *Solana) DeploySolanaProgram(ctx context.Context, t *testing.T, require *require.Assertions, programName string) solana.PublicKey {
+	t.Helper()
 	keypairPath := fmt.Sprintf("e2e/interchaintestv8/solana/keypairs/%s-keypair.json", programName)
 	walletPath := "e2e/interchaintestv8/solana/keypairs/deployer_wallet.json"
 	programID, _, err := AnchorDeploy(ctx, "programs/solana", programName, keypairPath, walletPath)
@@ -124,10 +125,12 @@ func (s *Solana) DeploySolanaProgram(ctx context.Context, t *testing.T, require 
 }
 
 func (s *Solana) WaitForProgramAvailability(ctx context.Context, t *testing.T, programID solana.PublicKey) bool {
+	t.Helper()
 	return s.WaitForProgramAvailabilityWithTimeout(ctx, t, programID, 30)
 }
 
 func (s *Solana) WaitForProgramAvailabilityWithTimeout(ctx context.Context, t *testing.T, programID solana.PublicKey, timeoutSeconds int) bool {
+	t.Helper()
 	for i := range timeoutSeconds {
 		accountInfo, err := s.RPCClient.GetAccountInfo(ctx, programID)
 		if err == nil && accountInfo.Value != nil && accountInfo.Value.Executable {
@@ -146,6 +149,7 @@ func (s *Solana) WaitForProgramAvailabilityWithTimeout(ctx context.Context, t *t
 }
 
 func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet) {
+	t.Helper()
 	require.NotEqual(0, len(resp.Txs), "no chunked transactions provided")
 
 	totalStart := time.Now()
@@ -242,6 +246,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 }
 
 func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T, require *require.Assertions, clientID string, sequence uint64) {
+	t.Helper()
 	packetCommitmentPDA, _ := RouterPacketCommitmentPDA(clientID, sequence)
 
 	accountInfo, err := s.RPCClient.GetAccountInfo(ctx, packetCommitmentPDA)
@@ -260,6 +265,7 @@ func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T
 }
 
 func (s *Solana) CreateIBCAddressLookupTable(ctx context.Context, t *testing.T, require *require.Assertions, user *solana.Wallet, cosmosChainID string, gmpPortID string, clientID string) solana.PublicKey {
+	t.Helper()
 	commonAccounts := s.CreateIBCAddressLookupTableAccounts(cosmosChainID, gmpPortID, clientID, user.PublicKey())
 
 	altAddress, err := s.CreateAddressLookupTable(ctx, user, commonAccounts)

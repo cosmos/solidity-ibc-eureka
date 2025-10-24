@@ -959,4 +959,3 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 func getSolDenomOnCosmos() transfertypes.Denom {
 	return transfertypes.NewDenom(SolDenom, transfertypes.NewHop("transfer", CosmosClientID))
 }
-

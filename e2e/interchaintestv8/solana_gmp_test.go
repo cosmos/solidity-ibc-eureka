@@ -953,17 +953,11 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 
 		var gmpAppStatePDA, routerStatePDA, routerCallerPDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
-			
 			gmpAppStatePDA, _ = solana.GMPAppStatePDA(GMPPortID)
-
 			routerStatePDA, _ = solana.RouterStatePDA()
-
 			routerCallerPDA, _ = solana.GMPRouterCallerPDA()
-
 			clientPDA, _ = solana.RouterClientPDA(SolanaClientID)
-
 			ibcAppPDA, _ = solana.RouterIBCAppPDA(GMPPortID)
-
 			clientSequencePDA, _ = solana.RouterClientSequencePDA(SolanaClientID)
 
 			s.T().Logf("Derived PDAs: gmpAppState=%s, routerState=%s, client=%s",
@@ -1241,17 +1235,11 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 
 		var gmpAppStatePDA, routerStatePDA, routerCallerPDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
-			
 			gmpAppStatePDA, _ = solana.GMPAppStatePDA(GMPPortID)
-
 			routerStatePDA, _ = solana.RouterStatePDA()
-
 			routerCallerPDA, _ = solana.GMPRouterCallerPDA()
-
 			clientPDA, _ = solana.RouterClientPDA(SolanaClientID)
-
 			ibcAppPDA, _ = solana.RouterIBCAppPDA(GMPPortID)
-
 			clientSequencePDA, _ = solana.RouterClientSequencePDA(SolanaClientID)
 
 			s.T().Logf("Derived PDAs: gmpAppState=%s, routerState=%s, client=%s",
@@ -1962,17 +1950,11 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromSolana() {
 
 		var gmpAppStatePDA, routerStatePDA, routerCallerPDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
-			
 			gmpAppStatePDA, _ = solana.GMPAppStatePDA(GMPPortID)
-
 			routerStatePDA, _ = solana.RouterStatePDA()
-
 			routerCallerPDA, _ = solana.GMPRouterCallerPDA()
-
 			clientPDA, _ = solana.RouterClientPDA(SolanaClientID)
-
 			ibcAppPDA, _ = solana.RouterIBCAppPDA(GMPPortID)
-
 			clientSequencePDA, _ = solana.RouterClientSequencePDA(SolanaClientID)
 		}))
 
