@@ -304,10 +304,7 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 
 	// Derive ALT address with bump seed
 	// The derivation uses: [authority, recent_slot] seeds
-	altAddress, bumpSeed, err := solana.FindProgramAddress(
-		[][]byte{authority.PublicKey().Bytes(), Uint64ToLeBytes(slot)},
-		solana.AddressLookupTableProgramID,
-	)
+	altAddress, bumpSeed, err := AddressLookupTablePDA(authority.PublicKey(), slot)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to derive ALT address: %w", err)
 	}
@@ -432,37 +429,6 @@ func (s *Solana) GetNextSequenceNumber(ctx context.Context, clientSequencePDA so
 
 	nextSequence := binary.LittleEndian.Uint64(data[9:17])
 	return nextSequence, nil
-}
-
-// GetNextSequenceAndCommitmentPDA retrieves the next sequence number and derives the packet commitment PDA
-// This is a convenience function that combines GetNextSequenceNumber with PDA derivation
-func (s *Solana) GetNextSequenceAndCommitmentPDA(
-	ctx context.Context,
-	clientSequencePDA solana.PublicKey,
-	clientID string,
-	routerProgramID solana.PublicKey,
-) (sequence uint64, packetCommitmentPDA solana.PublicKey, err error) {
-	sequence, err = s.GetNextSequenceNumber(ctx, clientSequencePDA)
-	if err != nil {
-		return 0, solana.PublicKey{}, fmt.Errorf("failed to get next sequence number: %w", err)
-	}
-
-	sequenceBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
-
-	packetCommitmentPDA, _, err = solana.FindProgramAddress(
-		[][]byte{
-			[]byte("packet_commitment"),
-			[]byte(clientID),
-			sequenceBytes,
-		},
-		routerProgramID,
-	)
-	if err != nil {
-		return 0, solana.PublicKey{}, fmt.Errorf("failed to derive packet commitment PDA: %w", err)
-	}
-
-	return sequence, packetCommitmentPDA, nil
 }
 
 // SubmitChunkedRelayPackets submits chunked relay packets successfully

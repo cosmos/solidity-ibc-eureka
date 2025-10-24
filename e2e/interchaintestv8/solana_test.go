@@ -119,7 +119,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 	// Initialize router first (required before GMP/Dummy App can register)
 	s.Require().True(s.Run("Initialize ICS26 Router", func() {
-		routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
+		routerStateAccount, _, err := solana.RouterStatePDA()
 		s.Require().NoError(err, "Could not find router_state")
 		initInstruction, err := ics26_router.NewInitializeInstruction(s.SolanaUser.PublicKey(), routerStateAccount, s.SolanaUser.PublicKey(), solanago.SystemProgramID)
 		s.Require().NoError(err)
@@ -153,7 +153,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			programAvailable := s.SolanaChain.WaitForProgramAvailabilityWithTimeout(ctx, dummyAppProgramID, 120)
 			s.Require().True(programAvailable, "Program failed to become available within timeout")
 
-			appStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(transfertypes.PortID)}, dummyAppProgramID)
+			appStateAccount, _, err := solana.DummyAppStatePDA(transfertypes.PortID, dummyAppProgramID)
 			s.Require().NoError(err)
 
 			initInstruction, err := dummy_ibc_app.NewInitializeInstruction(
@@ -171,10 +171,10 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			s.Require().NoError(err)
 			s.T().Logf("Dummy app initialized")
 
-			routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
+			routerStateAccount, _, err := solana.RouterStatePDA()
 			s.Require().NoError(err)
 
-			ibcAppAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("ibc_app"), []byte(transfertypes.PortID)}, ics26_router.ProgramID)
+			ibcAppAccount, _, err := solana.RouterIBCAppPDA(transfertypes.PortID)
 			s.Require().NoError(err)
 
 			registerInstruction, err := ics26_router.NewAddIbcAppInstruction(
@@ -315,13 +315,13 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		}))
 
 		s.Require().True(s.Run("Add Client to Router", func() {
-			routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
+			routerStateAccount, _, err := solana.RouterStatePDA()
 			s.Require().NoError(err)
 
-			clientAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(SolanaClientID)}, ics26_router.ProgramID)
+			clientAccount, _, err := solana.RouterClientPDA(SolanaClientID)
 			s.Require().NoError(err)
 
-			clientSequenceAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client_sequence"), []byte(SolanaClientID)}, ics26_router.ProgramID)
+			clientSequenceAccount, _, err := solana.RouterClientSequencePDA(SolanaClientID)
 			s.Require().NoError(err)
 
 			counterpartyInfo := ics26_router.CounterpartyInfo{
@@ -363,7 +363,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	simd := s.CosmosChains[0]
 
 	s.Require().True(s.Run("Verify ics07-svm-tendermint", func() {
-		clientStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(simd.Config().ChainID)}, ics07_tendermint.ProgramID)
+		clientStateAccount, _, err := solana.TendermintClientStatePDA(simd.Config().ChainID)
 		s.Require().NoError(err)
 
 		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
@@ -868,7 +868,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 
 	s.Require().True(s.Run("Verify packet received on Solana", func() {
 		// Check that the dummy app state was updated
-		dummyAppStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(transfertypes.PortID)}, s.DummyAppProgramID)
+		dummyAppStateAccount, _, err := solana.DummyAppStatePDA(transfertypes.PortID, s.DummyAppProgramID)
 		s.Require().NoError(err)
 
 		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, dummyAppStateAccount)
@@ -882,7 +882,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 		s.T().Logf("Solana dummy app has received %d packets total", appState.PacketsReceived)
 
 		// Check that packet receipt was written
-		clientSequenceAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client_sequence"), []byte(SolanaClientID)}, ics26_router.ProgramID)
+		clientSequenceAccount, _, err := solana.RouterClientSequencePDA(SolanaClientID)
 		s.Require().NoError(err)
 
 		clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequenceAccount)
@@ -1032,14 +1032,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 }
 
 func (s *IbcEurekaSolanaTestSuite) verifyPacketCommitmentDeleted(ctx context.Context, clientID string, sequence uint64) {
-	packetCommitmentPDA, _, err := solanago.FindProgramAddress(
-		[][]byte{
-			[]byte("packet_commitment"),
-			[]byte(clientID),
-			binary.LittleEndian.AppendUint64(nil, sequence),
-		},
-		ics26_router.ProgramID,
-	)
+	packetCommitmentPDA, _, err := solana.RouterPacketCommitmentPDA(clientID, sequence)
 	s.Require().NoError(err)
 
 	// Query the account - it should either not exist or have 0 lamports (closed)
@@ -1080,22 +1073,22 @@ func (s *IbcEurekaSolanaTestSuite) prepareBaseAccounts(ctx context.Context, dumm
 	accounts := AccountSet{}
 	var err error
 
-	accounts.AppState, _, err = solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(port)}, dummyAppProgramID)
+	accounts.AppState, _, err = solana.DummyAppStatePDA(port, dummyAppProgramID)
 	s.Require().NoError(err)
 
-	accounts.RouterCaller, _, err = solanago.FindProgramAddress([][]byte{[]byte("router_caller")}, dummyAppProgramID)
+	accounts.RouterCaller, _, err = solana.DummyAppRouterCallerPDA(dummyAppProgramID)
 	s.Require().NoError(err)
 
-	accounts.RouterState, _, err = solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
+	accounts.RouterState, _, err = solana.RouterStatePDA()
 	s.Require().NoError(err)
 
-	accounts.IBCApp, _, err = solanago.FindProgramAddress([][]byte{[]byte("ibc_app"), []byte(port)}, ics26_router.ProgramID)
+	accounts.IBCApp, _, err = solana.RouterIBCAppPDA(port)
 	s.Require().NoError(err)
 
-	accounts.Client, _, err = solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(clientID)}, ics26_router.ProgramID)
+	accounts.Client, _, err = solana.RouterClientPDA(clientID)
 	s.Require().NoError(err)
 
-	accounts.ClientSequence, _, err = solanago.FindProgramAddress([][]byte{[]byte("client_sequence"), []byte(clientID)}, ics26_router.ProgramID)
+	accounts.ClientSequence, _, err = solana.RouterClientSequencePDA(clientID)
 	s.Require().NoError(err)
 
 	clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, accounts.ClientSequence)
@@ -1105,8 +1098,7 @@ func (s *IbcEurekaSolanaTestSuite) prepareBaseAccounts(ctx context.Context, dumm
 	s.Require().NoError(err)
 
 	nextSequence := clientSequenceData.NextSequenceSend
-	sequenceBytes := uint64ToLeBytes(nextSequence)
-	accounts.PacketCommitment, _, err = solanago.FindProgramAddress([][]byte{[]byte("packet_commitment"), []byte(clientID), sequenceBytes}, ics26_router.ProgramID)
+	accounts.PacketCommitment, _, err = solana.RouterPacketCommitmentPDA(clientID, nextSequence)
 	s.Require().NoError(err)
 
 	return accounts
@@ -1116,10 +1108,10 @@ func (s *IbcEurekaSolanaTestSuite) prepareTransferAccounts(ctx context.Context, 
 	accounts := s.prepareBaseAccounts(ctx, dummyAppProgramID, port, clientID)
 	var err error
 
-	accounts.Escrow, _, err = solanago.FindProgramAddress([][]byte{[]byte("escrow"), []byte(clientID)}, dummyAppProgramID)
+	accounts.Escrow, _, err = solana.DummyAppEscrowPDA(clientID, dummyAppProgramID)
 	s.Require().NoError(err)
 
-	accounts.EscrowState, _, err = solanago.FindProgramAddress([][]byte{[]byte("escrow_state"), []byte(clientID)}, dummyAppProgramID)
+	accounts.EscrowState, _, err = solana.DummyAppEscrowStatePDA(clientID, dummyAppProgramID)
 	s.Require().NoError(err)
 
 	return accounts

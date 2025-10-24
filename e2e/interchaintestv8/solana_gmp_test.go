@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -63,7 +62,7 @@ func (s *IbcEurekaSolanaTestSuite) deployAndInitializeGMPCounterApp(ctx context.
 		s.Require().True(programAvailable, "GMP Counter program failed to become available within timeout")
 
 		// Initialize GMP counter app state
-		counterAppStatePDA, _, err := solanago.FindProgramAddress([][]byte{[]byte("counter_app_state")}, gmpCounterProgramID)
+		counterAppStatePDA, _, err := solana.CounterAppStatePDA(gmpCounterProgramID)
 		s.Require().NoError(err)
 
 		initInstruction, err := gmp_counter_app.NewInitializeInstruction(
@@ -91,10 +90,7 @@ func (s *IbcEurekaSolanaTestSuite) createAddressLookupTable(ctx context.Context)
 	// Define common accounts to add to ALT
 	// These are accounts that appear in every IBC packet transaction
 	// Derive router_state PDA (same as relayer uses)
-	routerStatePDA, _, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("router_state")},
-		ics26_router.ProgramID,
-	)
+	routerStatePDA, _, err := solana.RouterStatePDA()
 	s.Require().NoError(err)
 
 	// Get Cosmos chain ID for deriving ICS07 accounts
@@ -102,28 +98,28 @@ func (s *IbcEurekaSolanaTestSuite) createAddressLookupTable(ctx context.Context)
 	cosmosChainID := simd.Config().ChainID
 
 	// Derive IBC app PDA (port-specific, constant for all GMP packets)
-	ibcAppPDA, _, err := solanago.FindProgramAddress([][]byte{[]byte("ibc_app"), []byte(GMPPortID)}, ics26_router.ProgramID)
+	ibcAppPDA, _, err := solana.RouterIBCAppPDA(GMPPortID)
 	s.Require().NoError(err)
 
 	// Derive ICS27 GMP app state PDA (port-specific, constant for all GMP packets)
-	gmpAppStatePDA, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(GMPPortID)}, ics27_gmp.ProgramID)
+	gmpAppStatePDA, _, err := solana.GMPAppStatePDA(GMPPortID)
 	s.Require().NoError(err)
 
 	// Derive client PDA (client-specific, constant if using same destination client)
 	// Assuming destination client is "solclient-0"
-	clientPDA, _, err := solanago.FindProgramAddress([][]byte{[]byte("clients"), []byte("solclient-0")}, ics26_router.ProgramID)
+	clientPDA, _, err := solana.RouterClientsPDA("solclient-0")
 	s.Require().NoError(err)
 
 	// Derive ICS07 client state PDA (source chain specific, constant for all packets from Cosmos)
-	clientStatePDA, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(cosmosChainID)}, ics07_tendermint.ProgramID)
+	clientStatePDA, _, err := solana.TendermintClientStatePDA(cosmosChainID)
 	s.Require().NoError(err)
 
 	// Derive router caller PDA (GMP's CPI signer, constant for all GMP packets)
-	routerCallerPDA, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_caller")}, ics27_gmp.ProgramID)
+	routerCallerPDA, _, err := solana.GMPRouterCallerPDA()
 	s.Require().NoError(err)
 
 	// Derive client sequence PDA (tracks packet sequence for destination client)
-	clientSequencePDA, _, err := solanago.FindProgramAddress([][]byte{[]byte("client_sequence"), []byte(SolanaClientID)}, ics26_router.ProgramID)
+	clientSequencePDA, _, err := solana.RouterClientSequencePDA(SolanaClientID)
 	s.Require().NoError(err)
 
 	// NOTE: We do NOT include target app-specific accounts (like gmp_counter_app.ProgramID or its state)
@@ -165,11 +161,11 @@ func (s *IbcEurekaSolanaTestSuite) deployAndInitializeICS27GMP(ctx context.Conte
 		s.Require().True(programAvailable, "ICS27 GMP program failed to become available within timeout")
 
 		// Find GMP app state PDA (using standard pattern with port_id)
-		gmpAppStatePDA, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(GMPPortID)}, ics27GMPProgramID)
+		gmpAppStatePDA, _, err := solana.GMPAppStatePDA(GMPPortID)
 		s.Require().NoError(err)
 
 		// Find router caller PDA
-		routerCallerPDA, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_caller")}, ics27GMPProgramID)
+		routerCallerPDA, _, err := solana.GMPRouterCallerPDA()
 		s.Require().NoError(err)
 
 		// Initialize ICS27 GMP app using the actual generated bindings
@@ -197,10 +193,10 @@ func (s *IbcEurekaSolanaTestSuite) deployAndInitializeICS27GMP(ctx context.Conte
 
 	// Register GMP app with ICS26 router
 	s.Require().True(s.Run("Register ICS27 GMP with Router", func() {
-		routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
+		routerStateAccount, _, err := solana.RouterStatePDA()
 		s.Require().NoError(err)
 
-		ibcAppAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("ibc_app"), []byte(GMPPortID)}, ics26_router.ProgramID)
+		ibcAppAccount, _, err := solana.RouterIBCAppPDA(GMPPortID)
 		s.Require().NoError(err)
 
 		registerInstruction, err := ics26_router.NewAddIbcAppInstruction(
@@ -285,23 +281,12 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 		getCounterValue = func(cosmosUserAddress string) uint64 {
 			// Derive ICS27 account_state PDA for this Cosmos user
 			salt := []byte{} // Empty salt for this test
-			hasher := sha256.New()
-			hasher.Write([]byte(cosmosUserAddress))
-			senderHash := hasher.Sum(nil)
 
-			ics27AccountPDA, _, err := solanago.FindProgramAddress([][]byte{
-				[]byte("gmp_account"),
-				[]byte(CosmosClientID),
-				senderHash,
-				salt,
-			}, ics27GMPProgramID)
+			ics27AccountPDA, _, err := solana.GMPAccountPDA(CosmosClientID, cosmosUserAddress, salt)
 			s.Require().NoError(err)
 
 			// Derive user counter PDA from ICS27 account_state PDA
-			userCounterPDA, _, err := solanago.FindProgramAddress(
-				[][]byte{[]byte("user_counter"), ics27AccountPDA.Bytes()},
-				gmpCounterProgramID,
-			)
+			userCounterPDA, _, err := solana.CounterUserCounterPDA(ics27AccountPDA, gmpCounterProgramID)
 			s.Require().NoError(err)
 
 			account, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, userCounterPDA)
@@ -325,16 +310,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 			// This PDA is the authority that signs for the counter operations
 			cosmosAddress := cosmosUser.FormattedAddress()
 			salt := []byte{} // Empty salt for this test
-			hasher := sha256.New()
-			hasher.Write([]byte(cosmosAddress))
-			senderHash := hasher.Sum(nil)
 
-			ics27AccountPDA, _, err := solanago.FindProgramAddress([][]byte{
-				[]byte("gmp_account"),
-				[]byte(CosmosClientID),
-				senderHash,
-				salt,
-			}, ics27GMPProgramID)
+			ics27AccountPDA, _, err := solana.GMPAccountPDA(CosmosClientID, cosmosAddress, salt)
 			if err != nil {
 				return nil
 			}
@@ -348,13 +325,13 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 
 			// Derive required account addresses
 			// 1. Counter app_state PDA
-			counterAppStateAddress, _, err := solanago.FindProgramAddress([][]byte{[]byte("counter_app_state")}, gmpCounterProgramID)
+			counterAppStateAddress, _, err := solana.CounterAppStatePDA(gmpCounterProgramID)
 			if err != nil {
 				return nil
 			}
 
 			// 2. User counter PDA - derived from the ICS27 account_state PDA (not userKey)
-			userCounterAddress, _, err := solanago.FindProgramAddress([][]byte{[]byte("user_counter"), ics27AccountPDA.Bytes()}, gmpCounterProgramID)
+			userCounterAddress, _, err := solana.CounterUserCounterPDA(ics27AccountPDA, gmpCounterProgramID)
 			if err != nil {
 				return nil
 			}
@@ -936,20 +913,7 @@ func (s *IbcEurekaSolanaTestSuite) getTokenBalance(ctx context.Context, tokenAcc
 
 // deriveICS27AccountPDA derives the ICS27 Account PDA for a Cosmos user
 func (s *IbcEurekaSolanaTestSuite) deriveICS27AccountPDA(cosmosAddress string, salt []byte) (solanago.PublicKey, error) {
-	// Hash the sender address using SHA256 (matches the Rust implementation: hash(sender.as_bytes()).to_bytes())
-	hasher := sha256.New()
-	hasher.Write([]byte(cosmosAddress))
-	senderHash := hasher.Sum(nil)
-
-	// Derive PDA: [b"gmp_account", client_id, hash(sender), salt]
-	seeds := [][]byte{
-		[]byte("gmp_account"),
-		[]byte(CosmosClientID),
-		senderHash,
-		salt,
-	}
-
-	pda, _, err := solanago.FindProgramAddress(seeds, ics27_gmp.ProgramID)
+	pda, _, err := solana.GMPAccountPDA(CosmosClientID, cosmosAddress, salt)
 	return pda, err
 }
 
@@ -1018,9 +982,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 
 	simd := s.CosmosChains[0]
 
-	// ICS27 GMP program is already deployed and initialized in SetupSuite
-	ics27GMPProgramID := ics27_gmp.ProgramID
-
 	testAmount := sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(CosmosTestAmount)))
 	testCosmosUser := s.CreateAndFundCosmosUserWithBalance(ctx, simd, testAmount[0].Amount.Int64())
 
@@ -1083,40 +1044,22 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			var err error
 
-			gmpAppStatePDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("app_state"), []byte(GMPPortID)},
-				ics27GMPProgramID,
-			)
+			gmpAppStatePDA, _, err = solana.GMPAppStatePDA(GMPPortID)
 			s.Require().NoError(err)
 
-			routerStatePDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("router_state")},
-				ics26_router.ProgramID,
-			)
+			routerStatePDA, _, err = solana.RouterStatePDA()
 			s.Require().NoError(err)
 
-			routerCallerPDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("router_caller")},
-				ics27GMPProgramID,
-			)
+			routerCallerPDA, _, err = solana.GMPRouterCallerPDA()
 			s.Require().NoError(err)
 
-			clientPDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("client"), []byte(SolanaClientID)},
-				ics26_router.ProgramID,
-			)
+			clientPDA, _, err = solana.RouterClientPDA(SolanaClientID)
 			s.Require().NoError(err)
 
-			ibcAppPDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("ibc_app"), []byte(GMPPortID)},
-				ics26_router.ProgramID,
-			)
+			ibcAppPDA, _, err = solana.RouterIBCAppPDA(GMPPortID)
 			s.Require().NoError(err)
 
-			clientSequencePDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("client_sequence"), []byte(SolanaClientID)},
-				ics26_router.ProgramID,
-			)
+			clientSequencePDA, _, err = solana.RouterClientSequencePDA(SolanaClientID)
 			s.Require().NoError(err)
 
 			s.T().Logf("Derived PDAs: gmpAppState=%s, routerState=%s, client=%s",
@@ -1127,12 +1070,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 		var nextSequence uint64
 		s.Require().True(s.Run("Get next sequence number and packet commitment PDA", func() {
 			var err error
-			nextSequence, packetCommitmentPDA, err = s.SolanaChain.GetNextSequenceAndCommitmentPDA(
-				ctx,
-				clientSequencePDA,
-				SolanaClientID,
-				ics26_router.ProgramID,
-			)
+			nextSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+			s.Require().NoError(err)
+
+			packetCommitmentPDA, _, err = solana.RouterPacketCommitmentPDA(SolanaClientID, nextSequence)
 			s.Require().NoError(err)
 			s.T().Logf("Using sequence number: %d", nextSequence)
 		}))
@@ -1349,9 +1290,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 
 	simd := s.CosmosChains[0]
 
-	// ICS27 GMP program is already deployed and initialized in SetupSuite
-	ics27GMPProgramID := ics27_gmp.ProgramID
-
 	testAmount := sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(CosmosTestAmount)))
 	testCosmosUser := s.CreateAndFundCosmosUserWithBalance(ctx, simd, testAmount[0].Amount.Int64())
 
@@ -1402,40 +1340,22 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			var err error
 
-			gmpAppStatePDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("app_state"), []byte(GMPPortID)},
-				ics27GMPProgramID,
-			)
+			gmpAppStatePDA, _, err = solana.GMPAppStatePDA(GMPPortID)
 			s.Require().NoError(err)
 
-			routerStatePDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("router_state")},
-				ics26_router.ProgramID,
-			)
+			routerStatePDA, _, err = solana.RouterStatePDA()
 			s.Require().NoError(err)
 
-			routerCallerPDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("router_caller")},
-				ics27GMPProgramID,
-			)
+			routerCallerPDA, _, err = solana.GMPRouterCallerPDA()
 			s.Require().NoError(err)
 
-			clientPDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("client"), []byte(SolanaClientID)},
-				ics26_router.ProgramID,
-			)
+			clientPDA, _, err = solana.RouterClientPDA(SolanaClientID)
 			s.Require().NoError(err)
 
-			ibcAppPDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("ibc_app"), []byte(GMPPortID)},
-				ics26_router.ProgramID,
-			)
+			ibcAppPDA, _, err = solana.RouterIBCAppPDA(GMPPortID)
 			s.Require().NoError(err)
 
-			clientSequencePDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("client_sequence"), []byte(SolanaClientID)},
-				ics26_router.ProgramID,
-			)
+			clientSequencePDA, _, err = solana.RouterClientSequencePDA(SolanaClientID)
 			s.Require().NoError(err)
 
 			s.T().Logf("Derived PDAs: gmpAppState=%s, routerState=%s, client=%s",
@@ -1445,12 +1365,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 		var packetCommitmentPDA solanago.PublicKey
 		s.Require().True(s.Run("Get next sequence number and packet commitment PDA", func() {
 			var err error
-			nextSequence, packetCommitmentPDA, err = s.SolanaChain.GetNextSequenceAndCommitmentPDA(
-				ctx,
-				clientSequencePDA,
-				SolanaClientID,
-				ics26_router.ProgramID,
-			)
+			nextSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+			s.Require().NoError(err)
+
+			packetCommitmentPDA, _, err = solana.RouterPacketCommitmentPDA(SolanaClientID, nextSequence)
 			s.Require().NoError(err)
 			s.T().Logf("Using sequence number: %d (timeout test)", nextSequence)
 		}))
@@ -2082,9 +2000,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromSolana() {
 
 	simd := s.CosmosChains[0]
 
-	// ICS27 GMP program is already deployed and initialized in SetupSuite
-	ics27GMPProgramID := ics27_gmp.ProgramID
-
 	// Create a test Cosmos user to receive the transfer (if it succeeds)
 	testAmount := sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(CosmosTestAmount)))
 	testCosmosUser := s.CreateAndFundCosmosUserWithBalance(ctx, simd, testAmount[0].Amount.Int64())
@@ -2145,40 +2060,22 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromSolana() {
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			var err error
 
-			gmpAppStatePDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("app_state"), []byte(GMPPortID)},
-				ics27GMPProgramID,
-			)
+			gmpAppStatePDA, _, err = solana.GMPAppStatePDA(GMPPortID)
 			s.Require().NoError(err)
 
-			routerStatePDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("router_state")},
-				ics26_router.ProgramID,
-			)
+			routerStatePDA, _, err = solana.RouterStatePDA()
 			s.Require().NoError(err)
 
-			routerCallerPDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("router_caller")},
-				ics27GMPProgramID,
-			)
+			routerCallerPDA, _, err = solana.GMPRouterCallerPDA()
 			s.Require().NoError(err)
 
-			clientPDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("client"), []byte(SolanaClientID)},
-				ics26_router.ProgramID,
-			)
+			clientPDA, _, err = solana.RouterClientPDA(SolanaClientID)
 			s.Require().NoError(err)
 
-			ibcAppPDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("ibc_app"), []byte(GMPPortID)},
-				ics26_router.ProgramID,
-			)
+			ibcAppPDA, _, err = solana.RouterIBCAppPDA(GMPPortID)
 			s.Require().NoError(err)
 
-			clientSequencePDA, _, err = solanago.FindProgramAddress(
-				[][]byte{[]byte("client_sequence"), []byte(SolanaClientID)},
-				ics26_router.ProgramID,
-			)
+			clientSequencePDA, _, err = solana.RouterClientSequencePDA(SolanaClientID)
 			s.Require().NoError(err)
 		}))
 
@@ -2186,12 +2083,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromSolana() {
 		var nextSequence uint64
 		s.Require().True(s.Run("Get next sequence number and packet commitment PDA", func() {
 			var err error
-			nextSequence, packetCommitmentPDA, err = s.SolanaChain.GetNextSequenceAndCommitmentPDA(
-				ctx,
-				clientSequencePDA,
-				SolanaClientID,
-				ics26_router.ProgramID,
-			)
+			nextSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+			s.Require().NoError(err)
+
+			packetCommitmentPDA, _, err = solana.RouterPacketCommitmentPDA(SolanaClientID, nextSequence)
 			s.Require().NoError(err)
 			s.T().Logf("Using sequence number: %d", nextSequence)
 		}))
@@ -2312,19 +2207,11 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromSolana() {
 	s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
 		// Derive packet commitment PDA for the sequence we used
 		var clientSequencePDA solanago.PublicKey
-		clientSequencePDA, _, err := solanago.FindProgramAddress(
-			[][]byte{[]byte("client_sequence"), []byte(SolanaClientID)},
-			ics26_router.ProgramID,
-		)
+		clientSequencePDA, _, err := solana.RouterClientSequencePDA(SolanaClientID)
 		s.Require().NoError(err)
 
 		// Get the sequence we used (it was incremented after send)
-		sequence, _, err := s.SolanaChain.GetNextSequenceAndCommitmentPDA(
-			ctx,
-			clientSequencePDA,
-			SolanaClientID,
-			ics26_router.ProgramID,
-		)
+		sequence, err := s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
 		s.Require().NoError(err)
 
 		// The sequence we used was (current - 1)
