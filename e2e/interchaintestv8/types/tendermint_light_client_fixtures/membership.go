@@ -1,3 +1,16 @@
+// Package tendermint_light_client_fixtures generates test fixtures for IBC Tendermint light client verification.
+//
+// IBC Cross-Chain Architecture:
+// - ChainA runs an IBC client that tracks ChainB's consensus states
+// - ChainB is the counterparty chain whose state we want to verify
+// - The client on ChainA stores ChainB's consensus states at various heights
+// - To verify data exists on ChainB, we need:
+//  1. A consensus state from ChainB (stored on ChainA's client)
+//  2. A Merkle proof from ChainB showing the data's existence/non-existence
+//  3. Cryptographic verification that the proof matches the consensus state's app hash
+//
+// This package creates fixtures containing all the components for testing
+// membership and non-membership verification scenarios.
 package tendermint_light_client_fixtures
 
 import (
@@ -11,10 +24,7 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	ics23 "github.com/cosmos/ics23/go"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/stretchr/testify/suite"
-
-	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtcrypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
@@ -25,6 +35,8 @@ import (
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
 	"github.com/cosmos/interchaintest/v10/chain/cosmos"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 )
 
 type KeyPath struct {
@@ -37,7 +49,6 @@ type ProofContext struct {
 	ExpectMembership bool
 	ProofHeight      uint64
 	BlockHeight      uint64
-	ActualAppHash    []byte
 	ABCIResponse     *abci.ResponseQuery
 	ConsensusState   *ibctmtypes.ConsensusState
 }
@@ -56,11 +67,16 @@ func NewMembershipFixtureGenerator(enabled bool, fixtureDir string, s *suite.Sui
 	}
 }
 
+// GenerateMembershipVerificationScenarios creates IBC light client verification fixtures.
+// ChainA: The chain running the IBC client (where consensus states are stored)
+// ChainB: The counterparty chain being tracked (where state proofs are queried from)
+// clientId: The IBC client ID on ChainA that tracks ChainB's consensus states
 func (g *MembershipFixtureGenerator) GenerateMembershipVerificationScenarios(
 	ctx context.Context,
-	chain *cosmos.CosmosChain,
+	chainA *cosmos.CosmosChain, // IBC client chain - stores consensus states of ChainB
+	chainB *cosmos.CosmosChain, // Counterparty chain - source of state proofs
 	keyPaths []KeyPath,
-	clientId string,
+	clientId string, // IBC client ID on ChainA tracking ChainB
 ) {
 	if !g.enabled {
 		return
@@ -71,7 +87,7 @@ func (g *MembershipFixtureGenerator) GenerateMembershipVerificationScenarios(
 	for i, keySpec := range keyPaths {
 		proofType := g.proofTypeNameFor(keySpec.Membership)
 		g.suite.T().Logf("🔍 Processing predefined key path: %s (%s)", keySpec.Key, proofType)
-		g.generateFixtureForKeyPath(ctx, chain, keySpec.Key, i, keySpec.Membership, clientId)
+		g.generateFixtureForKeyPath(ctx, chainA, chainB, keySpec.Key, i, keySpec.Membership, clientId)
 	}
 
 	g.suite.T().Log("✅ Predefined key membership scenarios generated successfully")
@@ -79,37 +95,48 @@ func (g *MembershipFixtureGenerator) GenerateMembershipVerificationScenarios(
 
 func (g *MembershipFixtureGenerator) generateFixtureForKeyPath(
 	ctx context.Context,
-	chain *cosmos.CosmosChain,
+	chainA *cosmos.CosmosChain, // IBC client chain
+	chainB *cosmos.CosmosChain, // Counterparty chain
 	keyPath string,
 	index int,
 	expectMembership bool,
+
 	clientId string,
 ) {
 	proofType := g.proofTypeNameFor(expectMembership)
 	g.suite.T().Logf("🔧 Generating %s fixture for key: %s", proofType, keyPath)
 
-	proofHeight, latestConsensusState := g.getLatestConsensusStateHeight(ctx, chain, clientId)
-	g.suite.T().Logf("📊 Using latest consensus state at height %d for proof generation", proofHeight)
+	// Step 1: Get the latest consensus state of ChainB stored on ChainA's IBC client
+	consensusStateHeight, latestConsensusState := g.getLatestConsensusStateHeight(ctx, chainA, clientId)
+	g.suite.T().Logf("📊 Using latest consensus state at height %d for proof generation", consensusStateHeight)
 
-	blockHeight, actualAppHash := g.getAppHashFromBlock(ctx, chain, proofHeight)
-	abciResp := g.queryStateProofForKey(ctx, chain, keyPath, proofHeight)
+	tmConsensusState := g.unmarshalConsensusState(latestConsensusState)
+
+	// In Tendermint, the AppHash in block H+1 reflects the state after executing transactions from block H.
+	// Since IBC consensus states are stored at their committed block height, to verify proofs against a
+	// consensus state at height H, we must query the blockchain state at height H-1 (before the transactions
+	// that led to that consensus state were executed). This ensures the proof's app hash matches the
+	// consensus state's root hash for cryptographic verification.
+	proofHeight := consensusStateHeight - 1
+	g.suite.T().Logf("📍 Querying proof from chainB at height %d", proofHeight)
+
+	// Step 2: Query ChainB for a Merkle proof of the key's existence/non-existence at proofHeight
+	abciResp := g.queryStateProofForKey(ctx, chainB, keyPath, proofHeight)
 	g.ensureProofMatchesExpectation(abciResp, keyPath, expectMembership)
-	tmConsensusState := g.unmarshalConsensusState(latestConsensusState, actualAppHash)
-	merkleProofBytes := g.convertToIBCMerkleProof(abciResp.ProofOps)
 
-	g.ensureHeightMatches(abciResp.Height, proofHeight)
+	merkleProofBytes := g.convertToIBCMerkleProof(abciResp.ProofOps)
 
 	proofCtx := &ProofContext{
 		KeyPath:          keyPath,
 		ExpectMembership: expectMembership,
 		ProofHeight:      proofHeight,
-		BlockHeight:      blockHeight,
-		ActualAppHash:    actualAppHash,
+		BlockHeight:      consensusStateHeight,
 		ABCIResponse:     abciResp,
 		ConsensusState:   tmConsensusState,
 	}
 
-	g.saveFixture(ctx, chain, proofCtx, merkleProofBytes, index, clientId)
+	// Step 3: Save the complete fixture with ChainA's client state, ChainB's consensus state, and the proof
+	g.saveFixture(ctx, chainA, proofCtx, merkleProofBytes, index, clientId)
 }
 
 func (g *MembershipFixtureGenerator) proofTypeNameFor(isMembership bool) string {
@@ -121,12 +148,12 @@ func (g *MembershipFixtureGenerator) proofTypeNameFor(isMembership bool) string 
 
 func (g *MembershipFixtureGenerator) getLatestConsensusStateHeight(
 	ctx context.Context,
-	chain *cosmos.CosmosChain,
+	chainA *cosmos.CosmosChain, // ChainA - where consensus states are stored
 	clientId string,
 ) (uint64, *clienttypes.ConsensusStateWithHeight) {
 	allStatesResp, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStatesResponse](
 		ctx,
-		chain,
+		chainA,
 		&clienttypes.QueryConsensusStatesRequest{
 			ClientId: clientId,
 		},
@@ -152,32 +179,9 @@ func (g *MembershipFixtureGenerator) findHighestRevisionHeight(
 	return highest
 }
 
-func (g *MembershipFixtureGenerator) getAppHashFromBlock(
-	ctx context.Context,
-	chain *cosmos.CosmosChain,
-	proofHeight uint64,
-) (uint64, []byte) {
-	blockHeight := proofHeight + 1
-	g.suite.T().Logf("🔍 Fetching block at height %d to get app hash for state at height %d", blockHeight, proofHeight)
-
-	blockResp, err := e2esuite.GRPCQuery[cmtservice.GetBlockByHeightResponse](
-		ctx,
-		chain,
-		&cmtservice.GetBlockByHeightRequest{
-			Height: int64(blockHeight),
-		},
-	)
-	g.suite.Require().NoError(err)
-
-	appHash := blockResp.Block.Header.AppHash
-	g.suite.T().Logf("📦 Block %d app hash: %s", blockHeight, hex.EncodeToString(appHash))
-
-	return blockHeight, appHash
-}
-
 func (g *MembershipFixtureGenerator) queryStateProofForKey(
 	ctx context.Context,
-	chain *cosmos.CosmosChain,
+	chainB *cosmos.CosmosChain, // ChainB - counterparty chain being proven
 	keyPath string,
 	proofHeight uint64,
 ) *abci.ResponseQuery {
@@ -193,7 +197,7 @@ func (g *MembershipFixtureGenerator) queryStateProofForKey(
 	g.suite.T().Logf("📡 ABCI Query: path=%s, data=%s, height=%d, prove=true",
 		storePath, keyPath, abciReq.Height)
 
-	abciResp, err := e2esuite.ABCIQuery(ctx, chain, abciReq)
+	abciResp, err := e2esuite.ABCIQuery(ctx, chainB, abciReq)
 	g.suite.Require().NoError(err)
 
 	return abciResp
@@ -230,14 +234,12 @@ func (g *MembershipFixtureGenerator) ensureProofMatchesExpectation(
 
 func (g *MembershipFixtureGenerator) unmarshalConsensusState(
 	consensusStateWithHeight *clienttypes.ConsensusStateWithHeight,
-	actualAppHash []byte,
 ) *ibctmtypes.ConsensusState {
 	var tmConsensusState ibctmtypes.ConsensusState
 	err := proto.Unmarshal(consensusStateWithHeight.ConsensusState.Value, &tmConsensusState)
 	g.suite.Require().NoError(err)
 
-	g.suite.T().Logf("📊 Original consensus state root: %s", hex.EncodeToString(tmConsensusState.Root.GetHash()))
-	g.suite.T().Logf("📊 Actual app hash from block: %s", hex.EncodeToString(actualAppHash))
+	g.suite.T().Logf("📊 Consensus state root (app hash): %s", hex.EncodeToString(tmConsensusState.Root.GetHash()))
 
 	return &tmConsensusState
 }
@@ -270,16 +272,9 @@ func (g *MembershipFixtureGenerator) extractCommitmentProofs(proofOps *cmtcrypto
 	return commitmentProofs
 }
 
-func (g *MembershipFixtureGenerator) ensureHeightMatches(actualHeight int64, expectedHeight uint64) {
-	if uint64(actualHeight) != expectedHeight {
-		g.suite.T().Fatalf("❌ ABCI returned unexpected height: got %d, expected %d",
-			actualHeight, expectedHeight)
-	}
-}
-
 func (g *MembershipFixtureGenerator) saveFixture(
 	ctx context.Context,
-	chain *cosmos.CosmosChain,
+	chainA *cosmos.CosmosChain, // ChainA - where the IBC client is running
 	proofCtx *ProofContext,
 	proofBytes []byte,
 	index int,
@@ -287,18 +282,19 @@ func (g *MembershipFixtureGenerator) saveFixture(
 ) {
 	proofType := g.proofTypeNameFor(proofCtx.ExpectMembership)
 
+	// Build the membership message with proof data from ChainB
 	membershipMsg := g.buildMembershipMessage(proofCtx, proofBytes)
-	clientState := g.buildClientState(ctx, chain, clientId)
+	// Get the IBC client state from ChainA (tracks ChainB)
+	clientState := g.buildClientState(ctx, chainA, clientId)
+	// Use the consensus state from ChainB (stored in the proof context)
 	consensusState := g.buildConsensusState(proofCtx)
 
 	scenarioName := fmt.Sprintf("%s_key_%d", proofType, index)
-	appHashHex := hex.EncodeToString(proofCtx.ActualAppHash)
 	fixture := g.assembleFixture(
 		scenarioName,
 		clientState,
 		consensusState,
 		membershipMsg,
-		appHashHex,
 	)
 
 	filename := filepath.Join(g.fixtureDir,
@@ -323,10 +319,10 @@ func (g *MembershipFixtureGenerator) buildMembershipMessage(
 
 func (g *MembershipFixtureGenerator) buildClientState(
 	ctx context.Context,
-	chain *cosmos.CosmosChain,
+	chainA *cosmos.CosmosChain, // ChainA - where the IBC client is running
 	clientId string,
 ) string {
-	tmClientState := g.queryTendermintClientState(ctx, chain, clientId)
+	tmClientState := g.queryTendermintClientState(ctx, chainA, clientId)
 	return g.convertClientStateToFixtureFormat(tmClientState)
 }
 
@@ -342,13 +338,11 @@ func (g *MembershipFixtureGenerator) assembleFixture(
 	clientStateHex string,
 	consensusStateHex string,
 	membershipMsg map[string]interface{},
-	appHashHex string,
 ) map[string]interface{} {
 	return map[string]interface{}{
 		"client_state_hex":    clientStateHex,
 		"consensus_state_hex": consensusStateHex,
 		"membership_msg":      membershipMsg,
-		"app_hash_hex":        appHashHex,
 		"metadata":            g.createMetadata(fmt.Sprintf("Tendermint light client fixture for scenario: %s", scenarioName)),
 	}
 }

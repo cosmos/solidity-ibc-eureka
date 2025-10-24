@@ -11,8 +11,27 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
+// Account schema version
+type AccountVersion binary.BorshEnum
+
+const (
+	AccountVersion_V1 AccountVersion = iota
+)
+
+func (value AccountVersion) String() string {
+	switch value {
+	case AccountVersion_V1:
+		return "V1"
+	default:
+		return ""
+	}
+}
+
 // Client mapping client IDs to light client program IDs
 type Client struct {
+	// Schema version for upgrades
+	Version AccountVersion `json:"version"`
+
 	// The client identifier
 	ClientId string `json:"clientId"`
 
@@ -27,9 +46,17 @@ type Client struct {
 
 	// Whether the client is active
 	Active bool `json:"active"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
 }
 
 func (obj Client) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
 	// Serialize `ClientId`:
 	err = encoder.Encode(obj.ClientId)
 	if err != nil {
@@ -55,6 +82,11 @@ func (obj Client) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	if err != nil {
 		return errors.NewField("Active", err)
 	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
 	return nil
 }
 
@@ -69,6 +101,11 @@ func (obj Client) Marshal() ([]byte, error) {
 }
 
 func (obj *Client) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
 	// Deserialize `ClientId`:
 	err = decoder.Decode(&obj.ClientId)
 	if err != nil {
@@ -94,6 +131,11 @@ func (obj *Client) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	if err != nil {
 		return errors.NewField("Active", err)
 	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
 	return nil
 }
 
@@ -116,15 +158,31 @@ func UnmarshalClient(buf []byte) (*Client, error) {
 
 // Client sequence tracking
 type ClientSequence struct {
+	// Schema version for upgrades
+	Version AccountVersion `json:"version"`
+
 	// Next sequence number for sending packets
 	NextSequenceSend uint64 `json:"nextSequenceSend"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
 }
 
 func (obj ClientSequence) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
 	// Serialize `NextSequenceSend`:
 	err = encoder.Encode(obj.NextSequenceSend)
 	if err != nil {
 		return errors.NewField("NextSequenceSend", err)
+	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
 	}
 	return nil
 }
@@ -140,10 +198,20 @@ func (obj ClientSequence) Marshal() ([]byte, error) {
 }
 
 func (obj *ClientSequence) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
 	// Deserialize `NextSequenceSend`:
 	err = decoder.Decode(&obj.NextSequenceSend)
 	if err != nil {
 		return errors.NewField("NextSequenceSend", err)
+	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
 	}
 	return nil
 }
@@ -282,6 +350,9 @@ func UnmarshalCounterpartyInfo(buf []byte) (*CounterpartyInfo, error) {
 
 // `IBCApp` mapping port IDs to IBC app program IDs
 type IbcApp struct {
+	// Schema version for upgrades
+	Version AccountVersion `json:"version"`
+
 	// The port identifier
 	PortId string `json:"portId"`
 
@@ -290,9 +361,17 @@ type IbcApp struct {
 
 	// Authority that registered this port
 	Authority solanago.PublicKey `json:"authority"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
 }
 
 func (obj IbcApp) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
 	// Serialize `PortId`:
 	err = encoder.Encode(obj.PortId)
 	if err != nil {
@@ -308,6 +387,11 @@ func (obj IbcApp) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	if err != nil {
 		return errors.NewField("Authority", err)
 	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
 	return nil
 }
 
@@ -322,6 +406,11 @@ func (obj IbcApp) Marshal() ([]byte, error) {
 }
 
 func (obj *IbcApp) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
 	// Deserialize `PortId`:
 	err = decoder.Decode(&obj.PortId)
 	if err != nil {
@@ -336,6 +425,11 @@ func (obj *IbcApp) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	err = decoder.Decode(&obj.Authority)
 	if err != nil {
 		return errors.NewField("Authority", err)
+	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
 	}
 	return nil
 }
@@ -1372,15 +1466,31 @@ func UnmarshalProofMetadata(buf []byte) (*ProofMetadata, error) {
 // Router state account
 // TODO: Implement multi-router ACL
 type RouterState struct {
+	// Schema version for upgrades
+	Version AccountVersion `json:"version"`
+
 	// Authority that can perform restricted operations
 	Authority solanago.PublicKey `json:"authority"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
 }
 
 func (obj RouterState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
 	// Serialize `Authority`:
 	err = encoder.Encode(obj.Authority)
 	if err != nil {
 		return errors.NewField("Authority", err)
+	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
 	}
 	return nil
 }
@@ -1396,10 +1506,20 @@ func (obj RouterState) Marshal() ([]byte, error) {
 }
 
 func (obj *RouterState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
 	// Deserialize `Authority`:
 	err = decoder.Decode(&obj.Authority)
 	if err != nil {
 		return errors.NewField("Authority", err)
+	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
 	}
 	return nil
 }

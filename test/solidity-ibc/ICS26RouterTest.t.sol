@@ -137,11 +137,7 @@ contract ICS26RouterTest is Test {
                 sourceClient: clientId,
                 timeoutTimestamp: timeoutTimestamp,
                 payload: IICS26RouterMsgs.Payload({
-                    sourcePort: mockPort,
-                    destPort: mockPort,
-                    version: "",
-                    encoding: "",
-                    value: "0x"
+                    sourcePort: mockPort, destPort: mockPort, version: "", encoding: "", value: "0x"
                 })
             })
         );
@@ -177,7 +173,7 @@ contract ICS26RouterTest is Test {
             packet: packet,
             proofCommitment: "0x", // doesn't matter
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: 0 }) // doesn't matter
-         });
+        });
 
         vm.expectRevert(errorMsg);
         vm.prank(relayer);
@@ -216,7 +212,7 @@ contract ICS26RouterTest is Test {
             packet: packet,
             proofCommitment: "0x", // doesn't matter
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: 0 }) // doesn't matter
-         });
+        });
 
         bytes[] memory expAcks = new bytes[](1);
         expAcks[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
@@ -261,7 +257,7 @@ contract ICS26RouterTest is Test {
             packet: packet,
             proofCommitment: "0x", // doesn't matter
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: 0 }) // doesn't matter
-         });
+        });
 
         vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCFailedCallback.selector));
         vm.prank(relayer);

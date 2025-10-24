@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -25,6 +23,8 @@ import (
 	"cosmossdk.io/math"
 
 	"github.com/cosmos/interchaintest/v10/testutil"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 type Ethereum struct {

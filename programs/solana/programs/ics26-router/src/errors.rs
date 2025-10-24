@@ -80,4 +80,6 @@ pub enum RouterError {
     MissingAccount,
     #[msg("Invalid account")]
     InvalidAccount,
+    #[msg("Unsupported account version")]
+    UnsupportedVersion,
 }

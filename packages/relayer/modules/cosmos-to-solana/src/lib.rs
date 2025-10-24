@@ -177,7 +177,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             target_events.len()
         );
 
-        let txs = self
+        let packet_txs = self
             .tx_builder
             .relay_events_chunked(
                 src_events,
@@ -191,14 +191,25 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .map_err(to_tonic_status)?;
 
         tracing::info!(
-            "Relay by tx request completed with {} transactions.",
-            txs.len()
+            "Relay by tx request completed with {} packets.",
+            packet_txs.len()
         );
 
+        // Serialize packet transactions into RelayPacketBatch
+        let packets = packet_txs
+            .iter()
+            .map(|pkt| api::PacketTransactions {
+                chunks: pkt.chunks().to_vec(),
+                final_tx: pkt.final_tx().to_vec(),
+            })
+            .collect();
+
+        let batch = api::RelayPacketBatch { packets };
+        let tx = prost::Message::encode_to_vec(&batch);
+
         Ok(Response::new(api::RelayByTxResponse {
-            tx: vec![],
+            tx,
             address: String::new(),
-            txs,
         }))
     }
 
@@ -245,10 +256,13 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         }
         txs.push(chunked.assembly_tx);
 
+        // Serialize multiple transactions into TransactionBatch
+        let batch = api::TransactionBatch { txs };
+        let tx = prost::Message::encode_to_vec(&batch);
+
         Ok(Response::new(api::UpdateClientResponse {
-            tx: vec![],
+            tx,
             address: self.solana_ics07_program_id.to_string(),
-            txs,
         }))
     }
 }

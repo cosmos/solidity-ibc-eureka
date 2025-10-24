@@ -1,7 +1,7 @@
 use crate::errors::RouterError;
 use crate::state::{
-    Client, ClientSequence, CounterpartyInfo, RouterState, CLIENT_SEED, CLIENT_SEQUENCE_SEED,
-    ROUTER_STATE_SEED,
+    AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState, CLIENT_SEED,
+    CLIENT_SEQUENCE_SEED, ROUTER_STATE_SEED,
 };
 use anchor_lang::prelude::*;
 use solana_ibc_types::events::{ClientAddedEvent, ClientStatusUpdatedEvent};
@@ -96,11 +96,13 @@ pub fn add_client(
         RouterError::InvalidCounterpartyInfo
     );
 
+    client.version = AccountVersion::V1;
     client.client_id = client_id;
     client.client_program_id = light_client_program.key();
     client.counterparty_info = counterparty_info;
     client.authority = ctx.accounts.authority.key();
     client.active = true;
+    client._reserved = [0u8; 256];
 
     // Initialize client sequence to start from 1 (IBC sequences start from 1, not 0)
     let client_sequence = &mut ctx.accounts.client_sequence;

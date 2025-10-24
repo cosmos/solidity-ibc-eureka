@@ -29,7 +29,11 @@ pub fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> V
 
 pub fn setup_router_state(authority: Pubkey) -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) = Pubkey::find_program_address(&[ROUTER_STATE_SEED], &crate::ID);
-    let router_state = RouterState { authority };
+    let router_state = RouterState {
+        version: AccountVersion::V1,
+        authority,
+        _reserved: [0; 256],
+    };
     let router_state_data = create_account_data(&router_state);
     (router_state_pda, router_state_data)
 }
@@ -45,6 +49,7 @@ pub fn setup_client(
         Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &crate::ID);
 
     let client = Client {
+        version: AccountVersion::V1,
         client_id: client_id.to_string(),
         client_program_id: light_client_program,
         counterparty_info: CounterpartyInfo {
@@ -53,6 +58,7 @@ pub fn setup_client(
         },
         authority,
         active,
+        _reserved: [0; 256],
     };
     let client_data = create_account_data(&client);
 
@@ -64,6 +70,8 @@ pub fn setup_client_sequence(client_id: &str, next_sequence: u64) -> (Pubkey, Ve
         Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED, client_id.as_bytes()], &crate::ID);
     let client_sequence = ClientSequence {
         next_sequence_send: next_sequence,
+        version: AccountVersion::V1,
+        _reserved: [0; 256],
     };
     let client_sequence_data = create_account_data(&client_sequence);
     (client_sequence_pda, client_sequence_data)
@@ -73,9 +81,11 @@ pub fn setup_ibc_app(port_id: &str, app_program_id: Pubkey) -> (Pubkey, Vec<u8>)
     let (ibc_app_pda, _) =
         Pubkey::find_program_address(&[IBC_APP_SEED, port_id.as_bytes()], &crate::ID);
     let ibc_app = IBCApp {
+        version: AccountVersion::V1,
         port_id: port_id.to_string(),
         app_program_id,
         authority: Pubkey::new_unique(),
+        _reserved: [0; 256],
     };
     let ibc_app_data = create_account_data(&ibc_app);
     (ibc_app_pda, ibc_app_data)

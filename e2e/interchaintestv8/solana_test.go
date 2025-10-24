@@ -9,13 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/relayer"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/solana"
-	"github.com/cosmos/solidity-ibc-eureka/e2e/v8/testvalues"
-	relayertypes "github.com/cosmos/solidity-ibc-eureka/e2e/v8/types/relayer"
 	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/protobuf/proto"
 
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -33,6 +29,12 @@ import (
 	dummy_ibc_app "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/dummyibcapp"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
 const (
@@ -554,11 +556,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(resp.Txs, "Relayer Update client should return chunked transactions")
+			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transaction")
 
 			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
 			s.Require().NoError(err, "Failed to submit chunked update client transactions")
-			s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.Txs))
 		}))
 
 		s.Require().True(s.Run("Relay acknowledgment", func() {
@@ -570,11 +571,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Txs, "Relay should return chunked transactions")
-			s.T().Logf("Retrieved %d relay transactions (chunks + final instructions)", len(resp.Txs))
+			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
 			_ = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
-			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
 
 			// With deferred cleanup, commitment should still exist after acknowledgment
 			s.verifyPacketCommitmentExists(ctx, SolanaClientID, 1)
@@ -723,11 +722,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err, "Relayer failed to generate update txs")
-			s.Require().NotEmpty(resp.Txs, "Update client should return chunked transactions")
+			s.Require().NotEmpty(resp.Tx, "Update client should return transaction")
 
 			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
 			s.Require().NoError(err, "Failed to submit chunked update client transactions")
-			s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.Txs))
 		}))
 
 		s.Require().True(s.Run("Relay acknowledgment", func() {
@@ -739,11 +737,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Txs, "Relay should return chunked transactions")
-			s.T().Logf("Retrieved %d relay transactions (chunks + final instructions)", len(resp.Txs))
+			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
 			_ = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
-			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
 
 			// With deferred cleanup, commitment should still exist after acknowledgment
 			s.verifyPacketCommitmentExists(ctx, SolanaClientID, 1)
@@ -843,11 +839,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(resp.Txs, "Relayer Update client should return chunked transactions")
+			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transaction")
 
 			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
 			s.Require().NoError(err, "Failed to submit chunked update client transactions")
-			s.T().Logf("Successfully updated Tendermint client on Solana using %d chunked transactions", len(resp.Txs))
 		}))
 
 		s.Require().True(s.Run("Relay acknowledgment", func() {
@@ -859,11 +854,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Txs, "Relay should return chunked transactions")
-			s.T().Logf("Retrieved %d relay transactions (chunks + final instructions)", len(resp.Txs))
+			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
 			solanaRelayTxSig = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
-			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
 
 			// With deferred cleanup, commitment should still exist after acknowledgment
 			s.verifyPacketCommitmentExists(ctx, SolanaClientID, 1)
@@ -934,19 +927,23 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 // Helpers
 
 func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context, resp *relayertypes.UpdateClientResponse, user *solanago.Wallet) {
-	s.Require().NotEqual(0, len(resp.Txs), "no chunked transactions provided")
+	// Deserialize TransactionBatch from resp.Tx
+	var batch relayertypes.TransactionBatch
+	err := proto.Unmarshal(resp.Tx, &batch)
+	s.Require().NoError(err, "Failed to unmarshal TransactionBatch")
+	s.Require().NotEqual(0, len(batch.Txs), "no chunked transactions provided")
 
 	totalStart := time.Now()
 
 	// Transaction structure: [chunk1, chunk2, ..., chunkN, assembly]
-	chunkCount := len(resp.Txs) - 1 // Total minus assembly
+	chunkCount := len(batch.Txs) - 1 // Total minus assembly
 	s.T().Logf("=== Starting Chunked Update Client ===")
 	s.T().Logf("Total transactions: %d (%d chunks + 1 assembly)",
-		len(resp.Txs),
+		len(batch.Txs),
 		chunkCount)
 
 	chunkStart := 0
-	chunkEnd := len(resp.Txs) - 1 // Everything except last (assembly)
+	chunkEnd := len(batch.Txs) - 1 // Everything except last (assembly)
 
 	type chunkResult struct {
 		index    int
@@ -965,7 +962,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 			chunkTxStart := time.Now()
 
 			// Decode
-			tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[idx]))
+			tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[idx]))
 			if err != nil {
 				chunkResults <- chunkResult{
 					index:    idx,
@@ -1019,7 +1016,7 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 	s.T().Logf("--- Phase 2: Assembling and updating client ---")
 	assemblyStart := time.Now()
 
-	tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[len(resp.Txs)-1]))
+	tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[len(batch.Txs)-1]))
 	s.Require().NoError(err, "Failed to decode assembly tx")
 
 	sig, err := s.SolanaChain.SignAndBroadcastTxWithConfirmedStatus(ctx, tx, user)
@@ -1036,42 +1033,204 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context
 }
 
 func (s *IbcEurekaSolanaTestSuite) submitChunkedRelayPackets(ctx context.Context, resp *relayertypes.RelayByTxResponse, user *solanago.Wallet) solanago.Signature {
-	s.Require().NotEqual(0, len(resp.Txs), "no relay transactions provided")
+	var batch relayertypes.RelayPacketBatch
+	err := proto.Unmarshal(resp.Tx, &batch)
+	s.Require().NoError(err, "Failed to unmarshal RelayPacketBatch")
+	s.Require().NotEqual(0, len(batch.Packets), "no relay packets provided")
 
 	totalStart := time.Now()
 	s.T().Logf("=== Starting Chunked Relay Packets ===")
-	s.T().Logf("Total transactions: %d (chunks + final instructions)", len(resp.Txs))
+	s.T().Logf("Total packets: %d", len(batch.Packets))
 
-	var lastSig solanago.Signature
-	// Submit all transactions sequentially
-	// Structure: [packet1_chunk0, packet1_chunk1, ..., packet1_final, packet2_chunk0, ...]
-	for i, txBytes := range resp.Txs {
-		txStart := time.Now()
+	totalChunks := 0
+	for _, packet := range batch.Packets {
+		totalChunks += len(packet.Chunks)
+	}
+	s.T().Logf("Total chunks across all packets: %d", totalChunks)
 
-		tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(txBytes))
-		s.Require().NoError(err, "Failed to decode transaction %d", i)
-
-		recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-		s.Require().NoError(err, "Failed to get latest blockhash for transaction %d", i)
-		tx.Message.RecentBlockhash = recent.Value.Blockhash
-
-		// TODO: We can speed up test by waiting for processed on all chunks and then finalized on relay assemble tx
-		sig, err := s.SolanaChain.SignAndBroadcastTx(ctx, tx, user)
-		s.Require().NoError(err, "Failed to submit transaction %d", i)
-
-		lastSig = sig
-		txDuration := time.Since(txStart)
-		s.T().Logf("✓ Transaction %d/%d completed in %v - tx: %s",
-			i+1, len(resp.Txs), txDuration, sig)
+	type packetResult struct {
+		packetIdx      int
+		finalSig       solanago.Signature
+		err            error
+		chunksDuration time.Duration
+		finalDuration  time.Duration
+		totalDuration  time.Duration
 	}
 
+	// Process all packets in parallel
+	packetResults := make(chan packetResult, len(batch.Packets))
+
+	for packetIdx, packet := range batch.Packets {
+		go func(pktIdx int, pkt *relayertypes.PacketTransactions) {
+			packetStart := time.Now()
+			s.T().Logf("--- Packet %d: Starting (%d chunks + 1 final tx) ---", pktIdx+1, len(pkt.Chunks))
+
+			type chunkResult struct {
+				chunkIdx int
+				sig      solanago.Signature
+				err      error
+				duration time.Duration
+			}
+
+			// Phase 1: Submit all chunks for this packet in parallel
+			chunksStart := time.Now()
+			chunkResults := make(chan chunkResult, len(pkt.Chunks))
+
+			for chunkIdx, chunkBytes := range pkt.Chunks {
+				go func(chkIdx int, chunkData []byte) {
+					chunkStart := time.Now()
+
+					tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(chunkData))
+					if err != nil {
+						chunkResults <- chunkResult{
+							chunkIdx: chkIdx,
+							err:      fmt.Errorf("failed to decode chunk %d: %w", chkIdx, err),
+							duration: time.Since(chunkStart),
+						}
+						return
+					}
+
+					recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+					if err != nil {
+						chunkResults <- chunkResult{
+							chunkIdx: chkIdx,
+							err:      fmt.Errorf("failed to get blockhash for chunk %d: %w", chkIdx, err),
+							duration: time.Since(chunkStart),
+						}
+						return
+					}
+					tx.Message.RecentBlockhash = recent.Value.Blockhash
+
+					sig, err := s.SolanaChain.SignAndBroadcastTx(ctx, tx, user)
+					chunkDuration := time.Since(chunkStart)
+
+					if err != nil {
+						chunkResults <- chunkResult{
+							chunkIdx: chkIdx,
+							err:      fmt.Errorf("failed to submit chunk %d: %w", chkIdx, err),
+							duration: chunkDuration,
+						}
+						return
+					}
+
+					chunkResults <- chunkResult{
+						chunkIdx: chkIdx,
+						sig:      sig,
+						duration: chunkDuration,
+					}
+				}(chunkIdx, chunkBytes)
+			}
+
+			// Collect all chunk results for this packet
+			var chunkErr error
+			for i := 0; i < len(pkt.Chunks); i++ {
+				result := <-chunkResults
+				if result.err != nil {
+					chunkErr = result.err
+					s.T().Logf("✗ Packet %d, Chunk %d failed: %v", pktIdx+1, result.chunkIdx+1, result.err)
+				} else {
+					s.T().Logf("✓ Packet %d, Chunk %d/%d completed in %v - tx: %s",
+						pktIdx+1, result.chunkIdx+1, len(pkt.Chunks), result.duration, result.sig)
+				}
+			}
+			close(chunkResults)
+			chunksDuration := time.Since(chunksStart)
+
+			if chunkErr != nil {
+				packetResults <- packetResult{
+					packetIdx:      pktIdx,
+					err:            fmt.Errorf("packet %d chunk upload failed: %w", pktIdx, chunkErr),
+					chunksDuration: chunksDuration,
+					totalDuration:  time.Since(packetStart),
+				}
+				return
+			}
+
+			s.T().Logf("--- Packet %d: All %d chunks completed in %v, submitting final tx ---",
+				pktIdx+1, len(pkt.Chunks), chunksDuration)
+
+			// Phase 2: Submit final transaction for this packet
+			finalStart := time.Now()
+
+			finalTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(pkt.FinalTx))
+			if err != nil {
+				packetResults <- packetResult{
+					packetIdx:      pktIdx,
+					err:            fmt.Errorf("packet %d failed to decode final tx: %w", pktIdx, err),
+					chunksDuration: chunksDuration,
+					finalDuration:  time.Since(finalStart),
+					totalDuration:  time.Since(packetStart),
+				}
+				return
+			}
+
+			recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+			if err != nil {
+				packetResults <- packetResult{
+					packetIdx:      pktIdx,
+					err:            fmt.Errorf("packet %d failed to get blockhash for final tx: %w", pktIdx, err),
+					chunksDuration: chunksDuration,
+					finalDuration:  time.Since(finalStart),
+					totalDuration:  time.Since(packetStart),
+				}
+				return
+			}
+			finalTx.Message.RecentBlockhash = recent.Value.Blockhash
+
+			// For final tx we need finalized status
+			sig, err := s.SolanaChain.SignAndBroadcastTx(ctx, finalTx, user)
+			finalDuration := time.Since(finalStart)
+			totalDuration := time.Since(packetStart)
+
+			if err != nil {
+				packetResults <- packetResult{
+					packetIdx:      pktIdx,
+					err:            fmt.Errorf("packet %d failed to submit final tx: %w", pktIdx, err),
+					chunksDuration: chunksDuration,
+					finalDuration:  finalDuration,
+					totalDuration:  totalDuration,
+				}
+				return
+			}
+
+			s.T().Logf("✓ Packet %d: Final tx completed in %v - tx: %s", pktIdx+1, finalDuration, sig)
+			s.T().Logf("--- Packet %d: Complete in %v (chunks: %v, final: %v) ---",
+				pktIdx+1, totalDuration, chunksDuration, finalDuration)
+
+			packetResults <- packetResult{
+				packetIdx:      pktIdx,
+				finalSig:       sig,
+				chunksDuration: chunksDuration,
+				finalDuration:  finalDuration,
+				totalDuration:  totalDuration,
+			}
+		}(packetIdx, packet)
+	}
+
+	// Collect all packet results
+	var lastSig solanago.Signature
+	var totalChunksDuration time.Duration
+	var totalFinalsDuration time.Duration
+
+	for i := 0; i < len(batch.Packets); i++ {
+		result := <-packetResults
+		s.Require().NoError(result.err, "Packet submission failed")
+		lastSig = result.finalSig
+		totalChunksDuration += result.chunksDuration
+		totalFinalsDuration += result.finalDuration
+	}
+	close(packetResults)
+
 	totalDuration := time.Since(totalStart)
-	avgTxTime := totalDuration / time.Duration(len(resp.Txs))
+	avgChunksDuration := totalChunksDuration / time.Duration(len(batch.Packets))
+	avgFinalsDuration := totalFinalsDuration / time.Duration(len(batch.Packets))
+
 	s.T().Logf("=== Chunked Relay Packets Complete ===")
-	s.T().Logf("Total time: %v for %d transactions (avg: %v/tx)",
-		totalDuration, len(resp.Txs), avgTxTime)
-	s.T().Logf("NOTE: for simplicity all tx chunks are waiting for finalization and are sent sequentially")
-	s.T().Logf("In real use only final packet tx (recv/ack/timeout) needs to be finalized")
+	s.T().Logf("Total wall time: %v for %d packets (%d total chunks)", totalDuration, len(batch.Packets), totalChunks)
+	s.T().Logf("All packets processed in parallel:")
+	s.T().Logf("  - Avg chunks phase per packet: %v", avgChunksDuration)
+	s.T().Logf("  - Avg final tx per packet: %v", avgFinalsDuration)
+	s.T().Logf("Parallelization: All packets + all chunks within each packet submitted concurrently")
 	return lastSig
 }
 
