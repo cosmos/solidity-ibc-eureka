@@ -191,10 +191,12 @@ fn handle_consensus_state_storage(
             ctx.new_consensus_state_store,
             ctx.payer,
             ctx.system_program,
-            ctx.program_id,
-            ctx.client_key,
-            ctx.revision_height,
-            new_consensus_state,
+            CreateConsensusStateParams {
+                program_id: ctx.program_id,
+                client_key: ctx.client_key,
+                revision_height: ctx.revision_height,
+                new_consensus_state,
+            },
             client_state,
         )?;
         Ok(UpdateResult::Update)
@@ -325,29 +327,34 @@ fn initialize_consensus_state_store(
 }
 
 /// Creates and initializes a new consensus state store account
+/// Parameters for creating a new consensus state account
+struct CreateConsensusStateParams<'a> {
+    program_id: &'a Pubkey,
+    client_key: Pubkey,
+    revision_height: u64,
+    new_consensus_state: &'a ConsensusState,
+}
+
 fn create_consensus_state_account<'info>(
     consensus_state_account: &UncheckedAccount<'info>,
     payer: &Signer<'info>,
     system_program: &Program<'info, System>,
-    program_id: &Pubkey,
-    client_key: Pubkey,
-    revision_height: u64,
-    new_consensus_state: &ConsensusState,
+    params: CreateConsensusStateParams<'_>,
     client_state: &mut ClientState,
 ) -> Result<()> {
     // Validate the PDA and get the bump seed
     let bump = validate_consensus_state_pda(
         consensus_state_account,
-        &client_key,
-        revision_height,
-        program_id,
+        &params.client_key,
+        params.revision_height,
+        params.program_id,
     )?;
 
     // Calculate required space and rent
     let (space, rent) = calculate_consensus_state_rent()?;
 
     // Prepare signing seeds for account creation
-    let signer_seeds = create_consensus_state_signer_seeds(&client_key, revision_height, bump);
+    let signer_seeds = create_consensus_state_signer_seeds(&params.client_key, params.revision_height, bump);
     let signer_seeds_slices = vecs_as_slices(&signer_seeds);
     let signer_seeds_slice = [&signer_seeds_slices[..]];
 
@@ -356,7 +363,7 @@ fn create_consensus_state_account<'info>(
         consensus_state_account,
         payer,
         system_program,
-        program_id,
+        params.program_id,
         space,
         rent,
         &signer_seeds_slice,
@@ -365,8 +372,8 @@ fn create_consensus_state_account<'info>(
     // Initialize the consensus state store data
     initialize_consensus_state_store(
         consensus_state_account,
-        revision_height,
-        new_consensus_state,
+        params.revision_height,
+        params.new_consensus_state,
     )?;
 
     // Update consensus state tracking for pruning
@@ -381,8 +388,8 @@ fn create_consensus_state_account<'info>(
 
         // Update earliest_height to the next one that should be kept
         // This signals that consensus states below this height can be pruned
-        let states_to_keep = client_state.max_consensus_states as u64;
-        let approx_new_earliest = revision_height.saturating_sub(states_to_keep);
+        let states_to_keep = u64::from(client_state.max_consensus_states);
+        let approx_new_earliest = params.revision_height.saturating_sub(states_to_keep);
 
         // Only update if moving forward (never go backwards)
         if approx_new_earliest > client_state.earliest_height {

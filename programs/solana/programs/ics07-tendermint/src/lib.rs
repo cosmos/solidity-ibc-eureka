@@ -183,7 +183,6 @@ pub struct PruneConsensusStates<'info> {
     /// The account that will receive the reclaimed rent (incentive for pruning)
     #[account(mut)]
     pub pruner: Signer<'info>,
-
     // Remaining accounts are the consensus state PDAs to prune
 }
 
@@ -270,7 +269,7 @@ pub mod ics07_tendermint {
         )
     }
 
-    /// Prune old consensus states below the earliest_height threshold
+    /// Prune old consensus states below the `earliest_height` threshold
     /// Anyone can call this to reclaim rent as an incentive
     pub fn prune_consensus_states<'info>(
         ctx: Context<'_, '_, '_, 'info, PruneConsensusStates<'info>>,

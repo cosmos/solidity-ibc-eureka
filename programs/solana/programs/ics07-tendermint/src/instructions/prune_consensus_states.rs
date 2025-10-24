@@ -21,7 +21,7 @@ fn close_consensus_state<'info>(
     **pruner.lamports.borrow_mut() = pruner
         .lamports()
         .checked_add(lamports_to_reclaim)
-        .unwrap_or(pruner.lamports());
+        .unwrap_or_else(|| pruner.lamports());
     **consensus_state_account.lamports.borrow_mut() = 0;
 
     // Clear account data
@@ -81,9 +81,7 @@ pub fn prune_consensus_states<'info>(
         );
 
         // Skip if already pruned (empty data or 0 lamports)
-        if consensus_state_account.lamports() == 0
-            || consensus_state_account.data_is_empty()
-        {
+        if consensus_state_account.lamports() == 0 || consensus_state_account.data_is_empty() {
             continue;
         }
 
@@ -102,10 +100,7 @@ pub fn prune_consensus_states<'info>(
         }; // Borrow is dropped here
 
         // Verify height matches
-        require!(
-            stored_height == height_to_prune,
-            ErrorCode::HeightMismatch
-        );
+        require!(stored_height == height_to_prune, ErrorCode::HeightMismatch);
 
         // Verify grace period has passed
         let time_since_consensus = current_time.saturating_sub(consensus_state_timestamp);
@@ -191,8 +186,8 @@ mod tests {
         earliest_height: u64,
         consensus_state_count: u16,
     ) -> solana_sdk::account::Account {
-        use anchor_lang::AccountSerialize;
         use crate::types::{ClientState, IbcHeight};
+        use anchor_lang::AccountSerialize;
 
         let client_state = ClientState {
             chain_id: chain_id.to_string(),
@@ -254,16 +249,17 @@ mod tests {
 
     #[test]
     fn test_prune_consensus_states_success() {
+        use anchor_lang::AnchorDeserialize;
+
         let pruner = Pubkey::new_unique();
         let chain_id = "test-chain";
 
         // Create client state with proper pruning configuration
         let client_state_pda = derive_client_state_pda(chain_id);
         let client_state_account = create_client_state_account_with_pruning_config(
-            chain_id,
-            15,  // latest_height
-            10,  // earliest_height
-            5,   // consensus_state_count - start with 5, prune 1, expect 4
+            chain_id, 15, // latest_height
+            10, // earliest_height
+            5,  // consensus_state_count - start with 5, prune 1, expect 4
         );
 
         // Create clock with current time = 100000 (past grace period)
@@ -271,8 +267,10 @@ mod tests {
         let (clock_pda, clock_account) = create_clock_account(current_time);
 
         // Create consensus state to prune (below earliest_height threshold)
-        let old_timestamp = (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
-        let (cs1_pda, cs1_account) = create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
+        let old_timestamp =
+            (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
+        let (cs1_pda, cs1_account) =
+            create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
 
         let msg = PruneConsensusStatesMsg {
             heights_to_prune: vec![5],
@@ -315,12 +313,14 @@ mod tests {
             .map(|(_, account)| account)
             .expect("Client state account not found");
 
-        use anchor_lang::AnchorDeserialize;
         let mut data_slice = &client_state_account.data[8..]; // Skip 8-byte discriminator
         let client_state: crate::types::ClientState =
             crate::types::ClientState::deserialize(&mut data_slice).unwrap();
 
-        assert_eq!(client_state.consensus_state_count, 4, "Should have decremented count by 1");
+        assert_eq!(
+            client_state.consensus_state_count, 4,
+            "Should have decremented count by 1"
+        );
     }
 
     #[test]
@@ -353,7 +353,11 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, crate::test_helpers::PROGRAM_BINARY_PATH);
         let result = mollusk.process_instruction(&instruction, &accounts);
 
-        assert_error_code(result, ErrorCode::ExceedsMaxBatchSize, "exceeds_max_batch_size");
+        assert_error_code(
+            result,
+            ErrorCode::ExceedsMaxBatchSize,
+            "exceeds_max_batch_size",
+        );
     }
 
     #[test]
@@ -395,10 +399,9 @@ mod tests {
 
         let client_state_pda = derive_client_state_pda(chain_id);
         let client_state_account = create_client_state_account_with_pruning_config(
-            chain_id,
-            15,  // latest_height
-            10,  // earliest_height
-            1,   // consensus_state_count
+            chain_id, 15, // latest_height
+            10, // earliest_height
+            1,  // consensus_state_count
         );
 
         // Try to prune height 10 (not < earliest_height)
@@ -433,10 +436,9 @@ mod tests {
 
         let client_state_pda = derive_client_state_pda(chain_id);
         let client_state_account = create_client_state_account_with_pruning_config(
-            chain_id,
-            15,  // latest_height
-            10,  // earliest_height
-            1,   // consensus_state_count
+            chain_id, 15, // latest_height
+            10, // earliest_height
+            1,  // consensus_state_count
         );
 
         // Try to prune height 5 but don't provide the consensus state account
@@ -472,10 +474,9 @@ mod tests {
 
         let client_state_pda = derive_client_state_pda(chain_id);
         let client_state_account = create_client_state_account_with_pruning_config(
-            chain_id,
-            15,  // latest_height
-            10,  // earliest_height
-            1,   // consensus_state_count
+            chain_id, 15, // latest_height
+            10, // earliest_height
+            1,  // consensus_state_count
         );
 
         let current_time = 100_000i64;
@@ -483,8 +484,10 @@ mod tests {
 
         // Create a consensus state with wrong pubkey
         let wrong_pubkey = Pubkey::new_unique();
-        let old_timestamp = (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
-        let (_, cs_account) = create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
+        let old_timestamp =
+            (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
+        let (_, cs_account) =
+            create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
 
         let msg = PruneConsensusStatesMsg {
             heights_to_prune: vec![5],
@@ -520,17 +523,17 @@ mod tests {
 
         let client_state_pda = derive_client_state_pda(chain_id);
         let client_state_account = create_client_state_account_with_pruning_config(
-            chain_id,
-            15,  // latest_height
-            10,  // earliest_height
-            1,   // consensus_state_count
+            chain_id, 15, // latest_height
+            10, // earliest_height
+            1,  // consensus_state_count
         );
 
         let current_time = 100_000i64;
         let (clock_pda, clock_account) = create_clock_account(current_time);
 
         // Create consensus state with PDA for height 6, but store height 5 in data
-        let old_timestamp = (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
+        let old_timestamp =
+            (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
 
         // First get the PDA for height 6 (what we'll provide to the instruction)
         let (cs_pda, _) = Pubkey::find_program_address(
@@ -543,7 +546,8 @@ mod tests {
         );
 
         // But create the account data with height 5 stored inside
-        let (_, cs_account) = create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
+        let (_, cs_account) =
+            create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
 
         let msg = PruneConsensusStatesMsg {
             heights_to_prune: vec![6], // Mismatch: PDA is for 6, but data has height 5
@@ -579,10 +583,9 @@ mod tests {
 
         let client_state_pda = derive_client_state_pda(chain_id);
         let client_state_account = create_client_state_account_with_pruning_config(
-            chain_id,
-            15,  // latest_height
-            10,  // earliest_height
-            1,   // consensus_state_count
+            chain_id, 15, // latest_height
+            10, // earliest_height
+            1,  // consensus_state_count
         );
 
         let current_time = 100_000i64;
@@ -590,7 +593,8 @@ mod tests {
 
         // Create consensus state with recent timestamp (grace period not met)
         let recent_timestamp = (current_time as u64).saturating_sub(1000); // Only 1000 seconds old
-        let (cs_pda, cs_account) = create_consensus_state_for_pruning(client_state_pda, 5, recent_timestamp);
+        let (cs_pda, cs_account) =
+            create_consensus_state_for_pruning(client_state_pda, 5, recent_timestamp);
 
         let msg = PruneConsensusStatesMsg {
             heights_to_prune: vec![5],
@@ -616,29 +620,36 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, crate::test_helpers::PROGRAM_BINARY_PATH);
         let result = mollusk.process_instruction(&instruction, &accounts);
 
-        assert_error_code(result, ErrorCode::PruningGracePeriodNotMet, "grace_period_not_met");
+        assert_error_code(
+            result,
+            ErrorCode::PruningGracePeriodNotMet,
+            "grace_period_not_met",
+        );
     }
 
     #[test]
     fn test_prune_consensus_states_skip_already_pruned() {
+        use anchor_lang::AnchorDeserialize;
+
         let pruner = Pubkey::new_unique();
         let chain_id = "test-chain";
 
         let client_state_pda = derive_client_state_pda(chain_id);
         let client_state_account = create_client_state_account_with_pruning_config(
-            chain_id,
-            15,  // latest_height
-            10,  // earliest_height
-            3,   // consensus_state_count
+            chain_id, 15, // latest_height
+            10, // earliest_height
+            3,  // consensus_state_count
         );
 
         let current_time = 100_000i64;
         let (clock_pda, clock_account) = create_clock_account(current_time);
 
-        let old_timestamp = (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
+        let old_timestamp =
+            (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
 
         // Create one valid consensus state
-        let (cs1_pda, cs1_account) = create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
+        let (cs1_pda, cs1_account) =
+            create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
 
         // Create an already pruned consensus state (empty data)
         let (cs2_pda, _) = create_consensus_state_for_pruning(client_state_pda, 7, old_timestamp);
@@ -695,12 +706,13 @@ mod tests {
             .map(|(_, account)| account)
             .expect("Client state account not found");
 
-        use anchor_lang::AnchorDeserialize;
         let mut data_slice = &client_state_account.data[8..]; // Skip 8-byte discriminator
         let client_state: crate::types::ClientState =
             crate::types::ClientState::deserialize(&mut data_slice).unwrap();
 
-        assert_eq!(client_state.consensus_state_count, 2, "Should have decremented count by 1 (skipped already pruned)");
+        assert_eq!(
+            client_state.consensus_state_count, 2,
+            "Should have decremented count by 1 (skipped already pruned)"
+        );
     }
 }
-
