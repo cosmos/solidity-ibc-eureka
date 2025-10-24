@@ -115,6 +115,11 @@ fn verify_header_and_get_state(
     let trusted_consensus_state: IbcConsensusState = consensus_state.clone().into();
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
+    // Verifies Tendermint header signatures using brine-ed25519 (~30k CU per signature).
+    // Note: We cannot use Solana's free Ed25519Program because it only works for signatures
+    // included as instructions in the current transaction. IBC requires verifying signatures
+    // from external blockchain data (Tendermint headers). See README "Design Decisions" section
+    // for detailed explanation of this architectural choice.
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
         &trusted_consensus_state,
