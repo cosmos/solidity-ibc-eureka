@@ -66,7 +66,6 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     // (since program IDs cannot sign transactions in Solana)
     let (expected_pda, _) =
         Pubkey::find_program_address(&[b"router_caller"], &ibc_app.app_program_id);
-
     require!(
         ctx.accounts.app_caller.key() == expected_pda,
         RouterError::UnauthorizedSender

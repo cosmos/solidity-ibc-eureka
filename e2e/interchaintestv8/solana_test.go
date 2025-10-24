@@ -86,6 +86,8 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
 	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_Localnet)
+	// Enable test-grace-period feature for faster e2e tests (0 second grace period instead of 24 hours)
+	os.Setenv("ANCHOR_E2E_FEATURES", "ics26-router/test-grace-period")
 	s.TestSuite.SetupSuite(ctx)
 
 	s.T().Log("Waiting for Solana cluster to be ready...")
@@ -574,7 +576,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			_ = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
 			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
 
-			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
+			// With deferred cleanup, commitment should still exist after acknowledgment
+			s.verifyPacketCommitmentExists(ctx, SolanaClientID, 1)
 		}))
 	}))
 }
@@ -742,7 +745,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			_ = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
 			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
 
-			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
+			// With deferred cleanup, commitment should still exist after acknowledgment
+			s.verifyPacketCommitmentExists(ctx, SolanaClientID, 1)
 		}))
 	}))
 }
@@ -861,7 +865,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			solanaRelayTxSig = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
 			s.T().Logf("Successfully relayed acknowledgment to Solana using %d transactions", len(resp.Txs))
 
-			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
+			// With deferred cleanup, commitment should still exist after acknowledgment
+			s.verifyPacketCommitmentExists(ctx, SolanaClientID, 1)
 		}))
 	}))
 
@@ -1070,6 +1075,28 @@ func (s *IbcEurekaSolanaTestSuite) submitChunkedRelayPackets(ctx context.Context
 	return lastSig
 }
 
+// verifyPacketCommitmentExists verifies that a packet commitment still exists (deferred cleanup)
+func (s *IbcEurekaSolanaTestSuite) verifyPacketCommitmentExists(ctx context.Context, clientID string, sequence uint64) {
+	packetCommitmentPDA, _, err := solanago.FindProgramAddress(
+		[][]byte{
+			[]byte("packet_commitment"),
+			[]byte(clientID),
+			binary.LittleEndian.AppendUint64(nil, sequence),
+		},
+		ics26_router.ProgramID,
+	)
+	s.Require().NoError(err)
+
+	accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, packetCommitmentPDA)
+	s.Require().NoError(err, "Failed to get packet commitment account")
+	s.Require().NotNil(accountInfo.Value, "Packet commitment should still exist (deferred cleanup)")
+	s.Require().Greater(accountInfo.Value.Lamports, uint64(0), "Packet commitment should have lamports")
+
+	s.T().Logf("✓ Packet commitment exists (deferred cleanup) for client %s, sequence %d with %d lamports",
+		clientID, sequence, accountInfo.Value.Lamports)
+}
+
+// verifyPacketCommitmentDeleted verifies that a packet commitment has been deleted after cleanup
 func (s *IbcEurekaSolanaTestSuite) verifyPacketCommitmentDeleted(ctx context.Context, clientID string, sequence uint64) {
 	packetCommitmentPDA, _, err := solanago.FindProgramAddress(
 		[][]byte{
@@ -1095,7 +1122,7 @@ func (s *IbcEurekaSolanaTestSuite) verifyPacketCommitmentDeleted(ctx context.Con
 		return
 	}
 
-	s.Require().Fail("Packet commitment should have been deleted after acknowledgment",
+	s.Require().Fail("Packet commitment should have been deleted after cleanup",
 		"Account %s still exists with %d lamports", packetCommitmentPDA.String(), accountInfo.Value.Lamports)
 }
 

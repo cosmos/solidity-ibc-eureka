@@ -1221,7 +1221,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 		}))
 
 		s.Require().True(s.Run("Verify acknowledgement was processed", func() {
-			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
+			// With deferred cleanup, commitment should still exist after acknowledgment
+			s.verifyPacketCommitmentExists(ctx, SolanaClientID, 1)
 		}))
 	}))
 }

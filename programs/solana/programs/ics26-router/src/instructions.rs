@@ -2,6 +2,7 @@ pub mod ack_packet;
 pub mod add_ibc_app;
 pub mod cleanup_chunks;
 pub mod cleanup_packet_data;
+pub(crate) mod cleanup_utils;
 pub mod client;
 pub mod initialize;
 pub mod recv_packet;

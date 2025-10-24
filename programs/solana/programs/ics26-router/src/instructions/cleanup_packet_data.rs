@@ -1,5 +1,6 @@
 use crate::constants::{CLEANUP_GRACE_PERIOD, MAX_CLEANUP_BATCH_SIZE};
 use crate::errors::RouterError;
+use crate::instructions::cleanup_utils::close_account;
 use crate::state::*;
 use anchor_lang::prelude::*;
 
@@ -33,6 +34,99 @@ pub struct CleanupPacketData<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// Check if a cleanup target is past the grace period
+const fn is_past_grace_period(target: &CleanupTarget, current_timestamp: i64) -> bool {
+    let age = current_timestamp.saturating_sub(target.created_at);
+    age >= CLEANUP_GRACE_PERIOD as i64
+}
+
+/// Check if an account should be skipped (not owned by program or already closed)
+fn should_skip_account(account: &AccountInfo, program_id: &Pubkey) -> bool {
+    account.owner != program_id || account.lamports() == 0
+}
+
+/// Generic function to cleanup a list of targets (receipts, acks, or commitments)
+/// Returns (`total_reclaimed`, `cleaned_count`)
+#[allow(clippy::too_many_arguments)]
+fn cleanup_targets<'info>(
+    targets: &[CleanupTarget],
+    remaining_accounts: &[AccountInfo<'info>],
+    start_idx: usize,
+    pda_seed: &[u8],
+    rent_recipient: &AccountInfo<'info>,
+    current_timestamp: i64,
+    program_id: &Pubkey,
+    account_type: &str,
+) -> Result<(u64, usize)> {
+    let mut total_reclaimed = 0u64;
+    let mut cleaned_count = 0usize;
+
+    for (idx, target) in targets.iter().enumerate() {
+        // Check if enough time has passed since creation
+        if !is_past_grace_period(target, current_timestamp) {
+            let age = current_timestamp.saturating_sub(target.created_at);
+            msg!(
+                "Skipping {} {}/{}: too recent (age: {}s < {}s)",
+                account_type,
+                target.client_id,
+                target.sequence,
+                age,
+                CLEANUP_GRACE_PERIOD
+            );
+            continue;
+        }
+
+        // Get the account from remaining accounts
+        let account = remaining_accounts
+            .get(start_idx + idx)
+            .ok_or(RouterError::MissingAccount)?;
+
+        // Verify PDA address matches expected
+        let (expected_pda, _) = Pubkey::find_program_address(
+            &[
+                pda_seed,
+                target.client_id.as_bytes(),
+                &target.sequence.to_le_bytes(),
+            ],
+            program_id,
+        );
+
+        require!(
+            account.key() == expected_pda,
+            RouterError::InvalidAccount
+        );
+
+        // Check if account should be skipped
+        if should_skip_account(account, program_id) {
+            msg!(
+                "Skipping {} {}/{}: not owned by program or already closed",
+                account_type,
+                target.client_id,
+                target.sequence
+            );
+            continue;
+        }
+
+        // Close the account and reclaim rent
+        let lamports_reclaimed = close_account(account, rent_recipient)?;
+
+        total_reclaimed = total_reclaimed
+            .checked_add(lamports_reclaimed)
+            .ok_or(RouterError::ArithmeticOverflow)?;
+        cleaned_count += 1;
+
+        msg!(
+            "Cleaned {} {}/{}, reclaimed {} lamports",
+            account_type,
+            target.client_id,
+            target.sequence,
+            lamports_reclaimed
+        );
+    }
+
+    Ok((total_reclaimed, cleaned_count))
+}
+
 pub fn cleanup_packet_data<'info>(
     ctx: Context<'_, '_, '_, 'info, CleanupPacketData<'info>>,
     msg: MsgCleanupPacketData,
@@ -58,228 +152,57 @@ pub fn cleanup_packet_data<'info>(
         msg.commitments.len()
     );
 
-    let rent_recipient = &ctx.accounts.rent_recipient;
-    let mut total_reclaimed = 0u64;
-    let mut cleaned_count = 0usize;
+    let rent_recipient = &ctx.accounts.rent_recipient.to_account_info();
 
     // Process receipt cleanups
-    for (idx, target) in msg.receipts.iter().enumerate() {
-        // Check if enough time has passed since creation
-        let age = current_timestamp.saturating_sub(target.created_at);
-        if age < CLEANUP_GRACE_PERIOD as i64 {
-            msg!(
-                "Skipping receipt {}/{}: too recent (age: {}s < {}s)",
-                target.client_id,
-                target.sequence,
-                age,
-                CLEANUP_GRACE_PERIOD
-            );
-            continue;
-        }
+    let (receipts_reclaimed, receipts_cleaned) = cleanup_targets(
+        &msg.receipts,
+        ctx.remaining_accounts,
+        0,
+        PACKET_RECEIPT_SEED,
+        rent_recipient,
+        current_timestamp,
+        ctx.program_id,
+        "receipt",
+    )?;
 
-        // Get the receipt PDA from remaining accounts
-        let receipt_account = ctx
-            .remaining_accounts
-            .get(idx)
-            .ok_or(RouterError::MissingAccount)?;
-
-        // Verify PDA address matches expected
-        let (expected_pda, _) = Pubkey::find_program_address(
-            &[
-                PACKET_RECEIPT_SEED,
-                target.client_id.as_bytes(),
-                &target.sequence.to_le_bytes(),
-            ],
-            ctx.program_id,
-        );
-
-        require!(
-            receipt_account.key() == expected_pda,
-            RouterError::InvalidAccount
-        );
-
-        // Check if account is owned by our program and not already closed
-        if receipt_account.owner != ctx.program_id || receipt_account.lamports() == 0 {
-            msg!(
-                "Skipping receipt {}/{}: not owned by program or already closed",
-                target.client_id,
-                target.sequence
-            );
-            continue;
-        }
-
-        // Close the account and reclaim rent
-        let lamports_to_reclaim = receipt_account.lamports();
-        **rent_recipient.to_account_info().lamports.borrow_mut() = rent_recipient
-            .lamports()
-            .checked_add(lamports_to_reclaim)
-            .ok_or(RouterError::ArithmeticOverflow)?;
-        **receipt_account.lamports.borrow_mut() = 0;
-
-        // Clear account data
-        let mut data = receipt_account.try_borrow_mut_data()?;
-        data.fill(0);
-
-        total_reclaimed = total_reclaimed
-            .checked_add(lamports_to_reclaim)
-            .ok_or(RouterError::ArithmeticOverflow)?;
-        cleaned_count += 1;
-
-        msg!(
-            "Cleaned receipt {}/{}, reclaimed {} lamports",
-            target.client_id,
-            target.sequence,
-            lamports_to_reclaim
-        );
-    }
-
-    // Process ack cleanups (similar logic, different PDA seeds)
+    // Process ack cleanups
     let ack_start_idx = msg.receipts.len();
-    for (idx, target) in msg.acks.iter().enumerate() {
-        // Check if enough time has passed since creation
-        let age = current_timestamp.saturating_sub(target.created_at);
-        if age < CLEANUP_GRACE_PERIOD as i64 {
-            msg!(
-                "Skipping ack {}/{}: too recent (age: {}s < {}s)",
-                target.client_id,
-                target.sequence,
-                age,
-                CLEANUP_GRACE_PERIOD
-            );
-            continue;
-        }
+    let (acks_reclaimed, acks_cleaned) = cleanup_targets(
+        &msg.acks,
+        ctx.remaining_accounts,
+        ack_start_idx,
+        PACKET_ACK_SEED,
+        rent_recipient,
+        current_timestamp,
+        ctx.program_id,
+        "ack",
+    )?;
 
-        // Get the ack PDA from remaining accounts
-        let ack_account = ctx
-            .remaining_accounts
-            .get(ack_start_idx + idx)
-            .ok_or(RouterError::MissingAccount)?;
-
-        // Verify PDA address matches expected
-        let (expected_pda, _) = Pubkey::find_program_address(
-            &[
-                PACKET_ACK_SEED,
-                target.client_id.as_bytes(),
-                &target.sequence.to_le_bytes(),
-            ],
-            ctx.program_id,
-        );
-
-        require!(
-            ack_account.key() == expected_pda,
-            RouterError::InvalidAccount
-        );
-
-        // Check if account is owned by our program and not already closed
-        if ack_account.owner != ctx.program_id || ack_account.lamports() == 0 {
-            msg!(
-                "Skipping ack {}/{}: not owned by program or already closed",
-                target.client_id,
-                target.sequence
-            );
-            continue;
-        }
-
-        // Close the account and reclaim rent
-        let lamports_to_reclaim = ack_account.lamports();
-        **rent_recipient.to_account_info().lamports.borrow_mut() = rent_recipient
-            .lamports()
-            .checked_add(lamports_to_reclaim)
-            .ok_or(RouterError::ArithmeticOverflow)?;
-        **ack_account.lamports.borrow_mut() = 0;
-
-        // Clear account data
-        let mut data = ack_account.try_borrow_mut_data()?;
-        data.fill(0);
-
-        total_reclaimed = total_reclaimed
-            .checked_add(lamports_to_reclaim)
-            .ok_or(RouterError::ArithmeticOverflow)?;
-        cleaned_count += 1;
-
-        msg!(
-            "Cleaned ack {}/{}, reclaimed {} lamports",
-            target.client_id,
-            target.sequence,
-            lamports_to_reclaim
-        );
-    }
-
-    // Process commitment cleanups (similar logic, different PDA seeds)
+    // Process commitment cleanups
     let commitment_start_idx = msg.receipts.len() + msg.acks.len();
-    for (idx, target) in msg.commitments.iter().enumerate() {
-        // Check if enough time has passed since creation
-        let age = current_timestamp.saturating_sub(target.created_at);
-        if age < CLEANUP_GRACE_PERIOD as i64 {
-            msg!(
-                "Skipping commitment {}/{}: too recent (age: {}s < {}s)",
-                target.client_id,
-                target.sequence,
-                age,
-                CLEANUP_GRACE_PERIOD
-            );
-            continue;
-        }
+    let (commitments_reclaimed, commitments_cleaned) = cleanup_targets(
+        &msg.commitments,
+        ctx.remaining_accounts,
+        commitment_start_idx,
+        PACKET_COMMITMENT_SEED,
+        rent_recipient,
+        current_timestamp,
+        ctx.program_id,
+        "commitment",
+    )?;
 
-        // Get the commitment PDA from remaining accounts
-        let commitment_account = ctx
-            .remaining_accounts
-            .get(commitment_start_idx + idx)
-            .ok_or(RouterError::MissingAccount)?;
+    // Calculate totals
+    let total_reclaimed = receipts_reclaimed
+        .checked_add(acks_reclaimed)
+        .and_then(|sum| sum.checked_add(commitments_reclaimed))
+        .ok_or(RouterError::ArithmeticOverflow)?;
 
-        // Verify PDA address matches expected
-        let (expected_pda, _) = Pubkey::find_program_address(
-            &[
-                PACKET_COMMITMENT_SEED,
-                target.client_id.as_bytes(),
-                &target.sequence.to_le_bytes(),
-            ],
-            ctx.program_id,
-        );
-
-        require!(
-            commitment_account.key() == expected_pda,
-            RouterError::InvalidAccount
-        );
-
-        // Check if account is owned by our program and not already closed
-        if commitment_account.owner != ctx.program_id || commitment_account.lamports() == 0 {
-            msg!(
-                "Skipping commitment {}/{}: not owned by program or already closed",
-                target.client_id,
-                target.sequence
-            );
-            continue;
-        }
-
-        // Close the account and reclaim rent
-        let lamports_to_reclaim = commitment_account.lamports();
-        **rent_recipient.to_account_info().lamports.borrow_mut() = rent_recipient
-            .lamports()
-            .checked_add(lamports_to_reclaim)
-            .ok_or(RouterError::ArithmeticOverflow)?;
-        **commitment_account.lamports.borrow_mut() = 0;
-
-        // Clear account data
-        let mut data = commitment_account.try_borrow_mut_data()?;
-        data.fill(0);
-
-        total_reclaimed = total_reclaimed
-            .checked_add(lamports_to_reclaim)
-            .ok_or(RouterError::ArithmeticOverflow)?;
-        cleaned_count += 1;
-
-        msg!(
-            "Cleaned commitment {}/{}, reclaimed {} lamports",
-            target.client_id,
-            target.sequence,
-            lamports_to_reclaim
-        );
-    }
+    let total_cleaned = receipts_cleaned + acks_cleaned + commitments_cleaned;
 
     msg!(
         "=== cleanup_packet_data SUCCESS: cleaned {} PDAs, reclaimed {} lamports ===",
-        cleaned_count,
+        total_cleaned,
         total_reclaimed
     );
 

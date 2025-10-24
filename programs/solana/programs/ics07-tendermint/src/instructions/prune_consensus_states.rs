@@ -6,7 +6,7 @@ use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct PruneConsensusStatesMsg {
-    /// Heights to prune (must be below client_state.earliest_height)
+    /// Heights to prune (must be below `client_state.earliest_height`)
     pub heights_to_prune: Vec<u64>,
 }
 
@@ -108,8 +108,566 @@ pub fn prune_consensus_states<'info>(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::test_helpers::{chunk_test_utils::*, fixtures::assert_error_code};
+    use anchor_lang::InstructionData;
+    use mollusk_svm::result::Check;
+    use mollusk_svm::Mollusk;
+    use solana_sdk::instruction::{AccountMeta, Instruction};
+    use solana_sdk::pubkey::Pubkey;
+    use solana_sdk::system_program;
+
+    fn create_consensus_state_for_pruning(
+        client_state_key: Pubkey,
+        height: u64,
+        timestamp: u64,
+    ) -> (Pubkey, solana_sdk::account::Account) {
+        use crate::state::ConsensusStateStore;
+        use anchor_lang::AccountSerialize;
+
+        let (consensus_state_pda, _) = Pubkey::find_program_address(
+            &[
+                b"consensus_state",
+                client_state_key.as_ref(),
+                &height.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let consensus_state_store = ConsensusStateStore {
+            height,
+            consensus_state: crate::types::ConsensusState {
+                timestamp,
+                root: [0u8; 32],
+                next_validators_hash: [1u8; 32],
+            },
+        };
+
+        let mut data = vec![];
+        consensus_state_store.try_serialize(&mut data).unwrap();
+
+        let account = solana_sdk::account::Account {
+            lamports: 1_500_000,
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        (consensus_state_pda, account)
+    }
+
+    fn create_client_state_account_with_pruning_config(
+        chain_id: &str,
+        latest_height: u64,
+        earliest_height: u64,
+        consensus_state_count: u16,
+    ) -> solana_sdk::account::Account {
+        use anchor_lang::AccountSerialize;
+        use crate::types::{ClientState, IbcHeight};
+
+        let client_state = ClientState {
+            chain_id: chain_id.to_string(),
+            trust_level_numerator: 2,
+            trust_level_denominator: 3,
+            trusting_period: 86400,
+            unbonding_period: 172_800,
+            max_clock_drift: 600,
+            frozen_height: IbcHeight {
+                revision_number: 0,
+                revision_height: 0,
+            },
+            latest_height: IbcHeight {
+                revision_number: 0,
+                revision_height: latest_height,
+            },
+            earliest_height,
+            consensus_state_count,
+            max_consensus_states: 100,
+        };
+
+        let mut data = vec![];
+        client_state.try_serialize(&mut data).unwrap();
+
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        }
+    }
+
+    fn create_clock_account(timestamp: i64) -> (Pubkey, solana_sdk::account::Account) {
+        use solana_sdk::clock::Clock;
+        use solana_sdk::sysvar;
+
+        let clock = Clock {
+            slot: 1000,
+            epoch_start_timestamp: 0,
+            epoch: 1,
+            leader_schedule_epoch: 1,
+            unix_timestamp: timestamp,
+        };
+
+        let data = bincode::serialize(&clock).expect("Failed to serialize Clock");
+
+        (
+            sysvar::clock::ID,
+            solana_sdk::account::Account {
+                lamports: 1,
+                data,
+                owner: sysvar::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        )
+    }
+
     #[test]
-    fn test_prune_consensus_states_validation() {
-        // Test cases will be added
+    fn test_prune_consensus_states_success() {
+        let pruner = Pubkey::new_unique();
+        let chain_id = "test-chain";
+
+        // Create client state with earliest_height = 10, consensus_state_count = 5
+        // This means we can prune heights < 10
+        let client_state_pda = derive_client_state_pda(chain_id);
+        let client_state_account = create_client_state_account_with_pruning_config(
+            chain_id,
+            15,  // latest_height
+            10,  // earliest_height
+            5,   // consensus_state_count
+        );
+
+        // Create clock with current time = 100000 (past grace period)
+        let current_time = 100_000i64;
+        let (clock_pda, clock_account) = create_clock_account(current_time);
+
+        // Create 2 consensus states to prune at heights 5 and 8
+        // Both have old timestamps (current_time - CONSENSUS_STATE_PRUNING_GRACE_PERIOD - 1000)
+        let old_timestamp = (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
+        let (cs1_pda, cs1_account) = create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
+        let (cs2_pda, cs2_account) = create_consensus_state_for_pruning(client_state_pda, 8, old_timestamp);
+
+        let msg = PruneConsensusStatesMsg {
+            heights_to_prune: vec![5, 8],
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(pruner, true),
+                // Consensus states are passed as remaining accounts (writable because we close them)
+                AccountMeta::new(cs1_pda, false),
+                AccountMeta::new(cs2_pda, false),
+            ],
+            data: crate::instruction::PruneConsensusStates { msg }.data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, client_state_account),
+            (pruner, create_submitter_account(10_000_000)),
+            (cs1_pda, cs1_account),
+            (cs2_pda, cs2_account),
+            (clock_pda, clock_account),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_helpers::PROGRAM_BINARY_PATH);
+
+        let checks = vec![
+            Check::success(),
+            // Verify consensus states were closed (0 lamports)
+            Check::account(&cs1_pda).lamports(0).build(),
+            Check::account(&cs2_pda).lamports(0).build(),
+            // Verify pruner received rent (initial 10_000_000 + 2 * 1_500_000)
+            Check::account(&pruner).lamports(13_000_000).build(),
+        ];
+
+        let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+
+        // Verify client_state.consensus_state_count was decremented
+        let client_state_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &client_state_pda)
+            .map(|(_, account)| account)
+            .expect("Client state account not found");
+
+        use anchor_lang::AnchorDeserialize;
+        let mut data_slice = &client_state_account.data[8..]; // Skip 8-byte discriminator
+        let client_state: crate::types::ClientState =
+            crate::types::ClientState::deserialize(&mut data_slice).unwrap();
+
+        assert_eq!(client_state.consensus_state_count, 3, "Should have decremented count by 2");
+    }
+
+    #[test]
+    fn test_prune_consensus_states_exceeds_max_batch_size() {
+        let pruner = Pubkey::new_unique();
+        let chain_id = "test-chain";
+
+        let client_state_pda = derive_client_state_pda(chain_id);
+        let client_state_account = create_client_state_account(chain_id, 15);
+
+        // Try to prune more than MAX_PRUNE_BATCH_SIZE (5)
+        let msg = PruneConsensusStatesMsg {
+            heights_to_prune: vec![1, 2, 3, 4, 5, 6], // 6 heights > MAX_PRUNE_BATCH_SIZE
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(pruner, true),
+            ],
+            data: crate::instruction::PruneConsensusStates { msg }.data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, client_state_account),
+            (pruner, create_submitter_account(10_000_000)),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_helpers::PROGRAM_BINARY_PATH);
+        let result = mollusk.process_instruction(&instruction, &accounts);
+
+        assert_error_code(result, ErrorCode::ExceedsMaxBatchSize, "exceeds_max_batch_size");
+    }
+
+    #[test]
+    fn test_prune_consensus_states_empty_batch() {
+        let pruner = Pubkey::new_unique();
+        let chain_id = "test-chain";
+
+        let client_state_pda = derive_client_state_pda(chain_id);
+        let client_state_account = create_client_state_account(chain_id, 15);
+
+        let msg = PruneConsensusStatesMsg {
+            heights_to_prune: vec![], // Empty batch
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(pruner, true),
+            ],
+            data: crate::instruction::PruneConsensusStates { msg }.data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, client_state_account),
+            (pruner, create_submitter_account(10_000_000)),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_helpers::PROGRAM_BINARY_PATH);
+        let result = mollusk.process_instruction(&instruction, &accounts);
+
+        assert_error_code(result, ErrorCode::EmptyBatch, "empty_batch");
+    }
+
+    #[test]
+    fn test_prune_consensus_states_height_not_prunable() {
+        let pruner = Pubkey::new_unique();
+        let chain_id = "test-chain";
+
+        let client_state_pda = derive_client_state_pda(chain_id);
+        let client_state_account = create_client_state_account_with_pruning_config(
+            chain_id,
+            15,  // latest_height
+            10,  // earliest_height
+            1,   // consensus_state_count
+        );
+
+        // Try to prune height 10 (not < earliest_height)
+        let msg = PruneConsensusStatesMsg {
+            heights_to_prune: vec![10], // height >= earliest_height
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(pruner, true),
+            ],
+            data: crate::instruction::PruneConsensusStates { msg }.data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, client_state_account),
+            (pruner, create_submitter_account(10_000_000)),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_helpers::PROGRAM_BINARY_PATH);
+        let result = mollusk.process_instruction(&instruction, &accounts);
+
+        assert_error_code(result, ErrorCode::HeightNotPrunable, "height_not_prunable");
+    }
+
+    #[test]
+    fn test_prune_consensus_states_missing_account() {
+        let pruner = Pubkey::new_unique();
+        let chain_id = "test-chain";
+
+        let client_state_pda = derive_client_state_pda(chain_id);
+        let client_state_account = create_client_state_account_with_pruning_config(
+            chain_id,
+            15,  // latest_height
+            10,  // earliest_height
+            1,   // consensus_state_count
+        );
+
+        // Try to prune height 5 but don't provide the consensus state account
+        let msg = PruneConsensusStatesMsg {
+            heights_to_prune: vec![5],
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(pruner, true),
+                // Missing consensus state account
+            ],
+            data: crate::instruction::PruneConsensusStates { msg }.data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, client_state_account),
+            (pruner, create_submitter_account(10_000_000)),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_helpers::PROGRAM_BINARY_PATH);
+        let result = mollusk.process_instruction(&instruction, &accounts);
+
+        assert_error_code(result, ErrorCode::MissingAccount, "missing_account");
+    }
+
+    #[test]
+    fn test_prune_consensus_states_invalid_account() {
+        let pruner = Pubkey::new_unique();
+        let chain_id = "test-chain";
+
+        let client_state_pda = derive_client_state_pda(chain_id);
+        let client_state_account = create_client_state_account_with_pruning_config(
+            chain_id,
+            15,  // latest_height
+            10,  // earliest_height
+            1,   // consensus_state_count
+        );
+
+        let current_time = 100_000i64;
+        let (clock_pda, clock_account) = create_clock_account(current_time);
+
+        // Create a consensus state with wrong pubkey
+        let wrong_pubkey = Pubkey::new_unique();
+        let old_timestamp = (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
+        let (_, cs_account) = create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
+
+        let msg = PruneConsensusStatesMsg {
+            heights_to_prune: vec![5],
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(pruner, true),
+                AccountMeta::new(wrong_pubkey, false), // Wrong PDA
+            ],
+            data: crate::instruction::PruneConsensusStates { msg }.data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, client_state_account),
+            (pruner, create_submitter_account(10_000_000)),
+            (wrong_pubkey, cs_account),
+            (clock_pda, clock_account),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_helpers::PROGRAM_BINARY_PATH);
+        let result = mollusk.process_instruction(&instruction, &accounts);
+
+        assert_error_code(result, ErrorCode::InvalidAccount, "invalid_account");
+    }
+
+    #[test]
+    fn test_prune_consensus_states_height_mismatch() {
+        let pruner = Pubkey::new_unique();
+        let chain_id = "test-chain";
+
+        let client_state_pda = derive_client_state_pda(chain_id);
+        let client_state_account = create_client_state_account_with_pruning_config(
+            chain_id,
+            15,  // latest_height
+            10,  // earliest_height
+            1,   // consensus_state_count
+        );
+
+        let current_time = 100_000i64;
+        let (clock_pda, clock_account) = create_clock_account(current_time);
+
+        // Create consensus state with height 5, but try to prune height 6
+        let old_timestamp = (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
+        let (cs_pda, cs_account) = create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
+
+        let msg = PruneConsensusStatesMsg {
+            heights_to_prune: vec![6], // Mismatch: account has height 5
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(pruner, true),
+                AccountMeta::new(cs_pda, false),
+            ],
+            data: crate::instruction::PruneConsensusStates { msg }.data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, client_state_account),
+            (pruner, create_submitter_account(10_000_000)),
+            (cs_pda, cs_account),
+            (clock_pda, clock_account),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_helpers::PROGRAM_BINARY_PATH);
+        let result = mollusk.process_instruction(&instruction, &accounts);
+
+        assert_error_code(result, ErrorCode::HeightMismatch, "height_mismatch");
+    }
+
+    #[test]
+    fn test_prune_consensus_states_grace_period_not_met() {
+        let pruner = Pubkey::new_unique();
+        let chain_id = "test-chain";
+
+        let client_state_pda = derive_client_state_pda(chain_id);
+        let client_state_account = create_client_state_account_with_pruning_config(
+            chain_id,
+            15,  // latest_height
+            10,  // earliest_height
+            1,   // consensus_state_count
+        );
+
+        let current_time = 100_000i64;
+        let (clock_pda, clock_account) = create_clock_account(current_time);
+
+        // Create consensus state with recent timestamp (grace period not met)
+        let recent_timestamp = (current_time as u64).saturating_sub(1000); // Only 1000 seconds old
+        let (cs_pda, cs_account) = create_consensus_state_for_pruning(client_state_pda, 5, recent_timestamp);
+
+        let msg = PruneConsensusStatesMsg {
+            heights_to_prune: vec![5],
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(pruner, true),
+                AccountMeta::new(cs_pda, false),
+            ],
+            data: crate::instruction::PruneConsensusStates { msg }.data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, client_state_account),
+            (pruner, create_submitter_account(10_000_000)),
+            (cs_pda, cs_account),
+            (clock_pda, clock_account),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_helpers::PROGRAM_BINARY_PATH);
+        let result = mollusk.process_instruction(&instruction, &accounts);
+
+        assert_error_code(result, ErrorCode::PruningGracePeriodNotMet, "grace_period_not_met");
+    }
+
+    #[test]
+    fn test_prune_consensus_states_skip_already_pruned() {
+        let pruner = Pubkey::new_unique();
+        let chain_id = "test-chain";
+
+        let client_state_pda = derive_client_state_pda(chain_id);
+        let client_state_account = create_client_state_account_with_pruning_config(
+            chain_id,
+            15,  // latest_height
+            10,  // earliest_height
+            3,   // consensus_state_count
+        );
+
+        let current_time = 100_000i64;
+        let (clock_pda, clock_account) = create_clock_account(current_time);
+
+        let old_timestamp = (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
+
+        // Create one valid consensus state
+        let (cs1_pda, cs1_account) = create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
+
+        // Create an already pruned consensus state (empty data)
+        let (cs2_pda, _) = create_consensus_state_for_pruning(client_state_pda, 7, old_timestamp);
+        let cs2_account_empty = solana_sdk::account::Account {
+            lamports: 0,
+            data: vec![], // Empty = already pruned
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        let msg = PruneConsensusStatesMsg {
+            heights_to_prune: vec![5, 7], // 7 is already pruned
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(pruner, true),
+                AccountMeta::new(cs1_pda, false),
+                AccountMeta::new(cs2_pda, false),
+            ],
+            data: crate::instruction::PruneConsensusStates { msg }.data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, client_state_account),
+            (pruner, create_submitter_account(10_000_000)),
+            (cs1_pda, cs1_account),
+            (cs2_pda, cs2_account_empty),
+            (clock_pda, clock_account),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_helpers::PROGRAM_BINARY_PATH);
+
+        let checks = vec![
+            Check::success(),
+            // Only cs1 should be closed
+            Check::account(&cs1_pda).lamports(0).build(),
+            // cs2 was already closed
+            Check::account(&cs2_pda).lamports(0).build(),
+            // Pruner should only get rent from cs1
+            Check::account(&pruner).lamports(11_500_000).build(), // 10M + 1.5M
+        ];
+
+        let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+
+        // Verify client_state.consensus_state_count was only decremented by 1
+        let client_state_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &client_state_pda)
+            .map(|(_, account)| account)
+            .expect("Client state account not found");
+
+        use anchor_lang::AnchorDeserialize;
+        let mut data_slice = &client_state_account.data[8..]; // Skip 8-byte discriminator
+        let client_state: crate::types::ClientState =
+            crate::types::ClientState::deserialize(&mut data_slice).unwrap();
+
+        assert_eq!(client_state.consensus_state_count, 2, "Should have decremented count by 1 (skipped already pruned)");
     }
 }
+

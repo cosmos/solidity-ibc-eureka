@@ -15,7 +15,10 @@ pub const ANCHOR_DISCRIMINATOR_SIZE: usize = 8;
 pub const IBC_CPI_INSTRUCTION_CAPACITY: usize = 200;
 
 /// Grace period before packet receipts and acknowledgements can be cleaned up (in seconds)
-/// 24 hours = 86400 seconds
+/// 0 seconds for tests (immediate cleanup), 24 hours for production
+#[cfg(feature = "test-grace-period")]
+pub const CLEANUP_GRACE_PERIOD: u64 = 0;
+#[cfg(not(feature = "test-grace-period"))]
 pub const CLEANUP_GRACE_PERIOD: u64 = 86400;
 
 /// Maximum number of receipts/acks that can be cleaned up in a single transaction
