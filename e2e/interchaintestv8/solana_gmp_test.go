@@ -12,7 +12,6 @@ import (
 	bin "github.com/gagliardetto/binary"
 
 	solanago "github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/programs/token"
 
 	sdkmath "cosmossdk.io/math"
@@ -488,7 +487,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	s.Require().True(s.Run("Setup SPL Token Infrastructure", func() {
 		s.Require().True(s.Run("Create Test SPL Token Mint", func() {
 			var err error
-			tokenMint, err = s.createSPLTokenMint(ctx, 6)
+			tokenMint, err = s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaUser,6)
 			s.Require().NoError(err)
 			s.T().Logf("Created test SPL token mint: %s (6 decimals)", tokenMint.String())
 		}))
@@ -502,7 +501,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			var err error
 
 			// Create source token account (owned by ICS27 PDA)
-			sourceTokenAccount, err = s.createTokenAccount(ctx, tokenMint, ics27AccountPDA)
+			sourceTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaUser,tokenMint, ics27AccountPDA)
 			s.Require().NoError(err)
 			s.T().Logf("Created source token account (owned by ICS27 PDA): %s", sourceTokenAccount.String())
 
@@ -510,7 +509,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			recipientWallet, err = s.SolanaChain.CreateAndFundWallet()
 			s.Require().NoError(err)
 
-			destTokenAccount, err = s.createTokenAccount(ctx, tokenMint, recipientWallet.PublicKey())
+			destTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaUser,tokenMint, recipientWallet.PublicKey())
 			s.Require().NoError(err)
 			s.T().Logf("Created destination token account (owned by recipient): %s", destTokenAccount.String())
 		}))
@@ -518,10 +517,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		s.Require().True(s.Run("Mint Tokens to ICS27 PDA", func() {
 			// Mint 10 tokens (10,000,000 with 6 decimals)
 			mintAmount := SPLTokenMintAmount
-			err := s.mintTokensTo(ctx, tokenMint, sourceTokenAccount, mintAmount)
+			err := s.SolanaChain.MintTokensTo(ctx, s.SolanaUser,tokenMint, sourceTokenAccount, mintAmount)
 			s.Require().NoError(err)
 
-			balance, err := s.getTokenBalance(ctx, sourceTokenAccount)
+			balance, err := s.SolanaChain.GetTokenBalance(ctx,sourceTokenAccount)
 			s.Require().NoError(err)
 			s.Require().Equal(mintAmount, balance)
 			s.T().Logf("Minted %d tokens to ICS27 PDA's token account", mintAmount)
@@ -591,10 +590,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	var initialDestBalance uint64
 	s.Require().True(s.Run("Record Initial Token Balances", func() {
 		var err error
-		initialSourceBalance, err = s.getTokenBalance(ctx, sourceTokenAccount)
+		initialSourceBalance, err = s.SolanaChain.GetTokenBalance(ctx,sourceTokenAccount)
 		s.Require().NoError(err)
 
-		initialDestBalance, err = s.getTokenBalance(ctx, destTokenAccount)
+		initialDestBalance, err = s.SolanaChain.GetTokenBalance(ctx,destTokenAccount)
 		s.Require().NoError(err)
 
 		s.T().Logf("Initial balances - Source: %d, Dest: %d", initialSourceBalance, initialDestBalance)
@@ -634,10 +633,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 
 	// Verify transfer completed
 	s.Require().True(s.Run("Verify SPL Token Transfer", func() {
-		finalSourceBalance, err := s.getTokenBalance(ctx, sourceTokenAccount)
+		finalSourceBalance, err := s.SolanaChain.GetTokenBalance(ctx,sourceTokenAccount)
 		s.Require().NoError(err)
 
-		finalDestBalance, err := s.getTokenBalance(ctx, destTokenAccount)
+		finalDestBalance, err := s.SolanaChain.GetTokenBalance(ctx,destTokenAccount)
 		s.Require().NoError(err)
 
 		expectedSourceBalance := initialSourceBalance - transferAmount
@@ -681,149 +680,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			cosmosUser.FormattedAddress(), ics27AccountPDA.String())
 		s.T().Logf("  Transferred %d tokens from ICS27 PDA to recipient", transferAmount)
 	}))
-}
-
-// SPL Token Helper Functions
-
-// createSPLTokenMint creates a new SPL token mint with specified decimals
-func (s *IbcEurekaSolanaTestSuite) createSPLTokenMint(ctx context.Context, decimals uint8) (solanago.PublicKey, error) {
-	mintAccount := solanago.NewWallet()
-	mintPubkey := mintAccount.PublicKey()
-
-	// Get minimum balance for rent exemption (mint account is 82 bytes)
-	const mintAccountSize = uint64(82)
-	rentExemption, err := s.SolanaChain.RPCClient.GetMinimumBalanceForRentExemption(ctx, mintAccountSize, "confirmed")
-	if err != nil {
-		return solanago.PublicKey{}, err
-	}
-
-	// Create mint account
-	createAccountIx := system.NewCreateAccountInstruction(
-		rentExemption,
-		mintAccountSize,
-		token.ProgramID,
-		s.SolanaUser.PublicKey(),
-		mintPubkey,
-	).Build()
-
-	// Initialize mint
-	initMintIx := token.NewInitializeMint2Instruction(
-		decimals,
-		s.SolanaUser.PublicKey(), // Mint authority
-		s.SolanaUser.PublicKey(), // Freeze authority
-		mintPubkey,
-	).Build()
-
-	// Build transaction using the chain helper
-	tx, err := s.SolanaChain.NewTransactionFromInstructions(
-		s.SolanaUser.PublicKey(),
-		createAccountIx,
-		initMintIx,
-	)
-	if err != nil {
-		return solanago.PublicKey{}, err
-	}
-
-	// Sign and broadcast with both payer and mint account (with retry)
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser, mintAccount)
-	if err != nil {
-		return solanago.PublicKey{}, err
-	}
-
-	return mintPubkey, nil
-}
-
-// createTokenAccount creates a new SPL token account for the specified owner
-func (s *IbcEurekaSolanaTestSuite) createTokenAccount(ctx context.Context, mint, owner solanago.PublicKey) (solanago.PublicKey, error) {
-	tokenAccount := solanago.NewWallet()
-	tokenAccountPubkey := tokenAccount.PublicKey()
-
-	// Token account size is 165 bytes
-	const tokenAccountSize = uint64(165)
-
-	// Calculate rent exemption
-	rentExemption, err := s.SolanaChain.RPCClient.GetMinimumBalanceForRentExemption(ctx, tokenAccountSize, "confirmed")
-	if err != nil {
-		return solanago.PublicKey{}, err
-	}
-
-	// Create account instruction
-	createAccountIx := system.NewCreateAccountInstruction(
-		rentExemption,
-		tokenAccountSize,
-		token.ProgramID,
-		s.SolanaUser.PublicKey(),
-		tokenAccountPubkey,
-	).Build()
-
-	// Initialize token account (using InitializeAccount3 which doesn't require rent sysvar)
-	// Parameters: owner, account, mint
-	initAccountIx := token.NewInitializeAccount3Instruction(
-		owner,
-		tokenAccountPubkey,
-		mint,
-	).Build()
-
-	// Build transaction using the chain helper
-	tx, err := s.SolanaChain.NewTransactionFromInstructions(
-		s.SolanaUser.PublicKey(),
-		createAccountIx,
-		initAccountIx,
-	)
-	if err != nil {
-		return solanago.PublicKey{}, err
-	}
-
-	// Sign and broadcast with both payer and token account (with retry)
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser, tokenAccount)
-	if err != nil {
-		return solanago.PublicKey{}, err
-	}
-
-	return tokenAccountPubkey, nil
-}
-
-// mintTokensTo mints tokens to a specified token account
-func (s *IbcEurekaSolanaTestSuite) mintTokensTo(ctx context.Context, mint, destination solanago.PublicKey, amount uint64) error {
-	mintToIx := token.NewMintToInstruction(
-		amount,
-		mint,
-		destination,
-		s.SolanaUser.PublicKey(), // Mint authority
-		[]solanago.PublicKey{},
-	).Build()
-
-	tx, err := s.SolanaChain.NewTransactionFromInstructions(
-		s.SolanaUser.PublicKey(),
-		mintToIx,
-	)
-	if err != nil {
-		return err
-	}
-
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
-	return err
-}
-
-// getTokenBalance retrieves the token balance for a token account
-func (s *IbcEurekaSolanaTestSuite) getTokenBalance(ctx context.Context, tokenAccount solanago.PublicKey) (uint64, error) {
-	accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, tokenAccount)
-	if err != nil {
-		return 0, err
-	}
-
-	if accountInfo.Value == nil {
-		return 0, fmt.Errorf("token account not found")
-	}
-
-	data := accountInfo.Value.Data.GetBinary()
-	if len(data) < 72 {
-		return 0, fmt.Errorf("invalid token account data")
-	}
-
-	// Token balance is at offset 64 (8 bytes, little endian)
-	balance := binary.LittleEndian.Uint64(data[64:72])
-	return balance, nil
 }
 
 // AccountState represents the ICS27 GMP account state PDA
@@ -1472,7 +1328,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromCosmos() {
 	s.Require().True(s.Run("Setup SPL Token Infrastructure", func() {
 		s.Require().True(s.Run("Create Test SPL Token Mint", func() {
 			var err error
-			tokenMint, err = s.createSPLTokenMint(ctx, SPLTokenDecimals)
+			tokenMint, err = s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaUser,SPLTokenDecimals)
 			s.Require().NoError(err)
 			s.T().Logf("Created test SPL token mint: %s", tokenMint.String())
 		}))
@@ -1484,10 +1340,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromCosmos() {
 
 		s.Require().True(s.Run("Create and Fund Token Account", func() {
 			var err error
-			sourceTokenAccount, err = s.createTokenAccount(ctx, tokenMint, ics27AccountPDA)
+			sourceTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaUser,tokenMint, ics27AccountPDA)
 			s.Require().NoError(err)
 
-			err = s.mintTokensTo(ctx, tokenMint, sourceTokenAccount, tokenAmount)
+			err = s.SolanaChain.MintTokensTo(ctx, s.SolanaUser,tokenMint, sourceTokenAccount, tokenAmount)
 			s.Require().NoError(err)
 			s.T().Logf("Created and funded source token account: %s", sourceTokenAccount.String())
 		}))
@@ -1506,7 +1362,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromCosmos() {
 		recipientWallet, err = s.SolanaChain.CreateAndFundWallet()
 		s.Require().NoError(err)
 
-		destTokenAccount, err = s.createTokenAccount(ctx, tokenMint, recipientWallet.PublicKey())
+		destTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaUser,tokenMint, recipientWallet.PublicKey())
 		s.Require().NoError(err)
 
 		splTransferInstruction := token.NewTransferInstruction(
@@ -1617,13 +1473,13 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromCosmos() {
 
 			s.Require().True(s.Run("Verify SPL token balances unchanged", func() {
 				// Source account should still have all tokens (transfer never executed)
-				sourceBalance, err := s.getTokenBalance(ctx, sourceTokenAccount)
+				sourceBalance, err := s.SolanaChain.GetTokenBalance(ctx,sourceTokenAccount)
 				s.Require().NoError(err)
 				s.Require().Equal(tokenAmount, sourceBalance, "Source token account should retain all tokens after timeout")
 				s.T().Logf("Source token account balance: %d (unchanged)", sourceBalance)
 
 				// Destination account should have 0 tokens (never received)
-				destBalance, err := s.getTokenBalance(ctx, destTokenAccount)
+				destBalance, err := s.SolanaChain.GetTokenBalance(ctx,destTokenAccount)
 				s.Require().NoError(err)
 				s.Require().Equal(uint64(0), destBalance, "Destination token account should have 0 tokens after timeout")
 				s.T().Logf("Destination token account balance: %d (no transfer occurred)", destBalance)
@@ -1708,7 +1564,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromCosmos() {
 	s.Require().True(s.Run("Setup SPL Token Infrastructure", func() {
 		s.Require().True(s.Run("Create Test SPL Token Mint", func() {
 			var err error
-			tokenMint, err = s.createSPLTokenMint(ctx, SPLTokenDecimals)
+			tokenMint, err = s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaUser,SPLTokenDecimals)
 			s.Require().NoError(err)
 			s.T().Logf("Created test SPL token mint: %s (decimals: %d)", tokenMint.String(), SPLTokenDecimals)
 		}))
@@ -1722,7 +1578,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromCosmos() {
 			var err error
 
 			// Create source token account (owned by ICS27 PDA)
-			sourceTokenAccount, err = s.createTokenAccount(ctx, tokenMint, ics27AccountPDA)
+			sourceTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaUser,tokenMint, ics27AccountPDA)
 			s.Require().NoError(err)
 			s.T().Logf("Created source token account (owned by ICS27 PDA): %s", sourceTokenAccount.String())
 
@@ -1730,17 +1586,17 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromCosmos() {
 			recipientWallet, err = s.SolanaChain.CreateAndFundWallet()
 			s.Require().NoError(err)
 
-			destTokenAccount, err = s.createTokenAccount(ctx, tokenMint, recipientWallet.PublicKey())
+			destTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaUser,tokenMint, recipientWallet.PublicKey())
 			s.Require().NoError(err)
 			s.T().Logf("Created destination token account (owned by recipient): %s", destTokenAccount.String())
 		}))
 
 		s.Require().True(s.Run("Mint Insufficient Tokens to ICS27 PDA", func() {
 			// CRITICAL: Mint ONLY 5 tokens (we'll try to transfer 10 later)
-			err := s.mintTokensTo(ctx, tokenMint, sourceTokenAccount, insufficientAmount)
+			err := s.SolanaChain.MintTokensTo(ctx, s.SolanaUser,tokenMint, sourceTokenAccount, insufficientAmount)
 			s.Require().NoError(err)
 
-			balance, err := s.getTokenBalance(ctx, sourceTokenAccount)
+			balance, err := s.SolanaChain.GetTokenBalance(ctx,sourceTokenAccount)
 			s.Require().NoError(err)
 			s.Require().Equal(insufficientAmount, balance)
 			s.T().Logf("Minted %d tokens to ICS27 PDA (intentionally insufficient)", insufficientAmount)
@@ -1754,11 +1610,11 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromCosmos() {
 	s.Require().True(s.Run("Record Initial State", func() {
 		var err error
 
-		initialSourceBalance, err = s.getTokenBalance(ctx, sourceTokenAccount)
+		initialSourceBalance, err = s.SolanaChain.GetTokenBalance(ctx,sourceTokenAccount)
 		s.Require().NoError(err)
 		s.Require().Equal(insufficientAmount, initialSourceBalance)
 
-		initialDestBalance, err = s.getTokenBalance(ctx, destTokenAccount)
+		initialDestBalance, err = s.SolanaChain.GetTokenBalance(ctx,destTokenAccount)
 		s.Require().NoError(err)
 		s.Require().Equal(uint64(0), initialDestBalance)
 
