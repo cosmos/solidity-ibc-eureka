@@ -3,7 +3,6 @@ package solana
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -20,16 +19,19 @@ import (
 func (s *Solana) SubmitChunkedRelayPackets(
 	ctx context.Context,
 	t *testing.T,
-	require *require.Assertions,
 	resp *relayertypes.RelayByTxResponse,
 	user *solana.Wallet,
-) solana.Signature {
+) (solana.Signature, error) {
 	t.Helper()
 
 	var batch relayertypes.RelayPacketBatch
 	err := proto.Unmarshal(resp.Tx, &batch)
-	require.NoError(err, "Failed to unmarshal RelayPacketBatch")
-	require.NotEmpty(batch.Packets, "no relay packets provided")
+	if err != nil {
+		return solana.Signature{}, fmt.Errorf("failed to unmarshal RelayPacketBatch: %w", err)
+	}
+	if len(batch.Packets) == 0 {
+		return solana.Signature{}, fmt.Errorf("no relay packets provided")
+	}
 
 	totalStart := time.Now()
 	t.Logf("=== Starting Chunked Relay Packets ===")
@@ -206,7 +208,10 @@ func (s *Solana) SubmitChunkedRelayPackets(
 
 	for i := 0; i < len(batch.Packets); i++ {
 		result := <-packetResults
-		require.NoError(result.err, "Packet submission failed")
+		if result.err != nil {
+			close(packetResults)
+			return solana.Signature{}, result.err
+		}
 		lastSig = result.finalSig
 		totalChunksDuration += result.chunksDuration
 		totalFinalsDuration += result.finalDuration
@@ -223,94 +228,7 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	t.Logf("  - Avg chunks phase per packet: %v", avgChunksDuration)
 	t.Logf("  - Avg final tx per packet: %v", avgFinalsDuration)
 	t.Logf("Parallelization: All packets + all chunks within each packet submitted concurrently")
-	return lastSig
-}
-
-func (s *Solana) SubmitChunkedRelayPacketsExpectingError(
-	ctx context.Context,
-	t *testing.T,
-	require *require.Assertions,
-	resp *relayertypes.RelayByTxResponse,
-	user *solana.Wallet,
-	expectedErrorSubstring string,
-) solana.Signature {
-	t.Helper()
-
-	var batch relayertypes.RelayPacketBatch
-	err := proto.Unmarshal(resp.Tx, &batch)
-	require.NoError(err, "Failed to unmarshal RelayPacketBatch")
-	require.NotEmpty(batch.Packets, "Expected relay packets to submit")
-
-	var lastSig solana.Signature
-	var encounteredError error
-
-	// Process packets sequentially until we hit an error
-	for packetIdx, packet := range batch.Packets {
-		// Submit all chunks for this packet
-		for chunkIdx, chunkBytes := range packet.Chunks {
-			tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(chunkBytes))
-			if err != nil {
-				require.Fail("Failed to decode chunk", "Packet %d chunk %d decode error: %v", packetIdx, chunkIdx, err)
-				return lastSig
-			}
-
-			recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-			if err != nil {
-				require.Fail("Failed to get latest blockhash", "Packet %d chunk %d blockhash error: %v", packetIdx, chunkIdx, err)
-				return lastSig
-			}
-			tx.Message.RecentBlockhash = recent.Value.Blockhash
-
-			sig, err := s.SignAndBroadcastTx(ctx, tx, user)
-			if err != nil {
-				encounteredError = err
-				lastSig = sig
-				t.Logf("Packet %d chunk %d failed as expected: %v", packetIdx, chunkIdx, err)
-				goto errorFound
-			}
-
-			t.Logf("Packet %d chunk %d/%d succeeded: %s", packetIdx, chunkIdx+1, len(packet.Chunks), sig)
-		}
-
-		// Submit final transaction for this packet
-		tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(packet.FinalTx))
-		if err != nil {
-			require.Fail("Failed to decode final tx", "Packet %d final tx decode error: %v", packetIdx, err)
-			return lastSig
-		}
-
-		recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-		if err != nil {
-			require.Fail("Failed to get latest blockhash", "Packet %d final tx blockhash error: %v", packetIdx, err)
-			return lastSig
-		}
-		tx.Message.RecentBlockhash = recent.Value.Blockhash
-
-		sig, err := s.SignAndBroadcastTx(ctx, tx, user)
-		if err != nil {
-			encounteredError = err
-			lastSig = sig
-			t.Logf("Packet %d final tx failed as expected: %v", packetIdx, err)
-			goto errorFound
-		}
-
-		lastSig = sig
-		t.Logf("Packet %d/%d succeeded: %s", packetIdx+1, len(batch.Packets), sig)
-	}
-
-errorFound:
-	require.Error(encounteredError, "Expected transaction to fail but it succeeded")
-
-	if expectedErrorSubstring != "" {
-		errorMsg := strings.ToLower(encounteredError.Error())
-		expectedLower := strings.ToLower(expectedErrorSubstring)
-		require.Contains(errorMsg, expectedLower,
-			"Error message should contain expected substring.\nExpected substring: %s\nActual error: %s",
-			expectedErrorSubstring, encounteredError.Error())
-		t.Logf("Error validation passed: contains '%s'", expectedErrorSubstring)
-	}
-
-	return lastSig
+	return lastSig, nil
 }
 
 func (s *Solana) DeploySolanaProgram(ctx context.Context, t *testing.T, require *require.Assertions, programName string) solana.PublicKey {

@@ -579,7 +579,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			_ = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), s.Require(), resp, s.SolanaUser)
+			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			s.Require().NoError(err)
 
 			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1)
 		}))
@@ -764,7 +765,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			_ = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), s.Require(), resp, s.SolanaUser)
+			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			s.Require().NoError(err)
 
 			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1)
 		}))
@@ -880,7 +882,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			solanaRelayTxSig = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), s.Require(), resp, s.SolanaUser)
+			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			s.Require().NoError(err)
 
 			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1)
 		}))

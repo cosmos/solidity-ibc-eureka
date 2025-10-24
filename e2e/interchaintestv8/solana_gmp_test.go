@@ -332,7 +332,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
 			// Execute on Solana using chunked submission
-			solanaRelayTxSig = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), s.Require(), resp, s.SolanaUser)
+			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			s.Require().NoError(err)
 			s.T().Logf("%s: GMP execution completed on Solana", userLabel)
 
 			return solanaRelayTxSig
@@ -625,7 +626,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			solanaRelayTxSig = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), s.Require(), resp, s.SolanaUser)
+			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			s.Require().NoError(err)
 			s.T().Logf("SPL transfer executed on Solana: %s", solanaRelayTxSig)
 		}))
 	}))
@@ -1090,7 +1092,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			sig := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), s.Require(), resp, s.SolanaUser)
+			sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			s.Require().NoError(err)
 			s.T().Logf("Acknowledgement transaction broadcasted: %s", sig)
 		}))
 
@@ -1347,7 +1350,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			sig := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), s.Require(), resp, s.SolanaUser)
+			sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			s.Require().NoError(err)
 			s.T().Logf("Timeout transaction broadcasted: %s", sig)
 
 			s.T().Log("Timeout successfully processed on Solana")
@@ -1626,7 +1630,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromCosmos() {
 			}))
 
 			s.Require().True(s.Run("Verify recvPacket fails on Solana after timeout", func() {
-				_ = s.SolanaChain.SubmitChunkedRelayPacketsExpectingError(ctx, s.T(), s.Require(), recvRelayTxs, s.SolanaUser, "")
+				_, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), recvRelayTxs, s.SolanaUser)
+				s.Require().Error(err)
 			}))
 		}))
 	}))
@@ -1845,7 +1850,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromCosmos() {
 
 			// Transaction will fail due to CPI error (insufficient balance for SPL token transfer)
 			// Expected error: SPL Token program error indicating insufficient funds
-			_ = s.SolanaChain.SubmitChunkedRelayPacketsExpectingError(ctx, s.T(), s.Require(), resp, s.SolanaUser, "insufficient")
+			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			s.Require().Error(err)
+			s.Require().Contains(err.Error(), "insufficient")
 		}))
 	}))
 }
@@ -2064,7 +2071,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromSolana() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
 
-			sig := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), s.Require(), resp, s.SolanaUser)
+			sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			s.Require().NoError(err)
 			s.T().Logf("Error acknowledgment successfully relayed to Solana: %s", sig)
 		}))
 	}))
