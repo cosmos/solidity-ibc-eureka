@@ -50,7 +50,7 @@ mod tests {
     use super::*;
     use crate::state::ConsensusStateStore;
     use crate::test_helpers::{fixtures::*, PROGRAM_BINARY_PATH};
-    use anchor_lang::{AnchorDeserialize, InstructionData};
+    use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
@@ -72,11 +72,13 @@ mod tests {
         } else {
             chain_id.as_bytes()
         };
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[b"client", chain_id_bytes], &crate::ID);
+        let (client_state_pda, _) = Pubkey::find_program_address(
+            &[crate::types::ClientState::SEED, chain_id_bytes],
+            &crate::ID,
+        );
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
             &[
-                b"consensus_state",
+                crate::state::ConsensusStateStore::SEED,
                 client_state_pda.as_ref(),
                 &latest_height.to_le_bytes(),
             ],
@@ -209,13 +211,15 @@ mod tests {
 
         let payer = Pubkey::new_unique();
 
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID);
+        let (client_state_pda, _) = Pubkey::find_program_address(
+            &[crate::types::ClientState::SEED, chain_id.as_bytes()],
+            &crate::ID,
+        );
 
         let latest_height = client_state.latest_height.revision_height;
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
             &[
-                b"consensus_state",
+                crate::state::ConsensusStateStore::SEED,
                 client_state_pda.as_ref(),
                 &latest_height.to_le_bytes(),
             ],
@@ -324,9 +328,9 @@ mod tests {
             "Client state account should have data"
         );
 
-        let mut data_slice = &client_state_account.data[8..];
         let deserialized_client_state: ClientState =
-            ClientState::deserialize(&mut data_slice).expect("Failed to deserialize client state");
+            ClientState::try_deserialize(&mut &client_state_account.data[..])
+                .expect("Failed to deserialize client state");
 
         assert_eq!(deserialized_client_state.chain_id, client_state.chain_id);
         assert_eq!(
@@ -382,9 +386,8 @@ mod tests {
             "Consensus state store account should have data"
         );
 
-        let mut data_slice = &consensus_state_account.data[8..];
         let deserialized_consensus_store: ConsensusStateStore =
-            ConsensusStateStore::deserialize(&mut data_slice)
+            ConsensusStateStore::try_deserialize(&mut &consensus_state_account.data[..])
                 .expect("Failed to deserialize consensus state store");
 
         assert_eq!(deserialized_consensus_store.height, latest_height);

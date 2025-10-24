@@ -63,7 +63,7 @@ fn validate_and_load_chunk(
 ) -> Result<()> {
     // Validate chunk PDA
     let expected_seeds = &[
-        b"header_chunk".as_ref(),
+        crate::state::HeaderChunk::SEED,
         submitter.as_ref(),
         chain_id.as_bytes(),
         &target_height.to_le_bytes(),
@@ -183,7 +183,7 @@ fn cleanup_chunks(
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
         // Double-check PDA (paranoid check)
         let expected_seeds = &[
-            b"header_chunk".as_ref(),
+            crate::state::HeaderChunk::SEED,
             submitter.as_ref(),
             chain_id.as_bytes(),
             &target_height.to_le_bytes(),
@@ -214,7 +214,7 @@ fn load_consensus_state(
     // Validate PDA
     let (expected_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_key.as_ref(),
             &height.to_le_bytes(),
         ],
@@ -248,7 +248,7 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     // Validate PDA
     let (expected_pda, bump) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             params.client_key.as_ref(),
             &params.height.to_le_bytes(),
         ],
@@ -282,7 +282,7 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     let rent = Rent::get()?.minimum_balance(space);
 
     let seeds_with_bump = [
-        b"consensus_state".as_ref(),
+        crate::state::ConsensusStateStore::SEED,
         params.client_key.as_ref(),
         &params.height.to_le_bytes(),
         &[bump],

@@ -13,7 +13,7 @@ pub fn cleanup_incomplete_upload(
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
         // Derive the expected chunk PDA for this index
         let expected_seeds = &[
-            b"header_chunk".as_ref(),
+            crate::state::HeaderChunk::SEED,
             submitter.as_ref(),
             chain_id.as_bytes(),
             &cleanup_height.to_le_bytes(),

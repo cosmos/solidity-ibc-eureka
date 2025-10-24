@@ -37,6 +37,8 @@ pub struct ClientState {
 }
 
 impl ClientState {
+    pub const SEED: &'static [u8] = b"client";
+
     pub const fn is_frozen(&self) -> bool {
         self.frozen_height.revision_height > 0
     }

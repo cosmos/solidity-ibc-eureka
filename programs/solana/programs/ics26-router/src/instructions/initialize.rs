@@ -29,7 +29,7 @@ pub fn initialize(ctx: Context<Initialize>, authority: Pubkey) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anchor_lang::{AnchorDeserialize, InstructionData};
+    use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
@@ -127,9 +127,9 @@ mod tests {
             "Router state account should have data"
         );
 
-        let mut data_slice = &router_state_account.data[8..];
         let deserialized_router_state: RouterState =
-            RouterState::deserialize(&mut data_slice).expect("Failed to deserialize router state");
+            RouterState::try_deserialize(&mut &router_state_account.data[..])
+                .expect("Failed to deserialize router state");
 
         assert_eq!(deserialized_router_state.authority, authority);
     }

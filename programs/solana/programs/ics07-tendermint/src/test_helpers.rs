@@ -131,9 +131,11 @@ pub mod fixtures {
     }
 
     /// Convert protobuf Timestamp to nanoseconds since Unix epoch
-    fn timestamp_to_nanoseconds(seconds: i64, nanos: i32) -> u64 {
+    pub fn timestamp_to_nanoseconds(seconds: i64, nanos: i32) -> u64 {
         const NANOS_PER_SECOND: u64 = 1_000_000_000;
-        (seconds as u64) * NANOS_PER_SECOND + (nanos as u64)
+        (seconds as u64)
+            .saturating_mul(NANOS_PER_SECOND)
+            .saturating_add(nanos as u64)
     }
 
     /// Extract header timestamp from update client message
@@ -274,6 +276,106 @@ pub mod fixtures {
                     test_name, result.program_result
                 );
             }
+        }
+    }
+
+    /// Membership verification fixture structures
+    #[derive(Debug, serde::Deserialize)]
+    pub struct MembershipMsgFixture {
+        pub path: Vec<String>,
+        pub proof: String,
+        pub value: String,
+        pub height: u64,
+        pub delay_time_period: u64,
+        pub delay_block_period: u64,
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    pub struct MembershipVerificationFixture {
+        pub membership_msg: MembershipMsgFixture,
+        pub consensus_state_hex: String,
+        pub client_state_hex: String,
+    }
+
+    pub fn load_membership_verification_fixture(filename: &str) -> MembershipVerificationFixture {
+        let fixture_path =
+            format!("../../../../packages/tendermint-light-client/fixtures/{filename}.json");
+        let fixture_content = std::fs::read_to_string(&fixture_path)
+            .unwrap_or_else(|_| panic!("Failed to read fixture: {fixture_path}"));
+
+        serde_json::from_str(&fixture_content)
+            .unwrap_or_else(|_| panic!("Failed to parse fixture: {fixture_path}"))
+    }
+
+    pub fn decode_client_state_from_hex(client_state_hex: &str) -> ClientState {
+        use prost::Message;
+
+        let bytes = hex_to_bytes(client_state_hex);
+        let proto = ibc_client_tendermint::types::proto::v1::ClientState::decode(&bytes[..])
+            .expect("Failed to decode client state");
+
+        let trust_level = proto
+            .trust_level
+            .expect("Missing trust_level in client state");
+        let trusting_period = proto
+            .trusting_period
+            .expect("Missing trusting_period in client state");
+        let unbonding_period = proto
+            .unbonding_period
+            .expect("Missing unbonding_period in client state");
+        let max_clock_drift = proto
+            .max_clock_drift
+            .expect("Missing max_clock_drift in client state");
+        let latest_height = proto
+            .latest_height
+            .expect("Missing latest_height in client state");
+
+        ClientState {
+            chain_id: proto.chain_id,
+            trust_level_numerator: trust_level.numerator as u64,
+            trust_level_denominator: trust_level.denominator as u64,
+            trusting_period: trusting_period.seconds as u64,
+            unbonding_period: unbonding_period.seconds as u64,
+            max_clock_drift: max_clock_drift.seconds as u64,
+            frozen_height: proto
+                .frozen_height
+                .map_or_else(IbcHeight::default, |frozen_height| IbcHeight {
+                    revision_number: frozen_height.revision_number,
+                    revision_height: frozen_height.revision_height,
+                }),
+            latest_height: IbcHeight {
+                revision_number: latest_height.revision_number,
+                revision_height: latest_height.revision_height,
+            },
+        }
+    }
+
+    pub fn decode_consensus_state_from_hex(consensus_state_hex: &str) -> ConsensusState {
+        use prost::Message;
+
+        let bytes = hex_to_bytes(consensus_state_hex);
+        let proto = ibc_client_tendermint::types::proto::v1::ConsensusState::decode(&bytes[..])
+            .expect("Failed to decode consensus state");
+
+        let timestamp = proto
+            .timestamp
+            .expect("Missing timestamp in consensus state");
+        let root = proto.root.expect("Missing root in consensus state");
+
+        let timestamp_nanos = timestamp_to_nanoseconds(timestamp.seconds, timestamp.nanos);
+
+        ConsensusState {
+            timestamp: timestamp_nanos,
+            root: root
+                .hash
+                .as_slice()
+                .try_into()
+                .expect("Invalid root hash length"),
+            next_validators_hash: proto
+                .next_validators_hash
+                .as_slice()
+                .try_into()
+                .expect("Invalid next_validators_hash length"),
         }
     }
 
@@ -435,7 +537,7 @@ pub mod chunk_test_utils {
     ) -> Pubkey {
         Pubkey::find_program_address(
             &[
-                b"header_chunk",
+                crate::state::HeaderChunk::SEED,
                 submitter.as_ref(),
                 chain_id.as_bytes(),
                 &target_height.to_le_bytes(),
@@ -446,26 +548,21 @@ pub mod chunk_test_utils {
         .0
     }
 
-    pub fn derive_metadata_pda(submitter: &Pubkey, chain_id: &str, target_height: u64) -> Pubkey {
+    pub fn derive_client_state_pda(chain_id: &str) -> Pubkey {
         Pubkey::find_program_address(
-            &[
-                b"header_metadata",
-                submitter.as_ref(),
-                chain_id.as_bytes(),
-                &target_height.to_le_bytes(),
-            ],
+            &[crate::types::ClientState::SEED, chain_id.as_bytes()],
             &crate::ID,
         )
         .0
     }
 
-    pub fn derive_client_state_pda(chain_id: &str) -> Pubkey {
-        Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID).0
-    }
-
-    pub fn derive_consensus_state_pda(chain_id: &str, height: u64) -> Pubkey {
+    pub fn derive_consensus_state_pda(client_state_key: &Pubkey, height: u64) -> Pubkey {
         Pubkey::find_program_address(
-            &[b"consensus", chain_id.as_bytes(), &height.to_le_bytes()],
+            &[
+                crate::state::ConsensusStateStore::SEED,
+                client_state_key.as_ref(),
+                &height.to_le_bytes(),
+            ],
             &crate::ID,
         )
         .0
