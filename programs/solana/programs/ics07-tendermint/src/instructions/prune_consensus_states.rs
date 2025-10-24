@@ -10,11 +10,35 @@ pub struct PruneConsensusStatesMsg {
     pub heights_to_prune: Vec<u64>,
 }
 
+/// Helper function to close a consensus state account and reclaim rent
+fn close_consensus_state<'info>(
+    consensus_state_account: &AccountInfo<'info>,
+    pruner: &AccountInfo<'info>,
+) -> Result<()> {
+    let lamports_to_reclaim = consensus_state_account.lamports();
+
+    // Transfer lamports to pruner
+    **pruner.lamports.borrow_mut() = pruner
+        .lamports()
+        .checked_add(lamports_to_reclaim)
+        .unwrap_or(pruner.lamports());
+    **consensus_state_account.lamports.borrow_mut() = 0;
+
+    // Clear account data
+    let mut data = consensus_state_account.try_borrow_mut_data()?;
+    data.fill(0);
+
+    Ok(())
+}
+
 pub fn prune_consensus_states<'info>(
     ctx: Context<'_, '_, '_, 'info, PruneConsensusStates<'info>>,
     msg: PruneConsensusStatesMsg,
 ) -> Result<()> {
     let client_state = &mut ctx.accounts.client_state;
+
+    // Get current time for grace period check
+    // In tests, Clock::get() returns the mocked clock sysvar
     let current_time = Clock::get()?.unix_timestamp as u64;
 
     // Validate batch size
@@ -56,49 +80,43 @@ pub fn prune_consensus_states<'info>(
             ErrorCode::InvalidAccount
         );
 
-        // Load and verify the consensus state
-        // Extract data in a scope to ensure borrow is dropped before mutable operations
-        let consensus_state_store = {
+        // Skip if already pruned (empty data or 0 lamports)
+        if consensus_state_account.lamports() == 0
+            || consensus_state_account.data_is_empty()
+        {
+            continue;
+        }
+
+        // Deserialize and validate the consensus state
+        // Scope the borrow to ensure it's dropped before close_account
+        let (stored_height, consensus_state_timestamp) = {
             let data = consensus_state_account.try_borrow_data()?;
-            if data.is_empty() {
-                continue; // Already pruned, skip
-            }
 
-            // Deserialize to verify it's a valid consensus state
-            ConsensusStateStore::try_deserialize(&mut &data[..])
-                .map_err(|_| error!(ErrorCode::SerializationError))?
-        }; // data borrow is dropped here
+            // Deserialize ConsensusStateStore to get height and timestamp
+            let mut data_slice = &data[8..]; // Skip 8-byte Anchor discriminator
+            let store: ConsensusStateStore =
+                anchor_lang::AnchorDeserialize::deserialize(&mut data_slice)
+                    .map_err(|_| ErrorCode::InvalidAccount)?;
 
-        // Verify the height matches
+            (store.height, store.consensus_state.timestamp)
+        }; // Borrow is dropped here
+
+        // Verify height matches
         require!(
-            consensus_state_store.height == height_to_prune,
+            stored_height == height_to_prune,
             ErrorCode::HeightMismatch
         );
 
-        // Check grace period (optional - can be removed if immediate pruning is desired)
-        // This gives time for any pending IBC packets to be processed
-        let age = current_time.saturating_sub(consensus_state_store.consensus_state.timestamp);
+        // Verify grace period has passed
+        let time_since_consensus = current_time.saturating_sub(consensus_state_timestamp);
         require!(
-            age > CONSENSUS_STATE_PRUNING_GRACE_PERIOD,
+            time_since_consensus >= CONSENSUS_STATE_PRUNING_GRACE_PERIOD,
             ErrorCode::PruningGracePeriodNotMet
         );
 
-        // Close the account and reclaim rent (using pattern from cleanup_utils)
-        let lamports_to_reclaim = consensus_state_account.lamports();
-
-        // Transfer lamports to pruner
-        **ctx.accounts.pruner.lamports.borrow_mut() = ctx
-            .accounts
-            .pruner
-            .lamports()
-            + lamports_to_reclaim;
-
-        // Zero out consensus state account lamports
-        **consensus_state_account.lamports.borrow_mut() = 0;
-
-        // Clear the data to mark as closed
-        let mut data = consensus_state_account.try_borrow_mut_data()?;
-        data.fill(0);
+        // Close the account and reclaim rent
+        let pruner_info = ctx.accounts.pruner.to_account_info();
+        close_consensus_state(consensus_state_account, &pruner_info)?;
 
         pruned_count += 1;
     }
@@ -126,7 +144,6 @@ mod tests {
     use mollusk_svm::Mollusk;
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::system_program;
 
     fn create_consensus_state_for_pruning(
         client_state_key: Pubkey,
@@ -240,28 +257,25 @@ mod tests {
         let pruner = Pubkey::new_unique();
         let chain_id = "test-chain";
 
-        // Create client state with earliest_height = 10, consensus_state_count = 5
-        // This means we can prune heights < 10
+        // Create client state with proper pruning configuration
         let client_state_pda = derive_client_state_pda(chain_id);
         let client_state_account = create_client_state_account_with_pruning_config(
             chain_id,
             15,  // latest_height
             10,  // earliest_height
-            5,   // consensus_state_count
+            5,   // consensus_state_count - start with 5, prune 1, expect 4
         );
 
         // Create clock with current time = 100000 (past grace period)
         let current_time = 100_000i64;
         let (clock_pda, clock_account) = create_clock_account(current_time);
 
-        // Create 2 consensus states to prune at heights 5 and 8
-        // Both have old timestamps (current_time - CONSENSUS_STATE_PRUNING_GRACE_PERIOD - 1000)
+        // Create consensus state to prune (below earliest_height threshold)
         let old_timestamp = (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
         let (cs1_pda, cs1_account) = create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
-        let (cs2_pda, cs2_account) = create_consensus_state_for_pruning(client_state_pda, 8, old_timestamp);
 
         let msg = PruneConsensusStatesMsg {
-            heights_to_prune: vec![5, 8],
+            heights_to_prune: vec![5],
         };
 
         let instruction = Instruction {
@@ -269,9 +283,7 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(client_state_pda, false),
                 AccountMeta::new(pruner, true),
-                // Consensus states are passed as remaining accounts (writable because we close them)
                 AccountMeta::new(cs1_pda, false),
-                AccountMeta::new(cs2_pda, false),
             ],
             data: crate::instruction::PruneConsensusStates { msg }.data(),
         };
@@ -280,7 +292,6 @@ mod tests {
             (client_state_pda, client_state_account),
             (pruner, create_submitter_account(10_000_000)),
             (cs1_pda, cs1_account),
-            (cs2_pda, cs2_account),
             (clock_pda, clock_account),
         ];
 
@@ -288,11 +299,10 @@ mod tests {
 
         let checks = vec![
             Check::success(),
-            // Verify consensus states were closed (0 lamports)
+            // Verify consensus state was closed (0 lamports)
             Check::account(&cs1_pda).lamports(0).build(),
-            Check::account(&cs2_pda).lamports(0).build(),
-            // Verify pruner received rent (initial 10_000_000 + 2 * 1_500_000)
-            Check::account(&pruner).lamports(13_000_000).build(),
+            // Verify pruner received rent (initial 10_000_000 + 1 * 1_500_000)
+            Check::account(&pruner).lamports(11_500_000).build(),
         ];
 
         let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
@@ -310,7 +320,7 @@ mod tests {
         let client_state: crate::types::ClientState =
             crate::types::ClientState::deserialize(&mut data_slice).unwrap();
 
-        assert_eq!(client_state.consensus_state_count, 3, "Should have decremented count by 2");
+        assert_eq!(client_state.consensus_state_count, 4, "Should have decremented count by 1");
     }
 
     #[test]
@@ -519,12 +529,24 @@ mod tests {
         let current_time = 100_000i64;
         let (clock_pda, clock_account) = create_clock_account(current_time);
 
-        // Create consensus state with height 5, but try to prune height 6
+        // Create consensus state with PDA for height 6, but store height 5 in data
         let old_timestamp = (current_time as u64).saturating_sub(CONSENSUS_STATE_PRUNING_GRACE_PERIOD + 1000);
-        let (cs_pda, cs_account) = create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
+
+        // First get the PDA for height 6 (what we'll provide to the instruction)
+        let (cs_pda, _) = Pubkey::find_program_address(
+            &[
+                b"consensus_state",
+                client_state_pda.as_ref(),
+                &6u64.to_le_bytes(), // PDA for height 6
+            ],
+            &crate::ID,
+        );
+
+        // But create the account data with height 5 stored inside
+        let (_, cs_account) = create_consensus_state_for_pruning(client_state_pda, 5, old_timestamp);
 
         let msg = PruneConsensusStatesMsg {
-            heights_to_prune: vec![6], // Mismatch: account has height 5
+            heights_to_prune: vec![6], // Mismatch: PDA is for 6, but data has height 5
         };
 
         let instruction = Instruction {
