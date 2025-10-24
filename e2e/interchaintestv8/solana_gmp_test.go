@@ -149,16 +149,6 @@ func (s *IbcEurekaSolanaTestSuite) deployAndInitializeICS27GMP(ctx context.Conte
 	return ics27GMPProgramID
 }
 
-func (s *IbcEurekaSolanaTestSuite) registerGMPCounterAppWithRouter(_ context.Context, gmpCounterProgramID solanago.PublicKey) {
-	s.Require().True(s.Run("Setup GMP Counter App as Target", func() {
-		// The counter app is now ready to be called via GMP
-		// ICS27 GMP will route execution calls to this program based on the receiver field in packets
-		s.T().Logf("GMP Counter app %s is ready for GMP execution", gmpCounterProgramID)
-		s.T().Logf("Counter app will be callable via GMP packets with receiver = %s", gmpCounterProgramID)
-		s.T().Logf("GMP flow: IBC Packet → Router → ICS27 GMP → Counter App")
-	}))
-}
-
 // Test_GMPCounterFromCosmos tests sending a counter increment call from Cosmos to Solana
 func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 	ctx := context.Background()
@@ -183,14 +173,11 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 	s.Require().True(s.Run("Verify ICS27 GMP Program", func() {
 	}))
 
-	// Deploy and initialize GMP counter app, then register it with router
+	// Deploy and initialize GMP counter app
 	var gmpCounterProgramID solanago.PublicKey
 	s.Require().True(s.Run("Deploy and Initialize GMP Counter App", func() {
 		gmpCounterProgramID = s.deployAndInitializeGMPCounterApp(ctx)
-	}))
-
-	s.Require().True(s.Run("Register GMP Counter App with Router", func() {
-		s.registerGMPCounterAppWithRouter(ctx, gmpCounterProgramID)
+		s.T().Logf("GMP Counter app deployed at %s", gmpCounterProgramID)
 	}))
 
 	_ = ics27GMPProgramID // Use the GMP program ID for future packet flow
