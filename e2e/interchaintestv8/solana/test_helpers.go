@@ -115,8 +115,8 @@ func (s *Solana) SubmitChunkedRelayPacketsExpectingError(
 }
 
 func (s *Solana) DeploySolanaProgram(ctx context.Context, t *testing.T, require *require.Assertions, programName string) solana.PublicKey {
-	keypairPath := fmt.Sprintf("e2e/interchaintestv8/solana/%s-keypair.json", programName)
-	walletPath := "e2e/interchaintestv8/solana/deployer_wallet.json"
+	keypairPath := fmt.Sprintf("e2e/interchaintestv8/solana/keypairs/%s-keypair.json", programName)
+	walletPath := "e2e/interchaintestv8/solana/keypairs/deployer_wallet.json"
 	programID, _, err := AnchorDeploy(ctx, "programs/solana", programName, keypairPath, walletPath)
 	require.NoError(err, "%s program deployment has failed", programName)
 	t.Logf("%s program deployed at: %s", programName, programID.String())
