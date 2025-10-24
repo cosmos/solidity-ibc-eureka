@@ -145,5 +145,6 @@ pub struct UpdateClientMsg {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct MisbehaviourMsg {
     pub client_id: String,
-    pub misbehaviour: Vec<u8>, // Protobuf encoded Misbehaviour
+    // Protobuf encoded Misbehaviour
+    pub misbehaviour: Vec<u8>,
 }

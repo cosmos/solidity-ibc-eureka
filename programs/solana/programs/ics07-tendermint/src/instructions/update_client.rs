@@ -173,7 +173,6 @@ fn handle_consensus_state_storage(
     client_state: &mut ClientState,
 ) -> Result<UpdateResult> {
     if ctx.new_consensus_state_store.data_is_empty() {
-        // Create new consensus state account
         create_consensus_state_account(
             ctx.new_consensus_state_store,
             ctx.payer,
@@ -214,7 +213,6 @@ fn check_existing_consensus_state(
     Ok(UpdateResult::NoOp)
 }
 
-/// Creates seeds for deriving consensus state store PDAs
 fn consensus_state_seeds(client_key: &Pubkey, revision_height: u64) -> [Vec<u8>; 3] {
     [
         b"consensus_state".to_vec(),
@@ -341,7 +339,8 @@ fn create_consensus_state_account<'info>(
     let (space, rent) = calculate_consensus_state_rent()?;
 
     // Prepare signing seeds for account creation
-    let signer_seeds = create_consensus_state_signer_seeds(&params.client_key, params.revision_height, bump);
+    let signer_seeds =
+        create_consensus_state_signer_seeds(&params.client_key, params.revision_height, bump);
     let signer_seeds_slices = vecs_as_slices(&signer_seeds);
     let signer_seeds_slice = [&signer_seeds_slices[..]];
 
