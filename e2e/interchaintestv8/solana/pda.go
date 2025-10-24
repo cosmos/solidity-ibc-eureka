@@ -60,7 +60,7 @@ func RouterClientSequencePDA(clientID string) (solanago.PublicKey, uint8) {
 
 func RouterPacketCommitmentPDA(clientID string, sequence uint64) (solanago.PublicKey, uint8) {
 	sequenceBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(sequenceBytes, sequence)
+	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("packet_commitment"), []byte(clientID), sequenceBytes},
 		ics26_router.ProgramID,
