@@ -9,6 +9,7 @@ import (
 
 	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -24,39 +25,204 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	user *solana.Wallet,
 ) solana.Signature {
 	t.Helper()
-	require.NotEqual(0, len(resp.Txs), "no relay transactions provided")
+
+	var batch relayertypes.RelayPacketBatch
+	err := proto.Unmarshal(resp.Tx, &batch)
+	require.NoError(err, "Failed to unmarshal RelayPacketBatch")
+	require.NotEmpty(batch.Packets, "no relay packets provided")
 
 	totalStart := time.Now()
 	t.Logf("=== Starting Chunked Relay Packets ===")
-	t.Logf("Total transactions: %d (chunks + final instructions)", len(resp.Txs))
+	t.Logf("Total packets: %d", len(batch.Packets))
 
-	var lastSig solana.Signature
-	for i, txBytes := range resp.Txs {
-		txStart := time.Now()
+	totalChunks := 0
+	for _, packet := range batch.Packets {
+		totalChunks += len(packet.Chunks)
+	}
+	t.Logf("Total chunks across all packets: %d", totalChunks)
 
-		tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(txBytes))
-		require.NoError(err, "Failed to decode transaction %d", i)
-
-		recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-		require.NoError(err, "Failed to get latest blockhash for transaction %d", i)
-		tx.Message.RecentBlockhash = recent.Value.Blockhash
-
-		sig, err := s.SignAndBroadcastTx(ctx, tx, user)
-		require.NoError(err, "Failed to submit transaction %d", i)
-
-		lastSig = sig
-		txDuration := time.Since(txStart)
-		t.Logf("✓ Transaction %d/%d completed in %v - tx: %s",
-			i+1, len(resp.Txs), txDuration, sig)
+	type packetResult struct {
+		packetIdx      int
+		finalSig       solana.Signature
+		err            error
+		chunksDuration time.Duration
+		finalDuration  time.Duration
+		totalDuration  time.Duration
 	}
 
+	// Process all packets in parallel
+	packetResults := make(chan packetResult, len(batch.Packets))
+
+	for packetIdx, packet := range batch.Packets {
+		go func(pktIdx int, pkt *relayertypes.PacketTransactions) {
+			packetStart := time.Now()
+			t.Logf("--- Packet %d: Starting (%d chunks + 1 final tx) ---", pktIdx+1, len(pkt.Chunks))
+
+			type chunkResult struct {
+				chunkIdx int
+				sig      solana.Signature
+				err      error
+				duration time.Duration
+			}
+
+			// Phase 1: Submit all chunks for this packet in parallel
+			chunksStart := time.Now()
+			chunkResults := make(chan chunkResult, len(pkt.Chunks))
+
+			for chunkIdx, chunkBytes := range pkt.Chunks {
+				go func(chkIdx int, chunkData []byte) {
+					chunkStart := time.Now()
+
+					tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(chunkData))
+					if err != nil {
+						chunkResults <- chunkResult{
+							chunkIdx: chkIdx,
+							err:      fmt.Errorf("failed to decode chunk %d: %w", chkIdx, err),
+							duration: time.Since(chunkStart),
+						}
+						return
+					}
+
+					recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+					if err != nil {
+						chunkResults <- chunkResult{
+							chunkIdx: chkIdx,
+							err:      fmt.Errorf("failed to get blockhash for chunk %d: %w", chkIdx, err),
+							duration: time.Since(chunkStart),
+						}
+						return
+					}
+					tx.Message.RecentBlockhash = recent.Value.Blockhash
+
+					sig, err := s.SignAndBroadcastTx(ctx, tx, user)
+					chunkDuration := time.Since(chunkStart)
+
+					if err != nil {
+						chunkResults <- chunkResult{
+							chunkIdx: chkIdx,
+							err:      fmt.Errorf("failed to submit chunk %d: %w", chkIdx, err),
+							duration: chunkDuration,
+						}
+						return
+					}
+
+					chunkResults <- chunkResult{
+						chunkIdx: chkIdx,
+						sig:      sig,
+						duration: chunkDuration,
+					}
+				}(chunkIdx, chunkBytes)
+			}
+
+			// Collect all chunk results for this packet
+			var chunkErr error
+			for i := 0; i < len(pkt.Chunks); i++ {
+				result := <-chunkResults
+				if result.err != nil {
+					chunkErr = result.err
+					t.Logf("✗ Packet %d, Chunk %d failed: %v", pktIdx+1, result.chunkIdx+1, result.err)
+				} else {
+					t.Logf("✓ Packet %d, Chunk %d/%d completed in %v - tx: %s",
+						pktIdx+1, result.chunkIdx+1, len(pkt.Chunks), result.duration, result.sig)
+				}
+			}
+			close(chunkResults)
+			chunksDuration := time.Since(chunksStart)
+
+			if chunkErr != nil {
+				packetResults <- packetResult{
+					packetIdx:      pktIdx,
+					err:            fmt.Errorf("packet %d chunk upload failed: %w", pktIdx, chunkErr),
+					chunksDuration: chunksDuration,
+					totalDuration:  time.Since(packetStart),
+				}
+				return
+			}
+
+			t.Logf("--- Packet %d: All %d chunks completed in %v, submitting final tx ---",
+				pktIdx+1, len(pkt.Chunks), chunksDuration)
+
+			// Phase 2: Submit final transaction for this packet
+			finalStart := time.Now()
+
+			finalTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(pkt.FinalTx))
+			if err != nil {
+				packetResults <- packetResult{
+					packetIdx:      pktIdx,
+					err:            fmt.Errorf("packet %d failed to decode final tx: %w", pktIdx, err),
+					chunksDuration: chunksDuration,
+					finalDuration:  time.Since(finalStart),
+					totalDuration:  time.Since(packetStart),
+				}
+				return
+			}
+
+			recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+			if err != nil {
+				packetResults <- packetResult{
+					packetIdx:      pktIdx,
+					err:            fmt.Errorf("packet %d failed to get blockhash for final tx: %w", pktIdx, err),
+					chunksDuration: chunksDuration,
+					finalDuration:  time.Since(finalStart),
+					totalDuration:  time.Since(packetStart),
+				}
+				return
+			}
+			finalTx.Message.RecentBlockhash = recent.Value.Blockhash
+
+			sig, err := s.SignAndBroadcastTx(ctx, finalTx, user)
+			finalDuration := time.Since(finalStart)
+			totalDuration := time.Since(packetStart)
+
+			if err != nil {
+				packetResults <- packetResult{
+					packetIdx:      pktIdx,
+					err:            fmt.Errorf("packet %d failed to submit final tx: %w", pktIdx, err),
+					chunksDuration: chunksDuration,
+					finalDuration:  finalDuration,
+					totalDuration:  totalDuration,
+				}
+				return
+			}
+
+			t.Logf("✓ Packet %d: Final tx completed in %v - tx: %s", pktIdx+1, finalDuration, sig)
+			t.Logf("--- Packet %d: Complete in %v (chunks: %v, final: %v) ---",
+				pktIdx+1, totalDuration, chunksDuration, finalDuration)
+
+			packetResults <- packetResult{
+				packetIdx:      pktIdx,
+				finalSig:       sig,
+				chunksDuration: chunksDuration,
+				finalDuration:  finalDuration,
+				totalDuration:  totalDuration,
+			}
+		}(packetIdx, packet)
+	}
+
+	// Collect all packet results
+	var lastSig solana.Signature
+	var totalChunksDuration time.Duration
+	var totalFinalsDuration time.Duration
+
+	for i := 0; i < len(batch.Packets); i++ {
+		result := <-packetResults
+		require.NoError(result.err, "Packet submission failed")
+		lastSig = result.finalSig
+		totalChunksDuration += result.chunksDuration
+		totalFinalsDuration += result.finalDuration
+	}
+	close(packetResults)
+
 	totalDuration := time.Since(totalStart)
-	avgTxTime := totalDuration / time.Duration(len(resp.Txs))
+	avgChunksDuration := totalChunksDuration / time.Duration(len(batch.Packets))
+	avgFinalsDuration := totalFinalsDuration / time.Duration(len(batch.Packets))
+
 	t.Logf("=== Chunked Relay Packets Complete ===")
-	t.Logf("Total time: %v for %d transactions (avg: %v/tx)",
-		totalDuration, len(resp.Txs), avgTxTime)
-	t.Logf("NOTE: for simplicity all tx chunks are waiting for finalization and are sent sequentially")
-	t.Logf("In real use only final packet tx (recv/ack/timeout) needs to be finalized")
+	t.Logf("Total wall time: %v for %d packets (%d total chunks)", totalDuration, len(batch.Packets), totalChunks)
+	t.Logf("All packets processed in parallel:")
+	t.Logf("  - Avg chunks phase per packet: %v", avgChunksDuration)
+	t.Logf("  - Avg final tx per packet: %v", avgFinalsDuration)
+	t.Logf("Parallelization: All packets + all chunks within each packet submitted concurrently")
 	return lastSig
 }
 
@@ -69,21 +235,53 @@ func (s *Solana) SubmitChunkedRelayPacketsExpectingError(
 	expectedErrorSubstring string,
 ) solana.Signature {
 	t.Helper()
-	require.NotEmpty(resp.Txs, "Expected relay transactions to submit")
+
+	var batch relayertypes.RelayPacketBatch
+	err := proto.Unmarshal(resp.Tx, &batch)
+	require.NoError(err, "Failed to unmarshal RelayPacketBatch")
+	require.NotEmpty(batch.Packets, "Expected relay packets to submit")
 
 	var lastSig solana.Signature
 	var encounteredError error
 
-	for i, txBytes := range resp.Txs {
-		tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(txBytes))
+	// Process packets sequentially until we hit an error
+	for packetIdx, packet := range batch.Packets {
+		// Submit all chunks for this packet
+		for chunkIdx, chunkBytes := range packet.Chunks {
+			tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(chunkBytes))
+			if err != nil {
+				require.Fail("Failed to decode chunk", "Packet %d chunk %d decode error: %v", packetIdx, chunkIdx, err)
+				return lastSig
+			}
+
+			recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+			if err != nil {
+				require.Fail("Failed to get latest blockhash", "Packet %d chunk %d blockhash error: %v", packetIdx, chunkIdx, err)
+				return lastSig
+			}
+			tx.Message.RecentBlockhash = recent.Value.Blockhash
+
+			sig, err := s.SignAndBroadcastTx(ctx, tx, user)
+			if err != nil {
+				encounteredError = err
+				lastSig = sig
+				t.Logf("Packet %d chunk %d failed as expected: %v", packetIdx, chunkIdx, err)
+				goto errorFound
+			}
+
+			t.Logf("Packet %d chunk %d/%d succeeded: %s", packetIdx, chunkIdx+1, len(packet.Chunks), sig)
+		}
+
+		// Submit final transaction for this packet
+		tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(packet.FinalTx))
 		if err != nil {
-			require.Fail("Failed to decode transaction", "Transaction %d decode error: %v", i, err)
+			require.Fail("Failed to decode final tx", "Packet %d final tx decode error: %v", packetIdx, err)
 			return lastSig
 		}
 
 		recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
 		if err != nil {
-			require.Fail("Failed to get latest blockhash", "Transaction %d blockhash error: %v", i, err)
+			require.Fail("Failed to get latest blockhash", "Packet %d final tx blockhash error: %v", packetIdx, err)
 			return lastSig
 		}
 		tx.Message.RecentBlockhash = recent.Value.Blockhash
@@ -92,14 +290,15 @@ func (s *Solana) SubmitChunkedRelayPacketsExpectingError(
 		if err != nil {
 			encounteredError = err
 			lastSig = sig
-			t.Logf("Transaction %d failed as expected: %v", i, err)
-			break
+			t.Logf("Packet %d final tx failed as expected: %v", packetIdx, err)
+			goto errorFound
 		}
 
 		lastSig = sig
-		t.Logf("Transaction %d/%d succeeded: %s", i+1, len(resp.Txs), sig)
+		t.Logf("Packet %d/%d succeeded: %s", packetIdx+1, len(batch.Packets), sig)
 	}
 
+errorFound:
 	require.Error(encounteredError, "Expected transaction to fail but it succeeded")
 
 	if expectedErrorSubstring != "" {
@@ -121,47 +320,33 @@ func (s *Solana) DeploySolanaProgram(ctx context.Context, t *testing.T, require 
 	programID, _, err := AnchorDeploy(ctx, "programs/solana", programName, keypairPath, walletPath)
 	require.NoError(err, "%s program deployment has failed", programName)
 	t.Logf("%s program deployed at: %s", programName, programID.String())
-	return programID
-}
 
-func (s *Solana) WaitForProgramAvailability(ctx context.Context, t *testing.T, programID solana.PublicKey) bool {
-	t.Helper()
-	return s.WaitForProgramAvailabilityWithTimeout(ctx, t, programID, 30)
-}
-
-func (s *Solana) WaitForProgramAvailabilityWithTimeout(ctx context.Context, t *testing.T, programID solana.PublicKey, timeoutSeconds int) bool {
-	t.Helper()
-	for i := range timeoutSeconds {
-		accountInfo, err := s.RPCClient.GetAccountInfo(ctx, programID)
-		if err == nil && accountInfo.Value != nil && accountInfo.Value.Executable {
-			t.Logf("Program %s is available after %d seconds, owner: %s, executable: %v",
-				programID.String(), i+1, accountInfo.Value.Owner.String(), accountInfo.Value.Executable)
-			return true
-		}
-		if i == 0 {
-			t.Logf("Waiting for program %s to be available...", programID.String())
-		}
-		time.Sleep(1 * time.Second)
+	// Wait for program to be available
+	if !s.WaitForProgramAvailability(ctx, programID) {
+		t.Logf("Warning: Program %s may not be fully available yet", programID.String())
 	}
 
-	t.Logf("Warning: Program %s still not available after %d seconds", programID.String(), timeoutSeconds)
-	return false
+	return programID
 }
 
 func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet) {
 	t.Helper()
-	require.NotEqual(0, len(resp.Txs), "no chunked transactions provided")
+
+	var batch relayertypes.TransactionBatch
+	err := proto.Unmarshal(resp.Tx, &batch)
+	require.NoError(err, "Failed to unmarshal TransactionBatch")
+	require.NotEmpty(batch.Txs, "no chunked transactions provided")
 
 	totalStart := time.Now()
 
-	chunkCount := len(resp.Txs) - 1
+	chunkCount := len(batch.Txs) - 1
 	t.Logf("=== Starting Chunked Update Client ===")
 	t.Logf("Total transactions: %d (%d chunks + 1 assembly)",
-		len(resp.Txs),
+		len(batch.Txs),
 		chunkCount)
 
 	chunkStart := 0
-	chunkEnd := len(resp.Txs) - 1
+	chunkEnd := len(batch.Txs) - 1
 
 	type chunkResult struct {
 		index    int
@@ -178,7 +363,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 		go func(idx int) {
 			chunkTxStart := time.Now()
 
-			tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[idx]))
+			tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[idx]))
 			if err != nil {
 				chunkResults <- chunkResult{
 					index:    idx,
@@ -229,7 +414,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	t.Logf("--- Phase 2: Assembling and updating client ---")
 	assemblyStart := time.Now()
 
-	tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[len(resp.Txs)-1]))
+	tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[len(batch.Txs)-1]))
 	require.NoError(err, "Failed to decode assembly tx")
 
 	sig, err := s.SignAndBroadcastTxWithConfirmedStatus(ctx, tx, user)

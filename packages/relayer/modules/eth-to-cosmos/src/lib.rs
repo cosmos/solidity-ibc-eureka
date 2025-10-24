@@ -187,7 +187,6 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         Ok(Response::new(api::RelayByTxResponse {
             tx,
             address: String::new(),
-            txs: vec![],
         }))
     }
 
@@ -232,7 +231,6 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         Ok(Response::new(api::UpdateClientResponse {
             tx,
             address: String::new(),
-            txs: vec![],
         }))
     }
 }

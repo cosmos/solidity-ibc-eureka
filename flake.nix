@@ -89,6 +89,8 @@
               go
               gopls
               gofumpt
+            ] ++ lib.optionals stdenv.isDarwin [
+              apple-sdk_15
             ];
             shellHook = ''
               export RUST_SRC_PATH="${rust}/lib/rustlib/src/rust/library"
@@ -105,6 +107,20 @@
               echo "  anchor-nix test                 - Build and run anchor client tests"
               echo "  anchor-nix unit-test [options]  - Build program then run cargo test"
               echo ""
+
+              # WORKAROUND: Fix Darwin SDK conflicts (Oct 2025)
+              # nixpkgs unstable has mismatched Apple SDK versions:
+              # - clang-wrapper uses SDK 11.3 (sets DEVELOPER_DIR)
+              # - libcxx uses SDK 15.5 (linked into binaries)
+              # - rust toolchain tries to use SDK 12.3 (sets DEVELOPER_DIR_FOR_TARGET)
+              # This causes "Multiple conflicting values defined for DEVELOPER_DIR" linker errors.
+              # We unset the conflicting *_FOR_TARGET variables to force everything to use installed apple-sdk_15.
+              # Remove this workaround when nixpkgs fixes the SDK version mismatch upstream.
+              if [[ "$OSTYPE" == "darwin"* ]]; then
+                unset DEVELOPER_DIR_FOR_TARGET
+                unset NIX_APPLE_SDK_VERSION_FOR_TARGET
+                unset SDKROOT_FOR_TARGET
+              fi
             '';
           };
         };
