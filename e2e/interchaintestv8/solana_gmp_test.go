@@ -1573,6 +1573,19 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromCosmos() {
 	// Retrieve the recv relay txs before timeout - we'll try to use them after timeout
 	var recvRelayTxs *relayertypes.RelayByTxResponse
 	s.Require().True(s.Run("Retrieve recv relay txs before timeout", func() {
+		s.Require().True(s.Run("Update Tendermint client on Solana", func() {
+			updateResp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    testvalues.SolanaChainID,
+				DstClientId: SolanaClientID,
+			})
+			s.Require().NoError(err, "Relayer Update Client failed")
+			s.Require().NotEmpty(updateResp.Txs, "Relayer Update client should return chunked transactions")
+
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
+			s.T().Logf("Updated Tendermint client on Solana using %d chunked transactions", len(updateResp.Txs))
+		}))
+
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
