@@ -176,23 +176,6 @@ func (s *Solana) CreateAndFundWallet() (*solana.Wallet, error) {
 	return wallet, nil
 }
 
-// WaitForProgramAvailability waits for a program to become available with default timeout
-func (s *Solana) WaitForProgramAvailability(ctx context.Context, programID solana.PublicKey) bool {
-	return s.WaitForProgramAvailabilityWithTimeout(ctx, programID, 30)
-}
-
-// WaitForProgramAvailabilityWithTimeout waits for a program to become available with specified timeout
-func (s *Solana) WaitForProgramAvailabilityWithTimeout(ctx context.Context, programID solana.PublicKey, timeoutSeconds int) bool {
-	for range timeoutSeconds {
-		accountInfo, err := s.RPCClient.GetAccountInfo(ctx, programID)
-		if err == nil && accountInfo.Value != nil && accountInfo.Value.Executable {
-			return true
-		}
-		time.Sleep(1 * time.Second)
-	}
-	return false
-}
-
 // SignAndBroadcastTxWithRetry retries transaction broadcasting with default timeout
 func (s *Solana) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Transaction, signers ...*solana.Wallet) (solana.Signature, error) {
 	return s.SignAndBroadcastTxWithRetryTimeout(ctx, tx, 30, signers...)
@@ -372,13 +355,6 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 	return altAddress, nil
 }
 
-// Uint64ToLeBytes converts a uint64 to little-endian byte slice
-func Uint64ToLeBytes(n uint64) []byte {
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, n)
-	return b
-}
-
 // mustWrite wraps encoder write calls and panics on error (should never happen with bytes.Buffer)
 func mustWrite(err error) {
 	if err != nil {
@@ -537,4 +513,163 @@ func (s *Solana) SubmitChunkedRelayPacketsExpectingError(
 	}
 
 	return lastSig
+}
+
+// DeploySolanaProgram deploys a Solana program using anchor deploy
+func (s *Solana) DeploySolanaProgram(ctx context.Context, t *testing.T, require *require.Assertions, programName string) solana.PublicKey {
+	keypairPath := fmt.Sprintf("e2e/interchaintestv8/solana/%s-keypair.json", programName)
+	walletPath := "e2e/interchaintestv8/solana/deployer_wallet.json"
+	programID, _, err := AnchorDeploy(ctx, "programs/solana", programName, keypairPath, walletPath)
+	require.NoError(err, "%s program deployment has failed", programName)
+	t.Logf("%s program deployed at: %s", programName, programID.String())
+	return programID
+}
+
+// WaitForProgramAvailability waits for a program to be available with default timeout
+func (s *Solana) WaitForProgramAvailability(ctx context.Context, t *testing.T, programID solana.PublicKey) bool {
+	return s.WaitForProgramAvailabilityWithTimeout(ctx, t, programID, 30)
+}
+
+// WaitForProgramAvailabilityWithTimeout waits for a program to be available with custom timeout
+func (s *Solana) WaitForProgramAvailabilityWithTimeout(ctx context.Context, t *testing.T, programID solana.PublicKey, timeoutSeconds int) bool {
+	for i := range timeoutSeconds {
+		accountInfo, err := s.RPCClient.GetAccountInfo(ctx, programID)
+		if err == nil && accountInfo.Value != nil && accountInfo.Value.Executable {
+			t.Logf("Program %s is available after %d seconds, owner: %s, executable: %v",
+				programID.String(), i+1, accountInfo.Value.Owner.String(), accountInfo.Value.Executable)
+			return true
+		}
+		if i == 0 {
+			t.Logf("Waiting for program %s to be available...", programID.String())
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	t.Logf("Warning: Program %s still not available after %d seconds", programID.String(), timeoutSeconds)
+	return false
+}
+
+// SubmitChunkedUpdateClient submits a chunked update client transaction
+func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet) {
+	require.NotEqual(0, len(resp.Txs), "no chunked transactions provided")
+
+	totalStart := time.Now()
+
+	// Transaction structure: [chunk1, chunk2, ..., chunkN, assembly]
+	chunkCount := len(resp.Txs) - 1 // Total minus assembly
+	t.Logf("=== Starting Chunked Update Client ===")
+	t.Logf("Total transactions: %d (%d chunks + 1 assembly)",
+		len(resp.Txs),
+		chunkCount)
+
+	chunkStart := 0
+	chunkEnd := len(resp.Txs) - 1 // Everything except last (assembly)
+
+	type chunkResult struct {
+		index    int
+		sig      solana.Signature
+		err      error
+		duration time.Duration
+	}
+
+	// Submit chunks in parallel
+	t.Logf("--- Phase 1: Uploading %d chunks in parallel ---", chunkCount)
+	chunksStart := time.Now()
+	chunkResults := make(chan chunkResult, chunkEnd-chunkStart)
+
+	for i := chunkStart; i < chunkEnd; i++ {
+		go func(idx int) {
+			chunkTxStart := time.Now()
+
+			// Decode
+			tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[idx]))
+			if err != nil {
+				chunkResults <- chunkResult{
+					index:    idx,
+					err:      fmt.Errorf("failed to decode chunk %d: %w", idx, err),
+					duration: time.Since(chunkTxStart),
+				}
+				return
+			}
+
+			// Sign and broadcast (with processed confirmation for fast feedback)
+			sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, user, rpc.ConfirmationStatusProcessed)
+			chunkDuration := time.Since(chunkTxStart)
+
+			if err != nil {
+				chunkResults <- chunkResult{
+					index:    idx,
+					err:      fmt.Errorf("failed to submit chunk %d: %w", idx, err),
+					duration: chunkDuration,
+				}
+				return
+			}
+
+			t.Logf("[Chunk %d timing] total duration: %v",
+				idx, chunkDuration)
+
+			chunkResults <- chunkResult{
+				index:    idx,
+				sig:      sig,
+				duration: chunkDuration,
+			}
+		}(i)
+	}
+
+	// Collect results from all parallel chunk submissions
+	completedChunks := 0
+	for i := 0; i < chunkEnd-chunkStart; i++ {
+		result := <-chunkResults
+		require.NoError(result.err, "Chunk was not submitted")
+		completedChunks++
+		t.Logf("✓ Chunk %d/%d uploaded in %v - tx: %s",
+			completedChunks, chunkCount, result.duration, result.sig)
+	}
+	close(chunkResults)
+
+	chunksTotal := time.Since(chunksStart)
+	avgChunkTime := chunksTotal / time.Duration(chunkCount)
+	t.Logf("--- Phase 1 Complete: All %d chunks uploaded in %v (avg: %v/chunk) ---",
+		chunkCount, chunksTotal, avgChunkTime)
+
+	// Submit assembly transaction - must be done last (always the last transaction)
+	t.Logf("--- Phase 2: Assembling and updating client ---")
+	assemblyStart := time.Now()
+
+	tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(resp.Txs[len(resp.Txs)-1]))
+	require.NoError(err, "Failed to decode assembly tx")
+
+	sig, err := s.SignAndBroadcastTxWithConfirmedStatus(ctx, tx, user)
+	require.NoError(err)
+
+	assemblyDuration := time.Since(assemblyStart)
+	t.Logf("✓ Assembly transaction completed in %v - tx: %s", assemblyDuration, sig)
+
+	totalDuration := time.Since(totalStart)
+	t.Logf("=== Chunked Update Client Complete ===")
+	t.Logf("Total time: %v", totalDuration)
+	t.Logf("  - Chunk upload phase: %v (%d chunks in parallel)", chunksTotal, chunkCount)
+	t.Logf("  - Assembly phase: %v", assemblyDuration)
+}
+
+// VerifyPacketCommitmentDeleted verifies that a packet commitment has been deleted
+func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T, require *require.Assertions, clientID string, sequence uint64) {
+	packetCommitmentPDA, _ := RouterPacketCommitmentPDA(clientID, sequence)
+
+	// Query the account - it should either not exist or have 0 lamports (closed)
+	accountInfo, err := s.RPCClient.GetAccountInfo(ctx, packetCommitmentPDA)
+	// The account should either not be found (nil) or have been closed (0 lamports)
+	if err != nil {
+		// Account not found is expected - commitment was deleted
+		t.Logf("Packet commitment deleted (account not found) for client %s, sequence %d", clientID, sequence)
+		return
+	}
+
+	if accountInfo.Value == nil || accountInfo.Value.Lamports == 0 {
+		t.Logf("Packet commitment deleted (account closed) for client %s, sequence %d", clientID, sequence)
+		return
+	}
+
+	require.Fail("Packet commitment should have been deleted after acknowledgment",
+		"Account %s still exists with %d lamports", packetCommitmentPDA.String(), accountInfo.Value.Lamports)
 }
