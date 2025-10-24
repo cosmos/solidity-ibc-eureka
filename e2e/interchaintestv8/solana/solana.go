@@ -304,10 +304,7 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 
 	// Derive ALT address with bump seed
 	// The derivation uses: [authority, recent_slot] seeds
-	altAddress, bumpSeed, err := AddressLookupTablePDA(authority.PublicKey(), slot)
-	if err != nil {
-		return solana.PublicKey{}, fmt.Errorf("failed to derive ALT address: %w", err)
-	}
+	altAddress, bumpSeed := AddressLookupTablePDA(authority.PublicKey(), slot)
 
 	// Create ALT instruction data
 	// ProgramInstruction enum: CreateLookupTable { recent_slot: u64, bump_seed: u8 }

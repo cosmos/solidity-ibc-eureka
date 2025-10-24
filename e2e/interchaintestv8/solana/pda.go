@@ -3,6 +3,7 @@ package solana
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 
 	solanago "github.com/gagliardetto/solana-go"
 
@@ -13,72 +14,104 @@ import (
 
 // Router (ICS26) PDA helpers
 
-func RouterStatePDA() (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func RouterStatePDA() (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("router_state")},
 		ics26_router.ProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive router state PDA: %v", err))
+	}
+	return pda, bump
 }
 
-func RouterIBCAppPDA(portID string) (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func RouterIBCAppPDA(portID string) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("ibc_app"), []byte(portID)},
 		ics26_router.ProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive router IBC app PDA for port %s: %v", portID, err))
+	}
+	return pda, bump
 }
 
-func RouterClientPDA(clientID string) (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func RouterClientPDA(clientID string) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("client"), []byte(clientID)},
 		ics26_router.ProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive router client PDA for client %s: %v", clientID, err))
+	}
+	return pda, bump
 }
 
-func RouterClientSequencePDA(clientID string) (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func RouterClientSequencePDA(clientID string) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("client_sequence"), []byte(clientID)},
 		ics26_router.ProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive router client sequence PDA for client %s: %v", clientID, err))
+	}
+	return pda, bump
 }
 
-func RouterPacketCommitmentPDA(clientID string, sequence uint64) (solanago.PublicKey, uint8, error) {
+func RouterPacketCommitmentPDA(clientID string, sequence uint64) (solanago.PublicKey, uint8) {
 	sequenceBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(sequenceBytes, sequence)
-	return solanago.FindProgramAddress(
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("packet_commitment"), []byte(clientID), sequenceBytes},
 		ics26_router.ProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive router packet commitment PDA for client %s sequence %d: %v", clientID, sequence, err))
+	}
+	return pda, bump
 }
 
-func RouterClientsPDA(clientID string) (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func RouterClientsPDA(clientID string) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("clients"), []byte(clientID)},
 		ics26_router.ProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive router clients PDA for client %s: %v", clientID, err))
+	}
+	return pda, bump
 }
 
 // ICS27 GMP PDA helpers
 
-func GMPAppStatePDA(portID string) (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func GMPAppStatePDA(portID string) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("app_state"), []byte(portID)},
 		ics27_gmp.ProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive GMP app state PDA for port %s: %v", portID, err))
+	}
+	return pda, bump
 }
 
-func GMPRouterCallerPDA() (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func GMPRouterCallerPDA() (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("router_caller")},
 		ics27_gmp.ProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive GMP router caller PDA: %v", err))
+	}
+	return pda, bump
 }
 
-func GMPAccountPDA(clientID string, sender string, salt []byte) (solanago.PublicKey, uint8, error) {
+func GMPAccountPDA(clientID string, sender string, salt []byte) (solanago.PublicKey, uint8) {
 	hasher := sha256.New()
 	hasher.Write([]byte(sender))
 	senderHash := hasher.Sum(nil)
 
-	return solanago.FindProgramAddress(
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{
 			[]byte("gmp_account"),
 			[]byte(clientID),
@@ -87,70 +120,106 @@ func GMPAccountPDA(clientID string, sender string, salt []byte) (solanago.Public
 		},
 		ics27_gmp.ProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive GMP account PDA for client %s sender %s: %v", clientID, sender, err))
+	}
+	return pda, bump
 }
 
 // GMP Counter App PDA helpers
 
-func CounterAppStatePDA(gmpCounterProgramID solanago.PublicKey) (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func CounterAppStatePDA(gmpCounterProgramID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("counter_app_state")},
 		gmpCounterProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive counter app state PDA: %v", err))
+	}
+	return pda, bump
 }
 
-func CounterUserCounterPDA(ics27AccountPDA solanago.PublicKey, gmpCounterProgramID solanago.PublicKey) (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func CounterUserCounterPDA(ics27AccountPDA solanago.PublicKey, gmpCounterProgramID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("user_counter"), ics27AccountPDA.Bytes()},
 		gmpCounterProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive counter user counter PDA: %v", err))
+	}
+	return pda, bump
 }
 
 // Dummy App PDA helpers
 
-func DummyAppStatePDA(portID string, dummyAppProgramID solanago.PublicKey) (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func DummyAppStatePDA(portID string, dummyAppProgramID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("app_state"), []byte(portID)},
 		dummyAppProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive dummy app state PDA for port %s: %v", portID, err))
+	}
+	return pda, bump
 }
 
-func DummyAppRouterCallerPDA(dummyAppProgramID solanago.PublicKey) (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func DummyAppRouterCallerPDA(dummyAppProgramID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("router_caller")},
 		dummyAppProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive dummy app router caller PDA: %v", err))
+	}
+	return pda, bump
 }
 
-func DummyAppEscrowPDA(clientID string, dummyAppProgramID solanago.PublicKey) (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func DummyAppEscrowPDA(clientID string, dummyAppProgramID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("escrow"), []byte(clientID)},
 		dummyAppProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive dummy app escrow PDA for client %s: %v", clientID, err))
+	}
+	return pda, bump
 }
 
-func DummyAppEscrowStatePDA(clientID string, dummyAppProgramID solanago.PublicKey) (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func DummyAppEscrowStatePDA(clientID string, dummyAppProgramID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("escrow_state"), []byte(clientID)},
 		dummyAppProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive dummy app escrow state PDA for client %s: %v", clientID, err))
+	}
+	return pda, bump
 }
 
 // ICS07 Tendermint PDA helpers
 
-func TendermintClientStatePDA(chainID string) (solanago.PublicKey, uint8, error) {
-	return solanago.FindProgramAddress(
+func TendermintClientStatePDA(chainID string) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("client"), []byte(chainID)},
 		ics07_tendermint.ProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Tendermint client state PDA for chain %s: %v", chainID, err))
+	}
+	return pda, bump
 }
 
 // Address Lookup Table PDA helpers
 
-func AddressLookupTablePDA(authority solanago.PublicKey, slot uint64) (solanago.PublicKey, uint8, error) {
+func AddressLookupTablePDA(authority solanago.PublicKey, slot uint64) (solanago.PublicKey, uint8) {
 	slotBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(slotBytes, slot)
-	return solanago.FindProgramAddress(
+	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{authority.Bytes(), slotBytes},
 		solanago.AddressLookupTableProgramID,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive address lookup table PDA for authority %s slot %d: %v", authority, slot, err))
+	}
+	return pda, bump
 }
