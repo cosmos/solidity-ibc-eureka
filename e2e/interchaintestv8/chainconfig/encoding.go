@@ -16,6 +16,7 @@ import (
 	proposaltypes "github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 
 	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
+	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
 	icacontrollertypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller/types"
 	icahosttypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
@@ -64,6 +65,7 @@ func codecAndEncodingConfig() (*codec.ProtoCodec, sdktestutil.TestEncodingConfig
 	ibctmtypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	ibcwasmtypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	channeltypesv2.RegisterInterfaces(cfg.InterfaceRegistry)
+	gmptypes.RegisterInterfaces(cfg.InterfaceRegistry)
 
 	// all other types
 	upgradetypes.RegisterInterfaces(cfg.InterfaceRegistry)
