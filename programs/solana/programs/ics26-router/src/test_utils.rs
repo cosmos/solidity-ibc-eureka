@@ -1,6 +1,6 @@
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::state::*;
-use anchor_lang::{AnchorSerialize, Discriminator, Space};
+use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator, Space};
 use solana_ibc_types::Payload;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::sysvar::Sysvar;
@@ -311,7 +311,7 @@ pub fn get_account_data_from_mollusk<'a>(
 }
 
 pub fn get_client_sequence_from_result(result: &mollusk_svm::result::InstructionResult) -> u64 {
-    use anchor_lang::{AnchorDeserialize, Discriminator, Space};
+    use anchor_lang::{Discriminator, Space};
 
     // ClientSequence discriminator to verify account type
     let expected_discriminator = ClientSequence::DISCRIMINATOR;
@@ -330,9 +330,9 @@ pub fn get_client_sequence_from_result(result: &mollusk_svm::result::Instruction
         .expect("client_sequence account not found");
 
     // Deserialize the account properly
-    let mut account_data = &sequence_account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-    let client_sequence: ClientSequence = AnchorDeserialize::deserialize(&mut account_data)
-        .expect("Failed to deserialize ClientSequence");
+    let client_sequence: ClientSequence =
+        ClientSequence::try_deserialize(&mut &sequence_account.data[..])
+            .expect("Failed to deserialize ClientSequence");
 
     client_sequence.next_sequence_send
 }
@@ -341,7 +341,7 @@ pub fn get_client_sequence_from_result_by_pubkey(
     result: &mollusk_svm::result::InstructionResult,
     pubkey: &Pubkey,
 ) -> Option<u64> {
-    use anchor_lang::{AnchorDeserialize, Discriminator};
+    use anchor_lang::Discriminator;
 
     result
         .resulting_accounts
@@ -352,9 +352,8 @@ pub fn get_client_sequence_from_result_by_pubkey(
             if account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE
                 && &account.data[..ANCHOR_DISCRIMINATOR_SIZE] == ClientSequence::DISCRIMINATOR
             {
-                let mut account_data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
                 let client_sequence: ClientSequence =
-                    AnchorDeserialize::deserialize(&mut account_data).ok()?;
+                    ClientSequence::try_deserialize(&mut &account.data[..]).ok()?;
                 Some(client_sequence.next_sequence_send)
             } else {
                 None

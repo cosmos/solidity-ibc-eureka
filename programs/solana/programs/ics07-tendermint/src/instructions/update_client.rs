@@ -84,7 +84,7 @@ fn validate_and_load_trusted_state(
     // Validate the PDA
     let (expected_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_key.as_ref(),
             &trusted_height.to_le_bytes(),
         ],
@@ -165,7 +165,7 @@ fn verify_consensus_state_pda(
 ) -> Result<()> {
     let (expected_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_key.as_ref(),
             &revision_height.to_le_bytes(),
         ],
@@ -227,7 +227,7 @@ fn check_existing_consensus_state(
 /// Creates seeds for deriving consensus state store PDAs
 fn consensus_state_seeds(client_key: &Pubkey, revision_height: u64) -> [Vec<u8>; 3] {
     [
-        b"consensus_state".to_vec(),
+        crate::state::ConsensusStateStore::SEED.to_vec(),
         client_key.as_ref().to_vec(),
         revision_height.to_le_bytes().to_vec(),
     ]
@@ -272,7 +272,7 @@ fn create_consensus_state_signer_seeds(
     bump: u8,
 ) -> [Vec<u8>; 4] {
     [
-        b"consensus_state".to_vec(),
+        crate::state::ConsensusStateStore::SEED.to_vec(),
         client_key.as_ref().to_vec(),
         revision_height.to_le_bytes().to_vec(),
         vec![bump],
@@ -376,7 +376,7 @@ mod tests {
     use crate::state::ConsensusStateStore;
     use crate::test_helpers::{fixtures::*, PROGRAM_BINARY_PATH};
     use crate::types::UpdateClientMsg;
-    use anchor_lang::{AnchorDeserialize, InstructionData};
+    use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
@@ -526,7 +526,7 @@ mod tests {
 
         let (new_consensus_state_pda, _) = Pubkey::find_program_address(
             &[
-                b"consensus_state",
+                crate::state::ConsensusStateStore::SEED,
                 client_state_pda.as_ref(),
                 &new_height.to_le_bytes(),
             ],
@@ -586,13 +586,15 @@ mod tests {
         let chain_id = &client_state.chain_id;
         let payer = Pubkey::new_unique();
 
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID);
+        let (client_state_pda, _) = Pubkey::find_program_address(
+            &[crate::types::ClientState::SEED, chain_id.as_bytes()],
+            &crate::ID,
+        );
 
         let latest_height = client_state.latest_height.revision_height;
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
             &[
-                b"consensus_state",
+                crate::state::ConsensusStateStore::SEED,
                 client_state_pda.as_ref(),
                 &latest_height.to_le_bytes(),
             ],
@@ -712,9 +714,9 @@ mod tests {
 
         // Verify the client state was updated
         let client_state_account = find_account_in_result(&result, &scenario.client_state_pda);
-        let mut data_slice = &client_state_account.data[ANCHOR_DISCRIMINATOR_SIZE..];
         let updated_client_state: ClientState =
-            ClientState::deserialize(&mut data_slice).expect("Failed to deserialize client state");
+            ClientState::try_deserialize(&mut &client_state_account.data[..])
+                .expect("Failed to deserialize client state");
 
         // Verify the client state updates
         assert_eq!(
@@ -748,9 +750,8 @@ mod tests {
         );
 
         // Verify the consensus state store structure
-        let mut data_slice = &new_consensus_state_account.data[ANCHOR_DISCRIMINATOR_SIZE..];
         let new_consensus_store: ConsensusStateStore =
-            ConsensusStateStore::deserialize(&mut data_slice)
+            ConsensusStateStore::try_deserialize(&mut &new_consensus_state_account.data[..])
                 .expect("Failed to deserialize new consensus state store");
 
         assert_eq!(
@@ -879,7 +880,7 @@ mod tests {
         // Use wrong trusted consensus state PDA
         let (wrong_trusted_consensus_state_pda, _) = Pubkey::find_program_address(
             &[
-                b"consensus_state",
+                crate::state::ConsensusStateStore::SEED,
                 scenario.client_state_pda.as_ref(),
                 &wrong_height.to_le_bytes(),
             ],
@@ -888,7 +889,7 @@ mod tests {
 
         let (new_consensus_state_pda, _) = Pubkey::find_program_address(
             &[
-                b"consensus_state",
+                crate::state::ConsensusStateStore::SEED,
                 scenario.client_state_pda.as_ref(),
                 &new_height.to_le_bytes(),
             ],

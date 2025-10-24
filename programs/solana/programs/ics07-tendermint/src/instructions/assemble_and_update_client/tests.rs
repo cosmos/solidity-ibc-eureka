@@ -173,7 +173,7 @@ fn test_successful_assembly_and_update() {
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
@@ -195,7 +195,7 @@ fn test_successful_assembly_and_update() {
     // Create instruction
     let payer = Pubkey::new_unique();
     let trusted_height = update_message.trusted_height;
-    let trusted_consensus_pda = derive_consensus_state_pda(chain_id, trusted_height);
+    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
@@ -290,7 +290,7 @@ fn test_assembly_with_corrupted_chunk() {
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
@@ -302,7 +302,7 @@ fn test_assembly_with_corrupted_chunk() {
 
     // Create instruction
     let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
+    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
@@ -361,7 +361,7 @@ fn test_assembly_wrong_submitter() {
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
@@ -369,7 +369,7 @@ fn test_assembly_wrong_submitter() {
     );
 
     let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
+    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
@@ -421,7 +421,7 @@ fn test_assembly_chunks_in_wrong_order() {
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
@@ -435,7 +435,7 @@ fn test_assembly_chunks_in_wrong_order() {
     let wrong_order_pdas = vec![chunk_pdas[2], chunk_pdas[0], chunk_pdas[1]];
 
     let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
+    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
@@ -492,7 +492,7 @@ fn test_rent_reclaim_after_assembly() {
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
@@ -504,7 +504,7 @@ fn test_rent_reclaim_after_assembly() {
     let submitter_account = create_submitter_account(initial_balance);
 
     let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
+    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
@@ -580,7 +580,7 @@ fn test_assemble_and_update_client_happy_path() {
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
@@ -599,7 +599,7 @@ fn test_assemble_and_update_client_happy_path() {
 
     // Create existing consensus state at trusted height
     let trusted_height = update_message.trusted_height;
-    let trusted_consensus_pda = derive_consensus_state_pda(chain_id, trusted_height);
+    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, trusted_height);
     let trusted_consensus_account = create_consensus_state_account(
         consensus_state.root,
         consensus_state.next_validators_hash,
@@ -675,7 +675,7 @@ fn test_assemble_and_update_client_happy_path() {
             .clone();
 
         let updated_client =
-            crate::types::ClientState::try_deserialize(&mut &client_state_account.data[8..])
+            crate::types::ClientState::try_deserialize(&mut &client_state_account.data[..])
                 .expect("should deserialize client state");
 
         assert_eq!(
@@ -723,7 +723,7 @@ fn test_assemble_with_frozen_client() {
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
@@ -754,7 +754,7 @@ fn test_assemble_with_frozen_client() {
     // Consensus state PDA needs client state PDA in its seeds
     let (trusted_consensus_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &trusted_height.to_le_bytes(),
         ],
@@ -838,7 +838,7 @@ fn test_assemble_with_existing_consensus_state() {
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
@@ -884,7 +884,7 @@ fn test_assemble_with_existing_consensus_state() {
     // Consensus state PDA needs client state PDA in its seeds
     let (trusted_consensus_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &trusted_height.to_le_bytes(),
         ],
@@ -974,7 +974,7 @@ fn test_assemble_with_invalid_header_after_assembly() {
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
@@ -983,7 +983,7 @@ fn test_assemble_with_invalid_header_after_assembly() {
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 2);
 
     let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(chain_id, 90);
+    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
@@ -1042,7 +1042,7 @@ fn test_assemble_updates_latest_height() {
     // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
@@ -1052,7 +1052,7 @@ fn test_assemble_updates_latest_height() {
 
     let payer = Pubkey::new_unique();
     let trusted_height = update_message.trusted_height;
-    let trusted_consensus_pda = derive_consensus_state_pda(chain_id, trusted_height);
+    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         client_state_pda,
@@ -1133,7 +1133,7 @@ fn test_assemble_updates_latest_height() {
             .clone();
 
         let updated_client =
-            crate::types::ClientState::try_deserialize(&mut &updated_client_account.data[8..])
+            crate::types::ClientState::try_deserialize(&mut &updated_client_account.data[..])
                 .expect("should deserialize client state");
 
         assert_eq!(
