@@ -27,14 +27,10 @@ pub enum ErrorCode {
     InvalidHeader,
     #[msg("Invalid proof: proof validation failed")]
     InvalidProof,
-    #[msg("Proof height not found: no consensus state at the specified height")]
-    ProofHeightNotFound,
 
     // Update errors
     #[msg("Update client failed: header verification failed")]
     UpdateClientFailed,
-    #[msg("Header verification failed: cryptographic validation failed after successful deserialization")]
-    HeaderVerificationFailed,
 
     // Misbehaviour errors
     #[msg("Misbehaviour detected: conflicting consensus state at same height")]
@@ -61,18 +57,12 @@ pub enum ErrorCode {
     // Consensus state errors
     #[msg("Consensus state not found at the specified height")]
     ConsensusStateNotFound,
-    #[msg("Invalid length: state root or next validators hash is not 32 bytes long")]
-    InvalidRootLength,
 
     // Chunking errors
     #[msg("Invalid chunk count: unexpected number of chunk accounts")]
     InvalidChunkCount,
-    #[msg("Metadata already initialized: cannot reinitialize upload metadata")]
-    MetadataAlreadyInitialized,
     #[msg("Invalid chunk account: chunk account PDA mismatch")]
     InvalidChunkAccount,
-    #[msg("Too many chunks: exceeds maximum supported chunks")]
-    TooManyChunks,
     #[msg("Chunk data too large: exceeds maximum chunk size")]
     ChunkDataTooLarge,
 
