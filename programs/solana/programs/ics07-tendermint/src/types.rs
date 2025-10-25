@@ -132,11 +132,6 @@ impl TryFrom<IbcConsensusState> for ConsensusState {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct UpdateClientMsg {
-    pub client_message: Vec<u8>,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct MisbehaviourMsg {
     pub client_id: String,
     pub misbehaviour: Vec<u8>, // Protobuf encoded Misbehaviour
