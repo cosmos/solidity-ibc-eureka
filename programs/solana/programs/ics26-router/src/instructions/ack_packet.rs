@@ -254,18 +254,6 @@ pub fn ack_packet<'info>(
     )?;
     msg!("IBC app callback completed");
 
-    // Close the account and return rent to payer
-    msg!("Closing packet commitment and returning rent");
-    let dest_starting_lamports = ctx.accounts.payer.lamports();
-    **ctx.accounts.payer.lamports.borrow_mut() = dest_starting_lamports
-        .checked_add(packet_commitment_account.lamports())
-        .ok_or(RouterError::ArithmeticOverflow)?;
-    **packet_commitment_account.lamports.borrow_mut() = 0;
-
-    let mut data = packet_commitment_account.try_borrow_mut_data()?;
-    data.fill(0);
-
-    msg!("Emitting AckPacketEvent");
     emit!(AckPacketEvent {
         client_id: packet.source_client.clone(),
         sequence: packet.sequence,
@@ -504,13 +492,13 @@ mod tests {
 
         let checks = vec![
             Check::success(),
-            // Verify packet commitment account is closed (0 lamports)
+            // Packet commitment is no longer immediately deleted, kept for deferred cleanup
             Check::account(&ctx.packet_commitment_pubkey)
-                .lamports(0)
+                .lamports(commitment_lamports) // Should still have lamports
                 .build(),
-            // Verify payer received the rent back
+            // Payer should not receive rent back immediately
             Check::account(&payer_pubkey)
-                .lamports(initial_payer_lamports + commitment_lamports)
+                .lamports(initial_payer_lamports) // No change
                 .build(),
         ];
 

@@ -1,3 +1,4 @@
+use crate::constants::DEFAULT_MAX_CONSENSUS_STATES;
 use crate::error::ErrorCode;
 use crate::types::{ClientState, ConsensusState};
 use crate::Initialize;
@@ -36,7 +37,14 @@ pub fn initialize(
 
     let client_state_account = &mut ctx.accounts.client_state;
     let latest_height = client_state.latest_height;
-    client_state_account.set_inner(client_state);
+
+    // Initialize pruning fields with defaults
+    let mut client_state_with_pruning = client_state;
+    client_state_with_pruning.earliest_height = latest_height.revision_height;
+    client_state_with_pruning.consensus_state_count = 1; // We're adding the first consensus state
+    client_state_with_pruning.max_consensus_states = DEFAULT_MAX_CONSENSUS_STATES;
+
+    client_state_account.set_inner(client_state_with_pruning);
 
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
     consensus_state_store.height = latest_height.revision_height;
