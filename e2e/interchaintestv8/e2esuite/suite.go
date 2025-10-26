@@ -80,15 +80,15 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 
 	solanaTestnetType := os.Getenv(testvalues.EnvKeySolanaTestnetType)
 	switch solanaTestnetType {
-	case testvalues.SolanaTestnetType_Localnet:
-		solChain, err := chainconfig.StartLocalnet(ctx)
+	case testvalues.SolanaTestnetType_Docker:
+		solChain, err := chainconfig.StartSolanaDocker(ctx)
 		s.Require().NoError(err)
 		s.T().Cleanup(func() {
 			if err := solChain.Destroy(); err != nil {
-				s.T().Logf("Failed to destroy Solana localnet: %v", err)
+				s.T().Logf("Failed to destroy Solana Docker container: %v", err)
 			}
 		})
-		s.SolanaChain, err = solana.NewLocalnetSolana(solChain.Faucet)
+		s.SolanaChain, err = solana.NewSolanaDocker(solChain.Faucet)
 		s.Require().NoError(err)
 	case testvalues.SolanaTestnetType_None, "":
 		// Do nothing

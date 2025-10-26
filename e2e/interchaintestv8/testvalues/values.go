@@ -97,14 +97,14 @@ const (
 
 	// EnvKeySolanaTestnetType is the environment variable name to configure the Solana testnet type.
 	EnvKeySolanaTestnetType = "SOLANA_TESTNET_TYPE"
-	// SolanaTestnetType_Localnet is the Solana testnet type for using a local testnet.
-	SolanaTestnetType_Localnet = "localnet"
+	// SolanaTestnetType_Docker is the Solana testnet type for using Docker test validator.
+	SolanaTestnetType_Docker = "docker"
 	// SolanaTestnetType_None is the Solana testnet type for using no chain.
 	SolanaTestnetType_None = "none"
-	// SolanaChainID is the chain identifier for Solana localnet used in relayer config.
-	SolanaChainID = "solana-localnet"
-	// SolanaLocalnetRPC is the default RPC URL for Solana localnet.
-	SolanaLocalnetRPC = "http://localhost:8899"
+	// SolanaChainID is the chain identifier for Solana Docker test validator used in relayer config.
+	SolanaChainID = "solana-docker"
+	// SolanaDockerRPC is the default RPC URL for Solana Docker test validator.
+	SolanaDockerRPC = "http://localhost:8899"
 	// SolanaGMPPortID is the port identifier for GMP (General Message Passing) application.
 	SolanaGMPPortID = "gmpport"
 

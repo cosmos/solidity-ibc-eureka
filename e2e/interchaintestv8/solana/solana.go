@@ -40,7 +40,7 @@ func NewSolana(rpcURL, wsURL string, faucet *solana.Wallet) (Solana, error) {
 	}, nil
 }
 
-func NewLocalnetSolana(faucet *solana.Wallet) (Solana, error) {
+func NewSolanaDocker(faucet *solana.Wallet) (Solana, error) {
 	return NewSolana(rpc.LocalNet.RPC, rpc.LocalNet.WS, faucet)
 }
 

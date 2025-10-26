@@ -22,7 +22,7 @@ type SolanaChain struct {
 	Faucet        *solana.Wallet
 }
 
-func StartLocalnet(ctx context.Context) (SolanaChain, error) {
+func StartSolanaDocker(ctx context.Context) (SolanaChain, error) {
 	solanaChain := SolanaChain{}
 	solanaChain.Faucet = solana.NewWallet()
 
@@ -31,9 +31,13 @@ func StartLocalnet(ctx context.Context) (SolanaChain, error) {
 	if existingContainers, err := cleanupCmd.Output(); err == nil && len(existingContainers) > 0 {
 		// Stop and remove existing containers
 		stopCmd := exec.Command("sh", "-c", "docker stop $(docker ps -aq --filter 'name=solana-test-') 2>/dev/null || true")
-		stopCmd.Run()
+		if err := stopCmd.Run(); err != nil {
+			return SolanaChain{}, fmt.Errorf("failed to stop solana docker contrainer: %w", err)
+		}
 		rmCmd := exec.Command("sh", "-c", "docker rm -f $(docker ps -aq --filter 'name=solana-test-') 2>/dev/null || true")
-		rmCmd.Run()
+		if err := rmCmd.Run(); err != nil {
+			return SolanaChain{}, fmt.Errorf("failed to remove solana docker contrainer: %w", err)
+		}
 	}
 
 	dockerImage := "beeman/solana-test-validator:latest"

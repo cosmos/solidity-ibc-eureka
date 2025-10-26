@@ -2,7 +2,7 @@ package relayer
 
 // SolanaCosmosConfigInfo holds the configuration information for Solana <-> Cosmos relaying
 type SolanaCosmosConfigInfo struct {
-	// Solana chain identifier (e.g., "solana-localnet", "solana-devnet", "solana-mainnet")
+	// Solana chain identifier (e.g., "solana-docker", "solana-devnet", "solana-mainnet")
 	SolanaChainID string
 	// Cosmos chain identifier
 	CosmosChainID string

@@ -87,7 +87,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	s.Require().NoError(err)
 
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
-	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_Localnet)
+	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_Docker)
 	s.TestSuite.SetupSuite(ctx)
 
 	s.T().Log("Waiting for Solana cluster to be ready...")
@@ -205,7 +205,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		configInfo := relayer.SolanaCosmosConfigInfo{
 			SolanaChainID:        testvalues.SolanaChainID,
 			CosmosChainID:        simd.Config().ChainID,
-			SolanaRPC:            testvalues.SolanaLocalnetRPC,
+			SolanaRPC:            testvalues.SolanaDockerRPC,
 			TmRPC:                simd.GetHostRPCAddress(),
 			ICS07ProgramID:       ics07_tendermint.ProgramID.String(),
 			ICS26RouterProgramID: ics26_router.ProgramID.String(),
