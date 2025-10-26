@@ -77,13 +77,23 @@ func StartSolanaDocker(ctx context.Context) (SolanaChain, error) {
 	// Wait for the Solana validator to be ready
 	time.Sleep(8 * time.Second)
 
-	// Additional health check
+	// Health check for RPC endpoint
 	for range 10 {
 		healthCmd := exec.CommandContext(ctx, "docker", "exec", containerName,
 			"curl", "-s", "http://localhost:8899", "-X", "POST",
 			"-H", "Content-Type: application/json",
 			"-d", `{"jsonrpc":"2.0","id":1,"method":"getHealth"}`)
 		if output, err := healthCmd.Output(); err == nil && len(output) > 0 {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	// Health check for WebSocket endpoint - ensure port 8900 is listening
+	for range 10 {
+		wsCheckCmd := exec.CommandContext(ctx, "docker", "exec", containerName,
+			"sh", "-c", "nc -z localhost 8900")
+		if err := wsCheckCmd.Run(); err == nil {
 			break
 		}
 		time.Sleep(1 * time.Second)
