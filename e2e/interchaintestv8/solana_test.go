@@ -27,11 +27,11 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
+	"github.com/cosmos/interchaintest/v10/testutil"
+
 	dummy_ibc_app "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/dummyibcapp"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
-
-	"github.com/cosmos/interchaintest/v10/testutil"
 
 	solanachain "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chain/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"

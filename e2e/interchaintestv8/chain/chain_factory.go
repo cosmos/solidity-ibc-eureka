@@ -30,7 +30,7 @@ func (f *ExtendedChainFactory) Chains(testName string) ([]ibc.Chain, error) {
 	for i, s := range f.specs {
 		// For Solana chains, use the ChainConfig directly without calling Config()
 		var cfg *ibc.ChainConfig
-		if s.ChainConfig.Type == Solana {
+		if s.Type == Solana {
 			// Use the ChainConfig directly for Solana
 			cfg = &s.ChainConfig
 		} else {

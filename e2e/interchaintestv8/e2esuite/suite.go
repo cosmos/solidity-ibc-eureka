@@ -31,14 +31,14 @@ const anvilFaucetPrivateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5ef
 type TestSuite struct {
 	suite.Suite
 
-	EthChain         ethereum.Ethereum
-	ethTestnetType   string
-	CosmosChains     []*cosmos.CosmosChain
-	CosmosUsers      []ibc.Wallet
-	SolanaChain      *solanachain.SolanaChain
-	dockerClient     *dockerclient.Client
-	network          string
-	logger           *zap.Logger
+	EthChain       ethereum.Ethereum
+	ethTestnetType string
+	CosmosChains   []*cosmos.CosmosChain
+	CosmosUsers    []ibc.Wallet
+	SolanaChain    *solanachain.SolanaChain
+	dockerClient   *dockerclient.Client
+	network        string
+	logger         *zap.Logger
 
 	// proposalIDs keeps track of the active proposal ID for cosmos chains
 	proposalIDs map[string]uint64

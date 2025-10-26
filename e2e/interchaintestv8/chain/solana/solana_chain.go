@@ -12,21 +12,21 @@ import (
 	dockerimagetypes "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/go-connections/nat"
+	bin "github.com/gagliardetto/binary"
 	dockerclient "github.com/moby/moby/client"
 	"go.uber.org/zap"
+
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/system"
+	"github.com/gagliardetto/solana-go/rpc"
+	confirm "github.com/gagliardetto/solana-go/rpc/sendAndConfirmTransaction"
+	"github.com/gagliardetto/solana-go/rpc/ws"
 
 	sdkmath "cosmossdk.io/math"
 
 	"github.com/cosmos/interchaintest/v10/dockerutil"
 	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/cosmos/interchaintest/v10/testutil"
-
-	bin "github.com/gagliardetto/binary"
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/programs/system"
-	"github.com/gagliardetto/solana-go/rpc"
-	confirm "github.com/gagliardetto/solana-go/rpc/sendAndConfirmTransaction"
-	"github.com/gagliardetto/solana-go/rpc/ws"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )

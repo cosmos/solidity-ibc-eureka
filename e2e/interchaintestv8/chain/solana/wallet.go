@@ -4,8 +4,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/gagliardetto/solana-go"
+
+	"github.com/cosmos/interchaintest/v10/ibc"
 )
 
 var _ ibc.Wallet = &SolanaWallet{}

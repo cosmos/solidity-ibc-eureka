@@ -129,17 +129,17 @@ func (s *IbcEurekaSolanaTestSuite) createAddressLookupTable(ctx context.Context)
 	commonAccounts := []solanago.PublicKey{
 		solanago.SystemProgramID,
 		solanachain.ComputeBudgetProgramID(), // Compute Budget program (used by update_client)
-		ics26_router.ProgramID,          // Router program
-		ics07_tendermint.ProgramID,      // Light client program
-		ics27_gmp.ProgramID,             // GMP program (ibc_app_program)
-		routerStatePDA,                  // Router state PDA
-		s.SolanaUser.PublicKey(),        // Fee payer / relayer
-		ibcAppPDA,                       // IBC app PDA for GMP port
-		gmpAppStatePDA,                  // GMP app state PDA
-		clientPDA,                       // Client PDA
-		clientStatePDA,                  // ICS07 client state PDA
-		routerCallerPDA,                 // GMP router caller PDA (CPI signer)
-		clientSequencePDA,               // Client sequence PDA (tracks packet sequence)
+		ics26_router.ProgramID,               // Router program
+		ics07_tendermint.ProgramID,           // Light client program
+		ics27_gmp.ProgramID,                  // GMP program (ibc_app_program)
+		routerStatePDA,                       // Router state PDA
+		s.SolanaUser.PublicKey(),             // Fee payer / relayer
+		ibcAppPDA,                            // IBC app PDA for GMP port
+		gmpAppStatePDA,                       // GMP app state PDA
+		clientPDA,                            // Client PDA
+		clientStatePDA,                       // ICS07 client state PDA
+		routerCallerPDA,                      // GMP router caller PDA (CPI signer)
+		clientSequencePDA,                    // Client sequence PDA (tracks packet sequence)
 	}
 
 	// Create ALT with common accounts
