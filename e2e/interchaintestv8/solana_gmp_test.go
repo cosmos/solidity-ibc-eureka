@@ -28,8 +28,8 @@ import (
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
 
+	solanachain "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chain/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/gmphelpers"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
@@ -128,18 +128,18 @@ func (s *IbcEurekaSolanaTestSuite) createAddressLookupTable(ctx context.Context)
 	// because those vary per application. ALT should only contain universal GMP infrastructure accounts.
 	commonAccounts := []solanago.PublicKey{
 		solanago.SystemProgramID,
-		solana.ComputeBudgetProgramID(), // Compute Budget program (used by update_client)
-		ics26_router.ProgramID,          // Router program
-		ics07_tendermint.ProgramID,      // Light client program
-		ics27_gmp.ProgramID,             // GMP program (ibc_app_program)
-		routerStatePDA,                  // Router state PDA
-		s.SolanaUser.PublicKey(),        // Fee payer / relayer
-		ibcAppPDA,                       // IBC app PDA for GMP port
-		gmpAppStatePDA,                  // GMP app state PDA
-		clientPDA,                       // Client PDA
-		clientStatePDA,                  // ICS07 client state PDA
-		routerCallerPDA,                 // GMP router caller PDA (CPI signer)
-		clientSequencePDA,               // Client sequence PDA (tracks packet sequence)
+		solanachain.ComputeBudgetProgramID(), // Compute Budget program (used by update_client)
+		ics26_router.ProgramID,               // Router program
+		ics07_tendermint.ProgramID,           // Light client program
+		ics27_gmp.ProgramID,                  // GMP program (ibc_app_program)
+		routerStatePDA,                       // Router state PDA
+		s.SolanaUser.PublicKey(),             // Fee payer / relayer
+		ibcAppPDA,                            // IBC app PDA for GMP port
+		gmpAppStatePDA,                       // GMP app state PDA
+		clientPDA,                            // Client PDA
+		clientStatePDA,                       // ICS07 client state PDA
+		routerCallerPDA,                      // GMP router caller PDA (CPI signer)
+		clientSequencePDA,                    // Client sequence PDA (tracks packet sequence)
 	}
 
 	// Create ALT with common accounts

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -26,10 +27,13 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
+	"github.com/cosmos/interchaintest/v10/testutil"
+
 	dummy_ibc_app "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/dummyibcapp"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 
+	solanachain "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chain/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
@@ -83,24 +87,58 @@ func TestWithIbcEurekaSolanaTestSuite(t *testing.T) {
 func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	var err error
 
+	// Check if we're in CI and should skip Solana Docker tests
+	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+		s.T().Log("Detected CI environment, checking Docker-in-Docker support...")
+
+		// Try to check if Docker is available and can run containers
+		testCmd := exec.Command("docker", "run", "--rm", "hello-world")
+		if err := testCmd.Run(); err != nil {
+			s.T().Skip("Skipping Solana tests in CI: Docker-in-Docker not available or not configured. " +
+				"These tests require Docker to run Solana test validator. " +
+				"To run in CI, ensure Docker-in-Docker (dind) is configured.")
+			return
+		}
+		s.T().Log("Docker-in-Docker appears to be available, continuing with tests...")
+	}
+
 	err = os.Chdir("../..")
 	s.Require().NoError(err)
 
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
-	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_Localnet)
+	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_Docker)
 	s.TestSuite.SetupSuite(ctx)
 
+	// Check if Solana chain is available
+	s.Require().NotNil(s.SolanaChain, "Solana chain not initialized")
+
 	s.T().Log("Waiting for Solana cluster to be ready...")
-	err = s.SolanaChain.WaitForClusterReady(ctx, 30*time.Second)
+	// Wait for chain to be ready
+	err = testutil.WaitForBlocks(ctx, 2, s.SolanaChain)
 	s.Require().NoError(err, "Solana cluster failed to initialize")
 
 	s.T().Log("Creating and funding Solana test wallet...")
-	s.SolanaUser, err = s.SolanaChain.CreateAndFundWalletWithRetry(ctx, 5)
-	s.Require().NoError(err, "Solana create/fund wallet has failed")
+	// Create wallet through the integrated chain
+	err = s.SolanaChain.CreateKey(ctx, "user")
+	s.Require().NoError(err)
+
+	// Get the actual wallet with private key
+	userWallet, err := s.SolanaChain.GetWallet("user")
+	s.Require().NoError(err, "Failed to get user wallet")
+	s.SolanaUser = userWallet
+
+	// Check the wallet balance (funding transaction should be confirmed now)
+	balance, err := s.SolanaChain.GetBalance(ctx, s.SolanaUser.PublicKey().String(), "SOL")
+	s.Require().NoError(err, "Failed to get user wallet balance")
+	s.T().Logf("User wallet balance: %s lamports", balance.String())
+	s.Require().True(balance.GT(sdkmath.NewInt(0)), "User wallet balance should be greater than 0")
 
 	simd := s.CosmosChains[0]
 
 	s.Require().True(s.Run("Deploy IBC core contracts", func() {
+		// Set the RPC URL for anchor to use the Docker container
+		os.Setenv("SOLANA_RPC_URL", s.SolanaChain.GetHostRPCAddress())
+
 		_, err := s.SolanaChain.FundUser(solana.DeployerPubkey, 20*testvalues.InitialSolBalance)
 		s.Require().NoError(err, "FundUser user failed")
 
@@ -205,7 +243,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		configInfo := relayer.SolanaCosmosConfigInfo{
 			SolanaChainID:        testvalues.SolanaChainID,
 			CosmosChainID:        simd.Config().ChainID,
-			SolanaRPC:            testvalues.SolanaLocalnetRPC,
+			SolanaRPC:            s.SolanaChain.GetHostRPCAddress(), // Use the actual host address
 			TmRPC:                simd.GetHostRPCAddress(),
 			ICS07ProgramID:       ics07_tendermint.ProgramID.String(),
 			ICS26RouterProgramID: ics26_router.ProgramID.String(),
@@ -634,7 +672,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		)
 		s.Require().NoError(err)
 
-		computeBudgetInstruction := solana.NewComputeBudgetInstruction(400000)
+		computeBudgetInstruction := solanachain.NewComputeBudgetInstruction(400000)
 
 		tx, err := s.SolanaChain.NewTransactionFromInstructions(
 			s.SolanaUser.PublicKey(),

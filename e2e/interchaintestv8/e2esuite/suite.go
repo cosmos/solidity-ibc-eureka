@@ -3,6 +3,7 @@ package e2esuite
 import (
 	"context"
 	"os"
+	"runtime"
 
 	dockerclient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/suite"
@@ -18,9 +19,10 @@ import (
 	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/cosmos/interchaintest/v10/testreporter"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chain"
+	solanachain "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chain/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
@@ -34,7 +36,7 @@ type TestSuite struct {
 	ethTestnetType string
 	CosmosChains   []*cosmos.CosmosChain
 	CosmosUsers    []ibc.Wallet
-	SolanaChain    solana.Solana
+	SolanaChain    *solanachain.SolanaChain
 	dockerClient   *dockerclient.Client
 	network        string
 	logger         *zap.Logger
@@ -78,35 +80,56 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		s.T().Fatalf("Unknown Ethereum testnet type: %s", s.ethTestnetType)
 	}
 
+	// Add Solana to chain specs if requested
 	solanaTestnetType := os.Getenv(testvalues.EnvKeySolanaTestnetType)
-	switch solanaTestnetType {
-	case testvalues.SolanaTestnetType_Localnet:
-		solChain, err := chainconfig.StartLocalnet(ctx)
-		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			if err := solChain.Destroy(); err != nil {
-				s.T().Logf("Failed to destroy Solana localnet: %v", err)
+	if solanaTestnetType == testvalues.SolanaTestnetType_Docker {
+		// Select Docker image based on architecture
+		// ARM64 (Mac): beeman/solana-test-validator
+		// AMD64 (CI): anzaxyz/agave
+		var solanaImage ibc.DockerImage
+		if runtime.GOARCH == "arm64" {
+			solanaImage = ibc.DockerImage{
+				Repository: "beeman/solana-test-validator",
+				Version:    "latest",
+				UIDGID:     "1000:1000",
 			}
-		})
-		s.SolanaChain, err = solana.NewLocalnetSolana(solChain.Faucet)
-		s.Require().NoError(err)
-	case testvalues.SolanaTestnetType_None, "":
-		// Do nothing
-	default:
-		s.T().Fatalf("Unknown Solana testnet type: %s", solanaTestnetType)
+		} else {
+			// AMD64/x86_64 - use tchambard's solana-test-validator
+			solanaImage = ibc.DockerImage{
+				Repository: "tchambard/solana-test-validator",
+				Version:    "latest",
+				UIDGID:     "1000:1000",
+			}
+		}
+
+		// Add Solana chain spec to be managed by interchaintest
+		solanaChainSpec := &interchaintest.ChainSpec{
+			ChainConfig: ibc.ChainConfig{
+				Type:    chain.Solana,
+				Name:    "solana",
+				ChainID: "solana-test",
+				Bin:     "solana-test-validator",
+				Images:  []ibc.DockerImage{solanaImage},
+			},
+		}
+		icChainSpecs = append(icChainSpecs, solanaChainSpec)
 	}
 
 	s.logger = zaptest.NewLogger(s.T())
 	s.dockerClient, s.network = interchaintest.DockerSetup(s.T())
 
-	cf := interchaintest.NewBuiltinChainFactory(s.logger, icChainSpecs)
+	// Use our extended chain factory that supports Solana
+	cf := chain.NewExtendedChainFactory(s.logger, icChainSpecs)
 
 	chains, err := cf.Chains(s.T().Name())
 	s.Require().NoError(err)
 
 	ic := interchaintest.NewInterchain()
 	for _, chain := range chains {
-		ic = ic.AddChain(chain)
+		// Don't add Solana to the interchain builder - handle it separately
+		if _, ok := chain.(*solanachain.SolanaChain); !ok {
+			ic = ic.AddChain(chain)
+		}
 	}
 
 	execRep := testreporter.NewNopReporter().RelayerExecReporter(s.T())
@@ -119,22 +142,34 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		SkipPathCreation: true,
 	}))
 
-	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
-		anvil := chains[len(chains)-1].(*icfoundry.AnvilChain)
-		faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
-		s.Require().NoError(err)
-
-		s.EthChain, err = ethereum.NewEthereum(ctx, anvil.GetHostRPCAddress(), nil, faucet)
-		s.Require().NoError(err)
-
-		// Remove the Ethereum chain from the cosmos chains
-		chains = chains[:len(chains)-1]
-	}
-
+	// Extract specific chain types from the built chains
+	var remainingChains []ibc.Chain
+	var solanaNeedsStart bool
 	for _, chain := range chains {
-		cosmosChain := chain.(*cosmos.CosmosChain)
-		s.CosmosChains = append(s.CosmosChains, cosmosChain)
+		switch c := chain.(type) {
+		case *icfoundry.AnvilChain:
+			if s.ethTestnetType == testvalues.EthTestnetTypePoW {
+				faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
+				s.Require().NoError(err)
+
+				s.EthChain, err = ethereum.NewEthereum(ctx, c.GetHostRPCAddress(), nil, faucet)
+				s.Require().NoError(err)
+			}
+		case *solanachain.SolanaChain:
+			s.SolanaChain = c
+			solanaNeedsStart = true
+			// Initialize Solana (since it's not in the interchain builder)
+			err = c.Initialize(ctx, s.T().Name(), s.dockerClient, s.network)
+			s.Require().NoError(err)
+		case *cosmos.CosmosChain:
+			s.CosmosChains = append(s.CosmosChains, c)
+			remainingChains = append(remainingChains, c)
+		default:
+			remainingChains = append(remainingChains, chain)
+		}
 	}
+
+	chains = remainingChains
 
 	// map all query request types to their gRPC method paths for cosmos chains
 	s.Require().NoError(populateQueryReqToPath(ctx, s.CosmosChains[0]))
@@ -147,5 +182,11 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	s.proposalIDs = make(map[string]uint64)
 	for _, chain := range s.CosmosChains {
 		s.proposalIDs[chain.Config().ChainID] = 1
+	}
+
+	// Start Solana chain if present (it's handled separately from interchaintest)
+	if solanaNeedsStart && s.SolanaChain != nil {
+		err = s.SolanaChain.Start(s.T().Name(), ctx)
+		s.Require().NoError(err)
 	}
 }

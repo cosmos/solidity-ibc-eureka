@@ -30,7 +30,13 @@ func AnchorDeploy(ctx context.Context, dir, programName, programKeypairFile, wal
 		return solana.PublicKey{}, solana.Signature{}, fmt.Errorf("failed to get absolute path for program keypair file: %w", err)
 	}
 
-	args = append(args, "deploy", "-p", programName, "--provider.wallet", absWalletFile, "--program-keypair", absKeypairFile)
+	// Check if we should use a custom RPC URL (e.g., for Docker)
+	rpcURL := os.Getenv("SOLANA_RPC_URL")
+	if rpcURL == "" {
+		rpcURL = "http://127.0.0.1:8899"
+	}
+
+	args = append(args, "deploy", "-p", programName, "--provider.wallet", absWalletFile, "--provider.cluster", rpcURL, "--program-keypair", absKeypairFile)
 	cmd := exec.Command(
 		"anchor", args...,
 	)
