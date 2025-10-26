@@ -187,7 +187,6 @@ func (c *SolanaChain) Start(testName string, ctx context.Context, additionalGene
 		return fmt.Errorf("no RPC host port found")
 	}
 	c.hostRPCPort = hostPorts[0]
-	c.log.Debug("Got RPC host port", zap.String("port", c.hostRPCPort))
 
 	hostPorts, err = c.containerLifecycle.GetHostPorts(ctx, wsPort)
 	if err != nil {
@@ -197,45 +196,28 @@ func (c *SolanaChain) Start(testName string, ctx context.Context, additionalGene
 		return fmt.Errorf("no WebSocket host port found")
 	}
 	c.hostWSPort = hostPorts[0]
-	c.log.Debug("Got WebSocket host port", zap.String("port", c.hostWSPort))
 
-	// Wait for Solana to be ready
-	c.log.Info("Waiting for Solana to be ready...")
 	time.Sleep(5 * time.Second)
 
-	// Connect RPC client
 	c.RPCClient = rpc.New(c.GetHostRPCAddress())
 
-	// Connect WebSocket client with retries
 	var wsErr error
-	wsAddress := c.GetHostWSAddress()
-	c.log.Info("Attempting to connect to WebSocket",
-		zap.String("address", wsAddress),
-		zap.String("hostWSPort", c.hostWSPort),
-		zap.String("container", c.HostName()))
 	for i := 0; i < 10; i++ {
-		c.WSClient, wsErr = ws.Connect(ctx, wsAddress)
+		c.WSClient, wsErr = ws.Connect(ctx, c.GetHostWSAddress())
 		if wsErr == nil {
-			c.log.Info("Successfully connected to Solana WebSocket", zap.Int("attempts", i+1))
 			break
 		}
-		c.log.Debug("WebSocket connection failed, retrying",
-			zap.Error(wsErr),
-			zap.Int("attempt", i+1),
-			zap.String("address", wsAddress))
 		time.Sleep(2 * time.Second)
 	}
 	if wsErr != nil {
 		return fmt.Errorf("failed to connect to Solana WebSocket after 10 attempts: %w", wsErr)
 	}
 
-	// Fund any wallets that were created before the chain started
 	for keyName, wallet := range c.wallets {
-		c.log.Info("Funding wallet created before chain start", zap.String("wallet", keyName))
 		err := c.SendFunds(ctx, "", ibc.WalletAmount{
 			Address: wallet.PublicKey().String(),
 			Denom:   "SOL",
-			Amount:  sdkmath.NewInt(1000000000), // 1 SOL
+			Amount:  sdkmath.NewInt(1000000000),
 		})
 		if err != nil {
 			c.log.Warn("Failed to fund wallet", zap.String("wallet", keyName), zap.Error(err))
@@ -280,15 +262,11 @@ func (c *SolanaChain) GetWSAddress() string {
 }
 
 func (c *SolanaChain) GetHostRPCAddress() string {
-	addr := "http://" + c.hostRPCPort
-	c.log.Debug("GetHostRPCAddress returning", zap.String("address", addr), zap.String("hostRPCPort", c.hostRPCPort))
-	return addr
+	return "http://" + c.hostRPCPort
 }
 
 func (c *SolanaChain) GetHostWSAddress() string {
-	addr := "ws://" + c.hostWSPort
-	c.log.Debug("GetHostWSAddress returning", zap.String("address", addr), zap.String("hostWSPort", c.hostWSPort))
-	return addr
+	return "ws://" + c.hostWSPort
 }
 
 func (c *SolanaChain) Height(ctx context.Context) (int64, error) {
@@ -321,24 +299,19 @@ func (c *SolanaChain) CreateKey(ctx context.Context, keyName string) error {
 	wallet := solana.NewWallet()
 	c.wallets[keyName] = wallet
 
-	// Only fund if RPC client is initialized (chain is running)
 	if c.RPCClient != nil {
-		// Fund the new wallet from faucet (use empty keyName to send from faucet)
 		err := c.SendFunds(ctx, "", ibc.WalletAmount{
 			Address: wallet.PublicKey().String(),
 			Denom:   "SOL",
-			Amount:  sdkmath.NewInt(1000000000), // 1 SOL
+			Amount:  sdkmath.NewInt(1000000000),
 		})
 		return err
 	}
 
-	// If chain isn't started yet, funding will happen later
 	return nil
 }
 
 func (c *SolanaChain) RecoverKey(ctx context.Context, keyName string, mnemonic string) error {
-	// Solana-go doesn't support mnemonic recovery directly
-	// This would need to be implemented with a BIP39/BIP32 library
 	return fmt.Errorf("mnemonic recovery not implemented for Solana")
 }
 
@@ -467,50 +440,38 @@ func (c *SolanaChain) BuildRelayerWallet(ctx context.Context, keyName string) (i
 	return NewWallet(keyName, wallet.PublicKey().Bytes()), nil
 }
 
-// Unimplemented methods - these are IBC-specific and not applicable to Solana
-
 func (c *SolanaChain) ExportState(ctx context.Context, height int64) (string, error) {
 	return "", fmt.Errorf("ExportState not implemented for Solana")
 }
 
 func (c *SolanaChain) GetGRPCAddress() string {
-	// Solana doesn't use gRPC
 	return ""
 }
 
 func (c *SolanaChain) GetHostGRPCAddress() string {
-	// Solana doesn't use gRPC
 	return ""
 }
 
 func (c *SolanaChain) GetHostPeerAddress() string {
-	// Solana's gossip/P2P is not exposed in test validator
 	return ""
 }
 
 func (c *SolanaChain) GetGasFeesInNativeDenom(gasPaid int64) int64 {
-	// Solana fees are calculated differently
-	return gasPaid * 5000 // 5000 lamports per signature
+	return gasPaid * 5000
 }
 
 func (c *SolanaChain) SendIBCTransfer(ctx context.Context, channelID, keyName string, amount ibc.WalletAmount, options ibc.TransferOptions) (ibc.Tx, error) {
-	// This would be implemented when IBC is functional on Solana
 	return ibc.Tx{}, fmt.Errorf("SendIBCTransfer not implemented for Solana")
 }
 
 func (c *SolanaChain) Acknowledgements(ctx context.Context, height int64) ([]ibc.PacketAcknowledgement, error) {
-	// This would be implemented when IBC is functional on Solana
 	return nil, fmt.Errorf("Acknowledgements not implemented for Solana")
 }
 
 func (c *SolanaChain) Timeouts(ctx context.Context, height int64) ([]ibc.PacketTimeout, error) {
-	// This would be implemented when IBC is functional on Solana
 	return nil, fmt.Errorf("Timeouts not implemented for Solana")
 }
 
-// ============ Methods migrated from solana.Solana ============
-
-// NewTransactionFromInstructions creates a new tx from the given transactions
 func (c *SolanaChain) NewTransactionFromInstructions(payerPubKey solana.PublicKey, instructions ...solana.Instruction) (*solana.Transaction, error) {
 	recent, err := c.RPCClient.GetLatestBlockhash(context.TODO(), rpc.CommitmentFinalized)
 	if err != nil {
@@ -524,7 +485,6 @@ func (c *SolanaChain) NewTransactionFromInstructions(payerPubKey solana.PublicKe
 	)
 }
 
-// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is finalized.
 func (c *SolanaChain) SignAndBroadcastTx(ctx context.Context, tx *solana.Transaction, signers ...*solana.Wallet) (solana.Signature, error) {
 	_, err := c.SignTx(ctx, tx, signers...)
 	if err != nil {
@@ -534,8 +494,6 @@ func (c *SolanaChain) SignAndBroadcastTx(ctx context.Context, tx *solana.Transac
 	return c.BroadcastTx(ctx, tx)
 }
 
-// SignTx signs a transaction with the provided signers.
-// It modifies the transaction in place and returns the signatures.
 func (c *SolanaChain) SignTx(ctx context.Context, tx *solana.Transaction, signers ...*solana.Wallet) ([]solana.Signature, error) {
 	if len(signers) == 0 {
 		return nil, fmt.Errorf("no signers provided")
@@ -554,7 +512,6 @@ func (c *SolanaChain) SignTx(ctx context.Context, tx *solana.Transaction, signer
 	return tx.Sign(signerFn)
 }
 
-// Broadcasts and confirms a **signed** transaction.
 func (c *SolanaChain) BroadcastTx(ctx context.Context, tx *solana.Transaction) (solana.Signature, error) {
 	return confirm.SendAndConfirmTransaction(
 		ctx,
@@ -564,8 +521,6 @@ func (c *SolanaChain) BroadcastTx(ctx context.Context, tx *solana.Transaction) (
 	)
 }
 
-// confirmationStatusLevel returns a numeric level for comparison.
-// Higher numbers indicate higher confirmation levels.
 func confirmationStatusLevel(status rpc.ConfirmationStatusType) int {
 	switch status {
 	case rpc.ConfirmationStatusProcessed:
@@ -579,7 +534,6 @@ func confirmationStatusLevel(status rpc.ConfirmationStatusType) int {
 	}
 }
 
-// Waits for transaction reaching status
 func (c *SolanaChain) WaitForTxStatus(txSig solana.Signature, status rpc.ConfirmationStatusType) error {
 	return testutil.WaitForCondition(time.Second*30, time.Second, func() (bool, error) {
 		out, err := c.RPCClient.GetSignatureStatuses(context.TODO(), false, txSig)
@@ -591,8 +545,6 @@ func (c *SolanaChain) WaitForTxStatus(txSig solana.Signature, status rpc.Confirm
 			return false, fmt.Errorf("transaction %s failed with error: %s", txSig, out.Value[0].Err)
 		}
 
-		// Check if transaction has reached the desired status using level-based comparison
-		// This allows accepting higher confirmation levels (e.g., finalized when waiting for confirmed)
 		if confirmationStatusLevel(out.Value[0].ConfirmationStatus) >= confirmationStatusLevel(status) {
 			return true, nil
 		}
@@ -650,16 +602,13 @@ func (c *SolanaChain) WaitForProgramAvailabilityWithTimeout(ctx context.Context,
 	return false
 }
 
-// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is finalized, retries with default timeout
 func (c *SolanaChain) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Transaction, signers ...*solana.Wallet) (solana.Signature, error) {
 	return c.SignAndBroadcastTxWithRetryTimeout(ctx, tx, 30, signers...)
 }
 
-// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is finalized, retries with timeout
 func (c *SolanaChain) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *solana.Transaction, timeoutSeconds int, signers ...*solana.Wallet) (solana.Signature, error) {
 	var lastErr error
 	for range timeoutSeconds {
-		// Refresh blockhash on each retry attempt (blockhashes expire after ~60 seconds)
 		recent, err := c.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get latest blockhash: %w", err)
@@ -678,12 +627,10 @@ func (c *SolanaChain) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx
 	return solana.Signature{}, fmt.Errorf("transaction broadcast timed out after %d seconds: %w", timeoutSeconds, lastErr)
 }
 
-// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is in confirmed status
 func (c *SolanaChain) SignAndBroadcastTxWithConfirmedStatus(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet) (solana.Signature, error) {
 	return c.SignAndBroadcastTxWithOpts(ctx, tx, wallet, rpc.ConfirmationStatusConfirmed)
 }
 
-// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is in requested status
 func (c *SolanaChain) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, status rpc.ConfirmationStatusType) (solana.Signature, error) {
 	_, err := c.SignTx(ctx, tx, wallet)
 	if err != nil {
@@ -871,17 +818,14 @@ func (c *SolanaChain) CreateAndFundWalletWithRetry(ctx context.Context, retries 
 	var lastErr error
 
 	for i := range retries {
-		// Wait a bit before retry (except first attempt)
 		if i > 0 {
 			time.Sleep(time.Duration(i) * time.Second)
 		}
 
 		wallet := solana.NewWallet()
 
-		// Try to fund the wallet
 		_, err := c.FundUserWithRetry(ctx, wallet.PublicKey(), testvalues.InitialSolBalance, 3)
 		if err == nil {
-			// Verify the balance was actually credited
 			balance, err := c.RPCClient.GetBalance(ctx, wallet.PublicKey(), rpc.CommitmentConfirmed)
 			if err == nil && balance.Value > 0 {
 				return wallet, nil
@@ -894,17 +838,14 @@ func (c *SolanaChain) CreateAndFundWalletWithRetry(ctx context.Context, retries 
 	return nil, fmt.Errorf("failed to create and fund wallet after %d retries: %w", retries, lastErr)
 }
 
-// FundUserWithRetry funds a user with retry logic
 func (c *SolanaChain) FundUserWithRetry(ctx context.Context, pubkey solana.PublicKey, amount uint64, retries int) (solana.Signature, error) {
 	var lastErr error
 
 	for i := range retries {
-		// Wait a bit before retry (except first attempt)
 		if i > 0 {
 			time.Sleep(time.Duration(i) * time.Second)
 		}
 
-		// Check faucet balance first
 		faucetBalance, err := c.RPCClient.GetBalance(ctx, c.Faucet.PublicKey(), rpc.CommitmentConfirmed)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get faucet balance: %w", err)
@@ -916,14 +857,12 @@ func (c *SolanaChain) FundUserWithRetry(ctx context.Context, pubkey solana.Publi
 			continue
 		}
 
-		// Get latest blockhash
 		recent, err := c.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get blockhash: %w", err)
 			continue
 		}
 
-		// Create transfer transaction
 		tx, err := solana.NewTransaction(
 			[]solana.Instruction{
 				system.NewTransferInstruction(
@@ -940,13 +879,10 @@ func (c *SolanaChain) FundUserWithRetry(ctx context.Context, pubkey solana.Publi
 			continue
 		}
 
-		// Sign and broadcast
 		sig, err := c.SignAndBroadcastTx(ctx, tx, c.Faucet)
 		if err == nil {
-			// Wait for confirmation
 			time.Sleep(2 * time.Second)
 
-			// Verify the transfer succeeded
 			balance, err := c.RPCClient.GetBalance(ctx, pubkey, rpc.CommitmentConfirmed)
 			if err == nil && balance.Value >= amount {
 				return sig, nil
@@ -959,17 +895,13 @@ func (c *SolanaChain) FundUserWithRetry(ctx context.Context, pubkey solana.Publi
 	return solana.Signature{}, fmt.Errorf("failed to fund user after %d retries: %w", retries, lastErr)
 }
 
-// ============ Helper functions ============
-
-// ComputeBudgetProgramID returns the Solana Compute Budget program ID
 func ComputeBudgetProgramID() solana.PublicKey {
 	return solana.MustPublicKeyFromBase58("ComputeBudget111111111111111111111111111111")
 }
 
-// NewComputeBudgetInstruction creates a SetComputeUnitLimit instruction to increase available compute units
 func NewComputeBudgetInstruction(computeUnits uint32) solana.Instruction {
 	data := make([]byte, 5)
-	data[0] = 0x02 // SetComputeUnitLimit instruction discriminator
+	data[0] = 0x02
 	binary.LittleEndian.PutUint32(data[1:], computeUnits)
 
 	return solana.NewInstruction(
@@ -979,14 +911,12 @@ func NewComputeBudgetInstruction(computeUnits uint32) solana.Instruction {
 	)
 }
 
-// Uint64ToLeBytes converts a uint64 to little-endian byte slice
 func Uint64ToLeBytes(n uint64) []byte {
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, n)
 	return b
 }
 
-// mustWrite wraps encoder write calls and panics on error (should never happen with bytes.Buffer)
 func mustWrite(err error) {
 	if err != nil {
 		panic(fmt.Sprintf("unexpected encoding error: %v", err))
