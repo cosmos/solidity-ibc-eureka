@@ -96,10 +96,9 @@ func StartSolanaDocker(ctx context.Context) (SolanaChain, error) {
 
 func (s SolanaChain) Destroy() error {
 	if s.ContainerID != "" {
+		// Container might already be stopped, continue with removal
 		stopCmd := exec.Command("docker", "stop", s.ContainerID)
-		if err := stopCmd.Run(); err != nil {
-			// Container might already be stopped, continue with removal
-		}
+		_ = stopCmd.Run()
 
 		// Remove the container
 		rmCmd := exec.Command("docker", "rm", "-f", s.ContainerID)
@@ -108,11 +107,8 @@ func (s SolanaChain) Destroy() error {
 		}
 	}
 
-	// Clean up ledger directory if it exists
-	if err := os.RemoveAll(testvalues.SolanaLedgerDir); err != nil {
-		// Directory might not exist, ignore error
-	}
+	// Clean up ledger directory if it exists (directory might not exist, ignore error)
+	_ = os.RemoveAll(testvalues.SolanaLedgerDir)
 
 	return nil
 }
-
