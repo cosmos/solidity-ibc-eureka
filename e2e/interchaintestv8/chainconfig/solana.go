@@ -62,20 +62,44 @@ func StartSolanaDocker(ctx context.Context) (SolanaChain, error) {
 		"--faucet-sol", "1000000", // Give the faucet account 1M SOL
 	}
 
+	// Log the Docker command we're about to run
+	fmt.Printf("Starting Docker container with command: docker %s\n", strings.Join(args, " "))
+
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		// Check if Docker daemon is running
+		dockerPingCmd := exec.CommandContext(ctx, "docker", "ps")
+		if _, pingErr := dockerPingCmd.Output(); pingErr != nil {
+			return SolanaChain{}, fmt.Errorf("docker daemon might not be running: %w, original error: %w, output: %s", pingErr, err, string(output))
+		}
 		return SolanaChain{}, fmt.Errorf("failed to start Solana docker container: %w, output: %s", err, string(output))
 	}
 
 	// Trim whitespace and take first 12 chars of container ID
 	containerIDStr := strings.TrimSpace(string(output))
+	fmt.Printf("Docker container started with ID: %s\n", containerIDStr)
 	if len(containerIDStr) >= 12 {
 		solanaChain.ContainerID = containerIDStr[:12]
 	} else {
 		solanaChain.ContainerID = containerIDStr
 	}
 	solanaChain.ContainerName = containerName
+
+	// Verify the container is actually running
+	fmt.Println("Verifying container is running...")
+	psCmd := exec.CommandContext(ctx, "docker", "ps", "--filter", fmt.Sprintf("name=%s", containerName), "--format", "table {{.ID}}\t{{.Status}}\t{{.Ports}}")
+	if psOutput, err := psCmd.Output(); err == nil {
+		fmt.Printf("Container status:\n%s\n", string(psOutput))
+	} else {
+		fmt.Printf("Failed to check container status: %v\n", err)
+	}
+
+	// Check container logs for any startup errors
+	logsCmd := exec.CommandContext(ctx, "docker", "logs", containerName)
+	if logsOutput, err := logsCmd.Output(); err == nil && len(logsOutput) > 0 {
+		fmt.Printf("Container logs:\n%s\n", string(logsOutput))
+	}
 
 	// Wait for the Solana validator to be ready
 	fmt.Println("Waiting for Solana Docker container to initialize...")
