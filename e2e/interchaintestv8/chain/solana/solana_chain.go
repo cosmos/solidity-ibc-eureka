@@ -6,9 +6,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 	"slices"
+	"strconv"
 	"time"
 
+	dockercontainer "github.com/docker/docker/api/types/container"
 	dockerimagetypes "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/go-connections/nat"
@@ -187,30 +190,55 @@ func (c *SolanaChain) Start(testName string, ctx context.Context, additionalGene
 		return fmt.Errorf("no RPC host port found")
 	}
 	c.hostRPCPort = hostPorts[0]
+	c.log.Info("RPC endpoint configured", zap.String("hostPort", c.hostRPCPort), zap.String("address", c.GetHostRPCAddress()))
 
-	hostPorts, err = c.containerLifecycle.GetHostPorts(ctx, wsPort)
+	// For WebSocket, we need to construct the host port manually since solana-test-validator
+	// uses RPC port + 1 for WebSocket, but the port might not show up in Docker's port mappings
+	// until the validator process actually opens it.
+	// Extract just the port number from RPC host port (format is "0.0.0.0:PORT")
+	_, rpcPortStr, err := net.SplitHostPort(c.hostRPCPort)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse RPC host port %s: %w", c.hostRPCPort, err)
 	}
-	if len(hostPorts) == 0 {
-		return fmt.Errorf("no WebSocket host port found")
+	rpcPortNum, err := strconv.Atoi(rpcPortStr)
+	if err != nil {
+		return fmt.Errorf("failed to convert RPC port to number: %w", err)
 	}
-	c.hostWSPort = hostPorts[0]
+	// WebSocket is always RPC port + 1
+	c.hostWSPort = fmt.Sprintf("0.0.0.0:%d", rpcPortNum+1)
+	c.log.Info("WebSocket endpoint configured", zap.String("hostPort", c.hostWSPort), zap.String("address", c.GetHostWSAddress()))
 
 	time.Sleep(5 * time.Second)
 
 	c.RPCClient = rpc.New(c.GetHostRPCAddress())
 
 	var wsErr error
-	for i := 0; i < 10; i++ {
+	maxAttempts := 30
+	for i := 0; i < maxAttempts; i++ {
 		c.WSClient, wsErr = ws.Connect(ctx, c.GetHostWSAddress())
 		if wsErr == nil {
+			c.log.Info("WebSocket connected successfully", zap.Int("attempts", i+1))
 			break
 		}
+		c.log.Debug("WebSocket connection attempt failed", zap.Int("attempt", i+1), zap.String("address", c.GetHostWSAddress()), zap.Error(wsErr))
 		time.Sleep(2 * time.Second)
 	}
 	if wsErr != nil {
-		return fmt.Errorf("failed to connect to Solana WebSocket after 10 attempts: %w", wsErr)
+		// Get container logs to help debug
+		containerID := c.containerLifecycle.ContainerID()
+		logsReader, logErr := c.dockerClient.ContainerLogs(ctx, containerID, dockercontainer.LogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Tail:       "50",
+		})
+		if logErr == nil {
+			defer logsReader.Close()
+			logBytes, _ := io.ReadAll(logsReader)
+			if len(logBytes) > 0 {
+				c.log.Error("Solana container logs (last 50 lines):", zap.String("logs", string(logBytes)))
+			}
+		}
+		return fmt.Errorf("failed to connect to Solana WebSocket at %s after %d attempts (60s): %w", c.GetHostWSAddress(), maxAttempts, wsErr)
 	}
 
 	for keyName, wallet := range c.wallets {
@@ -262,11 +290,21 @@ func (c *SolanaChain) GetWSAddress() string {
 }
 
 func (c *SolanaChain) GetHostRPCAddress() string {
-	return "http://" + c.hostRPCPort
+	// Replace 0.0.0.0 with 127.0.0.1 for client connections
+	addr := c.hostRPCPort
+	if host, port, err := net.SplitHostPort(addr); err == nil && host == "0.0.0.0" {
+		addr = net.JoinHostPort("127.0.0.1", port)
+	}
+	return "http://" + addr
 }
 
 func (c *SolanaChain) GetHostWSAddress() string {
-	return "ws://" + c.hostWSPort
+	// Replace 0.0.0.0 with 127.0.0.1 for client connections
+	addr := c.hostWSPort
+	if host, port, err := net.SplitHostPort(addr); err == nil && host == "0.0.0.0" {
+		addr = net.JoinHostPort("127.0.0.1", port)
+	}
+	return "ws://" + addr
 }
 
 func (c *SolanaChain) Height(ctx context.Context) (int64, error) {
