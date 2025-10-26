@@ -28,9 +28,20 @@ type Solana struct {
 }
 
 func NewSolana(rpcURL, wsURL string, faucet *solana.Wallet) (Solana, error) {
-	wsClient, err := ws.Connect(context.TODO(), wsURL)
+	// Retry WebSocket connection with backoff
+	var wsClient *ws.Client
+	var err error
+	for i := 0; i < 5; i++ {
+		wsClient, err = ws.Connect(context.TODO(), wsURL)
+		if err == nil {
+			break
+		}
+		if i < 4 {
+			time.Sleep(time.Duration(i+1) * time.Second)
+		}
+	}
 	if err != nil {
-		return Solana{}, err
+		return Solana{}, fmt.Errorf("failed to connect to WebSocket after retries: %w", err)
 	}
 
 	return Solana{

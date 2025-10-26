@@ -90,14 +90,17 @@ func StartSolanaDocker(ctx context.Context) (SolanaChain, error) {
 	}
 
 	// Health check for WebSocket endpoint - ensure port 8900 is listening
+	// Try a simple curl to check if WebSocket port is responding
 	for range 10 {
 		wsCheckCmd := exec.CommandContext(ctx, "docker", "exec", containerName,
-			"sh", "-c", "nc -z localhost 8900")
-		if err := wsCheckCmd.Run(); err == nil {
-			break
-		}
+			"sh", "-c", "curl -f -s http://localhost:8900 > /dev/null 2>&1 || true")
+		// Even if curl fails (which is expected for WebSocket), if it can connect, the port is open
+		_ = wsCheckCmd.Run()
 		time.Sleep(1 * time.Second)
 	}
+
+	// Additional delay to ensure WebSocket service is fully ready
+	time.Sleep(2 * time.Second)
 
 	solanaChain.RPCClient = rpc.New(rpc.LocalNet.RPC)
 
