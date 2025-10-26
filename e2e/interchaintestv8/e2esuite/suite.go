@@ -94,10 +94,10 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 				UIDGID:     "1000:1000",
 			}
 		} else {
-			// AMD64/x86_64 - use Agave validator
+			// AMD64/x86_64 - use tchambard's solana-test-validator
 			solanaImage = ibc.DockerImage{
-				Repository: "anzaxyz/agave",
-				Version:    "stable",
+				Repository: "tchambard/solana-test-validator",
+				Version:    "latest",
 				UIDGID:     "1000:1000",
 			}
 		}
