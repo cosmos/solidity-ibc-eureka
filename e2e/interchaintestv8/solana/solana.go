@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"slices"
 	"time"
 
@@ -31,17 +32,26 @@ func NewSolana(rpcURL, wsURL string, faucet *solana.Wallet) (Solana, error) {
 	// Retry WebSocket connection with backoff
 	var wsClient *ws.Client
 	var err error
-	for i := 0; i < 5; i++ {
+	maxRetries := 10
+	fmt.Printf("Attempting to connect to WebSocket at %s\n", wsURL)
+
+	for i := 0; i < maxRetries; i++ {
+		fmt.Printf("WebSocket connection attempt %d/%d...\n", i+1, maxRetries)
 		wsClient, err = ws.Connect(context.TODO(), wsURL)
 		if err == nil {
+			fmt.Printf("Successfully connected to WebSocket after %d attempts\n", i+1)
 			break
 		}
-		if i < 4 {
-			time.Sleep(time.Duration(i+1) * time.Second)
+
+		fmt.Printf("WebSocket connection failed: %v\n", err)
+		if i < maxRetries-1 {
+			delay := time.Duration(math.Min(float64(i+1)*2, 10)) * time.Second
+			fmt.Printf("Retrying in %v...\n", delay)
+			time.Sleep(delay)
 		}
 	}
 	if err != nil {
-		return Solana{}, fmt.Errorf("failed to connect to WebSocket after retries: %w", err)
+		return Solana{}, fmt.Errorf("failed to connect to WebSocket after %d retries: %w", maxRetries, err)
 	}
 
 	return Solana{

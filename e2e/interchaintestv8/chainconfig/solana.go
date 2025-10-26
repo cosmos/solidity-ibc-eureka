@@ -51,10 +51,13 @@ func StartSolanaDocker(ctx context.Context) (SolanaChain, error) {
 		"--name", containerName,
 		"-p", "8899:8899", // RPC port
 		"-p", "8900:8900", // WebSocket port
+		"-p", "8001:8001", // WebSocket PubSub port (alternative)
 		"-p", "9900:9900", // Faucet port
 		dockerImage,
 		"solana-test-validator",
 		"--reset",
+		"--rpc-port", "8899",
+		"--bind-address", "0.0.0.0", // Bind to all interfaces
 		"--mint", solanaChain.Faucet.PublicKey().String(),
 		"--faucet-sol", "1000000", // Give the faucet account 1M SOL
 	}
@@ -75,32 +78,66 @@ func StartSolanaDocker(ctx context.Context) (SolanaChain, error) {
 	solanaChain.ContainerName = containerName
 
 	// Wait for the Solana validator to be ready
+	fmt.Println("Waiting for Solana Docker container to initialize...")
 	time.Sleep(8 * time.Second)
 
 	// Health check for RPC endpoint
-	for range 10 {
+	fmt.Println("Checking RPC endpoint health on port 8899...")
+	for i := 0; i < 15; i++ {
 		healthCmd := exec.CommandContext(ctx, "docker", "exec", containerName,
 			"curl", "-s", "http://localhost:8899", "-X", "POST",
 			"-H", "Content-Type: application/json",
 			"-d", `{"jsonrpc":"2.0","id":1,"method":"getHealth"}`)
 		if output, err := healthCmd.Output(); err == nil && len(output) > 0 {
+			fmt.Printf("RPC endpoint is healthy after %d attempts\n", i+1)
 			break
+		}
+		if i == 14 {
+			fmt.Println("Warning: RPC health check timed out after 15 attempts")
 		}
 		time.Sleep(1 * time.Second)
 	}
 
-	// Health check for WebSocket endpoint - ensure port 8900 is listening
-	// Try a simple curl to check if WebSocket port is responding
-	for range 10 {
+	// Check if WebSocket port is at least listening
+	fmt.Println("Checking WebSocket port 8900...")
+	for i := 0; i < 20; i++ {
+		// Use netstat to check if port is listening
 		wsCheckCmd := exec.CommandContext(ctx, "docker", "exec", containerName,
-			"sh", "-c", "curl -f -s http://localhost:8900 > /dev/null 2>&1 || true")
-		// Even if curl fails (which is expected for WebSocket), if it can connect, the port is open
-		_ = wsCheckCmd.Run()
+			"sh", "-c", "netstat -an | grep ':8900' | grep LISTEN")
+		if output, err := wsCheckCmd.Output(); err == nil && len(output) > 0 {
+			fmt.Printf("WebSocket port 8900 is listening after %d attempts\n", i+1)
+			break
+		}
+
+		// Log what ports are actually listening
+		if i == 10 {
+			portsCmd := exec.CommandContext(ctx, "docker", "exec", containerName,
+				"sh", "-c", "netstat -tulpn | grep LISTEN || true")
+			if output, err := portsCmd.Output(); err == nil {
+				fmt.Printf("Currently listening ports in container:\n%s\n", string(output))
+			}
+
+			// Check Docker port mappings
+			dockerPortsCmd := exec.CommandContext(ctx, "docker", "port", containerName)
+			if output, err := dockerPortsCmd.Output(); err == nil {
+				fmt.Printf("Docker port mappings:\n%s\n", string(output))
+			}
+		}
+
+		if i == 19 {
+			fmt.Println("Warning: WebSocket port check timed out after 20 attempts")
+			// Final debug output
+			logsCmd := exec.CommandContext(ctx, "docker", "logs", "--tail", "20", containerName)
+			if output, err := logsCmd.Output(); err == nil {
+				fmt.Printf("Last 20 lines of container logs:\n%s\n", string(output))
+			}
+		}
 		time.Sleep(1 * time.Second)
 	}
 
-	// Additional delay to ensure WebSocket service is fully ready
-	time.Sleep(2 * time.Second)
+	// Additional delay to ensure WebSocket service is fully ready to accept connections
+	fmt.Println("Waiting additional time for WebSocket service to be fully ready...")
+	time.Sleep(5 * time.Second)
 
 	solanaChain.RPCClient = rpc.New(rpc.LocalNet.RPC)
 
