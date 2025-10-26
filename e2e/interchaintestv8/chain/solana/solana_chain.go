@@ -181,13 +181,41 @@ func (c *SolanaChain) Start(testName string, ctx context.Context, additionalGene
 		return err
 	}
 
-	// Get host ports for RPC and WebSocket
-	hostPorts, err := c.containerLifecycle.GetHostPorts(ctx, rpcPort)
-	if err != nil {
-		return err
+	// Wait for container to be fully started before checking ports
+	time.Sleep(2 * time.Second)
+
+	// Check if container is actually running
+	if err := c.containerLifecycle.Running(ctx); err != nil {
+		// Container failed to start, get logs for debugging
+		containerID := c.containerLifecycle.ContainerID()
+		logsReader, _ := c.dockerClient.ContainerLogs(ctx, containerID, dockercontainer.LogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Tail:       "100",
+		})
+		if logsReader != nil {
+			defer logsReader.Close()
+			logBytes, _ := io.ReadAll(logsReader)
+			c.log.Error("Solana container failed to start, logs:", zap.String("logs", string(logBytes)))
+		}
+		return fmt.Errorf("solana container is not running: %w", err)
 	}
-	if len(hostPorts) == 0 {
-		return fmt.Errorf("no RPC host port found")
+
+	// Get host ports for RPC with retry
+	var hostPorts []string
+	for attempt := 0; attempt < 5; attempt++ {
+		hostPorts, err = c.containerLifecycle.GetHostPorts(ctx, rpcPort)
+		if err != nil {
+			return err
+		}
+		if len(hostPorts) > 0 && hostPorts[0] != "" {
+			break
+		}
+		c.log.Debug("RPC port not yet available, retrying...", zap.Int("attempt", attempt+1))
+		time.Sleep(2 * time.Second)
+	}
+	if len(hostPorts) == 0 || hostPorts[0] == "" {
+		return fmt.Errorf("no RPC host port found after 5 attempts")
 	}
 	c.hostRPCPort = hostPorts[0]
 	c.log.Info("RPC endpoint configured", zap.String("hostPort", c.hostRPCPort), zap.String("address", c.GetHostRPCAddress()))
