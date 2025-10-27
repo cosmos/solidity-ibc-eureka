@@ -11,6 +11,148 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
+// Individual account state managed as PDAs
+type AccountState struct {
+	// Client ID that created this account
+	ClientId string `json:"clientId"`
+
+	// Original sender (checksummed hex address from source chain)
+	Sender string `json:"sender"`
+
+	// Salt for unique account generation
+	Salt []byte `json:"salt"`
+
+	// Execution nonce for replay protection
+	Nonce uint64 `json:"nonce"`
+
+	// Account creation timestamp
+	CreatedAt int64 `json:"createdAt"`
+
+	// Last execution timestamp
+	LastExecutedAt int64 `json:"lastExecutedAt"`
+
+	// Total successful executions
+	ExecutionCount uint64 `json:"executionCount"`
+
+	// PDA bump seed
+	Bump uint8 `json:"bump"`
+}
+
+func (obj AccountState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Serialize `Sender`:
+	err = encoder.Encode(obj.Sender)
+	if err != nil {
+		return errors.NewField("Sender", err)
+	}
+	// Serialize `Salt`:
+	err = encoder.Encode(obj.Salt)
+	if err != nil {
+		return errors.NewField("Salt", err)
+	}
+	// Serialize `Nonce`:
+	err = encoder.Encode(obj.Nonce)
+	if err != nil {
+		return errors.NewField("Nonce", err)
+	}
+	// Serialize `CreatedAt`:
+	err = encoder.Encode(obj.CreatedAt)
+	if err != nil {
+		return errors.NewField("CreatedAt", err)
+	}
+	// Serialize `LastExecutedAt`:
+	err = encoder.Encode(obj.LastExecutedAt)
+	if err != nil {
+		return errors.NewField("LastExecutedAt", err)
+	}
+	// Serialize `ExecutionCount`:
+	err = encoder.Encode(obj.ExecutionCount)
+	if err != nil {
+		return errors.NewField("ExecutionCount", err)
+	}
+	// Serialize `Bump`:
+	err = encoder.Encode(obj.Bump)
+	if err != nil {
+		return errors.NewField("Bump", err)
+	}
+	return nil
+}
+
+func (obj AccountState) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccountState: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccountState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `Sender`:
+	err = decoder.Decode(&obj.Sender)
+	if err != nil {
+		return errors.NewField("Sender", err)
+	}
+	// Deserialize `Salt`:
+	err = decoder.Decode(&obj.Salt)
+	if err != nil {
+		return errors.NewField("Salt", err)
+	}
+	// Deserialize `Nonce`:
+	err = decoder.Decode(&obj.Nonce)
+	if err != nil {
+		return errors.NewField("Nonce", err)
+	}
+	// Deserialize `CreatedAt`:
+	err = decoder.Decode(&obj.CreatedAt)
+	if err != nil {
+		return errors.NewField("CreatedAt", err)
+	}
+	// Deserialize `LastExecutedAt`:
+	err = decoder.Decode(&obj.LastExecutedAt)
+	if err != nil {
+		return errors.NewField("LastExecutedAt", err)
+	}
+	// Deserialize `ExecutionCount`:
+	err = decoder.Decode(&obj.ExecutionCount)
+	if err != nil {
+		return errors.NewField("ExecutionCount", err)
+	}
+	// Deserialize `Bump`:
+	err = decoder.Decode(&obj.Bump)
+	if err != nil {
+		return errors.NewField("Bump", err)
+	}
+	return nil
+}
+
+func (obj *AccountState) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccountState: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccountState(buf []byte) (*AccountState, error) {
+	obj := new(AccountState)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Event emitted when a new account is created
 type GmpAccountCreated struct {
 	// Account address (PDA)
