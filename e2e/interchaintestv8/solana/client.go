@@ -44,6 +44,7 @@ func NewLocalnetSolana(faucet *solana.Wallet) (Solana, error) {
 	return NewSolana(rpc.LocalNet.RPC, rpc.LocalNet.WS, faucet)
 }
 
+// NewTransactionFromInstructions creates a new tx from the given transactions
 func (s *Solana) NewTransactionFromInstructions(payerPubKey solana.PublicKey, instructions ...solana.Instruction) (*solana.Transaction, error) {
 	recent, err := s.RPCClient.GetLatestBlockhash(context.TODO(), rpc.CommitmentFinalized)
 	if err != nil {
@@ -67,6 +68,8 @@ func (s *Solana) SignAndBroadcastTx(ctx context.Context, tx *solana.Transaction,
 	return s.BroadcastTx(ctx, tx)
 }
 
+// SignTx signs a transaction with the provided signers.
+// It modifies the transaction in place and returns the signatures.
 func (s *Solana) SignTx(ctx context.Context, tx *solana.Transaction, signers ...*solana.Wallet) ([]solana.Signature, error) {
 	if len(signers) == 0 {
 		return nil, fmt.Errorf("no signers provided")
@@ -85,6 +88,7 @@ func (s *Solana) SignTx(ctx context.Context, tx *solana.Transaction, signers ...
 	return tx.Sign(signerFn)
 }
 
+// Broadcasts and confirms a **signed** transaction.
 func (s *Solana) BroadcastTx(ctx context.Context, tx *solana.Transaction) (solana.Signature, error) {
 	return confirm.SendAndConfirmTransaction(
 		ctx,
@@ -94,6 +98,7 @@ func (s *Solana) BroadcastTx(ctx context.Context, tx *solana.Transaction) (solan
 	)
 }
 
+// Higher numbers indicate higher confirmation levels.
 func confirmationStatusLevel(status rpc.ConfirmationStatusType) int {
 	switch status {
 	case rpc.ConfirmationStatusProcessed:
@@ -234,10 +239,12 @@ func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Tran
 	return sig, err
 }
 
+// WaitForBalanceChange waits for an account balance to change from the initial value
 func (s *Solana) WaitForBalanceChange(ctx context.Context, account solana.PublicKey, initialBalance uint64) (uint64, bool) {
 	return s.WaitForBalanceChangeWithTimeout(ctx, account, initialBalance, 30)
 }
 
+// WaitForBalanceChangeWithTimeout waits for an account balance to change with specified timeout
 func (s *Solana) WaitForBalanceChangeWithTimeout(ctx context.Context, account solana.PublicKey, initialBalance uint64, timeoutSeconds int) (uint64, bool) {
 	for range timeoutSeconds {
 		balanceResp, err := s.RPCClient.GetBalance(ctx, account, rpc.CommitmentConfirmed)
@@ -252,10 +259,12 @@ func (s *Solana) WaitForBalanceChangeWithTimeout(ctx context.Context, account so
 	return initialBalance, false
 }
 
+// ComputeBudgetProgramID returns the Solana Compute Budget program ID
 func ComputeBudgetProgramID() solana.PublicKey {
 	return solana.MustPublicKeyFromBase58("ComputeBudget111111111111111111111111111111")
 }
 
+// NewComputeBudgetInstruction creates a SetComputeUnitLimit instruction to increase available compute units
 func NewComputeBudgetInstruction(computeUnits uint32) solana.Instruction {
 	data := make([]byte, 5)
 	data[0] = 0x02
@@ -268,6 +277,7 @@ func NewComputeBudgetInstruction(computeUnits uint32) solana.Instruction {
 	)
 }
 
+// Returns the ALT address. Requires at least one account.
 func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana.Wallet, accounts []solana.PublicKey) (solana.PublicKey, error) {
 	if len(accounts) == 0 {
 		return solana.PublicKey{}, fmt.Errorf("at least one account is required for ALT")
@@ -350,6 +360,7 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 	return altAddress, nil
 }
 
+// mustWrite wraps encoder write calls and panics on error (should never happen with bytes.Buffer)
 func mustWrite(err error) {
 	if err != nil {
 		panic(fmt.Sprintf("unexpected encoding error: %v", err))
