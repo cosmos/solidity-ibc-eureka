@@ -355,7 +355,7 @@ func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T
 	t.Helper()
 	sequenceBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
-	packetCommitmentPDA, _ := Ics26RouterPacketCommitmentPDA(ics26_router.ProgramID, []byte(clientID), sequenceBytes)
+	packetCommitmentPDA, _ := Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(clientID), sequenceBytes)
 
 	accountInfo, err := s.RPCClient.GetAccountInfo(ctx, packetCommitmentPDA)
 	if err != nil {

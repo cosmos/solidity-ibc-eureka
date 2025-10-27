@@ -267,13 +267,58 @@ func (cg *CodeGenerator) generate() (string, error) {
 	// Write file header
 	b.WriteString(cg.generateHeader())
 
-	// Generate each function
-	for _, pattern := range cg.patterns {
-		b.WriteString(cg.generateFunction(pattern))
-		b.WriteString("\n")
+	// Group patterns by program
+	programPatterns := cg.groupByProgram()
+
+	// Generate type definitions and singleton instances
+	b.WriteString(cg.generateTypes(programPatterns))
+	b.WriteString("\n")
+
+	// Generate methods for each program
+	for programName, patterns := range programPatterns {
+		for _, pattern := range patterns {
+			b.WriteString(cg.generateMethod(programName, pattern))
+			b.WriteString("\n")
+		}
 	}
 
 	return b.String(), nil
+}
+
+func (cg *CodeGenerator) groupByProgram() map[string][]PDAPattern {
+	programPatterns := make(map[string][]PDAPattern)
+	for _, pattern := range cg.patterns {
+		programPatterns[pattern.ProgramName] = append(programPatterns[pattern.ProgramName], pattern)
+	}
+	return programPatterns
+}
+
+func (cg *CodeGenerator) generateTypes(programPatterns map[string][]PDAPattern) string {
+	var b strings.Builder
+
+	// Get sorted program names for consistent output
+	var programNames []string
+	for name := range programPatterns {
+		programNames = append(programNames, name)
+	}
+	sort.Strings(programNames)
+
+	// Generate type definitions
+	for _, name := range programNames {
+		typeName := strings.ToLower(name[:1]) + name[1:] + "PDAs"
+		b.WriteString(fmt.Sprintf("type %s struct{}\n", typeName))
+	}
+	b.WriteString("\n")
+
+	// Generate singleton instances
+	b.WriteString("var (\n")
+	for _, name := range programNames {
+		typeName := strings.ToLower(name[:1]) + name[1:] + "PDAs"
+		b.WriteString(fmt.Sprintf("\t%s = %s{}\n", name, typeName))
+	}
+	b.WriteString(")\n")
+
+	return b.String()
 }
 
 func (cg *CodeGenerator) generateHeader() string {
@@ -295,14 +340,18 @@ import (
 `
 }
 
-func (cg *CodeGenerator) generateFunction(p PDAPattern) string {
-	fg := &functionGenerator{pattern: p}
+func (cg *CodeGenerator) generateMethod(programName string, p PDAPattern) string {
+	fg := &functionGenerator{
+		pattern:     p,
+		programName: programName,
+	}
 	return fg.generate()
 }
 
-// functionGenerator generates a single PDA function
+// functionGenerator generates a single PDA method
 type functionGenerator struct {
-	pattern PDAPattern
+	pattern     PDAPattern
+	programName string
 }
 
 func (fg *functionGenerator) generate() string {
@@ -330,8 +379,13 @@ func (fg *functionGenerator) generate() string {
 
 func (fg *functionGenerator) generateSignature() string {
 	params := fg.extractParameters()
-	return fmt.Sprintf("func %s(%s) (solanago.PublicKey, uint8)",
-		fg.pattern.FuncName, params)
+	receiverType := strings.ToLower(fg.programName[:1]) + fg.programName[1:] + "PDAs"
+
+	// Strip program name prefix from method name
+	methodName := strings.TrimPrefix(fg.pattern.FuncName, fg.programName)
+
+	return fmt.Sprintf("func (%s) %s(%s) (solanago.PublicKey, uint8)",
+		receiverType, methodName, params)
 }
 
 func (fg *functionGenerator) extractParameters() string {
@@ -379,8 +433,9 @@ func (fg *functionGenerator) generatePDADerivation() string {
 }
 
 func (fg *functionGenerator) generateErrorHandling() string {
-	return fmt.Sprintf("\tif err != nil {\n\t\tpanic(fmt.Sprintf(\"failed to derive %s PDA: %%v\", err))\n\t}\n",
-		fg.pattern.FuncName)
+	methodName := strings.TrimPrefix(fg.pattern.FuncName, fg.programName)
+	return fmt.Sprintf("\tif err != nil {\n\t\tpanic(fmt.Sprintf(\"failed to derive %s.%s PDA: %%v\", err))\n\t}\n",
+		fg.programName, methodName)
 }
 
 // String manipulation utilities

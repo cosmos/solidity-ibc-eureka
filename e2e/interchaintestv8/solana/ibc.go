@@ -28,13 +28,13 @@ func (s *Solana) GetNextSequenceNumber(ctx context.Context, clientSequencePDA so
 }
 
 func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPortID string, clientID string, userPubKey solana.PublicKey) []solana.PublicKey {
-	routerStatePDA, _ := Ics26RouterRouterStatePDA(ics26_router.ProgramID)
-	ibcAppPDA, _ := Ics26RouterIbcAppPDA(ics26_router.ProgramID, []byte(gmpPortID))
-	gmpAppStatePDA, _ := Ics27GmpAppStateGmpportPDA(ics27_gmp.ProgramID)
-	clientPDA, _ := Ics26RouterClientPDA(ics26_router.ProgramID, []byte(clientID))
-	clientStatePDA, _ := Ics07TendermintClientPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
-	routerCallerPDA, _ := Ics27GmpRouterCallerPDA(ics27_gmp.ProgramID)
-	clientSequencePDA, _ := Ics26RouterClientSequencePDA(ics26_router.ProgramID, []byte(clientID))
+	routerStatePDA, _ := Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+	ibcAppPDA, _ := Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(gmpPortID))
+	gmpAppStatePDA, _ := Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+	clientPDA, _ := Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(clientID))
+	clientStatePDA, _ := Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
+	routerCallerPDA, _ := Ics27Gmp.RouterCallerPDA(ics27_gmp.ProgramID)
+	clientSequencePDA, _ := Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(clientID))
 
 	return []solana.PublicKey{
 		solana.SystemProgramID,
