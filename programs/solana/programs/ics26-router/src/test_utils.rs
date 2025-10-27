@@ -28,7 +28,7 @@ pub fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> V
 }
 
 pub fn setup_router_state(authority: Pubkey) -> (Pubkey, Vec<u8>) {
-    let (router_state_pda, _) = Pubkey::find_program_address(&[ROUTER_STATE_SEED], &crate::ID);
+    let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
         authority,
@@ -46,7 +46,7 @@ pub fn setup_client(
     active: bool,
 ) -> (Pubkey, Vec<u8>) {
     let (client_pda, _) =
-        Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &crate::ID);
+        Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
 
     let client = Client {
         version: AccountVersion::V1,
@@ -67,7 +67,7 @@ pub fn setup_client(
 
 pub fn setup_client_sequence(client_id: &str, next_sequence: u64) -> (Pubkey, Vec<u8>) {
     let (client_sequence_pda, _) =
-        Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED, client_id.as_bytes()], &crate::ID);
+        Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
     let client_sequence = ClientSequence {
         next_sequence_send: next_sequence,
         version: AccountVersion::V1,
@@ -79,7 +79,7 @@ pub fn setup_client_sequence(client_id: &str, next_sequence: u64) -> (Pubkey, Ve
 
 pub fn setup_ibc_app(port_id: &str, app_program_id: Pubkey) -> (Pubkey, Vec<u8>) {
     let (ibc_app_pda, _) =
-        Pubkey::find_program_address(&[IBC_APP_SEED, port_id.as_bytes()], &crate::ID);
+        Pubkey::find_program_address(&[IBCApp::SEED, port_id.as_bytes()], &crate::ID);
     let ibc_app = IBCApp {
         version: AccountVersion::V1,
         port_id: port_id.to_string(),
@@ -273,7 +273,7 @@ pub fn setup_packet_commitment(
 ) -> (Pubkey, Vec<u8>) {
     let (packet_commitment_pda, _) = Pubkey::find_program_address(
         &[
-            PACKET_COMMITMENT_SEED,
+            Commitment::PACKET_COMMITMENT_SEED,
             source_client.as_bytes(),
             &sequence.to_le_bytes(),
         ],
@@ -443,7 +443,7 @@ pub fn create_payload_chunk_account(
 ) -> (Pubkey, solana_sdk::account::Account) {
     let (chunk_pda, _) = Pubkey::find_program_address(
         &[
-            PAYLOAD_CHUNK_SEED,
+            PayloadChunk::SEED,
             submitter.as_ref(),
             client_id.as_bytes(),
             &sequence.to_le_bytes(),
@@ -487,7 +487,7 @@ pub fn create_proof_chunk_account(
 ) -> (Pubkey, solana_sdk::account::Account) {
     let (chunk_pda, _) = Pubkey::find_program_address(
         &[
-            PROOF_CHUNK_SEED,
+            ProofChunk::SEED,
             submitter.as_ref(),
             client_id.as_bytes(),
             &sequence.to_le_bytes(),

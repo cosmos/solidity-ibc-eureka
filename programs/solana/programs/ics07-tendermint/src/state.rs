@@ -11,7 +11,7 @@ pub struct ConsensusStateStore {
 }
 
 impl ConsensusStateStore {
-    pub const SEED: &'static [u8] = b"consensus_state";
+    pub const SEED: &'static [u8] = solana_ibc_types::ConsensusState::SEED;
 }
 
 /// Storage for a single chunk of header data during multi-transaction upload
@@ -25,4 +25,18 @@ pub struct HeaderChunk {
 
 impl HeaderChunk {
     pub const SEED: &'static [u8] = b"header_chunk";
+}
+
+#[cfg(test)]
+mod compatibility_tests {
+    use super::*;
+
+    /// Ensures `ConsensusStateStore` SEED constant matches solana-ibc-types
+    #[test]
+    fn test_consensus_state_store_seed_compatibility() {
+        assert_eq!(
+            ConsensusStateStore::SEED,
+            solana_ibc_types::ConsensusState::SEED
+        );
+    }
 }

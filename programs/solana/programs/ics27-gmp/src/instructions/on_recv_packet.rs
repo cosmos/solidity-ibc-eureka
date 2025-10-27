@@ -16,7 +16,7 @@ pub struct OnRecvPacket<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
         mut,
-        seeds = [GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -164,7 +164,7 @@ pub fn on_recv_packet<'info>(
     // Build signer seeds on stack for invoke_signed
     let bump_array = [bump];
     let signer_seeds: &[&[u8]] = &[
-        ACCOUNT_STATE_SEED, // b"gmp_account"
+        AccountState::SEED, // b"gmp_account"
         &client_id_bytes,   // Source chain client ID
         &sender_hash,       // Hashed sender address (32 bytes)
         &salt_bytes,        // User-provided salt
@@ -386,7 +386,9 @@ fn map_and_validate_accounts<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{AccountState, GMPPacketData, SolanaAccountMeta, SolanaInstruction};
+    use crate::state::{
+        AccountState, GMPAppState, GMPPacketData, SolanaAccountMeta, SolanaInstruction,
+    };
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::Mollusk;
@@ -669,7 +671,7 @@ mod tests {
         let port_id = "gmpport".to_string();
 
         let (_correct_app_state_pda, _correct_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, port_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED, port_id.as_bytes()], &crate::ID);
 
         // Use wrong PDA
         let wrong_app_state_pda = Pubkey::new_unique();
@@ -1203,7 +1205,7 @@ mod tests {
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         // Create packet data that will call the counter app
         let client_id = "cosmoshub-1";
@@ -1499,7 +1501,7 @@ mod tests {
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         // Create packet data
         let client_id = "cosmoshub-1";

@@ -23,11 +23,13 @@ pub struct GMPAppState {
 }
 
 impl GMPAppState {
+    pub const SEED: &'static [u8] = solana_ibc_types::GMPAppState::SEED;
+
     /// Get signer seeds for this app state
     /// Seeds: [`b"app_state`", `GMP_PORT_ID.as_bytes()`, bump]
     pub fn signer_seeds(&self) -> Vec<Vec<u8>> {
         vec![
-            GMP_APP_STATE_SEED.to_vec(),
+            Self::SEED.to_vec(),
             GMP_PORT_ID.as_bytes().to_vec(),
             vec![self.bump],
         ]
@@ -73,6 +75,8 @@ pub struct AccountState {
 }
 
 impl AccountState {
+    pub const SEED: &'static [u8] = solana_ibc_types::GmpAccountState::SEED;
+
     /// Derive PDA address for an account
     /// Note: If sender is >32 bytes, it will be hashed to fit Solana's PDA seed constraints
     pub fn derive_address(
@@ -95,7 +99,7 @@ impl AccountState {
         let sender_hash = hash(sender.as_bytes()).to_bytes();
 
         let (address, bump) = Pubkey::find_program_address(
-            &[ACCOUNT_STATE_SEED, client_id.as_bytes(), &sender_hash, salt],
+            &[Self::SEED, client_id.as_bytes(), &sender_hash, salt],
             program_id,
         );
 
@@ -110,7 +114,7 @@ impl AccountState {
         let sender_hash = hash(self.sender.as_bytes()).to_bytes();
 
         vec![
-            ACCOUNT_STATE_SEED.to_vec(),
+            Self::SEED.to_vec(),
             self.client_id.as_bytes().to_vec(),
             sender_hash.to_vec(),
             self.salt.clone(),

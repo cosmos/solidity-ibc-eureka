@@ -7,9 +7,9 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use prost::Message;
-use solana_sdk::{hash::hash, instruction::AccountMeta, pubkey::Pubkey};
+use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey};
 
-use crate::constants::{GMP_ACCOUNT_STATE_SEED, GMP_PORT_ID, PROTOBUF_ENCODING};
+use crate::constants::{GMP_PORT_ID, PROTOBUF_ENCODING};
 use crate::proto::{GmpPacketData, SolanaInstruction};
 
 /// Extract GMP accounts from packet payload
@@ -44,11 +44,11 @@ pub fn extract_gmp_accounts(
         .map(|acc| acc.pubkey)
         .ok_or_else(|| anyhow::anyhow!("Missing ibc_app_program in existing accounts"))?;
 
-    let account_state_pda = derive_account_state_pda(
+    let (account_state_pda, _bump) = solana_ibc_types::GmpAccountState::pda(
         source_client,
         &gmp_packet.sender,
         &gmp_packet.salt,
-        &ibc_app_program_id,
+        ibc_app_program_id,
     );
 
     let mut account_metas = vec![
@@ -116,23 +116,6 @@ fn parse_gmp_packet(
     );
 
     Some(Ok((gmp_packet, receiver_pubkey)))
-}
-
-/// Derive the `account_state` PDA for a GMP sender
-fn derive_account_state_pda(
-    source_client: &str,
-    sender: &str,
-    salt: &[u8],
-    ibc_app_program_id: &Pubkey,
-) -> Pubkey {
-    let sender_hash = hash(sender.as_bytes()).to_bytes();
-    let account_state_seeds = [
-        GMP_ACCOUNT_STATE_SEED,
-        source_client.as_bytes(),
-        &sender_hash,
-        salt,
-    ];
-    Pubkey::find_program_address(&account_state_seeds, ibc_app_program_id).0
 }
 
 /// Extract accounts from `SolanaInstruction` and add them to the account list

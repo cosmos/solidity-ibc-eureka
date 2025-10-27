@@ -37,11 +37,11 @@ use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::gmp;
 
 use solana_ibc_types::{
-    derive_app_state, derive_client, derive_client_sequence, derive_ibc_app,
-    derive_ics07_client_state, derive_ics07_consensus_state, derive_packet_ack,
-    derive_packet_commitment, derive_packet_receipt, derive_payload_chunk, derive_proof_chunk,
-    derive_router_state, get_instruction_discriminator,
-    ics07::{ClientState, ConsensusState, ICS07_INITIALIZE_DISCRIMINATOR},
+    ics07::{ics07_instructions, ClientState, ConsensusState},
+    router::{
+        router_instructions, Client, ClientSequence, Commitment, IBCApp, IBCAppState, PayloadChunk,
+        ProofChunk, RouterState,
+    },
     MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
 };
 use tendermint_rpc::{Client as _, HttpClient};
@@ -54,9 +54,6 @@ const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
 
 /// Priority fee in micro-lamports per compute unit
 const DEFAULT_PRIORITY_FEE: u64 = 1000;
-
-/// Instruction discriminator for timeout packet
-const TIMEOUT_PACKET_INSTRUCTION: &str = "timeout_packet";
 
 /// Parameters for uploading a header chunk (mirrors the Solana program's type)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -219,9 +216,8 @@ impl TxBuilder {
         client_state: &ClientState,
         consensus_state: &ConsensusState,
     ) -> Result<Instruction> {
-        let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
-        let (consensus_state_pda, _) = derive_ics07_consensus_state(
+        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+        let (consensus_state_pda, _) = ConsensusState::pda(
             client_state_pda,
             latest_height,
             self.solana_ics07_program_id,
@@ -237,7 +233,7 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
-        let discriminator = ICS07_INITIALIZE_DISCRIMINATOR;
+        let discriminator = ics07_instructions::initialize_discriminator();
 
         let mut instruction_data = Vec::new();
 
@@ -279,36 +275,33 @@ impl TxBuilder {
             &payload.dest_port
         };
 
-        let (router_state, _) = derive_router_state(self.solana_ics26_program_id);
-        let (ibc_app, _) = derive_ibc_app(dest_port, self.solana_ics26_program_id);
+        let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
+        let (ibc_app, _) = IBCApp::pda(dest_port, self.solana_ics26_program_id);
 
         let (client_sequence, _) =
-            derive_client_sequence(&msg.packet.dest_client, self.solana_ics26_program_id);
-        let (packet_receipt, _) = derive_packet_receipt(
+            ClientSequence::pda(&msg.packet.dest_client, self.solana_ics26_program_id);
+        let (packet_receipt, _) = Commitment::packet_receipt_pda(
             &msg.packet.dest_client,
             msg.packet.sequence,
             self.solana_ics26_program_id,
         );
-        let (packet_ack, _) = derive_packet_ack(
+        let (packet_ack, _) = Commitment::packet_ack_pda(
             &msg.packet.dest_client,
             msg.packet.sequence,
             self.solana_ics26_program_id,
         );
-        let (client, _) = derive_client(&msg.packet.dest_client, self.solana_ics26_program_id);
+        let (client, _) = Client::pda(&msg.packet.dest_client, self.solana_ics26_program_id);
 
-        let (client_state, _) = derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
+        let (client_state, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
 
-        let (consensus_state, _) = derive_ics07_consensus_state(
-            client_state,
-            msg.proof.height,
-            self.solana_ics07_program_id,
-        );
+        let (consensus_state, _) =
+            ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
 
         // Resolve the actual IBC app program ID for this port
         let ibc_app_program_id = self.resolve_port_program_id(dest_port)?;
 
         // Derive the app state account for the resolved IBC app
-        let (ibc_app_state, _) = derive_app_state(dest_port, ibc_app_program_id);
+        let (ibc_app_state, _) = IBCAppState::pda(dest_port, ibc_app_program_id);
 
         // Build base accounts list for recv_packet (matches router program's RecvPacket account structure)
         let mut accounts = vec![
@@ -367,8 +360,7 @@ impl TxBuilder {
         )?;
         accounts.extend(gmp_accounts);
 
-        let discriminator = get_instruction_discriminator("recv_packet");
-        let mut data = discriminator.to_vec();
+        let mut data = router_instructions::recv_packet_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
@@ -393,7 +385,7 @@ impl TxBuilder {
 
         let solana_ics26_program_id = self.solana_ics26_program_id;
 
-        let (router_state, _) = derive_router_state(solana_ics26_program_id);
+        let (router_state, _) = RouterState::pda(solana_ics26_program_id);
 
         let [payload] = msg.packet.payloads.as_slice() else {
             return Err(anyhow::anyhow!(
@@ -403,7 +395,7 @@ impl TxBuilder {
 
         let source_port = payload.source_port.clone();
 
-        let (ibc_app_pda, _) = derive_ibc_app(&source_port, solana_ics26_program_id);
+        let (ibc_app_pda, _) = IBCApp::pda(&source_port, solana_ics26_program_id);
 
         let ibc_app_account = self
             .target_solana_client
@@ -424,16 +416,16 @@ impl TxBuilder {
         tracing::info!("IBC app program ID: {}", ibc_app_program);
 
         // Derive the app state PDA using the correct derivation (same as timeout handler)
-        let (app_state, _) = derive_app_state(&source_port, ibc_app_program);
+        let (app_state, _) = IBCAppState::pda(&source_port, ibc_app_program);
 
-        let (packet_commitment, _) = derive_packet_commitment(
+        let (packet_commitment, _) = Commitment::packet_commitment_pda(
             &msg.packet.source_client,
             msg.packet.sequence,
             solana_ics26_program_id,
         );
 
         // Derive the client PDA using ICS26 client ID (from packet source_client)
-        let (client, _) = derive_client(&msg.packet.source_client, solana_ics26_program_id);
+        let (client, _) = Client::pda(&msg.packet.source_client, solana_ics26_program_id);
         tracing::info!(
             "Router client PDA for '{}': {}",
             msg.packet.source_client,
@@ -443,7 +435,7 @@ impl TxBuilder {
         let chain_id = self.chain_id().await?;
         tracing::info!("Cosmos chain ID for ICS07 derivation: {}", chain_id);
 
-        let (client_state, _) = derive_ics07_client_state(&chain_id, self.solana_ics07_program_id);
+        let (client_state, _) = ClientState::pda(&chain_id, self.solana_ics07_program_id);
         tracing::info!("ICS07 client state PDA: {}", client_state);
 
         tracing::info!("=== ACK PACKET CONSENSUS STATE DERIVATION ===");
@@ -453,11 +445,8 @@ impl TxBuilder {
             msg.proof.height
         );
 
-        let (consensus_state, _) = derive_ics07_consensus_state(
-            client_state,
-            msg.proof.height,
-            self.solana_ics07_program_id,
-        );
+        let (consensus_state, _) =
+            ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
 
         tracing::info!("  Consensus state PDA: {}", consensus_state);
         tracing::info!(
@@ -487,8 +476,7 @@ impl TxBuilder {
             accounts.push(AccountMeta::new(chunk_account, false));
         }
 
-        let discriminator = get_instruction_discriminator("ack_packet");
-        let mut data = discriminator.to_vec();
+        let mut data = router_instructions::ack_packet_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
@@ -553,20 +541,20 @@ impl TxBuilder {
     ) -> Result<Vec<AccountMeta>> {
         let program_id = self.solana_ics26_program_id;
 
-        let (router_state, _) = derive_router_state(program_id);
-        let (ibc_app, _) = derive_ibc_app(source_port, program_id);
-        let (packet_commitment, _) =
-            derive_packet_commitment(&msg.packet.source_client, msg.packet.sequence, program_id);
+        let (router_state, _) = RouterState::pda(program_id);
+        let (ibc_app, _) = IBCApp::pda(source_port, program_id);
+        let (packet_commitment, _) = Commitment::packet_commitment_pda(
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            program_id,
+        );
 
         let ibc_app_program_id = self.resolve_port_program_id(source_port)?;
-        let (ibc_app_state, _) = derive_app_state(source_port, ibc_app_program_id);
-        let (client, _) = derive_client(&msg.packet.source_client, program_id);
-        let (client_state, _) = derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
-        let (consensus_state, _) = derive_ics07_consensus_state(
-            client_state,
-            msg.proof.height,
-            self.solana_ics07_program_id,
-        );
+        let (ibc_app_state, _) = IBCAppState::pda(source_port, ibc_app_program_id);
+        let (client, _) = Client::pda(&msg.packet.source_client, program_id);
+        let (client_state, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+        let (consensus_state, _) =
+            ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
 
         tracing::info!("=== TIMEOUT PACKET CONSENSUS STATE DERIVATION ===");
         tracing::info!("  Chain ID: {}", chain_id);
@@ -635,8 +623,7 @@ impl TxBuilder {
 
     /// Build instruction data for timeout packet
     fn build_timeout_instruction_data(msg: &MsgTimeoutPacket) -> Result<Vec<u8>> {
-        let discriminator = get_instruction_discriminator(TIMEOUT_PACKET_INSTRUCTION);
-        let mut data = discriminator.to_vec();
+        let mut data = router_instructions::timeout_packet_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
         Ok(data)
     }
@@ -645,8 +632,7 @@ impl TxBuilder {
     /// # Errors
     /// Returns an error if the client state cannot be fetched or decoded.
     fn cosmos_client_state(&self, chain_id: &str) -> Result<ClientState> {
-        let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
+        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
 
         let account = self
             .target_solana_client
@@ -677,7 +663,7 @@ impl TxBuilder {
     /// - Failed to fetch `IBCApp` account
     /// - Failed to deserialize account data
     fn resolve_port_program_id(&self, port_id: &str) -> Result<Pubkey> {
-        let (ibc_app_account, _) = derive_ibc_app(port_id, self.solana_ics26_program_id);
+        let (ibc_app_account, _) = IBCApp::pda(port_id, self.solana_ics26_program_id);
 
         let account = self
             .target_solana_client
@@ -764,7 +750,7 @@ impl TxBuilder {
             chunk_data,
         };
 
-        let (chunk_pda, _) = derive_payload_chunk(
+        let (chunk_pda, _) = PayloadChunk::pda(
             self.fee_payer,
             client_id,
             sequence,
@@ -779,8 +765,7 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
-        let discriminator = get_instruction_discriminator("upload_payload_chunk");
-        let mut data = discriminator.to_vec();
+        let mut data = router_instructions::upload_payload_chunk_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
@@ -805,7 +790,7 @@ impl TxBuilder {
             chunk_data,
         };
 
-        let (chunk_pda, _) = derive_proof_chunk(
+        let (chunk_pda, _) = ProofChunk::pda(
             self.fee_payer,
             client_id,
             sequence,
@@ -819,8 +804,7 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
-        let discriminator = get_instruction_discriminator("upload_proof_chunk");
-        let mut data = discriminator.to_vec();
+        let mut data = router_instructions::upload_proof_chunk_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
 
         Ok(Instruction {
@@ -844,8 +828,7 @@ impl TxBuilder {
             chunk_data,
         };
 
-        let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
+        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
         let (chunk_pda, _) = derive_header_chunk(
             self.fee_payer,
             chain_id,
@@ -861,8 +844,7 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
-        let discriminator = get_instruction_discriminator("upload_header_chunk");
-        let mut data = discriminator.to_vec();
+        let mut data = ics07_instructions::upload_header_chunk_discriminator().to_vec();
         data.extend_from_slice(&params.try_to_vec()?);
 
         Ok(Instruction {
@@ -879,14 +861,13 @@ impl TxBuilder {
         trusted_height: u64,
         total_chunks: u8,
     ) -> Result<Vec<u8>> {
-        let (client_state_pda, _) =
-            derive_ics07_client_state(chain_id, self.solana_ics07_program_id);
-        let (trusted_consensus_state, _) = derive_ics07_consensus_state(
+        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+        let (trusted_consensus_state, _) = ConsensusState::pda(
             client_state_pda,
             trusted_height,
             self.solana_ics07_program_id,
         );
-        let (new_consensus_state, _) = derive_ics07_consensus_state(
+        let (new_consensus_state, _) = ConsensusState::pda(
             client_state_pda,
             target_height,
             self.solana_ics07_program_id,
@@ -912,8 +893,7 @@ impl TxBuilder {
             accounts.push(AccountMeta::new(chunk_pda, false));
         }
 
-        let discriminator = get_instruction_discriminator("assemble_and_update_client");
-        let mut data = discriminator.to_vec();
+        let mut data = ics07_instructions::assemble_and_update_client_discriminator().to_vec();
 
         let chain_id_len = u32::try_from(chain_id.len()).expect("chain_id too long");
         data.extend_from_slice(&chain_id_len.to_le_bytes());
@@ -1004,7 +984,7 @@ impl TxBuilder {
 
             if payload_idx < msg_payloads.len() && msg_payloads[payload_idx].total_chunks > 0 {
                 for chunk_idx in 0..msg_payloads[payload_idx].total_chunks {
-                    let (chunk_pda, _) = derive_payload_chunk(
+                    let (chunk_pda, _) = PayloadChunk::pda(
                         self.fee_payer,
                         client_id,
                         sequence,
@@ -1019,7 +999,7 @@ impl TxBuilder {
 
         if proof_total_chunks > 0 {
             for chunk_idx in 0..proof_total_chunks {
-                let (chunk_pda, _) = derive_proof_chunk(
+                let (chunk_pda, _) = ProofChunk::pda(
                     self.fee_payer,
                     client_id,
                     sequence,

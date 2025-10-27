@@ -10,7 +10,7 @@ use anchor_lang::prelude::*;
 pub struct OnAckPacket<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
-        seeds = [GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -105,6 +105,7 @@ fn is_acknowledgement_success(acknowledgement: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use crate::constants::GMP_PORT_ID;
+    use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::Mollusk;
@@ -120,10 +121,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let ack_msg = solana_ibc_types::OnAcknowledgementPacketMsg {
             source_client: "cosmoshub-1".to_string(),
@@ -181,10 +180,8 @@ mod tests {
         let router_program = Pubkey::new_unique();
         let wrong_router = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let ack_msg = solana_ibc_types::OnAcknowledgementPacketMsg {
             source_client: "cosmoshub-1".to_string(),
@@ -243,10 +240,8 @@ mod tests {
         let payer = Pubkey::new_unique();
         let port_id = "gmpport".to_string();
 
-        let (_correct_app_state_pda, _correct_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
-            &crate::ID,
-        );
+        let (_correct_app_state_pda, _correct_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, port_id.as_bytes()], &crate::ID);
 
         // Use wrong PDA
         let wrong_app_state_pda = Pubkey::new_unique();
@@ -308,10 +303,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         // Create acknowledgement message with invalid packet data in payload.value
         let ack_msg = solana_ibc_types::OnAcknowledgementPacketMsg {

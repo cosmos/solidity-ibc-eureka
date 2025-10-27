@@ -358,7 +358,7 @@ fn test_app_state_can_operate_when_not_paused() {
     let router_program = Pubkey::new_unique();
     let authority = Pubkey::new_unique();
     let (_app_state_pda, bump) =
-        Pubkey::find_program_address(&[ics27_gmp::constants::GMP_APP_STATE_SEED, b"gmpport"], &ID);
+        Pubkey::find_program_address(&[GMPAppState::SEED, b"gmpport"], &ID);
 
     let app_state = GMPAppState {
         router_program,
@@ -379,7 +379,7 @@ fn test_app_state_cannot_operate_when_paused() {
     let router_program = Pubkey::new_unique();
     let authority = Pubkey::new_unique();
     let (_app_state_pda, bump) =
-        Pubkey::find_program_address(&[ics27_gmp::constants::GMP_APP_STATE_SEED, b"gmpport"], &ID);
+        Pubkey::find_program_address(&[GMPAppState::SEED, b"gmpport"], &ID);
 
     let app_state = GMPAppState {
         router_program,

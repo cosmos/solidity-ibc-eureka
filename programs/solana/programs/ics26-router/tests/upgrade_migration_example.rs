@@ -6,7 +6,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::{AnchorSerialize, Discriminator};
 use ics26_router::state::{AccountVersion, Client, CounterpartyInfo, RouterState};
-use solana_ibc_types::{CLIENT_SEED, ROUTER_STATE_SEED};
 use solana_sdk::pubkey::Pubkey;
 
 /// Serialize account data into vector of bytes. This bytes are stored on Solana
@@ -19,7 +18,7 @@ fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u
 
 fn setup_router_state(authority: Pubkey) -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) =
-        Pubkey::find_program_address(&[ROUTER_STATE_SEED], &ics26_router::ID);
+        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
         authority,
@@ -37,7 +36,7 @@ fn setup_client_state(
     active: bool,
 ) -> (Pubkey, Vec<u8>) {
     let (client_pda, _) =
-        Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &ics26_router::ID);
+        Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &ics26_router::ID);
 
     let client = Client {
         version: AccountVersion::V1,

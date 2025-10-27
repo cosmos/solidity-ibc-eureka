@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 pub use solana_ibc_types::{
-    router::APP_STATE_SEED, IBCAppError, OnAcknowledgementPacketMsg, OnRecvPacketMsg,
-    OnTimeoutPacketMsg,
+    IBCAppError, IBCAppState, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg,
 };
 
 /// Dummy IBC App state
@@ -20,6 +19,11 @@ pub struct DummyIbcAppState {
     pub packets_sent: u64,
 }
 
+impl DummyIbcAppState {
+    pub const ROUTER_CALLER_SEED: &'static [u8] = b"router_caller";
+    pub const ESCROW_SEED: &'static [u8] = b"escrow";
+}
+
 /// Escrow state to track SOL held for specific transfers
 #[account]
 #[derive(InitSpace)]
@@ -35,10 +39,9 @@ pub struct EscrowState {
     pub authority: Pubkey,
 }
 
-/// Constants
-pub const ESCROW_STATE_SEED: &[u8] = b"escrow_state";
-pub const ESCROW_SEED: &[u8] = b"escrow";
-pub const ROUTER_CALLER_SEED: &[u8] = b"router_caller";
+impl EscrowState {
+    pub const SEED: &'static [u8] = b"escrow_state";
+}
 pub const TRANSFER_PORT: &str = "transfer";
 
 pub const DISCRIMINATOR_SIZE: usize = 8;

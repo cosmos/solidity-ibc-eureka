@@ -10,7 +10,7 @@ pub struct PauseApp<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
         mut,
-        seeds = [GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -43,7 +43,7 @@ pub struct UnpauseApp<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
         mut,
-        seeds = [GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -79,7 +79,7 @@ pub struct UpdateAuthority<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
         mut,
-        seeds = [GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -111,6 +111,7 @@ pub fn update_authority(ctx: Context<UpdateAuthority>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::Mollusk;
@@ -131,10 +132,8 @@ mod tests {
 
         let router_program = Pubkey::new_unique();
         let authority = Pubkey::new_unique();
-        let (app_state_pda, _bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, _bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
         let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
         let payer = authority;
 
@@ -174,10 +173,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let instruction_data = crate::instruction::PauseApp {};
 
@@ -221,10 +218,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let app_state = GMPAppState {
             router_program,
@@ -284,10 +279,8 @@ mod tests {
         let wrong_authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let instruction_data = crate::instruction::PauseApp {};
 
@@ -330,10 +323,8 @@ mod tests {
         let new_authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let instruction_data = crate::instruction::UpdateAuthority {};
 
@@ -384,10 +375,8 @@ mod tests {
         let new_authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let instruction_data = crate::instruction::UpdateAuthority {};
 
@@ -427,10 +416,8 @@ mod tests {
         let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
 
-        let (_correct_app_state_pda, _correct_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (_correct_app_state_pda, _correct_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         // Use wrong PDA
         let wrong_app_state_pda = Pubkey::new_unique();

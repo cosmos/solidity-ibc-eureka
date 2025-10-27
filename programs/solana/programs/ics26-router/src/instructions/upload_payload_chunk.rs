@@ -10,7 +10,7 @@ pub struct UploadPayloadChunk<'info> {
         payer = payer,
         space = 8 + PayloadChunk::INIT_SPACE,
         seeds = [
-            PAYLOAD_CHUNK_SEED,
+            PayloadChunk::SEED,
             payer.key().as_ref(),
             msg.client_id.as_bytes(),
             &msg.sequence.to_le_bytes(),

@@ -10,7 +10,7 @@ pub struct UploadProofChunk<'info> {
         payer = payer,
         space = 8 + ProofChunk::INIT_SPACE,
         seeds = [
-            PROOF_CHUNK_SEED,
+            ProofChunk::SEED,
             payer.key().as_ref(),
             msg.client_id.as_bytes(),
             &msg.sequence.to_le_bytes(),
