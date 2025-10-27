@@ -31,7 +31,7 @@ fn setup_test_accounts_with_chunks(
     for i in 0..num_chunks {
         let chunk_pda = Pubkey::find_program_address(
             &[
-                b"header_chunk",
+                crate::state::HeaderChunk::SEED,
                 submitter.as_ref(),
                 chain_id.as_bytes(),
                 &cleanup_height.to_le_bytes(),
@@ -43,8 +43,11 @@ fn setup_test_accounts_with_chunks(
         chunk_pdas.push(chunk_pda);
     }
 
-    let client_state_pda =
-        Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID).0;
+    let client_state_pda = Pubkey::find_program_address(
+        &[crate::types::ClientState::SEED, chain_id.as_bytes()],
+        &crate::ID,
+    )
+    .0;
 
     let mut accounts = vec![];
 
@@ -255,8 +258,11 @@ fn test_cleanup_with_missing_chunks() {
     let submitter = Pubkey::new_unique();
 
     // Set up with only 2 out of 3 chunks actually created
-    let client_state_pda =
-        Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID).0;
+    let client_state_pda = Pubkey::find_program_address(
+        &[crate::types::ClientState::SEED, chain_id.as_bytes()],
+        &crate::ID,
+    )
+    .0;
 
     let mut accounts = vec![];
 
@@ -308,7 +314,7 @@ fn test_cleanup_with_missing_chunks() {
     for i in [0u8, 2u8] {
         let chunk_pda = Pubkey::find_program_address(
             &[
-                b"header_chunk",
+                crate::state::HeaderChunk::SEED,
                 submitter.as_ref(),
                 chain_id.as_bytes(),
                 &cleanup_height.to_le_bytes(),
@@ -340,7 +346,7 @@ fn test_cleanup_with_missing_chunks() {
     // Add empty account for missing chunk 1
     let missing_chunk_pda = Pubkey::find_program_address(
         &[
-            b"header_chunk",
+            crate::state::HeaderChunk::SEED,
             submitter.as_ref(),
             chain_id.as_bytes(),
             &cleanup_height.to_le_bytes(),
@@ -376,7 +382,7 @@ fn test_cleanup_with_missing_chunks() {
             AccountMeta::new(
                 Pubkey::find_program_address(
                     &[
-                        b"header_chunk",
+                        crate::state::HeaderChunk::SEED,
                         submitter.as_ref(),
                         chain_id.as_bytes(),
                         &cleanup_height.to_le_bytes(),
@@ -391,7 +397,7 @@ fn test_cleanup_with_missing_chunks() {
             AccountMeta::new(
                 Pubkey::find_program_address(
                     &[
-                        b"header_chunk",
+                        crate::state::HeaderChunk::SEED,
                         submitter.as_ref(),
                         chain_id.as_bytes(),
                         &cleanup_height.to_le_bytes(),

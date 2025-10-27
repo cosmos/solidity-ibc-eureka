@@ -352,9 +352,8 @@ mod tests {
             "Client account should be rent-exempt"
         );
 
-        let mut data_slice = &client_account.data[8..];
-        let deserialized_client: Client =
-            Client::deserialize(&mut data_slice).expect("Failed to deserialize client");
+        let deserialized_client: Client = Client::try_deserialize(&mut &client_account.data[..])
+            .expect("Failed to deserialize client");
 
         assert_eq!(deserialized_client.client_id, client_id);
         assert_eq!(deserialized_client.authority, authority);
@@ -388,9 +387,9 @@ mod tests {
             "ClientSequence account should be rent-exempt"
         );
 
-        let mut data_slice = &client_sequence_account.data[8..];
-        let deserialized_sequence: ClientSequence = ClientSequence::deserialize(&mut data_slice)
-            .expect("Failed to deserialize client sequence");
+        let deserialized_sequence: ClientSequence =
+            ClientSequence::try_deserialize(&mut &client_sequence_account.data[..])
+                .expect("Failed to deserialize client sequence");
 
         assert_eq!(
             deserialized_sequence.next_sequence_send, 1,
@@ -486,9 +485,8 @@ mod tests {
             .map(|(_, account)| account)
             .expect("Client account not found");
 
-        let mut data_slice = &client_account.data[8..];
-        let deserialized_client: Client =
-            Client::deserialize(&mut data_slice).expect("Failed to deserialize client");
+        let deserialized_client: Client = Client::try_deserialize(&mut &client_account.data[..])
+            .expect("Failed to deserialize client");
 
         assert!(!deserialized_client.active, "Client should be deactivated");
         assert_eq!(deserialized_client.client_id, client_id);
