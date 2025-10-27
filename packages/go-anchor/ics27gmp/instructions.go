@@ -248,6 +248,29 @@ func NewPauseAppInstruction(
 	), nil
 }
 
+// Builds a "query_account_state" instruction.
+// Query GMP account state //  // Returns the current state of a GMP account including nonce, execution count, // timestamps, etc. This instruction exists primarily to expose AccountState // in the IDL for client code generation (e.g., anchor-go).
+func NewQueryAccountStateInstruction(
+	accountStateAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "account_state": Read-only, Non-signer, Required
+		// The GMP account state being queried
+		// by the caller who must derive the correct PDA using AccountState::derive_address
+		accounts__.Append(solanago.NewAccountMeta(accountStateAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		nil,
+	), nil
+}
+
 // Builds a "send_call" instruction.
 // Send a GMP call packet
 func NewSendCallInstruction(

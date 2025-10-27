@@ -11,10 +11,8 @@ import (
 
 	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
-	"google.golang.org/protobuf/proto"
 
 	solanago "github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -104,24 +102,23 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		_, err := s.SolanaChain.FundUser(solana.DeployerPubkey, 20*testvalues.InitialSolBalance)
 		s.Require().NoError(err, "FundUser user failed")
 
-		ics07ProgramID := s.deploySolanaProgram(ctx, "ics07_tendermint")
+		ics07ProgramID := s.SolanaChain.DeploySolanaProgram(ctx, s.T(), s.Require(), "ics07_tendermint")
 		s.Require().Equal(ics07_tendermint.ProgramID, ics07ProgramID)
 		ics07_tendermint.ProgramID = ics07ProgramID
 
-		ics26RouterProgramID := s.deploySolanaProgram(ctx, "ics26_router")
+		ics26RouterProgramID := s.SolanaChain.DeploySolanaProgram(ctx, s.T(), s.Require(), "ics26_router")
 		s.Require().Equal(ics26_router.ProgramID, ics26RouterProgramID)
 
-		ics07Available := s.waitForProgramAvailability(ctx, ics07_tendermint.ProgramID)
+		ics07Available := s.SolanaChain.WaitForProgramAvailability(ctx, ics07_tendermint.ProgramID)
 		s.Require().True(ics07Available, "ICS07 program failed to become available")
 
-		ics26Available := s.waitForProgramAvailability(ctx, ics26_router.ProgramID)
+		ics26Available := s.SolanaChain.WaitForProgramAvailability(ctx, ics26_router.ProgramID)
 		s.Require().True(ics26Available, "ICS26 router program failed to become available")
 	}))
 
 	// Initialize router first (required before GMP/Dummy App can register)
 	s.Require().True(s.Run("Initialize ICS26 Router", func() {
-		routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
-		s.Require().NoError(err, "Could not find router_state")
+		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 		initInstruction, err := ics26_router.NewInitializeInstruction(s.SolanaUser.PublicKey(), routerStateAccount, s.SolanaUser.PublicKey(), solanago.SystemProgramID)
 		s.Require().NoError(err)
 
@@ -138,7 +135,9 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		// Create Address Lookup Table after GMP deployment (if not already set)
 		if s.SolanaAltAddress == "" {
 			s.Require().True(s.Run("Create Address Lookup Table", func() {
-				altAddress := s.createAddressLookupTable(ctx)
+				simd := s.CosmosChains[0]
+				cosmosChainID := simd.Config().ChainID
+				altAddress := s.SolanaChain.CreateIBCAddressLookupTable(ctx, s.T(), s.Require(), s.SolanaUser, cosmosChainID, GMPPortID, SolanaClientID)
 				s.SolanaAltAddress = altAddress.String()
 				s.T().Logf("Created Address Lookup Table: %s", s.SolanaAltAddress)
 			}))
@@ -148,14 +147,13 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	// Deploy and register Dummy App if SetupDummyApp is enabled (requires initialized router)
 	if s.SetupDummyApp {
 		s.Require().True(s.Run("Deploy and Register Dummy App", func() {
-			dummyAppProgramID := s.deploySolanaProgram(ctx, "dummy_ibc_app")
+			dummyAppProgramID := s.SolanaChain.DeploySolanaProgram(ctx, s.T(), s.Require(), "dummy_ibc_app")
 			dummy_ibc_app.ProgramID = dummyAppProgramID
 
 			programAvailable := s.SolanaChain.WaitForProgramAvailabilityWithTimeout(ctx, dummyAppProgramID, 120)
 			s.Require().True(programAvailable, "Program failed to become available within timeout")
 
-			appStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(transfertypes.PortID)}, dummyAppProgramID)
-			s.Require().NoError(err)
+			appStateAccount, _ := solana.DummyIbcApp.AppStateTransferPDA(dummyAppProgramID)
 
 			initInstruction, err := dummy_ibc_app.NewInitializeInstruction(
 				s.SolanaUser.PublicKey(),
@@ -172,11 +170,9 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			s.Require().NoError(err)
 			s.T().Logf("Dummy app initialized")
 
-			routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
-			s.Require().NoError(err)
+			routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 
-			ibcAppAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("ibc_app"), []byte(transfertypes.PortID)}, ics26_router.ProgramID)
-			s.Require().NoError(err)
+			ibcAppAccount, _ := solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 
 			registerInstruction, err := ics26_router.NewAddIbcAppInstruction(
 				transfertypes.PortID,
@@ -316,14 +312,11 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		}))
 
 		s.Require().True(s.Run("Add Client to Router", func() {
-			routerStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
-			s.Require().NoError(err)
+			routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 
-			clientAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(SolanaClientID)}, ics26_router.ProgramID)
-			s.Require().NoError(err)
+			clientAccount, _ := solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-			clientSequenceAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client_sequence"), []byte(SolanaClientID)}, ics26_router.ProgramID)
-			s.Require().NoError(err)
+			clientSequenceAccount, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 			counterpartyInfo := ics26_router.CounterpartyInfo{
 				ClientId:     CosmosClientID,
@@ -364,8 +357,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	simd := s.CosmosChains[0]
 
 	s.Require().True(s.Run("Verify ics07-svm-tendermint", func() {
-		clientStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(simd.Config().ChainID)}, ics07_tendermint.ProgramID)
-		s.Require().NoError(err)
+		clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
 
 		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
 		s.Require().NoError(err)
@@ -442,7 +434,26 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		)
 		packetData := transferData.GetBytes()
 
-		accounts := s.preparePacketAccounts(ctx, s.DummyAppProgramID, transfertypes.PortID, SolanaClientID)
+		var appState, routerCaller, routerState, ibcApp, client, clientSequence, packetCommitment solanago.PublicKey
+		s.Require().True(s.Run("Prepare accounts", func() {
+			appState, _ = solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
+			routerCaller, _ = solana.DummyIbcApp.RouterCallerPDA(s.DummyAppProgramID)
+			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+			ibcApp, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
+			client, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			clientSequence, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
+
+			clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequence)
+			s.Require().NoError(err)
+
+			clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
+			s.Require().NoError(err)
+
+			nextSequence := clientSequenceData.NextSequenceSend
+			nextSequenceBytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(nextSequenceBytes, nextSequence)
+			packetCommitment, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), nextSequenceBytes)
+		}))
 
 		packetMsg := dummy_ibc_app.SendPacketMsg{
 			SourceClient:     SolanaClientID,
@@ -456,16 +467,16 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 		sendPacketInstruction, err := dummy_ibc_app.NewSendPacketInstruction(
 			packetMsg,
-			accounts.AppState,
+			appState,
 			s.SolanaUser.PublicKey(),
-			accounts.RouterState,
-			accounts.IBCApp,
-			accounts.ClientSequence,
-			accounts.PacketCommitment,
-			accounts.Client,
+			routerState,
+			ibcApp,
+			clientSequence,
+			packetCommitment,
+			client,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
-			accounts.RouterCaller,
+			routerCaller,
 		)
 		s.Require().NoError(err)
 
@@ -556,7 +567,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transaction")
 
-			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaUser)
 			s.Require().NoError(err, "Failed to submit chunked update client transactions")
 		}))
 
@@ -571,9 +582,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			_ = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
+			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			s.Require().NoError(err)
 
-			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
+			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1)
 		}))
 	}))
 }
@@ -603,7 +615,29 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		receiver := cosmosUserWallet.FormattedAddress()
 		memo := "Test transfer from Solana to Cosmos"
 
-		accounts := s.prepareTransferAccounts(ctx, s.DummyAppProgramID, transfertypes.PortID, SolanaClientID)
+		var appState, routerCaller, routerState, ibcApp, client, clientSequence, packetCommitment, escrow, escrowState solanago.PublicKey
+		s.Require().True(s.Run("Prepare accounts", func() {
+			appState, _ = solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
+			routerCaller, _ = solana.DummyIbcApp.RouterCallerPDA(s.DummyAppProgramID)
+			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+			ibcApp, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
+			client, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			clientSequence, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
+
+			clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequence)
+			s.Require().NoError(err)
+
+			clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
+			s.Require().NoError(err)
+
+			nextSequence := clientSequenceData.NextSequenceSend
+			nextSequenceBytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(nextSequenceBytes, nextSequence)
+			packetCommitment, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), nextSequenceBytes)
+
+			escrow, _ = solana.DummyIbcApp.EscrowPDA(s.DummyAppProgramID, []byte(SolanaClientID))
+			escrowState, _ = solana.DummyIbcApp.EscrowStatePDA(s.DummyAppProgramID, []byte(SolanaClientID))
+		}))
 
 		timeoutTimestamp := time.Now().Unix() + 3600
 
@@ -619,18 +653,18 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 
 		sendTransferInstruction, err := dummy_ibc_app.NewSendTransferInstruction(
 			transferMsg,
-			accounts.AppState,
+			appState,
 			s.SolanaUser.PublicKey(),
-			accounts.Escrow,
-			accounts.EscrowState,
-			accounts.RouterState,
-			accounts.IBCApp,
-			accounts.ClientSequence,
-			accounts.PacketCommitment,
-			accounts.Client,
+			escrow,
+			escrowState,
+			routerState,
+			ibcApp,
+			clientSequence,
+			packetCommitment,
+			client,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
-			accounts.RouterCaller,
+			routerCaller,
 		)
 		s.Require().NoError(err)
 
@@ -655,7 +689,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 
 		s.Require().Less(finalLamports, initialLamports, "Balance should decrease after transfer")
 
-		escrowBalance, balanceChanged := s.SolanaChain.WaitForBalanceChange(ctx, accounts.Escrow, 0)
+		escrowBalance, balanceChanged := s.SolanaChain.WaitForBalanceChange(ctx, escrow, 0)
 		s.Require().True(balanceChanged, "Escrow account should receive SOL")
 
 		s.T().Logf("Escrow account balance: %d lamports", escrowBalance)
@@ -721,7 +755,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			s.Require().NoError(err, "Relayer failed to generate update txs")
 			s.Require().NotEmpty(resp.Tx, "Update client should return transaction")
 
-			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaUser)
 			s.Require().NoError(err, "Failed to submit chunked update client transactions")
 		}))
 
@@ -736,9 +770,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			_ = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
+			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			s.Require().NoError(err)
 
-			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
+			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1)
 		}))
 	}))
 }
@@ -837,7 +872,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transaction")
 
-			s.submitChunkedUpdateClient(ctx, resp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaUser)
 			s.Require().NoError(err, "Failed to submit chunked update client transactions")
 		}))
 
@@ -852,16 +887,16 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			solanaRelayTxSig = s.submitChunkedRelayPackets(ctx, resp, s.SolanaUser)
+			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			s.Require().NoError(err)
 
-			s.verifyPacketCommitmentDeleted(ctx, SolanaClientID, 1)
+			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1)
 		}))
 	}))
 
 	s.Require().True(s.Run("Verify packet received on Solana", func() {
 		// Check that the dummy app state was updated
-		dummyAppStateAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(transfertypes.PortID)}, s.DummyAppProgramID)
-		s.Require().NoError(err)
+		dummyAppStateAccount, _ := solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
 
 		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, dummyAppStateAccount)
 		s.Require().NoError(err)
@@ -874,8 +909,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 		s.T().Logf("Solana dummy app has received %d packets total", appState.PacketsReceived)
 
 		// Check that packet receipt was written
-		clientSequenceAccount, _, err := solanago.FindProgramAddress([][]byte{[]byte("client_sequence"), []byte(SolanaClientID)}, ics26_router.ProgramID)
-		s.Require().NoError(err)
+		clientSequenceAccount, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 		clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequenceAccount)
 		s.Require().NoError(err)
@@ -921,445 +955,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 
 // Helpers
 
-func (s *IbcEurekaSolanaTestSuite) submitChunkedUpdateClient(ctx context.Context, resp *relayertypes.UpdateClientResponse, user *solanago.Wallet) {
-	// Deserialize TransactionBatch from resp.Tx
-	var batch relayertypes.TransactionBatch
-	err := proto.Unmarshal(resp.Tx, &batch)
-	s.Require().NoError(err, "Failed to unmarshal TransactionBatch")
-	s.Require().NotEqual(0, len(batch.Txs), "no chunked transactions provided")
-
-	totalStart := time.Now()
-
-	// Transaction structure: [chunk1, chunk2, ..., chunkN, assembly]
-	chunkCount := len(batch.Txs) - 1 // Total minus assembly
-	s.T().Logf("=== Starting Chunked Update Client ===")
-	s.T().Logf("Total transactions: %d (%d chunks + 1 assembly)",
-		len(batch.Txs),
-		chunkCount)
-
-	chunkStart := 0
-	chunkEnd := len(batch.Txs) - 1 // Everything except last (assembly)
-
-	type chunkResult struct {
-		index    int
-		sig      solanago.Signature
-		err      error
-		duration time.Duration
-	}
-
-	// Submit chunks in parallel
-	s.T().Logf("--- Phase 1: Uploading %d chunks in parallel ---", chunkCount)
-	chunksStart := time.Now()
-	chunkResults := make(chan chunkResult, chunkEnd-chunkStart)
-
-	for i := chunkStart; i < chunkEnd; i++ {
-		go func(idx int) {
-			chunkTxStart := time.Now()
-
-			// Decode
-			tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[idx]))
-			if err != nil {
-				chunkResults <- chunkResult{
-					index:    idx,
-					err:      fmt.Errorf("failed to decode chunk %d: %w", idx, err),
-					duration: time.Since(chunkTxStart),
-				}
-				return
-			}
-
-			// Sign and broadcast (with processed confirmation for fast feedback)
-			sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, user, rpc.ConfirmationStatusProcessed)
-			chunkDuration := time.Since(chunkTxStart)
-
-			if err != nil {
-				chunkResults <- chunkResult{
-					index:    idx,
-					err:      fmt.Errorf("failed to submit chunk %d: %w", idx, err),
-					duration: chunkDuration,
-				}
-				return
-			}
-
-			s.T().Logf("[Chunk %d timing] total duration: %v",
-				idx, chunkDuration)
-
-			chunkResults <- chunkResult{
-				index:    idx,
-				sig:      sig,
-				duration: chunkDuration,
-			}
-		}(i)
-	}
-
-	// Collect results from all parallel chunk submissions
-	completedChunks := 0
-	for i := 0; i < chunkEnd-chunkStart; i++ {
-		result := <-chunkResults
-		s.Require().NoError(result.err, "Chunk was not submitted")
-		completedChunks++
-		s.T().Logf("✓ Chunk %d/%d uploaded in %v - tx: %s",
-			completedChunks, chunkCount, result.duration, result.sig)
-	}
-	close(chunkResults)
-
-	chunksTotal := time.Since(chunksStart)
-	avgChunkTime := chunksTotal / time.Duration(chunkCount)
-	s.T().Logf("--- Phase 1 Complete: All %d chunks uploaded in %v (avg: %v/chunk) ---",
-		chunkCount, chunksTotal, avgChunkTime)
-
-	// Submit assembly transaction - must be done last (always the last transaction)
-	s.T().Logf("--- Phase 2: Assembling and updating client ---")
-	assemblyStart := time.Now()
-
-	tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[len(batch.Txs)-1]))
-	s.Require().NoError(err, "Failed to decode assembly tx")
-
-	sig, err := s.SolanaChain.SignAndBroadcastTxWithConfirmedStatus(ctx, tx, user)
-	s.Require().NoError(err)
-
-	assemblyDuration := time.Since(assemblyStart)
-	s.T().Logf("✓ Assembly transaction completed in %v - tx: %s", assemblyDuration, sig)
-
-	totalDuration := time.Since(totalStart)
-	s.T().Logf("=== Chunked Update Client Complete ===")
-	s.T().Logf("Total time: %v", totalDuration)
-	s.T().Logf("  - Chunk upload phase: %v (%d chunks in parallel)", chunksTotal, chunkCount)
-	s.T().Logf("  - Assembly phase: %v", assemblyDuration)
-}
-
-func (s *IbcEurekaSolanaTestSuite) submitChunkedRelayPackets(ctx context.Context, resp *relayertypes.RelayByTxResponse, user *solanago.Wallet) solanago.Signature {
-	var batch relayertypes.RelayPacketBatch
-	err := proto.Unmarshal(resp.Tx, &batch)
-	s.Require().NoError(err, "Failed to unmarshal RelayPacketBatch")
-	s.Require().NotEqual(0, len(batch.Packets), "no relay packets provided")
-
-	totalStart := time.Now()
-	s.T().Logf("=== Starting Chunked Relay Packets ===")
-	s.T().Logf("Total packets: %d", len(batch.Packets))
-
-	totalChunks := 0
-	for _, packet := range batch.Packets {
-		totalChunks += len(packet.Chunks)
-	}
-	s.T().Logf("Total chunks across all packets: %d", totalChunks)
-
-	type packetResult struct {
-		packetIdx      int
-		finalSig       solanago.Signature
-		err            error
-		chunksDuration time.Duration
-		finalDuration  time.Duration
-		totalDuration  time.Duration
-	}
-
-	// Process all packets in parallel
-	packetResults := make(chan packetResult, len(batch.Packets))
-
-	for packetIdx, packet := range batch.Packets {
-		go func(pktIdx int, pkt *relayertypes.PacketTransactions) {
-			packetStart := time.Now()
-			s.T().Logf("--- Packet %d: Starting (%d chunks + 1 final tx) ---", pktIdx+1, len(pkt.Chunks))
-
-			type chunkResult struct {
-				chunkIdx int
-				sig      solanago.Signature
-				err      error
-				duration time.Duration
-			}
-
-			// Phase 1: Submit all chunks for this packet in parallel
-			chunksStart := time.Now()
-			chunkResults := make(chan chunkResult, len(pkt.Chunks))
-
-			for chunkIdx, chunkBytes := range pkt.Chunks {
-				go func(chkIdx int, chunkData []byte) {
-					chunkStart := time.Now()
-
-					tx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(chunkData))
-					if err != nil {
-						chunkResults <- chunkResult{
-							chunkIdx: chkIdx,
-							err:      fmt.Errorf("failed to decode chunk %d: %w", chkIdx, err),
-							duration: time.Since(chunkStart),
-						}
-						return
-					}
-
-					recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-					if err != nil {
-						chunkResults <- chunkResult{
-							chunkIdx: chkIdx,
-							err:      fmt.Errorf("failed to get blockhash for chunk %d: %w", chkIdx, err),
-							duration: time.Since(chunkStart),
-						}
-						return
-					}
-					tx.Message.RecentBlockhash = recent.Value.Blockhash
-
-					sig, err := s.SolanaChain.SignAndBroadcastTx(ctx, tx, user)
-					chunkDuration := time.Since(chunkStart)
-
-					if err != nil {
-						chunkResults <- chunkResult{
-							chunkIdx: chkIdx,
-							err:      fmt.Errorf("failed to submit chunk %d: %w", chkIdx, err),
-							duration: chunkDuration,
-						}
-						return
-					}
-
-					chunkResults <- chunkResult{
-						chunkIdx: chkIdx,
-						sig:      sig,
-						duration: chunkDuration,
-					}
-				}(chunkIdx, chunkBytes)
-			}
-
-			// Collect all chunk results for this packet
-			var chunkErr error
-			for i := 0; i < len(pkt.Chunks); i++ {
-				result := <-chunkResults
-				if result.err != nil {
-					chunkErr = result.err
-					s.T().Logf("✗ Packet %d, Chunk %d failed: %v", pktIdx+1, result.chunkIdx+1, result.err)
-				} else {
-					s.T().Logf("✓ Packet %d, Chunk %d/%d completed in %v - tx: %s",
-						pktIdx+1, result.chunkIdx+1, len(pkt.Chunks), result.duration, result.sig)
-				}
-			}
-			close(chunkResults)
-			chunksDuration := time.Since(chunksStart)
-
-			if chunkErr != nil {
-				packetResults <- packetResult{
-					packetIdx:      pktIdx,
-					err:            fmt.Errorf("packet %d chunk upload failed: %w", pktIdx, chunkErr),
-					chunksDuration: chunksDuration,
-					totalDuration:  time.Since(packetStart),
-				}
-				return
-			}
-
-			s.T().Logf("--- Packet %d: All %d chunks completed in %v, submitting final tx ---",
-				pktIdx+1, len(pkt.Chunks), chunksDuration)
-
-			// Phase 2: Submit final transaction for this packet
-			finalStart := time.Now()
-
-			finalTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(pkt.FinalTx))
-			if err != nil {
-				packetResults <- packetResult{
-					packetIdx:      pktIdx,
-					err:            fmt.Errorf("packet %d failed to decode final tx: %w", pktIdx, err),
-					chunksDuration: chunksDuration,
-					finalDuration:  time.Since(finalStart),
-					totalDuration:  time.Since(packetStart),
-				}
-				return
-			}
-
-			recent, err := s.SolanaChain.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
-			if err != nil {
-				packetResults <- packetResult{
-					packetIdx:      pktIdx,
-					err:            fmt.Errorf("packet %d failed to get blockhash for final tx: %w", pktIdx, err),
-					chunksDuration: chunksDuration,
-					finalDuration:  time.Since(finalStart),
-					totalDuration:  time.Since(packetStart),
-				}
-				return
-			}
-			finalTx.Message.RecentBlockhash = recent.Value.Blockhash
-
-			// For final tx we need finalized status
-			sig, err := s.SolanaChain.SignAndBroadcastTx(ctx, finalTx, user)
-			finalDuration := time.Since(finalStart)
-			totalDuration := time.Since(packetStart)
-
-			if err != nil {
-				packetResults <- packetResult{
-					packetIdx:      pktIdx,
-					err:            fmt.Errorf("packet %d failed to submit final tx: %w", pktIdx, err),
-					chunksDuration: chunksDuration,
-					finalDuration:  finalDuration,
-					totalDuration:  totalDuration,
-				}
-				return
-			}
-
-			s.T().Logf("✓ Packet %d: Final tx completed in %v - tx: %s", pktIdx+1, finalDuration, sig)
-			s.T().Logf("--- Packet %d: Complete in %v (chunks: %v, final: %v) ---",
-				pktIdx+1, totalDuration, chunksDuration, finalDuration)
-
-			packetResults <- packetResult{
-				packetIdx:      pktIdx,
-				finalSig:       sig,
-				chunksDuration: chunksDuration,
-				finalDuration:  finalDuration,
-				totalDuration:  totalDuration,
-			}
-		}(packetIdx, packet)
-	}
-
-	// Collect all packet results
-	var lastSig solanago.Signature
-	var totalChunksDuration time.Duration
-	var totalFinalsDuration time.Duration
-
-	for i := 0; i < len(batch.Packets); i++ {
-		result := <-packetResults
-		s.Require().NoError(result.err, "Packet submission failed")
-		lastSig = result.finalSig
-		totalChunksDuration += result.chunksDuration
-		totalFinalsDuration += result.finalDuration
-	}
-	close(packetResults)
-
-	totalDuration := time.Since(totalStart)
-	avgChunksDuration := totalChunksDuration / time.Duration(len(batch.Packets))
-	avgFinalsDuration := totalFinalsDuration / time.Duration(len(batch.Packets))
-
-	s.T().Logf("=== Chunked Relay Packets Complete ===")
-	s.T().Logf("Total wall time: %v for %d packets (%d total chunks)", totalDuration, len(batch.Packets), totalChunks)
-	s.T().Logf("All packets processed in parallel:")
-	s.T().Logf("  - Avg chunks phase per packet: %v", avgChunksDuration)
-	s.T().Logf("  - Avg final tx per packet: %v", avgFinalsDuration)
-	s.T().Logf("Parallelization: All packets + all chunks within each packet submitted concurrently")
-	return lastSig
-}
-
-func (s *IbcEurekaSolanaTestSuite) verifyPacketCommitmentDeleted(ctx context.Context, clientID string, sequence uint64) {
-	packetCommitmentPDA, _, err := solanago.FindProgramAddress(
-		[][]byte{
-			[]byte("packet_commitment"),
-			[]byte(clientID),
-			binary.LittleEndian.AppendUint64(nil, sequence),
-		},
-		ics26_router.ProgramID,
-	)
-	s.Require().NoError(err)
-
-	// Query the account - it should either not exist or have 0 lamports (closed)
-	accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, packetCommitmentPDA)
-	// The account should either not be found (nil) or have been closed (0 lamports)
-	if err != nil {
-		// Account not found is expected - commitment was deleted
-		s.T().Logf("Packet commitment deleted (account not found) for client %s, sequence %d", clientID, sequence)
-		return
-	}
-
-	if accountInfo.Value == nil || accountInfo.Value.Lamports == 0 {
-		s.T().Logf("Packet commitment deleted (account closed) for client %s, sequence %d", clientID, sequence)
-		return
-	}
-
-	s.Require().Fail("Packet commitment should have been deleted after acknowledgment",
-		"Account %s still exists with %d lamports", packetCommitmentPDA.String(), accountInfo.Value.Lamports)
-}
-
 func getSolDenomOnCosmos() transfertypes.Denom {
 	return transfertypes.NewDenom(SolDenom, transfertypes.NewHop("transfer", CosmosClientID))
-}
-
-type AccountSet struct {
-	AppState         solanago.PublicKey
-	RouterState      solanago.PublicKey
-	IBCApp           solanago.PublicKey
-	Client           solanago.PublicKey
-	ClientSequence   solanago.PublicKey
-	RouterCaller     solanago.PublicKey
-	PacketCommitment solanago.PublicKey
-	Escrow           solanago.PublicKey
-	EscrowState      solanago.PublicKey
-}
-
-func (s *IbcEurekaSolanaTestSuite) prepareBaseAccounts(ctx context.Context, dummyAppProgramID solanago.PublicKey, port, clientID string) AccountSet {
-	accounts := AccountSet{}
-	var err error
-
-	accounts.AppState, _, err = solanago.FindProgramAddress([][]byte{[]byte("app_state"), []byte(port)}, dummyAppProgramID)
-	s.Require().NoError(err)
-
-	accounts.RouterCaller, _, err = solanago.FindProgramAddress([][]byte{[]byte("router_caller")}, dummyAppProgramID)
-	s.Require().NoError(err)
-
-	accounts.RouterState, _, err = solanago.FindProgramAddress([][]byte{[]byte("router_state")}, ics26_router.ProgramID)
-	s.Require().NoError(err)
-
-	accounts.IBCApp, _, err = solanago.FindProgramAddress([][]byte{[]byte("ibc_app"), []byte(port)}, ics26_router.ProgramID)
-	s.Require().NoError(err)
-
-	accounts.Client, _, err = solanago.FindProgramAddress([][]byte{[]byte("client"), []byte(clientID)}, ics26_router.ProgramID)
-	s.Require().NoError(err)
-
-	accounts.ClientSequence, _, err = solanago.FindProgramAddress([][]byte{[]byte("client_sequence"), []byte(clientID)}, ics26_router.ProgramID)
-	s.Require().NoError(err)
-
-	clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, accounts.ClientSequence)
-	s.Require().NoError(err)
-
-	clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
-	s.Require().NoError(err)
-
-	nextSequence := clientSequenceData.NextSequenceSend
-	sequenceBytes := uint64ToLeBytes(nextSequence)
-	accounts.PacketCommitment, _, err = solanago.FindProgramAddress([][]byte{[]byte("packet_commitment"), []byte(clientID), sequenceBytes}, ics26_router.ProgramID)
-	s.Require().NoError(err)
-
-	return accounts
-}
-
-func (s *IbcEurekaSolanaTestSuite) prepareTransferAccounts(ctx context.Context, dummyAppProgramID solanago.PublicKey, port, clientID string) AccountSet {
-	accounts := s.prepareBaseAccounts(ctx, dummyAppProgramID, port, clientID)
-	var err error
-
-	accounts.Escrow, _, err = solanago.FindProgramAddress([][]byte{[]byte("escrow"), []byte(clientID)}, dummyAppProgramID)
-	s.Require().NoError(err)
-
-	accounts.EscrowState, _, err = solanago.FindProgramAddress([][]byte{[]byte("escrow_state"), []byte(clientID)}, dummyAppProgramID)
-	s.Require().NoError(err)
-
-	return accounts
-}
-
-func (s *IbcEurekaSolanaTestSuite) preparePacketAccounts(ctx context.Context, dummyAppProgramID solanago.PublicKey, port, clientID string) AccountSet {
-	return s.prepareBaseAccounts(ctx, dummyAppProgramID, port, clientID)
-}
-
-func uint64ToLeBytes(val uint64) []byte {
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, val)
-	return b
-}
-
-func (s *IbcEurekaSolanaTestSuite) deploySolanaProgram(ctx context.Context, programName string) solanago.PublicKey {
-	keypairPath := fmt.Sprintf("e2e/interchaintestv8/solana/%s-keypair.json", programName)
-	walletPath := "e2e/interchaintestv8/solana/deployer_wallet.json"
-	programID, _, err := solana.AnchorDeploy(ctx, "programs/solana", programName, keypairPath, walletPath)
-	s.Require().NoError(err, "%s program deployment has failed", programName)
-	s.T().Logf("%s program deployed at: %s", programName, programID.String())
-	return programID
-}
-
-func (s *IbcEurekaSolanaTestSuite) waitForProgramAvailability(ctx context.Context, programID solanago.PublicKey) bool {
-	return s.waitForProgramAvailabilityWithTimeout(ctx, programID, DefaultTimeoutSeconds)
-}
-
-func (s *IbcEurekaSolanaTestSuite) waitForProgramAvailabilityWithTimeout(ctx context.Context, programID solanago.PublicKey, timeoutSeconds int) bool {
-	for i := range timeoutSeconds {
-		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, programID)
-		if err == nil && accountInfo.Value != nil && accountInfo.Value.Executable {
-			s.T().Logf("Program %s is available after %d seconds, owner: %s, executable: %v",
-				programID.String(), i+1, accountInfo.Value.Owner.String(), accountInfo.Value.Executable)
-			return true
-		}
-		if i == 0 {
-			s.T().Logf("Waiting for program %s to be available...", programID.String())
-		}
-		time.Sleep(1 * time.Second)
-	}
-
-	s.T().Logf("Warning: Program %s still not available after %d seconds", programID.String(), timeoutSeconds)
-	return false
 }

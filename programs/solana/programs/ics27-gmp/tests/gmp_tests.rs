@@ -180,24 +180,6 @@ fn test_send_call_msg_validation_success() {
 }
 
 #[test]
-fn test_send_call_msg_validation_timeout_too_soon() {
-    let current_time = 1_000_000;
-    let msg = SendCallMsg {
-        source_client: "cosmoshub-1".to_string(),
-        timeout_timestamp: current_time + 30, // Less than MIN_TIMEOUT_DURATION
-        receiver: Pubkey::new_unique(),
-        salt: vec![],
-        payload: vec![1, 2, 3],
-        memo: String::new(),
-    };
-
-    assert!(
-        msg.validate(current_time).is_err(),
-        "Timeout too soon should fail"
-    );
-}
-
-#[test]
 fn test_send_call_msg_validation_timeout_too_long() {
     let current_time = 1_000_000;
     let msg = SendCallMsg {
@@ -212,6 +194,24 @@ fn test_send_call_msg_validation_timeout_too_long() {
     assert!(
         msg.validate(current_time).is_err(),
         "Timeout too long should fail"
+    );
+}
+
+#[test]
+fn test_send_call_msg_validation_timeout_too_soon() {
+    let current_time = 1_000_000;
+    let msg = SendCallMsg {
+        source_client: "cosmoshub-1".to_string(),
+        timeout_timestamp: current_time + 5, // Less than MIN_TIMEOUT_DURATION (12 seconds)
+        receiver: Pubkey::new_unique(),
+        salt: vec![],
+        payload: vec![1, 2, 3],
+        memo: String::new(),
+    };
+
+    assert!(
+        msg.validate(current_time).is_err(),
+        "Timeout too soon should fail"
     );
 }
 

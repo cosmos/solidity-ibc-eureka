@@ -15,6 +15,13 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 		return nil, fmt.Errorf("failed to peek account discriminator: %w", err)
 	}
 	switch discriminator {
+	case Account_AccountState:
+		value := new(AccountState)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal account as AccountState: %w", err)
+		}
+		return value, nil
 	case Account_GmpAppState:
 		value := new(GmpAppState)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -25,6 +32,23 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 	default:
 		return nil, fmt.Errorf("unknown discriminator: %s", binary.FormatDiscriminator(discriminator))
 	}
+}
+
+func ParseAccount_AccountState(accountData []byte) (*AccountState, error) {
+	decoder := binary.NewBorshDecoder(accountData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Account_AccountState {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_AccountState, binary.FormatDiscriminator(discriminator))
+	}
+	acc := new(AccountState)
+	err = acc.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal account of type AccountState: %w", err)
+	}
+	return acc, nil
 }
 
 func ParseAccount_GmpAppState(accountData []byte) (*GmpAppState, error) {

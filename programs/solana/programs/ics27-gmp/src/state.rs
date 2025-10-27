@@ -221,6 +221,19 @@ impl SendCallMsg {
 
         require!(self.memo.len() <= MAX_MEMO_LENGTH, GMPError::MemoTooLong);
 
+        // Log timeout validation details
+        let min_required_timeout = current_time.saturating_add(MIN_TIMEOUT_DURATION);
+        let max_allowed_timeout = current_time.saturating_add(MAX_TIMEOUT_DURATION);
+        msg!(
+            "Timeout validation: current_time={}, timeout_timestamp={}, min_required={} (current+{}), max_allowed={} (current+{})",
+            current_time,
+            self.timeout_timestamp,
+            min_required_timeout,
+            MIN_TIMEOUT_DURATION,
+            max_allowed_timeout,
+            MAX_TIMEOUT_DURATION
+        );
+
         require!(
             self.timeout_timestamp > current_time + MIN_TIMEOUT_DURATION,
             GMPError::TimeoutTooSoon

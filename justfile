@@ -139,14 +139,29 @@ generate-abi-bytecode: build-contracts
 
 # Generate the types for interacting with SVM contracts using 'anchor-go'
 [group('generate')]
-generate-solana-types: build-solana
+generate-solana-types: build-solana generate-pda
 	@echo "Generating SVM types..."
+	rm -rf packages/go-anchor/ics07tendermint
 	anchor-go --idl ./programs/solana/target/idl/ics07_tendermint.json --output packages/go-anchor/ics07tendermint --no-go-mod
+	rm -rf packages/go-anchor/ics26router
 	anchor-go --idl ./programs/solana/target/idl/ics26_router.json --output packages/go-anchor/ics26router --no-go-mod
+	rm -rf packages/go-anchor/ics27gmp
 	anchor-go --idl ./programs/solana/target/idl/ics27_gmp.json --output packages/go-anchor/ics27gmp --no-go-mod
+	rm -rf packages/go-anchor/dummyibcapp
 	anchor-go --idl ./programs/solana/target/idl/dummy_ibc_app.json --output packages/go-anchor/dummyibcapp --no-go-mod
+	rm -rf e2e/interchaintestv8/solana/go-anchor/mocklightclient
 	anchor-go --idl ./programs/solana/target/idl/mock_light_client.json --output e2e/interchaintestv8/solana/go-anchor/mocklightclient --no-go-mod
+	rm -rf e2e/interchaintestv8/solana/go-anchor/gmpcounter
 	anchor-go --idl ./programs/solana/target/idl/gmp_counter_app.json --output e2e/interchaintestv8/solana/go-anchor/gmpcounter --no-go-mod
+
+# Generate Solana PDA helpers from Anchor IDL files
+[group('generate')]
+generate-pda:
+	@echo "Generating Solana PDA helpers from Anchor IDL..."
+	go run e2e/interchaintestv8/solana/generate-pdas/main.go \
+		--idl-dir programs/solana/target/idl \
+		--output e2e/interchaintestv8/solana/pda.go
+	@echo "✅ Generated e2e/interchaintestv8/solana/pda.go"
 
 # Generate the fixtures for the wasm tests using the e2e tests
 [group('generate')]

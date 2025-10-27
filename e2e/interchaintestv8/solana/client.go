@@ -98,7 +98,6 @@ func (s *Solana) BroadcastTx(ctx context.Context, tx *solana.Transaction) (solan
 	)
 }
 
-// confirmationStatusLevel returns a numeric level for comparison.
 // Higher numbers indicate higher confirmation levels.
 func confirmationStatusLevel(status rpc.ConfirmationStatusType) int {
 	switch status {
@@ -121,18 +120,10 @@ func (s *Solana) WaitForTxStatus(txSig solana.Signature, status rpc.Confirmation
 			return false, err
 		}
 
-		// // Check if transaction status exists
-		// if len(out.Value) == 0 || out.Value[0] == nil {
-		// 	// Transaction not yet processed
-		// 	return false, nil
-		// }
-
 		if out.Value[0].Err != nil {
 			return false, fmt.Errorf("transaction %s failed with error: %s", txSig, out.Value[0].Err)
 		}
 
-		// Check if transaction has reached the desired status using level-based comparison
-		// This allows accepting higher confirmation levels (e.g., finalized when waiting for confirmed)
 		if confirmationStatusLevel(out.Value[0].ConfirmationStatus) >= confirmationStatusLevel(status) {
 			return true, nil
 		}
@@ -199,7 +190,6 @@ func (s *Solana) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Tra
 func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *solana.Transaction, timeoutSeconds int, signers ...*solana.Wallet) (solana.Signature, error) {
 	var lastErr error
 	for range timeoutSeconds {
-		// Refresh blockhash on each retry attempt (blockhashes expire after ~60 seconds)
 		recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get latest blockhash: %w", err)
@@ -277,7 +267,7 @@ func ComputeBudgetProgramID() solana.PublicKey {
 // NewComputeBudgetInstruction creates a SetComputeUnitLimit instruction to increase available compute units
 func NewComputeBudgetInstruction(computeUnits uint32) solana.Instruction {
 	data := make([]byte, 5)
-	data[0] = 0x02 // SetComputeUnitLimit instruction discriminator
+	data[0] = 0x02
 	binary.LittleEndian.PutUint32(data[1:], computeUnits)
 
 	return solana.NewInstruction(
@@ -287,31 +277,28 @@ func NewComputeBudgetInstruction(computeUnits uint32) solana.Instruction {
 	)
 }
 
-// CreateAddressLookupTable creates an Address Lookup Table and extends it with the given accounts.
 // Returns the ALT address. Requires at least one account.
 func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana.Wallet, accounts []solana.PublicKey) (solana.PublicKey, error) {
 	if len(accounts) == 0 {
 		return solana.PublicKey{}, fmt.Errorf("at least one account is required for ALT")
 	}
 
-	// Get recent slot for ALT creation
-	slot, err := s.RPCClient.GetSlot(ctx, "confirmed")
+	slot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentProcessed)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to get slot: %w", err)
 	}
 
-	// Derive ALT address with bump seed
-	// The derivation uses: [authority, recent_slot] seeds
+	// Derive Address Lookup Table PDA
+	slotBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(slotBytes, slot)
 	altAddress, bumpSeed, err := solana.FindProgramAddress(
-		[][]byte{authority.PublicKey().Bytes(), Uint64ToLeBytes(slot)},
+		[][]byte{authority.PublicKey().Bytes(), slotBytes},
 		solana.AddressLookupTableProgramID,
 	)
 	if err != nil {
-		return solana.PublicKey{}, fmt.Errorf("failed to derive ALT address: %w", err)
+		return solana.PublicKey{}, fmt.Errorf("failed to derive address lookup table PDA: %w", err)
 	}
 
-	// Create ALT instruction data
-	// ProgramInstruction enum: CreateLookupTable { recent_slot: u64, bump_seed: u8 }
 	var createBuf bytes.Buffer
 	encoder := bin.NewBinEncoder(&createBuf)
 	mustWrite(encoder.WriteUint32(0, bin.LE))
@@ -322,15 +309,14 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 	createAltIx := solana.NewInstruction(
 		solana.AddressLookupTableProgramID,
 		solana.AccountMetaSlice{
-			solana.Meta(altAddress).WRITE(),                     // lookup_table (to be created)
-			solana.Meta(authority.PublicKey()).WRITE().SIGNER(), // authority
-			solana.Meta(authority.PublicKey()).WRITE().SIGNER(), // payer
-			solana.Meta(solana.SystemProgramID),                 // system_program
+			solana.Meta(altAddress).WRITE(),
+			solana.Meta(authority.PublicKey()).WRITE().SIGNER(),
+			solana.Meta(authority.PublicKey()).WRITE().SIGNER(),
+			solana.Meta(solana.SystemProgramID),
 		},
 		createInstructionData,
 	)
 
-	// Create ALT
 	createTx, err := s.NewTransactionFromInstructions(authority.PublicKey(), createAltIx)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to create ALT transaction: %w", err)
@@ -341,8 +327,6 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 		return solana.PublicKey{}, fmt.Errorf("failed to create ALT: %w", err)
 	}
 
-	// Extend ALT with accounts instruction data
-	// ProgramInstruction::ExtendLookupTable { new_addresses: Vec<Pubkey> }
 	var extendBuf bytes.Buffer
 	extendEncoder := bin.NewBinEncoder(&extendBuf)
 	mustWrite(extendEncoder.WriteUint32(2, bin.LE))
@@ -355,10 +339,10 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 	extendAltIx := solana.NewInstruction(
 		solana.AddressLookupTableProgramID,
 		solana.AccountMetaSlice{
-			solana.Meta(altAddress).WRITE(),                     // lookup_table
-			solana.Meta(authority.PublicKey()).WRITE().SIGNER(), // authority
-			solana.Meta(authority.PublicKey()).WRITE().SIGNER(), // payer (for reallocation)
-			solana.Meta(solana.SystemProgramID),                 // system_program
+			solana.Meta(altAddress).WRITE(),
+			solana.Meta(authority.PublicKey()).WRITE().SIGNER(),
+			solana.Meta(authority.PublicKey()).WRITE().SIGNER(),
+			solana.Meta(solana.SystemProgramID),
 		},
 		extendInstructionData,
 	)
@@ -376,16 +360,29 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 	return altAddress, nil
 }
 
-// Uint64ToLeBytes converts a uint64 to little-endian byte slice
-func Uint64ToLeBytes(n uint64) []byte {
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, n)
-	return b
-}
-
 // mustWrite wraps encoder write calls and panics on error (should never happen with bytes.Buffer)
 func mustWrite(err error) {
 	if err != nil {
 		panic(fmt.Sprintf("unexpected encoding error: %v", err))
 	}
+}
+
+func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
+	clockSysvarPubkey := solana.MustPublicKeyFromBase58("SysvarC1ock11111111111111111111111111111111")
+
+	accountInfo, err := s.RPCClient.GetAccountInfo(ctx, clockSysvarPubkey)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get clock sysvar account: %w", err)
+	}
+	if accountInfo.Value == nil {
+		return 0, fmt.Errorf("clock sysvar account is nil")
+	}
+
+	data := accountInfo.Value.Data.GetBinary()
+	if len(data) < 40 {
+		return 0, fmt.Errorf("clock sysvar data too short: expected >= 40 bytes, got %d", len(data))
+	}
+
+	unixTimestamp := int64(binary.LittleEndian.Uint64(data[32:40]))
+	return unixTimestamp, nil
 }
