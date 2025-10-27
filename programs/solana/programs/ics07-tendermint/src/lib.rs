@@ -13,8 +13,7 @@ use crate::state::{ConsensusStateStore, HeaderChunk};
 declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 
 pub use types::{
-    ClientState, ConsensusState, IbcHeight, MisbehaviourMsg, UpdateClientMsg, UpdateResult,
-    UploadChunkParams,
+    ClientState, ConsensusState, IbcHeight, MisbehaviourMsg, UpdateResult, UploadChunkParams,
 };
 
 pub use ics25_handler::MembershipMsg;
@@ -41,30 +40,6 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-pub struct UpdateClient<'info> {
-    #[account(mut)]
-    pub client_state: Account<'info, ClientState>,
-    /// Trusted consensus state at the height specified in the header
-    /// We use `UncheckedAccount` here because the trusted height is extracted from the header,
-    /// which can only be deserialized inside the instruction handler. Since Anchor's account
-    /// validation happens before the instruction code runs, we cannot use the standard
-    /// #[account(seeds = ...)] constraint. Instead, we manually validate the PDA derivation
-    /// inside the instruction handler after extracting the trusted height from the header.
-    /// CHECK: This account is validated in the instruction handler based on the trusted height from the header
-    pub trusted_consensus_state: UncheckedAccount<'info>,
-    /// Consensus state store for the new height
-    /// Will be created if it doesn't exist, or validated if it does (for misbehaviour detection)
-    /// NOTE: We can't use the instruction parameter here because we don't know the new height
-    /// until after processing the update. This account must be derived by the client
-    /// based on the expected new height from the header.
-    /// CHECK: This account is validated in the instruction handler
-    pub new_consensus_state_store: UncheckedAccount<'info>,
-    #[account(mut)]
-    pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
@@ -175,9 +150,7 @@ pub struct CleanupIncompleteUpload<'info> {
 #[program]
 pub mod ics07_tendermint {
     use super::*;
-    use crate::types::{
-        ClientState, ConsensusState, MisbehaviourMsg, UpdateClientMsg, UploadChunkParams,
-    };
+    use crate::types::{ClientState, ConsensusState, MisbehaviourMsg, UploadChunkParams};
 
     pub fn initialize(
         ctx: Context<Initialize>,
@@ -192,10 +165,6 @@ pub mod ics07_tendermint {
         assert_eq!(client_state.latest_height.revision_height, latest_height);
 
         instructions::initialize::initialize(ctx, client_state, consensus_state)
-    }
-
-    pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result<UpdateResult> {
-        instructions::update_client::update_client(ctx, msg)
     }
 
     pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {
