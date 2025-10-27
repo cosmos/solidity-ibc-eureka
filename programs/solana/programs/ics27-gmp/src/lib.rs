@@ -46,7 +46,7 @@ pub mod ics27_gmp {
     /// Query GMP account state
     ///
     /// Returns the current state of a GMP account including nonce, execution count,
-    /// timestamps, etc. This instruction exists primarily to expose AccountState
+    /// timestamps, etc. This instruction exists primarily to expose `AccountState`
     /// in the IDL for client code generation (e.g., anchor-go).
     pub fn query_account_state(ctx: Context<QueryAccountState>) -> Result<state::AccountState> {
         instructions::query_account_state(ctx)
