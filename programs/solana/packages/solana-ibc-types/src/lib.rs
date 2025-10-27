@@ -10,6 +10,7 @@ pub mod ibc_app_interface;
 pub mod ics07;
 pub mod ics27;
 pub mod router;
+pub mod utils;
 
 // Re-export commonly used types
 pub use app_msgs::{

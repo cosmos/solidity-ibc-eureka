@@ -6,18 +6,11 @@ use anchor_lang::prelude::*;
 
 /// ICS07 Tendermint instruction names and discriminators
 pub mod ics07_instructions {
-    use anchor_lang::solana_program::hash::hash;
+    use crate::utils::compute_discriminator;
 
     pub const INITIALIZE: &str = "initialize";
     pub const UPLOAD_HEADER_CHUNK: &str = "upload_header_chunk";
     pub const ASSEMBLE_AND_UPDATE_CLIENT: &str = "assemble_and_update_client";
-
-    fn compute_discriminator(instruction_name: &str) -> [u8; 8] {
-        let preimage = format!("global:{instruction_name}");
-        let mut hash_result = [0u8; 8];
-        hash_result.copy_from_slice(&hash(preimage.as_bytes()).to_bytes()[..8]);
-        hash_result
-    }
 
     pub fn initialize_discriminator() -> [u8; 8] {
         compute_discriminator(INITIALIZE)

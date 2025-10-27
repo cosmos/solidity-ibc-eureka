@@ -7,20 +7,13 @@ use anchor_lang::prelude::*;
 
 /// ICS26 router instruction names and discriminators
 pub mod router_instructions {
-    use anchor_lang::solana_program::hash::hash;
+    use crate::utils::compute_discriminator;
 
     pub const RECV_PACKET: &str = "recv_packet";
     pub const ACK_PACKET: &str = "ack_packet";
     pub const TIMEOUT_PACKET: &str = "timeout_packet";
     pub const UPLOAD_PAYLOAD_CHUNK: &str = "upload_payload_chunk";
     pub const UPLOAD_PROOF_CHUNK: &str = "upload_proof_chunk";
-
-    fn compute_discriminator(instruction_name: &str) -> [u8; 8] {
-        let preimage = format!("global:{instruction_name}");
-        let mut hash_result = [0u8; 8];
-        hash_result.copy_from_slice(&hash(preimage.as_bytes()).to_bytes()[..8]);
-        hash_result
-    }
 
     pub fn recv_packet_discriminator() -> [u8; 8] {
         compute_discriminator(RECV_PACKET)

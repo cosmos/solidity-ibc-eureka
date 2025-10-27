@@ -9,7 +9,7 @@
 /// IBC app callback instruction names and discriminators
 /// These MUST match the function names in your #[ibc_app] module
 pub mod ibc_app_instructions {
-    use anchor_lang::solana_program::hash::hash;
+    use crate::utils::compute_discriminator;
 
     /// Instruction name for receiving packets
     /// Your #[program] function MUST be named: `on_recv_packet`
@@ -22,13 +22,6 @@ pub mod ibc_app_instructions {
     /// Instruction name for timeout callbacks
     /// Your #[program] function MUST be named: `on_timeout_packet`
     pub const ON_TIMEOUT_PACKET: &str = "on_timeout_packet";
-
-    fn compute_discriminator(instruction_name: &str) -> [u8; 8] {
-        let preimage = format!("global:{instruction_name}");
-        let mut hash_result = [0u8; 8];
-        hash_result.copy_from_slice(&hash(preimage.as_bytes()).to_bytes()[..8]);
-        hash_result
-    }
 
     pub fn on_recv_packet_discriminator() -> [u8; 8] {
         compute_discriminator(ON_RECV_PACKET)
