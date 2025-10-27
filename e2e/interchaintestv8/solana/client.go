@@ -278,7 +278,16 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 		return solana.PublicKey{}, fmt.Errorf("failed to get slot: %w", err)
 	}
 
-	altAddress, bumpSeed := AddressLookupTablePDA(authority.PublicKey(), slot)
+	// Derive Address Lookup Table PDA
+	slotBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(slotBytes, slot)
+	altAddress, bumpSeed, err := solana.FindProgramAddress(
+		[][]byte{authority.PublicKey().Bytes(), slotBytes},
+		solana.AddressLookupTableProgramID,
+	)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to derive address lookup table PDA: %w", err)
+	}
 
 	var createBuf bytes.Buffer
 	encoder := bin.NewBinEncoder(&createBuf)

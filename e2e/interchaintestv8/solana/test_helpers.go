@@ -2,6 +2,7 @@ package solana
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"testing"
 	"time"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+
+	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
@@ -350,7 +353,9 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 
 func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T, require *require.Assertions, clientID string, sequence uint64) {
 	t.Helper()
-	packetCommitmentPDA, _ := RouterPacketCommitmentPDA(clientID, sequence)
+	sequenceBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
+	packetCommitmentPDA, _ := Ics26RouterPacketCommitmentPDA(ics26_router.ProgramID, []byte(clientID), sequenceBytes)
 
 	accountInfo, err := s.RPCClient.GetAccountInfo(ctx, packetCommitmentPDA)
 	if err != nil {
