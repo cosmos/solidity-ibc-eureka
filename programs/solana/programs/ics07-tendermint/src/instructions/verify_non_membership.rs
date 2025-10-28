@@ -289,7 +289,8 @@ mod tests {
         client_state.consensus_state_heights = vec![fixture.membership_msg.height + 100];
 
         let client_state_pda = derive_client_state_pda(&client_state.chain_id);
-        let consensus_state_pda = derive_consensus_state_pda(&client_state_pda, fixture.membership_msg.height);
+        let consensus_state_pda =
+            derive_consensus_state_pda(&client_state_pda, fixture.membership_msg.height);
 
         // Manually serialize client state WITHOUT adding the query height to tracking list
         let mut client_data = vec![];
@@ -301,7 +302,9 @@ mod tests {
         };
 
         let mut consensus_data = vec![];
-        consensus_state_store.try_serialize(&mut consensus_data).unwrap();
+        consensus_state_store
+            .try_serialize(&mut consensus_data)
+            .unwrap();
 
         let accounts = vec![
             (
