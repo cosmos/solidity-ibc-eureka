@@ -231,6 +231,40 @@ pub fn create_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::A
     )
 }
 
+pub fn create_system_account_with_lamports(
+    pubkey: Pubkey,
+    lamports: u64,
+) -> (Pubkey, solana_sdk::account::Account) {
+    (
+        pubkey,
+        solana_sdk::account::Account {
+            lamports,
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+pub fn create_account_with_lamports(
+    pubkey: Pubkey,
+    owner: &Pubkey,
+    lamports: u64,
+    data_len: usize,
+) -> (Pubkey, solana_sdk::account::Account) {
+    (
+        pubkey,
+        solana_sdk::account::Account {
+            lamports,
+            data: vec![0; data_len],
+            owner: *owner,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 pub fn create_uninitialized_commitment_account(
     pubkey: Pubkey,
 ) -> (Pubkey, solana_sdk::account::Account) {
