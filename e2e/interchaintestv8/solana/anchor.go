@@ -31,12 +31,6 @@ func AnchorDeploy(ctx context.Context, dir, programName, programKeypairFile, wal
 	}
 
 	args = append(args, "deploy", "-p", programName, "--provider.wallet", absWalletFile, "--program-keypair", absKeypairFile)
-
-	// Check for ANCHOR_E2E_FEATURES environment variable to enable test-specific features
-	if e2eFeatures := os.Getenv("ANCHOR_E2E_FEATURES"); e2eFeatures != "" {
-		args = append(args, "--", "--features", e2eFeatures)
-	}
-
 	cmd := exec.Command(
 		"anchor", args...,
 	)
