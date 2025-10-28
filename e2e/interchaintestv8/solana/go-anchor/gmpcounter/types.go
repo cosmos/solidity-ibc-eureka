@@ -12,7 +12,7 @@ import (
 )
 
 // Global counter app state
-type CounterAppState struct {
+type GmpCounterAppStateCounterAppState struct {
 	// Authority that can manage the app
 	Authority solanago.PublicKey `json:"authority"`
 
@@ -26,7 +26,7 @@ type CounterAppState struct {
 	Bump uint8 `json:"bump"`
 }
 
-func (obj CounterAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj GmpCounterAppStateCounterAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `Authority`:
 	err = encoder.Encode(obj.Authority)
 	if err != nil {
@@ -50,17 +50,17 @@ func (obj CounterAppState) MarshalWithEncoder(encoder *binary.Encoder) (err erro
 	return nil
 }
 
-func (obj CounterAppState) Marshal() ([]byte, error) {
+func (obj GmpCounterAppStateCounterAppState) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding CounterAppState: %w", err)
+		return nil, fmt.Errorf("error while encoding GmpCounterAppStateCounterAppState: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *CounterAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *GmpCounterAppStateCounterAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `Authority`:
 	err = decoder.Decode(&obj.Authority)
 	if err != nil {
@@ -84,16 +84,16 @@ func (obj *CounterAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (err e
 	return nil
 }
 
-func (obj *CounterAppState) Unmarshal(buf []byte) error {
+func (obj *GmpCounterAppStateCounterAppState) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling CounterAppState: %w", err)
+		return fmt.Errorf("error while unmarshaling GmpCounterAppStateCounterAppState: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalCounterAppState(buf []byte) (*CounterAppState, error) {
-	obj := new(CounterAppState)
+func UnmarshalGmpCounterAppStateCounterAppState(buf []byte) (*GmpCounterAppStateCounterAppState, error) {
+	obj := new(GmpCounterAppStateCounterAppState)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func UnmarshalCounterAppState(buf []byte) (*CounterAppState, error) {
 }
 
 // Per-user counter state
-type UserCounter struct {
+type GmpCounterAppStateUserCounter struct {
 	// User's public key
 	User solanago.PublicKey `json:"user"`
 
@@ -122,7 +122,7 @@ type UserCounter struct {
 	Bump uint8 `json:"bump"`
 }
 
-func (obj UserCounter) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj GmpCounterAppStateUserCounter) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `User`:
 	err = encoder.Encode(obj.User)
 	if err != nil {
@@ -156,17 +156,17 @@ func (obj UserCounter) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	return nil
 }
 
-func (obj UserCounter) Marshal() ([]byte, error) {
+func (obj GmpCounterAppStateUserCounter) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding UserCounter: %w", err)
+		return nil, fmt.Errorf("error while encoding GmpCounterAppStateUserCounter: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *UserCounter) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *GmpCounterAppStateUserCounter) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `User`:
 	err = decoder.Decode(&obj.User)
 	if err != nil {
@@ -200,16 +200,16 @@ func (obj *UserCounter) UnmarshalWithDecoder(decoder *binary.Decoder) (err error
 	return nil
 }
 
-func (obj *UserCounter) Unmarshal(buf []byte) error {
+func (obj *GmpCounterAppStateUserCounter) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling UserCounter: %w", err)
+		return fmt.Errorf("error while unmarshaling GmpCounterAppStateUserCounter: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalUserCounter(buf []byte) (*UserCounter, error) {
-	obj := new(UserCounter)
+func UnmarshalGmpCounterAppStateUserCounter(buf []byte) (*GmpCounterAppStateUserCounter, error) {
+	obj := new(GmpCounterAppStateUserCounter)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

@@ -11,6 +11,253 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
+// Builds a "initialize" instruction.
+func NewInitializeInstruction(
+	// Params:
+	chainIdParam string,
+	latestHeightParam uint64,
+	clientStateParam Ics07TendermintTypesClientState,
+	consensusStateParam Ics07TendermintTypesConsensusState,
+
+	// Accounts:
+	clientStateAccount solanago.PublicKey,
+	consensusStateStoreAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_Initialize[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `chainIdParam`:
+		err = enc__.Encode(chainIdParam)
+		if err != nil {
+			return nil, errors.NewField("chainIdParam", err)
+		}
+		// Serialize `latestHeightParam`:
+		err = enc__.Encode(latestHeightParam)
+		if err != nil {
+			return nil, errors.NewField("latestHeightParam", err)
+		}
+		// Serialize `clientStateParam`:
+		err = enc__.Encode(clientStateParam)
+		if err != nil {
+			return nil, errors.NewField("clientStateParam", err)
+		}
+		// Serialize `consensusStateParam`:
+		err = enc__.Encode(consensusStateParam)
+		if err != nil {
+			return nil, errors.NewField("consensusStateParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "client_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
+		// Account 1 "consensus_state_store": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(consensusStateStoreAccount, true, false))
+		// Account 2 "payer": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 3 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "verify_membership" instruction.
+func NewVerifyMembershipInstruction(
+	// Params:
+	msgParam Ics25HandlerMembershipMsg,
+
+	// Accounts:
+	clientStateAccount solanago.PublicKey,
+	consensusStateAtHeightAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_VerifyMembership[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "client_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 1 "consensus_state_at_height": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(consensusStateAtHeightAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "verify_non_membership" instruction.
+func NewVerifyNonMembershipInstruction(
+	// Params:
+	msgParam Ics25HandlerMembershipMsg,
+
+	// Accounts:
+	clientStateAccount solanago.PublicKey,
+	consensusStateAtHeightAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_VerifyNonMembership[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "client_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 1 "consensus_state_at_height": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(consensusStateAtHeightAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "submit_misbehaviour" instruction.
+func NewSubmitMisbehaviourInstruction(
+	// Params:
+	msgParam Ics07TendermintTypesMisbehaviourMsg,
+
+	// Accounts:
+	clientStateAccount solanago.PublicKey,
+	trustedConsensusState1account solanago.PublicKey,
+	trustedConsensusState2account solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_SubmitMisbehaviour[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "client_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
+		// Account 1 "trusted_consensus_state_1": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState1account, false, false))
+		// Account 2 "trusted_consensus_state_2": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState2account, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "upload_header_chunk" instruction.
+// Upload a chunk of header data for multi-transaction updates // Fails if a chunk already exists at this position (no overwrites allowed)
+func NewUploadHeaderChunkInstruction(
+	// Params:
+	paramsParam Ics07TendermintTypesUploadChunkParams,
+
+	// Accounts:
+	chunkAccount solanago.PublicKey,
+	clientStateAccount solanago.PublicKey,
+	submitterAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_UploadHeaderChunk[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `paramsParam`:
+		err = enc__.Encode(paramsParam)
+		if err != nil {
+			return nil, errors.NewField("paramsParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "chunk": Writable, Non-signer, Required
+		// The header chunk account to create (fails if already exists)
+		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
+		// Account 1 "client_state": Read-only, Non-signer, Required
+		// Client state to verify this is a valid client
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 2 "submitter": Writable, Signer, Required
+		// The submitter who pays for and owns these accounts
+		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
+		// Account 3 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
 // Builds a "assemble_and_update_client" instruction.
 // Assemble chunks and update the client // Automatically cleans up all chunks after successful update
 func NewAssembleAndUpdateClientInstruction(
@@ -123,315 +370,6 @@ func NewCleanupIncompleteUploadInstruction(
 		// The original submitter who gets their rent back
 		// Must be the signer to prove they own the upload
 		accounts__.Append(solanago.NewAccountMeta(submitterAccountAccount, true, true))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
-// Builds a "initialize" instruction.
-func NewInitializeInstruction(
-	// Params:
-	chainIdParam string,
-	latestHeightParam uint64,
-	clientStateParam ClientState,
-	consensusStateParam ConsensusState,
-
-	// Accounts:
-	clientStateAccount solanago.PublicKey,
-	consensusStateStoreAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
-	systemProgramAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_Initialize[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `chainIdParam`:
-		err = enc__.Encode(chainIdParam)
-		if err != nil {
-			return nil, errors.NewField("chainIdParam", err)
-		}
-		// Serialize `latestHeightParam`:
-		err = enc__.Encode(latestHeightParam)
-		if err != nil {
-			return nil, errors.NewField("latestHeightParam", err)
-		}
-		// Serialize `clientStateParam`:
-		err = enc__.Encode(clientStateParam)
-		if err != nil {
-			return nil, errors.NewField("clientStateParam", err)
-		}
-		// Serialize `consensusStateParam`:
-		err = enc__.Encode(consensusStateParam)
-		if err != nil {
-			return nil, errors.NewField("consensusStateParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "client_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "consensus_state_store": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(consensusStateStoreAccount, true, false))
-		// Account 2 "payer": Writable, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 3 "system_program": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
-// Builds a "submit_misbehaviour" instruction.
-func NewSubmitMisbehaviourInstruction(
-	// Params:
-	msgParam MisbehaviourMsg,
-
-	// Accounts:
-	clientStateAccount solanago.PublicKey,
-	trustedConsensusState1account solanago.PublicKey,
-	trustedConsensusState2account solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_SubmitMisbehaviour[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `msgParam`:
-		err = enc__.Encode(msgParam)
-		if err != nil {
-			return nil, errors.NewField("msgParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "client_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "trusted_consensus_state_1": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState1account, false, false))
-		// Account 2 "trusted_consensus_state_2": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState2account, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
-// Builds a "update_client" instruction.
-func NewUpdateClientInstruction(
-	// Params:
-	msgParam UpdateClientMsg,
-
-	// Accounts:
-	clientStateAccount solanago.PublicKey,
-	trustedConsensusStateAccount solanago.PublicKey,
-	newConsensusStateStoreAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
-	systemProgramAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_UpdateClient[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `msgParam`:
-		err = enc__.Encode(msgParam)
-		if err != nil {
-			return nil, errors.NewField("msgParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "client_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "trusted_consensus_state": Read-only, Non-signer, Required
-		// Trusted consensus state at the height specified in the header
-		// We use `UncheckedAccount` here because the trusted height is extracted from the header,
-		// which can only be deserialized inside the instruction handler. Since Anchor's account
-		// validation happens before the instruction code runs, we cannot use the standard
-		// #[account(seeds = ...)] constraint. Instead, we manually validate the PDA derivation
-		// inside the instruction handler after extracting the trusted height from the header.
-		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
-		// Account 2 "new_consensus_state_store": Read-only, Non-signer, Required
-		// Consensus state store for the new height
-		// Will be created if it doesn't exist, or validated if it does (for misbehaviour detection)
-		// NOTE: We can't use the instruction parameter here because we don't know the new height
-		// until after processing the update. This account must be derived by the client
-		// based on the expected new height from the header.
-		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, false, false))
-		// Account 3 "payer": Writable, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
-// Builds a "upload_header_chunk" instruction.
-// Upload a chunk of header data for multi-transaction updates // Fails if a chunk already exists at this position (no overwrites allowed)
-func NewUploadHeaderChunkInstruction(
-	// Params:
-	paramsParam UploadChunkParams,
-
-	// Accounts:
-	chunkAccount solanago.PublicKey,
-	clientStateAccount solanago.PublicKey,
-	submitterAccount solanago.PublicKey,
-	systemProgramAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_UploadHeaderChunk[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `paramsParam`:
-		err = enc__.Encode(paramsParam)
-		if err != nil {
-			return nil, errors.NewField("paramsParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "chunk": Writable, Non-signer, Required
-		// The header chunk account to create (fails if already exists)
-		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
-		// Account 1 "client_state": Read-only, Non-signer, Required
-		// Client state to verify this is a valid client
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 2 "submitter": Writable, Signer, Required
-		// The submitter who pays for and owns these accounts
-		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
-		// Account 3 "system_program": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
-// Builds a "verify_membership" instruction.
-func NewVerifyMembershipInstruction(
-	// Params:
-	msgParam MembershipMsg,
-
-	// Accounts:
-	clientStateAccount solanago.PublicKey,
-	consensusStateAtHeightAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_VerifyMembership[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `msgParam`:
-		err = enc__.Encode(msgParam)
-		if err != nil {
-			return nil, errors.NewField("msgParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "client_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 1 "consensus_state_at_height": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(consensusStateAtHeightAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
-// Builds a "verify_non_membership" instruction.
-func NewVerifyNonMembershipInstruction(
-	// Params:
-	msgParam MembershipMsg,
-
-	// Accounts:
-	clientStateAccount solanago.PublicKey,
-	consensusStateAtHeightAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_VerifyNonMembership[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `msgParam`:
-		err = enc__.Encode(msgParam)
-		if err != nil {
-			return nil, errors.NewField("msgParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "client_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 1 "consensus_state_at_height": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(consensusStateAtHeightAccount, false, false))
 	}
 
 	// Create the instruction.

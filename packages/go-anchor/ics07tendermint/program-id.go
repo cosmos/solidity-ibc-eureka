@@ -5,4 +5,4 @@ package ics07_tendermint
 
 import solanago "github.com/gagliardetto/solana-go"
 
-var ProgramID = solanago.MustPublicKeyFromBase58("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD")
+var ProgramID = solanago.MustPublicKeyFromBase58("DExQTxPb67KawbxqnQ4T75zdcuiLQFvmvwv4HGEHi1yC")
