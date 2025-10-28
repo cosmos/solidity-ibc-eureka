@@ -206,6 +206,7 @@ mod compatibility_tests {
                 revision_number: 1,
                 revision_height: 1000,
             },
+            consensus_state_heights: vec![1000],
         };
 
         let serialized = client_state.try_to_vec().unwrap();

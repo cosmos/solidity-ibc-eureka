@@ -349,6 +349,7 @@ pub mod fixtures {
                 revision_number: latest_height.revision_number,
                 revision_height: latest_height.revision_height,
             },
+            consensus_state_heights: vec![latest_height.revision_height],
         }
     }
 
