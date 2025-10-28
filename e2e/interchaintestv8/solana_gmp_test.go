@@ -790,7 +790,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 		s.Require().True(s.Run("Build send_call instruction", func() {
 			var err error
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
-				ics27_gmp.SendCallMsg{
+				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
 					TimeoutTimestamp: int64(timeout),
 					Receiver:         solanago.PublicKey{},
@@ -1079,7 +1079,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 			s.T().Logf("Setting timeout to: %d (solana_clock=%d + 35 seconds)", timeout, solanaClockTime)
 
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
-				ics27_gmp.SendCallMsg{
+				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
 					TimeoutTimestamp: int64(timeout),
 					Receiver:         solanago.PublicKey{},
@@ -1787,7 +1787,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromSolana() {
 		s.Require().True(s.Run("Build send_call instruction", func() {
 			var err error
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
-				ics27_gmp.SendCallMsg{
+				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
 					TimeoutTimestamp: int64(timeout),
 					Receiver:         solanago.PublicKey{},

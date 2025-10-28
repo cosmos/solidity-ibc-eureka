@@ -318,7 +318,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 			clientSequenceAccount, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-			counterpartyInfo := ics26_router.CounterpartyInfo{
+			counterpartyInfo := ics26_router.Ics26RouterStateCounterpartyInfo{
 				ClientId:     CosmosClientID,
 				MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 			}
@@ -362,7 +362,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
 		s.Require().NoError(err)
 
-		clientState, err := ics07_tendermint.ParseAccount_ClientState(accountInfo.Value.Data.GetBinary())
+		clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
 		s.Require().NoError(err)
 
 		s.Require().Equal(simd.Config().ChainID, clientState.ChainId)
@@ -446,7 +446,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequence)
 			s.Require().NoError(err)
 
-			clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
+			clientSequenceData, err := ics26_router.ParseAccount_Ics26RouterStateClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
 			s.Require().NoError(err)
 
 			nextSequence := clientSequenceData.NextSequenceSend
@@ -455,7 +455,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			packetCommitment, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), nextSequenceBytes)
 		}))
 
-		packetMsg := dummy_ibc_app.SendPacketMsg{
+		packetMsg := dummy_ibc_app.DummyIbcAppInstructionsSendPacketSendPacketMsg{
 			SourceClient:     SolanaClientID,
 			SourcePort:       transfertypes.PortID,
 			DestPort:         transfertypes.PortID,
@@ -627,7 +627,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequence)
 			s.Require().NoError(err)
 
-			clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
+			clientSequenceData, err := ics26_router.ParseAccount_Ics26RouterStateClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
 			s.Require().NoError(err)
 
 			nextSequence := clientSequenceData.NextSequenceSend
@@ -641,7 +641,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 
 		timeoutTimestamp := time.Now().Unix() + 3600
 
-		transferMsg := dummy_ibc_app.SendTransferMsg{
+		transferMsg := dummy_ibc_app.DummyIbcAppInstructionsSendTransferSendTransferMsg{
 			Denom:            SolDenom,
 			Amount:           transferAmount,
 			Receiver:         receiver,
@@ -902,7 +902,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 		s.Require().NoError(err)
 		s.Require().NotNil(accountInfo.Value)
 
-		appState, err := dummy_ibc_app.ParseAccount_DummyIbcAppState(accountInfo.Value.Data.GetBinary())
+		appState, err := dummy_ibc_app.ParseAccount_DummyIbcAppStateDummyIbcAppState(accountInfo.Value.Data.GetBinary())
 		s.Require().NoError(err)
 
 		s.Require().Greater(appState.PacketsReceived, uint64(0), "Dummy app should have received at least one packet")
@@ -914,7 +914,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 		clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequenceAccount)
 		s.Require().NoError(err)
 
-		clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
+		clientSequenceData, err := ics26_router.ParseAccount_Ics26RouterStateClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
 		s.Require().NoError(err)
 
 		s.T().Logf("Solana client sequence - next send: %d",

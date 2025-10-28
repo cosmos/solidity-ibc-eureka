@@ -22,7 +22,7 @@ func (s *Solana) GetICS27AccountNonce(ctx context.Context, accountPDA solanago.P
 	}
 
 	// Parse using auto-generated anchor-go parser
-	accountState, err := ics27_gmp.ParseAccount_AccountState(data)
+	accountState, err := ics27_gmp.ParseAccount_Ics27GmpStateAccountState(data)
 	if err != nil {
 		return 0
 	}
