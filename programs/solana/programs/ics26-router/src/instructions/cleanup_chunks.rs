@@ -218,10 +218,9 @@ mod tests {
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
 
-        let checks = vec![Check::err(anchor_lang::error::Error::from(
-            RouterError::InvalidChunkAccount,
-        )
-        .into())];
+        let checks = vec![Check::err(
+            anchor_lang::error::Error::from(RouterError::InvalidChunkAccount).into(),
+        )];
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }

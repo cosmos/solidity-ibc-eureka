@@ -35,7 +35,10 @@ pub fn validate_proof_params(
 
     // Check that the height is being tracked (not pruned)
     require!(
-        client_state.consensus_state_heights.binary_search(&msg.height).is_ok(),
+        client_state
+            .consensus_state_heights
+            .binary_search(&msg.height)
+            .is_ok(),
         ErrorCode::ConsensusStateNotFound
     );
 
