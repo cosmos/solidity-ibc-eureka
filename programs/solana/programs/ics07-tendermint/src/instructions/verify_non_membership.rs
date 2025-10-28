@@ -61,7 +61,7 @@ mod tests {
     fn setup_test_accounts(
         chain_id: String,
         height: u64,
-        client_state: ClientState,
+        mut client_state: ClientState,
         consensus_state: ConsensusState,
     ) -> TestAccounts {
         use crate::test_helpers::chunk_test_utils::{
@@ -70,6 +70,12 @@ mod tests {
 
         let client_state_pda = derive_client_state_pda(&chain_id);
         let consensus_state_pda = derive_consensus_state_pda(&client_state_pda, height);
+
+        // Ensure the height being verified is tracked in consensus_state_heights
+        if !client_state.consensus_state_heights.contains(&height) {
+            client_state.consensus_state_heights.push(height);
+            client_state.consensus_state_heights.sort_unstable();
+        }
 
         let mut client_data = vec![];
         client_state.try_serialize(&mut client_data).unwrap();
