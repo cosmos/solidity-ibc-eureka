@@ -286,7 +286,40 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
         }
     }
 
-    // Create new account
+    // Automatic cleanup: if we're at capacity, remove the oldest height from tracking
+    // Note: The actual consensus state PDA can be closed separately by anyone to reclaim rent
+    // The relayer should monitor consensus_state_heights and close PDAs no longer tracked
+    if params.client_state.consensus_state_heights.len()
+        >= crate::constants::MAX_CONSENSUS_STATE_HEIGHTS
+    {
+        // Remove the oldest height (first element in sorted vec)
+        let oldest_height = params.client_state.consensus_state_heights.remove(0);
+
+        msg!(
+            "Removed height {} from tracking (FIFO), PDA can be closed to reclaim rent",
+            oldest_height
+        );
+    }
+
+    // Add new height to sorted tracking list (binary search insert)
+    match params
+        .client_state
+        .consensus_state_heights
+        .binary_search(&params.height)
+    {
+        Ok(_) => {
+            // Height already exists, this is a NoOp (shouldn't happen if we checked above)
+            return Ok(UpdateResult::NoOp);
+        }
+        Err(insert_pos) => {
+            params
+                .client_state
+                .consensus_state_heights
+                .insert(insert_pos, params.height);
+        }
+    }
+
+    // Create new consensus state account
     let space = 8 + ConsensusStateStore::INIT_SPACE;
     let rent = Rent::get()?.minimum_balance(space);
 
@@ -316,6 +349,12 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     let mut data = params.account.try_borrow_mut_data()?;
     let mut cursor = std::io::Cursor::new(&mut data[..]);
     new_store.try_serialize(&mut cursor)?;
+
+    msg!(
+        "Stored consensus state at height {}, total tracked: {}",
+        params.height,
+        params.client_state.consensus_state_heights.len()
+    );
 
     Ok(UpdateResult::Update)
 }

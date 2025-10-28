@@ -73,9 +73,7 @@ fn setup_test_accounts(
             revision_number: 0,
             revision_height: 200,
         },
-        earliest_height: 200,
-        consensus_state_count: 1,
-        max_consensus_states: 100,
+        consensus_state_heights: vec![200],
     };
 
     let mut client_data = vec![];
@@ -292,7 +290,7 @@ fn test_submit_misbehaviour_invalid_protobuf() {
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
     let checks = vec![
-        Check::err(anchor_lang::prelude::ProgramError::Custom(0x1778)), // InvalidHeader
+        Check::err(anchor_lang::prelude::ProgramError::Custom(0x1777)), // InvalidHeader
     ];
     mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
 }
@@ -309,7 +307,7 @@ fn test_submit_misbehaviour_empty_misbehaviour_bytes() {
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
     let checks = vec![
-        Check::err(anchor_lang::prelude::ProgramError::Custom(0x1778)), // InvalidHeader
+        Check::err(anchor_lang::prelude::ProgramError::Custom(0x1777)), // InvalidHeader
     ];
     mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
 }
@@ -329,7 +327,7 @@ fn test_submit_misbehaviour_with_mismatched_heights() {
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
     let checks = vec![
-        Check::err(anchor_lang::prelude::ProgramError::Custom(0x1778)), // InvalidHeader
+        Check::err(anchor_lang::prelude::ProgramError::Custom(0x1777)), // InvalidHeader
     ];
     mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
 }

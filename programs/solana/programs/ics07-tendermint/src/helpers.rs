@@ -33,6 +33,12 @@ pub fn validate_proof_params(
         ErrorCode::InvalidHeight
     );
 
+    // Check that the height is being tracked (not pruned)
+    require!(
+        client_state.consensus_state_heights.binary_search(&msg.height).is_ok(),
+        ErrorCode::ConsensusStateNotFound
+    );
+
     require!(
         msg.delay_time_period == 0 && msg.delay_block_period == 0,
         ErrorCode::NonZeroDelay

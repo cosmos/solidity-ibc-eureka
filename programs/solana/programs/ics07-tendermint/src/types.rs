@@ -34,12 +34,10 @@ pub struct ClientState {
     pub max_clock_drift: u64,
     pub frozen_height: IbcHeight,
     pub latest_height: IbcHeight,
-    /// Earliest consensus state height we're keeping (for pruning)
-    pub earliest_height: u64,
-    /// Current number of consensus states stored
-    pub consensus_state_count: u16,
-    /// Maximum number of consensus states to keep (rolling window)
-    pub max_consensus_states: u16,
+    /// Sorted list of consensus state heights we're tracking (ascending order, FIFO)
+    /// When this list reaches MAX_CONSENSUS_STATE_HEIGHTS, the oldest height is removed
+    #[max_len(10)]
+    pub consensus_state_heights: Vec<u64>,
 }
 
 impl ClientState {

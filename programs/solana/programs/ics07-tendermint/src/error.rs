@@ -19,8 +19,6 @@ pub enum ErrorCode {
     // Height errors
     #[msg("Invalid height: height cannot be zero")]
     InvalidHeight,
-    #[msg("Height mismatch: expected height does not match provided height")]
-    HeightMismatch,
 
     // Header and proof errors
     #[msg("Invalid header: failed to deserialize or validate header")]
@@ -65,20 +63,10 @@ pub enum ErrorCode {
     InvalidChunkAccount,
     #[msg("Chunk data too large: exceeds maximum chunk size")]
     ChunkDataTooLarge,
-
-    // Pruning errors
-    #[msg("Height not prunable: height must be below earliest_height threshold")]
-    HeightNotPrunable,
-    #[msg("Exceeds maximum batch size for pruning")]
-    ExceedsMaxBatchSize,
-    #[msg("Empty batch: no heights provided for pruning")]
-    EmptyBatch,
     #[msg("Missing account in remaining accounts")]
     MissingAccount,
     #[msg("Invalid account")]
     InvalidAccount,
-    #[msg("Pruning grace period not met: consensus state is too recent")]
-    PruningGracePeriodNotMet,
 
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]

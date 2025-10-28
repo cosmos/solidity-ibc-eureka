@@ -1,10 +1,7 @@
 pub mod assemble_and_update_client;
 pub mod cleanup_incomplete_upload;
 pub mod initialize;
-pub mod prune_consensus_states;
 pub mod submit_misbehaviour;
 pub mod upload_header_chunk;
 pub mod verify_membership;
 pub mod verify_non_membership;
-
-pub use prune_consensus_states::{prune_consensus_states, PruneConsensusStatesMsg};
