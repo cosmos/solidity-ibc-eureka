@@ -5,7 +5,8 @@ package ics27_gmp
 
 // Account discriminators
 var (
-	Account_GmpAppState = [8]byte{133, 28, 169, 125, 62, 118, 161, 140}
+	Account_AccountState = [8]byte{168, 34, 15, 31, 235, 191, 144, 177}
+	Account_GmpAppState  = [8]byte{133, 28, 169, 125, 62, 118, 161, 140}
 )
 
 // Event discriminators
@@ -29,6 +30,7 @@ var (
 	Instruction_OnRecvPacket            = [8]byte{153, 133, 78, 48, 156, 128, 229, 104}
 	Instruction_OnTimeoutPacket         = [8]byte{152, 10, 26, 185, 36, 193, 95, 76}
 	Instruction_PauseApp                = [8]byte{142, 191, 211, 112, 238, 129, 131, 66}
+	Instruction_QueryAccountState       = [8]byte{123, 255, 49, 37, 104, 31, 54, 101}
 	Instruction_SendCall                = [8]byte{254, 95, 190, 68, 194, 140, 28, 103}
 	Instruction_UnpauseApp              = [8]byte{73, 253, 89, 192, 87, 42, 245, 3}
 	Instruction_UpdateAuthority         = [8]byte{32, 46, 64, 28, 149, 75, 243, 88}

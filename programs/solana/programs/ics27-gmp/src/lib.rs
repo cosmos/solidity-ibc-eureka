@@ -43,6 +43,15 @@ pub mod ics27_gmp {
         instructions::send_call(ctx, msg)
     }
 
+    /// Query GMP account state
+    ///
+    /// Returns the current state of a GMP account including nonce, execution count,
+    /// timestamps, etc. This instruction exists primarily to expose `AccountState`
+    /// in the IDL for client code generation (e.g., anchor-go).
+    pub fn query_account_state(ctx: Context<QueryAccountState>) -> Result<state::AccountState> {
+        instructions::query_account_state(ctx)
+    }
+
     /// IBC packet receive handler (called by router via CPI)
     pub fn on_recv_packet<'info>(
         ctx: Context<'_, '_, '_, 'info, OnRecvPacket<'info>>,

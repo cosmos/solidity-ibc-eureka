@@ -26,7 +26,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + ClientState::INIT_SPACE,
-        seeds = [b"client", chain_id.as_bytes()],
+        seeds = [ClientState::SEED, chain_id.as_bytes()],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
@@ -34,7 +34,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [b"consensus_state", client_state.key().as_ref(), &latest_height.to_le_bytes()],
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &latest_height.to_le_bytes()],
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
@@ -74,7 +74,7 @@ pub struct UploadHeaderChunk<'info> {
         payer = submitter,
         space = 8 + HeaderChunk::INIT_SPACE,
         seeds = [
-            b"header_chunk",
+            HeaderChunk::SEED,
             submitter.key().as_ref(),
             params.chain_id.as_bytes(),
             &params.target_height.to_le_bytes(),

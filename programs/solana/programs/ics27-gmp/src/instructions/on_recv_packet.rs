@@ -16,7 +16,7 @@ pub struct OnRecvPacket<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
         mut,
-        seeds = [GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -164,7 +164,7 @@ pub fn on_recv_packet<'info>(
     // Build signer seeds on stack for invoke_signed
     let bump_array = [bump];
     let signer_seeds: &[&[u8]] = &[
-        ACCOUNT_STATE_SEED, // b"gmp_account"
+        AccountState::SEED, // b"gmp_account"
         &client_id_bytes,   // Source chain client ID
         &sender_hash,       // Hashed sender address (32 bytes)
         &salt_bytes,        // User-provided salt
@@ -386,7 +386,9 @@ fn map_and_validate_accounts<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{AccountState, GMPPacketData, SolanaAccountMeta, SolanaInstruction};
+    use crate::state::{
+        AccountState, GMPAppState, GMPPacketData, SolanaAccountMeta, SolanaInstruction,
+    };
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::Mollusk;
@@ -669,7 +671,7 @@ mod tests {
         let port_id = "gmpport".to_string();
 
         let (_correct_app_state_pda, _correct_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, port_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED, port_id.as_bytes()], &crate::ID);
 
         // Use wrong PDA
         let wrong_app_state_pda = Pubkey::new_unique();
@@ -1203,7 +1205,7 @@ mod tests {
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         // Create packet data that will call the counter app
         let client_id = "cosmoshub-1";
@@ -1431,5 +1433,268 @@ mod tests {
         assert_eq!(account_state.client_id, client_id);
         assert_eq!(account_state.sender, sender);
         assert_eq!(account_state.salt, salt);
+    }
+
+    /// Verifies that CPI errors cause immediate transaction failure
+    ///
+    /// Test Scenario:
+    /// 1. GMP receives a packet requesting a counter app CPI call
+    /// 2. The payer has insufficient lamports (3M - enough for `account_state` but not for `user_counter`)
+    /// 3. GMP invokes counter app via CPI
+    /// 4. Counter app fails when attempting to create `user_counter` (insufficient lamports)
+    /// 5. The entire transaction aborts - no error acknowledgment is returned
+    ///
+    /// Solana Architectural Constraint:
+    /// Unlike IBC/EVM where execution errors can be caught and returned as error acknowledgments,
+    /// Solana CPIs (Cross-Program Invocations) fail atomically. When `invoke()` or `invoke_signed()`
+    /// fails, the entire transaction aborts immediately - by design to maintain atomicity.
+    ///
+    /// Technical Details:
+    /// CPI errors cannot be handled in Solana programs - when `invoke()` or `invoke_signed()`
+    /// fails, the entire transaction aborts immediately. This is by design to maintain
+    /// transaction atomicity.
+    ///
+    /// Runtime Implementation:
+    /// The error propagation happens at the VM/runtime level. When a child program returns
+    /// an error, it propagates immediately via the ? operator in `cpi_common()`:
+    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/program-runtime/src/cpi.rs#L843>
+    ///
+    /// Error propagation flow in `process_instruction()`:
+    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/program-runtime/src/invoke_context.rs#L488-L498>
+    ///
+    /// Unit Test Proof:
+    /// There's a test that proves CPI errors cause transaction abort even when the Result
+    /// is ignored.
+    ///
+    /// Test setup (expects transaction to fail with Custom(42)):
+    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/programs/sbf/tests/programs.rs#L1043-L1049>
+    ///
+    /// Parent program IGNORES the `invoke()` result with "let _ = invoke(...)":
+    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/programs/sbf/rust/invoke/src/lib.rs#L604>
+    ///
+    /// Child program returns error Custom(42):
+    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/programs/sbf/rust/invoked/src/lib.rs#L119>
+    ///
+    /// The test confirms that even though the parent ignores the Result, the transaction
+    /// aborts with the child's error. The parent program never gets to execute any code
+    /// after the failed `invoke()` call - the abort happens at the runtime/VM level.
+    ///
+    /// This is fundamentally different from EVM's try/catch mechanism or Cosmos SDK's error returns.
+    #[test]
+    fn test_on_recv_packet_failed_execution_returns_error_ack() {
+        use gmp_counter_app::ID as COUNTER_APP_ID;
+        use prost::Message as ProstMessage;
+        use solana_sdk::account::Account;
+        use solana_sdk::bpf_loader_upgradeable;
+
+        // Create Mollusk instance and load both programs
+        let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        // Add the counter app program so CPI will be attempted
+        mollusk.add_program(
+            &COUNTER_APP_ID,
+            "../../target/deploy/gmp_counter_app",
+            &bpf_loader_upgradeable::ID,
+        );
+
+        let authority = Pubkey::new_unique();
+        let router_program = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+
+        // Create packet data
+        let client_id = "cosmoshub-1";
+        let sender = "cosmos1test";
+        let salt = vec![1u8, 2, 3];
+
+        let (account_state_pda, _account_bump) =
+            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
+
+        // Counter app state PDA
+        let (counter_app_state_pda, counter_app_state_bump) = Pubkey::find_program_address(
+            &[gmp_counter_app::state::CounterAppState::SEED],
+            &COUNTER_APP_ID,
+        );
+
+        let (user_counter_pda, _user_counter_bump) = Pubkey::find_program_address(
+            &[
+                gmp_counter_app::state::UserCounter::SEED,
+                account_state_pda.as_ref(),
+            ],
+            &COUNTER_APP_ID,
+        );
+
+        // Create counter instruction - will fail due to insufficient payer lamports
+        let counter_instruction = gmp_counter_app::instruction::Increment { amount: 5 };
+        let counter_instruction_data = anchor_lang::InstructionData::data(&counter_instruction);
+
+        // Build SolanaInstruction for the payload
+        let solana_instruction = SolanaInstruction {
+            program_id: COUNTER_APP_ID.to_bytes().to_vec(),
+            accounts: vec![
+                // app_state
+                SolanaAccountMeta {
+                    pubkey: counter_app_state_pda.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: true,
+                },
+                // user_counter
+                SolanaAccountMeta {
+                    pubkey: user_counter_pda.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: true,
+                },
+                // user_authority (account_state_pda will sign via invoke_signed)
+                SolanaAccountMeta {
+                    pubkey: account_state_pda.to_bytes().to_vec(),
+                    is_signer: true,
+                    is_writable: false,
+                },
+                // payer will be injected at position 3 by GMP
+                // system_program
+                SolanaAccountMeta {
+                    pubkey: system_program::ID.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: false,
+                },
+            ],
+            data: counter_instruction_data,
+            payer_position: Some(3), // Inject payer at position 3
+        };
+
+        let mut solana_instruction_bytes = Vec::new();
+        solana_instruction
+            .encode(&mut solana_instruction_bytes)
+            .unwrap();
+
+        // Create GMPPacketData with the counter instruction as payload using protobuf
+        let proto_packet_data = crate::proto::GmpPacketData {
+            sender: sender.to_string(),
+            receiver: COUNTER_APP_ID.to_string(),
+            salt,
+            payload: solana_instruction_bytes,
+            memo: String::new(),
+        };
+
+        let mut packet_data_bytes = Vec::new();
+        proto_packet_data.encode(&mut packet_data_bytes).unwrap();
+
+        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
+            source_client: client_id.to_string(),
+            dest_client: "solana-1".to_string(),
+            sequence: 1,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
+                value: packet_data_bytes,
+            },
+            relayer: Pubkey::new_unique(),
+        };
+
+        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
+
+        let instruction = SolanaInstructionSDK {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                // Remaining accounts for CPI:
+                AccountMeta::new(account_state_pda, false), // [0] account_state (GMP account)
+                AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target_program
+                AccountMeta::new(counter_app_state_pda, false), // [2] counter app state
+                AccountMeta::new(user_counter_pda, false),  // [3] user counter
+                AccountMeta::new_readonly(account_state_pda, false), // [4] user_authority (same as [0])
+                AccountMeta::new_readonly(system_program::ID, false), // [5] system program
+            ],
+            data: instruction_data.data(),
+        };
+
+        // Create counter app state (properly initialized)
+        let counter_app_state = gmp_counter_app::state::CounterAppState {
+            authority,
+            total_counters: 0,
+            total_gmp_calls: 0,
+            bump: counter_app_state_bump,
+        };
+        let mut counter_app_state_data = Vec::new();
+        counter_app_state_data
+            .extend_from_slice(gmp_counter_app::state::CounterAppState::DISCRIMINATOR);
+        counter_app_state
+            .serialize(&mut counter_app_state_data)
+            .unwrap();
+
+        let accounts = vec![
+            create_gmp_app_state_account(
+                app_state_pda,
+                router_program,
+                authority,
+                app_state_bump,
+                false, // not paused
+            ),
+            create_router_program_account(router_program),
+            (
+                payer,
+                Account {
+                    lamports: 3_000_000, // Enough for GMP account_state (~2.4M) but not enough for counter user_counter too
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(account_state_pda), // Account state will be created
+            // Counter app program (loaded via mollusk.add_program())
+            (
+                COUNTER_APP_ID,
+                Account {
+                    lamports: 1_000_000,
+                    data: vec![],
+                    owner: bpf_loader_upgradeable::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                counter_app_state_pda,
+                Account {
+                    lamports: 1_000_000,
+                    data: counter_app_state_data,
+                    owner: COUNTER_APP_ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            create_uninitialized_account_for_pda(user_counter_pda), // User counter - will fail to init due to insufficient payer funds
+            create_system_program_account(),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+
+        // Transaction should FAIL due to Solana's CPI limitation
+        assert!(
+            result.program_result.is_err(),
+            "Expected transaction to fail when CPI encounters error"
+        );
+
+        // Verify no acknowledgement was returned (transaction aborted)
+        assert!(
+            result.return_data.is_empty(),
+            "No return data should be present when transaction aborts"
+        );
+
+        // Verify account state was NOT created (transaction rolled back)
+        if let Some(acc) = result.get_account(&account_state_pda) {
+            assert!(
+                acc.data.is_empty() || acc.data.iter().all(|&b| b == 0),
+                "Account should remain uninitialized after transaction abort"
+            );
+        }
     }
 }

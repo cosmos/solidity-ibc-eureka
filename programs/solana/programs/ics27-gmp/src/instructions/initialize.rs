@@ -11,7 +11,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + GMPAppState::INIT_SPACE,
-        seeds = [GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
         bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -106,7 +106,7 @@ mod tests {
         let router_program = Pubkey::new_unique();
 
         let (app_state_pda, _) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
 
@@ -157,7 +157,7 @@ mod tests {
         let router_program = Pubkey::new_unique();
 
         let (app_state_pda, _) =
-            Pubkey::find_program_address(&[GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
 

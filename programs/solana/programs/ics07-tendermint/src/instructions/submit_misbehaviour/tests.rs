@@ -27,12 +27,15 @@ fn setup_test_accounts(
     client_frozen: bool,
     with_valid_consensus_states: bool,
 ) -> TestAccounts {
-    let client_state_pda =
-        Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID).0;
+    let client_state_pda = Pubkey::find_program_address(
+        &[crate::types::ClientState::SEED, chain_id.as_bytes()],
+        &crate::ID,
+    )
+    .0;
 
     let trusted_consensus_state_1_pda = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &height_1.to_le_bytes(),
         ],
@@ -42,7 +45,7 @@ fn setup_test_accounts(
 
     let trusted_consensus_state_2_pda = Pubkey::find_program_address(
         &[
-            b"consensus_state",
+            crate::state::ConsensusStateStore::SEED,
             client_state_pda.as_ref(),
             &height_2.to_le_bytes(),
         ],

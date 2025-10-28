@@ -28,7 +28,7 @@ fn setup_test_accounts(
     // Derive PDAs
     let chunk_pda = Pubkey::find_program_address(
         &[
-            b"header_chunk",
+            crate::state::HeaderChunk::SEED,
             submitter.as_ref(),
             chain_id.as_bytes(),
             &target_height.to_le_bytes(),
@@ -38,8 +38,11 @@ fn setup_test_accounts(
     )
     .0;
 
-    let client_state_pda =
-        Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID).0;
+    let client_state_pda = Pubkey::find_program_address(
+        &[crate::types::ClientState::SEED, chain_id.as_bytes()],
+        &crate::ID,
+    )
+    .0;
 
     let mut accounts = vec![
         (
@@ -380,8 +383,11 @@ fn test_upload_chunk_with_frozen_client_fails() {
         setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
 
     // Freeze the client by setting frozen_height
-    let client_state_pda =
-        Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &crate::ID).0;
+    let client_state_pda = Pubkey::find_program_address(
+        &[crate::types::ClientState::SEED, chain_id.as_bytes()],
+        &crate::ID,
+    )
+    .0;
 
     if let Some((_, account)) = test_accounts
         .accounts
