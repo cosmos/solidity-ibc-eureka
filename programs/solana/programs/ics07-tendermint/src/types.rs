@@ -35,7 +35,7 @@ pub struct ClientState {
     pub frozen_height: IbcHeight,
     pub latest_height: IbcHeight,
     /// Sorted list of consensus state heights we're tracking (ascending order, FIFO)
-    /// When this list reaches MAX_CONSENSUS_STATE_HEIGHTS, the oldest height is removed
+    /// When this list reaches `MAX_CONSENSUS_STATE_HEIGHTS`, the oldest height is removed
     #[max_len(10)]
     pub consensus_state_heights: Vec<u64>,
 }
