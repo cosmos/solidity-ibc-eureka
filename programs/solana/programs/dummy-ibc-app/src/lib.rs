@@ -2,10 +2,10 @@ use anchor_lang::prelude::*;
 use solana_ibc_macros::ibc_app;
 use solana_ibc_types::{OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg};
 
-declare_id!("BQdrL2ngS1T7HhTgNuzR7gg81VtJQddhKv1vyJrvnF5z");
+declare_id!("5E73beFMq9QZvbwPN5i84psh2WcyJ9PgqF4avBaRDgCC");
 
 /// The ICS26 Router program ID that is authorized to call this instruction
-pub const ICS26_ROUTER_ID: Pubkey = pubkey!("GbVfnimoJNUhg8S9tGKAYJx7SYsuRcDcwQSt4zCizqis");
+pub const ICS26_ROUTER_ID: Pubkey = pubkey!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx");
 
 pub mod errors;
 pub mod instructions;

@@ -132,7 +132,7 @@ type Ics07TendermintTypesClientState struct {
 	LatestHeight          Ics07TendermintTypesIbcHeight `json:"latestHeight"`
 
 	// Sorted list of consensus state heights we're tracking (ascending order, FIFO)
-	// When this list reaches MAX_CONSENSUS_STATE_HEIGHTS, the oldest height is removed
+	// When this list reaches `MAX_CONSENSUS_STATE_HEIGHTS`, the oldest height is removed
 	ConsensusStateHeights []uint64 `json:"consensusStateHeights"`
 }
 
