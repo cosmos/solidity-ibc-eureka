@@ -49,6 +49,8 @@ pub struct ClientState {
     pub max_clock_drift: u64,
     pub frozen_height: IbcHeight,
     pub latest_height: IbcHeight,
+    /// Sorted list of consensus state heights being tracked (ascending order, FIFO)
+    pub consensus_state_heights: Vec<u64>,
 }
 
 impl ClientState {

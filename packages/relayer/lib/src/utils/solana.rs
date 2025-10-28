@@ -158,6 +158,8 @@ pub fn convert_client_state_to_sol(
             revision_number: latest_height.revision_number,
             revision_height: latest_height.revision_height,
         },
+        // Initialize with latest height in tracking list (matches on-chain initialization)
+        consensus_state_heights: vec![latest_height.revision_height],
     })
 }
 
