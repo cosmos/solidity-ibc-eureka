@@ -8,6 +8,7 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/programs/token"
+	"github.com/gagliardetto/solana-go/rpc"
 )
 
 const (
@@ -49,7 +50,8 @@ func (s *Solana) CreateSPLTokenMint(ctx context.Context, authority *solanago.Wal
 		return solanago.PublicKey{}, err
 	}
 
-	_, err = s.SignAndBroadcastTxWithRetry(ctx, tx, authority, mintAccount)
+	// Use confirmed commitment for faster execution (optimized path: skip preflight, wait for confirmed)
+	_, err = s.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, authority, mintAccount)
 	if err != nil {
 		return solanago.PublicKey{}, err
 	}
@@ -91,7 +93,8 @@ func (s *Solana) CreateTokenAccount(ctx context.Context, payer *solanago.Wallet,
 		return solanago.PublicKey{}, err
 	}
 
-	_, err = s.SignAndBroadcastTxWithRetry(ctx, tx, payer, tokenAccount)
+	// Use confirmed commitment for faster execution (optimized path: skip preflight, wait for confirmed)
+	_, err = s.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, payer, tokenAccount)
 	if err != nil {
 		return solanago.PublicKey{}, err
 	}
@@ -117,13 +120,17 @@ func (s *Solana) MintTokensTo(ctx context.Context, mintAuthority *solanago.Walle
 		return err
 	}
 
-	_, err = s.SignAndBroadcastTxWithRetry(ctx, tx, mintAuthority)
+	// Use confirmed commitment for faster execution (optimized path: skip preflight, wait for confirmed)
+	_, err = s.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, mintAuthority)
 	return err
 }
 
 // GetTokenBalance retrieves the token balance for a token account
 func (s *Solana) GetTokenBalance(ctx context.Context, tokenAccount solanago.PublicKey) (uint64, error) {
-	accountInfo, err := s.RPCClient.GetAccountInfo(ctx, tokenAccount)
+	// Use confirmed commitment to match relayer read commitment level
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, tokenAccount, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
 	if err != nil {
 		return 0, err
 	}

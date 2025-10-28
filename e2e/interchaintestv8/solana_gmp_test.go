@@ -6,13 +6,16 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
+	"github.com/stretchr/testify/suite"
 
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/token"
+	"github.com/gagliardetto/solana-go/rpc"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -34,6 +37,17 @@ import (
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 	solanatypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/solana"
 )
+
+// IbcEurekaSolanaGMPTestSuite is a test suite for Solana GMP tests
+type IbcEurekaSolanaGMPTestSuite struct {
+	IbcEurekaSolanaTestSuite
+}
+
+func TestWithIbcEurekaSolanaGMPTestSuite(t *testing.T) {
+	s := &IbcEurekaSolanaGMPTestSuite{}
+	s.SetupGMP = true
+	suite.Run(t, s)
+}
 
 const (
 	// GMP App
@@ -71,19 +85,11 @@ func gmpAccountPDA(programID solanago.PublicKey, clientID string, sender string,
 	return pda, bump
 }
 
-func (s *IbcEurekaSolanaTestSuite) deployAndInitializeGMPCounterApp(ctx context.Context) solanago.PublicKey {
-	var gmpCounterProgramID solanago.PublicKey
-
-	s.Require().True(s.Run("Deploy and Initialize GMP Counter App", func() {
-		gmpCounterProgramID = s.SolanaChain.DeploySolanaProgram(ctx, s.T(), s.Require(), "gmp_counter_app")
-
-		gmp_counter_app.ProgramID = gmpCounterProgramID
-
-		programAvailable := s.SolanaChain.WaitForProgramAvailabilityWithTimeout(ctx, gmpCounterProgramID, 120)
-		s.Require().True(programAvailable, "GMP Counter program failed to become available within timeout")
-
+func (s *IbcEurekaSolanaTestSuite) initializeGMPCounterApp(ctx context.Context) solanago.PublicKey {
+	s.Require().True(s.Run("Initialize GMP Counter App", func() {
+		// Program already deployed, just initialize
 		// Initialize GMP counter app state
-		counterAppStatePDA, _ := solana.GmpCounterApp.CounterAppStatePDA(gmpCounterProgramID)
+		counterAppStatePDA, _ := solana.GmpCounterApp.CounterAppStatePDA(s.GMPCounterProgramID)
 
 		initInstruction, err := gmp_counter_app.NewInitializeInstruction(
 			s.SolanaUser.PublicKey(), // authority
@@ -96,25 +102,17 @@ func (s *IbcEurekaSolanaTestSuite) deployAndInitializeGMPCounterApp(ctx context.
 		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
 		s.Require().NoError(err)
 		s.T().Logf("GMP Counter app initialized")
 	}))
 
-	return gmpCounterProgramID
+	return s.GMPCounterProgramID
 }
 
-func (s *IbcEurekaSolanaTestSuite) deployAndInitializeICS27GMP(ctx context.Context) solanago.PublicKey {
-	var ics27GMPProgramID solanago.PublicKey
-
-	s.Require().True(s.Run("Deploy and Initialize ICS27 GMP Program", func() {
-		ics27GMPProgramID = s.SolanaChain.DeploySolanaProgram(ctx, s.T(), s.Require(), "ics27_gmp")
-
-		// Set the program ID in the bindings
-		ics27_gmp.ProgramID = ics27GMPProgramID
-
-		programAvailable := s.SolanaChain.WaitForProgramAvailabilityWithTimeout(ctx, ics27GMPProgramID, 120)
-		s.Require().True(programAvailable, "ICS27 GMP program failed to become available within timeout")
+func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solanago.PublicKey {
+	s.Require().True(s.Run("Initialize ICS27 GMP Program", func() {
+		// Program already deployed, just initialize
 
 		// Find GMP app state PDA (using standard pattern with port_id)
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
@@ -137,10 +135,10 @@ func (s *IbcEurekaSolanaTestSuite) deployAndInitializeICS27GMP(ctx context.Conte
 		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
 		s.Require().NoError(err)
 
-		s.T().Logf("ICS27 GMP program initialized at: %s", ics27GMPProgramID)
+		s.T().Logf("ICS27 GMP program initialized at: %s", s.ICS27GMPProgramID)
 		s.T().Logf("GMP app state PDA: %s", gmpAppStatePDA)
 		s.T().Logf("GMP port ID: %s (using proper GMP port)", GMPPortID)
 	}))
@@ -155,7 +153,7 @@ func (s *IbcEurekaSolanaTestSuite) deployAndInitializeICS27GMP(ctx context.Conte
 			GMPPortID,
 			routerStateAccount,
 			ibcAppAccount,
-			ics27GMPProgramID,
+			s.ICS27GMPProgramID,
 			s.SolanaUser.PublicKey(),
 			s.SolanaUser.PublicKey(),
 			solanago.SystemProgramID,
@@ -165,16 +163,16 @@ func (s *IbcEurekaSolanaTestSuite) deployAndInitializeICS27GMP(ctx context.Conte
 		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), registerInstruction)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
 		s.Require().NoError(err)
 		s.T().Logf("ICS27 GMP registered with router on port: %s (using proper GMP port)", GMPPortID)
 	}))
 
-	return ics27GMPProgramID
+	return s.ICS27GMPProgramID
 }
 
 // Test_GMPCounterFromCosmos tests sending a counter increment call from Cosmos to Solana
-func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
@@ -197,11 +195,11 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 	s.Require().True(s.Run("Verify ICS27 GMP Program", func() {
 	}))
 
-	// Deploy and initialize GMP counter app
+	// Initialize GMP counter app (already deployed)
 	var gmpCounterProgramID solanago.PublicKey
-	s.Require().True(s.Run("Deploy and Initialize GMP Counter App", func() {
-		gmpCounterProgramID = s.deployAndInitializeGMPCounterApp(ctx)
-		s.T().Logf("GMP Counter app deployed at %s", gmpCounterProgramID)
+	s.Require().True(s.Run("Initialize GMP Counter App", func() {
+		gmpCounterProgramID = s.initializeGMPCounterApp(ctx)
+		s.T().Logf("GMP Counter app initialized at %s", gmpCounterProgramID)
 	}))
 
 	_ = ics27GMPProgramID // Use the GMP program ID for future packet flow
@@ -226,7 +224,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 			// Derive user counter PDA from ICS27 account_state PDA
 			userCounterPDA, _ := solana.GmpCounterApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
 
-			account, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, userCounterPDA)
+			// Use confirmed commitment to match relay transaction confirmation level
+			account, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, userCounterPDA, &rpc.GetAccountInfoOpts{
+				Commitment: rpc.CommitmentConfirmed,
+			})
 			if err != nil || account.Value == nil {
 				return 0 // Account doesn't exist yet
 			}
@@ -476,7 +477,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 // 1. A Cosmos user controls an ICS27 Account PDA on Solana
 // 2. The ICS27 PDA owns SPL token accounts
 // 3. Through GMP, the Cosmos user sends cross-chain calls to transfer tokens
-func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
@@ -692,7 +693,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	}))
 }
 
-func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
@@ -821,7 +822,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 			)
 			s.Require().NoError(err)
 
-			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
+			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(sig)
 
@@ -987,7 +988,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPSendCallFromSolana() {
 // 9. Verify RecvPacket Fails After Timeout
 //   - Attempt to broadcast the recv transaction that was retrieved before timeout
 //   - Transaction should fail on Cosmos (packet already timed out)
-func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
@@ -1110,7 +1111,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 			)
 			s.Require().NoError(err)
 
-			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
+			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(sig)
 
@@ -1266,7 +1267,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromSolana() {
 // 8. Verify RecvPacket Fails After Timeout
 //   - Attempt to broadcast the recv transactions that were retrieved before timeout
 //   - Transactions should fail on Solana (packet already timed out)
-func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromCosmos() {
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
@@ -1497,7 +1498,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPTimeoutFromCosmos() {
 // after the failed invoke() call - the abort happens at the runtime/VM level.
 //
 // This is fundamentally different from EVM's try/catch mechanism or Cosmos SDK's error returns.
-func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromCosmos() {
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
@@ -1664,10 +1665,13 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromCosmos() {
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
 			// Transaction will fail due to CPI error (insufficient balance for SPL token transfer)
-			// Expected error: SPL Token program error indicating insufficient funds
+			// Expected error: SPL Token program InstructionError with Custom error code 1 (InsufficientFunds)
 			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
 			s.Require().Error(err)
-			s.Require().Contains(err.Error(), "insufficient")
+			s.T().Logf("Received error: %v", err)
+			// Expected Solana error format: map[InstructionError:[%!s(float64=2) map[Custom:%!s(float64=1)]]]
+			// where instruction index 2 failed with Custom error code 1 (InsufficientFunds)
+			s.Require().Contains(err.Error(), "map[InstructionError:[%!s(float64=2) map[Custom:%!s(float64=1)]]]")
 		}))
 	}))
 }
@@ -1694,7 +1698,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromCosmos() {
 //
 // This is fundamentally different from Solana's atomic CPI behavior where errors propagate
 // through the runtime and abort the entire transaction before any acknowledgment can be written.
-func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromSolana() {
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
@@ -1817,7 +1821,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPFailedExecutionFromSolana() {
 			)
 			s.Require().NoError(err)
 
-			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
+			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(sig)
 

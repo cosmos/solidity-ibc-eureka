@@ -2,6 +2,7 @@ package e2esuite
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	dockerclient "github.com/moby/moby/client"
@@ -56,68 +57,179 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 
 	icChainSpecs := chainconfig.DefaultChainSpecs
 
+	// Handle Ethereum PoW case first (modifies icChainSpecs needed by Cosmos setup)
 	s.ethTestnetType = os.Getenv(testvalues.EnvKeyEthTestnetType)
-	switch s.ethTestnetType {
-	case testvalues.EthTestnetTypePoW:
+	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
 		icChainSpecs = append(icChainSpecs, &interchaintest.ChainSpec{ChainConfig: icfoundry.DefaultEthereumAnvilChainConfig("ethereum")})
-	case testvalues.EthTestnetTypePoS:
-		kurtosisChain, err := chainconfig.SpinUpKurtosisPoS(ctx) // TODO: Run this in a goroutine and wait for it to be ready
-		s.Require().NoError(err)
-		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisChain.RPC, &kurtosisChain.BeaconApiClient, kurtosisChain.Faucet)
-		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			ctx := context.Background()
-			if s.T().Failed() {
-				_ = kurtosisChain.DumpLogs(ctx)
-			}
-			kurtosisChain.Destroy(ctx)
-		})
-	case testvalues.EthTestnetTypeNone:
-		// Do nothing
-	default:
-		s.T().Fatalf("Unknown Ethereum testnet type: %s", s.ethTestnetType)
 	}
 
+	// Parallelize Solana, Cosmos, and Ethereum PoS chain setup for faster initialization
+	type solanaSetupResult struct {
+		solanaChain *chainconfig.SolanaLocalnetChain
+		err         error
+	}
+
+	type cosmosSetupResult struct {
+		chains       []ibc.Chain
+		logger       *zap.Logger
+		dockerClient *dockerclient.Client
+		network      string
+		err          error
+	}
+
+	type ethSetupResult struct {
+		ethChain *chainconfig.EthKurtosisChain
+		err      error
+	}
+
+	solanaResults := make(chan solanaSetupResult, 1)
+	cosmosResults := make(chan cosmosSetupResult, 1)
+	ethResults := make(chan ethSetupResult, 1)
+
 	solanaTestnetType := os.Getenv(testvalues.EnvKeySolanaTestnetType)
-	switch solanaTestnetType {
-	case testvalues.SolanaTestnetType_Localnet:
-		solChain, err := chainconfig.StartLocalnet(ctx)
-		s.Require().NoError(err)
+
+	// Setup Solana in parallel
+	go func() {
+		var result solanaSetupResult
+		defer func() {
+			solanaResults <- result
+		}()
+
+		switch solanaTestnetType {
+		case testvalues.SolanaTestnetType_Localnet:
+			solChain, err := chainconfig.StartLocalnet(ctx)
+			if err != nil {
+				result.err = err
+				return
+			}
+			result.solanaChain = &solChain
+		case testvalues.SolanaTestnetType_None, "":
+			// Do nothing
+		default:
+			result.err = fmt.Errorf("unknown Solana testnet type: %s", solanaTestnetType)
+		}
+	}()
+
+	// Setup Cosmos chains in parallel
+	testName := s.T().Name()
+	testInstance := s.T()
+	go func() {
+		var result cosmosSetupResult
+		defer func() {
+			cosmosResults <- result
+		}()
+
+		logger := zaptest.NewLogger(testInstance)
+		dockerClient, network := interchaintest.DockerSetup(testInstance)
+
+		result.logger = logger
+		result.dockerClient = dockerClient
+		result.network = network
+
+		cf := interchaintest.NewBuiltinChainFactory(logger, icChainSpecs)
+
+		chains, err := cf.Chains(testName)
+		if err != nil {
+			result.err = err
+			return
+		}
+
+		ic := interchaintest.NewInterchain()
+		for _, chain := range chains {
+			ic = ic.AddChain(chain)
+		}
+
+		execRep := testreporter.NewNopReporter().RelayerExecReporter(testInstance)
+
+		err = ic.Build(ctx, execRep, interchaintest.InterchainBuildOptions{
+			TestName:         testName,
+			Client:           dockerClient,
+			NetworkID:        network,
+			SkipPathCreation: true,
+		})
+		if err != nil {
+			result.err = err
+			return
+		}
+
+		result.chains = chains
+	}()
+
+	// Setup Ethereum PoS in parallel (if enabled)
+	ethEnabled := s.ethTestnetType == testvalues.EthTestnetTypePoS
+	if ethEnabled {
+		go func() {
+			var result ethSetupResult
+			defer func() {
+				ethResults <- result
+			}()
+
+			kurtosisChain, err := chainconfig.SpinUpKurtosisPoS(ctx)
+			if err != nil {
+				result.err = err
+				return
+			}
+			result.ethChain = &kurtosisChain
+		}()
+	}
+
+	// Wait for Solana setup to complete
+	solanaResult := <-solanaResults
+	s.Require().NoError(solanaResult.err, "Solana chain setup failed")
+	if solanaResult.solanaChain != nil {
+		solChain := solanaResult.solanaChain
 		s.T().Cleanup(func() {
 			if err := solChain.Destroy(); err != nil {
 				s.T().Logf("Failed to destroy Solana localnet: %v", err)
 			}
 		})
+		var err error
 		s.SolanaChain, err = solana.NewLocalnetSolana(solChain.Faucet)
-		s.Require().NoError(err)
-	case testvalues.SolanaTestnetType_None, "":
+		s.Require().NoError(err, "Failed to create Solana client")
+	}
+
+	// Wait for Cosmos setup to complete
+	cosmosResult := <-cosmosResults
+	s.Require().NoError(cosmosResult.err, "Cosmos chain setup failed")
+	s.logger = cosmosResult.logger
+	s.dockerClient = cosmosResult.dockerClient
+	s.network = cosmosResult.network
+	var chains []ibc.Chain
+	if cosmosResult.chains != nil {
+		chains = cosmosResult.chains
+	}
+
+	// Wait for Ethereum PoS setup if enabled
+	if ethEnabled {
+		ethResult := <-ethResults
+		s.Require().NoError(ethResult.err, "Ethereum PoS chain setup failed")
+		if ethResult.ethChain != nil {
+			kurtosisChain := ethResult.ethChain
+			s.T().Cleanup(func() {
+				ctx := context.Background()
+				if s.T().Failed() {
+					_ = kurtosisChain.DumpLogs(ctx)
+				}
+				kurtosisChain.Destroy(ctx)
+			})
+			var err error
+			s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisChain.RPC, &kurtosisChain.BeaconApiClient, kurtosisChain.Faucet)
+			s.Require().NoError(err, "Failed to create Ethereum client")
+		}
+	}
+
+	// Handle remaining Ethereum cases
+	switch s.ethTestnetType {
+	case testvalues.EthTestnetTypePoW:
+		// PoW Ethereum chain was included in Cosmos chains, extract it
+		// (handled below at line 178+)
+	case testvalues.EthTestnetTypePoS:
+		// Already setup in parallel goroutine above
+	case testvalues.EthTestnetTypeNone:
 		// Do nothing
 	default:
-		s.T().Fatalf("Unknown Solana testnet type: %s", solanaTestnetType)
+		s.T().Fatalf("Unknown Ethereum testnet type: %s", s.ethTestnetType)
 	}
-
-	s.logger = zaptest.NewLogger(s.T())
-	s.dockerClient, s.network = interchaintest.DockerSetup(s.T())
-
-	cf := interchaintest.NewBuiltinChainFactory(s.logger, icChainSpecs)
-
-	chains, err := cf.Chains(s.T().Name())
-	s.Require().NoError(err)
-
-	ic := interchaintest.NewInterchain()
-	for _, chain := range chains {
-		ic = ic.AddChain(chain)
-	}
-
-	execRep := testreporter.NewNopReporter().RelayerExecReporter(s.T())
-
-	// TODO: Run this in a goroutine and wait for it to be ready
-	s.Require().NoError(ic.Build(ctx, execRep, interchaintest.InterchainBuildOptions{
-		TestName:         s.T().Name(),
-		Client:           s.dockerClient,
-		NetworkID:        s.network,
-		SkipPathCreation: true,
-	}))
 
 	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
 		anvil := chains[len(chains)-1].(*icfoundry.AnvilChain)

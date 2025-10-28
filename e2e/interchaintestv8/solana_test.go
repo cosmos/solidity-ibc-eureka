@@ -9,10 +9,12 @@ import (
 	"testing"
 	"time"
 
+	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
 	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
 
 	solanago "github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -27,6 +29,7 @@ import (
 	dummy_ibc_app "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/dummyibcapp"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
+	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
@@ -57,8 +60,10 @@ type IbcEurekaSolanaTestSuite struct {
 
 	SolanaUser *solanago.Wallet
 
-	RelayerClient     relayertypes.RelayerServiceClient
-	DummyAppProgramID solanago.PublicKey
+	RelayerClient       relayertypes.RelayerServiceClient
+	ICS27GMPProgramID   solanago.PublicKey
+	GMPCounterProgramID solanago.PublicKey
+	DummyAppProgramID   solanago.PublicKey
 
 	// Mock configuration for tests
 	UseMockWasmClient bool
@@ -78,6 +83,17 @@ func TestWithIbcEurekaSolanaTestSuite(t *testing.T) {
 	suite.Run(t, new(IbcEurekaSolanaTestSuite))
 }
 
+func (s *IbcEurekaSolanaTestSuite) TearDownSuite() {
+	// Clean up relayer process if it's running
+	if s.RelayerProcess != nil {
+		s.T().Logf("Cleaning up relayer process (PID: %d)", s.RelayerProcess.Pid)
+		err := s.RelayerProcess.Kill()
+		if err != nil {
+			s.T().Logf("Failed to kill relayer process: %v", err)
+		}
+	}
+}
+
 func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	var err error
 
@@ -92,28 +108,82 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	err = s.SolanaChain.WaitForClusterReady(ctx, 30*time.Second)
 	s.Require().NoError(err, "Solana cluster failed to initialize")
 
-	s.T().Log("Creating and funding Solana test wallet...")
-	s.SolanaUser, err = s.SolanaChain.CreateAndFundWalletWithRetry(ctx, 5)
-	s.Require().NoError(err, "Solana create/fund wallet has failed")
-
 	simd := s.CosmosChains[0]
 
 	s.Require().True(s.Run("Deploy IBC core contracts", func() {
-		_, err := s.SolanaChain.FundUser(solana.DeployerPubkey, 20*testvalues.InitialSolBalance)
-		s.Require().NoError(err, "FundUser user failed")
+		solanaUser := solanago.NewWallet()
+		s.T().Logf("Created SolanaUser wallet: %s", solanaUser.PublicKey())
 
-		ics07ProgramID := s.SolanaChain.DeploySolanaProgram(ctx, s.T(), s.Require(), "ics07_tendermint")
-		s.Require().Equal(ics07_tendermint.ProgramID, ics07ProgramID)
-		ics07_tendermint.ProgramID = ics07ProgramID
+		fundWallet := func(name string, pubkey solanago.PublicKey, amount uint64) e2esuite.ParallelTask {
+			return e2esuite.ParallelTask{
+				Name: fmt.Sprintf("Fund %s", name),
+				Run: func() error {
+					s.T().Logf("Funding %s...", name)
+					_, err := s.SolanaChain.FundUserWithRetry(ctx, pubkey, amount, 5)
+					if err == nil {
+						s.T().Logf("✓ %s funded: %s", name, pubkey)
+					}
+					return err
+				},
+			}
+		}
 
-		ics26RouterProgramID := s.SolanaChain.DeploySolanaProgram(ctx, s.T(), s.Require(), "ics26_router")
-		s.Require().Equal(ics26_router.ProgramID, ics26RouterProgramID)
+		s.Require().True(s.Run("Fund wallets", func() {
+			s.T().Log("Funding wallets in parallel...")
+			// Fund single deployer with sufficient funds for all program deployments
+			const deployerFunding = 100 * testvalues.InitialSolBalance
+			err := e2esuite.RunParallelTasks(
+				fundWallet("SolanaUser", solanaUser.PublicKey(), testvalues.InitialSolBalance),
+				fundWallet("Deployer", solana.DeployerPubkey, deployerFunding),
+			)
+			s.Require().NoError(err, "Failed to fund wallets")
+			s.SolanaUser = solanaUser
+			s.T().Log("All wallets funded successfully")
+		}))
 
-		ics07Available := s.SolanaChain.WaitForProgramAvailability(ctx, ics07_tendermint.ProgramID)
-		s.Require().True(ics07Available, "ICS07 program failed to become available")
+		s.Require().True(s.Run("Deploy programs", func() {
+			// Deploy ALL programs in parallel using single deployer (now that --url flag is fixed)
+			// Deployment happens regardless of SetupGMP/SetupDummyApp flags - flags only control initialization
+			s.T().Log("Deploying Solana programs in parallel...")
 
-		ics26Available := s.SolanaChain.WaitForProgramAvailability(ctx, ics26_router.ProgramID)
-		s.Require().True(ics26Available, "ICS26 router program failed to become available")
+			const keypairDir = "e2e/interchaintestv8/solana/keypairs"
+			const deployerPath = keypairDir + "/deployer_wallet.json"
+
+			deployProgram := func(displayName, programName string) e2esuite.ParallelTaskWithResult[solanago.PublicKey] {
+				return e2esuite.ParallelTaskWithResult[solanago.PublicKey]{
+					Name: displayName,
+					Run: func() (solanago.PublicKey, error) {
+						s.T().Logf("Deploying %s...", displayName)
+						keypairPath := fmt.Sprintf("%s/%s-keypair.json", keypairDir, programName)
+						programID, err := s.SolanaChain.DeploySolanaProgramDirectlyAsync(ctx, programName, keypairPath, deployerPath)
+						if err == nil {
+							s.T().Logf("✓ %s deployed at: %s", displayName, programID)
+						}
+						return programID, err
+					},
+				}
+			}
+
+			deployResults, err := e2esuite.RunParallelTasksWithResults(
+				deployProgram("Deploy ICS07 Tendermint", "ics07_tendermint"),
+				deployProgram("Deploy ICS26 Router", "ics26_router"),
+				deployProgram("Deploy ICS27 GMP", "ics27_gmp"),
+				deployProgram("Deploy GMP Counter App", "gmp_counter_app"),
+				deployProgram("Deploy Dummy IBC App", "dummy_ibc_app"),
+			)
+			s.Require().NoError(err, "Program deployment failed")
+
+			ics07_tendermint.ProgramID = deployResults["Deploy ICS07 Tendermint"]
+			ics26_router.ProgramID = deployResults["Deploy ICS26 Router"]
+			s.ICS27GMPProgramID = deployResults["Deploy ICS27 GMP"]
+			ics27_gmp.ProgramID = s.ICS27GMPProgramID
+			s.GMPCounterProgramID = deployResults["Deploy GMP Counter App"]
+			gmp_counter_app.ProgramID = s.GMPCounterProgramID
+			s.DummyAppProgramID = deployResults["Deploy Dummy IBC App"]
+			dummy_ibc_app.ProgramID = s.DummyAppProgramID
+
+			s.T().Log("All programs deployed successfully")
+		}))
 	}))
 
 	// Initialize router first (required before GMP/Dummy App can register)
@@ -124,13 +194,13 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
 		s.Require().NoError(err)
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
 		s.Require().NoError(err)
 	}))
 
-	// Deploy and initialize ICS27 GMP program if SetupGMP is enabled (requires initialized router)
+	// Initialize ICS27 GMP program if SetupGMP is enabled (requires initialized router)
 	if s.SetupGMP {
-		s.deployAndInitializeICS27GMP(ctx)
+		s.initializeICS27GMP(ctx)
 
 		// Create Address Lookup Table after GMP deployment (if not already set)
 		if s.SolanaAltAddress == "" {
@@ -144,16 +214,11 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		}
 	}
 
-	// Deploy and register Dummy App if SetupDummyApp is enabled (requires initialized router)
+	// Initialize and register Dummy App if SetupDummyApp is enabled (requires initialized router)
 	if s.SetupDummyApp {
-		s.Require().True(s.Run("Deploy and Register Dummy App", func() {
-			dummyAppProgramID := s.SolanaChain.DeploySolanaProgram(ctx, s.T(), s.Require(), "dummy_ibc_app")
-			dummy_ibc_app.ProgramID = dummyAppProgramID
-
-			programAvailable := s.SolanaChain.WaitForProgramAvailabilityWithTimeout(ctx, dummyAppProgramID, 120)
-			s.Require().True(programAvailable, "Program failed to become available within timeout")
-
-			appStateAccount, _ := solana.DummyIbcApp.AppStateTransferPDA(dummyAppProgramID)
+		s.Require().True(s.Run("Initialize and Register Dummy App", func() {
+			// Program already deployed, just initialize
+			appStateAccount, _ := solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
 
 			initInstruction, err := dummy_ibc_app.NewInitializeInstruction(
 				s.SolanaUser.PublicKey(),
@@ -166,7 +231,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
 			s.Require().NoError(err)
 
-			_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
+			_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
 			s.Require().NoError(err)
 			s.T().Logf("Dummy app initialized")
 
@@ -178,7 +243,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				transfertypes.PortID,
 				routerStateAccount,
 				ibcAppAccount,
-				dummyAppProgramID,
+				s.DummyAppProgramID,
 				s.SolanaUser.PublicKey(),
 				s.SolanaUser.PublicKey(),
 				solanago.SystemProgramID,
@@ -188,16 +253,22 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			tx2, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), registerInstruction)
 			s.Require().NoError(err)
 
-			_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx2, s.SolanaUser)
+			_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx2, rpc.CommitmentConfirmed, 30, s.SolanaUser)
 			s.Require().NoError(err)
-			s.T().Logf("Registered for transfer port")
-
-			s.DummyAppProgramID = dummyAppProgramID
+			s.T().Logf("Registered dummy app for transfer port")
 		}))
 	}
 
-	// Start relayer after all infrastructure is set up (including ALT if needed)
-	s.Require().True(s.Run("Start Relayer", func() {
+	// Start relayer asynchronously - it can initialize while we set up IBC clients
+	type relayerStartResult struct {
+		process *os.Process
+		err     error
+	}
+	relayerReady := make(chan relayerStartResult, 1)
+
+	go func() {
+		s.T().Log("Starting relayer asynchronously...")
+
 		configInfo := relayer.SolanaCosmosConfigInfo{
 			SolanaChainID:        testvalues.SolanaChainID,
 			CosmosChainID:        simd.Config().ChainID,
@@ -207,17 +278,23 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			ICS26RouterProgramID: ics26_router.ProgramID.String(),
 			CosmosSignerAddress:  s.CosmosUsers[0].FormattedAddress(),
 			SolanaFeePayer:       s.SolanaUser.PublicKey().String(),
-			SolanaAltAddress:     s.SolanaAltAddress, // Use ALT if set
+			SolanaAltAddress:     s.SolanaAltAddress,
 			MockWasmClient:       s.UseMockWasmClient,
 		}
 
 		config := relayer.NewConfig(relayer.CreateSolanaCosmosModules(configInfo))
 
-		err = config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
-		s.Require().NoError(err)
+		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		if err != nil {
+			relayerReady <- relayerStartResult{nil, fmt.Errorf("failed to generate config: %w", err)}
+			return
+		}
 
-		s.RelayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
-		s.Require().NoError(err, "Relayer failed to start")
+		process, err := relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		if err != nil {
+			relayerReady <- relayerStartResult{nil, fmt.Errorf("failed to start relayer: %w", err)}
+			return
+		}
 
 		if s.SolanaAltAddress != "" {
 			s.T().Logf("Started relayer with ALT address: %s", s.SolanaAltAddress)
@@ -226,18 +303,20 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Cleanup(func() {
 			os.Remove(testvalues.RelayerConfigFilePath)
 		})
-	}))
 
-	s.T().Cleanup(func() {
-		if s.RelayerProcess != nil {
-			err := s.RelayerProcess.Kill()
-			if err != nil {
-				s.T().Logf("Failed to kill the relayer process: %v", err)
-			}
-		}
-	})
+		relayerReady <- relayerStartResult{process, nil}
+		s.T().Log("Relayer startup complete")
+	}()
 
-	s.Require().True(s.Run("Create Relayer Client", func() {
+	// Wait for relayer to be ready and create client
+	s.Require().True(s.Run("Wait for Relayer and Create Client", func() {
+		s.T().Log("Waiting for relayer to be ready...")
+		result := <-relayerReady
+		s.Require().NoError(result.err, "Relayer failed to start")
+		s.RelayerProcess = result.process
+		s.T().Log("Relayer is ready")
+
+		// Create relayer gRPC client
 		var err error
 		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
 		s.Require().NoError(err, "Relayer must be running and accessible")
@@ -246,103 +325,133 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 	// Create clients and setup IBC infrastructure
 	s.Require().True(s.Run("Setup IBC Clients", func() {
-		s.Require().True(s.Run("Create Tendermint Client on Solana", func() {
-			var createClientTxBz []byte
-			s.Require().True(s.Run("Retrieve create client tx from relayer", func() {
-				resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
-					SrcChain:   simd.Config().ChainID,
-					DstChain:   testvalues.SolanaChainID,
-					Parameters: map[string]string{},
+		s.T().Log("Creating IBC clients in parallel...")
+
+		err := e2esuite.RunParallelTasks(
+			e2esuite.ParallelTask{
+				Name: "Create Tendermint client on Solana",
+				Run: func() error {
+					s.T().Log("Creating Tendermint Client on Solana...")
+
+					resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+						SrcChain:   simd.Config().ChainID,
+						DstChain:   testvalues.SolanaChainID,
+						Parameters: map[string]string{},
+					})
+					if err != nil {
+						return fmt.Errorf("failed to create client tx: %w", err)
+					}
+					if len(resp.Tx) == 0 {
+						return fmt.Errorf("relayer returned empty tx")
+					}
+					s.T().Logf("Relayer created client transaction")
+
+					unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
+					if err != nil {
+						return fmt.Errorf("failed to decode tx: %w", err)
+					}
+
+					sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, rpc.CommitmentConfirmed, s.SolanaUser)
+					if err != nil {
+						return fmt.Errorf("failed to broadcast tx: %w", err)
+					}
+
+					s.T().Logf("✓ Tendermint client created on Solana - tx: %s", sig)
+					return nil
+				},
+			},
+			e2esuite.ParallelTask{
+				Name: "Create WASM client on Cosmos",
+				Run: func() error {
+					s.T().Log("Creating WASM Client on Cosmos...")
+
+					checksumHex := s.StoreSolanaLightClient(ctx, simd, s.CosmosUsers[0])
+					if checksumHex == "" {
+						return fmt.Errorf("failed to store Solana light client")
+					}
+
+					resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+						SrcChain: testvalues.SolanaChainID,
+						DstChain: simd.Config().ChainID,
+						Parameters: map[string]string{
+							testvalues.ParameterKey_ChecksumHex: checksumHex,
+						},
+					})
+					if err != nil {
+						return fmt.Errorf("failed to create client tx: %w", err)
+					}
+					if len(resp.Tx) == 0 {
+						return fmt.Errorf("relayer returned empty tx")
+					}
+
+					txResp := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], CosmosCreateClientGasLimit, resp.Tx)
+					s.T().Logf("✓ WASM client created on Cosmos - tx: %s", txResp.TxHash)
+					return nil
+				},
+			},
+		)
+		s.Require().NoError(err, "Failed to create IBC clients")
+		s.T().Log("Both IBC clients created successfully")
+
+		// Run final setup steps in parallel
+		err = e2esuite.NewParallelExecutor().
+			Add("Register counterparty on Cosmos", func() error {
+				s.T().Log("Registering counterparty on Cosmos chain...")
+				merklePathPrefix := [][]byte{[]byte("")}
+
+				_, err := s.BroadcastMessages(ctx, simd, s.CosmosUsers[0], CosmosDefaultGasLimit, &clienttypesv2.MsgRegisterCounterparty{
+					ClientId:                 CosmosClientID,
+					CounterpartyMerklePrefix: merklePathPrefix,
+					CounterpartyClientId:     SolanaClientID,
+					Signer:                   s.CosmosUsers[0].FormattedAddress(),
 				})
-				s.Require().NoError(err)
-				s.Require().NotEmpty(resp.Tx)
-				s.T().Logf("Relayer created client transaction")
+				if err != nil {
+					return fmt.Errorf("failed to register counterparty: %w", err)
+				}
+				s.T().Log("Counterparty registered on Cosmos")
+				return nil
+			}).
+			Add("Add Client to Router on Solana", func() error {
+				s.T().Log("Adding client to Router on Solana...")
+				routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+				clientAccount, _ := solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+				clientSequenceAccount, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-				createClientTxBz = resp.Tx
-			}))
+				counterpartyInfo := ics26_router.CounterpartyInfo{
+					ClientId:     CosmosClientID,
+					MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+				}
 
-			s.Require().True(s.Run("Broadcast CreateClient tx on Solana", func() {
-				unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(createClientTxBz))
-				s.Require().NoError(err)
+				addClientInstruction, err := ics26_router.NewAddClientInstruction(
+					SolanaClientID,
+					counterpartyInfo,
+					s.SolanaUser.PublicKey(),
+					routerStateAccount,
+					clientAccount,
+					clientSequenceAccount,
+					s.SolanaUser.PublicKey(),
+					ics07_tendermint.ProgramID,
+					solanago.SystemProgramID,
+				)
+				if err != nil {
+					return fmt.Errorf("failed to create add client instruction: %w", err)
+				}
 
-				sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, s.SolanaUser)
-				s.Require().NoError(err)
+				tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), addClientInstruction)
+				if err != nil {
+					return fmt.Errorf("failed to create transaction: %w", err)
+				}
 
-				s.T().Logf("Create client transaction broadcasted: %s", sig)
-			}))
-		}))
-
-		s.Require().True(s.Run("Create WASM Client on Cosmos", func() {
-			var checksumHex string
-			s.Require().True(s.Run("Store Solana Light Client", func() {
-				checksumHex = s.StoreSolanaLightClient(ctx, simd, s.CosmosUsers[0])
-			}))
-
-			var createClientTxBodyBz []byte
-			s.Require().True(s.Run("Retrieve create client tx", func() {
-				resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
-					SrcChain: testvalues.SolanaChainID,
-					DstChain: simd.Config().ChainID,
-					Parameters: map[string]string{
-						testvalues.ParameterKey_ChecksumHex: checksumHex,
-					},
-				})
-				s.Require().NoError(err)
-				s.Require().NotEmpty(resp.Tx)
-
-				createClientTxBodyBz = resp.Tx
-			}))
-
-			s.Require().True(s.Run("Broadcast create client tx on Cosmos", func() {
-				resp := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], CosmosCreateClientGasLimit, createClientTxBodyBz)
-				s.T().Logf("WASM client created on Cosmos: %s", resp.TxHash)
-			}))
-		}))
-
-		s.Require().True(s.Run("Register counterparty on Cosmos chain", func() {
-			merklePathPrefix := [][]byte{[]byte("")}
-
-			_, err := s.BroadcastMessages(ctx, simd, s.CosmosUsers[0], CosmosDefaultGasLimit, &clienttypesv2.MsgRegisterCounterparty{
-				ClientId:                 CosmosClientID,
-				CounterpartyMerklePrefix: merklePathPrefix,
-				CounterpartyClientId:     SolanaClientID,
-				Signer:                   s.CosmosUsers[0].FormattedAddress(),
-			})
-			s.Require().NoError(err)
-		}))
-
-		s.Require().True(s.Run("Add Client to Router", func() {
-			routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-
-			clientAccount, _ := solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-
-			clientSequenceAccount, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
-
-			counterpartyInfo := ics26_router.CounterpartyInfo{
-				ClientId:     CosmosClientID,
-				MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
-			}
-
-			addClientInstruction, err := ics26_router.NewAddClientInstruction(
-				SolanaClientID,
-				counterpartyInfo,
-				s.SolanaUser.PublicKey(),
-				routerStateAccount,
-				clientAccount,
-				clientSequenceAccount,
-				s.SolanaUser.PublicKey(),
-				ics07_tendermint.ProgramID,
-				solanago.SystemProgramID,
-			)
-			s.Require().NoError(err)
-
-			tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), addClientInstruction)
-			s.Require().NoError(err)
-
-			_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
-			s.Require().NoError(err)
-			s.T().Logf("Client added to router")
-		}))
+				// Use confirmed commitment - relayer reads Solana state with confirmed commitment
+				_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+				if err != nil {
+					return fmt.Errorf("failed to broadcast tx: %w", err)
+				}
+				s.T().Logf("Client added to router")
+				return nil
+			}).
+			Run()
+		s.Require().NoError(err)
 	}))
 }
 
@@ -359,7 +468,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	s.Require().True(s.Run("Verify ics07-svm-tendermint", func() {
 		clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
 
-		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
+		// Use confirmed commitment to match client creation confirmation level
+		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientStateAccount, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
 		s.Require().NoError(err)
 
 		clientState, err := ics07_tendermint.ParseAccount_ClientState(accountInfo.Value.Data.GetBinary())
@@ -443,7 +555,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			client, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			clientSequence, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-			clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequence)
+			// Use confirmed commitment to match overall test commitment level
+			clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequence, &rpc.GetAccountInfoOpts{
+				Commitment: rpc.CommitmentConfirmed,
+			})
 			s.Require().NoError(err)
 
 			clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
@@ -483,7 +598,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), sendPacketInstruction)
 		s.Require().NoError(err)
 
-		solanaTxSig, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
+		solanaTxSig, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
 		s.Require().NoError(err)
 		s.T().Logf("send_packet transaction: %s", solanaTxSig)
 		s.T().Logf("Sent ICS20 transfer packet with %d bytes of data", len(packetData))
@@ -624,7 +739,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			client, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			clientSequence, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-			clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequence)
+			// Use confirmed commitment to match overall test commitment level
+			clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequence, &rpc.GetAccountInfoOpts{
+				Commitment: rpc.CommitmentConfirmed,
+			})
 			s.Require().NoError(err)
 
 			clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
@@ -677,7 +795,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		)
 		s.Require().NoError(err)
 
-		solanaTxSig, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, s.SolanaUser)
+		solanaTxSig, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
 		s.Require().NoError(err)
 		s.T().Logf("Transfer transaction sent: %s", solanaTxSig)
 
@@ -898,7 +1016,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 		// Check that the dummy app state was updated
 		dummyAppStateAccount, _ := solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
 
-		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, dummyAppStateAccount)
+		// Use confirmed commitment to match relay transaction confirmation level
+		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, dummyAppStateAccount, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
 		s.Require().NoError(err)
 		s.Require().NotNil(accountInfo.Value)
 
@@ -911,7 +1032,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 		// Check that packet receipt was written
 		clientSequenceAccount, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-		clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientSequenceAccount)
+		// Use confirmed commitment to match relay transaction confirmation level
+		clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequenceAccount, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
 		s.Require().NoError(err)
 
 		clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())

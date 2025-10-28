@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
@@ -13,7 +14,10 @@ import (
 )
 
 func (s *Solana) GetNextSequenceNumber(ctx context.Context, clientSequencePDA solana.PublicKey) (uint64, error) {
-	clientSequenceAccount, err := s.RPCClient.GetAccountInfo(ctx, clientSequencePDA)
+	// Use confirmed commitment to match relayer read commitment level
+	clientSequenceAccount, err := s.RPCClient.GetAccountInfoWithOpts(ctx, clientSequencePDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
 	if err != nil || clientSequenceAccount.Value == nil {
 		return 1, nil
 	}

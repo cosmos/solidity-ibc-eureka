@@ -88,7 +88,7 @@ func (s *Solana) SubmitChunkedRelayPackets(
 						return
 					}
 
-					recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+					recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
 					if err != nil {
 						chunkResults <- chunkResult{
 							chunkIdx: chkIdx,
@@ -99,7 +99,7 @@ func (s *Solana) SubmitChunkedRelayPackets(
 					}
 					tx.Message.RecentBlockhash = recent.Value.Blockhash
 
-					sig, err := s.SignAndBroadcastTx(ctx, tx, user)
+					sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
 					chunkDuration := time.Since(chunkStart)
 
 					if err != nil {
@@ -162,7 +162,7 @@ func (s *Solana) SubmitChunkedRelayPackets(
 				return
 			}
 
-			recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+			recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
 			if err != nil {
 				packetResults <- packetResult{
 					packetIdx:      pktIdx,
@@ -175,7 +175,8 @@ func (s *Solana) SubmitChunkedRelayPackets(
 			}
 			finalTx.Message.RecentBlockhash = recent.Value.Blockhash
 
-			sig, err := s.SignAndBroadcastTx(ctx, finalTx, user)
+			// Use confirmed commitment - relayer and verification both read with confirmed commitment
+			sig, err := s.SignAndBroadcastTxWithOpts(ctx, finalTx, rpc.ConfirmationStatusConfirmed, user)
 			finalDuration := time.Since(finalStart)
 			totalDuration := time.Since(packetStart)
 
@@ -190,7 +191,7 @@ func (s *Solana) SubmitChunkedRelayPackets(
 				return
 			}
 
-			t.Logf("✓ Packet %d: Final tx completed in %v - tx: %s", pktIdx+1, finalDuration, sig)
+			t.Logf("✓ Packet %d: Final tx completed and finalized in %v - tx: %s", pktIdx+1, finalDuration, sig)
 			t.Logf("--- Packet %d: Complete in %v (chunks: %v, final: %v) ---",
 				pktIdx+1, totalDuration, chunksDuration, finalDuration)
 
@@ -238,6 +239,11 @@ func (s *Solana) DeploySolanaProgram(ctx context.Context, t *testing.T, require 
 	t.Helper()
 	keypairPath := fmt.Sprintf("e2e/interchaintestv8/solana/keypairs/%s-keypair.json", programName)
 	walletPath := "e2e/interchaintestv8/solana/keypairs/deployer_wallet.json"
+	return s.DeploySolanaProgramWithWallet(ctx, t, require, programName, keypairPath, walletPath)
+}
+
+func (s *Solana) DeploySolanaProgramWithWallet(ctx context.Context, t *testing.T, require *require.Assertions, programName, keypairPath, walletPath string) solana.PublicKey {
+	t.Helper()
 	programID, _, err := AnchorDeploy(ctx, "programs/solana", programName, keypairPath, walletPath)
 	require.NoError(err, "%s program deployment has failed", programName)
 	t.Logf("%s program deployed at: %s", programName, programID.String())
@@ -248,6 +254,54 @@ func (s *Solana) DeploySolanaProgram(ctx context.Context, t *testing.T, require 
 	}
 
 	return programID
+}
+
+// DeploySolanaProgramDirectly deploys a program using solana CLI instead of anchor CLI
+// This allows parallel deployment as each deployment creates unique buffer accounts
+func (s *Solana) DeploySolanaProgramDirectly(ctx context.Context, t *testing.T, require *require.Assertions, programName, keypairPath, payerKeypairPath string) solana.PublicKey {
+	t.Helper()
+
+	programSoFile := fmt.Sprintf("programs/solana/target/deploy/%s.so", programName)
+	programID, _, err := SolanaProgramDeploy(ctx, programSoFile, keypairPath, payerKeypairPath, s.RPCURL)
+	require.NoError(err, "%s program deployment has failed", programName)
+	t.Logf("%s program deployed at: %s", programName, programID.String())
+
+	if !s.WaitForProgramAvailability(ctx, programID) {
+		t.Logf("Warning: Program %s may not be fully available yet", programID.String())
+	}
+
+	return programID
+}
+
+// DeploySolanaProgramDirectlyAsync deploys a program using solana CLI (thread-safe)
+func (s *Solana) DeploySolanaProgramDirectlyAsync(ctx context.Context, programName, keypairPath, payerKeypairPath string) (solana.PublicKey, error) {
+	programSoFile := fmt.Sprintf("programs/solana/target/deploy/%s.so", programName)
+	programID, _, err := SolanaProgramDeploy(ctx, programSoFile, keypairPath, payerKeypairPath, s.RPCURL)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("%s program deployment has failed: %w", programName, err)
+	}
+
+	if !s.WaitForProgramAvailability(ctx, programID) {
+		return solana.PublicKey{}, fmt.Errorf("program %s failed to become available", programName)
+	}
+
+	return programID, nil
+}
+
+// DeploySolanaProgramWithWalletAsync deploys a program and returns the result via error
+// This version is safe to call from goroutines as it doesn't use require/assert
+func (s *Solana) DeploySolanaProgramWithWalletAsync(ctx context.Context, programName, keypairPath, walletPath string) (solana.PublicKey, error) {
+	programID, _, err := AnchorDeploy(ctx, "programs/solana", programName, keypairPath, walletPath)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("%s program deployment has failed: %w", programName, err)
+	}
+
+	// Wait for program to be available
+	if !s.WaitForProgramAvailability(ctx, programID) {
+		return solana.PublicKey{}, fmt.Errorf("program %s failed to become available", programName)
+	}
+
+	return programID, nil
 }
 
 func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet) {
@@ -294,7 +348,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 				return
 			}
 
-			sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, user, rpc.ConfirmationStatusProcessed)
+			sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusProcessed, user)
 			chunkDuration := time.Since(chunkTxStart)
 
 			if err != nil {
@@ -338,7 +392,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[len(batch.Txs)-1]))
 	require.NoError(err, "Failed to decode assembly tx")
 
-	sig, err := s.SignAndBroadcastTxWithConfirmedStatus(ctx, tx, user)
+	sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
 	require.NoError(err)
 
 	assemblyDuration := time.Since(assemblyStart)
@@ -357,7 +411,10 @@ func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T
 	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
 	packetCommitmentPDA, _ := Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(clientID), sequenceBytes)
 
-	accountInfo, err := s.RPCClient.GetAccountInfo(ctx, packetCommitmentPDA)
+	// Use confirmed commitment to match relayer read commitment level
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, packetCommitmentPDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
 	if err != nil {
 		t.Logf("Packet commitment deleted (account not found) for client %s, sequence %d", clientID, sequence)
 		return
@@ -381,4 +438,31 @@ func (s *Solana) CreateIBCAddressLookupTable(ctx context.Context, t *testing.T, 
 	t.Logf("Created and extended ALT %s with %d common accounts", altAddress, len(commonAccounts))
 
 	return altAddress
+}
+
+// WaitUntilTrue polls a condition function until it returns true or max retries are reached.
+// It uses exponential backoff between retries (0s, 1s, 2s, 3s, ...).
+func WaitUntilTrue(
+	t *testing.T,
+	maxRetries int,
+	checkFn func() (bool, error),
+) error {
+	t.Helper()
+
+	for i := 0; i < maxRetries; i++ {
+		if i > 0 {
+			time.Sleep(time.Duration(i) * time.Second)
+		}
+
+		success, err := checkFn()
+		if err != nil {
+			continue
+		}
+
+		if success {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("condition not met after %d retries", maxRetries)
 }
