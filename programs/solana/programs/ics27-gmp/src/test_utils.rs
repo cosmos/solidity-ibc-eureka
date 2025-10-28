@@ -200,10 +200,8 @@ pub fn create_gmp_test_context() -> GmpTestContext {
     let authority = Pubkey::new_unique();
     let router_program = Pubkey::new_unique();
     let payer = Pubkey::new_unique();
-    let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-        &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-        &crate::ID,
-    );
+    let (app_state_pda, app_state_bump) =
+        Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
     GmpTestContext {
         mollusk: Mollusk::new(&crate::ID, crate::get_gmp_program_path()),

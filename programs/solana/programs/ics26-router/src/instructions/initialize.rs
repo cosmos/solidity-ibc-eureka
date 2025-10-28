@@ -1,4 +1,4 @@
-use crate::state::{AccountVersion, RouterState, ROUTER_STATE_SEED};
+use crate::state::{AccountVersion, RouterState};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -7,7 +7,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + RouterState::INIT_SPACE,
-        seeds = [ROUTER_STATE_SEED],
+        seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
@@ -42,7 +42,7 @@ mod tests {
         let payer = Pubkey::new_unique();
         let authority = Pubkey::new_unique();
 
-        let (router_state_pda, _) = Pubkey::find_program_address(&[ROUTER_STATE_SEED], &crate::ID);
+        let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::Initialize { authority };
 

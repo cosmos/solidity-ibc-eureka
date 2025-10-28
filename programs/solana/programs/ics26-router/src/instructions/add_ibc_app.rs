@@ -1,5 +1,5 @@
 use crate::errors::RouterError;
-use crate::state::{AccountVersion, IBCApp, RouterState, IBC_APP_SEED, ROUTER_STATE_SEED};
+use crate::state::{AccountVersion, IBCApp, RouterState};
 use anchor_lang::prelude::*;
 use solana_ibc_types::events::IBCAppAdded;
 
@@ -7,7 +7,7 @@ use solana_ibc_types::events::IBCAppAdded;
 #[instruction(port_id: String)]
 pub struct AddIbcApp<'info> {
     #[account(
-        seeds = [ROUTER_STATE_SEED],
+        seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
@@ -16,7 +16,7 @@ pub struct AddIbcApp<'info> {
         init,
         payer = payer,
         space = 8 + IBCApp::INIT_SPACE,
-        seeds = [IBC_APP_SEED, port_id.as_bytes()],
+        seeds = [IBCApp::SEED, port_id.as_bytes()],
         bump
     )]
     pub ibc_app: Account<'info, IBCApp>,
@@ -80,7 +80,7 @@ mod tests {
         let (router_state_pda, router_state_data) = setup_router_state(authority);
 
         let (ibc_app_pda, _) =
-            Pubkey::find_program_address(&[IBC_APP_SEED, port_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[IBCApp::SEED, port_id.as_bytes()], &crate::ID);
 
         let instruction_data = crate::instruction::AddIbcApp {
             port_id: port_id.to_string(),
@@ -128,7 +128,7 @@ mod tests {
         let (router_state_pda, router_state_data) = setup_router_state(authority);
 
         let (ibc_app_pda, _) =
-            Pubkey::find_program_address(&[IBC_APP_SEED, port_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[IBCApp::SEED, port_id.as_bytes()], &crate::ID);
 
         let instruction_data = crate::instruction::AddIbcApp {
             port_id: port_id.to_string(),
@@ -174,7 +174,7 @@ mod tests {
         let (router_state_pda, router_state_data) = setup_router_state(authority);
 
         let (ibc_app_pda, _) =
-            Pubkey::find_program_address(&[IBC_APP_SEED, port_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[IBCApp::SEED, port_id.as_bytes()], &crate::ID);
 
         let instruction_data = crate::instruction::AddIbcApp {
             port_id: port_id.to_string(),

@@ -1,7 +1,5 @@
 use crate::errors::RouterError;
-use crate::state::{
-    PayloadChunk, PayloadMetadata, ProofChunk, PAYLOAD_CHUNK_SEED, PROOF_CHUNK_SEED,
-};
+use crate::state::{PayloadChunk, PayloadMetadata, ProofChunk};
 use anchor_lang::prelude::*;
 
 /// Parameters for assembling single payload chunks
@@ -111,7 +109,7 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
 
         // Verify PDA
         let expected_seeds = &[
-            PAYLOAD_CHUNK_SEED,
+            PayloadChunk::SEED,
             params.submitter.as_ref(),
             params.client_id.as_bytes(),
             &params.sequence.to_le_bytes(),
@@ -199,7 +197,7 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
 
         // Verify PDA
         let expected_seeds = &[
-            PROOF_CHUNK_SEED,
+            ProofChunk::SEED,
             params.submitter.as_ref(),
             params.client_id.as_bytes(),
             &params.sequence.to_le_bytes(),
@@ -262,7 +260,7 @@ fn cleanup_payload_chunks(
     for (i, chunk_account) in chunk_accounts.iter().enumerate() {
         // Double-check PDA (paranoid check)
         let expected_seeds = &[
-            PAYLOAD_CHUNK_SEED,
+            PayloadChunk::SEED,
             submitter.as_ref(),
             client_id.as_bytes(),
             &sequence.to_le_bytes(),
@@ -298,7 +296,7 @@ fn cleanup_proof_chunks(
     for (i, chunk_account) in chunk_accounts.iter().enumerate() {
         // Double-check PDA (paranoid check)
         let expected_seeds = &[
-            PROOF_CHUNK_SEED,
+            ProofChunk::SEED,
             submitter.as_ref(),
             client_id.as_bytes(),
             &sequence.to_le_bytes(),

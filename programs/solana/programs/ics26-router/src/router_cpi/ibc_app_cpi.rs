@@ -1,4 +1,4 @@
-use crate::constants::{ANCHOR_DISCRIMINATOR_SIZE, IBC_CPI_INSTRUCTION_CAPACITY};
+use crate::constants::IBC_CPI_INSTRUCTION_CAPACITY;
 use crate::errors::RouterError;
 use crate::state::Packet;
 use anchor_lang::prelude::*;
@@ -6,7 +6,7 @@ use anchor_lang::solana_program::instruction::Instruction;
 use anchor_lang::solana_program::program::get_return_data;
 use anchor_lang::solana_program::program::invoke;
 use solana_ibc_types::{
-    instruction_names, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload,
+    ibc_app_instructions, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload,
 };
 
 // TODO: Params struct
@@ -37,7 +37,7 @@ pub fn on_recv_packet_cpi<'a>(
         router_program,
         payer,
         system_program,
-        instruction_names::ON_RECV_PACKET,
+        ibc_app_instructions::on_recv_packet_discriminator(),
         msg,
         remaining_accounts,
     )?;
@@ -84,7 +84,7 @@ pub fn on_acknowledgement_packet_cpi<'a>(
         router_program,
         payer,
         system_program,
-        instruction_names::ON_ACKNOWLEDGEMENT_PACKET,
+        ibc_app_instructions::on_acknowledgement_packet_discriminator(),
         msg,
         remaining_accounts,
     )
@@ -118,7 +118,7 @@ pub fn on_timeout_packet_cpi<'a>(
         router_program,
         payer,
         system_program,
-        instruction_names::ON_TIMEOUT_PACKET,
+        ibc_app_instructions::on_timeout_packet_discriminator(),
         msg,
         remaining_accounts,
     )
@@ -132,15 +132,12 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
     router_program: &AccountInfo<'a>,
     payer: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>,
-    discriminator: &str,
+    discriminator: [u8; 8],
     msg: T,
     remaining_accounts: &[AccountInfo<'a>],
 ) -> Result<()> {
     let mut instruction_data = Vec::with_capacity(IBC_CPI_INSTRUCTION_CAPACITY);
-    instruction_data.extend_from_slice(
-        &anchor_lang::solana_program::hash::hash(discriminator.as_bytes()).to_bytes()
-            [..ANCHOR_DISCRIMINATOR_SIZE],
-    );
+    instruction_data.extend_from_slice(&discriminator);
     msg.serialize(&mut instruction_data)?;
 
     // Create the instruction with fixed accounts plus remaining accounts

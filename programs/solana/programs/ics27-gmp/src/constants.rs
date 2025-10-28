@@ -3,13 +3,6 @@
 /// Port ID for this GMP app instance (fixed at compile time)
 pub const GMP_PORT_ID: &str = "gmpport";
 
-/// Seed for the main GMP application state PDA
-/// Note: This follows the standard IBC app pattern: [`APP_STATE_SEED`, `port_id`]
-pub const GMP_APP_STATE_SEED: &[u8] = b"app_state";
-
-/// Seed for individual account state PDAs
-pub const ACCOUNT_STATE_SEED: &[u8] = b"gmp_account";
-
 /// Maximum length for client ID
 pub const MAX_CLIENT_ID_LENGTH: usize = 32;
 

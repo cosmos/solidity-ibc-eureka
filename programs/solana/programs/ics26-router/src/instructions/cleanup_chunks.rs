@@ -29,7 +29,7 @@ pub fn cleanup_chunks<'info>(
 
             // Verify the PDA is correct
             let expected_seeds = &[
-                PAYLOAD_CHUNK_SEED,
+                PayloadChunk::SEED,
                 relayer_key.as_ref(),
                 msg.client_id.as_bytes(),
                 &msg.sequence.to_le_bytes(),
@@ -60,7 +60,7 @@ pub fn cleanup_chunks<'info>(
 
         // Verify the PDA is correct
         let expected_seeds = &[
-            PROOF_CHUNK_SEED,
+            ProofChunk::SEED,
             relayer_key.as_ref(),
             msg.client_id.as_bytes(),
             &msg.sequence.to_le_bytes(),

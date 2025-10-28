@@ -8,20 +8,20 @@ use solana_ibc_types::events::SendPacketEvent;
 #[instruction(msg: MsgSendPacket)]
 pub struct SendPacket<'info> {
     #[account(
-        seeds = [ROUTER_STATE_SEED],
+        seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
 
     #[account(
-        seeds = [IBC_APP_SEED, msg.payload.source_port.as_bytes()],
+        seeds = [IBCApp::SEED, msg.payload.source_port.as_bytes()],
         bump
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
     #[account(
         mut,
-        seeds = [CLIENT_SEQUENCE_SEED, msg.source_client.as_bytes()],
+        seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
         bump
     )]
     pub client_sequence: Account<'info, ClientSequence>,
@@ -31,7 +31,7 @@ pub struct SendPacket<'info> {
         payer = payer,
         space = 8 + Commitment::INIT_SPACE,
         seeds = [
-            PACKET_COMMITMENT_SEED,
+            Commitment::PACKET_COMMITMENT_SEED,
             msg.source_client.as_bytes(),
             &client_sequence.next_sequence_send.to_le_bytes()
         ],
@@ -48,7 +48,7 @@ pub struct SendPacket<'info> {
     pub system_program: Program<'info, System>,
 
     #[account(
-        seeds = [CLIENT_SEED, msg.source_client.as_bytes()],
+        seeds = [Client::SEED, msg.source_client.as_bytes()],
         bump,
         constraint = client.active @ RouterError::ClientNotActive,
     )]
@@ -189,7 +189,7 @@ mod tests {
 
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
             &[
-                PACKET_COMMITMENT_SEED,
+                Commitment::PACKET_COMMITMENT_SEED,
                 msg.source_client.as_bytes(),
                 &params.initial_sequence.to_le_bytes(),
             ],
@@ -444,7 +444,7 @@ mod tests {
 
         let (packet_commitment_pda_1, _) = Pubkey::find_program_address(
             &[
-                PACKET_COMMITMENT_SEED,
+                Commitment::PACKET_COMMITMENT_SEED,
                 msg_1.source_client.as_bytes(),
                 &10u64.to_le_bytes(), // sequence 10
             ],
@@ -501,7 +501,7 @@ mod tests {
 
         let (packet_commitment_pda_2, _) = Pubkey::find_program_address(
             &[
-                PACKET_COMMITMENT_SEED,
+                Commitment::PACKET_COMMITMENT_SEED,
                 msg_2.source_client.as_bytes(),
                 &20u64.to_le_bytes(), // sequence 20
             ],

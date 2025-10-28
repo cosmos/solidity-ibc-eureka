@@ -11,7 +11,7 @@ use solana_ibc_types::events::{NoopEvent, WriteAcknowledgementEvent};
 #[instruction(msg: MsgRecvPacket)]
 pub struct RecvPacket<'info> {
     #[account(
-        seeds = [ROUTER_STATE_SEED],
+        seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
@@ -21,7 +21,7 @@ pub struct RecvPacket<'info> {
 
     #[account(
         mut,
-        seeds = [CLIENT_SEQUENCE_SEED, msg.packet.dest_client.as_bytes()],
+        seeds = [ClientSequence::SEED, msg.packet.dest_client.as_bytes()],
         bump
     )]
     pub client_sequence: Account<'info, ClientSequence>,
@@ -31,7 +31,7 @@ pub struct RecvPacket<'info> {
         payer = payer,
         space = 8 + Commitment::INIT_SPACE,
         seeds = [
-            PACKET_RECEIPT_SEED,
+            Commitment::PACKET_RECEIPT_SEED,
             msg.packet.dest_client.as_bytes(),
             &msg.packet.sequence.to_le_bytes()
         ],
@@ -44,7 +44,7 @@ pub struct RecvPacket<'info> {
         payer = payer,
         space = 8 + Commitment::INIT_SPACE,
         seeds = [
-            PACKET_ACK_SEED,
+            Commitment::PACKET_ACK_SEED,
             msg.packet.dest_client.as_bytes(),
             &msg.packet.sequence.to_le_bytes()
         ],
@@ -77,7 +77,7 @@ pub struct RecvPacket<'info> {
 
     // Client for light client lookup
     #[account(
-        seeds = [CLIENT_SEED, msg.packet.dest_client.as_bytes()],
+        seeds = [Client::SEED, msg.packet.dest_client.as_bytes()],
         bump,
         constraint = client.active @ RouterError::ClientNotActive,
     )]
@@ -109,7 +109,7 @@ pub fn recv_packet<'info>(
 
     // Validate the IBC app is registered for the dest port of the first payload
     let expected_ibc_app = Pubkey::find_program_address(
-        &[IBC_APP_SEED, msg.payloads[0].dest_port.as_bytes()],
+        &[IBCApp::SEED, msg.payloads[0].dest_port.as_bytes()],
         ctx.program_id,
     )
     .0;
@@ -438,7 +438,7 @@ mod tests {
 
         let (packet_receipt_pda, _) = Pubkey::find_program_address(
             &[
-                PACKET_RECEIPT_SEED,
+                Commitment::PACKET_RECEIPT_SEED,
                 msg.packet.dest_client.as_bytes(),
                 &msg.packet.sequence.to_le_bytes(),
             ],
@@ -447,7 +447,7 @@ mod tests {
 
         let (packet_ack_pda, _) = Pubkey::find_program_address(
             &[
-                PACKET_ACK_SEED,
+                Commitment::PACKET_ACK_SEED,
                 msg.packet.dest_client.as_bytes(),
                 &msg.packet.sequence.to_le_bytes(),
             ],

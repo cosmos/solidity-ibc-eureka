@@ -44,7 +44,7 @@ pub fn get_or_create_account<'a>(
         // The account_info is a PDA, so we need to sign for it
         let sender_hash = hash(sender.as_bytes()).to_bytes();
         let signer_seeds: &[&[u8]] = &[
-            crate::constants::ACCOUNT_STATE_SEED,
+            AccountState::SEED,
             client_id.as_bytes(),
             &sender_hash,
             salt,

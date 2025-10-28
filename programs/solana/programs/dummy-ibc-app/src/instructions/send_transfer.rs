@@ -5,10 +5,7 @@ use ics26_router::cpi as router_cpi;
 use ics26_router::program::Ics26Router;
 use ics26_router::{
     cpi::accounts::SendPacket as RouterSendPacket,
-    state::{
-        Client, ClientSequence, IBCApp, MsgSendPacket, RouterState, CLIENT_SEED,
-        CLIENT_SEQUENCE_SEED, IBC_APP_SEED, ROUTER_STATE_SEED,
-    },
+    state::{Client, ClientSequence, IBCApp, MsgSendPacket, RouterState},
 };
 use prost::Message;
 use solana_ibc_types::Payload;
@@ -37,7 +34,7 @@ pub struct SendTransferMsg {
 pub struct SendTransfer<'info> {
     #[account(
         mut,
-        seeds = [APP_STATE_SEED, TRANSFER_PORT.as_bytes()],
+        seeds = [IBCAppState::SEED, TRANSFER_PORT.as_bytes()],
         bump
     )]
     pub app_state: Account<'info, DummyIbcAppState>,
@@ -50,7 +47,7 @@ pub struct SendTransfer<'info> {
     /// CHECK: PDA derived from `client_id`, will be validated
     #[account(
         mut,
-        seeds = [ESCROW_SEED, msg.source_client.as_bytes()],
+        seeds = [DummyIbcAppState::ESCROW_SEED, msg.source_client.as_bytes()],
         bump
     )]
     pub escrow_account: AccountInfo<'info>,
@@ -60,21 +57,21 @@ pub struct SendTransfer<'info> {
         init_if_needed,
         payer = user,
         space = 8 + EscrowState::INIT_SPACE,
-        seeds = [ESCROW_STATE_SEED, msg.source_client.as_bytes()],
+        seeds = [EscrowState::SEED, msg.source_client.as_bytes()],
         bump
     )]
     pub escrow_state: Account<'info, EscrowState>,
 
     // Router CPI accounts
     #[account(
-        seeds = [ROUTER_STATE_SEED],
+        seeds = [RouterState::SEED],
         bump,
         seeds::program = router_program
     )]
     pub router_state: Account<'info, RouterState>,
 
     #[account(
-        seeds = [IBC_APP_SEED, TRANSFER_PORT.as_bytes()],
+        seeds = [IBCApp::SEED, TRANSFER_PORT.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -82,7 +79,7 @@ pub struct SendTransfer<'info> {
 
     #[account(
         mut,
-        seeds = [CLIENT_SEQUENCE_SEED, msg.source_client.as_bytes()],
+        seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -94,7 +91,7 @@ pub struct SendTransfer<'info> {
     pub packet_commitment: AccountInfo<'info>,
 
     #[account(
-        seeds = [CLIENT_SEED, msg.source_client.as_bytes()],
+        seeds = [Client::SEED, msg.source_client.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -107,7 +104,7 @@ pub struct SendTransfer<'info> {
 
     /// PDA that acts as the router caller for CPI calls to the IBC router.
     #[account(
-        seeds = [ROUTER_CALLER_SEED],
+        seeds = [DummyIbcAppState::ROUTER_CALLER_SEED],
         bump
     )]
     pub router_caller: SystemAccount<'info>,
@@ -218,7 +215,10 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
     };
 
     // Create PDA signer for CPI call
-    let seeds = &[ROUTER_CALLER_SEED, &[ctx.bumps.router_caller]];
+    let seeds = &[
+        DummyIbcAppState::ROUTER_CALLER_SEED,
+        &[ctx.bumps.router_caller],
+    ];
     let signer_seeds = &[&seeds[..]];
 
     let cpi_ctx = CpiContext::new_with_signer(

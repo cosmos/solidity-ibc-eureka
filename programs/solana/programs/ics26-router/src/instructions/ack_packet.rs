@@ -7,13 +7,13 @@ use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::events::{AckPacketEvent, NoopEvent};
 #[cfg(test)]
-use solana_ibc_types::router::APP_STATE_SEED;
+use solana_ibc_types::IBCAppState;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgAckPacket)]
 pub struct AckPacket<'info> {
     #[account(
-        seeds = [ROUTER_STATE_SEED],
+        seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
@@ -24,7 +24,7 @@ pub struct AckPacket<'info> {
     #[account(
         mut,
         seeds = [
-            PACKET_COMMITMENT_SEED,
+            Commitment::PACKET_COMMITMENT_SEED,
             msg.packet.source_client.as_bytes(),
             &msg.packet.sequence.to_le_bytes()
         ],
@@ -58,7 +58,7 @@ pub struct AckPacket<'info> {
 
     // Client for light client lookup
     #[account(
-        seeds = [CLIENT_SEED, msg.packet.source_client.as_bytes()],
+        seeds = [Client::SEED, msg.packet.source_client.as_bytes()],
         bump,
         constraint = client.active @ RouterError::ClientNotActive,
     )]
@@ -101,7 +101,7 @@ pub fn ack_packet<'info>(
     );
     // Validate the IBC app is registered for the source port of the first payload
     let expected_ibc_app = Pubkey::find_program_address(
-        &[IBC_APP_SEED, msg.payloads[0].source_port.as_bytes()],
+        &[IBCApp::SEED, msg.payloads[0].source_port.as_bytes()],
         ctx.program_id,
     )
     .0;
@@ -349,7 +349,7 @@ mod tests {
 
         // Mock app state - just create a dummy account since mock app doesn't use it
         let (dummy_app_state_pda, _) =
-            Pubkey::find_program_address(&[APP_STATE_SEED], &app_program_id);
+            Pubkey::find_program_address(&[IBCAppState::SEED], &app_program_id);
 
         let packet_dest_client = params.wrong_dest_client.unwrap_or(params.dest_client_id);
 
@@ -368,7 +368,7 @@ mod tests {
 
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
             &[
-                PACKET_COMMITMENT_SEED,
+                Commitment::PACKET_COMMITMENT_SEED,
                 packet.source_client.as_bytes(),
                 &packet.sequence.to_le_bytes(),
             ],

@@ -14,7 +14,7 @@ pub struct SendCall<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
         mut,
-        seeds = [GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -156,6 +156,7 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::Mollusk;
@@ -178,10 +179,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let ibc_app = Pubkey::new_unique();
         let client = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let (router_caller_pda, _router_caller_bump) =
             Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
@@ -255,10 +254,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let ibc_app = Pubkey::new_unique();
         let client = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let (router_caller_pda, _router_caller_bump) =
             Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
@@ -334,10 +331,8 @@ mod tests {
         let client = Pubkey::new_unique();
         let port_id = "gmpport".to_string();
 
-        let (_correct_app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, port_id.as_bytes()],
-            &crate::ID,
-        );
+        let (_correct_app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, port_id.as_bytes()], &crate::ID);
 
         // Use wrong PDA in instruction
         let wrong_app_state_pda = Pubkey::new_unique();
@@ -414,10 +409,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let ibc_app = Pubkey::new_unique();
         let client = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
 
@@ -490,10 +483,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let ibc_app = Pubkey::new_unique();
         let client = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
 
@@ -566,10 +557,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let ibc_app = Pubkey::new_unique();
         let client = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
 
@@ -642,10 +631,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let ibc_app = Pubkey::new_unique();
         let client = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-            &[crate::constants::GMP_APP_STATE_SEED, GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
 
