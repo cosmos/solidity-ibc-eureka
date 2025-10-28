@@ -15,7 +15,7 @@ use state::{
     MsgTimeoutPacket, MsgUploadChunk,
 };
 
-declare_id!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx");
+declare_id!("GbVfnimoJNUhg8S9tGKAYJx7SYsuRcDcwQSt4zCizqis");
 
 #[cfg(test)]
 pub fn get_router_program_path() -> &'static str {

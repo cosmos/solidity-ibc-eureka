@@ -16,7 +16,7 @@ pub mod test_utils;
 use instructions::*;
 use state::SendCallMsg;
 
-declare_id!("3W3h4WSE8J9vFzVN8TGFGc9Uchbry3M4MBz4icdSWcFi");
+declare_id!("4qBHFv21a1ubYoqW6N7DybVdVstmRhYLHUfqJ1xmJbG7");
 
 #[cfg(test)]
 pub fn get_gmp_program_path() -> &'static str {

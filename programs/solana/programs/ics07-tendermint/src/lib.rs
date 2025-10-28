@@ -11,7 +11,7 @@ pub mod types;
 
 use crate::state::{ConsensusStateStore, HeaderChunk};
 
-declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
+declare_id!("DExQTxPb67KawbxqnQ4T75zdcuiLQFvmvwv4HGEHi1yC");
 
 pub use types::{
     ClientState, ConsensusState, IbcHeight, MisbehaviourMsg, UpdateResult, UploadChunkParams,
