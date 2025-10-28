@@ -439,30 +439,3 @@ func (s *Solana) CreateIBCAddressLookupTable(ctx context.Context, t *testing.T, 
 
 	return altAddress
 }
-
-// WaitUntilTrue polls a condition function until it returns true or max retries are reached.
-// It uses exponential backoff between retries (0s, 1s, 2s, 3s, ...).
-func WaitUntilTrue(
-	t *testing.T,
-	maxRetries int,
-	checkFn func() (bool, error),
-) error {
-	t.Helper()
-
-	for i := 0; i < maxRetries; i++ {
-		if i > 0 {
-			time.Sleep(time.Duration(i) * time.Second)
-		}
-
-		success, err := checkFn()
-		if err != nil {
-			continue
-		}
-
-		if success {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("condition not met after %d retries", maxRetries)
-}
