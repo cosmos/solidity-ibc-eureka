@@ -8,13 +8,13 @@ use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::events::{NoopEvent, TimeoutPacketEvent};
 #[cfg(test)]
-use solana_ibc_types::router::APP_STATE_SEED;
+use solana_ibc_types::IBCAppState;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgTimeoutPacket)]
 pub struct TimeoutPacket<'info> {
     #[account(
-        seeds = [ROUTER_STATE_SEED],
+        seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
@@ -25,7 +25,7 @@ pub struct TimeoutPacket<'info> {
     #[account(
         mut,
         seeds = [
-            PACKET_COMMITMENT_SEED,
+            Commitment::PACKET_COMMITMENT_SEED,
             msg.packet.source_client.as_bytes(),
             &msg.packet.sequence.to_le_bytes()
         ],
@@ -59,7 +59,7 @@ pub struct TimeoutPacket<'info> {
 
     // Client for light client lookup
     #[account(
-        seeds = [CLIENT_SEED, msg.packet.source_client.as_bytes()],
+        seeds = [Client::SEED, msg.packet.source_client.as_bytes()],
         bump,
         constraint = client.active @ RouterError::ClientNotActive,
     )]
@@ -90,7 +90,7 @@ pub fn timeout_packet<'info>(
 
     // Validate the IBC app is registered for the source port of the first payload
     let expected_ibc_app = Pubkey::find_program_address(
-        &[IBC_APP_SEED, msg.payloads[0].source_port.as_bytes()],
+        &[IBCApp::SEED, msg.payloads[0].source_port.as_bytes()],
         ctx.program_id,
     )
     .0;
@@ -206,7 +206,16 @@ pub fn timeout_packet<'info>(
         ctx.remaining_accounts,
     )?;
 
-    // Keep packet commitment for deferred cleanup
+    // Close the account and return rent to payer
+    // TODO: Find more idiomatic way since we can't use auto close of anchor due to noop
+    let dest_starting_lamports = ctx.accounts.payer.lamports();
+    **ctx.accounts.payer.lamports.borrow_mut() = dest_starting_lamports
+        .checked_add(packet_commitment_account.lamports())
+        .ok_or(RouterError::ArithmeticOverflow)?;
+    **packet_commitment_account.lamports.borrow_mut() = 0;
+
+    let mut data = packet_commitment_account.try_borrow_mut_data()?;
+    data.fill(0);
 
     emit!(TimeoutPacketEvent {
         client_id: packet.source_client.clone(),
@@ -292,7 +301,7 @@ mod tests {
 
         // Mock app state - just create a dummy account since mock app doesn't use it
         let (dummy_app_state_pda, _) =
-            Pubkey::find_program_address(&[APP_STATE_SEED], &app_program_id);
+            Pubkey::find_program_address(&[IBCAppState::SEED], &app_program_id);
 
         let packet_dest_client = params.wrong_dest_client.unwrap_or(params.dest_client_id);
 
@@ -311,7 +320,7 @@ mod tests {
 
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
             &[
-                PACKET_COMMITMENT_SEED,
+                Commitment::PACKET_COMMITMENT_SEED,
                 packet.source_client.as_bytes(),
                 &packet.sequence.to_le_bytes(),
             ],
@@ -458,12 +467,13 @@ mod tests {
 
         let checks = vec![
             Check::success(),
+            // Verify packet commitment account is closed (0 lamports)
             Check::account(&ctx.packet_commitment_pubkey)
-                .lamports(commitment_lamports) // Should still have lamports
+                .lamports(0)
                 .build(),
-            // Payer should not receive rent back immediately
+            // Verify payer received the rent back
             Check::account(&ctx.payer_pubkey)
-                .lamports(initial_payer_lamports) // No change
+                .lamports(initial_payer_lamports + commitment_lamports)
                 .build(),
         ];
 

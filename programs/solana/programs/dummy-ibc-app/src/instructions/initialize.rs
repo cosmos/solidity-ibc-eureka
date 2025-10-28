@@ -7,7 +7,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + DummyIbcAppState::INIT_SPACE,
-        seeds = [APP_STATE_SEED, TRANSFER_PORT.as_bytes()],
+        seeds = [IBCAppState::SEED, TRANSFER_PORT.as_bytes()],
         bump
     )]
     pub app_state: Account<'info, DummyIbcAppState>,

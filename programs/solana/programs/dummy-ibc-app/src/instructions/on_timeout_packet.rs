@@ -8,7 +8,7 @@ pub struct OnTimeoutPacket<'info> {
         init_if_needed,
         payer = payer,
         space = 8 + DummyIbcAppState::INIT_SPACE,
-        seeds = [APP_STATE_SEED, TRANSFER_PORT.as_bytes()],
+        seeds = [IBCAppState::SEED, TRANSFER_PORT.as_bytes()],
         bump
     )]
     pub app_state: Account<'info, DummyIbcAppState>,
@@ -21,7 +21,7 @@ pub struct OnTimeoutPacket<'info> {
     /// CHECK: PDA derived from `source_client`
     #[account(
         mut,
-        seeds = [ESCROW_SEED, msg.source_client.as_bytes()],
+        seeds = [DummyIbcAppState::ESCROW_SEED, msg.source_client.as_bytes()],
         bump
     )]
     pub escrow_account: Option<AccountInfo<'info>>,

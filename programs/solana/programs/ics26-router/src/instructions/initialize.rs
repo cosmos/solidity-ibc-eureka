@@ -1,4 +1,4 @@
-use crate::state::{AccountVersion, RouterState, ROUTER_STATE_SEED};
+use crate::state::{AccountVersion, RouterState};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -7,7 +7,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + RouterState::INIT_SPACE,
-        seeds = [ROUTER_STATE_SEED],
+        seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
@@ -29,7 +29,7 @@ pub fn initialize(ctx: Context<Initialize>, authority: Pubkey) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anchor_lang::{AnchorDeserialize, InstructionData};
+    use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
@@ -42,7 +42,7 @@ mod tests {
         let payer = Pubkey::new_unique();
         let authority = Pubkey::new_unique();
 
-        let (router_state_pda, _) = Pubkey::find_program_address(&[ROUTER_STATE_SEED], &crate::ID);
+        let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::Initialize { authority };
 
@@ -127,9 +127,9 @@ mod tests {
             "Router state account should have data"
         );
 
-        let mut data_slice = &router_state_account.data[8..];
         let deserialized_router_state: RouterState =
-            RouterState::deserialize(&mut data_slice).expect("Failed to deserialize router state");
+            RouterState::try_deserialize(&mut &router_state_account.data[..])
+                .expect("Failed to deserialize router state");
 
         assert_eq!(deserialized_router_state.authority, authority);
     }

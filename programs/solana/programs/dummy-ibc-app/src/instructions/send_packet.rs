@@ -4,10 +4,7 @@ use ics26_router::cpi as router_cpi;
 use ics26_router::program::Ics26Router;
 use ics26_router::{
     cpi::accounts::SendPacket as RouterSendPacket,
-    state::{
-        Client, ClientSequence, IBCApp, MsgSendPacket, RouterState, CLIENT_SEED,
-        CLIENT_SEQUENCE_SEED, IBC_APP_SEED, ROUTER_STATE_SEED,
-    },
+    state::{Client, ClientSequence, IBCApp, MsgSendPacket, RouterState},
 };
 use solana_ibc_types::Payload;
 
@@ -35,7 +32,7 @@ pub struct SendPacketMsg {
 pub struct SendPacket<'info> {
     #[account(
         mut,
-        seeds = [APP_STATE_SEED, TRANSFER_PORT.as_bytes()],
+        seeds = [IBCAppState::SEED, TRANSFER_PORT.as_bytes()],
         bump
     )]
     pub app_state: Account<'info, DummyIbcAppState>,
@@ -46,14 +43,14 @@ pub struct SendPacket<'info> {
 
     // Router CPI accounts
     #[account(
-        seeds = [ROUTER_STATE_SEED],
+        seeds = [RouterState::SEED],
         bump,
         seeds::program = router_program
     )]
     pub router_state: Account<'info, RouterState>,
 
     #[account(
-        seeds = [IBC_APP_SEED, msg.source_port.as_bytes()],
+        seeds = [IBCApp::SEED, msg.source_port.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -61,7 +58,7 @@ pub struct SendPacket<'info> {
 
     #[account(
         mut,
-        seeds = [CLIENT_SEQUENCE_SEED, msg.source_client.as_bytes()],
+        seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -73,7 +70,7 @@ pub struct SendPacket<'info> {
     pub packet_commitment: AccountInfo<'info>,
 
     #[account(
-        seeds = [CLIENT_SEED, msg.source_client.as_bytes()],
+        seeds = [Client::SEED, msg.source_client.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -86,7 +83,7 @@ pub struct SendPacket<'info> {
 
     /// PDA that acts as the router caller for CPI calls to the IBC router.
     #[account(
-        seeds = [ROUTER_CALLER_SEED],
+        seeds = [DummyIbcAppState::ROUTER_CALLER_SEED],
         bump
     )]
     pub router_caller: SystemAccount<'info>,
@@ -129,7 +126,10 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
     };
 
     // Create PDA signer for CPI call
-    let seeds = &[ROUTER_CALLER_SEED, &[ctx.bumps.router_caller]];
+    let seeds = &[
+        DummyIbcAppState::ROUTER_CALLER_SEED,
+        &[ctx.bumps.router_caller],
+    ];
     let signer_seeds = &[&seeds[..]];
 
     let cpi_ctx = CpiContext::new_with_signer(

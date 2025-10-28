@@ -1,8 +1,5 @@
 use crate::errors::RouterError;
-use crate::state::{
-    AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState, CLIENT_SEED,
-    CLIENT_SEQUENCE_SEED, ROUTER_STATE_SEED,
-};
+use crate::state::{AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState};
 use anchor_lang::prelude::*;
 use solana_ibc_types::events::{ClientAddedEvent, ClientStatusUpdatedEvent};
 
@@ -13,7 +10,7 @@ pub struct AddClient<'info> {
     pub authority: Signer<'info>,
 
     #[account(
-        seeds = [ROUTER_STATE_SEED],
+        seeds = [RouterState::SEED],
         bump,
         constraint = router_state.authority == authority.key() @ RouterError::UnauthorizedAuthority,
     )]
@@ -23,7 +20,7 @@ pub struct AddClient<'info> {
         init,
         payer = authority,
         space = 8 + Client::INIT_SPACE,
-        seeds = [CLIENT_SEED, client_id.as_bytes()],
+        seeds = [Client::SEED, client_id.as_bytes()],
         bump,
     )]
     pub client: Account<'info, Client>,
@@ -32,7 +29,7 @@ pub struct AddClient<'info> {
         init,
         payer = authority,
         space = 8 + ClientSequence::INIT_SPACE,
-        seeds = [CLIENT_SEQUENCE_SEED, client_id.as_bytes()],
+        seeds = [ClientSequence::SEED, client_id.as_bytes()],
         bump,
     )]
     pub client_sequence: Account<'info, ClientSequence>,
@@ -52,7 +49,7 @@ pub struct UpdateClient<'info> {
     pub authority: Signer<'info>,
 
     #[account(
-        seeds = [ROUTER_STATE_SEED],
+        seeds = [RouterState::SEED],
         bump,
         constraint = router_state.authority == authority.key() @ RouterError::UnauthorizedAuthority,
     )]
@@ -60,7 +57,7 @@ pub struct UpdateClient<'info> {
 
     #[account(
         mut,
-        seeds = [CLIENT_SEED, client_id.as_bytes()],
+        seeds = [Client::SEED, client_id.as_bytes()],
         bump,
         constraint = client.authority == authority.key() @ RouterError::UnauthorizedAuthority,
     )]
@@ -233,9 +230,9 @@ mod tests {
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
         let (client_pda, _) =
-            Pubkey::find_program_address(&[CLIENT_SEED, config.client_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[Client::SEED, config.client_id.as_bytes()], &crate::ID);
         let (client_sequence_pda, _) = Pubkey::find_program_address(
-            &[CLIENT_SEQUENCE_SEED, config.client_id.as_bytes()],
+            &[ClientSequence::SEED, config.client_id.as_bytes()],
             &crate::ID,
         );
 
@@ -316,9 +313,9 @@ mod tests {
             .expect("Authority account not found");
 
         let (client_pda, _) =
-            Pubkey::find_program_address(&[CLIENT_SEED, client_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
         let (client_sequence_pda, _) =
-            Pubkey::find_program_address(&[CLIENT_SEQUENCE_SEED, client_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
 
         // Verify authority paid for account creation
         let authority_account = result
@@ -352,9 +349,8 @@ mod tests {
             "Client account should be rent-exempt"
         );
 
-        let mut data_slice = &client_account.data[8..];
-        let deserialized_client: Client =
-            Client::deserialize(&mut data_slice).expect("Failed to deserialize client");
+        let deserialized_client: Client = Client::try_deserialize(&mut &client_account.data[..])
+            .expect("Failed to deserialize client");
 
         assert_eq!(deserialized_client.client_id, client_id);
         assert_eq!(deserialized_client.authority, authority);
@@ -388,9 +384,9 @@ mod tests {
             "ClientSequence account should be rent-exempt"
         );
 
-        let mut data_slice = &client_sequence_account.data[8..];
-        let deserialized_sequence: ClientSequence = ClientSequence::deserialize(&mut data_slice)
-            .expect("Failed to deserialize client sequence");
+        let deserialized_sequence: ClientSequence =
+            ClientSequence::try_deserialize(&mut &client_sequence_account.data[..])
+                .expect("Failed to deserialize client sequence");
 
         assert_eq!(
             deserialized_sequence.next_sequence_send, 1,
@@ -486,9 +482,8 @@ mod tests {
             .map(|(_, account)| account)
             .expect("Client account not found");
 
-        let mut data_slice = &client_account.data[8..];
-        let deserialized_client: Client =
-            Client::deserialize(&mut data_slice).expect("Failed to deserialize client");
+        let deserialized_client: Client = Client::try_deserialize(&mut &client_account.data[..])
+            .expect("Failed to deserialize client");
 
         assert!(!deserialized_client.active, "Client should be deactivated");
         assert_eq!(deserialized_client.client_id, client_id);

@@ -5,21 +5,13 @@ pub use solana_ibc_types::{
     MsgAckPacket, MsgCleanupChunks, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk,
     Packet, PayloadMetadata, ProofMetadata,
 };
-pub use solana_ibc_types::{CLIENT_SEED, CLIENT_SEQUENCE_SEED, IBC_APP_SEED, ROUTER_STATE_SEED};
-pub use solana_ibc_types::{
-    COMMITMENT_SEED, PACKET_ACK_SEED, PACKET_COMMITMENT_SEED, PACKET_RECEIPT_SEED,
-};
-
-// PDA seeds for chunks
-pub const PAYLOAD_CHUNK_SEED: &[u8] = b"payload_chunk";
-pub const PROOF_CHUNK_SEED: &[u8] = b"proof_chunk";
 
 pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
 pub const MAX_CLIENT_ID_LENGTH: usize = 64;
 
 /// Account schema version
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug)]
 pub enum AccountVersion {
     V1,
 }
@@ -37,6 +29,10 @@ pub struct RouterState {
     pub _reserved: [u8; 256],
 }
 
+impl RouterState {
+    pub const SEED: &'static [u8] = solana_ibc_types::RouterState::SEED;
+}
+
 /// `IBCApp` mapping port IDs to IBC app program IDs
 #[account]
 #[derive(InitSpace)]
@@ -52,6 +48,10 @@ pub struct IBCApp {
     pub authority: Pubkey,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
+}
+
+impl IBCApp {
+    pub const SEED: &'static [u8] = solana_ibc_types::router::IBCApp::SEED;
 }
 
 /// Counterparty chain information
@@ -86,6 +86,10 @@ pub struct Client {
     pub _reserved: [u8; 256],
 }
 
+impl Client {
+    pub const SEED: &'static [u8] = solana_ibc_types::Client::SEED;
+}
+
 /// Client sequence tracking
 #[account]
 #[derive(InitSpace)]
@@ -96,6 +100,10 @@ pub struct ClientSequence {
     pub next_sequence_send: u64,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
+}
+
+impl ClientSequence {
+    pub const SEED: &'static [u8] = solana_ibc_types::ClientSequence::SEED;
 }
 
 impl Default for ClientSequence {
@@ -114,8 +122,15 @@ impl Default for ClientSequence {
 pub struct Commitment {
     /// The commitment value (sha256 hash)
     pub value: [u8; 32],
-    /// Timestamp when the commitment was created
-    pub created_at: i64,
+}
+
+impl Commitment {
+    pub const SEED: &'static [u8] = solana_ibc_types::Commitment::SEED;
+    pub const PACKET_COMMITMENT_SEED: &'static [u8] =
+        solana_ibc_types::Commitment::PACKET_COMMITMENT_SEED;
+    pub const PACKET_RECEIPT_SEED: &'static [u8] =
+        solana_ibc_types::Commitment::PACKET_RECEIPT_SEED;
+    pub const PACKET_ACK_SEED: &'static [u8] = solana_ibc_types::Commitment::PACKET_ACK_SEED;
 }
 
 // Types are now imported from solana_ibc_types
@@ -144,6 +159,10 @@ pub struct PayloadChunk {
     pub chunk_data: Vec<u8>,
 }
 
+impl PayloadChunk {
+    pub const SEED: &'static [u8] = solana_ibc_types::PayloadChunk::SEED;
+}
+
 /// Storage for proof chunks during multi-transaction upload
 #[account]
 #[derive(InitSpace)]
@@ -158,4 +177,109 @@ pub struct ProofChunk {
     /// The chunk data
     #[max_len(CHUNK_DATA_SIZE)]
     pub chunk_data: Vec<u8>,
+}
+
+impl ProofChunk {
+    pub const SEED: &'static [u8] = solana_ibc_types::ProofChunk::SEED;
+}
+
+#[cfg(test)]
+mod compatibility_tests {
+    use super::*;
+
+    /// Ensures `IBCApp` in this program remains compatible with `solana_ibc_types::IBCApp`
+    /// This is critical because the relayer deserializes on-chain `IBCApp` accounts
+    /// using `solana_ibc_types::IBCApp`
+    #[test]
+    fn test_ibc_app_serialization_compatibility() {
+        let app = IBCApp {
+            version: AccountVersion::V1,
+            port_id: "transfer".to_string(),
+            app_program_id: Pubkey::new_unique(),
+            authority: Pubkey::new_unique(),
+            _reserved: [0; 256],
+        };
+
+        // Serialize the program's IBCApp
+        // Note: try_to_vec() doesn't include discriminator - that's only added by Anchor
+        // when writing to on-chain accounts
+        let serialized = app.try_to_vec().unwrap();
+
+        // Deserialize as solana_ibc_types::IBCApp to verify compatibility
+        let types_app: solana_ibc_types::IBCApp =
+            AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
+
+        // Verify all fields match
+        assert_eq!(app.port_id, types_app.port_id);
+        assert_eq!(app.app_program_id, types_app.app_program_id);
+        assert_eq!(app.authority, types_app.authority);
+        assert_eq!(app._reserved, types_app._reserved);
+    }
+
+    /// Ensures `Client` in this program remains compatible with marker type pattern
+    #[test]
+    fn test_client_seed_compatibility() {
+        // Verify SEED constant matches between program and types
+        assert_eq!(Client::SEED, solana_ibc_types::Client::SEED);
+    }
+
+    /// Ensures `RouterState` in this program remains compatible with marker type pattern
+    #[test]
+    fn test_router_state_seed_compatibility() {
+        assert_eq!(RouterState::SEED, solana_ibc_types::RouterState::SEED);
+    }
+
+    /// Ensures `ClientSequence` in this program remains compatible with marker type pattern
+    #[test]
+    fn test_client_sequence_seed_compatibility() {
+        assert_eq!(ClientSequence::SEED, solana_ibc_types::ClientSequence::SEED);
+    }
+
+    /// Ensures `Commitment` in this program remains compatible with marker type pattern
+    #[test]
+    fn test_commitment_seed_compatibility() {
+        assert_eq!(Commitment::SEED, solana_ibc_types::Commitment::SEED);
+        assert_eq!(
+            Commitment::PACKET_COMMITMENT_SEED,
+            solana_ibc_types::Commitment::PACKET_COMMITMENT_SEED
+        );
+        assert_eq!(
+            Commitment::PACKET_RECEIPT_SEED,
+            solana_ibc_types::Commitment::PACKET_RECEIPT_SEED
+        );
+        assert_eq!(
+            Commitment::PACKET_ACK_SEED,
+            solana_ibc_types::Commitment::PACKET_ACK_SEED
+        );
+    }
+
+    /// Ensures `PayloadChunk` in this program remains compatible with marker type pattern
+    #[test]
+    fn test_payload_chunk_seed_compatibility() {
+        assert_eq!(PayloadChunk::SEED, solana_ibc_types::PayloadChunk::SEED);
+    }
+
+    /// Ensures `ProofChunk` in this program remains compatible with marker type pattern
+    #[test]
+    fn test_proof_chunk_seed_compatibility() {
+        assert_eq!(ProofChunk::SEED, solana_ibc_types::ProofChunk::SEED);
+    }
+
+    /// Ensures `AccountVersion` enum serialization remains compatible between program and types
+    #[test]
+    fn test_account_version_serialization_compatibility() {
+        let version = AccountVersion::V1;
+
+        let serialized = version.try_to_vec().unwrap();
+
+        let types_version: solana_ibc_types::router::AccountVersion =
+            AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
+
+        assert_eq!(
+            version,
+            match types_version {
+                solana_ibc_types::router::AccountVersion::V1 => AccountVersion::V1,
+            }
+        );
+    }
 }

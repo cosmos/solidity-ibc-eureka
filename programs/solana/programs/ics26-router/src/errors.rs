@@ -72,14 +72,6 @@ pub enum RouterError {
     InvalidChunkCommitment,
     #[msg("Invalid payload count")]
     InvalidPayloadCount,
-    #[msg("Exceeds maximum batch size")]
-    ExceedsMaxBatchSize,
-    #[msg("Empty cleanup batch")]
-    EmptyCleanupBatch,
-    #[msg("Missing account in remaining accounts")]
-    MissingAccount,
-    #[msg("Invalid account")]
-    InvalidAccount,
     #[msg("Unsupported account version")]
     UnsupportedVersion,
 }
