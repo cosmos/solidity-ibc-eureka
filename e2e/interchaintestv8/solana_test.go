@@ -68,12 +68,6 @@ type IbcEurekaSolanaTestSuite struct {
 	// Mock configuration for tests
 	UseMockWasmClient bool
 
-	// GMP setup - if true, deploys ICS27 GMP program and creates ALT during setup
-	SetupGMP bool
-
-	// Dummy App setup - if true, deploys and registers dummy IBC app during setup
-	SetupDummyApp bool
-
 	// ALT configuration - if set, will be used when starting relayer
 	SolanaAltAddress string
 	RelayerProcess   *os.Process
@@ -203,56 +197,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.SolanaAltAddress = altAddress.String()
 		s.T().Logf("Created Address Lookup Table: %s", s.SolanaAltAddress)
 	}))
-
-	// Initialize ICS27 GMP program if SetupGMP is enabled (requires initialized router)
-	if s.SetupGMP {
-		s.initializeICS27GMP(ctx)
-	}
-
-	// Initialize and register Dummy App if SetupDummyApp is enabled (requires initialized router)
-	if s.SetupDummyApp {
-		s.Require().True(s.Run("Initialize and Register Dummy App", func() {
-			// Program already deployed, just initialize
-			appStateAccount, _ := solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
-
-			initInstruction, err := dummy_ibc_app.NewInitializeInstruction(
-				s.SolanaUser.PublicKey(),
-				appStateAccount,
-				s.SolanaUser.PublicKey(),
-				solanago.SystemProgramID,
-			)
-			s.Require().NoError(err)
-
-			tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
-			s.Require().NoError(err)
-
-			_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
-			s.Require().NoError(err)
-			s.T().Logf("Dummy app initialized")
-
-			routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-
-			ibcAppAccount, _ := solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
-
-			registerInstruction, err := ics26_router.NewAddIbcAppInstruction(
-				transfertypes.PortID,
-				routerStateAccount,
-				ibcAppAccount,
-				s.DummyAppProgramID,
-				s.SolanaUser.PublicKey(),
-				s.SolanaUser.PublicKey(),
-				solanago.SystemProgramID,
-			)
-			s.Require().NoError(err)
-
-			tx2, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), registerInstruction)
-			s.Require().NoError(err)
-
-			_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx2, rpc.CommitmentConfirmed, 30, s.SolanaUser)
-			s.Require().NoError(err)
-			s.T().Logf("Registered dummy app for transfer port")
-		}))
-	}
 
 	// Start relayer asynchronously - it can initialize while we set up IBC clients
 	type relayerStartResult struct {
@@ -508,13 +452,58 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	}))
 }
 
+func (s *IbcEurekaSolanaTestSuite) setupDummyApp(ctx context.Context) {
+	s.Require().True(s.Run("Initialize Dummy IBC App", func() {
+		appStateAccount, _ := solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
+
+		initInstruction, err := dummy_ibc_app.NewInitializeInstruction(
+			s.SolanaUser.PublicKey(),
+			appStateAccount,
+			s.SolanaUser.PublicKey(),
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
+		s.Require().NoError(err)
+
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Logf("Dummy app initialized at: %s", s.DummyAppProgramID)
+	}))
+
+	s.Require().True(s.Run("Register Dummy App with Router", func() {
+		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+
+		ibcAppAccount, _ := solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
+
+		registerInstruction, err := ics26_router.NewAddIbcAppInstruction(
+			transfertypes.PortID,
+			routerStateAccount,
+			ibcAppAccount,
+			s.DummyAppProgramID,
+			s.SolanaUser.PublicKey(),
+			s.SolanaUser.PublicKey(),
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), registerInstruction)
+		s.Require().NoError(err)
+
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Logf("Dummy app registered with router on transfer port")
+	}))
+}
+
 func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
-	s.SetupDummyApp = true
 
 	s.SetupSuite(ctx)
+	s.setupDummyApp(ctx)
 
 	simd := s.CosmosChains[0]
 
@@ -704,9 +693,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
-	s.SetupDummyApp = true
 
 	s.SetupSuite(ctx)
+	s.setupDummyApp(ctx)
 
 	simd := s.CosmosChains[0]
 
@@ -895,9 +884,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
-	s.SetupDummyApp = true
 
 	s.SetupSuite(ctx)
+	s.setupDummyApp(ctx)
 
 	simd := s.CosmosChains[0]
 

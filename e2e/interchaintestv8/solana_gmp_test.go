@@ -45,7 +45,6 @@ type IbcEurekaSolanaGMPTestSuite struct {
 
 func TestWithIbcEurekaSolanaGMPTestSuite(t *testing.T) {
 	s := &IbcEurekaSolanaGMPTestSuite{}
-	s.SetupGMP = true
 	suite.Run(t, s)
 }
 
@@ -176,9 +175,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
-	s.SetupGMP = true
 
 	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
 
 	simd := s.CosmosChains[0]
 
@@ -481,9 +480,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
-	s.SetupGMP = true
 
 	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
 
 	simd := s.CosmosChains[0]
 	cosmosUser := s.CosmosUsers[0]
@@ -697,9 +696,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
-	s.SetupGMP = true
 
 	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
 
 	simd := s.CosmosChains[0]
 
@@ -992,9 +991,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
-	s.SetupGMP = true
 
 	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
 
 	simd := s.CosmosChains[0]
 
@@ -1271,9 +1270,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
-	s.SetupGMP = true
 
 	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
 
 	simd := s.CosmosChains[0]
 	cosmosUser := s.CosmosUsers[0]
@@ -1502,9 +1501,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
-	s.SetupGMP = true
 
 	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
 
 	simd := s.CosmosChains[0]
 	cosmosUser := s.CosmosUsers[0]
@@ -1702,9 +1701,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
-	s.SetupGMP = true
 
 	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
 
 	simd := s.CosmosChains[0]
 
