@@ -185,7 +185,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		}))
 	}))
 
-	// Initialize router first (required before GMP/Dummy App can register)
 	s.Require().True(s.Run("Initialize ICS26 Router", func() {
 		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 		initInstruction, err := ics26_router.NewInitializeInstruction(s.SolanaUser.PublicKey(), routerStateAccount, s.SolanaUser.PublicKey(), solanago.SystemProgramID)
@@ -197,20 +196,17 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 	}))
 
+	s.Require().True(s.Run("Create Address Lookup Table", func() {
+		simd := s.CosmosChains[0]
+		cosmosChainID := simd.Config().ChainID
+		altAddress := s.SolanaChain.CreateIBCAddressLookupTable(ctx, s.T(), s.Require(), s.SolanaUser, cosmosChainID, GMPPortID, SolanaClientID)
+		s.SolanaAltAddress = altAddress.String()
+		s.T().Logf("Created Address Lookup Table: %s", s.SolanaAltAddress)
+	}))
+
 	// Initialize ICS27 GMP program if SetupGMP is enabled (requires initialized router)
 	if s.SetupGMP {
 		s.initializeICS27GMP(ctx)
-
-		// Create Address Lookup Table after GMP deployment (if not already set)
-		if s.SolanaAltAddress == "" {
-			s.Require().True(s.Run("Create Address Lookup Table", func() {
-				simd := s.CosmosChains[0]
-				cosmosChainID := simd.Config().ChainID
-				altAddress := s.SolanaChain.CreateIBCAddressLookupTable(ctx, s.T(), s.Require(), s.SolanaUser, cosmosChainID, GMPPortID, SolanaClientID)
-				s.SolanaAltAddress = altAddress.String()
-				s.T().Logf("Created Address Lookup Table: %s", s.SolanaAltAddress)
-			}))
-		}
 	}
 
 	// Initialize and register Dummy App if SetupDummyApp is enabled (requires initialized router)
