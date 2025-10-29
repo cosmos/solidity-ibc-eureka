@@ -142,8 +142,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		}))
 
 		s.Require().True(s.Run("Deploy programs", func() {
-			// Deploy ALL programs in parallel using single deployer (now that --url flag is fixed)
-			// Deployment happens regardless of SetupGMP/SetupDummyApp flags - flags only control initialization
+			// Deploy ALL programs in parallel using single deployer
 			s.T().Log("Deploying Solana programs in parallel...")
 
 			const keypairDir = "e2e/interchaintestv8/solana/keypairs"
