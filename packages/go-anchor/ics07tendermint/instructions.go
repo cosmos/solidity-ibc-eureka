@@ -379,3 +379,48 @@ func NewCleanupIncompleteUploadInstruction(
 		buf__.Bytes(),
 	), nil
 }
+
+// Builds a "prune_consensus_states" instruction.
+// Prune old consensus states that have been marked for cleanup // This is permissionless - anyone can call it to help reclaim rent // Only consensus states whose heights are in the `to_prune` list will be closed
+func NewPruneConsensusStatesInstruction(
+	// Params:
+	chainIdParam string,
+
+	// Accounts:
+	clientStateAccount solanago.PublicKey,
+	rentReceiverAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_PruneConsensusStates[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `chainIdParam`:
+		err = enc__.Encode(chainIdParam)
+		if err != nil {
+			return nil, errors.NewField("chainIdParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "client_state": Writable, Non-signer, Required
+		// Client state that tracks which heights need pruning
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
+		// Account 1 "rent_receiver": Writable, Signer, Required
+		// Rent recipient (usually the caller, incentivizes cleanup)
+		accounts__.Append(solanago.NewAccountMeta(rentReceiverAccount, true, true))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}

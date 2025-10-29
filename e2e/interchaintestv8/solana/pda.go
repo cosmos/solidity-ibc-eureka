@@ -29,6 +29,50 @@ var (
 	MockLightClient = mockLightClientPDAs{}
 )
 
+func (ics27GmpPDAs) AppStateGmpportPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("app_state"), []byte("gmpport")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.AppStateGmpportPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics27GmpPDAs) RouterCallerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("router_caller")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.RouterCallerPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (mockLightClientPDAs) ClientPDA(programID solanago.PublicKey, chainId []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("client"), chainId},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive MockLightClient.ClientPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (mockLightClientPDAs) ConsensusStatePDA(programID solanago.PublicKey, clientState []byte, latestHeight []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("consensus_state"), clientState, latestHeight},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive MockLightClient.ConsensusStatePDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (dummyIbcAppPDAs) AppStateTransferPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("app_state"), []byte("transfer")},
@@ -267,50 +311,6 @@ func (ics26RouterPDAs) RouterStatePDA(programID solanago.PublicKey) (solanago.Pu
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ics26Router.RouterStatePDA PDA: %v", err))
-	}
-	return pda, bump
-}
-
-func (ics27GmpPDAs) AppStateGmpportPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
-	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("app_state"), []byte("gmpport")},
-		programID,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics27Gmp.AppStateGmpportPDA PDA: %v", err))
-	}
-	return pda, bump
-}
-
-func (ics27GmpPDAs) RouterCallerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
-	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("router_caller")},
-		programID,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics27Gmp.RouterCallerPDA PDA: %v", err))
-	}
-	return pda, bump
-}
-
-func (mockLightClientPDAs) ClientPDA(programID solanago.PublicKey, chainId []byte) (solanago.PublicKey, uint8) {
-	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("client"), chainId},
-		programID,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to derive MockLightClient.ClientPDA PDA: %v", err))
-	}
-	return pda, bump
-}
-
-func (mockLightClientPDAs) ConsensusStatePDA(programID solanago.PublicKey, clientState []byte, latestHeight []byte) (solanago.PublicKey, uint8) {
-	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("consensus_state"), clientState, latestHeight},
-		programID,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to derive MockLightClient.ConsensusStatePDA PDA: %v", err))
 	}
 	return pda, bump
 }

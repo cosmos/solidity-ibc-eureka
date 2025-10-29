@@ -51,6 +51,9 @@ pub struct ClientState {
     pub latest_height: IbcHeight,
     /// Sorted list of consensus state heights being tracked (ascending order, FIFO)
     pub consensus_state_heights: Vec<u64>,
+    /// Heights that were removed from tracking and whose accounts should be closed to reclaim rent
+    /// These can be cleaned up via the `prune_consensus_states` instruction
+    pub consensus_state_heights_to_prune: Vec<u64>,
 }
 
 impl ClientState {

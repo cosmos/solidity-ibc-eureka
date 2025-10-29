@@ -38,6 +38,11 @@ pub struct ClientState {
     /// When this list reaches `MAX_CONSENSUS_STATE_HEIGHTS`, the oldest height is removed
     #[max_len(10)]
     pub consensus_state_heights: Vec<u64>,
+    /// Heights that were removed from tracking and whose accounts should be closed to reclaim rent
+    /// These can be cleaned up via the `cleanup_consensus_states` instruction
+    /// Can accumulate up to 200 heights if cleanup is delayed
+    #[max_len(200)]
+    pub consensus_state_heights_to_prune: Vec<u64>,
 }
 
 impl ClientState {
@@ -207,6 +212,7 @@ mod compatibility_tests {
                 revision_height: 1000,
             },
             consensus_state_heights: vec![1000],
+            consensus_state_heights_to_prune: vec![],
         };
 
         let serialized = client_state.try_to_vec().unwrap();

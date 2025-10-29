@@ -77,6 +77,7 @@ fn setup_test_accounts(
             revision_height: 200,
         },
         consensus_state_heights: vec![200],
+        consensus_state_heights_to_prune: vec![],
     };
 
     let mut client_data = vec![];

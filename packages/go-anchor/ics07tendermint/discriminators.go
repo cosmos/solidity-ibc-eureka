@@ -22,4 +22,5 @@ var (
 	Instruction_UploadHeaderChunk       = [8]byte{154, 38, 82, 143, 56, 2, 24, 33}
 	Instruction_AssembleAndUpdateClient = [8]byte{86, 215, 199, 79, 131, 79, 180, 158}
 	Instruction_CleanupIncompleteUpload = [8]byte{53, 54, 142, 122, 91, 50, 60, 171}
+	Instruction_PruneConsensusStates    = [8]byte{9, 22, 44, 51, 29, 240, 22, 59}
 )

@@ -90,6 +90,7 @@ pub mod fixtures {
             },
             // Initialize with the latest height in the tracking list
             consensus_state_heights: vec![latest_height.revision_height],
+            consensus_state_heights_to_prune: vec![],
         }
     }
 
@@ -350,6 +351,7 @@ pub mod fixtures {
                 revision_height: latest_height.revision_height,
             },
             consensus_state_heights: vec![latest_height.revision_height],
+            consensus_state_heights_to_prune: vec![],
         }
     }
 
@@ -467,6 +469,7 @@ pub mod chunk_test_utils {
             },
             // Initialize with the latest height in the tracking list
             consensus_state_heights: vec![latest_height],
+            consensus_state_heights_to_prune: vec![],
         };
 
         let mut data = vec![];

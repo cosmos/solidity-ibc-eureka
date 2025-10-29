@@ -8,8 +8,8 @@ use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
-pub fn assemble_and_update_client(
-    mut ctx: Context<AssembleAndUpdateClient>,
+pub fn assemble_and_update_client<'info>(
+    mut ctx: Context<'_, '_, '_, 'info, AssembleAndUpdateClient<'info>>,
     chain_id: String,
     target_height: u64,
 ) -> Result<UpdateResult> {
@@ -83,8 +83,8 @@ fn validate_and_load_chunk(
     Ok(())
 }
 
-fn process_header_update(
-    ctx: &mut Context<AssembleAndUpdateClient>,
+fn process_header_update<'info>(
+    ctx: &mut Context<'_, '_, '_, 'info, AssembleAndUpdateClient<'info>>,
     header_bytes: Vec<u8>,
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
@@ -286,18 +286,21 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
         }
     }
 
-    // Automatic cleanup: if we're at capacity, remove the oldest height from tracking
-    // Note: The actual consensus state PDA can be closed separately by anyone to reclaim rent
-    // The relayer should monitor consensus_state_heights and close PDAs no longer tracked
+    // Automatic pruning: if we're at capacity, remove the oldest height from tracking
+    // and add it to the to_prune list for later cleanup
     if params.client_state.consensus_state_heights.len()
         >= crate::constants::MAX_CONSENSUS_STATE_HEIGHTS
     {
         // Remove the oldest height (first element in sorted vec)
         let oldest_height = params.client_state.consensus_state_heights.remove(0);
 
+        // Add to the list of heights that need cleanup
+        params.client_state.consensus_state_heights_to_prune.push(oldest_height);
+
         msg!(
-            "Removed height {} from tracking (FIFO), PDA can be closed to reclaim rent",
-            oldest_height
+            "Pruned height {} from tracking, added to cleanup list (total pending cleanup: {})",
+            oldest_height,
+            params.client_state.consensus_state_heights_to_prune.len()
         );
     }
 
