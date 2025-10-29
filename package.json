@@ -8,10 +8,17 @@
     "@uniswap/permit2": "github:Uniswap/permit2"
   },
   "devDependencies": {
+<<<<<<< HEAD
     "sp1-contracts": "github:succinctlabs/sp1-contracts#v4.0.0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.6",
     "solhint": "^5.0.5",
     "@defi-wonderland/natspec-smells": "^1.1.6"
+=======
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0",
+    "forge-std": "github:foundry-rs/forge-std#v1.11.0",
+    "solhint": "^6.0.1",
+    "quicktype": "^23.2.6"
+>>>>>>> ba92798 (deps: bumped `forge-std`, `kurtosis`, `ibc-go` (#798))
   },
   "keywords": [
     "blockchain",

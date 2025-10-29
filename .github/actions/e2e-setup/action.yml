@@ -64,7 +64,11 @@ runs:
       run: |
         echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
         sudo apt update
+<<<<<<< HEAD
         sudo apt install kurtosis-cli=1.5.0 # Must match the kurtosis library version we use in the e2e tests
+=======
+        sudo apt install kurtosis-cli=1.11.2 # Must match the kurtosis library version we use in the e2e tests
+>>>>>>> ba92798 (deps: bumped `forge-std`, `kurtosis`, `ibc-go` (#798))
         kurtosis engine start
         kurtosis analytics disable
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH

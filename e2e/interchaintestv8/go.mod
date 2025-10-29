@@ -12,16 +12,30 @@ require (
 	github.com/cometbft/cometbft v0.38.15
 	github.com/cosmos/cosmos-sdk v0.50.13
 	github.com/cosmos/gogoproto v1.7.0
+<<<<<<< HEAD
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.1.0
 	github.com/cosmos/ibc-go/v10 v10.1.0
+=======
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.4.0
+	github.com/cosmos/ibc-go/v10 v10.4.0
+	github.com/cosmos/ics23/go v0.11.0
+	github.com/cosmos/interchaintest/v10 v10.0.0
+>>>>>>> ba92798 (deps: bumped `forge-std`, `kurtosis`, `ibc-go` (#798))
 	github.com/cosmos/solidity-ibc-eureka/packages/go-abigen v0.0.0
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/holiman/uint256 v1.3.2
+<<<<<<< HEAD
 	github.com/kurtosis-tech/kurtosis/api/golang v1.5.0
 	github.com/rs/zerolog v1.33.0
 	github.com/strangelove-ventures/interchaintest/v8 v8.3.0
 	github.com/stretchr/testify v1.10.0
+=======
+	github.com/kurtosis-tech/kurtosis/api/golang v1.11.2
+	github.com/moby/moby v27.5.1+incompatible
+	github.com/rs/zerolog v1.34.0
+	github.com/stretchr/testify v1.11.1
+>>>>>>> ba92798 (deps: bumped `forge-std`, `kurtosis`, `ibc-go` (#798))
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.69.4
 	google.golang.org/protobuf v1.36.5
@@ -212,11 +226,20 @@ require (
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
+<<<<<<< HEAD
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.19.0 // indirect
+=======
+	github.com/spf13/afero v1.12.0 // indirect
+	github.com/spf13/cast v1.9.2 // indirect
+	github.com/spf13/cobra v1.10.1 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
+	github.com/spf13/viper v1.20.1 // indirect
+	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
+>>>>>>> ba92798 (deps: bumped `forge-std`, `kurtosis`, `ibc-go` (#798))
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/supranational/blst v0.3.14 // indirect
