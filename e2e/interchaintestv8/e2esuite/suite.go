@@ -3,7 +3,6 @@ package e2esuite
 import (
 	"context"
 	"os"
-	"runtime"
 
 	dockerclient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/suite"
@@ -83,23 +82,17 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	// Add Solana to chain specs if requested
 	solanaTestnetType := os.Getenv(testvalues.EnvKeySolanaTestnetType)
 	if solanaTestnetType == testvalues.SolanaTestnetType_Docker {
-		// Select Docker image based on architecture
-		// ARM64 (Mac): beeman/solana-test-validator
-		// AMD64 (CI): anzaxyz/agave
-		var solanaImage ibc.DockerImage
-		if runtime.GOARCH == "arm64" {
-			solanaImage = ibc.DockerImage{
-				Repository: "beeman/solana-test-validator",
-				Version:    "latest",
-				UIDGID:     "1000:1000",
-			}
-		} else {
-			// AMD64/x86_64 - use tchambard's solana-test-validator
-			solanaImage = ibc.DockerImage{
-				Repository: "tchambard/solana-test-validator",
-				Version:    "latest",
-				UIDGID:     "1000:1000",
-			}
+		// Use Docker image from SOLANA_DOCKER_IMAGE env var, or default to solana-ibc-test:local
+		// Format: "repository:version" or just "repository" (defaults to "latest")
+		customImage := os.Getenv("SOLANA_DOCKER_IMAGE")
+		if customImage == "" {
+			customImage = "solana-ibc-test"
+		}
+
+		solanaImage := ibc.DockerImage{
+			Repository: customImage,
+			Version:    "latest",
+			UIDGID:     "1000:1000",
 		}
 
 		// Add Solana chain spec to be managed by interchaintest
