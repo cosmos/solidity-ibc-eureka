@@ -127,8 +127,6 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
         accounts_processed += 1;
     }
 
-    // Commitment validation removed - no longer needed
-
     // Clean up chunks and return rent
     cleanup_payload_chunks(
         &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
@@ -205,9 +203,6 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
         accounts_processed += 1;
     }
 
-    // Commitment validation removed - no longer needed
-
-    // Clean up chunks and return rent
     cleanup_proof_chunks(
         &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
         params.payer,
