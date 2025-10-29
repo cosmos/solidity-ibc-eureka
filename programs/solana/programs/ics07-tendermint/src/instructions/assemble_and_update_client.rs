@@ -295,7 +295,10 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
         let oldest_height = params.client_state.consensus_state_heights.remove(0);
 
         // Add to the list of heights that need cleanup
-        params.client_state.consensus_state_heights_to_prune.push(oldest_height);
+        params
+            .client_state
+            .consensus_state_heights_to_prune
+            .push(oldest_height);
 
         msg!(
             "Pruned height {} from tracking, added to cleanup list (total pending cleanup: {})",

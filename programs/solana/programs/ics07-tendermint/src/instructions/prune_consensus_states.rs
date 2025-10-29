@@ -2,10 +2,7 @@ use crate::error::ErrorCode;
 use crate::PruneConsensusStates;
 use anchor_lang::prelude::*;
 
-pub fn prune_consensus_states(
-    ctx: Context<PruneConsensusStates>,
-    _chain_id: String,
-) -> Result<()> {
+pub fn prune_consensus_states(ctx: Context<PruneConsensusStates>, _chain_id: String) -> Result<()> {
     let client_state = &mut ctx.accounts.client_state;
     let client_key = client_state.key();
 
