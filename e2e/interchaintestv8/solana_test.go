@@ -1103,154 +1103,153 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.T().Logf("The 10 most recent consensus states remain accessible")
 		}))
 
-	// NEW: Verify the oldest height was added to the to_prune list
-	s.Require().True(s.Run("Verify oldest height is in to_prune list", func() {
-		oldestHeight := heightsList[0]
-		s.T().Logf("Checking if oldest height %d is in consensus_state_heights_to_prune...", oldestHeight)
+		// NEW: Verify the oldest height was added to the to_prune list
+		s.Require().True(s.Run("Verify oldest height is in to_prune list", func() {
+			oldestHeight := heightsList[0]
+			s.T().Logf("Checking if oldest height %d is in consensus_state_heights_to_prune...", oldestHeight)
 
-		clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
-		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
-		s.Require().NoError(err)
+			clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
+			accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
+			s.Require().NoError(err)
 
-		clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
-		s.Require().NoError(err)
+			clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
+			s.Require().NoError(err)
 
-		// Check that the oldest height IS in the to_prune list
-		found := false
-		for _, h := range clientState.ConsensusStateHeightsToPrune {
-			if h == oldestHeight {
-				found = true
-				break
+			// Check that the oldest height IS in the to_prune list
+			found := false
+			for _, h := range clientState.ConsensusStateHeightsToPrune {
+				if h == oldestHeight {
+					found = true
+					break
+				}
 			}
-		}
 
-		s.Require().True(found, "Oldest height %d should be in to_prune list", oldestHeight)
-		s.T().Logf("✓ Oldest height %d is in to_prune list (ready for cleanup)", oldestHeight)
-		s.T().Logf("Total heights pending cleanup: %d", len(clientState.ConsensusStateHeightsToPrune))
-	}))
+			s.Require().True(found, "Oldest height %d should be in to_prune list", oldestHeight)
+			s.T().Logf("✓ Oldest height %d is in to_prune list (ready for cleanup)", oldestHeight)
+			s.T().Logf("Total heights pending cleanup: %d", len(clientState.ConsensusStateHeightsToPrune))
+		}))
 
-	// NEW: Verify the consensus state account still exists (not yet pruned)
-	s.Require().True(s.Run("Verify oldest consensus state account still exists", func() {
-		oldestHeight := heightsList[0]
-		consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, oldestHeight)
+		// NEW: Verify the consensus state account still exists (not yet pruned)
+		s.Require().True(s.Run("Verify oldest consensus state account still exists", func() {
+			oldestHeight := heightsList[0]
+			consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, oldestHeight)
 
-		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, consensusStatePDA)
-		s.Require().NoError(err)
-		s.Require().NotNil(accountInfo.Value, "Consensus state account should still exist before prune")
-		s.Require().Greater(accountInfo.Value.Lamports, uint64(0), "Account should have lamports before prune")
+			accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, consensusStatePDA)
+			s.Require().NoError(err)
+			s.Require().NotNil(accountInfo.Value, "Consensus state account should still exist before prune")
+			s.Require().Greater(accountInfo.Value.Lamports, uint64(0), "Account should have lamports before prune")
 
-		s.T().Logf("✓ Consensus state account at height %d still exists with %d lamports", oldestHeight, accountInfo.Value.Lamports)
-	}))
+			s.T().Logf("✓ Consensus state account at height %d still exists with %d lamports", oldestHeight, accountInfo.Value.Lamports)
+		}))
 
-	// NEW: Call prune_consensus_states instruction to clean up the account
-	s.Require().True(s.Run("Call prune_consensus_states to cleanup old state", func() {
-		oldestHeight := heightsList[0]
-		s.T().Logf("Calling prune_consensus_states to cleanup height %d...", oldestHeight)
+		// NEW: Call prune_consensus_states instruction to clean up the account
+		s.Require().True(s.Run("Call prune_consensus_states to cleanup old state", func() {
+			oldestHeight := heightsList[0]
+			s.T().Logf("Calling prune_consensus_states to cleanup height %d...", oldestHeight)
 
-		// Get necessary accounts
-		clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
-		consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, oldestHeight)
+			// Get necessary accounts
+			clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
+			consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, oldestHeight)
 
-		// Build prune instruction manually with remaining accounts
-		// We need to manually construct the instruction to include remaining accounts
-		buf := new(bytes.Buffer)
-		enc := bin.NewBorshEncoder(buf)
+			// Build prune instruction manually with remaining accounts
+			// We need to manually construct the instruction to include remaining accounts
+			buf := new(bytes.Buffer)
+			enc := bin.NewBorshEncoder(buf)
 
-		// Write instruction discriminator
-		discriminator := [8]byte{9, 22, 44, 51, 29, 240, 22, 59} // From generated code
-		err := enc.WriteBytes(discriminator[:], false)
-		s.Require().NoError(err)
+			// Write instruction discriminator
+			discriminator := [8]byte{9, 22, 44, 51, 29, 240, 22, 59} // From generated code
+			err := enc.WriteBytes(discriminator[:], false)
+			s.Require().NoError(err)
 
-		// Write chain_id parameter
-		err = enc.Encode(simd.Config().ChainID)
-		s.Require().NoError(err)
+			// Write chain_id parameter
+			err = enc.Encode(simd.Config().ChainID)
+			s.Require().NoError(err)
 
-		// Build account metas
-		accounts := solanago.AccountMetaSlice{}
-		accounts.Append(solanago.NewAccountMeta(clientStateAccount, true, false))         // client_state
-		accounts.Append(solanago.NewAccountMeta(s.SolanaUser.PublicKey(), true, true))    // rent_receiver
-		accounts.Append(solanago.NewAccountMeta(consensusStatePDA, true, false))          // consensus state to prune
+			// Build account metas
+			accounts := solanago.AccountMetaSlice{}
+			accounts.Append(solanago.NewAccountMeta(clientStateAccount, true, false))      // client_state
+			accounts.Append(solanago.NewAccountMeta(s.SolanaUser.PublicKey(), true, true)) // rent_receiver
+			accounts.Append(solanago.NewAccountMeta(consensusStatePDA, true, false))       // consensus state to prune
 
-		// Create instruction
-		pruneIx := solanago.NewInstruction(
-			ics07_tendermint.ProgramID,
-			accounts,
-			buf.Bytes(),
-		)
+			// Create instruction
+			pruneIx := solanago.NewInstruction(
+				ics07_tendermint.ProgramID,
+				accounts,
+				buf.Bytes(),
+			)
 
-		// Send transaction using helper methods
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(
-			s.SolanaUser.PublicKey(),
-			pruneIx,
-		)
-		s.Require().NoError(err)
+			// Send transaction using helper methods
+			tx, err := s.SolanaChain.NewTransactionFromInstructions(
+				s.SolanaUser.PublicKey(),
+				pruneIx,
+			)
+			s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(
-			ctx,
-			tx,
-			s.SolanaUser,
-		)
-		s.Require().NoError(err)
-		s.T().Logf("Prune transaction sent: %s", sig)
+			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(
+				ctx,
+				tx,
+				s.SolanaUser,
+			)
+			s.Require().NoError(err)
+			s.T().Logf("Prune transaction sent: %s", sig)
 
-		// Wait for confirmation
-		time.Sleep(2 * time.Second)
+			// Wait for confirmation
+			time.Sleep(2 * time.Second)
 
-		s.T().Logf("✓ Prune transaction confirmed: %s", sig)
-	}))
+			s.T().Logf("✓ Prune transaction confirmed: %s", sig)
+		}))
 
-	// NEW: Verify the consensus state account was closed
-	s.Require().True(s.Run("Verify oldest consensus state account was closed", func() {
-		oldestHeight := heightsList[0]
-		consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, oldestHeight)
+		// NEW: Verify the consensus state account was closed
+		s.Require().True(s.Run("Verify oldest consensus state account was closed", func() {
+			oldestHeight := heightsList[0]
+			consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, oldestHeight)
 
-		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, consensusStatePDA)
-
-		// Account not found is expected - it means the account was closed successfully
-		if err != nil {
-			s.T().Logf("✓ Consensus state account at height %d was successfully closed (account not found)", oldestHeight)
-			return
-		}
-
-		// If account info is returned, it should have 0 lamports (also indicates closed)
-		if accountInfo.Value != nil {
-			s.Require().Equal(uint64(0), accountInfo.Value.Lamports, "Account should have 0 lamports after prune")
-			s.T().Logf("✓ Consensus state account at height %d was successfully closed (0 lamports)", oldestHeight)
-		} else {
-			s.T().Logf("✓ Consensus state account at height %d was successfully closed (nil value)", oldestHeight)
-		}
-	}))
-
-	// NEW: Verify height was removed from to_prune list
-	s.Require().True(s.Run("Verify oldest height removed from to_prune list", func() {
-		oldestHeight := heightsList[0]
-
-		clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
-		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
-		s.Require().NoError(err)
-
-		clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
-		s.Require().NoError(err)
-
-		// Check that the oldest height is NO LONGER in the to_prune list
-		found := false
-		for _, h := range clientState.ConsensusStateHeightsToPrune {
-			if h == oldestHeight {
-				found = true
-				break
+			accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, consensusStatePDA)
+			// Account not found is expected - it means the account was closed successfully
+			if err != nil {
+				s.T().Logf("✓ Consensus state account at height %d was successfully closed (account not found)", oldestHeight)
+				return
 			}
-		}
 
-		s.Require().False(found, "Oldest height %d should have been removed from to_prune list", oldestHeight)
-		s.T().Logf("✓ Oldest height %d was removed from to_prune list", oldestHeight)
-		s.T().Logf("Remaining heights pending cleanup: %d", len(clientState.ConsensusStateHeightsToPrune))
-	}))
+			// If account info is returned, it should have 0 lamports (also indicates closed)
+			if accountInfo.Value != nil {
+				s.Require().Equal(uint64(0), accountInfo.Value.Lamports, "Account should have 0 lamports after prune")
+				s.T().Logf("✓ Consensus state account at height %d was successfully closed (0 lamports)", oldestHeight)
+			} else {
+				s.T().Logf("✓ Consensus state account at height %d was successfully closed (nil value)", oldestHeight)
+			}
+		}))
 
-	s.T().Logf("=== Prune Instruction Verification Complete ===")
-	s.T().Logf("Successfully verified that prune_consensus_states:")
-	s.T().Logf("  1. Closed the oldest consensus state account")
-	s.T().Logf("  2. Reclaimed rent to the receiver")
-	s.T().Logf("  3. Removed the height from consensus_state_heights_to_prune list")
+		// NEW: Verify height was removed from to_prune list
+		s.Require().True(s.Run("Verify oldest height removed from to_prune list", func() {
+			oldestHeight := heightsList[0]
+
+			clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
+			accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
+			s.Require().NoError(err)
+
+			clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
+			s.Require().NoError(err)
+
+			// Check that the oldest height is NO LONGER in the to_prune list
+			found := false
+			for _, h := range clientState.ConsensusStateHeightsToPrune {
+				if h == oldestHeight {
+					found = true
+					break
+				}
+			}
+
+			s.Require().False(found, "Oldest height %d should have been removed from to_prune list", oldestHeight)
+			s.T().Logf("✓ Oldest height %d was removed from to_prune list", oldestHeight)
+			s.T().Logf("Remaining heights pending cleanup: %d", len(clientState.ConsensusStateHeightsToPrune))
+		}))
+
+		s.T().Logf("=== Prune Instruction Verification Complete ===")
+		s.T().Logf("Successfully verified that prune_consensus_states:")
+		s.T().Logf("  1. Closed the oldest consensus state account")
+		s.T().Logf("  2. Reclaimed rent to the receiver")
+		s.T().Logf("  3. Removed the height from consensus_state_heights_to_prune list")
 	}))
 }
 
@@ -1273,35 +1272,4 @@ func (s *IbcEurekaSolanaTestSuite) getConsensusStateAccount(chainID string, heig
 	)
 
 	return consensusStateAccount
-}
-
-func (s *IbcEurekaSolanaTestSuite) verifyConsensusStateExists(ctx context.Context, chainID string, height uint64) {
-	consensusStatePDA := s.getConsensusStateAccount(chainID, height)
-
-	accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, consensusStatePDA)
-	s.Require().NoError(err, "Failed to query consensus state account")
-	s.Require().NotNil(accountInfo.Value, "Consensus state account should exist at height %d", height)
-	s.Require().Greater(accountInfo.Value.Lamports, uint64(0), "Consensus state account should have lamports at height %d", height)
-
-	s.T().Logf("✓ Consensus state exists at height %d with %d lamports", height, accountInfo.Value.Lamports)
-}
-
-func (s *IbcEurekaSolanaTestSuite) verifyConsensusStateDeleted(ctx context.Context, chainID string, height uint64) {
-	consensusStatePDA := s.getConsensusStateAccount(chainID, height)
-
-	accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, consensusStatePDA)
-	// The account should either not be found (nil) or have been closed (0 lamports)
-	if err != nil {
-		// Account not found is expected - state was deleted
-		s.T().Logf("✓ Consensus state deleted (account not found) at height %d", height)
-		return
-	}
-
-	if accountInfo.Value == nil || accountInfo.Value.Lamports == 0 {
-		s.T().Logf("✓ Consensus state deleted (account closed) at height %d", height)
-		return
-	}
-
-	s.Require().Fail("Consensus state should have been deleted/pruned",
-		"Account at height %d still exists with %d lamports", height, accountInfo.Value.Lamports)
 }
