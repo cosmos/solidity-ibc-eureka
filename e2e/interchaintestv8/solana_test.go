@@ -155,7 +155,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 					Run: func() (solanago.PublicKey, error) {
 						s.T().Logf("Deploying %s...", displayName)
 						keypairPath := fmt.Sprintf("%s/%s-keypair.json", keypairDir, programName)
-						programID, err := s.SolanaChain.DeploySolanaProgramDirectlyAsync(ctx, programName, keypairPath, deployerPath)
+						programID, err := s.SolanaChain.DeploySolanaProgramAsync(ctx, programName, keypairPath, deployerPath)
 						if err == nil {
 							s.T().Logf("✓ %s deployed at: %s", displayName, programID)
 						}

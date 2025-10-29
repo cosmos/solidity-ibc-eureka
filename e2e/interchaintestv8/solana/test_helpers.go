@@ -235,68 +235,14 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	return lastSig, nil
 }
 
-func (s *Solana) DeploySolanaProgram(ctx context.Context, t *testing.T, require *require.Assertions, programName string) solana.PublicKey {
-	t.Helper()
-	keypairPath := fmt.Sprintf("e2e/interchaintestv8/solana/keypairs/%s-keypair.json", programName)
-	walletPath := "e2e/interchaintestv8/solana/keypairs/deployer_wallet.json"
-	return s.DeploySolanaProgramWithWallet(ctx, t, require, programName, keypairPath, walletPath)
-}
-
-func (s *Solana) DeploySolanaProgramWithWallet(ctx context.Context, t *testing.T, require *require.Assertions, programName, keypairPath, walletPath string) solana.PublicKey {
-	t.Helper()
-	programID, _, err := AnchorDeploy(ctx, "programs/solana", programName, keypairPath, walletPath)
-	require.NoError(err, "%s program deployment has failed", programName)
-	t.Logf("%s program deployed at: %s", programName, programID.String())
-
-	// Wait for program to be available
-	if !s.WaitForProgramAvailability(ctx, programID) {
-		t.Logf("Warning: Program %s may not be fully available yet", programID.String())
-	}
-
-	return programID
-}
-
-// DeploySolanaProgramDirectly deploys a program using solana CLI instead of anchor CLI
-// This allows parallel deployment as each deployment creates unique buffer accounts
-func (s *Solana) DeploySolanaProgramDirectly(ctx context.Context, t *testing.T, require *require.Assertions, programName, keypairPath, payerKeypairPath string) solana.PublicKey {
-	t.Helper()
-
+// DeploySolanaProgramAsync deploys a program using solana CLI
+func (s *Solana) DeploySolanaProgramAsync(ctx context.Context, programName, keypairPath, payerKeypairPath string) (solana.PublicKey, error) {
 	programSoFile := fmt.Sprintf("programs/solana/target/deploy/%s.so", programName)
-	programID, _, err := SolanaProgramDeploy(ctx, programSoFile, keypairPath, payerKeypairPath, s.RPCURL)
-	require.NoError(err, "%s program deployment has failed", programName)
-	t.Logf("%s program deployed at: %s", programName, programID.String())
-
-	if !s.WaitForProgramAvailability(ctx, programID) {
-		t.Logf("Warning: Program %s may not be fully available yet", programID.String())
-	}
-
-	return programID
-}
-
-// DeploySolanaProgramDirectlyAsync deploys a program using solana CLI (thread-safe)
-func (s *Solana) DeploySolanaProgramDirectlyAsync(ctx context.Context, programName, keypairPath, payerKeypairPath string) (solana.PublicKey, error) {
-	programSoFile := fmt.Sprintf("programs/solana/target/deploy/%s.so", programName)
-	programID, _, err := SolanaProgramDeploy(ctx, programSoFile, keypairPath, payerKeypairPath, s.RPCURL)
+	programID, _, err := DeploySolanaProgram(ctx, programSoFile, keypairPath, payerKeypairPath, s.RPCURL)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("%s program deployment has failed: %w", programName, err)
 	}
 
-	if !s.WaitForProgramAvailability(ctx, programID) {
-		return solana.PublicKey{}, fmt.Errorf("program %s failed to become available", programName)
-	}
-
-	return programID, nil
-}
-
-// DeploySolanaProgramWithWalletAsync deploys a program and returns the result via error
-// This version is safe to call from goroutines as it doesn't use require/assert
-func (s *Solana) DeploySolanaProgramWithWalletAsync(ctx context.Context, programName, keypairPath, walletPath string) (solana.PublicKey, error) {
-	programID, _, err := AnchorDeploy(ctx, "programs/solana", programName, keypairPath, walletPath)
-	if err != nil {
-		return solana.PublicKey{}, fmt.Errorf("%s program deployment has failed: %w", programName, err)
-	}
-
-	// Wait for program to be available
 	if !s.WaitForProgramAvailability(ctx, programID) {
 		return solana.PublicKey{}, fmt.Errorf("program %s failed to become available", programName)
 	}

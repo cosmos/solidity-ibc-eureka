@@ -19,7 +19,7 @@ const deployerAddress = "8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z"
 // DeployerPubkey is the public key of the deployer wallet used for deploying all Solana programs.
 var DeployerPubkey = solana.MustPublicKeyFromBase58(deployerAddress)
 
-func SolanaProgramDeploy(ctx context.Context, programSoFile, programKeypairFile, payerKeypairFile, rpcURL string) (solana.PublicKey, solana.Signature, error) {
+func DeploySolanaProgram(ctx context.Context, programSoFile, programKeypairFile, payerKeypairFile, rpcURL string) (solana.PublicKey, solana.Signature, error) {
 	absProgramFile, err := filepath.Abs(programSoFile)
 	if err != nil {
 		return solana.PublicKey{}, solana.Signature{}, fmt.Errorf("failed to get absolute path for program file: %w", err)
