@@ -28,7 +28,6 @@ pub fn prune_consensus_states(ctx: Context<PruneConsensusStates>, _chain_id: Str
             .consensus_state_heights_to_prune
             .contains(&height)
         {
-            msg!("Height {} is not marked for pruning, skipping", height);
             continue;
         }
 
@@ -56,7 +55,6 @@ pub fn prune_consensus_states(ctx: Context<PruneConsensusStates>, _chain_id: Str
             **lamports = 0;
 
             pruned_heights.push(height);
-            msg!("Pruned consensus state at height {}", height);
         }
     }
 
@@ -64,12 +62,6 @@ pub fn prune_consensus_states(ctx: Context<PruneConsensusStates>, _chain_id: Str
     client_state
         .consensus_state_heights_to_prune
         .retain(|h| !pruned_heights.contains(h));
-
-    msg!(
-        "Successfully pruned {} consensus states, {} heights remaining in to_prune list",
-        pruned_heights.len(),
-        client_state.consensus_state_heights_to_prune.len()
-    );
 
     Ok(())
 }

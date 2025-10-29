@@ -121,7 +121,6 @@ pub mod fixtures {
         }
     }
 
-    // Helper to check if a fixture file exists
     pub fn fixture_exists(filename: &str) -> bool {
         let fixture_path =
             format!("../../../../packages/tendermint-light-client/fixtures/{filename}.json");
@@ -384,7 +383,6 @@ pub mod fixtures {
         }
     }
 
-    /// Helper functions for misbehaviour testing
     pub mod misbehaviour {
         use super::*;
 

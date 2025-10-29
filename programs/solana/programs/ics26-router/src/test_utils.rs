@@ -465,8 +465,6 @@ pub fn create_bpf_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::accoun
     )
 }
 
-/// Helper function to create a payload chunk account for tests
-/// Note: Creates accounts with 0 lamports since they will be cleaned up during test execution
 pub fn create_payload_chunk_account(
     submitter: Pubkey,
     client_id: &str,
@@ -510,8 +508,6 @@ pub fn create_payload_chunk_account(
     )
 }
 
-/// Helper function to create a proof chunk account for tests
-/// Note: Creates accounts with 0 lamports since they will be cleaned up during test execution
 pub fn create_proof_chunk_account(
     submitter: Pubkey,
     client_id: &str,

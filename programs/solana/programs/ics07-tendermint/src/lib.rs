@@ -179,8 +179,6 @@ pub mod ics07_tendermint {
         client_state: ClientState,
         consensus_state: ConsensusState,
     ) -> Result<()> {
-        // NOTE: chain_id is used in the #[instruction] attribute for account validation
-        // but the actual handler doesn't need it as it's embedded in client_state
         assert_eq!(client_state.chain_id, chain_id);
         assert_eq!(client_state.latest_height.revision_height, latest_height);
 

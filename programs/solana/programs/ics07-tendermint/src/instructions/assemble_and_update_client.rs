@@ -154,10 +154,7 @@ fn verify_and_update_header(
         header,
         current_time,
     )
-    .map_err(|e| {
-        msg!("Header verification failed: {:?}", e);
-        ErrorCode::UpdateClientFailed
-    })?;
+    .map_err(|_| ErrorCode::UpdateClientFailed)?;
 
     Ok((
         output.latest_height,
@@ -190,7 +187,6 @@ fn cleanup_chunks(
     submitter: Pubkey,
 ) -> Result<()> {
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
-        // Double-check PDA (paranoid check)
         let expected_seeds = &[
             crate::state::HeaderChunk::SEED,
             submitter.as_ref(),
@@ -213,7 +209,6 @@ fn cleanup_chunks(
     Ok(())
 }
 
-// Helper function to load and validate consensus state
 fn load_consensus_state(
     account: &UncheckedAccount,
     client_key: Pubkey,
@@ -299,12 +294,6 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
             .client_state
             .consensus_state_heights_to_prune
             .push(oldest_height);
-
-        msg!(
-            "Pruned height {} from tracking, added to cleanup list (total pending cleanup: {})",
-            oldest_height,
-            params.client_state.consensus_state_heights_to_prune.len()
-        );
     }
 
     // Add new height to sorted tracking list (binary search insert)
@@ -355,12 +344,6 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     let mut data = params.account.try_borrow_mut_data()?;
     let mut cursor = std::io::Cursor::new(&mut data[..]);
     new_store.try_serialize(&mut cursor)?;
-
-    msg!(
-        "Stored consensus state at height {}, total tracked: {}",
-        params.height,
-        params.client_state.consensus_state_heights.len()
-    );
 
     Ok(UpdateResult::Update)
 }

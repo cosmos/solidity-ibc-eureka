@@ -215,8 +215,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_GMPCounterFromCosmos() {
 		// We don't need separate Solana user keys - the ICS27 account_state PDAs are the identities
 		// The user counter PDAs are derived from the ICS27 account_state PDAs
 
-		// Helper to get counter value for a Cosmos user
-		// This derives the ICS27 account_state PDA, then the user counter PDA from that
 		getCounterValue = func(cosmosUserAddress string) uint64 {
 			// Derive ICS27 account_state PDA for this Cosmos user
 			salt := []byte{} // Empty salt for this test

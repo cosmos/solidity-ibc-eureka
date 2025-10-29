@@ -71,26 +71,12 @@ pub fn assemble_multiple_payloads<'b>(
 }
 
 pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<Vec<u8>> {
-    msg!(
-        "assemble_single_payload_chunks: total_chunks={}, start_index={}, remaining_accounts={}",
-        params.total_chunks,
-        params.start_index,
-        params.remaining_accounts.len()
-    );
-
     let mut payload_data = Vec::new();
     let mut accounts_processed = 0;
 
     // Collect and validate chunks
     for i in 0..params.total_chunks {
         let account_index = params.start_index + accounts_processed;
-        msg!(
-            "Processing payload chunk {}/{}: account_index={}, remaining_accounts.len()={}",
-            i,
-            params.total_chunks,
-            account_index,
-            params.remaining_accounts.len()
-        );
         require!(
             account_index < params.remaining_accounts.len(),
             RouterError::InvalidChunkCount
@@ -161,13 +147,6 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
     // Collect and validate chunks
     for i in 0..params.total_chunks {
         let account_index = params.start_index + accounts_processed;
-        msg!(
-            "Processing proof chunk {}/{}: account_index={}, remaining_accounts.len()={}",
-            i,
-            params.total_chunks,
-            account_index,
-            params.remaining_accounts.len()
-        );
 
         require!(
             account_index < params.remaining_accounts.len(),
@@ -236,7 +215,6 @@ fn cleanup_payload_chunks(
     );
 
     for (i, chunk_account) in chunk_accounts.iter().enumerate() {
-        // Double-check PDA (paranoid check)
         let expected_seeds = &[
             PayloadChunk::SEED,
             submitter.as_ref(),
@@ -272,7 +250,6 @@ fn cleanup_proof_chunks(
     program_id: &Pubkey,
 ) -> Result<()> {
     for (i, chunk_account) in chunk_accounts.iter().enumerate() {
-        // Double-check PDA (paranoid check)
         let expected_seeds = &[
             ProofChunk::SEED,
             submitter.as_ref(),
