@@ -146,7 +146,10 @@ fn create_prune_instruction(
 
     // Add selected consensus state accounts as remaining accounts
     for &index in consensus_accounts_to_include {
-        account_metas.push(AccountMeta::new(test_accounts.consensus_state_pdas[index], false));
+        account_metas.push(AccountMeta::new(
+            test_accounts.consensus_state_pdas[index],
+            false,
+        ));
     }
 
     Instruction {
