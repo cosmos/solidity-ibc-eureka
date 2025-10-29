@@ -305,6 +305,7 @@ mod tests {
         app_program_id: Option<Pubkey>,
         unauthorized_relayer: Option<Pubkey>,
         wrong_dest_client: Option<&'static str>,
+        wrong_light_client_program: Option<Pubkey>,
         active_client: bool,
         initial_sequence: u64,
         acknowledgement: Vec<u8>,
@@ -321,6 +322,7 @@ mod tests {
                 app_program_id: None,
                 unauthorized_relayer: None,
                 wrong_dest_client: None,
+                wrong_light_client_program: None,
                 active_client: true,
                 initial_sequence: 1,
                 acknowledgement: vec![1, 2, 3, 4],
@@ -335,13 +337,17 @@ mod tests {
         let relayer = params.unauthorized_relayer.unwrap_or(authority);
         let payer = relayer;
         let app_program_id = params.app_program_id.unwrap_or(MOCK_IBC_APP_PROGRAM_ID);
-        let light_client_program = MOCK_LIGHT_CLIENT_ID;
+
+        let client_light_client_program = MOCK_LIGHT_CLIENT_ID;
+        let instruction_light_client_program = params
+            .wrong_light_client_program
+            .unwrap_or(MOCK_LIGHT_CLIENT_ID);
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
         let (client_pda, client_data) = setup_client(
             params.source_client_id,
             authority,
-            light_client_program,
+            client_light_client_program,
             params.dest_client_id,
             params.active_client,
         );
@@ -423,7 +429,7 @@ mod tests {
             AccountMeta::new(payer, true),
             AccountMeta::new_readonly(system_program::ID, false),
             AccountMeta::new_readonly(client_pda, false),
-            AccountMeta::new_readonly(light_client_program, false),
+            AccountMeta::new_readonly(instruction_light_client_program, false),
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
@@ -474,9 +480,9 @@ mod tests {
             create_system_account(payer),   // payer (also signer)
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
-            create_bpf_program_account(light_client_program),
-            create_account(client_state, vec![0u8; 100], light_client_program),
-            create_account(consensus_state, vec![0u8; 100], light_client_program),
+            create_bpf_program_account(instruction_light_client_program),
+            create_account(client_state, vec![0u8; 100], client_light_client_program),
+            create_account(consensus_state, vec![0u8; 100], client_light_client_program),
         ];
 
         // Add chunk accounts as remaining accounts
@@ -577,6 +583,22 @@ mod tests {
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::ClientNotActive as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_ack_packet_invalid_light_client_program() {
+        let ctx = setup_ack_packet_test_with_params(AckPacketTestParams {
+            wrong_light_client_program: Some(Pubkey::new_unique()), // Wrong program
+            ..Default::default()
+        });
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidLightClientProgram as u32,
         ))];
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
