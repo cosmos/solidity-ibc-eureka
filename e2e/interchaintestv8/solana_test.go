@@ -1103,7 +1103,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.T().Logf("The 10 most recent consensus states remain accessible")
 		}))
 
-		// NEW: Verify the oldest height was added to the to_prune list
 		s.Require().True(s.Run("Verify oldest height is in to_prune list", func() {
 			oldestHeight := heightsList[0]
 			s.T().Logf("Checking if oldest height %d is in consensus_state_heights_to_prune...", oldestHeight)
@@ -1129,7 +1128,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.T().Logf("Total heights pending cleanup: %d", len(clientState.ConsensusStateHeightsToPrune))
 		}))
 
-		// NEW: Verify the consensus state account still exists (not yet pruned)
 		s.Require().True(s.Run("Verify oldest consensus state account still exists", func() {
 			oldestHeight := heightsList[0]
 			consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, oldestHeight)
@@ -1142,7 +1140,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.T().Logf("✓ Consensus state account at height %d still exists with %d lamports", oldestHeight, accountInfo.Value.Lamports)
 		}))
 
-		// NEW: Call prune_consensus_states instruction to clean up the account
 		s.Require().True(s.Run("Call prune_consensus_states to cleanup old state", func() {
 			oldestHeight := heightsList[0]
 			s.T().Logf("Calling prune_consensus_states to cleanup height %d...", oldestHeight)
@@ -1199,7 +1196,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.T().Logf("✓ Prune transaction confirmed: %s", sig)
 		}))
 
-		// NEW: Verify the consensus state account was closed
 		s.Require().True(s.Run("Verify oldest consensus state account was closed", func() {
 			oldestHeight := heightsList[0]
 			consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, oldestHeight)
@@ -1220,7 +1216,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			}
 		}))
 
-		// NEW: Verify height was removed from to_prune list
 		s.Require().True(s.Run("Verify oldest height removed from to_prune list", func() {
 			oldestHeight := heightsList[0]
 
