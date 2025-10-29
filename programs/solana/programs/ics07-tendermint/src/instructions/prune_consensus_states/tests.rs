@@ -184,7 +184,7 @@ fn test_prune_consensus_states_happy_path() {
 
     let test_accounts = setup_test_accounts(
         chain_id,
-        heights_to_prune.clone(),
+        heights_to_prune,
         consensus_state_heights,
         true, // Create consensus accounts
     );
@@ -251,12 +251,8 @@ fn test_prune_partial_heights() {
     let heights_to_prune = vec![100, 200, 300];
     let consensus_state_heights = vec![400, 500];
 
-    let test_accounts = setup_test_accounts(
-        chain_id,
-        heights_to_prune.clone(),
-        consensus_state_heights,
-        true,
-    );
+    let test_accounts =
+        setup_test_accounts(chain_id, heights_to_prune, consensus_state_heights, true);
 
     // Only prune first two heights
     let instruction = create_prune_instruction(&test_accounts, chain_id.to_string(), &[0, 1]);
@@ -271,7 +267,7 @@ fn test_prune_partial_heights() {
             .find(|(k, _)| *k == test_accounts.consensus_state_pdas[i])
             .unwrap()
             .1;
-        assert_eq!(account.lamports, 0, "Account {} should be closed", i);
+        assert_eq!(account.lamports, 0, "Account {i} should be closed");
     }
 
     // Verify third account still has lamports
@@ -308,12 +304,8 @@ fn test_prune_skips_heights_not_in_to_prune_list() {
     let consensus_state_heights = vec![200, 300];
 
     // Create consensus state for height 100 (in to_prune)
-    let mut test_accounts = setup_test_accounts(
-        chain_id,
-        heights_to_prune.clone(),
-        consensus_state_heights,
-        true,
-    );
+    let mut test_accounts =
+        setup_test_accounts(chain_id, heights_to_prune, consensus_state_heights, true);
 
     // Manually add a consensus state for height 200 (NOT in to_prune)
     let height_200_pda = Pubkey::find_program_address(
@@ -350,11 +342,11 @@ fn test_prune_skips_heights_not_in_to_prune_list() {
     ));
 
     // Try to prune both heights
-    let mut instruction_data = crate::instruction::PruneConsensusStates {
+    let instruction_data = crate::instruction::PruneConsensusStates {
         chain_id: chain_id.to_string(),
     };
 
-    let mut account_metas = vec![
+    let account_metas = vec![
         AccountMeta::new(test_accounts.client_state_pda, false),
         AccountMeta::new(test_accounts.rent_receiver, true),
         AccountMeta::new(test_accounts.consensus_state_pdas[0], false), // Height 100 - in to_prune
@@ -452,7 +444,7 @@ fn test_prune_skips_empty_accounts() {
     // Create test accounts but only populate first consensus state
     let mut test_accounts = setup_test_accounts(
         chain_id,
-        heights_to_prune.clone(),
+        heights_to_prune,
         consensus_state_heights,
         false, // Don't auto-create
     );
@@ -531,12 +523,8 @@ fn test_prune_verifies_pda() {
     let heights_to_prune = vec![100];
     let consensus_state_heights = vec![200];
 
-    let test_accounts = setup_test_accounts(
-        chain_id,
-        heights_to_prune.clone(),
-        consensus_state_heights,
-        true,
-    );
+    let test_accounts =
+        setup_test_accounts(chain_id, heights_to_prune, consensus_state_heights, true);
 
     // Create instruction with WRONG PDA (random pubkey)
     let wrong_pda = Pubkey::new_unique();
@@ -558,7 +546,7 @@ fn test_prune_verifies_pda() {
     };
 
     // Add the wrong account to our test accounts
-    let mut modified_accounts = test_accounts.accounts.clone();
+    let mut modified_accounts = test_accounts.accounts;
     let consensus_store = ConsensusStateStore {
         height: 100,
         consensus_state: ConsensusState {

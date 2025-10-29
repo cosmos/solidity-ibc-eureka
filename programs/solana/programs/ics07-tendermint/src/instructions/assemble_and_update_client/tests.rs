@@ -8,7 +8,6 @@ use crate::test_helpers::{
     },
     PROGRAM_BINARY_PATH,
 };
-use crate::types::ConsensusState;
 use anchor_lang::{AccountDeserialize, AccountSerialize, InstructionData};
 use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
 use solana_sdk::account::Account;
@@ -1144,8 +1143,8 @@ fn test_assemble_updates_latest_height() {
     }
 }
 
-/// Test that header with invalid cryptographic proof fails during update_client
-/// and triggers UpdateClientFailed error
+/// Test that header with invalid cryptographic proof fails during `update_client`
+/// and triggers `UpdateClientFailed` error
 #[test]
 fn test_assemble_and_update_with_invalid_signature() {
     use crate::state::{ConsensusStateStore, HeaderChunk};
@@ -1163,7 +1162,7 @@ fn test_assemble_and_update_with_invalid_signature() {
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::sysvar::clock::Clock;
 
-    let mollusk = setup_mollusk();
+    let _mollusk = setup_mollusk();
 
     // Load real fixture data
     let (client_state, consensus_state, update_message) = load_primary_fixtures();
@@ -1177,11 +1176,11 @@ fn test_assemble_and_update_with_invalid_signature() {
     let corrupted_header_bytes = corrupt_header_signature(&update_message.client_message_hex);
 
     // Create chunks with corrupted header
-    let (_header_bytes, mut chunks, _update_msg) = create_real_header_and_chunks();
+    let (_header_bytes, _chunks, _update_msg) = create_real_header_and_chunks();
 
     // Replace the header data in chunks with corrupted header
     // Calculate how the corrupted header should be chunked
-    let chunk_count = (corrupted_header_bytes.len() + CHUNK_DATA_SIZE - 1) / CHUNK_DATA_SIZE;
+    let chunk_count = corrupted_header_bytes.len().div_ceil(CHUNK_DATA_SIZE);
     let mut corrupted_chunks = Vec::new();
     for chunk_index in 0..chunk_count {
         let start = chunk_index * CHUNK_DATA_SIZE;
@@ -1300,7 +1299,7 @@ fn test_assemble_and_update_with_invalid_signature() {
     ];
 
     // Add chunk accounts to instruction
-    for (chunk_pda, _) in chunk_accounts.iter() {
+    for (chunk_pda, _) in &chunk_accounts {
         account_metas.push(AccountMeta::new(*chunk_pda, false));
     }
 
