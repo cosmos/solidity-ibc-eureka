@@ -19,7 +19,7 @@ require (
 	github.com/cosmos/solidity-ibc-eureka/packages/go-abigen v0.0.0
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/holiman/uint256 v1.3.2
-	github.com/kurtosis-tech/kurtosis/api/golang v1.10.3
+	github.com/kurtosis-tech/kurtosis/api/golang v1.11.2
 	github.com/moby/moby v27.5.1+incompatible
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
