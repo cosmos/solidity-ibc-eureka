@@ -91,19 +91,10 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
             account_index,
             params.remaining_accounts.len()
         );
-        // TEMPORARILY COMMENTED OUT FOR DEBUGGING
-        // require!(
-        //     account_index < params.remaining_accounts.len(),
-        //     RouterError::InvalidChunkCount
-        // );
-        if account_index >= params.remaining_accounts.len() {
-            msg!(
-                "ERROR (PAYLOAD): account_index {} >= remaining_accounts.len() {}",
-                account_index,
-                params.remaining_accounts.len()
-            );
-            return Err(RouterError::PortAlreadyBound.into()); // Changed to unique error for debugging (6001)
-        }
+        require!(
+            account_index < params.remaining_accounts.len(),
+            RouterError::InvalidChunkCount
+        );
 
         let chunk_account = &params.remaining_accounts[account_index];
 
@@ -179,19 +170,11 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
             account_index,
             params.remaining_accounts.len()
         );
-        // TEMPORARILY COMMENTED OUT FOR DEBUGGING
-        // require!(
-        //     account_index < params.remaining_accounts.len(),
-        //     RouterError::InvalidChunkCount
-        // );
-        if account_index >= params.remaining_accounts.len() {
-            msg!(
-                "ERROR (PROOF): account_index {} >= remaining_accounts.len() {}",
-                account_index,
-                params.remaining_accounts.len()
-            );
-            return Err(RouterError::PortNotFound.into()); // Changed to unique error for debugging (6002)
-        }
+
+        require!(
+            account_index < params.remaining_accounts.len(),
+            RouterError::InvalidChunkCount
+        );
 
         let chunk_account = &params.remaining_accounts[account_index];
 
