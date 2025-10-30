@@ -1297,8 +1297,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.Require().NoError(err)
 			s.T().Logf("Prune transaction sent: %s", sig)
 
-			// Wait for confirmation
-			time.Sleep(2 * time.Second)
+			// Wait for finalization - account state changes need time to propagate
+			time.Sleep(5 * time.Second)
 
 			s.T().Logf("✓ Prune transaction confirmed: %s", sig)
 
@@ -1336,25 +1336,59 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 		s.Require().True(s.Run("Verify lowest consensus state account was closed", func() {
 			consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, lowestHeight)
 
-			accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, consensusStatePDA)
-			// Account not found is expected - it means the account was closed successfully
-			if err != nil {
-				s.T().Logf("✓ Consensus state account at height %d was successfully closed (account not found)", lowestHeight)
-				return
-			}
+			// Poll the account state until it's closed or timeout
+			// The transaction succeeded (verified via metadata), but account state updates may take time
+			maxRetries := 15 // 30 seconds total (15 * 2s)
+			for attempt := 0; attempt < maxRetries; attempt++ {
+				if attempt > 0 {
+					time.Sleep(2 * time.Second)
+					s.T().Logf("Retry %d/%d: Checking if account is closed...", attempt, maxRetries)
+				}
 
-			// If account info is returned, it should have 0 lamports (also indicates closed)
-			if accountInfo.Value != nil {
-				s.Require().Equal(uint64(0), accountInfo.Value.Lamports, "Account should have 0 lamports after prune")
-				s.T().Logf("✓ Consensus state account at height %d was successfully closed (0 lamports)", lowestHeight)
-			} else {
-				s.T().Logf("✓ Consensus state account at height %d was successfully closed (nil value)", lowestHeight)
+				accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(
+					ctx,
+					consensusStatePDA,
+					&rpc.GetAccountInfoOpts{
+						Commitment: rpc.CommitmentFinalized,
+					},
+				)
+
+				// Account not found is expected - it means the account was closed successfully
+				if err != nil {
+					s.T().Logf("✓ Consensus state account at height %d was successfully closed (account not found)", lowestHeight)
+					return
+				}
+
+				// If account has 0 lamports, it's closed
+				if accountInfo.Value != nil && accountInfo.Value.Lamports == 0 {
+					s.T().Logf("✓ Consensus state account at height %d was successfully closed (0 lamports)", lowestHeight)
+					return
+				}
+
+				// If nil value, it's closed
+				if accountInfo.Value == nil {
+					s.T().Logf("✓ Consensus state account at height %d was successfully closed (nil value)", lowestHeight)
+					return
+				}
+
+				// Account still has lamports, retry
+				if attempt == maxRetries-1 {
+					s.Require().Equal(uint64(0), accountInfo.Value.Lamports,
+						"Account should have 0 lamports after prune (current: %d)", accountInfo.Value.Lamports)
+				}
 			}
 		}))
 
 		s.Require().True(s.Run("Verify lowest height removed from to_prune list", func() {
 			clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
-			accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
+			// Use finalized commitment to ensure we see the updated client state
+			accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(
+				ctx,
+				clientStateAccount,
+				&rpc.GetAccountInfoOpts{
+					Commitment: rpc.CommitmentFinalized,
+				},
+			)
 			s.Require().NoError(err)
 
 			clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
