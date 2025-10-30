@@ -10,22 +10,22 @@ import (
 
 type Spec struct {
 	SecondsPerSlot               time.Duration `json:"SECONDS_PER_SLOT"`
-	SlotsPerEpoch                uint64        `json:"SLOTS_PER_EPOCH"`
-	EpochsPerSyncCommitteePeriod uint64        `json:"EPOCHS_PER_SYNC_COMMITTEE_PERIOD"`
+	SlotsPerEpoch                uint64        `json:"SLOTS_PER_EPOCH,string"`
+	EpochsPerSyncCommitteePeriod uint64        `json:"EPOCHS_PER_SYNC_COMMITTEE_PERIOD,string"`
 
 	// Fork Parameters
 	GenesisForkVersion   phase0.Version `json:"GENESIS_FORK_VERSION"`
-	GenesisSlot          uint64         `json:"GENESIS_SLOT"`
+	GenesisSlot          uint64         `json:"GENESIS_SLOT,string"`
 	AltairForkVersion    phase0.Version `json:"ALTAIR_FORK_VERSION"`
-	AltairForkEpoch      uint64         `json:"ALTAIR_FORK_EPOCH"`
+	AltairForkEpoch      uint64         `json:"ALTAIR_FORK_EPOCH,string"`
 	BellatrixForkVersion phase0.Version `json:"BELLATRIX_FORK_VERSION"`
-	BellatrixForkEpoch   uint64         `json:"BELLATRIX_FORK_EPOCH"`
+	BellatrixForkEpoch   uint64         `json:"BELLATRIX_FORK_EPOCH,string"`
 	CapellaForkVersion   phase0.Version `json:"CAPELLA_FORK_VERSION"`
-	CapellaForkEpoch     uint64         `json:"CAPELLA_FORK_EPOCH"`
+	CapellaForkEpoch     uint64         `json:"CAPELLA_FORK_EPOCH,string"`
 	DenebForkVersion     phase0.Version `json:"DENEB_FORK_VERSION"`
-	DenebForkEpoch       uint64         `json:"DENEB_FORK_EPOCH"`
+	DenebForkEpoch       uint64         `json:"DENEB_FORK_EPOCH,string"`
 	ElectraForkVersion   phase0.Version `json:"ELECTRA_FORK_VERSION"`
-	ElectraForkEpoch     uint64         `json:"ELECTRA_FORK_EPOCH"`
+	ElectraForkEpoch     uint64         `json:"ELECTRA_FORK_EPOCH,string"`
 }
 
 type Bootstrap struct {
