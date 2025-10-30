@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -1059,13 +1060,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.Require().NoError(err)
 
 			// Check that the oldest height is NOT in the tracking list
-			found := false
-			for _, h := range clientState.ConsensusStateHeights {
-				if h == oldestHeight {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(clientState.ConsensusStateHeights, oldestHeight)
 
 			s.Require().False(found, "Oldest height %d should have been removed from tracking list", oldestHeight)
 			s.T().Logf("✓ Oldest height %d was removed from tracking list", oldestHeight)
@@ -1088,13 +1083,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			// Check that heights 1-10 from our list are still tracked
 			for i := 1; i < len(heightsList); i++ {
 				height := heightsList[i]
-				found := false
-				for _, h := range clientState.ConsensusStateHeights {
-					if h == height {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(clientState.ConsensusStateHeights, height)
 				s.Require().True(found, "Height %d should still be in tracking list", height)
 				s.T().Logf("✓ Height %d is still tracked (index %d)", height, i)
 			}
@@ -1116,13 +1105,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.Require().NoError(err)
 
 			// Check that the oldest height IS in the to_prune list
-			found := false
-			for _, h := range clientState.ConsensusStateHeightsToPrune {
-				if h == oldestHeight {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(clientState.ConsensusStateHeightsToPrune, oldestHeight)
 
 			s.Require().True(found, "Oldest height %d should be in to_prune list", oldestHeight)
 			s.T().Logf("✓ Oldest height %d is in to_prune list (ready for cleanup)", oldestHeight)
@@ -1264,13 +1247,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.Require().NoError(err)
 
 			// Check that the oldest height is NO LONGER in the to_prune list
-			found := false
-			for _, h := range clientState.ConsensusStateHeightsToPrune {
-				if h == oldestHeight {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(clientState.ConsensusStateHeightsToPrune, oldestHeight)
 
 			s.Require().False(found, "Oldest height %d should have been removed from to_prune list", oldestHeight)
 			s.T().Logf("✓ Oldest height %d was removed from to_prune list", oldestHeight)
