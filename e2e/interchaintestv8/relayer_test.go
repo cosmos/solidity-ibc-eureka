@@ -1732,7 +1732,7 @@ func (s *RelayerTestSuite) Test_Fulu_Fork() {
 	proofType := types.GetEnvProofType()
 
 	fuluForkEpoch := 12
-	chainconfig.KurtosisConfig.NetworkParams.FuluForkEpoch= uint64(fuluForkEpoch)
+	chainconfig.KurtosisConfig.NetworkParams.FuluForkEpoch = uint64(fuluForkEpoch)
 
 	s.SetupSuite(ctx, proofType)
 

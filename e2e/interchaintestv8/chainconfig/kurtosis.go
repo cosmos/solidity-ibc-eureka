@@ -43,13 +43,13 @@ var (
 				ELLogLevel:     "info",
 				ValidatorCount: 128,
 				// Supernode required for Fulu testing
-				Supernode:      true,
+				Supernode: true,
 			},
 		},
 		// We can change the preset dynamically before spinning up the testnet
 		NetworkParams: kurtosisNetworkConfigParams{
-			Preset:         "minimal",
-			FuluForkEpoch:  1,
+			Preset:        "minimal",
+			FuluForkEpoch: 1,
 		},
 		WaitForFinalization: true,
 		AdditionalServices:  []string{},
