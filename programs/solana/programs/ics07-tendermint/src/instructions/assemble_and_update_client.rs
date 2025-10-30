@@ -339,6 +339,7 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     let new_store = ConsensusStateStore {
         height: params.height,
         consensus_state: params.new_consensus_state.clone(),
+        payer: params.payer.key(),
     };
 
     let mut data = params.account.try_borrow_mut_data()?;

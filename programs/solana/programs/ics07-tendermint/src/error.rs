@@ -73,4 +73,6 @@ pub enum ErrorCode {
     SerializationError,
     #[msg("Account validation failed: invalid account or PDA")]
     AccountValidationFailed,
+    #[msg("Arithmetic error: overflow or underflow in calculation")]
+    ArithmeticError,
 }

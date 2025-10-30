@@ -497,6 +497,7 @@ pub mod chunk_test_utils {
                 root,
                 next_validators_hash,
             },
+            payer: Pubkey::new_unique(),
         };
 
         let mut data = vec![];

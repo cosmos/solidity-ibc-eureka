@@ -47,6 +47,7 @@ pub fn initialize(
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
     consensus_state_store.height = latest_height.revision_height;
     consensus_state_store.consensus_state = consensus_state;
+    consensus_state_store.payer = ctx.accounts.payer.key();
 
     Ok(())
 }

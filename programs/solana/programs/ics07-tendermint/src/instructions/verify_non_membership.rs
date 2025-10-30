@@ -81,6 +81,7 @@ mod tests {
         let consensus_state_store = ConsensusStateStore {
             height,
             consensus_state,
+            payer: Pubkey::new_unique(),
         };
 
         let mut consensus_data = vec![];
@@ -297,6 +298,7 @@ mod tests {
         let consensus_state_store = ConsensusStateStore {
             height: fixture.membership_msg.height,
             consensus_state,
+            payer: Pubkey::new_unique(),
         };
 
         let mut consensus_data = vec![];

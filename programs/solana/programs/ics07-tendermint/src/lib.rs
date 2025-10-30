@@ -160,10 +160,16 @@ pub struct PruneConsensusStates<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
-    /// Rent recipient (usually the caller, incentivizes cleanup)
+    /// Pruner who receives 5% bounty for cleanup service
+    /// Rent is split: 95% to original payer, 5% to pruner
+    /// If payer == pruner (same account), they receive 100% of rent
     #[account(mut)]
     pub rent_receiver: Signer<'info>,
-    // Remaining accounts are ConsensusStateStore accounts to prune
+    // Remaining accounts (order matters):
+    // - ConsensusStateStore accounts to prune (required)
+    // - Original payer accounts for each consensus state (required when payer != rent_receiver)
+    // IMPORTANT: If original payer == rent_receiver, do NOT include payer in remaining_accounts
+    // This avoids duplicate writable account which causes lamport transfer failures
     // Only accounts whose heights are in consensus_state_heights_to_prune will be closed
 }
 

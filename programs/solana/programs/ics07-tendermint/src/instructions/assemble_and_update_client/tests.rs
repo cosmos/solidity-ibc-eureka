@@ -777,6 +777,7 @@ fn test_assemble_with_frozen_client() {
     crate::state::ConsensusStateStore {
         height: trusted_height,
         consensus_state,
+        payer: Pubkey::new_unique(),
     }
     .try_serialize(&mut trusted_consensus_data)
     .unwrap();
@@ -855,6 +856,7 @@ fn test_assemble_with_existing_consensus_state() {
             next_validators_hash: [2u8; 32], // Different validators
             timestamp: 1000,
         },
+        payer: Pubkey::new_unique(),
     }
     .try_serialize(&mut conflicting_consensus_data)
     .unwrap();
@@ -896,6 +898,7 @@ fn test_assemble_with_existing_consensus_state() {
     crate::state::ConsensusStateStore {
         height: trusted_height,
         consensus_state,
+        payer: Pubkey::new_unique(),
     }
     .try_serialize(&mut trusted_consensus_data)
     .unwrap();

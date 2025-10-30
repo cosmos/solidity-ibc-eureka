@@ -17,6 +17,7 @@ struct TestAccounts {
     rent_receiver: Pubkey,
     client_state_pda: Pubkey,
     consensus_state_pdas: Vec<Pubkey>,
+    payers: Vec<Pubkey>,
     accounts: Vec<(Pubkey, Account)>,
 }
 
@@ -97,8 +98,12 @@ fn setup_test_accounts(
     ));
 
     // Add consensus state accounts
+    let mut payers = vec![];
     if create_consensus_accounts {
         for (i, height) in heights_to_prune.iter().enumerate() {
+            let payer = Pubkey::new_unique();
+            payers.push(payer);
+
             let consensus_store = ConsensusStateStore {
                 height: *height,
                 consensus_state: ConsensusState {
@@ -106,6 +111,7 @@ fn setup_test_accounts(
                     root: [i as u8; 32],
                     next_validators_hash: [(i + 1) as u8; 32],
                 },
+                payer,
             };
 
             let mut data = vec![];
@@ -121,6 +127,18 @@ fn setup_test_accounts(
                     rent_epoch: 0,
                 },
             ));
+
+            // Add payer account (they need to exist to receive rent)
+            accounts.push((
+                payer,
+                Account {
+                    lamports: 1_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ));
         }
     }
 
@@ -128,6 +146,7 @@ fn setup_test_accounts(
         rent_receiver,
         client_state_pda,
         consensus_state_pdas,
+        payers,
         accounts,
     }
 }
@@ -144,12 +163,15 @@ fn create_prune_instruction(
         AccountMeta::new(test_accounts.rent_receiver, true),
     ];
 
-    // Add selected consensus state accounts as remaining accounts
+    // Add selected consensus state accounts and their payers as remaining accounts
     for &index in consensus_accounts_to_include {
+        // Add consensus state account
         account_metas.push(AccountMeta::new(
             test_accounts.consensus_state_pdas[index],
             false,
         ));
+        // Add payer account (required for rent refund)
+        account_metas.push(AccountMeta::new(test_accounts.payers[index], false));
     }
 
     Instruction {
@@ -201,7 +223,7 @@ fn test_prune_consensus_states_happy_path() {
 
     let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
 
-    // Verify rent receiver got the lamports
+    // Verify rent receiver got 5% bounty
     let final_receiver_lamports = result
         .resulting_accounts
         .iter()
@@ -210,11 +232,32 @@ fn test_prune_consensus_states_happy_path() {
         .1
         .lamports;
 
-    // Should have received rent from 3 consensus state accounts (2M each = 6M total)
+    // Total rent from 3 consensus states: 2M * 3 = 6M
+    // Pruner bounty: 5% of 6M = 300k
+    let total_rent = 2_000_000 * 3;
+    let expected_bounty = total_rent * 5 / 100;
     assert_eq!(
         final_receiver_lamports,
-        initial_receiver_lamports + (2_000_000 * 3)
+        initial_receiver_lamports + expected_bounty
     );
+
+    // Verify payers received 95% of their rent
+    for (i, payer) in test_accounts.payers.iter().enumerate() {
+        let payer_lamports = result
+            .resulting_accounts
+            .iter()
+            .find(|(k, _)| k == payer)
+            .unwrap()
+            .1
+            .lamports;
+        // Each payer should get 95% of 2M = 1.9M, plus their initial 1M = 2.9M total
+        let payer_refund = 2_000_000 * 95 / 100;
+        assert_eq!(
+            payer_lamports,
+            1_000_000 + payer_refund,
+            "Payer {i} did not receive correct refund",
+        );
+    }
 
     // Verify consensus state accounts were closed
     for pda in &test_accounts.consensus_state_pdas {
@@ -318,6 +361,7 @@ fn test_prune_skips_heights_not_in_to_prune_list() {
     )
     .0;
 
+    let payer_200 = Pubkey::new_unique();
     let consensus_store_200 = ConsensusStateStore {
         height: 200,
         consensus_state: ConsensusState {
@@ -325,6 +369,7 @@ fn test_prune_skips_heights_not_in_to_prune_list() {
             root: [99u8; 32],
             next_validators_hash: [98u8; 32],
         },
+        payer: payer_200,
     };
 
     let mut data_200 = vec![];
@@ -341,7 +386,19 @@ fn test_prune_skips_heights_not_in_to_prune_list() {
         },
     ));
 
-    // Try to prune both heights
+    // Add payer account for height 200
+    test_accounts.accounts.push((
+        payer_200,
+        Account {
+            lamports: 1_000_000,
+            data: vec![],
+            owner: system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    // Try to prune both heights (height 200 should be skipped because not in to_prune list)
     let instruction_data = crate::instruction::PruneConsensusStates {
         chain_id: chain_id.to_string(),
     };
@@ -350,7 +407,9 @@ fn test_prune_skips_heights_not_in_to_prune_list() {
         AccountMeta::new(test_accounts.client_state_pda, false),
         AccountMeta::new(test_accounts.rent_receiver, true),
         AccountMeta::new(test_accounts.consensus_state_pdas[0], false), // Height 100 - in to_prune
+        AccountMeta::new(test_accounts.payers[0], false),               // Payer for height 100
         AccountMeta::new(height_200_pda, false), // Height 200 - NOT in to_prune
+        AccountMeta::new(payer_200, false), // Payer for height 200 (won't be used since 200 is skipped)
     ];
 
     let instruction = Instruction {
@@ -450,6 +509,7 @@ fn test_prune_skips_empty_accounts() {
     );
 
     // Manually add only first consensus state (populated)
+    let payer = Pubkey::new_unique();
     let consensus_store = ConsensusStateStore {
         height: 100,
         consensus_state: ConsensusState {
@@ -457,6 +517,7 @@ fn test_prune_skips_empty_accounts() {
             root: [1u8; 32],
             next_validators_hash: [2u8; 32],
         },
+        payer,
     };
 
     let mut data = vec![];
@@ -468,6 +529,34 @@ fn test_prune_skips_empty_accounts() {
             lamports: 2_000_000,
             data,
             owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    // Add payer for first consensus state
+    test_accounts.payers.push(payer);
+    test_accounts.accounts.push((
+        payer,
+        Account {
+            lamports: 1_000_000,
+            data: vec![],
+            owner: system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    // Add placeholder payer for second (empty) consensus state
+    // This is needed because create_prune_instruction expects payers[1] to exist
+    let placeholder_payer = Pubkey::new_unique();
+    test_accounts.payers.push(placeholder_payer);
+    test_accounts.accounts.push((
+        placeholder_payer,
+        Account {
+            lamports: 1_000_000,
+            data: vec![],
+            owner: system_program::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -554,6 +643,7 @@ fn test_prune_verifies_pda() {
             root: [1u8; 32],
             next_validators_hash: [2u8; 32],
         },
+        payer: Pubkey::new_unique(),
     };
 
     let mut data = vec![];
@@ -577,5 +667,42 @@ fn test_prune_verifies_pda() {
         result,
         ErrorCode::AccountValidationFailed,
         "test_prune_verifies_pda",
+    );
+}
+
+#[test]
+fn test_prune_fails_without_payer_account() {
+    let chain_id = "test-chain";
+    let heights_to_prune = vec![100];
+    let consensus_state_heights = vec![100, 200, 300];
+
+    let test_accounts =
+        setup_test_accounts(chain_id, heights_to_prune, consensus_state_heights, true);
+
+    let instruction_data = crate::instruction::PruneConsensusStates {
+        chain_id: chain_id.to_string(),
+    };
+
+    // Build instruction WITHOUT payer account in remaining accounts
+    let account_metas = vec![
+        AccountMeta::new(test_accounts.client_state_pda, false),
+        AccountMeta::new(test_accounts.rent_receiver, true),
+        AccountMeta::new(test_accounts.consensus_state_pdas[0], false), // Only consensus state, no payer
+    ];
+
+    let instruction = Instruction {
+        program_id: crate::ID,
+        accounts: account_metas,
+        data: instruction_data.data(),
+    };
+
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
+
+    // Should fail with MissingAccount error
+    assert_error_code(
+        result,
+        ErrorCode::MissingAccount,
+        "test_prune_fails_without_payer_account",
     );
 }
