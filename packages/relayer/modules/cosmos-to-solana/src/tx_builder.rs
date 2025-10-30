@@ -415,8 +415,10 @@ impl TxBuilder {
 
         let ibc_app_account = self
             .target_solana_client
-            .get_account(&ibc_app_pda)
-            .map_err(|e| anyhow::anyhow!("Failed to get IBC app account: {e}"))?;
+            .get_account_with_commitment(&ibc_app_pda, CommitmentConfig::confirmed())
+            .map_err(|e| anyhow::anyhow!("Failed to get IBC app account: {e}"))?
+            .value
+            .ok_or_else(|| anyhow::anyhow!("IBC app account not found"))?;
 
         if ibc_app_account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
             return Err(anyhow::anyhow!("Account data too short for IBCApp account"));
@@ -614,8 +616,10 @@ impl TxBuilder {
 
         let account = self
             .target_solana_client
-            .get_account(&client_state_pda)
-            .context("Failed to fetch client state account")?;
+            .get_account_with_commitment(&client_state_pda, CommitmentConfig::confirmed())
+            .context("Failed to fetch client state account")?
+            .value
+            .ok_or_else(|| anyhow::anyhow!("Client state account not found"))?;
 
         let client_state = ClientState::try_from_slice(&account.data[ANCHOR_DISCRIMINATOR_SIZE..])
             .or_else(|_| {
@@ -645,10 +649,12 @@ impl TxBuilder {
 
         let account = self
             .target_solana_client
-            .get_account(&ibc_app_account)
+            .get_account_with_commitment(&ibc_app_account, CommitmentConfig::confirmed())
             .map_err(|e| {
                 anyhow::anyhow!("Failed to fetch IBCApp account for port '{}': {e}", port_id)
-            })?;
+            })?
+            .value
+            .ok_or_else(|| anyhow::anyhow!("IBCApp account not found for port '{}'", port_id))?;
 
         if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
             return Err(anyhow::anyhow!("Account data too short for IBCApp account"));
@@ -1444,8 +1450,10 @@ impl TxBuilder {
     fn fetch_alt_addresses(&self, alt_address: Pubkey) -> Result<Vec<Pubkey>> {
         let alt_account = self
             .target_solana_client
-            .get_account(&alt_address)
-            .map_err(|e| anyhow::anyhow!("Failed to fetch ALT account {}: {e}", alt_address))?;
+            .get_account_with_commitment(&alt_address, CommitmentConfig::confirmed())
+            .map_err(|e| anyhow::anyhow!("Failed to fetch ALT account {}: {e}", alt_address))?
+            .value
+            .ok_or_else(|| anyhow::anyhow!("ALT account {} not found", alt_address))?;
 
         let lookup_table = AddressLookupTable::deserialize(&alt_account.data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize ALT: {e}"))?;
