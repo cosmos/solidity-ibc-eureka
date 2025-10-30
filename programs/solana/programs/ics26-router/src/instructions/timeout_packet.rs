@@ -85,10 +85,8 @@ pub fn timeout_packet<'info>(
     let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;
 
-    // Validate we have at least one payload
     require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
 
-    // Validate the IBC app is registered for the source port of the first payload
     let expected_ibc_app = Pubkey::find_program_address(
         &[IBCApp::SEED, msg.payloads[0].source_port.as_bytes()],
         ctx.program_id,
@@ -185,8 +183,7 @@ pub fn timeout_packet<'info>(
         );
     }
 
-    // For now, we only handle the first payload for CPI
-    // TODO: In the future, we may need to handle multiple payloads differently
+    // TODO: Support multi-payload packets #602
     let payload = match packet.payloads.len() {
         0 => Err(RouterError::PacketNoPayload),
         n if n > 1 => Err(RouterError::MultiPayloadPacketNotSupported),
@@ -201,7 +198,6 @@ pub fn timeout_packet<'info>(
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
-    // CPI to IBC app's onTimeoutPacket
     on_timeout_packet_cpi(
         cpi_accounts,
         &packet,
