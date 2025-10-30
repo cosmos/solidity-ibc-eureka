@@ -137,8 +137,6 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 		return EthKurtosisChain{}, err
 	}
 
-	fmt.Println("debug-1")
-
 	networkParamsJson, err := json.Marshal(KurtosisConfig)
 	if err != nil {
 		return EthKurtosisChain{}, err
@@ -151,8 +149,6 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	}
 	fmt.Println(starlarkResp.RunOutput)
 
-	fmt.Println("debug-2")
-
 	// exeuctionCtx is the service context (kurtosis concept) for the execution node that allows us to get the public ports
 	executionCtx, err := enclaveCtx.GetServiceContext(executionService)
 	if err != nil {
@@ -160,6 +156,7 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	}
 	rpcPortSpec := executionCtx.GetPublicPorts()["rpc"]
 	rpc := fmt.Sprintf("http://localhost:%d", rpcPortSpec.GetNumber())
+	fmt.Println("Local Execution RPC: ", rpc)
 
 	// consensusCtx is the service context (kurtosis concept) for the consensus node that allows us to get the public ports
 	consensusCtx, err := enclaveCtx.GetServiceContext(consensusService)
@@ -168,12 +165,11 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	}
 	beaconPortSpec := consensusCtx.GetPublicPorts()["http"]
 	beaconRPC := fmt.Sprintf("http://localhost:%d", beaconPortSpec.GetNumber())
+	fmt.Println("Local Beacon RPC: ", beaconRPC)
 
 	// Wait for the chain to finalize
 	var beaconAPIClient ethereum.BeaconAPIClient
 	err = testutil.WaitForCondition(30*time.Minute, 5*time.Second, func() (bool, error) {
-		fmt.Println("debug-3", beaconRPC)
-
 		beaconAPIClient, err = ethereum.NewBeaconAPIClient(ctx, beaconRPC)
 		if err != nil {
 			return false, nil
@@ -203,7 +199,6 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 		return EthKurtosisChain{}, err
 	}
 
-	fmt.Println("debug-4")
 	return EthKurtosisChain{
 		RPC:             rpc,
 		BeaconApiClient: beaconAPIClient,
