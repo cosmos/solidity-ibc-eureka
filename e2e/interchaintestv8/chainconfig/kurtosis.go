@@ -36,18 +36,18 @@ var (
 		Participants: []kurtosisParticipant{
 			{
 				CLType:         "lodestar",
-				CLImage:        "chainsafe/lodestar:v1.33.0",
+				CLImage:        "chainsafe/lodestar:v1.35.0",
 				ELType:         "geth",
-				ELImage:        "ethereum/client-go:v1.16.2",
+				ELImage:        "ethereum/client-go:v1.16.5",
 				ELExtraParams:  []string{"--gcmode=archive"},
 				ELLogLevel:     "info",
 				ValidatorCount: 64,
 			},
 		},
-		// We
+		// We can change the preset dynamically before spinning up the testnet
 		NetworkParams: kurtosisNetworkConfigParams{
-			Preset:           "minimal",
-			ElectraForkEpoch: 1,
+			Preset:        "minimal",
+			FuluForkEpoch: 1,
 		},
 		WaitForFinalization: true,
 		AdditionalServices:  []string{},
@@ -94,8 +94,8 @@ type kurtosisParticipant struct {
 }
 
 type kurtosisNetworkConfigParams struct {
-	Preset           string `json:"preset"`
-	ElectraForkEpoch uint64 `json:"electra_fork_epoch"`
+	Preset        string `json:"preset"`
+	FuluForkEpoch uint64 `json:"fulu_fork_epoch"`
 }
 
 // SpinUpKurtosisPoS spins up a kurtosis enclave with Etheruem PoS testnet using github.com/ethpandaops/ethereum-package
