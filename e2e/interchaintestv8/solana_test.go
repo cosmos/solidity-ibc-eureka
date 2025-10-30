@@ -361,7 +361,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				clientAccount, _ := solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 				clientSequenceAccount, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-				counterpartyInfo := ics26_router.CounterpartyInfo{
+				counterpartyInfo := ics26_router.Ics26RouterStateCounterpartyInfo{
 					ClientId:     CosmosClientID,
 					MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 				}
@@ -1291,6 +1291,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(
 				ctx,
 				tx,
+				rpc.CommitmentConfirmed,
 				s.SolanaUser,
 			)
 			s.Require().NoError(err)
