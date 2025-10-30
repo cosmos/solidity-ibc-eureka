@@ -36,12 +36,12 @@ var (
 		Participants: []kurtosisParticipant{
 			{
 				CLType:         "lodestar",
-				CLImage:        "chainsafe/lodestar:v1.35.0",
+				CLImage:        "ethpandaops/lodestar:unstable",
 				ELType:         "geth",
-				ELImage:        "ethereum/client-go:v1.16.5",
+				ELImage:        "ethpandaops/geth:master",
 				ELExtraParams:  []string{"--gcmode=archive"},
 				ELLogLevel:     "info",
-				ValidatorCount: 64,
+				ValidatorCount: 128,
 				// Supernode required for Fulu testing
 				Supernode:      true,
 			},
@@ -49,6 +49,7 @@ var (
 		// We can change the preset dynamically before spinning up the testnet
 		NetworkParams: kurtosisNetworkConfigParams{
 			Preset:         "minimal",
+			PerfectPeerDAS: false,
 			FuluForkEpoch:  1,
 		},
 		WaitForFinalization: true,
@@ -98,6 +99,7 @@ type kurtosisParticipant struct {
 
 type kurtosisNetworkConfigParams struct {
 	Preset        string `json:"preset"`
+	PerfectPeerDAS bool   `json:"perfect_peerdas_enabled"`
 	FuluForkEpoch uint64 `json:"fulu_fork_epoch"`
 }
 
@@ -135,6 +137,8 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 		return EthKurtosisChain{}, err
 	}
 
+	fmt.Println("debug-1")
+
 	networkParamsJson, err := json.Marshal(KurtosisConfig)
 	if err != nil {
 		return EthKurtosisChain{}, err
@@ -146,6 +150,8 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 		return EthKurtosisChain{}, err
 	}
 	fmt.Println(starlarkResp.RunOutput)
+
+	fmt.Println("debug-2")
 
 	// exeuctionCtx is the service context (kurtosis concept) for the execution node that allows us to get the public ports
 	executionCtx, err := enclaveCtx.GetServiceContext(executionService)
@@ -166,6 +172,8 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	// Wait for the chain to finalize
 	var beaconAPIClient ethereum.BeaconAPIClient
 	err = testutil.WaitForCondition(30*time.Minute, 5*time.Second, func() (bool, error) {
+		fmt.Println("debug-3", beaconRPC)
+
 		beaconAPIClient, err = ethereum.NewBeaconAPIClient(ctx, beaconRPC)
 		if err != nil {
 			return false, nil
@@ -195,6 +203,7 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 		return EthKurtosisChain{}, err
 	}
 
+	fmt.Println("debug-4")
 	return EthKurtosisChain{
 		RPC:             rpc,
 		BeaconApiClient: beaconAPIClient,
