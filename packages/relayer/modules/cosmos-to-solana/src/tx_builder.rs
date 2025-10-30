@@ -49,6 +49,22 @@ use tendermint_rpc::{Client as _, HttpClient};
 /// Maximum size for a chunk (matches `CHUNK_DATA_SIZE` in Solana program)
 const MAX_CHUNK_SIZE: usize = 700;
 
+/// Parameters for assembling timeout packet accounts
+struct TimeoutAccountsParams {
+    router_state: Pubkey,
+    ibc_app: Pubkey,
+    packet_commitment: Pubkey,
+    ibc_app_program_id: Pubkey,
+    ibc_app_state: Pubkey,
+    client: Pubkey,
+    client_state: Pubkey,
+    consensus_state: Pubkey,
+    fee_payer: Pubkey,
+    router_program_id: Pubkey,
+    light_client_program_id: Pubkey,
+    chunk_accounts: Vec<Pubkey>,
+}
+
 /// Maximum compute units allowed per Solana transaction
 const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
 
@@ -542,7 +558,7 @@ impl TxBuilder {
         let (consensus_state, _) =
             ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
 
-        Ok(Self::assemble_timeout_accounts(
+        Ok(Self::assemble_timeout_accounts(TimeoutAccountsParams {
             router_state,
             ibc_app,
             packet_commitment,
@@ -551,46 +567,32 @@ impl TxBuilder {
             client,
             client_state,
             consensus_state,
-            self.fee_payer,
-            self.solana_ics26_program_id,
-            self.solana_ics07_program_id,
+            fee_payer: self.fee_payer,
+            router_program_id: self.solana_ics26_program_id,
+            light_client_program_id: self.solana_ics07_program_id,
             chunk_accounts,
-        ))
+        }))
     }
 
     /// Assemble timeout packet accounts vector
-    #[allow(clippy::too_many_arguments)]
-    fn assemble_timeout_accounts(
-        router_state: Pubkey,
-        ibc_app: Pubkey,
-        packet_commitment: Pubkey,
-        ibc_app_program_id: Pubkey,
-        ibc_app_state: Pubkey,
-        client: Pubkey,
-        client_state: Pubkey,
-        consensus_state: Pubkey,
-        fee_payer: Pubkey,
-        router_program_id: Pubkey,
-        light_client_program_id: Pubkey,
-        chunk_accounts: Vec<Pubkey>,
-    ) -> Vec<AccountMeta> {
+    fn assemble_timeout_accounts(params: TimeoutAccountsParams) -> Vec<AccountMeta> {
         let mut accounts = vec![
-            AccountMeta::new_readonly(router_state, false),
-            AccountMeta::new_readonly(ibc_app, false),
-            AccountMeta::new(packet_commitment, false),
-            AccountMeta::new_readonly(ibc_app_program_id, false),
-            AccountMeta::new(ibc_app_state, false),
-            AccountMeta::new_readonly(router_program_id, false),
-            AccountMeta::new_readonly(fee_payer, true),
-            AccountMeta::new(fee_payer, true),
+            AccountMeta::new_readonly(params.router_state, false),
+            AccountMeta::new_readonly(params.ibc_app, false),
+            AccountMeta::new(params.packet_commitment, false),
+            AccountMeta::new_readonly(params.ibc_app_program_id, false),
+            AccountMeta::new(params.ibc_app_state, false),
+            AccountMeta::new_readonly(params.router_program_id, false),
+            AccountMeta::new_readonly(params.fee_payer, true),
+            AccountMeta::new(params.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-            AccountMeta::new_readonly(client, false),
-            AccountMeta::new_readonly(light_client_program_id, false),
-            AccountMeta::new_readonly(client_state, false),
-            AccountMeta::new_readonly(consensus_state, false),
+            AccountMeta::new_readonly(params.client, false),
+            AccountMeta::new_readonly(params.light_client_program_id, false),
+            AccountMeta::new_readonly(params.client_state, false),
+            AccountMeta::new_readonly(params.consensus_state, false),
         ];
 
-        for chunk_account in chunk_accounts {
+        for chunk_account in params.chunk_accounts {
             accounts.push(AccountMeta::new(chunk_account, false));
         }
 

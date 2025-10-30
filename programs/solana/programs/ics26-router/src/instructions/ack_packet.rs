@@ -1,5 +1,5 @@
 use crate::errors::RouterError;
-use crate::router_cpi::on_acknowledgement_packet_cpi;
+use crate::router_cpi::{on_acknowledgement_packet_cpi, IbcAppCpiAccounts};
 use crate::router_cpi::{verify_membership_cpi, LightClientVerification};
 use crate::state::*;
 use crate::utils::{chunking, ics24};
@@ -192,12 +192,16 @@ pub fn ack_packet<'info>(
         _ => Ok(&packet.payloads[0]),
     }?;
 
+    let cpi_accounts = IbcAppCpiAccounts {
+        ibc_app_program: ctx.accounts.ibc_app_program.clone(),
+        app_state: ctx.accounts.ibc_app_state.clone(),
+        router_program: ctx.accounts.router_program.clone(),
+        payer: ctx.accounts.payer.to_account_info(),
+        system_program: ctx.accounts.system_program.to_account_info(),
+    };
+
     on_acknowledgement_packet_cpi(
-        &ctx.accounts.ibc_app_program,
-        &ctx.accounts.ibc_app_state,
-        &ctx.accounts.router_program,
-        &ctx.accounts.payer,
-        &ctx.accounts.system_program,
+        cpi_accounts,
         &packet,
         payload,
         &msg.acknowledgement,
