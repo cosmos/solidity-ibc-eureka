@@ -1303,12 +1303,13 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.T().Logf("✓ Prune transaction confirmed: %s", sig)
 
 			// Fetch transaction to verify bounty split
+			// Use confirmed commitment to match the broadcast commitment level
 			txInfo, err := s.SolanaChain.RPCClient.GetTransaction(
 				ctx,
 				sig,
 				&rpc.GetTransactionOpts{
 					Encoding:   solanago.EncodingBase64,
-					Commitment: rpc.CommitmentFinalized,
+					Commitment: rpc.CommitmentConfirmed,
 				},
 			)
 			s.Require().NoError(err)
