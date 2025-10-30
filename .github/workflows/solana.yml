@@ -41,7 +41,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-solana-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-solana-${{ hashFiles('**/Cargo.lock') }}-anchor-${{ env.ANCHOR_VERSION }}
           restore-keys: |
             ${{ runner.os }}-cargo-solana-
 
