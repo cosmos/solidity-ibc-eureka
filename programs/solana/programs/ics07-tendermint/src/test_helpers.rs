@@ -411,8 +411,8 @@ pub mod fixtures {
 pub mod chunk_test_utils {
     use crate::state::{HeaderChunk, CHUNK_DATA_SIZE};
     use crate::types::{ClientState, ConsensusState, IbcHeight, UploadChunkParams};
-    use anchor_lang::solana_program::keccak;
     use solana_sdk::account::Account;
+    use solana_sdk::keccak;
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::system_program;
 

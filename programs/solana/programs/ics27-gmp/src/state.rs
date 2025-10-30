@@ -85,7 +85,7 @@ impl AccountState {
         salt: &[u8],
         program_id: &Pubkey,
     ) -> Result<(Pubkey, u8)> {
-        use anchor_lang::solana_program::hash::hash;
+        use solana_program::hash::hash;
 
         require!(
             client_id.len() <= MAX_CLIENT_ID_LENGTH,
@@ -109,7 +109,7 @@ impl AccountState {
     /// Get signer seeds for CPI calls
     /// Note: Sender is always hashed to match PDA derivation
     pub fn signer_seeds(&self) -> Vec<Vec<u8>> {
-        use anchor_lang::solana_program::hash::hash;
+        use solana_program::hash::hash;
 
         let sender_hash = hash(self.sender.as_bytes()).to_bytes();
 

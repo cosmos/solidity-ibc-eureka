@@ -5,7 +5,7 @@ use crate::state::{
     AccountState, GMPAcknowledgement, GMPAppState, GMPPacketData, SolanaInstruction,
 };
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{hash::hash, instruction::Instruction, program::invoke_signed};
+use solana_program::{hash::hash, instruction::Instruction, program::invoke_signed};
 
 const EXECUTION_SUCCESS_RESULT: &[u8] = b"execution_success";
 

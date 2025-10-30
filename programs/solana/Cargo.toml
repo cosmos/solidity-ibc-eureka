@@ -64,8 +64,8 @@ keywords = [
 ]
 
 [workspace.dependencies]
-anchor-lang = { version = "0.31.1", default-features = false }
-anchor-spl = { version = "0.31.1" }
+anchor-lang = { version = "0.32.1", default-features = false }
+anchor-spl = { version = "0.32.1" }
 base64 = "0.22"
 
 tendermint-light-client-update-client = { path = "../../packages/tendermint-light-client/update-client", default-features = false }

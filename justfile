@@ -1,5 +1,8 @@
 set dotenv-load
 
+# Detect which anchor command is available
+anchor_cmd := `command -v anchor-nix >/dev/null 2>&1 && echo "anchor-nix" || echo "anchor"`
+
 # Default task lists all available tasks
 default:
   just --list
@@ -28,17 +31,80 @@ build-sp1-programs:
   cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-uc-and-membership --locked
   cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-misbehaviour --locked
 
-# Build the Solana Anchor program
+# Sync Solana program keypairs and update declare_id! macros
+# Usage: just sync-solana-keys [cluster]
+# Example: just sync-solana-keys devnet
 [group('build')]
-build-solana:
-  @echo "Building Solana Anchor program..."
-  if command -v anchor-nix >/dev/null 2>&1; then \
-    echo "🦀 Using anchor-nix"; \
-    (cd programs/solana && anchor-nix build); \
-  else \
-    echo "🦀 Using anchor"; \
-    (cd programs/solana && anchor build); \
+sync-solana-keys cluster="localnet":
+  @echo "Syncing Solana program keys for cluster: {{cluster}}"
+  @if [ ! -d "solana-keypairs/{{cluster}}" ]; then \
+    echo "❌ Cluster directory not found: solana-keypairs/{{cluster}}"; \
+    echo "   Available clusters: localnet, devnet, testnet, mainnet"; \
+    exit 1; \
   fi
+  @if [ "{{cluster}}" != "localnet" ] && [ ! -f "solana-keypairs/{{cluster}}/ics26_router-keypair.json" ]; then \
+    echo "❌ No keypairs found for cluster: {{cluster}}"; \
+    echo "   Generate them first with: just generate-solana-keypairs {{cluster}}"; \
+    exit 1; \
+  fi
+  @echo "Copying keypairs from solana-keypairs/{{cluster}}/ to target/deploy/..."
+  mkdir -p programs/solana/target/deploy
+  cp -f solana-keypairs/{{cluster}}/*-keypair.json programs/solana/target/deploy/ 2>/dev/null || true
+  @echo "Syncing declare_id! and Anchor.toml sections..."
+  @echo "🦀 Using {{anchor_cmd}}"
+  (cd programs/solana && {{anchor_cmd}} keys sync --provider.cluster {{cluster}})
+  @echo "✅ Keys synced for cluster: {{cluster}}"
+
+# Build Solana Anchor programs for a specific cluster (default: localnet)
+# Usage: just build-solana [cluster]
+# Example: just build-solana mainnet
+[group('build')]
+build-solana cluster="localnet": (sync-solana-keys cluster)
+  @echo "Building programs..."
+  @echo "🦀 Using {{anchor_cmd}}"
+  (cd programs/solana && {{anchor_cmd}} build)
+  @echo "✅ Build complete for cluster: {{cluster}}"
+
+# Deploy Solana Anchor programs to a specific cluster (default: localnet)
+# Usage: just deploy-solana [cluster]
+# Example: just deploy-solana devnet
+[group('build')]
+deploy-solana cluster="localnet": (build-solana cluster)
+  @echo "Deploying programs to {{cluster}}..."
+  @echo "🚀 Using {{anchor_cmd}}"
+  (cd programs/solana && {{anchor_cmd}} deploy --provider.cluster {{cluster}})
+  @echo "✅ Deployment complete for cluster: {{cluster}}"
+
+# Generate Solana keypairs for a specific cluster
+# Usage: just generate-solana-keypairs <cluster>
+# Example: just generate-solana-keypairs devnet
+[group('build')]
+generate-solana-keypairs cluster:
+  @if [ "{{cluster}}" = "localnet" ]; then \
+    echo "❌ Cannot generate keypairs for localnet - they are tracked in git"; \
+    echo "   Localnet keypairs are used for E2E tests and should not be regenerated"; \
+    exit 1; \
+  fi
+  @if [ ! -d "solana-keypairs/{{cluster}}" ]; then \
+    echo "❌ Unknown cluster: {{cluster}}"; \
+    echo "   Available clusters: devnet, testnet, mainnet"; \
+    exit 1; \
+  fi
+  @echo "Generating keypairs for cluster: {{cluster}}"
+  solana-keygen new --no-bip39-passphrase --force --outfile solana-keypairs/{{cluster}}/ics26_router-keypair.json
+  solana-keygen new --no-bip39-passphrase --force --outfile solana-keypairs/{{cluster}}/ics07_tendermint-keypair.json
+  solana-keygen new --no-bip39-passphrase --force --outfile solana-keypairs/{{cluster}}/ics27_gmp-keypair.json
+  solana-keygen new --no-bip39-passphrase --force --outfile solana-keypairs/{{cluster}}/gmp_counter_app-keypair.json
+  @echo ""
+  @echo "✅ Keypairs generated in solana-keypairs/{{cluster}}/"
+  @echo "⚠️  IMPORTANT: Backup these keypairs securely! They are NOT tracked in git."
+  @echo ""
+  @echo "📋 Program IDs for {{cluster}}:"
+  @for keypair in solana-keypairs/{{cluster}}/*-keypair.json; do \
+    printf "   %-35s %s\n" "$$(basename $$keypair):" "$$(solana-keygen pubkey $$keypair)"; \
+  done
+  @echo ""
+  @echo "Next step: just build-solana {{cluster}}"
 
 # Build and optimize the eth wasm light client using a local docker image. Requires `docker` and `gzip`
 [group('build')]
@@ -113,7 +179,7 @@ lint-rust:
 lint-solana:
 	@echo "Linting the Solana code..."
 	cd programs/solana && cargo fmt --all -- --check
-	cd programs/solana && cargo clippy --all-targets --all-features -- -D warnings
+	cd programs/solana && cargo +nightly clippy --all-targets --all-features -- -D warnings
 
 
 # Generate the (non-bytecode) ABI files for the contracts
@@ -315,24 +381,18 @@ test-e2e-solana testname:
 # Run the Solana Anchor e2e tests
 [group('test')]
 test-anchor-solana *ARGS:
-	@echo "Running Solana Client Anchor tests (anchor-nix preferred) ..."
-	if command -v anchor-nix >/dev/null 2>&1; then \
-		echo "🦀 Using anchor-nix"; \
-		(cd programs/solana && anchor-nix test {{ARGS}}); \
-	else \
-		echo "🦀 Using anchor"; \
-		(cd programs/solana && anchor test {{ARGS}}); \
-	fi
+	@echo "Running Solana Client Anchor tests..."
+	@echo "🦀 Using {{anchor_cmd}}"
+	(cd programs/solana && {{anchor_cmd}} test {{ARGS}})
 
 # Run Solana unit tests (mollusk + litesvm)
 [group('test')]
 test-solana *ARGS:
 	@echo "Building and running Solana unit tests..."
-	if command -v anchor-nix >/dev/null 2>&1; then \
-		echo "🦀 Using anchor-nix"; \
+	@echo "🦀 Using {{anchor_cmd}}"
+	@if [ "{{anchor_cmd}}" = "anchor-nix" ]; then \
 		(cd programs/solana && anchor-nix unit-test {{ARGS}}); \
 	else \
-		echo "🦀 Using anchor"; \
 		(cd programs/solana && anchor build) && \
 		echo "✅ Build successful, running cargo tests" && \
 		(cd programs/solana && cargo test {{ARGS}}); \
