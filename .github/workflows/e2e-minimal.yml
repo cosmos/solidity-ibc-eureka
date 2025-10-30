@@ -35,7 +35,7 @@ env:
   E2E_PRIVATE_CLUSTER: true
   E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.wasm-eth-light-client-tag }}
   SOLANA_VERSION: "2.1.17"
-  ANCHOR_VERSION: "0.31.1"
+  ANCHOR_VERSION: "0.32.1"
 permissions:
   contents: read
 
