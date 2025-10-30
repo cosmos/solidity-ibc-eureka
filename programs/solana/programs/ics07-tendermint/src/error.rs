@@ -19,8 +19,6 @@ pub enum ErrorCode {
     // Height errors
     #[msg("Invalid height: height cannot be zero")]
     InvalidHeight,
-    #[msg("Height mismatch: expected height does not match provided height")]
-    HeightMismatch,
 
     // Header and proof errors
     #[msg("Invalid header: failed to deserialize or validate header")]
@@ -65,10 +63,16 @@ pub enum ErrorCode {
     InvalidChunkAccount,
     #[msg("Chunk data too large: exceeds maximum chunk size")]
     ChunkDataTooLarge,
+    #[msg("Missing account in remaining accounts")]
+    MissingAccount,
+    #[msg("Invalid account")]
+    InvalidAccount,
 
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]
     SerializationError,
     #[msg("Account validation failed: invalid account or PDA")]
     AccountValidationFailed,
+    #[msg("Arithmetic error: overflow or underflow in calculation")]
+    ArithmeticError,
 }

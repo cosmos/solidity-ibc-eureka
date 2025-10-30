@@ -36,18 +36,15 @@ pub fn submit_misbehaviour(ctx: Context<SubmitMisbehaviour>, msg: MisbehaviourMs
         trusted_consensus_state_2,
         current_time,
     )
-    .map_err(|e| {
-        msg!("Misbehaviour check failed: {:?}", e);
-        error!(ErrorCode::MisbehaviourCheckFailed)
-    })?;
+    .map_err(|_| error!(ErrorCode::MisbehaviourCheckFailed))?;
 
     require!(
         ctx.accounts.trusted_consensus_state_1.height == output.trusted_height_1.revision_height(),
-        ErrorCode::HeightMismatch
+        ErrorCode::AccountValidationFailed
     );
     require!(
         ctx.accounts.trusted_consensus_state_2.height == output.trusted_height_2.revision_height(),
-        ErrorCode::HeightMismatch
+        ErrorCode::AccountValidationFailed
     );
 
     // If we reach here, misbehaviour was detected

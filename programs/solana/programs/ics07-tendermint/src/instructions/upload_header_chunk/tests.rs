@@ -85,6 +85,8 @@ fn setup_test_accounts(
                 revision_number: 0,
                 revision_height: 100,
             },
+            consensus_state_heights: vec![100],
+            consensus_state_heights_to_prune: vec![],
         };
 
         let mut client_data = vec![];
@@ -408,6 +410,8 @@ fn test_upload_chunk_with_frozen_client_fails() {
                 revision_number: 0,
                 revision_height: 150,
             },
+            consensus_state_heights: vec![150],
+            consensus_state_heights_to_prune: vec![],
         };
 
         let mut data = vec![];

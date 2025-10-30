@@ -8,8 +8,8 @@ use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
-pub fn assemble_and_update_client(
-    mut ctx: Context<AssembleAndUpdateClient>,
+pub fn assemble_and_update_client<'info>(
+    mut ctx: Context<'_, '_, '_, 'info, AssembleAndUpdateClient<'info>>,
     chain_id: String,
     target_height: u64,
 ) -> Result<UpdateResult> {
@@ -83,8 +83,8 @@ fn validate_and_load_chunk(
     Ok(())
 }
 
-fn process_header_update(
-    ctx: &mut Context<AssembleAndUpdateClient>,
+fn process_header_update<'info>(
+    ctx: &mut Context<'_, '_, '_, 'info, AssembleAndUpdateClient<'info>>,
     header_bytes: Vec<u8>,
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
@@ -139,16 +139,22 @@ fn verify_and_update_header(
     let trusted_ibc_state: IbcConsensusState = trusted_state.clone().into();
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
+    // Signature verification happens here using brine-ed25519 (~30k CU per signature).
+    // Note: This happens AFTER header assembly. The signatures are embedded inside the header
+    // data that was uploaded via chunks. We cannot use Ed25519Program because:
+    // 1. Signatures come from external blockchain data (Tendermint validators)
+    // 2. They're only accessible after header assembly and deserialization
+    // 3. Ed25519Program requires signatures as separate instructions in the SAME transaction
+    // 4. Using Ed25519Program would require double multi-tx coordination (chunks + signatures),
+    //    adding 4-8 seconds of latency per update (10-20 sequential signature verifications)
+    // See README "Design Decisions" section for full explanation.
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
         &trusted_ibc_state,
         header,
         current_time,
     )
-    .map_err(|e| {
-        msg!("Header verification failed: {:?}", e);
-        ErrorCode::UpdateClientFailed
-    })?;
+    .map_err(|_| ErrorCode::UpdateClientFailed)?;
 
     Ok((
         output.latest_height,
@@ -181,7 +187,6 @@ fn cleanup_chunks(
     submitter: Pubkey,
 ) -> Result<()> {
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
-        // Double-check PDA (paranoid check)
         let expected_seeds = &[
             crate::state::HeaderChunk::SEED,
             submitter.as_ref(),
@@ -204,7 +209,6 @@ fn cleanup_chunks(
     Ok(())
 }
 
-// Helper function to load and validate consensus state
 fn load_consensus_state(
     account: &UncheckedAccount,
     client_key: Pubkey,
@@ -277,7 +281,40 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
         }
     }
 
-    // Create new account
+    // Automatic pruning: if we're at capacity, remove the oldest height from tracking
+    // and add it to the to_prune list for later cleanup
+    if params.client_state.consensus_state_heights.len()
+        >= crate::constants::MAX_CONSENSUS_STATE_HEIGHTS
+    {
+        // Remove the oldest height (first element in sorted vec)
+        let oldest_height = params.client_state.consensus_state_heights.remove(0);
+
+        // Add to the list of heights that need cleanup
+        params
+            .client_state
+            .consensus_state_heights_to_prune
+            .push(oldest_height);
+    }
+
+    // Add new height to sorted tracking list (binary search insert)
+    match params
+        .client_state
+        .consensus_state_heights
+        .binary_search(&params.height)
+    {
+        Ok(_) => {
+            // Height already exists, this is a NoOp (shouldn't happen if we checked above)
+            return Ok(UpdateResult::NoOp);
+        }
+        Err(insert_pos) => {
+            params
+                .client_state
+                .consensus_state_heights
+                .insert(insert_pos, params.height);
+        }
+    }
+
+    // Create new consensus state account
     let space = 8 + ConsensusStateStore::INIT_SPACE;
     let rent = Rent::get()?.minimum_balance(space);
 
@@ -302,6 +339,7 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     let new_store = ConsensusStateStore {
         height: params.height,
         consensus_state: params.new_consensus_state.clone(),
+        payer: params.payer.key(),
     };
 
     let mut data = params.account.try_borrow_mut_data()?;

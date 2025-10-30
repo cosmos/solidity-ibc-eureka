@@ -4,18 +4,12 @@ use anchor_lang::prelude::*;
 pub enum RouterError {
     #[msg("Unauthorized sender")]
     UnauthorizedSender,
-    #[msg("Port already bound to IBC app")]
-    PortAlreadyBound,
-    #[msg("Port not found")]
-    PortNotFound,
     #[msg("Invalid port identifier")]
     InvalidPortIdentifier,
     #[msg("Invalid timeout timestamp")]
     InvalidTimeoutTimestamp,
     #[msg("Invalid timeout duration")]
     InvalidTimeoutDuration,
-    #[msg("Invalid counterparty")]
-    InvalidCounterparty,
     #[msg("Packet commitment already exists")]
     PacketCommitmentAlreadyExists,
     #[msg("Packet commitment mismatch")]
@@ -24,8 +18,6 @@ pub enum RouterError {
     PacketNoPayload,
     #[msg("Packet receipt mismatch")]
     PacketReceiptMismatch,
-    #[msg("Packet acknowledgement already exists")]
-    PacketAcknowledgementAlreadyExists,
     #[msg("Multi-payload packets not supported")]
     MultiPayloadPacketNotSupported,
     #[msg("Async acknowledgement not supported")]
@@ -46,8 +38,6 @@ pub enum RouterError {
     InvalidClientId,
     #[msg("Invalid light client program")]
     InvalidLightClientProgram,
-    #[msg("Unsupported client type")]
-    UnsupportedClientType,
     #[msg("Invalid counterparty info")]
     InvalidCounterpartyInfo,
     #[msg("Client already exists")]
@@ -72,6 +62,4 @@ pub enum RouterError {
     InvalidChunkCommitment,
     #[msg("Invalid payload count")]
     InvalidPayloadCount,
-    #[msg("Unsupported account version")]
-    UnsupportedVersion,
 }

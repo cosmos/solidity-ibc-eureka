@@ -34,6 +34,15 @@ pub struct ClientState {
     pub max_clock_drift: u64,
     pub frozen_height: IbcHeight,
     pub latest_height: IbcHeight,
+    /// Sorted list of consensus state heights we're tracking (ascending order, FIFO)
+    /// When this list reaches `MAX_CONSENSUS_STATE_HEIGHTS`, the oldest height is removed
+    #[max_len(10)]
+    pub consensus_state_heights: Vec<u64>,
+    /// Heights that were removed from tracking and whose accounts should be closed to reclaim rent
+    /// These can be cleaned up via the `cleanup_consensus_states` instruction
+    /// Can accumulate up to 200 heights if cleanup is delayed
+    #[max_len(200)]
+    pub consensus_state_heights_to_prune: Vec<u64>,
 }
 
 impl ClientState {
@@ -43,7 +52,6 @@ impl ClientState {
         self.frozen_height.revision_height > 0
     }
 
-    /// NOTE: supress clippy due to &mut self can't be const
     #[allow(clippy::missing_const_for_fn)]
     pub fn freeze(&mut self) {
         self.frozen_height = self.latest_height;
@@ -136,7 +144,8 @@ impl TryFrom<IbcConsensusState> for ConsensusState {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct MisbehaviourMsg {
     pub client_id: String,
-    pub misbehaviour: Vec<u8>, // Protobuf encoded Misbehaviour
+    // Protobuf encoded Misbehaviour
+    pub misbehaviour: Vec<u8>,
 }
 
 #[cfg(test)]
@@ -201,6 +210,8 @@ mod compatibility_tests {
                 revision_number: 1,
                 revision_height: 1000,
             },
+            consensus_state_heights: vec![1000],
+            consensus_state_heights_to_prune: vec![],
         };
 
         let serialized = client_state.try_to_vec().unwrap();

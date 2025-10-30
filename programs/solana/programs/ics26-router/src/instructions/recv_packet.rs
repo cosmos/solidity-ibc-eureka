@@ -705,6 +705,54 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_recv_packet_receipt_mismatch() {
+        // Setup normal recv_packet test
+        let mut ctx = setup_recv_packet_test_with_params(RecvPacketTestParams::default());
+
+        // Pre-create the packet receipt account with a DIFFERENT commitment value
+        // This simulates the packet having been received before with different data
+        let different_commitment = [0xFFu8; 32]; // Different from what will be calculated
+
+        let packet_receipt_data = {
+            use crate::state::Commitment;
+            use anchor_lang::AccountSerialize;
+
+            let packet_receipt = Commitment {
+                value: different_commitment,
+            };
+            let mut data = vec![];
+            packet_receipt.try_serialize(&mut data).unwrap();
+            data
+        };
+
+        // Replace the packet receipt account with one that already has a different value
+        let packet_receipt_account = solana_sdk::account::Account {
+            lamports: 10_000_000, // Ensure rent exemption for the account
+            data: packet_receipt_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        // Find and replace the packet receipt account
+        if let Some(pos) = ctx
+            .accounts
+            .iter()
+            .position(|(k, _)| *k == ctx.packet_receipt_pubkey)
+        {
+            ctx.accounts[pos] = (ctx.packet_receipt_pubkey, packet_receipt_account);
+        }
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::PacketReceiptMismatch as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
     // Note: Testing CPI failures in mollusk is challenging because the test environment
     // propagates CPI errors differently than real Solana runtime. In production,
     // the router would catch CPI failures and use universal error acknowledgement.

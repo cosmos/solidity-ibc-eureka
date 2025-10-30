@@ -79,6 +79,8 @@ fn setup_test_accounts_with_chunks(
             revision_number: 0,
             revision_height: 100, // Higher than cleanup_height
         },
+        consensus_state_heights: vec![100],
+        consensus_state_heights_to_prune: vec![],
     };
 
     let mut client_data = vec![];
@@ -294,6 +296,8 @@ fn test_cleanup_with_missing_chunks() {
             revision_number: 0,
             revision_height: 100,
         },
+        consensus_state_heights: vec![100],
+        consensus_state_heights_to_prune: vec![],
     };
 
     let mut client_data = vec![];

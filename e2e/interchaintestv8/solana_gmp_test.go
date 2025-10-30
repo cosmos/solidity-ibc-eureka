@@ -212,8 +212,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 		// We don't need separate Solana user keys - the ICS27 account_state PDAs are the identities
 		// The user counter PDAs are derived from the ICS27 account_state PDAs
 
-		// Helper to get counter value for a Cosmos user
-		// This derives the ICS27 account_state PDA, then the user counter PDA from that
 		getCounterValue = func(cosmosUserAddress string) uint64 {
 			// Derive ICS27 account_state PDA for this Cosmos user
 			salt := []byte{} // Empty salt for this test
@@ -790,7 +788,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		s.Require().True(s.Run("Build send_call instruction", func() {
 			var err error
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
-				ics27_gmp.SendCallMsg{
+				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
 					TimeoutTimestamp: int64(timeout),
 					Receiver:         solanago.PublicKey{},
@@ -1079,7 +1077,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			s.T().Logf("Setting timeout to: %d (solana_clock=%d + 35 seconds)", timeout, solanaClockTime)
 
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
-				ics27_gmp.SendCallMsg{
+				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
 					TimeoutTimestamp: int64(timeout),
 					Receiver:         solanago.PublicKey{},
@@ -1790,7 +1788,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 		s.Require().True(s.Run("Build send_call instruction", func() {
 			var err error
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
-				ics27_gmp.SendCallMsg{
+				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
 					TimeoutTimestamp: int64(timeout),
 					Receiver:         solanago.PublicKey{},
