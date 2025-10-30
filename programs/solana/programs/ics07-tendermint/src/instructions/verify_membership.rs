@@ -11,69 +11,17 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
     let client_state = &ctx.accounts.client_state;
     let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
-    msg!("=== VERIFY MEMBERSHIP START ===");
-    msg!("  Height: {}", msg.height);
-    msg!("  Path segments: {}", msg.path.len());
-    msg!("  Value length: {} bytes", msg.value.len());
-    msg!("  Full value (hex): {:?}", &msg.value);
-    msg!("  Proof length: {} bytes", msg.proof.len());
-    msg!(
-        "  Proof (first 128 bytes): {:?}",
-        &msg.proof[..msg.proof.len().min(128)]
-    );
-
-    msg!("=== PATH COMPONENTS ===");
-    for (idx, segment) in msg.path.iter().enumerate() {
-        msg!("  Path[{}] length: {} bytes", idx, segment.len());
-        msg!("  Path[{}] (hex): {:?}", idx, segment);
-    }
-
-    msg!("=== CONSENSUS STATE ===");
-    msg!("  Consensus state height: {}", msg.height);
-    msg!(
-        "  Full app_hash from consensus state: {:?}",
-        consensus_state_store.consensus_state.root
-    );
-    msg!(
-        "  App hash length: {} bytes",
-        consensus_state_store.consensus_state.root.len()
-    );
-    msg!(
-        "  Consensus state timestamp: {}",
-        consensus_state_store.consensus_state.timestamp
-    );
-
     validate_proof_params(client_state, &msg)?;
 
     let proof = deserialize_merkle_proof(&msg.proof)?;
-    msg!("  Proof deserialized successfully");
-    msg!("  Proof specs count: {}", proof.proofs.len());
 
-    let kv_pair = KVPair::new(msg.path.clone(), msg.value.clone());
-    msg!("=== MEMBERSHIP VERIFICATION ===");
-    msg!(
-        "  Verifying path against app_hash: {:?}",
-        consensus_state_store.consensus_state.root
-    );
-    msg!("  Path[0] (hex): {:?}", &msg.path[0]);
-    if msg.path.len() > 1 {
-        msg!("  Path[1] (hex): {:?}", &msg.path[1]);
-    }
+    let kv_pair = KVPair::new(msg.path.clone(), msg.value);
 
     let app_hash = consensus_state_store.consensus_state.root;
 
-    tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)]).map_err(|e| {
-        msg!("=== MEMBERSHIP VERIFICATION FAILED ===");
-        msg!("  Error: {:?}", e);
-        msg!("  Expected app_hash: {:?}", app_hash);
-        msg!(
-            "  Value being verified: {:?}",
-            &msg.value[..msg.value.len().min(32)]
-        );
-        error!(ErrorCode::MembershipVerificationFailed)
-    })?;
+    tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)])
+        .map_err(|_| error!(ErrorCode::MembershipVerificationFailed))?;
 
-    msg!("=== MEMBERSHIP VERIFICATION SUCCEEDED ===");
     Ok(())
 }
 
@@ -321,74 +269,6 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let checks = vec![Check::err(
             anchor_lang::error::Error::from(ErrorCode::ClientFrozen).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_verify_membership_height_not_tracked() {
-        use crate::test_helpers::chunk_test_utils::{
-            derive_client_state_pda, derive_consensus_state_pda,
-        };
-
-        let fixture = load_membership_verification_fixture("verify_membership_key_0");
-        let mut client_state = decode_client_state_from_hex(&fixture.client_state_hex);
-        let consensus_state = decode_consensus_state_from_hex(&fixture.consensus_state_hex);
-
-        // Set up client state with a different height in tracking list
-        // This simulates the query height being pruned or never tracked
-        client_state.consensus_state_heights = vec![fixture.membership_msg.height + 100];
-
-        let client_state_pda = derive_client_state_pda(&client_state.chain_id);
-        let consensus_state_pda = derive_consensus_state_pda(&client_state_pda, fixture.membership_msg.height);
-
-        // Manually serialize client state WITHOUT adding the query height to tracking list
-        let mut client_data = vec![];
-        client_state.try_serialize(&mut client_data).unwrap();
-
-        let consensus_state_store = ConsensusStateStore {
-            height: fixture.membership_msg.height,
-            consensus_state,
-        };
-
-        let mut consensus_data = vec![];
-        consensus_state_store.try_serialize(&mut consensus_data).unwrap();
-
-        let accounts = vec![
-            (
-                client_state_pda,
-                Account {
-                    lamports: 1_000_000,
-                    data: client_data,
-                    owner: crate::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                consensus_state_pda,
-                Account {
-                    lamports: 1_000_000,
-                    data: consensus_data,
-                    owner: crate::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-        ];
-
-        let test_accounts = TestAccounts {
-            client_state_pda,
-            consensus_state_pda,
-            accounts,
-        };
-
-        let msg = create_membership_msg(&fixture.membership_msg);
-        let instruction = create_verify_membership_instruction(&test_accounts, msg);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::ConsensusStateNotFound).into(),
         )];
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }

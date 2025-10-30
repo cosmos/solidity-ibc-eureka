@@ -139,16 +139,22 @@ fn verify_and_update_header(
     let trusted_ibc_state: IbcConsensusState = trusted_state.clone().into();
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
+    // Signature verification happens here using brine-ed25519 (~30k CU per signature).
+    // Note: This happens AFTER header assembly. The signatures are embedded inside the header
+    // data that was uploaded via chunks. We cannot use Ed25519Program because:
+    // 1. Signatures come from external blockchain data (Tendermint validators)
+    // 2. They're only accessible after header assembly and deserialization
+    // 3. Ed25519Program requires signatures as separate instructions in the SAME transaction
+    // 4. Using Ed25519Program would require double multi-tx coordination (chunks + signatures),
+    //    adding 4-8 seconds of latency per update (10-20 sequential signature verifications)
+    // See README "Design Decisions" section for full explanation.
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
         &trusted_ibc_state,
         header,
         current_time,
     )
-    .map_err(|e| {
-        msg!("Header verification failed: {:?}", e);
-        ErrorCode::UpdateClientFailed
-    })?;
+    .map_err(|_| ErrorCode::UpdateClientFailed)?;
 
     Ok((
         output.latest_height,

@@ -438,22 +438,14 @@ impl TxBuilder {
         let (client_state, _) = ClientState::pda(&chain_id, self.solana_ics07_program_id);
         tracing::info!("ICS07 client state PDA: {}", client_state);
 
-        tracing::info!("=== ACK PACKET CONSENSUS STATE DERIVATION ===");
-        tracing::info!("  Proof height from message: {}", msg.proof.height);
-        tracing::info!(
-            "  Will derive consensus state PDA for height: {}",
-            msg.proof.height
+        tracing::debug!(
+            "Deriving consensus state PDA for height {} at {}",
+            msg.proof.height,
+            client_state
         );
 
         let (consensus_state, _) =
             ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
-
-        tracing::info!("  Consensus state PDA: {}", consensus_state);
-        tracing::info!(
-            "  This PDA should contain app_hash for height: {}",
-            msg.proof.height
-        );
-        tracing::info!("  Proof will be verified against this app_hash");
 
         let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
@@ -556,14 +548,11 @@ impl TxBuilder {
         let (consensus_state, _) =
             ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
 
-        tracing::info!("=== TIMEOUT PACKET CONSENSUS STATE DERIVATION ===");
-        tracing::info!("  Chain ID: {}", chain_id);
-        tracing::info!("  Client state PDA: {}", client_state);
-        tracing::info!("  Proof height from message: {}", msg.proof.height);
-        tracing::info!("  Consensus state PDA: {}", consensus_state);
-        tracing::info!(
-            "  This PDA should contain app_hash for height: {}",
-            msg.proof.height
+        tracing::debug!(
+            chain_id = %chain_id,
+            proof_height = msg.proof.height,
+            %consensus_state,
+            "Deriving consensus state PDA for timeout packet"
         );
 
         Ok(Self::assemble_timeout_accounts(
@@ -1171,48 +1160,33 @@ impl TxBuilder {
         let solana_client_state = self.cosmos_client_state(&chain_id)?;
         let solana_latest_height = solana_client_state.latest_height.revision_height;
 
-        tracing::info!("=== SOLANA CLIENT STATE ===");
-        tracing::info!("  Chain ID: {}", chain_id);
-        tracing::info!("  Solana client's latest height: {}", solana_latest_height);
-        tracing::info!("  Solana client state: {:?}", solana_client_state);
+        tracing::debug!(
+            chain_id = %chain_id,
+            latest_height = solana_latest_height,
+            "Solana client state retrieved"
+        );
 
-        // Find the maximum height among all source events
-        // This is the height where the latest event (e.g., acknowledgment) was written
-        // For timeout proofs: src_events is empty, so we use (solana_latest_height - 1)
-        // This ensures we prove non-receipt at height N using consensus state at N+1 (which we have)
         let max_event_height = src_events
             .iter()
             .map(|e| e.height)
             .max()
             .unwrap_or_else(|| {
                 let timeout_height = solana_latest_height.saturating_sub(1);
-                tracing::info!(
-                    "Timeout proof detected (no src_events). Proving non-receipt at Cosmos height {} using consensus state at {}",
+                tracing::debug!(
+                    "Timeout proof: proving non-receipt at height {} using consensus state at {}",
                     timeout_height,
                     solana_latest_height
                 );
                 timeout_height
             });
 
-        tracing::info!("=== EVENT HEIGHTS ===");
-        tracing::info!("  Maximum event height from source: {}", max_event_height);
-        tracing::info!(
-            "  Individual event heights: {:?}",
-            src_events.iter().map(|e| e.height).collect::<Vec<_>>()
-        );
-
         let proof_height = max_event_height + 1;
 
-        tracing::info!("=== PROOF HEIGHT CALCULATION ===");
-        tracing::info!("  Max event height: {}", max_event_height);
-        tracing::info!(
-            "  Calculated proof_height (max_event + 1): {}",
-            proof_height
-        );
-        tracing::info!("  Solana latest height: {}", solana_latest_height);
-        tracing::info!(
-            "  Solana has consensus state at height: {}",
-            solana_latest_height
+        tracing::debug!(
+            max_event_height,
+            proof_height,
+            solana_latest_height,
+            "Proof height calculation"
         );
 
         if solana_latest_height < proof_height {
@@ -1225,28 +1199,16 @@ impl TxBuilder {
             );
         }
 
-        // Use solana_latest_height for proof generation
-        // This ensures we use a height where the consensus state actually exists on Solana
-        // Solana only stores consensus states at heights where update_client was executed
         let target_height = ibc_proto_eureka::ibc::core::client::v1::Height {
             revision_number: solana_client_state.latest_height.revision_number,
             revision_height: solana_latest_height,
         };
 
-        tracing::info!("=== TARGET HEIGHT FOR PROOF ===");
-        tracing::info!(
-            "  Using Solana's latest height: {}",
-            target_height.revision_height
+        tracing::debug!(
+            target_height = target_height.revision_height,
+            max_event_height,
+            "Using Solana's latest height for proof generation"
         );
-        tracing::info!(
-            "  This means: prove_path will query Cosmos at height: {}",
-            target_height.revision_height - 1
-        );
-        tracing::info!(
-            "  Proof will verify against app_hash from Solana consensus state at height: {}",
-            target_height.revision_height
-        );
-        tracing::info!("  Events occurred at height: {}", max_event_height);
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
