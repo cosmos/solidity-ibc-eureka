@@ -107,7 +107,6 @@ pub fn recv_packet<'info>(
 
     require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
 
-    // Validate the IBC app is registered for the dest port of the first payload
     let expected_ibc_app = Pubkey::find_program_address(
         &[IBC_APP_SEED, msg.payloads[0].dest_port.as_bytes()],
         ctx.program_id,
@@ -208,8 +207,7 @@ pub fn recv_packet<'info>(
 
     packet_receipt.value = receipt_commitment;
 
-    // For now, we only handle the first payload for CPI
-    // TODO: In the future, we may need to handle multiple payloads differently
+    // TODO: Support multi-payload packets
     let payload = match packet.payloads.len() {
         0 => Err(RouterError::PacketNoPayload),
         n if n > 1 => Err(RouterError::MultiPayloadPacketNotSupported),

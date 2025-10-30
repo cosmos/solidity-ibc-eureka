@@ -83,10 +83,8 @@ pub fn ack_packet<'info>(
     let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;
 
-    // Validate we have at least one payload
     require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
 
-    // Validate the IBC app is registered for the source port of the first payload
     let expected_ibc_app = Pubkey::find_program_address(
         &[IBC_APP_SEED, msg.payloads[0].source_port.as_bytes()],
         ctx.program_id,
@@ -171,7 +169,6 @@ pub fn ack_packet<'info>(
     }
 
     // Safe to deserialize since we know it's owned by our program
-    // Verify the commitment value
     {
         let data = packet_commitment_account.try_borrow_data()?;
         let packet_commitment = Commitment::try_from_slice(&data[8..])?;
@@ -182,8 +179,7 @@ pub fn ack_packet<'info>(
         );
     }
 
-    // For now, we only handle the first payload for CPI
-    // TODO: In the future, we may need to handle multiple payloads differently
+    // TODO: Support multi-payload packets
     let payload = match packet.payloads.len() {
         0 => Err(RouterError::PacketNoPayload),
         n if n > 1 => Err(RouterError::MultiPayloadPacketNotSupported),
