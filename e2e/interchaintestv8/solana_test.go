@@ -1352,7 +1352,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 						Commitment: rpc.CommitmentFinalized,
 					},
 				)
-
 				// Account not found is expected - it means the account was closed successfully
 				if err != nil {
 					s.T().Logf("✓ Consensus state account at height %d was successfully closed (account not found)", lowestHeight)
