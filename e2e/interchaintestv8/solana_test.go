@@ -1,13 +1,13 @@
 package main
 
 import (
-	"slices"
 	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
