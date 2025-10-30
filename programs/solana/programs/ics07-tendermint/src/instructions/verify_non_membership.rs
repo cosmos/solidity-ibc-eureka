@@ -19,10 +19,8 @@ pub fn verify_non_membership(ctx: Context<VerifyNonMembership>, msg: MembershipM
     let kv_pair = KVPair::new(msg.path, vec![]);
     let app_hash = consensus_state_store.consensus_state.root;
 
-    tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)]).map_err(|e| {
-        msg!("Non-membership verification failed: {:?}", e);
-        error!(ErrorCode::NonMembershipVerificationFailed)
-    })?;
+    tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)])
+        .map_err(|_| error!(ErrorCode::NonMembershipVerificationFailed))?;
 
     // Return the consensus state timestamp for timeout verification
     let timestamp_bytes = consensus_state_store
@@ -83,6 +81,7 @@ mod tests {
         let consensus_state_store = ConsensusStateStore {
             height,
             consensus_state,
+            payer: Pubkey::new_unique(),
         };
 
         let mut consensus_data = vec![];
@@ -299,6 +298,7 @@ mod tests {
         let consensus_state_store = ConsensusStateStore {
             height: fixture.membership_msg.height,
             consensus_state,
+            payer: Pubkey::new_unique(),
         };
 
         let mut consensus_data = vec![];

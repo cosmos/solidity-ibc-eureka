@@ -40,12 +40,14 @@ pub fn initialize(
     // Initialize with the first consensus state height in the tracking list
     let mut client_state_with_heights = client_state;
     client_state_with_heights.consensus_state_heights = vec![latest_height.revision_height];
+    client_state_with_heights.consensus_state_heights_to_prune = vec![];
 
     client_state_account.set_inner(client_state_with_heights);
 
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
     consensus_state_store.height = latest_height.revision_height;
     consensus_state_store.consensus_state = consensus_state;
+    consensus_state_store.payer = ctx.accounts.payer.key();
 
     Ok(())
 }

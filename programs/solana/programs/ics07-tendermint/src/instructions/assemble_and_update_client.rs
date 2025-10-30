@@ -8,8 +8,8 @@ use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
-pub fn assemble_and_update_client(
-    mut ctx: Context<AssembleAndUpdateClient>,
+pub fn assemble_and_update_client<'info>(
+    mut ctx: Context<'_, '_, '_, 'info, AssembleAndUpdateClient<'info>>,
     chain_id: String,
     target_height: u64,
 ) -> Result<UpdateResult> {
@@ -83,8 +83,8 @@ fn validate_and_load_chunk(
     Ok(())
 }
 
-fn process_header_update(
-    ctx: &mut Context<AssembleAndUpdateClient>,
+fn process_header_update<'info>(
+    ctx: &mut Context<'_, '_, '_, 'info, AssembleAndUpdateClient<'info>>,
     header_bytes: Vec<u8>,
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
@@ -154,10 +154,7 @@ fn verify_and_update_header(
         header,
         current_time,
     )
-    .map_err(|e| {
-        msg!("Header verification failed: {:?}", e);
-        ErrorCode::UpdateClientFailed
-    })?;
+    .map_err(|_| ErrorCode::UpdateClientFailed)?;
 
     Ok((
         output.latest_height,
@@ -190,7 +187,6 @@ fn cleanup_chunks(
     submitter: Pubkey,
 ) -> Result<()> {
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
-        // Double-check PDA (paranoid check)
         let expected_seeds = &[
             crate::state::HeaderChunk::SEED,
             submitter.as_ref(),
@@ -213,7 +209,6 @@ fn cleanup_chunks(
     Ok(())
 }
 
-// Helper function to load and validate consensus state
 fn load_consensus_state(
     account: &UncheckedAccount,
     client_key: Pubkey,
@@ -286,19 +281,19 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
         }
     }
 
-    // Automatic cleanup: if we're at capacity, remove the oldest height from tracking
-    // Note: The actual consensus state PDA can be closed separately by anyone to reclaim rent
-    // The relayer should monitor consensus_state_heights and close PDAs no longer tracked
+    // Automatic pruning: if we're at capacity, remove the oldest height from tracking
+    // and add it to the to_prune list for later cleanup
     if params.client_state.consensus_state_heights.len()
         >= crate::constants::MAX_CONSENSUS_STATE_HEIGHTS
     {
         // Remove the oldest height (first element in sorted vec)
         let oldest_height = params.client_state.consensus_state_heights.remove(0);
 
-        msg!(
-            "Removed height {} from tracking (FIFO), PDA can be closed to reclaim rent",
-            oldest_height
-        );
+        // Add to the list of heights that need cleanup
+        params
+            .client_state
+            .consensus_state_heights_to_prune
+            .push(oldest_height);
     }
 
     // Add new height to sorted tracking list (binary search insert)
@@ -344,17 +339,12 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     let new_store = ConsensusStateStore {
         height: params.height,
         consensus_state: params.new_consensus_state.clone(),
+        payer: params.payer.key(),
     };
 
     let mut data = params.account.try_borrow_mut_data()?;
     let mut cursor = std::io::Cursor::new(&mut data[..]);
     new_store.try_serialize(&mut cursor)?;
-
-    msg!(
-        "Stored consensus state at height {}, total tracked: {}",
-        params.height,
-        params.client_state.consensus_state_heights.len()
-    );
 
     Ok(UpdateResult::Update)
 }

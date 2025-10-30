@@ -77,6 +77,7 @@ fn setup_test_accounts(
             revision_height: 200,
         },
         consensus_state_heights: vec![200],
+        consensus_state_heights_to_prune: vec![],
     };
 
     let mut client_data = vec![];
@@ -105,6 +106,7 @@ fn setup_test_accounts(
         let consensus_state_store_1 = ConsensusStateStore {
             height: height_1,
             consensus_state: consensus_state_1,
+            payer: Pubkey::new_unique(),
         };
 
         let mut consensus_data_1 = vec![];
@@ -132,6 +134,7 @@ fn setup_test_accounts(
         let consensus_state_store_2 = ConsensusStateStore {
             height: height_2,
             consensus_state: consensus_state_2,
+            payer: Pubkey::new_unique(),
         };
 
         let mut consensus_data_2 = vec![];

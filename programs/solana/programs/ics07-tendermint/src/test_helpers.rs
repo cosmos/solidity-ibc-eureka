@@ -90,6 +90,7 @@ pub mod fixtures {
             },
             // Initialize with the latest height in the tracking list
             consensus_state_heights: vec![latest_height.revision_height],
+            consensus_state_heights_to_prune: vec![],
         }
     }
 
@@ -120,7 +121,6 @@ pub mod fixtures {
         }
     }
 
-    // Helper to check if a fixture file exists
     pub fn fixture_exists(filename: &str) -> bool {
         let fixture_path =
             format!("../../../../packages/tendermint-light-client/fixtures/{filename}.json");
@@ -350,6 +350,7 @@ pub mod fixtures {
                 revision_height: latest_height.revision_height,
             },
             consensus_state_heights: vec![latest_height.revision_height],
+            consensus_state_heights_to_prune: vec![],
         }
     }
 
@@ -382,7 +383,6 @@ pub mod fixtures {
         }
     }
 
-    /// Helper functions for misbehaviour testing
     pub mod misbehaviour {
         use super::*;
 
@@ -467,6 +467,7 @@ pub mod chunk_test_utils {
             },
             // Initialize with the latest height in the tracking list
             consensus_state_heights: vec![latest_height],
+            consensus_state_heights_to_prune: vec![],
         };
 
         let mut data = vec![];
@@ -496,6 +497,7 @@ pub mod chunk_test_utils {
                 root,
                 next_validators_hash,
             },
+            payer: Pubkey::new_unique(),
         };
 
         let mut data = vec![];

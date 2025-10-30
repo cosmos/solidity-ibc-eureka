@@ -8,6 +8,7 @@ pub const CHUNK_DATA_SIZE: usize = 700;
 pub struct ConsensusStateStore {
     pub height: u64,
     pub consensus_state: ConsensusState,
+    pub payer: Pubkey,
 }
 
 impl ConsensusStateStore {

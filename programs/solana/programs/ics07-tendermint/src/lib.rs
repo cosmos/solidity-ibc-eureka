@@ -148,6 +148,31 @@ pub struct CleanupIncompleteUpload<'info> {
     // Remaining accounts are the chunk accounts to close
 }
 
+/// Context for pruning old consensus states
+/// This is permissionless - anyone can call it to reclaim rent
+#[derive(Accounts)]
+#[instruction(chain_id: String)]
+pub struct PruneConsensusStates<'info> {
+    /// Client state that tracks which heights need pruning
+    #[account(
+        mut,
+        constraint = client_state.chain_id == chain_id,
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    /// Pruner who receives 5% bounty for cleanup service
+    /// Rent is split: 95% to original payer, 5% to pruner
+    /// If payer == pruner (same account), they receive 100% of rent
+    #[account(mut)]
+    pub rent_receiver: Signer<'info>,
+    // Remaining accounts (order matters):
+    // - ConsensusStateStore accounts to prune (required)
+    // - Original payer accounts for each consensus state (required when payer != rent_receiver)
+    // IMPORTANT: If original payer == rent_receiver, do NOT include payer in remaining_accounts
+    // This avoids duplicate writable account which causes lamport transfer failures
+    // Only accounts whose heights are in consensus_state_heights_to_prune will be closed
+}
+
 #[program]
 pub mod ics07_tendermint {
     use super::*;
@@ -160,8 +185,6 @@ pub mod ics07_tendermint {
         client_state: ClientState,
         consensus_state: ConsensusState,
     ) -> Result<()> {
-        // NOTE: chain_id is used in the #[instruction] attribute for account validation
-        // but the actual handler doesn't need it as it's embedded in client_state
         assert_eq!(client_state.chain_id, chain_id);
         assert_eq!(client_state.latest_height.revision_height, latest_height);
 
@@ -197,8 +220,8 @@ pub mod ics07_tendermint {
 
     /// Assemble chunks and update the client
     /// Automatically cleans up all chunks after successful update
-    pub fn assemble_and_update_client(
-        ctx: Context<AssembleAndUpdateClient>,
+    pub fn assemble_and_update_client<'info>(
+        ctx: Context<'_, '_, '_, 'info, AssembleAndUpdateClient<'info>>,
         chain_id: String,
         target_height: u64,
     ) -> Result<UpdateResult> {
@@ -223,5 +246,15 @@ pub mod ics07_tendermint {
             cleanup_height,
             submitter,
         )
+    }
+
+    /// Prune old consensus states that have been marked for cleanup
+    /// This is permissionless - anyone can call it to help reclaim rent
+    /// Only consensus states whose heights are in the `to_prune` list will be closed
+    pub fn prune_consensus_states(
+        ctx: Context<PruneConsensusStates>,
+        chain_id: String,
+    ) -> Result<()> {
+        instructions::prune_consensus_states::prune_consensus_states(ctx, chain_id)
     }
 }

@@ -71,39 +71,16 @@ pub fn assemble_multiple_payloads<'b>(
 }
 
 pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<Vec<u8>> {
-    msg!(
-        "assemble_single_payload_chunks: total_chunks={}, start_index={}, remaining_accounts={}",
-        params.total_chunks,
-        params.start_index,
-        params.remaining_accounts.len()
-    );
-
     let mut payload_data = Vec::new();
     let mut accounts_processed = 0;
 
     // Collect and validate chunks
     for i in 0..params.total_chunks {
         let account_index = params.start_index + accounts_processed;
-        msg!(
-            "Processing payload chunk {}/{}: account_index={}, remaining_accounts.len()={}",
-            i,
-            params.total_chunks,
-            account_index,
-            params.remaining_accounts.len()
+        require!(
+            account_index < params.remaining_accounts.len(),
+            RouterError::InvalidChunkCount
         );
-        // TEMPORARILY COMMENTED OUT FOR DEBUGGING
-        // require!(
-        //     account_index < params.remaining_accounts.len(),
-        //     RouterError::InvalidChunkCount
-        // );
-        if account_index >= params.remaining_accounts.len() {
-            msg!(
-                "ERROR (PAYLOAD): account_index {} >= remaining_accounts.len() {}",
-                account_index,
-                params.remaining_accounts.len()
-            );
-            return Err(RouterError::PortAlreadyBound.into()); // Changed to unique error for debugging (6001)
-        }
 
         let chunk_account = &params.remaining_accounts[account_index];
 
@@ -135,8 +112,6 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
         payload_data.extend_from_slice(&chunk.chunk_data);
         accounts_processed += 1;
     }
-
-    // Commitment validation removed - no longer needed
 
     // Clean up chunks and return rent
     cleanup_payload_chunks(
@@ -172,26 +147,11 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
     // Collect and validate chunks
     for i in 0..params.total_chunks {
         let account_index = params.start_index + accounts_processed;
-        msg!(
-            "Processing proof chunk {}/{}: account_index={}, remaining_accounts.len()={}",
-            i,
-            params.total_chunks,
-            account_index,
-            params.remaining_accounts.len()
+
+        require!(
+            account_index < params.remaining_accounts.len(),
+            RouterError::InvalidChunkCount
         );
-        // TEMPORARILY COMMENTED OUT FOR DEBUGGING
-        // require!(
-        //     account_index < params.remaining_accounts.len(),
-        //     RouterError::InvalidChunkCount
-        // );
-        if account_index >= params.remaining_accounts.len() {
-            msg!(
-                "ERROR (PROOF): account_index {} >= remaining_accounts.len() {}",
-                account_index,
-                params.remaining_accounts.len()
-            );
-            return Err(RouterError::PortNotFound.into()); // Changed to unique error for debugging (6002)
-        }
 
         let chunk_account = &params.remaining_accounts[account_index];
 
@@ -222,9 +182,6 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
         accounts_processed += 1;
     }
 
-    // Commitment validation removed - no longer needed
-
-    // Clean up chunks and return rent
     cleanup_proof_chunks(
         &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
         params.payer,
@@ -258,7 +215,6 @@ fn cleanup_payload_chunks(
     );
 
     for (i, chunk_account) in chunk_accounts.iter().enumerate() {
-        // Double-check PDA (paranoid check)
         let expected_seeds = &[
             PayloadChunk::SEED,
             submitter.as_ref(),
@@ -294,7 +250,6 @@ fn cleanup_proof_chunks(
     program_id: &Pubkey,
 ) -> Result<()> {
     for (i, chunk_account) in chunk_accounts.iter().enumerate() {
-        // Double-check PDA (paranoid check)
         let expected_seeds = &[
             ProofChunk::SEED,
             submitter.as_ref(),

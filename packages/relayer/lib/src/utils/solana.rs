@@ -160,6 +160,8 @@ pub fn convert_client_state_to_sol(
         },
         // Initialize with latest height in tracking list (matches on-chain initialization)
         consensus_state_heights: vec![latest_height.revision_height],
+        // Initialize with empty pruning list (new clients don't have heights to prune)
+        consensus_state_heights_to_prune: vec![],
     })
 }
 

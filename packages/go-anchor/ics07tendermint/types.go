@@ -134,6 +134,11 @@ type Ics07TendermintTypesClientState struct {
 	// Sorted list of consensus state heights we're tracking (ascending order, FIFO)
 	// When this list reaches `MAX_CONSENSUS_STATE_HEIGHTS`, the oldest height is removed
 	ConsensusStateHeights []uint64 `json:"consensusStateHeights"`
+
+	// Heights that were removed from tracking and whose accounts should be closed to reclaim rent
+	// These can be cleaned up via the `cleanup_consensus_states` instruction
+	// Can accumulate up to 200 heights if cleanup is delayed
+	ConsensusStateHeightsToPrune []uint64 `json:"consensusStateHeightsToPrune"`
 }
 
 func (obj Ics07TendermintTypesClientState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -181,6 +186,11 @@ func (obj Ics07TendermintTypesClientState) MarshalWithEncoder(encoder *binary.En
 	err = encoder.Encode(obj.ConsensusStateHeights)
 	if err != nil {
 		return errors.NewField("ConsensusStateHeights", err)
+	}
+	// Serialize `ConsensusStateHeightsToPrune`:
+	err = encoder.Encode(obj.ConsensusStateHeightsToPrune)
+	if err != nil {
+		return errors.NewField("ConsensusStateHeightsToPrune", err)
 	}
 	return nil
 }
@@ -240,6 +250,11 @@ func (obj *Ics07TendermintTypesClientState) UnmarshalWithDecoder(decoder *binary
 	err = decoder.Decode(&obj.ConsensusStateHeights)
 	if err != nil {
 		return errors.NewField("ConsensusStateHeights", err)
+	}
+	// Deserialize `ConsensusStateHeightsToPrune`:
+	err = decoder.Decode(&obj.ConsensusStateHeightsToPrune)
+	if err != nil {
+		return errors.NewField("ConsensusStateHeightsToPrune", err)
 	}
 	return nil
 }

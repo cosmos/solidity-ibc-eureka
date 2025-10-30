@@ -378,6 +378,12 @@ test-e2e-solana testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaTestSuite/{{testname}}
 
+# Run the e2e tests in the IbcEurekaSolanaGMPTestSuite. For example, `just test-e2e-solana-gmp Test_GMPSPLTokenTransferFromCosmos`
+[group('test')]
+test-e2e-solana-gmp testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaSolanaGMPTestSuite/{{testname}}
+
 # Run the Solana Anchor e2e tests
 [group('test')]
 test-anchor-solana *ARGS:
