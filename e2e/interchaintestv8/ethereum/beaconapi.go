@@ -130,10 +130,11 @@ func (b BeaconAPIClient) GetSpec() (Spec, error) {
 			return Spec{}, err
 		}
 
-		specJsonBz, err := json.Marshal(specResponse)
+		specJsonBz, err := json.Marshal(specResponse.Data)
 		if err != nil {
 			return Spec{}, err
 		}
+
 		var spec Spec
 		if err := json.Unmarshal(specJsonBz, &spec); err != nil {
 			return Spec{}, err
