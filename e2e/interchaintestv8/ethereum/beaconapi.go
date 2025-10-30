@@ -110,11 +110,9 @@ func retry[T any](retries int, waitTime time.Duration, fn func() (T, error)) (T,
 
 func (b BeaconAPIClient) GetHeader(blockID string) (*apiv1.BeaconBlockHeader, error) {
 	return retry(b.Retries, b.RetryWait, func() (*apiv1.BeaconBlockHeader, error) {
-		opts := api.BeaconBlockHeaderOpts{
+		headerResponse, err := b.client.(eth2client.BeaconBlockHeadersProvider).BeaconBlockHeader(b.ctx, &api.BeaconBlockHeaderOpts{
 			Block: blockID,
-		}
-
-		headerResponse, err := b.client.(eth2client.BeaconBlockHeadersProvider).BeaconBlockHeader(b.ctx, &opts)
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -158,7 +156,7 @@ func (b BeaconAPIClient) GetBootstrap(finalizedRoot phase0.Root) (Bootstrap, err
 
 func (b BeaconAPIClient) GetSpec() (Spec, error) {
 	return retry(b.Retries, b.RetryWait, func() (Spec, error) {
-		specResponse, err := b.client.(eth2client.SpecProvider).Spec(b.ctx, nil)
+		specResponse, err := b.client.(eth2client.SpecProvider).Spec(b.ctx, &api.SpecOpts{})
 		if err != nil {
 			return Spec{}, err
 		}
