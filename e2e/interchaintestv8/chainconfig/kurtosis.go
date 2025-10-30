@@ -47,7 +47,7 @@ var (
 		// We can change the preset dynamically before spinning up the testnet
 		NetworkParams: kurtosisNetworkConfigParams{
 			Preset:        "minimal",
-			FuluForkEpoch: 1,
+			FuluForkEpoch: 0,
 		},
 		WaitForFinalization: true,
 		AdditionalServices:  []string{},
