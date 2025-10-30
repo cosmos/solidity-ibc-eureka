@@ -438,12 +438,6 @@ impl TxBuilder {
         let (client_state, _) = ClientState::pda(&chain_id, self.solana_ics07_program_id);
         tracing::info!("ICS07 client state PDA: {}", client_state);
 
-        tracing::debug!(
-            "Deriving consensus state PDA for height {} at {}",
-            msg.proof.height,
-            client_state
-        );
-
         let (consensus_state, _) =
             ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
 
@@ -547,13 +541,6 @@ impl TxBuilder {
         let (client_state, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
         let (consensus_state, _) =
             ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
-
-        tracing::debug!(
-            chain_id = %chain_id,
-            proof_height = msg.proof.height,
-            %consensus_state,
-            "Deriving consensus state PDA for timeout packet"
-        );
 
         Ok(Self::assemble_timeout_accounts(
             router_state,
