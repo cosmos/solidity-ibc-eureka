@@ -144,7 +144,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			// Deploy ALL programs in parallel using single deployer
 			s.T().Log("Deploying Solana programs in parallel...")
 
-			const keypairDir = "e2e/interchaintestv8/solana/keypairs"
+			const keypairDir = "solana-keypairs/localnet"
 			const deployerPath = keypairDir + "/deployer_wallet.json"
 
 			deployProgram := func(displayName, programName string) e2esuite.ParallelTaskWithResult[solanago.PublicKey] {

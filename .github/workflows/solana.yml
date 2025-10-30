@@ -16,7 +16,7 @@ concurrency:
 
 env:
   SOLANA_VERSION: "2.1.17"
-  ANCHOR_VERSION: "0.31.1"
+  ANCHOR_VERSION: "0.32.1"
 
 jobs:
   build-and-test:
@@ -41,7 +41,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-solana-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-solana-${{ hashFiles('**/Cargo.lock') }}-anchor-${{ env.ANCHOR_VERSION }}
           restore-keys: |
             ${{ runner.os }}-cargo-solana-
 

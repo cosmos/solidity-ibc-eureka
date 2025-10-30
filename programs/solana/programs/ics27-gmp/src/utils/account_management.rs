@@ -1,8 +1,8 @@
 use crate::errors::GMPError;
 use crate::state::AccountState;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{hash::hash, program::invoke_signed, system_instruction};
 use anchor_lang::Discriminator;
+use solana_program::{hash::hash, program::invoke_signed, system_instruction};
 
 const ADDRESS_HASH_PREFIX: &[u8] = b"gmp_sender_address";
 
