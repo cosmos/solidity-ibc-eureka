@@ -36,7 +36,7 @@ var (
 		Participants: []kurtosisParticipant{
 			{
 				CLType:         "lodestar",
-				CLImage:        "chainsafe/lodestar:v1.36.0-rc.1",
+				CLImage:        "chainsafe/lodestar:v1.35.0",
 				ELType:         "geth",
 				ELImage:        "ethereum/client-go:v1.16.5",
 				ELExtraParams:  []string{"--gcmode=archive"},
