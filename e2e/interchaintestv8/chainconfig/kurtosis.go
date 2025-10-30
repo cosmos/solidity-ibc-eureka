@@ -36,10 +36,8 @@ var (
 		Participants: []kurtosisParticipant{
 			{
 				CLType:         "lodestar",
-				// CLImage:        "chainsafe/lodestar:v1.35.0",
-				CLImage:        "ethpandaops/lodestar:unstable",
+				CLImage:        "chainsafe/lodestar:v1.35.0",
 				ELType:         "geth",
-				// ELImage:        "ethpandaops/geth:master",
 				ELImage:        "ethereum/client-go:v1.16.5",
 				ELExtraParams:  []string{"--gcmode=archive"},
 				ELLogLevel:     "info",
@@ -51,7 +49,6 @@ var (
 		// We can change the preset dynamically before spinning up the testnet
 		NetworkParams: kurtosisNetworkConfigParams{
 			Preset:         "minimal",
-			SecondsPerSlot: 3,
 			FuluForkEpoch:  1,
 		},
 		WaitForFinalization: true,
@@ -101,7 +98,6 @@ type kurtosisParticipant struct {
 
 type kurtosisNetworkConfigParams struct {
 	Preset        string `json:"preset"`
-	SecondsPerSlot uint64 `json:"seconds_per_slot"`
 	FuluForkEpoch uint64 `json:"fulu_fork_epoch"`
 }
 
