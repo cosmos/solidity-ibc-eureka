@@ -8,8 +8,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
-
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 // WaitForClusterReady waits for the Solana cluster to be fully initialized
@@ -18,14 +16,14 @@ func (s *Solana) WaitForClusterReady(ctx context.Context, timeout time.Duration)
 
 	for time.Now().Before(deadline) {
 		// Check 1: Can we get the latest blockhash?
-		_, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+		_, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
 		if err != nil {
 			time.Sleep(1 * time.Second)
 			continue
 		}
 
 		// Check 2: Can we get the slot?
-		slot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
+		slot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
 		if err != nil || slot < 5 {
 			time.Sleep(1 * time.Second)
 			continue
@@ -33,16 +31,17 @@ func (s *Solana) WaitForClusterReady(ctx context.Context, timeout time.Duration)
 
 		// Check 3: Is the faucet account funded and available?
 		if s.Faucet != nil {
-			balance, err := s.RPCClient.GetBalance(ctx, s.Faucet.PublicKey(), rpc.CommitmentFinalized)
+			balance, err := s.RPCClient.GetBalance(ctx, s.Faucet.PublicKey(), rpc.CommitmentConfirmed)
 			if err != nil {
 				time.Sleep(1 * time.Second)
 				continue
 			}
 
 			// Ensure faucet has at least 10 SOL for funding operations
-			minBalance := uint64(10_000_000_000) // 1000 SOL in lamports
+			minBalance := uint64(10_000_000_000) // 10 SOL in lamports
 			if balance.Value < minBalance {
-				return fmt.Errorf("faucet balance too low: %d lamports (need at least %d). Re-create solana validator node", balance.Value, minBalance)
+				time.Sleep(1 * time.Second)
+				continue
 			}
 		}
 
@@ -60,35 +59,7 @@ func (s *Solana) WaitForClusterReady(ctx context.Context, timeout time.Duration)
 	return fmt.Errorf("cluster not ready after %v", timeout)
 }
 
-// CreateAndFundWalletWithRetry creates a wallet with retry logic
-func (s *Solana) CreateAndFundWalletWithRetry(ctx context.Context, retries int) (*solana.Wallet, error) {
-	var lastErr error
-
-	for i := range retries {
-		// Wait a bit before retry (except first attempt)
-		if i > 0 {
-			time.Sleep(time.Duration(i) * time.Second)
-		}
-
-		wallet := solana.NewWallet()
-
-		// Try to fund the wallet
-		_, err := s.FundUserWithRetry(ctx, wallet.PublicKey(), testvalues.InitialSolBalance, 3)
-		if err == nil {
-			// Verify the balance was actually credited
-			balance, err := s.RPCClient.GetBalance(ctx, wallet.PublicKey(), rpc.CommitmentConfirmed)
-			if err == nil && balance.Value > 0 {
-				return wallet, nil
-			}
-		}
-
-		lastErr = err
-	}
-
-	return nil, fmt.Errorf("failed to create and fund wallet after %d retries: %w", retries, lastErr)
-}
-
-// FundUserWithRetry funds a user with retry logic
+// FundUserWithRetry funds a user with retry logic and confirmed commitment
 func (s *Solana) FundUserWithRetry(ctx context.Context, pubkey solana.PublicKey, amount uint64, retries int) (solana.Signature, error) {
 	var lastErr error
 
@@ -110,8 +81,8 @@ func (s *Solana) FundUserWithRetry(ctx context.Context, pubkey solana.PublicKey,
 			continue
 		}
 
-		// Get latest blockhash
-		recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+		// Get latest blockhash with confirmed commitment for faster execution
+		recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get blockhash: %w", err)
 			continue
@@ -134,13 +105,10 @@ func (s *Solana) FundUserWithRetry(ctx context.Context, pubkey solana.PublicKey,
 			continue
 		}
 
-		// Sign and broadcast
-		sig, err := s.SignAndBroadcastTx(ctx, tx, s.Faucet)
+		// Sign and broadcast with confirmed commitment for faster wallet setup
+		sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.Faucet)
 		if err == nil {
-			// Wait for confirmation
-			time.Sleep(2 * time.Second)
-
-			// Verify the transfer succeeded
+			// Verify the transfer succeeded with confirmed commitment
 			balance, err := s.RPCClient.GetBalance(ctx, pubkey, rpc.CommitmentConfirmed)
 			if err == nil && balance.Value >= amount {
 				return sig, nil

@@ -11,9 +11,7 @@ import (
 	bin "github.com/gagliardetto/binary"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
-	confirm "github.com/gagliardetto/solana-go/rpc/sendAndConfirmTransaction"
 	"github.com/gagliardetto/solana-go/rpc/ws"
 
 	"github.com/cosmos/interchaintest/v10/testutil"
@@ -25,6 +23,7 @@ type Solana struct {
 	RPCClient *rpc.Client
 	WSClient  *ws.Client
 	Faucet    *solana.Wallet
+	RPCURL    string
 }
 
 func NewSolana(rpcURL, wsURL string, faucet *solana.Wallet) (Solana, error) {
@@ -37,6 +36,7 @@ func NewSolana(rpcURL, wsURL string, faucet *solana.Wallet) (Solana, error) {
 		RPCClient: rpc.New(rpcURL),
 		WSClient:  wsClient,
 		Faucet:    faucet,
+		RPCURL:    rpcURL,
 	}, nil
 }
 
@@ -45,8 +45,10 @@ func NewLocalnetSolana(faucet *solana.Wallet) (Solana, error) {
 }
 
 // NewTransactionFromInstructions creates a new tx from the given transactions
+// Uses Confirmed blockhash for faster transaction construction.
+// The blockhash will be refreshed by SignAndBroadcastTxWithRetry before broadcasting.
 func (s *Solana) NewTransactionFromInstructions(payerPubKey solana.PublicKey, instructions ...solana.Instruction) (*solana.Transaction, error) {
-	recent, err := s.RPCClient.GetLatestBlockhash(context.TODO(), rpc.CommitmentFinalized)
+	recent, err := s.RPCClient.GetLatestBlockhash(context.TODO(), rpc.CommitmentConfirmed)
 	if err != nil {
 		return nil, err
 	}
@@ -56,16 +58,6 @@ func (s *Solana) NewTransactionFromInstructions(payerPubKey solana.PublicKey, in
 		recent.Value.Blockhash,
 		solana.TransactionPayer(payerPubKey),
 	)
-}
-
-// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is finalized.
-func (s *Solana) SignAndBroadcastTx(ctx context.Context, tx *solana.Transaction, signers ...*solana.Wallet) (solana.Signature, error) {
-	_, err := s.SignTx(ctx, tx, signers...)
-	if err != nil {
-		return solana.Signature{}, err
-	}
-
-	return s.BroadcastTx(ctx, tx)
 }
 
 // SignTx signs a transaction with the provided signers.
@@ -86,16 +78,6 @@ func (s *Solana) SignTx(ctx context.Context, tx *solana.Transaction, signers ...
 	}
 
 	return tx.Sign(signerFn)
-}
-
-// Broadcasts and confirms a **signed** transaction.
-func (s *Solana) BroadcastTx(ctx context.Context, tx *solana.Transaction) (solana.Signature, error) {
-	return confirm.SendAndConfirmTransaction(
-		ctx,
-		s.RPCClient,
-		s.WSClient,
-		tx,
-	)
 }
 
 // Higher numbers indicate higher confirmation levels.
@@ -120,6 +102,11 @@ func (s *Solana) WaitForTxStatus(txSig solana.Signature, status rpc.Confirmation
 			return false, err
 		}
 
+		// Transaction might not be found yet, retry
+		if len(out.Value) == 0 || out.Value[0] == nil {
+			return false, nil
+		}
+
 		if out.Value[0].Err != nil {
 			return false, fmt.Errorf("transaction %s failed with error: %s", txSig, out.Value[0].Err)
 		}
@@ -132,33 +119,9 @@ func (s *Solana) WaitForTxStatus(txSig solana.Signature, status rpc.Confirmation
 	})
 }
 
-func (s *Solana) FundUser(pubkey solana.PublicKey, amount uint64) (solana.Signature, error) {
-	recent, err := s.RPCClient.GetLatestBlockhash(context.TODO(), rpc.CommitmentFinalized)
-	if err != nil {
-		return solana.Signature{}, err
-	}
-
-	tx, err := solana.NewTransaction(
-		[]solana.Instruction{
-			system.NewTransferInstruction(
-				amount,
-				s.Faucet.PublicKey(),
-				pubkey,
-			).Build(),
-		},
-		recent.Value.Blockhash,
-		solana.TransactionPayer(s.Faucet.PublicKey()),
-	)
-	if err != nil {
-		return solana.Signature{}, err
-	}
-
-	return s.SignAndBroadcastTxWithConfirmedStatus(context.TODO(), tx, s.Faucet)
-}
-
 func (s *Solana) CreateAndFundWallet() (*solana.Wallet, error) {
 	wallet := solana.NewWallet()
-	if _, err := s.FundUser(wallet.PublicKey(), testvalues.InitialSolBalance); err != nil {
+	if _, err := s.FundUserWithRetry(context.TODO(), wallet.PublicKey(), testvalues.InitialSolBalance, 5); err != nil {
 		return nil, err
 	}
 	return wallet, nil
@@ -172,7 +135,10 @@ func (s *Solana) WaitForProgramAvailability(ctx context.Context, programID solan
 // WaitForProgramAvailabilityWithTimeout waits for a program to become available with specified timeout
 func (s *Solana) WaitForProgramAvailabilityWithTimeout(ctx context.Context, programID solana.PublicKey, timeoutSeconds int) bool {
 	for range timeoutSeconds {
-		accountInfo, err := s.RPCClient.GetAccountInfo(ctx, programID)
+		// Use confirmed commitment to match relayer read commitment level
+		accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, programID, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
 		if err == nil && accountInfo.Value != nil && accountInfo.Value.Executable {
 			return true
 		}
@@ -181,16 +147,21 @@ func (s *Solana) WaitForProgramAvailabilityWithTimeout(ctx context.Context, prog
 	return false
 }
 
-// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is finalized, retries with default timeout
-func (s *Solana) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Transaction, signers ...*solana.Wallet) (solana.Signature, error) {
-	return s.SignAndBroadcastTxWithRetryTimeout(ctx, tx, 30, signers...)
+// SignAndBroadcastTxWithRetry signs, broadcasts, and waits for the specified commitment level with retry (30s timeout).
+// Commitment level must be explicitly specified:
+//   - rpc.CommitmentFinalized: Waits for supermajority + 31 confirmations (~10-30s). Use when subsequent code immediately depends on finalized state.
+//   - rpc.CommitmentConfirmed: Waits for supermajority confirmation (~1-5s). Use for non-critical setup operations.
+//   - rpc.CommitmentProcessed: Waits for the transaction to be processed (~instant). Use with caution, minimal guarantees.
+func (s *Solana) SignAndBroadcastTxWithRetry(ctx context.Context, tx *solana.Transaction, commitment rpc.CommitmentType, signers ...*solana.Wallet) (solana.Signature, error) {
+	return s.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, commitment, 30, signers...)
 }
 
-// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is finalized, retries with timeout
-func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *solana.Transaction, timeoutSeconds int, signers ...*solana.Wallet) (solana.Signature, error) {
+// SignAndBroadcastTxWithRetryAndTimeout signs, broadcasts, and waits for the specified commitment level with custom timeout.
+func (s *Solana) SignAndBroadcastTxWithRetryAndTimeout(ctx context.Context, tx *solana.Transaction, commitment rpc.CommitmentType, timeoutSeconds int, signers ...*solana.Wallet) (solana.Signature, error) {
 	var lastErr error
 	for range timeoutSeconds {
-		recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
+		// Fetch blockhash with requested commitment level
+		recent, err := s.RPCClient.GetLatestBlockhash(ctx, commitment)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get latest blockhash: %w", err)
 			time.Sleep(1 * time.Second)
@@ -198,7 +169,9 @@ func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *sol
 		}
 		tx.Message.RecentBlockhash = recent.Value.Blockhash
 
-		sig, err := s.SignAndBroadcastTx(ctx, tx, signers...)
+		// Broadcast with skip preflight and wait for requested confirmation status
+		// CommitmentType and ConfirmationStatusType are compatible (both string types with same values)
+		sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusType(commitment), signers...)
 		if err == nil {
 			return sig, nil
 		}
@@ -208,14 +181,10 @@ func (s *Solana) SignAndBroadcastTxWithRetryTimeout(ctx context.Context, tx *sol
 	return solana.Signature{}, fmt.Errorf("transaction broadcast timed out after %d seconds: %w", timeoutSeconds, lastErr)
 }
 
-// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is in confirmed status
-func (s *Solana) SignAndBroadcastTxWithConfirmedStatus(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet) (solana.Signature, error) {
-	return s.SignAndBroadcastTxWithOpts(ctx, tx, wallet, rpc.ConfirmationStatusConfirmed)
-}
-
-// SignTx signs a transaction with the provided signers, broadcasts it, and confirms it is in requested status
-func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Transaction, wallet *solana.Wallet, status rpc.ConfirmationStatusType) (solana.Signature, error) {
-	_, err := s.SignTx(ctx, tx, wallet)
+// SignAndBroadcastTxWithOpts signs with one or more signers, broadcasts (skipping preflight), and waits for requested confirmation status.
+// This is the unified low-level function for broadcasting with specific commitment requirements.
+func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Transaction, status rpc.ConfirmationStatusType, signers ...*solana.Wallet) (solana.Signature, error) {
+	_, err := s.SignTx(ctx, tx, signers...)
 	if err != nil {
 		return solana.Signature{}, err
 	}
@@ -322,7 +291,7 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 		return solana.PublicKey{}, fmt.Errorf("failed to create ALT transaction: %w", err)
 	}
 
-	_, err = s.SignAndBroadcastTxWithRetry(ctx, createTx, authority)
+	_, err = s.SignAndBroadcastTxWithRetry(ctx, createTx, rpc.CommitmentConfirmed, authority)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to create ALT: %w", err)
 	}
@@ -352,7 +321,7 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 		return solana.PublicKey{}, fmt.Errorf("failed to create extend ALT transaction: %w", err)
 	}
 
-	_, err = s.SignAndBroadcastTxWithRetry(ctx, extendTx, authority)
+	_, err = s.SignAndBroadcastTxWithRetry(ctx, extendTx, rpc.CommitmentConfirmed, authority)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to extend ALT: %w", err)
 	}
@@ -370,7 +339,10 @@ func mustWrite(err error) {
 func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
 	clockSysvarPubkey := solana.MustPublicKeyFromBase58("SysvarC1ock11111111111111111111111111111111")
 
-	accountInfo, err := s.RPCClient.GetAccountInfo(ctx, clockSysvarPubkey)
+	// Use confirmed commitment to match relayer read commitment level
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, clockSysvarPubkey, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get clock sysvar account: %w", err)
 	}
