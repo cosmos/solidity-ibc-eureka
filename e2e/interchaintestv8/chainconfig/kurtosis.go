@@ -24,7 +24,7 @@ import (
 
 const (
 	// ethereumPackageId is the package ID used by Kurtosis to find the Ethereum package we use for the testnet
-	ethereumPackageId = "github.com/ethpandaops/ethereum-package@5.0.1"
+	ethereumPackageId = "github.com/ethpandaops/ethereum-package@90fcb093671d5be9bf248e20d97f1c46b70d49f1"
 
 	faucetPrivateKey = "0x04b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
 )
@@ -36,18 +36,20 @@ var (
 		Participants: []kurtosisParticipant{
 			{
 				CLType:         "lodestar",
-				CLImage:        "chainsafe/lodestar:v1.35.0",
+				CLImage:        "chainsafe/lodestar:v1.36.0-rc.1",
 				ELType:         "geth",
 				ELImage:        "ethereum/client-go:v1.16.5",
 				ELExtraParams:  []string{"--gcmode=archive"},
 				ELLogLevel:     "info",
 				ValidatorCount: 64,
+				// Supernode required for Fulu testing
+				Supernode:      true,
 			},
 		},
 		// We can change the preset dynamically before spinning up the testnet
 		NetworkParams: kurtosisNetworkConfigParams{
-			Preset:        "minimal",
-			FuluForkEpoch: 0,
+			Preset:         "minimal",
+			FuluForkEpoch:  1,
 		},
 		WaitForFinalization: true,
 		AdditionalServices:  []string{},
@@ -91,6 +93,7 @@ type kurtosisParticipant struct {
 	ELExtraParams  []string `json:"el_extra_params"`
 	ELLogLevel     string   `json:"el_log_level"`
 	ValidatorCount uint64   `json:"validator_count"`
+	Supernode      bool     `json:"supernode"`
 }
 
 type kurtosisNetworkConfigParams struct {
