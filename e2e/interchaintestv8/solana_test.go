@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"sort"
 	"testing"
 	"time"
 
@@ -1046,10 +1047,21 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.T().Logf("Unique consensus state heights: %v", heightsList)
 		}))
 
-		// Verify oldest consensus state was removed from tracking
-		s.Require().True(s.Run("Verify oldest height was removed from tracking list", func() {
-			oldestHeight := heightsList[0]
-			s.T().Logf("Checking if oldest height %d was removed from tracking...", oldestHeight)
+		// Sort heightsList to determine which heights should be tracked
+		// The Solana light client keeps the 10 HIGHEST heights, not the 10 most recently created
+		sortedHeights := make([]uint64, len(heightsList))
+		copy(sortedHeights, heightsList)
+		sort.Slice(sortedHeights, func(i, j int) bool { return sortedHeights[i] < sortedHeights[j] })
+		lowestHeight := sortedHeights[0]
+		expectedTrackedHeights := sortedHeights[1:] // The 10 highest heights
+
+		s.T().Logf("Sorted heights: %v", sortedHeights)
+		s.T().Logf("Lowest height (should be pruned): %d", lowestHeight)
+		s.T().Logf("Expected tracked heights (10 highest): %v", expectedTrackedHeights)
+
+		// Verify lowest height was removed from tracking
+		s.Require().True(s.Run("Verify lowest height was removed from tracking list", func() {
+			s.T().Logf("Checking if lowest height %d was removed from tracking...", lowestHeight)
 
 			// Query the client state to check consensus_state_heights
 			clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
@@ -1059,11 +1071,11 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
 			s.Require().NoError(err)
 
-			// Check that the oldest height is NOT in the tracking list
-			found := slices.Contains(clientState.ConsensusStateHeights, oldestHeight)
+			// Check that the lowest height is NOT in the tracking list
+			found := slices.Contains(clientState.ConsensusStateHeights, lowestHeight)
 
-			s.Require().False(found, "Oldest height %d should have been removed from tracking list", oldestHeight)
-			s.T().Logf("✓ Oldest height %d was removed from tracking list", oldestHeight)
+			s.Require().False(found, "Lowest height %d should have been removed from tracking list", lowestHeight)
+			s.T().Logf("✓ Lowest height %d was removed from tracking list", lowestHeight)
 
 			// Verify the tracking list has exactly 10 heights (not 11)
 			s.Require().Equal(10, len(clientState.ConsensusStateHeights),
@@ -1071,8 +1083,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.T().Logf("✓ Tracking list has %d heights (correct)", len(clientState.ConsensusStateHeights))
 		}))
 
-		// Verify the newer consensus states are still being tracked
-		s.Require().True(s.Run("Verify remaining 10 heights are in tracking list", func() {
+		// Verify the 10 highest heights are still being tracked
+		s.Require().True(s.Run("Verify 10 highest heights are in tracking list", func() {
 			clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
 			accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
 			s.Require().NoError(err)
@@ -1080,22 +1092,20 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
 			s.Require().NoError(err)
 
-			// Check that heights 1-10 from our list are still tracked
-			for i := 1; i < len(heightsList); i++ {
-				height := heightsList[i]
+			// Check that the 10 highest heights are still tracked
+			for i, height := range expectedTrackedHeights {
 				found := slices.Contains(clientState.ConsensusStateHeights, height)
 				s.Require().True(found, "Height %d should still be in tracking list", height)
-				s.T().Logf("✓ Height %d is still tracked (index %d)", height, i)
+				s.T().Logf("✓ Height %d is still tracked (rank %d of 10 highest)", height, i+1)
 			}
 
 			s.T().Logf("=== State Pruning Verification Complete ===")
-			s.T().Logf("Successfully verified that oldest consensus state was pruned after creating 11 unique states")
-			s.T().Logf("The 10 most recent consensus states remain accessible")
+			s.T().Logf("Successfully verified that lowest consensus state was pruned after creating 11 unique states")
+			s.T().Logf("The 10 highest consensus states remain accessible")
 		}))
 
-		s.Require().True(s.Run("Verify oldest height is in to_prune list", func() {
-			oldestHeight := heightsList[0]
-			s.T().Logf("Checking if oldest height %d is in consensus_state_heights_to_prune...", oldestHeight)
+		s.Require().True(s.Run("Verify lowest height is in to_prune list", func() {
+			s.T().Logf("Checking if lowest height %d is in consensus_state_heights_to_prune...", lowestHeight)
 
 			clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
 			accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
@@ -1104,33 +1114,31 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
 			s.Require().NoError(err)
 
-			// Check that the oldest height IS in the to_prune list
-			found := slices.Contains(clientState.ConsensusStateHeightsToPrune, oldestHeight)
+			// Check that the lowest height IS in the to_prune list
+			found := slices.Contains(clientState.ConsensusStateHeightsToPrune, lowestHeight)
 
-			s.Require().True(found, "Oldest height %d should be in to_prune list", oldestHeight)
-			s.T().Logf("✓ Oldest height %d is in to_prune list (ready for cleanup)", oldestHeight)
+			s.Require().True(found, "Lowest height %d should be in to_prune list", lowestHeight)
+			s.T().Logf("✓ Lowest height %d is in to_prune list (ready for cleanup)", lowestHeight)
 			s.T().Logf("Total heights pending cleanup: %d", len(clientState.ConsensusStateHeightsToPrune))
 		}))
 
-		s.Require().True(s.Run("Verify oldest consensus state account still exists", func() {
-			oldestHeight := heightsList[0]
-			consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, oldestHeight)
+		s.Require().True(s.Run("Verify lowest consensus state account still exists", func() {
+			consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, lowestHeight)
 
 			accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, consensusStatePDA)
 			s.Require().NoError(err)
 			s.Require().NotNil(accountInfo.Value, "Consensus state account should still exist before prune")
 			s.Require().Greater(accountInfo.Value.Lamports, uint64(0), "Account should have lamports before prune")
 
-			s.T().Logf("✓ Consensus state account at height %d still exists with %d lamports", oldestHeight, accountInfo.Value.Lamports)
+			s.T().Logf("✓ Consensus state account at height %d still exists with %d lamports", lowestHeight, accountInfo.Value.Lamports)
 		}))
 
 		s.Require().True(s.Run("Call prune_consensus_states to cleanup old state", func() {
-			oldestHeight := heightsList[0]
-			s.T().Logf("Calling prune_consensus_states to cleanup height %d...", oldestHeight)
+			s.T().Logf("Calling prune_consensus_states to cleanup height %d...", lowestHeight)
 
 			// Get necessary accounts
 			clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
-			consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, oldestHeight)
+			consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, lowestHeight)
 
 			// Record balances before pruning to verify bounty split
 			consensusStateInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, consensusStatePDA)
@@ -1216,29 +1224,26 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			s.T().Logf("✓ Rent reclaimed: %d lamports (tx fee: ~%d)", actualGain, txFee)
 		}))
 
-		s.Require().True(s.Run("Verify oldest consensus state account was closed", func() {
-			oldestHeight := heightsList[0]
-			consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, oldestHeight)
+		s.Require().True(s.Run("Verify lowest consensus state account was closed", func() {
+			consensusStatePDA := s.getConsensusStateAccount(simd.Config().ChainID, lowestHeight)
 
 			accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, consensusStatePDA)
 			// Account not found is expected - it means the account was closed successfully
 			if err != nil {
-				s.T().Logf("✓ Consensus state account at height %d was successfully closed (account not found)", oldestHeight)
+				s.T().Logf("✓ Consensus state account at height %d was successfully closed (account not found)", lowestHeight)
 				return
 			}
 
 			// If account info is returned, it should have 0 lamports (also indicates closed)
 			if accountInfo.Value != nil {
 				s.Require().Equal(uint64(0), accountInfo.Value.Lamports, "Account should have 0 lamports after prune")
-				s.T().Logf("✓ Consensus state account at height %d was successfully closed (0 lamports)", oldestHeight)
+				s.T().Logf("✓ Consensus state account at height %d was successfully closed (0 lamports)", lowestHeight)
 			} else {
-				s.T().Logf("✓ Consensus state account at height %d was successfully closed (nil value)", oldestHeight)
+				s.T().Logf("✓ Consensus state account at height %d was successfully closed (nil value)", lowestHeight)
 			}
 		}))
 
-		s.Require().True(s.Run("Verify oldest height removed from to_prune list", func() {
-			oldestHeight := heightsList[0]
-
+		s.Require().True(s.Run("Verify lowest height removed from to_prune list", func() {
 			clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
 			accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfo(ctx, clientStateAccount)
 			s.Require().NoError(err)
@@ -1246,17 +1251,17 @@ func (s *IbcEurekaSolanaTestSuite) Test_MultipleClientUpdates_VerifyStateDeletio
 			clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
 			s.Require().NoError(err)
 
-			// Check that the oldest height is NO LONGER in the to_prune list
-			found := slices.Contains(clientState.ConsensusStateHeightsToPrune, oldestHeight)
+			// Check that the lowest height is NO LONGER in the to_prune list
+			found := slices.Contains(clientState.ConsensusStateHeightsToPrune, lowestHeight)
 
-			s.Require().False(found, "Oldest height %d should have been removed from to_prune list", oldestHeight)
-			s.T().Logf("✓ Oldest height %d was removed from to_prune list", oldestHeight)
+			s.Require().False(found, "Lowest height %d should have been removed from to_prune list", lowestHeight)
+			s.T().Logf("✓ Lowest height %d was removed from to_prune list", lowestHeight)
 			s.T().Logf("Remaining heights pending cleanup: %d", len(clientState.ConsensusStateHeightsToPrune))
 		}))
 
 		s.T().Logf("=== Prune Instruction Verification Complete ===")
 		s.T().Logf("Successfully verified that prune_consensus_states:")
-		s.T().Logf("  1. Closed the oldest consensus state account")
+		s.T().Logf("  1. Closed the lowest consensus state account")
 		s.T().Logf("  2. Distributed rent with bounty system (95%% to payer, 5%% to pruner)")
 		s.T().Logf("  3. Removed the height from consensus_state_heights_to_prune list")
 	}))
