@@ -24,6 +24,7 @@ anyhow        = { workspace = true, features = ["std"] }
 futures       = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 tracing       = { workspace = true, default-features = true }
+tonic         = { workspace = true }
 
 tendermint     = { workspace = true, features = ["std"] }
 tendermint-rpc = { workspace = true, features = ["http-client"] }
@@ -31,6 +32,7 @@ tendermint-light-client-verifier = { workspace = true }
 
 ibc-proto-eureka          = { workspace = true }
 ibc-core-commitment-types = { workspace = true }
+ics23                     = { workspace = true }
 
 alloy = { workspace = true, features = ["full", "node-bindings"] }
 
