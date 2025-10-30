@@ -49,7 +49,6 @@ var (
 		// We can change the preset dynamically before spinning up the testnet
 		NetworkParams: kurtosisNetworkConfigParams{
 			Preset:         "minimal",
-			PerfectPeerDAS: false,
 			FuluForkEpoch:  1,
 		},
 		WaitForFinalization: true,
@@ -99,7 +98,6 @@ type kurtosisParticipant struct {
 
 type kurtosisNetworkConfigParams struct {
 	Preset        string `json:"preset"`
-	PerfectPeerDAS bool   `json:"perfect_peerdas_enabled"`
 	FuluForkEpoch uint64 `json:"fulu_fork_epoch"`
 }
 
