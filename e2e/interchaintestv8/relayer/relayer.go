@@ -52,7 +52,7 @@ func StartRelayer(configPath string) (*os.Process, error) {
 	}
 
 	// wait for the relayer to start
-	time.Sleep(7 * time.Second)
+	time.Sleep(9 * time.Second)
 
 	return cmd.Process, nil
 }

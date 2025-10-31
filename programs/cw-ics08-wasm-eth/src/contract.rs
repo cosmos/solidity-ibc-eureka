@@ -199,6 +199,10 @@ mod tests {
                         version: FixedBytes([0; 4]),
                         epoch: 0,
                     },
+                    fulu: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
                 },
                 seconds_per_slot: 10,
                 slots_per_epoch: 8,
@@ -798,6 +802,10 @@ mod tests {
                         version: FixedBytes([0; 4]),
                         epoch: 0,
                     },
+                    fulu: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
                 },
                 sync_committee_size: 512,
                 seconds_per_slot: 10,
@@ -906,6 +914,10 @@ mod tests {
                         version: FixedBytes([0; 4]),
                         epoch: 0,
                     },
+                    fulu: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
                 },
                 sync_committee_size: 512,
                 seconds_per_slot: 10,
@@ -961,6 +973,10 @@ mod tests {
                     electra: Fork {
                         version: FixedBytes([0; 4]),
                         epoch: 5000,
+                    },
+                    fulu: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
                     },
                 }),
             };
