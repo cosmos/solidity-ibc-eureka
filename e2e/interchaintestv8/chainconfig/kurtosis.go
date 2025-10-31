@@ -80,41 +80,41 @@ type EthKurtosisChain struct {
 // To see all the configuration options: github.com/ethpandaops/ethereum-package
 type kurtosisNetworkParams struct {
 	// Specification of the participants in the network
-	Participants        []kurtosisParticipant       `json:"participants"`
+	Participants []kurtosisParticipant `json:"participants"`
 	// Default configuration parameters for the network
-	NetworkParams       kurtosisNetworkConfigParams `json:"network_params"`
+	NetworkParams kurtosisNetworkConfigParams `json:"network_params"`
 	// If set, the package will block until a finalized epoch has occurred.
-	WaitForFinalization bool                        `json:"wait_for_finalization"`
+	WaitForFinalization bool `json:"wait_for_finalization"`
 	// Additional services to start in the network
-	AdditionalServices  []string                    `json:"additional_services"`
+	AdditionalServices []string `json:"additional_services"`
 }
 
 type kurtosisParticipant struct {
 	// The type of CL client that should be started
-	CLType         string   `json:"cl_type"`
+	CLType string `json:"cl_type"`
 	// The Docker image that should be used for the CL client
-	CLImage        string   `json:"cl_image"`
+	CLImage string `json:"cl_image"`
 	// The type of EL client that should be started
-	ELType         string   `json:"el_type"`
+	ELType string `json:"el_type"`
 	// The Docker image that should be used for the EL client
-	ELImage        string   `json:"el_image"`
+	ELImage string `json:"el_image"`
 	// A list of optional extra params that will be passed to the EL client container for modifying its behaviour
-	ELExtraParams  []string `json:"el_extra_params"`
+	ELExtraParams []string `json:"el_extra_params"`
 	// The log level string that this participant's EL client should log at
-	ELLogLevel     string   `json:"el_log_level"`
+	ELLogLevel string `json:"el_log_level"`
 	// Count of the number of validators you want to run for a given participant
-	ValidatorCount uint64   `json:"validator_count"`
+	ValidatorCount uint64 `json:"validator_count"`
 	// Whether to act as a supernode for the network
-	Supernode      bool     `json:"supernode"`
+	Supernode bool `json:"supernode"`
 }
 
 type kurtosisNetworkConfigParams struct {
 	// Preset for the network. Options: "mainnet", "minimal"
-	Preset        string `json:"preset"`
+	Preset string `json:"preset"`
 	// Number of seconds per slot on the Beacon chain
 	SecondsPerSlot uint64 `json:"seconds_per_slot,omitempty"`
 	// Duration of a slot in milliseconds
-	SlotDuration    uint64 `json:"slot_duration_ms,omitempty"`
+	SlotDuration uint64 `json:"slot_duration_ms,omitempty"`
 	// Fulu fork epoch
 	FuluForkEpoch uint64 `json:"fulu_fork_epoch"`
 }
