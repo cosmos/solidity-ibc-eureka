@@ -47,6 +47,8 @@ pub struct ForkParameters {
     pub deneb: Fork,
     /// The electra fork
     pub electra: Fork,
+    /// The fulu fork
+    pub fulu: Fork,
 }
 
 impl ForkParameters {
@@ -55,6 +57,7 @@ impl ForkParameters {
     #[must_use]
     pub const fn compute_fork_version(&self, epoch: u64) -> Version {
         match epoch {
+            _ if epoch >= self.fulu.epoch => self.fulu.version,
             _ if epoch >= self.electra.epoch => self.electra.version,
             _ if epoch >= self.deneb.epoch => self.deneb.version,
             _ if epoch >= self.capella.epoch => self.capella.version,

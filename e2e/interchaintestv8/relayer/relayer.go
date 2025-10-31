@@ -41,7 +41,11 @@ func StartRelayer(configPath string) (*os.Process, error) {
 	}
 
 	// wait for the relayer to start
+<<<<<<< HEAD
 	time.Sleep(5 * time.Second)
+=======
+	time.Sleep(9 * time.Second)
+>>>>>>> 5a7e361 (imp(eth-lc): add support for fusaka/fulu hard fork (#799))
 
 	return cmd.Process, nil
 }

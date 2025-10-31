@@ -3,6 +3,7 @@ module github.com/srdtrk/solidity-ibc-eureka/e2e/v8
 go 1.23.6
 
 require (
+<<<<<<< HEAD
 	cosmossdk.io/api v0.7.6
 	cosmossdk.io/collections v0.4.0
 	cosmossdk.io/errors v1.0.1
@@ -11,6 +12,16 @@ require (
 	github.com/attestantio/go-eth2-client v0.24.0
 	github.com/cometbft/cometbft v0.38.15
 	github.com/cosmos/cosmos-sdk v0.50.13
+=======
+	cosmossdk.io/api v0.9.2
+	cosmossdk.io/collections v1.3.1
+	cosmossdk.io/errors v1.0.2
+	cosmossdk.io/math v1.5.3
+	cosmossdk.io/x/upgrade v0.2.0
+	github.com/attestantio/go-eth2-client v0.27.1
+	github.com/cometbft/cometbft v0.38.18
+	github.com/cosmos/cosmos-sdk v0.53.4
+>>>>>>> 5a7e361 (imp(eth-lc): add support for fusaka/fulu hard fork (#799))
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.1.0
 	github.com/cosmos/ibc-go/v10 v10.1.0
@@ -95,7 +106,13 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.7.0 // indirect
 	github.com/emicklei/dot v1.6.4 // indirect
+<<<<<<< HEAD
 	github.com/ethereum/c-kzg-4844 v1.0.0 // indirect
+=======
+	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
+	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
+	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
+>>>>>>> 5a7e361 (imp(eth-lc): add support for fusaka/fulu hard fork (#799))
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -148,7 +165,11 @@ require (
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/hdevalence/ed25519consensus v0.2.0 // indirect
 	github.com/huandu/go-clone v1.6.0 // indirect
+<<<<<<< HEAD
 	github.com/huandu/skiplist v1.2.0 // indirect
+=======
+	github.com/huandu/skiplist v1.2.1 // indirect
+>>>>>>> 5a7e361 (imp(eth-lc): add support for fusaka/fulu hard fork (#799))
 	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845 // indirect
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
@@ -240,6 +261,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+<<<<<<< HEAD
 	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect
 	golang.org/x/mod v0.22.0 // indirect
@@ -256,6 +278,24 @@ require (
 	google.golang.org/genproto v0.0.0-20240701130421-f6361c86f094 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
+=======
+	go.yaml.in/yaml/v2 v2.4.2 // indirect
+	golang.org/x/arch v0.17.0 // indirect
+	golang.org/x/crypto v0.40.0 // indirect
+	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
+	golang.org/x/net v0.42.0 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/term v0.33.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/time v0.10.0 // indirect
+	golang.org/x/tools v0.35.0 // indirect
+	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
+	google.golang.org/api v0.222.0 // indirect
+	google.golang.org/genproto v0.0.0-20241118233622-e639e219e697 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
+>>>>>>> 5a7e361 (imp(eth-lc): add support for fusaka/fulu hard fork (#799))
 	gopkg.in/Knetic/govaluate.v3 v3.0.0 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
