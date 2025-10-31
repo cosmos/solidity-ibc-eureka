@@ -1731,8 +1731,14 @@ func (s *RelayerTestSuite) Test_Fulu_Fork() {
 	ctx := context.Background()
 	proofType := types.GetEnvProofType()
 
-	fuluForkEpoch := 12
-	chainconfig.KurtosisConfig.NetworkParams.FuluForkEpoch = uint64(fuluForkEpoch)
+	var fuluForkEpoch uint64
+	if chainconfig.GetKurtosisPreset() == testvalues.EnvValueEthereumPosPreset_Minimal {
+		fuluForkEpoch = 12
+	} else {
+		// For mainnet, epochs are longer so we set the fork epoch lower to avoid long waits
+		fuluForkEpoch = 7
+	}
+	chainconfig.KurtosisConfig.NetworkParams.FuluForkEpoch = fuluForkEpoch
 
 	s.SetupSuite(ctx, proofType)
 
