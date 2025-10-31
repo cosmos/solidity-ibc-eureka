@@ -1760,7 +1760,7 @@ func (s *RelayerTestSuite) Test_Fulu_Fork() {
 		latestFinalityEpoch := uint64(finalitySlot) / spec.SlotsPerEpoch
 
 		fmt.Printf("Waiting for epoch %d, current epoch: %d\n", fuluForkEpoch, latestFinalityEpoch)
-		return latestFinalityEpoch >= uint64(fuluForkEpoch), nil
+		return latestFinalityEpoch >= fuluForkEpoch, nil
 	})
 	s.Require().NoError(err)
 
