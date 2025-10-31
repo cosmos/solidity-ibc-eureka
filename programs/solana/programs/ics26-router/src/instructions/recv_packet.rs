@@ -1,5 +1,5 @@
 use crate::errors::RouterError;
-use crate::router_cpi::on_recv_packet_cpi;
+use crate::router_cpi::{on_recv_packet_cpi, IbcAppCpiAccounts};
 use crate::router_cpi::{verify_membership_cpi, LightClientVerification};
 use crate::state::*;
 use crate::utils::{chunking, ics24};
@@ -107,7 +107,6 @@ pub fn recv_packet<'info>(
 
     require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
 
-    // Validate the IBC app is registered for the dest port of the first payload
     let expected_ibc_app = Pubkey::find_program_address(
         &[IBCApp::SEED, msg.payloads[0].dest_port.as_bytes()],
         ctx.program_id,
@@ -208,8 +207,7 @@ pub fn recv_packet<'info>(
 
     packet_receipt.value = receipt_commitment;
 
-    // For now, we only handle the first payload for CPI
-    // TODO: In the future, we may need to handle multiple payloads differently
+    // TODO: Support multi-payload packets
     let payload = match packet.payloads.len() {
         0 => Err(RouterError::PacketNoPayload),
         n if n > 1 => Err(RouterError::MultiPayloadPacketNotSupported),
@@ -232,12 +230,16 @@ pub fn recv_packet<'info>(
         ctx.remaining_accounts
     };
 
+    let cpi_accounts = IbcAppCpiAccounts {
+        ibc_app_program: ctx.accounts.ibc_app_program.clone(),
+        app_state: ctx.accounts.ibc_app_state.clone(),
+        router_program: ctx.accounts.router_program.clone(),
+        payer: ctx.accounts.payer.to_account_info(),
+        system_program: ctx.accounts.system_program.to_account_info(),
+    };
+
     let acknowledgement = match on_recv_packet_cpi(
-        &ctx.accounts.ibc_app_program,
-        &ctx.accounts.ibc_app_state,
-        &ctx.accounts.router_program,
-        &ctx.accounts.payer,
-        &ctx.accounts.system_program,
+        cpi_accounts,
         &packet,
         payload,
         &ctx.accounts.relayer.key(),
@@ -703,6 +705,54 @@ mod tests {
             expected_ack_commitment,
             "acknowledgement should be set correctly"
         );
+    }
+
+    #[test]
+    fn test_recv_packet_receipt_mismatch() {
+        // Setup normal recv_packet test
+        let mut ctx = setup_recv_packet_test_with_params(RecvPacketTestParams::default());
+
+        // Pre-create the packet receipt account with a DIFFERENT commitment value
+        // This simulates the packet having been received before with different data
+        let different_commitment = [0xFFu8; 32]; // Different from what will be calculated
+
+        let packet_receipt_data = {
+            use crate::state::Commitment;
+            use anchor_lang::AccountSerialize;
+
+            let packet_receipt = Commitment {
+                value: different_commitment,
+            };
+            let mut data = vec![];
+            packet_receipt.try_serialize(&mut data).unwrap();
+            data
+        };
+
+        // Replace the packet receipt account with one that already has a different value
+        let packet_receipt_account = solana_sdk::account::Account {
+            lamports: 10_000_000, // Ensure rent exemption for the account
+            data: packet_receipt_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        // Find and replace the packet receipt account
+        if let Some(pos) = ctx
+            .accounts
+            .iter()
+            .position(|(k, _)| *k == ctx.packet_receipt_pubkey)
+        {
+            ctx.accounts[pos] = (ctx.packet_receipt_pubkey, packet_receipt_account);
+        }
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::PacketReceiptMismatch as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 
     // Note: Testing CPI failures in mollusk is challenging because the test environment

@@ -9,15 +9,19 @@ use solana_ibc_types::{
     ibc_app_instructions, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload,
 };
 
-// TODO: Params struct
+/// Common accounts required for IBC app CPI calls
+#[derive(Clone)]
+pub struct IbcAppCpiAccounts<'a> {
+    pub ibc_app_program: AccountInfo<'a>,
+    pub app_state: AccountInfo<'a>,
+    pub router_program: AccountInfo<'a>,
+    pub payer: AccountInfo<'a>,
+    pub system_program: AccountInfo<'a>,
+}
+
 /// CPI helper for calling IBC app's `on_recv_packet` instruction
-#[allow(clippy::too_many_arguments)]
 pub fn on_recv_packet_cpi<'a>(
-    ibc_app_program: &AccountInfo<'a>,
-    app_state: &AccountInfo<'a>,
-    router_program: &AccountInfo<'a>,
-    payer: &AccountInfo<'a>,
-    system_program: &AccountInfo<'a>,
+    accounts: IbcAppCpiAccounts<'a>,
     packet: &Packet,
     payload: &Payload,
     relayer: &Pubkey,
@@ -32,11 +36,7 @@ pub fn on_recv_packet_cpi<'a>(
     };
 
     call_ibc_app_cpi(
-        ibc_app_program,
-        app_state,
-        router_program,
-        payer,
-        system_program,
+        &accounts,
         ibc_app_instructions::on_recv_packet_discriminator(),
         msg,
         remaining_accounts,
@@ -44,7 +44,7 @@ pub fn on_recv_packet_cpi<'a>(
 
     // Get the return data (acknowledgement)
     if let Some((program_id, return_data)) = get_return_data() {
-        if program_id == *ibc_app_program.key {
+        if program_id == *accounts.ibc_app_program.key {
             Ok(return_data)
         } else {
             Err(RouterError::InvalidAppResponse.into())
@@ -54,15 +54,9 @@ pub fn on_recv_packet_cpi<'a>(
     }
 }
 
-// TODO: Params struct
 /// CPI helper for calling IBC app's `on_acknowledgement_packet` instruction
-#[allow(clippy::too_many_arguments)]
 pub fn on_acknowledgement_packet_cpi<'a>(
-    ibc_app_program: &AccountInfo<'a>,
-    app_state: &AccountInfo<'a>,
-    router_program: &AccountInfo<'a>,
-    payer: &AccountInfo<'a>,
-    system_program: &AccountInfo<'a>,
+    accounts: IbcAppCpiAccounts<'a>,
     packet: &Packet,
     payload: &Payload,
     acknowledgement: &[u8],
@@ -79,26 +73,16 @@ pub fn on_acknowledgement_packet_cpi<'a>(
     };
 
     call_ibc_app_cpi(
-        ibc_app_program,
-        app_state,
-        router_program,
-        payer,
-        system_program,
+        &accounts,
         ibc_app_instructions::on_acknowledgement_packet_discriminator(),
         msg,
         remaining_accounts,
     )
 }
 
-// TODO: Params struct
 /// CPI helper for calling IBC app's `on_timeout_packet` instruction
-#[allow(clippy::too_many_arguments)]
 pub fn on_timeout_packet_cpi<'a>(
-    ibc_app_program: &AccountInfo<'a>,
-    app_state: &AccountInfo<'a>,
-    router_program: &AccountInfo<'a>,
-    payer: &AccountInfo<'a>,
-    system_program: &AccountInfo<'a>,
+    accounts: IbcAppCpiAccounts<'a>,
     packet: &Packet,
     payload: &Payload,
     relayer: &Pubkey,
@@ -113,11 +97,7 @@ pub fn on_timeout_packet_cpi<'a>(
     };
 
     call_ibc_app_cpi(
-        ibc_app_program,
-        app_state,
-        router_program,
-        payer,
-        system_program,
+        &accounts,
         ibc_app_instructions::on_timeout_packet_discriminator(),
         msg,
         remaining_accounts,
@@ -125,13 +105,8 @@ pub fn on_timeout_packet_cpi<'a>(
 }
 
 /// Generic CPI helper for calling IBC app instructions
-#[allow(clippy::too_many_arguments)]
 fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
-    ibc_app_program: &AccountInfo<'a>,
-    app_state: &AccountInfo<'a>,
-    router_program: &AccountInfo<'a>,
-    payer: &AccountInfo<'a>,
-    system_program: &AccountInfo<'a>,
+    accounts: &IbcAppCpiAccounts<'a>,
     discriminator: [u8; 8],
     msg: T,
     remaining_accounts: &[AccountInfo<'a>],
@@ -142,10 +117,10 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
 
     // Create the instruction with fixed accounts plus remaining accounts
     let mut account_metas = vec![
-        AccountMeta::new(*app_state.key, false),
-        AccountMeta::new_readonly(*router_program.key, false),
-        AccountMeta::new(*payer.key, true),
-        AccountMeta::new_readonly(*system_program.key, false),
+        AccountMeta::new(*accounts.app_state.key, false),
+        AccountMeta::new_readonly(*accounts.router_program.key, false),
+        AccountMeta::new(*accounts.payer.key, true),
+        AccountMeta::new_readonly(*accounts.system_program.key, false),
     ];
 
     // Add remaining accounts to instruction
@@ -158,17 +133,17 @@ fn call_ibc_app_cpi<'a, T: AnchorSerialize>(
     }
 
     let instruction = Instruction {
-        program_id: *ibc_app_program.key,
+        program_id: *accounts.ibc_app_program.key,
         accounts: account_metas,
         data: instruction_data,
     };
 
     // Build account_infos array with both fixed and remaining accounts
     let mut account_infos = vec![
-        app_state.clone(),
-        router_program.clone(),
-        payer.clone(),
-        system_program.clone(),
+        accounts.app_state.clone(),
+        accounts.router_program.clone(),
+        accounts.payer.clone(),
+        accounts.system_program.clone(),
     ];
     account_infos.extend_from_slice(remaining_accounts);
 

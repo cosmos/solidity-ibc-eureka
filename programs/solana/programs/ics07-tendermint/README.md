@@ -251,6 +251,81 @@ Approximate compute units per operation:
 - `submit_misbehaviour`: ~150k CU
 - `cleanup_incomplete_upload`: ~20k CU per chunk
 
+## Design Decisions
+
+### Why On-Chain Signature Verification Instead of Ed25519Program?
+
+This implementation uses `brine-ed25519` for on-chain Ed25519 signature verification (~30k CU per signature) instead of Solana's native Ed25519Program (FREE). This is a **fundamental architectural constraint**, not an optimization choice.
+
+**Why Ed25519Program Doesn't Work for IBC:**
+
+Solana's Ed25519Program is a precompile that verifies signatures included as Ed25519Program instructions in the current transaction. However, IBC light clients verify signatures from **external blockchain data** (Tendermint headers from Cosmos chains). These signatures:
+- Come from Tendermint validators signing blocks on another chain
+- Are embedded in header data uploaded via `upload_header_chunk`
+- Cannot be reformulated as Ed25519Program instructions in the Solana transaction
+
+**Why Transaction Chunking Doesn't Help:**
+
+This implementation already uses multi-transaction chunking to upload large headers (see "Chunked Upload System" above). You might wonder: "If we're already coordinating multiple transactions for chunks, why not use Ed25519Program with multiple transactions?"
+
+The key insight: **chunking is for DATA TRANSPORT, not signature verification**. The signatures are embedded INSIDE the serialized header data and can only be verified AFTER the header is fully assembled and deserialized in `assemble_and_update_client`.
+
+Using Ed25519Program would require:
+```
+Current approach (brine-ed25519):
+  1. Upload header chunks in PARALLEL (N transactions, ~2 block times)
+  2. Assemble + verify all signatures (1 transaction, ~200k CU)
+  Total latency: ~3 block times (~1.2 seconds)
+Hypothetical Ed25519Program approach:
+  1. Upload header chunks in PARALLEL (N transactions, ~2 block times)
+  2. Assemble header, store in temp state (1 transaction)
+  3. Extract signatures, create Ed25519Program verification txs (M transactions, SEQUENTIAL)
+  4. Store verification results on-chain (additional rent costs)
+  5. Final assembly to verify all passed (1 transaction)
+  Total latency: ~(3 + M) block times (~1.2s + M*0.4s, where M ≈ 10-20)
+```
+
+This would create **double multi-transaction coordination** (chunks + signature verifications), with:
+- **Significantly slower updates**: Current system uses parallel chunk upload (~2 blocks). Ed25519Program would add M sequential signature verification transactions, increasing latency by 4-8 seconds per update
+- Additional state storage for verification results (rent costs likely exceed CU savings)
+- More complex atomicity concerns (chunks AND signature verifications must all succeed)
+- Risk of griefing (partial signature verifications succeed, final tx fails, relayer wasted resources)
+
+The existing chunking system actually **strengthens** the case for brine-ed25519, as one layer of multi-tx complexity is manageable, but two would be exponentially harder and make updates much slower for relayers and users.
+
+**Alternatives Considered:**
+
+1. **Ed25519Program (native precompile)** - FREE compute units
+   - ❌ Incompatible with external signature verification
+   - Only works for signatures that are part of the transaction instruction set
+
+2. **brine-ed25519 (on-chain library)** - ~30k CU per signature ✅ **CHOSEN**
+   - ✅ Can verify any signature from external data
+   - Uses optimized curve operations for efficiency
+   - Typical update: ~200k CU total (10-20 signatures for 2/3 trust threshold)
+   - Cost: ~$0.00001 USD per update
+   - **Security**: Pulled from code-vm (MIT-licensed), audited by OtterSec, peer-reviewed by @stegaBOB and @deanmlittle
+
+3. **Multi-transaction batching with Ed25519Program**
+   - ❌ Impractical due to:
+     - **Significantly slower**: Would add 4-8 seconds latency per update (10-20 sequential signature verification transactions)
+     - Complex state management across transactions
+     - Atomicity concerns (partial verification failures)
+     - Coordination overhead
+     - No cost benefit if verification state must be maintained on-chain
+
+**Comparison to Other Implementations:**
+
+| Implementation | Approach | Verification Cost |
+|----------------|----------|-------------------|
+| **Ethereum** | SP1 ZK Proofs | ~230k gas (~$0.50-5.00 USD) |
+| **Solana** | On-chain verification (brine-ed25519) | ~200k CU (~$0.00001 USD) |
+| **Cosmos** | Native IBC with on-chain verification | ~300k gas (~$0.003 USD) |
+
+The on-chain verification approach makes Solana one of the most cost-efficient platforms for IBC light client verification, despite not being able to use the free Ed25519Program precompile.
+
+For implementation details, see the `SolanaSignatureVerifier` in `packages/tendermint-light-client/update-client/src/solana.rs`.
+
 ## Integration Guide
 
 ### For Relayers

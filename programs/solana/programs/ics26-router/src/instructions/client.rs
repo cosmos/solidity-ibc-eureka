@@ -490,4 +490,58 @@ mod tests {
         assert_eq!(deserialized_client.client_program_id, light_client_program);
         assert_eq!(deserialized_client.authority, authority);
     }
+
+    #[test]
+    fn test_add_client_unauthorized_authority() {
+        let correct_authority = Pubkey::new_unique();
+        let wrong_authority = Pubkey::new_unique();
+        let relayer = wrong_authority;
+        let light_client_program = Pubkey::new_unique();
+        let client_id = "test-client";
+
+        let (router_state_pda, router_state_data) = setup_router_state(correct_authority);
+        let (client_pda, _) =
+            Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) =
+            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
+
+        let instruction_data = crate::instruction::AddClient {
+            client_id: client_id.to_string(),
+            counterparty_info: CounterpartyInfo {
+                client_id: "counterparty-client".to_string(),
+                merkle_prefix: vec![vec![0x01, 0x02, 0x03]],
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(wrong_authority, true), // Wrong authority tries to add client
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new(client_pda, false),
+                AccountMeta::new(client_sequence_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(light_client_program, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_system_account(wrong_authority),
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_uninitialized_account(client_pda, 0),
+            create_uninitialized_account(client_sequence_pda, 0),
+            create_program_account(light_client_program),
+            create_program_account(system_program::ID),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedAuthority as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }
