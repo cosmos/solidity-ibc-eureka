@@ -55,6 +55,11 @@ pub struct Spec {
     /// The electra fork epoch.
     #[serde_as(as = "DisplayFromStr")]
     pub electra_fork_epoch: u64,
+    /// The fulu fork version.
+    pub fulu_fork_version: Version,
+    /// The fulu fork epoch.
+    #[serde_as(as = "DisplayFromStr")]
+    pub fulu_fork_epoch: u64,
 }
 
 impl Spec {
@@ -89,6 +94,10 @@ impl Spec {
             electra: Fork {
                 version: self.electra_fork_version,
                 epoch: self.electra_fork_epoch,
+            },
+            fulu: Fork {
+                version: self.fulu_fork_version,
+                epoch: self.fulu_fork_epoch,
             },
         }
     }

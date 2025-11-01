@@ -4,7 +4,7 @@ runs:
   using: composite
   steps:
     - name: Set up Rust
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@1.86.0
       with:
         components: rustfmt, clippy
     - name: Install Foundry

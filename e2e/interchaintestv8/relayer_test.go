@@ -833,43 +833,6 @@ func (s *IbcEurekaTestSuite) ICS20FinalizedTimeoutPacketFromEthTest(
 	}))
 }
 
-func (s *RelayerTestSuite) Test_Electra_Fork() {
-	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
-		s.T().Skip("Test is only relevant for PoS networks")
-	}
-
-	ctx := context.Background()
-
-	electraForkEpoch := 12
-	chainconfig.KurtosisConfig.NetworkParams.ElectraForkEpoch = uint64(electraForkEpoch)
-
-	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
-
-	s.FilteredRecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
-
-	spec, err := s.EthChain.BeaconAPIClient.GetSpec()
-	s.Require().NoError(err)
-	err = testutil.WaitForCondition(time.Minute*30, time.Second*30, func() (bool, error) {
-		finalityUpdate, err := s.EthChain.BeaconAPIClient.GetFinalityUpdate()
-		if err != nil {
-			return false, err
-		}
-
-		finalitySlot, err := strconv.Atoi(finalityUpdate.Data.FinalizedHeader.Beacon.Slot)
-		if err != nil {
-			return false, err
-		}
-
-		latestFinalityEpoch := uint64(finalitySlot) / spec.SlotsPerEpoch
-
-		fmt.Printf("Waiting for epoch %d, current epoch: %d\n", electraForkEpoch, latestFinalityEpoch)
-		return latestFinalityEpoch >= uint64(electraForkEpoch), nil
-	})
-	s.Require().NoError(err)
-
-	s.FilteredRecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
-}
-
 func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
 	ctx := context.Background()
 	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
@@ -1363,4 +1326,47 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(
 		s.Require().Equal(totalTransferAmount, resp.Balance.Amount.BigInt())
 		s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 	}))
+}
+
+func (s *RelayerTestSuite) Test_Fulu_Fork() {
+	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
+		s.T().Skip("Test is only relevant for PoS networks")
+	}
+
+	ctx := context.Background()
+
+	var fuluForkEpoch uint64
+	if chainconfig.GetKurtosisPreset() == testvalues.EnvValueEthereumPosPreset_Minimal {
+		fuluForkEpoch = 12
+	} else {
+		// For mainnet, epochs are longer so we set the fork epoch lower to avoid long waits
+		fuluForkEpoch = 7
+	}
+	chainconfig.KurtosisConfig.NetworkParams.FuluForkEpoch = fuluForkEpoch
+
+	s.SetupSuite(ctx, operator.ProofTypeGroth16)
+
+	s.FilteredRecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
+
+	spec, err := s.EthChain.BeaconAPIClient.GetSpec()
+	s.Require().NoError(err)
+	err = testutil.WaitForCondition(time.Minute*30, time.Second*30, func() (bool, error) {
+		finalityUpdate, err := s.EthChain.BeaconAPIClient.GetFinalityUpdate()
+		if err != nil {
+			return false, err
+		}
+
+		finalitySlot, err := strconv.Atoi(finalityUpdate.Data.FinalizedHeader.Beacon.Slot)
+		if err != nil {
+			return false, err
+		}
+
+		latestFinalityEpoch := uint64(finalitySlot) / spec.SlotsPerEpoch
+
+		fmt.Printf("Waiting for epoch %d, current epoch: %d\n", fuluForkEpoch, latestFinalityEpoch)
+		return latestFinalityEpoch >= fuluForkEpoch, nil
+	})
+	s.Require().NoError(err)
+
+	s.FilteredRecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
 }

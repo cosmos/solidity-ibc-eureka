@@ -32,6 +32,8 @@ pub enum EthConsensusVersion {
     Deneb,
     #[serde(rename = "electra")]
     Electra,
+    #[serde(rename = "fulu")]
+    Fulu,
 }
 
 /// The version response structure returned by the Beacon API.
