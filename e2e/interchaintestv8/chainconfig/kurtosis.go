@@ -24,11 +24,7 @@ import (
 
 const (
 	// ethereumPackageId is the package ID used by Kurtosis to find the Ethereum package we use for the testnet
-<<<<<<< HEAD
-	ethereumPackageId = "github.com/ethpandaops/ethereum-package@4.5.0"
-=======
 	ethereumPackageId = "github.com/ethpandaops/ethereum-package@90fcb093671d5be9bf248e20d97f1c46b70d49f1"
->>>>>>> 5a7e361 (imp(eth-lc): add support for fusaka/fulu hard fork (#799))
 
 	faucetPrivateKey = "0x04b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
 )
@@ -40,15 +36,9 @@ var (
 		Participants: []kurtosisParticipant{
 			{
 				CLType:         "lodestar",
-<<<<<<< HEAD
-				CLImage:        "ethpandaops/lodestar:unstable",
-				ELType:         "geth",
-				ELImage:        "ethpandaops/geth:prague-devnet-6",
-=======
 				CLImage:        "chainsafe/lodestar:v1.35.0",
 				ELType:         "geth",
 				ELImage:        "ethereum/client-go:v1.16.5",
->>>>>>> 5a7e361 (imp(eth-lc): add support for fusaka/fulu hard fork (#799))
 				ELExtraParams:  []string{"--gcmode=archive"},
 				ELLogLevel:     "info",
 				ValidatorCount: 128,
