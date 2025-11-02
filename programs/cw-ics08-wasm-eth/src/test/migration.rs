@@ -10,14 +10,14 @@ pub mod v1_2_0 {
         },
         Binary, OwnedDeps, SystemResult, Timestamp,
     };
-    use ethereum_light_client::{
-        header::Header,
-        test_utils::{
-            bls_verifier::{aggreagate, fast_aggregate_verify},
-            fixtures::{self, InitialState, StepsFixture},
-        },
+    use ethereum_light_client::test_utils::{
+        bls_verifier::{aggreagate, fast_aggregate_verify},
+        fixtures::{self, StepsFixture},
     };
-    use ethereum_light_client_v1_2_0::test_utils::fixtures::RelayerMessages;
+    use ethereum_light_client_v1_2_0::{
+        header::Header,
+        test_utils::fixtures::{InitialState as InitialStateV1_2, RelayerMessages},
+    };
     use ethereum_types::consensus::bls::{BlsPublicKey, BlsSignature};
     use prost::Message;
 
@@ -90,21 +90,14 @@ pub mod v1_2_0 {
         let fixture: StepsFixture =
             fixtures::load("Test_ICS20TransferNativeCosmosCoinsToEthereumAndBack");
 
-        let initial_state: InitialState = fixture.get_data_at_step(0);
+        let initial_state: InitialStateV1_2 = fixture.get_data_at_step(0);
 
         let client_state = initial_state.client_state;
 
         let consensus_state = initial_state.consensus_state;
 
         let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-        // compatibility with v1_2_0 requires storage_root to be present
-        let mut consensus_state_value = serde_json::to_value(&consensus_state).unwrap();
-        consensus_state_value.as_object_mut().unwrap().insert(
-            "storage_root".to_string(),
-            serde_json::to_value(consensus_state.state_root).unwrap(),
-        );
-
-        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state_value).unwrap();
+        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
         let msg = msg_v1_2::InstantiateMsg {
             client_state: Binary::from(client_state_bz),
@@ -114,20 +107,7 @@ pub mod v1_2_0 {
 
         contract_v1_2::instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let mut new_deps = mk_deps();
-        new_deps.storage = deps.storage;
-
-        // Migrate to current version
-        contract::migrate(
-            new_deps.as_mut(),
-            mock_env(),
-            msg::MigrateMsg {
-                migration: msg::Migration::CodeOnly,
-            },
-        )
-        .unwrap();
-
-        // Update the client state once
+        // Update the client state using v1_2
         let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
         let (update_client_msgs, _, _) = relayer_messages.get_sdk_msgs();
         let client_msgs = update_client_msgs
@@ -147,18 +127,18 @@ pub mod v1_2_0 {
             );
 
             let query_verify_client_msg =
-                msg::QueryMsg::VerifyClientMessage(msg::VerifyClientMessageMsg {
+                msg_v1_2::QueryMsg::VerifyClientMessage(msg_v1_2::VerifyClientMessageMsg {
                     client_message: Binary::from(header_bz.clone()),
                 });
-            contract::query(new_deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
+            contract_v1_2::query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
 
             // Update state
-            let sudo_update_state_msg = msg::SudoMsg::UpdateState(msg::UpdateStateMsg {
+            let sudo_update_state_msg = msg_v1_2::SudoMsg::UpdateState(msg_v1_2::UpdateStateMsg {
                 client_message: Binary::from(header_bz),
             });
             let update_res =
-                contract::sudo(new_deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
-            let update_state_result: msg::UpdateStateResult =
+                contract_v1_2::sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
+            let update_state_result: msg_v1_2::UpdateStateResult =
                 serde_json::from_slice(&update_res.data.unwrap())
                     .expect("update state result should be deserializable");
             assert_eq!(1, update_state_result.heights.len());
@@ -169,7 +149,21 @@ pub mod v1_2_0 {
             );
         }
 
-        // Update the client state once again
+        let mut new_deps = mk_deps();
+        new_deps.storage = deps.storage;
+
+        // Migrate to current version
+        // Migrate without any changes (i.e. same state version)
+        contract::migrate(
+            new_deps.as_mut(),
+            mock_env(),
+            msg::MigrateMsg {
+                migration: msg::Migration::CodeOnly,
+            },
+        )
+        .unwrap();
+
+        // Check that the client can still be updated
         let relayer_messages: RelayerMessages = fixture.get_data_at_step(2);
         let (update_client_msgs, _, _) = relayer_messages.get_sdk_msgs();
         let client_msgs = update_client_msgs
@@ -179,6 +173,8 @@ pub mod v1_2_0 {
             })
             .map(|msg| msg.data)
             .collect::<Vec<_>>();
+
+        let mut env = mock_env();
 
         for header_bz in client_msgs {
             let header: Header = serde_json::from_slice(&header_bz).unwrap();

@@ -3,8 +3,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use ethereum_types::consensus::{
-    light_client_header::LightClientUpdate, sync_committee::SyncCommittee,
+use ethereum_types::{
+    consensus::{light_client_header::LightClientUpdate, sync_committee::SyncCommittee},
+    execution::account_proof::AccountProof,
 };
 
 /// The header of a light client update
@@ -17,6 +18,15 @@ pub struct Header {
     /// Trusted slot to verify the new update against
     // The client **must** have a consensus state for the provided slot
     pub trusted_slot: u64,
+    /// The account update
+    pub account_update: AccountUpdate,
+}
+
+/// The account update
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
+pub struct AccountUpdate {
+    /// The account proof
+    pub account_proof: AccountProof,
 }
 
 /// The active sync committee

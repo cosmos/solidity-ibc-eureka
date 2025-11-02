@@ -10,10 +10,9 @@ import (
 )
 
 const (
-	ModuleCosmosToCosmos    = "cosmos_to_cosmos"
-	ModuleCosmosToEth       = "cosmos_to_eth"
-	ModuleEthToCosmos       = "eth_to_cosmos"
-	ModuleEthToCosmosCompat = "eth_to_cosmos_compat"
+	ModuleCosmosToCosmos = "cosmos_to_cosmos"
+	ModuleCosmosToEth    = "cosmos_to_eth"
+	ModuleEthToCosmos    = "eth_to_cosmos"
 )
 
 // Config represents the relayer configuration structure and serves as template data

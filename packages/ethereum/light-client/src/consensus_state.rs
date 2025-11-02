@@ -19,6 +19,9 @@ pub struct ConsensusState {
     /// The state merkle root of the finalized header
     #[schemars(with = "String")]
     pub state_root: B256,
+    /// The storage merkle root of the tracked contract at the finalized header
+    #[schemars(with = "String")]
+    pub storage_root: B256,
     /// The execution timestamp of the finalized header
     pub timestamp: u64,
     /// aggregate public key of current sync committee at the finalized header

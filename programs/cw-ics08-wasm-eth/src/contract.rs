@@ -218,6 +218,7 @@ mod tests {
             let consensus_state = EthConsensusState {
                 slot: 42,
                 state_root: B256::from([0; 32]),
+                storage_root: B256::from([0; 32]),
                 timestamp: 0,
                 current_sync_committee: SummarizedSyncCommittee::default(),
                 next_sync_committee: None,
@@ -284,7 +285,7 @@ mod tests {
             error::EthereumIBCError,
             header::{ActiveSyncCommittee, Header},
             test_utils::fixtures::{
-                self, get_packet_paths, InitialState, RelayerMessages, StepsFixture,
+                self, get_packet_proof, InitialState, RelayerMessages, StepsFixture,
             },
         };
         use ethereum_types::consensus::{
@@ -343,7 +344,7 @@ mod tests {
 
             // Verify client message
             let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
-            let (update_client_msgs, recv_msgs, _, _) = relayer_messages.get_sdk_msgs();
+            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
             assert_eq!(1, update_client_msgs.len()); // just to make sure
             assert_eq!(1, recv_msgs.len()); // just to make sure
             let client_msgs = update_client_msgs
@@ -391,7 +392,7 @@ mod tests {
             // Verify memebership
             let packet = recv_msgs[0].packet.clone().unwrap();
             let storage_proof = recv_msgs[0].proof_commitment.clone();
-            let (path, value, _) = get_packet_paths(packet);
+            let (path, value) = get_packet_proof(packet);
 
             let query_verify_membership_msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                 height: Height {
@@ -444,7 +445,7 @@ mod tests {
 
             // Verify client message
             let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
-            let (update_client_msgs, recv_msgs, _, _) = relayer_messages.get_sdk_msgs();
+            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
             assert_eq!(1, update_client_msgs.len()); // just to make sure
             assert_eq!(1, recv_msgs.len()); // just to make sure
             let client_msgs = update_client_msgs
@@ -539,7 +540,7 @@ mod tests {
 
             // Verify client message
             let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
-            let (update_client_msgs, recv_msgs, _, _) = relayer_messages.get_sdk_msgs();
+            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
             assert_eq!(1, update_client_msgs.len()); // just to make sure
             assert_eq!(1, recv_msgs.len()); // just to make sure
             let client_msgs = update_client_msgs
@@ -664,7 +665,7 @@ mod tests {
 
             // Verify client message
             let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
-            let (update_client_msgs, recv_msgs, _, _) = relayer_messages.get_sdk_msgs();
+            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
             assert!(update_client_msgs.len() >= 2); // just to make sure
             assert_eq!(1, recv_msgs.len()); // just to make sure
             let client_msgs = update_client_msgs
@@ -712,7 +713,7 @@ mod tests {
             // Verify memebership
             let packet = recv_msgs[0].packet.clone().unwrap();
             let storage_proof = recv_msgs[0].proof_commitment.clone();
-            let (path, value, _) = get_packet_paths(packet);
+            let (path, value) = get_packet_proof(packet);
 
             let query_verify_membership_msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                 height: Height {
@@ -822,6 +823,7 @@ mod tests {
             let consensus_state = EthConsensusState {
                 slot: 42,
                 state_root: B256::from([0; 32]),
+                storage_root: B256::from([0; 32]),
                 timestamp: 0,
                 current_sync_committee: SummarizedSyncCommittee::default(),
                 next_sync_committee: None,
@@ -934,6 +936,7 @@ mod tests {
             let consensus_state = EthConsensusState {
                 slot: 42,
                 state_root: B256::from([0; 32]),
+                storage_root: B256::from([0; 32]),
                 timestamp: 0,
                 current_sync_committee: SummarizedSyncCommittee::default(),
                 next_sync_committee: None,

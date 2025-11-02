@@ -65,6 +65,7 @@ pub fn update_consensus_state(
         .finalized_header
         .execution
         .state_root;
+    new_consensus_state.storage_root = header.account_update.account_proof.storage_root;
     new_consensus_state.timestamp = header.consensus_update.finalized_header.execution.timestamp;
 
     let new_client_state =
