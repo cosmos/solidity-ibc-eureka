@@ -148,6 +148,22 @@ func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos
 	return actualChecksum
 }
 
+// PushMigrateWasmClientProposal submits a new wasm client governance proposal to the chain.
+func (s *TestSuite) PushMigrateWasmClientProposal(ctx context.Context, chain *cosmos.CosmosChain, wallet ibc.Wallet, clientId string, checksum string, migrateMsg []byte) {
+	checksumBz, err := hex.DecodeString(checksum)
+	s.Require().NoError(err)
+
+	message := ibcwasmtypes.MsgMigrateContract{
+		Signer:   authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		ClientId: clientId,
+		Checksum: checksumBz,
+		Msg:      migrateMsg,
+	}
+
+	err = s.ExecuteGovV1Proposal(ctx, &message, chain, wallet)
+	s.Require().NoError(err)
+}
+
 // extractChecksumFromGzippedContent takes a gzipped wasm contract and returns the checksum.
 func (s *TestSuite) extractChecksumFromGzippedContent(zippedContent []byte) string {
 	content, err := ibcwasmtypes.Uncompress(zippedContent, ibcwasmtypes.MaxWasmSize)

@@ -42,6 +42,7 @@ import (
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
@@ -1261,6 +1262,233 @@ func (s *RelayerTestSuite) Test_UpdateClientToCosmos() {
 
 			newHeight := wasmClientState.LatestHeight.RevisionHeight
 			s.Require().Greater(newHeight, initialHeight)
+		}))
+	}))
+}
+
+// Test_HistoricalUpdateClientToCosmos tests updating the eth light client with updates that are not the latest
+// To do this, we will:
+// 1. Send a transfer on Ethereum
+// 2. Retrieve the relay tx from the relayer
+// 3. Wait until we have a finalized block that is past the update in the relay tx
+// 4. Update the client with the finalized block that is past the update in the relay tx
+// 5. Finally, we will relay the transfer tx, together with the historical update client
+func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
+	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
+		s.T().Skip("Test is only relevant for PoS networks")
+	}
+
+	ctx := context.Background()
+	proofType := types.GetEnvProofType()
+
+	s.SetupSuite(ctx, proofType)
+
+	eth, simd := s.EthChain, s.CosmosChains[0]
+
+	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
+	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
+
+	cosmosUserWallet := s.CosmosUsers[0]
+	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
+
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+
+	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
+		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+	}))
+
+	var sendTxHash []byte
+	s.Require().True(s.Run("Send transfers on Ethereum", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+
+		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+			Denom:            erc20Address,
+			SourceClient:     testvalues.CustomClientID,
+			DestPort:         transfertypes.PortID,
+			Amount:           transferAmount,
+			Receiver:         cosmosUserAddress,
+			TimeoutTimestamp: timeout,
+			Memo:             "",
+		}
+
+		tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key, eth), msgSendTransfer)
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		sendTxHash = tx.Hash().Bytes()
+	}))
+
+	var relayTxBodyBz []byte
+	var relayerUpdateSlot uint64
+
+	s.Require().True(s.Run("Retrieve relay tx", func() {
+		// We need to make sure that the update slot for the relay tx is a period change, because then the update client will have to include it when it updates the client. We want the update slot for the relayer to _not_ be included in the update client message, so we wait for the non-period change update slot.
+		_, ethClientState := s.GetEthereumClientState(ctx, simd, testvalues.FirstWasmClientID)
+		err := testutil.WaitForCondition(30*time.Minute, 15*time.Second, func() (bool, error) {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{sendTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
+			})
+			if err != nil {
+				return false, err
+			}
+			if resp.Tx == nil {
+				return false, fmt.Errorf("no relay tx found")
+			}
+
+			relayTxBodyBz = resp.Tx
+
+			relayerUpdateSlot, err = relayer.GetRelayUpdateSlotForWasmClient(resp.Tx)
+			if err != nil {
+				return false, fmt.Errorf("failed to get relayer update slot: %w", err)
+			}
+			isPeriodChange := relayerUpdateSlot%(ethClientState.EpochsPerSyncCommitteePeriod*ethClientState.SlotsPerEpoch) == 0
+
+			if isPeriodChange {
+				s.T().Logf("Relayer update slot %d is a period change, waiting to update past it", relayerUpdateSlot)
+				return false, nil
+			}
+
+			return true, nil
+		})
+		s.Require().NoError(err)
+
+		s.wasmFixtureGenerator.AddFixtureStep("receive_packets", ethereumtypes.RelayerMessages{
+			RelayerTxBody: hex.EncodeToString(relayTxBodyBz),
+		})
+	}))
+
+	// Instead of relaying the tx, we will wait until we have a finalized block that is past the update in the relay tx
+	// and then we will update the client on the Cosmos chain, before finally relaying the tx (where the update client will be historical)
+
+	s.Require().True(s.Run("Wait for finality to be past update slot", func() {
+		err := testutil.WaitForCondition(30*time.Minute, 5*time.Second, func() (bool, error) {
+			resp, err := eth.BeaconAPIClient.GetFinalityUpdate()
+			if err != nil {
+				return false, err
+			}
+
+			// resp.Data.Message.Slot is a string, so we need to convert it to a uint64
+			finalizedSlot, err := strconv.ParseUint(resp.Data.FinalizedHeader.Beacon.Slot, 10, 64)
+			if err != nil {
+				return false, err
+			}
+
+			return finalizedSlot > relayerUpdateSlot, nil
+		})
+		s.Require().NoError(err)
+	}))
+
+	s.Require().NoError(testutil.WaitForBlocks(ctx, 1, simd))
+
+	// Now we update the client on the Cosmos chain past the relay update
+	var latestHeight uint64
+	s.Require().True(s.Run("Update the client on Cosmos", func() {
+		var updateTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				DstClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			updateTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			_ = s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, updateTxBodyBz)
+		}))
+
+		s.Require().True(s.Run("Verify the client state is updated", func() {
+			resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
+				ClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.ClientState)
+
+			var wasmClientState ibcwasmtypes.ClientState
+			err = proto.Unmarshal(resp.ClientState.Value, &wasmClientState)
+			s.Require().NoError(err)
+
+			latestHeight = wasmClientState.LatestHeight.RevisionHeight
+			s.Require().Greater(latestHeight, relayerUpdateSlot)
+		}))
+	}))
+
+	// And now we can relay the tx with the historical update
+	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
+		s.Require().True(s.Run("Verify consensus state does not exist before relaying", func() {
+			_, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, simd, &clienttypes.QueryConsensusStateRequest{
+				ClientId:       testvalues.FirstWasmClientID,
+				RevisionNumber: 0,
+				RevisionHeight: relayerUpdateSlot,
+				LatestHeight:   false,
+			})
+			s.Require().ErrorContains(err, "consensus state not found")
+		}))
+
+		var ackTxHash []byte
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+
+			var err error
+			ackTxHash, err = hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(ackTxHash)
+		}))
+
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			denomOnCosmos := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
+
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: cosmosUserAddress,
+				Denom:   denomOnCosmos.IBCDenom(),
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(transferAmount, resp.Balance.Amount.BigInt())
+			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
+		}))
+
+		s.Require().True(s.Run("Verify consensus state exist after relaying", func() {
+			_, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, simd, &clienttypes.QueryConsensusStateRequest{
+				ClientId:       testvalues.FirstWasmClientID,
+				RevisionNumber: 0,
+				RevisionHeight: relayerUpdateSlot,
+				LatestHeight:   false,
+			})
+			s.Require().NoError(err)
+		}))
+
+		s.Require().True(s.Run("Verify latest client state has not changed", func() {
+			resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
+				ClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.ClientState)
+
+			var wasmClientState ibcwasmtypes.ClientState
+			err = proto.Unmarshal(resp.ClientState.Value, &wasmClientState)
+			s.Require().NoError(err)
+
+			heightBefore := latestHeight
+
+			latestHeight = wasmClientState.LatestHeight.RevisionHeight
+			s.Require().Equal(heightBefore, latestHeight, "The latest height should not change after relaying the tx with historical update")
 		}))
 	}))
 }
