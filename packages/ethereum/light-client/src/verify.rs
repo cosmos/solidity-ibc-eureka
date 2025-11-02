@@ -2,6 +2,7 @@
 
 use alloy_primitives::B256;
 
+use ethereum_trie_db::trie_db::verify_account_storage_root;
 use ethereum_types::consensus::{
     bls::{BlsPublicKey, BlsSignature},
     domain::{compute_domain, DomainType},
@@ -110,7 +111,17 @@ pub fn verify_header<V: BlsVerify>(
         );
     }
 
-    Ok(())
+    verify_account_storage_root(
+        header
+            .consensus_update
+            .finalized_header
+            .execution
+            .state_root,
+        client_state.ibc_contract_address,
+        &header.account_update.account_proof.proof,
+        header.account_update.account_proof.storage_root,
+    )
+    .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
 }
 
 /// Verifies if the light client `update` is valid.
@@ -399,7 +410,7 @@ mod test {
         let consensus_state = initial_state.consensus_state;
 
         let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
-        let (update_client_msgs, _, _, _) = relayer_messages.get_sdk_msgs();
+        let (update_client_msgs, _, _) = relayer_messages.get_sdk_msgs();
         assert!(!update_client_msgs.is_empty());
         let headers = update_client_msgs
             .iter()

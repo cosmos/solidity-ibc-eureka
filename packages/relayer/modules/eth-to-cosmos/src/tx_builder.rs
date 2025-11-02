@@ -14,11 +14,14 @@ use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApi
 use ethereum_light_client::{
     client_state::ClientState,
     consensus_state::ConsensusState,
-    header::{ActiveSyncCommittee, Header},
+    header::{AccountUpdate, ActiveSyncCommittee, Header},
 };
-use ethereum_types::consensus::{
-    light_client_header::{LightClientFinalityUpdate, LightClientUpdate},
-    sync_committee::SyncCommittee,
+use ethereum_types::{
+    consensus::{
+        light_client_header::{LightClientFinalityUpdate, LightClientUpdate},
+        sync_committee::SyncCommittee,
+    },
+    execution::account_proof::AccountProof,
 };
 use ibc_eureka_solidity_types::ics26::{router::routerInstance, ICS26_IBC_STORAGE_SLOT};
 use ibc_eureka_utils::rpc::TendermintRpcExt;
@@ -182,6 +185,42 @@ where
         Ok(())
     }
 
+    async fn light_client_update_to_header(
+        &self,
+        ethereum_client_state: &ClientState,
+        active_sync_committee: ActiveSyncCommittee,
+        trusted_slot: u64,
+        update: LightClientUpdate,
+    ) -> Result<Header> {
+        tracing::debug!(
+            "Processing light client update for finalized slot {} ",
+            update.finalized_header.beacon.slot,
+        );
+
+        let block_hex = format!("0x{:x}", update.finalized_header.execution.block_number);
+        let ibc_contract_address: String = ethereum_client_state.ibc_contract_address.to_string();
+
+        tracing::debug!("Getting account proof for execution block {}", block_hex);
+        let proof = self
+            .eth_client
+            .get_proof(&ibc_contract_address, vec![], block_hex)
+            .await?;
+
+        let account_update = AccountUpdate {
+            account_proof: AccountProof {
+                proof: proof.account_proof,
+                storage_root: proof.storage_hash,
+            },
+        };
+
+        Ok(Header {
+            active_sync_committee,
+            account_update,
+            consensus_update: update,
+            trusted_slot,
+        })
+    }
+
     #[tracing::instrument(skip_all)]
     async fn get_update_headers(&self, ethereum_client_state: &ClientState) -> Result<Vec<Header>> {
         let finality_update = self.beacon_api_client.finality_update().await?.data;
@@ -197,52 +236,54 @@ where
             ethereum_client_state.compute_sync_committee_period_at_slot(latest_trusted_slot);
         tracing::debug!("Latest trusted sync committee period: {}", latest_period);
 
-        for update in light_client_updates {
-            let update_finalized_slot = update.finalized_header.beacon.slot;
-
+        for update in &light_client_updates {
             tracing::debug!(
                 "Processing light client update for finalized slot {} with trusted slot {}",
-                update_finalized_slot,
+                update.finalized_header.beacon.slot,
                 latest_trusted_slot
             );
 
-            if update_finalized_slot <= latest_trusted_slot {
+            if update.finalized_header.beacon.slot <= latest_trusted_slot {
                 tracing::debug!(
                     "Skipping unnecessary update for slot {}",
-                    update_finalized_slot
+                    update.finalized_header.beacon.slot
                 );
                 continue;
             }
 
-            let update_period =
-                ethereum_client_state.compute_sync_committee_period_at_slot(update_finalized_slot);
+            // TODO: Not sure
+            let update_period = ethereum_client_state
+                .compute_sync_committee_period_at_slot(update.finalized_header.beacon.slot);
             if update_period == latest_period {
                 tracing::debug!(
                     "Skipping header with same sync committee period for slot {}",
-                    update_finalized_slot
+                    update.finalized_header.beacon.slot
                 );
                 continue;
             }
 
             let previous_next_sync_committee = self
-                .get_sync_commitee_for_finalized_slot(update_finalized_slot)
+                .get_sync_commitee_for_finalized_slot(update.finalized_header.beacon.slot)
                 .await?;
 
             let active_sync_committee = ActiveSyncCommittee::Next(previous_next_sync_committee);
-            let header = Header {
-                active_sync_committee,
-                consensus_update: update,
-                trusted_slot: latest_trusted_slot,
-            };
+            let header = self
+                .light_client_update_to_header(
+                    ethereum_client_state,
+                    active_sync_committee.clone(),
+                    latest_trusted_slot,
+                    update.clone(),
+                )
+                .await?;
             tracing::debug!(
                 "Added header for slot from light client updates {}
                 Header: {:?}",
-                update_finalized_slot,
+                update.finalized_header.beacon.slot,
                 header
             );
             headers.push(header);
             latest_period = update_period;
-            latest_trusted_slot = update_finalized_slot;
+            latest_trusted_slot = update.finalized_header.beacon.slot;
         }
 
         // If the latest header is earlier than the finality update, we need to add a header for the finality update.
@@ -250,21 +291,24 @@ where
             last_header.consensus_update.finalized_header.beacon.slot
                 < finality_update.finalized_header.beacon.slot
         }) {
-            let finality_update_finalized_slot = finality_update.finalized_header.beacon.slot;
             let finality_update_sync_committee = self
                 .get_sync_commitee_for_finalized_slot(finality_update.attested_header.beacon.slot)
                 .await?;
+            // TODO: Add asserts to make sure they are in the correct period
             let active_sync_committee =
-                ActiveSyncCommittee::Current(finality_update_sync_committee);
+                ActiveSyncCommittee::Current(finality_update_sync_committee.clone());
 
-            let header = Header {
-                active_sync_committee,
-                consensus_update: finality_update.into(),
-                trusted_slot: latest_trusted_slot,
-            };
+            let header = self
+                .light_client_update_to_header(
+                    ethereum_client_state,
+                    active_sync_committee.clone(),
+                    latest_trusted_slot,
+                    finality_update.clone().into(),
+                )
+                .await?;
             tracing::debug!(
                 "Added header for slot from finality update {}: {}",
-                finality_update_finalized_slot,
+                finality_update.finalized_header.beacon.slot,
                 serde_json::to_string(&header)?
             );
             headers.push(header);
@@ -547,6 +591,15 @@ where
             }),
         };
 
+        let contract_proof = self
+            .eth_client
+            .get_proof(
+                &self.ics26_router.address().to_string(),
+                vec![],
+                format!("0x{:x}", eth_client_state.latest_execution_block_number),
+            )
+            .await?;
+
         let latest_period =
             eth_client_state.compute_sync_committee_period_at_slot(eth_client_state.latest_slot);
         let next_sync_committee = self
@@ -564,6 +617,7 @@ where
         let eth_consensus_state = ConsensusState {
             slot: eth_client_state.latest_slot,
             state_root: bootstrap.header.execution.state_root,
+            storage_root: contract_proof.storage_hash,
             timestamp: bootstrap.header.execution.timestamp,
             current_sync_committee: bootstrap
                 .current_sync_committee

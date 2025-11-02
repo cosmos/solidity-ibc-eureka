@@ -31,11 +31,12 @@ use ibc_eureka_relayer_core::{
     modules::RelayerModule,
 };
 
-/// The `EthToCosmosRelayerModule` struct defines the Ethereum to Cosmos relayer module.
+/// The `CosmosToCosmosRelayerModule` struct defines the Cosmos to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub struct EthToCosmosRelayerModule;
 
-/// The `EthereumToCosmosRelayerModuleService` defines the relayer service from Ethereum to Cosmos.
+/// The `CosmosToCosmosRelayerModuleService` defines the relayer service from Cosmos to Cosmos.
 struct EthToCosmosRelayerModuleService {
     /// The chain listener for `EthEureka`.
     pub eth_listener: eth_eureka::ChainListener<RootProvider>,
@@ -50,8 +51,9 @@ enum EthToCosmosTxBuilder {
     Mock(tx_builder::MockTxBuilder<RootProvider>),
 }
 
-/// The configuration for the Ethereum to Cosmos relayer module.
+/// The configuration for the Cosmos to Cosmos relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[allow(clippy::module_name_repetitions)]
 pub struct EthToCosmosConfig {
     /// The ICS26 address.
     pub ics26_address: Address,
