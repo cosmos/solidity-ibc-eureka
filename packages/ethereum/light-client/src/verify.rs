@@ -90,10 +90,10 @@ pub fn verify_header<V: BlsVerify>(
         EthereumIBCError::NotEnoughSignatures
     );
 
-    // check whether the update is a height later than trusted consensus slot
+    // check whether the update is for a newer height
     ensure!(
         header.consensus_update.finalized_header.beacon.slot > consensus_state.slot,
-        EthereumIBCError::InvalidUpdateSlot {
+        EthereumIBCError::HistoricalUpdateNotAllowed {
             consensus_state_slot: consensus_state.slot,
             update_finalized_slot: header.consensus_update.finalized_header.beacon.slot
         }

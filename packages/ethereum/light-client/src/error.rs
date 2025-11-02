@@ -181,11 +181,11 @@ pub enum EthereumIBCError {
     MisbehaviourStorageRootsMatch(B256),
 
     #[error(
-        "update must be against a previous consensus state: \
+        "historical updates are not allowed: \
         stored consensus state slot: {consensus_state_slot}, \
         update finalized header slot: {update_finalized_slot}"
     )]
-    InvalidUpdateSlot {
+    HistoricalUpdateNotAllowed {
         consensus_state_slot: u64,
         update_finalized_slot: u64,
     },

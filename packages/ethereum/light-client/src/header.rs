@@ -15,9 +15,6 @@ pub struct Header {
     pub active_sync_committee: ActiveSyncCommittee,
     /// The consensus update
     pub consensus_update: LightClientUpdate,
-    /// Trusted slot to verify the new update against
-    // The client **must** have a consensus state for the provided slot
-    pub trusted_slot: u64,
     /// The account update
     pub account_update: AccountUpdate,
 }

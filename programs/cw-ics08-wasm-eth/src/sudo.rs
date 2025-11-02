@@ -156,13 +156,14 @@ pub fn misbehaviour(
 
 #[cfg(test)]
 mod tests {
-    use crate::{contract::instantiate, test::helpers::mk_deps};
     use cosmwasm_std::{
         coins, from_json,
         testing::{message_info, mock_env},
         Binary,
     };
     use ethereum_light_client::test_utils::fixtures::{self, InitialState, StepsFixture};
+
+    use crate::{contract::instantiate, test::helpers::mk_deps};
 
     #[test]
     fn test_misbehaviour() {
