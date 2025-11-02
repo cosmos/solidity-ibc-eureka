@@ -57,9 +57,9 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
 name = "alloy"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f5bedd6a59a2bd3a2f1cb7ff488549a2004302edca4df4d578bf0a814888615"
+checksum = "4e0d1aecf3cab3d0e7383064ce488616434b4ade10d8904dff422e74203c712f"
 dependencies = [
  "alloy-consensus",
  "alloy-contract",
@@ -82,9 +82,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-chains"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19a9cc9d81ace3da457883b0bdf76776e55f1b84219a9e9d55c27ad308548d3f"
+checksum = "5674914c2cfdb866c21cb0c09d82374ee39a1395cf512e7515f4c014083b3fff"
 dependencies = [
  "alloy-primitives 1.2.1",
  "num_enum 0.7.4",
@@ -93,9 +93,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-consensus"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8b77018eec2154eb158869f9f2914a3ea577adf87b11be2764d4795d5ccccf7"
+checksum = "e9c6ad411efe0f49e0e99b9c7d8749a1eb55f6dbf74a1bc6953ab285b02c4f67"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 1.2.1",
@@ -118,9 +118,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-consensus-any"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65bf8b058ff364d6e94bcd2979d7da1862e94d2987065a4eb41fa9eac36e028a"
+checksum = "0bf397edad57b696501702d5887e4e14d7d0bbae9fbb6439e148d361f7254f45"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -132,9 +132,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-contract"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "049ed4836d368929d7c5e206bab2e8d92f00524222edc0026c6bf2a3cb8a02d5"
+checksum = "977b97d271159578afcb26e39e1ca5ce1a7f937697793d7d571b0166dd8b8225"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -221,9 +221,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-eips"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33d134f3ac4926124eaf521a1031d11ea98816df3d39fc446fcfd6b36884603f"
+checksum = "749b8449e4daf7359bdf1dabdba6ce424ff8b1bdc23bdb795661b2e991a08d87"
 dependencies = [
  "alloy-eip2124",
  "alloy-eip2930",
@@ -241,9 +241,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-genesis"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb1c2792605e648bdd1fddcfed8ce0d39d3db495c71d2240cb53df8aee8aea1f"
+checksum = "5fcbae2107f3f2df2b02bb7d9e81e8aa730ae371ca9dd7fd0c81c3d0cb78a452"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 1.2.1",
@@ -290,9 +290,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-json-rpc"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31cfdacfeb6b6b40bf6becf92e69e575c68c9f80311c3961d019e29c0b8d6be2"
+checksum = "bc30b0e20fcd0843834ecad2a716661c7b9d5aca2486f8e96b93d5246eb83e06"
 dependencies = [
  "alloy-primitives 1.2.1",
  "alloy-sol-types 1.2.1",
@@ -305,9 +305,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-network"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de68a3f09cd9ab029cf87d08630e1336ca9a530969689fd151d505fa888a2603"
+checksum = "eaeb681024cf71f5ca14f3d812c0a8d8b49f13f7124713538e66d74d3bfe6aff"
 dependencies = [
  "alloy-consensus",
  "alloy-consensus-any",
@@ -331,9 +331,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-network-primitives"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcc2689c8addfc43461544d07a6f5f3a3e1f5f4efae61206cb5783dc383cfc8f"
+checksum = "a03ad273e1c55cc481889b4130e82860e33624e6969e9a08854e0f3ebe659295"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -344,9 +344,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-node-bindings"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "638b7551f1819023c41765416b75b3959ebe45bb174969cd20ee3b5f2e72c75d"
+checksum = "0d4f3ab81744547ab8283aa94c9670d3880ac826642e52739e3c4ecbfa84857a"
 dependencies = [
  "alloy-genesis",
  "alloy-hardforks",
@@ -416,9 +416,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-provider"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ced931220f547d30313530ad315654b7862ef52631c90ab857d792865f84a7d"
+checksum = "abc164acf8c41c756e76c7aea3be8f0fb03f8a3ef90a33e3ddcea5d1614d8779"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -464,9 +464,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-pubsub"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e37d6cf286fd30bacac525ab1491f9d1030d39ecce237821f2a5d5922eb9a37"
+checksum = "670d155c3e35bcaa252ca706a2757a456c56aa71b80ad1539d07d49b86304e78"
 dependencies = [
  "alloy-json-rpc",
  "alloy-primitives 1.2.1",
@@ -507,9 +507,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rpc-client"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d1d1eac6e48b772c7290f0f79211a0e822a38b057535b514cc119abd857d5b6"
+checksum = "03c44d31bcb9afad460915fe1fba004a2af5a07a3376c307b9bdfeec3678c209"
 dependencies = [
  "alloy-json-rpc",
  "alloy-primitives 1.2.1",
@@ -535,9 +535,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rpc-types"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8589c6ae318fcc9624d42e9166f7f82b630d9ad13e180c52addf20b93a8af266"
+checksum = "2ba2cf3d3c6ece87f1c6bb88324a997f28cf0ad7e98d5e0b6fa91c4003c30916"
 dependencies = [
  "alloy-primitives 1.2.1",
  "alloy-rpc-types-anvil",
@@ -551,9 +551,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rpc-types-anvil"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "754d5062b594ed300a3bb0df615acb7bacdbd7bd1cd1a6e5b59fb936c5025a13"
+checksum = "65e80e2ffa56956a92af375df1422b239fde6552bd222dfeaeb39f07949060fa"
 dependencies = [
  "alloy-primitives 1.2.1",
  "alloy-rpc-types-eth",
@@ -563,9 +563,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rpc-types-any"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02cfd7ecb21a1bfe68ac6b551172e4d41f828bcc33a2e1563a65d482d4efc1cf"
+checksum = "ef5b22062142ce3b2ed3374337d4b343437e5de6959397f55d2c9fe2c2ce0162"
 dependencies = [
  "alloy-consensus-any",
  "alloy-rpc-types-eth",
@@ -574,9 +574,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rpc-types-debug"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c81ae89a04859751bac72e5e73459bceb3e6a4d2541f2f1374e35be358fd171"
+checksum = "1f53a2a78b44582e0742ab96d5782842d9b90cebf6ef6ccd8be864ae246fdd0f"
 dependencies = [
  "alloy-primitives 1.2.1",
  "serde",
@@ -584,9 +584,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rpc-types-engine"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "662b720c498883427ffb9f5e38c7f02b56ac5c0cdd60b457e88ce6b6a20b9ce9"
+checksum = "7041c3fd4dcd7af95e86280944cc33b4492ac2ddbe02f84079f8019742ec2857"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -601,9 +601,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rpc-types-eth"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb082c325bdfd05a7c71f52cd1060e62491fbf6edf55962720bdc380847b0784"
+checksum = "391e59f81bacbffc7bddd2da3a26d6eec0e2058e9237c279e9b1052bdf21b49e"
 dependencies = [
  "alloy-consensus",
  "alloy-consensus-any",
@@ -621,9 +621,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rpc-types-trace"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaf52c884c7114c5d1f1f2735634ba0f6579911427281fb02cbd5cb8147723ca"
+checksum = "29d96238f37e8a72dcf2cf6bead4c4f91dec1c0720b12be10558406e1633a804"
 dependencies = [
  "alloy-primitives 1.2.1",
  "alloy-rpc-types-eth",
@@ -635,9 +635,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rpc-types-txpool"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e4fd0df1af2ed62d02e7acbc408a162a06f30cb91550c2ec34b11c760cdc0ba"
+checksum = "e45d00db47a280d0a6e498b6e63344bccd9485d8860d2e2f06b680200c37ebc2"
 dependencies = [
  "alloy-primitives 1.2.1",
  "alloy-rpc-types-eth",
@@ -647,9 +647,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-serde"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f26c17270c2ac1bd555c4304fe067639f0ddafdd3c8d07a200b2bb5a326e03"
+checksum = "0ea08bc854235d4dff08fd57df8033285c11b8d7548b20c6da218194e7e6035f"
 dependencies = [
  "alloy-primitives 1.2.1",
  "serde",
@@ -658,9 +658,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-signer"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d9fd649d6ed5b8d7e5014e01758efb937e8407124b182a7f711bf487a1a2697"
+checksum = "bcb3759f85ef5f010a874d9ebd5ee6ce01cac65211510863124e0ebac6552db0"
 dependencies = [
  "alloy-primitives 1.2.1",
  "async-trait",
@@ -673,9 +673,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-signer-local"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c288c5b38be486bb84986701608f5d815183de990e884bb747f004622783e125"
+checksum = "14d95902d29e1290809e1c967a1e974145b44b78f6e3e12fc07a60c1225e3df0"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
@@ -835,9 +835,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-transport"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1b790b89e31e183ae36ac0a1419942e21e94d745066f5281417c3e4299ea39e"
+checksum = "dcdf4b7fc58ebb2605b2fc5a33dae5cf15527ea70476978351cc0db1c596ea93"
 dependencies = [
  "alloy-json-rpc",
  "alloy-primitives 1.2.1",
@@ -858,9 +858,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-transport-http"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f643645a33a681d09ac1ca2112014c2ca09c68aad301da4400484d59c746bc70"
+checksum = "4c4b0f3a9c28bcd3761504d9eb3578838d6d115c8959fc1ea05f59a3a8f691af"
 dependencies = [
  "alloy-json-rpc",
  "alloy-transport",
@@ -873,9 +873,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-transport-ipc"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c2d843199d0bdb4cbed8f1b6f2da7f68bcb9c5da7f57e789009e4e7e76d1bec"
+checksum = "758edb7c266374374e001c50fb1ea89cb5ed48d47ffbf297599f2a557804dd3b"
 dependencies = [
  "alloy-json-rpc",
  "alloy-pubsub",
@@ -893,9 +893,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-transport-ws"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d27aae8c7a6403d3d3e874ad2eeeadbf46267b614bac2d4d82786b9b8496464"
+checksum = "c5596b913d1299ee37a9c1bb5118b2639bf253dc1088957bdf2073ae63a6fdfa"
 dependencies = [
  "alloy-pubsub",
  "alloy-transport",
@@ -927,9 +927,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-tx-macros"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4ef40a046b9bf141afc440cef596c79292708aade57c450dc74e843270fd8e7"
+checksum = "79bf2869e66904b2148c809e7a75e23ca26f5d7b46663a149a1444fb98a69d1d"
 dependencies = [
  "alloy-primitives 1.2.1",
  "darling",
@@ -2693,6 +2693,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum-apis"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
+dependencies = [
+ "alloy",
+ "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "reqwest 0.12.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tracing",
+]
+
+[[package]]
 name = "ethereum-light-client"
 version = "0.1.0"
 dependencies = [
@@ -2736,6 +2750,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum-light-client"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
+dependencies = [
+ "alloy-primitives 1.2.1",
+ "alloy-rlp",
+ "ethereum-trie-db 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "hex",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.12",
+ "tree_hash 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+]
+
+[[package]]
 name = "ethereum-trie-db"
 version = "0.1.0"
 dependencies = [
@@ -2771,6 +2803,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum-trie-db"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
+dependencies = [
+ "alloy-primitives 1.2.1",
+ "hash-db",
+ "hash256-std-hasher",
+ "hex",
+ "memory-db",
+ "primitive-types 0.13.1",
+ "rlp 0.6.1",
+ "rlp-derive",
+ "sha3",
+ "thiserror 2.0.12",
+ "trie-db 0.30.0",
+]
+
+[[package]]
 name = "ethereum-types"
 version = "0.1.0"
 dependencies = [
@@ -2794,6 +2844,19 @@ dependencies = [
  "serde_with",
  "tree_hash 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.2.0)",
  "tree_hash_derive 0.9.1",
+]
+
+[[package]]
+name = "ethereum-types"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
+dependencies = [
+ "alloy-primitives 1.2.1",
+ "schemars 0.8.22",
+ "serde",
+ "serde_with",
+ "tree_hash 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "tree_hash_derive 0.10.0",
 ]
 
 [[package]]
@@ -3782,10 +3845,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "ibc-eureka-relayer-core",
+ "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-cosmos-to-cosmos",
  "ibc-eureka-relayer-cosmos-to-eth",
- "ibc-eureka-relayer-eth-to-cosmos",
+ "ibc-eureka-relayer-eth-to-cosmos 0.1.0",
+ "ibc-eureka-relayer-eth-to-cosmos-compat",
  "prometheus",
  "serde_json",
  "tokio",
@@ -3810,15 +3874,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-eureka-relayer-core"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
+dependencies = [
+ "anyhow",
+ "prometheus",
+ "prost",
+ "serde",
+ "serde_json",
+ "tonic 0.13.1",
+ "tonic-build",
+ "tonic-reflection",
+ "tracing",
+]
+
+[[package]]
 name = "ibc-eureka-relayer-cosmos-to-cosmos"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "ibc-core-host-types",
- "ibc-eureka-relayer-core",
- "ibc-eureka-relayer-lib",
- "ibc-eureka-utils",
+ "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-lib 0.1.0",
+ "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "ics23",
  "prost",
@@ -3838,13 +3918,13 @@ dependencies = [
  "anyhow",
  "async-trait",
  "ibc-core-host-types",
- "ibc-eureka-relayer-core",
- "ibc-eureka-relayer-lib",
+ "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-lib 0.1.0",
  "ibc-eureka-solidity-types 0.1.0",
- "ibc-eureka-utils",
+ "ibc-eureka-utils 0.1.0",
  "serde",
  "serde_json",
- "sp1-ics07-tendermint-prover",
+ "sp1-ics07-tendermint-prover 0.1.0",
  "sp1-prover",
  "sp1-sdk",
  "tendermint",
@@ -3860,18 +3940,63 @@ dependencies = [
  "alloy",
  "anyhow",
  "async-trait",
- "ethereum-apis",
+ "ethereum-apis 0.1.0",
  "ethereum-light-client 0.1.0",
  "ethereum-types 0.1.0",
- "ibc-eureka-relayer-core",
- "ibc-eureka-relayer-lib",
+ "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-lib 0.1.0",
  "ibc-eureka-solidity-types 0.1.0",
- "ibc-eureka-utils",
+ "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",
  "serde",
  "serde_json",
  "tendermint",
+ "tendermint-rpc",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
+name = "ibc-eureka-relayer-eth-to-cosmos"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "async-trait",
+ "ethereum-apis 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ethereum-light-client 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ibc-eureka-relayer-core 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ibc-eureka-relayer-lib 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ibc-eureka-utils 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "prost",
+ "serde",
+ "serde_json",
+ "tendermint",
+ "tendermint-rpc",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
+name = "ibc-eureka-relayer-eth-to-cosmos-compat"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-core 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ibc-eureka-relayer-eth-to-cosmos 0.1.0",
+ "ibc-eureka-relayer-eth-to-cosmos 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ibc-eureka-relayer-lib 0.1.0",
+ "ibc-eureka-utils 0.1.0",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "prost",
+ "serde_json",
  "tendermint-rpc",
  "tonic 0.13.1",
  "tracing",
@@ -3884,19 +4009,48 @@ dependencies = [
  "alloy",
  "anyhow",
  "async-trait",
- "ethereum-apis",
+ "ethereum-apis 0.1.0",
  "ethereum-light-client 0.1.0",
  "ethereum-types 0.1.0",
  "futures",
  "futures-timer",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types 0.1.0",
- "ibc-eureka-utils",
+ "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",
  "serde",
  "serde_json",
- "sp1-ics07-tendermint-prover",
+ "sp1-ics07-tendermint-prover 0.1.0",
+ "sp1-prover",
+ "sp1-sdk",
+ "tendermint",
+ "tendermint-light-client-verifier",
+ "tendermint-rpc",
+ "tracing",
+]
+
+[[package]]
+name = "ibc-eureka-relayer-lib"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "async-trait",
+ "ethereum-apis 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ethereum-light-client 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "futures",
+ "futures-timer",
+ "ibc-core-commitment-types",
+ "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ibc-eureka-utils 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "prost",
+ "serde",
+ "serde_json",
+ "sp1-ics07-tendermint-prover 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "sp1-prover",
  "sp1-sdk",
  "tendermint",
@@ -3944,6 +4098,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-eureka-solidity-types"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
+dependencies = [
+ "alloy-contract",
+ "alloy-primitives 1.2.1",
+ "alloy-sol-types 1.2.1",
+ "hex",
+ "ibc-client-tendermint-types",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "sha2 0.10.9",
+ "tendermint",
+ "tendermint-light-client-verifier",
+ "thiserror 2.0.12",
+ "time",
+]
+
+[[package]]
 name = "ibc-eureka-utils"
 version = "0.1.0"
 dependencies = [
@@ -3957,6 +4131,29 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types 0.1.0",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prost",
+ "reqwest 0.11.27",
+ "tendermint",
+ "tendermint-light-client-verifier",
+ "tendermint-rpc",
+]
+
+[[package]]
+name = "ibc-eureka-utils"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
+dependencies = [
+ "alloy-network",
+ "alloy-signer-local",
+ "anyhow",
+ "async-trait",
+ "cosmos-sdk-proto",
+ "ibc-client-tendermint-types",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
+ "ibc-core-host-types",
+ "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "reqwest 0.11.27",
@@ -6976,12 +7173,12 @@ dependencies = [
  "ibc-client-tendermint-types",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types 0.1.0",
- "ibc-eureka-utils",
+ "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "serde_with",
- "sp1-ics07-tendermint-prover",
+ "sp1-ics07-tendermint-prover 0.1.0",
  "sp1-sdk",
  "subtle-encoding",
  "tendermint-light-client-verifier",
@@ -6997,6 +7194,21 @@ dependencies = [
  "alloy-sol-types 1.2.1",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types 0.1.0",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prost",
+ "sp1-prover",
+ "sp1-sdk",
+ "tracing",
+]
+
+[[package]]
+name = "sp1-ics07-tendermint-prover"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
+dependencies = [
+ "alloy-sol-types 1.2.1",
+ "ibc-core-commitment-types",
+ "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "sp1-prover",
@@ -8246,6 +8458,16 @@ version = "0.1.0"
 source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.2.0#57cb581aaa8839a479147c0713df4c012e64c260"
 dependencies = [
  "alloy-primitives 0.8.25",
+ "sha2 0.10.9",
+ "smallvec",
+]
+
+[[package]]
+name = "tree_hash"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
+dependencies = [
+ "alloy-primitives 1.2.1",
  "sha2 0.10.9",
  "smallvec",
 ]
