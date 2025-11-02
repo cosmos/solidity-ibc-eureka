@@ -110,6 +110,7 @@ pub mod v1_2_0 {
         // Update the client state using v1_2
         let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
         let (update_client_msgs, _, _) = relayer_messages.get_sdk_msgs();
+        assert_eq!(1, update_client_msgs.len()); // just to make sure
         let client_msgs = update_client_msgs
             .iter()
             .map(|msg| {
@@ -166,6 +167,7 @@ pub mod v1_2_0 {
         // Check that the client can still be updated
         let relayer_messages: RelayerMessages = fixture.get_data_at_step(2);
         let (update_client_msgs, _, _) = relayer_messages.get_sdk_msgs();
+        assert_eq!(1, update_client_msgs.len()); // just to make sure
         let client_msgs = update_client_msgs
             .iter()
             .map(|msg| {

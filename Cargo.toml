@@ -21,7 +21,7 @@ members = [
 
     "programs/relayer",
     "programs/operator",
-    "programs/cw-ics08-wasm-eth",
+    "programs/cw-ics08-wasm-eth"
 ]
 resolver = "2"
 
