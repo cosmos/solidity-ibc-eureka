@@ -27,7 +27,7 @@ func CreateEthCosmosModules(
 ) []ModuleConfig {
 	return []ModuleConfig{
 		{
-			Name:     ModuleEthToCosmos,
+			Name:     ModuleEthToCosmosCompat,
 			SrcChain: configInfo.EthChainID,
 			DstChain: configInfo.CosmosChainID,
 			Config: ethToCosmosConfig{

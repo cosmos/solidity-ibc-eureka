@@ -6,10 +6,11 @@ repository = { workspace = true }
 license    = { workspace = true }
 
 [dependencies]
-ibc-eureka-relayer-core             = { workspace = true, default-features = false }
-ibc-eureka-relayer-eth-to-cosmos    = { workspace = true, default-features = false }
-ibc-eureka-relayer-cosmos-to-eth    = { workspace = true, default-features = false }
-ibc-eureka-relayer-cosmos-to-cosmos = { workspace = true, default-features = false }
+ibc-eureka-relayer-core                 = { workspace = true, default-features = false }
+ibc-eureka-relayer-eth-to-cosmos        = { workspace = true, default-features = false }
+ibc-eureka-relayer-cosmos-to-eth        = { workspace = true, default-features = false }
+ibc-eureka-relayer-cosmos-to-cosmos     = { workspace = true, default-features = false }
+ibc-eureka-relayer-eth-to-cosmos-compat = { workspace = true, default-features = false }
 
 tokio              = { workspace = true, default-features = true }
 prometheus         = { workspace = true, default-features = true }

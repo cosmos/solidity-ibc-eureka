@@ -15,6 +15,7 @@ members = [
     "packages/relayer/modules/eth-to-cosmos",
     "packages/relayer/modules/cosmos-to-eth",
     "packages/relayer/modules/cosmos-to-cosmos",
+    "packages/relayer/modules/eth-to-cosmos-compat",
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
 
@@ -145,3 +146,7 @@ milagro_bls   = { git = "https://github.com/Snowfork/milagro_bls", rev = "bc2b5b
 smallvec      = { version = "1.6.1", default-features = false }
 cw-ics08-wasm-eth-v1_2_0 = { package = "cw-ics08-wasm-eth", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
 ethereum-light-client-v1_2_0 = { package = "ethereum-light-client", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
+
+# TODO: Remove these dependencies once ethereum wasm client v1.2.0 backwards compatibility is not needed
+ibc-eureka-relayer-eth-to-cosmos-v1_2 = { package = "ibc-eureka-relayer-eth-to-cosmos", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
+ibc-eureka-relayer-core-v1_2= { package = "ibc-eureka-relayer-core", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
