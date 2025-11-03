@@ -11,12 +11,13 @@ pub struct OnTimeoutPacket<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
         seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
-        bump = app_state.bump
+        bump = app_state.bump,
+        has_one = router_program @ GMPError::UnauthorizedRouter
     )]
     pub app_state: Account<'info, GMPAppState>,
 
     /// Router program calling this instruction
-    /// CHECK: Validated in handler
+    /// Validated via `has_one` constraint on `app_state`
     pub router_program: UncheckedAccount<'info>,
 
     /// Relayer fee payer (passed by router but not used in timeout handler)
@@ -24,8 +25,8 @@ pub struct OnTimeoutPacket<'info> {
     #[account(mut)]
     pub payer: UncheckedAccount<'info>,
 
-    /// CHECK: System program (passed by router but not used in timeout handler)
-    pub system_program: UncheckedAccount<'info>,
+    /// System program (passed by router but not used in timeout handler)
+    pub system_program: Program<'info, System>,
 }
 
 pub fn on_timeout_packet(
@@ -34,12 +35,6 @@ pub fn on_timeout_packet(
 ) -> Result<()> {
     let clock = Clock::get()?;
     let app_state = &ctx.accounts.app_state;
-
-    // Validate router program
-    require!(
-        ctx.accounts.router_program.key() == app_state.router_program,
-        GMPError::UnauthorizedRouter
-    );
 
     // Check if app is operational
     app_state.can_operate()?;

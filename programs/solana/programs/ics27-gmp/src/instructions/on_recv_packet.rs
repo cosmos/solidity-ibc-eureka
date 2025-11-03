@@ -17,12 +17,13 @@ pub struct OnRecvPacket<'info> {
     #[account(
         mut,
         seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
-        bump = app_state.bump
+        bump = app_state.bump,
+        has_one = router_program @ GMPError::UnauthorizedRouter
     )]
     pub app_state: Account<'info, GMPAppState>,
 
     /// Router program calling this instruction
-    /// CHECK: Validated in handler
+    /// Validated via `has_one` constraint on `app_state`
     pub router_program: UncheckedAccount<'info>,
 
     /// Relayer fee payer - used for account creation rent
@@ -33,8 +34,8 @@ pub struct OnRecvPacket<'info> {
     #[account(mut)]
     pub payer: UncheckedAccount<'info>,
 
-    /// CHECK: System program
-    pub system_program: UncheckedAccount<'info>,
+    /// System program (passed by router)
+    pub system_program: Program<'info, System>,
     // Additional accounts (accessed via remaining_accounts from relayer):
     // - [0]: account_state - GMP account PDA (created if needed, signs via invoke_signed)
     // - [1]: target_program - Target program to execute
@@ -48,12 +49,6 @@ pub fn on_recv_packet<'info>(
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
     let app_state = &mut ctx.accounts.app_state;
-
-    // Validate router program
-    require!(
-        ctx.accounts.router_program.key() == app_state.router_program,
-        GMPError::UnauthorizedRouter
-    );
 
     // Check if app is operational
     app_state.can_operate()?;
