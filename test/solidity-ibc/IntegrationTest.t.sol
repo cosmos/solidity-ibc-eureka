@@ -349,14 +349,13 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
         Escrow escrow = Escrow(ics20Transfer.getEscrow(clientIdentifier));
         uint256 dailyLimit = escrow.getDailyUsage(address(receivedERC20));
         assertEq(dailyLimit, 0); // 0 before rate limit has been set
-            // TODO: remove this once rate limit perms are resolved (#559)
-            // escrow.grantRateLimiterRole(address(this));
+        // TODO: remove this once rate limit perms are resolved (#559)
+        // escrow.grantRateLimiterRole(address(this));
         escrow.setRateLimit(address(receivedERC20), defaultAmount - 1);
 
         // receive again, should hit rate limit and write error ack
         vm.expectEmit();
-        emit IICS26Router
-            .IBCAppRecvPacketCallbackError(abi.encodeWithSelector(
+        emit IICS26Router.IBCAppRecvPacketCallbackError(abi.encodeWithSelector(
                 IRateLimitErrors.RateLimitExceeded.selector, defaultAmount - 1, defaultAmount
             ));
         (,, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(
