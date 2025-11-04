@@ -1,6 +1,6 @@
 //! This module defines types related to forks in Ethereum.
 
-use alloy_primitives::{aliases::B32, B256};
+use alloy_primitives::{aliases::B32, hex::FromHex, B256};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tree_hash::TreeHash;
@@ -48,6 +48,7 @@ pub struct ForkParameters {
     /// The electra fork
     pub electra: Fork,
     /// The fulu fork
+    #[serde(default = "default_fulu_fork")]
     pub fulu: Fork,
 }
 
@@ -80,4 +81,11 @@ pub fn compute_fork_data_root(current_version: Version, genesis_validators_root:
     };
 
     fork_data.tree_hash_root()
+}
+
+fn default_fulu_fork() -> Fork {
+    Fork {
+        version: B32::from_hex("0x70000038").unwrap(),
+        epoch: u64::MAX,
+    }
 }
