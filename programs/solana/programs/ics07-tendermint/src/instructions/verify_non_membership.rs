@@ -128,9 +128,22 @@ mod tests {
         }
     }
 
+    fn create_non_membership_msg(fixture: &MembershipMsgFixture) -> NonMembershipMsg {
+        let path: Vec<Vec<u8>> = fixture.path.iter().map(|s| s.as_bytes().to_vec()).collect();
+        let proof = hex_to_bytes(&fixture.proof);
+
+        NonMembershipMsg {
+            height: fixture.height,
+            delay_time_period: fixture.delay_time_period,
+            delay_block_period: fixture.delay_block_period,
+            proof,
+            path,
+        }
+    }
+
     fn create_verify_non_membership_instruction(
         test_accounts: &TestAccounts,
-        msg: MembershipMsg,
+        msg: NonMembershipMsg,
     ) -> Instruction {
         let instruction_data = crate::instruction::VerifyNonMembership { msg };
 
@@ -144,7 +157,7 @@ mod tests {
         }
     }
 
-    fn setup_non_membership_test() -> (MembershipVerificationFixture, TestAccounts, MembershipMsg) {
+    fn setup_non_membership_test() -> (MembershipVerificationFixture, TestAccounts, NonMembershipMsg) {
         let fixture = load_membership_verification_fixture("verify_non-membership_key_1");
         let client_state = decode_client_state_from_hex(&fixture.client_state_hex);
         let consensus_state = decode_consensus_state_from_hex(&fixture.consensus_state_hex);
@@ -156,7 +169,7 @@ mod tests {
             consensus_state,
         );
 
-        let msg = create_membership_msg(&fixture.membership_msg);
+        let msg = create_non_membership_msg(&fixture.membership_msg);
 
         (fixture, test_accounts, msg)
     }
@@ -174,15 +187,14 @@ mod tests {
 
     #[test]
     fn test_verify_non_membership_with_value() {
-        let (_fixture, test_accounts, mut msg) = setup_non_membership_test();
-        msg.value = b"some_value".to_vec();
+        // NonMembershipMsg doesn't have a value field by design.
+        // This test verifies that non-membership proofs work correctly without values.
+        let (_fixture, test_accounts, msg) = setup_non_membership_test();
 
         let instruction = create_verify_non_membership_instruction(&test_accounts, msg);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidValue).into(),
-        )];
+        let checks = vec![Check::success()];
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
 
@@ -201,7 +213,7 @@ mod tests {
             consensus_state,
         );
 
-        let msg = create_membership_msg(&fixture.membership_msg);
+        let msg = create_non_membership_msg(&fixture.membership_msg);
         let instruction = create_verify_non_membership_instruction(&test_accounts, msg);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
@@ -257,7 +269,7 @@ mod tests {
             consensus_state,
         );
 
-        let msg = create_membership_msg(&fixture.membership_msg);
+        let msg = create_non_membership_msg(&fixture.membership_msg);
         let instruction = create_verify_non_membership_instruction(&test_accounts, msg);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);

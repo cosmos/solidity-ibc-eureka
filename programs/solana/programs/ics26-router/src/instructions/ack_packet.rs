@@ -90,13 +90,13 @@ pub fn ack_packet<'info>(
     );
 
     require!(
-        msg.packet.dest_client == client.counterparty_info.client_id,
-        RouterError::InvalidCounterpartyClient
+        msg.packet.source_client == client.client_id,
+        RouterError::ClientMismatch
     );
 
     require!(
-        msg.packet.dest_client == client.client_id,
-        RouterError::ClientMismatch
+        msg.packet.dest_client == client.counterparty_info.client_id,
+        RouterError::InvalidCounterpartyClient
     );
 
     let packet = chunking::validate_and_reconstruct_packet(chunking::ReconstructPacketParams {

@@ -15,11 +15,8 @@ pub fn validate_ibc_app_pda(
     payload: &Payload,
     ibc_app_key: Pubkey,
 ) -> Result<()> {
-    let expected_ibc_app = Pubkey::find_program_address(
-        &[IBCApp::SEED, payload.source_port.as_bytes()],
-        program_id,
-    )
-    .0;
+    let expected_ibc_app =
+        Pubkey::find_program_address(&[IBCApp::SEED, payload.source_port.as_bytes()], program_id).0;
 
     require!(ibc_app_key == expected_ibc_app, RouterError::IbcAppNotFound);
     Ok(())
