@@ -22,10 +22,7 @@ library ICS24Host {
     /// @param clientId The client identifier
     /// @param sequence The sequence number
     /// @return The full path of the packet commitment
-    function packetCommitmentPathCalldata(
-        string memory clientId,
-        uint64 sequence
-    )
+    function packetCommitmentPathCalldata(string memory clientId, uint64 sequence)
         internal
         pure
         returns (bytes memory)
