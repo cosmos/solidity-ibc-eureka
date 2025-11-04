@@ -99,6 +99,8 @@ type ConsensusState struct {
 	Slot uint64 `json:"slot"`
 	// The state merkle root of the finalized header
 	StateRoot string `json:"state_root"`
+	// The storage merkle root of the tracked contract at the finalized header
+	StorageRoot string `json:"storage_root"`
 	// The execution timestamp of the finalized header
 	Timestamp uint64 `json:"timestamp"`
 }
@@ -115,12 +117,26 @@ type SummarizedSyncCommittee struct {
 
 // The header of a light client update
 type Header struct {
+	// The account update
+	AccountUpdate AccountUpdate `json:"account_update"`
 	// The active sync committee (untrusted)
 	ActiveSyncCommittee ActiveSyncCommittee `json:"active_sync_committee"`
 	// The consensus update
 	ConsensusUpdate LightClientUpdate `json:"consensus_update"`
-	// Trusted slot to verify the new update against
-	TrustedSlot uint64 `json:"trusted_slot"`
+}
+
+// The account update
+type AccountUpdate struct {
+	// The account proof
+	AccountProof AccountProof `json:"account_proof"`
+}
+
+// The account proof
+type AccountProof struct {
+	// The account proof
+	Proof []string `json:"proof"`
+	// The account storage root
+	StorageRoot string `json:"storage_root"`
 }
 
 // The active sync committee (untrusted)
