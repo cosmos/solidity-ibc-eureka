@@ -95,6 +95,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
         payloads: vec![msg.payload],
     };
 
+    // TODO: Add commitment path check is empty
     let commitment = ics24::packet_commitment_bytes32(&packet);
     packet_commitment.value = commitment;
 
@@ -248,7 +249,7 @@ mod tests {
     fn test_send_packet_success() {
         let ctx = setup_send_packet_test_with_params(SendPacketTestParams::default());
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         // Calculate expected rent-exempt lamports for Commitment account
         let commitment_rent = {
@@ -303,7 +304,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
@@ -319,7 +320,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::ClientNotActive as u32,
@@ -336,7 +337,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         // Add Clock sysvar with current timestamp (1000) - packet timeout is 900 (expired)
         let clock_data = create_clock_data(1000);
@@ -358,7 +359,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::InvalidTimeoutDuration as u32,
@@ -376,7 +377,7 @@ mod tests {
         };
         let ctx = setup_send_packet_test_with_params(params);
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
 
@@ -477,7 +478,7 @@ mod tests {
             create_account(client_pda_1, client_data_1, crate::ID),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
         let result_1 = mollusk.process_instruction(&instruction_1, &accounts_1);
 
         // Verify client 1 sequence was incremented from 10 to 11

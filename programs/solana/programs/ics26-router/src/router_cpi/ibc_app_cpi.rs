@@ -19,6 +19,7 @@ pub struct IbcAppCpiAccounts<'a> {
     pub system_program: AccountInfo<'a>,
 }
 
+// TODO: get payload from packet
 /// CPI helper for calling IBC app's `on_recv_packet` instruction
 pub fn on_recv_packet_cpi<'a>(
     accounts: IbcAppCpiAccounts<'a>,

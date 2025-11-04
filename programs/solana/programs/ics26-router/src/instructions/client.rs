@@ -114,6 +114,7 @@ pub fn add_client(
     Ok(())
 }
 
+// TODO: allow updates of all fields
 pub fn update_client(ctx: Context<UpdateClient>, _client_id: String, active: bool) -> Result<()> {
     let client = &mut ctx.accounts.client;
     let router_state = &ctx.accounts.router_state;
@@ -266,7 +267,7 @@ mod tests {
             create_program_account(system_program::ID),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = config.expected_error.map_or_else(
             || {
@@ -468,7 +469,7 @@ mod tests {
             create_account(client_pda, client_data, crate::ID),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::success()];
 
@@ -536,7 +537,7 @@ mod tests {
             create_program_account(system_program::ID),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedAuthority as u32,

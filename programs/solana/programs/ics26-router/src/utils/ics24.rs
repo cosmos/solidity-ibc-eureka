@@ -94,6 +94,7 @@ pub fn packet_acknowledgement_commitment_bytes32(acks: &[Vec<u8>]) -> Result<[u8
     Ok(hasher.finalize().into())
 }
 
+// TODO: maybe remove
 /// keccak256 hash of the packet
 pub fn packet_receipt_commitment_bytes32(packet: &Packet) -> [u8; 32] {
     // Serialize packet deterministically

@@ -4,7 +4,7 @@ use crate::state::Client;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::program::{get_return_data, invoke};
-use ics25_handler::{discriminators, MembershipMsg};
+use ics25_handler::{discriminators, MembershipMsg, NonMembershipMsg};
 
 /// Accounts needed for light client verification via CPI
 #[derive(Accounts)]
@@ -63,7 +63,7 @@ pub fn verify_membership_cpi(
 pub fn verify_non_membership_cpi(
     client: &Client,
     light_client_accounts: &LightClientVerification,
-    non_membership_msg: MembershipMsg,
+    non_membership_msg: NonMembershipMsg,
 ) -> Result<u64> {
     require!(
         light_client_accounts.light_client_program.key() == client.client_program_id,
@@ -72,18 +72,9 @@ pub fn verify_non_membership_cpi(
 
     require!(client.active, RouterError::ClientNotActive);
 
-    let membership_msg = MembershipMsg {
-        height: non_membership_msg.height,
-        delay_time_period: non_membership_msg.delay_time_period,
-        delay_block_period: non_membership_msg.delay_block_period,
-        proof: non_membership_msg.proof,
-        path: non_membership_msg.path,
-        value: vec![], // Empty value for non-membership
-    };
-
     let mut ix_data = Vec::new();
     ix_data.extend_from_slice(&discriminators::VERIFY_NON_MEMBERSHIP);
-    membership_msg.serialize(&mut ix_data)?;
+    non_membership_msg.serialize(&mut ix_data)?;
 
     let ix = Instruction {
         program_id: client.client_program_id,

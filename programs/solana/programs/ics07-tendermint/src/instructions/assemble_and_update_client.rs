@@ -89,7 +89,6 @@ fn process_header_update(
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
-    // Deserialize and validate header
     let header = deserialize_header(&header_bytes)?;
     let trusted_height = header.trusted_height.revision_height();
 
@@ -173,6 +172,7 @@ fn check_misbehaviour(
     let trusted_ibc: IbcConsensusState = trusted_state.clone().into();
     let trusted_timestamp = trusted_ibc.timestamp.unix_timestamp_nanos() as u64;
 
+    // IMPORTANT TODO: double check
     if new_state.timestamp <= trusted_timestamp {
         client_state.freeze();
         return err!(ErrorCode::MisbehaviourNonIncreasingTime);
@@ -202,8 +202,12 @@ fn cleanup_chunks(
             ErrorCode::InvalidChunkAccount
         );
 
+        let mut data = chunk_account.try_borrow_mut_data()?;
+        data.fill(0);
+
         let mut lamports = chunk_account.try_borrow_mut_lamports()?;
         let mut submitter_lamports = ctx.accounts.submitter.try_borrow_mut_lamports()?;
+
         **submitter_lamports += **lamports;
         **lamports = 0;
     }
@@ -276,6 +280,7 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
 
             if existing.consensus_state != *params.new_consensus_state {
                 params.client_state.freeze();
+                // TODO: don't return error
                 return err!(ErrorCode::MisbehaviourConflictingState);
             }
 
@@ -294,6 +299,7 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
         &[bump],
     ];
 
+    // IMPORTANT TODO: check again if anchor could simplify pda validation
     let cpi_accounts = system_program::CreateAccount {
         from: params.payer.to_account_info(),
         to: params.account.to_account_info(),

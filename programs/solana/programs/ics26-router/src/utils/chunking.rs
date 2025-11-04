@@ -293,8 +293,18 @@ fn cleanup_proof_chunks(
 ///
 /// # Returns
 /// * `Ok(solana_ibc_types::Packet)` - Reconstructed packet with payloads
-/// * `Err` - If validation fails or chunks cannot be assembled
-pub fn reconstruct_packet(params: ReconstructPacketParams) -> Result<solana_ibc_types::Packet> {
+/// * `Err` - If validation fails, or chunks cannot be assembled or both inline and payload
+/// metadata was provided
+pub fn validate_and_reconstruct_packet(
+    params: ReconstructPacketParams,
+) -> Result<solana_ibc_types::Packet> {
+    let has_inline_payloads = !params.packet.payloads.is_empty();
+    let has_chunked_metadata = params.payloads_metadata.iter().any(|p| p.total_chunks > 0);
+
+    require!(
+        !(has_inline_payloads && has_chunked_metadata),
+        RouterError::InvalidPayloadCount
+    );
     let payloads = if params.packet.payloads.is_empty() {
         // Chunked mode: Assemble payloads from chunks
         let payload_data_vec = assemble_multiple_payloads(
@@ -323,11 +333,6 @@ pub fn reconstruct_packet(params: ReconstructPacketParams) -> Result<solana_ibc_
     } else {
         // Inline mode: Use payloads directly from packet (no metadata needed)
         // The packet commitment is already verified via light client membership proof
-        msg!(
-            "Using inline payloads for packet {} (count: {})",
-            params.packet.sequence,
-            params.packet.payloads.len()
-        );
         params.packet.payloads.clone()
     };
 

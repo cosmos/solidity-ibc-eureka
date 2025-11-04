@@ -1287,7 +1287,7 @@ impl TxBuilder {
                 tm_msg
                     .proof_unreceived
                     .len()
-                    .div_ceil(700) // MAX_CHUNK_SIZE
+                    .div_ceil(MAX_CHUNK_SIZE) // MAX_CHUNK_SIZE
                     .max(1),
             )
             .context("proof too big to fit in u8")?;

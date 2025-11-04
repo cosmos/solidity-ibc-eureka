@@ -3,9 +3,10 @@ use crate::router_cpi::{on_timeout_packet_cpi, IbcAppCpiAccounts};
 use crate::router_cpi::{verify_non_membership_cpi, LightClientVerification};
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
-use crate::utils::{chunking, ics24};
+use crate::utils::packet::validate_ibc_app_pda;
+use crate::utils::{chunking, ics24, packet};
 use anchor_lang::prelude::*;
-use ics25_handler::MembershipMsg;
+use ics25_handler::NonMembershipMsg;
 use solana_ibc_types::events::{NoopEvent, TimeoutPacketEvent};
 #[cfg(test)]
 use solana_ibc_types::IBCAppState;
@@ -80,12 +81,9 @@ pub fn timeout_packet<'info>(
     ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info>>,
     msg: MsgTimeoutPacket,
 ) -> Result<()> {
-    // TODO: Support multi-payload packets #602
     let router_state = &ctx.accounts.router_state;
     let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;
-
-    require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
 
     let expected_ibc_app = Pubkey::find_program_address(
         &[IBCApp::SEED, msg.payloads[0].source_port.as_bytes()],
@@ -103,19 +101,16 @@ pub fn timeout_packet<'info>(
     );
 
     require!(
+        msg.packet.source_client == client.client_id,
+        RouterError::ClientMismatch
+    );
+
+    require!(
         msg.packet.dest_client == client.counterparty_info.client_id,
         RouterError::InvalidCounterpartyClient
     );
 
-    // Validate that we don't have both inline payloads AND chunked metadata
-    let has_inline_payloads = !msg.packet.payloads.is_empty();
-    let has_chunked_metadata = msg.payloads.iter().any(|p| p.total_chunks > 0);
-    require!(
-        !(has_inline_payloads && has_chunked_metadata),
-        RouterError::InvalidPayloadCount
-    );
-
-    let packet = chunking::reconstruct_packet(chunking::ReconstructPacketParams {
+    let packet = chunking::validate_and_reconstruct_packet(chunking::ReconstructPacketParams {
         packet: &msg.packet,
         payloads_metadata: &msg.payloads,
         remaining_accounts: ctx.remaining_accounts,
@@ -124,6 +119,9 @@ pub fn timeout_packet<'info>(
         client_id: &msg.packet.source_client,
         program_id: ctx.program_id,
     })?;
+
+    let payload = packet::get_single_payload(&packet)?;
+    validate_ibc_app_pda(ctx.program_id, payload, ctx.accounts.ibc_app.key())?;
 
     let proof_start_index = total_payload_chunks(&msg.payloads);
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
@@ -146,14 +144,12 @@ pub fn timeout_packet<'info>(
 
     let receipt_path = ics24::packet_receipt_commitment_path(&packet.dest_client, packet.sequence);
 
-    // The proof from Cosmos is generated with path segments ["ibc", receipt_path]
-    let non_membership_msg = MembershipMsg {
+    let non_membership_msg = NonMembershipMsg {
         height: msg.proof.height,
         delay_time_period: 0,
         delay_block_period: 0,
         proof: proof_data,
         path: vec![b"ibc".to_vec(), receipt_path],
-        value: vec![], // Empty value for non-membership
     };
 
     let counterparty_timestamp =
@@ -171,6 +167,7 @@ pub fn timeout_packet<'info>(
         return Ok(());
     }
 
+    // TODO: Sync
     // Safe to deserialize since we know it's owned by our program
     // Verify the commitment value
     {
@@ -183,12 +180,9 @@ pub fn timeout_packet<'info>(
         );
     }
 
-    // TODO: Support multi-payload packets #602
-    let payload = match packet.payloads.len() {
-        0 => Err(RouterError::PacketNoPayload),
-        n if n > 1 => Err(RouterError::MultiPayloadPacketNotSupported),
-        _ => Ok(&packet.payloads[0]),
-    }?;
+    // Delete commitment
+    let mut data = packet_commitment_account.try_borrow_mut_data()?;
+    data.fill(0);
 
     let cpi_accounts = IbcAppCpiAccounts {
         ibc_app_program: ctx.accounts.ibc_app_program.clone(),
@@ -213,9 +207,6 @@ pub fn timeout_packet<'info>(
         .checked_add(packet_commitment_account.lamports())
         .ok_or(RouterError::ArithmeticOverflow)?;
     **packet_commitment_account.lamports.borrow_mut() = 0;
-
-    let mut data = packet_commitment_account.try_borrow_mut_data()?;
-    data.fill(0);
 
     emit!(TimeoutPacketEvent {
         client_id: packet.source_client.clone(),
@@ -504,7 +495,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
@@ -520,7 +511,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::InvalidCounterpartyClient as u32,
@@ -536,7 +527,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::ClientNotActive as u32,

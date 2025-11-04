@@ -2,7 +2,8 @@ use crate::errors::RouterError;
 use crate::router_cpi::{on_recv_packet_cpi, IbcAppCpiAccounts};
 use crate::router_cpi::{verify_membership_cpi, LightClientVerification};
 use crate::state::*;
-use crate::utils::{chunking, ics24};
+use crate::utils::packet::validate_ibc_app_pda;
+use crate::utils::{chunking, ics24, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::events::{NoopEvent, WriteAcknowledgementEvent};
@@ -105,18 +106,6 @@ pub fn recv_packet<'info>(
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
-    require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
-
-    let expected_ibc_app = Pubkey::find_program_address(
-        &[IBCApp::SEED, msg.payloads[0].dest_port.as_bytes()],
-        ctx.program_id,
-    )
-    .0;
-    require!(
-        ctx.accounts.ibc_app.key() == expected_ibc_app,
-        RouterError::IbcAppNotFound
-    );
-
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
         RouterError::UnauthorizedSender
@@ -125,6 +114,11 @@ pub fn recv_packet<'info>(
     require!(
         msg.packet.source_client == client.counterparty_info.client_id,
         RouterError::InvalidCounterpartyClient
+    );
+
+    require!(
+        msg.packet.dest_client == client.client_id,
+        RouterError::ClientMismatch
     );
 
     let current_timestamp = clock.unix_timestamp;
@@ -141,7 +135,7 @@ pub fn recv_packet<'info>(
         RouterError::InvalidPayloadCount
     );
 
-    let packet = chunking::reconstruct_packet(chunking::ReconstructPacketParams {
+    let packet = chunking::validate_and_reconstruct_packet(chunking::ReconstructPacketParams {
         packet: &msg.packet,
         payloads_metadata: &msg.payloads,
         remaining_accounts: ctx.remaining_accounts,
@@ -150,6 +144,10 @@ pub fn recv_packet<'info>(
         client_id: &msg.packet.dest_client,
         program_id: ctx.program_id,
     })?;
+
+    let payload = packet::get_single_payload(&packet)?;
+    let ibc_app_key = ctx.accounts.ibc_app.key();
+    validate_ibc_app_pda(ctx.program_id, payload, ibc_app_key)?;
 
     let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
 
@@ -183,15 +181,18 @@ pub fn recv_packet<'info>(
         delay_time_period: 0,
         delay_block_period: 0,
         proof: proof_data,
+        // TODO: const
         path: vec![b"ibc".to_vec(), commitment_path],
         value: expected_commitment.to_vec(),
     };
 
+    // TODO: copy paste mollusk svm light client check to e2e
     verify_membership_cpi(client, &light_client_verification, membership_msg)?;
 
     // Check if receipt already exists
     let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&packet);
 
+    // TODO: data is empty check
     // Check if packet was not created by anchor via init_if_needed
     // I.e. it was already saved before
     if packet_receipt.value != [0u8; 32] {
@@ -206,13 +207,6 @@ pub fn recv_packet<'info>(
     }
 
     packet_receipt.value = receipt_commitment;
-
-    // TODO: Support multi-payload packets
-    let payload = match packet.payloads.len() {
-        0 => Err(RouterError::PacketNoPayload),
-        n if n > 1 => Err(RouterError::MultiPayloadPacketNotSupported),
-        _ => Ok(&packet.payloads[0]),
-    }?;
 
     // Calculate total chunk accounts that need to be filtered out before CPI
     // Chunk accounts are at the beginning of remaining_accounts:
@@ -245,6 +239,7 @@ pub fn recv_packet<'info>(
         &ctx.accounts.relayer.key(),
         app_remaining_accounts,
     ) {
+        // TODO:             require(keccak256(ack) != ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK, IBCErrorUniversalAcknowledgement());
         Ok(ack) => {
             require!(
                 !ack.is_empty(),
@@ -256,6 +251,7 @@ pub fn recv_packet<'info>(
             ack
         }
         Err(e) => {
+            unreachable!();
             // If the CPI fails, use universal error ack
             // In Solana, we can't easily check if it's OOG vs other errors,
             // but we do check that we got an error (not empty)
@@ -270,6 +266,8 @@ pub fn recv_packet<'info>(
     let acknowledgements = vec![acknowledgement];
     let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&acknowledgements)?;
     packet_ack.value = ack_commitment;
+
+    // TODO: store not populated
 
     emit!(WriteAcknowledgementEvent {
         client_id: packet.dest_client.clone(),
@@ -301,7 +299,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
@@ -331,7 +329,7 @@ mod tests {
     fn test_recv_packet_timeout_expired() {
         let mut ctx = setup_recv_packet_test(true, -100); // Expired timeout
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         // Add Clock sysvar with current timestamp (1000) - packet timeout is 900 (expired)
         let clock_data = create_clock_data(1000);
@@ -349,7 +347,7 @@ mod tests {
     fn test_recv_packet_client_not_active() {
         let ctx = setup_recv_packet_test(false, 1000); // Inactive client
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::ClientNotActive as u32,

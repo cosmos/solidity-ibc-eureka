@@ -16,7 +16,7 @@ pub use types::{
     ClientState, ConsensusState, IbcHeight, MisbehaviourMsg, UpdateResult, UploadChunkParams,
 };
 
-pub use ics25_handler::MembershipMsg;
+pub use ics25_handler::{MembershipMsg, NonMembershipMsg};
 
 #[derive(Accounts)]
 #[instruction(chain_id: String, latest_height: u64, client_state: ClientState)]
@@ -173,7 +173,7 @@ pub mod ics07_tendermint {
 
     pub fn verify_non_membership(
         ctx: Context<VerifyNonMembership>,
-        msg: MembershipMsg,
+        msg: NonMembershipMsg,
     ) -> Result<()> {
         instructions::verify_non_membership::verify_non_membership(ctx, msg)
     }

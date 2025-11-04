@@ -20,8 +20,6 @@ pub enum RouterError {
     PacketCommitmentAlreadyExists,
     #[msg("Packet commitment mismatch")]
     PacketCommitmentMismatch,
-    #[msg("Packet should have payload")]
-    PacketNoPayload,
     #[msg("Packet receipt mismatch")]
     PacketReceiptMismatch,
     #[msg("Packet acknowledgement already exists")]
@@ -56,6 +54,8 @@ pub enum RouterError {
     ClientNotActive,
     #[msg("Invalid counterparty client")]
     InvalidCounterpartyClient,
+    #[msg("Wrong client passed")]
+    ClientMismatch,
     #[msg("Arithmetic overflow")]
     ArithmeticOverflow,
     #[msg("Invalid response from IBC app")]

@@ -2,7 +2,8 @@ use crate::errors::RouterError;
 use crate::router_cpi::{on_acknowledgement_packet_cpi, IbcAppCpiAccounts};
 use crate::router_cpi::{verify_membership_cpi, LightClientVerification};
 use crate::state::*;
-use crate::utils::{chunking, ics24};
+use crate::utils::packet::validate_ibc_app_pda;
+use crate::utils::{chunking, ics24, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::events::{AckPacketEvent, NoopEvent};
@@ -83,18 +84,6 @@ pub fn ack_packet<'info>(
     let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;
 
-    require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
-
-    let expected_ibc_app = Pubkey::find_program_address(
-        &[IBCApp::SEED, msg.payloads[0].source_port.as_bytes()],
-        ctx.program_id,
-    )
-    .0;
-    require!(
-        ctx.accounts.ibc_app.key() == expected_ibc_app,
-        RouterError::IbcAppNotFound
-    );
-
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
         RouterError::UnauthorizedSender
@@ -105,15 +94,12 @@ pub fn ack_packet<'info>(
         RouterError::InvalidCounterpartyClient
     );
 
-    // Validate that we don't have both inline payloads AND chunked metadata
-    let has_inline_payloads = !msg.packet.payloads.is_empty();
-    let has_chunked_metadata = msg.payloads.iter().any(|p| p.total_chunks > 0);
     require!(
-        !(has_inline_payloads && has_chunked_metadata),
-        RouterError::InvalidPayloadCount
+        msg.packet.dest_client == client.client_id,
+        RouterError::ClientMismatch
     );
 
-    let packet = chunking::reconstruct_packet(chunking::ReconstructPacketParams {
+    let packet = chunking::validate_and_reconstruct_packet(chunking::ReconstructPacketParams {
         packet: &msg.packet,
         payloads_metadata: &msg.payloads,
         remaining_accounts: ctx.remaining_accounts,
@@ -122,6 +108,9 @@ pub fn ack_packet<'info>(
         client_id: &msg.packet.source_client,
         program_id: ctx.program_id,
     })?;
+
+    let payload = packet::get_single_payload(&packet)?;
+    validate_ibc_app_pda(ctx.program_id, payload, ctx.accounts.ibc_app.key())?;
 
     // Calculate total payload chunks for proof start index
     let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
@@ -171,6 +160,7 @@ pub fn ack_packet<'info>(
         return Ok(());
     }
 
+    // TODO: sync with recv packet
     // Safe to deserialize since we know it's owned by our program
     {
         let data = packet_commitment_account.try_borrow_data()?;
@@ -182,12 +172,8 @@ pub fn ack_packet<'info>(
         );
     }
 
-    // TODO: Support multi-payload packets
-    let payload = match packet.payloads.len() {
-        0 => Err(RouterError::PacketNoPayload),
-        n if n > 1 => Err(RouterError::MultiPayloadPacketNotSupported),
-        _ => Ok(&packet.payloads[0]),
-    }?;
+    let mut data = packet_commitment_account.try_borrow_mut_data()?;
+    data.fill(0);
 
     let cpi_accounts = IbcAppCpiAccounts {
         ibc_app_program: ctx.accounts.ibc_app_program.clone(),
@@ -212,9 +198,6 @@ pub fn ack_packet<'info>(
         .checked_add(packet_commitment_account.lamports())
         .ok_or(RouterError::ArithmeticOverflow)?;
     **packet_commitment_account.lamports.borrow_mut() = 0;
-
-    let mut data = packet_commitment_account.try_borrow_mut_data()?;
-    data.fill(0);
 
     emit!(AckPacketEvent {
         client_id: packet.source_client.clone(),
@@ -496,7 +479,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
@@ -512,7 +495,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::InvalidCounterpartyClient as u32,
@@ -528,7 +511,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::ClientNotActive as u32,

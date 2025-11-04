@@ -17,39 +17,6 @@ use state::{
 
 declare_id!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx");
 
-#[cfg(test)]
-pub fn get_router_program_path() -> &'static str {
-    use std::sync::OnceLock;
-    static PATH: OnceLock<String> = OnceLock::new();
-
-    PATH.get_or_init(|| {
-        std::env::var("ROUTER_PROGRAM_PATH")
-            .unwrap_or_else(|_| "../../target/deploy/ics26_router".to_string())
-    })
-}
-
-#[cfg(test)]
-pub fn get_mock_client_program_path() -> &'static str {
-    use std::sync::OnceLock;
-    static PATH: OnceLock<String> = OnceLock::new();
-
-    PATH.get_or_init(|| {
-        std::env::var("MOCK_CLIENT_PROGRAM_PATH")
-            .unwrap_or_else(|_| "../../target/deploy/mock_light_client".to_string())
-    })
-}
-
-#[cfg(test)]
-pub fn get_mock_ibc_app_program_path() -> &'static str {
-    use std::sync::OnceLock;
-    static PATH: OnceLock<String> = OnceLock::new();
-
-    PATH.get_or_init(|| {
-        std::env::var("MOCK_IBC_APP_PROGRAM_PATH")
-            .unwrap_or_else(|_| "../../target/deploy/mock_ibc_app".to_string())
-    })
-}
-
 #[program]
 pub mod ics26_router {
     use super::*;

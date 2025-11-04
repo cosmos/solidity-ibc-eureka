@@ -23,6 +23,7 @@ pub struct AddIbcApp<'info> {
 
     /// The IBC application program to register
     /// CHECK: This is the program ID of the IBC app
+    /// we're not saving it or validating so no need for check
     pub app_program: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -107,7 +108,7 @@ mod tests {
             create_program_account(system_program::ID),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![
             Check::success(),
@@ -155,7 +156,7 @@ mod tests {
             create_program_account(system_program::ID),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
@@ -201,7 +202,7 @@ mod tests {
             create_program_account(system_program::ID),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::InvalidPortIdentifier as u32,
@@ -247,7 +248,7 @@ mod tests {
             create_program_account(system_program::ID),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         // This should fail because the account already exists (init constraint violation)
         let result = mollusk.process_instruction(&instruction, &accounts);
