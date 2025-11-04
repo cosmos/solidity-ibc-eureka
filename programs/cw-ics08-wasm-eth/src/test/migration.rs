@@ -12,7 +12,7 @@ pub mod v1_2_0 {
     };
     use ethereum_light_client::test_utils::{
         bls_verifier::{aggreagate, fast_aggregate_verify},
-        fixtures::{self, StepsFixture},
+        fixtures::{self, InitialState, StepsFixture},
     };
     use ethereum_light_client_v1_2_0::{
         header::Header,
@@ -87,8 +87,7 @@ pub mod v1_2_0 {
         let creator = deps.api.addr_make("creator");
         let info = message_info(&creator, &coins(1, "uatom"));
 
-        let fixture: StepsFixture =
-            fixtures::load("Test_ICS20TransferNativeCosmosCoinsToEthereumAndBack");
+        let fixture: StepsFixture = fixtures::load("Test_ElectraToFuluUpdate");
 
         let initial_state: InitialStateV1_2 = fixture.get_data_at_step(0);
 
@@ -154,12 +153,16 @@ pub mod v1_2_0 {
         new_deps.storage = deps.storage;
 
         // Migrate to current version
-        // Migrate without any changes (i.e. same state version)
+        // Update the fork parameters as part of the migration
+
+        let initial_state: InitialState = fixture.get_data_at_step(0);
+        let fork_parameters = initial_state.client_state.fork_parameters;
+
         contract::migrate(
             new_deps.as_mut(),
             mock_env(),
             msg::MigrateMsg {
-                migration: msg::Migration::CodeOnly,
+                migration: msg::Migration::UpdateForkParameters(fork_parameters),
             },
         )
         .unwrap();
