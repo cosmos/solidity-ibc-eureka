@@ -250,16 +250,12 @@ pub fn recv_packet<'info>(
             // (don't revert, just use it as the acknowledgement)
             ack
         }
-        Err(_e) => {
-            unreachable!();
+        Err(e) => {
             // If the CPI fails, use universal error ack
             // In Solana, we can't easily check if it's OOG vs other errors,
             // but we do check that we got an error (not empty)
-            require!(!_e.to_string().is_empty(), RouterError::FailedCallback);
-
-            // msg!("IBC app recv packet callback error: {:?}", e);
-            //
-            // ics24::UNIVERSAL_ERROR_ACK.to_vec()
+            require!(!e.to_string().is_empty(), RouterError::FailedCallback);
+            ics24::UNIVERSAL_ERROR_ACK.to_vec()
         }
     };
 
