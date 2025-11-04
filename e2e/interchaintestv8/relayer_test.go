@@ -1618,7 +1618,7 @@ func (s *RelayerTestSuite) Test_ElectraToFuluUpdate() {
 			updateTxBodyBz = resp.Tx
 		}))
 
-		s.NoError(testutil.WaitForBlocks(ctx, 1, simd)) // Ensure timestamp is updated
+		s.NoError(testutil.WaitForBlocks(ctx, 2, simd)) // Ensure timestamp is updated
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
 			_ = s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, updateTxBodyBz)
