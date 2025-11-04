@@ -1538,3 +1538,94 @@ func (s *RelayerTestSuite) Test_Fulu_Fork() {
 
 	s.FilteredRecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
 }
+
+func (s *RelayerTestSuite) Test_ElectraToFuluUpdate() {
+	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
+		s.T().Skip("Test is only relevant for PoS networks")
+	}
+
+	ctx := context.Background()
+	proofType := types.GetEnvProofType()
+
+	var fuluForkEpoch uint64
+	if chainconfig.GetKurtosisPreset() == testvalues.EnvValueEthereumPosPreset_Minimal {
+		fuluForkEpoch = 14
+	} else {
+		s.T().Skip("Test is only relevant for minimal preset to generate fixtures quickly")
+	}
+	chainconfig.KurtosisConfig.NetworkParams.FuluForkEpoch = fuluForkEpoch
+
+	s.SetupSuite(ctx, proofType)
+
+	eth, simd := s.EthChain, s.CosmosChains[0]
+
+	s.Require().True(s.Run("Update the client on Cosmos", func() {
+		var updateTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				DstClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			updateTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			_ = s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, updateTxBodyBz)
+		}))
+
+		s.wasmFixtureGenerator.AddFixtureStep("electra_update_client", ethereumtypes.RelayerMessages{
+			RelayerTxBody: hex.EncodeToString(updateTxBodyBz),
+		})
+	}))
+
+	spec, err := s.EthChain.BeaconAPIClient.GetSpec()
+	s.Require().NoError(err)
+	err = testutil.WaitForCondition(time.Minute*30, time.Second*4, func() (bool, error) {
+		finalityUpdate, err := s.EthChain.BeaconAPIClient.GetFinalityUpdate()
+		if err != nil {
+			return false, err
+		}
+
+		finalitySlot, err := strconv.Atoi(finalityUpdate.Data.FinalizedHeader.Beacon.Slot)
+		if err != nil {
+			return false, err
+		}
+
+		latestFinalityEpoch := uint64(finalitySlot) / spec.SlotsPerEpoch
+
+		fmt.Printf("Waiting for epoch %d, current epoch: %d\n", fuluForkEpoch, latestFinalityEpoch)
+		return latestFinalityEpoch >= fuluForkEpoch, nil
+	})
+	s.Require().NoError(err)
+
+	s.Require().True(s.Run("Update the client on Cosmos", func() {
+		var updateTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				DstClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			updateTxBodyBz = resp.Tx
+		}))
+
+		s.NoError(testutil.WaitForBlocks(ctx, 1, simd)) // Ensure timestamp is updated
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			_ = s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, updateTxBodyBz)
+		}))
+
+		s.wasmFixtureGenerator.AddFixtureStep("fulu_update_client", ethereumtypes.RelayerMessages{
+			RelayerTxBody: hex.EncodeToString(updateTxBodyBz),
+		})
+	}))
+}
