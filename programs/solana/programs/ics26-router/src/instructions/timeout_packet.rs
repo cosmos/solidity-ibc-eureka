@@ -433,8 +433,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Mollusk's strict lamport conservation check fails on account closure
-              // This behavior is validated by e2e tests which pass successfully
+    #[ignore = "Mollusk's strict lamport conservation check fails on account closure - validated by e2e tests"]
     fn test_timeout_packet_success() {
         let ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
 
