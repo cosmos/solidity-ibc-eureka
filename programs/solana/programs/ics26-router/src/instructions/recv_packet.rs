@@ -171,8 +171,6 @@ pub fn recv_packet<'info>(
     // Verify membership proof via CPI to light client
     let membership_msg = MembershipMsg {
         height: msg.proof.height,
-        delay_time_period: 0,
-        delay_block_period: 0,
         proof: proof_data,
         path: vec![ics24::IBC_MERKLE_PREFIX.to_vec(), commitment_path],
         value: expected_commitment.to_vec(),

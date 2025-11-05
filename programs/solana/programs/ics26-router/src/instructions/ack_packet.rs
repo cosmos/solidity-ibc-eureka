@@ -143,8 +143,6 @@ pub fn ack_packet<'info>(
 
     let membership_msg = MembershipMsg {
         height: msg.proof.height,
-        delay_time_period: 0,
-        delay_block_period: 0,
         proof: proof_data,
         path: vec![ics24::IBC_MERKLE_PREFIX.to_vec(), ack_path],
         value: ack_commitment.to_vec(),

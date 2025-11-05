@@ -1,5 +1,5 @@
 use crate::error::ErrorCode;
-use crate::helpers::{deserialize_merkle_proof, validate_proof_params};
+use crate::helpers::deserialize_merkle_proof;
 use crate::VerifyMembership;
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
@@ -11,7 +11,12 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
     let client_state = &ctx.accounts.client_state;
     let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
-    validate_proof_params(client_state, &msg)?;
+    require!(!client_state.is_frozen(), ErrorCode::ClientFrozen);
+
+    require!(
+        msg.height <= client_state.latest_height.revision_height,
+        ErrorCode::InvalidHeight
+    );
 
     let proof = deserialize_merkle_proof(&msg.proof)?;
 
@@ -112,8 +117,6 @@ mod tests {
 
         MembershipMsg {
             height: fixture.height,
-            delay_time_period: fixture.delay_time_period,
-            delay_block_period: fixture.delay_block_period,
             proof,
             path,
             value,

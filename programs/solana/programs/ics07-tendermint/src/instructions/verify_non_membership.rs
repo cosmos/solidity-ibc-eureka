@@ -1,5 +1,5 @@
 use crate::error::ErrorCode;
-use crate::helpers::{deserialize_merkle_proof, validate_proof_params};
+use crate::helpers::deserialize_merkle_proof;
 use crate::VerifyNonMembership;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
@@ -13,7 +13,12 @@ pub fn verify_non_membership(
     let client_state = &ctx.accounts.client_state;
     let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
-    validate_proof_params(client_state, &msg)?;
+    require!(!client_state.is_frozen(), ErrorCode::ClientFrozen);
+
+    require!(
+        msg.height <= client_state.latest_height.revision_height,
+        ErrorCode::InvalidHeight
+    );
 
     let proof = deserialize_merkle_proof(&msg.proof)?;
     let kv_pair = KVPair::new(msg.path, vec![]);
@@ -119,8 +124,6 @@ mod tests {
 
         MembershipMsg {
             height: fixture.height,
-            delay_time_period: fixture.delay_time_period,
-            delay_block_period: fixture.delay_block_period,
             proof,
             path,
             value,
@@ -133,8 +136,6 @@ mod tests {
 
         NonMembershipMsg {
             height: fixture.height,
-            delay_time_period: fixture.delay_time_period,
-            delay_block_period: fixture.delay_block_period,
             proof,
             path,
         }

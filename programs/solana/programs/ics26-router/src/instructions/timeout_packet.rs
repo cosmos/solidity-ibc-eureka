@@ -138,8 +138,6 @@ pub fn timeout_packet<'info>(
 
     let non_membership_msg = NonMembershipMsg {
         height: msg.proof.height,
-        delay_time_period: 0,
-        delay_block_period: 0,
         proof: proof_data,
         path: vec![ics24::IBC_MERKLE_PREFIX.to_vec(), receipt_path],
     };
