@@ -74,4 +74,6 @@ pub enum RouterError {
     InvalidPayloadCount,
     #[msg("Unsupported account version")]
     UnsupportedVersion,
+    #[msg("Invalid migration params: at least one field must be updated")]
+    InvalidMigrationParams,
 }

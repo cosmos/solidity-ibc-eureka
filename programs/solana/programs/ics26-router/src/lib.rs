@@ -14,6 +14,7 @@ use state::{
     CounterpartyInfo, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket, MsgSendPacket,
     MsgTimeoutPacket, MsgUploadChunk,
 };
+use instructions::client::MigrateClientParams;
 
 declare_id!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx");
 
@@ -62,12 +63,12 @@ pub mod ics26_router {
         instructions::add_client(ctx, client_id, counterparty_info)
     }
 
-    pub fn update_client(
-        ctx: Context<UpdateClient>,
+    pub fn migrate_client(
+        ctx: Context<MigrateClient>,
         client_id: String,
-        active: bool,
+        params: MigrateClientParams,
     ) -> Result<()> {
-        instructions::update_client(ctx, client_id, active)
+        instructions::migrate_client(ctx, client_id, params)
     }
 
     pub fn upload_payload_chunk(
