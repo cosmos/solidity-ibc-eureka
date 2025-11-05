@@ -442,7 +442,8 @@ mod tests {
 
         let checks = vec![Check::success()];
 
-        let result = mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+        let result =
+            mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
 
         // Verify packet commitment data was deleted
         let packet_commitment_account = result

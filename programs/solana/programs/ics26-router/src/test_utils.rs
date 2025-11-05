@@ -546,3 +546,36 @@ pub fn create_proof_chunk_account(
         },
     )
 }
+/// Assert that an instruction failed with a specific error code
+pub fn assert_error_code(
+    result: mollusk_svm::result::InstructionResult,
+    expected_error: crate::errors::RouterError,
+    test_name: &str,
+) {
+    match result.program_result {
+        mollusk_svm::result::ProgramResult::Success => {
+            panic!("Expected {test_name} to fail with {expected_error:?}, but it succeeded");
+        }
+        mollusk_svm::result::ProgramResult::Failure(error) => {
+            if let Some(code) = get_error_code(&error) {
+                let expected_code = expected_error as u32 + ANCHOR_ERROR_OFFSET;
+                assert_eq!(
+                    code, expected_code,
+                    "Expected {expected_error:?} ({expected_code}), but got error code {code}"
+                );
+            } else {
+                panic!("Expected custom error code for {test_name}, got: {error:?}");
+            }
+        }
+        mollusk_svm::result::ProgramResult::UnknownError(error) => {
+            panic!("Expected custom error for {test_name}, got unknown error: {error:?}");
+        }
+    }
+}
+
+fn get_error_code(error: &anchor_lang::prelude::ProgramError) -> Option<u32> {
+    match error {
+        anchor_lang::prelude::ProgramError::Custom(code) => Some(*code),
+        _ => None,
+    }
+}
