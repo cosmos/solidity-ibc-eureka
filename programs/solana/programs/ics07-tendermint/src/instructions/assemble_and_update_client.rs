@@ -175,7 +175,6 @@ fn check_misbehaviour(new_state: &ConsensusState, trusted_state: &ConsensusState
     let trusted_ibc: IbcConsensusState = trusted_state.clone().into();
     let trusted_timestamp = trusted_ibc.timestamp.unix_timestamp_nanos() as u64;
 
-    // Check for non-increasing timestamp (misbehaviour)
     new_state.timestamp <= trusted_timestamp
 }
 
