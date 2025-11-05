@@ -20,8 +20,6 @@ pub enum RouterError {
     PacketCommitmentMismatch,
     #[msg("Packet receipt mismatch")]
     PacketReceiptMismatch,
-    #[msg("Packet acknowledgement already exists")]
-    PacketAcknowledgementAlreadyExists,
     #[msg("Multi-payload packets not supported")]
     MultiPayloadPacketNotSupported,
     #[msg("Async acknowledgement not supported")]

@@ -798,4 +798,54 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
+
+    #[test]
+    fn test_recv_packet_duplicate_ack_fails() {
+        // Test that receiving a packet fails when the packet_ack account already exists
+        // This simulates trying to process the same packet twice
+        let mut ctx = setup_recv_packet_test_with_params(RecvPacketTestParams::default());
+
+        // Replace the uninitialized packet_ack account with an already-initialized one
+        // This simulates a packet that has already been received and acknowledged
+        let existing_ack = Commitment {
+            value: [1u8; 32], // Some existing acknowledgment value
+        };
+
+        use anchor_lang::Space;
+        use solana_sdk::rent::Rent;
+        let account_size = 8 + Commitment::INIT_SPACE;
+        let mut data = vec![0u8; account_size];
+
+        // Add Anchor discriminator
+        data[0..8].copy_from_slice(&Commitment::DISCRIMINATOR);
+
+        // Serialize the commitment
+        let mut cursor = std::io::Cursor::new(&mut data[8..]);
+        existing_ack.serialize(&mut cursor).unwrap();
+
+        // Find the packet_ack account (it's at index 4 in the accounts list)
+        let packet_ack_pubkey = ctx.instruction.accounts[4].pubkey;
+        let ack_index = ctx.accounts.iter().position(|(pubkey, _)| {
+            *pubkey == packet_ack_pubkey
+        }).unwrap();
+
+        ctx.accounts[ack_index] = (
+            packet_ack_pubkey,
+            solana_sdk::account::Account {
+                lamports: Rent::default().minimum_balance(account_size),
+                data,
+                owner: crate::ID, // Owned by our program (already initialized)
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        // This should fail because packet_ack account already exists
+        // The `init` constraint will fail with Anchor's "account already in use" error
+        let error_checks = vec![Check::err(ProgramError::Custom(0))]; // Anchor error code 0
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &error_checks);
+    }
 }
