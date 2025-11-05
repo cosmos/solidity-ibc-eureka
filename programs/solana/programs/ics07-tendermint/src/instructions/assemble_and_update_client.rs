@@ -109,7 +109,7 @@ fn process_header_update(
         header,
     )?;
 
-    if check_misbehaviour(
+    if is_misbehaviour(
         &new_consensus_state,
         &trusted_consensus_state.consensus_state,
     ) {
@@ -171,7 +171,7 @@ fn verify_and_update_header(
     ))
 }
 
-fn check_misbehaviour(new_state: &ConsensusState, trusted_state: &ConsensusState) -> bool {
+fn is_misbehaviour(new_state: &ConsensusState, trusted_state: &ConsensusState) -> bool {
     let trusted_ibc: IbcConsensusState = trusted_state.clone().into();
     let trusted_timestamp = trusted_ibc.timestamp.unix_timestamp_nanos() as u64;
 
