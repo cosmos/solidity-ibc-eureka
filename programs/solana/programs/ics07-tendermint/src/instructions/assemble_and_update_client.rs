@@ -109,14 +109,6 @@ fn process_header_update(
         header,
     )?;
 
-    if is_misbehaviour(
-        &new_consensus_state,
-        &trusted_consensus_state.consensus_state,
-    ) {
-        client_state.freeze();
-        return Ok(UpdateResult::Misbehaviour);
-    }
-
     let result = store_consensus_state(StoreConsensusStateParams {
         account: &ctx.accounts.new_consensus_state_store,
         submitter: &ctx.accounts.submitter,
@@ -125,6 +117,7 @@ fn process_header_update(
         client_key: client_state.key(),
         height: new_height.revision_height(),
         new_consensus_state: &new_consensus_state,
+        trusted_consensus_state: &trusted_consensus_state.consensus_state,
         client_state,
     })?;
 
@@ -169,13 +162,6 @@ fn verify_and_update_header(
             .try_into()
             .map_err(|_| ErrorCode::SerializationError)?,
     ))
-}
-
-fn is_misbehaviour(new_state: &ConsensusState, trusted_state: &ConsensusState) -> bool {
-    let trusted_ibc: IbcConsensusState = trusted_state.clone().into();
-    let trusted_timestamp = trusted_ibc.timestamp.unix_timestamp_nanos() as u64;
-
-    new_state.timestamp <= trusted_timestamp
 }
 
 fn cleanup_chunks(
@@ -249,6 +235,7 @@ struct StoreConsensusStateParams<'a, 'info> {
     client_key: Pubkey,
     height: u64,
     new_consensus_state: &'a ConsensusState,
+    trusted_consensus_state: &'a ConsensusState,
     client_state: &'a mut Account<'info, crate::types::ClientState>,
 }
 
@@ -276,7 +263,11 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
             let existing: ConsensusStateStore =
                 ConsensusStateStore::try_deserialize(&mut &account_data[..])?;
 
-            if existing.consensus_state != *params.new_consensus_state {
+            let state_mismatch = existing.consensus_state != *params.new_consensus_state;
+            let timestamp_not_increasing =
+                params.trusted_consensus_state.timestamp >= params.new_consensus_state.timestamp;
+
+            if state_mismatch || timestamp_not_increasing {
                 params.client_state.freeze();
                 return Ok(UpdateResult::Misbehaviour);
             }
