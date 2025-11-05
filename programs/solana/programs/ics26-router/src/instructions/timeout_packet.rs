@@ -174,7 +174,6 @@ pub fn timeout_packet<'info>(
         return Ok(());
     }
 
-    // TODO: Sync
     // Safe to deserialize since we know it's owned by our program
     // Verify the commitment value
     {
@@ -462,21 +461,39 @@ mod tests {
             .map(|(_, account)| account.lamports)
             .unwrap();
 
-        let checks = vec![
-            Check::success(),
-            // Verify packet commitment account is closed (0 lamports)
-            Check::account(&ctx.packet_commitment_pubkey)
-                .lamports(0)
-                .build(),
-            // Verify payer received the rent back
-            Check::account(&ctx.payer_pubkey)
-                .lamports(initial_payer_lamports + commitment_lamports)
-                .build(),
-        ];
+        // Process instruction once and verify all checks
+        let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
 
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+        // Verify success
+        assert!(
+            matches!(
+                result.program_result,
+                mollusk_svm::result::ProgramResult::Success
+            ),
+            "Instruction should succeed"
+        );
 
-        // Mock app doesn't track counters, so we just verify the instruction succeeded
+        // Verify packet commitment account is closed (0 lamports)
+        let commitment_account = result.get_account(&ctx.packet_commitment_pubkey).unwrap();
+        assert_eq!(
+            commitment_account.lamports, 0,
+            "Commitment account should be closed"
+        );
+
+        // Verify payer received the rent back
+        let payer_account = result.get_account(&ctx.payer_pubkey).unwrap();
+        assert_eq!(
+            payer_account.lamports,
+            initial_payer_lamports + commitment_lamports,
+            "Payer should receive rent back"
+        );
+
+        // Verify commitment data is zeroed out
+        let commitment_data: &[u8] = commitment_account.data.as_ref();
+        assert!(
+            commitment_data.iter().all(|&b| b == 0),
+            "Commitment data should be zeroed"
+        );
     }
 
     #[test]

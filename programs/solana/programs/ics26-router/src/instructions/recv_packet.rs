@@ -190,8 +190,7 @@ pub fn recv_packet<'info>(
 
     let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&packet);
 
-    // TODO: data is empty check
-    // Check if packet was not created by anchor via init_if_needed
+    // Check if packet was not created by anchor via init_if_needed (value will be default)
     // I.e. it was already saved before
     if packet_receipt.value != [0u8; 32] {
         // Receipt already exists - verify it matches
