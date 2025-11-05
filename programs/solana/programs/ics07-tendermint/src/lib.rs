@@ -106,8 +106,8 @@ pub struct AssembleAndUpdateClient<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
-    /// Trusted consensus state (will be validated after header assembly)
-    /// CHECK: Validated in instruction handler after header reassembly
+    /// Trusted consensus state at the height embedded in the header
+    /// CHECK: Must already exist. Unchecked because PDA seeds require runtime header data.
     pub trusted_consensus_state: UncheckedAccount<'info>,
 
     /// New consensus state store
