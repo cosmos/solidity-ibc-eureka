@@ -751,4 +751,51 @@ mod tests {
     // propagates CPI errors differently than real Solana runtime. In production,
     // the router would catch CPI failures and use universal error acknowledgement.
     // This behavior is covered by the implementation but not easily testable in mollusk.
+
+    #[test]
+    fn test_recv_packet_ibc_app_not_found() {
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Create a proper IBCApp account but with wrong pubkey (not the expected PDA)
+        let wrong_ibc_app = Pubkey::new_unique();
+
+        // Create proper IBCApp account data so Anchor's discriminator check passes
+        let ibc_app = IBCApp {
+            version: AccountVersion::V1,
+            port_id: "test-port".to_string(),
+            app_program_id: MOCK_IBC_APP_PROGRAM_ID,
+            authority: Pubkey::new_unique(),
+            _reserved: [0; 256],
+        };
+
+        let wrong_ibc_app_account = solana_sdk::account::Account {
+            lamports: 10_000_000,
+            data: crate::test_utils::create_account_data(&ibc_app),
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        // Find and replace the IBC app account
+        if let Some(pos) = ctx.accounts
+            .iter()
+            .position(|(pubkey, _)| {
+                // The IBC app is at index 1 in the accounts list based on instruction_accounts setup
+                *pubkey == ctx.accounts[1].0
+            })
+        {
+            ctx.accounts[pos] = (wrong_ibc_app, wrong_ibc_app_account);
+
+            // Also update the instruction to use the wrong account
+            ctx.instruction.accounts[1].pubkey = wrong_ibc_app;
+        }
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::IbcAppNotFound as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
 }

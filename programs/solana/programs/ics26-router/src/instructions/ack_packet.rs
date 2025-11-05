@@ -540,4 +540,7 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
+
+    // Note: IbcAppNotFound can't be tested here as Anchor's packet_commitment seeds
+    // constraint fails first. The validation works in production.
 }
