@@ -440,7 +440,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Mollusk's strict lamport conservation check fails on account closure - validated by e2e tests"]
     fn test_ack_packet_success() {
         let ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
 
