@@ -95,7 +95,6 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
         payloads: vec![msg.payload],
     };
 
-    // TODO: Add commitment path check is empty
     let commitment = ics24::packet_commitment_bytes32(&packet);
     packet_commitment.value = commitment;
 
@@ -545,5 +544,58 @@ mod tests {
 
         // Verify the sequences are independent (client 1 = 11, client 2 = 21)
         assert_ne!(client_1_sequence, client_2_sequence);
+    }
+
+    #[test]
+    fn test_send_packet_duplicate_commitment_fails() {
+        // Test that sending a packet with the same (client_id, sequence) fails
+        // because the packet_commitment account already exists (init constraint)
+        let params = SendPacketTestParams {
+            initial_sequence: 0,
+            ..Default::default()
+        };
+        let mut ctx = setup_send_packet_test_with_params(params);
+
+        // Replace the uninitialized packet_commitment account with an already-initialized one
+        // This simulates trying to send a packet that already has a commitment
+        let existing_commitment = Commitment {
+            value: [1u8; 32], // Some existing commitment value
+        };
+
+        use anchor_lang::Space;
+        use solana_sdk::rent::Rent;
+        let account_size = 8 + Commitment::INIT_SPACE;
+        let mut data = vec![0u8; account_size];
+
+        // Add Anchor discriminator
+        data[0..8].copy_from_slice(&Commitment::DISCRIMINATOR);
+
+        // Serialize the commitment
+        let mut cursor = std::io::Cursor::new(&mut data[8..]);
+        existing_commitment.serialize(&mut cursor).unwrap();
+
+        // Find and replace the packet_commitment account
+        let commitment_index = ctx.accounts.iter().position(|(pubkey, _)| {
+            *pubkey == ctx.packet_commitment_pubkey
+        }).unwrap();
+
+        ctx.accounts[commitment_index] = (
+            ctx.packet_commitment_pubkey,
+            solana_sdk::account::Account {
+                lamports: Rent::default().minimum_balance(account_size),
+                data,
+                owner: crate::ID, // Owned by our program (already initialized)
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        // This should fail because packet_commitment account already exists
+        // The `init` constraint will fail with Anchor's "account already in use" error
+        let error_checks = vec![Check::err(ProgramError::Custom(0))]; // Anchor error code 0
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &error_checks);
     }
 }

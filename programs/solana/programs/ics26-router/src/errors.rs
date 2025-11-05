@@ -16,8 +16,6 @@ pub enum RouterError {
     InvalidTimeoutDuration,
     #[msg("Invalid counterparty")]
     InvalidCounterparty,
-    #[msg("Packet commitment already exists")]
-    PacketCommitmentAlreadyExists,
     #[msg("Packet commitment mismatch")]
     PacketCommitmentMismatch,
     #[msg("Packet receipt mismatch")]
