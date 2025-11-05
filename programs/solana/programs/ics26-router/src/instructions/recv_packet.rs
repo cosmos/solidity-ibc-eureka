@@ -845,4 +845,117 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &error_checks);
     }
+
+    #[test]
+    fn test_recv_packet_zero_payloads() {
+        // Test that packet with zero payloads fails
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Modify the instruction to have zero payloads
+        let msg = MsgRecvPacket {
+            packet: ctx.packet.clone(),
+            payloads: vec![], // No metadata, and packet.payloads is also empty
+            proof: ProofMetadata {
+                height: 100,
+                total_chunks: 1,
+            },
+        };
+
+        ctx.instruction.data = crate::instruction::RecvPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_recv_packet_multiple_payloads() {
+        // Test that packet with multiple inline payloads fails
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Create a packet with 2 inline payloads
+        let payload1 = solana_ibc_types::Payload {
+            source_port: "source-port-1".to_string(),
+            dest_port: "test-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            value: b"data1".to_vec(),
+        };
+
+        let payload2 = solana_ibc_types::Payload {
+            source_port: "source-port-2".to_string(),
+            dest_port: "test-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            value: b"data2".to_vec(),
+        };
+
+        ctx.packet.payloads = vec![payload1, payload2];
+
+        let msg = MsgRecvPacket {
+            packet: ctx.packet.clone(),
+            payloads: vec![], // No chunked metadata
+            proof: ProofMetadata {
+                height: 100,
+                total_chunks: 1,
+            },
+        };
+
+        ctx.instruction.data = crate::instruction::RecvPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_recv_packet_conflicting_inline_and_chunked() {
+        // Test that packet with both inline payloads AND chunked metadata fails
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Add inline payload to packet
+        let payload = solana_ibc_types::Payload {
+            source_port: "source-port".to_string(),
+            dest_port: "test-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            value: b"inline data".to_vec(),
+        };
+
+        ctx.packet.payloads = vec![payload];
+
+        // Also provide chunked metadata (conflicting!)
+        let msg = MsgRecvPacket {
+            packet: ctx.packet.clone(),
+            payloads: vec![PayloadMetadata {
+                source_port: "source-port".to_string(),
+                dest_port: "test-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                total_chunks: 1, // This conflicts with inline payload above
+            }],
+            proof: ProofMetadata {
+                height: 100,
+                total_chunks: 1,
+            },
+        };
+
+        ctx.instruction.data = crate::instruction::RecvPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
 }
