@@ -177,8 +177,16 @@ pub fn ack_packet<'info>(
         );
     }
 
+    // Delete commitment data
     let mut data = packet_commitment_account.try_borrow_mut_data()?;
     data.fill(0);
+
+    // Close the account and return rent to payer
+    let dest_starting_lamports = ctx.accounts.payer.lamports();
+    **ctx.accounts.payer.lamports.borrow_mut() = dest_starting_lamports
+        .checked_add(packet_commitment_account.lamports())
+        .ok_or(RouterError::ArithmeticOverflow)?;
+    **packet_commitment_account.lamports.borrow_mut() = 0;
 
     let cpi_accounts = IbcAppCpiAccounts {
         ibc_app_program: ctx.accounts.ibc_app_program.clone(),
@@ -196,13 +204,6 @@ pub fn ack_packet<'info>(
         &ctx.accounts.relayer.key(),
         ctx.remaining_accounts,
     )?;
-
-    // Close the account and return rent to payer
-    let dest_starting_lamports = ctx.accounts.payer.lamports();
-    **ctx.accounts.payer.lamports.borrow_mut() = dest_starting_lamports
-        .checked_add(packet_commitment_account.lamports())
-        .ok_or(RouterError::ArithmeticOverflow)?;
-    **packet_commitment_account.lamports.borrow_mut() = 0;
 
     emit!(AckPacketEvent {
         client_id: packet.source_client.clone(),
