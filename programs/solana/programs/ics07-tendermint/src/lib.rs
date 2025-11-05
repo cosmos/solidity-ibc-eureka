@@ -111,11 +111,11 @@ pub struct AssembleAndUpdateClient<'info> {
     pub trusted_consensus_state: UncheckedAccount<'info>,
 
     /// New consensus state store
-    /// CHECK: Validated in instruction handler
+    /// CHECK: Validated in instruction handler. Unchecked because may not exist yet and PDA seeds require runtime height.
     pub new_consensus_state_store: UncheckedAccount<'info>,
 
     /// The original submitter who paid for the chunks (receives rent back)
-    /// CHECK: Must be the same submitter who created the chunks
+    /// CHECK: Validated indirectly through chunk PDA derivation. Unchecked because identity is proven via chunk PDAs.
     #[account(mut)]
     pub submitter: UncheckedAccount<'info>,
 
