@@ -141,7 +141,7 @@ pub fn timeout_packet<'info>(
         delay_time_period: 0,
         delay_block_period: 0,
         proof: proof_data,
-        path: vec![b"ibc".to_vec(), receipt_path],
+        path: vec![ics24::IBC_MERKLE_PREFIX.to_vec(), receipt_path],
     };
 
     let light_client_cpi = LightClientCpi::new(client);

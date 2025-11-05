@@ -13,6 +13,9 @@ pub const UNIVERSAL_ERROR_ACK: &[u8] = &[
     0x45, 0x7a, 0xbe, 0xf8, 0x58, 0x91, 0x78, 0xdb, 0x8d, 0x10, 0xc9, 0x4b, 0x4a, 0xb5, 0x11, 0xab,
 ];
 
+/// IBC merkle prefix for constructing commitment paths
+pub const IBC_MERKLE_PREFIX: &[u8] = b"ibc";
+
 // TODO: move to a shared crate
 pub fn packet_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
     let mut path = Vec::new();

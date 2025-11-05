@@ -174,8 +174,7 @@ pub fn recv_packet<'info>(
         delay_time_period: 0,
         delay_block_period: 0,
         proof: proof_data,
-        // TODO: const
-        path: vec![b"ibc".to_vec(), commitment_path],
+        path: vec![ics24::IBC_MERKLE_PREFIX.to_vec(), commitment_path],
         value: expected_commitment.to_vec(),
     };
 
