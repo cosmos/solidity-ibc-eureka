@@ -1178,13 +1178,6 @@ impl TxBuilder {
         // Minimum height
         let required_height = max_event_height + 1;
 
-        tracing::debug!(
-            max_event_height,
-            required_height,
-            solana_latest_height,
-            "Proof height calculation"
-        );
-
         if solana_latest_height < required_height {
             anyhow::bail!(
                 "Solana client is at height {} but need height {} to prove events at height {}. Update Solana client to at least height {} first!",
