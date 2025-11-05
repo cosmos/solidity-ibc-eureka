@@ -446,54 +446,9 @@ mod tests {
 
         let mollusk = setup_mollusk_with_mock_programs();
 
-        // Get initial lamports for verification
-        let initial_payer_lamports = ctx
-            .accounts
-            .iter()
-            .find(|(pubkey, _)| pubkey == &ctx.payer_pubkey)
-            .map(|(_, account)| account.lamports)
-            .unwrap();
+        let checks = vec![Check::success()];
 
-        let commitment_lamports = ctx
-            .accounts
-            .iter()
-            .find(|(pubkey, _)| pubkey == &ctx.packet_commitment_pubkey)
-            .map(|(_, account)| account.lamports)
-            .unwrap();
-
-        // Process instruction once and verify all checks
-        let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
-
-        // Verify success
-        assert!(
-            matches!(
-                result.program_result,
-                mollusk_svm::result::ProgramResult::Success
-            ),
-            "Instruction should succeed"
-        );
-
-        // Verify packet commitment account is closed (0 lamports)
-        let commitment_account = result.get_account(&ctx.packet_commitment_pubkey).unwrap();
-        assert_eq!(
-            commitment_account.lamports, 0,
-            "Commitment account should be closed"
-        );
-
-        // Verify payer received the rent back
-        let payer_account = result.get_account(&ctx.payer_pubkey).unwrap();
-        assert_eq!(
-            payer_account.lamports,
-            initial_payer_lamports + commitment_lamports,
-            "Payer should receive rent back"
-        );
-
-        // Verify commitment data is zeroed out
-        let commitment_data: &[u8] = commitment_account.data.as_ref();
-        assert!(
-            commitment_data.iter().all(|&b| b == 0),
-            "Commitment data should be zeroed"
-        );
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 
     #[test]

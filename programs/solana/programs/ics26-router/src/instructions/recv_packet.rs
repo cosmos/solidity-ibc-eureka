@@ -236,15 +236,19 @@ pub fn recv_packet<'info>(
         &ctx.accounts.relayer.key(),
         app_remaining_accounts,
     ) {
-        // TODO:             require(keccak256(ack) != ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK, IBCErrorUniversalAcknowledgement());
         Ok(ack) => {
             require!(
                 !ack.is_empty(),
                 RouterError::AsyncAcknowledgementNotSupported
             );
 
-            // If the app returns the universal error acknowledgement, we accept it
-            // (don't revert, just use it as the acknowledgement)
+            // Apps must not return the universal error acknowledgement
+            // The universal error ack is reserved for the router when the app callback fails
+            require!(
+                ack != ics24::UNIVERSAL_ERROR_ACK,
+                RouterError::UniversalErrorAcknowledgement
+            );
+
             ack
         }
         Err(e) => {
