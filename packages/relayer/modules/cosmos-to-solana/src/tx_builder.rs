@@ -1175,32 +1175,33 @@ impl TxBuilder {
                 timeout_height
             });
 
-        let proof_height = max_event_height + 1;
+        // Minimum height
+        let required_height = max_event_height + 1;
 
         tracing::debug!(
             max_event_height,
-            proof_height,
+            required_height,
             solana_latest_height,
             "Proof height calculation"
         );
 
-        if solana_latest_height < proof_height {
+        if solana_latest_height < required_height {
             anyhow::bail!(
                 "Solana client is at height {} but need height {} to prove events at height {}. Update Solana client to at least height {} first!",
                 solana_latest_height,
-                proof_height,
+                required_height,
                 max_event_height,
-                proof_height
+                required_height
             );
         }
 
-        let target_height = ibc_proto_eureka::ibc::core::client::v1::Height {
+        let proof_height = ibc_proto_eureka::ibc::core::client::v1::Height {
             revision_number: solana_client_state.latest_height.revision_number,
             revision_height: solana_latest_height,
         };
 
         tracing::debug!(
-            target_height = target_height.revision_height,
+            target_height = proof_height.revision_height,
             max_event_height,
             "Using Solana's latest height for proof generation"
         );
@@ -1268,7 +1269,7 @@ impl TxBuilder {
             &mut ack_msgs,
             &mut timeout_msgs_tm,
             &self.src_tm_client,
-            &target_height,
+            &proof_height,
         )
         .await?;
 

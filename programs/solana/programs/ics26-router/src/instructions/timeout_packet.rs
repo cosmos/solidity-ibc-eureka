@@ -156,11 +156,12 @@ pub fn timeout_packet<'info>(
         value: vec![], // Empty value for non-membership
     };
 
-    let counterparty_timestamp =
+    // Light client returns timestamp in seconds
+    let counterparty_timestamp_secs =
         verify_non_membership_cpi(client, &light_client_verification, non_membership_msg)?;
 
     require!(
-        counterparty_timestamp >= packet.timeout_timestamp as u64,
+        counterparty_timestamp_secs >= packet.timeout_timestamp as u64,
         RouterError::InvalidTimeoutTimestamp
     );
 

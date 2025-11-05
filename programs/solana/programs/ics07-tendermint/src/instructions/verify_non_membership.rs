@@ -6,6 +6,8 @@ use anchor_lang::solana_program::program::set_return_data;
 use ics25_handler::MembershipMsg;
 use tendermint_light_client_membership::KVPair;
 
+const NANOS_PER_SECOND: u64 = 1_000_000_000;
+
 pub fn verify_non_membership(ctx: Context<VerifyNonMembership>, msg: MembershipMsg) -> Result<()> {
     let client_state = &ctx.accounts.client_state;
     let consensus_state_store = &ctx.accounts.consensus_state_at_height;
@@ -22,11 +24,9 @@ pub fn verify_non_membership(ctx: Context<VerifyNonMembership>, msg: MembershipM
     tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)])
         .map_err(|_| error!(ErrorCode::NonMembershipVerificationFailed))?;
 
-    // Return the consensus state timestamp for timeout verification
-    let timestamp_bytes = consensus_state_store
-        .consensus_state
-        .timestamp
-        .to_le_bytes();
+    let timestamp_secs = consensus_state_store.consensus_state.timestamp / NANOS_PER_SECOND;
+    let timestamp_bytes = timestamp_secs.to_le_bytes();
+
     set_return_data(&timestamp_bytes);
 
     Ok(())
