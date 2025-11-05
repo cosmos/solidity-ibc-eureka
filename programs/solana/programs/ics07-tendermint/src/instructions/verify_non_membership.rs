@@ -22,7 +22,6 @@ pub fn verify_non_membership(
     tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)])
         .map_err(|_| error!(ErrorCode::NonMembershipVerificationFailed))?;
 
-    // TODO: reuse in helper
     // Return the consensus state timestamp for timeout verification
     let timestamp_bytes = consensus_state_store
         .consensus_state
