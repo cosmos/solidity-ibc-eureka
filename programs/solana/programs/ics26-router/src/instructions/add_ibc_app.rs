@@ -22,8 +22,7 @@ pub struct AddIbcApp<'info> {
     pub ibc_app: Account<'info, IBCApp>,
 
     /// The IBC application program to register
-    /// CHECK: This is the program ID of the IBC app
-    /// we're not saving it or validating so no need for check
+    /// CHECK: Unchecked because only used to extract program ID
     pub app_program: UncheckedAccount<'info>,
 
     #[account(mut)]
