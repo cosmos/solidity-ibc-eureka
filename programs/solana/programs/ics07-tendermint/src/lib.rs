@@ -44,14 +44,24 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(msg: ics25_handler::MembershipMsg)]
 pub struct VerifyMembership<'info> {
     pub client_state: Account<'info, ClientState>,
+    #[account(
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
+        bump
+    )]
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
 }
 
 #[derive(Accounts)]
+#[instruction(msg: ics25_handler::NonMembershipMsg)]
 pub struct VerifyNonMembership<'info> {
     pub client_state: Account<'info, ClientState>,
+    #[account(
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
+        bump
+    )]
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
 }
 
