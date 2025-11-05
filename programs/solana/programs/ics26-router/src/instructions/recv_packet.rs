@@ -1,8 +1,8 @@
 use crate::errors::RouterError;
-use crate::router_cpi::{verify_membership_cpi, LightClientVerification};
+use crate::router_cpi::LightClientCpi;
 use crate::router_cpi::{IbcAppCpi, IbcAppCpiAccounts};
 use crate::state::*;
-use crate::utils::packet::validate_ibc_app_pda;
+use crate::utils::chunking::total_payload_chunks;
 use crate::utils::{chunking, ics24, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
@@ -138,13 +138,19 @@ pub fn recv_packet<'info>(
     })?;
 
     let payload = packet::get_single_payload(&packet)?;
-    let ibc_app_key = ctx.accounts.ibc_app.key();
-    validate_ibc_app_pda(ctx.program_id, payload, ibc_app_key)?;
 
-    let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
+    let (expected_ibc_app, _) = Pubkey::find_program_address(
+        &[IBCApp::SEED, payload.dest_port.as_bytes()],
+        ctx.program_id,
+    );
 
-    // Assemble proof from chunks (starting after payload chunks, using relayer as the chunk owner)
-    let proof_start_index = total_payload_chunks;
+    require!(
+        ctx.accounts.ibc_app.key() == expected_ibc_app,
+        RouterError::IbcAppNotFound
+    );
+
+    let total_payload_chunks = total_payload_chunks(&msg.payloads);
+
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
         payer: &ctx.accounts.payer,
@@ -153,16 +159,11 @@ pub fn recv_packet<'info>(
         sequence: msg.packet.sequence,
         total_chunks: msg.proof.total_chunks,
         program_id: ctx.program_id,
-        start_index: proof_start_index,
+        // proof chunks come after payload chunks
+        start_index: total_payload_chunks,
     })?;
 
     // Verify packet commitment on counterparty chain via light client
-    let light_client_verification = LightClientVerification {
-        light_client_program: ctx.accounts.light_client_program.clone(),
-        client_state: ctx.accounts.client_state.clone(),
-        consensus_state: ctx.accounts.consensus_state.clone(),
-    };
-
     let commitment_path = ics24::packet_commitment_path(&packet.source_client, packet.sequence);
 
     let expected_commitment = ics24::packet_commitment_bytes32(&packet);
@@ -179,7 +180,13 @@ pub fn recv_packet<'info>(
     };
 
     // TODO: copy paste mollusk svm light client check to e2e
-    verify_membership_cpi(client, &light_client_verification, membership_msg)?;
+    let light_client_cpi = LightClientCpi::new(client);
+    light_client_cpi.verify_membership(
+        &ctx.accounts.light_client_program,
+        &ctx.accounts.client_state,
+        &ctx.accounts.consensus_state,
+        membership_msg,
+    )?;
 
     let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&packet);
 

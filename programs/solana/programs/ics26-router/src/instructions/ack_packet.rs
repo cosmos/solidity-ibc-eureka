@@ -1,8 +1,8 @@
 use crate::errors::RouterError;
+use crate::router_cpi::LightClientCpi;
 use crate::router_cpi::{IbcAppCpi, IbcAppCpiAccounts};
-use crate::router_cpi::{verify_membership_cpi, LightClientVerification};
 use crate::state::*;
-use crate::utils::packet::validate_ibc_app_pda;
+use crate::utils::chunking::total_payload_chunks;
 use crate::utils::{chunking, ics24, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
@@ -110,13 +110,17 @@ pub fn ack_packet<'info>(
     })?;
 
     let payload = packet::get_single_payload(&packet)?;
-    validate_ibc_app_pda(ctx.program_id, payload, ctx.accounts.ibc_app.key())?;
 
-    // Calculate total payload chunks for proof start index
-    let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
+    let (expected_ibc_app, _) = Pubkey::find_program_address(
+        &[IBCApp::SEED, payload.source_port.as_bytes()],
+        ctx.program_id,
+    );
 
-    // Assemble proof from chunks (starting after payload chunks, using relayer as the chunk owner)
-    let proof_start_index = total_payload_chunks;
+    require!(
+        ctx.accounts.ibc_app.key() == expected_ibc_app,
+        RouterError::IbcAppNotFound
+    );
+
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
         payer: &ctx.accounts.payer,
@@ -125,16 +129,11 @@ pub fn ack_packet<'info>(
         sequence: msg.packet.sequence,
         total_chunks: msg.proof.total_chunks,
         program_id: ctx.program_id,
-        start_index: proof_start_index,
+        // proof chunks come after payload chunks
+        start_index: total_payload_chunks(&msg.payloads),
     })?;
 
     // Verify acknowledgement proof on counterparty chain via light client
-    let light_client_verification = LightClientVerification {
-        light_client_program: ctx.accounts.light_client_program.clone(),
-        client_state: ctx.accounts.client_state.clone(),
-        consensus_state: ctx.accounts.consensus_state.clone(),
-    };
-
     let ack_path =
         ics24::packet_acknowledgement_commitment_path(&packet.dest_client, packet.sequence);
 
@@ -151,7 +150,13 @@ pub fn ack_packet<'info>(
         value: ack_commitment.to_vec(),
     };
 
-    verify_membership_cpi(client, &light_client_verification, membership_msg)?;
+    let light_client_cpi = LightClientCpi::new(client);
+    light_client_cpi.verify_membership(
+        &ctx.accounts.light_client_program,
+        &ctx.accounts.client_state,
+        &ctx.accounts.consensus_state,
+        membership_msg,
+    )?;
 
     // Check if packet commitment exists (no-op case)
     // An uninitialized account will be owned by System Program

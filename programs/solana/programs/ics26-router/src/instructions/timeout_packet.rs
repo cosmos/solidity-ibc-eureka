@@ -1,9 +1,8 @@
 use crate::errors::RouterError;
+use crate::router_cpi::LightClientCpi;
 use crate::router_cpi::{IbcAppCpi, IbcAppCpiAccounts};
-use crate::router_cpi::{verify_non_membership_cpi, LightClientVerification};
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
-use crate::utils::packet::validate_ibc_app_pda;
 use crate::utils::{chunking, ics24, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::NonMembershipMsg;
@@ -121,7 +120,16 @@ pub fn timeout_packet<'info>(
     })?;
 
     let payload = packet::get_single_payload(&packet)?;
-    validate_ibc_app_pda(ctx.program_id, payload, ctx.accounts.ibc_app.key())?;
+
+    let (expected_ibc_app, _) = Pubkey::find_program_address(
+        &[IBCApp::SEED, payload.source_port.as_bytes()],
+        ctx.program_id,
+    );
+
+    require!(
+        ctx.accounts.ibc_app.key() == expected_ibc_app,
+        RouterError::IbcAppNotFound
+    );
 
     let proof_start_index = total_payload_chunks(&msg.payloads);
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
@@ -136,12 +144,6 @@ pub fn timeout_packet<'info>(
     })?;
 
     // Verify non-membership proof on counterparty chain via light client
-    let light_client_verification = LightClientVerification {
-        light_client_program: ctx.accounts.light_client_program.clone(),
-        client_state: ctx.accounts.client_state.clone(),
-        consensus_state: ctx.accounts.consensus_state.clone(),
-    };
-
     let receipt_path = ics24::packet_receipt_commitment_path(&packet.dest_client, packet.sequence);
 
     let non_membership_msg = NonMembershipMsg {
@@ -152,8 +154,13 @@ pub fn timeout_packet<'info>(
         path: vec![b"ibc".to_vec(), receipt_path],
     };
 
-    let counterparty_timestamp =
-        verify_non_membership_cpi(client, &light_client_verification, non_membership_msg)?;
+    let light_client_cpi = LightClientCpi::new(client);
+    let counterparty_timestamp = light_client_cpi.verify_non_membership(
+        &ctx.accounts.light_client_program,
+        &ctx.accounts.client_state,
+        &ctx.accounts.consensus_state,
+        non_membership_msg,
+    )?;
 
     require!(
         counterparty_timestamp >= packet.timeout_timestamp as u64,

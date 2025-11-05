@@ -294,7 +294,7 @@ fn cleanup_proof_chunks(
 /// # Returns
 /// * `Ok(solana_ibc_types::Packet)` - Reconstructed packet with payloads
 /// * `Err` - If validation fails, or chunks cannot be assembled or both inline and payload
-/// metadata was provided
+/// *  metadata was provided
 pub fn validate_and_reconstruct_packet(
     params: ReconstructPacketParams,
 ) -> Result<solana_ibc_types::Packet> {

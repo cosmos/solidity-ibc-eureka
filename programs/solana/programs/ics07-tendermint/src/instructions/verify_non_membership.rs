@@ -157,7 +157,11 @@ mod tests {
         }
     }
 
-    fn setup_non_membership_test() -> (MembershipVerificationFixture, TestAccounts, NonMembershipMsg) {
+    fn setup_non_membership_test() -> (
+        MembershipVerificationFixture,
+        TestAccounts,
+        NonMembershipMsg,
+    ) {
         let fixture = load_membership_verification_fixture("verify_non-membership_key_1");
         let client_state = decode_client_state_from_hex(&fixture.client_state_hex);
         let consensus_state = decode_consensus_state_from_hex(&fixture.consensus_state_hex);
