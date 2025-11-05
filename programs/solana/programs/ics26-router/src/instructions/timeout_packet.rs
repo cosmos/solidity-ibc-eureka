@@ -52,9 +52,6 @@ pub struct TimeoutPacket<'info> {
     #[account(mut)]
     pub relayer: Signer<'info>,
 
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
     pub system_program: Program<'info, System>,
 
     // Client for light client lookup
@@ -80,6 +77,7 @@ pub fn timeout_packet<'info>(
     ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info>>,
     msg: MsgTimeoutPacket,
 ) -> Result<()> {
+    // TODO: Support multi-payload packets #602
     let router_state = &ctx.accounts.router_state;
     let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;
@@ -103,7 +101,7 @@ pub fn timeout_packet<'info>(
         packet: &msg.packet,
         payloads_metadata: &msg.payloads,
         remaining_accounts: ctx.remaining_accounts,
-        payer: &ctx.accounts.payer,
+        payer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.source_client,
         program_id: ctx.program_id,
@@ -124,7 +122,7 @@ pub fn timeout_packet<'info>(
     let proof_start_index = total_payload_chunks(&msg.payloads);
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
-        payer: &ctx.accounts.payer,
+        relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.source_client,
         sequence: msg.packet.sequence,
@@ -175,16 +173,14 @@ pub fn timeout_packet<'info>(
     }
 
     // Delete commitment data (modify store before callback)
-    {
-        let mut data = packet_commitment_account.try_borrow_mut_data()?;
-        data.fill(0);
-    } // Drop the data borrow
+    let mut data = packet_commitment_account.try_borrow_mut_data()?;
+    data.fill(0);
 
     let cpi_accounts = IbcAppCpiAccounts {
         ibc_app_program: ctx.accounts.ibc_app_program.clone(),
         app_state: ctx.accounts.ibc_app_state.clone(),
         router_program: ctx.accounts.router_program.clone(),
-        payer: ctx.accounts.payer.to_account_info(),
+        payer: ctx.accounts.relayer.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
@@ -196,10 +192,10 @@ pub fn timeout_packet<'info>(
         ctx.remaining_accounts,
     )?;
 
-    // Close the account and return rent to payer (after CPI to avoid UnbalancedInstruction)
+    // Close the account and return rent to relayer (after CPI to avoid UnbalancedInstruction)
     {
-        let dest_starting_lamports = ctx.accounts.payer.lamports();
-        **ctx.accounts.payer.lamports.borrow_mut() = dest_starting_lamports
+        let dest_starting_lamports = ctx.accounts.relayer.lamports();
+        **ctx.accounts.relayer.lamports.borrow_mut() = dest_starting_lamports
             .checked_add(packet_commitment_account.lamports())
             .ok_or(RouterError::ArithmeticOverflow)?;
         **packet_commitment_account.lamports.borrow_mut() = 0;
@@ -231,7 +227,6 @@ mod tests {
         instruction: Instruction,
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
         packet_commitment_pubkey: Pubkey,
-        payer_pubkey: Pubkey,
         packet: Packet,
         dummy_app_state_pubkey: Pubkey,
     }
@@ -273,7 +268,6 @@ mod tests {
     ) -> TimeoutPacketTestContext {
         let authority = Pubkey::new_unique();
         let relayer = params.unauthorized_relayer.unwrap_or(authority);
-        let payer = relayer;
         let app_program_id = params.app_program_id.unwrap_or(MOCK_IBC_APP_PROGRAM_ID);
         let light_client_program = MOCK_LIGHT_CLIENT_ID;
 
@@ -359,7 +353,6 @@ mod tests {
             AccountMeta::new(dummy_app_state_pda, false),
             AccountMeta::new_readonly(crate::ID, false), // router_program
             AccountMeta::new(relayer, true),
-            AccountMeta::new(payer, true),
             AccountMeta::new_readonly(system_program::ID, false),
             AccountMeta::new_readonly(client_pda, false),
             AccountMeta::new_readonly(light_client_program, false),
@@ -410,7 +403,6 @@ mod tests {
             create_account(dummy_app_state_pda, vec![0u8; 32], app_program_id), // Mock app state
             create_bpf_program_account(crate::ID),                              // router_program
             create_system_account(relayer), // relayer (also signer)
-            create_system_account(payer),   // payer (also signer)
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
             create_bpf_program_account(light_client_program),
@@ -426,7 +418,6 @@ mod tests {
             instruction,
             accounts,
             packet_commitment_pubkey: packet_commitment_pda,
-            payer_pubkey: payer,
             packet,
             dummy_app_state_pubkey: dummy_app_state_pda,
         }

@@ -7,11 +7,11 @@ use anchor_lang::prelude::*;
 pub struct UploadPayloadChunk<'info> {
     #[account(
         init,
-        payer = payer,
+        payer = relayer,
         space = 8 + PayloadChunk::INIT_SPACE,
         seeds = [
             PayloadChunk::SEED,
-            payer.key().as_ref(),
+            relayer.key().as_ref(),
             msg.client_id.as_bytes(),
             &msg.sequence.to_le_bytes(),
             &[msg.payload_index],
@@ -22,7 +22,7 @@ pub struct UploadPayloadChunk<'info> {
     pub chunk: Account<'info, PayloadChunk>,
 
     #[account(mut)]
-    pub payer: Signer<'info>,
+    pub relayer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }

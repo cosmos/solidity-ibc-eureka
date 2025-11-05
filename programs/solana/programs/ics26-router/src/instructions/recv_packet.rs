@@ -29,7 +29,7 @@ pub struct RecvPacket<'info> {
 
     #[account(
         init_if_needed,
-        payer = payer,
+        payer = relayer,
         space = 8 + Commitment::INIT_SPACE,
         seeds = [
             Commitment::PACKET_RECEIPT_SEED,
@@ -42,7 +42,7 @@ pub struct RecvPacket<'info> {
 
     #[account(
         init,
-        payer = payer,
+        payer = relayer,
         space = 8 + Commitment::INIT_SPACE,
         seeds = [
             Commitment::PACKET_ACK_SEED,
@@ -70,9 +70,6 @@ pub struct RecvPacket<'info> {
 
     #[account(mut)]
     pub relayer: Signer<'info>,
-
-    #[account(mut)]
-    pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 
@@ -131,7 +128,7 @@ pub fn recv_packet<'info>(
         packet: &msg.packet,
         payloads_metadata: &msg.payloads,
         remaining_accounts: ctx.remaining_accounts,
-        payer: &ctx.accounts.payer,
+        payer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.dest_client,
         program_id: ctx.program_id,
@@ -153,7 +150,7 @@ pub fn recv_packet<'info>(
 
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
-        payer: &ctx.accounts.payer,
+        relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.dest_client,
         sequence: msg.packet.sequence,
@@ -186,9 +183,9 @@ pub fn recv_packet<'info>(
 
     let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&packet);
 
-    // Check if packet was not created by anchor via init_if_needed (value will be default)
+    // Check if packet was not created by anchor via init_if_needed (value sets to default)
     // I.e. it was already saved before
-    if packet_receipt.value != [0u8; 32] {
+    if packet_receipt.value != [0; 32] {
         // Receipt already exists - verify it matches
         if packet_receipt.value == receipt_commitment {
             // No-op: already received with same commitment
@@ -221,7 +218,7 @@ pub fn recv_packet<'info>(
         ibc_app_program: ctx.accounts.ibc_app_program.clone(),
         app_state: ctx.accounts.ibc_app_state.clone(),
         router_program: ctx.accounts.router_program.clone(),
-        payer: ctx.accounts.payer.to_account_info(),
+        payer: ctx.accounts.relayer.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 

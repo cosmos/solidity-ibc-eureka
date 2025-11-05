@@ -5,7 +5,7 @@ use anchor_lang::prelude::*;
 /// Parameters for assembling single payload chunks
 pub struct AssemblePayloadParams<'a, 'b, 'c> {
     pub remaining_accounts: &'a [AccountInfo<'b>],
-    pub payer: &'c AccountInfo<'b>,
+    pub relayer: &'c AccountInfo<'b>,
     pub submitter: Pubkey,
     pub client_id: &'a str,
     pub sequence: u64,
@@ -18,7 +18,7 @@ pub struct AssemblePayloadParams<'a, 'b, 'c> {
 /// Parameters for assembling proof chunks
 pub struct AssembleProofParams<'a, 'b, 'c> {
     pub remaining_accounts: &'a [AccountInfo<'b>],
-    pub payer: &'c AccountInfo<'b>,
+    pub relayer: &'c AccountInfo<'b>,
     pub submitter: Pubkey,
     pub client_id: &'a str,
     pub sequence: u64,
@@ -53,7 +53,7 @@ pub fn assemble_multiple_payloads<'b>(
     for (payload_index, metadata) in payloads_metadata.iter().enumerate() {
         let payload_data = assemble_single_payload_chunks(AssemblePayloadParams {
             remaining_accounts,
-            payer,
+            relayer: payer,
             submitter,
             client_id,
             sequence,
@@ -125,7 +125,7 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
     // Clean up chunks and return rent
     cleanup_payload_chunks(
         &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
-        params.payer,
+        params.relayer,
         params.submitter,
         params.client_id,
         params.sequence,
@@ -195,7 +195,7 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
     // Clean up chunks and return rent
     cleanup_proof_chunks(
         &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
-        params.payer,
+        params.relayer,
         params.submitter,
         params.client_id,
         params.sequence,

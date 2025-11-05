@@ -120,7 +120,6 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
         client_sequence: ctx.accounts.client_sequence.to_account_info(),
         packet_commitment: ctx.accounts.packet_commitment.to_account_info(),
         app_caller: ctx.accounts.router_caller.to_account_info(),
-        payer: ctx.accounts.user.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),
         client: ctx.accounts.client.to_account_info(),
     };

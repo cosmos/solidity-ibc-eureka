@@ -28,7 +28,7 @@ pub struct SendPacket<'info> {
 
     #[account(
         init,
-        payer = payer,
+        payer = app_caller,
         space = 8 + Commitment::INIT_SPACE,
         seeds = [
             Commitment::PACKET_COMMITMENT_SEED,
@@ -40,10 +40,8 @@ pub struct SendPacket<'info> {
     pub packet_commitment: Account<'info, Commitment>,
 
     /// The IBC app calling this instruction
-    pub app_caller: Signer<'info>,
-
     #[account(mut)]
-    pub payer: Signer<'info>,
+    pub app_caller: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 
@@ -161,7 +159,6 @@ mod tests {
         let (default_app_caller, _) =
             Pubkey::find_program_address(&[b"router_caller"], &app_program_id);
         let app_caller = params.unauthorized_app_caller.unwrap_or(default_app_caller);
-        let payer = app_caller;
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
         let (client_pda, client_data) = setup_client(
@@ -203,8 +200,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new(packet_commitment_pda, false),
-                AccountMeta::new_readonly(app_caller, true),
-                AccountMeta::new(payer, true),
+                AccountMeta::new(app_caller, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda, false),
             ],
@@ -217,7 +213,6 @@ mod tests {
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda),
             create_system_account(app_caller), // app_caller is a signer
-            create_system_account(payer),      // payer is also a signer
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
         ];
@@ -399,7 +394,6 @@ mod tests {
         let app_program_id = Pubkey::new_unique();
         let (app_caller_pda, _) =
             Pubkey::find_program_address(&[b"router_caller"], &app_program_id);
-        let payer = app_program_id;
         let port_id = "test-port";
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
@@ -458,8 +452,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda_1, false),
                 AccountMeta::new(packet_commitment_pda_1, false),
-                AccountMeta::new_readonly(app_caller_pda, true),
-                AccountMeta::new(payer, true),
+                AccountMeta::new(app_caller_pda, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda_1, false),
             ],
@@ -472,7 +465,6 @@ mod tests {
             create_account(client_sequence_pda_1, client_sequence_data_1, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_1),
             create_system_account(app_caller_pda),
-            create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda_1, client_data_1, crate::ID),
         ];
@@ -515,8 +507,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda_2, false),
                 AccountMeta::new(packet_commitment_pda_2, false),
-                AccountMeta::new_readonly(app_caller_pda, true),
-                AccountMeta::new(payer, true),
+                AccountMeta::new(app_caller_pda, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda_2, false),
             ],
@@ -529,7 +520,6 @@ mod tests {
             create_account(client_sequence_pda_2, client_sequence_data_2, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_2),
             create_system_account(app_caller_pda),
-            create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda_2, client_data_2, crate::ID),
         ];
