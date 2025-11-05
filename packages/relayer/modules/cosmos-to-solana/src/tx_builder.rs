@@ -1240,19 +1240,6 @@ impl TxBuilder {
         tracing::info!("  - Recv messages: {}", recv_msgs.len());
         tracing::info!("  - Ack messages: {}", ack_msgs.len());
 
-        // Log details of ack messages
-        for (idx, ack_msg) in ack_msgs.iter().enumerate() {
-            if let Some(packet) = &ack_msg.packet {
-                tracing::info!(
-                    "  Ack #{}: sequence={}, src_client={}, dest_client={}",
-                    idx + 1,
-                    packet.sequence,
-                    packet.source_client,
-                    packet.destination_client
-                );
-            }
-        }
-
         // convert to tm events so we can inject proofs
         let mut timeout_msgs_tm: Vec<_> = timeout_msgs
             .iter()
