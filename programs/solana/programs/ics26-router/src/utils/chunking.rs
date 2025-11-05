@@ -32,7 +32,7 @@ pub struct ReconstructPacketParams<'a, 'b, 'c> {
     pub packet: &'a solana_ibc_types::Packet,
     pub payloads_metadata: &'a [PayloadMetadata],
     pub remaining_accounts: &'a [AccountInfo<'b>],
-    pub payer: &'c AccountInfo<'b>,
+    pub relayer: &'c AccountInfo<'b>,
     pub submitter: Pubkey,
     pub client_id: &'a str,
     pub program_id: &'a Pubkey,
@@ -40,7 +40,7 @@ pub struct ReconstructPacketParams<'a, 'b, 'c> {
 
 pub fn assemble_multiple_payloads<'b>(
     remaining_accounts: &[AccountInfo<'b>],
-    payer: &AccountInfo<'b>,
+    relayer: &AccountInfo<'b>,
     submitter: Pubkey,
     client_id: &str,
     sequence: u64,
@@ -53,7 +53,7 @@ pub fn assemble_multiple_payloads<'b>(
     for (payload_index, metadata) in payloads_metadata.iter().enumerate() {
         let payload_data = assemble_single_payload_chunks(AssemblePayloadParams {
             remaining_accounts,
-            relayer: payer,
+            relayer,
             submitter,
             client_id,
             sequence,
@@ -309,7 +309,7 @@ pub fn validate_and_reconstruct_packet(
         // Chunked mode: Assemble payloads from chunks
         let payload_data_vec = assemble_multiple_payloads(
             params.remaining_accounts,
-            params.payer,
+            params.relayer,
             params.submitter,
             params.client_id,
             params.packet.sequence,

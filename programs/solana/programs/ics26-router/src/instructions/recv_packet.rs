@@ -128,7 +128,7 @@ pub fn recv_packet<'info>(
         packet: &msg.packet,
         payloads_metadata: &msg.payloads,
         remaining_accounts: ctx.remaining_accounts,
-        payer: &ctx.accounts.relayer,
+        relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.dest_client,
         program_id: ctx.program_id,
@@ -373,7 +373,6 @@ mod tests {
     fn setup_recv_packet_test_with_params(params: RecvPacketTestParams) -> RecvPacketTestContext {
         let authority = Pubkey::new_unique();
         let relayer = params.unauthorized_relayer.unwrap_or(authority);
-        let payer = relayer;
         let client_id = "test-client";
         let port_id = "test-port";
         let light_client_program = MOCK_LIGHT_CLIENT_ID;
@@ -470,7 +469,6 @@ mod tests {
             AccountMeta::new(ibc_app_state, false),
             AccountMeta::new_readonly(crate::ID, false), // router_program
             AccountMeta::new(relayer, true),
-            AccountMeta::new(payer, true),
             AccountMeta::new_readonly(system_program::ID, false),
             AccountMeta::new_readonly(client_pda, false),
             AccountMeta::new_readonly(light_client_program, false),
@@ -504,8 +502,7 @@ mod tests {
             create_bpf_program_account(ibc_app_program_id),
             create_account(ibc_app_state, vec![0u8; 100], ibc_app_program_id),
             create_bpf_program_account(crate::ID), // router_program
-            signer_account.clone(),                // relayer
-            signer_account,                        // payer (same account as relayer)
+            signer_account,                        // relayer
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
             create_bpf_program_account(light_client_program),

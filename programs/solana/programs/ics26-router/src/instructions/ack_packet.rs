@@ -101,7 +101,7 @@ pub fn ack_packet<'info>(
         packet: &msg.packet,
         payloads_metadata: &msg.payloads,
         remaining_accounts: ctx.remaining_accounts,
-        payer: &ctx.accounts.relayer,
+        relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.source_client,
         program_id: ctx.program_id,

@@ -1,7 +1,7 @@
 use crate::errors::RouterError;
 use crate::state::{AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState};
 use anchor_lang::prelude::*;
-use solana_ibc_types::events::{ClientAddedEvent, ClientStatusUpdatedEvent};
+use solana_ibc_types::events::{ClientAddedEvent, ClientUpdatedEvent};
 
 #[derive(Accounts)]
 #[instruction(client_id: String)]
@@ -117,9 +117,7 @@ pub fn add_client(
     client_sequence.next_sequence_send = 1;
 
     emit!(ClientAddedEvent {
-        client_id: client.client_id.clone(),
-        client_program_id: client.client_program_id,
-        authority: client.authority,
+        client: client.to_client_account(),
     });
 
     Ok(())
@@ -159,12 +157,11 @@ pub fn migrate_client(
 
     if let Some(new_active) = params.active {
         client.active = new_active;
-
-        emit!(ClientStatusUpdatedEvent {
-            client_id: client.client_id.clone(),
-            active: new_active,
-        });
     }
+
+    emit!(ClientUpdatedEvent {
+        client: client.to_client_account(),
+    });
 
     Ok(())
 }
