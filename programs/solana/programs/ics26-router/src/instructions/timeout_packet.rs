@@ -442,7 +442,18 @@ mod tests {
 
         let checks = vec![Check::success()];
 
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+        let result = mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+
+        // Verify packet commitment data was deleted
+        let packet_commitment_account = result
+            .get_account(&ctx.packet_commitment_pubkey)
+            .expect("packet commitment account should exist");
+
+        // Data should be all zeros after deletion
+        assert!(
+            packet_commitment_account.data.iter().all(|&b| b == 0),
+            "Packet commitment data should be zeroed"
+        );
     }
 
     #[test]
