@@ -9,12 +9,12 @@ pub mod state;
 pub mod test_utils;
 pub mod utils;
 
+use instructions::client::MigrateClientParams;
 use instructions::*;
 use state::{
     CounterpartyInfo, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket, MsgSendPacket,
     MsgTimeoutPacket, MsgUploadChunk,
 };
-use instructions::client::MigrateClientParams;
 
 declare_id!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx");
 

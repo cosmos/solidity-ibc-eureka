@@ -268,15 +268,18 @@ fn test_successful_assembly_and_update() {
         );
     } else {
         // Verify the UpdateResult in return data
-        assert!(!result.return_data.is_empty(), "Return data should not be empty");
+        assert!(
+            !result.return_data.is_empty(),
+            "Return data should not be empty"
+        );
         let update_result = crate::types::UpdateResult::deserialize(&mut &result.return_data[..])
             .expect("Failed to deserialize UpdateResult");
         assert_eq!(
             update_result,
-            crate::types::UpdateResult::Update,
+            crate::types::UpdateResult::UpdateSuccess,
             "Should return UpdateResult::Update for successful update"
         );
-        println!("Assembly succeeded with real fixtures and returned {:?}", update_result);
+        println!("Assembly succeeded with real fixtures and returned {update_result:?}",);
     }
 }
 
@@ -955,10 +958,16 @@ fn test_assemble_with_existing_consensus_state() {
 
     // Now with real data, should detect conflicting consensus state
     // The instruction should succeed but return UpdateResult::Misbehaviour
-    assert!(!result.program_result.is_err(), "Instruction should succeed");
+    assert!(
+        !result.program_result.is_err(),
+        "Instruction should succeed"
+    );
 
     // Verify the UpdateResult is Misbehaviour
-    assert!(!result.return_data.is_empty(), "Return data should not be empty");
+    assert!(
+        !result.return_data.is_empty(),
+        "Return data should not be empty"
+    );
     let update_result = crate::types::UpdateResult::deserialize(&mut &result.return_data[..])
         .expect("Failed to deserialize UpdateResult");
     assert_eq!(
@@ -978,7 +987,10 @@ fn test_assemble_with_existing_consensus_state() {
     let updated_client =
         crate::types::ClientState::try_deserialize(&mut &updated_client_account.data[..])
             .expect("should deserialize client state");
-    assert!(updated_client.is_frozen(), "Client should be frozen after misbehaviour");
+    assert!(
+        updated_client.is_frozen(),
+        "Client should be frozen after misbehaviour"
+    );
 }
 
 #[test]
@@ -1153,12 +1165,15 @@ fn test_assemble_updates_latest_height() {
         println!("Test completed with error: {:?}", result.program_result);
     } else {
         // Verify the UpdateResult in return data
-        assert!(!result.return_data.is_empty(), "Return data should not be empty");
+        assert!(
+            !result.return_data.is_empty(),
+            "Return data should not be empty"
+        );
         let update_result = crate::types::UpdateResult::deserialize(&mut &result.return_data[..])
             .expect("Failed to deserialize UpdateResult");
         assert_eq!(
             update_result,
-            crate::types::UpdateResult::Update,
+            crate::types::UpdateResult::UpdateSuccess,
             "Should return UpdateResult::Update for successful update"
         );
 

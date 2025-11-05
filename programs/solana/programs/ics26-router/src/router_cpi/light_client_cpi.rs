@@ -26,12 +26,7 @@ impl<'a> LightClientCpi<'a> {
         self.validate_client(light_client_program)?;
 
         let ix_data = Self::build_instruction_data(discriminators::VERIFY_MEMBERSHIP, msg)?;
-        self.invoke_instruction(
-            light_client_program,
-            client_state,
-            consensus_state,
-            ix_data,
-        )?;
+        self.invoke_instruction(light_client_program, client_state, consensus_state, ix_data)?;
 
         Ok(())
     }
@@ -48,12 +43,7 @@ impl<'a> LightClientCpi<'a> {
         self.validate_client(light_client_program)?;
 
         let ix_data = Self::build_instruction_data(discriminators::VERIFY_NON_MEMBERSHIP, msg)?;
-        self.invoke_instruction(
-            light_client_program,
-            client_state,
-            consensus_state,
-            ix_data,
-        )?;
+        self.invoke_instruction(light_client_program, client_state, consensus_state, ix_data)?;
 
         // Extract timestamp from return data
         self.get_timestamp_from_return_data()

@@ -562,22 +562,22 @@ mod tests {
             value: [1u8; 32], // Some existing commitment value
         };
 
-        use anchor_lang::Space;
-        use solana_sdk::rent::Rent;
         let account_size = 8 + Commitment::INIT_SPACE;
         let mut data = vec![0u8; account_size];
 
         // Add Anchor discriminator
-        data[0..8].copy_from_slice(&Commitment::DISCRIMINATOR);
+        data[0..8].copy_from_slice(Commitment::DISCRIMINATOR);
 
         // Serialize the commitment
         let mut cursor = std::io::Cursor::new(&mut data[8..]);
         existing_commitment.serialize(&mut cursor).unwrap();
 
         // Find and replace the packet_commitment account
-        let commitment_index = ctx.accounts.iter().position(|(pubkey, _)| {
-            *pubkey == ctx.packet_commitment_pubkey
-        }).unwrap();
+        let commitment_index = ctx
+            .accounts
+            .iter()
+            .position(|(pubkey, _)| *pubkey == ctx.packet_commitment_pubkey)
+            .unwrap();
 
         ctx.accounts[commitment_index] = (
             ctx.packet_commitment_pubkey,

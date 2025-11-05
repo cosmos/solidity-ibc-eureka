@@ -109,7 +109,6 @@ fn process_header_update(
         header,
     )?;
 
-    // Check for non-increasing timestamp misbehaviour
     if check_misbehaviour(
         &new_consensus_state,
         &trusted_consensus_state.consensus_state,
@@ -130,7 +129,7 @@ fn process_header_update(
     })?;
 
     // Update latest height only on successful update
-    if result == UpdateResult::Update {
+    if result == UpdateResult::UpdateSuccess {
         client_state.latest_height = new_height.into();
     }
 
@@ -172,10 +171,7 @@ fn verify_and_update_header(
     ))
 }
 
-fn check_misbehaviour(
-    new_state: &ConsensusState,
-    trusted_state: &ConsensusState,
-) -> bool {
+fn check_misbehaviour(new_state: &ConsensusState, trusted_state: &ConsensusState) -> bool {
     let trusted_ibc: IbcConsensusState = trusted_state.clone().into();
     let trusted_timestamp = trusted_ibc.timestamp.unix_timestamp_nanos() as u64;
 
@@ -322,7 +318,7 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     let mut cursor = std::io::Cursor::new(&mut data[..]);
     new_store.try_serialize(&mut cursor)?;
 
-    Ok(UpdateResult::Update)
+    Ok(UpdateResult::UpdateSuccess)
 }
 
 #[cfg(test)]
