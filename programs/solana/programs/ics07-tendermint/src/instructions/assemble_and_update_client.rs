@@ -119,7 +119,7 @@ fn process_header_update(
 
     let result = store_consensus_state(StoreConsensusStateParams {
         account: &ctx.accounts.new_consensus_state_store,
-        payer: &ctx.accounts.payer,
+        submitter: &ctx.accounts.submitter,
         system_program: &ctx.accounts.system_program,
         program_id: ctx.program_id,
         client_key: client_state.key(),
@@ -243,7 +243,7 @@ fn load_consensus_state(
 
 struct StoreConsensusStateParams<'a, 'info> {
     account: &'a UncheckedAccount<'info>,
-    payer: &'a Signer<'info>,
+    submitter: &'a Signer<'info>,
     system_program: &'a Program<'info, System>,
     program_id: &'a Pubkey,
     client_key: Pubkey,
@@ -298,7 +298,7 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
 
     // IMPORTANT TODO: check again if anchor could simplify pda validation
     let cpi_accounts = system_program::CreateAccount {
-        from: params.payer.to_account_info(),
+        from: params.submitter.to_account_info(),
         to: params.account.to_account_info(),
     };
     let cpi_program = params.system_program.to_account_info();

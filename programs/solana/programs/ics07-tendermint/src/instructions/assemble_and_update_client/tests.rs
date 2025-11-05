@@ -111,7 +111,6 @@ struct AssembleInstructionParams {
     trusted_consensus_state_pda: Pubkey,
     new_consensus_state_pda: Pubkey,
     submitter: Pubkey,
-    payer: Pubkey,
     chunk_pdas: Vec<Pubkey>,
     chain_id: String,
     target_height: u64,
@@ -122,8 +121,7 @@ fn create_assemble_instruction(params: AssembleInstructionParams) -> Instruction
         AccountMeta::new(params.client_state_pda, false),
         AccountMeta::new_readonly(params.trusted_consensus_state_pda, false),
         AccountMeta::new(params.new_consensus_state_pda, false),
-        AccountMeta::new(params.submitter, false),
-        AccountMeta::new(params.payer, true),
+        AccountMeta::new(params.submitter, true),
         AccountMeta::new_readonly(system_program::ID, false),
     ];
 
@@ -202,7 +200,6 @@ fn test_successful_assembly_and_update() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.clone(),
         target_height,
@@ -321,7 +318,6 @@ fn test_assembly_with_corrupted_chunk() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.to_string(),
         target_height,
@@ -388,7 +384,6 @@ fn test_assembly_wrong_submitter() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter: wrong_submitter, // Wrong!
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.to_string(),
         target_height,
@@ -454,7 +449,6 @@ fn test_assembly_chunks_in_wrong_order() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: wrong_order_pdas,
         chain_id: chain_id.to_string(),
         target_height,
@@ -523,7 +517,6 @@ fn test_rent_reclaim_after_assembly() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.to_string(),
         target_height,
@@ -625,7 +618,6 @@ fn test_assemble_and_update_client_happy_path() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.clone(),
         target_height,
@@ -778,7 +770,6 @@ fn test_assemble_with_frozen_client() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.clone(),
         target_height,
@@ -917,7 +908,6 @@ fn test_assemble_with_existing_consensus_state() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.clone(),
         target_height,
@@ -1031,7 +1021,6 @@ fn test_assemble_with_invalid_header_after_assembly() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.to_string(),
         target_height,
@@ -1100,7 +1089,6 @@ fn test_assemble_updates_latest_height() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.clone(),
         target_height,
@@ -1261,7 +1249,6 @@ fn test_assemble_and_update_with_invalid_signature() {
     );
 
     let submitter = Pubkey::new_unique();
-    let payer = Pubkey::new_unique();
 
     // Create chunk PDAs and accounts
     let mut chunk_accounts = Vec::new();
@@ -1316,16 +1303,6 @@ fn test_assemble_and_update_with_invalid_signature() {
             },
         ),
         (
-            payer,
-            Account {
-                lamports: 1_000_000_000,
-                data: vec![],
-                owner: solana_sdk::system_program::ID,
-                executable: false,
-                rent_epoch: 0,
-            },
-        ),
-        (
             solana_sdk::system_program::ID,
             Account {
                 lamports: 1,
@@ -1345,8 +1322,7 @@ fn test_assemble_and_update_with_invalid_signature() {
         AccountMeta::new(client_state_pda, false),
         AccountMeta::new_readonly(trusted_consensus_pda, false),
         AccountMeta::new(new_consensus_pda, false),
-        AccountMeta::new(submitter, false),
-        AccountMeta::new(payer, true),
+        AccountMeta::new(submitter, true),
         AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
     ];
 

@@ -861,8 +861,7 @@ impl TxBuilder {
             AccountMeta::new(client_state_pda, false),
             AccountMeta::new_readonly(trusted_consensus_state, false),
             AccountMeta::new(new_consensus_state, false),
-            AccountMeta::new(self.fee_payer, false), // submitter who gets rent back
-            AccountMeta::new(self.fee_payer, true),  // payer for new consensus state
+            AccountMeta::new(self.fee_payer, true), // submitter
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
