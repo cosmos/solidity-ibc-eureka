@@ -341,6 +341,38 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
 	require.NoError(err)
 
+	// Get transaction details to verify UpdateResult
+	// Note: The RPC client needs to fetch the transaction with the "full" encoding
+	// to get return data. This verifies that the update was successful.
+	txDetails, err := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
+		Encoding:   solana.EncodingBase64,
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	if err == nil && txDetails != nil && txDetails.Meta != nil {
+		// Check if transaction has return data (UpdateResult)
+		returnDataBytes := txDetails.Meta.ReturnData.Data.Content
+		if len(returnDataBytes) > 0 {
+			// UpdateResult enum: 0=Update, 1=NoOp, 2=Misbehaviour
+			// The return data should be the serialized UpdateResult
+			t.Logf("✓ Update client returned data: %v (length: %d)", returnDataBytes, len(returnDataBytes))
+			// First byte should be 0 for UpdateResult::Update
+			if len(returnDataBytes) >= 1 {
+				updateResult := returnDataBytes[0]
+				switch updateResult {
+				case 0:
+					t.Logf("✓ UpdateResult: Update (client state updated)")
+				case 1:
+					t.Logf("✓ UpdateResult: NoOp (consensus state already exists)")
+				case 2:
+					t.Logf("✗ UpdateResult: Misbehaviour (client frozen)")
+					require.NotEqual(2, updateResult, "Unexpected misbehaviour detected")
+				default:
+					t.Logf("? UpdateResult: Unknown value %d", updateResult)
+				}
+			}
+		}
+	}
+
 	assemblyDuration := time.Since(assemblyStart)
 	t.Logf("✓ Assembly transaction completed in %v - tx: %s", assemblyDuration, sig)
 

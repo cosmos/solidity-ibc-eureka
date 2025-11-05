@@ -11,6 +11,7 @@ use time::OffsetDateTime;
 pub enum UpdateResult {
     Update,
     NoOp,
+    Misbehaviour,
 }
 
 /// Parameters for uploading a header chunk

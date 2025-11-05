@@ -8,7 +8,7 @@ use crate::test_helpers::{
     },
     PROGRAM_BINARY_PATH,
 };
-use anchor_lang::{AccountDeserialize, AccountSerialize, InstructionData};
+use anchor_lang::{AccountDeserialize, AccountSerialize, AnchorDeserialize, InstructionData};
 use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
 use solana_sdk::account::Account;
 use solana_sdk::clock::Clock;
@@ -267,7 +267,16 @@ fn test_successful_assembly_and_update() {
             result.program_result
         );
     } else {
-        println!("Assembly succeeded with real fixtures");
+        // Verify the UpdateResult in return data
+        assert!(!result.return_data.is_empty(), "Return data should not be empty");
+        let update_result = crate::types::UpdateResult::deserialize(&mut &result.return_data[..])
+            .expect("Failed to deserialize UpdateResult");
+        assert_eq!(
+            update_result,
+            crate::types::UpdateResult::Update,
+            "Should return UpdateResult::Update for successful update"
+        );
+        println!("Assembly succeeded with real fixtures and returned {:?}", update_result);
     }
 }
 
@@ -945,11 +954,31 @@ fn test_assemble_with_existing_consensus_state() {
     let result = mollusk_with_budget.process_instruction(&instruction, &accounts);
 
     // Now with real data, should detect conflicting consensus state
-    assert_error_code(
-        result,
-        ErrorCode::MisbehaviourConflictingState,
-        "conflicting consensus state",
+    // The instruction should succeed but return UpdateResult::Misbehaviour
+    assert!(!result.program_result.is_err(), "Instruction should succeed");
+
+    // Verify the UpdateResult is Misbehaviour
+    assert!(!result.return_data.is_empty(), "Return data should not be empty");
+    let update_result = crate::types::UpdateResult::deserialize(&mut &result.return_data[..])
+        .expect("Failed to deserialize UpdateResult");
+    assert_eq!(
+        update_result,
+        crate::types::UpdateResult::Misbehaviour,
+        "Should return UpdateResult::Misbehaviour for conflicting consensus state"
     );
+
+    // Verify client state is frozen
+    let updated_client_account = result
+        .resulting_accounts
+        .iter()
+        .find(|(k, _)| *k == client_state_pda)
+        .expect("client state should exist")
+        .1
+        .clone();
+    let updated_client =
+        crate::types::ClientState::try_deserialize(&mut &updated_client_account.data[..])
+            .expect("should deserialize client state");
+    assert!(updated_client.is_frozen(), "Client should be frozen after misbehaviour");
 }
 
 #[test]
@@ -1123,6 +1152,16 @@ fn test_assemble_updates_latest_height() {
         // Log the error for debugging
         println!("Test completed with error: {:?}", result.program_result);
     } else {
+        // Verify the UpdateResult in return data
+        assert!(!result.return_data.is_empty(), "Return data should not be empty");
+        let update_result = crate::types::UpdateResult::deserialize(&mut &result.return_data[..])
+            .expect("Failed to deserialize UpdateResult");
+        assert_eq!(
+            update_result,
+            crate::types::UpdateResult::Update,
+            "Should return UpdateResult::Update for successful update"
+        );
+
         // Verify client state was updated to new height
         let updated_client_account = result
             .resulting_accounts

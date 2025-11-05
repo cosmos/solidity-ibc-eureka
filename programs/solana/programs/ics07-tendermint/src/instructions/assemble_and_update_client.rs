@@ -4,6 +4,7 @@ use crate::state::{ConsensusStateStore, HeaderChunk};
 use crate::types::{ConsensusState, UpdateResult};
 use crate::AssembleAndUpdateClient;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::program::set_return_data;
 use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
@@ -25,6 +26,9 @@ pub fn assemble_and_update_client(
     let result = process_header_update(&mut ctx, header_bytes)?;
 
     cleanup_chunks(&ctx, &chain_id, target_height, submitter)?;
+
+    // Return the UpdateResult as bytes for callers to verify
+    set_return_data(&result.try_to_vec()?);
 
     Ok(result)
 }
@@ -105,11 +109,14 @@ fn process_header_update(
         header,
     )?;
 
-    check_misbehaviour(
+    // Check for non-increasing timestamp misbehaviour
+    if check_misbehaviour(
         &new_consensus_state,
         &trusted_consensus_state.consensus_state,
-        client_state,
-    )?;
+    ) {
+        client_state.freeze();
+        return Ok(UpdateResult::Misbehaviour);
+    }
 
     let result = store_consensus_state(StoreConsensusStateParams {
         account: &ctx.accounts.new_consensus_state_store,
@@ -122,6 +129,7 @@ fn process_header_update(
         client_state,
     })?;
 
+    // Update latest height only on successful update
     if result == UpdateResult::Update {
         client_state.latest_height = new_height.into();
     }
@@ -167,17 +175,12 @@ fn verify_and_update_header(
 fn check_misbehaviour(
     new_state: &ConsensusState,
     trusted_state: &ConsensusState,
-    client_state: &mut Account<crate::types::ClientState>,
-) -> Result<()> {
+) -> bool {
     let trusted_ibc: IbcConsensusState = trusted_state.clone().into();
     let trusted_timestamp = trusted_ibc.timestamp.unix_timestamp_nanos() as u64;
 
-    // IMPORTANT TODO: double check
-    if new_state.timestamp <= trusted_timestamp {
-        client_state.freeze();
-        return err!(ErrorCode::MisbehaviourNonIncreasingTime);
-    }
-    Ok(())
+    // Check for non-increasing timestamp (misbehaviour)
+    new_state.timestamp <= trusted_timestamp
 }
 
 fn cleanup_chunks(
@@ -280,8 +283,7 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
 
             if existing.consensus_state != *params.new_consensus_state {
                 params.client_state.freeze();
-                // TODO: don't return error
-                return err!(ErrorCode::MisbehaviourConflictingState);
+                return Ok(UpdateResult::Misbehaviour);
             }
 
             return Ok(UpdateResult::NoOp);
