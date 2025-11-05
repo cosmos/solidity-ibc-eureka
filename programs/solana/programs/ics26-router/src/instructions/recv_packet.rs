@@ -179,7 +179,6 @@ pub fn recv_packet<'info>(
         value: expected_commitment.to_vec(),
     };
 
-    // TODO: copy paste mollusk svm light client check to e2e
     let light_client_cpi = LightClientCpi::new(client);
     light_client_cpi.verify_membership(
         &ctx.accounts.light_client_program,
@@ -263,8 +262,6 @@ pub fn recv_packet<'info>(
     let acknowledgements = vec![acknowledgement];
     let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&acknowledgements)?;
     packet_ack.value = ack_commitment;
-
-    // TODO: store not populated
 
     emit!(WriteAcknowledgementEvent {
         client_id: packet.dest_client.clone(),
