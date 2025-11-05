@@ -1,5 +1,5 @@
 use crate::errors::RouterError;
-use crate::router_cpi::{on_timeout_packet_cpi, IbcAppCpiAccounts};
+use crate::router_cpi::{IbcAppCpi, IbcAppCpiAccounts};
 use crate::router_cpi::{verify_non_membership_cpi, LightClientVerification};
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
@@ -192,8 +192,8 @@ pub fn timeout_packet<'info>(
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
-    on_timeout_packet_cpi(
-        cpi_accounts,
+    let cpi = IbcAppCpi::new(cpi_accounts);
+    cpi.on_timeout_packet(
         &packet,
         payload,
         &ctx.accounts.relayer.key(),

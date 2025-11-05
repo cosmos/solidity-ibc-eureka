@@ -1,6 +1,6 @@
 use crate::errors::RouterError;
-use crate::router_cpi::{on_recv_packet_cpi, IbcAppCpiAccounts};
 use crate::router_cpi::{verify_membership_cpi, LightClientVerification};
+use crate::router_cpi::{IbcAppCpi, IbcAppCpiAccounts};
 use crate::state::*;
 use crate::utils::packet::validate_ibc_app_pda;
 use crate::utils::{chunking, ics24, packet};
@@ -127,14 +127,6 @@ pub fn recv_packet<'info>(
         RouterError::InvalidTimeoutTimestamp
     );
 
-    // Validate that we don't have both inline payloads AND chunked metadata
-    let has_inline_payloads = !msg.packet.payloads.is_empty();
-    let has_chunked_metadata = msg.payloads.iter().any(|p| p.total_chunks > 0);
-    require!(
-        !(has_inline_payloads && has_chunked_metadata),
-        RouterError::InvalidPayloadCount
-    );
-
     let packet = chunking::validate_and_reconstruct_packet(chunking::ReconstructPacketParams {
         packet: &msg.packet,
         payloads_metadata: &msg.payloads,
@@ -189,7 +181,6 @@ pub fn recv_packet<'info>(
     // TODO: copy paste mollusk svm light client check to e2e
     verify_membership_cpi(client, &light_client_verification, membership_msg)?;
 
-    // Check if receipt already exists
     let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&packet);
 
     // TODO: data is empty check
@@ -232,8 +223,8 @@ pub fn recv_packet<'info>(
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
-    let acknowledgement = match on_recv_packet_cpi(
-        cpi_accounts,
+    let cpi = IbcAppCpi::new(cpi_accounts);
+    let acknowledgement = match cpi.on_recv_packet(
         &packet,
         payload,
         &ctx.accounts.relayer.key(),
