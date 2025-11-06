@@ -178,6 +178,8 @@ pub mod ics07_tendermint {
         instructions::verify_membership::verify_membership(ctx, msg)
     }
 
+    /// Verifies the absence of a value at a given path in the counterparty chain state.
+    /// Returns the timestamp of the consensus state at the proof height in unix seconds.
     pub fn verify_non_membership(
         ctx: Context<VerifyNonMembership>,
         msg: NonMembershipMsg,

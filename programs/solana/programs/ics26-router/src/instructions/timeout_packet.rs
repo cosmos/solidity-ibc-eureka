@@ -141,7 +141,7 @@ pub fn timeout_packet<'info>(
     };
 
     let light_client_cpi = LightClientCpi::new(client);
-    let counterparty_timestamp = light_client_cpi.verify_non_membership(
+    let counterparty_timestamp_secs = light_client_cpi.verify_non_membership(
         &ctx.accounts.light_client_program,
         &ctx.accounts.client_state,
         &ctx.accounts.consensus_state,
@@ -149,7 +149,7 @@ pub fn timeout_packet<'info>(
     )?;
 
     require!(
-        counterparty_timestamp >= packet.timeout_timestamp as u64,
+        counterparty_timestamp_secs >= packet.timeout_timestamp as u64,
         RouterError::InvalidTimeoutTimestamp
     );
 
