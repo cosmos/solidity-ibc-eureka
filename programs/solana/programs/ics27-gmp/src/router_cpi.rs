@@ -46,7 +46,7 @@ pub fn send_packet_cpi<'a>(
     };
 
     // Router caller PDA signer seeds
-    let signer_seeds = &[b"router_caller".as_slice(), &[router_caller_bump]];
+    let signer_seeds = &[solana_ibc_types::RouterCaller::SEED, &[router_caller_bump]];
 
     // Execute CPI to router with PDA signing
     let account_infos = &[
@@ -80,96 +80,19 @@ pub fn send_packet_cpi<'a>(
     }
 }
 
-/// Parse GMP packet data from router CPI call
-///
-/// Extracts and validates `GMPPacketData` from the Protobuf-encoded IBC packet payload.
-/// The router passes `OnRecvPacketMsg` which contains the source chain client ID and
-/// Protobuf-encoded packet data. This function decodes the Protobuf payload and
-/// combines it with the IBC context to create the full `GMPPacketData` structure.
-///
-/// Note: Port ID validation should be done by the caller using `app_state.port_id`
-/// Note: Receiver is kept as string - caller must parse to Pubkey when needed (incoming packets)
-pub fn parse_packet_data_from_router_cpi(
-    msg: &solana_ibc_types::OnRecvPacketMsg,
-) -> Result<Box<crate::state::GMPPacketData>> {
-    // Decode Protobuf payload from IBC packet
-    let proto_data = decode_gmp_packet_data(msg.payload.value.as_slice())?;
+// Re-export shared types from solana-ibc-types
+pub use solana_ibc_types::ValidatedGmpPacketData;
 
-    // Construct full GMPPacketData by combining Protobuf data with IBC context
-    let packet_data = Box::new(crate::state::GMPPacketData {
-        client_id: msg.source_client.clone(), // From IBC context (e.g., "07-tendermint-0")
-        sender: proto_data.sender,
-        receiver: proto_data.receiver, // Keep as string (Solana Pubkey base58 for incoming packets)
-        salt: proto_data.salt,
-        payload: proto_data.payload, // SolanaInstruction (Protobuf-encoded)
-        memo: proto_data.memo,
-    });
-
-    // Validate all fields (lengths, non-empty checks, etc.)
-    packet_data.validate()?;
-
-    Ok(packet_data)
-}
-
-/// Parse acknowledgement data from router CPI call
-///
-/// Extracts packet data and acknowledgement from `OnAcknowledgementPacketMsg`.
-/// Used when the destination chain sends back an acknowledgement for a packet
-/// that was previously sent from this Solana chain.
-///
-/// Note: For acks of outgoing packets, receiver is a Cosmos address or empty string
-pub fn parse_ack_data_from_router_cpi(
-    msg: &solana_ibc_types::OnAcknowledgementPacketMsg,
-) -> Result<(Box<crate::state::GMPPacketData>, Vec<u8>)> {
-    let proto_data = decode_gmp_packet_data(msg.payload.value.as_slice())?;
-
-    let packet_data = Box::new(crate::state::GMPPacketData {
-        client_id: msg.source_client.clone(),
-        sender: proto_data.sender,
-        receiver: proto_data.receiver, // Keep as string (Cosmos address for outgoing packets)
-        salt: proto_data.salt,
-        payload: proto_data.payload,
-        memo: proto_data.memo,
-    });
-
-    packet_data.validate()?;
-
-    // Return both the original packet data and the acknowledgement from destination chain
-    Ok((packet_data, msg.acknowledgement.clone()))
-}
-
-/// Parse timeout data from router CPI call
-///
-/// Extracts packet data from `OnTimeoutPacketMsg` when a packet times out.
-/// This occurs when the packet was not delivered to the destination chain
-/// within the specified timeout period, and can be proven via timeout proof.
-///
-/// Note: For timeouts of outgoing packets, receiver is a Cosmos address or empty string
-pub fn parse_timeout_data_from_router_cpi(
-    msg: &solana_ibc_types::OnTimeoutPacketMsg,
-) -> Result<Box<crate::state::GMPPacketData>> {
-    // Decode original packet data that timed out
-    let proto_data = decode_gmp_packet_data(msg.payload.value.as_slice())?;
-
-    let packet_data = Box::new(crate::state::GMPPacketData {
-        client_id: msg.source_client.clone(),
-        sender: proto_data.sender,
-        receiver: proto_data.receiver, // Keep as string (Cosmos address for outgoing packets)
-        salt: proto_data.salt,
-        payload: proto_data.payload,
-        memo: proto_data.memo,
-    });
-
-    packet_data.validate()?;
-
-    Ok(packet_data)
-}
-
-/// Decode GMP packet data from protobuf payload with error logging
-fn decode_gmp_packet_data(payload: &[u8]) -> Result<crate::proto::GmpPacketData> {
-    use prost::Message;
-    crate::proto::GmpPacketData::decode(payload).map_err(|e| {
-        msg!("Failed to decode GMP packet data: {}", e);
-        GMPError::PacketDataParseError.into()
-    })
+/// Helper to convert `GMPPacketError` to program-specific errors
+pub(crate) const fn map_validation_error(
+    e: solana_ibc_types::GMPPacketError,
+) -> crate::errors::GMPError {
+    match e {
+        solana_ibc_types::GMPPacketError::DecodeError => GMPError::PacketDataParseError,
+        solana_ibc_types::GMPPacketError::InvalidSender => GMPError::SenderTooLong,
+        solana_ibc_types::GMPPacketError::InvalidSalt => GMPError::SaltTooLong,
+        solana_ibc_types::GMPPacketError::EmptyPayload => GMPError::EmptyPayload,
+        solana_ibc_types::GMPPacketError::PayloadTooLong => GMPError::PayloadTooLong,
+        solana_ibc_types::GMPPacketError::MemoTooLong => GMPError::MemoTooLong,
+    }
 }

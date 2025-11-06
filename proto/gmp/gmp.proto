@@ -17,7 +17,7 @@ message GMPPacketData {
     bytes salt = 3;
 
     // Protobuf-encoded execution payload
-    // For Solana: This contains a `SolanaInstruction`
+    // For Solana: This contains a `GMPSolanaPayload`
     bytes payload = 4;
 
     // Optional memo field
@@ -25,13 +25,8 @@ message GMPPacketData {
 }
 
 // `GMPAcknowledgement` is returned after packet execution on the destination chain
+// Matches ibc-go's Acknowledgement format
 message GMPAcknowledgement {
-    // Whether execution succeeded
-    bool success = 1;
-
-    // Result data from execution
-    bytes data = 2;
-
-    // Error message if failed
-    string error = 3;
+    // The result of the call (empty on error, or contains return data on success)
+    bytes result = 1;
 }

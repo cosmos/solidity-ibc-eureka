@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-09-18
-**Last Updated**: 2025-10-10
+**Last Updated**: 2025-11-05
 
 ## Executive Summary
 
@@ -83,7 +83,7 @@ The relayer constructs the transaction with carefully ordered accounts:
 // Account ordering (critical for proper execution):
 // [0] account_state_pda   - Relayer computes from seeds
 // [1] target_program      - Relayer extracts from GMPPacketData.receiver
-// [2+] target accounts    - Sender provides in SolanaInstruction.accounts
+// [2+] target accounts    - Sender provides in GMPSolanaPayload.accounts
 
 // The GMP program executes target with PDA as signer:
 invoke_signed(
@@ -95,7 +95,7 @@ invoke_signed(
 
 **Critical Design: Conditional Fee Payer Injection**
 
-Solana PDAs with data cannot pay for account creation. We solve this with a **configurable payer injection** mechanism controlled by the optional `payer_position` field in `SolanaInstruction`:
+Solana PDAs with data cannot pay for account creation. We solve this with a **configurable payer injection** mechanism controlled by the optional `payer_position` field in `GMPSolanaPayload`:
 
 - **`payer_position` not set**: No injection (for programs that don't create accounts, e.g., SPL Token Transfer)
 - **`payer_position = N`**: Inject at index N (0-indexed array position)
@@ -118,7 +118,7 @@ message SolanaAccountMeta {
   bool is_writable = 3;     // Will this account be modified?
 }
 
-message SolanaInstruction {
+message GMPSolanaPayload {
   bytes program_id = 1;                    // Target program to execute
   repeated SolanaAccountMeta accounts = 2; // Accounts needed by target
   bytes data = 3;                          // Instruction data
@@ -126,15 +126,17 @@ message SolanaInstruction {
 }
 
 message GMPPacketData {
-  string client_id = 1;   // Source chain identifier
-  string sender = 2;      // Original sender address
-  string receiver = 3;    // Target program ID
-  bytes salt = 4;         // Account uniqueness
-  bytes payload = 5;      // SolanaInstruction (protobuf)
+  string sender = 1;      // Original sender address
+  string receiver = 2;    // Target program ID
+  bytes salt = 3;         // Account uniqueness
+  bytes payload = 4;      // GMPSolanaPayload (protobuf)
+  string memo = 5;        // Optional memo field
 }
 ```
 
 **Key Design**: Sender provides only target-specific accounts. Relayer adds protocol accounts (account_state_pda, target_program) automatically.
+
+**Note**: The `client_id` field was removed from `GMPPacketData` as it's available in the IBC packet metadata.
 
 ### Signing Architecture: Two-Level Model
 
@@ -187,7 +189,7 @@ incrementData := []byte{
 // 2. User provides only target-specific accounts
 // Note: payer_position = 3 tells GMP program to inject relayer at index 3
 payerPosition := uint32(3)
-solanaInstruction := &SolanaInstruction{
+gmpSolanaPayload := &GMPSolanaPayload{
     ProgramId: counterProgramID,
     Data:      incrementData,
     Accounts: []*SolanaAccountMeta{
@@ -204,7 +206,7 @@ solanaInstruction := &SolanaInstruction{
 msg := &MsgSendCall{
     Sender:   cosmosUser,
     Receiver: counterProgramID.String(),
-    Payload:  proto.Marshal(solanaInstruction),
+    Payload:  proto.Marshal(gmpSolanaPayload),
     Salt:     []byte{},  // Optional uniqueness
 }
 ```
@@ -217,7 +219,7 @@ The relayer automatically adds protocol accounts and handles payer injection:
 // Relayer adds protocol accounts at the beginning:
 // [0] account_state_pda - Derived: hash(client_id + cosmosUser + salt)
 // [1] target_program    - From GMPPacketData.receiver
-// [2+] user accounts    - From SolanaInstruction.accounts
+// [2+] user accounts    - From GMPSolanaPayload.accounts
 // [N] payer (injected)  - Injected at payer_position if specified
 
 let account_state_pda = derive_gmp_pda(client_id, sender, salt);
@@ -233,8 +235,8 @@ accounts.insert(1, AccountMeta {
 });
 
 // Parse payload to extract user's accounts
-let solana_instruction = SolanaInstruction::decode(gmp_packet.payload)?;
-for account in solana_instruction.accounts {
+let gmp_solana_payload = GMPSolanaPayload::decode(gmp_packet.payload)?;
+for account in gmp_solana_payload.accounts {
     accounts.push(AccountMeta {
         pubkey: Pubkey::try_from(account.pubkey)?,
         is_signer: false,  // All payload accounts are non-signers at transaction level
@@ -243,7 +245,7 @@ for account in solana_instruction.accounts {
 }
 
 // Inject payer at specified position if payer_position is set
-if let Some(position) = solana_instruction.payer_position {
+if let Some(position) = gmp_solana_payload.payer_position {
     accounts.insert(position, AccountMeta {
         pubkey: relayer_keypair.pubkey(),
         is_signer: true,   // Relayer signs to pay for rent
@@ -282,9 +284,9 @@ transferInstruction := token.NewTransferInstruction(
     ics27AccountPDA,     // Authority (will be signed by GMP)
 ).Build()
 
-// 3. Create SolanaInstruction with required accounts
+// 3. Create GMPSolanaPayload with required accounts
 // Note: PayerPosition is NOT set because SPL Transfer doesn't create accounts
-solanaInstruction := &SolanaInstruction{
+gmpSolanaPayload := &GMPSolanaPayload{
     ProgramId: SPL_TOKEN_PROGRAM_ID,
     Data:      transferInstruction.Data(),
     Accounts: []*SolanaAccountMeta{
@@ -299,7 +301,7 @@ solanaInstruction := &SolanaInstruction{
 msg := &MsgSendCall{
     Sender:   cosmosUser,
     Receiver: SPL_TOKEN_PROGRAM_ID.String(),
-    Payload:  proto.Marshal(solanaInstruction),
+    Payload:  proto.Marshal(gmpSolanaPayload),
     Salt:     userSalt,  // Same salt to get same ICS27 PDA
 }
 ```
@@ -317,7 +319,7 @@ msg := &MsgSendCall{
 // Relayer adds the same protocol accounts as before:
 // [0] account_state_pda - Derived from (client_id, cosmosUser, salt)
 // [1] spl_token_program - From GMPPacketData.receiver
-// [2+] token accounts   - From SolanaInstruction.accounts
+// [2+] token accounts   - From GMPSolanaPayload.accounts
 
 // The ICS27 PDA signs for the transfer
 invoke_signed(
@@ -408,7 +410,7 @@ fn extract_payload_accounts(
         accounts.push(account_state_pda);
 
         // Extract target program and accounts
-        let solana_instruction = SolanaInstruction::decode(gmp_packet.payload)?;
+        let gmp_solana_payload = GMPSolanaPayload::decode(gmp_packet.payload)?;
         // ... add accounts
     } else {
         // Other ports would need their own logic

@@ -15,18 +15,11 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 		return nil, fmt.Errorf("failed to peek account discriminator: %w", err)
 	}
 	switch discriminator {
-	case Account_AccountState:
-		value := new(AccountState)
+	case Account_Ics27GmpStateGmpAppState:
+		value := new(Ics27GmpStateGmpAppState)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal account as AccountState: %w", err)
-		}
-		return value, nil
-	case Account_GmpAppState:
-		value := new(GmpAppState)
-		err := value.UnmarshalWithDecoder(decoder)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal account as GmpAppState: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal account as Ics27GmpStateGmpAppState: %w", err)
 		}
 		return value, nil
 	default:
@@ -34,36 +27,19 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 	}
 }
 
-func ParseAccount_AccountState(accountData []byte) (*AccountState, error) {
+func ParseAccount_Ics27GmpStateGmpAppState(accountData []byte) (*Ics27GmpStateGmpAppState, error) {
 	decoder := binary.NewBorshDecoder(accountData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Account_AccountState {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_AccountState, binary.FormatDiscriminator(discriminator))
+	if discriminator != Account_Ics27GmpStateGmpAppState {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics27GmpStateGmpAppState, binary.FormatDiscriminator(discriminator))
 	}
-	acc := new(AccountState)
+	acc := new(Ics27GmpStateGmpAppState)
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal account of type AccountState: %w", err)
-	}
-	return acc, nil
-}
-
-func ParseAccount_GmpAppState(accountData []byte) (*GmpAppState, error) {
-	decoder := binary.NewBorshDecoder(accountData)
-	discriminator, err := decoder.ReadDiscriminator()
-	if err != nil {
-		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
-	}
-	if discriminator != Account_GmpAppState {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_GmpAppState, binary.FormatDiscriminator(discriminator))
-	}
-	acc := new(GmpAppState)
-	err = acc.UnmarshalWithDecoder(decoder)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal account of type GmpAppState: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics27GmpStateGmpAppState: %w", err)
 	}
 	return acc, nil
 }

@@ -108,6 +108,8 @@ const (
 	// SolanaGMPPortID is the port identifier for GMP (General Message Passing) application.
 	SolanaGMPPortID = "gmpport"
 
+	// Ics27Version is the ICS27 GMP protocol version.
+	Ics27Version = "ics27-2"
 	// Ics27AbiEncoding is the solidity abi encoding type for the ICS27 packets.
 	Ics27AbiEncoding = "application/x-solidity-abi"
 	// Ics27ProtobufEncoding is the protobuf encoding type for ICS27 packets (used for Solana).

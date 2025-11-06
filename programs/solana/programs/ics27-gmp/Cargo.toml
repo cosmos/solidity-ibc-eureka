@@ -28,11 +28,9 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl.workspace = true
 solana-ibc-types.workspace = true
+solana-ibc-proto.workspace = true
 solana-ibc-macros.workspace = true
-prost = { workspace = true, features = ["prost-derive"] }
-
-[build-dependencies]
-prost-build = { workspace = true }
+ics26-router = { workspace = true, features = ["cpi"] }
 
 [dev-dependencies]
 mollusk-svm.workspace = true

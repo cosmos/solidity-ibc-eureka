@@ -4,8 +4,8 @@ package solana;
 
 option go_package = "types/solana";
 
-// `SolanaInstruction` represents a Solana instruction for cross-chain execution
-message SolanaInstruction {
+// `GMPSolanaPayload` represents a Solana instruction for cross-chain execution via GMP
+message GMPSolanaPayload {
     // Target Solana program ID (32 bytes)
     bytes program_id = 1;
 

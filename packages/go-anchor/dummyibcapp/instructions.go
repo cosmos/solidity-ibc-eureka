@@ -57,126 +57,31 @@ func NewInitializeInstruction(
 	), nil
 }
 
-// Builds a "on_acknowledgement_packet" instruction.
-// Handle packet acknowledgement
-func NewOnAcknowledgementPacketInstruction(
+// Builds a "send_transfer" instruction.
+// Send a transfer packet via IBC
+func NewSendTransferInstruction(
 	// Params:
-	msgParam OnAcknowledgementPacketMsg,
+	msgParam DummyIbcAppInstructionsSendTransferSendTransferMsg,
 
 	// Accounts:
 	appStateAccount solanago.PublicKey,
-	routerProgramAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
-	systemProgramAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_OnAcknowledgementPacket[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `msgParam`:
-		err = enc__.Encode(msgParam)
-		if err != nil {
-			return nil, errors.NewField("msgParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "app_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "router_program": Read-only, Non-signer, Required
-		// The IBC router program that's calling us
-		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 2 "payer": Writable, Signer, Required
-		// Payer for account creation if needed
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 3 "system_program": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
-// Builds a "on_recv_packet" instruction.
-// Handle incoming packet // Returns acknowledgement data via `set_return_data`
-func NewOnRecvPacketInstruction(
-	// Params:
-	msgParam OnRecvPacketMsg,
-
-	// Accounts:
-	appStateAccount solanago.PublicKey,
-	routerProgramAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
-	systemProgramAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_OnRecvPacket[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `msgParam`:
-		err = enc__.Encode(msgParam)
-		if err != nil {
-			return nil, errors.NewField("msgParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "app_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "router_program": Read-only, Non-signer, Required
-		// The IBC router program that's calling us
-		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 2 "payer": Writable, Signer, Required
-		// Payer for account creation if needed
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 3 "system_program": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
-// Builds a "on_timeout_packet" instruction.
-// Handle packet timeout
-func NewOnTimeoutPacketInstruction(
-	// Params:
-	msgParam OnTimeoutPacketMsg,
-
-	// Accounts:
-	appStateAccount solanago.PublicKey,
-	routerProgramAccount solanago.PublicKey,
+	userAccount solanago.PublicKey,
 	escrowAccountAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
+	escrowStateAccount solanago.PublicKey,
+	routerStateAccount solanago.PublicKey,
+	ibcAppAccount solanago.PublicKey,
+	clientSequenceAccount solanago.PublicKey,
+	packetCommitmentAccount solanago.PublicKey,
+	clientAccount solanago.PublicKey,
+	routerProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	routerCallerAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_OnTimeoutPacket[:], false)
+	err := enc__.WriteBytes(Instruction_SendTransfer[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
@@ -193,17 +98,34 @@ func NewOnTimeoutPacketInstruction(
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "router_program": Read-only, Non-signer, Required
-		// The IBC router program that's calling us
-		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 2 "escrow_account": Writable, Non-signer, Optional
-		// Escrow account that holds SOL (funds remain in escrow on timeout)
+		// Account 1 "user": Writable, Signer, Required
+		// User sending the transfer
+		accounts__.Append(solanago.NewAccountMeta(userAccount, true, true))
+		// Account 2 "escrow_account": Writable, Non-signer, Required
+		// Escrow account to hold SOL during transfer
 		accounts__.Append(solanago.NewAccountMeta(escrowAccountAccount, true, false))
-		// Account 3 "payer": Writable, Signer, Required
-		// Payer for account creation if needed
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Account 3 "escrow_state": Writable, Non-signer, Required
+		// Optional escrow state to track transfers (created if needed)
+		accounts__.Append(solanago.NewAccountMeta(escrowStateAccount, true, false))
+		// Account 4 "router_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
+		// Account 5 "ibc_app": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
+		// Account 6 "client_sequence": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
+		// Account 7 "packet_commitment": Writable, Non-signer, Required
+		// Will be created by the router
+		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
+		// Account 8 "client": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
+		// Account 9 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
+		// Router program for CPI
+		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
+		// Account 10 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 11 "router_caller": Read-only, Non-signer, Required
+		// PDA that acts as the router caller for CPI calls to the IBC router.
+		accounts__.Append(solanago.NewAccountMeta(routerCallerAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -218,7 +140,7 @@ func NewOnTimeoutPacketInstruction(
 // Send an arbitrary packet via IBC
 func NewSendPacketInstruction(
 	// Params:
-	msgParam SendPacketMsg,
+	msgParam DummyIbcAppInstructionsSendPacketSendPacketMsg,
 
 	// Accounts:
 	appStateAccount solanago.PublicKey,
@@ -285,31 +207,24 @@ func NewSendPacketInstruction(
 	), nil
 }
 
-// Builds a "send_transfer" instruction.
-// Send a transfer packet via IBC
-func NewSendTransferInstruction(
+// Builds a "on_recv_packet" instruction.
+// Handle incoming packet // Returns acknowledgement data via `set_return_data`
+func NewOnRecvPacketInstruction(
 	// Params:
-	msgParam SendTransferMsg,
+	msgParam SolanaIbcTypesAppMsgsOnRecvPacketMsg,
 
 	// Accounts:
 	appStateAccount solanago.PublicKey,
-	userAccount solanago.PublicKey,
-	escrowAccountAccount solanago.PublicKey,
-	escrowStateAccount solanago.PublicKey,
-	routerStateAccount solanago.PublicKey,
-	ibcAppAccount solanago.PublicKey,
-	clientSequenceAccount solanago.PublicKey,
-	packetCommitmentAccount solanago.PublicKey,
-	clientAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
+	instructionSysvarAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
-	routerCallerAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_SendTransfer[:], false)
+	err := enc__.WriteBytes(Instruction_OnRecvPacket[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
@@ -326,34 +241,131 @@ func NewSendTransferInstruction(
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "user": Writable, Signer, Required
-		// User sending the transfer
-		accounts__.Append(solanago.NewAccountMeta(userAccount, true, true))
-		// Account 2 "escrow_account": Writable, Non-signer, Required
-		// Escrow account to hold SOL during transfer
-		accounts__.Append(solanago.NewAccountMeta(escrowAccountAccount, true, false))
-		// Account 3 "escrow_state": Writable, Non-signer, Required
-		// Optional escrow state to track transfers (created if needed)
-		accounts__.Append(solanago.NewAccountMeta(escrowStateAccount, true, false))
-		// Account 4 "router_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
-		// Account 5 "ibc_app": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
-		// Account 6 "client_sequence": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
-		// Account 7 "packet_commitment": Writable, Non-signer, Required
-		// Will be created by the router
-		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
-		// Account 8 "client": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 9 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
-		// Router program for CPI
+		// Account 1 "router_program": Read-only, Non-signer, Required
+		// The IBC router program that's calling us
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 10 "system_program": Read-only, Non-signer, Required
+		// Account 2 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
+		// Account 3 "payer": Writable, Signer, Required
+		// Payer for account creation if needed
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 4 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 11 "router_caller": Read-only, Non-signer, Required
-		// PDA that acts as the router caller for CPI calls to the IBC router.
-		accounts__.Append(solanago.NewAccountMeta(routerCallerAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "on_acknowledgement_packet" instruction.
+// Handle packet acknowledgement
+func NewOnAcknowledgementPacketInstruction(
+	// Params:
+	msgParam SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg,
+
+	// Accounts:
+	appStateAccount solanago.PublicKey,
+	routerProgramAccount solanago.PublicKey,
+	instructionSysvarAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_OnAcknowledgementPacket[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "router_program": Read-only, Non-signer, Required
+		// The IBC router program that's calling us
+		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
+		// Account 2 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
+		// Account 3 "payer": Writable, Signer, Required
+		// Payer for account creation if needed
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 4 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "on_timeout_packet" instruction.
+// Handle packet timeout
+func NewOnTimeoutPacketInstruction(
+	// Params:
+	msgParam SolanaIbcTypesAppMsgsOnTimeoutPacketMsg,
+
+	// Accounts:
+	appStateAccount solanago.PublicKey,
+	routerProgramAccount solanago.PublicKey,
+	instructionSysvarAccount solanago.PublicKey,
+	escrowAccountAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_OnTimeoutPacket[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "router_program": Read-only, Non-signer, Required
+		// The IBC router program that's calling us
+		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
+		// Account 2 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
+		// Account 3 "escrow_account": Writable, Non-signer, Optional
+		// Escrow account that holds SOL (funds remain in escrow on timeout)
+		accounts__.Append(solanago.NewAccountMeta(escrowAccountAccount, true, false))
+		// Account 4 "payer": Writable, Signer, Required
+		// Payer for account creation if needed
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 5 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
 	// Create the instruction.

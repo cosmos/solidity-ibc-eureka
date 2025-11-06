@@ -65,8 +65,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
 
     // Check if app_caller is authorized - it must be a PDA derived from the registered program
     // (since program IDs cannot sign transactions in Solana)
-    let (expected_pda, _) =
-        Pubkey::find_program_address(&[b"router_caller"], &ibc_app.app_program_id);
+    let (expected_pda, _) = solana_ibc_types::RouterCaller::pda(&ibc_app.app_program_id);
 
     require!(
         ctx.accounts.app_caller.key() == expected_pda,
@@ -159,8 +158,7 @@ mod tests {
     fn setup_send_packet_test_with_params(params: SendPacketTestParams) -> SendPacketTestContext {
         let authority = Pubkey::new_unique();
         let app_program_id = params.app_program_id.unwrap_or_else(Pubkey::new_unique);
-        let (default_app_caller, _) =
-            Pubkey::find_program_address(&[b"router_caller"], &app_program_id);
+        let (default_app_caller, _) = solana_ibc_types::RouterCaller::pda(&app_program_id);
         let app_caller = params.unauthorized_app_caller.unwrap_or(default_app_caller);
         let payer = app_caller;
 
@@ -398,8 +396,7 @@ mod tests {
         // Test that two different clients have independent sequence counters
         let authority = Pubkey::new_unique();
         let app_program_id = Pubkey::new_unique();
-        let (app_caller_pda, _) =
-            Pubkey::find_program_address(&[b"router_caller"], &app_program_id);
+        let (app_caller_pda, _) = solana_ibc_types::RouterCaller::pda(&app_program_id);
         let port_id = "test-port";
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);

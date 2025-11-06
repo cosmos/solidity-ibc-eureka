@@ -43,6 +43,7 @@ func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPo
 	return []solana.PublicKey{
 		solana.SystemProgramID,
 		ComputeBudgetProgramID(),
+		solana.SysVarInstructionsPubkey,
 		ics26_router.ProgramID,
 		ics07_tendermint.ProgramID,
 		ics27_gmp.ProgramID,

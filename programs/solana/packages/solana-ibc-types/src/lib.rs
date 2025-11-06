@@ -21,12 +21,15 @@ pub use router::{
     router_instructions, AccountVersion, Client, ClientAccount, ClientSequence, Commitment,
     CounterpartyInfo, IBCApp, IBCAppState, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket,
     MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet, PayloadChunk, PayloadMetadata,
-    ProofChunk, ProofMetadata, RouterState, MAX_CLIENT_ID_LENGTH,
+    ProofChunk, ProofMetadata, RouterCaller, RouterState, MAX_CLIENT_ID_LENGTH,
 };
 
 pub use ics07::{ics07_instructions, ClientState, ConsensusState, IbcHeight, UpdateClientMsg};
 
-pub use ics27::{GMPAppState, GmpAccountState};
+pub use ics27::{
+    ClientId, GMPAccount, GMPAccountError, GMPAppState, GMPPacketError, Salt, Sender, SignerSeeds,
+    ValidateGmpPacketData, ValidatedGmpPacketData, MAX_MEMO_LENGTH, MAX_PAYLOAD_LENGTH,
+};
 
 pub use events::{
     AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded, NoopEvent, SendPacketEvent,

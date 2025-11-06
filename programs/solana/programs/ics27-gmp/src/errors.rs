@@ -36,6 +36,9 @@ pub enum GMPError {
     #[msg("Insufficient accounts provided")]
     InsufficientAccounts,
 
+    #[msg("Account count mismatch")]
+    AccountCountMismatch,
+
     #[msg("Account key mismatch")]
     AccountKeyMismatch,
 
@@ -59,6 +62,12 @@ pub enum GMPError {
 
     #[msg("Unauthorized router calling")]
     UnauthorizedRouter,
+
+    #[msg("Direct calls not allowed, must be called via CPI from router")]
+    DirectCallNotAllowed,
+
+    #[msg("Invalid sysvar account provided")]
+    InvalidSysvar,
 
     #[msg("Port ID too long")]
     PortIdTooLong,
@@ -128,4 +137,42 @@ pub enum GMPError {
 
     #[msg("Failed to parse sequence from router account")]
     SequenceParseError,
+}
+
+/// Convert GMP account errors to GMP errors
+impl From<solana_ibc_types::GMPAccountError> for GMPError {
+    fn from(err: solana_ibc_types::GMPAccountError) -> Self {
+        match err {
+            solana_ibc_types::GMPAccountError::ClientIdTooLong => Self::ClientIdTooLong,
+            solana_ibc_types::GMPAccountError::SenderTooLong => Self::SenderTooLong,
+            solana_ibc_types::GMPAccountError::SaltTooLong => Self::SaltTooLong,
+        }
+    }
+}
+
+/// Convert GMP packet errors to GMP errors
+impl From<solana_ibc_types::GMPPacketError> for GMPError {
+    fn from(err: solana_ibc_types::GMPPacketError) -> Self {
+        match err {
+            solana_ibc_types::GMPPacketError::InvalidSalt => Self::SaltTooLong,
+            solana_ibc_types::GMPPacketError::EmptyPayload => Self::EmptyPayload,
+            solana_ibc_types::GMPPacketError::PayloadTooLong => Self::PayloadTooLong,
+            solana_ibc_types::GMPPacketError::MemoTooLong => Self::MemoTooLong,
+            solana_ibc_types::GMPPacketError::InvalidSender
+            | solana_ibc_types::GMPPacketError::DecodeError => Self::InvalidPacketData,
+        }
+    }
+}
+
+/// Convert GMP validation errors to GMP errors
+impl From<solana_ibc_proto::GmpValidationError> for GMPError {
+    fn from(err: solana_ibc_proto::GmpValidationError) -> Self {
+        match err {
+            solana_ibc_proto::GmpValidationError::DecodeError => Self::InvalidExecutionPayload,
+            solana_ibc_proto::GmpValidationError::InvalidProgramId => Self::InvalidProgramId,
+            solana_ibc_proto::GmpValidationError::EmptyPayload => Self::EmptyPayload,
+            solana_ibc_proto::GmpValidationError::TooManyAccounts => Self::TooManyAccounts,
+            solana_ibc_proto::GmpValidationError::InvalidAccountKey => Self::InvalidAccountKey,
+        }
+    }
 }

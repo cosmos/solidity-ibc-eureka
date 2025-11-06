@@ -7,7 +7,9 @@ members = [
   "programs/mock-light-client",
   "programs/mock-ibc-app",
   "programs/dummy-ibc-app",
+  "programs/malicious-caller",
   "packages/solana-ibc-types",
+  "packages/solana-ibc-proto",
   "packages/ics25-handler",
   "packages/solana-ibc-constants", "packages/solana-ibc-macros",
 ]
@@ -73,6 +75,7 @@ tendermint-light-client-membership = { path = "../../packages/tendermint-light-c
 tendermint-light-client-misbehaviour = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false }
 tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-light-client/uc-and-membership", default-features = false }
 solana-ibc-types = { path = "./packages/solana-ibc-types", default-features = false }
+solana-ibc-proto = { path = "./packages/solana-ibc-proto", default-features = false }
 ics25-handler = { path = "./packages/ics25-handler", default-features = false }
 solana-ibc-constants = { path = "./packages/solana-ibc-constants", default-features = false }
 solana-ibc-macros = { path = "./packages/solana-ibc-macros" }

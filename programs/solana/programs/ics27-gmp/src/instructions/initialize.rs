@@ -1,11 +1,10 @@
 use crate::constants::*;
 use crate::events::{GMPAppInitialized, RouterCallerCreated};
-use crate::state::GMPAppState;
+use crate::state::{AccountVersion, GMPAppState};
 use anchor_lang::prelude::*;
 
 /// Initialize the ICS27 GMP application
 #[derive(Accounts)]
-#[instruction(router_program: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,
@@ -22,7 +21,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8,
-        seeds = [b"router_caller"],
+        seeds = [solana_ibc_types::RouterCaller::SEED],
         bump,
     )]
     pub router_caller: AccountInfo<'info>,
@@ -34,20 +33,20 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn initialize(ctx: Context<Initialize>, router_program: Pubkey) -> Result<()> {
+pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
     let app_state = &mut ctx.accounts.app_state;
     let clock = Clock::get()?;
 
     // Initialize app state
-    app_state.router_program = router_program;
+    app_state.version = AccountVersion::V1;
     app_state.authority = ctx.accounts.authority.key();
-    app_state.version = 1;
     app_state.paused = false;
     app_state.bump = ctx.bumps.app_state;
+    app_state._reserved = [0; 256];
 
     // Emit initialization events
     emit!(GMPAppInitialized {
-        router_program,
+        router_program: ics26_router::ID,
         authority: app_state.authority,
         port_id: GMP_PORT_ID.to_string(),
         timestamp: clock.unix_timestamp,
@@ -60,7 +59,7 @@ pub fn initialize(ctx: Context<Initialize>, router_program: Pubkey) -> Result<()
 
     msg!(
         "ICS27 GMP app initialized with router: {}, port_id: {}, router_caller: {}",
-        router_program,
+        ics26_router::ID,
         GMP_PORT_ID,
         ctx.accounts.router_caller.key()
     );
@@ -82,9 +81,8 @@ mod tests {
         router_caller: Pubkey,
         payer: Pubkey,
         authority: Pubkey,
-        router_program: Pubkey,
     ) -> Instruction {
-        let instruction_data = crate::instruction::Initialize { router_program };
+        let instruction_data = crate::instruction::Initialize {};
 
         Instruction {
             program_id: crate::ID,
@@ -103,20 +101,14 @@ mod tests {
     fn test_initialize_success() {
         let authority = Pubkey::new_unique();
         let payer = authority;
-        let router_program = Pubkey::new_unique();
 
         let (app_state_pda, _) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
+        let (router_caller_pda, _) = solana_ibc_types::RouterCaller::pda(&crate::ID);
 
-        let instruction = create_initialize_instruction(
-            app_state_pda,
-            router_caller_pda,
-            payer,
-            authority,
-            router_program,
-        );
+        let instruction =
+            create_initialize_instruction(app_state_pda, router_caller_pda, payer, authority);
 
         let accounts = vec![
             (app_state_pda, solana_sdk::account::Account::default()),
@@ -154,20 +146,14 @@ mod tests {
     fn test_initialize_already_initialized() {
         let authority = Pubkey::new_unique();
         let payer = authority;
-        let router_program = Pubkey::new_unique();
 
         let (app_state_pda, _) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
+        let (router_caller_pda, _) = solana_ibc_types::RouterCaller::pda(&crate::ID);
 
-        let instruction = create_initialize_instruction(
-            app_state_pda,
-            router_caller_pda,
-            payer,
-            authority,
-            router_program,
-        );
+        let instruction =
+            create_initialize_instruction(app_state_pda, router_caller_pda, payer, authority);
 
         // Create accounts that are already initialized (owned by program, not system)
         let accounts = vec![

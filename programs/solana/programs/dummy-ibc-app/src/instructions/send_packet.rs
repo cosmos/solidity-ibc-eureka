@@ -83,7 +83,7 @@ pub struct SendPacket<'info> {
 
     /// PDA that acts as the router caller for CPI calls to the IBC router.
     #[account(
-        seeds = [DummyIbcAppState::ROUTER_CALLER_SEED],
+        seeds = [solana_ibc_types::RouterCaller::SEED],
         bump
     )]
     pub router_caller: SystemAccount<'info>,
@@ -127,7 +127,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
 
     // Create PDA signer for CPI call
     let seeds = &[
-        DummyIbcAppState::ROUTER_CALLER_SEED,
+        solana_ibc_types::RouterCaller::SEED,
         &[ctx.bumps.router_caller],
     ];
     let signer_seeds = &[&seeds[..]];

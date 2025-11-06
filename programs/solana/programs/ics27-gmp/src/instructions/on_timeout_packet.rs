@@ -1,7 +1,6 @@
 use crate::constants::*;
-use crate::errors::GMPError;
-use crate::events::GMPTimeoutProcessed;
 use crate::state::GMPAppState;
+use crate::utils::validate_cpi_caller;
 use anchor_lang::prelude::*;
 
 /// Process IBC packet timeout (called by router via CPI)
@@ -16,72 +15,101 @@ pub struct OnTimeoutPacket<'info> {
     pub app_state: Account<'info, GMPAppState>,
 
     /// Router program calling this instruction
-    /// CHECK: Validated in handler
-    pub router_program: UncheckedAccount<'info>,
+    pub router_program: Program<'info, ics26_router::program::Ics26Router>,
+
+    /// Instructions sysvar for validating CPI caller
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instruction_sysvar: AccountInfo<'info>,
 
     /// Relayer fee payer (passed by router but not used in timeout handler)
-    /// CHECK: Router always passes this account
     #[account(mut)]
-    pub payer: UncheckedAccount<'info>,
+    pub payer: Signer<'info>,
 
-    /// CHECK: System program (passed by router but not used in timeout handler)
-    pub system_program: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 pub fn on_timeout_packet(
     ctx: Context<OnTimeoutPacket>,
-    msg: solana_ibc_types::OnTimeoutPacketMsg,
+    _msg: solana_ibc_types::OnTimeoutPacketMsg,
 ) -> Result<()> {
-    let clock = Clock::get()?;
     let app_state = &ctx.accounts.app_state;
 
-    // Validate router program
-    require!(
-        ctx.accounts.router_program.key() == app_state.router_program,
-        GMPError::UnauthorizedRouter
-    );
+    // Verify this function is called via CPI from the authorized router
+    validate_cpi_caller(
+        &ctx.accounts.instruction_sysvar,
+        &ctx.accounts.router_program.key(),
+    )?;
 
+    // TODO: validate via account constraints
     // Check if app is operational
     app_state.can_operate()?;
-
-    // Parse packet data from router message
-    let packet_data = crate::router_cpi::parse_timeout_data_from_router_cpi(&msg)?;
-    let sequence = msg.sequence;
-
-    // Validate packet data
-    packet_data.validate()?;
-
-    // Convert cross-chain sender address to deterministic Solana pubkey
-    let sender = crate::utils::derive_pubkey_from_address(&packet_data.sender)?;
-
-    emit!(GMPTimeoutProcessed {
-        sender,
-        sequence,
-        timeout_info: format!("timestamp:{}", clock.unix_timestamp),
-        timestamp: clock.unix_timestamp,
-    });
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::constants::GMP_PORT_ID;
+    use crate::constants::{GMP_PORT_ID, ICS27_ENCODING, ICS27_VERSION};
     use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
+    use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
+    use solana_sdk::program_error::ProgramError;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
     };
 
+    fn create_test_timeout_msg() -> solana_ibc_types::OnTimeoutPacketMsg {
+        solana_ibc_types::OnTimeoutPacketMsg {
+            source_client: "cosmoshub-1".to_string(),
+            dest_client: "solana-1".to_string(),
+            sequence: 1,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
+                value: vec![],
+            },
+            relayer: Pubkey::new_unique(),
+        }
+    }
+
+    fn create_timeout_instruction(
+        app_state_pda: Pubkey,
+        router_program: Pubkey,
+        payer: Pubkey,
+    ) -> Instruction {
+        let instruction_data = crate::instruction::OnTimeoutPacket {
+            msg: create_test_timeout_msg(),
+        };
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        }
+    }
+
     #[test]
     fn test_on_timeout_packet_app_paused() {
+        use crate::test_utils::ANCHOR_ERROR_OFFSET;
+        use mollusk_svm::result::Check;
+        use solana_sdk::program_error::ProgramError;
+
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
+        let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
@@ -93,8 +121,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: vec![],
             },
             relayer: Pubkey::new_unique(),
@@ -107,6 +135,7 @@ mod tests {
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
                 AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
             ],
@@ -116,79 +145,21 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 app_state_pda,
-                router_program,
                 authority,
                 app_state_bump,
                 true, // paused
             ),
             create_router_program_account(router_program),
+            create_instructions_sysvar_account_with_caller(router_program),
             create_authority_account(payer),
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnTimeoutPacket should fail when app is paused"
-        );
-    }
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::AppPaused as u32,
+        ))];
 
-    #[test]
-    fn test_on_timeout_packet_unauthorized_router() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let wrong_router = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
-
-        let timeout_msg = solana_ibc_types::OnTimeoutPacketMsg {
-            source_client: "cosmoshub-1".to_string(),
-            dest_client: "solana-1".to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
-                value: vec![],
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction_data = crate::instruction::OnTimeoutPacket { msg: timeout_msg };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(wrong_router, false),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
-                false, // not paused
-            ),
-            create_router_program_account(wrong_router),
-            create_authority_account(payer),
-            create_system_program_account(),
-        ];
-
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnTimeoutPacket should fail with unauthorized router"
-        );
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[test]
@@ -196,7 +167,7 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
+        let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let port_id = "gmpport".to_string();
 
@@ -213,8 +184,8 @@ mod tests {
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
                 value: vec![],
             },
             relayer: Pubkey::new_unique(),
@@ -227,6 +198,7 @@ mod tests {
             accounts: vec![
                 AccountMeta::new_readonly(wrong_app_state_pda, false), // Wrong PDA!
                 AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
             ],
@@ -238,78 +210,74 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 wrong_app_state_pda,
-                router_program,
                 authority,
                 wrong_bump,
                 false, // not paused
             ),
             create_router_program_account(router_program),
+            create_instructions_sysvar_account_with_caller(router_program),
             create_authority_account(payer),
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnTimeoutPacket should fail with invalid app_state PDA"
-        );
+        // Anchor ConstraintSeeds error (2006)
+        let checks = vec![Check::err(ProgramError::Custom(2006))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[test]
-    fn test_on_timeout_packet_invalid_packet_data() {
+    fn test_on_timeout_packet_direct_call_rejected() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
+        let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        // Create timeout message with invalid packet data in payload.value
-        let timeout_msg = solana_ibc_types::OnTimeoutPacketMsg {
-            source_client: "cosmoshub-1".to_string(),
-            dest_client: "solana-1".to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: "gmp-1".to_string(),
-                encoding: "proto3".to_string(),
-                value: vec![0xFF, 0xFF, 0xFF], // Invalid/malformed packet data!
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction_data = crate::instruction::OnTimeoutPacket { msg: timeout_msg };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
+        let instruction = create_timeout_instruction(app_state_pda, router_program, payer);
 
         let accounts = vec![
-            create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
-                false, // not paused
-            ),
+            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
             create_router_program_account(router_program),
+            create_instructions_sysvar_account_with_caller(crate::ID), // Direct call
             create_authority_account(payer),
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnTimeoutPacket should fail with invalid/malformed packet data"
-        );
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::DirectCallNotAllowed as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_on_timeout_packet_unauthorized_router() {
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let authority = Pubkey::new_unique();
+        let router_program = ics26_router::ID;
+        let payer = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+
+        let instruction = create_timeout_instruction(app_state_pda, router_program, payer);
+
+        let unauthorized_program = Pubkey::new_unique();
+        let accounts = vec![
+            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
+            create_router_program_account(router_program),
+            create_instructions_sysvar_account_with_caller(unauthorized_program), // Unauthorized
+            create_authority_account(payer),
+            create_system_program_account(),
+        ];
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::UnauthorizedRouter as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }

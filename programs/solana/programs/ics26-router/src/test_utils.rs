@@ -213,6 +213,45 @@ pub fn create_clock_account_with_data(
     )
 }
 
+pub fn create_instructions_sysvar_account() -> (Pubkey, solana_sdk::account::Account) {
+    use solana_sdk::sysvar::instructions::{
+        construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
+    };
+
+    // Create minimal mock instructions to simulate router calling IBC app via CPI
+    // For CPI validation, only the program_id matters - GMP apps check that
+    // the calling instruction's program_id matches their authorized router
+    //
+    // Instruction 0: The router instruction (current when router executes)
+    // This simulates the top-level recv_packet/ack_packet/timeout_packet call
+    let account_pubkey = Pubkey::new_unique();
+    let account = BorrowedAccountMeta {
+        pubkey: &account_pubkey,
+        is_signer: false,
+        is_writable: true,
+    };
+    let mock_router_ix = BorrowedInstruction {
+        program_id: &crate::ID,
+        accounts: vec![account],
+        data: &[],
+    };
+
+    // Serialize instructions for sysvar
+    // When GMP apps check the sysvar during CPI, they'll see the router as the caller
+    let ixs_data = construct_instructions_data(&[mock_router_ix]);
+
+    (
+        solana_sdk::sysvar::instructions::ID,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: ixs_data,
+            owner: solana_sdk::sysvar::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 pub fn create_account(
     pubkey: Pubkey,
     data: Vec<u8>,

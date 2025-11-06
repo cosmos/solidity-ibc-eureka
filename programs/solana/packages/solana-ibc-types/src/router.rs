@@ -361,3 +361,17 @@ impl ProofChunk {
         )
     }
 }
+
+/// Router caller PDA utilities
+///
+/// IBC applications use a PDA to authenticate themselves when making CPI calls to the router.
+pub struct RouterCaller;
+
+impl RouterCaller {
+    pub const SEED: &'static [u8] = b"router_caller";
+
+    /// Derive the router caller PDA for a given IBC application program
+    pub fn pda(app_program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[Self::SEED], app_program_id)
+    }
+}
