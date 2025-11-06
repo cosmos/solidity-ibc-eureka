@@ -42,6 +42,7 @@ pub struct SendPacket<'info> {
     /// The IBC app calling this instruction
     pub app_caller: Signer<'info>,
 
+    /// Allow payer to be separate from IBC app
     #[account(mut)]
     pub payer: Signer<'info>,
 
@@ -161,6 +162,7 @@ mod tests {
         let (default_app_caller, _) =
             Pubkey::find_program_address(&[b"router_caller"], &app_program_id);
         let app_caller = params.unauthorized_app_caller.unwrap_or(default_app_caller);
+        let payer = app_caller;
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
         let (client_pda, client_data) = setup_client(
@@ -202,7 +204,8 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new(packet_commitment_pda, false),
-                AccountMeta::new(app_caller, true),
+                AccountMeta::new_readonly(app_caller, true),
+                AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda, false),
             ],
@@ -214,7 +217,8 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda),
-            create_system_account(app_caller), // app_caller is a signer
+            create_system_account(app_caller),
+            create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
         ];
@@ -454,6 +458,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda_1, false),
                 AccountMeta::new(packet_commitment_pda_1, false),
+                AccountMeta::new_readonly(app_caller_pda, true),
                 AccountMeta::new(app_caller_pda, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda_1, false),
@@ -466,6 +471,7 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data.clone(), crate::ID),
             create_account(client_sequence_pda_1, client_sequence_data_1, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_1),
+            create_system_account(app_caller_pda),
             create_system_account(app_caller_pda),
             create_program_account(system_program::ID),
             create_account(client_pda_1, client_data_1, crate::ID),
@@ -509,6 +515,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda_2, false),
                 AccountMeta::new(packet_commitment_pda_2, false),
+                AccountMeta::new_readonly(app_caller_pda, true),
                 AccountMeta::new(app_caller_pda, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda_2, false),
@@ -521,6 +528,7 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda_2, client_sequence_data_2, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_2),
+            create_system_account(app_caller_pda),
             create_system_account(app_caller_pda),
             create_program_account(system_program::ID),
             create_account(client_pda_2, client_data_2, crate::ID),
