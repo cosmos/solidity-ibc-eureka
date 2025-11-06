@@ -19,8 +19,37 @@ pub const DUMMY_IBC_APP_PROGRAM_ID: Pubkey =
 pub const MOCK_IBC_APP_PROGRAM_ID: Pubkey =
     solana_sdk::pubkey!("9qnEj3T1NsaGkN3Sj7hgJZiKrVbKVBNmVphJ6PW1PDAB");
 
-// TODO: Move to test helpers crate
+pub fn get_router_program_path() -> &'static str {
+    use std::sync::OnceLock;
+    static PATH: OnceLock<String> = OnceLock::new();
 
+    PATH.get_or_init(|| {
+        std::env::var("ROUTER_PROGRAM_PATH")
+            .unwrap_or_else(|_| "../../target/deploy/ics26_router".to_string())
+    })
+}
+
+pub fn get_mock_client_program_path() -> &'static str {
+    use std::sync::OnceLock;
+    static PATH: OnceLock<String> = OnceLock::new();
+
+    PATH.get_or_init(|| {
+        std::env::var("MOCK_CLIENT_PROGRAM_PATH")
+            .unwrap_or_else(|_| "../../target/deploy/mock_light_client".to_string())
+    })
+}
+
+pub fn get_mock_ibc_app_program_path() -> &'static str {
+    use std::sync::OnceLock;
+    static PATH: OnceLock<String> = OnceLock::new();
+
+    PATH.get_or_init(|| {
+        std::env::var("MOCK_IBC_APP_PROGRAM_PATH")
+            .unwrap_or_else(|_| "../../target/deploy/mock_ibc_app".to_string())
+    })
+}
+
+// TODO: Move to test helpers crate
 pub fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u8> {
     let mut data = T::DISCRIMINATOR.to_vec();
     account.serialize(&mut data).unwrap();
@@ -367,15 +396,15 @@ pub fn get_client_sequence_from_result_by_pubkey(
 pub fn setup_mollusk_with_mock_programs() -> mollusk_svm::Mollusk {
     use mollusk_svm::Mollusk;
 
-    let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+    let mut mollusk = Mollusk::new(&crate::ID, get_router_program_path());
     mollusk.add_program(
         &MOCK_LIGHT_CLIENT_ID,
-        crate::get_mock_client_program_path(),
+        get_mock_client_program_path(),
         &solana_sdk::bpf_loader_upgradeable::ID,
     );
     mollusk.add_program(
         &MOCK_IBC_APP_PROGRAM_ID,
-        crate::get_mock_ibc_app_program_path(),
+        get_mock_ibc_app_program_path(),
         &solana_sdk::bpf_loader_upgradeable::ID,
     );
     mollusk
@@ -387,10 +416,10 @@ pub fn setup_mollusk_with_mock_programs() -> mollusk_svm::Mollusk {
 pub fn setup_mollusk_with_light_client() -> mollusk_svm::Mollusk {
     use mollusk_svm::Mollusk;
 
-    let mut mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+    let mut mollusk = Mollusk::new(&crate::ID, get_router_program_path());
     mollusk.add_program(
         &MOCK_LIGHT_CLIENT_ID,
-        crate::get_mock_client_program_path(),
+        get_mock_client_program_path(),
         &solana_sdk::bpf_loader_upgradeable::ID,
     );
     mollusk
@@ -516,4 +545,37 @@ pub fn create_proof_chunk_account(
             rent_epoch: 0,
         },
     )
+}
+/// Assert that an instruction failed with a specific error code
+pub fn assert_error_code(
+    result: mollusk_svm::result::InstructionResult,
+    expected_error: crate::errors::RouterError,
+    test_name: &str,
+) {
+    match result.program_result {
+        mollusk_svm::result::ProgramResult::Success => {
+            panic!("Expected {test_name} to fail with {expected_error:?}, but it succeeded");
+        }
+        mollusk_svm::result::ProgramResult::Failure(error) => {
+            if let Some(code) = get_error_code(&error) {
+                let expected_code = expected_error as u32 + ANCHOR_ERROR_OFFSET;
+                assert_eq!(
+                    code, expected_code,
+                    "Expected {expected_error:?} ({expected_code}), but got error code {code}"
+                );
+            } else {
+                panic!("Expected custom error code for {test_name}, got: {error:?}");
+            }
+        }
+        mollusk_svm::result::ProgramResult::UnknownError(error) => {
+            panic!("Expected custom error for {test_name}, got unknown error: {error:?}");
+        }
+    }
+}
+
+fn get_error_code(error: &anchor_lang::prelude::ProgramError) -> Option<u32> {
+    match error {
+        anchor_lang::prelude::ProgramError::Custom(code) => Some(*code),
+        _ => None,
+    }
 }

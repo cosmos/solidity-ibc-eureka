@@ -31,6 +31,11 @@ pub fn cleanup_incomplete_upload(
         // Check if account exists and is owned by our program
         if chunk_account.owner == ctx.program_id && chunk_account.lamports() > 0 {
             // Safe to close - it's a verified chunk PDA owned by our program
+            {
+                let mut data = chunk_account.try_borrow_mut_data()?;
+                data.fill(0);
+            }
+
             let mut lamports = chunk_account.try_borrow_mut_lamports()?;
             let mut submitter_lamports =
                 ctx.accounts.submitter_account.try_borrow_mut_lamports()?;

@@ -2,19 +2,13 @@ use anchor_lang::prelude::*;
 
 // Re-export types from solana_ibc_types for use in instructions
 pub use solana_ibc_types::{
-    MsgAckPacket, MsgCleanupChunks, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk,
-    Packet, PayloadMetadata, ProofMetadata,
+    AccountVersion, ClientAccount, CounterpartyInfo, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket,
+    MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet, PayloadMetadata, ProofMetadata,
+    MAX_CLIENT_ID_LENGTH,
 };
 
 pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
-pub const MAX_CLIENT_ID_LENGTH: usize = 64;
-
-/// Account schema version
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug)]
-pub enum AccountVersion {
-    V1,
-}
 
 /// Router state account
 /// TODO: Implement multi-router ACL
@@ -54,17 +48,6 @@ impl IBCApp {
     pub const SEED: &'static [u8] = solana_ibc_types::router::IBCApp::SEED;
 }
 
-/// Counterparty chain information
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
-pub struct CounterpartyInfo {
-    /// Client ID on the counterparty chain
-    #[max_len(MAX_CLIENT_ID_LENGTH)]
-    pub client_id: String,
-    /// Merkle prefix for proof verification
-    #[max_len(8, 128)]
-    pub merkle_prefix: Vec<Vec<u8>>,
-}
-
 /// Client mapping client IDs to light client program IDs
 #[account]
 #[derive(InitSpace)]
@@ -88,6 +71,19 @@ pub struct Client {
 
 impl Client {
     pub const SEED: &'static [u8] = solana_ibc_types::Client::SEED;
+
+    /// Convert to `ClientAccount` for event emission
+    pub fn to_client_account(&self) -> ClientAccount {
+        ClientAccount {
+            version: self.version,
+            client_id: self.client_id.clone(),
+            client_program_id: self.client_program_id,
+            counterparty_info: self.counterparty_info.clone(),
+            authority: self.authority,
+            active: self.active,
+            _reserved: self._reserved,
+        }
+    }
 }
 
 /// Client sequence tracking

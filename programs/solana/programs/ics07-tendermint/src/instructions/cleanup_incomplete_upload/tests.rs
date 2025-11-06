@@ -236,7 +236,7 @@ fn test_cleanup_successful_with_rent_reclaim() {
         "submitter should receive all rent back"
     );
 
-    // Verify all chunk accounts are closed (lamports = 0)
+    // Verify all chunk accounts are closed (lamports = 0 and data zeroed)
     for chunk_pda in &test_accounts.chunk_pdas {
         let chunk_account = result
             .resulting_accounts
@@ -247,6 +247,12 @@ fn test_cleanup_successful_with_rent_reclaim() {
         assert_eq!(
             chunk_account.1.lamports, 0,
             "chunk account should be closed"
+        );
+
+        // Verify data is zeroed
+        assert!(
+            chunk_account.1.data.iter().all(|&b| b == 0),
+            "chunk account data should be zeroed"
         );
     }
 }

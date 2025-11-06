@@ -329,8 +329,7 @@ impl TxBuilder {
             AccountMeta::new_readonly(ibc_app_program_id, false), // IBC app program (e.g., ICS27 GMP)
             AccountMeta::new(ibc_app_state, false),               // IBC app state
             AccountMeta::new_readonly(self.solana_ics26_program_id, false), // router program
-            AccountMeta::new_readonly(self.fee_payer, true),      // relayer
-            AccountMeta::new(self.fee_payer, true),               // payer
+            AccountMeta::new(self.fee_payer, true),               // relayer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(client, false),
             AccountMeta::new_readonly(self.solana_ics07_program_id, false),
@@ -466,8 +465,7 @@ impl TxBuilder {
             AccountMeta::new_readonly(ibc_app_program, false),
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(self.solana_ics26_program_id, false),
-            AccountMeta::new_readonly(self.fee_payer, true),
-            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new(self.fee_payer, true), // relayer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(client, false),
             AccountMeta::new_readonly(self.solana_ics07_program_id, false),
@@ -585,8 +583,7 @@ impl TxBuilder {
             AccountMeta::new_readonly(params.ibc_app_program_id, false),
             AccountMeta::new(params.ibc_app_state, false),
             AccountMeta::new_readonly(params.router_program_id, false),
-            AccountMeta::new_readonly(params.fee_payer, true),
-            AccountMeta::new(params.fee_payer, true),
+            AccountMeta::new(params.fee_payer, true), // relayer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(params.client, false),
             AccountMeta::new_readonly(params.light_client_program_id, false),
@@ -861,8 +858,7 @@ impl TxBuilder {
             AccountMeta::new(client_state_pda, false),
             AccountMeta::new_readonly(trusted_consensus_state, false),
             AccountMeta::new(new_consensus_state, false),
-            AccountMeta::new(self.fee_payer, false), // submitter who gets rent back
-            AccountMeta::new(self.fee_payer, true),  // payer for new consensus state
+            AccountMeta::new(self.fee_payer, true), // submitter
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
@@ -1287,7 +1283,7 @@ impl TxBuilder {
                 tm_msg
                     .proof_unreceived
                     .len()
-                    .div_ceil(700) // MAX_CHUNK_SIZE
+                    .div_ceil(MAX_CHUNK_SIZE)
                     .max(1),
             )
             .context("proof too big to fit in u8")?;

@@ -24,7 +24,6 @@ func NewAckPacketInstruction(
 	ibcAppStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	relayerAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
 	lightClientProgramAccount solanago.PublicKey,
@@ -65,17 +64,15 @@ func NewAckPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
 		// Account 6 "relayer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
-		// Account 7 "payer": Writable, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 8 "system_program": Read-only, Non-signer, Required
+		// Account 7 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 9 "client": Read-only, Non-signer, Required
+		// Account 8 "client": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 10 "light_client_program": Read-only, Non-signer, Required
+		// Account 9 "light_client_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 11 "client_state": Read-only, Non-signer, Required
+		// Account 10 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 12 "consensus_state": Read-only, Non-signer, Required
+		// Account 11 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
@@ -305,7 +302,6 @@ func NewRecvPacketInstruction(
 	ibcAppStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	relayerAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
 	lightClientProgramAccount solanago.PublicKey,
@@ -350,17 +346,15 @@ func NewRecvPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
 		// Account 8 "relayer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
-		// Account 9 "payer": Writable, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 10 "system_program": Read-only, Non-signer, Required
+		// Account 9 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 11 "client": Read-only, Non-signer, Required
+		// Account 10 "client": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 12 "light_client_program": Read-only, Non-signer, Required
+		// Account 11 "light_client_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 13 "client_state": Read-only, Non-signer, Required
+		// Account 12 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 14 "consensus_state": Read-only, Non-signer, Required
+		// Account 13 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
@@ -446,7 +440,6 @@ func NewTimeoutPacketInstruction(
 	ibcAppStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	relayerAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
 	lightClientProgramAccount solanago.PublicKey,
@@ -487,17 +480,15 @@ func NewTimeoutPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
 		// Account 6 "relayer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
-		// Account 7 "payer": Writable, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 8 "system_program": Read-only, Non-signer, Required
+		// Account 7 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 9 "client": Read-only, Non-signer, Required
+		// Account 8 "client": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 10 "light_client_program": Read-only, Non-signer, Required
+		// Account 9 "light_client_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 11 "client_state": Read-only, Non-signer, Required
+		// Account 10 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 12 "consensus_state": Read-only, Non-signer, Required
+		// Account 11 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 

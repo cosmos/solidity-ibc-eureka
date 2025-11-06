@@ -1,8 +1,9 @@
 use crate::errors::RouterError;
-use crate::router_cpi::{on_recv_packet_cpi, IbcAppCpiAccounts};
-use crate::router_cpi::{verify_membership_cpi, LightClientVerification};
+use crate::router_cpi::LightClientCpi;
+use crate::router_cpi::{IbcAppCpi, IbcAppCpiAccounts};
 use crate::state::*;
-use crate::utils::{chunking, ics24};
+use crate::utils::chunking::total_payload_chunks;
+use crate::utils::{chunking, ics24, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::events::{NoopEvent, WriteAcknowledgementEvent};
@@ -28,7 +29,7 @@ pub struct RecvPacket<'info> {
 
     #[account(
         init_if_needed,
-        payer = payer,
+        payer = relayer,
         space = 8 + Commitment::INIT_SPACE,
         seeds = [
             Commitment::PACKET_RECEIPT_SEED,
@@ -41,7 +42,7 @@ pub struct RecvPacket<'info> {
 
     #[account(
         init,
-        payer = payer,
+        payer = relayer,
         space = 8 + Commitment::INIT_SPACE,
         seeds = [
             Commitment::PACKET_ACK_SEED,
@@ -69,9 +70,6 @@ pub struct RecvPacket<'info> {
 
     #[account(mut)]
     pub relayer: Signer<'info>,
-
-    #[account(mut)]
-    pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 
@@ -105,18 +103,6 @@ pub fn recv_packet<'info>(
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
-    require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
-
-    let expected_ibc_app = Pubkey::find_program_address(
-        &[IBCApp::SEED, msg.payloads[0].dest_port.as_bytes()],
-        ctx.program_id,
-    )
-    .0;
-    require!(
-        ctx.accounts.ibc_app.key() == expected_ibc_app,
-        RouterError::IbcAppNotFound
-    );
-
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
         RouterError::UnauthorizedSender
@@ -127,52 +113,54 @@ pub fn recv_packet<'info>(
         RouterError::InvalidCounterpartyClient
     );
 
+    require!(
+        msg.packet.dest_client == client.client_id,
+        RouterError::ClientMismatch
+    );
+
     let current_timestamp = clock.unix_timestamp;
     require!(
         msg.packet.timeout_timestamp > current_timestamp,
         RouterError::InvalidTimeoutTimestamp
     );
 
-    // Validate that we don't have both inline payloads AND chunked metadata
-    let has_inline_payloads = !msg.packet.payloads.is_empty();
-    let has_chunked_metadata = msg.payloads.iter().any(|p| p.total_chunks > 0);
-    require!(
-        !(has_inline_payloads && has_chunked_metadata),
-        RouterError::InvalidPayloadCount
-    );
-
-    let packet = chunking::reconstruct_packet(chunking::ReconstructPacketParams {
+    let packet = chunking::validate_and_reconstruct_packet(chunking::ReconstructPacketParams {
         packet: &msg.packet,
         payloads_metadata: &msg.payloads,
         remaining_accounts: ctx.remaining_accounts,
-        payer: &ctx.accounts.payer,
+        relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.dest_client,
         program_id: ctx.program_id,
     })?;
 
-    let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
+    let payload = packet::get_single_payload(&packet)?;
 
-    // Assemble proof from chunks (starting after payload chunks, using relayer as the chunk owner)
-    let proof_start_index = total_payload_chunks;
+    let (expected_ibc_app, _) = Pubkey::find_program_address(
+        &[IBCApp::SEED, payload.dest_port.as_bytes()],
+        ctx.program_id,
+    );
+
+    require!(
+        ctx.accounts.ibc_app.key() == expected_ibc_app,
+        RouterError::IbcAppNotFound
+    );
+
+    let total_payload_chunks = total_payload_chunks(&msg.payloads);
+
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
-        payer: &ctx.accounts.payer,
+        relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.dest_client,
         sequence: msg.packet.sequence,
         total_chunks: msg.proof.total_chunks,
         program_id: ctx.program_id,
-        start_index: proof_start_index,
+        // proof chunks come after payload chunks
+        start_index: total_payload_chunks,
     })?;
 
     // Verify packet commitment on counterparty chain via light client
-    let light_client_verification = LightClientVerification {
-        light_client_program: ctx.accounts.light_client_program.clone(),
-        client_state: ctx.accounts.client_state.clone(),
-        consensus_state: ctx.accounts.consensus_state.clone(),
-    };
-
     let commitment_path = ics24::packet_commitment_path(&packet.source_client, packet.sequence);
 
     let expected_commitment = ics24::packet_commitment_bytes32(&packet);
@@ -180,21 +168,24 @@ pub fn recv_packet<'info>(
     // Verify membership proof via CPI to light client
     let membership_msg = MembershipMsg {
         height: msg.proof.height,
-        delay_time_period: 0,
-        delay_block_period: 0,
         proof: proof_data,
-        path: vec![b"ibc".to_vec(), commitment_path],
+        path: vec![ics24::IBC_MERKLE_PREFIX.to_vec(), commitment_path],
         value: expected_commitment.to_vec(),
     };
 
-    verify_membership_cpi(client, &light_client_verification, membership_msg)?;
+    let light_client_cpi = LightClientCpi::new(client);
+    light_client_cpi.verify_membership(
+        &ctx.accounts.light_client_program,
+        &ctx.accounts.client_state,
+        &ctx.accounts.consensus_state,
+        membership_msg,
+    )?;
 
-    // Check if receipt already exists
     let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&packet);
 
-    // Check if packet was not created by anchor via init_if_needed
+    // Check if packet was not created by anchor via init_if_needed (value sets to default)
     // I.e. it was already saved before
-    if packet_receipt.value != [0u8; 32] {
+    if packet_receipt.value != [0; 32] {
         // Receipt already exists - verify it matches
         if packet_receipt.value == receipt_commitment {
             // No-op: already received with same commitment
@@ -206,13 +197,6 @@ pub fn recv_packet<'info>(
     }
 
     packet_receipt.value = receipt_commitment;
-
-    // TODO: Support multi-payload packets
-    let payload = match packet.payloads.len() {
-        0 => Err(RouterError::PacketNoPayload),
-        n if n > 1 => Err(RouterError::MultiPayloadPacketNotSupported),
-        _ => Ok(&packet.payloads[0]),
-    }?;
 
     // Calculate total chunk accounts that need to be filtered out before CPI
     // Chunk accounts are at the beginning of remaining_accounts:
@@ -234,12 +218,12 @@ pub fn recv_packet<'info>(
         ibc_app_program: ctx.accounts.ibc_app_program.clone(),
         app_state: ctx.accounts.ibc_app_state.clone(),
         router_program: ctx.accounts.router_program.clone(),
-        payer: ctx.accounts.payer.to_account_info(),
+        payer: ctx.accounts.relayer.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
-    let acknowledgement = match on_recv_packet_cpi(
-        cpi_accounts,
+    let cpi = IbcAppCpi::new(cpi_accounts);
+    let acknowledgement = match cpi.on_recv_packet(
         &packet,
         payload,
         &ctx.accounts.relayer.key(),
@@ -251,8 +235,13 @@ pub fn recv_packet<'info>(
                 RouterError::AsyncAcknowledgementNotSupported
             );
 
-            // If the app returns the universal error acknowledgement, we accept it
-            // (don't revert, just use it as the acknowledgement)
+            // Apps must not return the universal error acknowledgement
+            // The universal error ack is reserved for the router when the app callback fails
+            require!(
+                ack != ics24::UNIVERSAL_ERROR_ACK,
+                RouterError::UniversalErrorAcknowledgement
+            );
+
             ack
         }
         Err(e) => {
@@ -260,9 +249,6 @@ pub fn recv_packet<'info>(
             // In Solana, we can't easily check if it's OOG vs other errors,
             // but we do check that we got an error (not empty)
             require!(!e.to_string().is_empty(), RouterError::FailedCallback);
-
-            msg!("IBC app recv packet callback error: {:?}", e);
-
             ics24::UNIVERSAL_ERROR_ACK.to_vec()
         }
     };
@@ -301,7 +287,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
@@ -331,7 +317,7 @@ mod tests {
     fn test_recv_packet_timeout_expired() {
         let mut ctx = setup_recv_packet_test(true, -100); // Expired timeout
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         // Add Clock sysvar with current timestamp (1000) - packet timeout is 900 (expired)
         let clock_data = create_clock_data(1000);
@@ -349,7 +335,7 @@ mod tests {
     fn test_recv_packet_client_not_active() {
         let ctx = setup_recv_packet_test(false, 1000); // Inactive client
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::ClientNotActive as u32,
@@ -387,7 +373,6 @@ mod tests {
     fn setup_recv_packet_test_with_params(params: RecvPacketTestParams) -> RecvPacketTestContext {
         let authority = Pubkey::new_unique();
         let relayer = params.unauthorized_relayer.unwrap_or(authority);
-        let payer = relayer;
         let client_id = "test-client";
         let port_id = "test-port";
         let light_client_program = MOCK_LIGHT_CLIENT_ID;
@@ -484,7 +469,6 @@ mod tests {
             AccountMeta::new(ibc_app_state, false),
             AccountMeta::new_readonly(crate::ID, false), // router_program
             AccountMeta::new(relayer, true),
-            AccountMeta::new(payer, true),
             AccountMeta::new_readonly(system_program::ID, false),
             AccountMeta::new_readonly(client_pda, false),
             AccountMeta::new_readonly(light_client_program, false),
@@ -518,8 +502,7 @@ mod tests {
             create_bpf_program_account(ibc_app_program_id),
             create_account(ibc_app_state, vec![0u8; 100], ibc_app_program_id),
             create_bpf_program_account(crate::ID), // router_program
-            signer_account.clone(),                // relayer
-            signer_account,                        // payer (same account as relayer)
+            signer_account,                        // relayer
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
             create_bpf_program_account(light_client_program),
@@ -759,4 +742,211 @@ mod tests {
     // propagates CPI errors differently than real Solana runtime. In production,
     // the router would catch CPI failures and use universal error acknowledgement.
     // This behavior is covered by the implementation but not easily testable in mollusk.
+
+    #[test]
+    fn test_recv_packet_ibc_app_not_found() {
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Create a proper IBCApp account but with wrong pubkey (not the expected PDA)
+        let wrong_ibc_app = Pubkey::new_unique();
+
+        // Create proper IBCApp account data so Anchor's discriminator check passes
+        let ibc_app = IBCApp {
+            version: AccountVersion::V1,
+            port_id: "test-port".to_string(),
+            app_program_id: MOCK_IBC_APP_PROGRAM_ID,
+            authority: Pubkey::new_unique(),
+            _reserved: [0; 256],
+        };
+
+        let wrong_ibc_app_account = solana_sdk::account::Account {
+            lamports: 10_000_000,
+            data: crate::test_utils::create_account_data(&ibc_app),
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        // Find and replace the IBC app account
+        if let Some(pos) = ctx.accounts.iter().position(|(pubkey, _)| {
+            // The IBC app is at index 1 in the accounts list based on instruction_accounts setup
+            *pubkey == ctx.accounts[1].0
+        }) {
+            ctx.accounts[pos] = (wrong_ibc_app, wrong_ibc_app_account);
+
+            // Also update the instruction to use the wrong account
+            ctx.instruction.accounts[1].pubkey = wrong_ibc_app;
+        }
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::IbcAppNotFound as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_recv_packet_duplicate_ack_fails() {
+        // Test that receiving a packet fails when the packet_ack account already exists
+        // This simulates trying to process the same packet twice
+        let mut ctx = setup_recv_packet_test_with_params(RecvPacketTestParams::default());
+
+        // Replace the uninitialized packet_ack account with an already-initialized one
+        // This simulates a packet that has already been received and acknowledged
+        let existing_ack = Commitment {
+            value: [1u8; 32], // Some existing acknowledgment value
+        };
+
+        let account_size = 8 + Commitment::INIT_SPACE;
+        let mut data = vec![0u8; account_size];
+
+        // Add Anchor discriminator
+        data[0..8].copy_from_slice(Commitment::DISCRIMINATOR);
+
+        // Serialize the commitment
+        let mut cursor = std::io::Cursor::new(&mut data[8..]);
+        existing_ack.serialize(&mut cursor).unwrap();
+
+        // Find the packet_ack account (it's at index 4 in the accounts list)
+        let packet_ack_pubkey = ctx.instruction.accounts[4].pubkey;
+        let ack_index = ctx
+            .accounts
+            .iter()
+            .position(|(pubkey, _)| *pubkey == packet_ack_pubkey)
+            .unwrap();
+
+        ctx.accounts[ack_index] = (
+            packet_ack_pubkey,
+            solana_sdk::account::Account {
+                lamports: Rent::default().minimum_balance(account_size),
+                data,
+                owner: crate::ID, // Owned by our program (already initialized)
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        // This should fail because packet_ack account already exists
+        // The `init` constraint will fail with Anchor's "account already in use" error
+        let error_checks = vec![Check::err(ProgramError::Custom(0))]; // Anchor error code 0
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &error_checks);
+    }
+
+    #[test]
+    fn test_recv_packet_zero_payloads() {
+        // Test that packet with zero payloads fails
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Modify the instruction to have zero payloads
+        let msg = MsgRecvPacket {
+            packet: ctx.packet.clone(),
+            payloads: vec![], // No metadata, and packet.payloads is also empty
+            proof: ProofMetadata {
+                height: 100,
+                total_chunks: 1,
+            },
+        };
+
+        ctx.instruction.data = crate::instruction::RecvPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_recv_packet_multiple_payloads() {
+        // Test that packet with multiple inline payloads fails
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Create a packet with 2 inline payloads
+        let payload1 = solana_ibc_types::Payload {
+            source_port: "source-port-1".to_string(),
+            dest_port: "test-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            value: b"data1".to_vec(),
+        };
+
+        let payload2 = solana_ibc_types::Payload {
+            source_port: "source-port-2".to_string(),
+            dest_port: "test-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            value: b"data2".to_vec(),
+        };
+
+        ctx.packet.payloads = vec![payload1, payload2];
+
+        let msg = MsgRecvPacket {
+            packet: ctx.packet.clone(),
+            payloads: vec![], // No chunked metadata
+            proof: ProofMetadata {
+                height: 100,
+                total_chunks: 1,
+            },
+        };
+
+        ctx.instruction.data = crate::instruction::RecvPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_recv_packet_conflicting_inline_and_chunked() {
+        // Test that packet with both inline payloads AND chunked metadata fails
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Add inline payload to packet
+        let payload = solana_ibc_types::Payload {
+            source_port: "source-port".to_string(),
+            dest_port: "test-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            value: b"inline data".to_vec(),
+        };
+
+        ctx.packet.payloads = vec![payload];
+
+        // Also provide chunked metadata (conflicting!)
+        let msg = MsgRecvPacket {
+            packet: ctx.packet.clone(),
+            payloads: vec![PayloadMetadata {
+                source_port: "source-port".to_string(),
+                dest_port: "test-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                total_chunks: 1, // This conflicts with inline payload above
+            }],
+            proof: ProofMetadata {
+                height: 100,
+                total_chunks: 1,
+            },
+        };
+
+        ctx.instruction.data = crate::instruction::RecvPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
 }

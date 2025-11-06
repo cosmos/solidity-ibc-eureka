@@ -39,6 +39,7 @@ pub fn extract_gmp_accounts(
     };
 
     // Derive account_state PDA
+    // TODO: can we change this? this index 5 makes refactoring quite difficult
     let ibc_app_program_id = accounts
         .get(5)
         .map(|acc| acc.pubkey)
