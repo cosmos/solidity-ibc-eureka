@@ -28,7 +28,7 @@ pub struct SendPacket<'info> {
 
     #[account(
         init,
-        payer = app_caller,
+        payer = payer,
         space = 8 + Commitment::INIT_SPACE,
         seeds = [
             Commitment::PACKET_COMMITMENT_SEED,
@@ -40,8 +40,10 @@ pub struct SendPacket<'info> {
     pub packet_commitment: Account<'info, Commitment>,
 
     /// The IBC app calling this instruction
-    #[account(mut)]
     pub app_caller: Signer<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 
