@@ -16,7 +16,7 @@ pub use types::{
     ClientState, ConsensusState, IbcHeight, MisbehaviourMsg, UpdateResult, UploadChunkParams,
 };
 
-pub use ics25_handler::MembershipMsg;
+pub use ics25_handler::{MembershipMsg, NonMembershipMsg};
 
 #[derive(Accounts)]
 #[instruction(chain_id: String, latest_height: u64, client_state: ClientState)]
@@ -44,14 +44,24 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(msg: ics25_handler::MembershipMsg)]
 pub struct VerifyMembership<'info> {
     pub client_state: Account<'info, ClientState>,
+    #[account(
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
+        bump
+    )]
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
 }
 
 #[derive(Accounts)]
+#[instruction(msg: ics25_handler::NonMembershipMsg)]
 pub struct VerifyNonMembership<'info> {
     pub client_state: Account<'info, ClientState>,
+    #[account(
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
+        bump
+    )]
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
 }
 
@@ -106,21 +116,18 @@ pub struct AssembleAndUpdateClient<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
-    /// Trusted consensus state (will be validated after header assembly)
-    /// CHECK: Validated in instruction handler after header reassembly
+    /// Trusted consensus state at the height embedded in the header
+    /// CHECK: Must already exist. Unchecked because PDA seeds require runtime header data.
     pub trusted_consensus_state: UncheckedAccount<'info>,
 
     /// New consensus state store
-    /// CHECK: Validated in instruction handler
+    /// CHECK: Validated in instruction handler. Unchecked because may not exist yet and PDA seeds require runtime height.
     pub new_consensus_state_store: UncheckedAccount<'info>,
 
-    /// The original submitter who paid for the chunks (receives rent back)
-    /// CHECK: Must be the same submitter who created the chunks
+    /// The submitter who uploaded the chunks
     #[account(mut)]
-    pub submitter: UncheckedAccount<'info>,
+    pub submitter: Signer<'info>,
 
-    #[account(mut)]
-    pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
     // Remaining accounts are the chunk accounts in order
     // They will be validated and closed in the instruction handler
@@ -175,7 +182,7 @@ pub mod ics07_tendermint {
     /// Returns the timestamp of the consensus state at the proof height in unix seconds.
     pub fn verify_non_membership(
         ctx: Context<VerifyNonMembership>,
-        msg: MembershipMsg,
+        msg: NonMembershipMsg,
     ) -> Result<()> {
         instructions::verify_non_membership::verify_non_membership(ctx, msg)
     }

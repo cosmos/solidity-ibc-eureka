@@ -2,7 +2,7 @@
 //!
 //! These events are emitted by the ICS26 router and other IBC programs.
 
-use crate::router::Packet;
+use crate::router::{ClientAccount, Packet};
 use anchor_lang::prelude::*;
 
 /// Event emitted when a packet is sent
@@ -48,17 +48,14 @@ pub struct TimeoutPacketEvent {
 #[event]
 #[derive(Debug, Clone)]
 pub struct ClientAddedEvent {
-    pub client_id: String,
-    pub client_program_id: Pubkey,
-    pub authority: Pubkey,
+    pub client: ClientAccount,
 }
 
-/// Event emitted when a client status is updated
+/// Event emitted when a client is updated
 #[event]
 #[derive(Debug, Clone)]
-pub struct ClientStatusUpdatedEvent {
-    pub client_id: String,
-    pub active: bool,
+pub struct ClientUpdatedEvent {
+    pub client: ClientAccount,
 }
 
 /// Event emitted when an IBC app is added

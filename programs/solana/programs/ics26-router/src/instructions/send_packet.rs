@@ -42,6 +42,7 @@ pub struct SendPacket<'info> {
     /// The IBC app calling this instruction
     pub app_caller: Signer<'info>,
 
+    /// Allow payer to be separate from IBC app
     #[account(mut)]
     pub payer: Signer<'info>,
 
@@ -216,8 +217,8 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda),
-            create_system_account(app_caller), // app_caller is a signer
-            create_system_account(payer),      // payer is also a signer
+            create_system_account(app_caller),
+            create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
         ];
@@ -248,7 +249,7 @@ mod tests {
     fn test_send_packet_success() {
         let ctx = setup_send_packet_test_with_params(SendPacketTestParams::default());
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         // Calculate expected rent-exempt lamports for Commitment account
         let commitment_rent = {
@@ -303,7 +304,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
@@ -319,7 +320,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::ClientNotActive as u32,
@@ -336,7 +337,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         // Add Clock sysvar with current timestamp (1000) - packet timeout is 900 (expired)
         let clock_data = create_clock_data(1000);
@@ -358,7 +359,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::InvalidTimeoutDuration as u32,
@@ -376,7 +377,7 @@ mod tests {
         };
         let ctx = setup_send_packet_test_with_params(params);
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let result = mollusk.process_instruction(&ctx.instruction, &ctx.accounts);
 
@@ -399,7 +400,6 @@ mod tests {
         let app_program_id = Pubkey::new_unique();
         let (app_caller_pda, _) =
             Pubkey::find_program_address(&[b"router_caller"], &app_program_id);
-        let payer = app_program_id;
         let port_id = "test-port";
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
@@ -459,7 +459,7 @@ mod tests {
                 AccountMeta::new(client_sequence_pda_1, false),
                 AccountMeta::new(packet_commitment_pda_1, false),
                 AccountMeta::new_readonly(app_caller_pda, true),
-                AccountMeta::new(payer, true),
+                AccountMeta::new(app_caller_pda, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda_1, false),
             ],
@@ -472,12 +472,12 @@ mod tests {
             create_account(client_sequence_pda_1, client_sequence_data_1, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_1),
             create_system_account(app_caller_pda),
-            create_system_account(payer),
+            create_system_account(app_caller_pda),
             create_program_account(system_program::ID),
             create_account(client_pda_1, client_data_1, crate::ID),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
         let result_1 = mollusk.process_instruction(&instruction_1, &accounts_1);
 
         // Verify client 1 sequence was incremented from 10 to 11
@@ -516,7 +516,7 @@ mod tests {
                 AccountMeta::new(client_sequence_pda_2, false),
                 AccountMeta::new(packet_commitment_pda_2, false),
                 AccountMeta::new_readonly(app_caller_pda, true),
-                AccountMeta::new(payer, true),
+                AccountMeta::new(app_caller_pda, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda_2, false),
             ],
@@ -529,7 +529,7 @@ mod tests {
             create_account(client_sequence_pda_2, client_sequence_data_2, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_2),
             create_system_account(app_caller_pda),
-            create_system_account(payer),
+            create_system_account(app_caller_pda),
             create_program_account(system_program::ID),
             create_account(client_pda_2, client_data_2, crate::ID),
         ];
@@ -544,5 +544,58 @@ mod tests {
 
         // Verify the sequences are independent (client 1 = 11, client 2 = 21)
         assert_ne!(client_1_sequence, client_2_sequence);
+    }
+
+    #[test]
+    fn test_send_packet_duplicate_commitment_fails() {
+        // Test that sending a packet with the same (client_id, sequence) fails
+        // because the packet_commitment account already exists (init constraint)
+        let params = SendPacketTestParams {
+            initial_sequence: 0,
+            ..Default::default()
+        };
+        let mut ctx = setup_send_packet_test_with_params(params);
+
+        // Replace the uninitialized packet_commitment account with an already-initialized one
+        // This simulates trying to send a packet that already has a commitment
+        let existing_commitment = Commitment {
+            value: [1u8; 32], // Some existing commitment value
+        };
+
+        let account_size = 8 + Commitment::INIT_SPACE;
+        let mut data = vec![0u8; account_size];
+
+        // Add Anchor discriminator
+        data[0..8].copy_from_slice(Commitment::DISCRIMINATOR);
+
+        // Serialize the commitment
+        let mut cursor = std::io::Cursor::new(&mut data[8..]);
+        existing_commitment.serialize(&mut cursor).unwrap();
+
+        // Find and replace the packet_commitment account
+        let commitment_index = ctx
+            .accounts
+            .iter()
+            .position(|(pubkey, _)| *pubkey == ctx.packet_commitment_pubkey)
+            .unwrap();
+
+        ctx.accounts[commitment_index] = (
+            ctx.packet_commitment_pubkey,
+            solana_sdk::account::Account {
+                lamports: Rent::default().minimum_balance(account_size),
+                data,
+                owner: crate::ID, // Owned by our program (already initialized)
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        // This should fail because packet_commitment account already exists
+        // The `init` constraint will fail with Anchor's "account already in use" error
+        let error_checks = vec![Check::err(ProgramError::Custom(0))]; // Anchor error code 0
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &error_checks);
     }
 }

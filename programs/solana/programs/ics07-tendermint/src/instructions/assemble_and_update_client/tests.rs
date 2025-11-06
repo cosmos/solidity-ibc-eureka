@@ -8,7 +8,7 @@ use crate::test_helpers::{
     },
     PROGRAM_BINARY_PATH,
 };
-use anchor_lang::{AccountDeserialize, AccountSerialize, InstructionData};
+use anchor_lang::{AccountDeserialize, AccountSerialize, AnchorDeserialize, InstructionData};
 use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
 use solana_sdk::account::Account;
 use solana_sdk::clock::Clock;
@@ -111,7 +111,6 @@ struct AssembleInstructionParams {
     trusted_consensus_state_pda: Pubkey,
     new_consensus_state_pda: Pubkey,
     submitter: Pubkey,
-    payer: Pubkey,
     chunk_pdas: Vec<Pubkey>,
     chain_id: String,
     target_height: u64,
@@ -122,8 +121,7 @@ fn create_assemble_instruction(params: AssembleInstructionParams) -> Instruction
         AccountMeta::new(params.client_state_pda, false),
         AccountMeta::new_readonly(params.trusted_consensus_state_pda, false),
         AccountMeta::new(params.new_consensus_state_pda, false),
-        AccountMeta::new(params.submitter, false),
-        AccountMeta::new(params.payer, true),
+        AccountMeta::new(params.submitter, true),
         AccountMeta::new_readonly(system_program::ID, false),
     ];
 
@@ -202,7 +200,6 @@ fn test_successful_assembly_and_update() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.clone(),
         target_height,
@@ -267,7 +264,19 @@ fn test_successful_assembly_and_update() {
             result.program_result
         );
     } else {
-        println!("Assembly succeeded with real fixtures");
+        // Verify the UpdateResult in return data
+        assert!(
+            !result.return_data.is_empty(),
+            "Return data should not be empty"
+        );
+        let update_result = crate::types::UpdateResult::deserialize(&mut &result.return_data[..])
+            .expect("Failed to deserialize UpdateResult");
+        assert_eq!(
+            update_result,
+            crate::types::UpdateResult::UpdateSuccess,
+            "Should return UpdateResult::Update for successful update"
+        );
+        println!("Assembly succeeded with real fixtures and returned {update_result:?}",);
     }
 }
 
@@ -309,7 +318,6 @@ fn test_assembly_with_corrupted_chunk() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.to_string(),
         target_height,
@@ -376,7 +384,6 @@ fn test_assembly_wrong_submitter() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter: wrong_submitter, // Wrong!
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.to_string(),
         target_height,
@@ -442,7 +449,6 @@ fn test_assembly_chunks_in_wrong_order() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: wrong_order_pdas,
         chain_id: chain_id.to_string(),
         target_height,
@@ -511,7 +517,6 @@ fn test_rent_reclaim_after_assembly() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.to_string(),
         target_height,
@@ -613,7 +618,6 @@ fn test_assemble_and_update_client_happy_path() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.clone(),
         target_height,
@@ -766,7 +770,6 @@ fn test_assemble_with_frozen_client() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.clone(),
         target_height,
@@ -905,7 +908,6 @@ fn test_assemble_with_existing_consensus_state() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.clone(),
         target_height,
@@ -945,10 +947,39 @@ fn test_assemble_with_existing_consensus_state() {
     let result = mollusk_with_budget.process_instruction(&instruction, &accounts);
 
     // Now with real data, should detect conflicting consensus state
-    assert_error_code(
-        result,
-        ErrorCode::MisbehaviourConflictingState,
-        "conflicting consensus state",
+    // The instruction should succeed but return UpdateResult::Misbehaviour
+    assert!(
+        !result.program_result.is_err(),
+        "Instruction should succeed"
+    );
+
+    // Verify the UpdateResult is Misbehaviour
+    assert!(
+        !result.return_data.is_empty(),
+        "Return data should not be empty"
+    );
+    let update_result = crate::types::UpdateResult::deserialize(&mut &result.return_data[..])
+        .expect("Failed to deserialize UpdateResult");
+    assert_eq!(
+        update_result,
+        crate::types::UpdateResult::Misbehaviour,
+        "Should return UpdateResult::Misbehaviour for conflicting consensus state"
+    );
+
+    // Verify client state is frozen
+    let updated_client_account = result
+        .resulting_accounts
+        .iter()
+        .find(|(k, _)| *k == client_state_pda)
+        .expect("client state should exist")
+        .1
+        .clone();
+    let updated_client =
+        crate::types::ClientState::try_deserialize(&mut &updated_client_account.data[..])
+            .expect("should deserialize client state");
+    assert!(
+        updated_client.is_frozen(),
+        "Client should be frozen after misbehaviour"
     );
 }
 
@@ -990,7 +1021,6 @@ fn test_assemble_with_invalid_header_after_assembly() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.to_string(),
         target_height,
@@ -1059,7 +1089,6 @@ fn test_assemble_updates_latest_height() {
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
         submitter,
-        payer,
         chunk_pdas: chunk_pdas.clone(),
         chain_id: chain_id.clone(),
         target_height,
@@ -1123,6 +1152,19 @@ fn test_assemble_updates_latest_height() {
         // Log the error for debugging
         println!("Test completed with error: {:?}", result.program_result);
     } else {
+        // Verify the UpdateResult in return data
+        assert!(
+            !result.return_data.is_empty(),
+            "Return data should not be empty"
+        );
+        let update_result = crate::types::UpdateResult::deserialize(&mut &result.return_data[..])
+            .expect("Failed to deserialize UpdateResult");
+        assert_eq!(
+            update_result,
+            crate::types::UpdateResult::UpdateSuccess,
+            "Should return UpdateResult::Update for successful update"
+        );
+
         // Verify client state was updated to new height
         let updated_client_account = result
             .resulting_accounts
@@ -1207,7 +1249,6 @@ fn test_assemble_and_update_with_invalid_signature() {
     );
 
     let submitter = Pubkey::new_unique();
-    let payer = Pubkey::new_unique();
 
     // Create chunk PDAs and accounts
     let mut chunk_accounts = Vec::new();
@@ -1262,16 +1303,6 @@ fn test_assemble_and_update_with_invalid_signature() {
             },
         ),
         (
-            payer,
-            Account {
-                lamports: 1_000_000_000,
-                data: vec![],
-                owner: solana_sdk::system_program::ID,
-                executable: false,
-                rent_epoch: 0,
-            },
-        ),
-        (
             solana_sdk::system_program::ID,
             Account {
                 lamports: 1,
@@ -1291,8 +1322,7 @@ fn test_assemble_and_update_with_invalid_signature() {
         AccountMeta::new(client_state_pda, false),
         AccountMeta::new_readonly(trusted_consensus_pda, false),
         AccountMeta::new(new_consensus_pda, false),
-        AccountMeta::new(submitter, false),
-        AccountMeta::new(payer, true),
+        AccountMeta::new(submitter, true),
         AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
     ];
 

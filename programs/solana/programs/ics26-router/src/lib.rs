@@ -9,6 +9,7 @@ pub mod state;
 pub mod test_utils;
 pub mod utils;
 
+use instructions::client::MigrateClientParams;
 use instructions::*;
 use state::{
     CounterpartyInfo, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket, MsgSendPacket,
@@ -16,39 +17,6 @@ use state::{
 };
 
 declare_id!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx");
-
-#[cfg(test)]
-pub fn get_router_program_path() -> &'static str {
-    use std::sync::OnceLock;
-    static PATH: OnceLock<String> = OnceLock::new();
-
-    PATH.get_or_init(|| {
-        std::env::var("ROUTER_PROGRAM_PATH")
-            .unwrap_or_else(|_| "../../target/deploy/ics26_router".to_string())
-    })
-}
-
-#[cfg(test)]
-pub fn get_mock_client_program_path() -> &'static str {
-    use std::sync::OnceLock;
-    static PATH: OnceLock<String> = OnceLock::new();
-
-    PATH.get_or_init(|| {
-        std::env::var("MOCK_CLIENT_PROGRAM_PATH")
-            .unwrap_or_else(|_| "../../target/deploy/mock_light_client".to_string())
-    })
-}
-
-#[cfg(test)]
-pub fn get_mock_ibc_app_program_path() -> &'static str {
-    use std::sync::OnceLock;
-    static PATH: OnceLock<String> = OnceLock::new();
-
-    PATH.get_or_init(|| {
-        std::env::var("MOCK_IBC_APP_PROGRAM_PATH")
-            .unwrap_or_else(|_| "../../target/deploy/mock_ibc_app".to_string())
-    })
-}
 
 #[program]
 pub mod ics26_router {
@@ -95,12 +63,12 @@ pub mod ics26_router {
         instructions::add_client(ctx, client_id, counterparty_info)
     }
 
-    pub fn update_client(
-        ctx: Context<UpdateClient>,
+    pub fn migrate_client(
+        ctx: Context<MigrateClient>,
         client_id: String,
-        active: bool,
+        params: MigrateClientParams,
     ) -> Result<()> {
-        instructions::update_client(ctx, client_id, active)
+        instructions::migrate_client(ctx, client_id, params)
     }
 
     pub fn upload_payload_chunk(

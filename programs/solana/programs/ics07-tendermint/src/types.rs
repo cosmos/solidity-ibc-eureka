@@ -9,8 +9,9 @@ use time::OffsetDateTime;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UpdateResult {
-    Update,
+    UpdateSuccess,
     NoOp,
+    Misbehaviour,
 }
 
 /// Parameters for uploading a header chunk
