@@ -40,7 +40,7 @@ pub fn extract_gmp_accounts(
 
     // Derive account_state PDA
     let ibc_app_program_id = accounts
-        .get(4)
+        .get(5)
         .map(|acc| acc.pubkey)
         .ok_or_else(|| anyhow::anyhow!("Missing ibc_app_program in existing accounts"))?;
 
