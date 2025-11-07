@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-09-18
-**Last Updated**: 2025-11-05
+**Last Updated**: 2025-11-07
 
 ## Executive Summary
 
@@ -43,13 +43,13 @@ This gives target programs 2 additional CPI levels to work with - critical for c
 1. **PDA as Cross-Chain Identity**
 
    - Each Cosmos user gets a deterministic PDA: `hash(client_id + sender + salt)`
-   - Acts as signing authority via `invoke_signed`
-   - Can own SPL tokens and other assets
-   - No deployment cost - address exists deterministically
+   - PDA has no account data - only used for signing via `invoke_signed`
+   - Can own SPL tokens and other assets (PDA acts as authority for token accounts)
+   - Zero rent cost - address exists deterministically, no account creation needed
 
 2. **Relayer-Computed Accounts**
 
-   - Relayer derives `account_state_pda` and `target_program`
+   - Relayer derives `gmp_account_pda` and `target_program`
    - Sender only provides target-specific accounts
    - Simplifies sender complexity while maintaining security
 
@@ -81,7 +81,7 @@ The relayer constructs the transaction with carefully ordered accounts:
 
 ```rust
 // Account ordering (critical for proper execution):
-// [0] account_state_pda   - Relayer computes from seeds
+// [0] gmp_account_pda   - Relayer computes from seeds
 // [1] target_program      - Relayer extracts from GMPPacketData.receiver
 // [2+] target accounts    - Sender provides in GMPSolanaPayload.accounts
 
@@ -101,6 +101,7 @@ Solana PDAs with data cannot pay for account creation. We solve this with a **co
 - **`payer_position = N`**: Inject at index N (0-indexed array position)
 
 This allows:
+
 - GMP PDA to sign for operations via `invoke_signed`
 - Relayer to pay for new account rent when needed
 - Target programs to create accounts as needed
@@ -134,7 +135,7 @@ message GMPPacketData {
 }
 ```
 
-**Key Design**: Sender provides only target-specific accounts. Relayer adds protocol accounts (account_state_pda, target_program) automatically.
+**Key Design**: Sender provides only target-specific accounts. Relayer adds protocol accounts (gmp_account_pda, target_program) automatically.
 
 **Note**: The `client_id` field was removed from `GMPPacketData` as it's available in the IBC packet metadata.
 
@@ -148,12 +149,14 @@ Solana has two distinct levels of signing that are critical to understand:
 The `is_signer` field in `SolanaAccountMeta` indicates whether an account should be a signer **at the CPI instruction level** (not at the transaction level). This simplified design works because:
 
 **For cross-chain calls from Cosmos**:
+
 - Cosmos users don't have Solana private keys, so transaction-level signing is not applicable
 - The ICS27 account_state PDA represents the user and signs via `invoke_signed`
 - All payload accounts are marked `is_signer: false` at transaction level
 - The GMP program marks the account_state PDA as a signer when making the CPI call
 
 **Account Signing Behavior**:
+
 - `is_signer: false` → Account does not sign (most accounts: data accounts, programs, system accounts)
 - `is_signer: true` → PDA signs via `invoke_signed` during CPI (ICS27 account_state PDA)
 
@@ -217,16 +220,16 @@ The relayer automatically adds protocol accounts and handles payer injection:
 
 ```rust
 // Relayer adds protocol accounts at the beginning:
-// [0] account_state_pda - Derived: hash(client_id + cosmosUser + salt)
+// [0] gmp_account_pda   - Derived: hash(client_id + cosmosUser + salt)
 // [1] target_program    - From GMPPacketData.receiver
 // [2+] user accounts    - From GMPSolanaPayload.accounts
 // [N] payer (injected)  - Injected at payer_position if specified
 
-let account_state_pda = derive_gmp_pda(client_id, sender, salt);
+let gmp_account_pda = derive_gmp_pda(client_id, sender, salt);
 accounts.insert(0, AccountMeta {
-    pubkey: account_state_pda,
+    pubkey: gmp_account_pda,
     is_signer: false,   // No keypair at transaction level
-    is_writable: true
+    is_writable: false  // readonly - stateless, no account creation
 });
 accounts.insert(1, AccountMeta {
     pubkey: counter_program_id,
@@ -308,7 +311,7 @@ msg := &MsgSendCall{
 
 ### Key Points
 
-1. **PDA as Token Owner**: The ICS27 Account PDA can own SPL token accounts
+1. **PDA as Token Owner**: The ICS27 Account PDA can be the authority/owner of SPL token accounts
 2. **Authority Signing**: GMP program uses `invoke_signed` to sign as the PDA
 3. **Deterministic Addressing**: Same user + salt always gets same PDA
 4. **Composability**: Works with any SPL token
@@ -317,7 +320,7 @@ msg := &MsgSendCall{
 
 ```rust
 // Relayer adds the same protocol accounts as before:
-// [0] account_state_pda - Derived from (client_id, cosmosUser, salt)
+// [0] gmp_account_pda - Derived from (client_id, cosmosUser, salt)
 // [1] spl_token_program - From GMPPacketData.receiver
 // [2+] token accounts   - From GMPSolanaPayload.accounts
 
@@ -382,7 +385,7 @@ Address Lookup Tables significantly reduce transaction size by replacing 32-byte
 The relayer acts as a smart intermediary that:
 
 1. **Observes** IBC packets from Cosmos chains
-2. **Derives** protocol accounts (`account_state_pda` from packet data)
+2. **Derives** protocol accounts (`gmp_account_pda` from packet data)
 3. **Extracts** target accounts from protobuf payload
 4. **Constructs** complete Solana transaction with all accounts
 5. **Submits** to Solana using ALT for size optimization
@@ -405,9 +408,9 @@ fn extract_payload_accounts(
         // Parse GMPPacketData
         let gmp_packet = GmpPacketData::decode(payload.value)?;
 
-        // Derive account_state_pda (GMP-specific)
-        let account_state_pda = derive_gmp_account(...);
-        accounts.push(account_state_pda);
+        // Derive gmp_account_pda (GMP-specific)
+        let gmp_account_pda = derive_gmp_account(...);
+        accounts.push(gmp_account_pda);
 
         // Extract target program and accounts
         let gmp_solana_payload = GMPSolanaPayload::decode(gmp_packet.payload)?;
