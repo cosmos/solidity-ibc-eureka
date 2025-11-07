@@ -22,14 +22,15 @@ const (
 )
 
 // `GMPSolanaPayload` represents a Solana instruction for cross-chain execution via GMP
+//
+// Note: The target program ID is specified in `GMPPacketData.receiver`, not here.
+// This avoids redundancy and ensures consistency with the IBC packet structure.
 type GMPSolanaPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Target Solana program ID (32 bytes)
-	ProgramId []byte `protobuf:"bytes,1,opt,name=program_id,json=programId,proto3" json:"program_id,omitempty"`
 	// ALL accounts that will be accessed during execution
-	Accounts []*SolanaAccountMeta `protobuf:"bytes,2,rep,name=accounts,proto3" json:"accounts,omitempty"`
+	Accounts []*SolanaAccountMeta `protobuf:"bytes,1,rep,name=accounts,proto3" json:"accounts,omitempty"`
 	// Instruction data
-	Data []byte `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	// Optional: Position to inject relayer payer account for rent payment (0-indexed)
 	//
 	// - If not set: No payer injection (use for programs that don't create accounts)
@@ -37,7 +38,7 @@ type GMPSolanaPayload struct {
 	//
 	// Example: `payer_position=2` means payer will be at index 2 in the accounts array.
 	// The relayer's fee payer will be inserted at this position as a signer.
-	PayerPosition *uint32 `protobuf:"varint,4,opt,name=payer_position,json=payerPosition,proto3,oneof" json:"payer_position,omitempty"`
+	PayerPosition *uint32 `protobuf:"varint,3,opt,name=payer_position,json=payerPosition,proto3,oneof" json:"payer_position,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -70,13 +71,6 @@ func (x *GMPSolanaPayload) ProtoReflect() protoreflect.Message {
 // Deprecated: Use GMPSolanaPayload.ProtoReflect.Descriptor instead.
 func (*GMPSolanaPayload) Descriptor() ([]byte, []int) {
 	return file_solana_gmp_solana_payload_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *GMPSolanaPayload) GetProgramId() []byte {
-	if x != nil {
-		return x.ProgramId
-	}
-	return nil
 }
 
 func (x *GMPSolanaPayload) GetAccounts() []*SolanaAccountMeta {
@@ -174,13 +168,11 @@ var File_solana_gmp_solana_payload_proto protoreflect.FileDescriptor
 
 const file_solana_gmp_solana_payload_proto_rawDesc = "" +
 	"\n" +
-	"\x1fsolana/gmp_solana_payload.proto\x12\x06solana\"\xbb\x01\n" +
-	"\x10GMPSolanaPayload\x12\x1d\n" +
-	"\n" +
-	"program_id\x18\x01 \x01(\fR\tprogramId\x125\n" +
-	"\baccounts\x18\x02 \x03(\v2\x19.solana.SolanaAccountMetaR\baccounts\x12\x12\n" +
-	"\x04data\x18\x03 \x01(\fR\x04data\x12*\n" +
-	"\x0epayer_position\x18\x04 \x01(\rH\x00R\rpayerPosition\x88\x01\x01B\x11\n" +
+	"\x1fsolana/gmp_solana_payload.proto\x12\x06solana\"\x9c\x01\n" +
+	"\x10GMPSolanaPayload\x125\n" +
+	"\baccounts\x18\x01 \x03(\v2\x19.solana.SolanaAccountMetaR\baccounts\x12\x12\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\x12*\n" +
+	"\x0epayer_position\x18\x03 \x01(\rH\x00R\rpayerPosition\x88\x01\x01B\x11\n" +
 	"\x0f_payer_position\"i\n" +
 	"\x11SolanaAccountMeta\x12\x16\n" +
 	"\x06pubkey\x18\x01 \x01(\fR\x06pubkey\x12\x1b\n" +

@@ -120,10 +120,9 @@ message SolanaAccountMeta {
 }
 
 message GMPSolanaPayload {
-  bytes program_id = 1;                    // Target program to execute
-  repeated SolanaAccountMeta accounts = 2; // Accounts needed by target
-  bytes data = 3;                          // Instruction data
-  optional uint32 payer_position = 4;      // Position to inject relayer as payer
+  repeated SolanaAccountMeta accounts = 1; // Accounts needed by target
+  bytes data = 2;                          // Instruction data
+  optional uint32 payer_position = 3;      // Position to inject relayer as payer
 }
 
 message GMPPacketData {
@@ -193,8 +192,7 @@ incrementData := []byte{
 // Note: payer_position = 3 tells GMP program to inject relayer at index 3
 payerPosition := uint32(3)
 gmpSolanaPayload := &GMPSolanaPayload{
-    ProgramId: counterProgramID,
-    Data:      incrementData,
+    Data: incrementData,
     Accounts: []*SolanaAccountMeta{
         {counterAppState, false, true},   // [0] app_state (not a signer, writable)
         {userCounterPDA, false, true},    // [1] user_counter (not a signer, writable)
@@ -208,7 +206,7 @@ gmpSolanaPayload := &GMPSolanaPayload{
 // 3. Send via IBC as GMPPacketData
 msg := &MsgSendCall{
     Sender:   cosmosUser,
-    Receiver: counterProgramID.String(),
+    Receiver: counterProgramID.String(),  // Target program ID
     Payload:  proto.Marshal(gmpSolanaPayload),
     Salt:     []byte{},  // Optional uniqueness
 }
@@ -290,8 +288,7 @@ transferInstruction := token.NewTransferInstruction(
 // 3. Create GMPSolanaPayload with required accounts
 // Note: PayerPosition is NOT set because SPL Transfer doesn't create accounts
 gmpSolanaPayload := &GMPSolanaPayload{
-    ProgramId: SPL_TOKEN_PROGRAM_ID,
-    Data:      transferInstruction.Data(),
+    Data: transferInstruction.Data(),
     Accounts: []*SolanaAccountMeta{
         {sourceTokenAccount, false, true},  // Source (not a signer, writable)
         {destTokenAccount, false, true},    // Destination (not a signer, writable)
@@ -303,7 +300,7 @@ gmpSolanaPayload := &GMPSolanaPayload{
 // 4. Send as GMP packet
 msg := &MsgSendCall{
     Sender:   cosmosUser,
-    Receiver: SPL_TOKEN_PROGRAM_ID.String(),
+    Receiver: SPL_TOKEN_PROGRAM_ID.String(),  // Target program ID
     Payload:  proto.Marshal(gmpSolanaPayload),
     Salt:     userSalt,  // Same salt to get same ICS27 PDA
 }

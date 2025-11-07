@@ -143,15 +143,10 @@ pub fn on_recv_packet<'info>(
     );
 
     // Parse and validate the GMP Solana payload from Protobuf
-    // The payload contains the target program ID, all required accounts, and instruction data
+    // The payload contains all required accounts and instruction data
+    // (target program ID comes from packet_data.receiver)
     let validated_payload =
         GmpSolanaPayload::decode_and_validate(&packet_data.payload).map_err(GMPError::from)?;
-
-    // Validate that the program_id in the payload matches the target_program
-    require!(
-        &validated_payload.program_id == target_program.key,
-        GMPError::AccountKeyMismatch
-    );
 
     let mut account_metas = validated_payload.to_account_metas();
 
@@ -196,9 +191,9 @@ pub fn on_recv_packet<'info>(
     }
 
     let instruction = Instruction {
-        program_id: validated_payload.program_id,
+        program_id: receiver_pubkey,
         accounts: account_metas,
-        data: validated_payload.data.clone(),
+        data: validated_payload.data,
     };
 
     // Call target program via CPI with GMP account PDA as signer
@@ -210,7 +205,7 @@ pub fn on_recv_packet<'info>(
     // Get return data from the target program (if any)
     // Only accept return data from the target program itself, not from nested CPIs
     let result = anchor_lang::solana_program::program::get_return_data()
-        .filter(|(return_program_id, _)| *return_program_id == validated_payload.program_id)
+        .filter(|(return_program_id, _)| *return_program_id == receiver_pubkey)
         .map(|(_, data)| data)
         .unwrap_or_default();
 
@@ -534,7 +529,6 @@ mod tests {
 
         // Create a minimal valid payload
         let solana_payload = GmpSolanaPayload {
-            program_id: crate::test_utils::DUMMY_TARGET_PROGRAM.to_bytes().to_vec(),
             accounts: vec![],
             data: vec![0u8], // Minimal non-empty data
             payer_position: None,
@@ -599,7 +593,6 @@ mod tests {
 
         // Create a minimal valid payload
         let solana_payload = GmpSolanaPayload {
-            program_id: crate::test_utils::DUMMY_TARGET_PROGRAM.to_bytes().to_vec(),
             accounts: vec![],
             data: vec![0u8], // Minimal non-empty data
             payer_position: None,
@@ -664,7 +657,6 @@ mod tests {
 
         // Create a minimal valid payload
         let solana_payload = GmpSolanaPayload {
-            program_id: crate::test_utils::DUMMY_TARGET_PROGRAM.to_bytes().to_vec(),
             accounts: vec![],
             data: vec![0u8], // Minimal non-empty data
             payer_position: None,
@@ -1024,7 +1016,6 @@ mod tests {
 
         // Create a minimal valid GMP Solana payload
         let solana_payload = GmpSolanaPayload {
-            program_id: crate::test_utils::DUMMY_TARGET_PROGRAM.to_bytes().to_vec(),
             accounts: vec![],
             data: vec![0u8], // Minimal non-empty data
             payer_position: None,
@@ -1133,7 +1124,6 @@ mod tests {
 
         // Build GMPSolanaPayload for the payload
         let solana_payload = GmpSolanaPayload {
-            program_id: COUNTER_APP_ID.to_bytes().to_vec(),
             accounts: vec![
                 // app_state
                 SolanaAccountMeta {
@@ -1408,7 +1398,6 @@ mod tests {
 
         // Build GMPSolanaPayload for the payload
         let solana_payload = GmpSolanaPayload {
-            program_id: COUNTER_APP_ID.to_bytes().to_vec(),
             accounts: vec![
                 // app_state
                 SolanaAccountMeta {

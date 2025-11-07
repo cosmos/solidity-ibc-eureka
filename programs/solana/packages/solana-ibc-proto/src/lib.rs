@@ -66,7 +66,6 @@ impl ValidatedAccountMeta {
 /// Validated GMP Solana payload with type-safe fields
 #[derive(Debug, Clone)]
 pub struct ValidatedGMPSolanaPayload {
-    pub program_id: Pubkey,
     pub data: Vec<u8>,
     pub accounts: Vec<ValidatedAccountMeta>,
     pub payer_position: Option<u32>,
@@ -156,17 +155,13 @@ impl GmpSolanaPayload {
     }
 
     /// Parse and validate GMP Solana payload from Protobuf-encoded bytes
+    ///
+    /// Note: The target program ID comes from `GMPPacketData.receiver` and is
+    /// validated separately in the instruction handler.
     pub fn decode_and_validate(
         data: &[u8],
     ) -> core::result::Result<ValidatedGMPSolanaPayload, GmpValidationError> {
         let payload = Self::decode_from_bytes(data).map_err(|_| GmpValidationError::DecodeError)?;
-
-        // Validate and convert program_id
-        if payload.program_id.len() != 32 {
-            return Err(GmpValidationError::InvalidProgramId);
-        }
-        let program_id = Pubkey::try_from(payload.program_id.as_slice())
-            .map_err(|_| GmpValidationError::InvalidProgramId)?;
 
         // Validate data
         if payload.data.is_empty() {
@@ -192,7 +187,6 @@ impl GmpSolanaPayload {
         }
 
         Ok(ValidatedGMPSolanaPayload {
-            program_id,
             data: payload.data,
             accounts,
             payer_position: payload.payer_position,

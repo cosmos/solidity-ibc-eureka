@@ -5,15 +5,15 @@ package solana;
 option go_package = "types/solana";
 
 // `GMPSolanaPayload` represents a Solana instruction for cross-chain execution via GMP
+//
+// Note: The target program ID is specified in `GMPPacketData.receiver`, not here.
+// This avoids redundancy and ensures consistency with the IBC packet structure.
 message GMPSolanaPayload {
-    // Target Solana program ID (32 bytes)
-    bytes program_id = 1;
-
     // ALL accounts that will be accessed during execution
-    repeated SolanaAccountMeta accounts = 2;
+    repeated SolanaAccountMeta accounts = 1;
 
     // Instruction data
-    bytes data = 3;
+    bytes data = 2;
 
     // Optional: Position to inject relayer payer account for rent payment (0-indexed)
     //
@@ -22,7 +22,7 @@ message GMPSolanaPayload {
     //
     // Example: `payer_position=2` means payer will be at index 2 in the accounts array.
     // The relayer's fee payer will be inserted at this position as a signer.
-    optional uint32 payer_position = 4;
+    optional uint32 payer_position = 3;
 }
 
 // `SolanaAccountMeta` represents account metadata for Solana instructions.

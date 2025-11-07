@@ -268,8 +268,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			// The payer (relayer) is injected by GMP program since Cosmos doesn't know relayer's address
 			payerPosition := uint32(3)
 			solanaInstruction := &solanatypes.GMPSolanaPayload{
-				ProgramId: gmpCounterProgramID.Bytes(),
-				Data:      incrementInstructionData,
+				Data: incrementInstructionData,
 				Accounts: []*solanatypes.SolanaAccountMeta{
 					// Required accounts for increment instruction (matches IncrementCounter struct order)
 					{Pubkey: counterAppStateAddress.Bytes(), IsSigner: false, IsWritable: true}, // [0] counter app_state
@@ -605,8 +604,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		// SPL Transfer requires exactly 3 accounts: source, destination, authority
 		// The authority (ICS27 PDA) must be marked as PDA_SIGNER so GMP program builds CPI with it as signer
 		solanaInstruction := &solanatypes.GMPSolanaPayload{
-			ProgramId: token.ProgramID.Bytes(),
-			Data:      instructionData,
+			Data: instructionData,
 			Accounts: []*solanatypes.SolanaAccountMeta{
 				{Pubkey: sourceTokenAccount.Bytes(), IsSigner: false, IsWritable: true}, // [0] source
 				{Pubkey: destTokenAccount.Bytes(), IsSigner: false, IsWritable: true},   // [1] destination
@@ -1378,8 +1376,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 
 		// Create GMPSolanaPayload protobuf
 		solanaInstruction := &solanatypes.GMPSolanaPayload{
-			ProgramId: token.ProgramID.Bytes(),
-			Data:      instructionData,
+			Data: instructionData,
 			Accounts: []*solanatypes.SolanaAccountMeta{
 				{Pubkey: sourceTokenAccount.Bytes(), IsSigner: false, IsWritable: true},
 				{Pubkey: destTokenAccount.Bytes(), IsSigner: false, IsWritable: true},
@@ -1641,8 +1638,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 
 		// Create GMPSolanaPayload protobuf
 		solanaInstruction := &solanatypes.GMPSolanaPayload{
-			ProgramId: token.ProgramID.Bytes(),
-			Data:      instructionData,
+			Data: instructionData,
 			Accounts: []*solanatypes.SolanaAccountMeta{
 				{Pubkey: sourceTokenAccount.Bytes(), IsSigner: false, IsWritable: true},
 				{Pubkey: destTokenAccount.Bytes(), IsSigner: false, IsWritable: true},
