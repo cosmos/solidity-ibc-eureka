@@ -136,42 +136,6 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        for (i, msg) in recv_msgs.iter().enumerate() {
-            if let Some(packet) = &msg.packet {
-                tracing::debug!(
-                    "RecvMsg {}: packet with {} payloads",
-                    i,
-                    packet.payloads.len()
-                );
-                for (j, payload) in packet.payloads.iter().enumerate() {
-                    tracing::debug!(
-                        "  Payload {}: source_port={}, value_len={}",
-                        j,
-                        payload.source_port,
-                        payload.value.len()
-                    );
-                }
-            }
-        }
-
-        for (i, msg) in ack_msgs.iter().enumerate() {
-            if let Some(packet) = &msg.packet {
-                tracing::debug!(
-                    "AckMsg {}: packet with {} payloads",
-                    i,
-                    packet.payloads.len()
-                );
-                for (j, payload) in packet.payloads.iter().enumerate() {
-                    tracing::debug!(
-                        "  Payload {}: source_port={}, value_len={}",
-                        j,
-                        payload.source_port,
-                        payload.value.len()
-                    );
-                }
-            }
-        }
-
         cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
 
         let all_msgs = timeout_msgs
