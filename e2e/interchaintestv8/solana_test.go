@@ -22,9 +22,11 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	ibcclientutils "github.com/cosmos/ibc-go/v10/modules/core/02-client/client/utils"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
 	dummy_ibc_app "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/dummyibcapp"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
@@ -1058,6 +1060,131 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			s.T().Logf("Acknowledgment relay transaction: %s (code: %d, gas: %d)",
 				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
 		}))
+	}))
+}
+
+func (s *IbcEurekaSolanaTestSuite) Test_SubmitMisbehaviour_DoubleSign() {
+	ctx := context.Background()
+	s.UseMockWasmClient = true
+	s.SetupSuite(ctx)
+
+	simd := s.CosmosChains[0]
+	cosmosChainID := simd.Config().ChainID
+
+	clientStatePDA, _, err := solanago.FindProgramAddress(
+		[][]byte{
+			[]byte("client"),
+			[]byte(cosmosChainID),
+		},
+		ics07_tendermint.ProgramID,
+	)
+	s.Require().NoError(err)
+
+	s.Require().True(s.Run("Update client to establish consensus states", func() {
+		resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaUser)
+	}))
+
+	var trustedHeight uint64
+	var trustedHeader tmclient.Header
+	s.Require().True(s.Run("Get trusted consensus state height", func() {
+		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+
+		clientState, err := ics07_tendermint.ParseAccount_ClientState(accountInfo.Value.Data.GetBinary())
+		s.Require().NoError(err)
+
+		trustedHeight = clientState.LatestHeight.RevisionHeight
+		s.T().Logf("Trusted consensus state height: %d", trustedHeight)
+
+		var latestHeight int64
+		trustedHeader, latestHeight, err = ibcclientutils.QueryTendermintHeader(simd.Validators[0].CliContext())
+		s.Require().NoError(err)
+		s.Require().NotZero(latestHeight)
+	}))
+
+	var misbehaviourBytes []byte
+	s.Require().True(s.Run("Create misbehaviour evidence", func() {
+		header1 := s.CreateTMClientHeader(
+			ctx,
+			simd,
+			int64(trustedHeight),
+			trustedHeader.GetTime().Add(time.Minute),
+			trustedHeader,
+		)
+
+		header2 := s.CreateTMClientHeader(
+			ctx,
+			simd,
+			int64(trustedHeight),
+			trustedHeader.GetTime().Add(2*time.Minute),
+			trustedHeader,
+		)
+
+		misbehaviour := tmclient.Misbehaviour{
+			ClientId: SolanaClientID,
+			Header1:  &header1,
+			Header2:  &header2,
+		}
+
+		var err error
+		misbehaviourBytes, err = simd.Config().EncodingConfig.Codec.Marshal(&misbehaviour)
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Submit misbehaviour", func() {
+		heightBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(heightBytes, trustedHeight)
+
+		consensusStatePDA, _, err := solanago.FindProgramAddress(
+			[][]byte{
+				[]byte("consensus_state"),
+				clientStatePDA.Bytes(),
+				heightBytes,
+			},
+			ics07_tendermint.ProgramID,
+		)
+		s.Require().NoError(err)
+
+		msg := ics07_tendermint.MisbehaviourMsg{
+			ClientId:     cosmosChainID,
+			Misbehaviour: misbehaviourBytes,
+		}
+
+		instruction, err := ics07_tendermint.NewSubmitMisbehaviourInstruction(
+			msg,
+			clientStatePDA,
+			consensusStatePDA,
+			consensusStatePDA,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), instruction)
+		s.Require().NoError(err)
+
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Verify client is frozen", func() {
+		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+
+		clientState, err := ics07_tendermint.ParseAccount_ClientState(accountInfo.Value.Data.GetBinary())
+		s.Require().NoError(err)
+
+		s.Require().NotEqual(uint64(0), clientState.FrozenHeight.RevisionHeight, "Client should be frozen")
 	}))
 }
 
