@@ -58,7 +58,7 @@ func NewInitializeInstruction(
 }
 
 // Builds a "increment" instruction.
-// Increment a user's counter (typically called by GMP program) // The user is identified by the `user_authority` signer (ICS27 `account_state` PDA)
+// Increment a user's counter (typically called by GMP program) // The user is identified by the `user_authority` signer (ICS27 `gmp_account` PDA)
 func NewIncrementInstruction(
 	// Params:
 	amountParam uint64,
@@ -94,7 +94,7 @@ func NewIncrementInstruction(
 		// Account 1 "user_counter": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(userCounterAccount, true, false))
 		// Account 2 "user_authority": Read-only, Signer, Required
-		// The user authority (`account_state` PDA for ICS27)
+		// The user authority (`gmp_account` PDA for ICS27)
 		// MUST be a signer to authorize operations on this user's counter
 		accounts__.Append(solanago.NewAccountMeta(userAuthorityAccount, false, true))
 		// Account 3 "payer": Writable, Signer, Required

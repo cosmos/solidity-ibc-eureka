@@ -14,7 +14,7 @@ use solana_ibc_types::GMPAccount;
 /// GMP defines its own account layout in `remaining_accounts`:
 ///
 /// `remaining_accounts`:
-/// - [0]: `account_state` - GMP account PDA (created if needed, signs via `invoke_signed`)
+/// - [0]: `gmp_account` - GMP account PDA (created if needed, signs via `invoke_signed`)
 /// - [1]: `target_program` - The program to execute (extracted internally, must be executable)
 /// - [2..]: accounts from payload - All accounts required by target program
 ///
@@ -265,7 +265,7 @@ mod tests {
     #[test]
     fn test_on_recv_packet_app_paused() {
         let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         let packet_data = create_gmp_packet_data(
             sender,
@@ -291,8 +291,8 @@ mod tests {
             create_authority_account(ctx.payer),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // [0] account_state_pda
-            create_dummy_target_program_account(),                   // [1] target_program
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         let checks = vec![Check::err(ProgramError::Custom(
@@ -306,7 +306,7 @@ mod tests {
     #[test]
     fn test_on_recv_packet_direct_call_rejected() {
         let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         let packet_data = create_gmp_packet_data(
             sender,
@@ -333,8 +333,8 @@ mod tests {
             create_authority_account(ctx.payer),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // [0] account_state_pda
-            create_dummy_target_program_account(),                   // [1] target_program
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         // Direct calls fail with DirectCallNotAllowed since validate_cpi_caller checks
@@ -350,7 +350,7 @@ mod tests {
     #[test]
     fn test_on_recv_packet_unauthorized_router() {
         let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         let packet_data = create_gmp_packet_data(
             sender,
@@ -380,8 +380,8 @@ mod tests {
             create_authority_account(ctx.payer),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // [0] account_state_pda
-            create_dummy_target_program_account(),                   // [1] target_program
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         // Unauthorized router calls fail with UnauthorizedRouter error
@@ -396,7 +396,7 @@ mod tests {
     #[test]
     fn test_on_recv_packet_fake_sysvar_wormhole_attack() {
         let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         let packet_data = create_gmp_packet_data(
             sender,
@@ -432,8 +432,8 @@ mod tests {
             create_authority_account(ctx.payer),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // [0] account_state_pda
-            create_dummy_target_program_account(),                   // [1] target_program
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         // Should be rejected by Anchor's address constraint check
@@ -461,7 +461,7 @@ mod tests {
         // Use wrong PDA
         let wrong_app_state_pda = Pubkey::new_unique();
 
-        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         let packet_data = crate::proto::GmpPacketData {
             sender: sender.to_string(),
@@ -515,8 +515,8 @@ mod tests {
             create_authority_account(payer),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // [0] account_state_pda
-            create_dummy_target_program_account(),                   // [1] target_program
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
@@ -729,7 +729,7 @@ mod tests {
     #[test]
     fn test_on_recv_packet_insufficient_accounts() {
         let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, _account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, _gmp_account_pda) = create_test_account_data();
 
         let packet_data = create_gmp_packet_data(
             sender,
@@ -754,7 +754,7 @@ mod tests {
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            // Missing remaining accounts! (should have at least account_state_pda and target_program)
+            // Missing remaining accounts! (should have at least gmp_account_pda and target_program)
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
@@ -767,7 +767,7 @@ mod tests {
     #[test]
     fn test_on_recv_packet_invalid_version() {
         let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         let packet_data = create_gmp_packet_data(
             sender,
@@ -807,8 +807,8 @@ mod tests {
             create_authority_account(ctx.payer),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // [0] account_state_pda
-            create_dummy_target_program_account(),                   // [1] target_program
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
@@ -821,7 +821,7 @@ mod tests {
     #[test]
     fn test_on_recv_packet_invalid_source_port() {
         let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         let packet_data = create_gmp_packet_data(
             sender,
@@ -861,8 +861,8 @@ mod tests {
             create_authority_account(ctx.payer),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // [0] account_state_pda
-            create_dummy_target_program_account(),                   // [1] target_program
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
@@ -875,7 +875,7 @@ mod tests {
     #[test]
     fn test_on_recv_packet_invalid_encoding() {
         let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         let packet_data = create_gmp_packet_data(
             sender,
@@ -915,8 +915,8 @@ mod tests {
             create_authority_account(ctx.payer),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // [0] account_state_pda
-            create_dummy_target_program_account(),                   // [1] target_program
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
@@ -929,7 +929,7 @@ mod tests {
     #[test]
     fn test_on_recv_packet_invalid_dest_port() {
         let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         let packet_data = create_gmp_packet_data(
             sender,
@@ -969,8 +969,8 @@ mod tests {
             create_authority_account(ctx.payer),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // [0] account_state_pda
-            create_dummy_target_program_account(),                   // [1] target_program
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
@@ -983,7 +983,7 @@ mod tests {
     #[test]
     fn test_on_recv_packet_account_key_mismatch() {
         let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, expected_account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, expected_gmp_account_pda) = create_test_account_data();
 
         // Use a different account key than expected
         let wrong_account_key = Pubkey::new_unique();
@@ -1019,14 +1019,14 @@ mod tests {
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
-            "OnRecvPacket should fail when account key doesn't match expected PDA (expected: {expected_account_state_pda}, got: {wrong_account_key})"
+            "OnRecvPacket should fail when account key doesn't match expected PDA (expected: {expected_gmp_account_pda}, got: {wrong_account_key})"
         );
     }
 
     #[test]
     fn test_on_recv_packet_target_program_mismatch() {
         let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         // Create a minimal valid GMP Solana payload
         let solana_payload = GmpSolanaPayload {
@@ -1058,7 +1058,7 @@ mod tests {
         // Add remaining accounts to instruction
         instruction
             .accounts
-            .push(AccountMeta::new(account_state_pda, false)); // [0] GMP account PDA
+            .push(AccountMeta::new(gmp_account_pda, false)); // [0] GMP account PDA
         instruction
             .accounts
             .push(AccountMeta::new_readonly(wrong_target_program, false)); // [1] Wrong target program!
@@ -1075,7 +1075,7 @@ mod tests {
             create_authority_account(ctx.payer),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // [0] GMP account PDA (correct)
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] GMP account PDA (correct)
             (
                 wrong_target_program, // [1] Wrong target program!
                 solana_sdk::account::Account {
@@ -1117,7 +1117,7 @@ mod tests {
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         // Create packet data that will call the counter app
-        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         // Counter app state and user counter PDAs
         let (counter_app_state_pda, counter_app_state_bump) = Pubkey::find_program_address(
@@ -1128,7 +1128,7 @@ mod tests {
         let (user_counter_pda, _user_counter_bump) = Pubkey::find_program_address(
             &[
                 gmp_counter_app::state::UserCounter::SEED,
-                account_state_pda.as_ref(),
+                gmp_account_pda.as_ref(),
             ],
             &COUNTER_APP_ID,
         );
@@ -1153,11 +1153,11 @@ mod tests {
                     is_signer: false,
                     is_writable: true,
                 },
-                // user_authority (account_state_pda will sign via invoke_signed)
-                // Note: marked writable because account_state_pda is also used as GMP account (writable)
+                // user_authority (gmp_account_pda will sign via invoke_signed)
+                // Note: marked writable because gmp_account_pda is also used as GMP account (writable)
                 // and Solana merges duplicate pubkeys with most permissive flags
                 SolanaAccountMeta {
-                    pubkey: account_state_pda.to_bytes().to_vec(),
+                    pubkey: gmp_account_pda.to_bytes().to_vec(),
                     is_signer: true,
                     is_writable: true,
                 },
@@ -1211,11 +1211,11 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 // Remaining accounts for CPI:
-                AccountMeta::new(account_state_pda, false), // [0] account_state (GMP account)
+                AccountMeta::new(gmp_account_pda, false), // [0] gmp_account_pda
                 AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target_program
                 AccountMeta::new(counter_app_state_pda, false), // [2] counter app state
-                AccountMeta::new(user_counter_pda, false),  // [3] user counter
-                AccountMeta::new(account_state_pda, true), // [4] user_authority (account_state signs via invoke_signed, writable due to duplicate)
+                AccountMeta::new(user_counter_pda, false), // [3] user counter
+                AccountMeta::new(gmp_account_pda, true), // [4] user_authority (gmp_account_pda signs via invoke_signed, writable due to duplicate)
                 AccountMeta::new_readonly(system_program::ID, false), // [5] system program
             ],
             data: instruction_data.data(),
@@ -1258,7 +1258,7 @@ mod tests {
             create_authority_account(payer),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // Account state will be created
+            create_uninitialized_account_for_pda(gmp_account_pda), // Account state will be created
             (
                 counter_app_state_pda,
                 Account {
@@ -1270,7 +1270,7 @@ mod tests {
                 },
             ),
             create_uninitialized_account_for_pda(user_counter_pda), // User counter will be created
-            create_authority_account(account_state_pda),
+            create_authority_account(gmp_account_pda),
             create_system_program_account(),
         ];
 
@@ -1332,7 +1332,7 @@ mod tests {
     ///
     /// Test Scenario:
     /// 1. GMP receives a packet requesting a counter app CPI call
-    /// 2. The payer has insufficient lamports (3M - enough for `account_state` but not for `user_counter`)
+    /// 2. The payer has insufficient lamports (3M - enough for `gmp_account_pda` but not for `user_counter`)
     /// 3. GMP invokes counter app via CPI
     /// 4. Counter app fails when attempting to create `user_counter` (insufficient lamports)
     /// 5. The entire transaction aborts - no error acknowledgment is returned
@@ -1392,7 +1392,7 @@ mod tests {
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         // Create packet data
-        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         // Counter app state PDA
         let (counter_app_state_pda, counter_app_state_bump) = Pubkey::find_program_address(
@@ -1403,7 +1403,7 @@ mod tests {
         let (user_counter_pda, _user_counter_bump) = Pubkey::find_program_address(
             &[
                 gmp_counter_app::state::UserCounter::SEED,
-                account_state_pda.as_ref(),
+                gmp_account_pda.as_ref(),
             ],
             &COUNTER_APP_ID,
         );
@@ -1428,11 +1428,11 @@ mod tests {
                     is_signer: false,
                     is_writable: true,
                 },
-                // user_authority (account_state_pda will sign via invoke_signed)
-                // Note: marked writable because account_state_pda is also used as GMP account (writable)
+                // user_authority (gmp_account_pda will sign via invoke_signed)
+                // Note: marked writable because gmp_account_pda is also used as GMP account (writable)
                 // and Solana merges duplicate pubkeys with most permissive flags
                 SolanaAccountMeta {
-                    pubkey: account_state_pda.to_bytes().to_vec(),
+                    pubkey: gmp_account_pda.to_bytes().to_vec(),
                     is_signer: true,
                     is_writable: true,
                 },
@@ -1486,11 +1486,11 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 // Remaining accounts for CPI:
-                AccountMeta::new(account_state_pda, false), // [0] account_state (GMP account)
+                AccountMeta::new(gmp_account_pda, false), // [0] gmp_account_pda (GMP account)
                 AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target_program
                 AccountMeta::new(counter_app_state_pda, false), // [2] counter app state
-                AccountMeta::new(user_counter_pda, false),  // [3] user counter
-                AccountMeta::new(account_state_pda, true), // [4] user_authority (account_state signs via invoke_signed, writable due to duplicate)
+                AccountMeta::new(user_counter_pda, false), // [3] user counter
+                AccountMeta::new(gmp_account_pda, true), // [4] user_authority (gmp_account_pda signs via invoke_signed, writable due to duplicate)
                 AccountMeta::new_readonly(system_program::ID, false), // [5] system program
             ],
             data: instruction_data.data(),
@@ -1522,7 +1522,7 @@ mod tests {
             (
                 payer,
                 Account {
-                    lamports: 3_000_000, // Enough for GMP account_state (~2.4M) but not enough for counter user_counter too
+                    lamports: 3_000_000, // Enough for GMP gmp_account_pda (~2.4M) but not enough for counter user_counter too
                     data: vec![],
                     owner: system_program::ID,
                     executable: false,
@@ -1531,7 +1531,7 @@ mod tests {
             ),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // Account state will be created
+            create_uninitialized_account_for_pda(gmp_account_pda), // Account state will be created
             // Counter app program (loaded via mollusk.add_program())
             (
                 COUNTER_APP_ID,
@@ -1554,7 +1554,7 @@ mod tests {
                 },
             ),
             create_uninitialized_account_for_pda(user_counter_pda), // User counter - will fail to init due to insufficient payer funds
-            create_authority_account(account_state_pda),
+            create_authority_account(gmp_account_pda),
             create_system_program_account(),
         ];
 

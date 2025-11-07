@@ -151,14 +151,14 @@ The `is_signer` field in `SolanaAccountMeta` indicates whether an account should
 **For cross-chain calls from Cosmos**:
 
 - Cosmos users don't have Solana private keys, so transaction-level signing is not applicable
-- The ICS27 account_state PDA represents the user and signs via `invoke_signed`
+- The ICS27 GMP Account PDA represents the user and signs via `invoke_signed`
 - All payload accounts are marked `is_signer: false` at transaction level
-- The GMP program marks the account_state PDA as a signer when making the CPI call
+- The GMP program marks the gmp account PDA as a signer when making the CPI call
 
 **Account Signing Behavior**:
 
 - `is_signer: false` → Account does not sign (most accounts: data accounts, programs, system accounts)
-- `is_signer: true` → PDA signs via `invoke_signed` during CPI (ICS27 account_state PDA)
+- `is_signer: true` → PDA signs via `invoke_signed` during CPI (ICS27 GMP Account PDA)
 
 This keeps the architecture simple while correctly modeling how accounts sign in cross-chain scenarios.
 
@@ -183,7 +183,7 @@ pub struct UserCounter {
 ```go
 // 1. Cosmos user constructs increment instruction
 // Note: Only the amount is in instruction data
-// The user authority (ICS27 account_state PDA) is passed as an account, not in data
+// The user authority (ICS27 GMP Account PDA) is passed as an account, not in data
 incrementData := []byte{
     INSTRUCTION_INCREMENT,  // Discriminator (8 bytes)
     amount,                 // Increment amount (8 bytes, little-endian u64)
@@ -257,14 +257,14 @@ if let Some(position) = gmp_solana_payload.payer_position {
 }
 ```
 
-The GMP program then marks the account_state PDA as a signer at CPI instruction level via `invoke_signed`.
+The GMP program then marks the GMP Account PDA as a signer at CPI instruction level via `invoke_signed`.
 
 ### Result
 
-- Each Cosmos user gets their own counter via deterministic user counter PDA (derived from ICS27 account_state PDA)
+- Each Cosmos user gets their own counter via deterministic user counter PDA (derived from ICS27 GMP Account PDA)
 - Multiple users can have independent counters
-- **Security**: Only the ICS27 account_state PDA can increment its own counter (enforced by `user_authority: Signer` constraint)
-- GMP program signs as the account_state PDA via `invoke_signed` during CPI
+- **Security**: Only the ICS27 GMP Account PDA can increment its own counter (enforced by `user_authority: Signer` constraint)
+- GMP program signs as the GMP Account PDA via `invoke_signed` during CPI
 - Counter increments atomically with proper access control
 
 This demonstrates how complex cross-chain operations work with minimal sender complexity while maintaining strong security guarantees.

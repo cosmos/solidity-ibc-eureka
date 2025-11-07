@@ -3,9 +3,6 @@
 /// This example demonstrates how to migrate `GMPAppState` from V1 to a hypothetical V2
 /// with additional fields. This pattern shows how the `version` field and `_reserved`
 /// space enable seamless upgrades without breaking existing deployments.
-///
-/// Note: Individual GMP accounts are now stateless (no `AccountState` storage),
-/// so only `GMPAppState` needs migration testing.
 use anchor_lang::prelude::*;
 use anchor_lang::{AnchorSerialize, Discriminator};
 use ics27_gmp::constants::GMP_PORT_ID;

@@ -231,13 +231,13 @@ pub struct GmpTestContext {
     pub app_state_bump: u8,
 }
 
-/// Helper to create common test data: (`client_id`, `sender`, `salt`, `account_state_pda`)
+/// Helper to create common test data: (`client_id`, `sender`, `salt`, `gmp_account_pda`)
 pub fn create_test_account_data() -> (&'static str, &'static str, Vec<u8>, Pubkey) {
     let client_id = "cosmoshub-1";
     let sender = "cosmos1test";
     let salt = vec![1u8, 2, 3];
 
-    let (account_state_pda, _) = solana_ibc_types::GMPAccount::new(
+    let (gmp_account_pda, _) = solana_ibc_types::GMPAccount::new(
         solana_ibc_types::ClientId::new(client_id).unwrap(),
         solana_ibc_types::Sender::new(sender).unwrap(),
         solana_ibc_types::Salt::new(salt.clone()).unwrap(),
@@ -245,7 +245,7 @@ pub fn create_test_account_data() -> (&'static str, &'static str, Vec<u8>, Pubke
     )
     .pda();
 
-    (client_id, sender, salt, account_state_pda)
+    (client_id, sender, salt, gmp_account_pda)
 }
 
 pub fn create_gmp_test_context() -> GmpTestContext {

@@ -120,6 +120,7 @@ func NewVerifyMembershipInstruction(
 }
 
 // Builds a "verify_non_membership" instruction.
+// Verifies the absence of a value at a given path in the counterparty chain state. // Returns the timestamp of the consensus state at the proof height in unix seconds.
 func NewVerifyNonMembershipInstruction(
 	// Params:
 	msgParam Ics25HandlerNonMembershipMsg,
