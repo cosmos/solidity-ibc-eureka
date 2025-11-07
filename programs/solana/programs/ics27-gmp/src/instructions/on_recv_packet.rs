@@ -96,15 +96,11 @@ pub fn on_recv_packet<'info>(
     // Validate dest port
     require!(msg.payload.dest_port == GMP_PORT_ID, GMPError::InvalidPort);
 
-    // Extract accounts from remaining_accounts
-    // The router passes GMP-specific accounts via remaining_accounts
-    require!(
-        ctx.remaining_accounts.len() >= OnRecvPacket::FIXED_REMAINING_ACCOUNTS,
-        GMPError::InsufficientAccounts
-    );
-
-    // Extract target_program from remaining_accounts[TARGET_PROGRAM_INDEX]
-    let target_program = &ctx.remaining_accounts[OnRecvPacket::TARGET_PROGRAM_INDEX];
+    // Extract target_program from `remaining_accounts`
+    let target_program = ctx
+        .remaining_accounts
+        .get(OnRecvPacket::TARGET_PROGRAM_INDEX)
+        .ok_or(GMPError::InsufficientAccounts)?;
 
     // Validate target_program is executable
     require!(target_program.executable, GMPError::TargetNotExecutable);
@@ -134,9 +130,15 @@ pub fn on_recv_packet<'info>(
         ctx.program_id,
     );
 
-    // Validate GMP account PDA matches (stateless - no account creation needed)
+    // Extract GMP account PDA from `remaining_accounts`
+    let gmp_account_info = ctx
+        .remaining_accounts
+        .get(OnRecvPacket::GMP_ACCOUNT_INDEX)
+        .ok_or(GMPError::InsufficientAccounts)?;
+
+    // Validate GMP account PDA matches expected address
     require!(
-        ctx.remaining_accounts[OnRecvPacket::GMP_ACCOUNT_INDEX].key() == gmp_account.pda,
+        gmp_account_info.key() == gmp_account.pda,
         GMPError::GMPAccountPDAMismatch
     );
 
@@ -154,18 +156,19 @@ pub fn on_recv_packet<'info>(
     let mut account_metas = validated_payload.to_account_metas();
 
     // Skip gmp_account_pda[0] and target_program[1]
-    let remaining_for_execution = &ctx.remaining_accounts[2..];
+    let remaining_accounts_for_execution =
+        &ctx.remaining_accounts[OnRecvPacket::FIXED_REMAINING_ACCOUNTS..];
 
     // Validate account count matches exactly (before payer injection)
     require!(
-        remaining_for_execution.len() == account_metas.len(),
+        remaining_accounts_for_execution.len() == account_metas.len(),
         GMPError::AccountCountMismatch
     );
 
     // Build target_account_infos from remaining_accounts, validate as we go
     let mut target_account_infos = account_metas
         .iter()
-        .zip(remaining_for_execution)
+        .zip(remaining_accounts_for_execution)
         .map(|(meta, account_info)| {
             require!(
                 account_info.key() == meta.pubkey,
