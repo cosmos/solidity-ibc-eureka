@@ -37,9 +37,42 @@ pub mod router_instructions {
 }
 
 /// Account schema version for upgradability
-#[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace)]
 pub enum AccountVersion {
     V1,
+}
+
+pub const MAX_CLIENT_ID_LENGTH: usize = 64;
+
+/// Counterparty chain information
+#[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
+pub struct CounterpartyInfo {
+    /// Client ID on the counterparty chain
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
+    pub client_id: String,
+    /// Merkle prefix for proof verification
+    #[max_len(8, 128)]
+    pub merkle_prefix: Vec<Vec<u8>>,
+}
+
+/// Client account structure mapping client IDs to light client program IDs
+#[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
+pub struct ClientAccount {
+    /// Schema version for upgrades
+    pub version: AccountVersion,
+    /// The client identifier
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
+    pub client_id: String,
+    /// The program ID of the light client
+    pub client_program_id: Pubkey,
+    /// Counterparty chain information
+    pub counterparty_info: CounterpartyInfo,
+    /// Authority that registered this client
+    pub authority: Pubkey,
+    /// Whether the client is active
+    pub active: bool,
+    /// Reserved space for future fields
+    pub _reserved: [u8; 256],
 }
 
 /// Packet structure matching Ethereum's ICS26RouterMsgs.Packet

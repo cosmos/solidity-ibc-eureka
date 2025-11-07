@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
-use ics25_handler::MembershipMsg;
+use ics25_handler::{MembershipMsg, NonMembershipMsg};
 use solana_ibc_types::ics07::UpdateClientMsg;
 
 declare_id!("CSLS3A9jS7JAD8aUe3LRXMYZ1U8Lvxn9usGygVrA2arZ");
@@ -32,7 +32,7 @@ pub mod mock_light_client {
 
     pub fn verify_non_membership(
         _ctx: Context<VerifyNonMembership>,
-        _msg: MembershipMsg,
+        _msg: NonMembershipMsg,
     ) -> Result<()> {
         msg!("Mock light client: verify_non_membership always returns success");
 

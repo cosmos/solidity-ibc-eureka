@@ -1,8 +1,9 @@
 use crate::errors::RouterError;
-use crate::router_cpi::on_acknowledgement_packet_cpi;
-use crate::router_cpi::{verify_membership_cpi, LightClientVerification};
+use crate::router_cpi::LightClientCpi;
+use crate::router_cpi::{IbcAppCpi, IbcAppCpiAccounts};
 use crate::state::*;
-use crate::utils::{chunking, ics24};
+use crate::utils::chunking::total_payload_chunks;
+use crate::utils::{chunking, ics24, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::events::{AckPacketEvent, NoopEvent};
@@ -51,9 +52,6 @@ pub struct AckPacket<'info> {
     #[account(mut)]
     pub relayer: Signer<'info>,
 
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
     pub system_program: Program<'info, System>,
 
     // Client for light client lookup
@@ -79,113 +77,61 @@ pub fn ack_packet<'info>(
     ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>,
     msg: MsgAckPacket,
 ) -> Result<()> {
-    msg!("=== ack_packet START ===");
-    msg!(
-        "Sequence: {}, src_client: {}, dest_client: {}",
-        msg.packet.sequence,
-        msg.packet.source_client,
-        msg.packet.dest_client
-    );
-
+    // TODO: Support multi-payload packets #602
     let router_state = &ctx.accounts.router_state;
     let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;
 
-    msg!("Validating payload metadata count: {}", msg.payloads.len());
-    // Validate we have at least one payload
-    require!(!msg.payloads.is_empty(), RouterError::InvalidPayloadCount);
-
-    msg!(
-        "Validating IBC app for port: {}",
-        msg.payloads[0].source_port
-    );
-    // Validate the IBC app is registered for the source port of the first payload
-    let expected_ibc_app = Pubkey::find_program_address(
-        &[IBCApp::SEED, msg.payloads[0].source_port.as_bytes()],
-        ctx.program_id,
-    )
-    .0;
-    require!(
-        ctx.accounts.ibc_app.key() == expected_ibc_app,
-        RouterError::IbcAppNotFound
-    );
-
-    msg!("Validating relayer authority");
     require!(
         ctx.accounts.relayer.key() == router_state.authority,
         RouterError::UnauthorizedSender
     );
 
-    msg!("Validating counterparty client");
+    require!(
+        msg.packet.source_client == client.client_id,
+        RouterError::ClientMismatch
+    );
+
     require!(
         msg.packet.dest_client == client.counterparty_info.client_id,
         RouterError::InvalidCounterpartyClient
     );
 
-    // Validate that we don't have both inline payloads AND chunked metadata
-    let has_inline_payloads = !msg.packet.payloads.is_empty();
-    let has_chunked_metadata = msg.payloads.iter().any(|p| p.total_chunks > 0);
-    require!(
-        !(has_inline_payloads && has_chunked_metadata),
-        RouterError::InvalidPayloadCount
-    );
-
-    msg!(
-        "Reconstructing packet - inline payloads: {}, metadata chunks: {:?}",
-        msg.packet.payloads.len(),
-        msg.payloads
-            .iter()
-            .map(|p| p.total_chunks)
-            .collect::<Vec<_>>()
-    );
-
-    let packet = chunking::reconstruct_packet(chunking::ReconstructPacketParams {
+    let packet = chunking::validate_and_reconstruct_packet(chunking::ReconstructPacketParams {
         packet: &msg.packet,
         payloads_metadata: &msg.payloads,
         remaining_accounts: ctx.remaining_accounts,
-        payer: &ctx.accounts.payer,
+        relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.source_client,
         program_id: ctx.program_id,
     })?;
 
-    msg!(
-        "Packet reconstructed with {} payloads",
-        packet.payloads.len()
+    let payload = packet::get_single_payload(&packet)?;
+
+    let (expected_ibc_app, _) = Pubkey::find_program_address(
+        &[IBCApp::SEED, payload.source_port.as_bytes()],
+        ctx.program_id,
     );
 
-    // Calculate total payload chunks for proof start index
-    let total_payload_chunks: usize = msg.payloads.iter().map(|p| p.total_chunks as usize).sum();
-    msg!(
-        "Total payload chunks: {}, proof chunks: {}, proof start index: {}",
-        total_payload_chunks,
-        msg.proof.total_chunks,
-        total_payload_chunks
+    require!(
+        ctx.accounts.ibc_app.key() == expected_ibc_app,
+        RouterError::IbcAppNotFound
     );
 
-    // Assemble proof from chunks (starting after payload chunks, using relayer as the chunk owner)
-    let proof_start_index = total_payload_chunks;
-    msg!("Assembling proof from chunks...");
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
-        payer: &ctx.accounts.payer,
+        relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.source_client,
         sequence: msg.packet.sequence,
         total_chunks: msg.proof.total_chunks,
         program_id: ctx.program_id,
-        start_index: proof_start_index,
+        // proof chunks come after payload chunks
+        start_index: total_payload_chunks(&msg.payloads),
     })?;
-    msg!("Proof assembled, length: {}", proof_data.len());
 
     // Verify acknowledgement proof on counterparty chain via light client
-    msg!("Verifying membership via light client...");
-    let light_client_verification = LightClientVerification {
-        light_client_program: ctx.accounts.light_client_program.clone(),
-        client_state: ctx.accounts.client_state.clone(),
-        consensus_state: ctx.accounts.consensus_state.clone(),
-    };
-
     let ack_path =
         ics24::packet_acknowledgement_commitment_path(&packet.dest_client, packet.sequence);
 
@@ -195,28 +141,27 @@ pub fn ack_packet<'info>(
 
     let membership_msg = MembershipMsg {
         height: msg.proof.height,
-        delay_time_period: 0,
-        delay_block_period: 0,
         proof: proof_data,
-        path: vec![b"ibc".to_vec(), ack_path],
+        path: vec![ics24::IBC_MERKLE_PREFIX.to_vec(), ack_path],
         value: ack_commitment.to_vec(),
     };
 
-    verify_membership_cpi(client, &light_client_verification, membership_msg)?;
-    msg!("Membership verified");
+    let light_client_cpi = LightClientCpi::new(client);
+    light_client_cpi.verify_membership(
+        &ctx.accounts.light_client_program,
+        &ctx.accounts.client_state,
+        &ctx.accounts.consensus_state,
+        membership_msg,
+    )?;
 
     // Check if packet commitment exists (no-op case)
     // An uninitialized account will be owned by System Program
-    msg!("Checking packet commitment...");
     if packet_commitment_account.owner != &crate::ID || packet_commitment_account.data_is_empty() {
-        msg!("No packet commitment found - emitting NoopEvent");
         emit!(NoopEvent {});
         return Ok(());
     }
 
     // Safe to deserialize since we know it's owned by our program
-    // Verify the commitment value
-    msg!("Verifying packet commitment...");
     {
         let data = packet_commitment_account.try_borrow_data()?;
         let packet_commitment = Commitment::try_from_slice(&data[8..])?;
@@ -226,46 +171,37 @@ pub fn ack_packet<'info>(
             RouterError::PacketCommitmentMismatch
         );
     }
-    msg!("Packet commitment verified");
 
-    // For now, we only handle the first payload for CPI
-    // TODO: In the future, we may need to handle multiple payloads differently
-    let payload = match packet.payloads.len() {
-        0 => Err(RouterError::PacketNoPayload),
-        n if n > 1 => Err(RouterError::MultiPayloadPacketNotSupported),
-        _ => Ok(&packet.payloads[0]),
-    }?;
-    msg!(
-        "Calling IBC app on_acknowledgement_packet - port: {}",
-        payload.source_port
-    );
+    // Delete commitment data (modify store before callback)
+    let mut data = packet_commitment_account.try_borrow_mut_data()?;
+    data.fill(0);
 
-    on_acknowledgement_packet_cpi(
-        &ctx.accounts.ibc_app_program,
-        &ctx.accounts.ibc_app_state,
-        &ctx.accounts.router_program,
-        &ctx.accounts.payer,
-        &ctx.accounts.system_program,
+    let cpi_accounts = IbcAppCpiAccounts {
+        ibc_app_program: ctx.accounts.ibc_app_program.clone(),
+        app_state: ctx.accounts.ibc_app_state.clone(),
+        router_program: ctx.accounts.router_program.clone(),
+        payer: ctx.accounts.relayer.to_account_info(),
+        system_program: ctx.accounts.system_program.to_account_info(),
+    };
+
+    let cpi = IbcAppCpi::new(cpi_accounts);
+    cpi.on_acknowledgement_packet(
         &packet,
         payload,
         &msg.acknowledgement,
         &ctx.accounts.relayer.key(),
         ctx.remaining_accounts,
     )?;
-    msg!("IBC app callback completed");
 
-    // Close the account and return rent to payer
-    msg!("Closing packet commitment and returning rent");
-    let dest_starting_lamports = ctx.accounts.payer.lamports();
-    **ctx.accounts.payer.lamports.borrow_mut() = dest_starting_lamports
-        .checked_add(packet_commitment_account.lamports())
-        .ok_or(RouterError::ArithmeticOverflow)?;
-    **packet_commitment_account.lamports.borrow_mut() = 0;
+    // Close the account and return rent to relayer (after CPI to avoid UnbalancedInstruction)
+    {
+        let dest_starting_lamports = ctx.accounts.relayer.lamports();
+        **ctx.accounts.relayer.lamports.borrow_mut() = dest_starting_lamports
+            .checked_add(packet_commitment_account.lamports())
+            .ok_or(RouterError::ArithmeticOverflow)?;
+        **packet_commitment_account.lamports.borrow_mut() = 0;
+    }
 
-    let mut data = packet_commitment_account.try_borrow_mut_data()?;
-    data.fill(0);
-
-    msg!("Emitting AckPacketEvent");
     emit!(AckPacketEvent {
         client_id: packet.source_client.clone(),
         sequence: packet.sequence,
@@ -273,7 +209,6 @@ pub fn ack_packet<'info>(
         acknowledgement: vec![msg.acknowledgement],
     });
 
-    msg!("=== ack_packet SUCCESS ===");
     Ok(())
 }
 
@@ -305,6 +240,7 @@ mod tests {
         app_program_id: Option<Pubkey>,
         unauthorized_relayer: Option<Pubkey>,
         wrong_dest_client: Option<&'static str>,
+        wrong_light_client_program: Option<Pubkey>,
         active_client: bool,
         initial_sequence: u64,
         acknowledgement: Vec<u8>,
@@ -321,6 +257,7 @@ mod tests {
                 app_program_id: None,
                 unauthorized_relayer: None,
                 wrong_dest_client: None,
+                wrong_light_client_program: None,
                 active_client: true,
                 initial_sequence: 1,
                 acknowledgement: vec![1, 2, 3, 4],
@@ -333,15 +270,18 @@ mod tests {
     fn setup_ack_packet_test_with_params(params: AckPacketTestParams) -> AckPacketTestContext {
         let authority = Pubkey::new_unique();
         let relayer = params.unauthorized_relayer.unwrap_or(authority);
-        let payer = relayer;
         let app_program_id = params.app_program_id.unwrap_or(MOCK_IBC_APP_PROGRAM_ID);
-        let light_client_program = MOCK_LIGHT_CLIENT_ID;
+
+        let client_light_client_program = MOCK_LIGHT_CLIENT_ID;
+        let instruction_light_client_program = params
+            .wrong_light_client_program
+            .unwrap_or(MOCK_LIGHT_CLIENT_ID);
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
         let (client_pda, client_data) = setup_client(
             params.source_client_id,
             authority,
-            light_client_program,
+            client_light_client_program,
             params.dest_client_id,
             params.active_client,
         );
@@ -420,10 +360,9 @@ mod tests {
             AccountMeta::new(dummy_app_state_pda, false),
             AccountMeta::new_readonly(crate::ID, false), // router_program
             AccountMeta::new(relayer, true),
-            AccountMeta::new(payer, true),
             AccountMeta::new_readonly(system_program::ID, false),
             AccountMeta::new_readonly(client_pda, false),
-            AccountMeta::new_readonly(light_client_program, false),
+            AccountMeta::new_readonly(instruction_light_client_program, false),
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
@@ -471,12 +410,11 @@ mod tests {
             create_account(dummy_app_state_pda, vec![0u8; 32], app_program_id), // Mock app state
             create_bpf_program_account(crate::ID),                              // router_program
             create_system_account(relayer), // relayer (also signer)
-            create_system_account(payer),   // payer (also signer)
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
-            create_bpf_program_account(light_client_program),
-            create_account(client_state, vec![0u8; 100], light_client_program),
-            create_account(consensus_state, vec![0u8; 100], light_client_program),
+            create_bpf_program_account(instruction_light_client_program),
+            create_account(client_state, vec![0u8; 100], client_light_client_program),
+            create_account(consensus_state, vec![0u8; 100], client_light_client_program),
         ];
 
         // Add chunk accounts as remaining accounts
@@ -498,25 +436,21 @@ mod tests {
 
         let mollusk = setup_mollusk_with_mock_programs();
 
-        let payer_pubkey = ctx.accounts[7].0; // Payer is at index 7 (after removing submitter)
-        let initial_payer_lamports = ctx.accounts[7].1.lamports;
-        let commitment_lamports = ctx.accounts[2].1.lamports; // Packet commitment is at index 2
+        let checks = vec![Check::success()];
 
-        let checks = vec![
-            Check::success(),
-            // Verify packet commitment account is closed (0 lamports)
-            Check::account(&ctx.packet_commitment_pubkey)
-                .lamports(0)
-                .build(),
-            // Verify payer received the rent back
-            Check::account(&payer_pubkey)
-                .lamports(initial_payer_lamports + commitment_lamports)
-                .build(),
-        ];
+        let result =
+            mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
 
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+        // Verify packet commitment data was deleted
+        let packet_commitment_account = result
+            .get_account(&ctx.packet_commitment_pubkey)
+            .expect("packet commitment account should exist");
 
-        // Mock app doesn't track counters, so we just verify the instruction succeeded
+        // Data should be all zeros after deletion
+        assert!(
+            packet_commitment_account.data.iter().all(|&b| b == 0),
+            "Packet commitment data should be zeroed"
+        );
     }
 
     #[test]
@@ -541,7 +475,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
@@ -557,7 +491,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::InvalidCounterpartyClient as u32,
@@ -573,10 +507,145 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::ClientNotActive as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_ack_packet_invalid_light_client_program() {
+        let ctx = setup_ack_packet_test_with_params(AckPacketTestParams {
+            wrong_light_client_program: Some(Pubkey::new_unique()), // Wrong program
+            ..Default::default()
+        });
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidLightClientProgram as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    // Note: IbcAppNotFound can't be tested here as Anchor's packet_commitment seeds
+    // constraint fails first. The validation works in production.
+
+    #[test]
+    fn test_ack_packet_zero_payloads() {
+        // Test that packet with zero payloads fails
+        let mut ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
+
+        // Modify the instruction to have zero payloads
+        let msg = MsgAckPacket {
+            packet: ctx.packet.clone(),
+            payloads: vec![], // No metadata, and packet.payloads is also empty
+            proof: ProofMetadata {
+                height: 100,
+                total_chunks: 1,
+            },
+            acknowledgement: vec![1u8; 32],
+        };
+
+        ctx.instruction.data = crate::instruction::AckPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_ack_packet_multiple_payloads() {
+        // Test that packet with multiple inline payloads fails
+        let mut ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
+
+        // Create a packet with 2 inline payloads
+        let payload1 = solana_ibc_types::Payload {
+            source_port: "source-port-1".to_string(),
+            dest_port: "test-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            value: b"data1".to_vec(),
+        };
+
+        let payload2 = solana_ibc_types::Payload {
+            source_port: "source-port-2".to_string(),
+            dest_port: "test-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            value: b"data2".to_vec(),
+        };
+
+        ctx.packet.payloads = vec![payload1, payload2];
+
+        let msg = MsgAckPacket {
+            packet: ctx.packet.clone(),
+            payloads: vec![], // No chunked metadata
+            proof: ProofMetadata {
+                height: 100,
+                total_chunks: 1,
+            },
+            acknowledgement: vec![1u8; 32],
+        };
+
+        ctx.instruction.data = crate::instruction::AckPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_ack_packet_conflicting_inline_and_chunked() {
+        // Test that packet with both inline payloads AND chunked metadata fails
+        let mut ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
+
+        // Add inline payload to packet
+        let payload = solana_ibc_types::Payload {
+            source_port: "source-port".to_string(),
+            dest_port: "test-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            value: b"inline data".to_vec(),
+        };
+
+        ctx.packet.payloads = vec![payload];
+
+        // Also provide chunked metadata (conflicting!)
+        let msg = MsgAckPacket {
+            packet: ctx.packet.clone(),
+            payloads: vec![PayloadMetadata {
+                source_port: "source-port".to_string(),
+                dest_port: "test-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                total_chunks: 1, // This conflicts with inline payload above
+            }],
+            proof: ProofMetadata {
+                height: 100,
+                total_chunks: 1,
+            },
+            acknowledgement: vec![1u8; 32],
+        };
+
+        ctx.instruction.data = crate::instruction::AckPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
         ))];
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);

@@ -5,7 +5,7 @@ use anchor_lang::prelude::*;
 /// Parameters for assembling single payload chunks
 pub struct AssemblePayloadParams<'a, 'b, 'c> {
     pub remaining_accounts: &'a [AccountInfo<'b>],
-    pub payer: &'c AccountInfo<'b>,
+    pub relayer: &'c AccountInfo<'b>,
     pub submitter: Pubkey,
     pub client_id: &'a str,
     pub sequence: u64,
@@ -18,7 +18,7 @@ pub struct AssemblePayloadParams<'a, 'b, 'c> {
 /// Parameters for assembling proof chunks
 pub struct AssembleProofParams<'a, 'b, 'c> {
     pub remaining_accounts: &'a [AccountInfo<'b>],
-    pub payer: &'c AccountInfo<'b>,
+    pub relayer: &'c AccountInfo<'b>,
     pub submitter: Pubkey,
     pub client_id: &'a str,
     pub sequence: u64,
@@ -32,7 +32,7 @@ pub struct ReconstructPacketParams<'a, 'b, 'c> {
     pub packet: &'a solana_ibc_types::Packet,
     pub payloads_metadata: &'a [PayloadMetadata],
     pub remaining_accounts: &'a [AccountInfo<'b>],
-    pub payer: &'c AccountInfo<'b>,
+    pub relayer: &'c AccountInfo<'b>,
     pub submitter: Pubkey,
     pub client_id: &'a str,
     pub program_id: &'a Pubkey,
@@ -40,7 +40,7 @@ pub struct ReconstructPacketParams<'a, 'b, 'c> {
 
 pub fn assemble_multiple_payloads<'b>(
     remaining_accounts: &[AccountInfo<'b>],
-    payer: &AccountInfo<'b>,
+    relayer: &AccountInfo<'b>,
     submitter: Pubkey,
     client_id: &str,
     sequence: u64,
@@ -53,7 +53,7 @@ pub fn assemble_multiple_payloads<'b>(
     for (payload_index, metadata) in payloads_metadata.iter().enumerate() {
         let payload_data = assemble_single_payload_chunks(AssemblePayloadParams {
             remaining_accounts,
-            payer,
+            relayer,
             submitter,
             client_id,
             sequence,
@@ -71,13 +71,6 @@ pub fn assemble_multiple_payloads<'b>(
 }
 
 pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<Vec<u8>> {
-    msg!(
-        "assemble_single_payload_chunks: total_chunks={}, start_index={}, remaining_accounts={}",
-        params.total_chunks,
-        params.start_index,
-        params.remaining_accounts.len()
-    );
-
     let mut payload_data = Vec::new();
     let mut accounts_processed = 0;
 
@@ -91,19 +84,10 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
             account_index,
             params.remaining_accounts.len()
         );
-        // TEMPORARILY COMMENTED OUT FOR DEBUGGING
-        // require!(
-        //     account_index < params.remaining_accounts.len(),
-        //     RouterError::InvalidChunkCount
-        // );
-        if account_index >= params.remaining_accounts.len() {
-            msg!(
-                "ERROR (PAYLOAD): account_index {} >= remaining_accounts.len() {}",
-                account_index,
-                params.remaining_accounts.len()
-            );
-            return Err(RouterError::PortAlreadyBound.into()); // Changed to unique error for debugging (6001)
-        }
+        require!(
+            account_index < params.remaining_accounts.len(),
+            RouterError::InvalidChunkCount
+        );
 
         let chunk_account = &params.remaining_accounts[account_index];
 
@@ -141,7 +125,7 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
     // Clean up chunks and return rent
     cleanup_payload_chunks(
         &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
-        params.payer,
+        params.relayer,
         params.submitter,
         params.client_id,
         params.sequence,
@@ -172,26 +156,10 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
     // Collect and validate chunks
     for i in 0..params.total_chunks {
         let account_index = params.start_index + accounts_processed;
-        msg!(
-            "Processing proof chunk {}/{}: account_index={}, remaining_accounts.len()={}",
-            i,
-            params.total_chunks,
-            account_index,
-            params.remaining_accounts.len()
+        require!(
+            account_index < params.remaining_accounts.len(),
+            RouterError::InvalidChunkCount
         );
-        // TEMPORARILY COMMENTED OUT FOR DEBUGGING
-        // require!(
-        //     account_index < params.remaining_accounts.len(),
-        //     RouterError::InvalidChunkCount
-        // );
-        if account_index >= params.remaining_accounts.len() {
-            msg!(
-                "ERROR (PROOF): account_index {} >= remaining_accounts.len() {}",
-                account_index,
-                params.remaining_accounts.len()
-            );
-            return Err(RouterError::PortNotFound.into()); // Changed to unique error for debugging (6002)
-        }
 
         let chunk_account = &params.remaining_accounts[account_index];
 
@@ -227,7 +195,7 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
     // Clean up chunks and return rent
     cleanup_proof_chunks(
         &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
-        params.payer,
+        params.relayer,
         params.submitter,
         params.client_id,
         params.sequence,
@@ -325,13 +293,23 @@ fn cleanup_proof_chunks(
 ///
 /// # Returns
 /// * `Ok(solana_ibc_types::Packet)` - Reconstructed packet with payloads
-/// * `Err` - If validation fails or chunks cannot be assembled
-pub fn reconstruct_packet(params: ReconstructPacketParams) -> Result<solana_ibc_types::Packet> {
+/// * `Err` - If validation fails, or chunks cannot be assembled or both inline and payload
+/// *  metadata was provided
+pub fn validate_and_reconstruct_packet(
+    params: ReconstructPacketParams,
+) -> Result<solana_ibc_types::Packet> {
+    let has_inline_payloads = !params.packet.payloads.is_empty();
+    let has_chunked_metadata = params.payloads_metadata.iter().any(|p| p.total_chunks > 0);
+
+    require!(
+        !(has_inline_payloads && has_chunked_metadata),
+        RouterError::InvalidPayloadCount
+    );
     let payloads = if params.packet.payloads.is_empty() {
         // Chunked mode: Assemble payloads from chunks
         let payload_data_vec = assemble_multiple_payloads(
             params.remaining_accounts,
-            params.payer,
+            params.relayer,
             params.submitter,
             params.client_id,
             params.packet.sequence,
@@ -355,11 +333,6 @@ pub fn reconstruct_packet(params: ReconstructPacketParams) -> Result<solana_ibc_
     } else {
         // Inline mode: Use payloads directly from packet (no metadata needed)
         // The packet commitment is already verified via light client membership proof
-        msg!(
-            "Using inline payloads for packet {} (count: {})",
-            params.packet.sequence,
-            params.packet.payloads.len()
-        );
         params.packet.payloads.clone()
     };
 

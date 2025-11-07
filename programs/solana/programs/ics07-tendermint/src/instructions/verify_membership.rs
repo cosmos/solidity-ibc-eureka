@@ -1,5 +1,5 @@
 use crate::error::ErrorCode;
-use crate::helpers::{deserialize_merkle_proof, validate_proof_params};
+use crate::helpers::deserialize_merkle_proof;
 use crate::VerifyMembership;
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
@@ -11,69 +11,17 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
     let client_state = &ctx.accounts.client_state;
     let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
-    msg!("=== VERIFY MEMBERSHIP START ===");
-    msg!("  Height: {}", msg.height);
-    msg!("  Path segments: {}", msg.path.len());
-    msg!("  Value length: {} bytes", msg.value.len());
-    msg!("  Full value (hex): {:?}", &msg.value);
-    msg!("  Proof length: {} bytes", msg.proof.len());
-    msg!(
-        "  Proof (first 128 bytes): {:?}",
-        &msg.proof[..msg.proof.len().min(128)]
-    );
-
-    msg!("=== PATH COMPONENTS ===");
-    for (idx, segment) in msg.path.iter().enumerate() {
-        msg!("  Path[{}] length: {} bytes", idx, segment.len());
-        msg!("  Path[{}] (hex): {:?}", idx, segment);
-    }
-
-    msg!("=== CONSENSUS STATE ===");
-    msg!("  Consensus state height: {}", msg.height);
-    msg!(
-        "  Full app_hash from consensus state: {:?}",
-        consensus_state_store.consensus_state.root
-    );
-    msg!(
-        "  App hash length: {} bytes",
-        consensus_state_store.consensus_state.root.len()
-    );
-    msg!(
-        "  Consensus state timestamp: {}",
-        consensus_state_store.consensus_state.timestamp
-    );
-
-    validate_proof_params(client_state, &msg)?;
+    require!(!client_state.is_frozen(), ErrorCode::ClientFrozen);
 
     let proof = deserialize_merkle_proof(&msg.proof)?;
-    msg!("  Proof deserialized successfully");
-    msg!("  Proof specs count: {}", proof.proofs.len());
 
-    let kv_pair = KVPair::new(msg.path.clone(), msg.value.clone());
-    msg!("=== MEMBERSHIP VERIFICATION ===");
-    msg!(
-        "  Verifying path against app_hash: {:?}",
-        consensus_state_store.consensus_state.root
-    );
-    msg!("  Path[0] (hex): {:?}", &msg.path[0]);
-    if msg.path.len() > 1 {
-        msg!("  Path[1] (hex): {:?}", &msg.path[1]);
-    }
+    let kv_pair = KVPair::new(msg.path.clone(), msg.value);
 
     let app_hash = consensus_state_store.consensus_state.root;
 
-    tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)]).map_err(|e| {
-        msg!("=== MEMBERSHIP VERIFICATION FAILED ===");
-        msg!("  Error: {:?}", e);
-        msg!("  Expected app_hash: {:?}", app_hash);
-        msg!(
-            "  Value being verified: {:?}",
-            &msg.value[..msg.value.len().min(32)]
-        );
-        error!(ErrorCode::MembershipVerificationFailed)
-    })?;
+    tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)])
+        .map_err(|_| error!(ErrorCode::MembershipVerificationFailed))?;
 
-    msg!("=== MEMBERSHIP VERIFICATION SUCCEEDED ===");
     Ok(())
 }
 
@@ -164,8 +112,6 @@ mod tests {
 
         MembershipMsg {
             height: fixture.height,
-            delay_time_period: fixture.delay_time_period,
-            delay_block_period: fixture.delay_block_period,
             proof,
             path,
             value,
@@ -323,5 +269,92 @@ mod tests {
             anchor_lang::error::Error::from(ErrorCode::ClientFrozen).into(),
         )];
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+    }
+
+    #[test]
+    fn test_verify_membership_wrong_height_pda() {
+        let fixture = load_membership_verification_fixture("verify_membership_key_0");
+        let client_state = decode_client_state_from_hex(&fixture.client_state_hex);
+        let consensus_state = decode_consensus_state_from_hex(&fixture.consensus_state_hex);
+
+        let actual_height = fixture.membership_msg.height;
+        let wrong_height = actual_height + 100;
+
+        let test_accounts = setup_test_accounts(
+            client_state.chain_id.clone(),
+            actual_height,
+            client_state,
+            consensus_state,
+        );
+
+        let mut msg = create_membership_msg(&fixture.membership_msg);
+        msg.height = wrong_height;
+
+        let instruction = create_verify_membership_instruction(&test_accounts, msg);
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(2006))];
+        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+    }
+
+    #[test]
+    fn test_verify_membership_nonexistent_height() {
+        use crate::test_helpers::chunk_test_utils::derive_client_state_pda;
+
+        let fixture = load_membership_verification_fixture("verify_membership_key_0");
+        let client_state = decode_client_state_from_hex(&fixture.client_state_hex);
+
+        let existing_height = fixture.membership_msg.height;
+        let nonexistent_height = existing_height + 999;
+
+        let client_state_pda = derive_client_state_pda(&client_state.chain_id);
+
+        let mut client_data = vec![];
+        client_state.try_serialize(&mut client_data).unwrap();
+
+        let nonexistent_consensus_pda =
+            crate::test_helpers::chunk_test_utils::derive_consensus_state_pda(
+                &client_state_pda,
+                nonexistent_height,
+            );
+
+        let accounts = vec![
+            (
+                client_state_pda,
+                Account {
+                    lamports: 1_000_000,
+                    data: client_data,
+                    owner: crate::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                nonexistent_consensus_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: solana_sdk::system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        let mut msg = create_membership_msg(&fixture.membership_msg);
+        msg.height = nonexistent_height;
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(client_state_pda, false),
+                AccountMeta::new_readonly(nonexistent_consensus_pda, false),
+            ],
+            data: crate::instruction::VerifyMembership { msg }.data(),
+        };
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(3012))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }

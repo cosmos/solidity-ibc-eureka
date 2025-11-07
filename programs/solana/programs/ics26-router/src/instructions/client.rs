@@ -1,7 +1,7 @@
 use crate::errors::RouterError;
 use crate::state::{AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState};
 use anchor_lang::prelude::*;
-use solana_ibc_types::events::{ClientAddedEvent, ClientStatusUpdatedEvent};
+use solana_ibc_types::events::{ClientAddedEvent, ClientUpdatedEvent};
 
 #[derive(Accounts)]
 #[instruction(client_id: String)]
@@ -44,7 +44,7 @@ pub struct AddClient<'info> {
 
 #[derive(Accounts)]
 #[instruction(client_id: String)]
-pub struct UpdateClient<'info> {
+pub struct MigrateClient<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
@@ -64,6 +64,17 @@ pub struct UpdateClient<'info> {
     pub client: Account<'info, Client>,
 
     pub relayer: Signer<'info>,
+}
+
+/// Parameters for migrating a client
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct MigrateClientParams {
+    /// New light client program ID (None = keep current)
+    pub client_program_id: Option<Pubkey>,
+    /// New counterparty info (None = keep current)
+    pub counterparty_info: Option<CounterpartyInfo>,
+    /// New active status (None = keep current)
+    pub active: Option<bool>,
 }
 
 pub fn add_client(
@@ -106,15 +117,17 @@ pub fn add_client(
     client_sequence.next_sequence_send = 1;
 
     emit!(ClientAddedEvent {
-        client_id: client.client_id.clone(),
-        client_program_id: client.client_program_id,
-        authority: client.authority,
+        client: client.to_client_account(),
     });
 
     Ok(())
 }
 
-pub fn update_client(ctx: Context<UpdateClient>, _client_id: String, active: bool) -> Result<()> {
+pub fn migrate_client(
+    ctx: Context<MigrateClient>,
+    _client_id: String,
+    params: MigrateClientParams,
+) -> Result<()> {
     let client = &mut ctx.accounts.client;
     let router_state = &ctx.accounts.router_state;
 
@@ -123,11 +136,31 @@ pub fn update_client(ctx: Context<UpdateClient>, _client_id: String, active: boo
         RouterError::UnauthorizedSender
     );
 
-    client.active = active;
+    require!(
+        params.client_program_id.is_some()
+            || params.counterparty_info.is_some()
+            || params.active.is_some(),
+        RouterError::InvalidMigrationParams
+    );
 
-    emit!(ClientStatusUpdatedEvent {
-        client_id: client.client_id.clone(),
-        active,
+    if let Some(new_program_id) = params.client_program_id {
+        client.client_program_id = new_program_id;
+    }
+
+    if let Some(new_counterparty_info) = params.counterparty_info.clone() {
+        require!(
+            !new_counterparty_info.merkle_prefix.is_empty(),
+            RouterError::InvalidCounterpartyInfo
+        );
+        client.counterparty_info = new_counterparty_info;
+    }
+
+    if let Some(new_active) = params.active {
+        client.active = new_active;
+    }
+
+    emit!(ClientUpdatedEvent {
+        client: client.to_client_account(),
     });
 
     Ok(())
@@ -266,7 +299,7 @@ mod tests {
             create_program_account(system_program::ID),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
         let checks = config.expected_error.map_or_else(
             || {
@@ -431,9 +464,9 @@ mod tests {
     }
 
     #[test]
-    fn test_update_client_happy_path() {
+    fn test_migrate_client_active_status() {
         let authority = Pubkey::new_unique();
-        let relayer = authority; // Same as authority for this test
+        let relayer = authority;
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client-02";
 
@@ -446,9 +479,13 @@ mod tests {
             true,
         );
 
-        let instruction_data = crate::instruction::UpdateClient {
+        let instruction_data = crate::instruction::MigrateClient {
             client_id: client_id.to_string(),
-            active: false, // Deactivate the client
+            params: MigrateClientParams {
+                client_program_id: None,
+                counterparty_info: None,
+                active: Some(false), // Deactivate the client
+            },
         };
 
         let instruction = Instruction {
@@ -468,11 +505,10 @@ mod tests {
             create_account(client_pda, client_data, crate::ID),
         ];
 
-        let mollusk = Mollusk::new(&crate::ID, crate::get_router_program_path());
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
-        let checks = vec![Check::success()];
-
-        let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+        let result =
+            mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
 
         // Verify client was updated
         let client_account = result
@@ -489,5 +525,382 @@ mod tests {
         assert_eq!(deserialized_client.client_id, client_id);
         assert_eq!(deserialized_client.client_program_id, light_client_program);
         assert_eq!(deserialized_client.authority, authority);
+    }
+
+    #[test]
+    fn test_migrate_client_update_program_id() {
+        let authority = Pubkey::new_unique();
+        let relayer = authority;
+        let old_light_client_program = Pubkey::new_unique();
+        let new_light_client_program = Pubkey::new_unique();
+        let client_id = "test-client-03";
+
+        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (client_pda, client_data) = setup_client(
+            client_id,
+            authority,
+            old_light_client_program,
+            "counterparty-client",
+            true,
+        );
+
+        let instruction_data = crate::instruction::MigrateClient {
+            client_id: client_id.to_string(),
+            params: MigrateClientParams {
+                client_program_id: Some(new_light_client_program),
+                counterparty_info: None,
+                active: None,
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(authority, true),
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new(client_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_system_account(authority),
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(client_pda, client_data, crate::ID),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let result =
+            mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
+
+        let client_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &client_pda)
+            .map(|(_, account)| account)
+            .expect("Client account not found");
+
+        let deserialized_client: Client = Client::try_deserialize(&mut &client_account.data[..])
+            .expect("Failed to deserialize client");
+
+        assert_eq!(
+            deserialized_client.client_program_id, new_light_client_program,
+            "Client program ID should be updated"
+        );
+        assert_eq!(deserialized_client.client_id, client_id);
+        assert_eq!(deserialized_client.authority, authority);
+        assert!(deserialized_client.active);
+    }
+
+    #[test]
+    fn test_migrate_client_update_counterparty_info() {
+        let authority = Pubkey::new_unique();
+        let relayer = authority;
+        let light_client_program = Pubkey::new_unique();
+        let client_id = "test-client-04";
+
+        let new_counterparty_info = CounterpartyInfo {
+            client_id: "new-counterparty".to_string(),
+            merkle_prefix: vec![vec![0x02, 0x03]],
+        };
+
+        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (client_pda, client_data) = setup_client(
+            client_id,
+            authority,
+            light_client_program,
+            "old-counterparty",
+            true,
+        );
+
+        let instruction_data = crate::instruction::MigrateClient {
+            client_id: client_id.to_string(),
+            params: MigrateClientParams {
+                client_program_id: None,
+                counterparty_info: Some(new_counterparty_info.clone()),
+                active: None,
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(authority, true),
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new(client_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_system_account(authority),
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(client_pda, client_data, crate::ID),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let result =
+            mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
+
+        let client_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &client_pda)
+            .map(|(_, account)| account)
+            .expect("Client account not found");
+
+        let deserialized_client: Client = Client::try_deserialize(&mut &client_account.data[..])
+            .expect("Failed to deserialize client");
+
+        assert_eq!(
+            deserialized_client.counterparty_info.client_id, new_counterparty_info.client_id,
+            "Counterparty client ID should be updated"
+        );
+        assert_eq!(
+            deserialized_client.counterparty_info.merkle_prefix,
+            new_counterparty_info.merkle_prefix,
+            "Merkle prefix should be updated"
+        );
+    }
+
+    #[test]
+    fn test_migrate_client_update_all_fields() {
+        let authority = Pubkey::new_unique();
+        let relayer = authority;
+        let old_light_client_program = Pubkey::new_unique();
+        let new_light_client_program = Pubkey::new_unique();
+        let client_id = "test-client-06";
+
+        let new_counterparty_info = CounterpartyInfo {
+            client_id: "new-counterparty".to_string(),
+            merkle_prefix: vec![vec![0x04, 0x05, 0x06]],
+        };
+
+        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (client_pda, client_data) = setup_client(
+            client_id,
+            authority,
+            old_light_client_program,
+            "old-counterparty",
+            true,
+        );
+
+        let instruction_data = crate::instruction::MigrateClient {
+            client_id: client_id.to_string(),
+            params: MigrateClientParams {
+                client_program_id: Some(new_light_client_program),
+                counterparty_info: Some(new_counterparty_info.clone()),
+                active: Some(false),
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(authority, true),
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new(client_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_system_account(authority),
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(client_pda, client_data, crate::ID),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let result =
+            mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
+
+        let client_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &client_pda)
+            .map(|(_, account)| account)
+            .expect("Client account not found");
+
+        let deserialized_client: Client = Client::try_deserialize(&mut &client_account.data[..])
+            .expect("Failed to deserialize client");
+
+        assert_eq!(
+            deserialized_client.client_program_id,
+            new_light_client_program
+        );
+        assert_eq!(
+            deserialized_client.counterparty_info.client_id,
+            new_counterparty_info.client_id
+        );
+        assert_eq!(
+            deserialized_client.counterparty_info.merkle_prefix,
+            new_counterparty_info.merkle_prefix
+        );
+        assert!(!deserialized_client.active);
+    }
+
+    #[test]
+    fn test_migrate_client_no_params_fails() {
+        let authority = Pubkey::new_unique();
+        let relayer = authority;
+        let light_client_program = Pubkey::new_unique();
+        let client_id = "test-client-07";
+
+        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (client_pda, client_data) = setup_client(
+            client_id,
+            authority,
+            light_client_program,
+            "counterparty-client",
+            true,
+        );
+
+        let instruction_data = crate::instruction::MigrateClient {
+            client_id: client_id.to_string(),
+            params: MigrateClientParams {
+                client_program_id: None,
+                counterparty_info: None,
+                active: None,
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(authority, true),
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new(client_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_system_account(authority),
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(client_pda, client_data, crate::ID),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidMigrationParams as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_migrate_client_invalid_counterparty_info() {
+        let authority = Pubkey::new_unique();
+        let relayer = authority;
+        let light_client_program = Pubkey::new_unique();
+        let client_id = "test-client-08";
+
+        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (client_pda, client_data) = setup_client(
+            client_id,
+            authority,
+            light_client_program,
+            "counterparty-client",
+            true,
+        );
+
+        let instruction_data = crate::instruction::MigrateClient {
+            client_id: client_id.to_string(),
+            params: MigrateClientParams {
+                client_program_id: None,
+                counterparty_info: Some(CounterpartyInfo {
+                    client_id: "new-counterparty".to_string(),
+                    merkle_prefix: vec![], // Invalid: empty
+                }),
+                active: None,
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(authority, true),
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new(client_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_system_account(authority),
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(client_pda, client_data, crate::ID),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidCounterpartyInfo as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_add_client_unauthorized_authority() {
+        let correct_authority = Pubkey::new_unique();
+        let wrong_authority = Pubkey::new_unique();
+        let relayer = wrong_authority;
+        let light_client_program = Pubkey::new_unique();
+        let client_id = "test-client";
+
+        let (router_state_pda, router_state_data) = setup_router_state(correct_authority);
+        let (client_pda, _) =
+            Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) =
+            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
+
+        let instruction_data = crate::instruction::AddClient {
+            client_id: client_id.to_string(),
+            counterparty_info: CounterpartyInfo {
+                client_id: "counterparty-client".to_string(),
+                merkle_prefix: vec![vec![0x01, 0x02, 0x03]],
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(wrong_authority, true), // Wrong authority tries to add client
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new(client_pda, false),
+                AccountMeta::new(client_sequence_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(light_client_program, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_system_account(wrong_authority),
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_uninitialized_account(client_pda, 0),
+            create_uninitialized_account(client_sequence_pda, 0),
+            create_program_account(light_client_program),
+            create_program_account(system_program::ID),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedAuthority as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }

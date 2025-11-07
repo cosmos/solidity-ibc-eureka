@@ -4,6 +4,7 @@ use crate::state::{ConsensusStateStore, HeaderChunk};
 use crate::types::{ConsensusState, UpdateResult};
 use crate::AssembleAndUpdateClient;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::program::set_return_data;
 use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
@@ -25,6 +26,9 @@ pub fn assemble_and_update_client(
     let result = process_header_update(&mut ctx, header_bytes)?;
 
     cleanup_chunks(&ctx, &chain_id, target_height, submitter)?;
+
+    // Return the UpdateResult as bytes for callers to verify
+    set_return_data(&result.try_to_vec()?);
 
     Ok(result)
 }
@@ -89,7 +93,6 @@ fn process_header_update(
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
-    // Deserialize and validate header
     let header = deserialize_header(&header_bytes)?;
     let trusted_height = header.trusted_height.revision_height();
 
@@ -106,24 +109,20 @@ fn process_header_update(
         header,
     )?;
 
-    check_misbehaviour(
-        &new_consensus_state,
-        &trusted_consensus_state.consensus_state,
-        client_state,
-    )?;
-
     let result = store_consensus_state(StoreConsensusStateParams {
         account: &ctx.accounts.new_consensus_state_store,
-        payer: &ctx.accounts.payer,
+        submitter: &ctx.accounts.submitter,
         system_program: &ctx.accounts.system_program,
         program_id: ctx.program_id,
         client_key: client_state.key(),
         height: new_height.revision_height(),
         new_consensus_state: &new_consensus_state,
+        trusted_consensus_state: &trusted_consensus_state.consensus_state,
         client_state,
     })?;
 
-    if result == UpdateResult::Update {
+    // Update latest height only on successful update
+    if result == UpdateResult::UpdateSuccess {
         client_state.latest_height = new_height.into();
     }
 
@@ -139,16 +138,22 @@ fn verify_and_update_header(
     let trusted_ibc_state: IbcConsensusState = trusted_state.clone().into();
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
+    // Signature verification happens here using brine-ed25519 (~30k CU per signature).
+    // Note: This happens AFTER header assembly. The signatures are embedded inside the header
+    // data that was uploaded via chunks. We cannot use Ed25519Program because:
+    // 1. Signatures come from external blockchain data (Tendermint validators)
+    // 2. They're only accessible after header assembly and deserialization
+    // 3. Ed25519Program requires signatures as separate instructions in the SAME transaction
+    // 4. Using Ed25519Program would require double multi-tx coordination (chunks + signatures),
+    //    adding 4-8 seconds of latency per update (10-20 sequential signature verifications)
+    // See README "Design Decisions" section for full explanation.
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
         &trusted_ibc_state,
         header,
         current_time,
     )
-    .map_err(|e| {
-        msg!("Header verification failed: {:?}", e);
-        ErrorCode::UpdateClientFailed
-    })?;
+    .map_err(|_| ErrorCode::UpdateClientFailed)?;
 
     Ok((
         output.latest_height,
@@ -157,21 +162,6 @@ fn verify_and_update_header(
             .try_into()
             .map_err(|_| ErrorCode::SerializationError)?,
     ))
-}
-
-fn check_misbehaviour(
-    new_state: &ConsensusState,
-    trusted_state: &ConsensusState,
-    client_state: &mut Account<crate::types::ClientState>,
-) -> Result<()> {
-    let trusted_ibc: IbcConsensusState = trusted_state.clone().into();
-    let trusted_timestamp = trusted_ibc.timestamp.unix_timestamp_nanos() as u64;
-
-    if new_state.timestamp <= trusted_timestamp {
-        client_state.freeze();
-        return err!(ErrorCode::MisbehaviourNonIncreasingTime);
-    }
-    Ok(())
 }
 
 fn cleanup_chunks(
@@ -196,8 +186,12 @@ fn cleanup_chunks(
             ErrorCode::InvalidChunkAccount
         );
 
+        let mut data = chunk_account.try_borrow_mut_data()?;
+        data.fill(0);
+
         let mut lamports = chunk_account.try_borrow_mut_lamports()?;
         let mut submitter_lamports = ctx.accounts.submitter.try_borrow_mut_lamports()?;
+
         **submitter_lamports += **lamports;
         **lamports = 0;
     }
@@ -235,12 +229,13 @@ fn load_consensus_state(
 
 struct StoreConsensusStateParams<'a, 'info> {
     account: &'a UncheckedAccount<'info>,
-    payer: &'a Signer<'info>,
+    submitter: &'a Signer<'info>,
     system_program: &'a Program<'info, System>,
     program_id: &'a Pubkey,
     client_key: Pubkey,
     height: u64,
     new_consensus_state: &'a ConsensusState,
+    trusted_consensus_state: &'a ConsensusState,
     client_state: &'a mut Account<'info, crate::types::ClientState>,
 }
 
@@ -268,9 +263,13 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
             let existing: ConsensusStateStore =
                 ConsensusStateStore::try_deserialize(&mut &account_data[..])?;
 
-            if existing.consensus_state != *params.new_consensus_state {
+            let state_mismatch = existing.consensus_state != *params.new_consensus_state;
+            let timestamp_not_increasing =
+                params.trusted_consensus_state.timestamp >= params.new_consensus_state.timestamp;
+
+            if state_mismatch || timestamp_not_increasing {
                 params.client_state.freeze();
-                return err!(ErrorCode::MisbehaviourConflictingState);
+                return Ok(UpdateResult::Misbehaviour);
             }
 
             return Ok(UpdateResult::NoOp);
@@ -288,8 +287,9 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
         &[bump],
     ];
 
+    // IMPORTANT TODO: check again if anchor could simplify pda validation
     let cpi_accounts = system_program::CreateAccount {
-        from: params.payer.to_account_info(),
+        from: params.submitter.to_account_info(),
         to: params.account.to_account_info(),
     };
     let cpi_program = params.system_program.to_account_info();
@@ -308,7 +308,7 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     let mut cursor = std::io::Cursor::new(&mut data[..]);
     new_store.try_serialize(&mut cursor)?;
 
-    Ok(UpdateResult::Update)
+    Ok(UpdateResult::UpdateSuccess)
 }
 
 #[cfg(test)]

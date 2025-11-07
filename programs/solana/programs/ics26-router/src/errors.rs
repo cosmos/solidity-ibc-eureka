@@ -16,16 +16,10 @@ pub enum RouterError {
     InvalidTimeoutDuration,
     #[msg("Invalid counterparty")]
     InvalidCounterparty,
-    #[msg("Packet commitment already exists")]
-    PacketCommitmentAlreadyExists,
     #[msg("Packet commitment mismatch")]
     PacketCommitmentMismatch,
-    #[msg("Packet should have payload")]
-    PacketNoPayload,
     #[msg("Packet receipt mismatch")]
     PacketReceiptMismatch,
-    #[msg("Packet acknowledgement already exists")]
-    PacketAcknowledgementAlreadyExists,
     #[msg("Multi-payload packets not supported")]
     MultiPayloadPacketNotSupported,
     #[msg("Async acknowledgement not supported")]
@@ -56,6 +50,8 @@ pub enum RouterError {
     ClientNotActive,
     #[msg("Invalid counterparty client")]
     InvalidCounterpartyClient,
+    #[msg("Wrong client passed")]
+    ClientMismatch,
     #[msg("Arithmetic overflow")]
     ArithmeticOverflow,
     #[msg("Invalid response from IBC app")]
@@ -74,4 +70,6 @@ pub enum RouterError {
     InvalidPayloadCount,
     #[msg("Unsupported account version")]
     UnsupportedVersion,
+    #[msg("Invalid migration params: at least one field must be updated")]
+    InvalidMigrationParams,
 }
