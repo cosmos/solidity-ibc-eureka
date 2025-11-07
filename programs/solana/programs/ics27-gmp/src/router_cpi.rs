@@ -1,6 +1,6 @@
 use crate::errors::GMPError;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{instruction::Instruction, program::invoke_signed};
+use anchor_lang::solana_program::{instruction::Instruction, program::invoke};
 use solana_ibc_types::MsgSendPacket;
 
 /// Send IBC packet via CPI to the ICS26 router
@@ -11,13 +11,12 @@ pub fn send_packet_cpi<'a>(
     router_state: &AccountInfo<'a>,
     client_sequence: &AccountInfo<'a>,
     packet_commitment: &AccountInfo<'a>,
-    router_caller: &AccountInfo<'a>,
+    instruction_sysvar: &AccountInfo<'a>,
     payer: &AccountInfo<'a>,
     ibc_app: &AccountInfo<'a>,
     client: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>,
     msg: MsgSendPacket,
-    router_caller_bump: u8,
 ) -> Result<u64> {
     // Build instruction data with Anchor discriminator
     let mut instruction_data = Vec::with_capacity(256);
@@ -37,7 +36,7 @@ pub fn send_packet_cpi<'a>(
             AccountMeta::new_readonly(*ibc_app.key, false),
             AccountMeta::new(*client_sequence.key, false),
             AccountMeta::new(*packet_commitment.key, false),
-            AccountMeta::new_readonly(*router_caller.key, true), // GMP's router_caller PDA signs
+            AccountMeta::new_readonly(*instruction_sysvar.key, false), // Instructions sysvar
             AccountMeta::new(*payer.key, true),
             AccountMeta::new_readonly(*system_program.key, false),
             AccountMeta::new_readonly(*client.key, false),
@@ -45,22 +44,19 @@ pub fn send_packet_cpi<'a>(
         data: instruction_data,
     };
 
-    // Router caller PDA signer seeds
-    let signer_seeds = &[solana_ibc_types::RouterCaller::SEED, &[router_caller_bump]];
-
-    // Execute CPI to router with PDA signing
+    // Execute CPI to router (no PDA signing needed - router validates via instruction sysvar)
     let account_infos = &[
         router_state.clone(),
         ibc_app.clone(),
         client_sequence.clone(),
         packet_commitment.clone(),
-        router_caller.clone(),
+        instruction_sysvar.clone(),
         payer.clone(),
         system_program.clone(),
         client.clone(),
     ];
 
-    invoke_signed(&instruction, account_infos, &[signer_seeds])?;
+    invoke(&instruction, account_infos)?;
 
     // Read sequence number from updated client_sequence account
     // The router increments the sequence after sending the packet
@@ -77,22 +73,5 @@ pub fn send_packet_cpi<'a>(
         Ok(current_sequence.saturating_sub(1))
     } else {
         Err(GMPError::SequenceParseError.into())
-    }
-}
-
-// Re-export shared types from solana-ibc-types
-pub use solana_ibc_types::ValidatedGmpPacketData;
-
-/// Helper to convert `GMPPacketError` to program-specific errors
-pub(crate) const fn map_validation_error(
-    e: solana_ibc_types::GMPPacketError,
-) -> crate::errors::GMPError {
-    match e {
-        solana_ibc_types::GMPPacketError::DecodeError => GMPError::PacketDataParseError,
-        solana_ibc_types::GMPPacketError::InvalidSender => GMPError::SenderTooLong,
-        solana_ibc_types::GMPPacketError::InvalidSalt => GMPError::SaltTooLong,
-        solana_ibc_types::GMPPacketError::EmptyPayload => GMPError::EmptyPayload,
-        solana_ibc_types::GMPPacketError::PayloadTooLong => GMPError::PayloadTooLong,
-        solana_ibc_types::GMPPacketError::MemoTooLong => GMPError::MemoTooLong,
     }
 }

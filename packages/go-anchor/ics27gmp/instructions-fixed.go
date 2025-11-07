@@ -22,7 +22,6 @@ import (
 // Initialize the ICS27 GMP application
 func NewInitializeInstructionFixed(
 	appStateAccount solanago.PublicKey,
-	routerCallerAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	authorityAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
@@ -33,14 +32,11 @@ func NewInitializeInstructionFixed(
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "router_caller": Writable, Non-signer, Required
-		// Router caller PDA that represents our app to the router
-		accounts__.Append(solanago.NewAccountMeta(routerCallerAccount, true, false))
-		// Account 2 "payer": Writable, Signer, Required
+		// Account 1 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 3 "authority": Read-only, Signer, Required
+		// Account 2 "authority": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Account 3 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 

@@ -535,10 +535,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		)
 		packetData := transferData.GetBytes()
 
-		var appState, routerCaller, routerState, ibcApp, client, clientSequence, packetCommitment solanago.PublicKey
+		var appState, routerState, ibcApp, client, clientSequence, packetCommitment solanago.PublicKey
 		s.Require().True(s.Run("Prepare accounts", func() {
 			appState, _ = solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
-			routerCaller, _ = solana.DummyIbcApp.RouterCallerPDA(s.DummyAppProgramID)
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -580,7 +579,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			client,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
-			routerCaller,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -719,10 +718,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		receiver := cosmosUserWallet.FormattedAddress()
 		memo := "Test transfer from Solana to Cosmos"
 
-		var appState, routerCaller, routerState, ibcApp, client, clientSequence, packetCommitment, escrow, escrowState solanago.PublicKey
+		var appState, routerState, ibcApp, client, clientSequence, packetCommitment, escrow, escrowState solanago.PublicKey
 		s.Require().True(s.Run("Prepare accounts", func() {
 			appState, _ = solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
-			routerCaller, _ = solana.DummyIbcApp.RouterCallerPDA(s.DummyAppProgramID)
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -771,7 +769,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			client,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
-			routerCaller,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 

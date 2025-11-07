@@ -133,7 +133,6 @@ mod tests {
         let authority = Pubkey::new_unique();
         let (app_state_pda, _bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
-        let (router_caller_pda, _) = solana_ibc_types::RouterCaller::pda(&crate::ID);
         let payer = authority;
 
         let instruction_data = crate::instruction::Initialize {};
@@ -142,7 +141,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
-                AccountMeta::new(router_caller_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(authority, true),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -152,7 +150,6 @@ mod tests {
 
         let accounts = vec![
             create_pda_for_init(app_state_pda),
-            create_pda_for_init(router_caller_pda),
             create_payer_account(payer),
             create_system_program_account(),
         ];

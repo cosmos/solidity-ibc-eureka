@@ -1,4 +1,3 @@
-use crate::errors::DummyIbcAppError;
 use crate::{state::*, ICS26_ROUTER_ID};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
@@ -34,11 +33,12 @@ pub struct OnRecvPacket<'info> {
 }
 
 pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Result<()> {
-    require_keys_eq!(
-        ctx.accounts.router_program.key(),
-        ICS26_ROUTER_ID,
-        DummyIbcAppError::UnauthorizedCaller
-    );
+    // Validate CPI caller using shared validation function
+    solana_ibc_types::validate_cpi_caller(
+        &ctx.accounts.instruction_sysvar,
+        &ICS26_ROUTER_ID,
+        &crate::ID,
+    )?;
 
     let app_state = &mut ctx.accounts.app_state;
 

@@ -130,7 +130,7 @@ func UnmarshalIcs27GmpStateGmpAppState(buf []byte) (*Ics27GmpStateGmpAppState, e
 	return obj, nil
 }
 
-// Send call message
+// Send call message (unvalidated input from user)
 type Ics27GmpStateSendCallMsg struct {
 	// Source client identifier
 	SourceClient string `json:"sourceClient"`

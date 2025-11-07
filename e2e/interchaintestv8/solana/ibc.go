@@ -37,7 +37,6 @@ func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPo
 	gmpAppStatePDA, _ := Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 	clientPDA, _ := Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(clientID))
 	clientStatePDA, _ := Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
-	routerCallerPDA, _ := Ics27Gmp.RouterCallerPDA(ics27_gmp.ProgramID)
 	clientSequencePDA, _ := Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(clientID))
 
 	return []solana.PublicKey{
@@ -53,7 +52,6 @@ func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPo
 		gmpAppStatePDA,
 		clientPDA,
 		clientStatePDA,
-		routerCallerPDA,
 		clientSequencePDA,
 	}
 }

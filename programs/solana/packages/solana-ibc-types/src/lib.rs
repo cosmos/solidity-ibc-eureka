@@ -5,6 +5,7 @@
 //! light client types (ICS07), and Solana-specific PDA utilities.
 
 pub mod app_msgs;
+pub mod cpi;
 pub mod events;
 pub mod ibc_app_interface;
 pub mod ics07;
@@ -21,7 +22,7 @@ pub use router::{
     router_instructions, AccountVersion, Client, ClientAccount, ClientSequence, Commitment,
     CounterpartyInfo, IBCApp, IBCAppState, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket,
     MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet, PayloadChunk, PayloadMetadata,
-    ProofChunk, ProofMetadata, RouterCaller, RouterState, MAX_CLIENT_ID_LENGTH,
+    ProofChunk, ProofMetadata, RouterState, MAX_CLIENT_ID_LENGTH,
 };
 
 pub use ics07::{ics07_instructions, ClientState, ConsensusState, IbcHeight, UpdateClientMsg};
@@ -37,3 +38,6 @@ pub use events::{
 };
 
 pub use ibc_app_interface::ibc_app_instructions;
+
+pub use cpi::{validate_cpi_caller, CpiValidationError};
+pub use utils::compute_discriminator;

@@ -15,7 +15,6 @@ import (
 // Initialize the ICS27 GMP application
 func NewInitializeInstruction(
 	appStateAccount solanago.PublicKey,
-	routerCallerAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	authorityAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
@@ -26,14 +25,11 @@ func NewInitializeInstruction(
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "router_caller": Writable, Non-signer, Required
-		// Router caller PDA that represents our app to the router
-		accounts__.Append(solanago.NewAccountMeta(routerCallerAccount, true, false))
-		// Account 2 "payer": Writable, Signer, Required
+		// Account 1 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 3 "authority": Read-only, Signer, Required
+		// Account 2 "authority": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Account 3 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -59,7 +55,7 @@ func NewSendCallInstruction(
 	routerStateAccount solanago.PublicKey,
 	clientSequenceAccount solanago.PublicKey,
 	packetCommitmentAccount solanago.PublicKey,
-	routerCallerAccount solanago.PublicKey,
+	instructionSysvarAccount solanago.PublicKey,
 	ibcAppAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
@@ -103,9 +99,9 @@ func NewSendCallInstruction(
 		// Account 6 "packet_commitment": Writable, Non-signer, Required
 		// Packet commitment account to be created
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
-		// Account 7 "router_caller": Read-only, Non-signer, Required
-		// Router caller PDA that represents our app
-		accounts__.Append(solanago.NewAccountMeta(routerCallerAccount, false, false))
+		// Account 7 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for router CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
 		// Account 8 "ibc_app": Read-only, Non-signer, Required
 		// IBC app registration account
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))

@@ -214,31 +214,37 @@ pub fn create_clock_account_with_data(
 }
 
 pub fn create_instructions_sysvar_account() -> (Pubkey, solana_sdk::account::Account) {
+    create_instructions_sysvar_account_with_caller(Pubkey::new_unique())
+}
+
+pub fn create_instructions_sysvar_account_with_caller(
+    caller_program_id: Pubkey,
+) -> (Pubkey, solana_sdk::account::Account) {
     use solana_sdk::sysvar::instructions::{
         construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
     };
 
-    // Create minimal mock instructions to simulate router calling IBC app via CPI
-    // For CPI validation, only the program_id matters - GMP apps check that
-    // the calling instruction's program_id matches their authorized router
+    // Create minimal mock instructions to simulate CPI validation
+    // For CPI validation, only the program_id matters - send_packet checks that
+    // the calling instruction's program_id matches the authorized IBC app
     //
-    // Instruction 0: The router instruction (current when router executes)
-    // This simulates the top-level recv_packet/ack_packet/timeout_packet call
+    // Instruction 0: The caller instruction (current when caller executes)
+    // During CPI, current_index points to this instruction
     let account_pubkey = Pubkey::new_unique();
     let account = BorrowedAccountMeta {
         pubkey: &account_pubkey,
         is_signer: false,
         is_writable: true,
     };
-    let mock_router_ix = BorrowedInstruction {
-        program_id: &crate::ID,
+    let mock_caller_ix = BorrowedInstruction {
+        program_id: &caller_program_id,
         accounts: vec![account],
         data: &[],
     };
 
     // Serialize instructions for sysvar
-    // When GMP apps check the sysvar during CPI, they'll see the router as the caller
-    let ixs_data = construct_instructions_data(&[mock_router_ix]);
+    // When router checks the sysvar during CPI, it'll see the caller as the executing instruction
+    let ixs_data = construct_instructions_data(&[mock_caller_ix]);
 
     (
         solana_sdk::sysvar::instructions::ID,

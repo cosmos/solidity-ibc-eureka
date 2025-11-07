@@ -83,12 +83,3 @@ pub struct GMPExecutionFailed {
     /// Failure timestamp
     pub timestamp: i64,
 }
-
-/// Event emitted when router caller PDA is created
-#[event]
-pub struct RouterCallerCreated {
-    /// Router caller PDA address
-    pub router_caller: Pubkey,
-    /// PDA bump seed
-    pub bump: u8,
-}

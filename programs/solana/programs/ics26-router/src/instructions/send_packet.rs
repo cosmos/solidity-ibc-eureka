@@ -39,8 +39,10 @@ pub struct SendPacket<'info> {
     )]
     pub packet_commitment: Account<'info, Commitment>,
 
-    /// The IBC app calling this instruction
-    pub app_caller: Signer<'info>,
+    /// Instructions sysvar for validating CPI caller
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instruction_sysvar: AccountInfo<'info>,
 
     /// Allow payer to be separate from IBC app
     #[account(mut)]
@@ -63,14 +65,13 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
-    // Check if app_caller is authorized - it must be a PDA derived from the registered program
-    // (since program IDs cannot sign transactions in Solana)
-    let (expected_pda, _) = solana_ibc_types::RouterCaller::pda(&ibc_app.app_program_id);
-
-    require!(
-        ctx.accounts.app_caller.key() == expected_pda,
-        RouterError::UnauthorizedSender
-    );
+    // Validate CPI caller using shared validation function
+    solana_ibc_types::validate_cpi_caller(
+        &ctx.accounts.instruction_sysvar,
+        &ibc_app.app_program_id,
+        &crate::ID,
+    )
+    .map_err(RouterError::from)?;
 
     let current_timestamp = clock.unix_timestamp;
     require!(
@@ -133,7 +134,7 @@ mod tests {
         client_id: &'static str,
         port_id: &'static str,
         app_program_id: Option<Pubkey>,
-        unauthorized_app_caller: Option<Pubkey>,
+        cpi_caller_program_id: Option<Pubkey>,
         active_client: bool,
         current_timestamp: i64,
         timeout_timestamp: i64,
@@ -146,7 +147,7 @@ mod tests {
                 client_id: "test-client",
                 port_id: "test-port",
                 app_program_id: None,
-                unauthorized_app_caller: None,
+                cpi_caller_program_id: None,
                 active_client: true,
                 current_timestamp: 1000,
                 timeout_timestamp: 2000,
@@ -158,9 +159,10 @@ mod tests {
     fn setup_send_packet_test_with_params(params: SendPacketTestParams) -> SendPacketTestContext {
         let authority = Pubkey::new_unique();
         let app_program_id = params.app_program_id.unwrap_or_else(Pubkey::new_unique);
-        let (default_app_caller, _) = solana_ibc_types::RouterCaller::pda(&app_program_id);
-        let app_caller = params.unauthorized_app_caller.unwrap_or(default_app_caller);
-        let payer = app_caller;
+        let payer = Pubkey::new_unique();
+
+        // Default to correct CPI caller (the app_program_id) unless overridden for unauthorized tests
+        let cpi_caller_program_id = params.cpi_caller_program_id.unwrap_or(app_program_id);
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
         let (client_pda, client_data) = setup_client(
@@ -202,7 +204,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new(packet_commitment_pda, false),
-                AccountMeta::new_readonly(app_caller, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda, false),
@@ -215,7 +217,7 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda),
-            create_system_account(app_caller),
+            create_instructions_sysvar_account_with_caller(cpi_caller_program_id),
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
@@ -296,9 +298,28 @@ mod tests {
     }
 
     #[test]
-    fn test_send_packet_unauthorized_sender() {
+    fn test_send_packet_direct_call_rejected() {
+        // Test that direct calls (not via CPI) are rejected
         let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
-            unauthorized_app_caller: Some(Pubkey::new_unique()),
+            cpi_caller_program_id: Some(crate::ID), // Simulate direct call from router itself
+            ..Default::default()
+        });
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::DirectCallNotAllowed as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_send_packet_unauthorized_app_caller() {
+        // Test that CPI from unauthorized program is rejected
+        let unauthorized_program = Pubkey::new_unique();
+        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
+            cpi_caller_program_id: Some(unauthorized_program),
             ..Default::default()
         });
 
@@ -396,7 +417,6 @@ mod tests {
         // Test that two different clients have independent sequence counters
         let authority = Pubkey::new_unique();
         let app_program_id = Pubkey::new_unique();
-        let (app_caller_pda, _) = solana_ibc_types::RouterCaller::pda(&app_program_id);
         let port_id = "test-port";
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
@@ -448,6 +468,8 @@ mod tests {
             &crate::ID,
         );
 
+        let payer = Pubkey::new_unique();
+
         let instruction_1 = Instruction {
             program_id: crate::ID,
             accounts: vec![
@@ -455,8 +477,8 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda_1, false),
                 AccountMeta::new(packet_commitment_pda_1, false),
-                AccountMeta::new_readonly(app_caller_pda, true),
-                AccountMeta::new(app_caller_pda, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda_1, false),
             ],
@@ -468,8 +490,8 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data.clone(), crate::ID),
             create_account(client_sequence_pda_1, client_sequence_data_1, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_1),
-            create_system_account(app_caller_pda),
-            create_system_account(app_caller_pda),
+            create_instructions_sysvar_account_with_caller(app_program_id),
+            create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda_1, client_data_1, crate::ID),
         ];
@@ -512,8 +534,8 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda_2, false),
                 AccountMeta::new(packet_commitment_pda_2, false),
-                AccountMeta::new_readonly(app_caller_pda, true),
-                AccountMeta::new(app_caller_pda, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda_2, false),
             ],
@@ -525,8 +547,8 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda_2, client_sequence_data_2, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_2),
-            create_system_account(app_caller_pda),
-            create_system_account(app_caller_pda),
+            create_instructions_sysvar_account_with_caller(app_program_id),
+            create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda_2, client_data_2, crate::ID),
         ];

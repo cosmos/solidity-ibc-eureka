@@ -121,14 +121,10 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 		// Find GMP app state PDA (using standard pattern with port_id)
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 
-		// Find router caller PDA
-		routerCallerPDA, _ := solana.Ics27Gmp.RouterCallerPDA(ics27_gmp.ProgramID)
-
 		// Initialize ICS27 GMP app using the fixed version (see instructions-fixed.go)
 		// Using GMP port for proper GMP functionality
 		initInstruction, err := ics27_gmp.NewInitializeInstructionFixed(
 			gmpAppStatePDA,           // app state account
-			routerCallerPDA,          // router caller account
 			s.SolanaUser.PublicKey(), // payer
 			s.SolanaUser.PublicKey(), // authority
 			solanago.SystemProgramID, // system program
@@ -808,11 +804,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			s.T().Logf("Encoded GMP payload (%d bytes)", len(payload))
 		}))
 
-		var gmpAppStatePDA, routerStatePDA, routerCallerPDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
+		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-			routerCallerPDA, _ = solana.Ics27Gmp.RouterCallerPDA(ics27_gmp.ProgramID)
 			clientPDA, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			ibcAppPDA, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
 			clientSequencePDA, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -853,7 +848,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 				routerStatePDA,
 				clientSequencePDA,
 				packetCommitmentPDA,
-				routerCallerPDA,
+				solanago.SysVarInstructionsPubkey,
 				ibcAppPDA,
 				clientPDA,
 				solanago.SystemProgramID,
@@ -1091,11 +1086,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			s.T().Logf("Encoded GMP payload (%d bytes)", len(payload))
 		}))
 
-		var gmpAppStatePDA, routerStatePDA, routerCallerPDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
+		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-			routerCallerPDA, _ = solana.Ics27Gmp.RouterCallerPDA(ics27_gmp.ProgramID)
 			clientPDA, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			ibcAppPDA, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
 			clientSequencePDA, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -1142,7 +1136,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 				routerStatePDA,
 				clientSequencePDA,
 				packetCommitmentPDA,
-				routerCallerPDA,
+				solanago.SysVarInstructionsPubkey,
 				ibcAppPDA,
 				clientPDA,
 				solanago.SystemProgramID,
@@ -1807,11 +1801,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 			s.T().Logf("Encoded GMP payload (%d bytes) - will fail due to insufficient balance", len(payload))
 		}))
 
-		var gmpAppStatePDA, routerStatePDA, routerCallerPDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
+		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-			routerCallerPDA, _ = solana.Ics27Gmp.RouterCallerPDA(ics27_gmp.ProgramID)
 			clientPDA, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			ibcAppPDA, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
 			clientSequencePDA, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -1849,7 +1842,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 				routerStatePDA,
 				clientSequencePDA,
 				packetCommitmentPDA,
-				routerCallerPDA,
+				solanago.SysVarInstructionsPubkey,
 				ibcAppPDA,
 				clientPDA,
 				solanago.SystemProgramID,

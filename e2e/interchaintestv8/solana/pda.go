@@ -106,17 +106,6 @@ func (dummyIbcAppPDAs) IbcAppTransferPDA(programID solanago.PublicKey) (solanago
 	return pda, bump
 }
 
-func (dummyIbcAppPDAs) RouterCallerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
-	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("router_caller")},
-		programID,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to derive DummyIbcApp.RouterCallerPDA PDA: %v", err))
-	}
-	return pda, bump
-}
-
 func (dummyIbcAppPDAs) RouterStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("router_state")},
@@ -289,17 +278,6 @@ func (ics27GmpPDAs) AppStateGmpportPDA(programID solanago.PublicKey) (solanago.P
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ics27Gmp.AppStateGmpportPDA PDA: %v", err))
-	}
-	return pda, bump
-}
-
-func (ics27GmpPDAs) RouterCallerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
-	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("router_caller")},
-		programID,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics27Gmp.RouterCallerPDA PDA: %v", err))
 	}
 	return pda, bump
 }

@@ -1,6 +1,6 @@
 use crate::constants::*;
+use crate::errors::GMPError;
 use crate::state::GMPAppState;
-use crate::utils::validate_cpi_caller;
 use anchor_lang::prelude::*;
 
 /// Process IBC packet acknowledgement (called by router via CPI)
@@ -36,10 +36,12 @@ pub fn on_acknowledgement_packet(
     let app_state = &ctx.accounts.app_state;
 
     // Verify this function is called via CPI from the authorized router
-    validate_cpi_caller(
+    solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
         &ctx.accounts.router_program.key(),
-    )?;
+        &crate::ID,
+    )
+    .map_err(GMPError::from)?;
 
     // TODO: validate via account constraints
     // Check if app is operational

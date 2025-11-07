@@ -8,7 +8,6 @@ pub mod instructions;
 pub mod proto;
 pub mod router_cpi;
 pub mod state;
-pub mod utils;
 
 #[cfg(test)]
 pub mod test_utils;

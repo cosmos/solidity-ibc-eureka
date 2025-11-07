@@ -33,11 +33,12 @@ pub fn on_acknowledgement_packet(
     ctx: Context<OnAcknowledgementPacket>,
     msg: OnAcknowledgementPacketMsg,
 ) -> Result<()> {
-    require_keys_eq!(
-        ctx.accounts.router_program.key(),
-        ICS26_ROUTER_ID,
-        IBCAppError::UnauthorizedCaller
-    );
+    // Validate CPI caller using shared validation function
+    solana_ibc_types::validate_cpi_caller(
+        &ctx.accounts.instruction_sysvar,
+        &ICS26_ROUTER_ID,
+        &crate::ID,
+    )?;
 
     let app_state = &mut ctx.accounts.app_state;
 

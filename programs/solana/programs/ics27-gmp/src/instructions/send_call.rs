@@ -42,13 +42,10 @@ pub struct SendCall<'info> {
     #[account(mut)]
     pub packet_commitment: AccountInfo<'info>,
 
-    /// Router caller PDA that represents our app
-    /// CHECK: This is a PDA derived with `solana_ibc_types::RouterCaller::SEED`
-    #[account(
-        seeds = [solana_ibc_types::RouterCaller::SEED],
-        bump,
-    )]
-    pub router_caller: AccountInfo<'info>,
+    /// Instructions sysvar for router CPI validation
+    /// CHECK: Router program validates this
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instruction_sysvar: AccountInfo<'info>,
 
     /// IBC app registration account
     /// CHECK: Router program validates this
@@ -131,13 +128,12 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         &ctx.accounts.router_state,
         &ctx.accounts.client_sequence,
         &ctx.accounts.packet_commitment,
-        &ctx.accounts.router_caller.to_account_info(),
+        &ctx.accounts.instruction_sysvar,
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.ibc_app,
         &ctx.accounts.client,
         &ctx.accounts.system_program.to_account_info(),
         router_msg,
-        ctx.bumps.router_caller,
     )?;
 
     // Emit event
@@ -190,9 +186,6 @@ mod tests {
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let (router_caller_pda, _router_caller_bump) =
-            solana_ibc_types::RouterCaller::pda(&crate::ID);
-
         let msg = SendCallMsg {
             source_client: "cosmoshub-1".to_string(),
             receiver: Pubkey::new_unique().to_string(),
@@ -214,7 +207,10 @@ mod tests {
                 AccountMeta::new_readonly(router_state, false),
                 AccountMeta::new(client_sequence, false),
                 AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
                 AccountMeta::new_readonly(ibc_app, false),
                 AccountMeta::new_readonly(client, false),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -235,7 +231,7 @@ mod tests {
             create_authority_account(router_state),
             create_authority_account(client_sequence),
             create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
+            create_instructions_sysvar_account(),
             create_authority_account(ibc_app),
             create_authority_account(client),
             create_system_program_account(),
@@ -264,9 +260,6 @@ mod tests {
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let (router_caller_pda, _router_caller_bump) =
-            solana_ibc_types::RouterCaller::pda(&crate::ID);
-
         let msg = SendCallMsg {
             source_client: "cosmoshub-1".to_string(),
             receiver: Pubkey::new_unique().to_string(),
@@ -288,7 +281,10 @@ mod tests {
                 AccountMeta::new_readonly(router_state, false),
                 AccountMeta::new(client_sequence, false),
                 AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
                 AccountMeta::new_readonly(ibc_app, false),
                 AccountMeta::new_readonly(client, false),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -309,7 +305,7 @@ mod tests {
             create_authority_account(router_state),
             create_authority_account(client_sequence),
             create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
+            create_instructions_sysvar_account(),
             create_authority_account(ibc_app),
             create_authority_account(client),
             create_system_program_account(),
@@ -343,8 +339,6 @@ mod tests {
         // Use wrong PDA in instruction
         let wrong_app_state_pda = Pubkey::new_unique();
 
-        let (router_caller_pda, _) = solana_ibc_types::RouterCaller::pda(&crate::ID);
-
         let msg = SendCallMsg {
             source_client: "cosmoshub-1".to_string(),
             receiver: Pubkey::new_unique().to_string(),
@@ -366,7 +360,10 @@ mod tests {
                 AccountMeta::new_readonly(router_state, false),
                 AccountMeta::new(client_sequence, false),
                 AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
                 AccountMeta::new_readonly(ibc_app, false),
                 AccountMeta::new_readonly(client, false),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -382,7 +379,7 @@ mod tests {
             create_authority_account(router_state),
             create_authority_account(client_sequence),
             create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
+            create_instructions_sysvar_account(),
             create_authority_account(ibc_app),
             create_authority_account(client),
             create_system_program_account(),
@@ -411,8 +408,6 @@ mod tests {
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let (router_caller_pda, _) = solana_ibc_types::RouterCaller::pda(&crate::ID);
-
         let msg = SendCallMsg {
             source_client: "cosmoshub-1".to_string(),
             receiver: Pubkey::new_unique().to_string(),
@@ -434,7 +429,10 @@ mod tests {
                 AccountMeta::new_readonly(router_state, false),
                 AccountMeta::new(client_sequence, false),
                 AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
                 AccountMeta::new_readonly(ibc_app, false),
                 AccountMeta::new_readonly(client, false),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -450,7 +448,7 @@ mod tests {
             create_authority_account(router_state),
             create_authority_account(client_sequence),
             create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
+            create_instructions_sysvar_account(),
             create_authority_account(ibc_app),
             create_authority_account(client),
             create_system_program_account(),
@@ -479,8 +477,6 @@ mod tests {
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let (router_caller_pda, _) = solana_ibc_types::RouterCaller::pda(&crate::ID);
-
         let msg = SendCallMsg {
             source_client: "cosmoshub-1".to_string(),
             receiver: Pubkey::new_unique().to_string(),
@@ -502,7 +498,10 @@ mod tests {
                 AccountMeta::new_readonly(router_state, false),
                 AccountMeta::new(client_sequence, false),
                 AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
                 AccountMeta::new_readonly(ibc_app, false),
                 AccountMeta::new_readonly(client, false),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -518,7 +517,7 @@ mod tests {
             create_authority_account(router_state),
             create_authority_account(client_sequence),
             create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
+            create_instructions_sysvar_account(),
             create_authority_account(ibc_app),
             create_authority_account(client),
             create_system_program_account(),
@@ -547,8 +546,6 @@ mod tests {
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let (router_caller_pda, _) = solana_ibc_types::RouterCaller::pda(&crate::ID);
-
         let msg = SendCallMsg {
             source_client: "cosmoshub-1".to_string(),
             receiver: Pubkey::new_unique().to_string(),
@@ -570,7 +567,10 @@ mod tests {
                 AccountMeta::new_readonly(router_state, false),
                 AccountMeta::new(client_sequence, false),
                 AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
                 AccountMeta::new_readonly(ibc_app, false),
                 AccountMeta::new_readonly(client, false),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -586,7 +586,7 @@ mod tests {
             create_authority_account(router_state),
             create_authority_account(client_sequence),
             create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
+            create_instructions_sysvar_account(),
             create_authority_account(ibc_app),
             create_authority_account(client),
             create_system_program_account(),
@@ -615,8 +615,6 @@ mod tests {
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let (router_caller_pda, _) = solana_ibc_types::RouterCaller::pda(&crate::ID);
-
         let msg = SendCallMsg {
             source_client: String::new(), // Empty client ID!
             receiver: Pubkey::new_unique().to_string(),
@@ -638,7 +636,10 @@ mod tests {
                 AccountMeta::new_readonly(router_state, false),
                 AccountMeta::new(client_sequence, false),
                 AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
                 AccountMeta::new_readonly(ibc_app, false),
                 AccountMeta::new_readonly(client, false),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -654,7 +655,7 @@ mod tests {
             create_authority_account(router_state),
             create_authority_account(client_sequence),
             create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
+            create_instructions_sysvar_account(),
             create_authority_account(ibc_app),
             create_authority_account(client),
             create_system_program_account(),

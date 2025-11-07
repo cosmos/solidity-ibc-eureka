@@ -176,3 +176,16 @@ impl From<solana_ibc_proto::GmpValidationError> for GMPError {
         }
     }
 }
+
+/// Convert CPI validation errors to GMP errors
+impl From<solana_ibc_types::CpiValidationError> for GMPError {
+    fn from(err: solana_ibc_types::CpiValidationError) -> Self {
+        match err {
+            solana_ibc_types::CpiValidationError::InvalidSysvar => Self::InvalidSysvar,
+            solana_ibc_types::CpiValidationError::DirectCallNotAllowed => {
+                Self::DirectCallNotAllowed
+            }
+            solana_ibc_types::CpiValidationError::UnauthorizedCaller => Self::UnauthorizedRouter,
+        }
+    }
+}

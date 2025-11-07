@@ -3,7 +3,6 @@ use crate::errors::GMPError;
 use crate::events::GMPExecutionCompleted;
 use crate::proto::{GmpAcknowledgement, GmpSolanaPayload};
 use crate::state::GMPAppState;
-use crate::utils::validate_cpi_caller;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
 use solana_ibc_types::GMPAccount;
@@ -61,10 +60,12 @@ pub fn on_recv_packet<'info>(
     let app_state = &mut ctx.accounts.app_state;
 
     // Verify this function is called via CPI from the authorized router
-    validate_cpi_caller(
+    solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
         &ics26_router::program::Ics26Router::id(),
-    )?;
+        &crate::ID,
+    )
+    .map_err(GMPError::from)?;
 
     // Check if app is operational
     app_state.can_operate()?;
