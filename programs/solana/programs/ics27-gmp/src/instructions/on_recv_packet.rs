@@ -203,10 +203,10 @@ pub fn on_recv_packet<'info>(
 
     // Get return data from the target program (if any)
     // Only accept return data from the target program itself, not from nested CPIs
-    let result = anchor_lang::solana_program::program::get_return_data()
-        .filter(|(return_program_id, _)| *return_program_id == receiver_pubkey)
-        .map(|(_, data)| data)
-        .unwrap_or_default();
+    let result = match anchor_lang::solana_program::program::get_return_data() {
+        Some((return_program_id, data)) if return_program_id == receiver_pubkey => data,
+        _ => vec![], // No return data or came from nested CPI
+    };
 
     // Create acknowledgement with execution result
     // Matches ibc-go's Acknowledgement format (just the result bytes)
