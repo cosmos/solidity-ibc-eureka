@@ -97,13 +97,6 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
     // Collect and validate chunks
     for i in 0..params.total_chunks {
         let account_index = params.start_index + accounts_processed;
-        msg!(
-            "Processing payload chunk {}/{}: account_index={}, remaining_accounts.len()={}",
-            i,
-            params.total_chunks,
-            account_index,
-            params.remaining_accounts.len()
-        );
         require!(
             account_index < params.remaining_accounts.len(),
             RouterError::InvalidChunkCount
@@ -139,8 +132,6 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
         payload_data.extend_from_slice(&chunk.chunk_data);
         accounts_processed += 1;
     }
-
-    // Commitment validation removed - no longer needed
 
     // Clean up chunks and return rent
     cleanup_payload_chunks(CleanupPayloadChunksParams {
@@ -370,4 +361,230 @@ pub fn validate_and_reconstruct_packet(
         timeout_timestamp: params.packet.timeout_timestamp,
         payloads,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_ibc_types::Payload;
+
+    #[test]
+    fn test_validate_and_reconstruct_packet_inline_mode_success() {
+        // Test inline mode: packet has payloads, no chunked metadata
+        let inline_payload = Payload {
+            source_port: "transfer".to_string(),
+            dest_port: "transfer".to_string(),
+            version: "ics20-1".to_string(),
+            encoding: "json".to_string(),
+            value: b"test data".to_vec(),
+        };
+
+        let packet = solana_ibc_types::Packet {
+            sequence: 1,
+            source_client: "client-0".to_string(),
+            dest_client: "client-1".to_string(),
+            timeout_timestamp: 1000,
+            payloads: vec![inline_payload.clone()],
+        };
+
+        let relayer = Pubkey::new_unique();
+        let program_id = Pubkey::new_unique();
+        let mut lamports = 0u64;
+        let mut data = [];
+        let relayer_account = AccountInfo::new(
+            &relayer,
+            false,
+            false,
+            &mut lamports,
+            &mut data,
+            &program_id,
+            false,
+            0,
+        );
+
+        let params = ReconstructPacketParams {
+            packet: &packet,
+            payloads_metadata: &[],
+            remaining_accounts: &[],
+            relayer: &relayer_account,
+            submitter: relayer,
+            client_id: "client-0",
+            program_id: &program_id,
+        };
+
+        let result = validate_and_reconstruct_packet(params).unwrap();
+
+        // Should return packet unchanged (inline mode)
+        assert_eq!(result.sequence, 1);
+        assert_eq!(result.payloads.len(), 1);
+        assert_eq!(result.payloads[0].value, b"test data");
+        assert_eq!(result.payloads[0].source_port, "transfer");
+    }
+
+    #[test]
+    fn test_validate_and_reconstruct_packet_conflicting_inline_and_chunked() {
+        // Test error case: packet has inline payloads AND chunked metadata
+        let inline_payload = Payload {
+            source_port: "transfer".to_string(),
+            dest_port: "transfer".to_string(),
+            version: "ics20-1".to_string(),
+            encoding: "json".to_string(),
+            value: b"test data".to_vec(),
+        };
+
+        let packet = solana_ibc_types::Packet {
+            sequence: 1,
+            source_client: "client-0".to_string(),
+            dest_client: "client-1".to_string(),
+            timeout_timestamp: 1000,
+            payloads: vec![inline_payload],
+        };
+
+        let chunked_metadata = vec![PayloadMetadata {
+            source_port: "transfer".to_string(),
+            dest_port: "transfer".to_string(),
+            version: "ics20-1".to_string(),
+            encoding: "json".to_string(),
+            total_chunks: 1, // Conflict: has both inline and chunked
+        }];
+
+        let relayer = Pubkey::new_unique();
+        let program_id = Pubkey::new_unique();
+        let mut lamports = 0u64;
+        let mut data = [];
+        let relayer_account = AccountInfo::new(
+            &relayer,
+            false,
+            false,
+            &mut lamports,
+            &mut data,
+            &program_id,
+            false,
+            0,
+        );
+
+        let params = ReconstructPacketParams {
+            packet: &packet,
+            payloads_metadata: &chunked_metadata,
+            remaining_accounts: &[],
+            relayer: &relayer_account,
+            submitter: relayer,
+            client_id: "client-0",
+            program_id: &program_id,
+        };
+
+        let result = validate_and_reconstruct_packet(params);
+
+        // Should fail with InvalidPayloadCount
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            error.to_string().contains("InvalidPayloadCount"),
+            "Expected InvalidPayloadCount error, got: {}",
+            error
+        );
+    }
+
+    #[test]
+    fn test_validate_and_reconstruct_packet_inline_mode_with_zero_chunk_metadata() {
+        // Test inline mode: packet has payloads, metadata exists but has total_chunks=0
+        let inline_payload = Payload {
+            source_port: "transfer".to_string(),
+            dest_port: "transfer".to_string(),
+            version: "ics20-1".to_string(),
+            encoding: "json".to_string(),
+            value: b"test data".to_vec(),
+        };
+
+        let packet = solana_ibc_types::Packet {
+            sequence: 1,
+            source_client: "client-0".to_string(),
+            dest_client: "client-1".to_string(),
+            timeout_timestamp: 1000,
+            payloads: vec![inline_payload.clone()],
+        };
+
+        // Metadata with total_chunks=0 (should be treated as no metadata)
+        let metadata_with_zero_chunks = vec![PayloadMetadata {
+            source_port: "transfer".to_string(),
+            dest_port: "transfer".to_string(),
+            version: "ics20-1".to_string(),
+            encoding: "json".to_string(),
+            total_chunks: 0,
+        }];
+
+        let relayer = Pubkey::new_unique();
+        let program_id = Pubkey::new_unique();
+        let mut lamports = 0u64;
+        let mut data = [];
+        let relayer_account = AccountInfo::new(
+            &relayer,
+            false,
+            false,
+            &mut lamports,
+            &mut data,
+            &program_id,
+            false,
+            0,
+        );
+
+        let params = ReconstructPacketParams {
+            packet: &packet,
+            payloads_metadata: &metadata_with_zero_chunks,
+            remaining_accounts: &[],
+            relayer: &relayer_account,
+            submitter: relayer,
+            client_id: "client-0",
+            program_id: &program_id,
+        };
+
+        let result = validate_and_reconstruct_packet(params).unwrap();
+
+        // Should succeed in inline mode (total_chunks=0 means no chunking)
+        assert_eq!(result.payloads.len(), 1);
+        assert_eq!(result.payloads[0].value, b"test data");
+    }
+
+    #[test]
+    fn test_validate_and_reconstruct_packet_empty_payloads_and_empty_metadata() {
+        // Test error case: no inline payloads and no chunked metadata
+        let packet = solana_ibc_types::Packet {
+            sequence: 1,
+            source_client: "client-0".to_string(),
+            dest_client: "client-1".to_string(),
+            timeout_timestamp: 1000,
+            payloads: vec![],
+        };
+
+        let relayer = Pubkey::new_unique();
+        let program_id = Pubkey::new_unique();
+        let mut lamports = 0u64;
+        let mut data = [];
+        let relayer_account = AccountInfo::new(
+            &relayer,
+            false,
+            false,
+            &mut lamports,
+            &mut data,
+            &program_id,
+            false,
+            0,
+        );
+
+        let params = ReconstructPacketParams {
+            packet: &packet,
+            payloads_metadata: &[],
+            remaining_accounts: &[],
+            relayer: &relayer_account,
+            submitter: relayer,
+            client_id: "client-0",
+            program_id: &program_id,
+        };
+
+        let result = validate_and_reconstruct_packet(params).unwrap();
+
+        // Should succeed but return empty payloads
+        // Note: This is handled at a higher level (get_single_payload will fail)
+        assert_eq!(result.payloads.len(), 0);
+    }
 }
