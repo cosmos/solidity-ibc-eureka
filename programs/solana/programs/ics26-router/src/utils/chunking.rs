@@ -371,10 +371,10 @@ mod tests {
 
         let packet = solana_ibc_types::Packet {
             sequence: 1,
-            source_client: "client-0".to_string(),
-            dest_client: "client-1".to_string(),
+            source_client: "source-client".to_string(),
+            dest_client: "dest-client".to_string(),
             timeout_timestamp: 1000,
-            payloads: vec![inline_payload.clone()],
+            payloads: vec![inline_payload],
         };
 
         let relayer = Pubkey::new_unique();
@@ -466,8 +466,7 @@ mod tests {
         let error = result.unwrap_err();
         assert!(
             error.to_string().contains("InvalidPayloadCount"),
-            "Expected InvalidPayloadCount error, got: {}",
-            error
+            "Expected InvalidPayloadCount error, got: {error}",
         );
     }
 
@@ -487,7 +486,7 @@ mod tests {
             source_client: "client-0".to_string(),
             dest_client: "client-1".to_string(),
             timeout_timestamp: 1000,
-            payloads: vec![inline_payload.clone()],
+            payloads: vec![inline_payload],
         };
 
         // Metadata with total_chunks=0 (should be treated as no metadata)
@@ -568,5 +567,249 @@ mod tests {
         // Should succeed but return empty payloads
         // Note: This is handled at a higher level (get_single_payload will fail)
         assert_eq!(result.payloads.len(), 0);
+    }
+
+    // Helper function to create mock AccountInfo for testing
+    fn create_mock_account_info<'a>(
+        key: &'a Pubkey,
+        lamports: &'a mut u64,
+        data: &'a mut [u8],
+        owner: &'a Pubkey,
+    ) -> AccountInfo<'a> {
+        AccountInfo::new(key, false, false, lamports, data, owner, false, 0)
+    }
+
+    #[test]
+    fn test_filter_app_remaining_accounts_with_payload_and_proof_chunks() {
+        // Create 3 payload chunks + 2 proof chunks + 4 app accounts (9 total)
+        let keys = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let mut lamports0 = 0u64;
+        let mut lamports1 = 0u64;
+        let mut lamports2 = 0u64;
+        let mut lamports3 = 0u64;
+        let mut lamports4 = 0u64;
+        let mut lamports5 = 0u64;
+        let mut lamports6 = 0u64;
+        let mut lamports7 = 0u64;
+        let mut lamports8 = 0u64;
+        let mut data0 = vec![];
+        let mut data1 = vec![];
+        let mut data2 = vec![];
+        let mut data3 = vec![];
+        let mut data4 = vec![];
+        let mut data5 = vec![];
+        let mut data6 = vec![];
+        let mut data7 = vec![];
+        let mut data8 = vec![];
+        let owner = Pubkey::new_unique();
+
+        let accounts = [
+            create_mock_account_info(&keys[0], &mut lamports0, &mut data0, &owner),
+            create_mock_account_info(&keys[1], &mut lamports1, &mut data1, &owner),
+            create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
+            create_mock_account_info(&keys[3], &mut lamports3, &mut data3, &owner),
+            create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
+            create_mock_account_info(&keys[5], &mut lamports5, &mut data5, &owner),
+            create_mock_account_info(&keys[6], &mut lamports6, &mut data6, &owner),
+            create_mock_account_info(&keys[7], &mut lamports7, &mut data7, &owner),
+            create_mock_account_info(&keys[8], &mut lamports8, &mut data8, &owner),
+        ];
+
+        // Filter: 3 payload chunks + 2 proof chunks = 5 chunks to skip
+        let result = filter_app_remaining_accounts(&accounts, 3, 2);
+
+        // Should return last 4 accounts (app accounts after chunks)
+        assert_eq!(result.len(), 4);
+        assert_eq!(result[0].key, &keys[5]);
+        assert_eq!(result[1].key, &keys[6]);
+        assert_eq!(result[2].key, &keys[7]);
+        assert_eq!(result[3].key, &keys[8]);
+    }
+
+    #[test]
+    fn test_filter_app_remaining_accounts_only_payload_chunks() {
+        // Create 2 payload chunks + 0 proof chunks + 3 app accounts (5 total)
+        let keys = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let mut lamports0 = 0u64;
+        let mut lamports1 = 0u64;
+        let mut lamports2 = 0u64;
+        let mut lamports3 = 0u64;
+        let mut lamports4 = 0u64;
+        let mut data0 = vec![];
+        let mut data1 = vec![];
+        let mut data2 = vec![];
+        let mut data3 = vec![];
+        let mut data4 = vec![];
+        let owner = Pubkey::new_unique();
+
+        let accounts = [
+            create_mock_account_info(&keys[0], &mut lamports0, &mut data0, &owner),
+            create_mock_account_info(&keys[1], &mut lamports1, &mut data1, &owner),
+            create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
+            create_mock_account_info(&keys[3], &mut lamports3, &mut data3, &owner),
+            create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
+        ];
+
+        // Filter: 2 payload chunks + 0 proof chunks
+        let result = filter_app_remaining_accounts(&accounts, 2, 0);
+
+        // Should return last 3 accounts
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].key, &keys[2]);
+        assert_eq!(result[1].key, &keys[3]);
+        assert_eq!(result[2].key, &keys[4]);
+    }
+
+    #[test]
+    fn test_filter_app_remaining_accounts_only_proof_chunks() {
+        // Create 0 payload chunks + 3 proof chunks + 2 app accounts (5 total)
+        let keys = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let mut lamports0 = 0u64;
+        let mut lamports1 = 0u64;
+        let mut lamports2 = 0u64;
+        let mut lamports3 = 0u64;
+        let mut lamports4 = 0u64;
+        let mut data0 = vec![];
+        let mut data1 = vec![];
+        let mut data2 = vec![];
+        let mut data3 = vec![];
+        let mut data4 = vec![];
+        let owner = Pubkey::new_unique();
+
+        let accounts = [
+            create_mock_account_info(&keys[0], &mut lamports0, &mut data0, &owner),
+            create_mock_account_info(&keys[1], &mut lamports1, &mut data1, &owner),
+            create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
+            create_mock_account_info(&keys[3], &mut lamports3, &mut data3, &owner),
+            create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
+        ];
+
+        // Filter: 0 payload chunks + 3 proof chunks
+        let result = filter_app_remaining_accounts(&accounts, 0, 3);
+
+        // Should return last 2 accounts
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].key, &keys[3]);
+        assert_eq!(result[1].key, &keys[4]);
+    }
+
+    #[test]
+    fn test_filter_app_remaining_accounts_no_chunks() {
+        // Create 5 app accounts only (no chunks)
+        let keys = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let mut lamports0 = 0u64;
+        let mut lamports1 = 0u64;
+        let mut lamports2 = 0u64;
+        let mut lamports3 = 0u64;
+        let mut lamports4 = 0u64;
+        let mut data0 = vec![];
+        let mut data1 = vec![];
+        let mut data2 = vec![];
+        let mut data3 = vec![];
+        let mut data4 = vec![];
+        let owner = Pubkey::new_unique();
+
+        let accounts = [
+            create_mock_account_info(&keys[0], &mut lamports0, &mut data0, &owner),
+            create_mock_account_info(&keys[1], &mut lamports1, &mut data1, &owner),
+            create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
+            create_mock_account_info(&keys[3], &mut lamports3, &mut data3, &owner),
+            create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
+        ];
+
+        // Filter: 0 payload chunks + 0 proof chunks
+        let result = filter_app_remaining_accounts(&accounts, 0, 0);
+
+        // Should return all 5 accounts unchanged
+        assert_eq!(result.len(), 5);
+        for (i, account) in result.iter().enumerate() {
+            assert_eq!(account.key, &keys[i]);
+        }
+    }
+
+    #[test]
+    fn test_filter_app_remaining_accounts_all_chunks_no_app_accounts() {
+        // Create 2 payload chunks + 1 proof chunk (3 total, no app accounts)
+        let keys = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let mut lamports0 = 0u64;
+        let mut lamports1 = 0u64;
+        let mut lamports2 = 0u64;
+        let mut data0 = vec![];
+        let mut data1 = vec![];
+        let mut data2 = vec![];
+        let owner = Pubkey::new_unique();
+
+        let accounts = [
+            create_mock_account_info(&keys[0], &mut lamports0, &mut data0, &owner),
+            create_mock_account_info(&keys[1], &mut lamports1, &mut data1, &owner),
+            create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
+        ];
+
+        // Filter: 2 payload chunks + 1 proof chunk = all 3 accounts
+        let result = filter_app_remaining_accounts(&accounts, 2, 1);
+
+        // Should return empty slice (no app accounts after chunks)
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_filter_app_remaining_accounts_more_chunks_than_accounts() {
+        // Create 3 accounts total
+        let keys = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let mut lamports0 = 0u64;
+        let mut lamports1 = 0u64;
+        let mut lamports2 = 0u64;
+        let mut data0 = vec![];
+        let mut data1 = vec![];
+        let mut data2 = vec![];
+        let owner = Pubkey::new_unique();
+
+        let accounts = [
+            create_mock_account_info(&keys[0], &mut lamports0, &mut data0, &owner),
+            create_mock_account_info(&keys[1], &mut lamports1, &mut data1, &owner),
+            create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
+        ];
+
+        // Filter: 2 payload chunks + 2 proof chunks = 4 chunks expected (more than available)
+        let result = filter_app_remaining_accounts(&accounts, 2, 2);
+
+        // Should return empty slice (defensive behavior when chunks >= total accounts)
+        assert_eq!(result.len(), 0);
     }
 }
