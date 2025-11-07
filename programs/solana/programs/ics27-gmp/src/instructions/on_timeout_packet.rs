@@ -10,7 +10,8 @@ pub struct OnTimeoutPacket<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
         seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
-        bump = app_state.bump
+        bump = app_state.bump,
+        constraint = !app_state.paused @ GMPError::AppPaused
     )]
     pub app_state: Account<'info, GMPAppState>,
 
@@ -33,8 +34,6 @@ pub fn on_timeout_packet(
     ctx: Context<OnTimeoutPacket>,
     _msg: solana_ibc_types::OnTimeoutPacketMsg,
 ) -> Result<()> {
-    let app_state = &ctx.accounts.app_state;
-
     // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
@@ -42,10 +41,6 @@ pub fn on_timeout_packet(
         &crate::ID,
     )
     .map_err(GMPError::from)?;
-
-    // TODO: validate via account constraints
-    // Check if app is operational
-    app_state.can_operate()?;
 
     Ok(())
 }

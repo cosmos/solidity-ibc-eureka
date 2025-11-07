@@ -1,6 +1,5 @@
 use crate::constants::*;
 use crate::errors::GMPError;
-use crate::events::GMPExecutionCompleted;
 use crate::proto::{GmpAcknowledgement, GmpSolanaPayload};
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
@@ -30,7 +29,8 @@ pub struct OnRecvPacket<'info> {
     #[account(
         mut,
         seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
-        bump = app_state.bump
+        bump = app_state.bump,
+        constraint = !app_state.paused @ GMPError::AppPaused
     )]
     pub app_state: Account<'info, GMPAppState>,
 
@@ -56,9 +56,6 @@ pub fn on_recv_packet<'info>(
     ctx: Context<'_, '_, 'info, 'info, OnRecvPacket<'info>>,
     msg: solana_ibc_types::OnRecvPacketMsg,
 ) -> Result<Vec<u8>> {
-    let clock = Clock::get()?;
-    let app_state = &mut ctx.accounts.app_state;
-
     // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
@@ -66,12 +63,6 @@ pub fn on_recv_packet<'info>(
         &crate::ID,
     )
     .map_err(GMPError::from)?;
-
-    // Check if app is operational
-    app_state.can_operate()?;
-
-    // Validate IBC payload fields (matching Solidity ICS27GMP validations)
-    // See: ICS27GMP.sol lines 115-130
 
     // Validate version
     require!(
@@ -135,7 +126,7 @@ pub fn on_recv_packet<'info>(
     // Validate GMP account PDA matches (stateless - no account creation needed)
     require!(
         ctx.remaining_accounts[0].key() == gmp_account.pda,
-        GMPError::InvalidAccountAddress
+        GMPError::GMPAccountPDAMismatch
     );
 
     // Parse and validate the GMP Solana payload from Protobuf
@@ -209,21 +200,10 @@ pub fn on_recv_packet<'info>(
         .map(|(_, data)| data)
         .unwrap_or_default();
 
-    // Emit success event
-    emit!(GMPExecutionCompleted {
-        account: gmp_account.pda,
-        target_program: target_program.key(),
-        client_id: msg.source_client,
-        sender: packet_data.sender.as_str().to_string(),
-        success: true,
-        result_size: result.len() as u64,
-        timestamp: clock.unix_timestamp,
-    });
-
     // Create acknowledgement with execution result
     // Matches ibc-go's Acknowledgement format (just the result bytes)
-    let ack = GmpAcknowledgement::new(result);
-    ack.try_to_vec()
+    GmpAcknowledgement::new(result)
+        .try_to_vec()
         .map_err(|_| GMPError::InvalidExecutionPayload.into())
 }
 
@@ -587,9 +567,9 @@ mod tests {
             create_dummy_target_program_account(),             // [1] target_program
         ];
 
-        // Should fail with InvalidAccountAddress because derived PDA (from wrong_sender) doesn't match provided PDA (from original_sender)
+        // Should fail with GMPAccountPDAMismatch because derived PDA (from wrong_sender) doesn't match provided PDA (from original_sender)
         let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::InvalidAccountAddress as u32,
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::GMPAccountPDAMismatch as u32,
         ))];
 
         ctx.mollusk
@@ -652,9 +632,9 @@ mod tests {
             create_dummy_target_program_account(),             // [1] target_program
         ];
 
-        // Should fail with InvalidAccountAddress because derived PDA (from wrong_salt) doesn't match provided PDA (from original_salt)
+        // Should fail with GMPAccountPDAMismatch because derived PDA (from wrong_salt) doesn't match provided PDA (from original_salt)
         let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::InvalidAccountAddress as u32,
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::GMPAccountPDAMismatch as u32,
         ))];
 
         ctx.mollusk
@@ -717,9 +697,9 @@ mod tests {
             create_dummy_target_program_account(),             // [1] target_program
         ];
 
-        // Should fail with InvalidAccountAddress because derived PDA (from wrong_client_id) doesn't match provided PDA (from original_client_id)
+        // Should fail with GMPAccountPDAMismatch because derived PDA (from wrong_client_id) doesn't match provided PDA (from original_client_id)
         let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::InvalidAccountAddress as u32,
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::GMPAccountPDAMismatch as u32,
         ))];
 
         ctx.mollusk

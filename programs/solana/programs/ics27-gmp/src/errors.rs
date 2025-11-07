@@ -52,7 +52,7 @@ pub enum GMPError {
     ExecutionTooExpensive,
 
     #[msg("Invalid account address derivation")]
-    InvalidAccountAddress,
+    GMPAccountPDAMismatch,
 
     #[msg("Unauthorized admin operation")]
     UnauthorizedAdmin,

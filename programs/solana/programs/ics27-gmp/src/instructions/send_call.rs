@@ -14,7 +14,8 @@ pub struct SendCall<'info> {
     #[account(
         mut,
         seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
-        bump = app_state.bump
+        bump = app_state.bump,
+        constraint = !app_state.paused @ GMPError::AppPaused
     )]
     pub app_state: Account<'info, GMPAppState>,
 
@@ -63,10 +64,6 @@ pub struct SendCall<'info> {
 pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
-    let app_state = &mut ctx.accounts.app_state;
-
-    // Check if app is operational
-    app_state.can_operate()?;
 
     // Validate IBC routing fields
     let source_client =

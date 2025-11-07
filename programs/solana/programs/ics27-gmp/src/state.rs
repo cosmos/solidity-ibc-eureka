@@ -1,5 +1,4 @@
 use crate::constants::*;
-use crate::errors::GMPError;
 use anchor_lang::prelude::*;
 
 /// Account schema version
@@ -39,12 +38,6 @@ impl GMPAppState {
             GMP_PORT_ID.as_bytes().to_vec(),
             vec![self.bump],
         ]
-    }
-
-    /// Check if app is operational
-    pub fn can_operate(&self) -> Result<()> {
-        require!(!self.paused, GMPError::AppPaused);
-        Ok(())
     }
 }
 

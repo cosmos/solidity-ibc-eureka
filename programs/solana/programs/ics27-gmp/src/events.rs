@@ -32,25 +32,6 @@ pub struct GMPCallSent {
     pub timeout_timestamp: i64,
 }
 
-/// Event emitted when a packet is received and executed
-#[event]
-pub struct GMPExecutionCompleted {
-    /// Account that executed the call
-    pub account: Pubkey,
-    /// Target program that was called
-    pub target_program: Pubkey,
-    /// Client ID
-    pub client_id: String,
-    /// Original sender
-    pub sender: String,
-    /// Whether execution succeeded
-    pub success: bool,
-    /// Result data size
-    pub result_size: u64,
-    /// Execution timestamp
-    pub timestamp: i64,
-}
-
 /// Event emitted when app is paused
 #[event]
 pub struct GMPAppPaused {
