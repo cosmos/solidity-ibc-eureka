@@ -119,8 +119,8 @@ pub fn on_recv_packet<'info>(
         GMPError::AccountKeyMismatch
     );
 
-    // Create ClientId from source_client
-    let client_id = solana_ibc_types::ClientId::new(&msg.source_client).map_err(GMPError::from)?;
+    // Create ClientId from dest_client (local client on this chain)
+    let client_id = solana_ibc_types::ClientId::new(&msg.dest_client).map_err(GMPError::from)?;
 
     // Create account identifier and derive expected GMP account PDA address
     let gmp_account = GMPAccount::new(
@@ -462,8 +462,8 @@ mod tests {
         let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
@@ -765,8 +765,8 @@ mod tests {
 
         // Create custom recv_msg with invalid version
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
@@ -819,8 +819,8 @@ mod tests {
 
         // Create custom recv_msg with invalid source port
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: "transfer".to_string(), // Invalid source port!
@@ -873,8 +873,8 @@ mod tests {
 
         // Create custom recv_msg with invalid encoding
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
@@ -927,8 +927,8 @@ mod tests {
 
         // Create custom recv_msg with invalid dest port
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
@@ -1170,8 +1170,8 @@ mod tests {
         let packet_data_bytes = proto_packet_data.encode_to_vec();
 
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
@@ -1444,8 +1444,8 @@ mod tests {
         let packet_data_bytes = proto_packet_data.encode_to_vec();
 
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),

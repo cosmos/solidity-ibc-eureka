@@ -18,7 +18,7 @@ use crate::proto::{GmpPacketData, GmpSolanaPayload, ValidatedGMPSolanaPayload};
 /// * `dest_port` - The destination port ID
 /// * `encoding` - The payload encoding type
 /// * `payload_value` - The raw payload data
-/// * `source_client` - The source client ID
+/// * `dest_client` - The destination client ID (local client on Solana)
 /// * `ibc_app_program_id` - The IBC app program ID (GMP program)
 ///
 /// # Returns
@@ -30,7 +30,7 @@ pub fn extract_gmp_accounts(
     dest_port: &str,
     encoding: &str,
     payload_value: &[u8],
-    source_client: &str,
+    dest_client: &str,
     ibc_app_program_id: Pubkey,
 ) -> Result<Vec<AccountMeta>> {
     // Only process GMP port payloads
@@ -48,12 +48,7 @@ pub fn extract_gmp_accounts(
     };
 
     // Build account list from validated packet
-    build_gmp_account_list(
-        validated_packet,
-        source_client,
-        ibc_app_program_id,
-        dest_port,
-    )
+    build_gmp_account_list(validated_packet, dest_client, ibc_app_program_id, dest_port)
 }
 
 /// Check if payload should be processed as GMP
@@ -76,7 +71,7 @@ fn decode_gmp_packet(payload_value: &[u8], dest_port: &str) -> Option<ValidatedG
 /// Build the complete account list from validated GMP packet
 fn build_gmp_account_list(
     validated_packet: ValidatedGmpPacketData,
-    source_client: &str,
+    dest_client: &str,
     ibc_app_program_id: Pubkey,
     dest_port: &str,
 ) -> Result<Vec<AccountMeta>> {
@@ -89,8 +84,8 @@ fn build_gmp_account_list(
         target_program
     );
 
-    // Construct typed ClientId
-    let client_id = solana_ibc_types::ClientId::new(source_client)
+    // Construct typed ClientId (local client on Solana tracking source chain)
+    let client_id = solana_ibc_types::ClientId::new(dest_client)
         .map_err(|e| anyhow::anyhow!("Invalid client ID: {e:?}"))?;
 
     // Derive GMP account PDA with validated types

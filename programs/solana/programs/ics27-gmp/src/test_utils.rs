@@ -265,7 +265,7 @@ pub fn create_gmp_test_context() -> GmpTestContext {
 }
 
 /// Create GMP packet data (proto wire format - no `client_id`)
-/// The `client_id` comes from IBC context (`OnRecvPacketMsg.source_client`), not the packet payload
+/// The `client_id` comes from IBC context (`OnRecvPacketMsg.dest_client`), not the packet payload
 pub fn create_gmp_packet_data(
     sender: &str,
     receiver: &str,
@@ -287,8 +287,8 @@ pub fn create_recv_packet_msg(
     sequence: u64,
 ) -> solana_ibc_types::OnRecvPacketMsg {
     solana_ibc_types::OnRecvPacketMsg {
-        source_client: client_id.to_string(),
-        dest_client: "solana-1".to_string(),
+        source_client: "cosmos-1".to_string(),
+        dest_client: client_id.to_string(),
         sequence,
         payload: solana_ibc_types::Payload {
             source_port: GMP_PORT_ID.to_string(),

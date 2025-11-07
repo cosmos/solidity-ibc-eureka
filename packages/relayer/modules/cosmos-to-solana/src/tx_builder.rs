@@ -371,7 +371,7 @@ impl TxBuilder {
             dest_port_for_gmp,
             encoding,
             payload_value,
-            &msg.packet.source_client,
+            &msg.packet.dest_client,
             ibc_app_program_id,
         )?;
         accounts.extend(gmp_accounts);

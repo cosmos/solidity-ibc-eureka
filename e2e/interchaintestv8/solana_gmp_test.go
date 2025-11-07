@@ -217,7 +217,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			// Derive GMP account PDA for this Cosmos user (no storage, just PDA validation)
 			salt := []byte{} // Empty salt for this test
 
-			ics27AccountPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, CosmosClientID, cosmosUserAddress, salt)
+			ics27AccountPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosUserAddress, salt)
 
 			// Derive user counter PDA from GMP account PDA
 			userCounterPDA, _ := solana.GmpCounterApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
@@ -247,7 +247,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			cosmosAddress := cosmosUser.FormattedAddress()
 			salt := []byte{} // Empty salt for this test
 
-			ics27AccountPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, CosmosClientID, cosmosAddress, salt)
+			ics27AccountPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosAddress, salt)
 
 			// Create the raw instruction data (just discriminator + amount, no user pubkey)
 			incrementInstructionData := []byte{}
@@ -545,7 +545,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		}))
 
 		s.Require().True(s.Run("Derive ICS27 Account PDA", func() {
-			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, CosmosClientID, cosmosUser.FormattedAddress(), []byte{})
+			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosUser.FormattedAddress(), []byte{})
 			s.T().Logf("ICS27 Account PDA for Cosmos user: %s", ics27AccountPDA.String())
 		}))
 
@@ -1332,7 +1332,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 		}))
 
 		s.Require().True(s.Run("Derive ICS27 Account PDA", func() {
-			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, CosmosClientID, cosmosUser.FormattedAddress(), []byte{})
+			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosUser.FormattedAddress(), []byte{})
 			s.T().Logf("ICS27 Account PDA: %s", ics27AccountPDA.String())
 		}))
 
@@ -1567,7 +1567,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 		}))
 
 		s.Require().True(s.Run("Derive ICS27 Account PDA", func() {
-			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, CosmosClientID, cosmosUser.FormattedAddress(), []byte{})
+			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosUser.FormattedAddress(), []byte{})
 			s.T().Logf("ICS27 Account PDA for Cosmos user: %s", ics27AccountPDA.String())
 		}))
 
@@ -2032,8 +2032,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 		s.Require().NoError(err)
 
 		mockMsg := ics27_gmp.SolanaIbcTypesAppMsgsOnRecvPacketMsg{
-			SourceClient: CosmosClientID,
-			DestClient:   "solana-1",
+			SourceClient: "cosmos-1",
+			DestClient:   SolanaClientID,
 			Sequence:     1,
 			Payload: ics27_gmp.SolanaIbcTypesAppMsgsPayload{
 				SourcePort: GMPPortID,
@@ -2059,7 +2059,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 		s.Require().NoError(err)
 
 		// Derive GMP account PDA for remaining accounts
-		gmpAcctPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, CosmosClientID, "cosmos1test", []byte{})
+		gmpAcctPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, "cosmos1test", []byte{})
 
 		// Add remaining accounts manually: gmp_account_pda and target_program
 		if ix, ok := gmpIx.(*solanago.GenericInstruction); ok {
@@ -2106,8 +2106,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 		s.Require().NoError(err)
 
 		mockMsg := ics27_gmp.SolanaIbcTypesAppMsgsOnRecvPacketMsg{
-			SourceClient: CosmosClientID,
-			DestClient:   "solana-1",
+			SourceClient: "cosmos-1",
+			DestClient:   SolanaClientID,
 			Sequence:     1,
 			Payload: ics27_gmp.SolanaIbcTypesAppMsgsPayload{
 				SourcePort: GMPPortID,
@@ -2132,7 +2132,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 		s.Require().NoError(err)
 
 		// Derive GMP account PDA for remaining accounts
-		gmpAcctPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, CosmosClientID, "cosmos1test", []byte{})
+		gmpAcctPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, "cosmos1test", []byte{})
 
 		// Add remaining accounts manually: gmp_account_pda and target_program
 		if ix, ok := gmpIx.(*solanago.GenericInstruction); ok {
@@ -2183,8 +2183,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 		s.Require().NoError(err)
 
 		mockMsg := ics27_gmp.SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg{
-			SourceClient: CosmosClientID,
-			DestClient:   "solana-1",
+			SourceClient: "cosmos-1",
+			DestClient:   SolanaClientID,
 			Sequence:     1,
 			Payload: ics27_gmp.SolanaIbcTypesAppMsgsPayload{
 				SourcePort: GMPPortID,
@@ -2245,8 +2245,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 		s.Require().NoError(err)
 
 		mockMsg := ics27_gmp.SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg{
-			SourceClient: CosmosClientID,
-			DestClient:   "solana-1",
+			SourceClient: "cosmos-1",
+			DestClient:   SolanaClientID,
 			Sequence:     1,
 			Payload: ics27_gmp.SolanaIbcTypesAppMsgsPayload{
 				SourcePort: GMPPortID,
@@ -2311,8 +2311,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 		s.Require().NoError(err)
 
 		mockMsg := ics27_gmp.SolanaIbcTypesAppMsgsOnTimeoutPacketMsg{
-			SourceClient: CosmosClientID,
-			DestClient:   "solana-1",
+			SourceClient: "cosmos-1",
+			DestClient:   SolanaClientID,
 			Sequence:     1,
 			Payload: ics27_gmp.SolanaIbcTypesAppMsgsPayload{
 				SourcePort: GMPPortID,
@@ -2372,8 +2372,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 		s.Require().NoError(err)
 
 		mockMsg := ics27_gmp.SolanaIbcTypesAppMsgsOnTimeoutPacketMsg{
-			SourceClient: CosmosClientID,
-			DestClient:   "solana-1",
+			SourceClient: "cosmos-1",
+			DestClient:   SolanaClientID,
 			Sequence:     1,
 			Payload: ics27_gmp.SolanaIbcTypesAppMsgsPayload{
 				SourcePort: GMPPortID,
