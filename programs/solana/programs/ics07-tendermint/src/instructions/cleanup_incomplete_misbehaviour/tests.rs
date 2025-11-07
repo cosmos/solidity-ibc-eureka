@@ -25,7 +25,6 @@ fn setup_test_accounts_with_chunks(
     num_chunks: u8,
     with_populated_chunks: bool,
 ) -> TestAccounts {
-    // Derive PDAs
     let mut chunk_pdas = vec![];
     for i in 0..num_chunks {
         let chunk_pda = Pubkey::find_program_address(
@@ -49,7 +48,6 @@ fn setup_test_accounts_with_chunks(
 
     let mut accounts = vec![];
 
-    // Add submitter account
     accounts.push((
         submitter,
         Account {
@@ -61,7 +59,6 @@ fn setup_test_accounts_with_chunks(
         },
     ));
 
-    // Add client state account (always needed)
     let client_state = ClientState {
         chain_id: client_id.to_string(),
         trust_level_numerator: 2,
@@ -93,7 +90,6 @@ fn setup_test_accounts_with_chunks(
         },
     ));
 
-    // Add chunk accounts
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
         if with_populated_chunks {
             let chunk = MisbehaviourChunk {
@@ -150,7 +146,6 @@ fn create_cleanup_instruction(
         AccountMeta::new(test_accounts.submitter, true),
     ];
 
-    // Add chunk accounts as remaining accounts
     for chunk_pda in &test_accounts.chunk_pdas {
         account_metas.push(AccountMeta::new(*chunk_pda, false));
     }
