@@ -34,7 +34,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/gmp"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/gmphelpers"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 	solanatypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/solana"
@@ -2025,7 +2024,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	s.Require().True(s.Run("Test on_recv_packet - Should Reject Direct Call", func() {
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 
-		mockPacketData := gmp.GMPPacketData{
+		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
 			Receiver: s.SolanaUser.PublicKey().String(),
 			Salt:     []byte{},
@@ -2099,7 +2098,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	s.Require().True(s.Run("Test on_recv_packet - Should Reject Unauthorized CPI", func() {
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 
-		mockPacketData := gmp.GMPPacketData{
+		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
 			Receiver: s.SolanaUser.PublicKey().String(),
 			Salt:     []byte{},
@@ -2176,7 +2175,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	s.Require().True(s.Run("Test on_ack_packet - Should Reject Direct Call", func() {
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 
-		mockPacketData := gmp.GMPPacketData{
+		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
 			Receiver: s.SolanaUser.PublicKey().String(),
 			Salt:     []byte{},
@@ -2238,7 +2237,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	s.Require().True(s.Run("Test on_ack_packet - Check CPI Validation", func() {
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 
-		mockPacketData := gmp.GMPPacketData{
+		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
 			Receiver: s.SolanaUser.PublicKey().String(),
 			Salt:     []byte{},
@@ -2304,7 +2303,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	s.Require().True(s.Run("Test on_timeout_packet - Should Reject Direct Call", func() {
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 
-		mockPacketData := gmp.GMPPacketData{
+		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
 			Receiver: s.SolanaUser.PublicKey().String(),
 			Salt:     []byte{},
@@ -2365,7 +2364,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	s.Require().True(s.Run("Test on_timeout_packet - Check CPI Validation", func() {
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 
-		mockPacketData := gmp.GMPPacketData{
+		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
 			Receiver: s.SolanaUser.PublicKey().String(),
 			Salt:     []byte{},

@@ -9,16 +9,17 @@ use anchor_lang::prelude::*;
 pub use prost;
 
 // Generated protobuf modules
-pub mod gmp {
-    include!(concat!(env!("OUT_DIR"), "/gmp.rs"));
+#[allow(clippy::all)]
+mod ibc_applications_gmp_v1 {
+    include!(concat!(env!("OUT_DIR"), "/ibc.applications.gmp.v1.rs"));
 }
 
 pub mod solana {
     include!(concat!(env!("OUT_DIR"), "/solana.rs"));
 }
 
-// Re-export commonly used types
-pub use gmp::{GmpAcknowledgement, GmpPacketData};
+// Re-export GMP types under familiar names
+pub use ibc_applications_gmp_v1::{Acknowledgement as GmpAcknowledgement, GmpPacketData};
 pub use solana::{GmpSolanaPayload, SolanaAccountMeta};
 
 /// Validation errors for GMP payloads
