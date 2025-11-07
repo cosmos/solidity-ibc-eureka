@@ -36,7 +36,7 @@ pub fn cleanup_chunks<'info>(
                 &[payload_idx as u8],
                 &[i],
             ];
-            let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, ctx.program_id);
+            let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
             require!(
                 chunk_account.key() == expected_pda,
@@ -66,7 +66,7 @@ pub fn cleanup_chunks<'info>(
             &msg.sequence.to_le_bytes(),
             &[i],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, ctx.program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
         require!(
             chunk_account.key() == expected_pda,

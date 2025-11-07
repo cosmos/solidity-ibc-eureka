@@ -104,15 +104,13 @@ pub fn ack_packet<'info>(
         relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.source_client,
-        program_id: ctx.program_id,
+        program_id: &crate::ID,
     })?;
 
     let payload = packet::get_single_payload(&packet)?;
 
-    let (expected_ibc_app, _) = Pubkey::find_program_address(
-        &[IBCApp::SEED, payload.source_port.as_bytes()],
-        ctx.program_id,
-    );
+    let (expected_ibc_app, _) =
+        Pubkey::find_program_address(&[IBCApp::SEED, payload.source_port.as_bytes()], &crate::ID);
 
     require!(
         ctx.accounts.ibc_app.key() == expected_ibc_app,
@@ -127,7 +125,7 @@ pub fn ack_packet<'info>(
         client_id: &msg.packet.source_client,
         sequence: msg.packet.sequence,
         total_chunks: msg.proof.total_chunks,
-        program_id: ctx.program_id,
+        program_id: &crate::ID,
         // proof chunks come after payload chunks
         start_index: total_payload_chunks,
     })?;

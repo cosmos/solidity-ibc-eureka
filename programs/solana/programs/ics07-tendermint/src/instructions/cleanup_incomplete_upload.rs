@@ -19,7 +19,7 @@ pub fn cleanup_incomplete_upload(
             &cleanup_height.to_le_bytes(),
             &[index as u8],
         ];
-        let (expected_chunk_pda, _) = Pubkey::find_program_address(expected_seeds, ctx.program_id);
+        let (expected_chunk_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
         // CRITICAL: Verify this is the correct chunk account
         if chunk_account.key() != expected_chunk_pda {
@@ -29,7 +29,7 @@ pub fn cleanup_incomplete_upload(
         }
 
         // Check if account exists and is owned by our program
-        if chunk_account.owner == ctx.program_id && chunk_account.lamports() > 0 {
+        if chunk_account.owner == &crate::ID && chunk_account.lamports() > 0 {
             // Safe to close - it's a verified chunk PDA owned by our program
             {
                 let mut data = chunk_account.try_borrow_mut_data()?;

@@ -131,15 +131,13 @@ pub fn recv_packet<'info>(
         relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.dest_client,
-        program_id: ctx.program_id,
+        program_id: &crate::ID,
     })?;
 
     let payload = packet::get_single_payload(&packet)?;
 
-    let (expected_ibc_app, _) = Pubkey::find_program_address(
-        &[IBCApp::SEED, payload.dest_port.as_bytes()],
-        ctx.program_id,
-    );
+    let (expected_ibc_app, _) =
+        Pubkey::find_program_address(&[IBCApp::SEED, payload.dest_port.as_bytes()], &crate::ID);
 
     require!(
         ctx.accounts.ibc_app.key() == expected_ibc_app,

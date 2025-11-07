@@ -48,7 +48,6 @@ fn assemble_chunks(
             target_height,
             submitter,
             index as u8,
-            ctx.program_id,
             &mut header_bytes,
         )?;
     }
@@ -62,7 +61,6 @@ fn validate_and_load_chunk(
     target_height: u64,
     submitter: Pubkey,
     index: u8,
-    program_id: &Pubkey,
     header_bytes: &mut Vec<u8>,
 ) -> Result<()> {
     // Validate chunk PDA
@@ -73,7 +71,7 @@ fn validate_and_load_chunk(
         &target_height.to_le_bytes(),
         &[index],
     ];
-    let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, program_id);
+    let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
     require_eq!(
         chunk_account.key(),
         expected_pda,
@@ -100,7 +98,7 @@ fn process_header_update(
         &ctx.accounts.trusted_consensus_state,
         client_state.key(),
         trusted_height,
-        ctx.program_id,
+        &crate::ID,
     )?;
 
     let (new_height, new_consensus_state) = verify_and_update_header(
@@ -113,7 +111,7 @@ fn process_header_update(
         account: &ctx.accounts.new_consensus_state_store,
         submitter: &ctx.accounts.submitter,
         system_program: &ctx.accounts.system_program,
-        program_id: ctx.program_id,
+        program_id: &crate::ID,
         client_key: client_state.key(),
         height: new_height.revision_height(),
         new_consensus_state: &new_consensus_state,
@@ -179,7 +177,7 @@ fn cleanup_chunks(
             &target_height.to_le_bytes(),
             &[index as u8],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, ctx.program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
         require_eq!(
             chunk_account.key(),
             expected_pda,
