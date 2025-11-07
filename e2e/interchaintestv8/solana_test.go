@@ -1063,7 +1063,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 	}))
 }
 
-func (s *IbcEurekaSolanaTestSuite) Test_SubmitMisbehaviour_DoubleSign() {
+func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign() {
 	ctx := context.Background()
 	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
@@ -1171,7 +1171,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SubmitMisbehaviour_DoubleSign() {
 		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), instruction)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
 		s.Require().NoError(err)
 	}))
 
