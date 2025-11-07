@@ -198,21 +198,11 @@ pub fn recv_packet<'info>(
 
     packet_receipt.value = receipt_commitment;
 
-    // Calculate total chunk accounts that need to be filtered out before CPI
-    // Chunk accounts are at the beginning of remaining_accounts:
-    // - First: payload chunk accounts (total_payload_chunks)
-    // - Then: proof chunk accounts (msg.proof.total_chunks)
-    // - After chunks: IBC app-specific accounts (e.g., GMP accounts)
-    let total_chunk_accounts = total_payload_chunks + msg.proof.total_chunks as usize;
-
-    // Filter out chunk accounts - only pass non-chunk accounts to the IBC app
-    // Chunk accounts are implementation details of the router's chunking mechanism
-    // and should not be visible to IBC applications
-    let app_remaining_accounts = if total_chunk_accounts > 0 {
-        &ctx.remaining_accounts[total_chunk_accounts..]
-    } else {
-        ctx.remaining_accounts
-    };
+    let app_remaining_accounts = chunking::filter_app_remaining_accounts(
+        ctx.remaining_accounts,
+        total_payload_chunks,
+        msg.proof.total_chunks,
+    );
 
     let cpi_accounts = IbcAppCpiAccounts {
         ibc_app_program: ctx.accounts.ibc_app_program.clone(),
