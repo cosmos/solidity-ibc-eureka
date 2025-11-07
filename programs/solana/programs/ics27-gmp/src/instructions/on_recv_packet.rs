@@ -52,6 +52,17 @@ pub struct OnRecvPacket<'info> {
     pub system_program: Program<'info, System>,
 }
 
+impl OnRecvPacket<'_> {
+    /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
+    pub const FIXED_REMAINING_ACCOUNTS: usize = 2;
+
+    /// Index of GMP account PDA in `remaining_accounts`
+    pub const GMP_ACCOUNT_INDEX: usize = 0;
+
+    /// Index of target program in `remaining_accounts`
+    pub const TARGET_PROGRAM_INDEX: usize = 1;
+}
+
 pub fn on_recv_packet<'info>(
     ctx: Context<'_, '_, 'info, 'info, OnRecvPacket<'info>>,
     msg: solana_ibc_types::OnRecvPacketMsg,
@@ -88,12 +99,12 @@ pub fn on_recv_packet<'info>(
     // Extract accounts from remaining_accounts
     // The router passes GMP-specific accounts via remaining_accounts
     require!(
-        ctx.remaining_accounts.len() >= 2,
+        ctx.remaining_accounts.len() >= OnRecvPacket::FIXED_REMAINING_ACCOUNTS,
         GMPError::InsufficientAccounts
     );
 
-    // Extract target_program from remaining_accounts[1]
-    let target_program = &ctx.remaining_accounts[1];
+    // Extract target_program from remaining_accounts[TARGET_PROGRAM_INDEX]
+    let target_program = &ctx.remaining_accounts[OnRecvPacket::TARGET_PROGRAM_INDEX];
 
     // Validate target_program is executable
     require!(target_program.executable, GMPError::TargetNotExecutable);
@@ -125,7 +136,7 @@ pub fn on_recv_packet<'info>(
 
     // Validate GMP account PDA matches (stateless - no account creation needed)
     require!(
-        ctx.remaining_accounts[0].key() == gmp_account.pda,
+        ctx.remaining_accounts[OnRecvPacket::GMP_ACCOUNT_INDEX].key() == gmp_account.pda,
         GMPError::GMPAccountPDAMismatch
     );
 
