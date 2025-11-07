@@ -134,7 +134,7 @@ mod tests {
         client_id: &'static str,
         port_id: &'static str,
         app_program_id: Option<Pubkey>,
-        cpi_caller_program_id: Option<Pubkey>,
+        cpi_caller_program_id: Pubkey,
         active_client: bool,
         current_timestamp: i64,
         timeout_timestamp: i64,
@@ -143,11 +143,12 @@ mod tests {
 
     impl Default for SendPacketTestParams {
         fn default() -> Self {
+            let app_program_id = Pubkey::new_unique();
             Self {
                 client_id: "test-client",
                 port_id: "test-port",
-                app_program_id: None,
-                cpi_caller_program_id: None,
+                app_program_id: Some(app_program_id),
+                cpi_caller_program_id: app_program_id,
                 active_client: true,
                 current_timestamp: 1000,
                 timeout_timestamp: 2000,
@@ -160,9 +161,6 @@ mod tests {
         let authority = Pubkey::new_unique();
         let app_program_id = params.app_program_id.unwrap_or_else(Pubkey::new_unique);
         let payer = Pubkey::new_unique();
-
-        // Default to correct CPI caller (the app_program_id) unless overridden for unauthorized tests
-        let cpi_caller_program_id = params.cpi_caller_program_id.unwrap_or(app_program_id);
 
         let (router_state_pda, router_state_data) = setup_router_state(authority);
         let (client_pda, client_data) = setup_client(
@@ -217,7 +215,7 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda),
-            create_instructions_sysvar_account_with_caller(cpi_caller_program_id),
+            create_instructions_sysvar_account_with_caller(params.cpi_caller_program_id),
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
@@ -301,7 +299,7 @@ mod tests {
     fn test_send_packet_direct_call_rejected() {
         // Test that direct calls (not via CPI) are rejected
         let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
-            cpi_caller_program_id: Some(crate::ID), // Simulate direct call from router itself
+            cpi_caller_program_id: crate::ID,
             ..Default::default()
         });
 
@@ -319,7 +317,7 @@ mod tests {
         // Test that CPI from unauthorized program is rejected
         let unauthorized_program = Pubkey::new_unique();
         let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
-            cpi_caller_program_id: Some(unauthorized_program),
+            cpi_caller_program_id: unauthorized_program,
             ..Default::default()
         });
 
