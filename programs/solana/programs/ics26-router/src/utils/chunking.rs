@@ -11,7 +11,6 @@ pub struct AssemblePayloadParams<'a, 'b, 'c> {
     pub sequence: u64,
     pub payload_index: u8,
     pub total_chunks: u8,
-    pub program_id: &'a Pubkey,
     pub start_index: usize,
 }
 
@@ -23,7 +22,6 @@ pub struct AssembleProofParams<'a, 'b, 'c> {
     pub client_id: &'a str,
     pub sequence: u64,
     pub total_chunks: u8,
-    pub program_id: &'a Pubkey,
     pub start_index: usize,
 }
 
@@ -35,7 +33,24 @@ pub struct ReconstructPacketParams<'a, 'b, 'c> {
     pub relayer: &'c AccountInfo<'b>,
     pub submitter: Pubkey,
     pub client_id: &'a str,
-    pub program_id: &'a Pubkey,
+}
+
+/// Parameters for cleaning up payload chunks
+pub struct CleanupPayloadChunksParams<'a, 'b> {
+    pub chunk_accounts: &'a [AccountInfo<'b>],
+    pub submitter: Pubkey,
+    pub client_id: &'a str,
+    pub sequence: u64,
+    pub payload_index: u8,
+    pub total_chunks: u8,
+}
+
+/// Parameters for cleaning up proof chunks
+pub struct CleanupProofChunksParams<'a, 'b> {
+    pub chunk_accounts: &'a [AccountInfo<'b>],
+    pub submitter: Pubkey,
+    pub client_id: &'a str,
+    pub sequence: u64,
 }
 
 pub fn assemble_multiple_payloads<'b>(
@@ -45,7 +60,6 @@ pub fn assemble_multiple_payloads<'b>(
     client_id: &str,
     sequence: u64,
     payloads_metadata: &[PayloadMetadata],
-    program_id: &Pubkey,
 ) -> Result<Vec<Vec<u8>>> {
     let mut all_payloads = Vec::new();
     let mut account_offset = 0;
@@ -59,7 +73,6 @@ pub fn assemble_multiple_payloads<'b>(
             sequence,
             payload_index: payload_index as u8,
             total_chunks: metadata.total_chunks,
-            program_id,
             start_index: account_offset,
         })?;
 
@@ -77,13 +90,6 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
     // Collect and validate chunks
     for i in 0..params.total_chunks {
         let account_index = params.start_index + accounts_processed;
-        msg!(
-            "Processing payload chunk {}/{}: account_index={}, remaining_accounts.len()={}",
-            i,
-            params.total_chunks,
-            account_index,
-            params.remaining_accounts.len()
-        );
         require!(
             account_index < params.remaining_accounts.len(),
             RouterError::InvalidChunkCount
@@ -100,7 +106,7 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
             &[params.payload_index],
             &[i],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, params.program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
         require!(
             chunk_account.key() == expected_pda,
@@ -120,19 +126,16 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
         accounts_processed += 1;
     }
 
-    // Commitment validation removed - no longer needed
-
     // Clean up chunks and return rent
-    cleanup_payload_chunks(
-        &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
-        params.relayer,
-        params.submitter,
-        params.client_id,
-        params.sequence,
-        params.payload_index,
-        params.total_chunks,
-        params.program_id,
-    )?;
+    cleanup_payload_chunks(CleanupPayloadChunksParams {
+        chunk_accounts: &params.remaining_accounts
+            [params.start_index..params.start_index + accounts_processed],
+        submitter: params.submitter,
+        client_id: params.client_id,
+        sequence: params.sequence,
+        payload_index: params.payload_index,
+        total_chunks: params.total_chunks,
+    })?;
 
     Ok(payload_data)
 }
@@ -141,15 +144,45 @@ pub fn total_payload_chunks(metadata: &[PayloadMetadata]) -> usize {
     metadata.iter().map(|p| p.total_chunks as usize).sum()
 }
 
+/// Filter out chunk accounts from `remaining_accounts` before passing to IBC app CPI
+///
+/// Chunk accounts (payload chunks and proof chunks) are router implementation details
+/// and should not be visible to IBC applications. This function returns only the accounts
+/// that come after all chunk accounts.
+///
+/// # Arguments
+/// * `remaining_accounts` - All remaining accounts from the instruction
+/// * `total_payload_chunks` - Number of payload chunk accounts (already calculated by caller)
+/// * `proof_total_chunks` - Number of proof chunk accounts
+///
+/// # Returns
+/// Slice of `remaining_accounts` with chunk accounts filtered out. Returns empty slice
+/// if all accounts are chunks (which is valid when IBC app needs no extra accounts).
+pub fn filter_app_remaining_accounts<'a, 'b>(
+    remaining_accounts: &'a [AccountInfo<'b>],
+    total_payload_chunks: usize,
+    proof_total_chunks: u8,
+) -> &'a [AccountInfo<'b>] {
+    // Calculate total chunk accounts that need to be filtered out
+    // Chunk accounts are at the beginning of remaining_accounts:
+    // - First: payload chunk accounts (total_payload_chunks)
+    // - Then: proof chunk accounts (proof_total_chunks)
+    // - After chunks: IBC app-specific accounts
+    let total_chunk_accounts = total_payload_chunks + proof_total_chunks as usize;
+
+    // Return accounts after chunks, or empty slice if all accounts are chunks
+    if total_chunk_accounts < remaining_accounts.len() {
+        &remaining_accounts[total_chunk_accounts..]
+    } else {
+        // All remaining_accounts are chunks (valid case - app needs no extra accounts)
+        // Note: If total_chunk_accounts > remaining_accounts.len(), validation would
+        // have already failed in assemble_*_chunks() with InvalidChunkCount error
+        &[]
+    }
+}
+
 /// Assemble proof chunks from remaining accounts and verify commitment
 pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
-    msg!(
-        "assemble_proof_chunks: total_chunks={}, start_index={}, remaining_accounts={}",
-        params.total_chunks,
-        params.start_index,
-        params.remaining_accounts.len()
-    );
-
     let mut proof_data = Vec::new();
     let mut accounts_processed = 0;
 
@@ -171,7 +204,7 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
             &params.sequence.to_le_bytes(),
             &[i],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, params.program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
         require!(
             chunk_account.key() == expected_pda,
@@ -190,58 +223,41 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
         accounts_processed += 1;
     }
 
-    // Commitment validation removed - no longer needed
-
-    // Clean up chunks and return rent
-    cleanup_proof_chunks(
-        &params.remaining_accounts[params.start_index..params.start_index + accounts_processed],
-        params.relayer,
-        params.submitter,
-        params.client_id,
-        params.sequence,
-        params.total_chunks,
-        params.program_id,
-    )?;
+    cleanup_proof_chunks(CleanupProofChunksParams {
+        chunk_accounts: &params.remaining_accounts
+            [params.start_index..params.start_index + accounts_processed],
+        submitter: params.submitter,
+        client_id: params.client_id,
+        sequence: params.sequence,
+    })?;
 
     Ok(proof_data)
 }
 
 /// Clean up payload chunks by zeroing data (lamports remain for later reclaim via `cleanup_chunks`)
-// TODO: remove clippy allow after fix
-#[allow(clippy::too_many_arguments)]
-fn cleanup_payload_chunks(
-    chunk_accounts: &[AccountInfo],
-    _payer: &AccountInfo,
-    submitter: Pubkey,
-    client_id: &str,
-    sequence: u64,
-    payload_index: u8,
-    total_chunks: u8,
-    program_id: &Pubkey,
-) -> Result<()> {
+fn cleanup_payload_chunks(params: CleanupPayloadChunksParams) -> Result<()> {
     require_eq!(
-        total_chunks,
-        u8::try_from(chunk_accounts.len()).map_err(|_| RouterError::InvalidChunkCount)?,
+        params.total_chunks,
+        u8::try_from(params.chunk_accounts.len()).map_err(|_| RouterError::InvalidChunkCount)?,
         RouterError::InvalidChunkCount
     );
 
-    for (i, chunk_account) in chunk_accounts.iter().enumerate() {
+    for (i, chunk_account) in params.chunk_accounts.iter().enumerate() {
         // Double-check PDA (paranoid check)
         let expected_seeds = &[
             PayloadChunk::SEED,
-            submitter.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-            &[payload_index],
+            params.submitter.as_ref(),
+            params.client_id.as_bytes(),
+            &params.sequence.to_le_bytes(),
+            &[params.payload_index],
             &[i as u8],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
         require!(
             chunk_account.key() == expected_pda,
             RouterError::InvalidChunkAccount
         );
 
-        // TODO: Fix this, data should be cleaned up
         // Clear the chunk data to prevent replay
         // Note: Lamports are NOT transferred here to avoid UnbalancedInstruction errors.
         // Users must call cleanup_chunks separately to reclaim rent.
@@ -252,25 +268,17 @@ fn cleanup_payload_chunks(
 }
 
 /// Clean up proof chunks by zeroing data (lamports remain for later reclaim via `cleanup_chunks`)
-fn cleanup_proof_chunks(
-    chunk_accounts: &[AccountInfo],
-    _payer: &AccountInfo,
-    submitter: Pubkey,
-    client_id: &str,
-    sequence: u64,
-    _total_chunks: u8,
-    program_id: &Pubkey,
-) -> Result<()> {
-    for (i, chunk_account) in chunk_accounts.iter().enumerate() {
+fn cleanup_proof_chunks(params: CleanupProofChunksParams) -> Result<()> {
+    for (i, chunk_account) in params.chunk_accounts.iter().enumerate() {
         // Double-check PDA (paranoid check)
         let expected_seeds = &[
             ProofChunk::SEED,
-            submitter.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
+            params.submitter.as_ref(),
+            params.client_id.as_bytes(),
+            &params.sequence.to_le_bytes(),
             &[i as u8],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
         require!(
             chunk_account.key() == expected_pda,
             RouterError::InvalidChunkAccount
@@ -314,7 +322,6 @@ pub fn validate_and_reconstruct_packet(
             params.client_id,
             params.packet.sequence,
             params.payloads_metadata,
-            params.program_id,
         )?;
 
         // Reconstruct the full payloads
@@ -344,4 +351,465 @@ pub fn validate_and_reconstruct_packet(
         timeout_timestamp: params.packet.timeout_timestamp,
         payloads,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_ibc_types::Payload;
+
+    #[test]
+    fn test_validate_and_reconstruct_packet_inline_mode_success() {
+        // Test inline mode: packet has payloads, no chunked metadata
+        let inline_payload = Payload {
+            source_port: "transfer".to_string(),
+            dest_port: "transfer".to_string(),
+            version: "ics20-1".to_string(),
+            encoding: "json".to_string(),
+            value: b"test data".to_vec(),
+        };
+
+        let packet = solana_ibc_types::Packet {
+            sequence: 1,
+            source_client: "source-client".to_string(),
+            dest_client: "dest-client".to_string(),
+            timeout_timestamp: 1000,
+            payloads: vec![inline_payload],
+        };
+
+        let relayer = Pubkey::new_unique();
+        let mut lamports = 0u64;
+        let mut data = [];
+        let relayer_account = AccountInfo::new(
+            &relayer,
+            false,
+            false,
+            &mut lamports,
+            &mut data,
+            &crate::ID,
+            false,
+            0,
+        );
+
+        let params = ReconstructPacketParams {
+            packet: &packet,
+            payloads_metadata: &[],
+            remaining_accounts: &[],
+            relayer: &relayer_account,
+            submitter: relayer,
+            client_id: "client-0",
+        };
+
+        let result = validate_and_reconstruct_packet(params).unwrap();
+
+        // Should return packet unchanged (inline mode)
+        assert_eq!(result.sequence, 1);
+        assert_eq!(result.payloads.len(), 1);
+        assert_eq!(result.payloads[0].value, b"test data");
+        assert_eq!(result.payloads[0].source_port, "transfer");
+    }
+
+    #[test]
+    fn test_validate_and_reconstruct_packet_conflicting_inline_and_chunked() {
+        // Test error case: packet has inline payloads AND chunked metadata
+        let inline_payload = Payload {
+            source_port: "transfer".to_string(),
+            dest_port: "transfer".to_string(),
+            version: "ics20-1".to_string(),
+            encoding: "json".to_string(),
+            value: b"test data".to_vec(),
+        };
+
+        let packet = solana_ibc_types::Packet {
+            sequence: 1,
+            source_client: "client-0".to_string(),
+            dest_client: "client-1".to_string(),
+            timeout_timestamp: 1000,
+            payloads: vec![inline_payload],
+        };
+
+        let chunked_metadata = vec![PayloadMetadata {
+            source_port: "transfer".to_string(),
+            dest_port: "transfer".to_string(),
+            version: "ics20-1".to_string(),
+            encoding: "json".to_string(),
+            total_chunks: 1, // Conflict: has both inline and chunked
+        }];
+
+        let relayer = Pubkey::new_unique();
+        let mut lamports = 0u64;
+        let mut data = [];
+        let relayer_account = AccountInfo::new(
+            &relayer,
+            false,
+            false,
+            &mut lamports,
+            &mut data,
+            &crate::ID,
+            false,
+            0,
+        );
+
+        let params = ReconstructPacketParams {
+            packet: &packet,
+            payloads_metadata: &chunked_metadata,
+            remaining_accounts: &[],
+            relayer: &relayer_account,
+            submitter: relayer,
+            client_id: "client-0",
+        };
+
+        let result = validate_and_reconstruct_packet(params);
+
+        // Should fail with InvalidPayloadCount
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            error.to_string().contains("InvalidPayloadCount"),
+            "Expected InvalidPayloadCount error, got: {error}",
+        );
+    }
+
+    #[test]
+    fn test_validate_and_reconstruct_packet_inline_mode_with_zero_chunk_metadata() {
+        // Test inline mode: packet has payloads, metadata exists but has total_chunks=0
+        let inline_payload = Payload {
+            source_port: "transfer".to_string(),
+            dest_port: "transfer".to_string(),
+            version: "ics20-1".to_string(),
+            encoding: "json".to_string(),
+            value: b"test data".to_vec(),
+        };
+
+        let packet = solana_ibc_types::Packet {
+            sequence: 1,
+            source_client: "client-0".to_string(),
+            dest_client: "client-1".to_string(),
+            timeout_timestamp: 1000,
+            payloads: vec![inline_payload],
+        };
+
+        // Metadata with total_chunks=0 (should be treated as no metadata)
+        let metadata_with_zero_chunks = vec![PayloadMetadata {
+            source_port: "transfer".to_string(),
+            dest_port: "transfer".to_string(),
+            version: "ics20-1".to_string(),
+            encoding: "json".to_string(),
+            total_chunks: 0,
+        }];
+
+        let relayer = Pubkey::new_unique();
+        let mut lamports = 0u64;
+        let mut data = [];
+        let relayer_account = AccountInfo::new(
+            &relayer,
+            false,
+            false,
+            &mut lamports,
+            &mut data,
+            &crate::ID,
+            false,
+            0,
+        );
+
+        let params = ReconstructPacketParams {
+            packet: &packet,
+            payloads_metadata: &metadata_with_zero_chunks,
+            remaining_accounts: &[],
+            relayer: &relayer_account,
+            submitter: relayer,
+            client_id: "client-0",
+        };
+
+        let result = validate_and_reconstruct_packet(params).unwrap();
+
+        // Should succeed in inline mode (total_chunks=0 means no chunking)
+        assert_eq!(result.payloads.len(), 1);
+        assert_eq!(result.payloads[0].value, b"test data");
+    }
+
+    #[test]
+    fn test_validate_and_reconstruct_packet_empty_payloads_and_empty_metadata() {
+        // Test error case: no inline payloads and no chunked metadata
+        let packet = solana_ibc_types::Packet {
+            sequence: 1,
+            source_client: "client-0".to_string(),
+            dest_client: "client-1".to_string(),
+            timeout_timestamp: 1000,
+            payloads: vec![],
+        };
+
+        let relayer = Pubkey::new_unique();
+        let mut lamports = 0u64;
+        let mut data = [];
+        let relayer_account = AccountInfo::new(
+            &relayer,
+            false,
+            false,
+            &mut lamports,
+            &mut data,
+            &crate::ID,
+            false,
+            0,
+        );
+
+        let params = ReconstructPacketParams {
+            packet: &packet,
+            payloads_metadata: &[],
+            remaining_accounts: &[],
+            relayer: &relayer_account,
+            submitter: relayer,
+            client_id: "client-0",
+        };
+
+        let result = validate_and_reconstruct_packet(params).unwrap();
+
+        // Should succeed but return empty payloads
+        // Note: This is handled at a higher level (get_single_payload will fail)
+        assert_eq!(result.payloads.len(), 0);
+    }
+
+    // Helper function to create mock AccountInfo for testing
+    fn create_mock_account_info<'a>(
+        key: &'a Pubkey,
+        lamports: &'a mut u64,
+        data: &'a mut [u8],
+        owner: &'a Pubkey,
+    ) -> AccountInfo<'a> {
+        AccountInfo::new(key, false, false, lamports, data, owner, false, 0)
+    }
+
+    #[test]
+    fn test_filter_app_remaining_accounts_with_payload_and_proof_chunks() {
+        // Create 3 payload chunks + 2 proof chunks + 4 app accounts (9 total)
+        let keys = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let mut lamports0 = 0u64;
+        let mut lamports1 = 0u64;
+        let mut lamports2 = 0u64;
+        let mut lamports3 = 0u64;
+        let mut lamports4 = 0u64;
+        let mut lamports5 = 0u64;
+        let mut lamports6 = 0u64;
+        let mut lamports7 = 0u64;
+        let mut lamports8 = 0u64;
+        let mut data0 = vec![];
+        let mut data1 = vec![];
+        let mut data2 = vec![];
+        let mut data3 = vec![];
+        let mut data4 = vec![];
+        let mut data5 = vec![];
+        let mut data6 = vec![];
+        let mut data7 = vec![];
+        let mut data8 = vec![];
+        let owner = Pubkey::new_unique();
+
+        let accounts = [
+            create_mock_account_info(&keys[0], &mut lamports0, &mut data0, &owner),
+            create_mock_account_info(&keys[1], &mut lamports1, &mut data1, &owner),
+            create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
+            create_mock_account_info(&keys[3], &mut lamports3, &mut data3, &owner),
+            create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
+            create_mock_account_info(&keys[5], &mut lamports5, &mut data5, &owner),
+            create_mock_account_info(&keys[6], &mut lamports6, &mut data6, &owner),
+            create_mock_account_info(&keys[7], &mut lamports7, &mut data7, &owner),
+            create_mock_account_info(&keys[8], &mut lamports8, &mut data8, &owner),
+        ];
+
+        // Filter: 3 payload chunks + 2 proof chunks = 5 chunks to skip
+        let result = filter_app_remaining_accounts(&accounts, 3, 2);
+
+        // Should return last 4 accounts (app accounts after chunks)
+        assert_eq!(result.len(), 4);
+        assert_eq!(result[0].key, &keys[5]);
+        assert_eq!(result[1].key, &keys[6]);
+        assert_eq!(result[2].key, &keys[7]);
+        assert_eq!(result[3].key, &keys[8]);
+    }
+
+    #[test]
+    fn test_filter_app_remaining_accounts_only_payload_chunks() {
+        // Create 2 payload chunks + 0 proof chunks + 3 app accounts (5 total)
+        let keys = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let mut lamports0 = 0u64;
+        let mut lamports1 = 0u64;
+        let mut lamports2 = 0u64;
+        let mut lamports3 = 0u64;
+        let mut lamports4 = 0u64;
+        let mut data0 = vec![];
+        let mut data1 = vec![];
+        let mut data2 = vec![];
+        let mut data3 = vec![];
+        let mut data4 = vec![];
+        let owner = Pubkey::new_unique();
+
+        let accounts = [
+            create_mock_account_info(&keys[0], &mut lamports0, &mut data0, &owner),
+            create_mock_account_info(&keys[1], &mut lamports1, &mut data1, &owner),
+            create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
+            create_mock_account_info(&keys[3], &mut lamports3, &mut data3, &owner),
+            create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
+        ];
+
+        // Filter: 2 payload chunks + 0 proof chunks
+        let result = filter_app_remaining_accounts(&accounts, 2, 0);
+
+        // Should return last 3 accounts
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].key, &keys[2]);
+        assert_eq!(result[1].key, &keys[3]);
+        assert_eq!(result[2].key, &keys[4]);
+    }
+
+    #[test]
+    fn test_filter_app_remaining_accounts_only_proof_chunks() {
+        // Create 0 payload chunks + 3 proof chunks + 2 app accounts (5 total)
+        let keys = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let mut lamports0 = 0u64;
+        let mut lamports1 = 0u64;
+        let mut lamports2 = 0u64;
+        let mut lamports3 = 0u64;
+        let mut lamports4 = 0u64;
+        let mut data0 = vec![];
+        let mut data1 = vec![];
+        let mut data2 = vec![];
+        let mut data3 = vec![];
+        let mut data4 = vec![];
+        let owner = Pubkey::new_unique();
+
+        let accounts = [
+            create_mock_account_info(&keys[0], &mut lamports0, &mut data0, &owner),
+            create_mock_account_info(&keys[1], &mut lamports1, &mut data1, &owner),
+            create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
+            create_mock_account_info(&keys[3], &mut lamports3, &mut data3, &owner),
+            create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
+        ];
+
+        // Filter: 0 payload chunks + 3 proof chunks
+        let result = filter_app_remaining_accounts(&accounts, 0, 3);
+
+        // Should return last 2 accounts
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].key, &keys[3]);
+        assert_eq!(result[1].key, &keys[4]);
+    }
+
+    #[test]
+    fn test_filter_app_remaining_accounts_no_chunks() {
+        // Create 5 app accounts only (no chunks)
+        let keys = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let mut lamports0 = 0u64;
+        let mut lamports1 = 0u64;
+        let mut lamports2 = 0u64;
+        let mut lamports3 = 0u64;
+        let mut lamports4 = 0u64;
+        let mut data0 = vec![];
+        let mut data1 = vec![];
+        let mut data2 = vec![];
+        let mut data3 = vec![];
+        let mut data4 = vec![];
+        let owner = Pubkey::new_unique();
+
+        let accounts = [
+            create_mock_account_info(&keys[0], &mut lamports0, &mut data0, &owner),
+            create_mock_account_info(&keys[1], &mut lamports1, &mut data1, &owner),
+            create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
+            create_mock_account_info(&keys[3], &mut lamports3, &mut data3, &owner),
+            create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
+        ];
+
+        // Filter: 0 payload chunks + 0 proof chunks
+        let result = filter_app_remaining_accounts(&accounts, 0, 0);
+
+        // Should return all 5 accounts unchanged
+        assert_eq!(result.len(), 5);
+        for (i, account) in result.iter().enumerate() {
+            assert_eq!(account.key, &keys[i]);
+        }
+    }
+
+    #[test]
+    fn test_filter_app_remaining_accounts_all_chunks_no_app_accounts() {
+        // Create 2 payload chunks + 1 proof chunk (3 total, no app accounts)
+        let keys = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let mut lamports0 = 0u64;
+        let mut lamports1 = 0u64;
+        let mut lamports2 = 0u64;
+        let mut data0 = vec![];
+        let mut data1 = vec![];
+        let mut data2 = vec![];
+        let owner = Pubkey::new_unique();
+
+        let accounts = [
+            create_mock_account_info(&keys[0], &mut lamports0, &mut data0, &owner),
+            create_mock_account_info(&keys[1], &mut lamports1, &mut data1, &owner),
+            create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
+        ];
+
+        // Filter: 2 payload chunks + 1 proof chunk = all 3 accounts
+        let result = filter_app_remaining_accounts(&accounts, 2, 1);
+
+        // Should return empty slice (no app accounts after chunks)
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_filter_app_remaining_accounts_more_chunks_than_accounts() {
+        // Create 3 accounts total
+        let keys = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let mut lamports0 = 0u64;
+        let mut lamports1 = 0u64;
+        let mut lamports2 = 0u64;
+        let mut data0 = vec![];
+        let mut data1 = vec![];
+        let mut data2 = vec![];
+        let owner = Pubkey::new_unique();
+
+        let accounts = [
+            create_mock_account_info(&keys[0], &mut lamports0, &mut data0, &owner),
+            create_mock_account_info(&keys[1], &mut lamports1, &mut data1, &owner),
+            create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
+        ];
+
+        // Filter: 2 payload chunks + 2 proof chunks = 4 chunks expected (more than available)
+        let result = filter_app_remaining_accounts(&accounts, 2, 2);
+
+        // Should return empty slice (defensive behavior when chunks >= total accounts)
+        assert_eq!(result.len(), 0);
+    }
 }

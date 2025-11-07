@@ -48,7 +48,6 @@ fn assemble_chunks(
             target_height,
             submitter,
             index as u8,
-            ctx.program_id,
             &mut header_bytes,
         )?;
     }
@@ -62,7 +61,6 @@ fn validate_and_load_chunk(
     target_height: u64,
     submitter: Pubkey,
     index: u8,
-    program_id: &Pubkey,
     header_bytes: &mut Vec<u8>,
 ) -> Result<()> {
     // Validate chunk PDA
@@ -73,7 +71,7 @@ fn validate_and_load_chunk(
         &target_height.to_le_bytes(),
         &[index],
     ];
-    let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, program_id);
+    let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
     require_eq!(
         chunk_account.key(),
         expected_pda,
@@ -100,7 +98,6 @@ fn process_header_update(
         &ctx.accounts.trusted_consensus_state,
         client_state.key(),
         trusted_height,
-        ctx.program_id,
     )?;
 
     let (new_height, new_consensus_state) = verify_and_update_header(
@@ -113,7 +110,6 @@ fn process_header_update(
         account: &ctx.accounts.new_consensus_state_store,
         submitter: &ctx.accounts.submitter,
         system_program: &ctx.accounts.system_program,
-        program_id: ctx.program_id,
         client_key: client_state.key(),
         height: new_height.revision_height(),
         new_consensus_state: &new_consensus_state,
@@ -179,7 +175,7 @@ fn cleanup_chunks(
             &target_height.to_le_bytes(),
             &[index as u8],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, ctx.program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
         require_eq!(
             chunk_account.key(),
             expected_pda,
@@ -203,7 +199,6 @@ fn load_consensus_state(
     account: &UncheckedAccount,
     client_key: Pubkey,
     height: u64,
-    program_id: &Pubkey,
 ) -> Result<ConsensusStateStore> {
     // Validate PDA
     let (expected_pda, _) = Pubkey::find_program_address(
@@ -212,7 +207,7 @@ fn load_consensus_state(
             client_key.as_ref(),
             &height.to_le_bytes(),
         ],
-        program_id,
+        &crate::ID,
     );
 
     require!(
@@ -231,7 +226,6 @@ struct StoreConsensusStateParams<'a, 'info> {
     account: &'a UncheckedAccount<'info>,
     submitter: &'a Signer<'info>,
     system_program: &'a Program<'info, System>,
-    program_id: &'a Pubkey,
     client_key: Pubkey,
     height: u64,
     new_consensus_state: &'a ConsensusState,
@@ -247,7 +241,7 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
             params.client_key.as_ref(),
             &params.height.to_le_bytes(),
         ],
-        params.program_id,
+        &crate::ID,
     );
 
     require!(
@@ -296,7 +290,7 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     let signer = &[&seeds_with_bump[..]];
     let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
 
-    system_program::create_account(cpi_ctx, rent, space as u64, params.program_id)?;
+    system_program::create_account(cpi_ctx, rent, space as u64, &crate::ID)?;
 
     // Serialize the new consensus state
     let new_store = ConsensusStateStore {
