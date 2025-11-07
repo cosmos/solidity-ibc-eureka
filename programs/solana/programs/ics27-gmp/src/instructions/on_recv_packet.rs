@@ -144,7 +144,6 @@ pub fn on_recv_packet<'info>(
 
     // Parse and validate the GMP Solana payload from Protobuf
     // The payload contains all required accounts and instruction data
-    // (target program ID comes from packet_data.receiver)
     let validated_payload =
         GmpSolanaPayload::decode_and_validate(&packet_data.payload).map_err(GMPError::from)?;
 
