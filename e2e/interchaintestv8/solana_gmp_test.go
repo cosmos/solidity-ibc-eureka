@@ -264,11 +264,11 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			// 2. User counter PDA - derived from the GMP account PDA (stateless identity)
 			userCounterAddress, _ := solana.GmpCounterApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
 
-			// Create SolanaInstruction protobuf message
+			// Create GMPSolanaPayload protobuf message
 			// Note: PayerPosition = 3 means inject at index 3 (0-indexed)
 			// The payer (relayer) is injected by GMP program since Cosmos doesn't know relayer's address
 			payerPosition := uint32(3)
-			solanaInstruction := &solanatypes.SolanaInstruction{
+			solanaInstruction := &solanatypes.GMPSolanaPayload{
 				ProgramId: gmpCounterProgramID.Bytes(),
 				Data:      incrementInstructionData,
 				Accounts: []*solanatypes.SolanaAccountMeta{
@@ -601,11 +601,11 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		instructionData, err := splTransferInstruction.Data()
 		s.Require().NoError(err)
 
-		// Create SolanaInstruction protobuf
+		// Create GMPSolanaPayload protobuf
 		// Note: PayerPosition is left unset (nil) - NO payer injection since SPL Transfer doesn't create accounts
 		// SPL Transfer requires exactly 3 accounts: source, destination, authority
 		// The authority (ICS27 PDA) must be marked as PDA_SIGNER so GMP program builds CPI with it as signer
-		solanaInstruction := &solanatypes.SolanaInstruction{
+		solanaInstruction := &solanatypes.GMPSolanaPayload{
 			ProgramId: token.ProgramID.Bytes(),
 			Data:      instructionData,
 			Accounts: []*solanatypes.SolanaAccountMeta{
@@ -1252,7 +1252,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 // 2. Send Packet (Cosmos → Solana)
 //   - Cosmos sends IBC packet via MsgSendCall
 //   - Packet type: GMP call packet (ICS27 general message passing)
-//   - Payload: Protobuf-encoded SolanaInstruction (SPL token transfer: 1M tokens from ICS27 account to recipient)
+//   - Payload: Protobuf-encoded GMPSolanaPayload (SPL token transfer: 1M tokens from ICS27 account to recipient)
 //   - Timeout: 35 seconds from current time
 //   - Packet commitment created on Cosmos (stores hash of packet data)
 //
@@ -1377,8 +1377,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 		instructionData, err := splTransferInstruction.Data()
 		s.Require().NoError(err)
 
-		// Create SolanaInstruction protobuf
-		solanaInstruction := &solanatypes.SolanaInstruction{
+		// Create GMPSolanaPayload protobuf
+		solanaInstruction := &solanatypes.GMPSolanaPayload{
 			ProgramId: token.ProgramID.Bytes(),
 			Data:      instructionData,
 			Accounts: []*solanatypes.SolanaAccountMeta{
@@ -1640,8 +1640,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 		instructionData, err := splTransferInstruction.Data()
 		s.Require().NoError(err)
 
-		// Create SolanaInstruction protobuf
-		solanaInstruction := &solanatypes.SolanaInstruction{
+		// Create GMPSolanaPayload protobuf
+		solanaInstruction := &solanatypes.GMPSolanaPayload{
 			ProgramId: token.ProgramID.Bytes(),
 			Data:      instructionData,
 			Accounts: []*solanatypes.SolanaAccountMeta{

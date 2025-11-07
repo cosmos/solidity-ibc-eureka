@@ -32,7 +32,7 @@ type GMPPacketData struct {
 	// Salt for GMP account uniqueness (allows multiple accounts per sender)
 	Salt []byte `protobuf:"bytes,3,opt,name=salt,proto3" json:"salt,omitempty"`
 	// Protobuf-encoded execution payload
-	// For Solana: This contains a `SolanaInstruction`
+	// For Solana: This contains a `GMPSolanaPayload`
 	Payload []byte `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
 	// Optional memo field
 	Memo          string `protobuf:"bytes,5,opt,name=memo,proto3" json:"memo,omitempty"`
@@ -106,14 +106,11 @@ func (x *GMPPacketData) GetMemo() string {
 }
 
 // `GMPAcknowledgement` is returned after packet execution on the destination chain
+// Matches ibc-go's Acknowledgement format
 type GMPAcknowledgement struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whether execution succeeded
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Result data from execution
-	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	// Error message if failed
-	Error         string `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	// The result of the call (empty on error, or contains return data on success)
+	Result        []byte `protobuf:"bytes,1,opt,name=result,proto3" json:"result,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -148,25 +145,11 @@ func (*GMPAcknowledgement) Descriptor() ([]byte, []int) {
 	return file_gmp_gmp_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *GMPAcknowledgement) GetSuccess() bool {
+func (x *GMPAcknowledgement) GetResult() []byte {
 	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-func (x *GMPAcknowledgement) GetData() []byte {
-	if x != nil {
-		return x.Data
+		return x.Result
 	}
 	return nil
-}
-
-func (x *GMPAcknowledgement) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
 }
 
 var File_gmp_gmp_proto protoreflect.FileDescriptor
@@ -179,11 +162,9 @@ const file_gmp_gmp_proto_rawDesc = "" +
 	"\breceiver\x18\x02 \x01(\tR\breceiver\x12\x12\n" +
 	"\x04salt\x18\x03 \x01(\fR\x04salt\x12\x18\n" +
 	"\apayload\x18\x04 \x01(\fR\apayload\x12\x12\n" +
-	"\x04memo\x18\x05 \x01(\tR\x04memo\"X\n" +
-	"\x12GMPAcknowledgement\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x12\n" +
-	"\x04data\x18\x02 \x01(\fR\x04data\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05errorBJ\n" +
+	"\x04memo\x18\x05 \x01(\tR\x04memo\",\n" +
+	"\x12GMPAcknowledgement\x12\x16\n" +
+	"\x06result\x18\x01 \x01(\fR\x06resultBJ\n" +
 	"\acom.gmpB\bGmpProtoP\x01Z\ttypes/gmp\xa2\x02\x03GXX\xaa\x02\x03Gmp\xca\x02\x03Gmp\xe2\x02\x0fGmp\\GPBMetadata\xea\x02\x03Gmpb\x06proto3"
 
 var (

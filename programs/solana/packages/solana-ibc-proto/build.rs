@@ -14,13 +14,13 @@ fn main() -> Result<()> {
     config.compile_protos(
         &[
             "../../../../proto/gmp/gmp.proto",
-            "../../../../proto/solana/solana_instruction.proto",
+            "../../../../proto/solana/gmp_solana_payload.proto",
         ],
         &["../../../../proto"],
     )?;
 
     println!("cargo:rerun-if-changed=../../../../proto/gmp/gmp.proto");
-    println!("cargo:rerun-if-changed=../../../../proto/solana/solana_instruction.proto");
+    println!("cargo:rerun-if-changed=../../../../proto/solana/gmp_solana_payload.proto");
 
     Ok(())
 }
