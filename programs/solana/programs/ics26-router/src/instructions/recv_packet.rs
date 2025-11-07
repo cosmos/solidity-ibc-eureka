@@ -131,7 +131,6 @@ pub fn recv_packet<'info>(
         relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.dest_client,
-        program_id: &crate::ID,
     })?;
 
     let payload = packet::get_single_payload(&packet)?;
@@ -153,7 +152,6 @@ pub fn recv_packet<'info>(
         client_id: &msg.packet.dest_client,
         sequence: msg.packet.sequence,
         total_chunks: msg.proof.total_chunks,
-        program_id: ctx.program_id,
         // proof chunks come after payload chunks
         start_index: total_payload_chunks,
     })?;

@@ -11,7 +11,6 @@ pub struct AssemblePayloadParams<'a, 'b, 'c> {
     pub sequence: u64,
     pub payload_index: u8,
     pub total_chunks: u8,
-    pub program_id: &'a Pubkey,
     pub start_index: usize,
 }
 
@@ -23,7 +22,6 @@ pub struct AssembleProofParams<'a, 'b, 'c> {
     pub client_id: &'a str,
     pub sequence: u64,
     pub total_chunks: u8,
-    pub program_id: &'a Pubkey,
     pub start_index: usize,
 }
 
@@ -35,7 +33,6 @@ pub struct ReconstructPacketParams<'a, 'b, 'c> {
     pub relayer: &'c AccountInfo<'b>,
     pub submitter: Pubkey,
     pub client_id: &'a str,
-    pub program_id: &'a Pubkey,
 }
 
 /// Parameters for cleaning up payload chunks
@@ -46,7 +43,6 @@ pub struct CleanupPayloadChunksParams<'a, 'b> {
     pub sequence: u64,
     pub payload_index: u8,
     pub total_chunks: u8,
-    pub program_id: &'a Pubkey,
 }
 
 /// Parameters for cleaning up proof chunks
@@ -55,7 +51,6 @@ pub struct CleanupProofChunksParams<'a, 'b> {
     pub submitter: Pubkey,
     pub client_id: &'a str,
     pub sequence: u64,
-    pub program_id: &'a Pubkey,
 }
 
 pub fn assemble_multiple_payloads<'b>(
@@ -65,7 +60,6 @@ pub fn assemble_multiple_payloads<'b>(
     client_id: &str,
     sequence: u64,
     payloads_metadata: &[PayloadMetadata],
-    program_id: &Pubkey,
 ) -> Result<Vec<Vec<u8>>> {
     let mut all_payloads = Vec::new();
     let mut account_offset = 0;
@@ -79,7 +73,6 @@ pub fn assemble_multiple_payloads<'b>(
             sequence,
             payload_index: payload_index as u8,
             total_chunks: metadata.total_chunks,
-            program_id,
             start_index: account_offset,
         })?;
 
@@ -113,7 +106,7 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
             &[params.payload_index],
             &[i],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, params.program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
         require!(
             chunk_account.key() == expected_pda,
@@ -142,7 +135,6 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
         sequence: params.sequence,
         payload_index: params.payload_index,
         total_chunks: params.total_chunks,
-        program_id: params.program_id,
     })?;
 
     Ok(payload_data)
@@ -212,7 +204,7 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
             &params.sequence.to_le_bytes(),
             &[i],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, params.program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
         require!(
             chunk_account.key() == expected_pda,
@@ -237,7 +229,6 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
         submitter: params.submitter,
         client_id: params.client_id,
         sequence: params.sequence,
-        program_id: params.program_id,
     })?;
 
     Ok(proof_data)
@@ -261,7 +252,7 @@ fn cleanup_payload_chunks(params: CleanupPayloadChunksParams) -> Result<()> {
             &[params.payload_index],
             &[i as u8],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, params.program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
         require!(
             chunk_account.key() == expected_pda,
             RouterError::InvalidChunkAccount
@@ -287,7 +278,7 @@ fn cleanup_proof_chunks(params: CleanupProofChunksParams) -> Result<()> {
             &params.sequence.to_le_bytes(),
             &[i as u8],
         ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, params.program_id);
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
         require!(
             chunk_account.key() == expected_pda,
             RouterError::InvalidChunkAccount
@@ -331,7 +322,6 @@ pub fn validate_and_reconstruct_packet(
             params.client_id,
             params.packet.sequence,
             params.payloads_metadata,
-            params.program_id,
         )?;
 
         // Reconstruct the full payloads
@@ -388,7 +378,6 @@ mod tests {
         };
 
         let relayer = Pubkey::new_unique();
-        let program_id = Pubkey::new_unique();
         let mut lamports = 0u64;
         let mut data = [];
         let relayer_account = AccountInfo::new(
@@ -397,7 +386,7 @@ mod tests {
             false,
             &mut lamports,
             &mut data,
-            &program_id,
+            &crate::ID,
             false,
             0,
         );
@@ -409,7 +398,6 @@ mod tests {
             relayer: &relayer_account,
             submitter: relayer,
             client_id: "client-0",
-            program_id: &program_id,
         };
 
         let result = validate_and_reconstruct_packet(params).unwrap();
@@ -449,7 +437,6 @@ mod tests {
         }];
 
         let relayer = Pubkey::new_unique();
-        let program_id = Pubkey::new_unique();
         let mut lamports = 0u64;
         let mut data = [];
         let relayer_account = AccountInfo::new(
@@ -458,7 +445,7 @@ mod tests {
             false,
             &mut lamports,
             &mut data,
-            &program_id,
+            &crate::ID,
             false,
             0,
         );
@@ -470,7 +457,6 @@ mod tests {
             relayer: &relayer_account,
             submitter: relayer,
             client_id: "client-0",
-            program_id: &program_id,
         };
 
         let result = validate_and_reconstruct_packet(params);
@@ -514,7 +500,6 @@ mod tests {
         }];
 
         let relayer = Pubkey::new_unique();
-        let program_id = Pubkey::new_unique();
         let mut lamports = 0u64;
         let mut data = [];
         let relayer_account = AccountInfo::new(
@@ -523,7 +508,7 @@ mod tests {
             false,
             &mut lamports,
             &mut data,
-            &program_id,
+            &crate::ID,
             false,
             0,
         );
@@ -535,7 +520,6 @@ mod tests {
             relayer: &relayer_account,
             submitter: relayer,
             client_id: "client-0",
-            program_id: &program_id,
         };
 
         let result = validate_and_reconstruct_packet(params).unwrap();
@@ -557,7 +541,6 @@ mod tests {
         };
 
         let relayer = Pubkey::new_unique();
-        let program_id = Pubkey::new_unique();
         let mut lamports = 0u64;
         let mut data = [];
         let relayer_account = AccountInfo::new(
@@ -566,7 +549,7 @@ mod tests {
             false,
             &mut lamports,
             &mut data,
-            &program_id,
+            &crate::ID,
             false,
             0,
         );
@@ -578,7 +561,6 @@ mod tests {
             relayer: &relayer_account,
             submitter: relayer,
             client_id: "client-0",
-            program_id: &program_id,
         };
 
         let result = validate_and_reconstruct_packet(params).unwrap();
