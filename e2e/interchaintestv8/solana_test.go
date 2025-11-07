@@ -1080,7 +1080,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 	)
 	s.Require().NoError(err)
 
-	s.Require().True(s.Run("Update client to establish consensus states", func() {
+	s.Require().True(s.Run("Update client to establish first consensus state", func() {
 		resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
@@ -1092,9 +1092,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 		s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaUser)
 	}))
 
-	var trustedHeight uint64
-	var trustedHeader tmclient.Header
-	s.Require().True(s.Run("Get trusted consensus state height", func() {
+	var trustedHeight1 uint64
+	var trustedHeader1 tmclient.Header
+	s.Require().True(s.Run("Get first trusted consensus state", func() {
 		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
 		})
@@ -1103,37 +1103,33 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 		clientState, err := ics07_tendermint.ParseAccount_ClientState(accountInfo.Value.Data.GetBinary())
 		s.Require().NoError(err)
 
-		trustedHeight = clientState.LatestHeight.RevisionHeight
-		s.T().Logf("Trusted consensus state height: %d", trustedHeight)
+		trustedHeight1 = clientState.LatestHeight.RevisionHeight
+		s.T().Logf("First trusted consensus state height: %d", trustedHeight1)
 
 		var latestHeight int64
-		trustedHeader, latestHeight, err = ibcclientutils.QueryTendermintHeader(simd.Validators[0].CliContext())
+		trustedHeader1, latestHeight, err = ibcclientutils.QueryTendermintHeader(simd.Validators[0].CliContext())
 		s.Require().NoError(err)
 		s.Require().NotZero(latestHeight)
 	}))
 
 	var misbehaviourBytes []byte
 	s.Require().True(s.Run("Create misbehaviour evidence", func() {
+		// Create a synthetic header at the SAME height as the trusted header
+		// This simulates a double-sign where validators sign two different blocks at the same height
 		header1 := s.CreateTMClientHeader(
 			ctx,
 			simd,
-			int64(trustedHeight),
-			trustedHeader.GetTime().Add(time.Minute),
-			trustedHeader,
+			int64(trustedHeight1),
+			trustedHeader1.GetTime().Add(time.Minute),
+			trustedHeader1,
 		)
 
-		header2 := s.CreateTMClientHeader(
-			ctx,
-			simd,
-			int64(trustedHeight),
-			trustedHeader.GetTime().Add(2*time.Minute),
-			trustedHeader,
-		)
-
+		// Use the actual trusted header as Header2 (same pattern as Ethereum test)
+		// This ensures Header2 matches exactly what's stored in the Solana consensus state
 		misbehaviour := tmclient.Misbehaviour{
 			ClientId: SolanaClientID,
 			Header1:  &header1,
-			Header2:  &header2,
+			Header2:  &trustedHeader1,
 		}
 
 		var err error
@@ -1193,7 +1189,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 
 	s.Require().True(s.Run("Assemble and submit misbehaviour", func() {
 		heightBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(heightBytes, trustedHeight)
+		binary.LittleEndian.PutUint64(heightBytes, trustedHeight1)
 
 		consensusStatePDA, _, err := solanago.FindProgramAddress(
 			[][]byte{
@@ -1204,6 +1200,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 			ics07_tendermint.ProgramID,
 		)
 		s.Require().NoError(err)
+
+		s.T().Logf("Using consensus state PDA: %s (height %d) for both headers", consensusStatePDA, trustedHeight1)
 
 		assembleInstruction, err := ics07_tendermint.NewAssembleAndSubmitMisbehaviourInstruction(
 			cosmosChainID,
@@ -1312,7 +1310,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedMisbehaviourChunks() {
 			_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
 			s.Require().NoError(err)
 		}
-		s.T().Logf("✓ Uploaded %d misbehaviour chunks", numChunks)
 	}))
 
 	s.Require().True(s.Run("Verify chunks exist", func() {
@@ -1352,7 +1349,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedMisbehaviourChunks() {
 
 		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
 		s.Require().NoError(err)
-		s.T().Logf("✓ Cleanup instruction executed")
 	}))
 
 	s.Require().True(s.Run("Verify chunks cleaned up", func() {
@@ -1382,7 +1378,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedMisbehaviourChunks() {
 		finalBalance, err := s.SolanaChain.RPCClient.GetBalance(ctx, s.SolanaUser.PublicKey(), rpc.CommitmentConfirmed)
 		s.Require().NoError(err)
 		s.Require().Greater(finalBalance.Value, initialBalance.Value, "Balance should increase from rent recovery")
-		s.T().Logf("✓ Rent recovered: initial=%d, final=%d", initialBalance.Value, finalBalance.Value)
 	}))
 }
 
