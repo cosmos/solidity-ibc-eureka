@@ -394,6 +394,59 @@ mod tests {
     }
 
     #[test]
+    fn test_on_recv_packet_fake_sysvar_wormhole_attack() {
+        let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, account_state_pda) = create_test_account_data();
+
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            vec![],
+        );
+
+        let packet_data_bytes = packet_data.encode_to_vec();
+
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // Simulate Wormhole attack: pass a completely different account with fake sysvar data
+        // instead of the real instructions sysvar
+        let (fake_sysvar_pubkey, fake_sysvar_account) =
+            create_fake_instructions_sysvar_account(ctx.router_program);
+
+        // Modify the instruction to reference the fake sysvar (simulating attacker control)
+        instruction.accounts[2] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
+
+        let accounts = vec![
+            create_gmp_app_state_account(
+                ctx.app_state_pda,
+                ctx.authority,
+                ctx.app_state_bump,
+                false, // not paused
+            ),
+            create_router_program_account(ctx.router_program),
+            // Wormhole attack: provide a DIFFERENT account instead of the real sysvar
+            (fake_sysvar_pubkey, fake_sysvar_account),
+            create_authority_account(ctx.payer),
+            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(account_state_pda), // [0] account_state_pda
+            create_dummy_target_program_account(),                   // [1] target_program
+        ];
+
+        // Should be rejected by Anchor's address constraint check
+        // This happens before validate_cpi_caller even runs
+        let checks = vec![Check::err(ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintAddress as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
     fn test_on_recv_packet_invalid_app_state_pda() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 

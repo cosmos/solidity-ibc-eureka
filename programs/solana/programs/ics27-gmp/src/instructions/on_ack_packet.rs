@@ -249,4 +249,40 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
+
+    #[test]
+    fn test_on_ack_packet_fake_sysvar_wormhole_attack() {
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let authority = Pubkey::new_unique();
+        let router_program = ics26_router::ID;
+        let payer = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+
+        let mut instruction = create_ack_instruction(app_state_pda, router_program, payer);
+
+        // Simulate Wormhole attack: pass a completely different account with fake sysvar data
+        let (fake_sysvar_pubkey, fake_sysvar_account) =
+            create_fake_instructions_sysvar_account(router_program);
+
+        // Modify the instruction to reference the fake sysvar (simulating attacker control)
+        instruction.accounts[2] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
+
+        let accounts = vec![
+            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
+            create_router_program_account(router_program),
+            // Wormhole attack: provide a DIFFERENT account instead of the real sysvar
+            (fake_sysvar_pubkey, fake_sysvar_account),
+            create_authority_account(payer),
+            create_system_program_account(),
+        ];
+
+        // Should be rejected by Anchor's address constraint check
+        let checks = vec![Check::err(ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintAddress as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }

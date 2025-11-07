@@ -171,6 +171,44 @@ pub fn create_instructions_sysvar_account_with_caller(
     )
 }
 
+/// Creates a fake instructions sysvar account with a different pubkey than the real one
+/// This simulates the Wormhole-style attack where an attacker passes a fake sysvar
+pub fn create_fake_instructions_sysvar_account(
+    caller_program_id: Pubkey,
+) -> (Pubkey, SolanaAccount) {
+    use solana_sdk::sysvar::instructions::{
+        construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
+    };
+
+    let account_pubkey = Pubkey::new_unique();
+    let account = BorrowedAccountMeta {
+        pubkey: &account_pubkey,
+        is_signer: false,
+        is_writable: true,
+    };
+    let mock_caller_ix = BorrowedInstruction {
+        program_id: &caller_program_id,
+        accounts: vec![account],
+        data: &[],
+    };
+
+    let ixs_data = construct_instructions_data(&[mock_caller_ix]);
+
+    // Use a FAKE pubkey (not the real instructions sysvar ID)
+    let fake_sysvar_pubkey = Pubkey::new_unique();
+
+    (
+        fake_sysvar_pubkey,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data: ixs_data,
+            owner: solana_sdk::sysvar::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 pub const fn create_uninitialized_account_for_pda(pubkey: Pubkey) -> (Pubkey, SolanaAccount) {
     (
         pubkey,

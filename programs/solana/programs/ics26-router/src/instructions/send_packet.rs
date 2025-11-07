@@ -331,6 +331,34 @@ mod tests {
     }
 
     #[test]
+    fn test_send_packet_fake_sysvar_wormhole_attack() {
+        // Test that Wormhole-style fake sysvar attacks are rejected
+        let app_program_id = Pubkey::new_unique();
+        let mut ctx = setup_send_packet_test_with_params(SendPacketTestParams {
+            app_program_id: Some(app_program_id),
+            cpi_caller_program_id: app_program_id,
+            ..Default::default()
+        });
+
+        // Simulate Wormhole attack: replace real sysvar with a completely different account
+        let (fake_sysvar_pubkey, fake_sysvar_account) =
+            create_fake_instructions_sysvar_account(app_program_id);
+
+        // Modify the instruction to reference the fake sysvar (simulating attacker control)
+        ctx.instruction.accounts[4] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
+        ctx.accounts[4] = (fake_sysvar_pubkey, fake_sysvar_account);
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        // Should be rejected by Anchor's address constraint check
+        let checks = vec![Check::err(ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintAddress as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
     fn test_send_packet_client_not_active() {
         let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
             active_client: false,
