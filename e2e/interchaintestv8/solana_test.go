@@ -1333,7 +1333,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 			})
 			if err == nil && info.Value != nil {
 				s.Require().Equal(uint64(0), info.Value.Lamports, chunk.name+" should have 0 lamports")
-				s.Require().True(allBytesZero(info.Value.Data.GetBinary()), chunk.name+" data should be zeroed")
+				data := info.Value.Data.GetBinary()
+				s.Require().Equal(make([]byte, len(data)), data, chunk.name+" data should be zeroed")
 			}
 		}
 	}))
@@ -1516,23 +1517,14 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 			})
 			if err == nil && info.Value != nil {
 				s.Require().Equal(uint64(0), info.Value.Lamports, chunk.name+" should have 0 lamports")
-				s.Require().True(allBytesZero(info.Value.Data.GetBinary()), chunk.name+" data should be zeroed")
+				data := info.Value.Data.GetBinary()
+				s.Require().Equal(make([]byte, len(data)), data, chunk.name+" data should be zeroed")
 			}
 		}
 	}))
 }
 
 // Helpers
-
-// allBytesZero checks if all bytes in the slice are zero
-func allBytesZero(data []byte) bool {
-	for _, b := range data {
-		if b != 0 {
-			return false
-		}
-	}
-	return true
-}
 
 func getSolDenomOnCosmos() transfertypes.Denom {
 	return transfertypes.NewDenom(SolDenom, transfertypes.NewHop("transfer", CosmosClientID))
