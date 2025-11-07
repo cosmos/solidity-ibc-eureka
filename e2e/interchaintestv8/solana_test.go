@@ -1139,9 +1139,59 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 		var err error
 		misbehaviourBytes, err = simd.Config().EncodingConfig.Codec.Marshal(&misbehaviour)
 		s.Require().NoError(err)
+		s.T().Logf("Misbehaviour evidence size: %d bytes", len(misbehaviourBytes))
 	}))
 
-	s.Require().True(s.Run("Submit misbehaviour", func() {
+	const chunkSize = 700
+	var chunkPDAs []solanago.PublicKey
+
+	s.Require().True(s.Run("Upload misbehaviour chunks", func() {
+		numChunks := (len(misbehaviourBytes) + chunkSize - 1) / chunkSize
+		s.T().Logf("Splitting misbehaviour into %d chunks", numChunks)
+
+		for i := 0; i < numChunks; i++ {
+			start := i * chunkSize
+			end := start + chunkSize
+			if end > len(misbehaviourBytes) {
+				end = len(misbehaviourBytes)
+			}
+			chunkData := misbehaviourBytes[start:end]
+
+			chunkPDA, _, err := solanago.FindProgramAddress(
+				[][]byte{
+					[]byte("misbehaviour_chunk"),
+					s.SolanaUser.PublicKey().Bytes(),
+					[]byte(cosmosChainID),
+					{uint8(i)},
+				},
+				ics07_tendermint.ProgramID,
+			)
+			s.Require().NoError(err)
+			chunkPDAs = append(chunkPDAs, chunkPDA)
+
+			uploadInstruction, err := ics07_tendermint.NewUploadMisbehaviourChunkInstruction(
+				ics07_tendermint.Ics07TendermintTypesUploadMisbehaviourChunkParams{
+					ClientId:   cosmosChainID,
+					ChunkIndex: uint8(i),
+					ChunkData:  chunkData,
+				},
+				chunkPDA,
+				clientStatePDA,
+				s.SolanaUser.PublicKey(),
+				solanago.SystemProgramID,
+			)
+			s.Require().NoError(err)
+
+			tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), uploadInstruction)
+			s.Require().NoError(err)
+
+			_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+			s.Require().NoError(err)
+			s.T().Logf("✓ Uploaded chunk %d/%d (%d bytes)", i+1, numChunks, len(chunkData))
+		}
+	}))
+
+	s.Require().True(s.Run("Assemble and submit misbehaviour", func() {
 		heightBytes := make([]byte, 8)
 		binary.LittleEndian.PutUint64(heightBytes, trustedHeight)
 
@@ -1155,24 +1205,30 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 		)
 		s.Require().NoError(err)
 
-		msg := ics07_tendermint.MisbehaviourMsg{
-			ClientId:     cosmosChainID,
-			Misbehaviour: misbehaviourBytes,
-		}
-
-		instruction, err := ics07_tendermint.NewSubmitMisbehaviourInstruction(
-			msg,
+		assembleInstruction, err := ics07_tendermint.NewAssembleAndSubmitMisbehaviourInstruction(
+			cosmosChainID,
 			clientStatePDA,
 			consensusStatePDA,
 			consensusStatePDA,
+			s.SolanaUser.PublicKey(),
 		)
 		s.Require().NoError(err)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), instruction)
+		genericInstruction := assembleInstruction.(*solanago.GenericInstruction)
+		for _, chunkPDA := range chunkPDAs {
+			genericInstruction.AccountValues = append(genericInstruction.AccountValues, &solanago.AccountMeta{
+				PublicKey:  chunkPDA,
+				IsWritable: true,
+				IsSigner:   false,
+			})
+		}
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), genericInstruction)
 		s.Require().NoError(err)
 
 		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
 		s.Require().NoError(err)
+		s.T().Logf("✓ Misbehaviour assembled and submitted successfully")
 	}))
 
 	s.Require().True(s.Run("Verify client is frozen", func() {
@@ -1185,10 +1241,161 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 		s.Require().NoError(err)
 
 		s.Require().NotEqual(uint64(0), clientState.FrozenHeight.RevisionHeight, "Client should be frozen")
+		s.T().Logf("✓ Client frozen at height: %d", clientState.FrozenHeight.RevisionHeight)
+	}))
+}
+
+func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedMisbehaviourChunks() {
+	ctx := context.Background()
+	s.UseMockWasmClient = true
+	s.SetupSuite(ctx)
+
+	cosmosChainID := s.CosmosChains[0].Config().ChainID
+
+	clientStatePDA, _, err := solanago.FindProgramAddress(
+		[][]byte{
+			[]byte("client"),
+			[]byte(cosmosChainID),
+		},
+		ics07_tendermint.ProgramID,
+	)
+	s.Require().NoError(err)
+
+	mockMisbehaviourData := make([]byte, 2100)
+	for i := range mockMisbehaviourData {
+		mockMisbehaviourData[i] = byte(i % 256)
+	}
+
+	const chunkSize = 700
+	numChunks := (len(mockMisbehaviourData) + chunkSize - 1) / chunkSize
+	var chunkPDAs []solanago.PublicKey
+
+	s.Require().True(s.Run("Upload orphaned misbehaviour chunks", func() {
+		s.T().Logf("Uploading %d orphaned misbehaviour chunks", numChunks)
+
+		for i := 0; i < numChunks; i++ {
+			start := i * chunkSize
+			end := start + chunkSize
+			if end > len(mockMisbehaviourData) {
+				end = len(mockMisbehaviourData)
+			}
+			chunkData := mockMisbehaviourData[start:end]
+
+			chunkPDA, _, err := solanago.FindProgramAddress(
+				[][]byte{
+					[]byte("misbehaviour_chunk"),
+					s.SolanaUser.PublicKey().Bytes(),
+					[]byte(cosmosChainID),
+					{uint8(i)},
+				},
+				ics07_tendermint.ProgramID,
+			)
+			s.Require().NoError(err)
+			chunkPDAs = append(chunkPDAs, chunkPDA)
+
+			uploadInstruction, err := ics07_tendermint.NewUploadMisbehaviourChunkInstruction(
+				ics07_tendermint.Ics07TendermintTypesUploadMisbehaviourChunkParams{
+					ClientId:   cosmosChainID,
+					ChunkIndex: uint8(i),
+					ChunkData:  chunkData,
+				},
+				chunkPDA,
+				clientStatePDA,
+				s.SolanaUser.PublicKey(),
+				solanago.SystemProgramID,
+			)
+			s.Require().NoError(err)
+
+			tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), uploadInstruction)
+			s.Require().NoError(err)
+
+			_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+			s.Require().NoError(err)
+		}
+		s.T().Logf("✓ Uploaded %d misbehaviour chunks", numChunks)
+	}))
+
+	s.Require().True(s.Run("Verify chunks exist", func() {
+		for i, chunkPDA := range chunkPDAs {
+			info, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, chunkPDA, &rpc.GetAccountInfoOpts{
+				Commitment: rpc.CommitmentConfirmed,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(info.Value)
+			s.Require().Greater(info.Value.Lamports, uint64(0), "Chunk %d should have rent", i)
+		}
+	}))
+
+	initialBalance, err := s.SolanaChain.RPCClient.GetBalance(ctx, s.SolanaUser.PublicKey(), rpc.CommitmentConfirmed)
+	s.Require().NoError(err)
+
+	s.Require().True(s.Run("Cleanup orphaned chunks", func() {
+		cleanupInstruction, err := ics07_tendermint.NewCleanupIncompleteMisbehaviourInstruction(
+			cosmosChainID,
+			s.SolanaUser.PublicKey(),
+			clientStatePDA,
+			s.SolanaUser.PublicKey(),
+		)
+		s.Require().NoError(err)
+
+		genericInstruction := cleanupInstruction.(*solanago.GenericInstruction)
+		for _, chunkPDA := range chunkPDAs {
+			genericInstruction.AccountValues = append(genericInstruction.AccountValues, &solanago.AccountMeta{
+				PublicKey:  chunkPDA,
+				IsWritable: true,
+				IsSigner:   false,
+			})
+		}
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), genericInstruction)
+		s.Require().NoError(err)
+
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Logf("✓ Cleanup instruction executed")
+	}))
+
+	s.Require().True(s.Run("Verify chunks cleaned up", func() {
+		chunks := []struct {
+			pda  solanago.PublicKey
+			name string
+		}{}
+		for i, pda := range chunkPDAs {
+			chunks = append(chunks, struct {
+				pda  solanago.PublicKey
+				name string
+			}{pda, fmt.Sprintf("Chunk %d", i)})
+		}
+
+		for _, chunk := range chunks {
+			info, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, chunk.pda, &rpc.GetAccountInfoOpts{
+				Commitment: rpc.CommitmentConfirmed,
+			})
+			if err == nil && info.Value != nil {
+				s.Require().Equal(uint64(0), info.Value.Lamports, chunk.name+" should have 0 lamports")
+				s.Require().True(allBytesZero(info.Value.Data.GetBinary()), chunk.name+" data should be zeroed")
+			}
+		}
+	}))
+
+	s.Require().True(s.Run("Verify rent recovered", func() {
+		finalBalance, err := s.SolanaChain.RPCClient.GetBalance(ctx, s.SolanaUser.PublicKey(), rpc.CommitmentConfirmed)
+		s.Require().NoError(err)
+		s.Require().Greater(finalBalance.Value, initialBalance.Value, "Balance should increase from rent recovery")
+		s.T().Logf("✓ Rent recovered: initial=%d, final=%d", initialBalance.Value, finalBalance.Value)
 	}))
 }
 
 // Helpers
+
+func allBytesZero(data []byte) bool {
+	for _, b := range data {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
 
 func getSolDenomOnCosmos() transfertypes.Denom {
 	return transfertypes.NewDenom(SolDenom, transfertypes.NewHop("transfer", CosmosClientID))

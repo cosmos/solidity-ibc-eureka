@@ -27,6 +27,19 @@ impl HeaderChunk {
     pub const SEED: &'static [u8] = b"header_chunk";
 }
 
+/// Storage for a single chunk of misbehaviour data during multi-transaction upload
+#[account]
+#[derive(InitSpace)]
+pub struct MisbehaviourChunk {
+    /// The chunk data
+    #[max_len(CHUNK_DATA_SIZE)]
+    pub chunk_data: Vec<u8>,
+}
+
+impl MisbehaviourChunk {
+    pub const SEED: &'static [u8] = b"misbehaviour_chunk";
+}
+
 #[cfg(test)]
 mod compatibility_tests {
     use super::*;

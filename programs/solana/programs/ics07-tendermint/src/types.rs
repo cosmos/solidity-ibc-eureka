@@ -23,6 +23,14 @@ pub struct UploadChunkParams {
     pub chunk_data: Vec<u8>,
 }
 
+/// Parameters for uploading a misbehaviour chunk
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct UploadMisbehaviourChunkParams {
+    pub client_id: String,
+    pub chunk_index: u8,
+    pub chunk_data: Vec<u8>,
+}
+
 #[account]
 #[derive(InitSpace)]
 pub struct ClientState {

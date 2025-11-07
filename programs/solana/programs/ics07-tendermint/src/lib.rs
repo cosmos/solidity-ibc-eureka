@@ -8,12 +8,13 @@ pub mod state;
 pub mod test_helpers;
 pub mod types;
 
-use crate::state::{ConsensusStateStore, HeaderChunk};
+use crate::state::{ConsensusStateStore, HeaderChunk, MisbehaviourChunk};
 
 declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 
 pub use types::{
     ClientState, ConsensusState, IbcHeight, MisbehaviourMsg, UpdateResult, UploadChunkParams,
+    UploadMisbehaviourChunkParams,
 };
 
 pub use ics25_handler::{MembershipMsg, NonMembershipMsg};
@@ -154,10 +155,76 @@ pub struct CleanupIncompleteUpload<'info> {
     // Remaining accounts are the chunk accounts to close
 }
 
+#[derive(Accounts)]
+#[instruction(params: types::UploadMisbehaviourChunkParams)]
+pub struct UploadMisbehaviourChunk<'info> {
+    #[account(
+        init,
+        payer = submitter,
+        space = 8 + MisbehaviourChunk::INIT_SPACE,
+        seeds = [
+            MisbehaviourChunk::SEED,
+            submitter.key().as_ref(),
+            params.client_id.as_bytes(),
+            &[params.chunk_index]
+        ],
+        bump
+    )]
+    pub chunk: Account<'info, MisbehaviourChunk>,
+
+    #[account(
+        constraint = client_state.chain_id == params.client_id,
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    #[account(mut)]
+    pub submitter: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(client_id: String)]
+pub struct AssembleAndSubmitMisbehaviour<'info> {
+    #[account(
+        mut,
+        constraint = client_state.chain_id == client_id.as_str(),
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    /// CHECK: Validated in instruction handler
+    pub trusted_consensus_state_1: UncheckedAccount<'info>,
+
+    /// CHECK: Validated in instruction handler
+    pub trusted_consensus_state_2: UncheckedAccount<'info>,
+
+    #[account(mut)]
+    pub submitter: Signer<'info>,
+    // Remaining accounts are the chunk accounts in order
+}
+
+#[derive(Accounts)]
+#[instruction(client_id: String, submitter: Pubkey)]
+pub struct CleanupIncompleteMisbehaviour<'info> {
+    #[account(
+        constraint = client_state.chain_id == client_id,
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    #[account(
+        mut,
+        constraint = submitter_account.key() == submitter
+    )]
+    pub submitter_account: Signer<'info>,
+    // Remaining accounts are the chunk accounts to close
+}
+
 #[program]
 pub mod ics07_tendermint {
     use super::*;
-    use crate::types::{ClientState, ConsensusState, MisbehaviourMsg, UploadChunkParams};
+    use crate::types::{
+        ClientState, ConsensusState, MisbehaviourMsg, UploadChunkParams,
+        UploadMisbehaviourChunkParams,
+    };
 
     pub fn initialize(
         ctx: Context<Initialize>,
@@ -230,6 +297,37 @@ pub mod ics07_tendermint {
             chain_id,
             cleanup_height,
             submitter,
+        )
+    }
+
+    /// Upload a chunk of misbehaviour data for multi-transaction submission
+    pub fn upload_misbehaviour_chunk(
+        ctx: Context<UploadMisbehaviourChunk>,
+        params: UploadMisbehaviourChunkParams,
+    ) -> Result<()> {
+        instructions::upload_misbehaviour_chunk::upload_misbehaviour_chunk(ctx, params)
+    }
+
+    /// Assemble chunks and submit misbehaviour
+    /// Automatically freezes the client and cleans up all chunks
+    pub fn assemble_and_submit_misbehaviour(
+        ctx: Context<AssembleAndSubmitMisbehaviour>,
+        client_id: String,
+    ) -> Result<()> {
+        instructions::assemble_and_submit_misbehaviour::assemble_and_submit_misbehaviour(
+            ctx, client_id,
+        )
+    }
+
+    /// Clean up incomplete misbehaviour uploads
+    /// This can be called to reclaim rent from failed or abandoned misbehaviour submissions
+    pub fn cleanup_incomplete_misbehaviour(
+        ctx: Context<CleanupIncompleteMisbehaviour>,
+        client_id: String,
+        submitter: Pubkey,
+    ) -> Result<()> {
+        instructions::cleanup_incomplete_misbehaviour::cleanup_incomplete_misbehaviour(
+            ctx, client_id, submitter,
         )
     }
 }
