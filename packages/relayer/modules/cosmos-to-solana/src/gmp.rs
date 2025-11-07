@@ -63,16 +63,14 @@ fn is_gmp_payload(dest_port: &str, encoding: &str) -> bool {
 
 /// Decode and validate GMP packet, returning None on failure
 fn decode_gmp_packet(payload_value: &[u8], dest_port: &str) -> Option<ValidatedGmpPacketData> {
-    match GmpPacketData::decode_and_validate(payload_value) {
-        Ok(packet) => Some(packet),
-        Err(e) => {
+    GmpPacketData::decode_and_validate(payload_value)
+        .inspect_err(|e| {
             tracing::debug!(
                 "Failed to decode/validate GMP packet for port {}: {e:?}",
                 dest_port
             );
-            None
-        }
-    }
+        })
+        .ok()
 }
 
 /// Build the complete account list from validated GMP packet
