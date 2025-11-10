@@ -114,9 +114,8 @@ fn build_gmp_account_list(
     ];
 
     // Parse and validate GMP Solana payload and extract additional accounts
-    let gmp_solana_payload =
-        ValidatedGMPSolanaPayload::try_from(validated_packet.payload.into_vec())
-            .map_err(|e| anyhow::anyhow!("Failed to validate GMP Solana payload: {e}"))?;
+    let gmp_solana_payload = ValidatedGMPSolanaPayload::try_from(validated_packet.payload)
+        .map_err(|e| anyhow::anyhow!("Failed to validate GMP Solana payload: {e}"))?;
 
     add_instruction_accounts(&gmp_solana_payload, &mut account_metas);
 
