@@ -66,8 +66,8 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     let current_time = clock.unix_timestamp;
 
     // Validate IBC routing fields
-    let source_client =
-        solana_ibc_types::ClientId::new(&msg.source_client).map_err(GMPError::from)?;
+    let source_client = solana_ibc_types::ClientId::new(&msg.source_client)
+        .map_err(|_| GMPError::InvalidClientId)?;
 
     // Validate timeout bounds
     require!(
@@ -79,25 +79,13 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         GMPError::TimeoutTooLong
     );
 
-    // Create proto packet and validate using existing ValidateGmpPacketData trait
-    let proto_packet = GmpPacketData {
+    // Create protobuf packet data for wire format (no validation needed for outgoing packets)
+    let proto_packet_data = GmpPacketData {
         sender: ctx.accounts.sender.key().to_string(),
         receiver: msg.receiver,
         salt: msg.salt,
         payload: msg.payload,
         memo: msg.memo,
-    };
-
-    // Reuse ValidatedGmpPacketData validation!
-    let validated_gmp = proto_packet.validate().map_err(GMPError::from)?;
-
-    // Create protobuf packet data for wire format
-    let proto_packet_data = GmpPacketData {
-        sender: validated_gmp.sender.as_str().to_string(),
-        receiver: validated_gmp.receiver.clone(),
-        salt: validated_gmp.salt.as_bytes().to_vec(),
-        payload: validated_gmp.payload.clone(),
-        memo: validated_gmp.memo.clone(),
     };
 
     // Encode using protobuf
@@ -114,7 +102,7 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
 
     // Create send packet message for router
     let router_msg = MsgSendPacket {
-        source_client: source_client.as_str().to_string(),
+        source_client: source_client.to_string(),
         timeout_timestamp: msg.timeout_timestamp,
         payload: ibc_payload,
     };
@@ -137,17 +125,17 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     emit!(GMPCallSent {
         sequence,
         sender: ctx.accounts.sender.key(),
-        receiver: validated_gmp.receiver.clone(),
-        client_id: source_client.as_str().to_string(),
-        salt: validated_gmp.salt.as_bytes().to_vec(),
-        payload_size: validated_gmp.payload.len() as u64,
+        receiver: proto_packet_data.receiver.clone(),
+        client_id: source_client.to_string(),
+        salt: proto_packet_data.salt.clone(),
+        payload_size: proto_packet_data.payload.len() as u64,
         timeout_timestamp: msg.timeout_timestamp,
     });
 
     msg!(
         "GMP call sent: sender={}, receiver={}, sequence={}",
         ctx.accounts.sender.key(),
-        &validated_gmp.receiver,
+        &proto_packet_data.receiver,
         sequence
     );
 

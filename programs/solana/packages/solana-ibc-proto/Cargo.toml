@@ -11,8 +11,8 @@ categories = ["cryptography", "blockchain"]
 
 [dependencies]
 prost = { workspace = true, features = ["prost-derive"] }
-solana-ibc-types = { path = "../solana-ibc-types" }
 anchor-lang = { workspace = true }
+ibc-eureka-constrained-types = { workspace = true }
 
 [build-dependencies]
 prost-build.workspace = true

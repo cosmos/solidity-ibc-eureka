@@ -69,20 +69,17 @@ pub enum GMPError {
     #[msg("Invalid sysvar account provided")]
     InvalidSysvar,
 
-    #[msg("Port ID too long")]
-    PortIdTooLong,
+    #[msg("Invalid port ID length")]
+    InvalidPortId,
 
-    #[msg("Client ID too long")]
-    ClientIdTooLong,
+    #[msg("Invalid client ID length")]
+    InvalidClientId,
 
-    #[msg("Sender address too long")]
-    SenderTooLong,
+    #[msg("Invalid sender address length")]
+    InvalidSender,
 
-    #[msg("Salt too long")]
-    SaltTooLong,
-
-    #[msg("Memo too long")]
-    MemoTooLong,
+    #[msg("Invalid memo length")]
+    InvalidMemo,
 
     #[msg("Payload too long")]
     PayloadTooLong,
@@ -139,26 +136,17 @@ pub enum GMPError {
     SequenceParseError,
 }
 
-/// Convert GMP account errors to GMP errors
-impl From<solana_ibc_types::GMPAccountError> for GMPError {
-    fn from(err: solana_ibc_types::GMPAccountError) -> Self {
-        match err {
-            solana_ibc_types::GMPAccountError::ClientIdTooLong => Self::ClientIdTooLong,
-            solana_ibc_types::GMPAccountError::SenderTooLong => Self::SenderTooLong,
-            solana_ibc_types::GMPAccountError::SaltTooLong => Self::SaltTooLong,
-        }
-    }
-}
-
 /// Convert GMP packet errors to GMP errors
 impl From<solana_ibc_types::GMPPacketError> for GMPError {
     fn from(err: solana_ibc_types::GMPPacketError) -> Self {
         match err {
-            solana_ibc_types::GMPPacketError::InvalidSalt => Self::SaltTooLong,
+            solana_ibc_types::GMPPacketError::InvalidSalt => Self::InvalidSalt,
             solana_ibc_types::GMPPacketError::EmptyPayload => Self::EmptyPayload,
             solana_ibc_types::GMPPacketError::PayloadTooLong => Self::PayloadTooLong,
-            solana_ibc_types::GMPPacketError::MemoTooLong => Self::MemoTooLong,
-            solana_ibc_types::GMPPacketError::InvalidSender
+            solana_ibc_types::GMPPacketError::MemoTooLong => Self::InvalidMemo,
+            solana_ibc_types::GMPPacketError::InvalidSender => Self::InvalidSender,
+            solana_ibc_types::GMPPacketError::InvalidReceiver
+            | solana_ibc_types::GMPPacketError::InvalidPayload
             | solana_ibc_types::GMPPacketError::DecodeError => Self::InvalidPacketData,
         }
     }

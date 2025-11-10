@@ -10,7 +10,7 @@ use solana_ibc_types::ValidatedGmpPacketData;
 use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey};
 
 use crate::constants::{GMP_PORT_ID, PROTOBUF_ENCODING};
-use crate::proto::{GmpPacketData, GmpSolanaPayload, ValidatedGMPSolanaPayload};
+use crate::proto::ValidatedGMPSolanaPayload;
 
 /// Extract GMP accounts from packet payload
 ///
@@ -58,7 +58,7 @@ fn is_gmp_payload(dest_port: &str, encoding: &str) -> bool {
 
 /// Decode and validate GMP packet, returning None on failure
 fn decode_gmp_packet(payload_value: &[u8], dest_port: &str) -> Option<ValidatedGmpPacketData> {
-    GmpPacketData::decode_and_validate(payload_value)
+    ValidatedGmpPacketData::try_from(payload_value)
         .inspect_err(|e| {
             tracing::debug!(
                 "Failed to decode/validate GMP packet for port {}: {e:?}",
@@ -114,8 +114,9 @@ fn build_gmp_account_list(
     ];
 
     // Parse and validate GMP Solana payload and extract additional accounts
-    let gmp_solana_payload = GmpSolanaPayload::decode_and_validate(&validated_packet.payload)
-        .map_err(|e| anyhow::anyhow!("Failed to validate GMP Solana payload: {e}"))?;
+    let gmp_solana_payload =
+        ValidatedGMPSolanaPayload::try_from(validated_packet.payload.into_vec())
+            .map_err(|e| anyhow::anyhow!("Failed to validate GMP Solana payload: {e}"))?;
 
     add_instruction_accounts(&gmp_solana_payload, &mut account_metas);
 

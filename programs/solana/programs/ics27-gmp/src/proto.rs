@@ -6,4 +6,5 @@
 // Re-export from shared proto crate
 pub use solana_ibc_proto::{
     GmpAcknowledgement, GmpPacketData, GmpSolanaPayload, SolanaAccountMeta,
+    ValidatedGMPSolanaPayload,
 };

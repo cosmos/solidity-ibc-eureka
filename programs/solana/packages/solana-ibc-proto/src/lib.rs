@@ -4,9 +4,12 @@
 //! By centralizing proto generation, we ensure type consistency and enable shared validation logic.
 
 use anchor_lang::prelude::*;
+use prost::Message;
 
-// Re-export prost so generated code can find it
-pub use prost;
+// Re-export constrained types
+pub use ibc_eureka_constrained_types::{
+    ConstrainedBytes, ConstrainedError, ConstrainedString, ConstrainedVec,
+};
 
 // Generated protobuf modules
 #[allow(clippy::all)]
@@ -41,6 +44,110 @@ impl core::fmt::Display for GmpValidationError {
             Self::TooManyAccounts => write!(f, "Too many accounts (max 32)"),
             Self::InvalidAccountKey => write!(f, "Invalid account key (must be 32 bytes)"),
         }
+    }
+}
+
+/// Maximum client ID length (64 bytes)
+pub const MAX_CLIENT_ID_LENGTH: usize = 64;
+/// Maximum sender address length (128 bytes)
+pub const MAX_SENDER_LENGTH: usize = 128;
+/// Maximum receiver address length (for Solana pubkey as string: 32-44 bytes)
+pub const MAX_RECEIVER_LENGTH: usize = 64;
+/// Maximum salt length (32 bytes)
+pub const MAX_SALT_LENGTH: usize = 32;
+/// Maximum payload length (1MB)
+pub const MAX_PAYLOAD_LENGTH: usize = 1_048_576;
+/// Maximum memo length (256 bytes)
+pub const MAX_MEMO_LENGTH: usize = 256;
+
+pub type ClientId = ConstrainedString<1, MAX_CLIENT_ID_LENGTH>;
+pub type Salt = ConstrainedBytes<0, MAX_SALT_LENGTH>;
+pub type Sender = ConstrainedString<1, MAX_SENDER_LENGTH>;
+pub type Receiver = ConstrainedString<1, MAX_RECEIVER_LENGTH>;
+pub type Memo = ConstrainedString<0, MAX_MEMO_LENGTH>;
+pub type Payload = ConstrainedBytes<1, MAX_PAYLOAD_LENGTH>;
+
+/// Errors for GMP packet validation
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GMPPacketError {
+    /// Failed to decode protobuf
+    DecodeError,
+    /// Sender validation failed
+    InvalidSender,
+    /// Receiver validation failed
+    InvalidReceiver,
+    /// Salt validation failed
+    InvalidSalt,
+    /// Payload is empty
+    EmptyPayload,
+    /// Payload exceeds maximum length
+    PayloadTooLong,
+    /// Payload validation failed
+    InvalidPayload,
+    /// Memo exceeds maximum length
+    MemoTooLong,
+}
+
+/// Validated GMP packet data with constrained types
+///
+/// All fields are validated and constrained at the type level.
+/// The payload is validated for length constraints.
+#[derive(Debug, Clone)]
+pub struct ValidatedGmpPacketData {
+    pub sender: Sender,
+    pub receiver: Receiver,
+    pub salt: Salt,
+    pub payload: Payload,
+    pub memo: Memo,
+}
+
+/// TryFrom implementation for decoding and validating from protobuf bytes
+impl TryFrom<&[u8]> for ValidatedGmpPacketData {
+    type Error = GMPPacketError;
+
+    fn try_from(bytes: &[u8]) -> core::result::Result<Self, Self::Error> {
+        use prost::Message;
+
+        let packet = GmpPacketData::decode(bytes).map_err(|_| GMPPacketError::DecodeError)?;
+
+        // Validate and construct constrained sender
+        let sender = packet
+            .sender
+            .try_into()
+            .map_err(|_| GMPPacketError::InvalidSender)?;
+
+        // Validate and construct constrained receiver
+        let receiver = packet
+            .receiver
+            .try_into()
+            .map_err(|_| GMPPacketError::InvalidReceiver)?;
+
+        // Validate and construct constrained salt
+        let salt = packet
+            .salt
+            .try_into()
+            .map_err(|_| GMPPacketError::InvalidSalt)?;
+
+        // Validate payload length using ConstrainedBytes
+        let payload = packet.payload.try_into().map_err(|e| match e {
+            ConstrainedError::Empty => GMPPacketError::EmptyPayload,
+            ConstrainedError::TooLong => GMPPacketError::PayloadTooLong,
+            _ => GMPPacketError::InvalidPayload,
+        })?;
+
+        // Validate and construct constrained memo
+        let memo = packet
+            .memo
+            .try_into()
+            .map_err(|_| GMPPacketError::MemoTooLong)?;
+
+        Ok(Self {
+            sender,
+            receiver,
+            salt,
+            payload,
+            memo,
+        })
     }
 }
 
@@ -81,103 +188,22 @@ impl ValidatedGMPSolanaPayload {
     }
 }
 
-// Direct validation and encoding implementation for GmpPacketData
-use solana_ibc_types::{GMPPacketError, Salt, Sender, ValidatedGmpPacketData};
+impl TryFrom<Vec<u8>> for ValidatedGMPSolanaPayload {
+    type Error = GmpValidationError;
 
-const MAX_PAYLOAD_LENGTH: usize = 10 * 1024; // 10KB
-const MAX_MEMO_LENGTH: usize = 256;
-
-impl GmpPacketData {
-    /// Encode to protobuf bytes
-    pub fn encode_to_vec(&self) -> Vec<u8> {
+    fn try_from(data: Vec<u8>) -> core::result::Result<Self, Self::Error> {
         use prost::Message;
-        Message::encode_to_vec(self)
-    }
-
-    /// Decode from protobuf bytes
-    pub fn decode_from_bytes(data: &[u8]) -> core::result::Result<Self, prost::DecodeError> {
-        use prost::Message;
-        <Self as Message>::decode(data)
-    }
-
-    /// Decode from protobuf bytes and validate in one step
-    pub fn decode_and_validate(
-        bytes: &[u8],
-    ) -> core::result::Result<ValidatedGmpPacketData, GMPPacketError> {
-        use prost::Message;
-        let packet = <Self as Message>::decode(bytes).map_err(|_| GMPPacketError::DecodeError)?;
-        packet.validate()
-    }
-
-    /// Validate packet data and convert to typed form
-    pub fn validate(self) -> core::result::Result<ValidatedGmpPacketData, GMPPacketError> {
-        // Validate and construct typed Sender
-        let sender = Sender::new(self.sender).map_err(|_| GMPPacketError::InvalidSender)?;
-
-        // Validate and construct typed Salt
-        let salt = Salt::new(self.salt).map_err(|_| GMPPacketError::InvalidSalt)?;
-
-        // Validate payload length
-        if self.payload.is_empty() {
-            return Err(GMPPacketError::EmptyPayload);
-        }
-        if self.payload.len() > MAX_PAYLOAD_LENGTH {
-            return Err(GMPPacketError::PayloadTooLong);
-        }
-
-        // Validate memo length
-        if self.memo.len() > MAX_MEMO_LENGTH {
-            return Err(GMPPacketError::MemoTooLong);
-        }
-
-        Ok(ValidatedGmpPacketData {
-            sender,
-            receiver: self.receiver,
-            salt,
-            payload: self.payload,
-            memo: self.memo,
-        })
-    }
-}
-
-// Helper methods for GmpSolanaPayload (encapsulate prost usage)
-impl GmpSolanaPayload {
-    /// Encode to protobuf bytes
-    pub fn encode_to_vec(&self) -> Vec<u8> {
-        use prost::Message;
-        Message::encode_to_vec(self)
-    }
-
-    /// Decode from protobuf bytes
-    pub fn decode_from_bytes(data: &[u8]) -> core::result::Result<Self, prost::DecodeError> {
-        use prost::Message;
-        <Self as Message>::decode(data)
-    }
-
-    /// Parse and validate GMP Solana payload from Protobuf-encoded bytes
-    ///
-    /// Note: The target program ID comes from `GMPPacketData.receiver` and is
-    /// validated separately in the instruction handler.
-    pub fn decode_and_validate(
-        data: &[u8],
-    ) -> core::result::Result<ValidatedGMPSolanaPayload, GmpValidationError> {
-        let payload = Self::decode_from_bytes(data).map_err(|_| GmpValidationError::DecodeError)?;
+        let payload = GmpSolanaPayload::decode(data.as_slice())
+            .map_err(|_| GmpValidationError::DecodeError)?;
 
         // Validate data
         if payload.data.is_empty() {
             return Err(GmpValidationError::EmptyPayload);
         }
 
-        // Validate and convert accounts
-        if payload.accounts.len() > 32 {
-            return Err(GmpValidationError::TooManyAccounts);
-        }
         let mut accounts = Vec::with_capacity(payload.accounts.len());
         for account in payload.accounts {
-            if account.pubkey.len() != 32 {
-                return Err(GmpValidationError::InvalidAccountKey);
-            }
-            let pubkey = Pubkey::try_from(account.pubkey.as_slice())
+            let pubkey = Pubkey::try_from(&account.pubkey[..])
                 .map_err(|_| GmpValidationError::InvalidAccountKey)?;
             accounts.push(ValidatedAccountMeta {
                 pubkey,
@@ -186,11 +212,26 @@ impl GmpSolanaPayload {
             });
         }
 
-        Ok(ValidatedGMPSolanaPayload {
+        Ok(Self {
             data: payload.data,
             accounts,
             payer_position: payload.payer_position,
         })
+    }
+}
+
+// Helper methods for encoding (we still need these for creating packets)
+impl GmpPacketData {
+    /// Encode to protobuf bytes
+    pub fn encode_to_vec(&self) -> Vec<u8> {
+        Message::encode_to_vec(self)
+    }
+}
+
+impl GmpSolanaPayload {
+    /// Encode to protobuf bytes
+    pub fn encode_to_vec(&self) -> Vec<u8> {
+        Message::encode_to_vec(self)
     }
 }
 
@@ -203,7 +244,6 @@ impl GmpAcknowledgement {
 
     /// Encode to protobuf bytes (compatible with Borsh `try_to_vec`)
     pub fn try_to_vec(&self) -> core::result::Result<Vec<u8>, prost::EncodeError> {
-        use prost::Message;
         let mut buf = Vec::new();
         Message::encode(self, &mut buf)?;
         Ok(buf)
@@ -211,7 +251,6 @@ impl GmpAcknowledgement {
 
     /// Decode from protobuf bytes (compatible with Borsh `try_from_slice`)
     pub fn try_from_slice(data: &[u8]) -> core::result::Result<Self, prost::DecodeError> {
-        use prost::Message;
         <Self as Message>::decode(data)
     }
 }

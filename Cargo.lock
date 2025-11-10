@@ -4981,6 +4981,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-eureka-constrained-types"
+version = "0.1.0"
+
+[[package]]
 name = "ibc-eureka-relayer"
 version = "0.1.0"
 dependencies = [
@@ -9314,9 +9318,9 @@ name = "solana-ibc-proto"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "ibc-eureka-constrained-types",
  "prost",
  "prost-build",
- "solana-ibc-types",
 ]
 
 [[package]]
@@ -9324,8 +9328,10 @@ name = "solana-ibc-types"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "ibc-eureka-constrained-types",
  "prost",
  "solana-ibc-constants",
+ "solana-ibc-proto",
 ]
 
 [[package]]

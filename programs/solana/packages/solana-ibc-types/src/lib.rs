@@ -28,8 +28,8 @@ pub use router::{
 pub use ics07::{ics07_instructions, ClientState, ConsensusState, IbcHeight, UpdateClientMsg};
 
 pub use ics27::{
-    ClientId, GMPAccount, GMPAccountError, GMPAppState, GMPPacketError, Salt, Sender, SignerSeeds,
-    ValidateGmpPacketData, ValidatedGmpPacketData, MAX_MEMO_LENGTH, MAX_PAYLOAD_LENGTH,
+    ClientId, ConstrainedBytes, ConstrainedError, ConstrainedString, ConstrainedVec, GMPAccount,
+    GMPAppState, GMPPacketError, Salt, SignerSeeds, ValidatedGmpPacketData,
 };
 
 pub use events::{

@@ -238,9 +238,9 @@ pub fn create_test_account_data() -> (&'static str, &'static str, Vec<u8>, Pubke
     let salt = vec![1u8, 2, 3];
 
     let (gmp_account_pda, _) = solana_ibc_types::GMPAccount::new(
-        solana_ibc_types::ClientId::new(client_id).unwrap(),
-        solana_ibc_types::Sender::new(sender).unwrap(),
-        solana_ibc_types::Salt::new(salt.clone()).unwrap(),
+        client_id.try_into().unwrap(),
+        sender.try_into().unwrap(),
+        salt.clone().try_into().unwrap(),
         &crate::ID,
     )
     .pda();

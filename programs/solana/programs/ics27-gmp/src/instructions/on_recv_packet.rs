@@ -1,10 +1,10 @@
 use crate::constants::*;
 use crate::errors::GMPError;
-use crate::proto::{GmpAcknowledgement, GmpSolanaPayload};
+use crate::proto::{GmpAcknowledgement, ValidatedGMPSolanaPayload};
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_types::GMPAccount;
+use solana_ibc_types::{GMPAccount, ValidatedGmpPacketData};
 
 /// Receive IBC packet and execute call (called by router via CPI)
 ///
@@ -106,12 +106,12 @@ pub fn on_recv_packet<'info>(
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
     // Parse and validate packet data from protobuf payload
-    let packet_data = crate::proto::GmpPacketData::decode_and_validate(&msg.payload.value)
-        .map_err(GMPError::from)?;
+    let packet_data =
+        ValidatedGmpPacketData::try_from(&msg.payload.value[..]).map_err(GMPError::from)?;
 
     // Parse receiver as Solana Pubkey (for incoming packets, receiver is a Solana address)
     let receiver_pubkey =
-        Pubkey::try_from(packet_data.receiver.as_str()).map_err(|_| GMPError::InvalidAccountKey)?;
+        Pubkey::try_from(&packet_data.receiver[..]).map_err(|_| GMPError::InvalidAccountKey)?;
 
     // Validate target program matches packet data
     require!(
@@ -120,7 +120,8 @@ pub fn on_recv_packet<'info>(
     );
 
     // Create ClientId from dest_client (local client on this chain)
-    let client_id = solana_ibc_types::ClientId::new(&msg.dest_client).map_err(GMPError::from)?;
+    let client_id = solana_ibc_types::ClientId::try_from(msg.dest_client)
+        .map_err(|_| GMPError::InvalidClientId)?;
 
     // Create account identifier and derive expected GMP account PDA address
     let gmp_account = GMPAccount::new(
@@ -144,8 +145,8 @@ pub fn on_recv_packet<'info>(
 
     // Parse and validate the GMP Solana payload from Protobuf
     // The payload contains all required accounts and instruction data
-    let validated_payload =
-        GmpSolanaPayload::decode_and_validate(&packet_data.payload).map_err(GMPError::from)?;
+    let validated_payload = ValidatedGMPSolanaPayload::try_from(packet_data.payload.into_vec())
+        .map_err(GMPError::from)?;
 
     let mut account_metas = validated_payload.to_account_metas();
 
@@ -159,24 +160,21 @@ pub fn on_recv_packet<'info>(
         GMPError::AccountCountMismatch
     );
 
-    // Build target_account_infos from remaining_accounts, validate as we go
-    let mut target_account_infos = account_metas
-        .iter()
-        .zip(remaining_accounts_for_execution)
-        .map(|(meta, account_info)| {
-            require!(
-                account_info.key() == meta.pubkey,
-                GMPError::AccountKeyMismatch
-            );
+    // Validate all accounts match the provided metadata
+    for (meta, account_info) in account_metas.iter().zip(remaining_accounts_for_execution) {
+        require!(
+            account_info.key() == meta.pubkey,
+            GMPError::AccountKeyMismatch
+        );
 
-            require!(
-                account_info.is_writable == meta.is_writable,
-                GMPError::InsufficientAccountPermissions
-            );
+        require!(
+            account_info.is_writable == meta.is_writable,
+            GMPError::InsufficientAccountPermissions
+        );
+    }
 
-            Ok(account_info.clone())
-        })
-        .collect::<Result<Vec<_>>>()?;
+    // Build target_account_infos from remaining_accounts
+    let mut target_account_infos = remaining_accounts_for_execution.to_vec();
 
     // Inject payer at specified position
     if let Some(pos) = validated_payload.payer_position {
@@ -225,7 +223,7 @@ mod tests {
     use gmp_counter_app::ID as COUNTER_APP_ID;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_ibc_types::{ClientId, GMPAccount, Salt, Sender};
+    use solana_ibc_types::GMPAccount;
     use solana_sdk::account::Account;
     use solana_sdk::bpf_loader_upgradeable;
     use solana_sdk::program_error::ProgramError;
@@ -243,9 +241,9 @@ mod tests {
         program_id: &Pubkey,
     ) -> GMPAccount {
         GMPAccount::new(
-            ClientId::new(client_id).unwrap(),
-            Sender::new(sender).unwrap(),
-            Salt::new(salt).unwrap(),
+            client_id.try_into().unwrap(),
+            sender.try_into().unwrap(),
+            salt.try_into().unwrap(),
             program_id,
         )
     }

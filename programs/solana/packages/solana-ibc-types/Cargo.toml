@@ -12,7 +12,9 @@ categories = ["cryptography", "blockchain"]
 [dependencies]
 anchor-lang.workspace = true
 prost.workspace = true
-solana-ibc-constants = { path = "../solana-ibc-constants" }
+solana-ibc-constants.workspace = true
+ibc-eureka-constrained-types.workspace = true
+solana-ibc-proto.workspace = true
 
 [lib]
 crate-type = ["cdylib", "lib"]
