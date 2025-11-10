@@ -20,6 +20,7 @@ members = [
     "packages/relayer/modules/cosmos-to-solana",
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
+    "packages/constrained_types",
 
     "programs/relayer",
     "programs/operator",
@@ -45,6 +46,7 @@ ibc-eureka-relayer-eth-to-cosmos-compat = { path = "packages/relayer/modules/eth
 ibc-eureka-relayer-solana-to-cosmos     = { path = "packages/relayer/modules/solana-to-cosmos", default-features = false }
 ibc-eureka-relayer-cosmos-to-solana     = { path = "packages/relayer/modules/cosmos-to-solana", default-features = false }
 ibc-eureka-utils                        = { path = "packages/utils", default-features = false }
+ibc-eureka-constrained-types            = { path = "packages/constrained_types", default-features = false }
 sp1-ics07-tendermint-prover             = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }
 sp1-ics07-tendermint-update-client      = { path = "programs/sp1-programs/update-client", default-features = false }
 sp1-ics07-tendermint-membership         = { path = "programs/sp1-programs/membership", default-features = false }
@@ -62,6 +64,7 @@ tendermint-light-client-uc-and-membership = { path = "packages/tendermint-light-
 
 solana-ibc-constants = { path = "programs/solana/packages/solana-ibc-constants", default-features = false }
 solana-ibc-types = { path = "programs/solana/packages/solana-ibc-types", default-features = false }
+solana-ibc-proto = { path = "programs/solana/packages/solana-ibc-proto", default-features = false }
 brine-ed25519 = { version = "0.2", default-features = false }
 
 serde           = { version = "1.0", default-features = false }

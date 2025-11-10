@@ -15,25 +15,32 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 		return nil, fmt.Errorf("failed to peek account discriminator: %w", err)
 	}
 	switch discriminator {
-	case Account_ClientState:
-		value := new(ClientState)
+	case Account_Ics07TendermintStateConsensusStateStore:
+		value := new(Ics07TendermintStateConsensusStateStore)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal account as ClientState: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal account as Ics07TendermintStateConsensusStateStore: %w", err)
 		}
 		return value, nil
-	case Account_ConsensusStateStore:
-		value := new(ConsensusStateStore)
+	case Account_Ics07TendermintStateHeaderChunk:
+		value := new(Ics07TendermintStateHeaderChunk)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal account as ConsensusStateStore: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal account as Ics07TendermintStateHeaderChunk: %w", err)
 		}
 		return value, nil
-	case Account_HeaderChunk:
-		value := new(HeaderChunk)
+	case Account_Ics07TendermintStateMisbehaviourChunk:
+		value := new(Ics07TendermintStateMisbehaviourChunk)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal account as HeaderChunk: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal account as Ics07TendermintStateMisbehaviourChunk: %w", err)
+		}
+		return value, nil
+	case Account_Ics07TendermintTypesClientState:
+		value := new(Ics07TendermintTypesClientState)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal account as Ics07TendermintTypesClientState: %w", err)
 		}
 		return value, nil
 	default:
@@ -41,53 +48,70 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 	}
 }
 
-func ParseAccount_ClientState(accountData []byte) (*ClientState, error) {
+func ParseAccount_Ics07TendermintStateConsensusStateStore(accountData []byte) (*Ics07TendermintStateConsensusStateStore, error) {
 	decoder := binary.NewBorshDecoder(accountData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Account_ClientState {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_ClientState, binary.FormatDiscriminator(discriminator))
+	if discriminator != Account_Ics07TendermintStateConsensusStateStore {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics07TendermintStateConsensusStateStore, binary.FormatDiscriminator(discriminator))
 	}
-	acc := new(ClientState)
+	acc := new(Ics07TendermintStateConsensusStateStore)
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal account of type ClientState: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics07TendermintStateConsensusStateStore: %w", err)
 	}
 	return acc, nil
 }
 
-func ParseAccount_ConsensusStateStore(accountData []byte) (*ConsensusStateStore, error) {
+func ParseAccount_Ics07TendermintStateHeaderChunk(accountData []byte) (*Ics07TendermintStateHeaderChunk, error) {
 	decoder := binary.NewBorshDecoder(accountData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Account_ConsensusStateStore {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_ConsensusStateStore, binary.FormatDiscriminator(discriminator))
+	if discriminator != Account_Ics07TendermintStateHeaderChunk {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics07TendermintStateHeaderChunk, binary.FormatDiscriminator(discriminator))
 	}
-	acc := new(ConsensusStateStore)
+	acc := new(Ics07TendermintStateHeaderChunk)
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal account of type ConsensusStateStore: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics07TendermintStateHeaderChunk: %w", err)
 	}
 	return acc, nil
 }
 
-func ParseAccount_HeaderChunk(accountData []byte) (*HeaderChunk, error) {
+func ParseAccount_Ics07TendermintStateMisbehaviourChunk(accountData []byte) (*Ics07TendermintStateMisbehaviourChunk, error) {
 	decoder := binary.NewBorshDecoder(accountData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Account_HeaderChunk {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_HeaderChunk, binary.FormatDiscriminator(discriminator))
+	if discriminator != Account_Ics07TendermintStateMisbehaviourChunk {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics07TendermintStateMisbehaviourChunk, binary.FormatDiscriminator(discriminator))
 	}
-	acc := new(HeaderChunk)
+	acc := new(Ics07TendermintStateMisbehaviourChunk)
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal account of type HeaderChunk: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics07TendermintStateMisbehaviourChunk: %w", err)
+	}
+	return acc, nil
+}
+
+func ParseAccount_Ics07TendermintTypesClientState(accountData []byte) (*Ics07TendermintTypesClientState, error) {
+	decoder := binary.NewBorshDecoder(accountData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Account_Ics07TendermintTypesClientState {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics07TendermintTypesClientState, binary.FormatDiscriminator(discriminator))
+	}
+	acc := new(Ics07TendermintTypesClientState)
+	err = acc.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics07TendermintTypesClientState: %w", err)
 	}
 	return acc, nil
 }

@@ -17,6 +17,11 @@ pub struct OnTimeoutPacket<'info> {
     /// CHECK: Verified to be the ICS26 Router program
     pub router_program: AccountInfo<'info>,
 
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Validated via address constraint
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instruction_sysvar: AccountInfo<'info>,
+
     /// Escrow account that holds SOL (funds remain in escrow on timeout)
     /// CHECK: PDA derived from `source_client`
     #[account(
@@ -34,11 +39,12 @@ pub struct OnTimeoutPacket<'info> {
 }
 
 pub fn on_timeout_packet(ctx: Context<OnTimeoutPacket>, msg: OnTimeoutPacketMsg) -> Result<()> {
-    require_keys_eq!(
-        ctx.accounts.router_program.key(),
-        ICS26_ROUTER_ID,
-        IBCAppError::UnauthorizedCaller
-    );
+    // Validate CPI caller using shared validation function
+    solana_ibc_types::validate_cpi_caller(
+        &ctx.accounts.instruction_sysvar,
+        &ICS26_ROUTER_ID,
+        &crate::ID,
+    )?;
 
     let app_state = &mut ctx.accounts.app_state;
 

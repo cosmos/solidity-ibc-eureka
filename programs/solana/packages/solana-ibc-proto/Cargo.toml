@@ -1,0 +1,21 @@
+[package]
+name = "solana-ibc-proto"
+version.workspace = true
+edition.workspace = true
+description = "Shared protobuf definitions for Solana IBC"
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "protobuf"]
+categories = ["cryptography", "blockchain"]
+
+[dependencies]
+prost = { workspace = true, features = ["prost-derive"] }
+anchor-lang = { workspace = true }
+ibc-eureka-constrained-types = { workspace = true }
+
+[build-dependencies]
+prost-build.workspace = true
+
+[lib]
+crate-type = ["lib"]

@@ -77,61 +77,10 @@ func NewInitializeInstruction(
 	), nil
 }
 
-// Builds a "update_client" instruction.
-func NewUpdateClientInstruction(
-	// Params:
-	msgParam UpdateClientMsg,
-
-	// Accounts:
-	clientStateAccount solanago.PublicKey,
-	trustedConsensusStateAccount solanago.PublicKey,
-	newConsensusStateAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
-	systemProgramAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_UpdateClient[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `msgParam`:
-		err = enc__.Encode(msgParam)
-		if err != nil {
-			return nil, errors.NewField("msgParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "client_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 1 "trusted_consensus_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
-		// Account 2 "new_consensus_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(newConsensusStateAccount, false, false))
-		// Account 3 "payer": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, false, false))
-		// Account 4 "system_program": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
 // Builds a "verify_membership" instruction.
 func NewVerifyMembershipInstruction(
 	// Params:
-	msgParam MembershipMsg,
+	msgParam Ics25HandlerMembershipMsg,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
@@ -173,7 +122,7 @@ func NewVerifyMembershipInstruction(
 // Builds a "verify_non_membership" instruction.
 func NewVerifyNonMembershipInstruction(
 	// Params:
-	msgParam MembershipMsg,
+	msgParam Ics25HandlerNonMembershipMsg,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
@@ -202,6 +151,57 @@ func NewVerifyNonMembershipInstruction(
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 1 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "update_client" instruction.
+func NewUpdateClientInstruction(
+	// Params:
+	msgParam SolanaIbcTypesIcs07UpdateClientMsg,
+
+	// Accounts:
+	clientStateAccount solanago.PublicKey,
+	trustedConsensusStateAccount solanago.PublicKey,
+	newConsensusStateAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_UpdateClient[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "client_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 1 "trusted_consensus_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
+		// Account 2 "new_consensus_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(newConsensusStateAccount, false, false))
+		// Account 3 "payer": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, false, false))
+		// Account 4 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
 	// Create the instruction.

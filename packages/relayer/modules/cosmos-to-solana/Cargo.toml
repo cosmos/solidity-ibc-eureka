@@ -38,6 +38,4 @@ ibc-client-tendermint.workspace = true
 prost.workspace = true
 solana-ibc-types.workspace = true
 solana-ibc-constants.workspace = true
-
-[build-dependencies]
-prost-build.workspace = true
+solana-ibc-proto.workspace = true

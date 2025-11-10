@@ -213,6 +213,89 @@ pub fn create_clock_account_with_data(
     )
 }
 
+pub fn create_instructions_sysvar_account() -> (Pubkey, solana_sdk::account::Account) {
+    create_instructions_sysvar_account_with_caller(Pubkey::new_unique())
+}
+
+pub fn create_instructions_sysvar_account_with_caller(
+    caller_program_id: Pubkey,
+) -> (Pubkey, solana_sdk::account::Account) {
+    use solana_sdk::sysvar::instructions::{
+        construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
+    };
+
+    // Create minimal mock instructions to simulate CPI validation
+    // For CPI validation, only the program_id matters - send_packet checks that
+    // the calling instruction's program_id matches the authorized IBC app
+    //
+    // Instruction 0: The caller instruction (current when caller executes)
+    // During CPI, current_index points to this instruction
+    let account_pubkey = Pubkey::new_unique();
+    let account = BorrowedAccountMeta {
+        pubkey: &account_pubkey,
+        is_signer: false,
+        is_writable: true,
+    };
+    let mock_caller_ix = BorrowedInstruction {
+        program_id: &caller_program_id,
+        accounts: vec![account],
+        data: &[],
+    };
+
+    // Serialize instructions for sysvar
+    // When router checks the sysvar during CPI, it'll see the caller as the executing instruction
+    let ixs_data = construct_instructions_data(&[mock_caller_ix]);
+
+    (
+        solana_sdk::sysvar::instructions::ID,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: ixs_data,
+            owner: solana_sdk::sysvar::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+/// Creates a fake instructions sysvar account with a different pubkey than the real one
+/// This simulates the Wormhole-style attack where an attacker passes a fake sysvar
+pub fn create_fake_instructions_sysvar_account(
+    caller_program_id: Pubkey,
+) -> (Pubkey, solana_sdk::account::Account) {
+    use solana_sdk::sysvar::instructions::{
+        construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
+    };
+
+    let account_pubkey = Pubkey::new_unique();
+    let account = BorrowedAccountMeta {
+        pubkey: &account_pubkey,
+        is_signer: false,
+        is_writable: true,
+    };
+    let mock_caller_ix = BorrowedInstruction {
+        program_id: &caller_program_id,
+        accounts: vec![account],
+        data: &[],
+    };
+
+    let ixs_data = construct_instructions_data(&[mock_caller_ix]);
+
+    // Use a FAKE pubkey (not the real instructions sysvar ID)
+    let fake_sysvar_pubkey = Pubkey::new_unique();
+
+    (
+        fake_sysvar_pubkey,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: ixs_data,
+            owner: solana_sdk::sysvar::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 pub fn create_account(
     pubkey: Pubkey,
     data: Vec<u8>,

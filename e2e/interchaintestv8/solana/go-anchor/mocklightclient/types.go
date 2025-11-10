@@ -11,16 +11,10 @@ import (
 )
 
 // Standard message structure for membership verification
-// All light clients must accept this structure for both membership and non-membership proofs
-type MembershipMsg struct {
+// All light clients must accept this structure
+type Ics25HandlerMembershipMsg struct {
 	// The height at which to verify
 	Height uint64 `json:"height"`
-
-	// Delay time period (for time-based delays)
-	DelayTimePeriod uint64 `json:"delayTimePeriod"`
-
-	// Delay block period (for block-based delays)
-	DelayBlockPeriod uint64 `json:"delayBlockPeriod"`
 
 	// The merkle proof
 	Proof []byte `json:"proof"`
@@ -28,25 +22,15 @@ type MembershipMsg struct {
 	// The merkle path to the value
 	Path [][]byte `json:"path"`
 
-	// The value to verify (empty for non-membership)
+	// The value to verify
 	Value []byte `json:"value"`
 }
 
-func (obj MembershipMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics25HandlerMembershipMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `Height`:
 	err = encoder.Encode(obj.Height)
 	if err != nil {
 		return errors.NewField("Height", err)
-	}
-	// Serialize `DelayTimePeriod`:
-	err = encoder.Encode(obj.DelayTimePeriod)
-	if err != nil {
-		return errors.NewField("DelayTimePeriod", err)
-	}
-	// Serialize `DelayBlockPeriod`:
-	err = encoder.Encode(obj.DelayBlockPeriod)
-	if err != nil {
-		return errors.NewField("DelayBlockPeriod", err)
 	}
 	// Serialize `Proof`:
 	err = encoder.Encode(obj.Proof)
@@ -66,31 +50,21 @@ func (obj MembershipMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error)
 	return nil
 }
 
-func (obj MembershipMsg) Marshal() ([]byte, error) {
+func (obj Ics25HandlerMembershipMsg) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding MembershipMsg: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics25HandlerMembershipMsg: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *MembershipMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics25HandlerMembershipMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `Height`:
 	err = decoder.Decode(&obj.Height)
 	if err != nil {
 		return errors.NewField("Height", err)
-	}
-	// Deserialize `DelayTimePeriod`:
-	err = decoder.Decode(&obj.DelayTimePeriod)
-	if err != nil {
-		return errors.NewField("DelayTimePeriod", err)
-	}
-	// Deserialize `DelayBlockPeriod`:
-	err = decoder.Decode(&obj.DelayBlockPeriod)
-	if err != nil {
-		return errors.NewField("DelayBlockPeriod", err)
 	}
 	// Deserialize `Proof`:
 	err = decoder.Decode(&obj.Proof)
@@ -110,16 +84,94 @@ func (obj *MembershipMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err err
 	return nil
 }
 
-func (obj *MembershipMsg) Unmarshal(buf []byte) error {
+func (obj *Ics25HandlerMembershipMsg) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling MembershipMsg: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics25HandlerMembershipMsg: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalMembershipMsg(buf []byte) (*MembershipMsg, error) {
-	obj := new(MembershipMsg)
+func UnmarshalIcs25HandlerMembershipMsg(buf []byte) (*Ics25HandlerMembershipMsg, error) {
+	obj := new(Ics25HandlerMembershipMsg)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Standard message structure for non-membership verification
+// All light clients must accept this structure
+type Ics25HandlerNonMembershipMsg struct {
+	// The height at which to verify
+	Height uint64 `json:"height"`
+
+	// The merkle proof
+	Proof []byte `json:"proof"`
+
+	// The merkle path to the value
+	Path [][]byte `json:"path"`
+}
+
+func (obj Ics25HandlerNonMembershipMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Height`:
+	err = encoder.Encode(obj.Height)
+	if err != nil {
+		return errors.NewField("Height", err)
+	}
+	// Serialize `Proof`:
+	err = encoder.Encode(obj.Proof)
+	if err != nil {
+		return errors.NewField("Proof", err)
+	}
+	// Serialize `Path`:
+	err = encoder.Encode(obj.Path)
+	if err != nil {
+		return errors.NewField("Path", err)
+	}
+	return nil
+}
+
+func (obj Ics25HandlerNonMembershipMsg) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics25HandlerNonMembershipMsg: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics25HandlerNonMembershipMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Height`:
+	err = decoder.Decode(&obj.Height)
+	if err != nil {
+		return errors.NewField("Height", err)
+	}
+	// Deserialize `Proof`:
+	err = decoder.Decode(&obj.Proof)
+	if err != nil {
+		return errors.NewField("Proof", err)
+	}
+	// Deserialize `Path`:
+	err = decoder.Decode(&obj.Path)
+	if err != nil {
+		return errors.NewField("Path", err)
+	}
+	return nil
+}
+
+func (obj *Ics25HandlerNonMembershipMsg) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics25HandlerNonMembershipMsg: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs25HandlerNonMembershipMsg(buf []byte) (*Ics25HandlerNonMembershipMsg, error) {
+	obj := new(Ics25HandlerNonMembershipMsg)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -128,11 +180,11 @@ func UnmarshalMembershipMsg(buf []byte) (*MembershipMsg, error) {
 }
 
 // Update client message for ICS07 Tendermint
-type UpdateClientMsg struct {
+type SolanaIbcTypesIcs07UpdateClientMsg struct {
 	ClientMessage []byte `json:"clientMessage"`
 }
 
-func (obj UpdateClientMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj SolanaIbcTypesIcs07UpdateClientMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `ClientMessage`:
 	err = encoder.Encode(obj.ClientMessage)
 	if err != nil {
@@ -141,17 +193,17 @@ func (obj UpdateClientMsg) MarshalWithEncoder(encoder *binary.Encoder) (err erro
 	return nil
 }
 
-func (obj UpdateClientMsg) Marshal() ([]byte, error) {
+func (obj SolanaIbcTypesIcs07UpdateClientMsg) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding UpdateClientMsg: %w", err)
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesIcs07UpdateClientMsg: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *UpdateClientMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *SolanaIbcTypesIcs07UpdateClientMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `ClientMessage`:
 	err = decoder.Decode(&obj.ClientMessage)
 	if err != nil {
@@ -160,16 +212,16 @@ func (obj *UpdateClientMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err e
 	return nil
 }
 
-func (obj *UpdateClientMsg) Unmarshal(buf []byte) error {
+func (obj *SolanaIbcTypesIcs07UpdateClientMsg) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling UpdateClientMsg: %w", err)
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesIcs07UpdateClientMsg: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalUpdateClientMsg(buf []byte) (*UpdateClientMsg, error) {
-	obj := new(UpdateClientMsg)
+func UnmarshalSolanaIbcTypesIcs07UpdateClientMsg(buf []byte) (*SolanaIbcTypesIcs07UpdateClientMsg, error) {
+	obj := new(SolanaIbcTypesIcs07UpdateClientMsg)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

@@ -29,7 +29,7 @@ pub mod gmp_counter_app {
     }
 
     /// Increment a user's counter (typically called by GMP program)
-    /// The user is identified by the `user_authority` signer (ICS27 `account_state` PDA)
+    /// The user is identified by the `user_authority` signer (ICS27 `gmp_account` PDA)
     pub fn increment(ctx: Context<IncrementCounter>, amount: u64) -> Result<()> {
         instructions::increment(ctx, amount)
     }
