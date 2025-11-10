@@ -11,6 +11,15 @@ use solana_ibc_types::events::{NoopEvent, WriteAcknowledgementEvent};
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
 pub struct RecvPacket<'info> {
+    /// Global access control account (owned by access-manager program)
+    /// CHECK: Validated by seeds constraint pointing to access-manager program
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = access_manager::ID,
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     #[account(
         seeds = [RouterState::SEED],
         bump
@@ -101,10 +110,17 @@ pub fn recv_packet<'info>(
     ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>,
     msg: MsgRecvPacket,
 ) -> Result<()> {
-    let router_state = &ctx.accounts.router_state;
+    // Check that relayer has the required role
+    access_manager::require_role(
+        &ctx.accounts.access_manager,
+        solana_ibc_types::roles::RELAYER_ROLE,
+        &ctx.accounts.relayer.key(),
+    )?;
+
     let packet_receipt = &mut ctx.accounts.packet_receipt;
     let packet_ack = &mut ctx.accounts.packet_ack;
     let client = &ctx.accounts.client;
+    let router_state = &ctx.accounts.router_state;
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
@@ -293,6 +309,7 @@ mod tests {
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
+        // Expect RouterError::UnauthorizedSender
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
         ))];
@@ -448,9 +465,12 @@ mod tests {
         let client_state = Pubkey::new_unique();
         let consensus_state = Pubkey::new_unique();
 
+        // The transaction signer is the relayer
+        let transaction_signer = relayer;
+
         // Create chunk accounts for 1 payload chunk and 1 proof chunk
         let payload_chunk_account = create_payload_chunk_account(
-            relayer,
+            transaction_signer,
             client_id,
             1,
             0, // payload_index
@@ -459,11 +479,21 @@ mod tests {
         );
 
         let proof_chunk_account = create_proof_chunk_account(
-            relayer, client_id, 1, 0, // chunk_index
+            transaction_signer,
+            client_id,
+            1,
+            0, // chunk_index
             test_proof,
         );
 
+        // Setup access control: authority always has RELAYER_ROLE
+        // For authorized tests: transaction_signer == authority (has the role)
+        // For unauthorized tests: transaction_signer != authority (does NOT have the role)
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager(authority, vec![authority]);
+
         let mut instruction_accounts = vec![
+            AccountMeta::new_readonly(access_manager_pda, false),
             AccountMeta::new_readonly(router_state_pda, false),
             AccountMeta::new_readonly(ibc_app_pda, false),
             AccountMeta::new(client_sequence_pda, false),
@@ -494,11 +524,12 @@ mod tests {
         let packet_receipt_account = create_uninitialized_commitment_account(packet_receipt_pda);
         let packet_ack_account = create_uninitialized_commitment_account(packet_ack_pda);
 
-        // Create signer account (relayer and payer are the same)
-        let signer_account = create_system_account(relayer);
+        // Create signer account (transaction_signer and payer are the same)
+        let signer_account = create_system_account(transaction_signer);
 
         // Accounts must be in the exact order of the instruction
         let mut accounts = vec![
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
@@ -775,13 +806,13 @@ mod tests {
 
         // Find and replace the IBC app account
         if let Some(pos) = ctx.accounts.iter().position(|(pubkey, _)| {
-            // The IBC app is at index 1 in the accounts list based on instruction_accounts setup
-            *pubkey == ctx.accounts[1].0
+            // The IBC app is at index 2 (after access_manager at 0 and router_state at 1)
+            *pubkey == ctx.accounts[2].0
         }) {
             ctx.accounts[pos] = (wrong_ibc_app, wrong_ibc_app_account);
 
             // Also update the instruction to use the wrong account
-            ctx.instruction.accounts[1].pubkey = wrong_ibc_app;
+            ctx.instruction.accounts[2].pubkey = wrong_ibc_app;
         }
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
@@ -815,8 +846,8 @@ mod tests {
         let mut cursor = std::io::Cursor::new(&mut data[8..]);
         existing_ack.serialize(&mut cursor).unwrap();
 
-        // Find the packet_ack account (it's at index 4 in the accounts list)
-        let packet_ack_pubkey = ctx.instruction.accounts[4].pubkey;
+        // Find the packet_ack account (it's at index 5 after access_manager, router_state, ibc_app, client_sequence, packet_receipt)
+        let packet_ack_pubkey = ctx.instruction.accounts[5].pubkey;
         let ack_index = ctx
             .accounts
             .iter()

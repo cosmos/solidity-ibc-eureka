@@ -408,8 +408,8 @@ pub mod fixtures {
 pub mod chunk_test_utils {
     use crate::state::{HeaderChunk, CHUNK_DATA_SIZE};
     use crate::types::{ClientState, ConsensusState, IbcHeight, UploadChunkParams};
-    use anchor_lang::solana_program::keccak;
     use solana_sdk::account::Account;
+    use solana_sdk::keccak;
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::system_program;
 
@@ -582,5 +582,54 @@ pub mod chunk_test_utils {
         let header_commitment = keccak::hash(&full_header).0;
 
         (all_chunks, header_commitment)
+    }
+}
+
+/// Access control test utilities
+pub mod access_control {
+    use access_manager::{AccessManagerVersion, RoleData};
+    use anchor_lang::prelude::Pubkey;
+    use anchor_lang::{AnchorSerialize, Discriminator};
+
+    /// Setup access manager account for tests
+    /// Returns (PDA, serialized account data)
+    pub fn setup_access_manager(admin: Pubkey, relayers: Vec<Pubkey>) -> (Pubkey, Vec<u8>) {
+        let (access_manager_pda, _) = Pubkey::find_program_address(
+            &[access_manager::state::AccessManager::SEED],
+            &access_manager::ID,
+        );
+
+        let access_manager = access_manager::state::AccessManager {
+            version: AccessManagerVersion::V1,
+            admin,
+            roles: vec![RoleData {
+                role_id: solana_ibc_types::roles::RELAYER_ROLE,
+                members: relayers,
+            }],
+            _reserved: [0; 256],
+        };
+
+        let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
+        access_manager.serialize(&mut data).unwrap();
+
+        (access_manager_pda, data)
+    }
+
+    /// Create access manager account for mollusk tests
+    pub fn create_access_manager_account(
+        admin: Pubkey,
+        relayers: Vec<Pubkey>,
+    ) -> (Pubkey, solana_sdk::account::Account) {
+        let (pda, data) = setup_access_manager(admin, relayers);
+
+        let account = solana_sdk::account::Account {
+            lamports: 10_000_000,
+            data,
+            owner: access_manager::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        (pda, account)
     }
 }

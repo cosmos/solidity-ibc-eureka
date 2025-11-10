@@ -222,6 +222,7 @@ func NewAssembleAndUpdateClientInstruction(
 	targetHeightParam uint64,
 
 	// Accounts:
+	accessManagerAccount solanago.PublicKey,
 	clientStateAccount solanago.PublicKey,
 	trustedConsensusStateAccount solanago.PublicKey,
 	newConsensusStateStoreAccount solanago.PublicKey,
@@ -252,18 +253,21 @@ func NewAssembleAndUpdateClientInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "client_state": Writable, Non-signer, Required
+		// Account 0 "access_manager": Read-only, Non-signer, Required
+		// Global access control account (owned by access-manager program)
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 1 "client_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "trusted_consensus_state": Read-only, Non-signer, Required
+		// Account 2 "trusted_consensus_state": Read-only, Non-signer, Required
 		// Trusted consensus state at the height embedded in the header
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
-		// Account 2 "new_consensus_state_store": Read-only, Non-signer, Required
+		// Account 3 "new_consensus_state_store": Read-only, Non-signer, Required
 		// New consensus state store
 		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, false, false))
-		// Account 3 "submitter": Writable, Signer, Required
+		// Account 4 "submitter": Writable, Signer, Required
 		// The submitter who uploaded the chunks
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Account 5 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -389,6 +393,7 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 	clientIdParam string,
 
 	// Accounts:
+	accessManagerAccount solanago.PublicKey,
 	clientStateAccount solanago.PublicKey,
 	trustedConsensusState1account solanago.PublicKey,
 	trustedConsensusState2account solanago.PublicKey,
@@ -413,13 +418,16 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "client_state": Writable, Non-signer, Required
+		// Account 0 "access_manager": Read-only, Non-signer, Required
+		// Global access control account (owned by access-manager program)
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 1 "client_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "trusted_consensus_state_1": Read-only, Non-signer, Required
+		// Account 2 "trusted_consensus_state_1": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState1account, false, false))
-		// Account 2 "trusted_consensus_state_2": Read-only, Non-signer, Required
+		// Account 3 "trusted_consensus_state_2": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState2account, false, false))
-		// Account 3 "submitter": Writable, Signer, Required
+		// Account 4 "submitter": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 	}
 

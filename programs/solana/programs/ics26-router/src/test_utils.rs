@@ -1,5 +1,6 @@
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::state::*;
+use access_manager::{AccessManagerVersion, RoleData};
 use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator, Space};
 use solana_ibc_types::Payload;
 use solana_sdk::pubkey::Pubkey;
@@ -7,17 +8,11 @@ use solana_sdk::sysvar::Sysvar;
 
 pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
 
-// Mock light client program ID - must match the ID in mock-light-client/src/lib.rs
-pub const MOCK_LIGHT_CLIENT_ID: Pubkey =
-    solana_sdk::pubkey!("CSLS3A9jS7JAD8aUe3LRXMYZ1U8Lvxn9usGygVrA2arZ");
-
-// Dummy IBC app program ID - must match the ID in dummy-ibc-app/src/lib.rs
-pub const DUMMY_IBC_APP_PROGRAM_ID: Pubkey =
-    solana_sdk::pubkey!("5E73beFMq9QZvbwPN5i84psh2WcyJ9PgqF4avBaRDgCC");
-
-// Mock IBC app program ID - must match the ID in mock-ibc-app/src/lib.rs
-pub const MOCK_IBC_APP_PROGRAM_ID: Pubkey =
-    solana_sdk::pubkey!("9qnEj3T1NsaGkN3Sj7hgJZiKrVbKVBNmVphJ6PW1PDAB");
+// Import program IDs directly from their lib.rs files
+// These automatically stay in sync with `anchor keys sync`
+pub use dummy_ibc_app::ID as DUMMY_IBC_APP_PROGRAM_ID;
+pub use mock_ibc_app::ID as MOCK_IBC_APP_PROGRAM_ID;
+pub use mock_light_client::ID as MOCK_LIGHT_CLIENT_ID;
 
 pub fn get_router_program_path() -> &'static str {
     use std::sync::OnceLock;
@@ -118,6 +113,28 @@ pub fn setup_ibc_app(port_id: &str, app_program_id: Pubkey) -> (Pubkey, Vec<u8>)
     };
     let ibc_app_data = create_account_data(&ibc_app);
     (ibc_app_pda, ibc_app_data)
+}
+
+pub fn setup_access_manager(admin: Pubkey, relayers: Vec<Pubkey>) -> (Pubkey, Vec<u8>) {
+    let (access_manager_pda, _) = Pubkey::find_program_address(
+        &[access_manager::state::AccessManager::SEED],
+        &access_manager::ID,
+    );
+
+    let access_manager = access_manager::state::AccessManager {
+        version: AccessManagerVersion::V1,
+        admin,
+        roles: vec![RoleData {
+            role_id: solana_ibc_types::roles::RELAYER_ROLE,
+            members: relayers,
+        }],
+        _reserved: [0; 256],
+    };
+
+    let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
+    access_manager.serialize(&mut data).unwrap();
+
+    (access_manager_pda, data)
 }
 
 pub fn create_test_packet(
@@ -343,6 +360,40 @@ pub fn create_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::A
     )
 }
 
+pub fn create_system_account_with_lamports(
+    pubkey: Pubkey,
+    lamports: u64,
+) -> (Pubkey, solana_sdk::account::Account) {
+    (
+        pubkey,
+        solana_sdk::account::Account {
+            lamports,
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+pub fn create_account_with_lamports(
+    pubkey: Pubkey,
+    owner: &Pubkey,
+    lamports: u64,
+    data_len: usize,
+) -> (Pubkey, solana_sdk::account::Account) {
+    (
+        pubkey,
+        solana_sdk::account::Account {
+            lamports,
+            data: vec![0; data_len],
+            owner: *owner,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 pub fn create_uninitialized_commitment_account(
     pubkey: Pubkey,
 ) -> (Pubkey, solana_sdk::account::Account) {
@@ -475,7 +526,7 @@ pub fn get_client_sequence_from_result_by_pubkey(
 
 /// Setup mollusk with mock programs for testing
 ///
-/// This adds the router, mock light client, and mock IBC app programs to mollusk
+/// This adds the router, mock light client, mock IBC app, and access control programs to mollusk
 pub fn setup_mollusk_with_mock_programs() -> mollusk_svm::Mollusk {
     use mollusk_svm::Mollusk;
 
@@ -490,12 +541,17 @@ pub fn setup_mollusk_with_mock_programs() -> mollusk_svm::Mollusk {
         get_mock_ibc_app_program_path(),
         &solana_sdk::bpf_loader_upgradeable::ID,
     );
+    mollusk.add_program(
+        &access_manager::ID,
+        access_manager::get_access_manager_program_path(),
+        &solana_sdk::bpf_loader_upgradeable::ID,
+    );
     mollusk
 }
 
 /// Setup mollusk with just the mock light client for testing scenarios that don't need IBC apps
 ///
-/// This adds the router and mock light client programs to mollusk
+/// This adds the router, mock light client, and access control programs to mollusk
 pub fn setup_mollusk_with_light_client() -> mollusk_svm::Mollusk {
     use mollusk_svm::Mollusk;
 
@@ -503,6 +559,11 @@ pub fn setup_mollusk_with_light_client() -> mollusk_svm::Mollusk {
     mollusk.add_program(
         &MOCK_LIGHT_CLIENT_ID,
         get_mock_client_program_path(),
+        &solana_sdk::bpf_loader_upgradeable::ID,
+    );
+    mollusk.add_program(
+        &access_manager::ID,
+        access_manager::get_access_manager_program_path(),
         &solana_sdk::bpf_loader_upgradeable::ID,
     );
     mollusk

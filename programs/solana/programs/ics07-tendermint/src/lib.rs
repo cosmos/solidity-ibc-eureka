@@ -102,6 +102,15 @@ pub struct UploadHeaderChunk<'info> {
 #[derive(Accounts)]
 #[instruction(chain_id: String, target_height: u64)]
 pub struct AssembleAndUpdateClient<'info> {
+    /// Global access control account (owned by access-manager program)
+    /// CHECK: Validated by seeds constraint pointing to access-manager program
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = access_manager::ID
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     #[account(
         mut,
         constraint = client_state.chain_id == chain_id.as_str(),
@@ -176,6 +185,15 @@ pub struct UploadMisbehaviourChunk<'info> {
 #[derive(Accounts)]
 #[instruction(client_id: String)]
 pub struct AssembleAndSubmitMisbehaviour<'info> {
+    /// Global access control account (owned by access-manager program)
+    /// CHECK: Validated by seeds constraint pointing to access-manager program
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = access_manager::ID
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     #[account(
         mut,
         constraint = client_state.chain_id == client_id.as_str(),
@@ -253,8 +271,8 @@ pub mod ics07_tendermint {
 
     /// Assemble chunks and update the client
     /// Automatically cleans up all chunks after successful update
-    pub fn assemble_and_update_client(
-        ctx: Context<AssembleAndUpdateClient>,
+    pub fn assemble_and_update_client<'info>(
+        ctx: Context<'_, '_, '_, 'info, AssembleAndUpdateClient<'info>>,
         chain_id: String,
         target_height: u64,
     ) -> Result<UpdateResult> {

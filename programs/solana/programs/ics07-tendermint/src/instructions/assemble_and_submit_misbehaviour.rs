@@ -10,6 +10,13 @@ pub fn assemble_and_submit_misbehaviour(
     mut ctx: Context<AssembleAndSubmitMisbehaviour>,
     client_id: String,
 ) -> Result<()> {
+    // Check that submitter has the required role
+    access_manager::require_role(
+        &ctx.accounts.access_manager,
+        solana_ibc_types::roles::RELAYER_ROLE,
+        &ctx.accounts.submitter.key(),
+    )?;
+
     require!(
         !ctx.accounts.client_state.is_frozen(),
         ErrorCode::ClientAlreadyFrozen

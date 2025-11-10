@@ -13,6 +13,15 @@ use solana_ibc_types::IBCAppState;
 #[derive(Accounts)]
 #[instruction(msg: MsgTimeoutPacket)]
 pub struct TimeoutPacket<'info> {
+    /// Global access control account (owned by access-manager program)
+    /// CHECK: Validated by seeds constraint pointing to access-manager program
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = access_manager::ID,
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     #[account(
         seeds = [RouterState::SEED],
         bump
@@ -82,6 +91,13 @@ pub fn timeout_packet<'info>(
     ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info>>,
     msg: MsgTimeoutPacket,
 ) -> Result<()> {
+    // Check that relayer has the required role
+    access_manager::require_role(
+        &ctx.accounts.access_manager,
+        solana_ibc_types::roles::RELAYER_ROLE,
+        &ctx.accounts.relayer.key(),
+    )?;
+
     // TODO: Support multi-payload packets #602
     let router_state = &ctx.accounts.router_state;
     let packet_commitment_account = &ctx.accounts.packet_commitment;
@@ -353,7 +369,12 @@ mod tests {
             test_proof,
         );
 
+        // Setup access control with the relayer having RELAYER_ROLE
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager(authority, vec![relayer]);
+
         let mut instruction_accounts = vec![
+            AccountMeta::new_readonly(access_manager_pda, false),
             AccountMeta::new_readonly(router_state_pda, false),
             AccountMeta::new_readonly(ibc_app_pda, false),
             AccountMeta::new(packet_commitment_pda, false),
@@ -405,6 +426,7 @@ mod tests {
         };
 
         let mut accounts = vec![
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             packet_commitment_account,

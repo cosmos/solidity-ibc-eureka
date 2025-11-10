@@ -138,13 +138,70 @@ anchor deploy
 > ```
 >
 > Then navigate to the Solana programs directory and use anchor-nix commands:
-> 
+>
 > ```sh
 > cd programs/solana
 > anchor-nix build
 > anchor-nix test
 > anchor-nix deploy
 > ```
+
+### Deploying Solana Programs
+
+You can deploy the Solana programs to any cluster (devnet, testnet, or mainnet). Below is an example deployment to **devnet**:
+
+1. **Generate keypairs** (first time only):
+   ```sh
+   just generate-solana-keypairs devnet
+   ```
+   This creates new program keypairs in `solana-keypairs/devnet/`.
+
+2. **Fund your deployer wallet**:
+   ```sh
+   solana airdrop 5 ~/.config/solana/id.json --url devnet
+   ```
+
+3. **Deploy**:
+   ```sh
+   just deploy-solana devnet
+   ```
+   This automatically builds with cluster-specific program IDs and deploys all programs.
+
+Alternatively, you can build and deploy separately:
+
+```sh
+# Build only
+just build-solana devnet
+
+# Deploy only (requires prior build)
+cd programs/solana
+anchor deploy --provider.cluster devnet
+```
+
+**Testing locally:**
+
+You can test deployment on a local validator before deploying to devnet:
+
+```sh
+# Start local Solana validator (in another terminal)
+solana-test-validator
+
+# Configure Solana CLI to use localnet
+solana config set --url localhost
+
+# Deploy to localnet
+just deploy-solana localnet
+```
+
+> [!NOTE]
+> Replace `devnet` with `testnet` or `mainnet` in the commands above to deploy to other networks.
+
+> [!WARNING]
+> - **Never commit your keypairs to git** - they are automatically gitignored except for localnet.
+> - The placeholder program IDs in `Anchor.toml` will be replaced with actual IDs after syncing.
+> - Each cluster requires separate keypairs for security isolation.
+
+You can verify your deployment by checking the program IDs in `programs/solana/Anchor.toml` under the respective `[programs.<cluster>]` section.
 
 ## Unit Testing
 

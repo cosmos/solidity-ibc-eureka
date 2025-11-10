@@ -119,6 +119,16 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
         },
     ));
 
+    // Add access manager account
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+    accounts.push((access_manager_pda, access_manager_account));
+
     if with_valid_consensus_states {
         let consensus_state_1 = ConsensusState {
             timestamp: 1_000_000_000_000_000_000, // nanoseconds
@@ -275,7 +285,11 @@ fn create_assemble_instruction(test_accounts: &TestAccounts, client_id: &str) ->
         client_id: client_id.to_string(),
     };
 
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
     let mut account_metas = vec![
+        AccountMeta::new_readonly(access_manager_pda, false),
         AccountMeta::new(test_accounts.client_state_pda, false),
         AccountMeta::new_readonly(test_accounts.trusted_consensus_state_1_pda, false),
         AccountMeta::new_readonly(test_accounts.trusted_consensus_state_2_pda, false),
@@ -361,9 +375,9 @@ fn test_assemble_and_submit_misbehaviour_invalid_protobuf() {
     let instruction = create_assemble_instruction(&test_accounts, chain_id);
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let checks = vec![
-        Check::err(anchor_lang::prelude::ProgramError::Custom(0x1778)), // InvalidHeader
-    ];
+    let checks = vec![Check::err(
+        anchor_lang::error::Error::from(ErrorCode::InvalidHeader).into(),
+    )];
     mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
 }
 

@@ -36,6 +36,7 @@ pub fn initialize(
 
     let client_state_account = &mut ctx.accounts.client_state;
     let latest_height = client_state.latest_height;
+
     client_state_account.set_inner(client_state);
 
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;

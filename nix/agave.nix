@@ -467,6 +467,16 @@ let
         run_unit_test "$@"
         ;;
 
+      keys)
+        # Pass through to real anchor for keys command (sync, list, etc.)
+        "$REAL_ANCHOR" "$@"
+        ;;
+
+      deploy)
+        # Pass through to real anchor for deploy command
+        "$REAL_ANCHOR" "$@"
+        ;;
+
       *)
         cat <<EOF
 anchor-nix: Anchor wrapper for Nix environments
@@ -475,6 +485,8 @@ Usage:
   anchor-nix build [options]      - Build program with Solana toolchain, generate IDL with nightly
   anchor-nix test [options]       - Build and run anchor client tests
   anchor-nix unit-test [options]  - Build program then run cargo test
+  anchor-nix keys [subcommand]    - Manage program keypairs (sync, list, etc.)
+  anchor-nix deploy [options]     - Deploy programs to specified cluster
 
 This wrapper automatically handles toolchain switching to provide:
   - Fast, deterministic builds with Solana/Agave toolchain
