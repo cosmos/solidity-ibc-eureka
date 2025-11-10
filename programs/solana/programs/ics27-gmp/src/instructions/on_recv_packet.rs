@@ -127,7 +127,7 @@ pub fn on_recv_packet<'info>(
         client_id,
         packet_data.sender.clone(),
         packet_data.salt.clone(),
-        ctx.program_id,
+        &crate::ID,
     );
 
     // Extract GMP account PDA from `remaining_accounts`
