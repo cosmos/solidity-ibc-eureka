@@ -106,8 +106,12 @@ pub fn on_recv_packet<'info>(
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
     // Parse and validate packet data from protobuf payload
-    let packet_data =
-        ValidatedGmpPacketData::try_from(&msg.payload.value[..]).map_err(GMPError::from)?;
+    let packet_data: ValidatedGmpPacketData = msg
+        .payload
+        .value
+        .as_slice()
+        .try_into()
+        .map_err(GMPError::from)?;
 
     // Parse receiver as Solana Pubkey (for incoming packets, receiver is a Solana address)
     let receiver_pubkey =
@@ -145,8 +149,8 @@ pub fn on_recv_packet<'info>(
 
     // Parse and validate the GMP Solana payload from Protobuf
     // The payload contains all required accounts and instruction data
-    let validated_payload = ValidatedGMPSolanaPayload::try_from(packet_data.payload.into_vec())
-        .map_err(GMPError::from)?;
+    let validated_payload: ValidatedGMPSolanaPayload =
+        packet_data.payload.try_into().map_err(GMPError::from)?;
 
     let mut account_metas = validated_payload.to_account_metas();
 

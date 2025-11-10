@@ -397,3 +397,124 @@ mod tests {
         assert_eq!(format!("{}", name), "Alice");
     }
 }
+
+/// Generic non-empty wrapper type
+///
+/// Validates that the wrapped data is not empty. Works with any type that has
+/// a length/is_empty check.
+///
+/// # Examples
+/// ```
+/// use ibc_eureka_constrained_types::{NonEmpty, ConstrainedError};
+///
+/// let data = NonEmpty::<Vec<u8>>::new(vec![1, 2, 3]).unwrap();
+/// assert_eq!(data.len(), 3);
+///
+/// let empty = NonEmpty::<Vec<u8>>::new(vec![]);
+/// assert_eq!(empty, Err(ConstrainedError::Empty));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NonEmpty<T>(T);
+
+impl<T> NonEmpty<T> {
+    /// Unwrap the inner value
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T> Deref for NonEmpty<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> core::fmt::Display for NonEmpty<T>
+where
+    T: core::fmt::Display,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+// Implementation for Vec<u8>
+impl NonEmpty<Vec<u8>> {
+    pub fn new(data: Vec<u8>) -> Result<Self, ConstrainedError> {
+        if data.is_empty() {
+            return Err(ConstrainedError::Empty);
+        }
+        Ok(Self(data))
+    }
+}
+
+impl TryFrom<Vec<u8>> for NonEmpty<Vec<u8>> {
+    type Error = ConstrainedError;
+
+    fn try_from(data: Vec<u8>) -> Result<Self, Self::Error> {
+        Self::new(data)
+    }
+}
+
+// Implementation for String
+impl NonEmpty<String> {
+    pub fn new(data: String) -> Result<Self, ConstrainedError> {
+        if data.is_empty() {
+            return Err(ConstrainedError::Empty);
+        }
+        Ok(Self(data))
+    }
+}
+
+impl TryFrom<String> for NonEmpty<String> {
+    type Error = ConstrainedError;
+
+    fn try_from(data: String) -> Result<Self, Self::Error> {
+        Self::new(data)
+    }
+}
+
+#[cfg(test)]
+mod non_empty_tests {
+    use super::*;
+
+    #[test]
+    fn test_non_empty_vec_success() {
+        let data = NonEmpty::<Vec<u8>>::new(vec![1, 2, 3]).unwrap();
+        assert_eq!(&*data, &[1, 2, 3]);
+        assert_eq!(data.len(), 3);
+    }
+
+    #[test]
+    fn test_non_empty_vec_empty() {
+        let result = NonEmpty::<Vec<u8>>::new(vec![]);
+        assert_eq!(result, Err(ConstrainedError::Empty));
+    }
+
+    #[test]
+    fn test_non_empty_string_success() {
+        let data = NonEmpty::<String>::new("hello".to_string()).unwrap();
+        assert_eq!(&**data, "hello");
+    }
+
+    #[test]
+    fn test_non_empty_string_empty() {
+        let result = NonEmpty::<String>::new(String::new());
+        assert_eq!(result, Err(ConstrainedError::Empty));
+    }
+
+    #[test]
+    fn test_non_empty_display() {
+        let data = NonEmpty::<String>::new("test".to_string()).unwrap();
+        assert_eq!(format!("{}", data), "test");
+    }
+
+    #[test]
+    fn test_non_empty_into_inner() {
+        let data = NonEmpty::<Vec<u8>>::new(vec![1, 2, 3]).unwrap();
+        let inner = data.into_inner();
+        assert_eq!(inner, vec![1, 2, 3]);
+    }
+}

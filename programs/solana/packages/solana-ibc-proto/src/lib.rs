@@ -8,7 +8,7 @@ use prost::Message;
 
 // Re-export constrained types
 pub use ibc_eureka_constrained_types::{
-    ConstrainedBytes, ConstrainedError, ConstrainedString, ConstrainedVec,
+    ConstrainedBytes, ConstrainedError, ConstrainedString, ConstrainedVec, NonEmpty,
 };
 
 // Generated protobuf modules
@@ -55,8 +55,6 @@ pub const MAX_SENDER_LENGTH: usize = 128;
 pub const MAX_RECEIVER_LENGTH: usize = 64;
 /// Maximum salt length (32 bytes)
 pub const MAX_SALT_LENGTH: usize = 32;
-/// Maximum payload length (1MB)
-pub const MAX_PAYLOAD_LENGTH: usize = 1_048_576;
 /// Maximum memo length (256 bytes)
 pub const MAX_MEMO_LENGTH: usize = 256;
 
@@ -65,7 +63,7 @@ pub type Salt = ConstrainedBytes<0, MAX_SALT_LENGTH>;
 pub type Sender = ConstrainedString<1, MAX_SENDER_LENGTH>;
 pub type Receiver = ConstrainedString<1, MAX_RECEIVER_LENGTH>;
 pub type Memo = ConstrainedString<0, MAX_MEMO_LENGTH>;
-pub type Payload = ConstrainedBytes<1, MAX_PAYLOAD_LENGTH>;
+pub type Payload = NonEmpty<Vec<u8>>;
 
 /// Errors for GMP packet validation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,8 +78,6 @@ pub enum GMPPacketError {
     InvalidSalt,
     /// Payload is empty
     EmptyPayload,
-    /// Payload exceeds maximum length
-    PayloadTooLong,
     /// Payload validation failed
     InvalidPayload,
     /// Memo exceeds maximum length
@@ -91,7 +87,7 @@ pub enum GMPPacketError {
 /// Validated GMP packet data with constrained types
 ///
 /// All fields are validated and constrained at the type level.
-/// The payload is validated for length constraints.
+/// The payload is validated to be non-empty (no maximum length constraint).
 #[derive(Debug, Clone)]
 pub struct ValidatedGmpPacketData {
     pub sender: Sender,
@@ -128,12 +124,11 @@ impl TryFrom<&[u8]> for ValidatedGmpPacketData {
             .try_into()
             .map_err(|_| GMPPacketError::InvalidSalt)?;
 
-        // Validate payload length using ConstrainedBytes
-        let payload = packet.payload.try_into().map_err(|e| match e {
-            ConstrainedError::Empty => GMPPacketError::EmptyPayload,
-            ConstrainedError::TooLong => GMPPacketError::PayloadTooLong,
-            _ => GMPPacketError::InvalidPayload,
-        })?;
+        // Validate payload is non-empty (no max length constraint)
+        let payload = packet
+            .payload
+            .try_into()
+            .map_err(|_| GMPPacketError::EmptyPayload)?;
 
         // Validate and construct constrained memo
         let memo = packet
@@ -185,6 +180,14 @@ impl ValidatedGMPSolanaPayload {
             .iter()
             .map(ValidatedAccountMeta::to_account_meta)
             .collect()
+    }
+}
+
+impl TryFrom<NonEmpty<Vec<u8>>> for ValidatedGMPSolanaPayload {
+    type Error = GmpValidationError;
+
+    fn try_from(payload: NonEmpty<Vec<u8>>) -> core::result::Result<Self, Self::Error> {
+        Self::try_from(payload.into_inner())
     }
 }
 

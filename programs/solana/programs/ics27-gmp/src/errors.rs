@@ -81,9 +81,6 @@ pub enum GMPError {
     #[msg("Invalid memo length")]
     InvalidMemo,
 
-    #[msg("Payload too long")]
-    PayloadTooLong,
-
     #[msg("Invalid execution payload format")]
     InvalidExecutionPayload,
 
@@ -142,7 +139,6 @@ impl From<solana_ibc_types::GMPPacketError> for GMPError {
         match err {
             solana_ibc_types::GMPPacketError::InvalidSalt => Self::InvalidSalt,
             solana_ibc_types::GMPPacketError::EmptyPayload => Self::EmptyPayload,
-            solana_ibc_types::GMPPacketError::PayloadTooLong => Self::PayloadTooLong,
             solana_ibc_types::GMPPacketError::MemoTooLong => Self::InvalidMemo,
             solana_ibc_types::GMPPacketError::InvalidSender => Self::InvalidSender,
             solana_ibc_types::GMPPacketError::InvalidReceiver
