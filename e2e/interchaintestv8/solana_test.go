@@ -1141,7 +1141,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 	}))
 
 	s.Require().True(s.Run("Upload orphaned payload chunks", func() {
-		uploadPayload0Msg := ics26_router.MsgUploadChunk{
+		uploadPayload0Msg := ics26_router.SolanaIbcTypesRouterMsgUploadChunk{
 			ClientId:     testClientID,
 			Sequence:     testSequence,
 			PayloadIndex: 0,
@@ -1164,7 +1164,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 		s.Require().NoError(err)
 		s.T().Logf("Uploaded payload chunk 0: %s", sig0)
 
-		uploadPayload1Msg := ics26_router.MsgUploadChunk{
+		uploadPayload1Msg := ics26_router.SolanaIbcTypesRouterMsgUploadChunk{
 			ClientId:     testClientID,
 			Sequence:     testSequence,
 			PayloadIndex: 0,
@@ -1189,7 +1189,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 	}))
 
 	s.Require().True(s.Run("Upload orphaned proof chunks", func() {
-		uploadProof0Msg := ics26_router.MsgUploadChunk{
+		uploadProof0Msg := ics26_router.SolanaIbcTypesRouterMsgUploadChunk{
 			ClientId:     testClientID,
 			Sequence:     testSequence,
 			PayloadIndex: 0, // Not used for proof chunks
@@ -1213,7 +1213,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 		s.T().Logf("Uploaded proof chunk 0: %s", sig0)
 
 		// Upload proof chunk 1
-		uploadProof1Msg := ics26_router.MsgUploadChunk{
+		uploadProof1Msg := ics26_router.SolanaIbcTypesRouterMsgUploadChunk{
 			ClientId:     testClientID,
 			Sequence:     testSequence,
 			PayloadIndex: 0, // Not used for proof chunks
@@ -1276,7 +1276,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 	}))
 
 	s.Require().True(s.Run("Call cleanup_chunks instruction", func() {
-		cleanupMsg := ics26_router.MsgCleanupChunks{
+		cleanupMsg := ics26_router.SolanaIbcTypesRouterMsgCleanupChunks{
 			ClientId:         testClientID,
 			Sequence:         testSequence,
 			PayloadChunks:    []byte{2},
@@ -1403,7 +1403,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 	}))
 
 	s.Require().True(s.Run("Upload orphaned header chunks", func() {
-		chunk0Params := ics07_tendermint.UploadChunkParams{
+		chunk0Params := ics07_tendermint.Ics07TendermintTypesUploadChunkParams{
 			ChainId:      cosmosChainID,
 			TargetHeight: testHeight,
 			ChunkIndex:   0,
@@ -1426,7 +1426,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 		s.Require().NoError(err)
 		s.T().Logf("Uploaded header chunk 0: %s", sig0)
 
-		chunk1Params := ics07_tendermint.UploadChunkParams{
+		chunk1Params := ics07_tendermint.Ics07TendermintTypesUploadChunkParams{
 			ChainId:      cosmosChainID,
 			TargetHeight: testHeight,
 			ChunkIndex:   1,
