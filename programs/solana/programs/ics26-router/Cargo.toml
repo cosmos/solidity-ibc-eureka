@@ -32,6 +32,9 @@ ics25-handler.workspace = true
 sha2 = "0.10"
 hex = "0.4"
 
+[build-dependencies]
+sha2 = "0.10"
+
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true

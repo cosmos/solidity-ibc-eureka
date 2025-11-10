@@ -230,12 +230,24 @@ pub fn recv_packet<'info>(
 
             ack
         }
-        Err(e) => {
-            // If the CPI fails, use universal error ack
-            // In Solana, we can't easily check if it's OOG vs other errors,
-            // but we do check that we got an error (not empty)
-            require!(!e.to_string().is_empty(), RouterError::FailedCallback);
-            ics24::UNIVERSAL_ERROR_ACK.to_vec()
+        Err(_e) => {
+            unreachable!()
+            // IMPORTANT: CPI Error Handling Limitation in Solana
+            //
+            // In theory, this branch should catch CPI failures and return UNIVERSAL_ERROR_ACK,
+            // matching the Ethereum implementation where try/catch handles app callback errors.
+            //
+            // HOWEVER, Solana's CPI error handling has a critical limitation:
+            // - If a CPI call fails, the ENTIRE TRANSACTION ABORTS immediately
+            // - This error branch is effectively UNREACHABLE in practice
+            // - The `invoke()` function returns Result for legacy reasons, but errors cannot be caught
+            //
+            // Current Behavior:
+            // When an IBC app's `on_recv_packet` callback fails:
+            // - Solana: Transaction aborts, packet is NOT acknowledged (relayer must retry/timeout)
+            // - Ethereum: Catch error, return UNIVERSAL_ERROR_ACK, packet IS acknowledged
+            //
+            // See: https://solana.stackexchange.com/questions/13723/tx-reverting-even-if-internal-cpi-fails
         }
     };
 

@@ -5,13 +5,8 @@ use anchor_lang::solana_program::keccak::hash as keccak256;
 use sha2::{Digest, Sha256};
 use solana_ibc_types::Payload;
 
-/// Universal error acknowledgement as defined in ICS-04
-/// This is `sha256("UNIVERSAL_ERROR_ACKNOWLEDGEMENT")`
-/// Must match Solidity's `ICS24Host.UNIVERSAL_ERROR_ACK` for cross-chain compatibility
-pub const UNIVERSAL_ERROR_ACK: &[u8] = &[
-    0x47, 0x74, 0xd4, 0xa5, 0x75, 0x99, 0x3f, 0x96, 0x3b, 0x1c, 0x06, 0x57, 0x37, 0x36, 0x61, 0x7a,
-    0x45, 0x7a, 0xbe, 0xf8, 0x58, 0x91, 0x78, 0xdb, 0x8d, 0x10, 0xc9, 0x4b, 0x4a, 0xb5, 0x11, 0xab,
-];
+// Include auto-generated constants from build.rs
+include!(concat!(env!("OUT_DIR"), "/constants.rs"));
 
 /// IBC merkle prefix for constructing commitment paths
 pub const IBC_MERKLE_PREFIX: &[u8] = b"ibc";
@@ -368,6 +363,17 @@ mod tests {
         // Test empty input
         let hash_empty = sha256(b"");
         assert_eq!(hash_empty.len(), 32);
+    }
+
+    #[test]
+    fn test_universal_error_ack_is_sha256_of_string() {
+        // Verify it's the SHA256 of "UNIVERSAL_ERROR_ACKNOWLEDGEMENT"
+        let computed = sha256(b"UNIVERSAL_ERROR_ACKNOWLEDGEMENT");
+
+        assert_eq!(
+            UNIVERSAL_ERROR_ACK, &computed,
+            "UNIVERSAL_ERROR_ACK must be sha256(\"UNIVERSAL_ERROR_ACKNOWLEDGEMENT\")"
+        );
     }
 
     #[test]
