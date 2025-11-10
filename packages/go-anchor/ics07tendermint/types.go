@@ -121,6 +121,57 @@ func UnmarshalIcs07TendermintStateHeaderChunk(buf []byte) (*Ics07TendermintState
 	return obj, nil
 }
 
+// Storage for a single chunk of misbehaviour data during multi-transaction upload
+type Ics07TendermintStateMisbehaviourChunk struct {
+	// The chunk data
+	ChunkData []byte `json:"chunkData"`
+}
+
+func (obj Ics07TendermintStateMisbehaviourChunk) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ChunkData`:
+	err = encoder.Encode(obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj Ics07TendermintStateMisbehaviourChunk) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics07TendermintStateMisbehaviourChunk: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics07TendermintStateMisbehaviourChunk) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ChunkData`:
+	err = decoder.Decode(&obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj *Ics07TendermintStateMisbehaviourChunk) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics07TendermintStateMisbehaviourChunk: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs07TendermintStateMisbehaviourChunk(buf []byte) (*Ics07TendermintStateMisbehaviourChunk, error) {
+	obj := new(Ics07TendermintStateMisbehaviourChunk)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 type Ics07TendermintTypesClientState struct {
 	ChainId               string                        `json:"chainId"`
 	TrustLevelNumerator   uint64                        `json:"trustLevelNumerator"`
@@ -378,66 +429,6 @@ func UnmarshalIcs07TendermintTypesIbcHeight(buf []byte) (*Ics07TendermintTypesIb
 	return obj, nil
 }
 
-type Ics07TendermintTypesMisbehaviourMsg struct {
-	ClientId     string `json:"clientId"`
-	Misbehaviour []byte `json:"misbehaviour"`
-}
-
-func (obj Ics07TendermintTypesMisbehaviourMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `Misbehaviour`:
-	err = encoder.Encode(obj.Misbehaviour)
-	if err != nil {
-		return errors.NewField("Misbehaviour", err)
-	}
-	return nil
-}
-
-func (obj Ics07TendermintTypesMisbehaviourMsg) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics07TendermintTypesMisbehaviourMsg: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *Ics07TendermintTypesMisbehaviourMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `Misbehaviour`:
-	err = decoder.Decode(&obj.Misbehaviour)
-	if err != nil {
-		return errors.NewField("Misbehaviour", err)
-	}
-	return nil
-}
-
-func (obj *Ics07TendermintTypesMisbehaviourMsg) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics07TendermintTypesMisbehaviourMsg: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalIcs07TendermintTypesMisbehaviourMsg(buf []byte) (*Ics07TendermintTypesMisbehaviourMsg, error) {
-	obj := new(Ics07TendermintTypesMisbehaviourMsg)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
 type Ics07TendermintTypesUpdateResult binary.BorshEnum
 
 const (
@@ -535,6 +526,78 @@ func (obj *Ics07TendermintTypesUploadChunkParams) Unmarshal(buf []byte) error {
 
 func UnmarshalIcs07TendermintTypesUploadChunkParams(buf []byte) (*Ics07TendermintTypesUploadChunkParams, error) {
 	obj := new(Ics07TendermintTypesUploadChunkParams)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Parameters for uploading a misbehaviour chunk
+type Ics07TendermintTypesUploadMisbehaviourChunkParams struct {
+	ClientId   string `json:"clientId"`
+	ChunkIndex uint8  `json:"chunkIndex"`
+	ChunkData  []byte `json:"chunkData"`
+}
+
+func (obj Ics07TendermintTypesUploadMisbehaviourChunkParams) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Serialize `ChunkIndex`:
+	err = encoder.Encode(obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Serialize `ChunkData`:
+	err = encoder.Encode(obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj Ics07TendermintTypesUploadMisbehaviourChunkParams) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics07TendermintTypesUploadMisbehaviourChunkParams: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics07TendermintTypesUploadMisbehaviourChunkParams) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `ChunkIndex`:
+	err = decoder.Decode(&obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Deserialize `ChunkData`:
+	err = decoder.Decode(&obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj *Ics07TendermintTypesUploadMisbehaviourChunkParams) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics07TendermintTypesUploadMisbehaviourChunkParams: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs07TendermintTypesUploadMisbehaviourChunkParams(buf []byte) (*Ics07TendermintTypesUploadMisbehaviourChunkParams, error) {
+	obj := new(Ics07TendermintTypesUploadMisbehaviourChunkParams)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

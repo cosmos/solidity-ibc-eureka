@@ -1,7 +1,7 @@
 use crate::error::ErrorCode;
-use crate::state::ConsensusStateStore;
+use crate::state::{ConsensusStateStore, MisbehaviourChunk};
 use crate::test_helpers::PROGRAM_BINARY_PATH;
-use crate::types::{ClientState, ConsensusState, IbcHeight, MisbehaviourMsg};
+use crate::types::{ClientState, ConsensusState, IbcHeight};
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -17,16 +17,33 @@ struct TestAccounts {
     client_state_pda: Pubkey,
     trusted_consensus_state_1_pda: Pubkey,
     trusted_consensus_state_2_pda: Pubkey,
+    submitter: Pubkey,
+    chunk_pdas: Vec<Pubkey>,
     accounts: Vec<(Pubkey, Account)>,
 }
 
-fn setup_test_accounts(
-    chain_id: &str,
+struct TestSetupConfig<'a> {
+    chain_id: &'a str,
     height_1: u64,
     height_2: u64,
+    submitter: Pubkey,
     client_frozen: bool,
     with_valid_consensus_states: bool,
-) -> TestAccounts {
+    with_chunks: bool,
+    misbehaviour_bytes: &'a [u8],
+}
+
+fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
+    let TestSetupConfig {
+        chain_id,
+        height_1,
+        height_2,
+        submitter,
+        client_frozen,
+        with_valid_consensus_states,
+        with_chunks,
+        misbehaviour_bytes,
+    } = config;
     let client_state_pda = Pubkey::find_program_address(
         &[crate::types::ClientState::SEED, chain_id.as_bytes()],
         &crate::ID,
@@ -53,7 +70,6 @@ fn setup_test_accounts(
     )
     .0;
 
-    // Create client state
     let client_state = ClientState {
         chain_id: chain_id.to_string(),
         trust_level_numerator: 2,
@@ -92,9 +108,18 @@ fn setup_test_accounts(
         },
     )];
 
-    // Always add the consensus state accounts but they may be empty/uninitialized
+    accounts.push((
+        submitter,
+        Account {
+            lamports: 10_000_000_000,
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
     if with_valid_consensus_states {
-        // Create consensus state 1
         let consensus_state_1 = ConsensusState {
             timestamp: 1_000_000_000_000_000_000, // nanoseconds
             root: [1u8; 32],
@@ -149,7 +174,6 @@ fn setup_test_accounts(
             },
         ));
     } else {
-        // Add empty/uninitialized consensus state accounts
         accounts.push((
             trusted_consensus_state_1_pda,
             Account {
@@ -193,33 +217,78 @@ fn setup_test_accounts(
         },
     ));
 
+    let mut chunk_pdas = vec![];
+    if with_chunks {
+        const CHUNK_SIZE: usize = 700;
+        let num_chunks = misbehaviour_bytes.len().div_ceil(CHUNK_SIZE);
+
+        for i in 0..num_chunks {
+            let chunk_pda = Pubkey::find_program_address(
+                &[
+                    crate::state::MisbehaviourChunk::SEED,
+                    submitter.as_ref(),
+                    chain_id.as_bytes(),
+                    &[i as u8],
+                ],
+                &crate::ID,
+            )
+            .0;
+
+            chunk_pdas.push(chunk_pda);
+
+            let start = i * CHUNK_SIZE;
+            let end = std::cmp::min(start + CHUNK_SIZE, misbehaviour_bytes.len());
+            let chunk_data_slice = &misbehaviour_bytes[start..end];
+
+            let chunk = MisbehaviourChunk {
+                chunk_data: chunk_data_slice.to_vec(),
+            };
+
+            let mut chunk_data = vec![];
+            chunk.try_serialize(&mut chunk_data).unwrap();
+
+            accounts.push((
+                chunk_pda,
+                Account {
+                    lamports: 1_500_000,
+                    data: chunk_data,
+                    owner: crate::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ));
+        }
+    }
+
     TestAccounts {
         client_state_pda,
         trusted_consensus_state_1_pda,
         trusted_consensus_state_2_pda,
+        submitter,
+        chunk_pdas,
         accounts,
     }
 }
 
-fn create_misbehaviour_instruction(
-    test_accounts: &TestAccounts,
-    misbehaviour_bytes: Vec<u8>,
-    client_id: &str,
-) -> Instruction {
-    let msg = MisbehaviourMsg {
+fn create_assemble_instruction(test_accounts: &TestAccounts, client_id: &str) -> Instruction {
+    let instruction_data = crate::instruction::AssembleAndSubmitMisbehaviour {
         client_id: client_id.to_string(),
-        misbehaviour: misbehaviour_bytes,
     };
 
-    let instruction_data = crate::instruction::SubmitMisbehaviour { msg };
+    let mut account_metas = vec![
+        AccountMeta::new(test_accounts.client_state_pda, false),
+        AccountMeta::new_readonly(test_accounts.trusted_consensus_state_1_pda, false),
+        AccountMeta::new_readonly(test_accounts.trusted_consensus_state_2_pda, false),
+        AccountMeta::new(test_accounts.submitter, true),
+    ];
+
+    for chunk_pda in &test_accounts.chunk_pdas {
+        account_metas.push(AccountMeta::new(*chunk_pda, false));
+    }
 
     Instruction {
         program_id: crate::ID,
-        accounts: vec![
-            AccountMeta::new(test_accounts.client_state_pda, false),
-            AccountMeta::new_readonly(test_accounts.trusted_consensus_state_1_pda, false),
-            AccountMeta::new_readonly(test_accounts.trusted_consensus_state_2_pda, false),
-        ],
+        accounts: account_metas,
         data: instruction_data.data(),
     }
 }
@@ -240,16 +309,26 @@ fn create_mock_misbehaviour_bytes(
 }
 
 #[test]
-fn test_submit_misbehaviour_client_already_frozen() {
+fn test_assemble_and_submit_misbehaviour_client_already_frozen() {
     let chain_id = "test-chain";
     let height_1 = 90;
     let height_2 = 95;
-
-    let test_accounts = setup_test_accounts(chain_id, height_1, height_2, true, true);
+    let submitter = Pubkey::new_unique();
 
     let misbehaviour_bytes = create_mock_misbehaviour_bytes(100, 100, true);
 
-    let instruction = create_misbehaviour_instruction(&test_accounts, misbehaviour_bytes, chain_id);
+    let test_accounts = setup_test_accounts(TestSetupConfig {
+        chain_id,
+        height_1,
+        height_2,
+        submitter,
+        client_frozen: true,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &misbehaviour_bytes,
+    });
+
+    let instruction = create_assemble_instruction(&test_accounts, chain_id);
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
     let checks = vec![Check::err(
@@ -259,36 +338,27 @@ fn test_submit_misbehaviour_client_already_frozen() {
 }
 
 #[test]
-fn test_submit_misbehaviour_without_consensus_states() {
+fn test_assemble_and_submit_misbehaviour_invalid_protobuf() {
     let chain_id = "test-chain";
     let height_1 = 90;
     let height_2 = 95;
-
-    let test_accounts = setup_test_accounts(chain_id, height_1, height_2, false, false);
-
-    let misbehaviour_bytes = create_mock_misbehaviour_bytes(100, 100, true);
-
-    let instruction = create_misbehaviour_instruction(&test_accounts, misbehaviour_bytes, chain_id);
-
-    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let checks = vec![
-        Check::err(anchor_lang::prelude::ProgramError::Custom(3012)), // AccountNotInitialized
-    ];
-    mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-}
-
-#[test]
-fn test_submit_misbehaviour_invalid_protobuf() {
-    let chain_id = "test-chain";
-    let height_1 = 90;
-    let height_2 = 95;
-
-    let test_accounts = setup_test_accounts(chain_id, height_1, height_2, false, true);
+    let submitter = Pubkey::new_unique();
 
     // Create invalid misbehaviour bytes
     let invalid_bytes = vec![0xFF; 100];
 
-    let instruction = create_misbehaviour_instruction(&test_accounts, invalid_bytes, chain_id);
+    let test_accounts = setup_test_accounts(TestSetupConfig {
+        chain_id,
+        height_1,
+        height_2,
+        submitter,
+        client_frozen: false,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &invalid_bytes,
+    });
+
+    let instruction = create_assemble_instruction(&test_accounts, chain_id);
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
     let checks = vec![
@@ -298,38 +368,48 @@ fn test_submit_misbehaviour_invalid_protobuf() {
 }
 
 #[test]
-fn test_submit_misbehaviour_empty_misbehaviour_bytes() {
+fn test_assemble_and_submit_misbehaviour_wrong_chunk_pda() {
     let chain_id = "test-chain";
     let height_1 = 90;
     let height_2 = 95;
-
-    let test_accounts = setup_test_accounts(chain_id, height_1, height_2, false, true);
-
-    let instruction = create_misbehaviour_instruction(&test_accounts, vec![], chain_id);
-
-    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let checks = vec![
-        Check::err(anchor_lang::prelude::ProgramError::Custom(0x1778)), // InvalidHeader
-    ];
-    mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-}
-
-#[test]
-fn test_submit_misbehaviour_with_mismatched_heights() {
-    let chain_id = "test-chain";
-    let height_1 = 90;
-    let height_2 = 95;
-
-    // Create test accounts with different heights than what the misbehaviour expects
-    let test_accounts = setup_test_accounts(chain_id, height_1 + 10, height_2 + 10, false, true);
+    let submitter = Pubkey::new_unique();
 
     let misbehaviour_bytes = create_mock_misbehaviour_bytes(100, 100, true);
 
-    let instruction = create_misbehaviour_instruction(&test_accounts, misbehaviour_bytes, chain_id);
+    let mut test_accounts = setup_test_accounts(TestSetupConfig {
+        chain_id,
+        height_1,
+        height_2,
+        submitter,
+        client_frozen: false,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &misbehaviour_bytes,
+    });
+
+    // Replace one chunk PDA with a wrong one - both in the PDAs list and accounts
+    if !test_accounts.chunk_pdas.is_empty() {
+        let old_chunk_pda = test_accounts.chunk_pdas[0];
+        let wrong_chunk_pda = Pubkey::new_unique();
+
+        // Update the PDA list
+        test_accounts.chunk_pdas[0] = wrong_chunk_pda;
+
+        // Find and update the account in the accounts list
+        if let Some(account_entry) = test_accounts
+            .accounts
+            .iter_mut()
+            .find(|(k, _)| *k == old_chunk_pda)
+        {
+            account_entry.0 = wrong_chunk_pda;
+        }
+    }
+
+    let instruction = create_assemble_instruction(&test_accounts, chain_id);
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let checks = vec![
-        Check::err(anchor_lang::prelude::ProgramError::Custom(0x1778)), // InvalidHeader
-    ];
+    let checks = vec![Check::err(
+        anchor_lang::error::Error::from(ErrorCode::InvalidChunkAccount).into(),
+    )];
     mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
 }

@@ -23,6 +23,14 @@ pub struct UploadChunkParams {
     pub chunk_data: Vec<u8>,
 }
 
+/// Parameters for uploading a misbehaviour chunk
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct UploadMisbehaviourChunkParams {
+    pub client_id: String,
+    pub chunk_index: u8,
+    pub chunk_data: Vec<u8>,
+}
+
 #[account]
 #[derive(InitSpace)]
 pub struct ClientState {
@@ -132,12 +140,6 @@ impl TryFrom<IbcConsensusState> for ConsensusState {
             next_validators_hash: cs.next_validators_hash.as_bytes().to_vec().try_into()?,
         })
     }
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct MisbehaviourMsg {
-    pub client_id: String,
-    pub misbehaviour: Vec<u8>, // Protobuf encoded Misbehaviour
 }
 
 #[cfg(test)]

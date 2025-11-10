@@ -7,6 +7,7 @@ package ics07_tendermint
 var (
 	Account_Ics07TendermintStateConsensusStateStore = [8]byte{82, 126, 130, 187, 68, 64, 80, 32}
 	Account_Ics07TendermintStateHeaderChunk         = [8]byte{236, 15, 220, 133, 128, 6, 145, 240}
+	Account_Ics07TendermintStateMisbehaviourChunk   = [8]byte{176, 75, 200, 147, 222, 20, 68, 192}
 	Account_Ics07TendermintTypesClientState         = [8]byte{147, 10, 249, 80, 145, 124, 219, 60}
 )
 
@@ -15,11 +16,13 @@ var ()
 
 // Instruction discriminators
 var (
-	Instruction_Initialize              = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
-	Instruction_VerifyMembership        = [8]byte{101, 53, 78, 0, 103, 151, 236, 209}
-	Instruction_VerifyNonMembership     = [8]byte{231, 161, 86, 239, 111, 236, 14, 74}
-	Instruction_SubmitMisbehaviour      = [8]byte{52, 62, 181, 78, 95, 10, 180, 150}
-	Instruction_UploadHeaderChunk       = [8]byte{154, 38, 82, 143, 56, 2, 24, 33}
-	Instruction_AssembleAndUpdateClient = [8]byte{86, 215, 199, 79, 131, 79, 180, 158}
-	Instruction_CleanupIncompleteUpload = [8]byte{53, 54, 142, 122, 91, 50, 60, 171}
+	Instruction_Initialize                    = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_VerifyMembership              = [8]byte{101, 53, 78, 0, 103, 151, 236, 209}
+	Instruction_VerifyNonMembership           = [8]byte{231, 161, 86, 239, 111, 236, 14, 74}
+	Instruction_UploadHeaderChunk             = [8]byte{154, 38, 82, 143, 56, 2, 24, 33}
+	Instruction_AssembleAndUpdateClient       = [8]byte{86, 215, 199, 79, 131, 79, 180, 158}
+	Instruction_CleanupIncompleteUpload       = [8]byte{53, 54, 142, 122, 91, 50, 60, 171}
+	Instruction_UploadMisbehaviourChunk       = [8]byte{150, 89, 208, 203, 92, 179, 160, 140}
+	Instruction_AssembleAndSubmitMisbehaviour = [8]byte{182, 151, 225, 14, 100, 151, 177, 234}
+	Instruction_CleanupIncompleteMisbehaviour = [8]byte{128, 250, 150, 138, 153, 111, 26, 224}
 )

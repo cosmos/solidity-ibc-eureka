@@ -1,0 +1,40 @@
+use crate::CleanupIncompleteMisbehaviour;
+use anchor_lang::prelude::*;
+
+pub fn cleanup_incomplete_misbehaviour(
+    ctx: Context<CleanupIncompleteMisbehaviour>,
+    client_id: String,
+    submitter: Pubkey,
+) -> Result<()> {
+    for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
+        let expected_seeds = &[
+            crate::state::MisbehaviourChunk::SEED,
+            submitter.as_ref(),
+            client_id.as_bytes(),
+            &[index as u8],
+        ];
+        let (expected_chunk_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
+
+        if chunk_account.key() != expected_chunk_pda {
+            continue;
+        }
+
+        if chunk_account.owner == &crate::ID && chunk_account.lamports() > 0 {
+            {
+                let mut data = chunk_account.try_borrow_mut_data()?;
+                data.fill(0);
+            }
+
+            let mut lamports = chunk_account.try_borrow_mut_lamports()?;
+            let mut submitter_lamports =
+                ctx.accounts.submitter_account.try_borrow_mut_lamports()?;
+            **submitter_lamports += **lamports;
+            **lamports = 0;
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests;
