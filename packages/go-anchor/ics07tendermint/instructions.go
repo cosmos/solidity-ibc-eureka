@@ -441,3 +441,150 @@ func NewVerifyNonMembershipInstruction(
 		buf__.Bytes(),
 	), nil
 }
+
+// Builds a "upload_misbehaviour_chunk" instruction.
+// Upload a chunk of misbehaviour data for multi-transaction submission
+func NewUploadMisbehaviourChunkInstruction(
+	// Params:
+	paramsParam Ics07TendermintTypesUploadMisbehaviourChunkParams,
+
+	// Accounts:
+	chunkAccount solanago.PublicKey,
+	clientStateAccount solanago.PublicKey,
+	submitterAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_UploadMisbehaviourChunk[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `paramsParam`:
+		err = enc__.Encode(paramsParam)
+		if err != nil {
+			return nil, errors.NewField("paramsParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "chunk": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
+		// Account 1 "client_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 2 "submitter": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
+		// Account 3 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "assemble_and_submit_misbehaviour" instruction.
+// Assemble chunks and submit misbehaviour // Automatically freezes the client and cleans up all chunks
+func NewAssembleAndSubmitMisbehaviourInstruction(
+	// Params:
+	clientIdParam string,
+
+	// Accounts:
+	clientStateAccount solanago.PublicKey,
+	trustedConsensusState1account solanago.PublicKey,
+	trustedConsensusState2account solanago.PublicKey,
+	submitterAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_AssembleAndSubmitMisbehaviour[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `clientIdParam`:
+		err = enc__.Encode(clientIdParam)
+		if err != nil {
+			return nil, errors.NewField("clientIdParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "client_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
+		// Account 1 "trusted_consensus_state_1": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState1account, false, false))
+		// Account 2 "trusted_consensus_state_2": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState2account, false, false))
+		// Account 3 "submitter": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "cleanup_incomplete_misbehaviour" instruction.
+// Clean up incomplete misbehaviour uploads // This can be called to reclaim rent from failed or abandoned misbehaviour submissions
+func NewCleanupIncompleteMisbehaviourInstruction(
+	// Params:
+	clientIdParam string,
+	submitterParam solanago.PublicKey,
+
+	// Accounts:
+	clientStateAccount solanago.PublicKey,
+	submitterAccountAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_CleanupIncompleteMisbehaviour[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `clientIdParam`:
+		err = enc__.Encode(clientIdParam)
+		if err != nil {
+			return nil, errors.NewField("clientIdParam", err)
+		}
+		// Serialize `submitterParam`:
+		err = enc__.Encode(submitterParam)
+		if err != nil {
+			return nil, errors.NewField("submitterParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "client_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 1 "submitter_account": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(submitterAccountAccount, true, true))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
