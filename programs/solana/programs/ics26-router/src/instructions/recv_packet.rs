@@ -73,6 +73,11 @@ pub struct RecvPacket<'info> {
 
     pub system_program: Program<'info, System>,
 
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+
     // Client for light client lookup
     #[account(
         seeds = [Client::SEED, msg.packet.dest_client.as_bytes()],
@@ -204,6 +209,7 @@ pub fn recv_packet<'info>(
         ibc_app_program: ctx.accounts.ibc_app_program.clone(),
         app_state: ctx.accounts.ibc_app_state.clone(),
         router_program: ctx.accounts.router_program.clone(),
+        instructions_sysvar: ctx.accounts.instructions_sysvar.clone(),
         payer: ctx.accounts.relayer.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),
     };
@@ -456,6 +462,7 @@ mod tests {
             AccountMeta::new_readonly(crate::ID, false), // router_program
             AccountMeta::new(relayer, true),
             AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             AccountMeta::new_readonly(client_pda, false),
             AccountMeta::new_readonly(light_client_program, false),
             AccountMeta::new_readonly(client_state, false),
@@ -490,6 +497,7 @@ mod tests {
             create_bpf_program_account(crate::ID), // router_program
             signer_account,                        // relayer
             create_program_account(system_program::ID),
+            create_instructions_sysvar_account(),
             create_account(client_pda, client_data, crate::ID),
             create_bpf_program_account(light_client_program),
             create_account(client_state, vec![0u8; 100], light_client_program),

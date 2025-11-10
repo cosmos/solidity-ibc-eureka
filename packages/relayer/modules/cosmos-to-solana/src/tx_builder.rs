@@ -331,6 +331,7 @@ impl TxBuilder {
             AccountMeta::new_readonly(self.solana_ics26_program_id, false), // router program
             AccountMeta::new(self.fee_payer, true),               // relayer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false), // instructions sysvar
             AccountMeta::new_readonly(client, false),
             AccountMeta::new_readonly(self.solana_ics07_program_id, false),
             AccountMeta::new_readonly(client_state, false),
@@ -370,8 +371,8 @@ impl TxBuilder {
             dest_port_for_gmp,
             encoding,
             payload_value,
-            &msg.packet.source_client,
-            &accounts,
+            &msg.packet.dest_client,
+            ibc_app_program_id,
         )?;
         accounts.extend(gmp_accounts);
 
@@ -467,6 +468,7 @@ impl TxBuilder {
             AccountMeta::new_readonly(self.solana_ics26_program_id, false),
             AccountMeta::new(self.fee_payer, true), // relayer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false), // instructions sysvar
             AccountMeta::new_readonly(client, false),
             AccountMeta::new_readonly(self.solana_ics07_program_id, false),
             AccountMeta::new_readonly(client_state, false),
@@ -585,6 +587,7 @@ impl TxBuilder {
             AccountMeta::new_readonly(params.router_program_id, false),
             AccountMeta::new(params.fee_payer, true), // relayer
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false), // instructions sysvar
             AccountMeta::new_readonly(params.client, false),
             AccountMeta::new_readonly(params.light_client_program_id, false),
             AccountMeta::new_readonly(params.client_state, false),

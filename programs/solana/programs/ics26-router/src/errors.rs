@@ -72,4 +72,23 @@ pub enum RouterError {
     UnsupportedVersion,
     #[msg("Invalid migration params: at least one field must be updated")]
     InvalidMigrationParams,
+
+    #[msg("Invalid sysvar account provided")]
+    InvalidSysvar,
+
+    #[msg("Direct calls not allowed, must be called via CPI")]
+    DirectCallNotAllowed,
+}
+
+/// Convert CPI validation errors to Router errors
+impl From<solana_ibc_types::CpiValidationError> for RouterError {
+    fn from(err: solana_ibc_types::CpiValidationError) -> Self {
+        match err {
+            solana_ibc_types::CpiValidationError::InvalidSysvar => Self::InvalidSysvar,
+            solana_ibc_types::CpiValidationError::DirectCallNotAllowed => {
+                Self::DirectCallNotAllowed
+            }
+            solana_ibc_types::CpiValidationError::UnauthorizedCaller => Self::UnauthorizedSender,
+        }
+    }
 }

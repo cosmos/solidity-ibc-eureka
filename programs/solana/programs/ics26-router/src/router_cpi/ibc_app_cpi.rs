@@ -14,6 +14,7 @@ pub struct IbcAppCpiAccounts<'a> {
     pub ibc_app_program: AccountInfo<'a>,
     pub app_state: AccountInfo<'a>,
     pub router_program: AccountInfo<'a>,
+    pub instructions_sysvar: AccountInfo<'a>,
     pub payer: AccountInfo<'a>,
     pub system_program: AccountInfo<'a>,
 }
@@ -127,6 +128,7 @@ impl<'a> IbcAppCpi<'a> {
         let mut metas = vec![
             AccountMeta::new(*self.accounts.app_state.key, false),
             AccountMeta::new_readonly(*self.accounts.router_program.key, false),
+            AccountMeta::new_readonly(*self.accounts.instructions_sysvar.key, false),
             AccountMeta::new(*self.accounts.payer.key, true),
             AccountMeta::new_readonly(*self.accounts.system_program.key, false),
         ];
@@ -144,6 +146,7 @@ impl<'a> IbcAppCpi<'a> {
         let mut infos = vec![
             self.accounts.app_state.clone(),
             self.accounts.router_program.clone(),
+            self.accounts.instructions_sysvar.clone(),
             self.accounts.payer.clone(),
             self.accounts.system_program.clone(),
         ];

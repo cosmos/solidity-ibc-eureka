@@ -5,6 +5,7 @@
 //! light client types (ICS07), and Solana-specific PDA utilities.
 
 pub mod app_msgs;
+pub mod cpi;
 pub mod events;
 pub mod ibc_app_interface;
 pub mod ics07;
@@ -26,7 +27,10 @@ pub use router::{
 
 pub use ics07::{ics07_instructions, ClientState, ConsensusState, IbcHeight, UpdateClientMsg};
 
-pub use ics27::{GMPAppState, GmpAccountState};
+pub use ics27::{
+    ClientId, ConstrainedBytes, ConstrainedError, ConstrainedString, ConstrainedVec, GMPAccount,
+    GMPAppState, GMPPacketError, Salt, SignerSeeds, ValidatedGmpPacketData,
+};
 
 pub use events::{
     AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded, NoopEvent, SendPacketEvent,
@@ -34,3 +38,6 @@ pub use events::{
 };
 
 pub use ibc_app_interface::ibc_app_instructions;
+
+pub use cpi::{validate_cpi_caller, CpiValidationError};
+pub use utils::compute_discriminator;

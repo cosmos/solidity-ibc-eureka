@@ -11,6 +11,7 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
+	malicious_caller "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/maliciouscaller"
 	"github.com/stretchr/testify/suite"
 
 	solanago "github.com/gagliardetto/solana-go"
@@ -59,11 +60,14 @@ const (
 	SPLTokenTransferAmount = uint64(1_000_000)  // 1 token
 	// Test amounts
 	CosmosTestAmount = int64(1000) // stake denom
+	// Dummy target program ID for security tests
+	DummyTargetProgramID = "4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi"
 )
 
 // gmpAccountPDA derives GMP account PDA with sender hash
 // This is a specialized PDA that uses SHA256 hashing and is not in the IDL.
-// See: programs/solana/programs/ics27-gmp/src/state.rs - AccountState::derive_address
+// GMP accounts are stateless - no account storage, only PDA validation.
+// See: packages/solana-ibc-types/src/ics27.rs - GMPAccount::new
 func gmpAccountPDA(programID solanago.PublicKey, clientID string, sender string, salt []byte) (solanago.PublicKey, uint8) {
 	hasher := sha256.New()
 	hasher.Write([]byte(sender))
@@ -116,15 +120,10 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 		// Find GMP app state PDA (using standard pattern with port_id)
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 
-		// Find router caller PDA
-		routerCallerPDA, _ := solana.Ics27Gmp.RouterCallerPDA(ics27_gmp.ProgramID)
-
-		// Initialize ICS27 GMP app using the actual generated bindings
+		// Initialize ICS27 GMP app using the fixed version (see instructions-fixed.go)
 		// Using GMP port for proper GMP functionality
-		initInstruction, err := ics27_gmp.NewInitializeInstruction(
-			ics26_router.ProgramID,   // router program
+		initInstruction, err := ics27_gmp.NewInitializeInstructionFixed(
 			gmpAppStatePDA,           // app state account
-			routerCallerPDA,          // router caller account
 			s.SolanaUser.PublicKey(), // payer
 			s.SolanaUser.PublicKey(), // authority
 			solanago.SystemProgramID, // system program
@@ -209,18 +208,18 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	var relayGMPPacket func(cosmosGMPTxHash []byte, userLabel string) solanago.Signature
 
 	s.Require().True(s.Run("Setup User Identities and Helpers", func() {
-		// We don't need separate Solana user keys - the ICS27 account_state PDAs are the identities
-		// The user counter PDAs are derived from the ICS27 account_state PDAs
+		// We don't need separate Solana user keys - the GMP account PDAs are the identities
+		// The user counter PDAs are derived from the GMP account PDAs
 
 		// Helper to get counter value for a Cosmos user
-		// This derives the ICS27 account_state PDA, then the user counter PDA from that
+		// This derives the GMP account PDA, then the user counter PDA from that
 		getCounterValue = func(cosmosUserAddress string) uint64 {
-			// Derive ICS27 account_state PDA for this Cosmos user
+			// Derive GMP account PDA for this Cosmos user (no storage, just PDA validation)
 			salt := []byte{} // Empty salt for this test
 
-			ics27AccountPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, CosmosClientID, cosmosUserAddress, salt)
+			ics27AccountPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosUserAddress, salt)
 
-			// Derive user counter PDA from ICS27 account_state PDA
+			// Derive user counter PDA from GMP account PDA
 			userCounterPDA, _ := solana.GmpCounterApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
 
 			// Use confirmed commitment to match relay transaction confirmation level
@@ -243,12 +242,12 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 			simd := s.CosmosChains[0]
 
-			// Derive the ICS27 account_state PDA for this Cosmos user
-			// This PDA is the authority that signs for the counter operations
+			// Derive the GMP account PDA for this Cosmos user
+			// This PDA is the authority that signs for the counter operations (stateless, no storage)
 			cosmosAddress := cosmosUser.FormattedAddress()
 			salt := []byte{} // Empty salt for this test
 
-			ics27AccountPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, CosmosClientID, cosmosAddress, salt)
+			ics27AccountPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosAddress, salt)
 
 			// Create the raw instruction data (just discriminator + amount, no user pubkey)
 			incrementInstructionData := []byte{}
@@ -261,21 +260,20 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			// 1. Counter app_state PDA
 			counterAppStateAddress, _ := solana.GmpCounterApp.CounterAppStatePDA(gmpCounterProgramID)
 
-			// 2. User counter PDA - derived from the ICS27 account_state PDA (not userKey)
+			// 2. User counter PDA - derived from the GMP account PDA (stateless identity)
 			userCounterAddress, _ := solana.GmpCounterApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
 
-			// Create SolanaInstruction protobuf message
+			// Create GMPSolanaPayload protobuf message
 			// Note: PayerPosition = 3 means inject at index 3 (0-indexed)
 			// The payer (relayer) is injected by GMP program since Cosmos doesn't know relayer's address
 			payerPosition := uint32(3)
-			solanaInstruction := &solanatypes.SolanaInstruction{
-				ProgramId: gmpCounterProgramID.Bytes(),
-				Data:      incrementInstructionData,
+			solanaInstruction := &solanatypes.GMPSolanaPayload{
+				Data: incrementInstructionData,
 				Accounts: []*solanatypes.SolanaAccountMeta{
 					// Required accounts for increment instruction (matches IncrementCounter struct order)
 					{Pubkey: counterAppStateAddress.Bytes(), IsSigner: false, IsWritable: true}, // [0] counter app_state
 					{Pubkey: userCounterAddress.Bytes(), IsSigner: false, IsWritable: true},     // [1] user_counter
-					{Pubkey: ics27AccountPDA.Bytes(), IsSigner: true, IsWritable: false},        // [2] user_authority (ICS27 account_state PDA signs via invoke_signed)
+					{Pubkey: ics27AccountPDA.Bytes(), IsSigner: true, IsWritable: false},        // [2] user_authority (GMP account PDA signs via invoke_signed, stateless)
 					// [3] payer will be injected at index 3 by GMP program
 					{Pubkey: solanago.SystemProgramID.Bytes(), IsSigner: false, IsWritable: false}, // [4] system_program (shifts to index 4)
 				},
@@ -380,6 +378,26 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 		s.T().Logf("User0: Counter successfully incremented from %d to %d", initialCounterUser0, newCounter)
 	}))
 
+	// User 0 increments again (to test that existing account works correctly)
+	var cosmosGMPTxHashUser0Second []byte
+	s.Require().True(s.Run("User0: Send second GMP increment call from Cosmos", func() {
+		cosmosGMPTxHashUser0Second = sendGMPIncrement(s.CosmosUsers[0], 7) // Increment by 7 for variety
+		s.Require().NotEmpty(cosmosGMPTxHashUser0Second)
+	}))
+
+	var solanaRelayTxSigUser0Second solanago.Signature
+	s.Require().True(s.Run("User0: Relay and execute second GMP packet on Solana", func() {
+		solanaRelayTxSigUser0Second = relayGMPPacket(cosmosGMPTxHashUser0Second, "User0 (second)")
+	}))
+
+	var afterSecondIncrement uint64
+	s.Require().True(s.Run("User0: Verify counter was incremented again", func() {
+		afterSecondIncrement = getCounterValue(s.CosmosUsers[0].FormattedAddress())
+		expectedCounter := initialCounterUser0 + DefaultIncrementAmount + 7
+		s.Require().Equal(expectedCounter, afterSecondIncrement)
+		s.T().Logf("User0: Counter successfully incremented from %d to %d (second increment by 7)", initialCounterUser0+DefaultIncrementAmount, afterSecondIncrement)
+	}))
+
 	// Now send increment from User 1
 	var cosmosGMPTxHashUser1 []byte
 	s.Require().True(s.Run("User1: Send GMP increment call from Cosmos", func() {
@@ -404,22 +422,22 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 		finalCounterUser0 := getCounterValue(s.CosmosUsers[0].FormattedAddress())
 		finalCounterUser1 := getCounterValue(s.CosmosUsers[1].FormattedAddress())
 
-		// User 0 should have: initial + DefaultIncrementAmount (5)
-		expectedFinalUser0 := initialCounterUser0 + DefaultIncrementAmount
+		// User 0 should have: initial + DefaultIncrementAmount (5) + 7
+		expectedFinalUser0 := initialCounterUser0 + DefaultIncrementAmount + 7
 		s.Require().Equal(expectedFinalUser0, finalCounterUser0)
 
 		// User 1 should have: initial + 3
 		expectedFinalUser1 := initialCounterUser1 + 3
 		s.Require().Equal(expectedFinalUser1, finalCounterUser1)
 
-		s.T().Logf("Final counter states - User0: %d (expected: %d), User1: %d (expected: %d)",
+		s.T().Logf("Final counter states - User0: %d (expected: %d, incremented twice), User1: %d (expected: %d)",
 			finalCounterUser0, expectedFinalUser0, finalCounterUser1, expectedFinalUser1)
 	}))
 
 	s.Require().True(s.Run("Relay acknowledgments back to Cosmos", func() {
 		simd := s.CosmosChains[0]
 
-		s.Require().True(s.Run("Relay User0 acknowledgment", func() {
+		s.Require().True(s.Run("Relay User0 first acknowledgment", func() {
 			var ackRelayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
 				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -431,14 +449,38 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
-				s.T().Logf("Retrieved User0 GMP acknowledgment relay transaction")
+				s.T().Logf("Retrieved User0 first GMP acknowledgment relay transaction")
 
 				ackRelayTxBodyBz = resp.Tx
 			}))
 
 			s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
 				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
-				s.T().Logf("User0 GMP acknowledgment relay transaction: %s (code: %d, gas: %d)",
+				s.T().Logf("User0 first GMP acknowledgment relay transaction: %s (code: %d, gas: %d)",
+					relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
+			}))
+		}))
+
+		s.Require().True(s.Run("Relay User0 second acknowledgment", func() {
+			var ackRelayTxBodyBz []byte
+			s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
+				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+					SrcChain:    testvalues.SolanaChainID,
+					DstChain:    simd.Config().ChainID,
+					SourceTxIds: [][]byte{[]byte(solanaRelayTxSigUser0Second.String())},
+					SrcClientId: SolanaClientID,
+					DstClientId: CosmosClientID,
+				})
+				s.Require().NoError(err)
+				s.Require().NotEmpty(resp.Tx)
+				s.T().Logf("Retrieved User0 second GMP acknowledgment relay transaction")
+
+				ackRelayTxBodyBz = resp.Tx
+			}))
+
+			s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
+				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
+				s.T().Logf("User0 second GMP acknowledgment relay transaction: %s (code: %d, gas: %d)",
 					relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
 			}))
 		}))
@@ -503,7 +545,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		}))
 
 		s.Require().True(s.Run("Derive ICS27 Account PDA", func() {
-			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, CosmosClientID, cosmosUser.FormattedAddress(), []byte{})
+			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosUser.FormattedAddress(), []byte{})
 			s.T().Logf("ICS27 Account PDA for Cosmos user: %s", ics27AccountPDA.String())
 		}))
 
@@ -557,13 +599,12 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		instructionData, err := splTransferInstruction.Data()
 		s.Require().NoError(err)
 
-		// Create SolanaInstruction protobuf
+		// Create GMPSolanaPayload protobuf
 		// Note: PayerPosition is left unset (nil) - NO payer injection since SPL Transfer doesn't create accounts
 		// SPL Transfer requires exactly 3 accounts: source, destination, authority
 		// The authority (ICS27 PDA) must be marked as PDA_SIGNER so GMP program builds CPI with it as signer
-		solanaInstruction := &solanatypes.SolanaInstruction{
-			ProgramId: token.ProgramID.Bytes(),
-			Data:      instructionData,
+		solanaInstruction := &solanatypes.GMPSolanaPayload{
+			Data: instructionData,
 			Accounts: []*solanatypes.SolanaAccountMeta{
 				{Pubkey: sourceTokenAccount.Bytes(), IsSigner: false, IsWritable: true}, // [0] source
 				{Pubkey: destTokenAccount.Bytes(), IsSigner: false, IsWritable: true},   // [1] destination
@@ -760,11 +801,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			s.T().Logf("Encoded GMP payload (%d bytes)", len(payload))
 		}))
 
-		var gmpAppStatePDA, routerStatePDA, routerCallerPDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
+		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-			routerCallerPDA, _ = solana.Ics27Gmp.RouterCallerPDA(ics27_gmp.ProgramID)
 			clientPDA, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			ibcAppPDA, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
 			clientSequencePDA, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -790,10 +830,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		s.Require().True(s.Run("Build send_call instruction", func() {
 			var err error
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
-				ics27_gmp.SendCallMsg{
+				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
 					TimeoutTimestamp: int64(timeout),
-					Receiver:         solanago.PublicKey{},
+					Receiver:         "", // Target program on Cosmos (empty for native modules)
 					Salt:             []byte{},
 					Payload:          payload,
 					Memo:             "send from Solana to Cosmos",
@@ -805,7 +845,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 				routerStatePDA,
 				clientSequencePDA,
 				packetCommitmentPDA,
-				routerCallerPDA,
+				solanago.SysVarInstructionsPubkey,
 				ibcAppPDA,
 				clientPDA,
 				solanago.SystemProgramID,
@@ -1043,11 +1083,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			s.T().Logf("Encoded GMP payload (%d bytes)", len(payload))
 		}))
 
-		var gmpAppStatePDA, routerStatePDA, routerCallerPDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
+		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-			routerCallerPDA, _ = solana.Ics27Gmp.RouterCallerPDA(ics27_gmp.ProgramID)
 			clientPDA, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			ibcAppPDA, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
 			clientSequencePDA, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -1079,10 +1118,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			s.T().Logf("Setting timeout to: %d (solana_clock=%d + 35 seconds)", timeout, solanaClockTime)
 
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
-				ics27_gmp.SendCallMsg{
+				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
 					TimeoutTimestamp: int64(timeout),
-					Receiver:         solanago.PublicKey{},
+					Receiver:         "", // Target program on Cosmos (empty for native modules)
 					Salt:             []byte{},
 					Payload:          payload,
 					Memo:             "timeout test from Solana",
@@ -1094,7 +1133,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 				routerStatePDA,
 				clientSequencePDA,
 				packetCommitmentPDA,
-				routerCallerPDA,
+				solanago.SysVarInstructionsPubkey,
 				ibcAppPDA,
 				clientPDA,
 				solanago.SystemProgramID,
@@ -1210,7 +1249,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 // 2. Send Packet (Cosmos → Solana)
 //   - Cosmos sends IBC packet via MsgSendCall
 //   - Packet type: GMP call packet (ICS27 general message passing)
-//   - Payload: Protobuf-encoded SolanaInstruction (SPL token transfer: 1M tokens from ICS27 account to recipient)
+//   - Payload: Protobuf-encoded GMPSolanaPayload (SPL token transfer: 1M tokens from ICS27 account to recipient)
 //   - Timeout: 35 seconds from current time
 //   - Packet commitment created on Cosmos (stores hash of packet data)
 //
@@ -1293,7 +1332,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 		}))
 
 		s.Require().True(s.Run("Derive ICS27 Account PDA", func() {
-			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, CosmosClientID, cosmosUser.FormattedAddress(), []byte{})
+			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosUser.FormattedAddress(), []byte{})
 			s.T().Logf("ICS27 Account PDA: %s", ics27AccountPDA.String())
 		}))
 
@@ -1335,10 +1374,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 		instructionData, err := splTransferInstruction.Data()
 		s.Require().NoError(err)
 
-		// Create SolanaInstruction protobuf
-		solanaInstruction := &solanatypes.SolanaInstruction{
-			ProgramId: token.ProgramID.Bytes(),
-			Data:      instructionData,
+		// Create GMPSolanaPayload protobuf
+		solanaInstruction := &solanatypes.GMPSolanaPayload{
+			Data: instructionData,
 			Accounts: []*solanatypes.SolanaAccountMeta{
 				{Pubkey: sourceTokenAccount.Bytes(), IsSigner: false, IsWritable: true},
 				{Pubkey: destTokenAccount.Bytes(), IsSigner: false, IsWritable: true},
@@ -1529,7 +1567,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 		}))
 
 		s.Require().True(s.Run("Derive ICS27 Account PDA", func() {
-			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, CosmosClientID, cosmosUser.FormattedAddress(), []byte{})
+			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosUser.FormattedAddress(), []byte{})
 			s.T().Logf("ICS27 Account PDA for Cosmos user: %s", ics27AccountPDA.String())
 		}))
 
@@ -1564,7 +1602,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 
 	// Record initial state
 	var initialSourceBalance, initialDestBalance uint64
-	var initialNonce uint64
 
 	s.Require().True(s.Run("Record Initial State", func() {
 		var err error
@@ -1577,11 +1614,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 		s.Require().NoError(err)
 		s.Require().Equal(uint64(0), initialDestBalance)
 
-		// Try to get initial nonce (will be 0 if account doesn't exist yet)
-		initialNonce = s.SolanaChain.GetICS27AccountNonce(ctx, ics27AccountPDA)
-
-		s.T().Logf("Initial state - Source: %d tokens, Dest: %d tokens, Nonce: %d",
-			initialSourceBalance, initialDestBalance, initialNonce)
+		s.T().Logf("Initial state - Source: %d tokens, Dest: %d tokens",
+			initialSourceBalance, initialDestBalance)
 	}))
 
 	// Send GMP call that will fail (requesting more tokens than available)
@@ -1602,10 +1636,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 		instructionData, err := splTransferInstruction.Data()
 		s.Require().NoError(err)
 
-		// Create SolanaInstruction protobuf
-		solanaInstruction := &solanatypes.SolanaInstruction{
-			ProgramId: token.ProgramID.Bytes(),
-			Data:      instructionData,
+		// Create GMPSolanaPayload protobuf
+		solanaInstruction := &solanatypes.GMPSolanaPayload{
+			Data: instructionData,
 			Accounts: []*solanatypes.SolanaAccountMeta{
 				{Pubkey: sourceTokenAccount.Bytes(), IsSigner: false, IsWritable: true},
 				{Pubkey: destTokenAccount.Bytes(), IsSigner: false, IsWritable: true},
@@ -1763,11 +1796,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 			s.T().Logf("Encoded GMP payload (%d bytes) - will fail due to insufficient balance", len(payload))
 		}))
 
-		var gmpAppStatePDA, routerStatePDA, routerCallerPDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
+		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-			routerCallerPDA, _ = solana.Ics27Gmp.RouterCallerPDA(ics27_gmp.ProgramID)
 			clientPDA, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			ibcAppPDA, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
 			clientSequencePDA, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -1790,10 +1822,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 		s.Require().True(s.Run("Build send_call instruction", func() {
 			var err error
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
-				ics27_gmp.SendCallMsg{
+				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
 					TimeoutTimestamp: int64(timeout),
-					Receiver:         solanago.PublicKey{},
+					Receiver:         "", // Target program on Cosmos (empty for native modules)
 					Salt:             []byte{},
 					Payload:          payload,
 					Memo:             "send from Solana to Cosmos (will fail on execution)",
@@ -1805,7 +1837,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 				routerStatePDA,
 				clientSequencePDA,
 				packetCommitmentPDA,
-				routerCallerPDA,
+				solanago.SysVarInstructionsPubkey,
 				ibcAppPDA,
 				clientPDA,
 				solanago.SystemProgramID,
@@ -1911,5 +1943,479 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 
 		s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, usedSequence)
 		s.T().Logf("Verified packet commitment deleted for sequence %d", usedSequence)
+	}))
+}
+
+// Test_GMPCPISecurity verifies that all GMP IBC callbacks properly validate
+// their callers through TWO security layers:
+// 1. Direct call protection - Validates router_program account parameter
+// 2. CPI protection - Validates calling instruction's program_id via instructions sysvar
+//
+// Callbacks Tested:
+// 1. on_recv_packet - Should reject both unauthorized direct calls and CPIs
+// 2. on_acknowledgement_packet - Should reject both unauthorized direct calls and CPIs
+// 3. on_timeout_packet - Should reject both unauthorized direct calls and CPIs
+//
+// Attack Pattern 1 (Direct Call):
+// 1. Build GMP instruction with malicious_caller as router_program
+// 2. Call it directly without CPI
+// 3. GMP should check router_program account and reject
+//
+// Attack Pattern 2 (Unauthorized CPI):
+// 1. E2E test builds a legitimate GMP instruction
+// 2. Test wraps it in a proxy_cpi call from malicious_caller
+// 3. Malicious_caller forwards the CPI to GMP
+// 4. GMP should check instructions sysvar and reject the call
+//
+// Security Property:
+// Target programs MUST validate BOTH:
+// 1. The router_program account parameter (basic account validation)
+// 2. The calling instruction's program_id via instructions sysvar (CPI validation)
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
+	ctx := context.Background()
+
+	s.UseMockWasmClient = true
+	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
+
+	maliciousCallerProgramID := s.MaliciousCallerProgramID
+	s.T().Logf("Using malicious caller program: %s", maliciousCallerProgramID)
+
+	// Helper function to create proxy CPI instruction from any GMP instruction
+	createProxyInstruction := func(gmpInstruction solanago.Instruction) (*solanago.GenericInstruction, error) {
+		instructionData, err := gmpInstruction.Data()
+		if err != nil {
+			return nil, err
+		}
+
+		accountMetas := make([]malicious_caller.MaliciousCallerCpiAccountMeta, len(gmpInstruction.Accounts()))
+		for i, acc := range gmpInstruction.Accounts() {
+			accountMetas[i] = malicious_caller.MaliciousCallerCpiAccountMeta{
+				IsSigner:   acc.IsSigner,
+				IsWritable: acc.IsWritable,
+			}
+		}
+
+		proxyIx, err := malicious_caller.NewProxyCpiInstruction(
+			instructionData,
+			accountMetas,
+			ics27_gmp.ProgramID,
+			s.SolanaUser.PublicKey(),
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		genericIx := proxyIx.(*solanago.GenericInstruction)
+		for _, acc := range gmpInstruction.Accounts() {
+			genericIx.AccountValues = append(genericIx.AccountValues, acc)
+		}
+
+		return genericIx, nil
+	}
+
+	// ========================================================================
+	// Test 1A: on_recv_packet - Direct Call Attack
+	// ========================================================================
+	s.Require().True(s.Run("Test on_recv_packet - Should Reject Direct Call", func() {
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+
+		mockPacketData := gmptypes.GMPPacketData{
+			Sender:   "cosmos1test",
+			Receiver: s.SolanaUser.PublicKey().String(),
+			Salt:     []byte{},
+			Payload:  []byte("test payload"),
+			Memo:     "",
+		}
+
+		packetDataBytes, err := proto.Marshal(&mockPacketData)
+		s.Require().NoError(err)
+
+		mockMsg := ics27_gmp.SolanaIbcTypesAppMsgsOnRecvPacketMsg{
+			SourceClient: "cosmos-1",
+			DestClient:   SolanaClientID,
+			Sequence:     1,
+			Payload: ics27_gmp.SolanaIbcTypesAppMsgsPayload{
+				SourcePort: GMPPortID,
+				DestPort:   GMPPortID,
+				Version:    testvalues.Ics27Version,
+				Encoding:   testvalues.Ics27ProtobufEncoding,
+				Value:      packetDataBytes,
+			},
+			Relayer: s.SolanaUser.PublicKey(),
+		}
+
+		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
+		// This tests that validate_cpi_caller checks the instructions sysvar to detect direct calls
+		dummyTargetProgram := solanago.MustPublicKeyFromBase58(DummyTargetProgramID)
+		gmpIx, err := ics27_gmp.NewOnRecvPacketInstruction(
+			mockMsg,
+			gmpAppStatePDA,
+			ics26_router.ProgramID, // Correct router, but we're calling directly!
+			solanago.SysVarInstructionsPubkey,
+			s.SolanaUser.PublicKey(),
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		// Derive GMP account PDA for remaining accounts
+		gmpAcctPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, "cosmos1test", []byte{})
+
+		// Add remaining accounts manually: gmp_account_pda and target_program
+		if ix, ok := gmpIx.(*solanago.GenericInstruction); ok {
+			ix.AccountValues = append(ix.AccountValues,
+				solanago.Meta(gmpAcctPDA).WRITE(), // [0] gmp_account_pda (writable for CPI signer)
+				solanago.Meta(dummyTargetProgram), // [1] target_program (readonly)
+			)
+		}
+
+		s.T().Log("Attempting direct call to on_recv_packet (bypassing router)...")
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), gmpIx)
+		s.Require().NoError(err)
+
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaUser)
+
+		// Should FAIL - validate_cpi_caller detects direct call via instructions sysvar
+		s.Require().Error(err, "on_recv_packet should reject direct call")
+		s.T().Logf("✓ on_recv_packet rejected direct call (tx: %s)", sig)
+		s.T().Logf("  Error: %v", err)
+
+		// Verify it failed with DirectCallNotAllowed error
+		s.Require().Contains(err.Error(), "12020",
+			"Should fail with error code 12020 (DirectCallNotAllowed)")
+
+		s.T().Log("✓ on_recv_packet SECURE - detects direct calls via instructions sysvar")
+	}))
+
+	// ========================================================================
+	// Test 1B: on_recv_packet - CPI Attack
+	// ========================================================================
+	s.Require().True(s.Run("Test on_recv_packet - Should Reject Unauthorized CPI", func() {
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+
+		mockPacketData := gmptypes.GMPPacketData{
+			Sender:   "cosmos1test",
+			Receiver: s.SolanaUser.PublicKey().String(),
+			Salt:     []byte{},
+			Payload:  []byte("test payload"),
+			Memo:     "",
+		}
+
+		packetDataBytes, err := proto.Marshal(&mockPacketData)
+		s.Require().NoError(err)
+
+		mockMsg := ics27_gmp.SolanaIbcTypesAppMsgsOnRecvPacketMsg{
+			SourceClient: "cosmos-1",
+			DestClient:   SolanaClientID,
+			Sequence:     1,
+			Payload: ics27_gmp.SolanaIbcTypesAppMsgsPayload{
+				SourcePort: GMPPortID,
+				DestPort:   GMPPortID,
+				Version:    testvalues.Ics27Version,
+				Encoding:   testvalues.Ics27ProtobufEncoding,
+				Value:      packetDataBytes,
+			},
+			Relayer: s.SolanaUser.PublicKey(),
+		}
+
+		// Build instruction with CORRECT router_program
+		dummyTargetProgram := solanago.MustPublicKeyFromBase58(DummyTargetProgramID)
+		gmpIx, err := ics27_gmp.NewOnRecvPacketInstruction(
+			mockMsg,
+			gmpAppStatePDA,
+			ics26_router.ProgramID, // Correct router
+			solanago.SysVarInstructionsPubkey,
+			s.SolanaUser.PublicKey(),
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		// Derive GMP account PDA for remaining accounts
+		gmpAcctPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, "cosmos1test", []byte{})
+
+		// Add remaining accounts manually: gmp_account_pda and target_program
+		if ix, ok := gmpIx.(*solanago.GenericInstruction); ok {
+			ix.AccountValues = append(ix.AccountValues,
+				solanago.Meta(gmpAcctPDA).WRITE(), // [0] gmp_account_pda (writable for CPI signer)
+				solanago.Meta(dummyTargetProgram), // [1] target_program (readonly)
+			)
+		}
+
+		// Wrap in proxy CPI
+		proxyIx, err := createProxyInstruction(gmpIx)
+		s.Require().NoError(err)
+
+		s.T().Log("Attempting unauthorized CPI to on_recv_packet...")
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), proxyIx)
+		s.Require().NoError(err)
+
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaUser)
+
+		// Should FAIL - on_recv_packet has instructions sysvar validation
+		s.Require().Error(err, "on_recv_packet should reject unauthorized CPI")
+		s.T().Logf("✓ on_recv_packet rejected unauthorized CPI (tx: %s)", sig)
+		s.T().Logf("  Error: %v", err)
+
+		// Verify it failed with UnauthorizedRouter error
+		s.Require().Contains(err.Error(), "12019",
+			"Should fail with error code 12019 (UnauthorizedRouter)")
+
+		s.T().Log("✓ on_recv_packet SECURE - validates CPI caller via instructions sysvar")
+	}))
+
+	// ========================================================================
+	// Test 2A: on_ack_packet - Direct Call Attack
+	// ========================================================================
+	s.Require().True(s.Run("Test on_ack_packet - Should Reject Direct Call", func() {
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+
+		mockPacketData := gmptypes.GMPPacketData{
+			Sender:   "cosmos1test",
+			Receiver: s.SolanaUser.PublicKey().String(),
+			Salt:     []byte{},
+			Payload:  []byte("test payload"),
+			Memo:     "",
+		}
+
+		packetDataBytes, err := proto.Marshal(&mockPacketData)
+		s.Require().NoError(err)
+
+		mockMsg := ics27_gmp.SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg{
+			SourceClient: "cosmos-1",
+			DestClient:   SolanaClientID,
+			Sequence:     1,
+			Payload: ics27_gmp.SolanaIbcTypesAppMsgsPayload{
+				SourcePort: GMPPortID,
+				DestPort:   GMPPortID,
+				Version:    testvalues.Ics27Version,
+				Encoding:   testvalues.Ics27ProtobufEncoding,
+				Value:      packetDataBytes,
+			},
+			Acknowledgement: []byte("test ack"),
+			Relayer:         s.SolanaUser.PublicKey(),
+		}
+
+		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
+		gmpIx, err := ics27_gmp.NewOnAcknowledgementPacketInstruction(
+			mockMsg,
+			gmpAppStatePDA,
+			ics26_router.ProgramID,            // Correct router, but we're calling directly!
+			solanago.SysVarInstructionsPubkey, // instruction_sysvar
+			s.SolanaUser.PublicKey(),
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		s.T().Log("Attempting direct call to on_ack_packet (bypassing router)...")
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), gmpIx)
+		s.Require().NoError(err)
+
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaUser)
+
+		// Should FAIL - validate_cpi_caller detects direct call via instructions sysvar
+		s.Require().Error(err, "on_ack_packet should reject direct call")
+		s.T().Logf("✓ on_ack_packet rejected direct call (tx: %s)", sig)
+		s.T().Logf("  Error: %v", err)
+
+		// Verify it failed with DirectCallNotAllowed error
+		s.Require().Contains(err.Error(), "12020",
+			"Should fail with error code 12020 (DirectCallNotAllowed)")
+
+		s.T().Log("✓ on_ack_packet SECURE - detects direct calls via instructions sysvar")
+	}))
+
+	// ========================================================================
+	// Test 2B: on_ack_packet - CPI Attack
+	// ========================================================================
+	s.Require().True(s.Run("Test on_ack_packet - Check CPI Validation", func() {
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+
+		mockPacketData := gmptypes.GMPPacketData{
+			Sender:   "cosmos1test",
+			Receiver: s.SolanaUser.PublicKey().String(),
+			Salt:     []byte{},
+			Payload:  []byte("test payload"),
+			Memo:     "",
+		}
+
+		packetDataBytes, err := proto.Marshal(&mockPacketData)
+		s.Require().NoError(err)
+
+		mockMsg := ics27_gmp.SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg{
+			SourceClient: "cosmos-1",
+			DestClient:   SolanaClientID,
+			Sequence:     1,
+			Payload: ics27_gmp.SolanaIbcTypesAppMsgsPayload{
+				SourcePort: GMPPortID,
+				DestPort:   GMPPortID,
+				Version:    testvalues.Ics27Version,
+				Encoding:   testvalues.Ics27ProtobufEncoding,
+				Value:      packetDataBytes,
+			},
+			Acknowledgement: []byte("test ack"),
+			Relayer:         s.SolanaUser.PublicKey(),
+		}
+
+		// Build instruction with CORRECT router_program
+		gmpIx, err := ics27_gmp.NewOnAcknowledgementPacketInstruction(
+			mockMsg,
+			gmpAppStatePDA,
+			ics26_router.ProgramID,            // Correct router
+			solanago.SysVarInstructionsPubkey, // instruction_sysvar
+			s.SolanaUser.PublicKey(),
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		// Wrap in proxy CPI
+		proxyIx, err := createProxyInstruction(gmpIx)
+		s.Require().NoError(err)
+
+		s.T().Log("Attempting unauthorized CPI to on_ack_packet...")
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), proxyIx)
+		s.Require().NoError(err)
+
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaUser)
+
+		// Should FAIL - on_ack_packet has instructions sysvar validation
+		s.Require().Error(err, "on_ack_packet should reject unauthorized CPI")
+		s.T().Logf("✓ on_ack_packet rejected unauthorized CPI (tx: %s)", sig)
+		s.T().Logf("  Error: %v", err)
+
+		// Verify it failed with UnauthorizedRouter error
+		s.Require().Contains(err.Error(), "12019",
+			"Should fail with error code 12019 (UnauthorizedRouter)")
+
+		s.T().Log("✓ on_ack_packet SECURE - validates CPI caller via instructions sysvar")
+	}))
+
+	// ========================================================================
+	// Test 3A: on_timeout_packet - Direct Call Attack
+	// ========================================================================
+	s.Require().True(s.Run("Test on_timeout_packet - Should Reject Direct Call", func() {
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+
+		mockPacketData := gmptypes.GMPPacketData{
+			Sender:   "cosmos1test",
+			Receiver: s.SolanaUser.PublicKey().String(),
+			Salt:     []byte{},
+			Payload:  []byte("test payload"),
+			Memo:     "",
+		}
+
+		packetDataBytes, err := proto.Marshal(&mockPacketData)
+		s.Require().NoError(err)
+
+		mockMsg := ics27_gmp.SolanaIbcTypesAppMsgsOnTimeoutPacketMsg{
+			SourceClient: "cosmos-1",
+			DestClient:   SolanaClientID,
+			Sequence:     1,
+			Payload: ics27_gmp.SolanaIbcTypesAppMsgsPayload{
+				SourcePort: GMPPortID,
+				DestPort:   GMPPortID,
+				Version:    testvalues.Ics27Version,
+				Encoding:   testvalues.Ics27ProtobufEncoding,
+				Value:      packetDataBytes,
+			},
+			Relayer: s.SolanaUser.PublicKey(),
+		}
+
+		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
+		gmpIx, err := ics27_gmp.NewOnTimeoutPacketInstruction(
+			mockMsg,
+			gmpAppStatePDA,
+			ics26_router.ProgramID,            // Correct router, but we're calling directly!
+			solanago.SysVarInstructionsPubkey, // instruction_sysvar
+			s.SolanaUser.PublicKey(),
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		s.T().Log("Attempting direct call to on_timeout_packet (bypassing router)...")
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), gmpIx)
+		s.Require().NoError(err)
+
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaUser)
+
+		// Should FAIL - validate_cpi_caller detects direct call via instructions sysvar
+		s.Require().Error(err, "on_timeout_packet should reject direct call")
+		s.T().Logf("✓ on_timeout_packet rejected direct call (tx: %s)", sig)
+		s.T().Logf("  Error: %v", err)
+
+		// Verify it failed with DirectCallNotAllowed error
+		s.Require().Contains(err.Error(), "12020",
+			"Should fail with error code 12020 (DirectCallNotAllowed)")
+
+		s.T().Log("✓ on_timeout_packet SECURE - detects direct calls via instructions sysvar")
+	}))
+
+	// ========================================================================
+	// Test 3B: on_timeout_packet - CPI Attack
+	// ========================================================================
+	s.Require().True(s.Run("Test on_timeout_packet - Check CPI Validation", func() {
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+
+		mockPacketData := gmptypes.GMPPacketData{
+			Sender:   "cosmos1test",
+			Receiver: s.SolanaUser.PublicKey().String(),
+			Salt:     []byte{},
+			Payload:  []byte("test payload"),
+			Memo:     "",
+		}
+
+		packetDataBytes, err := proto.Marshal(&mockPacketData)
+		s.Require().NoError(err)
+
+		mockMsg := ics27_gmp.SolanaIbcTypesAppMsgsOnTimeoutPacketMsg{
+			SourceClient: "cosmos-1",
+			DestClient:   SolanaClientID,
+			Sequence:     1,
+			Payload: ics27_gmp.SolanaIbcTypesAppMsgsPayload{
+				SourcePort: GMPPortID,
+				DestPort:   GMPPortID,
+				Version:    testvalues.Ics27Version,
+				Encoding:   testvalues.Ics27ProtobufEncoding,
+				Value:      packetDataBytes,
+			},
+			Relayer: s.SolanaUser.PublicKey(),
+		}
+
+		// Build instruction with CORRECT router_program
+		gmpIx, err := ics27_gmp.NewOnTimeoutPacketInstruction(
+			mockMsg,
+			gmpAppStatePDA,
+			ics26_router.ProgramID,            // Correct router
+			solanago.SysVarInstructionsPubkey, // instruction_sysvar
+			s.SolanaUser.PublicKey(),
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		// Wrap in proxy CPI
+		proxyIx, err := createProxyInstruction(gmpIx)
+		s.Require().NoError(err)
+
+		s.T().Log("Attempting unauthorized CPI to on_timeout_packet...")
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), proxyIx)
+		s.Require().NoError(err)
+
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaUser)
+
+		// Should FAIL - on_timeout_packet has instructions sysvar validation
+		s.Require().Error(err, "on_timeout_packet should reject unauthorized CPI")
+		s.T().Logf("✓ on_timeout_packet rejected unauthorized CPI (tx: %s)", sig)
+		s.T().Logf("  Error: %v", err)
+
+		// Verify it failed with UnauthorizedRouter error
+		s.Require().Contains(err.Error(), "12019",
+			"Should fail with error code 12019 (UnauthorizedRouter)")
+
+		s.T().Log("✓ on_timeout_packet SECURE - validates CPI caller via instructions sysvar")
 	}))
 }

@@ -11,1387 +11,8 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-// Account schema version
-type AccountVersion binary.BorshEnum
-
-const (
-	AccountVersion_V1 AccountVersion = iota
-)
-
-func (value AccountVersion) String() string {
-	switch value {
-	case AccountVersion_V1:
-		return "V1"
-	default:
-		return ""
-	}
-}
-
-// Client mapping client IDs to light client program IDs
-type Client struct {
-	// Schema version for upgrades
-	Version AccountVersion `json:"version"`
-
-	// The client identifier
-	ClientId string `json:"clientId"`
-
-	// The program ID of the light client
-	ClientProgramId solanago.PublicKey `json:"clientProgramId"`
-
-	// Counterparty chain information
-	CounterpartyInfo CounterpartyInfo `json:"counterpartyInfo"`
-
-	// Authority that registered this client
-	Authority solanago.PublicKey `json:"authority"`
-
-	// Whether the client is active
-	Active bool `json:"active"`
-
-	// Reserved space for future fields
-	Reserved [256]uint8 `json:"reserved"`
-}
-
-func (obj Client) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Version`:
-	err = encoder.Encode(obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `ClientProgramId`:
-	err = encoder.Encode(obj.ClientProgramId)
-	if err != nil {
-		return errors.NewField("ClientProgramId", err)
-	}
-	// Serialize `CounterpartyInfo`:
-	err = encoder.Encode(obj.CounterpartyInfo)
-	if err != nil {
-		return errors.NewField("CounterpartyInfo", err)
-	}
-	// Serialize `Authority`:
-	err = encoder.Encode(obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	// Serialize `Active`:
-	err = encoder.Encode(obj.Active)
-	if err != nil {
-		return errors.NewField("Active", err)
-	}
-	// Serialize `Reserved`:
-	err = encoder.Encode(obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
-	}
-	return nil
-}
-
-func (obj Client) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding Client: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *Client) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Version`:
-	err = decoder.Decode(&obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `ClientProgramId`:
-	err = decoder.Decode(&obj.ClientProgramId)
-	if err != nil {
-		return errors.NewField("ClientProgramId", err)
-	}
-	// Deserialize `CounterpartyInfo`:
-	err = decoder.Decode(&obj.CounterpartyInfo)
-	if err != nil {
-		return errors.NewField("CounterpartyInfo", err)
-	}
-	// Deserialize `Authority`:
-	err = decoder.Decode(&obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	// Deserialize `Active`:
-	err = decoder.Decode(&obj.Active)
-	if err != nil {
-		return errors.NewField("Active", err)
-	}
-	// Deserialize `Reserved`:
-	err = decoder.Decode(&obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
-	}
-	return nil
-}
-
-func (obj *Client) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling Client: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalClient(buf []byte) (*Client, error) {
-	obj := new(Client)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Client sequence tracking
-type ClientSequence struct {
-	// Schema version for upgrades
-	Version AccountVersion `json:"version"`
-
-	// Next sequence number for sending packets
-	NextSequenceSend uint64 `json:"nextSequenceSend"`
-
-	// Reserved space for future fields
-	Reserved [256]uint8 `json:"reserved"`
-}
-
-func (obj ClientSequence) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Version`:
-	err = encoder.Encode(obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Serialize `NextSequenceSend`:
-	err = encoder.Encode(obj.NextSequenceSend)
-	if err != nil {
-		return errors.NewField("NextSequenceSend", err)
-	}
-	// Serialize `Reserved`:
-	err = encoder.Encode(obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
-	}
-	return nil
-}
-
-func (obj ClientSequence) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding ClientSequence: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *ClientSequence) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Version`:
-	err = decoder.Decode(&obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Deserialize `NextSequenceSend`:
-	err = decoder.Decode(&obj.NextSequenceSend)
-	if err != nil {
-		return errors.NewField("NextSequenceSend", err)
-	}
-	// Deserialize `Reserved`:
-	err = decoder.Decode(&obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
-	}
-	return nil
-}
-
-func (obj *ClientSequence) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling ClientSequence: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalClientSequence(buf []byte) (*ClientSequence, error) {
-	obj := new(ClientSequence)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Counterparty chain information
-type CounterpartyInfo struct {
-	// Client ID on the counterparty chain
-	ClientId string `json:"clientId"`
-
-	// Merkle prefix for proof verification
-	MerklePrefix [][]byte `json:"merklePrefix"`
-}
-
-func (obj CounterpartyInfo) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `MerklePrefix`:
-	err = encoder.Encode(obj.MerklePrefix)
-	if err != nil {
-		return errors.NewField("MerklePrefix", err)
-	}
-	return nil
-}
-
-func (obj CounterpartyInfo) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding CounterpartyInfo: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *CounterpartyInfo) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `MerklePrefix`:
-	err = decoder.Decode(&obj.MerklePrefix)
-	if err != nil {
-		return errors.NewField("MerklePrefix", err)
-	}
-	return nil
-}
-
-func (obj *CounterpartyInfo) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling CounterpartyInfo: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalCounterpartyInfo(buf []byte) (*CounterpartyInfo, error) {
-	obj := new(CounterpartyInfo)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Dummy IBC App state
-type DummyIbcAppState struct {
-	// Authority that can perform restricted operations
-	Authority solanago.PublicKey `json:"authority"`
-
-	// Counter for received packets (for testing)
-	PacketsReceived uint64 `json:"packetsReceived"`
-
-	// Counter for acknowledged packets (for testing)
-	PacketsAcknowledged uint64 `json:"packetsAcknowledged"`
-
-	// Counter for timed out packets (for testing)
-	PacketsTimedOut uint64 `json:"packetsTimedOut"`
-
-	// Counter for sent packets (for testing transfers)
-	PacketsSent uint64 `json:"packetsSent"`
-}
-
-func (obj DummyIbcAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Authority`:
-	err = encoder.Encode(obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	// Serialize `PacketsReceived`:
-	err = encoder.Encode(obj.PacketsReceived)
-	if err != nil {
-		return errors.NewField("PacketsReceived", err)
-	}
-	// Serialize `PacketsAcknowledged`:
-	err = encoder.Encode(obj.PacketsAcknowledged)
-	if err != nil {
-		return errors.NewField("PacketsAcknowledged", err)
-	}
-	// Serialize `PacketsTimedOut`:
-	err = encoder.Encode(obj.PacketsTimedOut)
-	if err != nil {
-		return errors.NewField("PacketsTimedOut", err)
-	}
-	// Serialize `PacketsSent`:
-	err = encoder.Encode(obj.PacketsSent)
-	if err != nil {
-		return errors.NewField("PacketsSent", err)
-	}
-	return nil
-}
-
-func (obj DummyIbcAppState) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding DummyIbcAppState: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *DummyIbcAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Authority`:
-	err = decoder.Decode(&obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	// Deserialize `PacketsReceived`:
-	err = decoder.Decode(&obj.PacketsReceived)
-	if err != nil {
-		return errors.NewField("PacketsReceived", err)
-	}
-	// Deserialize `PacketsAcknowledged`:
-	err = decoder.Decode(&obj.PacketsAcknowledged)
-	if err != nil {
-		return errors.NewField("PacketsAcknowledged", err)
-	}
-	// Deserialize `PacketsTimedOut`:
-	err = decoder.Decode(&obj.PacketsTimedOut)
-	if err != nil {
-		return errors.NewField("PacketsTimedOut", err)
-	}
-	// Deserialize `PacketsSent`:
-	err = decoder.Decode(&obj.PacketsSent)
-	if err != nil {
-		return errors.NewField("PacketsSent", err)
-	}
-	return nil
-}
-
-func (obj *DummyIbcAppState) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling DummyIbcAppState: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalDummyIbcAppState(buf []byte) (*DummyIbcAppState, error) {
-	obj := new(DummyIbcAppState)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Escrow state to track SOL held for specific transfers
-type EscrowState struct {
-	// Client ID this escrow is for
-	ClientId string `json:"clientId"`
-
-	// Total amount currently held in escrow (in lamports)
-	TotalEscrowed uint64 `json:"totalEscrowed"`
-
-	// Number of active transfers
-	ActiveTransfers uint64 `json:"activeTransfers"`
-
-	// Authority that created this escrow
-	Authority solanago.PublicKey `json:"authority"`
-}
-
-func (obj EscrowState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `TotalEscrowed`:
-	err = encoder.Encode(obj.TotalEscrowed)
-	if err != nil {
-		return errors.NewField("TotalEscrowed", err)
-	}
-	// Serialize `ActiveTransfers`:
-	err = encoder.Encode(obj.ActiveTransfers)
-	if err != nil {
-		return errors.NewField("ActiveTransfers", err)
-	}
-	// Serialize `Authority`:
-	err = encoder.Encode(obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	return nil
-}
-
-func (obj EscrowState) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding EscrowState: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *EscrowState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `TotalEscrowed`:
-	err = decoder.Decode(&obj.TotalEscrowed)
-	if err != nil {
-		return errors.NewField("TotalEscrowed", err)
-	}
-	// Deserialize `ActiveTransfers`:
-	err = decoder.Decode(&obj.ActiveTransfers)
-	if err != nil {
-		return errors.NewField("ActiveTransfers", err)
-	}
-	// Deserialize `Authority`:
-	err = decoder.Decode(&obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	return nil
-}
-
-func (obj *EscrowState) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling EscrowState: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalEscrowState(buf []byte) (*EscrowState, error) {
-	obj := new(EscrowState)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// `IBCApp` mapping port IDs to IBC app program IDs
-type IbcApp struct {
-	// Schema version for upgrades
-	Version AccountVersion `json:"version"`
-
-	// The port identifier
-	PortId string `json:"portId"`
-
-	// The program ID of the IBC application
-	AppProgramId solanago.PublicKey `json:"appProgramId"`
-
-	// Authority that registered this port
-	Authority solanago.PublicKey `json:"authority"`
-
-	// Reserved space for future fields
-	Reserved [256]uint8 `json:"reserved"`
-}
-
-func (obj IbcApp) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Version`:
-	err = encoder.Encode(obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Serialize `PortId`:
-	err = encoder.Encode(obj.PortId)
-	if err != nil {
-		return errors.NewField("PortId", err)
-	}
-	// Serialize `AppProgramId`:
-	err = encoder.Encode(obj.AppProgramId)
-	if err != nil {
-		return errors.NewField("AppProgramId", err)
-	}
-	// Serialize `Authority`:
-	err = encoder.Encode(obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	// Serialize `Reserved`:
-	err = encoder.Encode(obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
-	}
-	return nil
-}
-
-func (obj IbcApp) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding IbcApp: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *IbcApp) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Version`:
-	err = decoder.Decode(&obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Deserialize `PortId`:
-	err = decoder.Decode(&obj.PortId)
-	if err != nil {
-		return errors.NewField("PortId", err)
-	}
-	// Deserialize `AppProgramId`:
-	err = decoder.Decode(&obj.AppProgramId)
-	if err != nil {
-		return errors.NewField("AppProgramId", err)
-	}
-	// Deserialize `Authority`:
-	err = decoder.Decode(&obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	// Deserialize `Reserved`:
-	err = decoder.Decode(&obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
-	}
-	return nil
-}
-
-func (obj *IbcApp) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling IbcApp: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalIbcApp(buf []byte) (*IbcApp, error) {
-	obj := new(IbcApp)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Message for onAcknowledgementPacket callback
-// Sent from router to IBC app when an acknowledgement is received
-type OnAcknowledgementPacketMsg struct {
-	SourceClient    string             `json:"sourceClient"`
-	DestClient      string             `json:"destClient"`
-	Sequence        uint64             `json:"sequence"`
-	Payload         Payload            `json:"payload"`
-	Acknowledgement []byte             `json:"acknowledgement"`
-	Relayer         solanago.PublicKey `json:"relayer"`
-}
-
-func (obj OnAcknowledgementPacketMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `SourceClient`:
-	err = encoder.Encode(obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Serialize `DestClient`:
-	err = encoder.Encode(obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Serialize `Payload`:
-	err = encoder.Encode(obj.Payload)
-	if err != nil {
-		return errors.NewField("Payload", err)
-	}
-	// Serialize `Acknowledgement`:
-	err = encoder.Encode(obj.Acknowledgement)
-	if err != nil {
-		return errors.NewField("Acknowledgement", err)
-	}
-	// Serialize `Relayer`:
-	err = encoder.Encode(obj.Relayer)
-	if err != nil {
-		return errors.NewField("Relayer", err)
-	}
-	return nil
-}
-
-func (obj OnAcknowledgementPacketMsg) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding OnAcknowledgementPacketMsg: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *OnAcknowledgementPacketMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `SourceClient`:
-	err = decoder.Decode(&obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Deserialize `DestClient`:
-	err = decoder.Decode(&obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Deserialize `Payload`:
-	err = decoder.Decode(&obj.Payload)
-	if err != nil {
-		return errors.NewField("Payload", err)
-	}
-	// Deserialize `Acknowledgement`:
-	err = decoder.Decode(&obj.Acknowledgement)
-	if err != nil {
-		return errors.NewField("Acknowledgement", err)
-	}
-	// Deserialize `Relayer`:
-	err = decoder.Decode(&obj.Relayer)
-	if err != nil {
-		return errors.NewField("Relayer", err)
-	}
-	return nil
-}
-
-func (obj *OnAcknowledgementPacketMsg) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling OnAcknowledgementPacketMsg: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalOnAcknowledgementPacketMsg(buf []byte) (*OnAcknowledgementPacketMsg, error) {
-	obj := new(OnAcknowledgementPacketMsg)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Message for onRecvPacket callback
-// Sent from router to IBC app when a packet is received
-type OnRecvPacketMsg struct {
-	SourceClient string             `json:"sourceClient"`
-	DestClient   string             `json:"destClient"`
-	Sequence     uint64             `json:"sequence"`
-	Payload      Payload            `json:"payload"`
-	Relayer      solanago.PublicKey `json:"relayer"`
-}
-
-func (obj OnRecvPacketMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `SourceClient`:
-	err = encoder.Encode(obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Serialize `DestClient`:
-	err = encoder.Encode(obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Serialize `Payload`:
-	err = encoder.Encode(obj.Payload)
-	if err != nil {
-		return errors.NewField("Payload", err)
-	}
-	// Serialize `Relayer`:
-	err = encoder.Encode(obj.Relayer)
-	if err != nil {
-		return errors.NewField("Relayer", err)
-	}
-	return nil
-}
-
-func (obj OnRecvPacketMsg) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding OnRecvPacketMsg: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *OnRecvPacketMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `SourceClient`:
-	err = decoder.Decode(&obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Deserialize `DestClient`:
-	err = decoder.Decode(&obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Deserialize `Payload`:
-	err = decoder.Decode(&obj.Payload)
-	if err != nil {
-		return errors.NewField("Payload", err)
-	}
-	// Deserialize `Relayer`:
-	err = decoder.Decode(&obj.Relayer)
-	if err != nil {
-		return errors.NewField("Relayer", err)
-	}
-	return nil
-}
-
-func (obj *OnRecvPacketMsg) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling OnRecvPacketMsg: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalOnRecvPacketMsg(buf []byte) (*OnRecvPacketMsg, error) {
-	obj := new(OnRecvPacketMsg)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Message for onTimeoutPacket callback
-// Sent from router to IBC app when a packet times out
-type OnTimeoutPacketMsg struct {
-	SourceClient string             `json:"sourceClient"`
-	DestClient   string             `json:"destClient"`
-	Sequence     uint64             `json:"sequence"`
-	Payload      Payload            `json:"payload"`
-	Relayer      solanago.PublicKey `json:"relayer"`
-}
-
-func (obj OnTimeoutPacketMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `SourceClient`:
-	err = encoder.Encode(obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Serialize `DestClient`:
-	err = encoder.Encode(obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Serialize `Payload`:
-	err = encoder.Encode(obj.Payload)
-	if err != nil {
-		return errors.NewField("Payload", err)
-	}
-	// Serialize `Relayer`:
-	err = encoder.Encode(obj.Relayer)
-	if err != nil {
-		return errors.NewField("Relayer", err)
-	}
-	return nil
-}
-
-func (obj OnTimeoutPacketMsg) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding OnTimeoutPacketMsg: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *OnTimeoutPacketMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `SourceClient`:
-	err = decoder.Decode(&obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Deserialize `DestClient`:
-	err = decoder.Decode(&obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Deserialize `Payload`:
-	err = decoder.Decode(&obj.Payload)
-	if err != nil {
-		return errors.NewField("Payload", err)
-	}
-	// Deserialize `Relayer`:
-	err = decoder.Decode(&obj.Relayer)
-	if err != nil {
-		return errors.NewField("Relayer", err)
-	}
-	return nil
-}
-
-func (obj *OnTimeoutPacketMsg) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling OnTimeoutPacketMsg: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalOnTimeoutPacketMsg(buf []byte) (*OnTimeoutPacketMsg, error) {
-	obj := new(OnTimeoutPacketMsg)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type PacketAcknowledged struct {
-	SourceClient    string `json:"sourceClient"`
-	DestClient      string `json:"destClient"`
-	Sequence        uint64 `json:"sequence"`
-	Acknowledgement []byte `json:"acknowledgement"`
-}
-
-func (obj PacketAcknowledged) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `SourceClient`:
-	err = encoder.Encode(obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Serialize `DestClient`:
-	err = encoder.Encode(obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Serialize `Acknowledgement`:
-	err = encoder.Encode(obj.Acknowledgement)
-	if err != nil {
-		return errors.NewField("Acknowledgement", err)
-	}
-	return nil
-}
-
-func (obj PacketAcknowledged) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding PacketAcknowledged: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *PacketAcknowledged) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `SourceClient`:
-	err = decoder.Decode(&obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Deserialize `DestClient`:
-	err = decoder.Decode(&obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Deserialize `Acknowledgement`:
-	err = decoder.Decode(&obj.Acknowledgement)
-	if err != nil {
-		return errors.NewField("Acknowledgement", err)
-	}
-	return nil
-}
-
-func (obj *PacketAcknowledged) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling PacketAcknowledged: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalPacketAcknowledged(buf []byte) (*PacketAcknowledged, error) {
-	obj := new(PacketAcknowledged)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Events
-type PacketReceived struct {
-	SourceClient    string `json:"sourceClient"`
-	DestClient      string `json:"destClient"`
-	Sequence        uint64 `json:"sequence"`
-	Acknowledgement []byte `json:"acknowledgement"`
-}
-
-func (obj PacketReceived) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `SourceClient`:
-	err = encoder.Encode(obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Serialize `DestClient`:
-	err = encoder.Encode(obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Serialize `Acknowledgement`:
-	err = encoder.Encode(obj.Acknowledgement)
-	if err != nil {
-		return errors.NewField("Acknowledgement", err)
-	}
-	return nil
-}
-
-func (obj PacketReceived) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding PacketReceived: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *PacketReceived) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `SourceClient`:
-	err = decoder.Decode(&obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Deserialize `DestClient`:
-	err = decoder.Decode(&obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Deserialize `Acknowledgement`:
-	err = decoder.Decode(&obj.Acknowledgement)
-	if err != nil {
-		return errors.NewField("Acknowledgement", err)
-	}
-	return nil
-}
-
-func (obj *PacketReceived) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling PacketReceived: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalPacketReceived(buf []byte) (*PacketReceived, error) {
-	obj := new(PacketReceived)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type PacketSent struct {
-	Sequence     uint64 `json:"sequence"`
-	SourceClient string `json:"sourceClient"`
-	SourcePort   string `json:"sourcePort"`
-	DestPort     string `json:"destPort"`
-	DataLength   uint64 `json:"dataLength"`
-}
-
-func (obj PacketSent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Serialize `SourceClient`:
-	err = encoder.Encode(obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Serialize `SourcePort`:
-	err = encoder.Encode(obj.SourcePort)
-	if err != nil {
-		return errors.NewField("SourcePort", err)
-	}
-	// Serialize `DestPort`:
-	err = encoder.Encode(obj.DestPort)
-	if err != nil {
-		return errors.NewField("DestPort", err)
-	}
-	// Serialize `DataLength`:
-	err = encoder.Encode(obj.DataLength)
-	if err != nil {
-		return errors.NewField("DataLength", err)
-	}
-	return nil
-}
-
-func (obj PacketSent) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding PacketSent: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *PacketSent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Deserialize `SourceClient`:
-	err = decoder.Decode(&obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Deserialize `SourcePort`:
-	err = decoder.Decode(&obj.SourcePort)
-	if err != nil {
-		return errors.NewField("SourcePort", err)
-	}
-	// Deserialize `DestPort`:
-	err = decoder.Decode(&obj.DestPort)
-	if err != nil {
-		return errors.NewField("DestPort", err)
-	}
-	// Deserialize `DataLength`:
-	err = decoder.Decode(&obj.DataLength)
-	if err != nil {
-		return errors.NewField("DataLength", err)
-	}
-	return nil
-}
-
-func (obj *PacketSent) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling PacketSent: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalPacketSent(buf []byte) (*PacketSent, error) {
-	obj := new(PacketSent)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type PacketTimedOut struct {
-	SourceClient string `json:"sourceClient"`
-	DestClient   string `json:"destClient"`
-	Sequence     uint64 `json:"sequence"`
-}
-
-func (obj PacketTimedOut) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `SourceClient`:
-	err = encoder.Encode(obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Serialize `DestClient`:
-	err = encoder.Encode(obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	return nil
-}
-
-func (obj PacketTimedOut) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding PacketTimedOut: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *PacketTimedOut) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `SourceClient`:
-	err = decoder.Decode(&obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Deserialize `DestClient`:
-	err = decoder.Decode(&obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	return nil
-}
-
-func (obj *PacketTimedOut) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling PacketTimedOut: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalPacketTimedOut(buf []byte) (*PacketTimedOut, error) {
-	obj := new(PacketTimedOut)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Payload structure shared between router and IBC apps
-type Payload struct {
-	SourcePort string `json:"sourcePort"`
-	DestPort   string `json:"destPort"`
-	Version    string `json:"version"`
-	Encoding   string `json:"encoding"`
-	Value      []byte `json:"value"`
-}
-
-func (obj Payload) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `SourcePort`:
-	err = encoder.Encode(obj.SourcePort)
-	if err != nil {
-		return errors.NewField("SourcePort", err)
-	}
-	// Serialize `DestPort`:
-	err = encoder.Encode(obj.DestPort)
-	if err != nil {
-		return errors.NewField("DestPort", err)
-	}
-	// Serialize `Version`:
-	err = encoder.Encode(obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Serialize `Encoding`:
-	err = encoder.Encode(obj.Encoding)
-	if err != nil {
-		return errors.NewField("Encoding", err)
-	}
-	// Serialize `Value`:
-	err = encoder.Encode(obj.Value)
-	if err != nil {
-		return errors.NewField("Value", err)
-	}
-	return nil
-}
-
-func (obj Payload) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding Payload: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *Payload) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `SourcePort`:
-	err = decoder.Decode(&obj.SourcePort)
-	if err != nil {
-		return errors.NewField("SourcePort", err)
-	}
-	// Deserialize `DestPort`:
-	err = decoder.Decode(&obj.DestPort)
-	if err != nil {
-		return errors.NewField("DestPort", err)
-	}
-	// Deserialize `Version`:
-	err = decoder.Decode(&obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Deserialize `Encoding`:
-	err = decoder.Decode(&obj.Encoding)
-	if err != nil {
-		return errors.NewField("Encoding", err)
-	}
-	// Deserialize `Value`:
-	err = decoder.Decode(&obj.Value)
-	if err != nil {
-		return errors.NewField("Value", err)
-	}
-	return nil
-}
-
-func (obj *Payload) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling Payload: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalPayload(buf []byte) (*Payload, error) {
-	obj := new(Payload)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Router state account
-// TODO: Implement multi-router ACL
-type RouterState struct {
-	// Schema version for upgrades
-	Version AccountVersion `json:"version"`
-
-	// Authority that can perform restricted operations
-	Authority solanago.PublicKey `json:"authority"`
-
-	// Reserved space for future fields
-	Reserved [256]uint8 `json:"reserved"`
-}
-
-func (obj RouterState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Version`:
-	err = encoder.Encode(obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Serialize `Authority`:
-	err = encoder.Encode(obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	// Serialize `Reserved`:
-	err = encoder.Encode(obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
-	}
-	return nil
-}
-
-func (obj RouterState) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding RouterState: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *RouterState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Version`:
-	err = decoder.Decode(&obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Deserialize `Authority`:
-	err = decoder.Decode(&obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	// Deserialize `Reserved`:
-	err = decoder.Decode(&obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
-	}
-	return nil
-}
-
-func (obj *RouterState) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling RouterState: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalRouterState(buf []byte) (*RouterState, error) {
-	obj := new(RouterState)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
 // Message for sending an arbitrary packet via IBC
-type SendPacketMsg struct {
+type DummyIbcAppInstructionsSendPacketSendPacketMsg struct {
 	// Source client ID for the destination chain
 	SourceClient string `json:"sourceClient"`
 
@@ -1414,7 +35,7 @@ type SendPacketMsg struct {
 	TimeoutTimestamp int64 `json:"timeoutTimestamp"`
 }
 
-func (obj SendPacketMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj DummyIbcAppInstructionsSendPacketSendPacketMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `SourceClient`:
 	err = encoder.Encode(obj.SourceClient)
 	if err != nil {
@@ -1453,17 +74,17 @@ func (obj SendPacketMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error)
 	return nil
 }
 
-func (obj SendPacketMsg) Marshal() ([]byte, error) {
+func (obj DummyIbcAppInstructionsSendPacketSendPacketMsg) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding SendPacketMsg: %w", err)
+		return nil, fmt.Errorf("error while encoding DummyIbcAppInstructionsSendPacketSendPacketMsg: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *SendPacketMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *DummyIbcAppInstructionsSendPacketSendPacketMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `SourceClient`:
 	err = decoder.Decode(&obj.SourceClient)
 	if err != nil {
@@ -1502,16 +123,16 @@ func (obj *SendPacketMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err err
 	return nil
 }
 
-func (obj *SendPacketMsg) Unmarshal(buf []byte) error {
+func (obj *DummyIbcAppInstructionsSendPacketSendPacketMsg) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling SendPacketMsg: %w", err)
+		return fmt.Errorf("error while unmarshaling DummyIbcAppInstructionsSendPacketSendPacketMsg: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalSendPacketMsg(buf []byte) (*SendPacketMsg, error) {
-	obj := new(SendPacketMsg)
+func UnmarshalDummyIbcAppInstructionsSendPacketSendPacketMsg(buf []byte) (*DummyIbcAppInstructionsSendPacketSendPacketMsg, error) {
+	obj := new(DummyIbcAppInstructionsSendPacketSendPacketMsg)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -1520,7 +141,7 @@ func UnmarshalSendPacketMsg(buf []byte) (*SendPacketMsg, error) {
 }
 
 // Message for sending a transfer via IBC
-type SendTransferMsg struct {
+type DummyIbcAppInstructionsSendTransferSendTransferMsg struct {
 	// Token denomination (e.g., "sol", "usdc", etc.)
 	Denom string `json:"denom"`
 
@@ -1543,7 +164,7 @@ type SendTransferMsg struct {
 	Memo string `json:"memo"`
 }
 
-func (obj SendTransferMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj DummyIbcAppInstructionsSendTransferSendTransferMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `Denom`:
 	err = encoder.Encode(obj.Denom)
 	if err != nil {
@@ -1582,17 +203,17 @@ func (obj SendTransferMsg) MarshalWithEncoder(encoder *binary.Encoder) (err erro
 	return nil
 }
 
-func (obj SendTransferMsg) Marshal() ([]byte, error) {
+func (obj DummyIbcAppInstructionsSendTransferSendTransferMsg) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding SendTransferMsg: %w", err)
+		return nil, fmt.Errorf("error while encoding DummyIbcAppInstructionsSendTransferSendTransferMsg: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *SendTransferMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *DummyIbcAppInstructionsSendTransferSendTransferMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `Denom`:
 	err = decoder.Decode(&obj.Denom)
 	if err != nil {
@@ -1631,16 +252,16 @@ func (obj *SendTransferMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err e
 	return nil
 }
 
-func (obj *SendTransferMsg) Unmarshal(buf []byte) error {
+func (obj *DummyIbcAppInstructionsSendTransferSendTransferMsg) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling SendTransferMsg: %w", err)
+		return fmt.Errorf("error while unmarshaling DummyIbcAppInstructionsSendTransferSendTransferMsg: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalSendTransferMsg(buf []byte) (*SendTransferMsg, error) {
-	obj := new(SendTransferMsg)
+func UnmarshalDummyIbcAppInstructionsSendTransferSendTransferMsg(buf []byte) (*DummyIbcAppInstructionsSendTransferSendTransferMsg, error) {
+	obj := new(DummyIbcAppInstructionsSendTransferSendTransferMsg)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -1648,103 +269,1049 @@ func UnmarshalSendTransferMsg(buf []byte) (*SendTransferMsg, error) {
 	return obj, nil
 }
 
-type TransferSent struct {
-	Sequence     uint64 `json:"sequence"`
-	SourceClient string `json:"sourceClient"`
-	Denom        string `json:"denom"`
-	Amount       string `json:"amount"`
-	Sender       string `json:"sender"`
-	Receiver     string `json:"receiver"`
+// Dummy IBC App state
+type DummyIbcAppStateDummyIbcAppState struct {
+	// Authority that can perform restricted operations
+	Authority solanago.PublicKey `json:"authority"`
+
+	// Counter for received packets (for testing)
+	PacketsReceived uint64 `json:"packetsReceived"`
+
+	// Counter for acknowledged packets (for testing)
+	PacketsAcknowledged uint64 `json:"packetsAcknowledged"`
+
+	// Counter for timed out packets (for testing)
+	PacketsTimedOut uint64 `json:"packetsTimedOut"`
+
+	// Counter for sent packets (for testing transfers)
+	PacketsSent uint64 `json:"packetsSent"`
 }
 
-func (obj TransferSent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
+func (obj DummyIbcAppStateDummyIbcAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Authority`:
+	err = encoder.Encode(obj.Authority)
 	if err != nil {
-		return errors.NewField("Sequence", err)
+		return errors.NewField("Authority", err)
 	}
+	// Serialize `PacketsReceived`:
+	err = encoder.Encode(obj.PacketsReceived)
+	if err != nil {
+		return errors.NewField("PacketsReceived", err)
+	}
+	// Serialize `PacketsAcknowledged`:
+	err = encoder.Encode(obj.PacketsAcknowledged)
+	if err != nil {
+		return errors.NewField("PacketsAcknowledged", err)
+	}
+	// Serialize `PacketsTimedOut`:
+	err = encoder.Encode(obj.PacketsTimedOut)
+	if err != nil {
+		return errors.NewField("PacketsTimedOut", err)
+	}
+	// Serialize `PacketsSent`:
+	err = encoder.Encode(obj.PacketsSent)
+	if err != nil {
+		return errors.NewField("PacketsSent", err)
+	}
+	return nil
+}
+
+func (obj DummyIbcAppStateDummyIbcAppState) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding DummyIbcAppStateDummyIbcAppState: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *DummyIbcAppStateDummyIbcAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Authority`:
+	err = decoder.Decode(&obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Deserialize `PacketsReceived`:
+	err = decoder.Decode(&obj.PacketsReceived)
+	if err != nil {
+		return errors.NewField("PacketsReceived", err)
+	}
+	// Deserialize `PacketsAcknowledged`:
+	err = decoder.Decode(&obj.PacketsAcknowledged)
+	if err != nil {
+		return errors.NewField("PacketsAcknowledged", err)
+	}
+	// Deserialize `PacketsTimedOut`:
+	err = decoder.Decode(&obj.PacketsTimedOut)
+	if err != nil {
+		return errors.NewField("PacketsTimedOut", err)
+	}
+	// Deserialize `PacketsSent`:
+	err = decoder.Decode(&obj.PacketsSent)
+	if err != nil {
+		return errors.NewField("PacketsSent", err)
+	}
+	return nil
+}
+
+func (obj *DummyIbcAppStateDummyIbcAppState) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling DummyIbcAppStateDummyIbcAppState: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalDummyIbcAppStateDummyIbcAppState(buf []byte) (*DummyIbcAppStateDummyIbcAppState, error) {
+	obj := new(DummyIbcAppStateDummyIbcAppState)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Escrow state to track SOL held for specific transfers
+type DummyIbcAppStateEscrowState struct {
+	// Client ID this escrow is for
+	ClientId string `json:"clientId"`
+
+	// Total amount currently held in escrow (in lamports)
+	TotalEscrowed uint64 `json:"totalEscrowed"`
+
+	// Number of active transfers
+	ActiveTransfers uint64 `json:"activeTransfers"`
+
+	// Authority that created this escrow
+	Authority solanago.PublicKey `json:"authority"`
+}
+
+func (obj DummyIbcAppStateEscrowState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Serialize `TotalEscrowed`:
+	err = encoder.Encode(obj.TotalEscrowed)
+	if err != nil {
+		return errors.NewField("TotalEscrowed", err)
+	}
+	// Serialize `ActiveTransfers`:
+	err = encoder.Encode(obj.ActiveTransfers)
+	if err != nil {
+		return errors.NewField("ActiveTransfers", err)
+	}
+	// Serialize `Authority`:
+	err = encoder.Encode(obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	return nil
+}
+
+func (obj DummyIbcAppStateEscrowState) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding DummyIbcAppStateEscrowState: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *DummyIbcAppStateEscrowState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `TotalEscrowed`:
+	err = decoder.Decode(&obj.TotalEscrowed)
+	if err != nil {
+		return errors.NewField("TotalEscrowed", err)
+	}
+	// Deserialize `ActiveTransfers`:
+	err = decoder.Decode(&obj.ActiveTransfers)
+	if err != nil {
+		return errors.NewField("ActiveTransfers", err)
+	}
+	// Deserialize `Authority`:
+	err = decoder.Decode(&obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	return nil
+}
+
+func (obj *DummyIbcAppStateEscrowState) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling DummyIbcAppStateEscrowState: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalDummyIbcAppStateEscrowState(buf []byte) (*DummyIbcAppStateEscrowState, error) {
+	obj := new(DummyIbcAppStateEscrowState)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Client mapping client IDs to light client program IDs
+type Ics26RouterStateClient struct {
+	// Schema version for upgrades
+	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
+
+	// The client identifier
+	ClientId string `json:"clientId"`
+
+	// The program ID of the light client
+	ClientProgramId solanago.PublicKey `json:"clientProgramId"`
+
+	// Counterparty chain information
+	CounterpartyInfo SolanaIbcTypesRouterCounterpartyInfo `json:"counterpartyInfo"`
+
+	// Authority that registered this client
+	Authority solanago.PublicKey `json:"authority"`
+
+	// Whether the client is active
+	Active bool `json:"active"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
+}
+
+func (obj Ics26RouterStateClient) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Serialize `ClientProgramId`:
+	err = encoder.Encode(obj.ClientProgramId)
+	if err != nil {
+		return errors.NewField("ClientProgramId", err)
+	}
+	// Serialize `CounterpartyInfo`:
+	err = encoder.Encode(obj.CounterpartyInfo)
+	if err != nil {
+		return errors.NewField("CounterpartyInfo", err)
+	}
+	// Serialize `Authority`:
+	err = encoder.Encode(obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Serialize `Active`:
+	err = encoder.Encode(obj.Active)
+	if err != nil {
+		return errors.NewField("Active", err)
+	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj Ics26RouterStateClient) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics26RouterStateClient: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics26RouterStateClient) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `ClientProgramId`:
+	err = decoder.Decode(&obj.ClientProgramId)
+	if err != nil {
+		return errors.NewField("ClientProgramId", err)
+	}
+	// Deserialize `CounterpartyInfo`:
+	err = decoder.Decode(&obj.CounterpartyInfo)
+	if err != nil {
+		return errors.NewField("CounterpartyInfo", err)
+	}
+	// Deserialize `Authority`:
+	err = decoder.Decode(&obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Deserialize `Active`:
+	err = decoder.Decode(&obj.Active)
+	if err != nil {
+		return errors.NewField("Active", err)
+	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj *Ics26RouterStateClient) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics26RouterStateClient: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs26RouterStateClient(buf []byte) (*Ics26RouterStateClient, error) {
+	obj := new(Ics26RouterStateClient)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Client sequence tracking
+type Ics26RouterStateClientSequence struct {
+	// Schema version for upgrades
+	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
+
+	// Next sequence number for sending packets
+	NextSequenceSend uint64 `json:"nextSequenceSend"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
+}
+
+func (obj Ics26RouterStateClientSequence) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Serialize `NextSequenceSend`:
+	err = encoder.Encode(obj.NextSequenceSend)
+	if err != nil {
+		return errors.NewField("NextSequenceSend", err)
+	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj Ics26RouterStateClientSequence) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics26RouterStateClientSequence: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics26RouterStateClientSequence) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Deserialize `NextSequenceSend`:
+	err = decoder.Decode(&obj.NextSequenceSend)
+	if err != nil {
+		return errors.NewField("NextSequenceSend", err)
+	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj *Ics26RouterStateClientSequence) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics26RouterStateClientSequence: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs26RouterStateClientSequence(buf []byte) (*Ics26RouterStateClientSequence, error) {
+	obj := new(Ics26RouterStateClientSequence)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// `IBCApp` mapping port IDs to IBC app program IDs
+type Ics26RouterStateIbcApp struct {
+	// Schema version for upgrades
+	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
+
+	// The port identifier
+	PortId string `json:"portId"`
+
+	// The program ID of the IBC application
+	AppProgramId solanago.PublicKey `json:"appProgramId"`
+
+	// Authority that registered this port
+	Authority solanago.PublicKey `json:"authority"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
+}
+
+func (obj Ics26RouterStateIbcApp) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Serialize `PortId`:
+	err = encoder.Encode(obj.PortId)
+	if err != nil {
+		return errors.NewField("PortId", err)
+	}
+	// Serialize `AppProgramId`:
+	err = encoder.Encode(obj.AppProgramId)
+	if err != nil {
+		return errors.NewField("AppProgramId", err)
+	}
+	// Serialize `Authority`:
+	err = encoder.Encode(obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj Ics26RouterStateIbcApp) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics26RouterStateIbcApp: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics26RouterStateIbcApp) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Deserialize `PortId`:
+	err = decoder.Decode(&obj.PortId)
+	if err != nil {
+		return errors.NewField("PortId", err)
+	}
+	// Deserialize `AppProgramId`:
+	err = decoder.Decode(&obj.AppProgramId)
+	if err != nil {
+		return errors.NewField("AppProgramId", err)
+	}
+	// Deserialize `Authority`:
+	err = decoder.Decode(&obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj *Ics26RouterStateIbcApp) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics26RouterStateIbcApp: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs26RouterStateIbcApp(buf []byte) (*Ics26RouterStateIbcApp, error) {
+	obj := new(Ics26RouterStateIbcApp)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Router state account
+// TODO: Implement multi-router ACL
+type Ics26RouterStateRouterState struct {
+	// Schema version for upgrades
+	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
+
+	// Authority that can perform restricted operations
+	Authority solanago.PublicKey `json:"authority"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
+}
+
+func (obj Ics26RouterStateRouterState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Serialize `Authority`:
+	err = encoder.Encode(obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj Ics26RouterStateRouterState) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics26RouterStateRouterState: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics26RouterStateRouterState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Deserialize `Authority`:
+	err = decoder.Decode(&obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj *Ics26RouterStateRouterState) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics26RouterStateRouterState: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs26RouterStateRouterState(buf []byte) (*Ics26RouterStateRouterState, error) {
+	obj := new(Ics26RouterStateRouterState)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Message for onAcknowledgementPacket callback
+// Sent from router to IBC app when an acknowledgement is received
+type SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg struct {
+	SourceClient    string                       `json:"sourceClient"`
+	DestClient      string                       `json:"destClient"`
+	Sequence        uint64                       `json:"sequence"`
+	Payload         SolanaIbcTypesAppMsgsPayload `json:"payload"`
+	Acknowledgement []byte                       `json:"acknowledgement"`
+	Relayer         solanago.PublicKey           `json:"relayer"`
+}
+
+func (obj SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `SourceClient`:
 	err = encoder.Encode(obj.SourceClient)
 	if err != nil {
 		return errors.NewField("SourceClient", err)
 	}
-	// Serialize `Denom`:
-	err = encoder.Encode(obj.Denom)
+	// Serialize `DestClient`:
+	err = encoder.Encode(obj.DestClient)
 	if err != nil {
-		return errors.NewField("Denom", err)
+		return errors.NewField("DestClient", err)
 	}
-	// Serialize `Amount`:
-	err = encoder.Encode(obj.Amount)
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
 	if err != nil {
-		return errors.NewField("Amount", err)
+		return errors.NewField("Sequence", err)
 	}
-	// Serialize `Sender`:
-	err = encoder.Encode(obj.Sender)
+	// Serialize `Payload`:
+	err = encoder.Encode(obj.Payload)
 	if err != nil {
-		return errors.NewField("Sender", err)
+		return errors.NewField("Payload", err)
 	}
-	// Serialize `Receiver`:
-	err = encoder.Encode(obj.Receiver)
+	// Serialize `Acknowledgement`:
+	err = encoder.Encode(obj.Acknowledgement)
 	if err != nil {
-		return errors.NewField("Receiver", err)
+		return errors.NewField("Acknowledgement", err)
+	}
+	// Serialize `Relayer`:
+	err = encoder.Encode(obj.Relayer)
+	if err != nil {
+		return errors.NewField("Relayer", err)
 	}
 	return nil
 }
 
-func (obj TransferSent) Marshal() ([]byte, error) {
+func (obj SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding TransferSent: %w", err)
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *TransferSent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
+func (obj *SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `SourceClient`:
 	err = decoder.Decode(&obj.SourceClient)
 	if err != nil {
 		return errors.NewField("SourceClient", err)
 	}
-	// Deserialize `Denom`:
-	err = decoder.Decode(&obj.Denom)
+	// Deserialize `DestClient`:
+	err = decoder.Decode(&obj.DestClient)
 	if err != nil {
-		return errors.NewField("Denom", err)
+		return errors.NewField("DestClient", err)
 	}
-	// Deserialize `Amount`:
-	err = decoder.Decode(&obj.Amount)
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
 	if err != nil {
-		return errors.NewField("Amount", err)
+		return errors.NewField("Sequence", err)
 	}
-	// Deserialize `Sender`:
-	err = decoder.Decode(&obj.Sender)
+	// Deserialize `Payload`:
+	err = decoder.Decode(&obj.Payload)
 	if err != nil {
-		return errors.NewField("Sender", err)
+		return errors.NewField("Payload", err)
 	}
-	// Deserialize `Receiver`:
-	err = decoder.Decode(&obj.Receiver)
+	// Deserialize `Acknowledgement`:
+	err = decoder.Decode(&obj.Acknowledgement)
 	if err != nil {
-		return errors.NewField("Receiver", err)
+		return errors.NewField("Acknowledgement", err)
+	}
+	// Deserialize `Relayer`:
+	err = decoder.Decode(&obj.Relayer)
+	if err != nil {
+		return errors.NewField("Relayer", err)
 	}
 	return nil
 }
 
-func (obj *TransferSent) Unmarshal(buf []byte) error {
+func (obj *SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling TransferSent: %w", err)
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalTransferSent(buf []byte) (*TransferSent, error) {
-	obj := new(TransferSent)
+func UnmarshalSolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg(buf []byte) (*SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg, error) {
+	obj := new(SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Message for onRecvPacket callback
+// Sent from router to IBC app when a packet is received
+type SolanaIbcTypesAppMsgsOnRecvPacketMsg struct {
+	SourceClient string                       `json:"sourceClient"`
+	DestClient   string                       `json:"destClient"`
+	Sequence     uint64                       `json:"sequence"`
+	Payload      SolanaIbcTypesAppMsgsPayload `json:"payload"`
+	Relayer      solanago.PublicKey           `json:"relayer"`
+}
+
+func (obj SolanaIbcTypesAppMsgsOnRecvPacketMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `SourceClient`:
+	err = encoder.Encode(obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Serialize `DestClient`:
+	err = encoder.Encode(obj.DestClient)
+	if err != nil {
+		return errors.NewField("DestClient", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Serialize `Payload`:
+	err = encoder.Encode(obj.Payload)
+	if err != nil {
+		return errors.NewField("Payload", err)
+	}
+	// Serialize `Relayer`:
+	err = encoder.Encode(obj.Relayer)
+	if err != nil {
+		return errors.NewField("Relayer", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesAppMsgsOnRecvPacketMsg) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesAppMsgsOnRecvPacketMsg: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesAppMsgsOnRecvPacketMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `SourceClient`:
+	err = decoder.Decode(&obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Deserialize `DestClient`:
+	err = decoder.Decode(&obj.DestClient)
+	if err != nil {
+		return errors.NewField("DestClient", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Deserialize `Payload`:
+	err = decoder.Decode(&obj.Payload)
+	if err != nil {
+		return errors.NewField("Payload", err)
+	}
+	// Deserialize `Relayer`:
+	err = decoder.Decode(&obj.Relayer)
+	if err != nil {
+		return errors.NewField("Relayer", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesAppMsgsOnRecvPacketMsg) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesAppMsgsOnRecvPacketMsg: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesAppMsgsOnRecvPacketMsg(buf []byte) (*SolanaIbcTypesAppMsgsOnRecvPacketMsg, error) {
+	obj := new(SolanaIbcTypesAppMsgsOnRecvPacketMsg)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Message for onTimeoutPacket callback
+// Sent from router to IBC app when a packet times out
+type SolanaIbcTypesAppMsgsOnTimeoutPacketMsg struct {
+	SourceClient string                       `json:"sourceClient"`
+	DestClient   string                       `json:"destClient"`
+	Sequence     uint64                       `json:"sequence"`
+	Payload      SolanaIbcTypesAppMsgsPayload `json:"payload"`
+	Relayer      solanago.PublicKey           `json:"relayer"`
+}
+
+func (obj SolanaIbcTypesAppMsgsOnTimeoutPacketMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `SourceClient`:
+	err = encoder.Encode(obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Serialize `DestClient`:
+	err = encoder.Encode(obj.DestClient)
+	if err != nil {
+		return errors.NewField("DestClient", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Serialize `Payload`:
+	err = encoder.Encode(obj.Payload)
+	if err != nil {
+		return errors.NewField("Payload", err)
+	}
+	// Serialize `Relayer`:
+	err = encoder.Encode(obj.Relayer)
+	if err != nil {
+		return errors.NewField("Relayer", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesAppMsgsOnTimeoutPacketMsg) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesAppMsgsOnTimeoutPacketMsg: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesAppMsgsOnTimeoutPacketMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `SourceClient`:
+	err = decoder.Decode(&obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Deserialize `DestClient`:
+	err = decoder.Decode(&obj.DestClient)
+	if err != nil {
+		return errors.NewField("DestClient", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Deserialize `Payload`:
+	err = decoder.Decode(&obj.Payload)
+	if err != nil {
+		return errors.NewField("Payload", err)
+	}
+	// Deserialize `Relayer`:
+	err = decoder.Decode(&obj.Relayer)
+	if err != nil {
+		return errors.NewField("Relayer", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesAppMsgsOnTimeoutPacketMsg) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesAppMsgsOnTimeoutPacketMsg: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesAppMsgsOnTimeoutPacketMsg(buf []byte) (*SolanaIbcTypesAppMsgsOnTimeoutPacketMsg, error) {
+	obj := new(SolanaIbcTypesAppMsgsOnTimeoutPacketMsg)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Payload structure shared between router and IBC apps
+type SolanaIbcTypesAppMsgsPayload struct {
+	SourcePort string `json:"sourcePort"`
+	DestPort   string `json:"destPort"`
+	Version    string `json:"version"`
+	Encoding   string `json:"encoding"`
+	Value      []byte `json:"value"`
+}
+
+func (obj SolanaIbcTypesAppMsgsPayload) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `SourcePort`:
+	err = encoder.Encode(obj.SourcePort)
+	if err != nil {
+		return errors.NewField("SourcePort", err)
+	}
+	// Serialize `DestPort`:
+	err = encoder.Encode(obj.DestPort)
+	if err != nil {
+		return errors.NewField("DestPort", err)
+	}
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Serialize `Encoding`:
+	err = encoder.Encode(obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
+	}
+	// Serialize `Value`:
+	err = encoder.Encode(obj.Value)
+	if err != nil {
+		return errors.NewField("Value", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesAppMsgsPayload) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesAppMsgsPayload: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesAppMsgsPayload) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `SourcePort`:
+	err = decoder.Decode(&obj.SourcePort)
+	if err != nil {
+		return errors.NewField("SourcePort", err)
+	}
+	// Deserialize `DestPort`:
+	err = decoder.Decode(&obj.DestPort)
+	if err != nil {
+		return errors.NewField("DestPort", err)
+	}
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Deserialize `Encoding`:
+	err = decoder.Decode(&obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
+	}
+	// Deserialize `Value`:
+	err = decoder.Decode(&obj.Value)
+	if err != nil {
+		return errors.NewField("Value", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesAppMsgsPayload) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesAppMsgsPayload: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesAppMsgsPayload(buf []byte) (*SolanaIbcTypesAppMsgsPayload, error) {
+	obj := new(SolanaIbcTypesAppMsgsPayload)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Account schema version for upgradability
+type SolanaIbcTypesRouterAccountVersion binary.BorshEnum
+
+const (
+	SolanaIbcTypesRouterAccountVersion_V1 SolanaIbcTypesRouterAccountVersion = iota
+)
+
+func (value SolanaIbcTypesRouterAccountVersion) String() string {
+	switch value {
+	case SolanaIbcTypesRouterAccountVersion_V1:
+		return "V1"
+	default:
+		return ""
+	}
+}
+
+// Counterparty chain information
+type SolanaIbcTypesRouterCounterpartyInfo struct {
+	// Client ID on the counterparty chain
+	ClientId string `json:"clientId"`
+
+	// Merkle prefix for proof verification
+	MerklePrefix [][]byte `json:"merklePrefix"`
+}
+
+func (obj SolanaIbcTypesRouterCounterpartyInfo) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Serialize `MerklePrefix`:
+	err = encoder.Encode(obj.MerklePrefix)
+	if err != nil {
+		return errors.NewField("MerklePrefix", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesRouterCounterpartyInfo) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesRouterCounterpartyInfo: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesRouterCounterpartyInfo) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `MerklePrefix`:
+	err = decoder.Decode(&obj.MerklePrefix)
+	if err != nil {
+		return errors.NewField("MerklePrefix", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesRouterCounterpartyInfo) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesRouterCounterpartyInfo: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesRouterCounterpartyInfo(buf []byte) (*SolanaIbcTypesRouterCounterpartyInfo, error) {
+	obj := new(SolanaIbcTypesRouterCounterpartyInfo)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

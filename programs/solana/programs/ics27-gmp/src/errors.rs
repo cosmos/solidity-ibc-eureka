@@ -36,6 +36,9 @@ pub enum GMPError {
     #[msg("Insufficient accounts provided")]
     InsufficientAccounts,
 
+    #[msg("Account count mismatch")]
+    AccountCountMismatch,
+
     #[msg("Account key mismatch")]
     AccountKeyMismatch,
 
@@ -49,7 +52,7 @@ pub enum GMPError {
     ExecutionTooExpensive,
 
     #[msg("Invalid account address derivation")]
-    InvalidAccountAddress,
+    GMPAccountPDAMismatch,
 
     #[msg("Unauthorized admin operation")]
     UnauthorizedAdmin,
@@ -60,23 +63,23 @@ pub enum GMPError {
     #[msg("Unauthorized router calling")]
     UnauthorizedRouter,
 
-    #[msg("Port ID too long")]
-    PortIdTooLong,
+    #[msg("Direct calls not allowed, must be called via CPI from router")]
+    DirectCallNotAllowed,
 
-    #[msg("Client ID too long")]
-    ClientIdTooLong,
+    #[msg("Invalid sysvar account provided")]
+    InvalidSysvar,
 
-    #[msg("Sender address too long")]
-    SenderTooLong,
+    #[msg("Invalid port ID length")]
+    InvalidPortId,
 
-    #[msg("Salt too long")]
-    SaltTooLong,
+    #[msg("Invalid client ID length")]
+    InvalidClientId,
 
-    #[msg("Memo too long")]
-    MemoTooLong,
+    #[msg("Invalid sender address length")]
+    InvalidSender,
 
-    #[msg("Payload too long")]
-    PayloadTooLong,
+    #[msg("Invalid memo length")]
+    InvalidMemo,
 
     #[msg("Invalid execution payload format")]
     InvalidExecutionPayload,
@@ -128,4 +131,45 @@ pub enum GMPError {
 
     #[msg("Failed to parse sequence from router account")]
     SequenceParseError,
+}
+
+/// Convert GMP packet errors to GMP errors
+impl From<solana_ibc_types::GMPPacketError> for GMPError {
+    fn from(err: solana_ibc_types::GMPPacketError) -> Self {
+        match err {
+            solana_ibc_types::GMPPacketError::InvalidSalt => Self::InvalidSalt,
+            solana_ibc_types::GMPPacketError::EmptyPayload => Self::EmptyPayload,
+            solana_ibc_types::GMPPacketError::MemoTooLong => Self::InvalidMemo,
+            solana_ibc_types::GMPPacketError::InvalidSender => Self::InvalidSender,
+            solana_ibc_types::GMPPacketError::InvalidReceiver
+            | solana_ibc_types::GMPPacketError::InvalidPayload
+            | solana_ibc_types::GMPPacketError::DecodeError => Self::InvalidPacketData,
+        }
+    }
+}
+
+/// Convert GMP validation errors to GMP errors
+impl From<solana_ibc_proto::GmpValidationError> for GMPError {
+    fn from(err: solana_ibc_proto::GmpValidationError) -> Self {
+        match err {
+            solana_ibc_proto::GmpValidationError::DecodeError => Self::InvalidExecutionPayload,
+            solana_ibc_proto::GmpValidationError::InvalidProgramId => Self::InvalidProgramId,
+            solana_ibc_proto::GmpValidationError::EmptyPayload => Self::EmptyPayload,
+            solana_ibc_proto::GmpValidationError::TooManyAccounts => Self::TooManyAccounts,
+            solana_ibc_proto::GmpValidationError::InvalidAccountKey => Self::InvalidAccountKey,
+        }
+    }
+}
+
+/// Convert CPI validation errors to GMP errors
+impl From<solana_ibc_types::CpiValidationError> for GMPError {
+    fn from(err: solana_ibc_types::CpiValidationError) -> Self {
+        match err {
+            solana_ibc_types::CpiValidationError::InvalidSysvar => Self::InvalidSysvar,
+            solana_ibc_types::CpiValidationError::DirectCallNotAllowed => {
+                Self::DirectCallNotAllowed
+            }
+            solana_ibc_types::CpiValidationError::UnauthorizedCaller => Self::UnauthorizedRouter,
+        }
+    }
 }

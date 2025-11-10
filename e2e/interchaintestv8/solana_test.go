@@ -10,6 +10,7 @@ import (
 	"time"
 
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
+	malicious_caller "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/maliciouscaller"
 	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
 
@@ -60,10 +61,11 @@ type IbcEurekaSolanaTestSuite struct {
 
 	SolanaUser *solanago.Wallet
 
-	RelayerClient       relayertypes.RelayerServiceClient
-	ICS27GMPProgramID   solanago.PublicKey
-	GMPCounterProgramID solanago.PublicKey
-	DummyAppProgramID   solanago.PublicKey
+	RelayerClient            relayertypes.RelayerServiceClient
+	ICS27GMPProgramID        solanago.PublicKey
+	GMPCounterProgramID      solanago.PublicKey
+	DummyAppProgramID        solanago.PublicKey
+	MaliciousCallerProgramID solanago.PublicKey
 
 	// Mock configuration for tests
 	UseMockWasmClient bool
@@ -163,6 +165,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				deployProgram("Deploy ICS27 GMP", "ics27_gmp"),
 				deployProgram("Deploy GMP Counter App", "gmp_counter_app"),
 				deployProgram("Deploy Dummy IBC App", "dummy_ibc_app"),
+				deployProgram("Deploy Malicious Caller", "malicious_caller"),
 			)
 			s.Require().NoError(err, "Program deployment failed")
 
@@ -174,6 +177,8 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			gmp_counter_app.ProgramID = s.GMPCounterProgramID
 			s.DummyAppProgramID = deployResults["Deploy Dummy IBC App"]
 			dummy_ibc_app.ProgramID = s.DummyAppProgramID
+			s.MaliciousCallerProgramID = deployResults["Deploy Malicious Caller"]
+			malicious_caller.ProgramID = s.MaliciousCallerProgramID
 
 			s.T().Log("All programs deployed successfully")
 		}))
@@ -356,7 +361,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				clientAccount, _ := solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 				clientSequenceAccount, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-				counterpartyInfo := ics26_router.CounterpartyInfo{
+				counterpartyInfo := ics26_router.SolanaIbcTypesRouterCounterpartyInfo{
 					ClientId:     CosmosClientID,
 					MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 				}
@@ -413,7 +418,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 		})
 		s.Require().NoError(err)
 
-		clientState, err := ics07_tendermint.ParseAccount_ClientState(accountInfo.Value.Data.GetBinary())
+		clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
 		s.Require().NoError(err)
 
 		s.Require().Equal(simd.Config().ChainID, clientState.ChainId)
@@ -530,10 +535,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		)
 		packetData := transferData.GetBytes()
 
-		var appState, routerCaller, routerState, ibcApp, client, clientSequence, packetCommitment solanago.PublicKey
+		var appState, routerState, ibcApp, client, clientSequence, packetCommitment solanago.PublicKey
 		s.Require().True(s.Run("Prepare accounts", func() {
 			appState, _ = solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
-			routerCaller, _ = solana.DummyIbcApp.RouterCallerPDA(s.DummyAppProgramID)
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -545,7 +549,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			})
 			s.Require().NoError(err)
 
-			clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
+			clientSequenceData, err := ics26_router.ParseAccount_Ics26RouterStateClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
 			s.Require().NoError(err)
 
 			nextSequence := clientSequenceData.NextSequenceSend
@@ -554,7 +558,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			packetCommitment, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), nextSequenceBytes)
 		}))
 
-		packetMsg := dummy_ibc_app.SendPacketMsg{
+		packetMsg := dummy_ibc_app.DummyIbcAppInstructionsSendPacketSendPacketMsg{
 			SourceClient:     SolanaClientID,
 			SourcePort:       transfertypes.PortID,
 			DestPort:         transfertypes.PortID,
@@ -575,7 +579,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			client,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
-			routerCaller,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -714,10 +718,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		receiver := cosmosUserWallet.FormattedAddress()
 		memo := "Test transfer from Solana to Cosmos"
 
-		var appState, routerCaller, routerState, ibcApp, client, clientSequence, packetCommitment, escrow, escrowState solanago.PublicKey
+		var appState, routerState, ibcApp, client, clientSequence, packetCommitment, escrow, escrowState solanago.PublicKey
 		s.Require().True(s.Run("Prepare accounts", func() {
 			appState, _ = solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
-			routerCaller, _ = solana.DummyIbcApp.RouterCallerPDA(s.DummyAppProgramID)
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -729,7 +732,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			})
 			s.Require().NoError(err)
 
-			clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
+			clientSequenceData, err := ics26_router.ParseAccount_Ics26RouterStateClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
 			s.Require().NoError(err)
 
 			nextSequence := clientSequenceData.NextSequenceSend
@@ -743,7 +746,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 
 		timeoutTimestamp := time.Now().Unix() + 3600
 
-		transferMsg := dummy_ibc_app.SendTransferMsg{
+		transferMsg := dummy_ibc_app.DummyIbcAppInstructionsSendTransferSendTransferMsg{
 			Denom:            SolDenom,
 			Amount:           transferAmount,
 			Receiver:         receiver,
@@ -766,7 +769,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			client,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
-			routerCaller,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -1007,7 +1010,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 		s.Require().NoError(err)
 		s.Require().NotNil(accountInfo.Value)
 
-		appState, err := dummy_ibc_app.ParseAccount_DummyIbcAppState(accountInfo.Value.Data.GetBinary())
+		appState, err := dummy_ibc_app.ParseAccount_DummyIbcAppStateDummyIbcAppState(accountInfo.Value.Data.GetBinary())
 		s.Require().NoError(err)
 
 		s.Require().Greater(appState.PacketsReceived, uint64(0), "Dummy app should have received at least one packet")
@@ -1022,7 +1025,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 		})
 		s.Require().NoError(err)
 
-		clientSequenceData, err := ics26_router.ParseAccount_ClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
+		clientSequenceData, err := ics26_router.ParseAccount_Ics26RouterStateClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
 		s.Require().NoError(err)
 
 		s.T().Logf("Solana client sequence - next send: %d",
@@ -1138,7 +1141,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 	}))
 
 	s.Require().True(s.Run("Upload orphaned payload chunks", func() {
-		uploadPayload0Msg := ics26_router.MsgUploadChunk{
+		uploadPayload0Msg := ics26_router.SolanaIbcTypesRouterMsgUploadChunk{
 			ClientId:     testClientID,
 			Sequence:     testSequence,
 			PayloadIndex: 0,
@@ -1161,7 +1164,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 		s.Require().NoError(err)
 		s.T().Logf("Uploaded payload chunk 0: %s", sig0)
 
-		uploadPayload1Msg := ics26_router.MsgUploadChunk{
+		uploadPayload1Msg := ics26_router.SolanaIbcTypesRouterMsgUploadChunk{
 			ClientId:     testClientID,
 			Sequence:     testSequence,
 			PayloadIndex: 0,
@@ -1186,7 +1189,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 	}))
 
 	s.Require().True(s.Run("Upload orphaned proof chunks", func() {
-		uploadProof0Msg := ics26_router.MsgUploadChunk{
+		uploadProof0Msg := ics26_router.SolanaIbcTypesRouterMsgUploadChunk{
 			ClientId:     testClientID,
 			Sequence:     testSequence,
 			PayloadIndex: 0, // Not used for proof chunks
@@ -1210,7 +1213,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 		s.T().Logf("Uploaded proof chunk 0: %s", sig0)
 
 		// Upload proof chunk 1
-		uploadProof1Msg := ics26_router.MsgUploadChunk{
+		uploadProof1Msg := ics26_router.SolanaIbcTypesRouterMsgUploadChunk{
 			ClientId:     testClientID,
 			Sequence:     testSequence,
 			PayloadIndex: 0, // Not used for proof chunks
@@ -1273,7 +1276,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 	}))
 
 	s.Require().True(s.Run("Call cleanup_chunks instruction", func() {
-		cleanupMsg := ics26_router.MsgCleanupChunks{
+		cleanupMsg := ics26_router.SolanaIbcTypesRouterMsgCleanupChunks{
 			ClientId:         testClientID,
 			Sequence:         testSequence,
 			PayloadChunks:    []byte{2},
@@ -1400,7 +1403,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 	}))
 
 	s.Require().True(s.Run("Upload orphaned header chunks", func() {
-		chunk0Params := ics07_tendermint.UploadChunkParams{
+		chunk0Params := ics07_tendermint.Ics07TendermintTypesUploadChunkParams{
 			ChainId:      cosmosChainID,
 			TargetHeight: testHeight,
 			ChunkIndex:   0,
@@ -1423,7 +1426,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 		s.Require().NoError(err)
 		s.T().Logf("Uploaded header chunk 0: %s", sig0)
 
-		chunk1Params := ics07_tendermint.UploadChunkParams{
+		chunk1Params := ics07_tendermint.Ics07TendermintTypesUploadChunkParams{
 			ChainId:      cosmosChainID,
 			TargetHeight: testHeight,
 			ChunkIndex:   1,
