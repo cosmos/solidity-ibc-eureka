@@ -192,10 +192,7 @@ fn test_cleanup_successful_with_rent_reclaim() {
     let submitter = Pubkey::new_unique();
 
     let test_accounts = setup_test_accounts_with_chunks(
-        client_id,
-        submitter,
-        num_chunks,
-        true, // with populated chunks
+        client_id, submitter, num_chunks, true, // with populated chunks
     );
 
     // Calculate expected rent to be reclaimed

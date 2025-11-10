@@ -1272,7 +1272,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedMisbehaviourChunks() {
 
 		for i := range numChunks {
 			start := i * chunkSize
-			end := min(start + chunkSize, len(mockMisbehaviourData))
+			end := min(start+chunkSize, len(mockMisbehaviourData))
 			chunkData := mockMisbehaviourData[start:end]
 
 			chunkPDA, _, err := solanago.FindProgramAddress(

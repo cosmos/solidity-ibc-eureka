@@ -13,7 +13,7 @@ use crate::state::{ConsensusStateStore, HeaderChunk, MisbehaviourChunk};
 declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 
 pub use types::{
-    ClientState, ConsensusState, IbcHeight, MisbehaviourMsg, UpdateResult, UploadChunkParams,
+    ClientState, ConsensusState, IbcHeight, UpdateResult, UploadChunkParams,
     UploadMisbehaviourChunkParams,
 };
 
@@ -64,15 +64,6 @@ pub struct VerifyNonMembership<'info> {
         bump
     )]
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
-}
-
-#[derive(Accounts)]
-#[instruction(msg: MisbehaviourMsg)]
-pub struct SubmitMisbehaviour<'info> {
-    #[account(mut)]
-    pub client_state: Account<'info, ClientState>,
-    pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
-    pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 }
 
 #[derive(Accounts)]
@@ -191,11 +182,9 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
-    /// CHECK: Validated in instruction handler
-    pub trusted_consensus_state_1: UncheckedAccount<'info>,
+    pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
 
-    /// CHECK: Validated in instruction handler
-    pub trusted_consensus_state_2: UncheckedAccount<'info>,
+    pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 
     #[account(mut)]
     pub submitter: Signer<'info>,
@@ -222,8 +211,7 @@ pub struct CleanupIncompleteMisbehaviour<'info> {
 pub mod ics07_tendermint {
     use super::*;
     use crate::types::{
-        ClientState, ConsensusState, MisbehaviourMsg, UploadChunkParams,
-        UploadMisbehaviourChunkParams,
+        ClientState, ConsensusState, UploadChunkParams, UploadMisbehaviourChunkParams,
     };
 
     pub fn initialize(
@@ -252,13 +240,6 @@ pub mod ics07_tendermint {
         msg: NonMembershipMsg,
     ) -> Result<()> {
         instructions::verify_non_membership::verify_non_membership(ctx, msg)
-    }
-
-    pub fn submit_misbehaviour(
-        ctx: Context<SubmitMisbehaviour>,
-        msg: MisbehaviourMsg,
-    ) -> Result<()> {
-        instructions::submit_misbehaviour::submit_misbehaviour(ctx, msg)
     }
 
     /// Upload a chunk of header data for multi-transaction updates

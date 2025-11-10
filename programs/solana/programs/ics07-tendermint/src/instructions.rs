@@ -3,7 +3,6 @@ pub mod assemble_and_update_client;
 pub mod cleanup_incomplete_misbehaviour;
 pub mod cleanup_incomplete_upload;
 pub mod initialize;
-pub mod submit_misbehaviour;
 pub mod upload_header_chunk;
 pub mod upload_misbehaviour_chunk;
 pub mod verify_membership;

@@ -1,6 +1,6 @@
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_misbehaviour;
-use crate::state::{ConsensusStateStore, MisbehaviourChunk};
+use crate::state::MisbehaviourChunk;
 use crate::AssembleAndSubmitMisbehaviour;
 use anchor_lang::prelude::*;
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
@@ -82,15 +82,18 @@ fn process_misbehaviour(
     let misbehaviour = deserialize_misbehaviour(&misbehaviour_bytes)?;
     let tm_client_state: TmClientState = client_state.clone().into_inner().into();
 
-    let trusted_consensus_state_1_store =
-        load_consensus_state(&ctx.accounts.trusted_consensus_state_1)?;
-    let trusted_consensus_state_1: IbcConsensusState =
-        trusted_consensus_state_1_store.consensus_state.clone().into();
-
-    let trusted_consensus_state_2_store =
-        load_consensus_state(&ctx.accounts.trusted_consensus_state_2)?;
-    let trusted_consensus_state_2: IbcConsensusState =
-        trusted_consensus_state_2_store.consensus_state.clone().into();
+    let trusted_consensus_state_1: IbcConsensusState = ctx
+        .accounts
+        .trusted_consensus_state_1
+        .consensus_state
+        .clone()
+        .into();
+    let trusted_consensus_state_2: IbcConsensusState = ctx
+        .accounts
+        .trusted_consensus_state_2
+        .consensus_state
+        .clone()
+        .into();
 
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
@@ -103,18 +106,16 @@ fn process_misbehaviour(
     )
     .map_err(|_| error!(ErrorCode::MisbehaviourCheckFailed))?;
 
-    let trusted_cs_1_height = trusted_consensus_state_1_store.height;
-    let trusted_cs_2_height = trusted_consensus_state_2_store.height;
-
     require!(
-        trusted_cs_1_height == output.trusted_height_1.revision_height(),
+        ctx.accounts.trusted_consensus_state_1.height == output.trusted_height_1.revision_height(),
         ErrorCode::HeightMismatch
     );
     require!(
-        trusted_cs_2_height == output.trusted_height_2.revision_height(),
+        ctx.accounts.trusted_consensus_state_2.height == output.trusted_height_2.revision_height(),
         ErrorCode::HeightMismatch
     );
 
+    // If we reach here, misbehaviour was detected
     ctx.accounts.client_state.freeze();
 
     msg!(
@@ -155,19 +156,6 @@ fn cleanup_chunks(
         **lamports = 0;
     }
     Ok(())
-}
-
-fn load_consensus_state(account: &UncheckedAccount) -> Result<ConsensusStateStore> {
-    let account_data = account.try_borrow_data()?;
-    require!(!account_data.is_empty(), ErrorCode::ConsensusStateNotFound);
-
-    let consensus_state =
-        ConsensusStateStore::try_deserialize(&mut &account_data[..]).map_err(|e| {
-            msg!("Failed to deserialize consensus state: {:?}", e);
-            error!(ErrorCode::ConsensusStateNotFound)
-        })?;
-
-    Ok(consensus_state)
 }
 
 #[cfg(test)]

@@ -22,16 +22,28 @@ struct TestAccounts {
     accounts: Vec<(Pubkey, Account)>,
 }
 
-fn setup_test_accounts(
-    chain_id: &str,
+struct TestSetupConfig<'a> {
+    chain_id: &'a str,
     height_1: u64,
     height_2: u64,
     submitter: Pubkey,
     client_frozen: bool,
     with_valid_consensus_states: bool,
     with_chunks: bool,
-    misbehaviour_bytes: &[u8],
-) -> TestAccounts {
+    misbehaviour_bytes: &'a [u8],
+}
+
+fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
+    let TestSetupConfig {
+        chain_id,
+        height_1,
+        height_2,
+        submitter,
+        client_frozen,
+        with_valid_consensus_states,
+        with_chunks,
+        misbehaviour_bytes,
+    } = config;
     let client_state_pda = Pubkey::find_program_address(
         &[crate::types::ClientState::SEED, chain_id.as_bytes()],
         &crate::ID,
@@ -208,7 +220,7 @@ fn setup_test_accounts(
     let mut chunk_pdas = vec![];
     if with_chunks {
         const CHUNK_SIZE: usize = 700;
-        let num_chunks = (misbehaviour_bytes.len() + CHUNK_SIZE - 1) / CHUNK_SIZE;
+        let num_chunks = misbehaviour_bytes.len().div_ceil(CHUNK_SIZE);
 
         for i in 0..num_chunks {
             let chunk_pda = Pubkey::find_program_address(
@@ -258,10 +270,7 @@ fn setup_test_accounts(
     }
 }
 
-fn create_assemble_instruction(
-    test_accounts: &TestAccounts,
-    client_id: &str,
-) -> Instruction {
+fn create_assemble_instruction(test_accounts: &TestAccounts, client_id: &str) -> Instruction {
     let instruction_data = crate::instruction::AssembleAndSubmitMisbehaviour {
         client_id: client_id.to_string(),
     };
@@ -308,16 +317,16 @@ fn test_assemble_and_submit_misbehaviour_client_already_frozen() {
 
     let misbehaviour_bytes = create_mock_misbehaviour_bytes(100, 100, true);
 
-    let test_accounts = setup_test_accounts(
+    let test_accounts = setup_test_accounts(TestSetupConfig {
         chain_id,
         height_1,
         height_2,
         submitter,
-        true,  // client_frozen
-        true,  // with_valid_consensus_states
-        true,  // with_chunks
-        &misbehaviour_bytes,
-    );
+        client_frozen: true,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &misbehaviour_bytes,
+    });
 
     let instruction = create_assemble_instruction(&test_accounts, chain_id);
 
@@ -338,16 +347,16 @@ fn test_assemble_and_submit_misbehaviour_invalid_protobuf() {
     // Create invalid misbehaviour bytes
     let invalid_bytes = vec![0xFF; 100];
 
-    let test_accounts = setup_test_accounts(
+    let test_accounts = setup_test_accounts(TestSetupConfig {
         chain_id,
         height_1,
         height_2,
         submitter,
-        false, // client_frozen
-        true,  // with_valid_consensus_states
-        true,  // with_chunks
-        &invalid_bytes,
-    );
+        client_frozen: false,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &invalid_bytes,
+    });
 
     let instruction = create_assemble_instruction(&test_accounts, chain_id);
 
@@ -367,16 +376,16 @@ fn test_assemble_and_submit_misbehaviour_wrong_chunk_pda() {
 
     let misbehaviour_bytes = create_mock_misbehaviour_bytes(100, 100, true);
 
-    let mut test_accounts = setup_test_accounts(
+    let mut test_accounts = setup_test_accounts(TestSetupConfig {
         chain_id,
         height_1,
         height_2,
         submitter,
-        false, // client_frozen
-        true,  // with_valid_consensus_states
-        true,  // with_chunks
-        &misbehaviour_bytes,
-    );
+        client_frozen: false,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &misbehaviour_bytes,
+    });
 
     // Replace one chunk PDA with a wrong one - both in the PDAs list and accounts
     if !test_accounts.chunk_pdas.is_empty() {
@@ -387,7 +396,11 @@ fn test_assemble_and_submit_misbehaviour_wrong_chunk_pda() {
         test_accounts.chunk_pdas[0] = wrong_chunk_pda;
 
         // Find and update the account in the accounts list
-        if let Some(account_entry) = test_accounts.accounts.iter_mut().find(|(k, _)| *k == old_chunk_pda) {
+        if let Some(account_entry) = test_accounts
+            .accounts
+            .iter_mut()
+            .find(|(k, _)| *k == old_chunk_pda)
+        {
             account_entry.0 = wrong_chunk_pda;
         }
     }
