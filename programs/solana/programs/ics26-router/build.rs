@@ -11,7 +11,6 @@ use std::path::Path;
 const SHA256_SIZE: usize = 32;
 
 fn main() {
-    // Compute UNIVERSAL_ERROR_ACK = sha256("UNIVERSAL_ERROR_ACKNOWLEDGEMENT")
     let universal_error_ack = compute_sha256(b"UNIVERSAL_ERROR_ACKNOWLEDGEMENT");
 
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR environment variable not set");
