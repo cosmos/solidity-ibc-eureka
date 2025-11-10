@@ -23,7 +23,7 @@ pub struct IncrementCounter<'info> {
     )]
     pub user_counter: Account<'info, UserCounter>,
 
-    /// The user authority (`account_state` PDA for ICS27)
+    /// The user authority (`gmp_account` PDA for ICS27)
     /// MUST be a signer to authorize operations on this user's counter
     pub user_authority: Signer<'info>,
 

@@ -22,6 +22,11 @@ pub mod mock_ibc_app {
                 set_return_data(b"error");
                 return Ok(());
             }
+            if data == b"NO_RETURN_DATA" {
+                // Test case: don't call set_return_data at all
+                // This should cause router to return InvalidAppResponse error
+                return Ok(());
+            }
         }
 
         // Default: Return the expected acknowledgement for tests

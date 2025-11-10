@@ -1,17 +1,10 @@
-//! Generated Protobuf types for GMP relayer
+//! Protobuf types for GMP relayer
 //!
-//! This module contains types generated from .proto files via prost-build.
-//! The proto files are located in proto/gmp/ and proto/solana/.
+//! This module re-exports types from the shared solana-ibc-proto crate.
+//! Proto generation is centralized to ensure type consistency across programs and relayer.
 
-// Include generated code from build.rs
-pub mod gmp {
-    include!(concat!(env!("OUT_DIR"), "/gmp.rs"));
-}
-
-pub mod solana {
-    include!(concat!(env!("OUT_DIR"), "/solana.rs"));
-}
-
-// Re-export for convenience
-pub use gmp::GmpPacketData;
-pub use solana::{SolanaAccountMeta, SolanaInstruction};
+// Re-export from shared proto crate
+pub use solana_ibc_proto::{
+    GmpAcknowledgement as GmpPacketDataAcknowledgement, GmpPacketData, GmpSolanaPayload,
+    SolanaAccountMeta, ValidatedGMPSolanaPayload,
+};

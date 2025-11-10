@@ -1,3 +1,3 @@
-pub mod account_management;
+pub mod cpi_validation;
 
-pub use account_management::*;
+pub use cpi_validation::*;

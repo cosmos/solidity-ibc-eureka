@@ -8,7 +8,6 @@ pub mod instructions;
 pub mod proto;
 pub mod router_cpi;
 pub mod state;
-pub mod utils;
 
 #[cfg(test)]
 pub mod test_utils;
@@ -34,8 +33,8 @@ pub mod ics27_gmp {
     use super::*;
 
     /// Initialize the ICS27 GMP application
-    pub fn initialize(ctx: Context<Initialize>, router_program: Pubkey) -> Result<()> {
-        instructions::initialize(ctx, router_program)
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        instructions::initialize(ctx)
     }
 
     /// Send a GMP call packet
@@ -43,18 +42,9 @@ pub mod ics27_gmp {
         instructions::send_call(ctx, msg)
     }
 
-    /// Query GMP account state
-    ///
-    /// Returns the current state of a GMP account including nonce, execution count,
-    /// timestamps, etc. This instruction exists primarily to expose `AccountState`
-    /// in the IDL for client code generation (e.g., anchor-go).
-    pub fn query_account_state(ctx: Context<QueryAccountState>) -> Result<state::AccountState> {
-        instructions::query_account_state(ctx)
-    }
-
     /// IBC packet receive handler (called by router via CPI)
     pub fn on_recv_packet<'info>(
-        ctx: Context<'_, '_, '_, 'info, OnRecvPacket<'info>>,
+        ctx: Context<'_, '_, 'info, 'info, OnRecvPacket<'info>>,
         msg: solana_ibc_types::OnRecvPacketMsg,
     ) -> Result<Vec<u8>> {
         instructions::on_recv_packet(ctx, msg)

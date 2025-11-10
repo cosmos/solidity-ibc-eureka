@@ -1,11 +1,10 @@
 use crate::constants::*;
-use crate::events::{GMPAppInitialized, RouterCallerCreated};
-use crate::state::GMPAppState;
+use crate::events::GMPAppInitialized;
+use crate::state::{AccountVersion, GMPAppState};
 use anchor_lang::prelude::*;
 
 /// Initialize the ICS27 GMP application
 #[derive(Accounts)]
-#[instruction(router_program: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,
@@ -16,17 +15,6 @@ pub struct Initialize<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
-    /// Router caller PDA that represents our app to the router
-    /// CHECK: This is a PDA that just needs to exist for router authorization
-    #[account(
-        init,
-        payer = payer,
-        space = 8,
-        seeds = [b"router_caller"],
-        bump,
-    )]
-    pub router_caller: AccountInfo<'info>,
-
     #[account(mut)]
     pub payer: Signer<'info>,
 
@@ -34,35 +22,29 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn initialize(ctx: Context<Initialize>, router_program: Pubkey) -> Result<()> {
+pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
     let app_state = &mut ctx.accounts.app_state;
     let clock = Clock::get()?;
 
     // Initialize app state
-    app_state.router_program = router_program;
+    app_state.version = AccountVersion::V1;
     app_state.authority = ctx.accounts.authority.key();
-    app_state.version = 1;
     app_state.paused = false;
     app_state.bump = ctx.bumps.app_state;
+    app_state._reserved = [0; 256];
 
-    // Emit initialization events
+    // Emit initialization event
     emit!(GMPAppInitialized {
-        router_program,
+        router_program: ics26_router::ID,
         authority: app_state.authority,
         port_id: GMP_PORT_ID.to_string(),
         timestamp: clock.unix_timestamp,
     });
 
-    emit!(RouterCallerCreated {
-        router_caller: ctx.accounts.router_caller.key(),
-        bump: ctx.bumps.router_caller,
-    });
-
     msg!(
-        "ICS27 GMP app initialized with router: {}, port_id: {}, router_caller: {}",
-        router_program,
-        GMP_PORT_ID,
-        ctx.accounts.router_caller.key()
+        "ICS27 GMP app initialized with router: {}, port_id: {}",
+        ics26_router::ID,
+        GMP_PORT_ID
     );
     Ok(())
 }
@@ -79,18 +61,15 @@ mod tests {
 
     fn create_initialize_instruction(
         app_state: Pubkey,
-        router_caller: Pubkey,
         payer: Pubkey,
         authority: Pubkey,
-        router_program: Pubkey,
     ) -> Instruction {
-        let instruction_data = crate::instruction::Initialize { router_program };
+        let instruction_data = crate::instruction::Initialize {};
 
         Instruction {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(app_state, false),
-                AccountMeta::new(router_caller, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(authority, true),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -103,24 +82,14 @@ mod tests {
     fn test_initialize_success() {
         let authority = Pubkey::new_unique();
         let payer = authority;
-        let router_program = Pubkey::new_unique();
 
         let (app_state_pda, _) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let instruction = create_initialize_instruction(
-            app_state_pda,
-            router_caller_pda,
-            payer,
-            authority,
-            router_program,
-        );
+        let instruction = create_initialize_instruction(app_state_pda, payer, authority);
 
         let accounts = vec![
             (app_state_pda, solana_sdk::account::Account::default()),
-            (router_caller_pda, solana_sdk::account::Account::default()),
             (
                 payer,
                 solana_sdk::account::Account {
@@ -154,20 +123,11 @@ mod tests {
     fn test_initialize_already_initialized() {
         let authority = Pubkey::new_unique();
         let payer = authority;
-        let router_program = Pubkey::new_unique();
 
         let (app_state_pda, _) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let instruction = create_initialize_instruction(
-            app_state_pda,
-            router_caller_pda,
-            payer,
-            authority,
-            router_program,
-        );
+        let instruction = create_initialize_instruction(app_state_pda, payer, authority);
 
         // Create accounts that are already initialized (owned by program, not system)
         let accounts = vec![
@@ -180,7 +140,6 @@ mod tests {
                     ..Default::default()
                 },
             ),
-            (router_caller_pda, solana_sdk::account::Account::default()),
             (
                 payer,
                 solana_sdk::account::Account {

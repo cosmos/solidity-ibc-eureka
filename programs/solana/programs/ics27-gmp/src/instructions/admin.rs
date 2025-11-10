@@ -111,7 +111,7 @@ pub fn update_authority(ctx: Context<UpdateAuthority>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::GMPAppState;
+    use crate::state::{AccountVersion, GMPAppState};
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::Mollusk;
@@ -130,20 +130,17 @@ mod tests {
     fn test_initialize_success() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let router_program = Pubkey::new_unique();
         let authority = Pubkey::new_unique();
         let (app_state_pda, _bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
         let payer = authority;
 
-        let instruction_data = crate::instruction::Initialize { router_program };
+        let instruction_data = crate::instruction::Initialize {};
 
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
-                AccountMeta::new(router_caller_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(authority, true),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -153,7 +150,6 @@ mod tests {
 
         let accounts = vec![
             create_pda_for_init(app_state_pda),
-            create_pda_for_init(router_caller_pda),
             create_payer_account(payer),
             create_system_program_account(),
         ];
@@ -171,7 +167,6 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
 
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
@@ -190,7 +185,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 app_state_pda,
-                router_program,
                 authority,
                 app_state_bump,
                 false, // not paused
@@ -216,17 +210,16 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
 
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         let app_state = GMPAppState {
-            router_program,
+            version: AccountVersion::V1,
             authority,
-            version: 1,
             paused: true,
             bump: app_state_bump,
+            _reserved: [0; 256],
         };
 
         let mut data = Vec::new();
@@ -277,7 +270,6 @@ mod tests {
 
         let authority = Pubkey::new_unique();
         let wrong_authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
 
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
@@ -296,7 +288,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 app_state_pda,
-                router_program,
                 authority,
                 app_state_bump,
                 false, // not paused
@@ -321,7 +312,6 @@ mod tests {
 
         let current_authority = Pubkey::new_unique();
         let new_authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
 
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
@@ -341,7 +331,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 app_state_pda,
-                router_program,
                 current_authority,
                 app_state_bump,
                 false, // not paused
@@ -373,7 +362,6 @@ mod tests {
         let current_authority = Pubkey::new_unique();
         let wrong_authority = Pubkey::new_unique();
         let new_authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
 
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
@@ -393,7 +381,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 app_state_pda,
-                router_program,
                 current_authority,
                 app_state_bump,
                 false, // not paused
@@ -414,7 +401,6 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
 
         let (_correct_app_state_pda, _correct_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
@@ -437,7 +423,6 @@ mod tests {
             // Create account state at wrong PDA for testing
             create_gmp_app_state_account(
                 wrong_app_state_pda,
-                router_program,
                 authority,
                 255u8,
                 false, // not paused

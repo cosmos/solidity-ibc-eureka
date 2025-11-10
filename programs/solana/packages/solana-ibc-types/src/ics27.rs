@@ -1,29 +1,106 @@
 //! ICS27 GMP (General Message Passing) types for PDA derivation
 //!
-//! These marker types are shared between the ICS27 GMP program and relayer
+//! These types are shared between the ICS27 GMP program and relayer
 //! to ensure consistent PDA derivation across the system.
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::hash::hash;
 
-/// Marker type for GMP account state PDA
-pub struct GmpAccountState;
+// Re-export from solana-ibc-proto
+pub use solana_ibc_proto::{
+    ClientId, ConstrainedBytes, ConstrainedError, ConstrainedString, ConstrainedVec,
+    GMPPacketError, Memo, Receiver, Salt, Sender, ValidatedGmpPacketData,
+};
 
-impl GmpAccountState {
-    /// Seed for individual account state PDAs in the GMP program
-    /// Used by both the GMP program and relayer for deriving GMP account addresses
+/// GMP account identifier for PDA derivation
+///
+/// This type provides stateless PDA derivation for cross-chain account abstraction.
+/// Each unique combination of (client_id, sender, salt) derives a unique GMP account PDA.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GMPAccount {
+    pub client_id: ClientId,
+    pub sender: Sender,
+    pub salt: Salt,
+    pub sender_hash: [u8; 32],
+    pub pda: Pubkey,
+    pub bump: u8,
+}
+
+impl GMPAccount {
+    /// Seed for individual account PDAs in the GMP program
     pub const SEED: &'static [u8] = b"gmp_account";
 
-    /// Get GMP account state PDA for a sender
+    /// Create a new GMPAccount with PDA derivation
     ///
-    /// This matches the PDA derivation in the ICS27 GMP program's `AccountState::derive_address`.
-    /// The sender is always hashed to ensure consistent PDA derivation regardless of address length.
-    pub fn pda(client_id: &str, sender: &str, salt: &[u8], program_id: Pubkey) -> (Pubkey, u8) {
+    /// Accepts validated types, so no validation needed - construction cannot fail
+    pub fn new(client_id: ClientId, sender: Sender, salt: Salt, program_id: &Pubkey) -> Self {
+        // Calculate hash and PDA
         let sender_hash = hash(sender.as_bytes()).to_bytes();
-        Pubkey::find_program_address(
-            &[Self::SEED, client_id.as_bytes(), &sender_hash, salt],
-            &program_id,
+        let (pda, bump) = Pubkey::find_program_address(
+            &[Self::SEED, client_id.as_bytes(), &sender_hash, &salt],
+            program_id,
+        );
+
+        Self {
+            client_id,
+            sender,
+            salt,
+            sender_hash,
+            pda,
+            bump,
+        }
+    }
+
+    /// Get the derived PDA and bump
+    pub fn pda(&self) -> (Pubkey, u8) {
+        (self.pda, self.bump)
+    }
+
+    /// Create signer seeds for use with invoke_signed
+    pub fn to_signer_seeds(&self) -> SignerSeeds {
+        SignerSeeds {
+            client_id: self.client_id.clone(),
+            sender_hash: self.sender_hash,
+            salt: self.salt.clone(),
+            bump: self.bump,
+        }
+    }
+
+    /// Invoke a cross-program instruction with this GMP account as signer
+    pub fn invoke_signed(
+        &self,
+        instruction: &anchor_lang::solana_program::instruction::Instruction,
+        account_infos: &[anchor_lang::prelude::AccountInfo],
+    ) -> Result<()> {
+        let seeds = self.to_signer_seeds();
+        let seeds_slices = seeds.as_slices();
+        anchor_lang::solana_program::program::invoke_signed(
+            instruction,
+            account_infos,
+            &[&seeds_slices],
         )
+        .map_err(|e| e.into())
+    }
+}
+
+/// Signer seeds wrapper for invoke_signed
+pub struct SignerSeeds {
+    client_id: ClientId,
+    sender_hash: [u8; 32],
+    salt: Salt,
+    bump: u8,
+}
+
+impl SignerSeeds {
+    /// Get seeds as slices for invoke_signed
+    pub fn as_slices(&self) -> [&[u8]; 5] {
+        [
+            GMPAccount::SEED,
+            self.client_id.as_bytes(),
+            &self.sender_hash,
+            &*self.salt,
+            std::slice::from_ref(&self.bump),
+        ]
     }
 }
 

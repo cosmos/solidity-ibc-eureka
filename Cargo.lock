@@ -4981,6 +4981,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-eureka-constrained-types"
+version = "0.1.0"
+
+[[package]]
 name = "ibc-eureka-relayer"
 version = "0.1.0"
 dependencies = [
@@ -5093,12 +5097,12 @@ dependencies = [
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",
- "prost-build",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "solana-client",
  "solana-ibc-constants",
+ "solana-ibc-proto",
  "solana-ibc-types",
  "solana-sdk",
  "solana-transaction-status",
@@ -9310,11 +9314,24 @@ name = "solana-ibc-constants"
 version = "0.1.0"
 
 [[package]]
+name = "solana-ibc-proto"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "ibc-eureka-constrained-types",
+ "prost",
+ "prost-build",
+]
+
+[[package]]
 name = "solana-ibc-types"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "ibc-eureka-constrained-types",
+ "prost",
  "solana-ibc-constants",
+ "solana-ibc-proto",
 ]
 
 [[package]]

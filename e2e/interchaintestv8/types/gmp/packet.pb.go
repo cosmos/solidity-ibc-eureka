@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        (unknown)
-// source: gmp/gmp.proto
+// source: gmp/packet.proto
 
-package gmp
+package types
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -21,20 +21,18 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// `GMPPacketData` is the packet data sent over IBC for General Message Passing
-// This is the inner packet data that gets wrapped in the IBC packet payload
+// GMPPacketData defines a struct for the packet payload
 type GMPPacketData struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Source chain sender address (e.g., cosmos1...)
+	// the sender address
 	Sender string `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
-	// Target program ID on destination chain (base58 Solana pubkey)
+	// the recipient address on the destination chain
 	Receiver string `protobuf:"bytes,2,opt,name=receiver,proto3" json:"receiver,omitempty"`
-	// Salt for GMP account uniqueness (allows multiple accounts per sender)
+	// The salt used to generate the caller account address
 	Salt []byte `protobuf:"bytes,3,opt,name=salt,proto3" json:"salt,omitempty"`
-	// Protobuf-encoded execution payload
-	// For Solana: This contains a `SolanaInstruction`
+	// The payload of the call
 	Payload []byte `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
-	// Optional memo field
+	// optional memo
 	Memo          string `protobuf:"bytes,5,opt,name=memo,proto3" json:"memo,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -42,7 +40,7 @@ type GMPPacketData struct {
 
 func (x *GMPPacketData) Reset() {
 	*x = GMPPacketData{}
-	mi := &file_gmp_gmp_proto_msgTypes[0]
+	mi := &file_gmp_packet_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -54,7 +52,7 @@ func (x *GMPPacketData) String() string {
 func (*GMPPacketData) ProtoMessage() {}
 
 func (x *GMPPacketData) ProtoReflect() protoreflect.Message {
-	mi := &file_gmp_gmp_proto_msgTypes[0]
+	mi := &file_gmp_packet_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -67,7 +65,7 @@ func (x *GMPPacketData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GMPPacketData.ProtoReflect.Descriptor instead.
 func (*GMPPacketData) Descriptor() ([]byte, []int) {
-	return file_gmp_gmp_proto_rawDescGZIP(), []int{0}
+	return file_gmp_packet_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GMPPacketData) GetSender() string {
@@ -105,34 +103,30 @@ func (x *GMPPacketData) GetMemo() string {
 	return ""
 }
 
-// `GMPAcknowledgement` is returned after packet execution on the destination chain
-type GMPAcknowledgement struct {
+// Acknowledgement defines a struct for the ICS27-2 acknowledgement
+type Acknowledgement struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whether execution succeeded
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Result data from execution
-	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	// Error message if failed
-	Error         string `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	// The result of the call
+	Result        []byte `protobuf:"bytes,1,opt,name=result,proto3" json:"result,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GMPAcknowledgement) Reset() {
-	*x = GMPAcknowledgement{}
-	mi := &file_gmp_gmp_proto_msgTypes[1]
+func (x *Acknowledgement) Reset() {
+	*x = Acknowledgement{}
+	mi := &file_gmp_packet_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GMPAcknowledgement) String() string {
+func (x *Acknowledgement) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GMPAcknowledgement) ProtoMessage() {}
+func (*Acknowledgement) ProtoMessage() {}
 
-func (x *GMPAcknowledgement) ProtoReflect() protoreflect.Message {
-	mi := &file_gmp_gmp_proto_msgTypes[1]
+func (x *Acknowledgement) ProtoReflect() protoreflect.Message {
+	mi := &file_gmp_packet_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -143,67 +137,51 @@ func (x *GMPAcknowledgement) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GMPAcknowledgement.ProtoReflect.Descriptor instead.
-func (*GMPAcknowledgement) Descriptor() ([]byte, []int) {
-	return file_gmp_gmp_proto_rawDescGZIP(), []int{1}
+// Deprecated: Use Acknowledgement.ProtoReflect.Descriptor instead.
+func (*Acknowledgement) Descriptor() ([]byte, []int) {
+	return file_gmp_packet_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *GMPAcknowledgement) GetSuccess() bool {
+func (x *Acknowledgement) GetResult() []byte {
 	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-func (x *GMPAcknowledgement) GetData() []byte {
-	if x != nil {
-		return x.Data
+		return x.Result
 	}
 	return nil
 }
 
-func (x *GMPAcknowledgement) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
-}
+var File_gmp_packet_proto protoreflect.FileDescriptor
 
-var File_gmp_gmp_proto protoreflect.FileDescriptor
-
-const file_gmp_gmp_proto_rawDesc = "" +
+const file_gmp_packet_proto_rawDesc = "" +
 	"\n" +
-	"\rgmp/gmp.proto\x12\x03gmp\"\x85\x01\n" +
+	"\x10gmp/packet.proto\x12\x17ibc.applications.gmp.v1\"\x85\x01\n" +
 	"\rGMPPacketData\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12\x1a\n" +
 	"\breceiver\x18\x02 \x01(\tR\breceiver\x12\x12\n" +
 	"\x04salt\x18\x03 \x01(\fR\x04salt\x12\x18\n" +
 	"\apayload\x18\x04 \x01(\fR\apayload\x12\x12\n" +
-	"\x04memo\x18\x05 \x01(\tR\x04memo\"X\n" +
-	"\x12GMPAcknowledgement\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x12\n" +
-	"\x04data\x18\x02 \x01(\fR\x04data\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05errorBJ\n" +
-	"\acom.gmpB\bGmpProtoP\x01Z\ttypes/gmp\xa2\x02\x03GXX\xaa\x02\x03Gmp\xca\x02\x03Gmp\xe2\x02\x0fGmp\\GPBMetadata\xea\x02\x03Gmpb\x06proto3"
+	"\x04memo\x18\x05 \x01(\tR\x04memo\")\n" +
+	"\x0fAcknowledgement\x12\x16\n" +
+	"\x06result\x18\x01 \x01(\fR\x06resultB\xe1\x01\n" +
+	"\x1bcom.ibc.applications.gmp.v1B\vPacketProtoP\x01Z6github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types\xa2\x02\x03IAG\xaa\x02\x17Ibc.Applications.Gmp.V1\xca\x02\x17Ibc\\Applications\\Gmp\\V1\xe2\x02#Ibc\\Applications\\Gmp\\V1\\GPBMetadata\xea\x02\x1aIbc::Applications::Gmp::V1b\x06proto3"
 
 var (
-	file_gmp_gmp_proto_rawDescOnce sync.Once
-	file_gmp_gmp_proto_rawDescData []byte
+	file_gmp_packet_proto_rawDescOnce sync.Once
+	file_gmp_packet_proto_rawDescData []byte
 )
 
-func file_gmp_gmp_proto_rawDescGZIP() []byte {
-	file_gmp_gmp_proto_rawDescOnce.Do(func() {
-		file_gmp_gmp_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_gmp_gmp_proto_rawDesc), len(file_gmp_gmp_proto_rawDesc)))
+func file_gmp_packet_proto_rawDescGZIP() []byte {
+	file_gmp_packet_proto_rawDescOnce.Do(func() {
+		file_gmp_packet_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_gmp_packet_proto_rawDesc), len(file_gmp_packet_proto_rawDesc)))
 	})
-	return file_gmp_gmp_proto_rawDescData
+	return file_gmp_packet_proto_rawDescData
 }
 
-var file_gmp_gmp_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_gmp_gmp_proto_goTypes = []any{
-	(*GMPPacketData)(nil),      // 0: gmp.GMPPacketData
-	(*GMPAcknowledgement)(nil), // 1: gmp.GMPAcknowledgement
+var file_gmp_packet_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_gmp_packet_proto_goTypes = []any{
+	(*GMPPacketData)(nil),   // 0: ibc.applications.gmp.v1.GMPPacketData
+	(*Acknowledgement)(nil), // 1: ibc.applications.gmp.v1.Acknowledgement
 }
-var file_gmp_gmp_proto_depIdxs = []int32{
+var file_gmp_packet_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
 	0, // [0:0] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -211,26 +189,26 @@ var file_gmp_gmp_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_gmp_gmp_proto_init() }
-func file_gmp_gmp_proto_init() {
-	if File_gmp_gmp_proto != nil {
+func init() { file_gmp_packet_proto_init() }
+func file_gmp_packet_proto_init() {
+	if File_gmp_packet_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gmp_gmp_proto_rawDesc), len(file_gmp_gmp_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gmp_packet_proto_rawDesc), len(file_gmp_packet_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_gmp_gmp_proto_goTypes,
-		DependencyIndexes: file_gmp_gmp_proto_depIdxs,
-		MessageInfos:      file_gmp_gmp_proto_msgTypes,
+		GoTypes:           file_gmp_packet_proto_goTypes,
+		DependencyIndexes: file_gmp_packet_proto_depIdxs,
+		MessageInfos:      file_gmp_packet_proto_msgTypes,
 	}.Build()
-	File_gmp_gmp_proto = out.File
-	file_gmp_gmp_proto_goTypes = nil
-	file_gmp_gmp_proto_depIdxs = nil
+	File_gmp_packet_proto = out.File
+	file_gmp_packet_proto_goTypes = nil
+	file_gmp_packet_proto_depIdxs = nil
 }

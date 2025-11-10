@@ -15,46 +15,46 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 		return nil, fmt.Errorf("failed to peek account discriminator: %w", err)
 	}
 	switch discriminator {
-	case Account_Client:
-		value := new(Client)
+	case Account_DummyIbcAppStateDummyIbcAppState:
+		value := new(DummyIbcAppStateDummyIbcAppState)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal account as Client: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal account as DummyIbcAppStateDummyIbcAppState: %w", err)
 		}
 		return value, nil
-	case Account_ClientSequence:
-		value := new(ClientSequence)
+	case Account_DummyIbcAppStateEscrowState:
+		value := new(DummyIbcAppStateEscrowState)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal account as ClientSequence: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal account as DummyIbcAppStateEscrowState: %w", err)
 		}
 		return value, nil
-	case Account_DummyIbcAppState:
-		value := new(DummyIbcAppState)
+	case Account_Ics26RouterStateClient:
+		value := new(Ics26RouterStateClient)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal account as DummyIbcAppState: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal account as Ics26RouterStateClient: %w", err)
 		}
 		return value, nil
-	case Account_EscrowState:
-		value := new(EscrowState)
+	case Account_Ics26RouterStateClientSequence:
+		value := new(Ics26RouterStateClientSequence)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal account as EscrowState: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal account as Ics26RouterStateClientSequence: %w", err)
 		}
 		return value, nil
-	case Account_IbcApp:
-		value := new(IbcApp)
+	case Account_Ics26RouterStateIbcApp:
+		value := new(Ics26RouterStateIbcApp)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal account as IbcApp: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal account as Ics26RouterStateIbcApp: %w", err)
 		}
 		return value, nil
-	case Account_RouterState:
-		value := new(RouterState)
+	case Account_Ics26RouterStateRouterState:
+		value := new(Ics26RouterStateRouterState)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal account as RouterState: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal account as Ics26RouterStateRouterState: %w", err)
 		}
 		return value, nil
 	default:
@@ -62,104 +62,104 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 	}
 }
 
-func ParseAccount_Client(accountData []byte) (*Client, error) {
+func ParseAccount_DummyIbcAppStateDummyIbcAppState(accountData []byte) (*DummyIbcAppStateDummyIbcAppState, error) {
 	decoder := binary.NewBorshDecoder(accountData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Account_Client {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Client, binary.FormatDiscriminator(discriminator))
+	if discriminator != Account_DummyIbcAppStateDummyIbcAppState {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_DummyIbcAppStateDummyIbcAppState, binary.FormatDiscriminator(discriminator))
 	}
-	acc := new(Client)
+	acc := new(DummyIbcAppStateDummyIbcAppState)
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal account of type Client: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal account of type DummyIbcAppStateDummyIbcAppState: %w", err)
 	}
 	return acc, nil
 }
 
-func ParseAccount_ClientSequence(accountData []byte) (*ClientSequence, error) {
+func ParseAccount_DummyIbcAppStateEscrowState(accountData []byte) (*DummyIbcAppStateEscrowState, error) {
 	decoder := binary.NewBorshDecoder(accountData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Account_ClientSequence {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_ClientSequence, binary.FormatDiscriminator(discriminator))
+	if discriminator != Account_DummyIbcAppStateEscrowState {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_DummyIbcAppStateEscrowState, binary.FormatDiscriminator(discriminator))
 	}
-	acc := new(ClientSequence)
+	acc := new(DummyIbcAppStateEscrowState)
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal account of type ClientSequence: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal account of type DummyIbcAppStateEscrowState: %w", err)
 	}
 	return acc, nil
 }
 
-func ParseAccount_DummyIbcAppState(accountData []byte) (*DummyIbcAppState, error) {
+func ParseAccount_Ics26RouterStateClient(accountData []byte) (*Ics26RouterStateClient, error) {
 	decoder := binary.NewBorshDecoder(accountData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Account_DummyIbcAppState {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_DummyIbcAppState, binary.FormatDiscriminator(discriminator))
+	if discriminator != Account_Ics26RouterStateClient {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics26RouterStateClient, binary.FormatDiscriminator(discriminator))
 	}
-	acc := new(DummyIbcAppState)
+	acc := new(Ics26RouterStateClient)
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal account of type DummyIbcAppState: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics26RouterStateClient: %w", err)
 	}
 	return acc, nil
 }
 
-func ParseAccount_EscrowState(accountData []byte) (*EscrowState, error) {
+func ParseAccount_Ics26RouterStateClientSequence(accountData []byte) (*Ics26RouterStateClientSequence, error) {
 	decoder := binary.NewBorshDecoder(accountData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Account_EscrowState {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_EscrowState, binary.FormatDiscriminator(discriminator))
+	if discriminator != Account_Ics26RouterStateClientSequence {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics26RouterStateClientSequence, binary.FormatDiscriminator(discriminator))
 	}
-	acc := new(EscrowState)
+	acc := new(Ics26RouterStateClientSequence)
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal account of type EscrowState: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics26RouterStateClientSequence: %w", err)
 	}
 	return acc, nil
 }
 
-func ParseAccount_IbcApp(accountData []byte) (*IbcApp, error) {
+func ParseAccount_Ics26RouterStateIbcApp(accountData []byte) (*Ics26RouterStateIbcApp, error) {
 	decoder := binary.NewBorshDecoder(accountData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Account_IbcApp {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_IbcApp, binary.FormatDiscriminator(discriminator))
+	if discriminator != Account_Ics26RouterStateIbcApp {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics26RouterStateIbcApp, binary.FormatDiscriminator(discriminator))
 	}
-	acc := new(IbcApp)
+	acc := new(Ics26RouterStateIbcApp)
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal account of type IbcApp: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics26RouterStateIbcApp: %w", err)
 	}
 	return acc, nil
 }
 
-func ParseAccount_RouterState(accountData []byte) (*RouterState, error) {
+func ParseAccount_Ics26RouterStateRouterState(accountData []byte) (*Ics26RouterStateRouterState, error) {
 	decoder := binary.NewBorshDecoder(accountData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Account_RouterState {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_RouterState, binary.FormatDiscriminator(discriminator))
+	if discriminator != Account_Ics26RouterStateRouterState {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics26RouterStateRouterState, binary.FormatDiscriminator(discriminator))
 	}
-	acc := new(RouterState)
+	acc := new(Ics26RouterStateRouterState)
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal account of type RouterState: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics26RouterStateRouterState: %w", err)
 	}
 	return acc, nil
 }

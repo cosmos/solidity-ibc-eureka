@@ -11,135 +11,13 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-// Builds a "assemble_and_update_client" instruction.
-// Assemble chunks and update the client // Automatically cleans up all chunks after successful update
-func NewAssembleAndUpdateClientInstruction(
-	// Params:
-	chainIdParam string,
-	targetHeightParam uint64,
-
-	// Accounts:
-	clientStateAccount solanago.PublicKey,
-	trustedConsensusStateAccount solanago.PublicKey,
-	newConsensusStateStoreAccount solanago.PublicKey,
-	submitterAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
-	systemProgramAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_AssembleAndUpdateClient[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `chainIdParam`:
-		err = enc__.Encode(chainIdParam)
-		if err != nil {
-			return nil, errors.NewField("chainIdParam", err)
-		}
-		// Serialize `targetHeightParam`:
-		err = enc__.Encode(targetHeightParam)
-		if err != nil {
-			return nil, errors.NewField("targetHeightParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "client_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "trusted_consensus_state": Read-only, Non-signer, Required
-		// Trusted consensus state (will be validated after header assembly)
-		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
-		// Account 2 "new_consensus_state_store": Read-only, Non-signer, Required
-		// New consensus state store
-		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, false, false))
-		// Account 3 "submitter": Writable, Non-signer, Required
-		// The original submitter who paid for the chunks (receives rent back)
-		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, false))
-		// Account 4 "payer": Writable, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 5 "system_program": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
-// Builds a "cleanup_incomplete_upload" instruction.
-// Clean up incomplete header uploads at lower heights // This can be called to reclaim rent from failed or abandoned uploads
-func NewCleanupIncompleteUploadInstruction(
-	// Params:
-	chainIdParam string,
-	cleanupHeightParam uint64,
-	submitterParam solanago.PublicKey,
-
-	// Accounts:
-	clientStateAccount solanago.PublicKey,
-	submitterAccountAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_CleanupIncompleteUpload[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `chainIdParam`:
-		err = enc__.Encode(chainIdParam)
-		if err != nil {
-			return nil, errors.NewField("chainIdParam", err)
-		}
-		// Serialize `cleanupHeightParam`:
-		err = enc__.Encode(cleanupHeightParam)
-		if err != nil {
-			return nil, errors.NewField("cleanupHeightParam", err)
-		}
-		// Serialize `submitterParam`:
-		err = enc__.Encode(submitterParam)
-		if err != nil {
-			return nil, errors.NewField("submitterParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "client_state": Read-only, Non-signer, Required
-		// Client state to verify this is a valid client
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 1 "submitter_account": Writable, Signer, Required
-		// The original submitter who gets their rent back
-		// Must be the signer to prove they own the upload
-		accounts__.Append(solanago.NewAccountMeta(submitterAccountAccount, true, true))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
 // Builds a "initialize" instruction.
 func NewInitializeInstruction(
 	// Params:
 	chainIdParam string,
 	latestHeightParam uint64,
-	clientStateParam ClientState,
-	consensusStateParam ConsensusState,
+	clientStateParam Ics07TendermintTypesClientState,
+	consensusStateParam Ics07TendermintTypesConsensusState,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
@@ -199,21 +77,20 @@ func NewInitializeInstruction(
 	), nil
 }
 
-// Builds a "submit_misbehaviour" instruction.
-func NewSubmitMisbehaviourInstruction(
+// Builds a "verify_membership" instruction.
+func NewVerifyMembershipInstruction(
 	// Params:
-	msgParam MisbehaviourMsg,
+	msgParam Ics25HandlerMembershipMsg,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
-	trustedConsensusState1account solanago.PublicKey,
-	trustedConsensusState2account solanago.PublicKey,
+	consensusStateAtHeightAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_SubmitMisbehaviour[:], false)
+	err := enc__.WriteBytes(Instruction_VerifyMembership[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
@@ -228,12 +105,10 @@ func NewSubmitMisbehaviourInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "client_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "trusted_consensus_state_1": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState1account, false, false))
-		// Account 2 "trusted_consensus_state_2": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState2account, false, false))
+		// Account 0 "client_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 1 "consensus_state_at_height": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(consensusStateAtHeightAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -244,23 +119,21 @@ func NewSubmitMisbehaviourInstruction(
 	), nil
 }
 
-// Builds a "update_client" instruction.
-func NewUpdateClientInstruction(
+// Builds a "verify_non_membership" instruction.
+// Verifies the absence of a value at a given path in the counterparty chain state. // Returns the timestamp of the consensus state at the proof height in unix seconds.
+func NewVerifyNonMembershipInstruction(
 	// Params:
-	msgParam UpdateClientMsg,
+	msgParam Ics25HandlerNonMembershipMsg,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
-	trustedConsensusStateAccount solanago.PublicKey,
-	newConsensusStateStoreAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
-	systemProgramAccount solanago.PublicKey,
+	consensusStateAtHeightAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_UpdateClient[:], false)
+	err := enc__.WriteBytes(Instruction_VerifyNonMembership[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
@@ -275,27 +148,10 @@ func NewUpdateClientInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "client_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "trusted_consensus_state": Read-only, Non-signer, Required
-		// Trusted consensus state at the height specified in the header
-		// We use `UncheckedAccount` here because the trusted height is extracted from the header,
-		// which can only be deserialized inside the instruction handler. Since Anchor's account
-		// validation happens before the instruction code runs, we cannot use the standard
-		// #[account(seeds = ...)] constraint. Instead, we manually validate the PDA derivation
-		// inside the instruction handler after extracting the trusted height from the header.
-		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
-		// Account 2 "new_consensus_state_store": Read-only, Non-signer, Required
-		// Consensus state store for the new height
-		// Will be created if it doesn't exist, or validated if it does (for misbehaviour detection)
-		// NOTE: We can't use the instruction parameter here because we don't know the new height
-		// until after processing the update. This account must be derived by the client
-		// based on the expected new height from the header.
-		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, false, false))
-		// Account 3 "payer": Writable, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 0 "client_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 1 "consensus_state_at_height": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(consensusStateAtHeightAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -310,7 +166,7 @@ func NewUpdateClientInstruction(
 // Upload a chunk of header data for multi-transaction updates // Fails if a chunk already exists at this position (no overwrites allowed)
 func NewUploadHeaderChunkInstruction(
 	// Params:
-	paramsParam UploadChunkParams,
+	paramsParam Ics07TendermintTypesUploadChunkParams,
 
 	// Accounts:
 	chunkAccount solanago.PublicKey,
@@ -358,38 +214,57 @@ func NewUploadHeaderChunkInstruction(
 	), nil
 }
 
-// Builds a "verify_membership" instruction.
-func NewVerifyMembershipInstruction(
+// Builds a "assemble_and_update_client" instruction.
+// Assemble chunks and update the client // Automatically cleans up all chunks after successful update
+func NewAssembleAndUpdateClientInstruction(
 	// Params:
-	msgParam MembershipMsg,
+	chainIdParam string,
+	targetHeightParam uint64,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
-	consensusStateAtHeightAccount solanago.PublicKey,
+	trustedConsensusStateAccount solanago.PublicKey,
+	newConsensusStateStoreAccount solanago.PublicKey,
+	submitterAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_VerifyMembership[:], false)
+	err := enc__.WriteBytes(Instruction_AssembleAndUpdateClient[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `msgParam`:
-		err = enc__.Encode(msgParam)
+		// Serialize `chainIdParam`:
+		err = enc__.Encode(chainIdParam)
 		if err != nil {
-			return nil, errors.NewField("msgParam", err)
+			return nil, errors.NewField("chainIdParam", err)
+		}
+		// Serialize `targetHeightParam`:
+		err = enc__.Encode(targetHeightParam)
+		if err != nil {
+			return nil, errors.NewField("targetHeightParam", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "client_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 1 "consensus_state_at_height": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(consensusStateAtHeightAccount, false, false))
+		// Account 0 "client_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
+		// Account 1 "trusted_consensus_state": Read-only, Non-signer, Required
+		// Trusted consensus state at the height embedded in the header
+		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
+		// Account 2 "new_consensus_state_store": Read-only, Non-signer, Required
+		// New consensus state store
+		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, false, false))
+		// Account 3 "submitter": Writable, Signer, Required
+		// The submitter who uploaded the chunks
+		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
+		// Account 4 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -400,28 +275,41 @@ func NewVerifyMembershipInstruction(
 	), nil
 }
 
-// Builds a "verify_non_membership" instruction.
-func NewVerifyNonMembershipInstruction(
+// Builds a "cleanup_incomplete_upload" instruction.
+// Clean up incomplete header uploads at lower heights // This can be called to reclaim rent from failed or abandoned uploads
+func NewCleanupIncompleteUploadInstruction(
 	// Params:
-	msgParam MembershipMsg,
+	chainIdParam string,
+	cleanupHeightParam uint64,
+	submitterParam solanago.PublicKey,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
-	consensusStateAtHeightAccount solanago.PublicKey,
+	submitterAccountAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_VerifyNonMembership[:], false)
+	err := enc__.WriteBytes(Instruction_CleanupIncompleteUpload[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `msgParam`:
-		err = enc__.Encode(msgParam)
+		// Serialize `chainIdParam`:
+		err = enc__.Encode(chainIdParam)
 		if err != nil {
-			return nil, errors.NewField("msgParam", err)
+			return nil, errors.NewField("chainIdParam", err)
+		}
+		// Serialize `cleanupHeightParam`:
+		err = enc__.Encode(cleanupHeightParam)
+		if err != nil {
+			return nil, errors.NewField("cleanupHeightParam", err)
+		}
+		// Serialize `submitterParam`:
+		err = enc__.Encode(submitterParam)
+		if err != nil {
+			return nil, errors.NewField("submitterParam", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
@@ -429,9 +317,12 @@ func NewVerifyNonMembershipInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "client_state": Read-only, Non-signer, Required
+		// Client state to verify this is a valid client
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 1 "consensus_state_at_height": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(consensusStateAtHeightAccount, false, false))
+		// Account 1 "submitter_account": Writable, Signer, Required
+		// The original submitter who gets their rent back
+		// Must be the signer to prove they own the upload
+		accounts__.Append(solanago.NewAccountMeta(submitterAccountAccount, true, true))
 	}
 
 	// Create the instruction.

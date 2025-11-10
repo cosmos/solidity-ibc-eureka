@@ -14,45 +14,22 @@ import (
 // Builds a "initialize" instruction.
 // Initialize the ICS27 GMP application
 func NewInitializeInstruction(
-	// Params:
-	routerProgramParam solanago.PublicKey,
-
-	// Accounts:
 	appStateAccount solanago.PublicKey,
-	routerCallerAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	authorityAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_Initialize[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `routerProgramParam`:
-		err = enc__.Encode(routerProgramParam)
-		if err != nil {
-			return nil, errors.NewField("routerProgramParam", err)
-		}
-	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "router_caller": Writable, Non-signer, Required
-		// Router caller PDA that represents our app to the router
-		accounts__.Append(solanago.NewAccountMeta(routerCallerAccount, true, false))
-		// Account 2 "payer": Writable, Signer, Required
+		// Account 1 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 3 "authority": Read-only, Signer, Required
+		// Account 2 "authority": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Account 3 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -60,27 +37,34 @@ func NewInitializeInstruction(
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		buf__.Bytes(),
+		nil,
 	), nil
 }
 
-// Builds a "on_acknowledgement_packet" instruction.
-// IBC acknowledgement handler (called by router via CPI)
-func NewOnAcknowledgementPacketInstruction(
+// Builds a "send_call" instruction.
+// Send a GMP call packet
+func NewSendCallInstruction(
 	// Params:
-	msgParam OnAcknowledgementPacketMsg,
+	msgParam Ics27GmpStateSendCallMsg,
 
 	// Accounts:
 	appStateAccount solanago.PublicKey,
-	routerProgramAccount solanago.PublicKey,
+	senderAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
+	routerProgramAccount solanago.PublicKey,
+	routerStateAccount solanago.PublicKey,
+	clientSequenceAccount solanago.PublicKey,
+	packetCommitmentAccount solanago.PublicKey,
+	instructionSysvarAccount solanago.PublicKey,
+	ibcAppAccount solanago.PublicKey,
+	clientAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_OnAcknowledgementPacket[:], false)
+	err := enc__.WriteBytes(Instruction_SendCall[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
@@ -95,16 +79,36 @@ func NewOnAcknowledgementPacketInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "app_state": Read-only, Non-signer, Required
+		// Account 0 "app_state": Writable, Non-signer, Required
 		// App state account - validated by Anchor PDA constraints
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
-		// Account 1 "router_program": Read-only, Non-signer, Required
-		// Router program calling this instruction
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "sender": Read-only, Signer, Required
+		// Sender of the call
+		accounts__.Append(solanago.NewAccountMeta(senderAccount, false, true))
+		// Account 2 "payer": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 3 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
+		// Router program for sending packets
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 2 "payer": Writable, Non-signer, Required
-		// Relayer fee payer (passed by router but not used in acknowledgement handler)
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, false))
-		// Account 3 "system_program": Read-only, Non-signer, Required
+		// Account 4 "router_state": Read-only, Non-signer, Required
+		// Router state account
+		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
+		// Account 5 "client_sequence": Writable, Non-signer, Required
+		// Client sequence account for packet sequencing
+		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
+		// Account 6 "packet_commitment": Writable, Non-signer, Required
+		// Packet commitment account to be created
+		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
+		// Account 7 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for router CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
+		// Account 8 "ibc_app": Read-only, Non-signer, Required
+		// IBC app registration account
+		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
+		// Account 9 "client": Read-only, Non-signer, Required
+		// Client account
+		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
+		// Account 10 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -120,11 +124,12 @@ func NewOnAcknowledgementPacketInstruction(
 // IBC packet receive handler (called by router via CPI)
 func NewOnRecvPacketInstruction(
 	// Params:
-	msgParam OnRecvPacketMsg,
+	msgParam SolanaIbcTypesAppMsgsOnRecvPacketMsg,
 
 	// Accounts:
 	appStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
+	instructionSysvarAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -150,16 +155,75 @@ func NewOnRecvPacketInstruction(
 		// Account 0 "app_state": Writable, Non-signer, Required
 		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "router_program": Read-only, Non-signer, Required
+		// Account 1 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
 		// Router program calling this instruction
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 2 "payer": Writable, Non-signer, Required
+		// Account 2 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for validating CPI caller
+		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
+		// Account 3 "payer": Writable, Signer, Required
 		// Relayer fee payer - used for account creation rent
 		// NOTE: This cannot be the GMP account PDA because PDAs with data cannot
 		// be used as payers in System Program transfers. The relayer's fee payer
 		// is used for rent, while the GMP account PDA signs via `invoke_signed`.
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, false))
-		// Account 3 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 4 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "on_acknowledgement_packet" instruction.
+// IBC acknowledgement handler (called by router via CPI)
+func NewOnAcknowledgementPacketInstruction(
+	// Params:
+	msgParam SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg,
+
+	// Accounts:
+	appStateAccount solanago.PublicKey,
+	routerProgramAccount solanago.PublicKey,
+	instructionSysvarAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_OnAcknowledgementPacket[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Read-only, Non-signer, Required
+		// App state account - validated by Anchor PDA constraints
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
+		// Account 1 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
+		// Router program calling this instruction
+		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
+		// Account 2 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for validating CPI caller
+		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
+		// Account 3 "payer": Writable, Signer, Required
+		// Relayer fee payer (passed by router but not used in acknowledgement handler)
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 4 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -175,11 +239,12 @@ func NewOnRecvPacketInstruction(
 // IBC timeout handler (called by router via CPI)
 func NewOnTimeoutPacketInstruction(
 	// Params:
-	msgParam OnTimeoutPacketMsg,
+	msgParam SolanaIbcTypesAppMsgsOnTimeoutPacketMsg,
 
 	// Accounts:
 	appStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
+	instructionSysvarAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -205,13 +270,16 @@ func NewOnTimeoutPacketInstruction(
 		// Account 0 "app_state": Read-only, Non-signer, Required
 		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
-		// Account 1 "router_program": Read-only, Non-signer, Required
+		// Account 1 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
 		// Router program calling this instruction
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 2 "payer": Writable, Non-signer, Required
+		// Account 2 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for validating CPI caller
+		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
+		// Account 3 "payer": Writable, Signer, Required
 		// Relayer fee payer (passed by router but not used in timeout handler)
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, false))
-		// Account 3 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 4 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -245,108 +313,6 @@ func NewPauseAppInstruction(
 		ProgramID,
 		accounts__,
 		nil,
-	), nil
-}
-
-// Builds a "query_account_state" instruction.
-// Query GMP account state //  // Returns the current state of a GMP account including nonce, execution count, // timestamps, etc. This instruction exists primarily to expose AccountState // in the IDL for client code generation (e.g., anchor-go).
-func NewQueryAccountStateInstruction(
-	accountStateAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "account_state": Read-only, Non-signer, Required
-		// The GMP account state being queried
-		// by the caller who must derive the correct PDA using AccountState::derive_address
-		accounts__.Append(solanago.NewAccountMeta(accountStateAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		nil,
-	), nil
-}
-
-// Builds a "send_call" instruction.
-// Send a GMP call packet
-func NewSendCallInstruction(
-	// Params:
-	msgParam SendCallMsg,
-
-	// Accounts:
-	appStateAccount solanago.PublicKey,
-	senderAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
-	routerProgramAccount solanago.PublicKey,
-	routerStateAccount solanago.PublicKey,
-	clientSequenceAccount solanago.PublicKey,
-	packetCommitmentAccount solanago.PublicKey,
-	routerCallerAccount solanago.PublicKey,
-	ibcAppAccount solanago.PublicKey,
-	clientAccount solanago.PublicKey,
-	systemProgramAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_SendCall[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `msgParam`:
-		err = enc__.Encode(msgParam)
-		if err != nil {
-			return nil, errors.NewField("msgParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "app_state": Writable, Non-signer, Required
-		// App state account - validated by Anchor PDA constraints
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "sender": Read-only, Signer, Required
-		// Sender of the call
-		accounts__.Append(solanago.NewAccountMeta(senderAccount, false, true))
-		// Account 2 "payer": Writable, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 3 "router_program": Read-only, Non-signer, Required
-		// Router program for sending packets
-		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 4 "router_state": Read-only, Non-signer, Required
-		// Router state account
-		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
-		// Account 5 "client_sequence": Writable, Non-signer, Required
-		// Client sequence account for packet sequencing
-		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
-		// Account 6 "packet_commitment": Writable, Non-signer, Required
-		// Packet commitment account to be created
-		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
-		// Account 7 "router_caller": Read-only, Non-signer, Required
-		// Router caller PDA that represents our app
-		accounts__.Append(solanago.NewAccountMeta(routerCallerAccount, false, false))
-		// Account 8 "ibc_app": Read-only, Non-signer, Required
-		// IBC app registration account
-		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
-		// Account 9 "client": Read-only, Non-signer, Required
-		// Client account
-		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 10 "system_program": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
 	), nil
 }
 

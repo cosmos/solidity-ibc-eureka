@@ -150,6 +150,7 @@ func (g *Generator) findIDLFiles() ([]string, error) {
 		return nil, fmt.Errorf("no IDL JSON files found in %s", g.config.IDLDirectory)
 	}
 
+	sort.Strings(files)
 	return files, nil
 }
 
@@ -270,12 +271,20 @@ func (cg *CodeGenerator) generate() (string, error) {
 	// Group patterns by program
 	programPatterns := cg.groupByProgram()
 
+	// Get sorted program names for consistent output
+	var programNames []string
+	for name := range programPatterns {
+		programNames = append(programNames, name)
+	}
+	sort.Strings(programNames)
+
 	// Generate type definitions and singleton instances
-	b.WriteString(cg.generateTypes(programPatterns))
+	b.WriteString(cg.generateTypes(programNames))
 	b.WriteString("\n")
 
-	// Generate methods for each program
-	for programName, patterns := range programPatterns {
+	// Generate methods for each program in sorted order
+	for _, programName := range programNames {
+		patterns := programPatterns[programName]
 		for _, pattern := range patterns {
 			b.WriteString(cg.generateMethod(programName, pattern))
 			b.WriteString("\n")
@@ -293,15 +302,8 @@ func (cg *CodeGenerator) groupByProgram() map[string][]PDAPattern {
 	return programPatterns
 }
 
-func (cg *CodeGenerator) generateTypes(programPatterns map[string][]PDAPattern) string {
+func (cg *CodeGenerator) generateTypes(programNames []string) string {
 	var b strings.Builder
-
-	// Get sorted program names for consistent output
-	var programNames []string
-	for name := range programPatterns {
-		programNames = append(programNames, name)
-	}
-	sort.Strings(programNames)
 
 	// Generate type definitions
 	for _, name := range programNames {
