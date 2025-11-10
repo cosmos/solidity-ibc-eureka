@@ -109,21 +109,19 @@ pub fn ack_packet<'info>(
         relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.source_client,
-        program_id: ctx.program_id,
     })?;
 
     let payload = packet::get_single_payload(&packet)?;
 
-    let (expected_ibc_app, _) = Pubkey::find_program_address(
-        &[IBCApp::SEED, payload.source_port.as_bytes()],
-        ctx.program_id,
-    );
+    let (expected_ibc_app, _) =
+        Pubkey::find_program_address(&[IBCApp::SEED, payload.source_port.as_bytes()], &crate::ID);
 
     require!(
         ctx.accounts.ibc_app.key() == expected_ibc_app,
         RouterError::IbcAppNotFound
     );
 
+    let total_payload_chunks = total_payload_chunks(&msg.payloads);
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
         relayer: &ctx.accounts.relayer,
@@ -131,9 +129,8 @@ pub fn ack_packet<'info>(
         client_id: &msg.packet.source_client,
         sequence: msg.packet.sequence,
         total_chunks: msg.proof.total_chunks,
-        program_id: ctx.program_id,
         // proof chunks come after payload chunks
-        start_index: total_payload_chunks(&msg.payloads),
+        start_index: total_payload_chunks,
     })?;
 
     // Verify acknowledgement proof on counterparty chain via light client
@@ -181,6 +178,12 @@ pub fn ack_packet<'info>(
     let mut data = packet_commitment_account.try_borrow_mut_data()?;
     data.fill(0);
 
+    let app_remaining_accounts = chunking::filter_app_remaining_accounts(
+        ctx.remaining_accounts,
+        total_payload_chunks,
+        msg.proof.total_chunks,
+    );
+
     let cpi_accounts = IbcAppCpiAccounts {
         ibc_app_program: ctx.accounts.ibc_app_program.clone(),
         app_state: ctx.accounts.ibc_app_state.clone(),
@@ -196,7 +199,7 @@ pub fn ack_packet<'info>(
         payload,
         &msg.acknowledgement,
         &ctx.accounts.relayer.key(),
-        ctx.remaining_accounts,
+        app_remaining_accounts,
     )?;
 
     // Close the account and return rent to relayer (after CPI to avoid UnbalancedInstruction)

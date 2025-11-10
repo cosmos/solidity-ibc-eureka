@@ -50,7 +50,7 @@ impl<'a> IbcAppCpi<'a> {
             remaining_accounts,
         )?;
 
-        self.get_return_data()
+        self.get_app_acknowledgement()
     }
 
     pub fn on_acknowledgement_packet(
@@ -154,13 +154,12 @@ impl<'a> IbcAppCpi<'a> {
         infos
     }
 
-    fn get_return_data(&self) -> Result<Vec<u8>> {
+    fn get_app_acknowledgement(&self) -> Result<Vec<u8>> {
         match get_return_data() {
             Some((program_id, data)) if program_id == *self.accounts.ibc_app_program.key => {
                 Ok(data)
             }
-            Some((_, _)) => Err(RouterError::InvalidAppResponse.into()),
-            None => Ok(vec![]),
+            _ => Err(RouterError::InvalidAppResponse.into()),
         }
     }
 }
