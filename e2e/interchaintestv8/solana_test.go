@@ -1065,10 +1065,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 
 // Test_TendermintSubmitMisbehaviour_DoubleSign tests the misbehaviour detection flow
 // TODO: This test needs to be implemented with fixture data or synthetic headers
-// The challenge is that misbehaviour requires:
-// 1. Two headers at the same height with different hashes (double-sign)
-// 2. Both headers must reference a consensus state stored on Solana
-// 3. The TrustedValidators in the headers must match the next_validators_hash in consensus state
 func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign() {
 	s.T().Skip("TODO: Implement with fixture data - requires exact header matching")
 	ctx := context.Background()
@@ -1121,8 +1117,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 
 	var misbehaviourBytes []byte
 	s.Require().True(s.Run("Create misbehaviour evidence", func() {
-		// Create a synthetic header at the SAME height as the trusted header
-		// This simulates a double-sign where validators sign two different blocks at the same height
 		header1 := s.CreateTMClientHeader(
 			ctx,
 			simd,
@@ -1131,8 +1125,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 			trustedHeader1,
 		)
 
-		// Use the actual trusted header as Header2 (same pattern as Ethereum test)
-		// This ensures Header2 matches exactly what's stored in the Solana consensus state
 		misbehaviour := tmclient.Misbehaviour{
 			ClientId: SolanaClientID,
 			Header1:  &header1,
@@ -1278,12 +1270,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedMisbehaviourChunks() {
 	s.Require().True(s.Run("Upload orphaned misbehaviour chunks", func() {
 		s.T().Logf("Uploading %d orphaned misbehaviour chunks", numChunks)
 
-		for i := 0; i < numChunks; i++ {
+		for i := range numChunks {
 			start := i * chunkSize
-			end := start + chunkSize
-			if end > len(mockMisbehaviourData) {
-				end = len(mockMisbehaviourData)
-			}
+			end := min(start + chunkSize, len(mockMisbehaviourData))
 			chunkData := mockMisbehaviourData[start:end]
 
 			chunkPDA, _, err := solanago.FindProgramAddress(
