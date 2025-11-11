@@ -114,13 +114,15 @@ pub fn recv_packet<'info>(
         RouterError::UnauthorizedSender
     );
 
-    require!(
-        msg.packet.source_client == client.counterparty_info.client_id,
+    require_eq!(
+        &msg.packet.source_client,
+        &client.counterparty_info.client_id,
         RouterError::InvalidCounterpartyClient
     );
 
-    require!(
-        msg.packet.dest_client == client.client_id,
+    require_eq!(
+        &msg.packet.dest_client,
+        &client.client_id,
         RouterError::ClientMismatch
     );
 

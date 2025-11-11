@@ -93,13 +93,15 @@ pub fn timeout_packet<'info>(
         RouterError::UnauthorizedSender
     );
 
-    require!(
-        msg.packet.source_client == client.client_id,
+    require_eq!(
+        &msg.packet.source_client,
+        &client.client_id,
         RouterError::ClientMismatch
     );
 
-    require!(
-        msg.packet.dest_client == client.counterparty_info.client_id,
+    require_eq!(
+        &msg.packet.dest_client,
+        &client.counterparty_info.client_id,
         RouterError::InvalidCounterpartyClient
     );
 
