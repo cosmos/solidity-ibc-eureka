@@ -113,30 +113,20 @@ impl<'a> LightClientCpi<'a> {
 
     /// Extract timestamp from light client return data
     fn get_timestamp_from_return_data(&self) -> Result<u64> {
-        // Get the return data from the light client
-        // Light client should return timestamp for non-membership verification
-        match get_return_data() {
-            Some((program_id, data)) => {
-                require_eq!(
-                    program_id,
-                    self.client.client_program_id,
-                    RouterError::InvalidLightClientProgram
-                );
+        let (program_id, data) = get_return_data().ok_or(RouterError::InvalidAppResponse)?;
+        require_eq!(
+            program_id,
+            self.client.client_program_id,
+            RouterError::InvalidLightClientProgram
+        );
 
-                require!(
-                    data.len() >= ANCHOR_DISCRIMINATOR_SIZE,
-                    RouterError::InvalidAppResponse
-                );
+        require!(
+            data.len() >= ANCHOR_DISCRIMINATOR_SIZE,
+            RouterError::InvalidAppResponse
+        );
 
-                let mut bytes = [0u8; 8];
-                bytes.copy_from_slice(&data[..ANCHOR_DISCRIMINATOR_SIZE]);
-                Ok(u64::from_le_bytes(bytes))
-            }
-            None => {
-                // If no return data, the light client is not compliant with the interface
-                // Real light clients MUST return timestamp for non-membership verification
-                Err(RouterError::InvalidAppResponse.into())
-            }
-        }
+        let mut bytes = [0u8; 8];
+        bytes.copy_from_slice(&data[..ANCHOR_DISCRIMINATOR_SIZE]);
+        Ok(u64::from_le_bytes(bytes))
     }
 }
