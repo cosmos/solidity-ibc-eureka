@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import { ILightClientMsgs } from "../../msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../msgs/IICS02ClientMsgs.sol";
 
+import { IICS02PrecompileWrapperErrors } from "./errors/IICS02PrecompileWrapperErrors.sol";
 import { ILightClient } from "../../interfaces/ILightClient.sol";
 import { IICS02Precompile } from "./interfaces/IICS02Precompile.sol";
 
@@ -13,7 +14,7 @@ address constant ICS02_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000
 /// @dev The ICS02 contract's instance.
 IICS02Precompile constant ICS02_CONTRACT = IICS02Precompile(ICS02_PRECOMPILE_ADDRESS);
 
-contract SP1ICS07Tendermint is ILightClient {
+contract SP1ICS07Tendermint is ILightClient, IICS02PrecompileWrapperErrors {
     /// @notice The client identifier of the IBC-Go Light Client
     /// @dev The client-id associated to this light client in solidity-ibc may be different.
     string public GO_CLIENT_ID;
@@ -38,7 +39,7 @@ contract SP1ICS07Tendermint is ILightClient {
         } else if (result == IICS02Precompile.UpdateResult.Misbehaviour) {
             return ILightClientMsgs.UpdateResult.Misbehaviour;
         } else {
-            revert("Unknown update result");
+            revert Unreachable();
         }
     }
 
@@ -57,7 +58,7 @@ contract SP1ICS07Tendermint is ILightClient {
         IICS02Precompile.UpdateResult result = ICS02_CONTRACT.updateClient(GO_CLIENT_ID, updateMsg);
 
         if (result != IICS02Precompile.UpdateResult.Misbehaviour) {
-            revert("No misbehaviour detected");
+            revert NoMisbehaviourDetected();
         }
     }
 }
