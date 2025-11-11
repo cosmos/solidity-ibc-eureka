@@ -13,7 +13,7 @@ import { ILightClientMsgs } from "../../msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../msgs/IICS02ClientMsgs.sol";
 
 import { ISP1ICS07TendermintErrors } from "./errors/ISP1ICS07TendermintErrors.sol";
-import { ISP1ICS07Tendermint } from "./ISP1ICS07Tendermint.sol";
+import { ISP1ICS07Tendermint } from "./interfaces/ISP1ICS07Tendermint.sol";
 import { ILightClient } from "../../interfaces/ILightClient.sol";
 import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 
