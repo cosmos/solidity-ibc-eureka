@@ -9,12 +9,12 @@ import { IMembershipMsgs } from "./msgs/IMembershipMsgs.sol";
 import { IUpdateClientAndMembershipMsgs } from "./msgs/IUcAndMembershipMsgs.sol";
 import { IMisbehaviourMsgs } from "./msgs/IMisbehaviourMsgs.sol";
 import { ISP1Msgs } from "./msgs/ISP1Msgs.sol";
-import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
-import { IICS02ClientMsgs } from "../msgs/IICS02ClientMsgs.sol";
+import { ILightClientMsgs } from "../../msgs/ILightClientMsgs.sol";
+import { IICS02ClientMsgs } from "../../msgs/IICS02ClientMsgs.sol";
 
 import { ISP1ICS07TendermintErrors } from "./errors/ISP1ICS07TendermintErrors.sol";
 import { ISP1ICS07Tendermint } from "./ISP1ICS07Tendermint.sol";
-import { ILightClient } from "../interfaces/ILightClient.sol";
+import { ILightClient } from "../../interfaces/ILightClient.sol";
 import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 
 import { Paths } from "./utils/Paths.sol";
