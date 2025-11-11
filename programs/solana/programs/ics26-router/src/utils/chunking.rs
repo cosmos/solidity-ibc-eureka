@@ -97,7 +97,6 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
 
         let chunk_account = &params.remaining_accounts[account_index];
 
-        // Verify PDA
         let expected_seeds = &[
             PayloadChunk::SEED,
             params.submitter.as_ref(),
@@ -271,6 +270,12 @@ fn cleanup_payload_chunks(params: CleanupPayloadChunksParams) -> Result<()> {
             RouterError::InvalidChunkAccount
         );
 
+        require_keys_eq!(
+            *chunk_account.owner,
+            crate::ID,
+            RouterError::InvalidAccountOwner
+        );
+
         // Clear the chunk data to prevent replay
         // Note: Lamports are NOT transferred here to avoid UnbalancedInstruction errors.
         // Users must call cleanup_chunks separately to reclaim rent.
@@ -296,6 +301,12 @@ fn cleanup_proof_chunks(params: CleanupProofChunksParams) -> Result<()> {
             chunk_account.key(),
             expected_pda,
             RouterError::InvalidChunkAccount
+        );
+
+        require_keys_eq!(
+            *chunk_account.owner,
+            crate::ID,
+            RouterError::InvalidAccountOwner
         );
 
         // Clear the chunk data to prevent replay
