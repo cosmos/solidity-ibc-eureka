@@ -78,6 +78,12 @@ pub enum RouterError {
 
     #[msg("Direct calls not allowed, must be called via CPI")]
     DirectCallNotAllowed,
+
+    #[msg("Commitment slot already used in range")]
+    CommitmentSlotAlreadyUsed,
+
+    #[msg("Commitment slot not found in range")]
+    CommitmentSlotNotFound,
 }
 
 /// Convert CPI validation errors to Router errors

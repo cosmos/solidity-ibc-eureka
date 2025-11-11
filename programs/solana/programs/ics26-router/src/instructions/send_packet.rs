@@ -27,17 +27,17 @@ pub struct SendPacket<'info> {
     pub client_sequence: Account<'info, ClientSequence>,
 
     #[account(
-        init,
+        init_if_needed,
         payer = payer,
-        space = 8 + Commitment::INIT_SPACE,
+        space = 8 + CommitmentRange::INIT_SPACE,
         seeds = [
-            Commitment::PACKET_COMMITMENT_SEED,
+            CommitmentRange::SEED,
             msg.source_client.as_bytes(),
-            &client_sequence.next_sequence_send.to_le_bytes()
+            &(client_sequence.next_sequence_send / COMMITMENT_RANGE_SIZE as u64).to_le_bytes()
         ],
         bump
     )]
-    pub packet_commitment: Account<'info, Commitment>,
+    pub commitment_range: Account<'info, CommitmentRange>,
 
     /// Instructions sysvar for validating CPI caller
     /// CHECK: Address constraint verifies this is the instructions sysvar
@@ -61,7 +61,7 @@ pub struct SendPacket<'info> {
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
     let ibc_app = &ctx.accounts.ibc_app;
     let client_sequence = &mut ctx.accounts.client_sequence;
-    let packet_commitment = &mut ctx.accounts.packet_commitment;
+    let commitment_range = &mut ctx.accounts.commitment_range;
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
@@ -86,6 +86,20 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     let sequence = client_sequence.next_sequence_send;
     client_sequence.next_sequence_send += 1;
 
+    // Initialize version on first use of the range
+    if commitment_range.version as u8 == 0 {
+        commitment_range.version = AccountVersion::V1;
+    }
+
+    // Calculate which slot to use within this range
+    let slot = CommitmentRange::slot_from_sequence(sequence);
+
+    // Verify the slot is not already used (should never happen, but safety check)
+    require!(
+        !commitment_range.is_slot_used(slot),
+        RouterError::CommitmentSlotAlreadyUsed
+    );
+
     let counterparty_client_id = ctx.accounts.client.counterparty_info.client_id.clone();
 
     let packet = Packet {
@@ -97,7 +111,8 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     };
 
     let commitment = ics24::packet_commitment_bytes32(&packet);
-    packet_commitment.value = commitment;
+    commitment_range.commitments[slot] = commitment;
+    commitment_range.mark_slot_used(slot);
 
     emit!(SendPacketEvent {
         client_id: msg.source_client,

@@ -129,6 +129,70 @@ impl Commitment {
     pub const PACKET_ACK_SEED: &'static [u8] = solana_ibc_types::Commitment::PACKET_ACK_SEED;
 }
 
+/// Number of commitments stored in each CommitmentRange account
+pub const COMMITMENT_RANGE_SIZE: usize = 100;
+
+/// Range-based commitment storage for improved throughput
+/// Stores 100 packet commitments in a single account to reduce
+/// the impact of RPC lag on packet sending
+#[account]
+#[derive(InitSpace)]
+pub struct CommitmentRange {
+    /// Schema version for upgrades
+    pub version: AccountVersion,
+    /// Bitmap tracking which slots are used (16 bytes = 128 bits, using 100)
+    /// Each bit represents whether the corresponding slot has a commitment
+    pub bitmap: [u8; 16],
+    /// Array of 100 commitments (sha256 hashes)
+    pub commitments: [[u8; 32]; COMMITMENT_RANGE_SIZE],
+    /// Reserved space for future fields
+    pub _reserved: [u8; 128],
+}
+
+impl CommitmentRange {
+    pub const SEED: &'static [u8] = b"commitment_range";
+
+    /// Calculate which range index a sequence belongs to
+    /// For example: sequence 247 -> range_index 2 (since 247 / 100 = 2)
+    pub fn range_index_from_sequence(sequence: u64) -> u64 {
+        sequence / COMMITMENT_RANGE_SIZE as u64
+    }
+
+    /// Calculate which slot within a range a sequence maps to
+    /// For example: sequence 247 -> slot 47 (since 247 % 100 = 47)
+    pub fn slot_from_sequence(sequence: u64) -> usize {
+        (sequence % COMMITMENT_RANGE_SIZE as u64) as usize
+    }
+
+    /// Check if a slot is marked as used in the bitmap
+    pub fn is_slot_used(&self, slot: usize) -> bool {
+        let byte_idx = slot / 8;
+        let bit_idx = slot % 8;
+        (self.bitmap[byte_idx] & (1 << bit_idx)) != 0
+    }
+
+    /// Mark a slot as used in the bitmap
+    pub fn mark_slot_used(&mut self, slot: usize) {
+        let byte_idx = slot / 8;
+        let bit_idx = slot % 8;
+        self.bitmap[byte_idx] |= 1 << bit_idx;
+    }
+
+    /// Clear a slot in the bitmap and zero out the commitment
+    pub fn clear_slot(&mut self, slot: usize) {
+        let byte_idx = slot / 8;
+        let bit_idx = slot % 8;
+        self.bitmap[byte_idx] &= !(1 << bit_idx);
+        // Zero out the commitment data
+        self.commitments[slot] = [0u8; 32];
+    }
+
+    /// Check if the range is completely empty (no used slots)
+    pub fn is_empty(&self) -> bool {
+        self.bitmap.iter().all(|&byte| byte == 0)
+    }
+}
+
 // Types are now imported from solana_ibc_types
 
 /// Maximum timeout duration (1 day in seconds)

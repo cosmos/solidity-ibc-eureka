@@ -205,7 +205,7 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
         router_state: ctx.accounts.router_state.to_account_info(),
         ibc_app: ctx.accounts.ibc_app.to_account_info(),
         client_sequence: ctx.accounts.client_sequence.to_account_info(),
-        packet_commitment: ctx.accounts.packet_commitment.to_account_info(),
+        commitment_range: ctx.accounts.packet_commitment.to_account_info(),
         instruction_sysvar: ctx.accounts.instruction_sysvar.to_account_info(),
         payer: ctx.accounts.user.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),

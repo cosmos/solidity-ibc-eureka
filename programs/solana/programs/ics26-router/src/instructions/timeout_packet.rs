@@ -25,14 +25,14 @@ pub struct TimeoutPacket<'info> {
     #[account(
         mut,
         seeds = [
-            Commitment::PACKET_COMMITMENT_SEED,
+            CommitmentRange::SEED,
             msg.packet.source_client.as_bytes(),
-            &msg.packet.sequence.to_le_bytes()
+            &(msg.packet.sequence / COMMITMENT_RANGE_SIZE as u64).to_le_bytes()
         ],
         bump
     )]
     /// CHECK: We manually verify this account and handle the case where it doesn't exist
-    pub packet_commitment: AccountInfo<'info>,
+    pub commitment_range: AccountInfo<'info>,
 
     // IBC app accounts for CPI
     /// CHECK: IBC app program, validated against `IBCApp` account
@@ -84,7 +84,7 @@ pub fn timeout_packet<'info>(
 ) -> Result<()> {
     // TODO: Support multi-payload packets #602
     let router_state = &ctx.accounts.router_state;
-    let packet_commitment_account = &ctx.accounts.packet_commitment;
+    let commitment_range_account = &ctx.accounts.commitment_range;
     let client = &ctx.accounts.client;
 
     require!(
@@ -154,28 +154,65 @@ pub fn timeout_packet<'info>(
         RouterError::InvalidTimeoutTimestamp
     );
 
-    // Check if packet commitment exists (no-op case)
+    // Check if commitment range exists (no-op case)
     // An uninitialized account will be owned by System Program
-    if packet_commitment_account.owner != &crate::ID || packet_commitment_account.data_is_empty() {
+    if commitment_range_account.owner != &crate::ID || commitment_range_account.data_is_empty() {
         emit!(NoopEvent {});
         return Ok(());
     }
 
-    // Safe to deserialize since we know it's owned by our program
-    // Verify the commitment value
-    {
-        let data = packet_commitment_account.try_borrow_data()?;
-        let packet_commitment = Commitment::try_from_slice(&data[8..])?;
-        let expected_commitment = ics24::packet_commitment_bytes32(&packet);
-        require!(
-            packet_commitment.value == expected_commitment,
-            RouterError::PacketCommitmentMismatch
-        );
+    // Calculate which slot this sequence corresponds to
+    let slot = CommitmentRange::slot_from_sequence(msg.packet.sequence);
+
+    // Calculate offsets for direct memory access (avoid loading entire struct on stack)
+    // Account layout: [8-byte discriminator][1-byte version][16-byte bitmap][3200-byte commitments][128-byte reserved]
+    const DISCRIMINATOR_SIZE: usize = 8;
+    const VERSION_SIZE: usize = 1;
+    const BITMAP_SIZE: usize = 16;
+    const COMMITMENT_SIZE: usize = 32;
+
+    let bitmap_offset = DISCRIMINATOR_SIZE + VERSION_SIZE;
+    let commitments_offset = bitmap_offset + BITMAP_SIZE;
+    let commitment_offset = commitments_offset + (slot * COMMITMENT_SIZE);
+
+    // Check if the slot is used by reading the bitmap directly
+    let byte_idx = slot / 8;
+    let bit_idx = slot % 8;
+    let bitmap_byte_offset = bitmap_offset + byte_idx;
+
+    let is_used = {
+        let data = commitment_range_account.try_borrow_data()?;
+        (data[bitmap_byte_offset] & (1 << bit_idx)) != 0
+    };
+
+    // Check if the slot has a commitment (no-op case)
+    if !is_used {
+        emit!(NoopEvent {});
+        return Ok(());
     }
 
-    // Delete commitment data (modify store before callback)
-    let mut data = packet_commitment_account.try_borrow_mut_data()?;
-    data.fill(0);
+    // Verify commitment matches expected value by reading directly
+    let stored_commitment = {
+        let data = commitment_range_account.try_borrow_data()?;
+        let mut commitment = [0u8; 32];
+        commitment.copy_from_slice(&data[commitment_offset..commitment_offset + COMMITMENT_SIZE]);
+        commitment
+    };
+
+    let expected_commitment = ics24::packet_commitment_bytes32(&packet);
+    require!(
+        stored_commitment == expected_commitment,
+        RouterError::PacketCommitmentMismatch
+    );
+
+    // Clear the slot and bitmap bit (modify store before callback)
+    {
+        let mut data = commitment_range_account.try_borrow_mut_data()?;
+        // Clear bitmap bit
+        data[bitmap_byte_offset] &= !(1 << bit_idx);
+        // Zero out commitment
+        data[commitment_offset..commitment_offset + COMMITMENT_SIZE].fill(0);
+    }
 
     let app_remaining_accounts = chunking::filter_app_remaining_accounts(
         ctx.remaining_accounts,
@@ -200,13 +237,23 @@ pub fn timeout_packet<'info>(
         app_remaining_accounts,
     )?;
 
-    // Close the account and return rent to relayer (after CPI to avoid UnbalancedInstruction)
-    {
+    // Close the range account if empty and return rent to relayer (after CPI to avoid UnbalancedInstruction)
+    // Check if all bitmap bytes are zero (range is empty)
+    let is_empty = {
+        const BITMAP_OFFSET: usize = 8 + 1; // discriminator + version
+        const BITMAP_SIZE: usize = 16;
+        let data = commitment_range_account.try_borrow_data()?;
+        data[BITMAP_OFFSET..BITMAP_OFFSET + BITMAP_SIZE]
+            .iter()
+            .all(|&byte| byte == 0)
+    };
+
+    if is_empty {
         let dest_starting_lamports = ctx.accounts.relayer.lamports();
         **ctx.accounts.relayer.lamports.borrow_mut() = dest_starting_lamports
-            .checked_add(packet_commitment_account.lamports())
+            .checked_add(commitment_range_account.lamports())
             .ok_or(RouterError::ArithmeticOverflow)?;
-        **packet_commitment_account.lamports.borrow_mut() = 0;
+        **commitment_range_account.lamports.borrow_mut() = 0;
     }
 
     emit!(TimeoutPacketEvent {
