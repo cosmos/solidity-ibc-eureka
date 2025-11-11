@@ -78,6 +78,9 @@ pub enum RouterError {
 
     #[msg("Direct calls not allowed, must be called via CPI")]
     DirectCallNotAllowed,
+
+    #[msg("Invalid account owner: account is not owned by the expected program")]
+    InvalidAccountOwner,
 }
 
 /// Convert CPI validation errors to Router errors

@@ -77,6 +77,18 @@ impl<'a> LightClientCpi<'a> {
         consensus_state: &AccountInfo<'b>,
         data: Vec<u8>,
     ) -> Result<()> {
+        require_eq!(
+            *client_state.owner,
+            self.client.client_program_id,
+            RouterError::InvalidAccountOwner
+        );
+
+        require_eq!(
+            *consensus_state.owner,
+            self.client.client_program_id,
+            RouterError::InvalidAccountOwner
+        );
+
         // Build the instruction with standard account layout
         // All light clients must accept: [client_state, consensus_state]
         let ix = Instruction::new_with_bytes(
@@ -104,18 +116,26 @@ impl<'a> LightClientCpi<'a> {
         // Get the return data from the light client
         // Light client should return timestamp for non-membership verification
         match get_return_data() {
-            Some((program_id, data))
-                if program_id == self.client.client_program_id
-                    && data.len() >= ANCHOR_DISCRIMINATOR_SIZE =>
-            {
+            Some((program_id, data)) => {
+                require_eq!(
+                    program_id,
+                    self.client.client_program_id,
+                    RouterError::InvalidLightClientProgram
+                );
+
+                require!(
+                    data.len() >= ANCHOR_DISCRIMINATOR_SIZE,
+                    RouterError::InvalidAppResponse
+                );
+
                 let mut bytes = [0u8; 8];
                 bytes.copy_from_slice(&data[..ANCHOR_DISCRIMINATOR_SIZE]);
                 Ok(u64::from_le_bytes(bytes))
             }
-            _ => {
+            None => {
                 // If no return data, the light client is not compliant with the interface
                 // Real light clients MUST return timestamp for non-membership verification
-                Err(ProgramError::InvalidAccountData.into())
+                Err(RouterError::InvalidAppResponse.into())
             }
         }
     }

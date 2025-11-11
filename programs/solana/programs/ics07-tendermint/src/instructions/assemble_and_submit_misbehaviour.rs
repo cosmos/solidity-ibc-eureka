@@ -66,7 +66,14 @@ fn validate_and_load_chunk(
         ErrorCode::InvalidChunkAccount
     );
 
+    require_eq!(
+        *chunk_account.owner,
+        crate::ID,
+        ErrorCode::InvalidAccountOwner
+    );
+
     let chunk_data = chunk_account.try_borrow_data()?;
+
     let chunk: MisbehaviourChunk = MisbehaviourChunk::try_deserialize(&mut &chunk_data[..])?;
 
     misbehaviour_bytes.extend_from_slice(&chunk.chunk_data);
@@ -146,13 +153,21 @@ fn cleanup_chunks(
             ErrorCode::InvalidChunkAccount
         );
 
+        require_eq!(
+            *chunk_account.owner,
+            crate::ID,
+            ErrorCode::InvalidAccountOwner
+        );
+
         let mut data = chunk_account.try_borrow_mut_data()?;
         data.fill(0);
 
         let mut lamports = chunk_account.try_borrow_mut_lamports()?;
         let mut submitter_lamports = ctx.accounts.submitter.try_borrow_mut_lamports()?;
 
-        **submitter_lamports += **lamports;
+        **submitter_lamports = submitter_lamports
+            .checked_add(**lamports)
+            .ok_or(ErrorCode::ArithmeticOverflow)?;
         **lamports = 0;
     }
     Ok(())

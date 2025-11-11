@@ -84,7 +84,11 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     );
 
     let sequence = client_sequence.next_sequence_send;
-    client_sequence.next_sequence_send += 1;
+
+    client_sequence.next_sequence_send = client_sequence
+        .next_sequence_send
+        .checked_add(1)
+        .ok_or(RouterError::ArithmeticOverflow)?;
 
     let counterparty_client_id = ctx.accounts.client.counterparty_info.client_id.clone();
 

@@ -71,4 +71,8 @@ pub enum ErrorCode {
     SerializationError,
     #[msg("Account validation failed: invalid account or PDA")]
     AccountValidationFailed,
+    #[msg("Invalid account owner: account is not owned by the expected program")]
+    InvalidAccountOwner,
+    #[msg("Arithmetic overflow detected")]
+    ArithmeticOverflow,
 }

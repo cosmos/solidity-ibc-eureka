@@ -27,7 +27,6 @@ pub fn cleanup_chunks<'info>(
 
             let chunk_account = &ctx.remaining_accounts[chunk_index];
 
-            // Verify the PDA is correct
             let expected_seeds = &[
                 PayloadChunk::SEED,
                 relayer_key.as_ref(),
@@ -41,6 +40,11 @@ pub fn cleanup_chunks<'info>(
             require!(
                 chunk_account.key() == expected_pda,
                 RouterError::InvalidChunkAccount
+            );
+
+            require!(
+                *chunk_account.owner == crate::ID,
+                RouterError::InvalidAccountOwner
             );
 
             // Return rent to relayer
@@ -58,7 +62,6 @@ pub fn cleanup_chunks<'info>(
 
         let chunk_account = &ctx.remaining_accounts[chunk_index];
 
-        // Verify the PDA is correct
         let expected_seeds = &[
             ProofChunk::SEED,
             relayer_key.as_ref(),
@@ -71,6 +74,11 @@ pub fn cleanup_chunks<'info>(
         require!(
             chunk_account.key() == expected_pda,
             RouterError::InvalidChunkAccount
+        );
+
+        require!(
+            *chunk_account.owner == crate::ID,
+            RouterError::InvalidAccountOwner
         );
 
         // Return rent to relayer

@@ -113,7 +113,11 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
             RouterError::InvalidChunkAccount
         );
 
-        // Load and validate chunk
+        require!(
+            *chunk_account.owner == crate::ID,
+            RouterError::InvalidAccountOwner
+        );
+
         let chunk_data = chunk_account.try_borrow_data()?;
         let chunk: PayloadChunk = PayloadChunk::try_deserialize(&mut &chunk_data[..])?;
 
@@ -196,7 +200,6 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
 
         let chunk_account = &params.remaining_accounts[account_index];
 
-        // Verify PDA
         let expected_seeds = &[
             ProofChunk::SEED,
             params.submitter.as_ref(),
@@ -211,7 +214,11 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
             RouterError::InvalidChunkAccount
         );
 
-        // Load and validate chunk
+        require!(
+            *chunk_account.owner == crate::ID,
+            RouterError::InvalidAccountOwner
+        );
+
         let chunk_data = chunk_account.try_borrow_data()?;
         let chunk: ProofChunk = ProofChunk::try_deserialize(&mut &chunk_data[..])?;
 
