@@ -43,7 +43,9 @@ interface IICS02Precompile {
         IICS02ClientMsgs.Height calldata proofHeight,
         bytes[] calldata path,
         bytes calldata value
-    ) external returns (uint256);
+    )
+        external
+        returns (uint256);
 
     /// @notice Querying the non-membership of a key
     /// @dev Notice that this message is not view, as it may update the client state for caching purposes.
@@ -56,7 +58,9 @@ interface IICS02Precompile {
         bytes calldata proof,
         IICS02ClientMsgs.Height calldata proofHeight,
         bytes[] calldata path
-    ) external returns (uint256);
+    )
+        external
+        returns (uint256);
 
     /// @notice Returns the client state.
     /// @param clientId The client identifier

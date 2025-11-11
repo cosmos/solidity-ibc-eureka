@@ -16,7 +16,9 @@ import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ISP1Msgs } from "../../contracts/light-clients/sp1-ics07/msgs/ISP1Msgs.sol";
 import { SP1ICS07Tendermint } from "../../contracts/light-clients/sp1-ics07/SP1ICS07Tendermint.sol";
-import { ISP1ICS07TendermintErrors } from "../../contracts/light-clients/sp1-ics07/errors/ISP1ICS07TendermintErrors.sol";
+import {
+    ISP1ICS07TendermintErrors
+} from "../../contracts/light-clients/sp1-ics07/errors/ISP1ICS07TendermintErrors.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
