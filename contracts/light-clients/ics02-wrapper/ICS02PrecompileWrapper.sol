@@ -15,7 +15,7 @@ import { IICS02Precompile } from "./interfaces/IICS02Precompile.sol";
 contract ICS02PrecompileWrapper is ILightClient, IICS02PrecompileWrapper, IICS02PrecompileWrapperErrors {
     /// @notice The ICS02 Precompile contract
     /// @dev The ICS02 Precompile contract is deployed at this fixed address in 'cosmos/evm'
-    IICS02Precompile constant private _ICS02_CONTRACT = IICS02Precompile(0x0000000000000000000000000000000000000807);
+    IICS02Precompile private constant _ICS02_CONTRACT = IICS02Precompile(0x0000000000000000000000000000000000000807);
 
     /// @inheritdoc IICS02PrecompileWrapper
     string public GO_CLIENT_ID;
