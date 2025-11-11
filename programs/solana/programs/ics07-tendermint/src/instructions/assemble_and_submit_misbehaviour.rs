@@ -60,13 +60,13 @@ fn validate_and_load_chunk(
         &[index],
     ];
     let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-    require_eq!(
+    require_keys_eq!(
         chunk_account.key(),
         expected_pda,
         ErrorCode::InvalidChunkAccount
     );
 
-    require_eq!(
+    require_keys_eq!(
         *chunk_account.owner,
         crate::ID,
         ErrorCode::InvalidAccountOwner
@@ -113,12 +113,15 @@ fn process_misbehaviour(
     )
     .map_err(|_| error!(ErrorCode::MisbehaviourCheckFailed))?;
 
-    require!(
-        ctx.accounts.trusted_consensus_state_1.height == output.trusted_height_1.revision_height(),
+    require_eq!(
+        ctx.accounts.trusted_consensus_state_1.height,
+        output.trusted_height_1.revision_height(),
         ErrorCode::HeightMismatch
     );
-    require!(
-        ctx.accounts.trusted_consensus_state_2.height == output.trusted_height_2.revision_height(),
+
+    require_eq!(
+        ctx.accounts.trusted_consensus_state_2.height,
+        output.trusted_height_2.revision_height(),
         ErrorCode::HeightMismatch
     );
 
@@ -147,13 +150,13 @@ fn cleanup_chunks(
             &[index as u8],
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-        require_eq!(
+        require_keys_eq!(
             chunk_account.key(),
             expected_pda,
             ErrorCode::InvalidChunkAccount
         );
 
-        require_eq!(
+        require_keys_eq!(
             *chunk_account.owner,
             crate::ID,
             ErrorCode::InvalidAccountOwner

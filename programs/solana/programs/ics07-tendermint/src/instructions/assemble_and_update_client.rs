@@ -50,13 +50,13 @@ fn assemble_chunks(
             &[index as u8],
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-        require_eq!(
+        require_keys_eq!(
             chunk_account.key(),
             expected_pda,
             ErrorCode::InvalidChunkAccount
         );
 
-        require_eq!(
+        require_keys_eq!(
             *chunk_account.owner,
             crate::ID,
             ErrorCode::InvalidAccountOwner
@@ -163,13 +163,13 @@ fn cleanup_chunks(
             &[index as u8],
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-        require_eq!(
+        require_keys_eq!(
             chunk_account.key(),
             expected_pda,
             ErrorCode::InvalidChunkAccount
         );
 
-        require_eq!(
+        require_keys_eq!(
             *chunk_account.owner,
             crate::ID,
             ErrorCode::InvalidAccountOwner
@@ -205,8 +205,9 @@ fn load_consensus_state(
         &crate::ID,
     );
 
-    require!(
-        expected_pda == account.key(),
+    require_keys_eq!(
+        account.key(),
+        expected_pda,
         ErrorCode::AccountValidationFailed
     );
 
@@ -239,8 +240,9 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
         &crate::ID,
     );
 
-    require!(
-        expected_pda == params.account.key(),
+    require_keys_eq!(
+        expected_pda,
+        params.account.key(),
         ErrorCode::AccountValidationFailed
     );
 

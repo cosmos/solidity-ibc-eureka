@@ -108,13 +108,15 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
-        require!(
-            chunk_account.key() == expected_pda,
+        require_keys_eq!(
+            chunk_account.key(),
+            expected_pda,
             RouterError::InvalidChunkAccount
         );
 
-        require!(
-            *chunk_account.owner == crate::ID,
+        require_keys_eq!(
+            *chunk_account.owner,
+            crate::ID,
             RouterError::InvalidAccountOwner
         );
 
@@ -209,13 +211,15 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
-        require!(
-            chunk_account.key() == expected_pda,
+        require_keys_eq!(
+            chunk_account.key(),
+            expected_pda,
             RouterError::InvalidChunkAccount
         );
 
-        require!(
-            *chunk_account.owner == crate::ID,
+        require_keys_eq!(
+            *chunk_account.owner,
+            crate::ID,
             RouterError::InvalidAccountOwner
         );
 
@@ -260,8 +264,10 @@ fn cleanup_payload_chunks(params: CleanupPayloadChunksParams) -> Result<()> {
             &[i as u8],
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-        require!(
-            chunk_account.key() == expected_pda,
+
+        require_keys_eq!(
+            chunk_account.key(),
+            expected_pda,
             RouterError::InvalidChunkAccount
         );
 
@@ -286,8 +292,9 @@ fn cleanup_proof_chunks(params: CleanupProofChunksParams) -> Result<()> {
             &[i as u8],
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-        require!(
-            chunk_account.key() == expected_pda,
+        require_keys_eq!(
+            chunk_account.key(),
+            expected_pda,
             RouterError::InvalidChunkAccount
         );
 

@@ -37,8 +37,9 @@ pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
     let router_state = &ctx.accounts.router_state;
     let ibc_app = &mut ctx.accounts.ibc_app;
 
-    require!(
-        ctx.accounts.authority.key() == router_state.authority,
+    require_keys_eq!(
+        ctx.accounts.authority.key(),
+        router_state.authority,
         RouterError::UnauthorizedSender
     );
 

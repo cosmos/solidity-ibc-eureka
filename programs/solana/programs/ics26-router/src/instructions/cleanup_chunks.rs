@@ -37,13 +37,15 @@ pub fn cleanup_chunks<'info>(
             ];
             let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
-            require!(
-                chunk_account.key() == expected_pda,
+            require_eq!(
+                chunk_account.key(),
+                expected_pda,
                 RouterError::InvalidChunkAccount
             );
 
-            require!(
-                *chunk_account.owner == crate::ID,
+            require_eq!(
+                *chunk_account.owner,
+                crate::ID,
                 RouterError::InvalidAccountOwner
             );
 
@@ -71,13 +73,15 @@ pub fn cleanup_chunks<'info>(
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
-        require!(
-            chunk_account.key() == expected_pda,
+        require_eq!(
+            chunk_account.key(),
+            expected_pda,
             RouterError::InvalidChunkAccount
         );
 
-        require!(
-            *chunk_account.owner == crate::ID,
+        require_eq!(
+            *chunk_account.owner,
+            crate::ID,
             RouterError::InvalidAccountOwner
         );
 
