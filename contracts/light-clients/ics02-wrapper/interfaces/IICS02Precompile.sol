@@ -4,15 +4,17 @@ pragma solidity ^0.8.28;
 import { IICS02ClientMsgs } from "../../../msgs/IICS02ClientMsgs.sol";
 
 /// @dev The ICS02I contract's address.
+// natlint-disable-next-line
 address constant ICS02_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000807;
 
 /// @dev The ICS02 contract's instance.
 /// @dev The ICS02 Precompile contract is deployed at this fixed address in 'cosmos/evm'
+// natlint-disable-next-line
 IICS02Precompile constant ICS02_CONTRACT = IICS02Precompile(ICS02_PRECOMPILE_ADDRESS);
 
 /// @author CosmosLabs
 /// @title ICS02 Client Router Precompile Interface
-/// @dev The interface through which solidity contracts will interact with IBC Light Clients (ICS02)
+/// @notice The interface through which solidity contracts will interact with IBC Light Clients (ICS02)
 /// @dev This interface must match the interface in the cosmos/evm repository.
 /// @custom:source <https://github.com/cosmos/evm/blob/main/precompiles/ics02/ICS02I.sol>
 /// @custom:address 0x0000000000000000000000000000000000000807
@@ -33,6 +35,7 @@ interface IICS02Precompile {
 
     /// @notice Querying the membership of a key-value pair
     /// @dev Notice that this message is not view, as it may update the client state for caching purposes.
+    /// @param clientId The client identifier
     /// @param proof The proof of membership
     /// @param proofHeight The height of the proof
     /// @param path The path of the value in the Merkle tree
@@ -50,6 +53,7 @@ interface IICS02Precompile {
 
     /// @notice Querying the non-membership of a key
     /// @dev Notice that this message is not view, as it may update the client state for caching purposes.
+    /// @param clientId The client identifier
     /// @param proof The proof of membership
     /// @param proofHeight The height of the proof
     /// @param path The path of the value in the Merkle tree
