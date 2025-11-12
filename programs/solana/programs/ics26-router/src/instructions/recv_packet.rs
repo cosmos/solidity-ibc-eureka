@@ -108,18 +108,21 @@ pub fn recv_packet<'info>(
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
-    require!(
-        ctx.accounts.relayer.key() == router_state.authority,
+    require_keys_eq!(
+        ctx.accounts.relayer.key(),
+        router_state.authority,
         RouterError::UnauthorizedSender
     );
 
-    require!(
-        msg.packet.source_client == client.counterparty_info.client_id,
+    require_eq!(
+        &msg.packet.source_client,
+        &client.counterparty_info.client_id,
         RouterError::InvalidCounterpartyClient
     );
 
-    require!(
-        msg.packet.dest_client == client.client_id,
+    require_eq!(
+        &msg.packet.dest_client,
+        &client.client_id,
         RouterError::ClientMismatch
     );
 
@@ -143,8 +146,9 @@ pub fn recv_packet<'info>(
     let (expected_ibc_app, _) =
         Pubkey::find_program_address(&[IBCApp::SEED, payload.dest_port.as_bytes()], &crate::ID);
 
-    require!(
-        ctx.accounts.ibc_app.key() == expected_ibc_app,
+    require_keys_eq!(
+        ctx.accounts.ibc_app.key(),
+        expected_ibc_app,
         RouterError::IbcAppNotFound
     );
 

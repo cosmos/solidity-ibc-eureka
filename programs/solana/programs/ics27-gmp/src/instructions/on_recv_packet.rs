@@ -118,8 +118,9 @@ pub fn on_recv_packet<'info>(
         Pubkey::try_from(&packet_data.receiver[..]).map_err(|_| GMPError::InvalidAccountKey)?;
 
     // Validate target program matches packet data
-    require!(
-        target_program.key() == receiver_pubkey,
+    require_keys_eq!(
+        target_program.key(),
+        receiver_pubkey,
         GMPError::AccountKeyMismatch
     );
 
@@ -142,8 +143,9 @@ pub fn on_recv_packet<'info>(
         .ok_or(GMPError::InsufficientAccounts)?;
 
     // Validate GMP account PDA matches expected address
-    require!(
-        gmp_account_info.key() == gmp_account.pda,
+    require_keys_eq!(
+        gmp_account_info.key(),
+        gmp_account.pda,
         GMPError::GMPAccountPDAMismatch
     );
 
@@ -166,8 +168,9 @@ pub fn on_recv_packet<'info>(
 
     // Validate all accounts match the provided metadata
     for (meta, account_info) in account_metas.iter().zip(remaining_accounts_for_execution) {
-        require!(
-            account_info.key() == meta.pubkey,
+        require_keys_eq!(
+            account_info.key(),
+            meta.pubkey,
             GMPError::AccountKeyMismatch
         );
 

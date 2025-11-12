@@ -42,47 +42,34 @@ fn assemble_chunks(
     let mut header_bytes = Vec::new();
 
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
-        validate_and_load_chunk(
-            chunk_account,
-            chain_id,
-            target_height,
-            submitter,
-            index as u8,
-            &mut header_bytes,
-        )?;
+        let expected_seeds = &[
+            crate::state::HeaderChunk::SEED,
+            submitter.as_ref(),
+            chain_id.as_bytes(),
+            &target_height.to_le_bytes(),
+            &[index as u8],
+        ];
+        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
+        require_keys_eq!(
+            chunk_account.key(),
+            expected_pda,
+            ErrorCode::InvalidChunkAccount
+        );
+
+        require_keys_eq!(
+            *chunk_account.owner,
+            crate::ID,
+            ErrorCode::InvalidAccountOwner
+        );
+
+        let chunk_data = chunk_account.try_borrow_data()?;
+
+        let chunk: HeaderChunk = HeaderChunk::try_deserialize(&mut &chunk_data[..])?;
+
+        header_bytes.extend_from_slice(&chunk.chunk_data);
     }
 
     Ok(header_bytes)
-}
-
-fn validate_and_load_chunk(
-    chunk_account: &AccountInfo,
-    chain_id: &str,
-    target_height: u64,
-    submitter: Pubkey,
-    index: u8,
-    header_bytes: &mut Vec<u8>,
-) -> Result<()> {
-    // Validate chunk PDA
-    let expected_seeds = &[
-        crate::state::HeaderChunk::SEED,
-        submitter.as_ref(),
-        chain_id.as_bytes(),
-        &target_height.to_le_bytes(),
-        &[index],
-    ];
-    let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-    require_eq!(
-        chunk_account.key(),
-        expected_pda,
-        ErrorCode::InvalidChunkAccount
-    );
-
-    let chunk_data = chunk_account.try_borrow_data()?;
-    let chunk: HeaderChunk = HeaderChunk::try_deserialize(&mut &chunk_data[..])?;
-
-    header_bytes.extend_from_slice(&chunk.chunk_data);
-    Ok(())
 }
 
 fn process_header_update(
@@ -176,10 +163,16 @@ fn cleanup_chunks(
             &[index as u8],
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-        require_eq!(
+        require_keys_eq!(
             chunk_account.key(),
             expected_pda,
             ErrorCode::InvalidChunkAccount
+        );
+
+        require_keys_eq!(
+            *chunk_account.owner,
+            crate::ID,
+            ErrorCode::InvalidAccountOwner
         );
 
         let mut data = chunk_account.try_borrow_mut_data()?;
@@ -188,7 +181,9 @@ fn cleanup_chunks(
         let mut lamports = chunk_account.try_borrow_mut_lamports()?;
         let mut submitter_lamports = ctx.accounts.submitter.try_borrow_mut_lamports()?;
 
-        **submitter_lamports += **lamports;
+        **submitter_lamports = submitter_lamports
+            .checked_add(**lamports)
+            .ok_or(ErrorCode::ArithmeticOverflow)?;
         **lamports = 0;
     }
     Ok(())
@@ -210,8 +205,9 @@ fn load_consensus_state(
         &crate::ID,
     );
 
-    require!(
-        expected_pda == account.key(),
+    require_keys_eq!(
+        account.key(),
+        expected_pda,
         ErrorCode::AccountValidationFailed
     );
 
@@ -244,8 +240,9 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
         &crate::ID,
     );
 
-    require!(
-        expected_pda == params.account.key(),
+    require_keys_eq!(
+        expected_pda,
+        params.account.key(),
         ErrorCode::AccountValidationFailed
     );
 

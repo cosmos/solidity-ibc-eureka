@@ -129,8 +129,6 @@ impl Commitment {
     pub const PACKET_ACK_SEED: &'static [u8] = solana_ibc_types::Commitment::PACKET_ACK_SEED;
 }
 
-// Types are now imported from solana_ibc_types
-
 /// Maximum timeout duration (1 day in seconds)
 pub const MAX_TIMEOUT_DURATION: i64 = 86400;
 

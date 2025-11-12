@@ -60,13 +60,20 @@ fn validate_and_load_chunk(
         &[index],
     ];
     let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-    require_eq!(
+    require_keys_eq!(
         chunk_account.key(),
         expected_pda,
         ErrorCode::InvalidChunkAccount
     );
 
+    require_keys_eq!(
+        *chunk_account.owner,
+        crate::ID,
+        ErrorCode::InvalidAccountOwner
+    );
+
     let chunk_data = chunk_account.try_borrow_data()?;
+
     let chunk: MisbehaviourChunk = MisbehaviourChunk::try_deserialize(&mut &chunk_data[..])?;
 
     misbehaviour_bytes.extend_from_slice(&chunk.chunk_data);
@@ -106,12 +113,15 @@ fn process_misbehaviour(
     )
     .map_err(|_| error!(ErrorCode::MisbehaviourCheckFailed))?;
 
-    require!(
-        ctx.accounts.trusted_consensus_state_1.height == output.trusted_height_1.revision_height(),
+    require_eq!(
+        ctx.accounts.trusted_consensus_state_1.height,
+        output.trusted_height_1.revision_height(),
         ErrorCode::HeightMismatch
     );
-    require!(
-        ctx.accounts.trusted_consensus_state_2.height == output.trusted_height_2.revision_height(),
+
+    require_eq!(
+        ctx.accounts.trusted_consensus_state_2.height,
+        output.trusted_height_2.revision_height(),
         ErrorCode::HeightMismatch
     );
 
@@ -140,10 +150,16 @@ fn cleanup_chunks(
             &[index as u8],
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-        require_eq!(
+        require_keys_eq!(
             chunk_account.key(),
             expected_pda,
             ErrorCode::InvalidChunkAccount
+        );
+
+        require_keys_eq!(
+            *chunk_account.owner,
+            crate::ID,
+            ErrorCode::InvalidAccountOwner
         );
 
         let mut data = chunk_account.try_borrow_mut_data()?;
@@ -152,7 +168,9 @@ fn cleanup_chunks(
         let mut lamports = chunk_account.try_borrow_mut_lamports()?;
         let mut submitter_lamports = ctx.accounts.submitter.try_borrow_mut_lamports()?;
 
-        **submitter_lamports += **lamports;
+        **submitter_lamports = submitter_lamports
+            .checked_add(**lamports)
+            .ok_or(ErrorCode::ArithmeticOverflow)?;
         **lamports = 0;
     }
     Ok(())

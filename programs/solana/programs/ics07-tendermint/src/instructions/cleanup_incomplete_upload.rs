@@ -39,7 +39,9 @@ pub fn cleanup_incomplete_upload(
             let mut lamports = chunk_account.try_borrow_mut_lamports()?;
             let mut submitter_lamports =
                 ctx.accounts.submitter_account.try_borrow_mut_lamports()?;
-            **submitter_lamports += **lamports;
+            **submitter_lamports = submitter_lamports
+                .checked_add(**lamports)
+                .ok_or(crate::error::ErrorCode::ArithmeticOverflow)?;
             **lamports = 0;
         }
         // If account doesn't exist or isn't owned by us, skip it
