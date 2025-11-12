@@ -25,7 +25,7 @@ contract ICS02PrecompileWrapperTest is Test {
     }
 
     function test_success_goClientId() public view {
-        assertEq(ics02Wrapper.GO_CLIENT_ID(), TEST_CLIENT_ID);
+        assertEq(ics02Wrapper.ibcGoClientId(), TEST_CLIENT_ID);
     }
 
     function test_success_getClientState() public {
