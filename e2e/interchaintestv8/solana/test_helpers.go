@@ -270,10 +270,12 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	chunkEnd := len(batch.Txs) - 1
 
 	type chunkResult struct {
-		index    int
-		sig      solana.Signature
-		err      error
-		duration time.Duration
+		index        int
+		sig          solana.Signature
+		err          error
+		duration     time.Duration
+		computeUnits uint64
+		fee          uint64
 	}
 
 	t.Logf("--- Phase 1: Uploading %d chunks in parallel ---", chunkCount)
@@ -306,31 +308,56 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 				return
 			}
 
-			t.Logf("[Chunk %d timing] total duration: %v",
-				idx, chunkDuration)
+			// Fetch transaction details for gas tracking
+			var computeUnits, fee uint64
+			version := uint64(0)
+			txDetails, err := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
+				Commitment:                     rpc.CommitmentProcessed,
+				MaxSupportedTransactionVersion: &version,
+			})
+			if err == nil && txDetails != nil && txDetails.Meta != nil {
+				if txDetails.Meta.ComputeUnitsConsumed != nil {
+					computeUnits = *txDetails.Meta.ComputeUnitsConsumed
+				}
+				fee = txDetails.Meta.Fee
+			}
+
+			t.Logf("[Chunk %d timing] total duration: %v, compute units: %d, fee: %d lamports",
+				idx, chunkDuration, computeUnits, fee)
 
 			chunkResults <- chunkResult{
-				index:    idx,
-				sig:      sig,
-				duration: chunkDuration,
+				index:        idx,
+				sig:          sig,
+				duration:     chunkDuration,
+				computeUnits: computeUnits,
+				fee:          fee,
 			}
 		}(i)
 	}
 
 	completedChunks := 0
+	var totalChunkComputeUnits, totalChunkFees uint64
 	for i := 0; i < chunkEnd-chunkStart; i++ {
 		result := <-chunkResults
 		require.NoError(result.err, "Chunk was not submitted")
 		completedChunks++
-		t.Logf("✓ Chunk %d/%d uploaded in %v - tx: %s",
-			completedChunks, chunkCount, result.duration, result.sig)
+		totalChunkComputeUnits += result.computeUnits
+		totalChunkFees += result.fee
+		t.Logf("✓ Chunk %d/%d uploaded in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
+			completedChunks, chunkCount, result.duration, result.sig,
+			result.computeUnits, float64(result.fee)/1e9)
 	}
 	close(chunkResults)
 
 	chunksTotal := time.Since(chunksStart)
 	avgChunkTime := chunksTotal / time.Duration(chunkCount)
-	t.Logf("--- Phase 1 Complete: All %d chunks uploaded in %v (avg: %v/chunk) ---",
-		chunkCount, chunksTotal, avgChunkTime)
+	avgChunkComputeUnits := totalChunkComputeUnits / uint64(chunkCount)
+	t.Logf("--- Phase 1 Complete: All %d chunks uploaded in %v ---",
+		chunkCount, chunksTotal)
+	t.Logf("  Average per chunk: %v duration, %d CUs, %.9f SOL",
+		avgChunkTime, avgChunkComputeUnits, float64(totalChunkFees)/float64(chunkCount)/1e9)
+	t.Logf("  Total chunk gas: %d CUs, %.9f SOL",
+		totalChunkComputeUnits, float64(totalChunkFees)/1e9)
 
 	t.Logf("--- Phase 2: Assembling and updating client ---")
 	assemblyStart := time.Now()
@@ -341,14 +368,23 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
 	require.NoError(err)
 
-	// Get transaction details to verify UpdateResult
+	// Get transaction details to verify UpdateResult and track gas
 	// Note: The RPC client needs to fetch the transaction with the "full" encoding
 	// to get return data. This verifies that the update was successful.
+	var assemblyComputeUnits, assemblyFee uint64
+	version := uint64(0)
 	txDetails, err := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
-		Encoding:   solana.EncodingBase64,
-		Commitment: rpc.CommitmentConfirmed,
+		Encoding:                       solana.EncodingBase64,
+		Commitment:                     rpc.CommitmentConfirmed,
+		MaxSupportedTransactionVersion: &version,
 	})
 	if err == nil && txDetails != nil && txDetails.Meta != nil {
+		// Get gas metrics
+		if txDetails.Meta.ComputeUnitsConsumed != nil {
+			assemblyComputeUnits = *txDetails.Meta.ComputeUnitsConsumed
+		}
+		assemblyFee = txDetails.Meta.Fee
+
 		// Check if transaction has return data (UpdateResult)
 		returnDataBytes := txDetails.Meta.ReturnData.Data.Content
 		if len(returnDataBytes) > 0 {
@@ -374,13 +410,21 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	}
 
 	assemblyDuration := time.Since(assemblyStart)
-	t.Logf("✓ Assembly transaction completed in %v - tx: %s", assemblyDuration, sig)
+	t.Logf("✓ Assembly transaction completed in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
+		assemblyDuration, sig, assemblyComputeUnits, float64(assemblyFee)/1e9)
 
 	totalDuration := time.Since(totalStart)
+	totalComputeUnits := totalChunkComputeUnits + assemblyComputeUnits
+	totalFees := totalChunkFees + assemblyFee
+
 	t.Logf("=== Chunked Update Client Complete ===")
 	t.Logf("Total time: %v", totalDuration)
 	t.Logf("  - Chunk upload phase: %v (%d chunks in parallel)", chunksTotal, chunkCount)
 	t.Logf("  - Assembly phase: %v", assemblyDuration)
+	t.Logf("Total gas consumption:")
+	t.Logf("  - Chunks: %d CUs, %.9f SOL", totalChunkComputeUnits, float64(totalChunkFees)/1e9)
+	t.Logf("  - Assembly: %d CUs, %.9f SOL", assemblyComputeUnits, float64(assemblyFee)/1e9)
+	t.Logf("  - TOTAL: %d CUs, %.9f SOL", totalComputeUnits, float64(totalFees)/1e9)
 }
 
 func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T, require *require.Assertions, clientID string, sequence uint64) {

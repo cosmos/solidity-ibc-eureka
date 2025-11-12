@@ -8,9 +8,10 @@ import (
 	"time"
 
 	bin "github.com/gagliardetto/binary"
+	"github.com/stretchr/testify/suite"
+
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/stretchr/testify/suite"
 
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
@@ -32,10 +33,10 @@ type ExternalCosmosTestSuite struct {
 	ExternalCosmosChainID string
 
 	// Solana components
-	SolanaChain      solana.Solana
-	SolanaUser       *solanago.Wallet
-	SolanaRPCConn    *rpc.Client
-	SolanaLocalnet   chainconfig.SolanaLocalnetChain
+	SolanaChain    solana.Solana
+	SolanaUser     *solanago.Wallet
+	SolanaRPCConn  *rpc.Client
+	SolanaLocalnet chainconfig.SolanaLocalnetChain
 
 	// Relayer components
 	RelayerClient  relayertypes.RelayerServiceClient
@@ -56,7 +57,7 @@ func TestExternalCosmos(t *testing.T) {
 	suite.Run(t, new(ExternalCosmosTestSuite))
 }
 
-func (s *ExternalCosmosTestSuite) SetupSuite() {
+func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 	var err error
 
 	s.ExternalCosmosRPC = os.Getenv("EXTERNAL_COSMOS_RPC_URL")
@@ -66,8 +67,6 @@ func (s *ExternalCosmosTestSuite) SetupSuite() {
 
 	err = os.Chdir("../..")
 	s.Require().NoError(err)
-
-	ctx := context.Background()
 
 	s.T().Log("Starting local Solana test validator...")
 
@@ -239,16 +238,20 @@ func (s *ExternalCosmosTestSuite) TearDownSuite() {
 	}
 }
 
-func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_CreateClient() {
+func (s *ExternalCosmosTestSuite) createClient() {
 	ctx := context.Background()
 
 	s.T().Logf("Creating Tendermint client for external Cosmos chain: %s", s.ExternalCosmosChainID)
+	s.T().Logf("Using RPC endpoint: %s", s.ExternalCosmosRPC)
 
-	resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
+	createClientReq := &relayertypes.CreateClientRequest{
 		SrcChain:   s.ExternalCosmosChainID,
 		DstChain:   testvalues.SolanaChainID,
 		Parameters: map[string]string{},
-	})
+	}
+	s.T().Logf("CreateClient request: SrcChain=%s, DstChain=%s", createClientReq.SrcChain, createClientReq.DstChain)
+
+	resp, err := s.RelayerClient.CreateClient(ctx, createClientReq)
 	s.Require().NoError(err, "Failed to create client transaction")
 	s.Require().NotEmpty(resp.Tx, "Relayer returned empty transaction")
 
@@ -260,7 +263,6 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_CreateClient() {
 
 	s.T().Logf("Successfully created Tendermint client on Solana")
 	s.T().Logf("Transaction signature: %s", sig)
-	s.T().Logf("Solana Explorer: https://explorer.solana.com/tx/%s?cluster=custom&customUrl=%s", sig, testvalues.SolanaLocalnetRPC)
 
 	clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(s.ExternalCosmosChainID))
 
@@ -272,21 +274,14 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_CreateClient() {
 	clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
 	s.Require().NoError(err, "Failed to parse client state")
 
-	s.T().Logf("Client state verified:")
-	s.T().Logf("  Chain ID: %s", clientState.ChainId)
-	s.T().Logf("  Trust Level: %d/%d", clientState.TrustLevelNumerator, clientState.TrustLevelDenominator)
-	s.T().Logf("  Trusting Period: %d seconds", clientState.TrustingPeriod)
-	s.T().Logf("  Unbonding Period: %d seconds", clientState.UnbondingPeriod)
-	s.T().Logf("  Latest Height: %d-%d", clientState.LatestHeight.RevisionNumber, clientState.LatestHeight.RevisionHeight)
-	s.T().Logf("  Frozen Height: %d-%d", clientState.FrozenHeight.RevisionNumber, clientState.FrozenHeight.RevisionHeight)
-
 	s.Require().Equal(s.ExternalCosmosChainID, clientState.ChainId, "Chain ID mismatch")
 }
 
 func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_UpdateClient() {
 	ctx := context.Background()
+	s.setupExternalCosmosTest(ctx)
 
-	s.Test_ExternalCosmos_CreateClient()
+	s.createClient()
 
 	s.T().Log("Waiting for new blocks on external Cosmos chain...")
 	time.Sleep(10 * time.Second)
@@ -326,8 +321,9 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_UpdateClient() {
 
 func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_MultipleUpdates() {
 	ctx := context.Background()
+	s.setupExternalCosmosTest(ctx)
 
-	s.Test_ExternalCosmos_CreateClient()
+	s.createClient()
 
 	numUpdates := 3
 	for i := range numUpdates {
