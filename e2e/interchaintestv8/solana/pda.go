@@ -13,6 +13,7 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
+type accessManagerPDAs struct{}
 type dummyIbcAppPDAs struct{}
 type gmpCounterAppPDAs struct{}
 type ics07TendermintPDAs struct{}
@@ -21,6 +22,7 @@ type ics27GmpPDAs struct{}
 type mockLightClientPDAs struct{}
 
 var (
+	AccessManager = accessManagerPDAs{}
 	DummyIbcApp = dummyIbcAppPDAs{}
 	GmpCounterApp = gmpCounterAppPDAs{}
 	Ics07Tendermint = ics07TendermintPDAs{}
@@ -28,6 +30,17 @@ var (
 	Ics27Gmp = ics27GmpPDAs{}
 	MockLightClient = mockLightClientPDAs{}
 )
+
+func (accessManagerPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("access_manager")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive AccessManager.AccessManagerPDA PDA: %v", err))
+	}
+	return pda, bump
+}
 
 func (dummyIbcAppPDAs) AppStateTransferPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
@@ -150,6 +163,17 @@ func (gmpCounterAppPDAs) UserCounterWithAccountSeedPDA(programID solanago.Public
 	return pda, bump
 }
 
+func (ics07TendermintPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("access_manager")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics07Tendermint.AccessManagerPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (ics07TendermintPDAs) ClientPDA(programID solanago.PublicKey, chainId []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("client"), chainId},
@@ -179,6 +203,17 @@ func (ics07TendermintPDAs) ConsensusStateWithAccountSeedPDA(programID solanago.P
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ics07Tendermint.ConsensusStateWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics26RouterPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("access_manager")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics26Router.AccessManagerPDA PDA: %v", err))
 	}
 	return pda, bump
 }

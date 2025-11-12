@@ -1,0 +1,33 @@
+[package]
+name = "access-manager"
+version.workspace = true
+description = "Role-based access manager for IBC on Solana"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "access-manager", "anchor"]
+categories = ["cryptography", "blockchain"]
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "access_manager"
+
+[features]
+default = []
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang.workspace = true
+solana-ibc-types.workspace = true
+
+[dev-dependencies]
+mollusk-svm.workspace = true
+solana-sdk.workspace = true
+
+[lints]
+workspace = true

@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use solana_ibc_macros::ibc_app;
 use solana_ibc_types::{OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg};
 
-declare_id!("9qnEj3T1NsaGkN3Sj7hgJZiKrVbKVBNmVphJ6PW1PDAB");
+declare_id!("4Fo5RuY7bEPZNz1FjkM9cUkUVc2BVhdYBjDA8P6Tmox1");
 
 /// Mock IBC Application Program for Testing
 ///

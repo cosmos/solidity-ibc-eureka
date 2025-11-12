@@ -4,7 +4,7 @@
 //! to ensure consistent PDA derivation across the system.
 
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::hash::hash;
+use solana_program::hash::hash;
 
 // Re-export from solana-ibc-proto
 pub use solana_ibc_proto::{

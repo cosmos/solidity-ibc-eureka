@@ -95,17 +95,17 @@ func (s *IbcEurekaSolanaTestSuite) initializeGMPCounterApp(ctx context.Context) 
 		counterAppStatePDA, _ := solana.GmpCounterApp.CounterAppStatePDA(s.GMPCounterProgramID)
 
 		initInstruction, err := gmp_counter_app.NewInitializeInstruction(
-			s.SolanaUser.PublicKey(), // authority
+			s.SolanaRelayer.PublicKey(), // authority
 			counterAppStatePDA,
-			s.SolanaUser.PublicKey(), // payer
+			s.SolanaRelayer.PublicKey(), // payer
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Logf("GMP Counter app initialized")
 	}))
@@ -123,17 +123,17 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 		// Initialize ICS27 GMP app using the fixed version (see instructions-fixed.go)
 		// Using GMP port for proper GMP functionality
 		initInstruction, err := ics27_gmp.NewInitializeInstructionFixed(
-			gmpAppStatePDA,           // app state account
-			s.SolanaUser.PublicKey(), // payer
-			s.SolanaUser.PublicKey(), // authority
-			solanago.SystemProgramID, // system program
+			gmpAppStatePDA,              // app state account
+			s.SolanaRelayer.PublicKey(), // payer
+			s.SolanaRelayer.PublicKey(), // authority
+			solanago.SystemProgramID,    // system program
 		)
 		s.Require().NoError(err)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err)
 
 		s.T().Logf("ICS27 GMP program initialized at: %s", s.ICS27GMPProgramID)
@@ -152,16 +152,16 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 			routerStateAccount,
 			ibcAppAccount,
 			s.ICS27GMPProgramID,
-			s.SolanaUser.PublicKey(),
-			s.SolanaUser.PublicKey(),
+			s.SolanaRelayer.PublicKey(),
+			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), registerInstruction)
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), registerInstruction)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Logf("ICS27 GMP registered with router on port: %s (using proper GMP port)", GMPPortID)
 	}))
@@ -325,7 +325,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(updateResp.Tx, "Relayer Update client should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
 
 			// Now retrieve and relay the GMP packet
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -339,7 +339,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
 			// Execute on Solana using chunked submission
-			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 			s.Require().NoError(err)
 			s.T().Logf("%s: GMP execution completed on Solana", userLabel)
 
@@ -539,7 +539,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	s.Require().True(s.Run("Setup SPL Token Infrastructure", func() {
 		s.Require().True(s.Run("Create Test SPL Token Mint", func() {
 			var err error
-			tokenMint, err = s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaUser, 6)
+			tokenMint, err = s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaRelayer, 6)
 			s.Require().NoError(err)
 			s.T().Logf("Created test SPL token mint: %s (6 decimals)", tokenMint.String())
 		}))
@@ -553,7 +553,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			var err error
 
 			// Create source token account (owned by ICS27 PDA)
-			sourceTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaUser, tokenMint, ics27AccountPDA)
+			sourceTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, ics27AccountPDA)
 			s.Require().NoError(err)
 			s.T().Logf("Created source token account (owned by ICS27 PDA): %s", sourceTokenAccount.String())
 
@@ -561,7 +561,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			recipientWallet, err = s.SolanaChain.CreateAndFundWallet()
 			s.Require().NoError(err)
 
-			destTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaUser, tokenMint, recipientWallet.PublicKey())
+			destTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, recipientWallet.PublicKey())
 			s.Require().NoError(err)
 			s.T().Logf("Created destination token account (owned by recipient): %s", destTokenAccount.String())
 		}))
@@ -569,7 +569,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		s.Require().True(s.Run("Mint Tokens to ICS27 PDA", func() {
 			// Mint 10 tokens (10,000,000 with 6 decimals)
 			mintAmount := SPLTokenMintAmount
-			err := s.SolanaChain.MintTokensTo(ctx, s.SolanaUser, tokenMint, sourceTokenAccount, mintAmount)
+			err := s.SolanaChain.MintTokensTo(ctx, s.SolanaRelayer, tokenMint, sourceTokenAccount, mintAmount)
 			s.Require().NoError(err)
 
 			balance, err := s.SolanaChain.GetTokenBalance(ctx, sourceTokenAccount)
@@ -662,7 +662,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(updateResp.Tx, "Relayer Update client should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
 		}))
 
 		s.Require().True(s.Run("Retrieve relay tx from relayer", func() {
@@ -676,7 +676,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 			s.Require().NoError(err)
 			s.T().Logf("SPL transfer executed on Solana: %s", solanaRelayTxSig)
 		}))
@@ -748,7 +748,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 
 	var computedAddress sdk.AccAddress
 	s.Require().True(s.Run("Fund pre-computed ICS27 address on Cosmos", func() {
-		solanaUserAddress := s.SolanaUser.PublicKey().String()
+		solanaUserAddress := s.SolanaRelayer.PublicKey().String()
 
 		// Use CosmosClientID (08-wasm-0) - the dest_client on Cosmos
 		// The GMP keeper creates accounts using NewAccountIdentifier(destClient, sender, salt)
@@ -839,8 +839,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 					Memo:             "send from Solana to Cosmos",
 				},
 				gmpAppStatePDA,
-				s.SolanaUser.PublicKey(),
-				s.SolanaUser.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
 				ics26_router.ProgramID,
 				routerStatePDA,
 				clientSequencePDA,
@@ -856,12 +856,12 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 
 		s.Require().True(s.Run("Broadcast transaction", func() {
 			tx, err := s.SolanaChain.NewTransactionFromInstructions(
-				s.SolanaUser.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
 				sendCallInstruction,
 			)
 			s.Require().NoError(err)
 
-			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(sig)
 
@@ -931,7 +931,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaRelayer)
 		}))
 
 		s.Require().True(s.Run("Relay acknowledgement", func() {
@@ -945,7 +945,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 			s.Require().NoError(err)
 			s.T().Logf("Acknowledgement transaction broadcasted: %s", sig)
 		}))
@@ -1042,7 +1042,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 	var computedAddress sdk.AccAddress
 	s.Require().True(s.Run("Fund pre-computed ICS27 address on Cosmos", func() {
-		solanaUserAddress := s.SolanaUser.PublicKey().String()
+		solanaUserAddress := s.SolanaRelayer.PublicKey().String()
 
 		res, err := e2esuite.GRPCQuery[gmptypes.QueryAccountAddressResponse](ctx, simd, &gmptypes.QueryAccountAddressRequest{
 			ClientId: CosmosClientID,
@@ -1127,8 +1127,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 					Memo:             "timeout test from Solana",
 				},
 				gmpAppStatePDA,
-				s.SolanaUser.PublicKey(),
-				s.SolanaUser.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
 				ics26_router.ProgramID,
 				routerStatePDA,
 				clientSequencePDA,
@@ -1144,12 +1144,12 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 		s.Require().True(s.Run("Broadcast transaction", func() {
 			tx, err := s.SolanaChain.NewTransactionFromInstructions(
-				s.SolanaUser.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
 				sendCallInstruction,
 			)
 			s.Require().NoError(err)
 
-			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(sig)
 
@@ -1190,7 +1190,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaRelayer)
 		}))
 
 		s.Require().True(s.Run("Relay timeout transaction", func() {
@@ -1204,7 +1204,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 			s.Require().NoError(err)
 			s.T().Logf("Timeout transaction broadcasted: %s", sig)
 
@@ -1326,7 +1326,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	s.Require().True(s.Run("Setup SPL Token Infrastructure", func() {
 		s.Require().True(s.Run("Create Test SPL Token Mint", func() {
 			var err error
-			tokenMint, err = s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaUser, SPLTokenDecimals)
+			tokenMint, err = s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaRelayer, SPLTokenDecimals)
 			s.Require().NoError(err)
 			s.T().Logf("Created test SPL token mint: %s", tokenMint.String())
 		}))
@@ -1338,10 +1338,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 
 		s.Require().True(s.Run("Create and Fund Token Account", func() {
 			var err error
-			sourceTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaUser, tokenMint, ics27AccountPDA)
+			sourceTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, ics27AccountPDA)
 			s.Require().NoError(err)
 
-			err = s.SolanaChain.MintTokensTo(ctx, s.SolanaUser, tokenMint, sourceTokenAccount, tokenAmount)
+			err = s.SolanaChain.MintTokensTo(ctx, s.SolanaRelayer, tokenMint, sourceTokenAccount, tokenAmount)
 			s.Require().NoError(err)
 			s.T().Logf("Created and funded source token account: %s", sourceTokenAccount.String())
 		}))
@@ -1360,7 +1360,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 		recipientWallet, err = s.SolanaChain.CreateAndFundWallet()
 		s.Require().NoError(err)
 
-		destTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaUser, tokenMint, recipientWallet.PublicKey())
+		destTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, recipientWallet.PublicKey())
 		s.Require().NoError(err)
 
 		splTransferInstruction := token.NewTransferInstruction(
@@ -1419,7 +1419,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(updateResp.Tx, "Relayer Update client should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
 		}))
 
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -1483,7 +1483,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 			}))
 
 			s.Require().True(s.Run("Verify recvPacket fails on Solana after timeout", func() {
-				_, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), recvRelayTxs, s.SolanaUser)
+				_, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), recvRelayTxs, s.SolanaRelayer)
 				s.Require().Error(err)
 			}))
 		}))
@@ -1561,7 +1561,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 	s.Require().True(s.Run("Setup SPL Token Infrastructure", func() {
 		s.Require().True(s.Run("Create Test SPL Token Mint", func() {
 			var err error
-			tokenMint, err = s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaUser, SPLTokenDecimals)
+			tokenMint, err = s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaRelayer, SPLTokenDecimals)
 			s.Require().NoError(err)
 			s.T().Logf("Created test SPL token mint: %s (decimals: %d)", tokenMint.String(), SPLTokenDecimals)
 		}))
@@ -1575,7 +1575,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 			var err error
 
 			// Create source token account (owned by ICS27 PDA)
-			sourceTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaUser, tokenMint, ics27AccountPDA)
+			sourceTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, ics27AccountPDA)
 			s.Require().NoError(err)
 			s.T().Logf("Created source token account (owned by ICS27 PDA): %s", sourceTokenAccount.String())
 
@@ -1583,14 +1583,14 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 			recipientWallet, err = s.SolanaChain.CreateAndFundWallet()
 			s.Require().NoError(err)
 
-			destTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaUser, tokenMint, recipientWallet.PublicKey())
+			destTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, recipientWallet.PublicKey())
 			s.Require().NoError(err)
 			s.T().Logf("Created destination token account (owned by recipient): %s", destTokenAccount.String())
 		}))
 
 		s.Require().True(s.Run("Mint Insufficient Tokens to ICS27 PDA", func() {
 			// CRITICAL: Mint ONLY 5 tokens (we'll try to transfer 10 later)
-			err := s.SolanaChain.MintTokensTo(ctx, s.SolanaUser, tokenMint, sourceTokenAccount, insufficientAmount)
+			err := s.SolanaChain.MintTokensTo(ctx, s.SolanaRelayer, tokenMint, sourceTokenAccount, insufficientAmount)
 			s.Require().NoError(err)
 
 			balance, err := s.SolanaChain.GetTokenBalance(ctx, sourceTokenAccount)
@@ -1682,7 +1682,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(updateResp.Tx, "Relayer Update client should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
 		}))
 
 		s.Require().True(s.Run("Relay packet to Solana (will fail)", func() {
@@ -1698,7 +1698,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 
 			// Transaction will fail due to CPI error (insufficient balance for SPL token transfer)
 			// Expected error: SPL Token program InstructionError with Custom error code 1 (InsufficientFunds)
-			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 			s.Require().Error(err)
 			s.T().Logf("Received error: %v", err)
 			// Expected Solana error format: map[InstructionError:[%!s(float64=2) map[Custom:%!s(float64=1)]]]
@@ -1746,7 +1746,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 
 	var computedAddress sdk.AccAddress
 	s.Require().True(s.Run("Compute ICS27 address on Cosmos (will have zero balance)", func() {
-		solanaUserAddress := s.SolanaUser.PublicKey().String()
+		solanaUserAddress := s.SolanaRelayer.PublicKey().String()
 
 		res, err := e2esuite.GRPCQuery[gmptypes.QueryAccountAddressResponse](ctx, simd, &gmptypes.QueryAccountAddressRequest{
 			ClientId: CosmosClientID,
@@ -1831,8 +1831,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 					Memo:             "send from Solana to Cosmos (will fail on execution)",
 				},
 				gmpAppStatePDA,
-				s.SolanaUser.PublicKey(),
-				s.SolanaUser.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
 				ics26_router.ProgramID,
 				routerStatePDA,
 				clientSequencePDA,
@@ -1847,12 +1847,12 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 
 		s.Require().True(s.Run("Broadcast transaction", func() {
 			tx, err := s.SolanaChain.NewTransactionFromInstructions(
-				s.SolanaUser.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
 				sendCallInstruction,
 			)
 			s.Require().NoError(err)
 
-			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(sig)
 
@@ -1906,7 +1906,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(updateResp.Tx, "Relayer Update client should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
 		}))
 
 		s.Require().True(s.Run("Get acknowledgment relay transactions", func() {
@@ -1923,7 +1923,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
 
-			sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 			s.Require().NoError(err)
 			s.T().Logf("Error acknowledgment successfully relayed to Solana: %s", sig)
 		}))
@@ -2000,7 +2000,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			instructionData,
 			accountMetas,
 			ics27_gmp.ProgramID,
-			s.SolanaUser.PublicKey(),
+			s.SolanaRelayer.PublicKey(),
 		)
 		if err != nil {
 			return nil, err
@@ -2022,7 +2022,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
-			Receiver: s.SolanaUser.PublicKey().String(),
+			Receiver: s.SolanaRelayer.PublicKey().String(),
 			Salt:     []byte{},
 			Payload:  []byte("test payload"),
 			Memo:     "",
@@ -2042,7 +2042,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 				Encoding:   testvalues.Ics27ProtobufEncoding,
 				Value:      packetDataBytes,
 			},
-			Relayer: s.SolanaUser.PublicKey(),
+			Relayer: s.SolanaRelayer.PublicKey(),
 		}
 
 		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
@@ -2053,7 +2053,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			gmpAppStatePDA,
 			ics26_router.ProgramID, // Correct router, but we're calling directly!
 			solanago.SysVarInstructionsPubkey,
-			s.SolanaUser.PublicKey(),
+			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
@@ -2071,10 +2071,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		s.T().Log("Attempting direct call to on_recv_packet (bypassing router)...")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), gmpIx)
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), gmpIx)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaUser)
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
 
 		// Should FAIL - validate_cpi_caller detects direct call via instructions sysvar
 		s.Require().Error(err, "on_recv_packet should reject direct call")
@@ -2096,7 +2096,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
-			Receiver: s.SolanaUser.PublicKey().String(),
+			Receiver: s.SolanaRelayer.PublicKey().String(),
 			Salt:     []byte{},
 			Payload:  []byte("test payload"),
 			Memo:     "",
@@ -2116,7 +2116,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 				Encoding:   testvalues.Ics27ProtobufEncoding,
 				Value:      packetDataBytes,
 			},
-			Relayer: s.SolanaUser.PublicKey(),
+			Relayer: s.SolanaRelayer.PublicKey(),
 		}
 
 		// Build instruction with CORRECT router_program
@@ -2126,7 +2126,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			gmpAppStatePDA,
 			ics26_router.ProgramID, // Correct router
 			solanago.SysVarInstructionsPubkey,
-			s.SolanaUser.PublicKey(),
+			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
@@ -2148,10 +2148,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		s.T().Log("Attempting unauthorized CPI to on_recv_packet...")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), proxyIx)
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), proxyIx)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaUser)
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
 
 		// Should FAIL - on_recv_packet has instructions sysvar validation
 		s.Require().Error(err, "on_recv_packet should reject unauthorized CPI")
@@ -2173,7 +2173,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
-			Receiver: s.SolanaUser.PublicKey().String(),
+			Receiver: s.SolanaRelayer.PublicKey().String(),
 			Salt:     []byte{},
 			Payload:  []byte("test payload"),
 			Memo:     "",
@@ -2194,7 +2194,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 				Value:      packetDataBytes,
 			},
 			Acknowledgement: []byte("test ack"),
-			Relayer:         s.SolanaUser.PublicKey(),
+			Relayer:         s.SolanaRelayer.PublicKey(),
 		}
 
 		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
@@ -2203,17 +2203,17 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router, but we're calling directly!
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
-			s.SolanaUser.PublicKey(),
+			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
 
 		s.T().Log("Attempting direct call to on_ack_packet (bypassing router)...")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), gmpIx)
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), gmpIx)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaUser)
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
 
 		// Should FAIL - validate_cpi_caller detects direct call via instructions sysvar
 		s.Require().Error(err, "on_ack_packet should reject direct call")
@@ -2235,7 +2235,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
-			Receiver: s.SolanaUser.PublicKey().String(),
+			Receiver: s.SolanaRelayer.PublicKey().String(),
 			Salt:     []byte{},
 			Payload:  []byte("test payload"),
 			Memo:     "",
@@ -2256,7 +2256,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 				Value:      packetDataBytes,
 			},
 			Acknowledgement: []byte("test ack"),
-			Relayer:         s.SolanaUser.PublicKey(),
+			Relayer:         s.SolanaRelayer.PublicKey(),
 		}
 
 		// Build instruction with CORRECT router_program
@@ -2265,7 +2265,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
-			s.SolanaUser.PublicKey(),
+			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
@@ -2276,10 +2276,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		s.T().Log("Attempting unauthorized CPI to on_ack_packet...")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), proxyIx)
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), proxyIx)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaUser)
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
 
 		// Should FAIL - on_ack_packet has instructions sysvar validation
 		s.Require().Error(err, "on_ack_packet should reject unauthorized CPI")
@@ -2301,7 +2301,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
-			Receiver: s.SolanaUser.PublicKey().String(),
+			Receiver: s.SolanaRelayer.PublicKey().String(),
 			Salt:     []byte{},
 			Payload:  []byte("test payload"),
 			Memo:     "",
@@ -2321,7 +2321,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 				Encoding:   testvalues.Ics27ProtobufEncoding,
 				Value:      packetDataBytes,
 			},
-			Relayer: s.SolanaUser.PublicKey(),
+			Relayer: s.SolanaRelayer.PublicKey(),
 		}
 
 		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
@@ -2330,17 +2330,17 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router, but we're calling directly!
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
-			s.SolanaUser.PublicKey(),
+			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
 
 		s.T().Log("Attempting direct call to on_timeout_packet (bypassing router)...")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), gmpIx)
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), gmpIx)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaUser)
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
 
 		// Should FAIL - validate_cpi_caller detects direct call via instructions sysvar
 		s.Require().Error(err, "on_timeout_packet should reject direct call")
@@ -2362,7 +2362,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
-			Receiver: s.SolanaUser.PublicKey().String(),
+			Receiver: s.SolanaRelayer.PublicKey().String(),
 			Salt:     []byte{},
 			Payload:  []byte("test payload"),
 			Memo:     "",
@@ -2382,7 +2382,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 				Encoding:   testvalues.Ics27ProtobufEncoding,
 				Value:      packetDataBytes,
 			},
-			Relayer: s.SolanaUser.PublicKey(),
+			Relayer: s.SolanaRelayer.PublicKey(),
 		}
 
 		// Build instruction with CORRECT router_program
@@ -2391,7 +2391,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
-			s.SolanaUser.PublicKey(),
+			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
@@ -2402,10 +2402,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		s.T().Log("Attempting unauthorized CPI to on_timeout_packet...")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), proxyIx)
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), proxyIx)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaUser)
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
 
 		// Should FAIL - on_timeout_packet has instructions sysvar validation
 		s.Require().Error(err, "on_timeout_packet should reject unauthorized CPI")

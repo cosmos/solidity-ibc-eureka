@@ -21,7 +21,6 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
 
     tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)])
         .map_err(|_| error!(ErrorCode::MembershipVerificationFailed))?;
-
     Ok(())
 }
 
