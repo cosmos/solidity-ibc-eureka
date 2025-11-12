@@ -7,6 +7,7 @@ import "../../../msgs/IICS02ClientMsgs.sol";
 address constant ICS02_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000807;
 
 /// @dev The ICS02 contract's instance.
+/// @dev The ICS02 Precompile contract is deployed at this fixed address in 'cosmos/evm'
 IICS02Precompile constant ICS02_CONTRACT = IICS02Precompile(ICS02_PRECOMPILE_ADDRESS);
 
 /// @author CosmosLabs
