@@ -29,14 +29,7 @@ contract ICS02PrecompileWrapper is ILightClient, IICS02PrecompileWrapper, IICS02
     /// @inheritdoc ILightClient
     function updateClient(bytes calldata updateMsg) external returns (ILightClientMsgs.UpdateResult) {
         IICS02Precompile.UpdateResult result = ICS02_CONTRACT.updateClient(ibcGoClientId, updateMsg);
-
-        if (result == IICS02Precompile.UpdateResult.Update) {
-            return ILightClientMsgs.UpdateResult.Update;
-        } else if (result == IICS02Precompile.UpdateResult.Misbehaviour) {
-            return ILightClientMsgs.UpdateResult.Misbehaviour;
-        } else {
-            revert Unreachable();
-        }
+        return ILightClientMsgs.UpdateResult(uint8(result));
     }
 
     /// @inheritdoc ILightClient
@@ -52,7 +45,6 @@ contract ICS02PrecompileWrapper is ILightClient, IICS02PrecompileWrapper, IICS02
     /// @inheritdoc ILightClient
     function misbehaviour(bytes calldata misbehaviourMsg) external {
         IICS02Precompile.UpdateResult result = ICS02_CONTRACT.updateClient(ibcGoClientId, misbehaviourMsg);
-
         if (result != IICS02Precompile.UpdateResult.Misbehaviour) {
             revert NoMisbehaviourDetected();
         }
