@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import { ILightClientMsgs } from "../../msgs/ILightClientMsgs.sol";
-import { IICS02ClientMsgs } from "../../msgs/IICS02ClientMsgs.sol";
 
 import { IICS02PrecompileWrapper } from "./interfaces/IICS02PrecompileWrapper.sol";
 import { IICS02PrecompileWrapperErrors } from "./errors/IICS02PrecompileWrapperErrors.sol";

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "../../../msgs/IICS02ClientMsgs.sol";
+import { IICS02ClientMsgs } from "../../../msgs/IICS02ClientMsgs.sol";
 
 /// @dev The ICS02I contract's address.
 address constant ICS02_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000807;
