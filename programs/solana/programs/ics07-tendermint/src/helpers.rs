@@ -1,5 +1,6 @@
 use crate::error::ErrorCode;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::log::sol_log_compute_units;
 use borsh::BorshDeserialize;
 use ibc_client_tendermint::types::{Header, Misbehaviour};
 use ibc_core_commitment_types::merkle::MerkleProof;
@@ -10,12 +11,22 @@ use solana_ibc_types::borsh_header::BorshHeader;
 
 pub fn deserialize_header(bytes: &[u8]) -> Result<Header> {
     // Deserialize from Borsh format for efficient memory usage
+    msg!("deserialize_header: Starting Borsh parsing");
+    sol_log_compute_units();
     let borsh_header = BorshHeader::try_from_slice(bytes)
         .map_err(|_| error!(ErrorCode::InvalidHeader))?;
+    msg!("deserialize_header: Borsh parsing complete");
+    sol_log_compute_units();
 
     // Convert BorshHeader back to ibc-rs Header type using helper function
-    crate::conversions::borsh_to_header(borsh_header)
-        .map_err(|_| error!(ErrorCode::InvalidHeader))
+    msg!("deserialize_header: Starting conversion to Header");
+    sol_log_compute_units();
+    let result = crate::conversions::borsh_to_header(borsh_header)
+        .map_err(|_| error!(ErrorCode::InvalidHeader))?;
+    msg!("deserialize_header: Conversion complete");
+    sol_log_compute_units();
+
+    Ok(result)
 }
 
 pub fn deserialize_merkle_proof(bytes: &[u8]) -> Result<MerkleProof> {
