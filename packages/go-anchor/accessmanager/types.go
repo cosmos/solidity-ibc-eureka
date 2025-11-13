@@ -15,7 +15,7 @@ type AccessManagerStateAccessManager struct {
 	Version  AccessManagerTypesAccessManagerVersion `json:"version"`
 	Admin    solanago.PublicKey                     `json:"admin"`
 	Roles    []AccessManagerTypesRoleData           `json:"roles"`
-	Reserved [512]uint8                             `json:"reserved"`
+	Reserved [256]uint8                             `json:"reserved"`
 }
 
 func (obj AccessManagerStateAccessManager) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
