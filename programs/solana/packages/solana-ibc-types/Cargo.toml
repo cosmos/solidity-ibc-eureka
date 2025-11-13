@@ -17,5 +17,13 @@ solana-ibc-constants.workspace = true
 ibc-eureka-constrained-types.workspace = true
 solana-ibc-proto.workspace = true
 
+# Dependencies for direct-deser feature
+ibc-client-tendermint = { workspace = true, optional = true }
+ibc-core-client-types = { workspace = true, optional = true }
+tendermint = { workspace = true, optional = true }
+
+[features]
+direct-deser = ["dep:ibc-client-tendermint", "dep:ibc-core-client-types", "dep:tendermint"]
+
 [lib]
 crate-type = ["cdylib", "lib"]

@@ -3995,10 +3995,13 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "borsh 0.10.4",
+ "ibc-client-tendermint",
+ "ibc-core-client-types",
  "ibc-eureka-constrained-types",
  "prost",
  "solana-ibc-constants",
  "solana-ibc-proto",
+ "tendermint",
 ]
 
 [[package]]

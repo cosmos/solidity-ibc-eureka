@@ -7,26 +7,20 @@ use ibc_core_commitment_types::merkle::MerkleProof;
 use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
 use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use ibc_proto::Protobuf;
-use solana_ibc_types::borsh_header::BorshHeader;
+use solana_ibc_types::borsh_header::HeaderWrapper;
 
 pub fn deserialize_header(bytes: &[u8]) -> Result<Header> {
-    // Deserialize from Borsh format for efficient memory usage
-    msg!("deserialize_header: Starting Borsh parsing");
-    sol_log_compute_units();
-    let borsh_header = BorshHeader::try_from_slice(bytes)
-        .map_err(|_| error!(ErrorCode::InvalidHeader))?;
-    msg!("deserialize_header: Borsh parsing complete");
+    // Direct deserialization: bytes → Header in one pass (saves ~300k CU)
+    msg!("deserialize_header: Starting direct deserialization");
     sol_log_compute_units();
 
-    // Convert BorshHeader back to ibc-rs Header type using helper function
-    msg!("deserialize_header: Starting conversion to Header");
-    sol_log_compute_units();
-    let result = crate::conversions::borsh_to_header(borsh_header)
+    let wrapper = HeaderWrapper::try_from_slice(bytes)
         .map_err(|_| error!(ErrorCode::InvalidHeader))?;
-    msg!("deserialize_header: Conversion complete");
+
+    msg!("deserialize_header: Direct deserialization complete");
     sol_log_compute_units();
 
-    Ok(result)
+    Ok(wrapper.0)
 }
 
 pub fn deserialize_merkle_proof(bytes: &[u8]) -> Result<MerkleProof> {

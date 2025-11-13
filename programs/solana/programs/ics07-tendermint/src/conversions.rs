@@ -30,8 +30,6 @@ pub fn borsh_to_height(bh: BorshHeight) -> Result<Height, &'static str> {
 pub fn borsh_to_public_key(bpk: BorshPublicKey) -> Result<PublicKey, &'static str> {
     match bpk {
         BorshPublicKey::Ed25519(bytes) => {
-            let bytes: [u8; 32] = bytes.try_into()
-                .map_err(|_| "Invalid Ed25519 public key length")?;
             Ok(PublicKey::from_raw_ed25519(&bytes)
                 .ok_or("Invalid Ed25519 key")?)
         }
@@ -42,11 +40,8 @@ pub fn borsh_to_public_key(bpk: BorshPublicKey) -> Result<PublicKey, &'static st
 }
 
 pub fn borsh_to_validator(bv: BorshValidator) -> Result<ValidatorInfo, &'static str> {
-    let address_bytes: [u8; 20] = bv.address.try_into()
-        .map_err(|_| "Invalid validator address length")?;
-
     Ok(ValidatorInfo {
-        address: AccountId::new(address_bytes),
+        address: AccountId::new(bv.address),
         pub_key: borsh_to_public_key(bv.pub_key)?,
         power: tendermint::vote::Power::try_from(bv.voting_power)
             .map_err(|_| "Invalid voting power")?,
@@ -102,11 +97,8 @@ pub fn borsh_to_commit_sig(bcs: BorshCommitSig) -> Result<CommitSig, &'static st
             let sig = tendermint::Signature::new(signature)
                 .map_err(|_| "Invalid signature")?;
 
-            let address_bytes: [u8; 20] = validator_address.try_into()
-                .map_err(|_| "Invalid validator address length")?;
-
             Ok(CommitSig::BlockIdFlagCommit {
-                validator_address: AccountId::new(address_bytes),
+                validator_address: AccountId::new(validator_address),
                 timestamp: borsh_to_time(timestamp)?,
                 signature: sig,
             })
@@ -119,11 +111,8 @@ pub fn borsh_to_commit_sig(bcs: BorshCommitSig) -> Result<CommitSig, &'static st
             let sig = tendermint::Signature::new(signature)
                 .map_err(|_| "Invalid signature")?;
 
-            let address_bytes: [u8; 20] = validator_address.try_into()
-                .map_err(|_| "Invalid validator address length")?;
-
             Ok(CommitSig::BlockIdFlagNil {
-                validator_address: AccountId::new(address_bytes),
+                validator_address: AccountId::new(validator_address),
                 timestamp: borsh_to_time(timestamp)?,
                 signature: sig,
             })

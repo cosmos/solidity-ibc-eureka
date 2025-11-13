@@ -28,14 +28,23 @@ pub fn height_to_borsh(height: Height) -> BorshHeight {
 
 pub fn public_key_to_borsh(pk: PublicKey) -> BorshPublicKey {
     match pk {
-        PublicKey::Ed25519(bytes) => BorshPublicKey::Ed25519(bytes.as_bytes().to_vec()),
+        PublicKey::Ed25519(bytes) => {
+            let bytes_array: [u8; 32] = bytes.as_bytes()
+                .try_into()
+                .expect("Ed25519 pubkey must be 32 bytes");
+            BorshPublicKey::Ed25519(bytes_array)
+        }
         _ => panic!("Only Ed25519 public keys are supported on Solana"),
     }
 }
 
 pub fn validator_to_borsh(v: ValidatorInfo) -> BorshValidator {
+    let address_array: [u8; 20] = v.address.as_bytes()
+        .try_into()
+        .expect("Validator address must be 20 bytes");
+
     BorshValidator {
-        address: v.address.as_bytes().to_vec(),
+        address: address_array,
         pub_key: public_key_to_borsh(v.pub_key),
         voting_power: v.power.value(),
         proposer_priority: v.proposer_priority.value(),
@@ -78,20 +87,38 @@ pub fn commit_sig_to_borsh(cs: CommitSig) -> BorshCommitSig {
             validator_address,
             timestamp,
             signature,
-        } => BorshCommitSig::BlockIdFlagCommit {
-            validator_address: validator_address.as_bytes().to_vec(),
-            timestamp: time_to_borsh(timestamp),
-            signature: signature.map(|s| s.as_bytes().to_vec()).unwrap_or_default(),
-        },
+        } => {
+            let address_array: [u8; 20] = validator_address.as_bytes()
+                .try_into()
+                .expect("Validator address must be 20 bytes");
+            let sig_array: [u8; 64] = signature
+                .map(|s| s.as_bytes().try_into().expect("Signature must be 64 bytes"))
+                .unwrap_or([0u8; 64]);
+
+            BorshCommitSig::BlockIdFlagCommit {
+                validator_address: address_array,
+                timestamp: time_to_borsh(timestamp),
+                signature: sig_array,
+            }
+        }
         CommitSig::BlockIdFlagNil {
             validator_address,
             timestamp,
             signature,
-        } => BorshCommitSig::BlockIdFlagNil {
-            validator_address: validator_address.as_bytes().to_vec(),
-            timestamp: time_to_borsh(timestamp),
-            signature: signature.map(|s| s.as_bytes().to_vec()).unwrap_or_default(),
-        },
+        } => {
+            let address_array: [u8; 20] = validator_address.as_bytes()
+                .try_into()
+                .expect("Validator address must be 20 bytes");
+            let sig_array: [u8; 64] = signature
+                .map(|s| s.as_bytes().try_into().expect("Signature must be 64 bytes"))
+                .unwrap_or([0u8; 64]);
+
+            BorshCommitSig::BlockIdFlagNil {
+                validator_address: address_array,
+                timestamp: time_to_borsh(timestamp),
+                signature: sig_array,
+            }
+        }
     }
 }
 
