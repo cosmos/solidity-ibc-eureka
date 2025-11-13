@@ -1,11 +1,12 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! Solana from events received from a Cosmos SDK chain.
 
+use borsh::BorshSerialize;
 use std::{collections::HashMap, sync::Arc};
 
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
-use ibc_proto_eureka::ibc::lightclients::tendermint::v1::Fraction;
+use ibc_client_tendermint::types::Header as TmHeader;
 use ibc_eureka_relayer_lib::utils::solana::convert_client_state_to_sol;
 use ibc_eureka_relayer_lib::{
     events::{
@@ -23,7 +24,7 @@ use ibc_eureka_relayer_lib::{
         },
     },
 };
-use prost::Message;
+use ibc_proto_eureka::ibc::lightclients::tendermint::v1::Fraction;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     address_lookup_table::{
@@ -52,7 +53,7 @@ use solana_ibc_types::{
 use tendermint_rpc::{Client as _, HttpClient};
 
 /// Maximum size for a chunk (matches `CHUNK_DATA_SIZE` in Solana program)
-const MAX_CHUNK_SIZE: usize = 700;
+const MAX_CHUNK_SIZE: usize = 900;
 
 /// Parameters for assembling timeout packet accounts
 struct TimeoutAccountsParams {
@@ -889,10 +890,10 @@ impl TxBuilder {
         let (alt_address, _) = derive_alt_address(slot, self.fee_payer);
 
         let extend_ix = extend_lookup_table(
-            alt_address,            // lookup_table_address
-            self.fee_payer,         // authority
-            Some(self.fee_payer),   // payer (optional)
-            accounts,               // new_addresses
+            alt_address,          // lookup_table_address
+            self.fee_payer,       // authority
+            Some(self.fee_payer), // payer (optional)
+            accounts,             // new_addresses
         );
 
         self.create_tx_bytes(&[extend_ix])
@@ -1574,11 +1575,16 @@ impl TxBuilder {
         let trust_level = if let Some(trust_level_str) = parameters.get("trust_level") {
             let parts: Vec<&str> = trust_level_str.split('/').collect();
             if parts.len() != 2 {
-                anyhow::bail!("Invalid trust level format: expected 'numerator/denominator', got '{}'", trust_level_str);
+                anyhow::bail!(
+                    "Invalid trust level format: expected 'numerator/denominator', got '{}'",
+                    trust_level_str
+                );
             }
-            let numerator = parts[0].parse::<u64>()
+            let numerator = parts[0]
+                .parse::<u64>()
                 .map_err(|_| anyhow::anyhow!("Invalid trust level numerator: {}", parts[0]))?;
-            let denominator = parts[1].parse::<u64>()
+            let denominator = parts[1]
+                .parse::<u64>()
                 .map_err(|_| anyhow::anyhow!("Invalid trust level denominator: {}", parts[1]))?;
 
             if numerator == 0 || denominator == 0 {
@@ -1589,7 +1595,10 @@ impl TxBuilder {
             }
 
             tracing::info!("Using custom trust level: {}/{}", numerator, denominator);
-            Some(Fraction { numerator, denominator })
+            Some(Fraction {
+                numerator,
+                denominator,
+            })
         } else {
             None
         };
@@ -1644,7 +1653,18 @@ impl TxBuilder {
             "Building chunked update client transactions for client {dst_client_id} to height {target_height}",
         );
 
-        let header_bytes = proposed_header.encode_to_vec();
+        // Convert protobuf Header to ibc-rs Header type
+        let header = TmHeader::try_from(proposed_header)
+            .context("Failed to convert protobuf Header to ibc-rs Header")?;
+
+        // Convert to BorshHeader and serialize with Borsh for efficient memory usage
+        tracing::info!("Converting Header to BorshHeader for efficient serialization");
+        let borsh_header = crate::borsh_conversions::header_to_borsh(header);
+        let header_bytes = borsh_header
+            .try_to_vec()
+            .context("Failed to serialize header with Borsh")?;
+        tracing::info!("Header serialized with Borsh: {} bytes", header_bytes.len());
+
         let chunks = Self::split_header_into_chunks(&header_bytes);
         let total_chunks = u8::try_from(chunks.len())
             .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;

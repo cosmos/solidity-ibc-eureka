@@ -12,6 +12,7 @@ categories = ["cryptography", "blockchain"]
 [dependencies]
 anchor-lang.workspace = true
 prost.workspace = true
+borsh.workspace = true
 solana-ibc-constants.workspace = true
 ibc-eureka-constrained-types.workspace = true
 solana-ibc-proto.workspace = true

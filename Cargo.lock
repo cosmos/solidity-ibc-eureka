@@ -5088,9 +5088,10 @@ dependencies = [
  "anchor-lang",
  "anyhow",
  "bincode",
- "borsh 1.5.7",
+ "borsh 0.10.4",
  "hex",
  "ibc-client-tendermint",
+ "ibc-core-client-types",
  "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-lib 0.1.0",
  "ibc-eureka-utils 0.1.0",
@@ -5258,7 +5259,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64 0.22.1",
- "borsh 1.5.7",
+ "borsh 0.10.4",
  "hex",
  "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-lib 0.1.0",
@@ -9328,6 +9329,7 @@ name = "solana-ibc-types"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "borsh 0.10.4",
  "ibc-eureka-constrained-types",
  "prost",
  "solana-ibc-constants",

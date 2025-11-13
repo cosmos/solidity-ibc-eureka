@@ -1,13 +1,21 @@
 use crate::error::ErrorCode;
 use anchor_lang::prelude::*;
+use borsh::BorshDeserialize;
 use ibc_client_tendermint::types::{Header, Misbehaviour};
 use ibc_core_commitment_types::merkle::MerkleProof;
 use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
 use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
-use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
+use ibc_proto::Protobuf;
+use solana_ibc_types::borsh_header::BorshHeader;
 
 pub fn deserialize_header(bytes: &[u8]) -> Result<Header> {
-    <Header as Protobuf<RawHeader>>::decode_vec(bytes).map_err(|_| error!(ErrorCode::InvalidHeader))
+    // Deserialize from Borsh format for efficient memory usage
+    let borsh_header = BorshHeader::try_from_slice(bytes)
+        .map_err(|_| error!(ErrorCode::InvalidHeader))?;
+
+    // Convert BorshHeader back to ibc-rs Header type using helper function
+    crate::conversions::borsh_to_header(borsh_header)
+        .map_err(|_| error!(ErrorCode::InvalidHeader))
 }
 
 pub fn deserialize_merkle_proof(bytes: &[u8]) -> Result<MerkleProof> {

@@ -35,6 +35,7 @@ borsh.workspace = true
 ibc-proto-eureka.workspace = true
 ibc-proto.workspace = true
 ibc-client-tendermint.workspace = true
+ibc-core-client-types.workspace = true
 prost.workspace = true
 solana-ibc-types.workspace = true
 solana-ibc-constants.workspace = true

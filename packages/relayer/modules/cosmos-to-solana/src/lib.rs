@@ -3,6 +3,7 @@
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 #![allow(missing_docs, unused_crate_dependencies)]
 
+pub mod borsh_conversions;
 pub mod constants;
 pub mod gmp;
 pub mod proto;
