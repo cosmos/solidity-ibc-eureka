@@ -247,7 +247,9 @@ func (s *ExternalCosmosTestSuite) createClient() {
 	createClientReq := &relayertypes.CreateClientRequest{
 		SrcChain:   s.ExternalCosmosChainID,
 		DstChain:   testvalues.SolanaChainID,
-		Parameters: map[string]string{},
+		Parameters: map[string]string{
+			"trust_level": "1/16",
+		},
 	}
 	s.T().Logf("CreateClient request: SrcChain=%s, DstChain=%s", createClientReq.SrcChain, createClientReq.DstChain)
 

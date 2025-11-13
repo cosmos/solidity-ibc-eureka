@@ -19,17 +19,24 @@ pub fn assemble_and_update_client(
         ErrorCode::ClientFrozen
     );
 
+    msg!("Step 1: Client state validated (not frozen)");
     let submitter = ctx.accounts.submitter.key();
 
+    msg!("Step 2: Starting chunk assembly");
     let header_bytes = assemble_chunks(&ctx, &chain_id, target_height)?;
+    msg!("Step 3: Chunks assembled, total bytes: {}", header_bytes.len());
 
+    msg!("Step 4: Processing header update");
     let result = process_header_update(&mut ctx, header_bytes)?;
+    msg!("Step 5: Header update processed successfully");
 
+    msg!("Step 6: Cleaning up chunks");
     cleanup_chunks(&ctx, &chain_id, target_height, submitter)?;
 
     // Return the UpdateResult as bytes for callers to verify
     set_return_data(&result.try_to_vec()?);
 
+    msg!("Step 7: Assembly and update complete");
     Ok(result)
 }
 
@@ -78,21 +85,28 @@ fn process_header_update(
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
+    msg!("Step 4.1: Deserializing header");
     let header = deserialize_header(&header_bytes)?;
     let trusted_height = header.trusted_height.revision_height();
+    msg!("Step 4.2: Header deserialized, trusted_height: {}", trusted_height);
 
+    msg!("Step 4.3: Loading trusted consensus state");
     let trusted_consensus_state = load_consensus_state(
         &ctx.accounts.trusted_consensus_state,
         client_state.key(),
         trusted_height,
     )?;
+    msg!("Step 4.4: Trusted consensus state loaded");
 
+    msg!("Step 4.5: Starting header verification");
     let (new_height, new_consensus_state) = verify_and_update_header(
         client_state,
         &trusted_consensus_state.consensus_state,
         header,
     )?;
+    msg!("Step 4.6: Header verified, new_height: {}", new_height.revision_height());
 
+    msg!("Step 4.7: Storing consensus state");
     let result = store_consensus_state(StoreConsensusStateParams {
         account: &ctx.accounts.new_consensus_state_store,
         submitter: &ctx.accounts.submitter,
@@ -103,6 +117,7 @@ fn process_header_update(
         trusted_consensus_state: &trusted_consensus_state.consensus_state,
         client_state,
     })?;
+    msg!("Step 4.8: Consensus state stored");
 
     // Update latest height only on successful update
     if result == UpdateResult::UpdateSuccess {
@@ -117,9 +132,12 @@ fn verify_and_update_header(
     trusted_state: &ConsensusState,
     header: Header,
 ) -> Result<(ibc_core_client_types::Height, ConsensusState)> {
+    msg!("Step 4.5.1: Converting client state");
     let update_client_state: UpdateClientState = client_state.clone().into();
+    msg!("Step 4.5.2: Converting trusted consensus state");
     let trusted_ibc_state: IbcConsensusState = trusted_state.clone().into();
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
+    msg!("Step 4.5.3: Current time: {}", current_time);
 
     // Signature verification happens here using brine-ed25519 (~30k CU per signature).
     // Note: This happens AFTER header assembly. The signatures are embedded inside the header
@@ -130,6 +148,7 @@ fn verify_and_update_header(
     // 4. Using Ed25519Program would require double multi-tx coordination (chunks + signatures),
     //    adding 4-8 seconds of latency per update (10-20 sequential signature verifications)
     // See README "Design Decisions" section for full explanation.
+    msg!("Step 4.5.4: Calling tendermint update_client (signature verification)");
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
         &trusted_ibc_state,
@@ -137,14 +156,15 @@ fn verify_and_update_header(
         current_time,
     )
     .map_err(|_| ErrorCode::UpdateClientFailed)?;
+    msg!("Step 4.5.5: Signature verification complete");
 
-    Ok((
-        output.latest_height,
-        output
-            .new_consensus_state
-            .try_into()
-            .map_err(|_| ErrorCode::SerializationError)?,
-    ))
+    msg!("Step 4.5.6: Converting new consensus state");
+    let new_consensus_state = output
+        .new_consensus_state
+        .try_into()
+        .map_err(|_| ErrorCode::SerializationError)?;
+
+    Ok((output.latest_height, new_consensus_state))
 }
 
 fn cleanup_chunks(

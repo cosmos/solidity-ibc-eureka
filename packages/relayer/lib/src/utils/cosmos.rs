@@ -21,7 +21,7 @@ use ibc_proto_eureka::{
             channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
             client::v1::{Height, MsgCreateClient, MsgUpdateClient},
         },
-        lightclients::tendermint::v1::ClientState,
+        lightclients::tendermint::v1::{ClientState, Fraction},
         lightclients::wasm::v1::{
             ClientState as WasmClientState, ConsensusState as WasmConsensusState,
         },
@@ -33,7 +33,7 @@ use tendermint_rpc::HttpClient;
 
 use crate::{
     events::{EurekaEvent, EurekaEventWithHeight},
-    tendermint_client::build_tendermint_client_state,
+    tendermint_client::build_tendermint_client_state_with_trust_level,
 };
 
 /// The key for the checksum hex in the tendermint create client parameters map.
@@ -202,6 +202,7 @@ pub struct TmCreateClientParams {
 /// Generates parameters for creating a new Tendermint IBC light client.
 /// # Arguments
 /// * `src_tm_client` - HTTP client connected to the source Tendermint chain
+/// * `trust_level` - Optional trust level (defaults to 1/3 if None)
 ///
 /// # Returns
 /// Client creation parameters with
@@ -211,6 +212,7 @@ pub struct TmCreateClientParams {
 /// - Failed to fetch light block or chain parameters
 pub async fn tm_create_client_params(
     src_tm_client: &HttpClient,
+    trust_level: Option<Fraction>,
 ) -> anyhow::Result<TmCreateClientParams> {
     let latest_light_block = src_tm_client.get_light_block(None).await?;
     // NOTE: might cache
@@ -236,12 +238,13 @@ pub async fn tm_create_client_params(
         nanos: 0,
     };
 
-    let client_state = build_tendermint_client_state(
+    let client_state = build_tendermint_client_state_with_trust_level(
         chain_id.to_string(),
         height,
         trusting_period,
         unbonding_period,
         vec![ics23::iavl_spec(), ics23::tendermint_spec()],
+        trust_level,
     );
 
     let consensus_state = latest_light_block.to_consensus_state();

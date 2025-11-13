@@ -1,10 +1,11 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! Solana from events received from a Cosmos SDK chain.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
+use ibc_proto_eureka::ibc::lightclients::tendermint::v1::Fraction;
 use ibc_eureka_relayer_lib::utils::solana::convert_client_state_to_sol;
 use ibc_eureka_relayer_lib::{
     events::{
@@ -1568,13 +1569,37 @@ impl TxBuilder {
     /// - Failed to serialize instruction data
     /// - Failed to get recent blockhash from Solana
     #[tracing::instrument(skip_all)]
-    pub async fn create_client(&self) -> Result<Vec<u8>> {
+    pub async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        // Parse trust level from parameters if provided (format: "1/16")
+        let trust_level = if let Some(trust_level_str) = parameters.get("trust_level") {
+            let parts: Vec<&str> = trust_level_str.split('/').collect();
+            if parts.len() != 2 {
+                anyhow::bail!("Invalid trust level format: expected 'numerator/denominator', got '{}'", trust_level_str);
+            }
+            let numerator = parts[0].parse::<u64>()
+                .map_err(|_| anyhow::anyhow!("Invalid trust level numerator: {}", parts[0]))?;
+            let denominator = parts[1].parse::<u64>()
+                .map_err(|_| anyhow::anyhow!("Invalid trust level denominator: {}", parts[1]))?;
+
+            if numerator == 0 || denominator == 0 {
+                anyhow::bail!("Trust level numerator and denominator must be greater than 0");
+            }
+            if numerator >= denominator {
+                anyhow::bail!("Trust level numerator must be less than denominator");
+            }
+
+            tracing::info!("Using custom trust level: {}/{}", numerator, denominator);
+            Some(Fraction { numerator, denominator })
+        } else {
+            None
+        };
+
         let chain_id = self.chain_id().await?;
         let TmCreateClientParams {
             latest_height,
             client_state: tm_client_state,
             consensus_state: tm_consensus_state,
-        } = tm_create_client_params(&self.src_tm_client).await?;
+        } = tm_create_client_params(&self.src_tm_client, trust_level).await?;
 
         let client_state = convert_client_state_to_sol(tm_client_state)?;
         let consensus_state = convert_consensus_state(&tm_consensus_state)?;

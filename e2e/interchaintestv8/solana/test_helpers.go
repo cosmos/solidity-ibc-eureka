@@ -298,7 +298,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 
 	// Submit ALT extension transactions sequentially
 	t.Logf("Submitting %d ALT extension transactions...", altExtendCount)
-	for i := 0; i < altExtendCount; i++ {
+	for i := range altExtendCount {
 		extendIdx := 1 + i
 		altExtendTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[extendIdx]))
 		require.NoError(err, "Failed to decode ALT extension tx %d", i+1)
@@ -430,11 +430,22 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	require.NoError(err, "Failed to decode assembly tx")
 
 	sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
-	require.NoError(err)
+	if err != nil {
+		t.Logf("Assembly transaction failed, fetching detailed logs...")
+		// Try to get the signature from the error to fetch logs
+		// Even if submission failed, the transaction may have been sent
+		if sig.IsZero() {
+			// If we don't have a signature, we can't fetch logs
+			t.Logf("No transaction signature available to fetch logs")
+		} else {
+			// Wait a moment for transaction to be processed
+			time.Sleep(500 * time.Millisecond)
+			s.LogTransactionDetails(ctx, t, sig, "FAILED Assembly Transaction")
+		}
+		require.NoError(err, "Assembly transaction failed")
+	}
 
 	// Get transaction details to verify UpdateResult and track gas
-	// Note: The RPC client needs to fetch the transaction with the "full" encoding
-	// to get return data. This verifies that the update was successful.
 	var assemblyComputeUnits, assemblyFee uint64
 	version := uint64(0)
 	txDetails, err := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
@@ -476,6 +487,9 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	assemblyDuration := time.Since(assemblyStart)
 	t.Logf("✓ Assembly transaction completed in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
 		assemblyDuration, sig, assemblyComputeUnits, float64(assemblyFee)/1e9)
+
+	// Log detailed transaction information for debugging
+	s.LogTransactionDetails(ctx, t, sig, "SUCCESS: Assembly Transaction")
 
 	totalDuration := time.Since(totalStart)
 	totalComputeUnits := totalChunkComputeUnits + assemblyComputeUnits
