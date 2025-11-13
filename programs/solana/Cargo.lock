@@ -1988,6 +1988,7 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
+ "solana-allocator",
  "solana-ibc-types",
  "solana-sdk",
  "tendermint",
@@ -3594,6 +3595,15 @@ dependencies = [
  "solana-pubkey",
  "solana-sdk-ids",
  "solana-slot-hashes",
+]
+
+[[package]]
+name = "solana-allocator"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18e83c31c62209f12ba649834b0395760ae010a24427cde881aa0bbad5ea706e"
+dependencies = [
+ "bytemuck",
 ]
 
 [[package]]

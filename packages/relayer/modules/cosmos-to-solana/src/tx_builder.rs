@@ -25,7 +25,11 @@ use ibc_eureka_relayer_lib::{
 use prost::Message;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
-    address_lookup_table::{state::AddressLookupTable, AddressLookupTableAccount},
+    address_lookup_table::{
+        instruction::{create_lookup_table, extend_lookup_table},
+        state::AddressLookupTable,
+        AddressLookupTableAccount,
+    },
     commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
     message::{v0, VersionedMessage},
@@ -81,11 +85,16 @@ struct UploadChunkParams {
 }
 
 /// Organized transactions for chunked update client
+/// Submission order: alt_create_tx -> alt_extend_txs (sequential) -> chunk_txs (parallel) -> assembly_tx
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct UpdateClientChunkedTxs {
-    /// All chunk upload transactions (can be submitted in parallel)
+    /// All chunk upload transactions (can be submitted in parallel after ALT is ready)
     pub chunk_txs: Vec<Vec<u8>>,
-    /// Final assembly transaction (must be submitted last, includes metadata as parameters)
+    /// ALT creation transaction (must be submitted first)
+    pub alt_create_tx: Vec<u8>,
+    /// ALT extension transactions (adds chunk accounts to ALT in batches, submit sequentially after creation)
+    pub alt_extend_txs: Vec<Vec<u8>>,
+    /// Final assembly transaction (must be submitted last after ALT activation, uses ALT for compression)
     pub assembly_tx: Vec<u8>,
     /// Total number of chunks
     pub total_chunks: usize,
@@ -170,6 +179,14 @@ fn derive_header_chunk(
             &[chunk_index],
         ],
         &program_id,
+    )
+}
+
+/// Helper to derive ALT address from current slot and authority
+fn derive_alt_address(slot: u64, authority: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[authority.as_ref(), &slot.to_le_bytes()],
+        &solana_sdk::address_lookup_table::program::id(),
     )
 }
 
@@ -718,6 +735,23 @@ impl TxBuilder {
         vec![compute_budget_ix, priority_fee_ix]
     }
 
+    fn extend_compute_ix_with_heap() -> Vec<Instruction> {
+        let compute_budget_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(
+                MAX_COMPUTE_UNIT_LIMIT,
+            );
+
+        let priority_fee_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(
+                DEFAULT_PRIORITY_FEE,
+            );
+
+        let heap_size_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::request_heap_frame(256 * 1024);
+
+        vec![compute_budget_ix, priority_fee_ix, heap_size_ix]
+    }
+
     fn build_upload_payload_chunk_instruction(
         &self,
         client_id: &str,
@@ -838,12 +872,38 @@ impl TxBuilder {
         })
     }
 
+    /// Builds ALT creation transaction for the given slot and authority
+    fn build_create_alt_tx(&self, slot: u64) -> Result<Vec<u8>> {
+        let (create_ix, _alt_address) = create_lookup_table(
+            self.fee_payer, // authority
+            self.fee_payer, // payer
+            slot,           // recent_slot
+        );
+
+        self.create_tx_bytes(&[create_ix])
+    }
+
+    /// Builds ALT extension transaction to add accounts to the ALT
+    fn build_extend_alt_tx(&self, slot: u64, accounts: Vec<Pubkey>) -> Result<Vec<u8>> {
+        let (alt_address, _) = derive_alt_address(slot, self.fee_payer);
+
+        let extend_ix = extend_lookup_table(
+            alt_address,            // lookup_table_address
+            self.fee_payer,         // authority
+            Some(self.fee_payer),   // payer (optional)
+            accounts,               // new_addresses
+        );
+
+        self.create_tx_bytes(&[extend_ix])
+    }
+
     fn build_assemble_and_update_client_tx(
         &self,
         chain_id: &str,
         target_height: u64,
         trusted_height: u64,
         total_chunks: u8,
+        alt_config: Option<(u64, Vec<Pubkey>)>, // (slot, addresses)
     ) -> Result<Vec<u8>> {
         let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
         let (trusted_consensus_state, _) = ConsensusState::pda(
@@ -889,10 +949,52 @@ impl TxBuilder {
             data,
         };
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = Self::extend_compute_ix_with_heap();
         instructions.push(ix);
 
-        self.create_tx_bytes(&instructions)
+        // Use dedicated ALT if provided, otherwise fall back to static ALT
+        match alt_config {
+            Some((slot, addresses)) => {
+                let (alt_address, _) = derive_alt_address(slot, self.fee_payer);
+                self.create_tx_bytes_with_alt(&instructions, alt_address, addresses)
+            }
+            None => self.create_tx_bytes(&instructions),
+        }
+    }
+
+    /// Create transaction bytes using provided ALT addresses (doesn't fetch from RPC)
+    /// Used when building transactions that reference an ALT that doesn't exist yet
+    fn create_tx_bytes_with_alt(
+        &self,
+        instructions: &[Instruction],
+        alt_address: Pubkey,
+        alt_addresses: Vec<Pubkey>,
+    ) -> Result<Vec<u8>> {
+        if instructions.is_empty() {
+            anyhow::bail!("No instructions to execute on Solana");
+        }
+
+        let recent_blockhash = self.get_recent_blockhash()?;
+
+        // Build v0 message with the provided ALT
+        tracing::info!(
+            "Building v0 transaction with dedicated ALT ({} addresses)",
+            alt_addresses.len()
+        );
+        tracing::info!("ALT address: {}", alt_address);
+        tracing::info!("ALT addresses: {:?}", alt_addresses);
+
+        let alt_account = AddressLookupTableAccount {
+            key: alt_address,
+            addresses: alt_addresses,
+        };
+
+        let v0_message =
+            self.compile_v0_message_with_alt(instructions, recent_blockhash, alt_account)?;
+
+        Self::log_v0_message_stats(&v0_message);
+
+        Self::serialize_v0_transaction(v0_message)
     }
 }
 
@@ -1530,21 +1632,87 @@ impl TxBuilder {
 
         let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
 
+        // Get current slot for ALT derivation
+        let slot = self
+            .target_solana_client
+            .get_slot_with_commitment(CommitmentConfig::processed())?;
+
+        tracing::info!("Current Solana slot: {}", slot);
+
+        // Build ALT creation transaction
+        let alt_create_tx = self.build_create_alt_tx(slot)?;
+
+        // Collect all accounts that need to be in the ALT for assembly transaction
+        let (client_state_pda, _) = ClientState::pda(&chain_id, self.solana_ics07_program_id);
+        let (trusted_consensus_state, _) = ConsensusState::pda(
+            client_state_pda,
+            trusted_height,
+            self.solana_ics07_program_id,
+        );
+        let (new_consensus_state, _) = ConsensusState::pda(
+            client_state_pda,
+            target_height,
+            self.solana_ics07_program_id,
+        );
+
+        let mut alt_accounts = vec![
+            client_state_pda,
+            trusted_consensus_state,
+            new_consensus_state,
+            self.fee_payer,
+            solana_sdk::system_program::id(),
+        ];
+
+        // Add all chunk account addresses
+        for chunk_index in 0..total_chunks {
+            let (chunk_pda, _) = derive_header_chunk(
+                self.fee_payer,
+                &chain_id,
+                target_height,
+                chunk_index,
+                self.solana_ics07_program_id,
+            );
+            alt_accounts.push(chunk_pda);
+        }
+
+        tracing::info!("ALT will contain {} accounts", alt_accounts.len());
+
+        // Build ALT extension transactions in batches to avoid transaction size limits
+        // Each Pubkey is 32 bytes, so we batch ~20-25 accounts per transaction
+        const ALT_EXTEND_BATCH_SIZE: usize = 20;
+        let mut alt_extend_txs = Vec::new();
+
+        for (batch_idx, account_batch) in alt_accounts.chunks(ALT_EXTEND_BATCH_SIZE).enumerate() {
+            let extend_tx = self.build_extend_alt_tx(slot, account_batch.to_vec())?;
+            alt_extend_txs.push(extend_tx);
+            tracing::info!(
+                "Built ALT extension batch {}/{} with {} accounts",
+                batch_idx + 1,
+                (alt_accounts.len() + ALT_EXTEND_BATCH_SIZE - 1) / ALT_EXTEND_BATCH_SIZE,
+                account_batch.len()
+            );
+        }
+
+        // Build assembly transaction that uses the new ALT
         let assembly_tx = self.build_assemble_and_update_client_tx(
             &chain_id,
             target_height,
             trusted_height,
             total_chunks,
+            Some((slot, alt_accounts)), // Pass slot and addresses
         )?;
 
         tracing::info!(
-            "Built {} transactions for chunked update client ({} chunks + 1 assembly with metadata as parameters)",
-            total_chunks + 1, // chunks + assembly
-            total_chunks
+            "Built {} transactions for chunked update client ({} chunks + ALT creation + {} ALT extensions + 1 assembly)",
+            total_chunks as usize + 2 + alt_extend_txs.len(), // chunks + alt_create + alt_extends + assembly
+            total_chunks,
+            alt_extend_txs.len()
         );
 
         Ok(UpdateClientChunkedTxs {
             chunk_txs,
+            alt_create_tx,
+            alt_extend_txs,
             assembly_tx,
             total_chunks: total_chunks as usize,
             target_height,

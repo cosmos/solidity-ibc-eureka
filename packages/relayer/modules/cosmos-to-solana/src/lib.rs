@@ -251,9 +251,19 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         );
 
         let mut txs = Vec::new();
+        // First create ALT
+        txs.push(chunked.alt_create_tx);
+        // Then extend ALT with all account batches (sequential)
+        for extend_tx in chunked.alt_extend_txs {
+            txs.push(extend_tx);
+        }
+        // Add empty separator to mark end of ALT extensions and start of chunks
+        txs.push(Vec::new());
+        // Then upload all chunks (can be submitted in parallel)
         for tx in chunked.chunk_txs {
             txs.push(tx);
         }
+        // Assembly transaction must be last (uses the ALT)
         txs.push(chunked.assembly_tx);
 
         // Serialize multiple transactions into TransactionBatch
