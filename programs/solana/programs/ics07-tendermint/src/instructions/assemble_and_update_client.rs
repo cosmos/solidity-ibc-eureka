@@ -38,9 +38,12 @@ pub fn assemble_and_update_client(
     cleanup_chunks(&ctx, &chain_id, target_height, submitter)?;
 
     // Return the UpdateResult as bytes for callers to verify
+    msg!("Step 7: Serializing and returning result");
+    sol_log_compute_units();
     set_return_data(&result.try_to_vec()?);
+    sol_log_compute_units();
 
-    msg!("Step 7: Assembly and update complete");
+    msg!("Step 8: Assembly and update complete");
     Ok(result)
 }
 
@@ -153,15 +156,15 @@ fn verify_and_update_header(
     trusted_state: &ConsensusState,
     header: Header,
 ) -> Result<(ibc_core_client_types::Height, ConsensusState)> {
-    msg!("Step 4.5.1: Converting client state");
+    msg!("Step 4.5.1: Converting client state (reference-based, no clone)");
     sol_log_compute_units();
-    let update_client_state: UpdateClientState = client_state.clone().into();
+    let update_client_state: UpdateClientState = client_state.into();
     msg!("Step 4.5.1.1: Client state converted");
     sol_log_compute_units();
 
-    msg!("Step 4.5.2: Converting trusted consensus state");
+    msg!("Step 4.5.2: Converting trusted consensus state (reference-based, no clone)");
     sol_log_compute_units();
-    let trusted_ibc_state: IbcConsensusState = trusted_state.clone().into();
+    let trusted_ibc_state: IbcConsensusState = trusted_state.into();
     msg!("Step 4.5.2.1: Trusted consensus state converted");
     sol_log_compute_units();
 
@@ -348,10 +351,13 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     system_program::create_account(cpi_ctx, rent, space as u64, &crate::ID)?;
 
     // Serialize the new consensus state
+    msg!("Storing consensus state (with clone)");
+    sol_log_compute_units();
     let new_store = ConsensusStateStore {
         height: params.height,
         consensus_state: params.new_consensus_state.clone(),
     };
+    sol_log_compute_units();
 
     let mut data = params.account.try_borrow_mut_data()?;
     let mut cursor = std::io::Cursor::new(&mut data[..]);

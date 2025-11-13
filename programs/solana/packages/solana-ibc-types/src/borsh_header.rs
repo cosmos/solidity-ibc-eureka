@@ -296,10 +296,18 @@ mod direct_deser {
             None
         };
 
-        // Read total_voting_power (but ignore it, ValidatorSet recalculates)
-        let _total_voting_power = u64::deserialize_reader(reader)?;
+        // Use pre-calculated total_voting_power from relayer (validators are already sorted)
+        let total_voting_power = u64::deserialize_reader(reader)?;
+        let total_voting_power = tendermint::vote::Power::try_from(total_voting_power)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
 
-        Ok(ValidatorSet::new(validators, proposer))
+        // Directly construct ValidatorSet - validators are pre-sorted by relayer
+        // This saves ~50k CUs per validator set by skipping O(n log n) sort
+        Ok(ValidatorSet {
+            validators,
+            proposer,
+            total_voting_power,
+        })
     }
 
     // Commit deserializers
