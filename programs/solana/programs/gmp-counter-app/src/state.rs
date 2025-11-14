@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 
 /// Global counter app state
 #[account]
+#[derive(InitSpace)]
 pub struct CounterAppState {
     /// Authority that can manage the app
     pub authority: Pubkey,
@@ -15,15 +16,11 @@ pub struct CounterAppState {
 
 impl CounterAppState {
     pub const SEED: &'static [u8] = b"counter_app_state";
-    pub const INIT_SPACE: usize = 8 + // discriminator
-        32 + // authority
-        8 + // total_counters
-        8 + // total_gmp_calls
-        1; // bump
 }
 
 /// Per-user counter state
 #[account]
+#[derive(InitSpace)]
 pub struct UserCounter {
     /// User's public key
     pub user: Pubkey,
@@ -41,13 +38,6 @@ pub struct UserCounter {
 
 impl UserCounter {
     pub const SEED: &'static [u8] = b"user_counter";
-    pub const INIT_SPACE: usize = 8 + // discriminator
-        32 + // user
-        8 + // count
-        8 + // increments
-        8 + // decrements
-        8 + // last_updated
-        1; // bump
 
     pub fn increment(&mut self, amount: u64, current_time: i64) -> Result<()> {
         self.count = self
@@ -72,6 +62,7 @@ impl UserCounter {
 
 /// GMP callback data for tracking calls
 #[account]
+#[derive(InitSpace)]
 pub struct GMPCallState {
     /// User who initiated the call
     pub user: Pubkey,
@@ -87,10 +78,4 @@ pub struct GMPCallState {
 
 impl GMPCallState {
     pub const SEED: &'static [u8] = b"gmp_call_state";
-    pub const INIT_SPACE: usize = 8 + // discriminator
-        32 + // user
-        32 + // payload_hash
-        8 + // timestamp
-        1 + // success
-        1; // bump
 }

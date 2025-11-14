@@ -1,4 +1,4 @@
-use anchor_lang::{AnchorSerialize, Discriminator, InstructionData};
+use anchor_lang::{AnchorSerialize, Discriminator, InstructionData, Space};
 use gmp_counter_app::{state::*, ID};
 use mollusk_svm::Mollusk;
 use solana_sdk::{
