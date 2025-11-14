@@ -445,19 +445,49 @@ impl<V: signature::Verifier> VotingPowerCalculator for ProvidedVotingPowerCalcul
         first_set: (&ValidatorSet, TrustThreshold),
         second_set: (&ValidatorSet, TrustThreshold),
     ) -> Result<(VotingPowerTally, VotingPowerTally), VerificationError> {
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[voting_power_in_sets] === DUAL VERIFICATION START ===");
+            solana_program::log::sol_log_compute_units();
+        }
+
         let mut votes = NonAbsentCommitVotes::new(signed_header)?;
+
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[voting_power_in_sets] First set validators:");
+            solana_program::log::sol_log_compute_units();
+        }
+
         let first_tally = voting_power_in_impl::<V>(
             &mut votes,
             first_set.0,
             first_set.1,
             self.total_power_of(first_set.0),
         )?;
+
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[voting_power_in_sets] === FIRST LOOP COMPLETE ===");
+            solana_program::msg!("[voting_power_in_sets] Starting second loop...");
+            solana_program::msg!("[voting_power_in_sets] Second set validators:");
+            solana_program::log::sol_log_compute_units();
+        }
+
         let second_tally = voting_power_in_impl::<V>(
             &mut votes,
             second_set.0,
             second_set.1,
             self.total_power_of(second_set.0),
         )?;
+
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[voting_power_in_sets] === SECOND LOOP COMPLETE ===");
+            solana_program::msg!("[voting_power_in_sets] === DUAL VERIFICATION END ===");
+            solana_program::log::sol_log_compute_units();
+        }
+
         Ok((first_tally, second_tally))
     }
 }
@@ -468,16 +498,62 @@ fn voting_power_in_impl<V: signature::Verifier>(
     trust_threshold: TrustThreshold,
     total_voting_power: u64,
 ) -> Result<VotingPowerTally, VerificationError> {
+    #[cfg(feature = "solana")]
+    {
+        solana_program::msg!("[verifier] === SOLANA: Starting validator verification loop ===");
+        solana_program::log::sol_log_compute_units();
+    }
+
     let mut power = VotingPowerTally::new(total_voting_power, trust_threshold);
+
+    #[cfg(feature = "solana")]
+    let mut checked_count = 0usize;
+    #[cfg(feature = "solana")]
+    let mut voted_count = 0usize;
+
     for validator in validator_set.validators() {
+        #[cfg(feature = "solana")]
+        {
+            checked_count += 1;
+        }
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[verifier] SOLANA: Checking validator");
+            solana_program::log::sol_log_compute_units();
+        }
+
         if votes.has_voted::<V>(validator)? {
+            #[cfg(feature = "solana")]
+            {
+                voted_count += 1;
+            }
+
             power.tally(validator.power());
+
+            #[cfg(feature = "solana")]
+            {
+                solana_program::msg!("[verifier] SOLANA: Validator voted!");
+                solana_program::log::sol_log_compute_units();
+            }
+
             // Break out of the loop when we have enough voting power.
             if power.check().is_ok() {
+                #[cfg(feature = "solana")]
+                {
+                    solana_program::msg!("[verifier] SOLANA: Threshold reached!");
+                    solana_program::log::sol_log_compute_units();
+                }
                 break;
             }
         }
     }
+
+    #[cfg(feature = "solana")]
+    {
+        solana_program::msg!("[verifier] === SOLANA: Verification loop complete ===");
+        solana_program::log::sol_log_compute_units();
+    }
+
     Ok(power)
 }
 

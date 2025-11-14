@@ -200,12 +200,23 @@ pub async fn tm_update_client_params(
             let mut cumulative_power = 0u64;
             let mut validators_needed = 0usize;
 
+            tracing::info!("=== RELAYER: Starting validator selection for threshold ===");
             for (validator, signature) in validator_set.validators.iter()
                 .zip(commit.signatures.iter()) {
                 if signature.block_id_flag != 1 { // Not absent
                     cumulative_power += validator.voting_power as u64;
                     validators_needed += 1;
+                    tracing::info!(
+                        "RELAYER: Validator #{}: addr={:?}, power={}, cumulative={}/{} ({}%)",
+                        validators_needed,
+                        validator.address,
+                        validator.voting_power,
+                        cumulative_power,
+                        required_voting_power,
+                        (cumulative_power * 100) / required_voting_power
+                    );
                     if cumulative_power >= required_voting_power {
+                        tracing::info!("RELAYER: Threshold reached! Selected {} validators", validators_needed);
                         break;
                     }
                 }
