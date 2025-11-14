@@ -4800,7 +4800,7 @@ dependencies = [
  "serde",
  "solana-program",
  "tendermint",
- "tendermint-light-client-verifier 0.40.4",
+ "tendermint-light-client-verifier",
 ]
 
 [[package]]
@@ -4814,7 +4814,7 @@ dependencies = [
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tendermint",
- "tendermint-light-client-verifier 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tendermint-light-client-verifier",
  "tendermint-proto",
 ]
 
@@ -4832,7 +4832,7 @@ dependencies = [
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "tendermint",
- "tendermint-light-client-verifier 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tendermint-light-client-verifier",
  "tendermint-proto",
 ]
 
@@ -5243,7 +5243,7 @@ dependencies = [
  "sp1-prover",
  "sp1-sdk",
  "tendermint",
- "tendermint-light-client-verifier 0.40.4",
+ "tendermint-light-client-verifier",
  "tendermint-rpc",
  "tonic 0.13.1",
  "tracing",
@@ -5273,7 +5273,7 @@ dependencies = [
  "sp1-prover",
  "sp1-sdk",
  "tendermint",
- "tendermint-light-client-verifier 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tendermint-light-client-verifier",
  "tendermint-rpc",
  "tracing",
 ]
@@ -5320,7 +5320,7 @@ dependencies = [
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "sha2 0.10.9",
  "tendermint",
- "tendermint-light-client-verifier 0.40.4",
+ "tendermint-light-client-verifier",
  "thiserror 2.0.12",
  "time",
 ]
@@ -5339,7 +5339,7 @@ dependencies = [
  "serde",
  "sha2 0.10.9",
  "tendermint",
- "tendermint-light-client-verifier 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tendermint-light-client-verifier",
  "thiserror 2.0.12",
  "time",
 ]
@@ -5359,7 +5359,7 @@ dependencies = [
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "sha2 0.10.9",
  "tendermint",
- "tendermint-light-client-verifier 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tendermint-light-client-verifier",
  "thiserror 2.0.12",
  "time",
 ]
@@ -5382,7 +5382,7 @@ dependencies = [
  "prost",
  "reqwest 0.11.27",
  "tendermint",
- "tendermint-light-client-verifier 0.40.4",
+ "tendermint-light-client-verifier",
  "tendermint-rpc",
 ]
 
@@ -5405,7 +5405,7 @@ dependencies = [
  "prost",
  "reqwest 0.11.27",
  "tendermint",
- "tendermint-light-client-verifier 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tendermint-light-client-verifier",
  "tendermint-rpc",
 ]
 
@@ -11061,7 +11061,7 @@ dependencies = [
  "sp1-ics07-tendermint-prover 0.1.0",
  "sp1-sdk",
  "subtle-encoding",
- "tendermint-light-client-verifier 0.40.4",
+ "tendermint-light-client-verifier",
  "tendermint-rpc",
  "tokio",
  "tracing",
@@ -12080,7 +12080,7 @@ dependencies = [
  "ibc-core-host-types",
  "sha2 0.10.9",
  "tendermint-light-client-update-client",
- "tendermint-light-client-verifier 0.40.4",
+ "tendermint-light-client-verifier",
  "thiserror 2.0.12",
 ]
 
@@ -12120,7 +12120,7 @@ dependencies = [
  "sha2 0.10.9",
  "solana-program",
  "tendermint",
- "tendermint-light-client-verifier 0.40.4",
+ "tendermint-light-client-verifier",
  "thiserror 2.0.12",
 ]
 
@@ -12133,19 +12133,6 @@ dependencies = [
  "serde",
  "sha2 0.10.9",
  "solana-program",
- "tendermint",
- "time",
-]
-
-[[package]]
-name = "tendermint-light-client-verifier"
-version = "0.40.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "548421907264a3a580634d71459a6ceda0dc569f24c9675adfab17465edf8511"
-dependencies = [
- "derive_more 0.99.20",
- "flex-error",
- "serde",
  "tendermint",
  "time",
 ]
