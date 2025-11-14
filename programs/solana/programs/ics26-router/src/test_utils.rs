@@ -346,14 +346,12 @@ pub fn create_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::A
 pub fn create_uninitialized_commitment_account(
     pubkey: Pubkey,
 ) -> (Pubkey, solana_sdk::account::Account) {
-    use solana_sdk::rent::Rent;
-
-    let account_size = 8 + Commitment::INIT_SPACE;
-
+    // Create a truly non-existent account (0 lamports, empty data)
+    // This allows create_account to succeed
     (
         pubkey,
         solana_sdk::account::Account {
-            lamports: Rent::default().minimum_balance(account_size),
+            lamports: 0,
             data: vec![],
             owner: solana_sdk::system_program::ID,
             executable: false,
