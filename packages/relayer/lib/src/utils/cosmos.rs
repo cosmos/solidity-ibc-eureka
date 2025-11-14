@@ -182,6 +182,46 @@ pub async fn tm_update_client_params(
 
     let proposed_header = target_light_block.into_header(&trusted_light_block);
 
+    // Log signature information and calculate voting power needed
+    if let (Some(signed_header), Some(validator_set)) = (&proposed_header.signed_header, &proposed_header.validator_set) {
+        if let Some(commit) = &signed_header.commit {
+            let signature_count = commit.signatures.len();
+            let valid_signature_count = commit.signatures.iter()
+                .filter(|sig| sig.block_id_flag != 1) // Not BLOCK_ID_FLAG_ABSENT (1)
+                .count();
+
+            // Calculate voting power requirements (1/3 trust threshold)
+            let total_voting_power: u64 = validator_set.validators.iter()
+                .map(|v| v.voting_power as u64)
+                .sum();
+            let required_voting_power = (total_voting_power * 1) / 3; // 1/3 threshold
+
+            // Calculate cumulative voting power from validators with valid signatures
+            let mut cumulative_power = 0u64;
+            let mut validators_needed = 0usize;
+
+            for (validator, signature) in validator_set.validators.iter()
+                .zip(commit.signatures.iter()) {
+                if signature.block_id_flag != 1 { // Not absent
+                    cumulative_power += validator.voting_power as u64;
+                    validators_needed += 1;
+                    if cumulative_power >= required_voting_power {
+                        break;
+                    }
+                }
+            }
+
+            tracing::info!(
+                "Header has {} total slots, {} valid signatures. Total voting power: {}, Required: {} (1/3), Need to verify {} validators to reach threshold",
+                signature_count,
+                valid_signature_count,
+                total_voting_power,
+                required_voting_power,
+                validators_needed
+            );
+        }
+    }
+
     Ok(TmUpdateClientParams {
         target_height,
         trusted_height,

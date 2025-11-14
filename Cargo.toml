@@ -26,6 +26,7 @@ members = [
     "programs/operator",
     "programs/cw-ics08-wasm-eth",
 ]
+exclude = ["packages/ibc-client-tendermint", "packages/ibc-client-tendermint-types"]
 resolver = "2"
 
 [workspace.package]
@@ -113,12 +114,14 @@ ibc-proto        = { version = "0.51", default-features = false }
 ibc-proto-eureka = { package = "ibc-proto", git = "https://github.com/srdtrk/ibc-proto-rs", rev = "7074fb20c3a654e945e5ca46627c5a971d785e04", default-features = false }
 ics23            = { version = "0.12", default-features = false }
 
-ibc-client-tendermint       = { version = "0.57", default-features = false }
+#ibc-client-tendermint       = { version = "0.57", default-features = false }
+ibc-client-tendermint       = { path = "packages/ibc-client-tendermint", version = "0.57.0", default-features = false }
 ibc-core-client             = { version = "0.57", default-features = false }
 ibc-core-host-types         = { version = "0.57", default-features = false }
 ibc-core-client-types       = { version = "0.57", default-features = false }
 ibc-core-commitment-types   = { version = "0.57", default-features = false }
-ibc-client-tendermint-types = { version = "0.57", default-features = false }
+#ibc-client-tendermint-types = { version = "0.57", default-features = false }
+ibc-client-tendermint-types = { path = "packages/ibc-client-tendermint-types", version = "0.57.0", default-features = false }
 ibc-primitives              = { version = "0.57", default-features = false }
 
 alloy                  = { version = "1.0", default-features = false }
@@ -171,3 +174,7 @@ anchor-client             = { version = "0.31.1" }
 # TODO: Remove these dependencies once ethereum wasm client v1.2.0 backwards compatibility is not needed
 ibc-eureka-relayer-eth-to-cosmos-v1_2 = { package = "ibc-eureka-relayer-eth-to-cosmos", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
 ibc-eureka-relayer-core-v1_2= { package = "ibc-eureka-relayer-core", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
+
+# Using local ibc-client-tendermint with Solana logging (via workspace.dependencies override above)
+#[patch.crates-io]
+#ibc-client-tendermint = { path = "packages/ibc-client-tendermint", version = "0.57.0" }

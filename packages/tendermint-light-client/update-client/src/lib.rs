@@ -8,6 +8,8 @@ pub mod types;
 #[cfg(feature = "solana")]
 pub mod solana;
 
+use sha2 as _;
+
 use std::{str::FromStr, time::Duration};
 
 use ibc_client_tendermint::{
@@ -130,21 +132,33 @@ pub fn update_client(
         trusted_consensus_state,
     );
 
-    #[cfg(feature = "solana")]
-    let verifier = crate::solana::SolanaVerifier::default();
-
     #[cfg(not(feature = "solana"))]
-    let verifier = ProdVerifier::default();
+    {
+        let verifier = ProdVerifier::default();
+        verify_header::<_, sha2::Sha256>(
+            &ctx,
+            &proposed_header,
+            &client_id,
+            &chain_id,
+            &options,
+            &verifier,
+        )
+        .map_err(|_| UpdateClientError::HeaderVerificationFailed)?;
+    }
 
-    verify_header::<_, sha2::Sha256>(
-        &ctx,
-        &proposed_header,
-        &client_id,
-        &chain_id,
-        &options,
-        &verifier,
-    )
-    .map_err(|_| UpdateClientError::HeaderVerificationFailed)?;
+    #[cfg(feature = "solana")]
+    {
+        let verifier = crate::solana::SolanaVerifier::default();
+        verify_header::<_, crate::solana::SolanaSha256>(
+            &ctx,
+            &proposed_header,
+            &client_id,
+            &chain_id,
+            &options,
+            &verifier,
+        )
+        .map_err(|_| UpdateClientError::HeaderVerificationFailed)?;
+    }
 
     let trusted_height = proposed_header.trusted_height;
     let latest_height = proposed_header.height();

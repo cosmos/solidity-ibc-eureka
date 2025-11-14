@@ -8,6 +8,12 @@ use tendermint_light_client_verifier::{
     PredicateVerifier,
 };
 
+#[cfg(feature = "solana")]
+use solana_program::{log::sol_log_compute_units, msg};
+
+#[cfg(feature = "solana")]
+use tendermint::merkle::Hash;
+
 /// Solana-optimized verifier that uses brine-ed25519 for signature verification
 pub type SolanaVerifier =
     PredicateVerifier<ProdPredicates, SolanaVotingPowerCalculator, ProdCommitValidator>;
@@ -21,6 +27,12 @@ pub struct SolanaSignatureVerifier;
 
 impl signature::Verifier for SolanaSignatureVerifier {
     fn verify(pubkey: PublicKey, msg: &[u8], signature: &Signature) -> Result<(), Error> {
+        #[cfg(feature = "solana")]
+        {
+            msg!("Verifying signature...");
+            sol_log_compute_units();
+        }
+
         match pubkey {
             // Why brine-ed25519 instead of Solana's native Ed25519Program?
             //
@@ -61,10 +73,58 @@ impl signature::Verifier for SolanaSignatureVerifier {
             // This is the most efficient approach available given the constraint of verifying
             // signatures from external blockchain data.
             PublicKey::Ed25519(pk) => {
-                brine_ed25519::sig_verify(pk.as_bytes(), signature.as_bytes(), msg)
-                    .map_err(|_| Error::VerificationFailed)
+                let result = brine_ed25519::sig_verify(pk.as_bytes(), signature.as_bytes(), msg)
+                    .map_err(|_| Error::VerificationFailed);
+
+                #[cfg(feature = "solana")]
+                {
+                    match &result {
+                        Ok(_) => {
+                            msg!("Signature VERIFIED");
+                        }
+                        Err(_) => {
+                            msg!("Signature FAILED");
+                        }
+                    }
+                    sol_log_compute_units();
+                }
+
+                result
             }
             _ => Err(Error::UnsupportedKeyType),
         }
+    }
+}
+
+/// Merkle
+#[derive(Default)]
+pub struct SolanaSha256(tendermint::merkle::NonIncremental<SolanaSha256Impl>);
+
+/// Solana Sha256
+#[derive(Default)]
+pub struct SolanaSha256Impl;
+
+impl tendermint::crypto::Sha256 for SolanaSha256Impl {
+    fn digest(data: impl AsRef<[u8]>) -> [u8; 32] {
+        solana_program::hash::hashv(&[data.as_ref()]).to_bytes()
+    }
+}
+
+impl tendermint::crypto::Sha256 for SolanaSha256 {
+    fn digest(data: impl AsRef<[u8]>) -> [u8; 32] {
+        SolanaSha256Impl::digest(data)
+    }
+}
+impl tendermint::merkle::MerkleHash for SolanaSha256 {
+    fn empty_hash(&mut self) -> Hash {
+        self.0.empty_hash()
+    }
+
+    fn leaf_hash(&mut self, bytes: &[u8]) -> Hash {
+        self.0.leaf_hash(bytes)
+    }
+
+    fn inner_hash(&mut self, left: Hash, right: Hash) -> Hash {
+        self.0.inner_hash(left, right)
     }
 }

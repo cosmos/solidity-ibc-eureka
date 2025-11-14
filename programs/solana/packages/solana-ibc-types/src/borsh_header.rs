@@ -216,10 +216,18 @@ mod direct_deser {
     }
 
     fn deserialize_required_hash<R: Read>(reader: &mut R) -> io::Result<Hash> {
-        let hash_vec = Vec::<u8>::deserialize_reader(reader)?;
-        let hash_bytes: [u8; 32] = hash_vec
-            .try_into()
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid hash length"))?;
+        // Read Borsh length prefix and validate it's 32 bytes
+        let len = u32::deserialize_reader(reader)?;
+        if len != 32 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Invalid hash length: expected 32, got {}", len),
+            ));
+        }
+
+        // Read directly into fixed-size array (avoids Vec allocation, saves ~3-5k CUs)
+        let mut hash_bytes = [0u8; 32];
+        reader.read_exact(&mut hash_bytes)?;
         Ok(Hash::Sha256(hash_bytes))
     }
 
@@ -438,17 +446,35 @@ mod direct_deser {
         let next_validators_hash = deserialize_required_hash(reader)?;
         let consensus_hash = deserialize_required_hash(reader)?;
 
-        let app_hash_vec = Vec::<u8>::deserialize_reader(reader)?;
-        let app_hash = tendermint::AppHash::try_from(app_hash_vec)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+        // Optimized app hash deserialization - fast path for common 32-byte case
+        let app_hash_len = u32::deserialize_reader(reader)?;
+        let app_hash = if app_hash_len == 32 {
+            // Fast path: read directly into fixed array (avoids Vec allocation, saves ~3-5k CUs)
+            let mut bytes = [0u8; 32];
+            reader.read_exact(&mut bytes)?;
+            tendermint::AppHash::try_from(bytes.to_vec())
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?
+        } else {
+            // Fallback for variable-length app hash
+            let mut bytes = vec![0u8; app_hash_len as usize];
+            reader.read_exact(&mut bytes)?;
+            tendermint::AppHash::try_from(bytes)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?
+        };
 
         let last_results_hash = deserialize_optional_hash(reader)?;
         let evidence_hash = deserialize_optional_hash(reader)?;
 
-        let proposer_vec = Vec::<u8>::deserialize_reader(reader)?;
-        let proposer_bytes: [u8; 20] = proposer_vec.try_into().map_err(|_| {
-            io::Error::new(io::ErrorKind::InvalidData, "Invalid proposer address length")
-        })?;
+        // Optimized proposer address deserialization (avoids Vec allocation, saves ~3-5k CUs)
+        let proposer_len = u32::deserialize_reader(reader)?;
+        if proposer_len != 20 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Invalid proposer address length: expected 20, got {}", proposer_len),
+            ));
+        }
+        let mut proposer_bytes = [0u8; 20];
+        reader.read_exact(&mut proposer_bytes)?;
         let proposer_address = AccountId::new(proposer_bytes);
 
         Ok(TmHeader {

@@ -15,6 +15,11 @@ pub fn assemble_and_update_client(
     chain_id: String,
     target_height: u64,
 ) -> Result<UpdateResult> {
+    msg!("=== ASSEMBLE_AND_UPDATE_CLIENT STARTING ===");
+    msg!("chain_id: {}, target_height: {}", chain_id, target_height);
+    msg!("Initial CUs:");
+    sol_log_compute_units();
+
     require!(
         !ctx.accounts.client_state.is_frozen(),
         ErrorCode::ClientFrozen
@@ -44,6 +49,10 @@ pub fn assemble_and_update_client(
     sol_log_compute_units();
 
     msg!("Step 8: Assembly and update complete");
+    msg!("=== ASSEMBLE_AND_UPDATE_CLIENT SUCCEEDED ===");
+    msg!("Result: {:?}", result);
+    msg!("Final CUs:");
+    sol_log_compute_units();
     Ok(result)
 }
 
@@ -93,16 +102,18 @@ fn process_header_update(
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
-    msg!("Step 4.1: Deserializing header");
+    msg!("Step 4.1: Deserializing header from {} bytes", header_bytes.len());
+    msg!("Step 4.1.0: CUs before deserialization:");
     sol_log_compute_units();
     let header = deserialize_header(&header_bytes)?;
     msg!("Step 4.1.1: Header struct deserialized successfully");
+    msg!("Step 4.1.2: CUs after deserialization:");
     sol_log_compute_units();
 
-    msg!("Step 4.1.2: Accessing header.trusted_height");
+    msg!("Step 4.1.3: Accessing header.trusted_height");
     let trusted_height = header.trusted_height.revision_height();
     msg!(
-        "Step 4.2: Header deserialized, trusted_height: {}",
+        "Step 4.2: Header accessed, trusted_height: {}",
         trusted_height
     );
     sol_log_compute_units();
@@ -118,15 +129,17 @@ fn process_header_update(
     sol_log_compute_units();
 
     msg!("Step 4.5: Starting header verification");
+    msg!("Step 4.5.0: CUs before verification:");
     sol_log_compute_units();
     let (new_height, new_consensus_state) = verify_and_update_header(
         client_state,
         &trusted_consensus_state.consensus_state,
         header,
     )?;
+    msg!("Step 4.6: CUs after verification:");
     sol_log_compute_units();
     msg!(
-        "Step 4.6: Header verified, new_height: {}",
+        "Step 4.6.1: Header verified successfully, new_height: {}",
         new_height.revision_height()
     );
 
@@ -182,7 +195,7 @@ fn verify_and_update_header(
     //    adding 4-8 seconds of latency per update (10-20 sequential signature verifications)
     // See README "Design Decisions" section for full explanation.
     msg!("Step 4.5.4: Calling tendermint update_client (signature verification)");
-    msg!("Step 4.5.4.1: About to enter update_client");
+    msg!("Step 4.5.4.1: CUs BEFORE entering update_client:");
     sol_log_compute_units();
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
@@ -191,10 +204,13 @@ fn verify_and_update_header(
         current_time,
     )
     .map_err(|e| {
-        msg!("Step 4.5.4.2: update_client failed with error: {:?}", e);
+        msg!("Step 4.5.4.2: update_client FAILED with error: {:?}", e);
+        msg!("Step 4.5.4.3: CUs at failure point:");
+        sol_log_compute_units();
         ErrorCode::UpdateClientFailed
     })?;
-    msg!("Step 4.5.5: Signature verification complete, output received");
+    msg!("Step 4.5.5: Signature verification SUCCEEDED!");
+    msg!("Step 4.5.5.1: CUs AFTER update_client:");
     sol_log_compute_units();
 
     msg!("Step 4.5.6: Converting new consensus state");
