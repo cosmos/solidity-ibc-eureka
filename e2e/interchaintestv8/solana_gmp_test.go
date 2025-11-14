@@ -1110,7 +1110,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			// Calculate namespaced sequence using the same logic as on-chain
 			namespacedSequence := solana.CalculateNamespacedSequence(
 				baseSequence,
-				ics27_gmp.ProgramID,      // calling program (GMP)
+				ics27_gmp.ProgramID,
 				s.SolanaUser.PublicKey(), // sender (payer)
 			)
 
@@ -1825,11 +1825,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 			baseSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
 			s.Require().NoError(err)
 
-			// Calculate namespaced sequence using the same logic as on-chain
 			namespacedSequence := solana.CalculateNamespacedSequence(
 				baseSequence,
-				ics27_gmp.ProgramID,      // calling program (GMP)
-				s.SolanaUser.PublicKey(), // sender (payer)
+				ics27_gmp.ProgramID,
+				s.SolanaUser.PublicKey(),
 			)
 
 			namespacedSequenceBytes := make([]byte, 8)
