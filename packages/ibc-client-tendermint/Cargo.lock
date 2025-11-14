@@ -632,7 +632,7 @@ dependencies = [
  "serde",
  "solana-program",
  "tendermint",
- "tendermint-light-client-verifier",
+ "tendermint-light-client-verifier 0.40.4",
 ]
 
 [[package]]
@@ -652,7 +652,7 @@ dependencies = [
  "scale-info",
  "serde",
  "tendermint",
- "tendermint-light-client-verifier",
+ "tendermint-light-client-verifier 0.40.1",
  "tendermint-proto",
 ]
 
@@ -2409,6 +2409,17 @@ name = "tendermint-light-client-verifier"
 version = "0.40.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0cda4a449fc70985a95f892a67286f13afa4e048d90b8d04a2bf6341e88d1c2"
+dependencies = [
+ "derive_more 0.99.18",
+ "flex-error",
+ "serde",
+ "tendermint",
+ "time",
+]
+
+[[package]]
+name = "tendermint-light-client-verifier"
+version = "0.40.4"
 dependencies = [
  "derive_more 0.99.18",
  "flex-error",

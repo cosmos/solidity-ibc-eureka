@@ -12,7 +12,7 @@
 [package]
 edition = "2021"
 name = "tendermint-light-client-verifier"
-version = "0.40.1"
+version = "0.40.4"
 authors = ["Informal Systems <hello@informal.systems>"]
 build = false
 autolib = false
@@ -70,6 +70,11 @@ default-features = false
 version = "0.3"
 default-features = false
 
+[dependencies.solana-program]
+version = "2.1"
+optional = true
+default-features = false
+
 [dev-dependencies.sha2]
 version = "0.10"
 default-features = false
@@ -80,3 +85,4 @@ default = [
     "flex-error/std",
 ]
 rust-crypto = ["tendermint/rust-crypto"]
+solana = ["dep:solana-program"]

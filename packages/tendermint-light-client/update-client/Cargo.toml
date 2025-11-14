@@ -8,7 +8,7 @@ license     = { workspace = true }
 
 [features]
 default = ["solana"]
-solana = ["brine-ed25519", "tendermint", "solana-program", "ibc-client-tendermint/solana"]
+solana = ["brine-ed25519", "tendermint", "solana-program", "ibc-client-tendermint/solana", "tendermint-light-client-verifier/solana"]
 
 [dependencies]
 tendermint-light-client-verifier = { workspace = true }

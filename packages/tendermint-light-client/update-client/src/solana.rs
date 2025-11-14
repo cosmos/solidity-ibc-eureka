@@ -4,9 +4,9 @@ use tendermint::crypto::signature::Error;
 use tendermint::{crypto::signature, PublicKey, Signature};
 use tendermint_light_client_verifier::{
     errors::VerificationError,
-    operations::{commit_validator::ProdCommitValidator, CommitValidator, ProvidedVotingPowerCalculator},
-    predicates::{ProdPredicates, VerificationPredicates},
-    types::{SignedHeader, ValidatorSet},
+    operations::{commit_validator::ProdCommitValidator, ProvidedVotingPowerCalculator},
+    predicates::VerificationPredicates,
+    types::ValidatorSet,
     PredicateVerifier,
 };
 
@@ -71,36 +71,18 @@ impl VerificationPredicates for SolanaPredicates {
         Ok(())
     }
 
-    /// Delegate all other predicate methods to ProdPredicates default implementations
-    ///
-    /// This includes:
-    /// - header_matches_commit()
-    /// - valid_commit()
-    /// - is_within_trust_period()
-    /// - is_header_from_past()
-    /// - is_monotonic_bft_time()
-    /// - is_monotonic_height()
-    /// - is_matching_chain_id()
-    /// - valid_next_validator_set()
-    /// - has_sufficient_validators_overlap()
-    /// - has_sufficient_signers_overlap()
-    /// - has_sufficient_validators_and_signers_overlap()
-    fn header_matches_commit(
-        &self,
-        header: &tendermint::block::Header,
-        commit_hash: tendermint::Hash,
-    ) -> Result<(), VerificationError> {
-        ProdPredicates.header_matches_commit(header, commit_hash)
-    }
-
-    fn valid_commit(
-        &self,
-        signed_header: &SignedHeader,
-        validators: &ValidatorSet,
-        commit_validator: &dyn CommitValidator,
-    ) -> Result<(), VerificationError> {
-        ProdPredicates.valid_commit(signed_header, validators, commit_validator)
-    }
+    // All other predicate methods use the trait's default implementations:
+    // - header_matches_commit()
+    // - valid_commit()
+    // - is_within_trust_period()
+    // - is_header_from_past()
+    // - is_monotonic_bft_time()
+    // - is_monotonic_height()
+    // - is_matching_chain_id()
+    // - valid_next_validator_set()
+    // - has_sufficient_validators_overlap()
+    // - has_sufficient_signers_overlap()
+    // - has_sufficient_validators_and_signers_overlap()
 }
 
 /// Solana-optimized verifier that uses brine-ed25519 for signature verification

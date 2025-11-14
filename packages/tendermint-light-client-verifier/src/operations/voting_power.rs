@@ -285,6 +285,12 @@ impl NonAbsentCommitVotes {
     const SIGN_BYTES_INITIAL_CAPACITY: usize = 166;
 
     pub fn new(signed_header: &SignedHeader) -> Result<Self, VerificationError> {
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[verifier] NonAbsentCommitVotes::new() ENTRY");
+            solana_program::log::sol_log_compute_units();
+        }
+
         let mut votes = signed_header
             .commit
             .signatures
@@ -302,18 +308,44 @@ impl NonAbsentCommitVotes {
                 )
             })
             .collect::<Result<Vec<_>, VerificationError>>()?;
+
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[verifier] After flat_map+collect");
+            solana_program::log::sol_log_compute_units();
+        }
+
         votes.sort_unstable_by_key(NonAbsentCommitVote::validator_id);
+
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[verifier] After sort_unstable_by_key");
+            solana_program::log::sol_log_compute_units();
+        }
 
         // Check if there are duplicate signatures.  If at least one duplicate
         // is found, report it as an error.
         let duplicate = votes
             .windows(2)
             .find(|pair| pair[0].validator_id() == pair[1].validator_id());
+
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[verifier] After duplicate check");
+            solana_program::log::sol_log_compute_units();
+        }
+
         if let Some(pair) = duplicate {
             Err(VerificationError::duplicate_validator(
                 pair[0].validator_id(),
             ))
         } else {
+            #[cfg(feature = "solana")]
+            {
+                solana_program::msg!("[verifier] NonAbsentCommitVotes::new() EXIT");
+                solana_program::log::sol_log_compute_units();
+            }
+
             Ok(Self {
                 votes,
                 sign_bytes: Vec::with_capacity(Self::SIGN_BYTES_INITIAL_CAPACITY),
@@ -330,6 +362,12 @@ impl NonAbsentCommitVotes {
         &mut self,
         validator: &validator::Info,
     ) -> Result<bool, VerificationError> {
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[verifier] has_voted() checking validator");
+            solana_program::log::sol_log_compute_units();
+        }
+
         let idx = self
             .votes
             .binary_search_by_key(&validator.address, NonAbsentCommitVote::validator_id);
@@ -338,11 +376,31 @@ impl NonAbsentCommitVotes {
             Err(_) => return Ok(false),
         };
 
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[verifier] After binary_search");
+            solana_program::log::sol_log_compute_units();
+        }
+
         if !vote.verified {
             self.sign_bytes.truncate(0);
+
+            #[cfg(feature = "solana")]
+            {
+                solana_program::msg!("[verifier] Before sign_bytes_into()");
+                solana_program::log::sol_log_compute_units();
+            }
+
             vote.signed_vote
                 .sign_bytes_into(&mut self.sign_bytes)
                 .expect("buffer is resized if needed and encoding never fails");
+
+            #[cfg(feature = "solana")]
+            {
+                solana_program::msg!("[verifier] After sign_bytes_into()");
+                solana_program::log::sol_log_compute_units();
+            }
+
             let sign_bytes = self.sign_bytes.as_slice();
             validator
                 .verify_signature::<V>(sign_bytes, vote.signed_vote.signature())
