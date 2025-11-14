@@ -1738,23 +1738,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-client-tendermint"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11225e842c5e3bf0787a36cf10d16b954dafbef357533fa2a87c7ac1bb2739f7"
-dependencies = [
- "derive_more 1.0.0",
- "ibc-client-tendermint-types",
- "ibc-core-client",
- "ibc-core-commitment-types",
- "ibc-core-handler-types",
- "ibc-core-host",
- "ibc-primitives",
- "tendermint",
- "tendermint-light-client-verifier",
-]
-
-[[package]]
 name = "ibc-client-tendermint-types"
 version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1988,7 +1971,7 @@ dependencies = [
  "bincode",
  "borsh 0.10.4",
  "hex",
- "ibc-client-tendermint 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-client-tendermint",
  "ibc-core-client-types",
  "ibc-core-commitment-types",
  "ibc-core-host-types",
@@ -3996,7 +3979,7 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "borsh 0.10.4",
- "ibc-client-tendermint 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-client-tendermint",
  "ibc-core-client-types",
  "ibc-eureka-constrained-types",
  "prost",
@@ -5501,7 +5484,7 @@ dependencies = [
 name = "tendermint-light-client-misbehaviour"
 version = "0.1.0"
 dependencies = [
- "ibc-client-tendermint 0.57.0",
+ "ibc-client-tendermint",
  "ibc-core-client-types",
  "ibc-core-host-types",
  "sha2 0.10.9",
@@ -5514,7 +5497,7 @@ dependencies = [
 name = "tendermint-light-client-uc-and-membership"
 version = "0.1.0"
 dependencies = [
- "ibc-client-tendermint 0.57.0",
+ "ibc-client-tendermint",
  "ibc-core-commitment-types",
  "tendermint-light-client-membership",
  "tendermint-light-client-update-client",
@@ -5526,7 +5509,7 @@ name = "tendermint-light-client-update-client"
 version = "0.1.0"
 dependencies = [
  "brine-ed25519",
- "ibc-client-tendermint 0.57.0",
+ "ibc-client-tendermint",
  "ibc-core-client",
  "ibc-core-client-types",
  "ibc-core-host-types",

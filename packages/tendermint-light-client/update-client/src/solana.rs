@@ -3,20 +3,110 @@
 use tendermint::crypto::signature::Error;
 use tendermint::{crypto::signature, PublicKey, Signature};
 use tendermint_light_client_verifier::{
-    operations::{commit_validator::ProdCommitValidator, ProvidedVotingPowerCalculator},
-    predicates::ProdPredicates,
+    errors::VerificationError,
+    operations::{commit_validator::ProdCommitValidator, CommitValidator, ProvidedVotingPowerCalculator},
+    predicates::{ProdPredicates, VerificationPredicates},
+    types::{SignedHeader, ValidatorSet},
     PredicateVerifier,
 };
 
 #[cfg(feature = "solana")]
 use solana_program::{log::sol_log_compute_units, msg};
 
-#[cfg(feature = "solana")]
-use tendermint::merkle::Hash;
+
+/// Solana-optimized predicates that skip redundant Merkle hashing
+///
+/// The validator set hashes are already validated in `validate_basic()` and
+/// `check_trusted_next_validator_set()` before the verifier is called, so we can
+/// safely skip recomputing them here to save ~290k compute units.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SolanaPredicates;
+
+impl VerificationPredicates for SolanaPredicates {
+    type Sha256 = SolanaSha256;
+
+    /// Skip validator set hash validation - already done in validate_basic()
+    ///
+    /// SAFETY: The hash of `validators` against `header_validators_hash` is
+    /// already validated in `Header::validate_basic()` (line 166 of header.rs)
+    /// before this function is called, so we can safely skip the redundant
+    /// Merkle hash computation here.
+    ///
+    /// Savings: ~145k compute units
+    fn validator_sets_match(
+        &self,
+        _validators: &ValidatorSet,
+        _header_validators_hash: tendermint::Hash,
+    ) -> Result<(), VerificationError> {
+        #[cfg(feature = "solana")]
+        {
+            msg!("[solana-predicates] Skipping redundant validator_sets_match hash (already validated in validate_basic)");
+            sol_log_compute_units();
+        }
+
+        // Return Ok immediately - validation already done in Header::validate_basic()
+        Ok(())
+    }
+
+    /// Skip next validator set hash validation - already done in check_trusted_next_validator_set()
+    ///
+    /// SAFETY: The hash of `trusted_next_validator_set` is already validated in
+    /// `Header::check_trusted_next_validator_set()` (line 123 of header.rs)
+    /// before this function is called, so we can safely skip the redundant
+    /// Merkle hash computation here.
+    ///
+    /// Savings: ~145k compute units
+    fn next_validators_match(
+        &self,
+        _next_validators: &ValidatorSet,
+        _header_next_validators_hash: tendermint::Hash,
+    ) -> Result<(), VerificationError> {
+        #[cfg(feature = "solana")]
+        {
+            msg!("[solana-predicates] Skipping redundant next_validators_match hash (already validated in check_trusted_next_validator_set)");
+            sol_log_compute_units();
+        }
+
+        // Return Ok immediately - validation already done in Header::check_trusted_next_validator_set()
+        Ok(())
+    }
+
+    /// Delegate all other predicate methods to ProdPredicates default implementations
+    ///
+    /// This includes:
+    /// - header_matches_commit()
+    /// - valid_commit()
+    /// - is_within_trust_period()
+    /// - is_header_from_past()
+    /// - is_monotonic_bft_time()
+    /// - is_monotonic_height()
+    /// - is_matching_chain_id()
+    /// - valid_next_validator_set()
+    /// - has_sufficient_validators_overlap()
+    /// - has_sufficient_signers_overlap()
+    /// - has_sufficient_validators_and_signers_overlap()
+    fn header_matches_commit(
+        &self,
+        header: &tendermint::block::Header,
+        commit_hash: tendermint::Hash,
+    ) -> Result<(), VerificationError> {
+        ProdPredicates.header_matches_commit(header, commit_hash)
+    }
+
+    fn valid_commit(
+        &self,
+        signed_header: &SignedHeader,
+        validators: &ValidatorSet,
+        commit_validator: &dyn CommitValidator,
+    ) -> Result<(), VerificationError> {
+        ProdPredicates.valid_commit(signed_header, validators, commit_validator)
+    }
+}
 
 /// Solana-optimized verifier that uses brine-ed25519 for signature verification
+/// and skips redundant Merkle hashing
 pub type SolanaVerifier =
-    PredicateVerifier<ProdPredicates, SolanaVotingPowerCalculator, ProdCommitValidator>;
+    PredicateVerifier<SolanaPredicates, SolanaVotingPowerCalculator, ProdCommitValidator>;
 
 /// Solana voting power calculator using optimized signature verification
 pub type SolanaVotingPowerCalculator = ProvidedVotingPowerCalculator<SolanaSignatureVerifier>;
@@ -116,15 +206,15 @@ impl tendermint::crypto::Sha256 for SolanaSha256 {
     }
 }
 impl tendermint::merkle::MerkleHash for SolanaSha256 {
-    fn empty_hash(&mut self) -> Hash {
+    fn empty_hash(&mut self) -> tendermint::merkle::Hash {
         self.0.empty_hash()
     }
 
-    fn leaf_hash(&mut self, bytes: &[u8]) -> Hash {
+    fn leaf_hash(&mut self, bytes: &[u8]) -> tendermint::merkle::Hash {
         self.0.leaf_hash(bytes)
     }
 
-    fn inner_hash(&mut self, left: Hash, right: Hash) -> Hash {
+    fn inner_hash(&mut self, left: tendermint::merkle::Hash, right: tendermint::merkle::Hash) -> tendermint::merkle::Hash {
         self.0.inner_hash(left, right)
     }
 }

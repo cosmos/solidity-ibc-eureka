@@ -84,7 +84,8 @@ solana-ibc-macros = { path = "./packages/solana-ibc-macros" }
 ics26-router = { path = "./programs/ics26-router", default-features = false }
 gmp-counter-app = { path = "./programs/gmp-counter-app", default-features = false }
 
-ibc-client-tendermint = { version = "0.57", default-features = false }
+ibc-client-tendermint = { path = "../../packages/ibc-client-tendermint", version = "0.57.0", default-features = false }
+ibc-client-tendermint-types = { path = "../../packages/ibc-client-tendermint-types", version = "0.57.0", default-features = false }
 ibc-core-client = { version = "0.57", default-features = false }
 ibc-core-client-types = { version = "0.57", default-features = false }
 ibc-core-host-types = { version = "0.57", default-features = false }
