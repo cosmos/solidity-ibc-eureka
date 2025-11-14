@@ -120,7 +120,21 @@ impl Header {
         &self,
         trusted_next_validator_hash: &Hash,
     ) -> Result<(), ClientError> {
-        if &self.trusted_next_validator_set.hash_with::<H>() == trusted_next_validator_hash {
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[types] check_trusted_next_validator_set ENTRY - BEFORE trusted_next_validator_set.hash_with (EXPENSIVE MERKLE HASHING)");
+            solana_program::log::sol_log_compute_units();
+        }
+
+        let hash = self.trusted_next_validator_set.hash_with::<H>();
+
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[types] AFTER trusted_next_validator_set.hash_with");
+            solana_program::log::sol_log_compute_units();
+        }
+
+        if &hash == trusted_next_validator_hash {
             Ok(())
         } else {
             Err(ClientError::FailedToVerifyHeader {

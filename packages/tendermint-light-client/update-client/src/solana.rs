@@ -99,12 +99,6 @@ pub struct SolanaSignatureVerifier;
 
 impl signature::Verifier for SolanaSignatureVerifier {
     fn verify(pubkey: PublicKey, msg: &[u8], signature: &Signature) -> Result<(), Error> {
-        #[cfg(feature = "solana")]
-        {
-            msg!("Verifying signature...");
-            sol_log_compute_units();
-        }
-
         match pubkey {
             // Why brine-ed25519 instead of Solana's native Ed25519Program?
             //
@@ -145,23 +139,8 @@ impl signature::Verifier for SolanaSignatureVerifier {
             // This is the most efficient approach available given the constraint of verifying
             // signatures from external blockchain data.
             PublicKey::Ed25519(pk) => {
-                let result = brine_ed25519::sig_verify(pk.as_bytes(), signature.as_bytes(), msg)
-                    .map_err(|_| Error::VerificationFailed);
-
-                #[cfg(feature = "solana")]
-                {
-                    match &result {
-                        Ok(_) => {
-                            msg!("Signature VERIFIED");
-                        }
-                        Err(_) => {
-                            msg!("Signature FAILED");
-                        }
-                    }
-                    sol_log_compute_units();
-                }
-
-                result
+                brine_ed25519::sig_verify(pk.as_bytes(), signature.as_bytes(), msg)
+                    .map_err(|_| Error::VerificationFailed)
             }
             _ => Err(Error::UnsupportedKeyType),
         }

@@ -400,24 +400,13 @@ mod direct_deser {
             signatures.push(deserialize_commit_sig(reader)?);
         }
 
-        // Pre-sort signatures by validator address for efficient verification
-        // This makes the sort in tendermint-light-client-verifier O(n) instead of O(n log n)
-        // Savings: ~490k CUs (sorting 180 signatures goes from ~500k to ~10k CUs)
-        signatures.sort_unstable_by(|a, b| {
-            match (a, b) {
-                (CommitSig::BlockIdFlagCommit { validator_address: addr_a, .. },
-                 CommitSig::BlockIdFlagCommit { validator_address: addr_b, .. }) => addr_a.cmp(addr_b),
-                (CommitSig::BlockIdFlagNil { validator_address: addr_a, .. },
-                 CommitSig::BlockIdFlagNil { validator_address: addr_b, .. }) => addr_a.cmp(addr_b),
-                (CommitSig::BlockIdFlagCommit { validator_address: addr_a, .. },
-                 CommitSig::BlockIdFlagNil { validator_address: addr_b, .. }) => addr_a.cmp(addr_b),
-                (CommitSig::BlockIdFlagNil { validator_address: addr_a, .. },
-                 CommitSig::BlockIdFlagCommit { validator_address: addr_b, .. }) => addr_a.cmp(addr_b),
-                (CommitSig::BlockIdFlagAbsent, CommitSig::BlockIdFlagAbsent) => std::cmp::Ordering::Equal,
-                (CommitSig::BlockIdFlagAbsent, _) => std::cmp::Ordering::Less,
-                (_, CommitSig::BlockIdFlagAbsent) => std::cmp::Ordering::Greater,
-            }
-        });
+        // Signatures are pre-sorted by validator address in the relayer (borsh_conversions.rs)
+        // This saves ~60-80k CUs by doing the sort off-chain instead of on-chain
+        #[cfg(feature = "solana")]
+        {
+            solana_program::msg!("[deserialize] Skipping signature sort (pre-sorted by relayer)");
+            solana_program::log::sol_log_compute_units();
+        }
 
         Ok(Commit {
             height,

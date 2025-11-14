@@ -14,9 +14,6 @@ use tendermint_light_client_verifier::options::Options;
 use tendermint_light_client_verifier::types::{TrustedBlockState, UntrustedBlockState};
 use tendermint_light_client_verifier::Verifier;
 
-#[cfg(feature = "solana")]
-use solana_program::{log::sol_log_compute_units, msg};
-
 pub fn verify_header<V, H>(
     ctx: &V,
     header: &TmHeader,
@@ -31,34 +28,12 @@ where
     <ConsensusStateType as TryFrom<V::ConsensusStateRef>>::Error: Into<ClientError>,
     H: MerkleHash + Sha256 + Default,
 {
-    #[cfg(feature = "solana")]
-    {
-        msg!(
-            "[ibc-rs] verify_header ENTRY: trusted_height={}, header_height={}",
-            header.trusted_height.revision_height(),
-            header.height().revision_height()
-        );
-        sol_log_compute_units();
-    }
-
     // Checks that the header fields are valid.
     header.validate_basic::<H>()?;
-
-    #[cfg(feature = "solana")]
-    {
-        msg!("[ibc-rs] Checkpoint 1: validate_basic() completed");
-        sol_log_compute_units();
-    }
 
     // The tendermint-light-client crate though works on heights that are assumed
     // to have the same revision number. We ensure this here.
     header.verify_chain_id_version_matches_height(chain_id)?;
-
-    #[cfg(feature = "solana")]
-    {
-        msg!("[ibc-rs] Checkpoint 2: chain ID version verified");
-        sol_log_compute_units();
-    }
 
     // Delegate to tendermint-light-client, which contains the required checks
     // of the new header against the trusted consensus state.
@@ -74,21 +49,9 @@ where
                 .try_into()
                 .map_err(Into::into)?;
 
-            #[cfg(feature = "solana")]
-            {
-                msg!("[ibc-rs] Checkpoint 3: trusted consensus state loaded");
-                sol_log_compute_units();
-            }
-
             header.check_trusted_next_validator_set::<H>(
                 &trusted_consensus_state.next_validators_hash,
             )?;
-
-            #[cfg(feature = "solana")]
-            {
-                msg!("[ibc-rs] Checkpoint 4: check_trusted_next_validator_set() completed");
-                sol_log_compute_units();
-            }
 
             TrustedBlockState {
                 chain_id: &chain_id.as_str().try_into().map_err(|e| {
@@ -112,12 +75,6 @@ where
             }
         };
 
-        #[cfg(feature = "solana")]
-        {
-            msg!("[ibc-rs] Checkpoint 5: TrustedBlockState constructed");
-            sol_log_compute_units();
-        }
-
         let untrusted_state = UntrustedBlockState {
             signed_header: &header.signed_header,
             validators: &header.validator_set,
@@ -127,42 +84,12 @@ where
             next_validators: None,
         };
 
-        #[cfg(feature = "solana")]
-        {
-            msg!("[ibc-rs] Checkpoint 6: UntrustedBlockState constructed");
-            sol_log_compute_units();
-        }
-
         let now = ctx.host_timestamp()?.into_host_time()?;
 
-        #[cfg(feature = "solana")]
-        {
-            msg!("[ibc-rs] Checkpoint 7: host timestamp fetched");
-            sol_log_compute_units();
-        }
-
         // main header verification, delegated to the tendermint-light-client crate.
-        #[cfg(feature = "solana")]
-        {
-            msg!("[ibc-rs] Checkpoint 8: ABOUT TO CALL verify_update_header() - signature verification starts");
-            sol_log_compute_units();
-        }
-
         verifier
             .verify_update_header(untrusted_state, trusted_state, options, now)
             .into_result()?;
-
-        #[cfg(feature = "solana")]
-        {
-            msg!("[ibc-rs] Checkpoint 9: verify_update_header() COMPLETED - signature verification done");
-            sol_log_compute_units();
-        }
-    }
-
-    #[cfg(feature = "solana")]
-    {
-        msg!("[ibc-rs] verify_header EXIT: success");
-        sol_log_compute_units();
     }
 
     Ok(())

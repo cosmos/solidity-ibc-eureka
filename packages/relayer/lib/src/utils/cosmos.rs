@@ -233,6 +233,53 @@ pub async fn tm_update_client_params(
         }
     }
 
+    // Analyze trusted_validators for dual verification understanding
+    if let (Some(trusted_next_vs), Some(target_vs), Some(signed_header)) =
+        (&proposed_header.trusted_validators, &proposed_header.validator_set, &proposed_header.signed_header) {
+        if let Some(commit) = &signed_header.commit {
+            tracing::info!("=== RELAYER: Analyzing dual verification sets ===");
+            tracing::info!("RELAYER: Trusted next validator set has {} validators", trusted_next_vs.validators.len());
+            tracing::info!("RELAYER: Target validator set has {} validators", target_vs.validators.len());
+
+            // Find overlap between sets
+            let trusted_next_addrs: std::collections::HashSet<_> = trusted_next_vs.validators.iter()
+                .map(|v| &v.address)
+                .collect();
+            let target_addrs_with_sigs: Vec<_> = target_vs.validators.iter()
+                .zip(commit.signatures.iter())
+                .filter(|(_, sig)| sig.block_id_flag != 1) // Has signature
+                .map(|(v, _)| &v.address)
+                .collect();
+
+            let overlap_count = target_addrs_with_sigs.iter()
+                .filter(|addr| trusted_next_addrs.contains(*addr))
+                .count();
+
+            tracing::info!("RELAYER: {} validators with signatures in target are also in trusted_next", overlap_count);
+            tracing::info!("RELAYER: {} validators with signatures are ONLY in target (not in trusted_next)",
+                target_addrs_with_sigs.len() - overlap_count);
+
+            // Calculate how many validators needed from trusted_next set
+            let trusted_next_total_power: u64 = trusted_next_vs.validators.iter()
+                .map(|v| v.voting_power as u64)
+                .sum();
+            let trusted_next_required = (trusted_next_total_power * 1) / 3;
+
+            let mut trusted_next_cumulative = 0u64;
+            let mut trusted_next_needed = 0usize;
+            for (validator, signature) in target_vs.validators.iter().zip(commit.signatures.iter()) {
+                if signature.block_id_flag != 1 && trusted_next_addrs.contains(&validator.address) {
+                    trusted_next_cumulative += validator.voting_power as u64;
+                    trusted_next_needed += 1;
+                    if trusted_next_cumulative >= trusted_next_required {
+                        tracing::info!("RELAYER: Would need {} validators from trusted_next to reach 1/3 threshold", trusted_next_needed);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     Ok(TmUpdateClientParams {
         target_height,
         trusted_height,

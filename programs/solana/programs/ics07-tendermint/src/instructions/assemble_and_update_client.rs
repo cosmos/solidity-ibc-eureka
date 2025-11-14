@@ -15,43 +15,23 @@ pub fn assemble_and_update_client(
     chain_id: String,
     target_height: u64,
 ) -> Result<UpdateResult> {
-    msg!("=== ASSEMBLE_AND_UPDATE_CLIENT STARTING ===");
-    msg!("chain_id: {}, target_height: {}", chain_id, target_height);
-    msg!("Initial CUs:");
-    sol_log_compute_units();
-
     require!(
         !ctx.accounts.client_state.is_frozen(),
         ErrorCode::ClientFrozen
     );
 
-    msg!("Step 1: Client state validated (not frozen)");
     let submitter = ctx.accounts.submitter.key();
 
-    msg!("Step 2: Starting chunk assembly");
     let header_bytes = assemble_chunks(&ctx, &chain_id, target_height)?;
-    msg!(
-        "Step 3: Chunks assembled, total bytes: {}",
-        header_bytes.len()
-    );
 
-    msg!("Step 4: Processing header update");
     let result = process_header_update(&mut ctx, header_bytes)?;
-    msg!("Step 5: Header update processed successfully");
 
-    msg!("Step 6: Cleaning up chunks");
     cleanup_chunks(&ctx, &chain_id, target_height, submitter)?;
 
     // Return the UpdateResult as bytes for callers to verify
-    msg!("Step 7: Serializing and returning result");
-    sol_log_compute_units();
     set_return_data(&result.try_to_vec()?);
-    sol_log_compute_units();
 
-    msg!("Step 8: Assembly and update complete");
-    msg!("=== ASSEMBLE_AND_UPDATE_CLIENT SUCCEEDED ===");
-    msg!("Result: {:?}", result);
-    msg!("Final CUs:");
+    msg!("Update complete: {:?}", result);
     sol_log_compute_units();
     Ok(result)
 }
@@ -102,48 +82,22 @@ fn process_header_update(
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
-    msg!("Step 4.1: Deserializing header from {} bytes", header_bytes.len());
-    msg!("Step 4.1.0: CUs before deserialization:");
-    sol_log_compute_units();
     let header = deserialize_header(&header_bytes)?;
-    msg!("Step 4.1.1: Header struct deserialized successfully");
-    msg!("Step 4.1.2: CUs after deserialization:");
-    sol_log_compute_units();
 
-    msg!("Step 4.1.3: Accessing header.trusted_height");
     let trusted_height = header.trusted_height.revision_height();
-    msg!(
-        "Step 4.2: Header accessed, trusted_height: {}",
-        trusted_height
-    );
-    sol_log_compute_units();
 
-    msg!("Step 4.3: Loading trusted consensus state");
-    sol_log_compute_units();
     let trusted_consensus_state = load_consensus_state(
         &ctx.accounts.trusted_consensus_state,
         client_state.key(),
         trusted_height,
     )?;
-    msg!("Step 4.4: Trusted consensus state loaded");
-    sol_log_compute_units();
 
-    msg!("Step 4.5: Starting header verification");
-    msg!("Step 4.5.0: CUs before verification:");
-    sol_log_compute_units();
     let (new_height, new_consensus_state) = verify_and_update_header(
         client_state,
         &trusted_consensus_state.consensus_state,
         header,
     )?;
-    msg!("Step 4.6: CUs after verification:");
-    sol_log_compute_units();
-    msg!(
-        "Step 4.6.1: Header verified successfully, new_height: {}",
-        new_height.revision_height()
-    );
 
-    msg!("Step 4.7: Storing consensus state");
     let result = store_consensus_state(StoreConsensusStateParams {
         account: &ctx.accounts.new_consensus_state_store,
         submitter: &ctx.accounts.submitter,
@@ -154,7 +108,6 @@ fn process_header_update(
         trusted_consensus_state: &trusted_consensus_state.consensus_state,
         client_state,
     })?;
-    msg!("Step 4.8: Consensus state stored");
 
     // Update latest height only on successful update
     if result == UpdateResult::UpdateSuccess {
@@ -169,21 +122,10 @@ fn verify_and_update_header(
     trusted_state: &ConsensusState,
     header: Header,
 ) -> Result<(ibc_core_client_types::Height, ConsensusState)> {
-    msg!("Step 4.5.1: Converting client state (reference-based, no clone)");
-    sol_log_compute_units();
     let update_client_state: UpdateClientState = client_state.into();
-    msg!("Step 4.5.1.1: Client state converted");
-    sol_log_compute_units();
-
-    msg!("Step 4.5.2: Converting trusted consensus state (reference-based, no clone)");
-    sol_log_compute_units();
     let trusted_ibc_state: IbcConsensusState = trusted_state.into();
-    msg!("Step 4.5.2.1: Trusted consensus state converted");
-    sol_log_compute_units();
 
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
-    msg!("Step 4.5.3: Current time: {}", current_time);
-    sol_log_compute_units();
 
     // Signature verification happens here using brine-ed25519 (~30k CU per signature).
     // Note: This happens AFTER header assembly. The signatures are embedded inside the header
@@ -194,9 +136,6 @@ fn verify_and_update_header(
     // 4. Using Ed25519Program would require double multi-tx coordination (chunks + signatures),
     //    adding 4-8 seconds of latency per update (10-20 sequential signature verifications)
     // See README "Design Decisions" section for full explanation.
-    msg!("Step 4.5.4: Calling tendermint update_client (signature verification)");
-    msg!("Step 4.5.4.1: CUs BEFORE entering update_client:");
-    sol_log_compute_units();
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
         &trusted_ibc_state,
@@ -204,22 +143,15 @@ fn verify_and_update_header(
         current_time,
     )
     .map_err(|e| {
-        msg!("Step 4.5.4.2: update_client FAILED with error: {:?}", e);
-        msg!("Step 4.5.4.3: CUs at failure point:");
+        msg!("update_client FAILED: {:?}", e);
         sol_log_compute_units();
         ErrorCode::UpdateClientFailed
     })?;
-    msg!("Step 4.5.5: Signature verification SUCCEEDED!");
-    msg!("Step 4.5.5.1: CUs AFTER update_client:");
-    sol_log_compute_units();
 
-    msg!("Step 4.5.6: Converting new consensus state");
-    sol_log_compute_units();
     let new_consensus_state = output
         .new_consensus_state
         .try_into()
         .map_err(|_| ErrorCode::SerializationError)?;
-    sol_log_compute_units();
 
     Ok((output.latest_height, new_consensus_state))
 }
@@ -367,13 +299,10 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     system_program::create_account(cpi_ctx, rent, space as u64, &crate::ID)?;
 
     // Serialize the new consensus state
-    msg!("Storing consensus state (with clone)");
-    sol_log_compute_units();
     let new_store = ConsensusStateStore {
         height: params.height,
         consensus_state: params.new_consensus_state.clone(),
     };
-    sol_log_compute_units();
 
     let mut data = params.account.try_borrow_mut_data()?;
     let mut cursor = std::io::Cursor::new(&mut data[..]);

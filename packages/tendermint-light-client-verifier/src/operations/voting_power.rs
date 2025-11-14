@@ -20,6 +20,7 @@ use crate::{
     types::{Commit, SignedHeader, TrustThreshold, ValidatorSet},
 };
 
+
 /// Tally for the voting power computed by the `VotingPowerCalculator`
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct VotingPowerTally {
@@ -106,9 +107,11 @@ pub trait VotingPowerCalculator: Send + Sync {
             (trusted_validators, trust_threshold),
             (untrusted_validators, TrustThreshold::TWO_THIRDS),
         )?;
+
         trusted_power
             .check()
             .map_err(VerificationError::not_enough_trust)?;
+
         untrusted_power
             .check()
             .map_err(VerificationError::insufficient_signers_overlap)?;
@@ -285,12 +288,6 @@ impl NonAbsentCommitVotes {
     const SIGN_BYTES_INITIAL_CAPACITY: usize = 166;
 
     pub fn new(signed_header: &SignedHeader) -> Result<Self, VerificationError> {
-        #[cfg(feature = "solana")]
-        {
-            solana_program::msg!("[verifier] NonAbsentCommitVotes::new() ENTRY");
-            solana_program::log::sol_log_compute_units();
-        }
-
         let mut votes = signed_header
             .commit
             .signatures
@@ -311,17 +308,15 @@ impl NonAbsentCommitVotes {
 
         #[cfg(feature = "solana")]
         {
-            solana_program::msg!("[verifier] After flat_map+collect");
+            solana_program::msg!("[verifier] Votes collected");
             solana_program::log::sol_log_compute_units();
         }
 
+        // On Solana, signatures are pre-sorted during deserialization
+        // (see borsh_header.rs:403 where deserialize_commit skips sort - relayer pre-sorts)
+        // This saves ~60-80k compute units by doing sort off-chain in relayer
+        #[cfg(not(feature = "solana"))]
         votes.sort_unstable_by_key(NonAbsentCommitVote::validator_id);
-
-        #[cfg(feature = "solana")]
-        {
-            solana_program::msg!("[verifier] After sort_unstable_by_key");
-            solana_program::log::sol_log_compute_units();
-        }
 
         // Check if there are duplicate signatures.  If at least one duplicate
         // is found, report it as an error.
@@ -329,23 +324,11 @@ impl NonAbsentCommitVotes {
             .windows(2)
             .find(|pair| pair[0].validator_id() == pair[1].validator_id());
 
-        #[cfg(feature = "solana")]
-        {
-            solana_program::msg!("[verifier] After duplicate check");
-            solana_program::log::sol_log_compute_units();
-        }
-
         if let Some(pair) = duplicate {
             Err(VerificationError::duplicate_validator(
                 pair[0].validator_id(),
             ))
         } else {
-            #[cfg(feature = "solana")]
-            {
-                solana_program::msg!("[verifier] NonAbsentCommitVotes::new() EXIT");
-                solana_program::log::sol_log_compute_units();
-            }
-
             Ok(Self {
                 votes,
                 sign_bytes: Vec::with_capacity(Self::SIGN_BYTES_INITIAL_CAPACITY),
@@ -362,12 +345,6 @@ impl NonAbsentCommitVotes {
         &mut self,
         validator: &validator::Info,
     ) -> Result<bool, VerificationError> {
-        #[cfg(feature = "solana")]
-        {
-            solana_program::msg!("[verifier] has_voted() checking validator");
-            solana_program::log::sol_log_compute_units();
-        }
-
         let idx = self
             .votes
             .binary_search_by_key(&validator.address, NonAbsentCommitVote::validator_id);
@@ -376,30 +353,12 @@ impl NonAbsentCommitVotes {
             Err(_) => return Ok(false),
         };
 
-        #[cfg(feature = "solana")]
-        {
-            solana_program::msg!("[verifier] After binary_search");
-            solana_program::log::sol_log_compute_units();
-        }
-
         if !vote.verified {
             self.sign_bytes.truncate(0);
-
-            #[cfg(feature = "solana")]
-            {
-                solana_program::msg!("[verifier] Before sign_bytes_into()");
-                solana_program::log::sol_log_compute_units();
-            }
 
             vote.signed_vote
                 .sign_bytes_into(&mut self.sign_bytes)
                 .expect("buffer is resized if needed and encoding never fails");
-
-            #[cfg(feature = "solana")]
-            {
-                solana_program::msg!("[verifier] After sign_bytes_into()");
-                solana_program::log::sol_log_compute_units();
-            }
 
             let sign_bytes = self.sign_bytes.as_slice();
             validator
@@ -411,6 +370,18 @@ impl NonAbsentCommitVotes {
                         sign_bytes.to_vec(),
                     )
                 })?;
+
+            #[cfg(feature = "solana")]
+            {
+                solana_program::msg!("[verifier] Vote verified (sig)");
+                solana_program::log::sol_log_compute_units();
+            }
+        } else {
+            #[cfg(feature = "solana")]
+            {
+                solana_program::msg!("[verifier] Vote verified (cached)");
+                solana_program::log::sol_log_compute_units();
+            }
         }
 
         vote.verified = true;
@@ -445,19 +416,7 @@ impl<V: signature::Verifier> VotingPowerCalculator for ProvidedVotingPowerCalcul
         first_set: (&ValidatorSet, TrustThreshold),
         second_set: (&ValidatorSet, TrustThreshold),
     ) -> Result<(VotingPowerTally, VotingPowerTally), VerificationError> {
-        #[cfg(feature = "solana")]
-        {
-            solana_program::msg!("[voting_power_in_sets] === DUAL VERIFICATION START ===");
-            solana_program::log::sol_log_compute_units();
-        }
-
         let mut votes = NonAbsentCommitVotes::new(signed_header)?;
-
-        #[cfg(feature = "solana")]
-        {
-            solana_program::msg!("[voting_power_in_sets] First set validators:");
-            solana_program::log::sol_log_compute_units();
-        }
 
         let first_tally = voting_power_in_impl::<V>(
             &mut votes,
@@ -465,14 +424,6 @@ impl<V: signature::Verifier> VotingPowerCalculator for ProvidedVotingPowerCalcul
             first_set.1,
             self.total_power_of(first_set.0),
         )?;
-
-        #[cfg(feature = "solana")]
-        {
-            solana_program::msg!("[voting_power_in_sets] === FIRST LOOP COMPLETE ===");
-            solana_program::msg!("[voting_power_in_sets] Starting second loop...");
-            solana_program::msg!("[voting_power_in_sets] Second set validators:");
-            solana_program::log::sol_log_compute_units();
-        }
 
         let second_tally = voting_power_in_impl::<V>(
             &mut votes,
@@ -483,8 +434,7 @@ impl<V: signature::Verifier> VotingPowerCalculator for ProvidedVotingPowerCalcul
 
         #[cfg(feature = "solana")]
         {
-            solana_program::msg!("[voting_power_in_sets] === SECOND LOOP COMPLETE ===");
-            solana_program::msg!("[voting_power_in_sets] === DUAL VERIFICATION END ===");
+            solana_program::msg!("[voting_power_in_sets] Dual verification complete");
             solana_program::log::sol_log_compute_units();
         }
 
@@ -498,60 +448,18 @@ fn voting_power_in_impl<V: signature::Verifier>(
     trust_threshold: TrustThreshold,
     total_voting_power: u64,
 ) -> Result<VotingPowerTally, VerificationError> {
-    #[cfg(feature = "solana")]
-    {
-        solana_program::msg!("[verifier] === SOLANA: Starting validator verification loop ===");
-        solana_program::log::sol_log_compute_units();
-    }
-
     let mut power = VotingPowerTally::new(total_voting_power, trust_threshold);
 
-    #[cfg(feature = "solana")]
-    let mut checked_count = 0usize;
-    #[cfg(feature = "solana")]
-    let mut voted_count = 0usize;
-
     for validator in validator_set.validators() {
-        #[cfg(feature = "solana")]
-        {
-            checked_count += 1;
-        }
-        #[cfg(feature = "solana")]
-        {
-            solana_program::msg!("[verifier] SOLANA: Checking validator");
-            solana_program::log::sol_log_compute_units();
+        // Check if we already have enough voting power BEFORE verifying next signature
+        // This avoids wasting CUs on unnecessary signature verifications
+        if power.check().is_ok() {
+            break;
         }
 
         if votes.has_voted::<V>(validator)? {
-            #[cfg(feature = "solana")]
-            {
-                voted_count += 1;
-            }
-
             power.tally(validator.power());
-
-            #[cfg(feature = "solana")]
-            {
-                solana_program::msg!("[verifier] SOLANA: Validator voted!");
-                solana_program::log::sol_log_compute_units();
-            }
-
-            // Break out of the loop when we have enough voting power.
-            if power.check().is_ok() {
-                #[cfg(feature = "solana")]
-                {
-                    solana_program::msg!("[verifier] SOLANA: Threshold reached!");
-                    solana_program::log::sol_log_compute_units();
-                }
-                break;
-            }
         }
-    }
-
-    #[cfg(feature = "solana")]
-    {
-        solana_program::msg!("[verifier] === SOLANA: Verification loop complete ===");
-        solana_program::log::sol_log_compute_units();
     }
 
     Ok(power)

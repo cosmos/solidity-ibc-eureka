@@ -24,6 +24,7 @@ tendermint = { workspace = true, optional = true }
 
 [features]
 direct-deser = ["dep:ibc-client-tendermint", "dep:ibc-core-client-types", "dep:tendermint"]
+solana = []
 
 [lib]
 crate-type = ["cdylib", "lib"]

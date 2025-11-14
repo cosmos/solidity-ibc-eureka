@@ -123,11 +123,35 @@ pub fn commit_sig_to_borsh(cs: CommitSig) -> BorshCommitSig {
 }
 
 pub fn commit_to_borsh(c: Commit) -> BorshCommit {
+    // Convert and sort signatures by validator address
+    // This pre-sorting saves ~60-80k CUs during on-chain deserialization
+    // The sort must match the order expected by the verifier's binary search
+    let mut signatures: Vec<BorshCommitSig> = c.signatures
+        .into_iter()
+        .map(commit_sig_to_borsh)
+        .collect();
+
+    signatures.sort_unstable_by(|a, b| {
+        match (a, b) {
+            (BorshCommitSig::BlockIdFlagCommit { validator_address: addr_a, .. },
+             BorshCommitSig::BlockIdFlagCommit { validator_address: addr_b, .. }) => addr_a.cmp(addr_b),
+            (BorshCommitSig::BlockIdFlagNil { validator_address: addr_a, .. },
+             BorshCommitSig::BlockIdFlagNil { validator_address: addr_b, .. }) => addr_a.cmp(addr_b),
+            (BorshCommitSig::BlockIdFlagCommit { validator_address: addr_a, .. },
+             BorshCommitSig::BlockIdFlagNil { validator_address: addr_b, .. }) => addr_a.cmp(addr_b),
+            (BorshCommitSig::BlockIdFlagNil { validator_address: addr_a, .. },
+             BorshCommitSig::BlockIdFlagCommit { validator_address: addr_b, .. }) => addr_a.cmp(addr_b),
+            (BorshCommitSig::BlockIdFlagAbsent, BorshCommitSig::BlockIdFlagAbsent) => std::cmp::Ordering::Equal,
+            (BorshCommitSig::BlockIdFlagAbsent, _) => std::cmp::Ordering::Less,
+            (_, BorshCommitSig::BlockIdFlagAbsent) => std::cmp::Ordering::Greater,
+        }
+    });
+
     BorshCommit {
         height: c.height.value(),
         round: c.round.value() as u16,
         block_id: block_id_to_borsh(c.block_id),
-        signatures: c.signatures.into_iter().map(commit_sig_to_borsh).collect(),
+        signatures,
     }
 }
 
