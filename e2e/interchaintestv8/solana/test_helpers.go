@@ -383,28 +383,30 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	t.Logf("  - Assembly phase: %v", assemblyDuration)
 }
 
-func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T, require *require.Assertions, clientID string, sequence uint64) {
+func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T, require *require.Assertions, clientID string, baseSequence uint64, callingProgram, sender solana.PublicKey) {
 	t.Helper()
+
+	namespacedSequence := CalculateNamespacedSequence(baseSequence, callingProgram, sender)
+
 	sequenceBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
+	binary.LittleEndian.PutUint64(sequenceBytes, namespacedSequence)
 	packetCommitmentPDA, _ := Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(clientID), sequenceBytes)
 
-	// Use confirmed commitment to match relayer read commitment level
 	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, packetCommitmentPDA, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
 	})
 	if err != nil {
-		t.Logf("Packet commitment deleted (account not found) for client %s, sequence %d", clientID, sequence)
+		t.Logf("Packet commitment deleted (account not found) for client %s, base sequence %d (namespaced: %d)", clientID, baseSequence, namespacedSequence)
 		return
 	}
 
 	if accountInfo.Value == nil || accountInfo.Value.Lamports == 0 {
-		t.Logf("Packet commitment deleted (account closed) for client %s, sequence %d", clientID, sequence)
+		t.Logf("Packet commitment deleted (account closed) for client %s, base sequence %d (namespaced: %d)", clientID, baseSequence, namespacedSequence)
 		return
 	}
 
 	require.Fail("Packet commitment should have been deleted after acknowledgment",
-		"Account %s still exists with %d lamports", packetCommitmentPDA.String(), accountInfo.Value.Lamports)
+		"Account %s still exists with %d lamports (base sequence: %d, namespaced: %d)", packetCommitmentPDA.String(), accountInfo.Value.Lamports, baseSequence, namespacedSequence)
 }
 
 func (s *Solana) CreateIBCAddressLookupTable(ctx context.Context, t *testing.T, require *require.Assertions, user *solana.Wallet, cosmosChainID string, gmpPortID string, clientID string) solana.PublicKey {

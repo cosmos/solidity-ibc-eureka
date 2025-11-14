@@ -1,6 +1,7 @@
 use crate::errors::RouterError;
 use crate::state::*;
 use crate::utils::ics24;
+use crate::utils::sequence;
 use anchor_lang::prelude::*;
 use solana_ibc_types::events::SendPacketEvent;
 
@@ -26,18 +27,9 @@ pub struct SendPacket<'info> {
     )]
     pub client_sequence: Account<'info, ClientSequence>,
 
-    #[account(
-        init,
-        payer = payer,
-        space = 8 + Commitment::INIT_SPACE,
-        seeds = [
-            Commitment::PACKET_COMMITMENT_SEED,
-            msg.source_client.as_bytes(),
-            &client_sequence.next_sequence_send.to_le_bytes()
-        ],
-        bump
-    )]
-    pub packet_commitment: Account<'info, Commitment>,
+    /// Packet commitment account - manually created with runtime-calculated sequence
+    /// CHECK: Manually validated and created in instruction handler
+    pub packet_commitment: UncheckedAccount<'info>,
 
     /// Instructions sysvar for validating CPI caller
     /// CHECK: Address constraint verifies this is the instructions sysvar
@@ -61,11 +53,10 @@ pub struct SendPacket<'info> {
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
     let ibc_app = &ctx.accounts.ibc_app;
     let client_sequence = &mut ctx.accounts.client_sequence;
-    let packet_commitment = &mut ctx.accounts.packet_commitment;
+    let packet_commitment_info = &ctx.accounts.packet_commitment;
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
-    // Validate CPI caller using shared validation function
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
         &ibc_app.app_program_id,
@@ -83,7 +74,54 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
         RouterError::InvalidTimeoutDuration
     );
 
-    let sequence = client_sequence.next_sequence_send;
+    let base_sequence = client_sequence.next_sequence_send;
+    let sequence = sequence::calculate_namespaced_sequence(
+        base_sequence,
+        &ibc_app.app_program_id,
+        &ctx.accounts.payer.key(),
+    )?;
+
+    let (expected_pda, bump) = Pubkey::find_program_address(
+        &[
+            Commitment::PACKET_COMMITMENT_SEED,
+            msg.source_client.as_bytes(),
+            &sequence.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
+    require!(
+        packet_commitment_info.key() == expected_pda,
+        RouterError::InvalidChunkAccount
+    );
+
+    let account_size = 8 + Commitment::INIT_SPACE;
+    let rent = Rent::get()?;
+    let lamports = rent.minimum_balance(account_size);
+
+    let signer_seeds: &[&[&[u8]]] = &[&[
+        Commitment::PACKET_COMMITMENT_SEED,
+        msg.source_client.as_bytes(),
+        &sequence.to_le_bytes(),
+        &[bump],
+    ]];
+
+    anchor_lang::system_program::create_account(
+        CpiContext::new_with_signer(
+            ctx.accounts.system_program.to_account_info(),
+            anchor_lang::system_program::CreateAccount {
+                from: ctx.accounts.payer.to_account_info(),
+                to: packet_commitment_info.to_account_info(),
+            },
+            signer_seeds,
+        ),
+        lamports,
+        account_size as u64,
+        &crate::ID,
+    )?;
+
+    // Initialize the commitment account data
+    let mut data = packet_commitment_info.try_borrow_mut_data()?;
+    data[0..8].copy_from_slice(Commitment::DISCRIMINATOR);
 
     client_sequence.next_sequence_send = client_sequence
         .next_sequence_send
@@ -101,7 +139,9 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     };
 
     let commitment = ics24::packet_commitment_bytes32(&packet);
-    packet_commitment.value = commitment;
+
+    // Write the commitment value to the account
+    data[8..40].copy_from_slice(&commitment);
 
     emit!(SendPacketEvent {
         client_id: msg.source_client,
@@ -131,7 +171,8 @@ mod tests {
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
         packet_commitment_pubkey: Pubkey,
         client_sequence_pubkey: Pubkey,
-        sequence: u64,
+        sequence: u64,      // The namespaced sequence number
+        base_sequence: u64, // The base sequence (before namespacing)
     }
 
     struct SendPacketTestParams {
@@ -156,7 +197,7 @@ mod tests {
                 active_client: true,
                 current_timestamp: 1000,
                 timeout_timestamp: 2000,
-                initial_sequence: 0,
+                initial_sequence: 1, // IBC sequences start from 1
             }
         }
     }
@@ -190,11 +231,19 @@ mod tests {
             },
         };
 
+        // Calculate the namespaced sequence using the same logic as the instruction
+        let namespaced_sequence = sequence::calculate_namespaced_sequence(
+            params.initial_sequence,
+            &app_program_id,
+            &payer,
+        )
+        .expect("sequence calculation failed");
+
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
             &[
                 Commitment::PACKET_COMMITMENT_SEED,
                 msg.source_client.as_bytes(),
-                &params.initial_sequence.to_le_bytes(),
+                &namespaced_sequence.to_le_bytes(),
             ],
             &crate::ID,
         );
@@ -230,7 +279,8 @@ mod tests {
             accounts,
             packet_commitment_pubkey: packet_commitment_pda,
             client_sequence_pubkey: client_sequence_pda,
-            sequence: params.initial_sequence,
+            sequence: namespaced_sequence,
+            base_sequence: params.initial_sequence,
         }
     }
 
@@ -296,7 +346,7 @@ mod tests {
         let next_sequence =
             get_client_sequence_from_result_by_pubkey(&result, &ctx.client_sequence_pubkey)
                 .expect("client_sequence not found");
-        assert_eq!(next_sequence, 1); // Should be incremented from 0 to 1
+        assert_eq!(next_sequence, ctx.base_sequence + 1); // Should be incremented by 1
     }
 
     #[test]
@@ -435,7 +485,7 @@ mod tests {
             .expect("packet commitment account not found");
         assert_ne!(commitment_data[..32], [0u8; 32]); // Commitment should be set
 
-        // Check sequence was incremented to 6
+        // Check base sequence was incremented from 5 to 6
         let next_sequence =
             get_client_sequence_from_result_by_pubkey(&result, &ctx.client_sequence_pubkey)
                 .expect("client_sequence not found");
@@ -489,16 +539,20 @@ mod tests {
             },
         };
 
+        let payer = Pubkey::new_unique();
+
+        // Calculate namespaced sequence for client 1
+        let namespaced_seq_1 = sequence::calculate_namespaced_sequence(10, &app_program_id, &payer)
+            .expect("sequence calculation failed");
+
         let (packet_commitment_pda_1, _) = Pubkey::find_program_address(
             &[
                 Commitment::PACKET_COMMITMENT_SEED,
                 msg_1.source_client.as_bytes(),
-                &10u64.to_le_bytes(), // sequence 10
+                &namespaced_seq_1.to_le_bytes(),
             ],
             &crate::ID,
         );
-
-        let payer = Pubkey::new_unique();
 
         let instruction_1 = Instruction {
             program_id: crate::ID,
@@ -548,11 +602,15 @@ mod tests {
             },
         };
 
+        // Calculate namespaced sequence for client 2
+        let namespaced_seq_2 = sequence::calculate_namespaced_sequence(20, &app_program_id, &payer)
+            .expect("sequence calculation failed");
+
         let (packet_commitment_pda_2, _) = Pubkey::find_program_address(
             &[
                 Commitment::PACKET_COMMITMENT_SEED,
                 msg_2.source_client.as_bytes(),
-                &20u64.to_le_bytes(), // sequence 20
+                &namespaced_seq_2.to_le_bytes(),
             ],
             &crate::ID,
         );
@@ -596,11 +654,182 @@ mod tests {
     }
 
     #[test]
+    fn test_send_packet_concurrent_different_programs() {
+        // Test that two different programs can send packets concurrently with the same base sequence
+        // because they get different namespaced sequences
+        let authority = Pubkey::new_unique();
+        let app_program_1 = Pubkey::new_unique();
+        let app_program_2 = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let client_id = "test-client";
+        let port_id_1 = "test-port-1";
+        let port_id_2 = "test-port-2";
+
+        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (client_pda, client_data) = setup_client(
+            client_id,
+            authority,
+            Pubkey::new_unique(),
+            "counterparty-client",
+            true,
+        );
+        let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 1);
+        let (ibc_app_pda_1, ibc_app_data_1) = setup_ibc_app(port_id_1, app_program_1);
+        let (ibc_app_pda_2, ibc_app_data_2) = setup_ibc_app(port_id_2, app_program_2);
+
+        // Program 1 sends first
+        let msg_1 = MsgSendPacket {
+            source_client: client_id.to_string(),
+            timeout_timestamp: 2000,
+            payload: Payload {
+                source_port: port_id_1.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                value: b"program 1 data".to_vec(),
+            },
+        };
+
+        let namespaced_seq_1 = sequence::calculate_namespaced_sequence(1, &app_program_1, &payer)
+            .expect("sequence calculation failed");
+
+        let (packet_commitment_pda_1, _) = Pubkey::find_program_address(
+            &[
+                Commitment::PACKET_COMMITMENT_SEED,
+                msg_1.source_client.as_bytes(),
+                &namespaced_seq_1.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let instruction_1 = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(ibc_app_pda_1, false),
+                AccountMeta::new(client_sequence_pda, false),
+                AccountMeta::new(packet_commitment_pda_1, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(client_pda, false),
+            ],
+            data: crate::instruction::SendPacket { msg: msg_1 }.data(),
+        };
+
+        let accounts_1 = vec![
+            create_account(router_state_pda, router_state_data.clone(), crate::ID),
+            create_account(ibc_app_pda_1, ibc_app_data_1, crate::ID),
+            create_account(client_sequence_pda, client_sequence_data.clone(), crate::ID),
+            create_uninitialized_commitment_account(packet_commitment_pda_1),
+            create_instructions_sysvar_account_with_caller(app_program_1),
+            create_system_account(payer),
+            create_program_account(system_program::ID),
+            create_account(client_pda, client_data.clone(), crate::ID),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+        let result_1 = mollusk.process_instruction(&instruction_1, &accounts_1);
+        assert!(
+            !result_1.program_result.is_err(),
+            "Program 1 should succeed"
+        );
+
+        // Get updated client_sequence after first send
+        let updated_client_sequence =
+            get_client_sequence_from_result_by_pubkey(&result_1, &client_sequence_pda)
+                .expect("client_sequence not found");
+        assert_eq!(updated_client_sequence, 2); // Should be incremented to 2
+
+        // Program 2 sends with the SAME base sequence (now 2)
+        // But different namespaced sequence because different program_id
+        let (_, updated_client_sequence_data) =
+            setup_client_sequence(client_id, updated_client_sequence);
+
+        let msg_2 = MsgSendPacket {
+            source_client: client_id.to_string(),
+            timeout_timestamp: 2000,
+            payload: Payload {
+                source_port: port_id_2.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                value: b"program 2 data".to_vec(),
+            },
+        };
+
+        let namespaced_seq_2 = sequence::calculate_namespaced_sequence(2, &app_program_2, &payer)
+            .expect("sequence calculation failed");
+
+        // Verify the namespaced sequences are different even though base is the same
+        // (This will almost certainly be true with high probability)
+        assert_ne!(
+            namespaced_seq_1, namespaced_seq_2,
+            "Different programs should get different namespaced sequences"
+        );
+
+        let (packet_commitment_pda_2, _) = Pubkey::find_program_address(
+            &[
+                Commitment::PACKET_COMMITMENT_SEED,
+                msg_2.source_client.as_bytes(),
+                &namespaced_seq_2.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let instruction_2 = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(ibc_app_pda_2, false),
+                AccountMeta::new(client_sequence_pda, false),
+                AccountMeta::new(packet_commitment_pda_2, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(client_pda, false),
+            ],
+            data: crate::instruction::SendPacket { msg: msg_2 }.data(),
+        };
+
+        let accounts_2 = vec![
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(ibc_app_pda_2, ibc_app_data_2, crate::ID),
+            create_account(client_sequence_pda, updated_client_sequence_data, crate::ID),
+            create_uninitialized_commitment_account(packet_commitment_pda_2),
+            create_instructions_sysvar_account_with_caller(app_program_2),
+            create_system_account(payer),
+            create_program_account(system_program::ID),
+            create_account(client_pda, client_data, crate::ID),
+        ];
+
+        let result_2 = mollusk.process_instruction(&instruction_2, &accounts_2);
+        assert!(
+            !result_2.program_result.is_err(),
+            "Program 2 should also succeed"
+        );
+
+        // Verify both packets were created successfully
+        let commitment_1 = get_account_data_from_mollusk(&result_1, &packet_commitment_pda_1)
+            .expect("packet 1 commitment not found");
+        let commitment_2 = get_account_data_from_mollusk(&result_2, &packet_commitment_pda_2)
+            .expect("packet 2 commitment not found");
+
+        assert_ne!(commitment_1[..32], [0u8; 32], "Commitment 1 should be set");
+        assert_ne!(commitment_2[..32], [0u8; 32], "Commitment 2 should be set");
+        assert_ne!(
+            commitment_1[..32],
+            commitment_2[..32],
+            "Commitments should be different"
+        );
+    }
+
+    #[test]
     fn test_send_packet_duplicate_commitment_fails() {
         // Test that sending a packet with the same (client_id, sequence) fails
-        // because the packet_commitment account already exists (init constraint)
+        // because the packet_commitment account already exists
         let params = SendPacketTestParams {
-            initial_sequence: 0,
+            initial_sequence: 1,
             ..Default::default()
         };
         let mut ctx = setup_send_packet_test_with_params(params);
