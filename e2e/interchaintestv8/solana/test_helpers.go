@@ -360,7 +360,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 				return
 			}
 
-			sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusProcessed, user)
+			sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
 			chunkDuration := time.Since(chunkTxStart)
 
 			if err != nil {
@@ -376,7 +376,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 			var computeUnits, fee uint64
 			version := uint64(0)
 			txDetails, err := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
-				Commitment:                     rpc.CommitmentProcessed,
+				Commitment:                     rpc.CommitmentConfirmed,
 				MaxSupportedTransactionVersion: &version,
 			})
 			if err == nil && txDetails != nil && txDetails.Meta != nil {
