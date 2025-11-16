@@ -6,7 +6,7 @@ use crate::test_helpers::{
         assert_error_code, get_valid_clock_timestamp_for_header, load_primary_fixtures,
         UpdateClientMessage,
     },
-    PROGRAM_BINARY_PATH,
+    PROGRAM_BINARY_PATH, TEST_COMPUTE_UNIT_LIMIT, TEST_HEAP_SIZE,
 };
 use anchor_lang::{AccountDeserialize, AccountSerialize, AnchorDeserialize, InstructionData};
 use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
@@ -18,7 +18,13 @@ use solana_sdk::system_program;
 use solana_sdk::sysvar;
 
 fn setup_mollusk() -> Mollusk {
-    Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH)
+    let mut mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    // Configure heap size to match production runtime
+    // This is needed for large Tendermint header deserialization
+    mollusk.compute_budget.heap_size = TEST_HEAP_SIZE;
+    // Set compute unit limit to match Solana's actual limit
+    mollusk.compute_budget.compute_unit_limit = TEST_COMPUTE_UNIT_LIMIT;
+    mollusk
 }
 
 fn create_clock_account(unix_timestamp: i64) -> (Pubkey, Account) {

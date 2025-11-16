@@ -4,6 +4,11 @@ use mollusk_svm::result::Check;
 
 pub const PROGRAM_BINARY_PATH: &str = "../../target/deploy/ics07_tendermint";
 
+// Solana compute budget constants for tests
+// Match production runtime configuration
+pub const TEST_HEAP_SIZE: u32 = 256 * 1024; // 256KB heap for large header deserialization
+pub const TEST_COMPUTE_UNIT_LIMIT: u64 = 1_400_000; // Solana's actual CU limit
+
 pub static SUCCESS_CHECK: LazyLock<Vec<Check>> = LazyLock::new(|| vec![Check::success()]);
 
 pub mod fixtures {
