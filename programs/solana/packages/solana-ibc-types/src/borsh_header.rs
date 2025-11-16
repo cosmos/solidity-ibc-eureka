@@ -138,20 +138,16 @@ pub struct BorshHeight {
     pub revision_height: u64,
 }
 
-// ============================================================================
-// Direct Deserialization Wrapper
-// ============================================================================
-
 #[cfg(feature = "direct-deser")]
 mod direct_deser {
     use super::*;
     use ibc_client_tendermint::types::Header;
     use ibc_core_client_types::Height;
     use tendermint::account::Id as AccountId;
-    use tendermint::block::{Commit, CommitSig, Header as TmHeader};
     use tendermint::block::parts::Header as PartSetHeader;
     use tendermint::block::signed_header::SignedHeader;
     use tendermint::block::Id as BlockId;
+    use tendermint::block::{Commit, CommitSig, Header as TmHeader};
     use tendermint::validator::{Info as ValidatorInfo, Set as ValidatorSet};
     use tendermint::{Hash, PublicKey, Time};
 
@@ -199,8 +195,6 @@ mod direct_deser {
         }
     }
 
-    // Primitive deserializers
-
     fn deserialize_height<R: Read>(reader: &mut R) -> io::Result<Height> {
         let revision_number = u64::deserialize_reader(reader)?;
         let revision_height = u64::deserialize_reader(reader)?;
@@ -216,7 +210,6 @@ mod direct_deser {
     }
 
     fn deserialize_required_hash<R: Read>(reader: &mut R) -> io::Result<Hash> {
-        // Read Borsh length prefix and validate it's 32 bytes
         let len = u32::deserialize_reader(reader)?;
         if len != 32 {
             return Err(io::Error::new(
@@ -240,8 +233,6 @@ mod direct_deser {
         }
     }
 
-    // PublicKey and Validator deserializers
-
     fn deserialize_public_key<R: Read>(reader: &mut R) -> io::Result<PublicKey> {
         let discriminant = u8::deserialize_reader(reader)?;
         match discriminant {
@@ -249,8 +240,9 @@ mod direct_deser {
                 // Ed25519
                 let mut bytes = [0u8; 32];
                 reader.read_exact(&mut bytes)?;
-                PublicKey::from_raw_ed25519(&bytes)
-                    .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid Ed25519 key"))
+                PublicKey::from_raw_ed25519(&bytes).ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidData, "Invalid Ed25519 key")
+                })
             }
             1 => {
                 // Secp256k1 (not supported on Solana)
@@ -278,7 +270,8 @@ mod direct_deser {
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
 
         let proposer_priority_val = i64::deserialize_reader(reader)?;
-        let proposer_priority = tendermint::validator::ProposerPriority::from(proposer_priority_val);
+        let proposer_priority =
+            tendermint::validator::ProposerPriority::from(proposer_priority_val);
 
         Ok(ValidatorInfo {
             address,
@@ -310,15 +303,13 @@ mod direct_deser {
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
 
         // Directly construct ValidatorSet - validators are pre-sorted by relayer
-        // This saves ~50k CUs per validator set by skipping O(n log n) sort
+        // This saves ~50k CUs per validator set by skipping sort
         Ok(ValidatorSet {
             validators,
             proposer,
             total_voting_power,
         })
     }
-
-    // Commit deserializers
 
     fn deserialize_commit_sig<R: Read>(reader: &mut R) -> io::Result<CommitSig> {
         let discriminant = u8::deserialize_reader(reader)?;
@@ -389,8 +380,7 @@ mod direct_deser {
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
 
         let round_val = u16::deserialize_reader(reader)?;
-        let round = tendermint::block::Round::try_from(round_val)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+        let round: tendermint::block::Round = round_val.into();
 
         let block_id = deserialize_block_id(reader)?;
 
@@ -400,14 +390,6 @@ mod direct_deser {
             signatures.push(deserialize_commit_sig(reader)?);
         }
 
-        // Signatures are pre-sorted by validator address in the relayer (borsh_conversions.rs)
-        // This saves ~60-80k CUs by doing the sort off-chain instead of on-chain
-        #[cfg(feature = "solana")]
-        {
-            solana_program::msg!("[deserialize] Skipping signature sort (pre-sorted by relayer)");
-            solana_program::log::sol_log_compute_units();
-        }
-
         Ok(Commit {
             height,
             round,
@@ -415,8 +397,6 @@ mod direct_deser {
             signatures,
         })
     }
-
-    // Block header deserializers
 
     fn deserialize_consensus_version<R: Read>(
         reader: &mut R,
@@ -478,7 +458,10 @@ mod direct_deser {
         if proposer_len != 20 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("Invalid proposer address length: expected 20, got {}", proposer_len),
+                format!(
+                    "Invalid proposer address length: expected 20, got {}",
+                    proposer_len
+                ),
             ));
         }
         let mut proposer_bytes = [0u8; 20];

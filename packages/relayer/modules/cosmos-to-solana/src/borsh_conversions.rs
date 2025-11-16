@@ -9,15 +9,11 @@
 use ibc_client_tendermint::types::Header;
 use ibc_core_client_types::Height;
 use solana_ibc_types::borsh_header::*;
-use tendermint::block::{Commit, CommitSig, Header as TmHeader, signed_header::SignedHeader};
 use tendermint::block::parts::Header as PartSetHeader;
 use tendermint::block::Id as BlockId;
+use tendermint::block::{signed_header::SignedHeader, Commit, CommitSig, Header as TmHeader};
 use tendermint::validator::{Info as ValidatorInfo, Set as ValidatorSet};
 use tendermint::{PublicKey, Time};
-
-// ============================================================================
-// Conversion functions: ibc-rs types → Borsh types (for serialization)
-// ============================================================================
 
 pub fn height_to_borsh(height: Height) -> BorshHeight {
     BorshHeight {
@@ -29,7 +25,8 @@ pub fn height_to_borsh(height: Height) -> BorshHeight {
 pub fn public_key_to_borsh(pk: PublicKey) -> BorshPublicKey {
     match pk {
         PublicKey::Ed25519(bytes) => {
-            let bytes_array: [u8; 32] = bytes.as_bytes()
+            let bytes_array: [u8; 32] = bytes
+                .as_bytes()
                 .try_into()
                 .expect("Ed25519 pubkey must be 32 bytes");
             BorshPublicKey::Ed25519(bytes_array)
@@ -39,7 +36,9 @@ pub fn public_key_to_borsh(pk: PublicKey) -> BorshPublicKey {
 }
 
 pub fn validator_to_borsh(v: ValidatorInfo) -> BorshValidator {
-    let address_array: [u8; 20] = v.address.as_bytes()
+    let address_array: [u8; 20] = v
+        .address
+        .as_bytes()
         .try_into()
         .expect("Validator address must be 20 bytes");
 
@@ -53,7 +52,12 @@ pub fn validator_to_borsh(v: ValidatorInfo) -> BorshValidator {
 
 pub fn validator_set_to_borsh(vs: ValidatorSet) -> BorshValidatorSet {
     BorshValidatorSet {
-        validators: vs.validators().iter().cloned().map(validator_to_borsh).collect(),
+        validators: vs
+            .validators()
+            .iter()
+            .cloned()
+            .map(validator_to_borsh)
+            .collect(),
         proposer: vs.proposer().clone().map(|p| validator_to_borsh(p)),
         total_voting_power: vs.total_voting_power().value(),
     }
@@ -88,7 +92,8 @@ pub fn commit_sig_to_borsh(cs: CommitSig) -> BorshCommitSig {
             timestamp,
             signature,
         } => {
-            let address_array: [u8; 20] = validator_address.as_bytes()
+            let address_array: [u8; 20] = validator_address
+                .as_bytes()
                 .try_into()
                 .expect("Validator address must be 20 bytes");
             let sig_array: [u8; 64] = signature
@@ -106,7 +111,8 @@ pub fn commit_sig_to_borsh(cs: CommitSig) -> BorshCommitSig {
             timestamp,
             signature,
         } => {
-            let address_array: [u8; 20] = validator_address.as_bytes()
+            let address_array: [u8; 20] = validator_address
+                .as_bytes()
                 .try_into()
                 .expect("Validator address must be 20 bytes");
             let sig_array: [u8; 64] = signature
@@ -126,25 +132,55 @@ pub fn commit_to_borsh(c: Commit) -> BorshCommit {
     // Convert and sort signatures by validator address
     // This pre-sorting saves ~60-80k CUs during on-chain deserialization
     // The sort must match the order expected by the verifier's binary search
-    let mut signatures: Vec<BorshCommitSig> = c.signatures
-        .into_iter()
-        .map(commit_sig_to_borsh)
-        .collect();
+    let mut signatures: Vec<BorshCommitSig> =
+        c.signatures.into_iter().map(commit_sig_to_borsh).collect();
 
-    signatures.sort_unstable_by(|a, b| {
-        match (a, b) {
-            (BorshCommitSig::BlockIdFlagCommit { validator_address: addr_a, .. },
-             BorshCommitSig::BlockIdFlagCommit { validator_address: addr_b, .. }) => addr_a.cmp(addr_b),
-            (BorshCommitSig::BlockIdFlagNil { validator_address: addr_a, .. },
-             BorshCommitSig::BlockIdFlagNil { validator_address: addr_b, .. }) => addr_a.cmp(addr_b),
-            (BorshCommitSig::BlockIdFlagCommit { validator_address: addr_a, .. },
-             BorshCommitSig::BlockIdFlagNil { validator_address: addr_b, .. }) => addr_a.cmp(addr_b),
-            (BorshCommitSig::BlockIdFlagNil { validator_address: addr_a, .. },
-             BorshCommitSig::BlockIdFlagCommit { validator_address: addr_b, .. }) => addr_a.cmp(addr_b),
-            (BorshCommitSig::BlockIdFlagAbsent, BorshCommitSig::BlockIdFlagAbsent) => std::cmp::Ordering::Equal,
-            (BorshCommitSig::BlockIdFlagAbsent, _) => std::cmp::Ordering::Less,
-            (_, BorshCommitSig::BlockIdFlagAbsent) => std::cmp::Ordering::Greater,
+    signatures.sort_unstable_by(|a, b| match (a, b) {
+        (
+            BorshCommitSig::BlockIdFlagCommit {
+                validator_address: addr_a,
+                ..
+            },
+            BorshCommitSig::BlockIdFlagCommit {
+                validator_address: addr_b,
+                ..
+            },
+        ) => addr_a.cmp(addr_b),
+        (
+            BorshCommitSig::BlockIdFlagNil {
+                validator_address: addr_a,
+                ..
+            },
+            BorshCommitSig::BlockIdFlagNil {
+                validator_address: addr_b,
+                ..
+            },
+        ) => addr_a.cmp(addr_b),
+        (
+            BorshCommitSig::BlockIdFlagCommit {
+                validator_address: addr_a,
+                ..
+            },
+            BorshCommitSig::BlockIdFlagNil {
+                validator_address: addr_b,
+                ..
+            },
+        ) => addr_a.cmp(addr_b),
+        (
+            BorshCommitSig::BlockIdFlagNil {
+                validator_address: addr_a,
+                ..
+            },
+            BorshCommitSig::BlockIdFlagCommit {
+                validator_address: addr_b,
+                ..
+            },
+        ) => addr_a.cmp(addr_b),
+        (BorshCommitSig::BlockIdFlagAbsent, BorshCommitSig::BlockIdFlagAbsent) => {
+            std::cmp::Ordering::Equal
         }
+        (BorshCommitSig::BlockIdFlagAbsent, _) => std::cmp::Ordering::Less,
+        (_, BorshCommitSig::BlockIdFlagAbsent) => std::cmp::Ordering::Greater,
     });
 
     BorshCommit {

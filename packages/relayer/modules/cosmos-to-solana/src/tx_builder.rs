@@ -1,4 +1,8 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
+// ============================================================================
+// Conversion functions: ibc-rs types → Borsh types (for serialization)
+// ============================================================================
+
 //! Solana from events received from a Cosmos SDK chain.
 
 use borsh::BorshSerialize;
@@ -964,7 +968,7 @@ impl TxBuilder {
         }
     }
 
-    /// Create transaction bytes using provided ALT addresses (doesn't fetch from RPC)
+    /// Create transaction bytes using provided ALT addresses
     /// Used when building transactions that reference an ALT that doesn't exist yet
     fn create_tx_bytes_with_alt(
         &self,
