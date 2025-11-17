@@ -91,8 +91,6 @@ pub fn timeout_packet<'info>(
     ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info>>,
     msg: MsgTimeoutPacket,
 ) -> Result<()> {
-    // Performs: CPI rejection + signer verification + role check
-    // Ethereum: ICS26Router.sol:266 - timeoutPacket restricted to RELAYER_ROLE
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::RELAYER_ROLE,

@@ -105,8 +105,6 @@ pub fn add_client(
     client_id: String,
     counterparty_info: CounterpartyInfo,
 ) -> Result<()> {
-    // Ethereum: ICS02ClientUpgradeable.sol:91 - addClient(string clientId, ...) restricted to ID_CUSTOMIZER_ROLE
-    // Performs: CPI rejection + signer verification + role check
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
@@ -156,8 +154,6 @@ pub fn migrate_client(
 ) -> Result<()> {
     let client = &mut ctx.accounts.client;
 
-    // Ethereum: ICS02ClientUpgradeable.sol:142 - migrateClient restricted to ADMIN_ROLE
-    // Performs: CPI rejection + signer verification + role check
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::ADMIN_ROLE,

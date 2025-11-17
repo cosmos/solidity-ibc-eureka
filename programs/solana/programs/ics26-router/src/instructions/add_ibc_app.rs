@@ -47,8 +47,6 @@ pub struct AddIbcApp<'info> {
 }
 
 pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
-    // Ethereum: ICS26Router.sol:89 - addIBCApp(string portId, ...) restricted to ID_CUSTOMIZER_ROLE
-    // Performs: CPI rejection + signer verification + role check
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,

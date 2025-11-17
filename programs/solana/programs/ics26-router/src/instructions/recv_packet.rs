@@ -110,8 +110,6 @@ pub fn recv_packet<'info>(
     ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>,
     msg: MsgRecvPacket,
 ) -> Result<()> {
-    // Performs: CPI rejection + signer verification + role check
-    // Ethereum: ICS26Router.sol:147 - recvPacket restricted to RELAYER_ROLE
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::RELAYER_ROLE,

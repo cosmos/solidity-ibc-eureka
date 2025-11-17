@@ -91,9 +91,6 @@ pub fn ack_packet<'info>(
     ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>,
     msg: MsgAckPacket,
 ) -> Result<()> {
-    // Check that relayer has the required role
-    // Ethereum: ICS26Router.sol:214 - ackPacket restricted to RELAYER_ROLE
-    // Performs: CPI rejection + signer verification + role check
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::RELAYER_ROLE,

@@ -31,8 +31,6 @@ pub struct PauseApp<'info> {
 }
 
 pub fn pause_app(ctx: Context<PauseApp>) -> Result<()> {
-    // Ethereum: ICS20Transfer.sol:116 - pause() restricted to PAUSER_ROLE
-    // Performs: CPI rejection + signer verification + role check
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::PAUSER_ROLE,
@@ -84,8 +82,6 @@ pub struct UnpauseApp<'info> {
 }
 
 pub fn unpause_app(ctx: Context<UnpauseApp>) -> Result<()> {
-    // Ethereum: ICS20Transfer.sol:121 - unpause() restricted to UNPAUSER_ROLE
-    // Performs: CPI rejection + signer verification + role check
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::UNPAUSER_ROLE,
