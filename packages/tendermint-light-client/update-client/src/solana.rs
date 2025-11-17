@@ -31,10 +31,10 @@ pub struct SolanaPredicates;
 impl VerificationPredicates for SolanaPredicates {
     type Sha256 = SolanaSha256;
 
-    /// Skip validator set hash validation - already done in validate_basic()
+    /// Skip validator set hash validation - already done in `validate_basic()`
     ///
     /// SAFETY: The hash of `validators` against `header_validators_hash` is
-    /// already validated in `Header::validate_basic()` (line 166 of header.rs)
+    /// already validated in `Header::validate_basic()` (line 166 of `header.rs`)
     /// before this function is called, so we can safely skip the redundant
     /// Merkle hash computation here.
     ///
