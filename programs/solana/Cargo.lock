@@ -1723,6 +1723,8 @@ dependencies = [
 [[package]]
 name = "ibc-client-tendermint"
 version = "0.57.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11225e842c5e3bf0787a36cf10d16b954dafbef357533fa2a87c7ac1bb2739f7"
 dependencies = [
  "derive_more 1.0.0",
  "ibc-client-tendermint-types",
@@ -1732,7 +1734,6 @@ dependencies = [
  "ibc-core-host",
  "ibc-primitives",
  "serde",
- "solana-program",
  "tendermint",
  "tendermint-light-client-verifier",
 ]
@@ -5524,11 +5525,12 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client-verifier"
 version = "0.40.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "548421907264a3a580634d71459a6ceda0dc569f24c9675adfab17465edf8511"
 dependencies = [
  "derive_more 0.99.20",
  "flex-error",
  "serde",
- "solana-program",
  "tendermint",
  "time",
 ]
