@@ -14,4 +14,5 @@ package gmp_counter_app
 // - `increment`: Increment a user's counter (called by GMP)
 // - `decrement`: Decrement a user's counter (called by GMP)
 // - `get_counter`: Get a user's current counter value
+// - `process_test_payload`: Test instruction for GMP scenarios (large payloads, many accounts)
 //

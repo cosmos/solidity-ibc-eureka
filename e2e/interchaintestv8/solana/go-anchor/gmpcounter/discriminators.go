@@ -14,8 +14,9 @@ var ()
 
 // Instruction discriminators
 var (
-	Instruction_Initialize = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
-	Instruction_Increment  = [8]byte{11, 18, 104, 9, 104, 174, 59, 33}
-	Instruction_Decrement  = [8]byte{106, 227, 168, 59, 248, 27, 150, 101}
-	Instruction_GetCounter = [8]byte{178, 42, 93, 7, 140, 213, 93, 150}
+	Instruction_Initialize         = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_Increment          = [8]byte{11, 18, 104, 9, 104, 174, 59, 33}
+	Instruction_Decrement          = [8]byte{106, 227, 168, 59, 248, 27, 150, 101}
+	Instruction_GetCounter         = [8]byte{178, 42, 93, 7, 140, 213, 93, 150}
+	Instruction_ProcessTestPayload = [8]byte{115, 179, 149, 147, 138, 1, 93, 55}
 )

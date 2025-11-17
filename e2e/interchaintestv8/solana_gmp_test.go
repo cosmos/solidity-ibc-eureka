@@ -1,17 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
 	malicious_caller "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/maliciouscaller"
+	borsh "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
 
 	solanago "github.com/gagliardetto/solana-go"
@@ -26,6 +29,7 @@ import (
 	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 	"github.com/cosmos/interchaintest/v10/ibc"
 
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
@@ -64,6 +68,85 @@ const (
 	// Dummy target program ID for security tests
 	DummyTargetProgramID = "4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi"
 )
+
+// ChunkingTestScenarios defines the test configurations to run
+//
+// Limits discovered through testing:
+// - Payload size (isolated): ≤1100B safe, ≥1200B fails with ProgramFailedToComplete (memory limit)
+// - Account count (isolated): ≤15 accounts safe, ≥16 fails with transaction too large (1652 > 1644 bytes)
+//
+// Combined payload + accounts limits:
+// - 1000B payload: ≤4 accounts safe, ≥8 accounts fails
+// - Pattern: Higher payload requires fewer accounts (shared memory budget)
+var ChunkingTestScenarios = []ChunkingTestScenario{
+	// REQUIRED: Baseline scenario (must pass)
+	{
+		Name:           "baseline",
+		PayloadSize:    500,
+		AccountsCount:  5,
+		RequiredToPass: true,
+	},
+	// Payload size limit (isolated)
+	{
+		Name:           "max_payload_1100b",
+		PayloadSize:    1100,
+		AccountsCount:  0,
+		RequiredToPass: true,
+	},
+	{
+		Name:           "oversize_payload_1200b",
+		PayloadSize:    1200,
+		AccountsCount:  0,
+		RequiredToPass: false,
+	},
+	// Account count limit (isolated)
+	{
+		Name:           "max_accounts_15",
+		PayloadSize:    100,
+		AccountsCount:  15,
+		RequiredToPass: true,
+	},
+	{
+		Name:           "too_many_accounts_16",
+		PayloadSize:    100,
+		AccountsCount:  16,
+		RequiredToPass: false,
+	},
+	// Combined payload + accounts (demonstrates memory budget trade-off)
+	{
+		Name:           "large_payload_few_accounts",
+		PayloadSize:    1000,
+		AccountsCount:  4,
+		RequiredToPass: true,
+	},
+	{
+		Name:           "large_payload_many_accounts",
+		PayloadSize:    1000,
+		AccountsCount:  8,
+		RequiredToPass: false,
+	},
+	{
+		Name:           "medium_payload_max_accounts",
+		PayloadSize:    500,
+		AccountsCount:  15,
+		RequiredToPass: true,
+	},
+}
+
+// ChunkingTestScenario defines a single test scenario configuration
+type ChunkingTestScenario struct {
+	Name           string // Descriptive name for the scenario
+	PayloadSize    int    // Size of payload in bytes
+	AccountsCount  int    // Number of additional accounts to include
+	RequiredToPass bool   // If true, the entire test fails if this scenario fails
+}
+
+// ChunkingTestResult stores the result of a test scenario
+type ChunkingTestResult struct {
+	Scenario ChunkingTestScenario
+	Success  bool
+	Error    string
+}
 
 // gmpAccountPDA derives GMP account PDA with sender hash
 // This is a specialized PDA that uses SHA256 hashing and is not in the IDL.
@@ -2422,4 +2505,289 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		s.T().Log("✓ on_timeout_packet SECURE - validates CPI caller via instructions sysvar")
 	}))
+}
+
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPChunking() {
+	ctx := context.Background()
+
+	s.UseMockWasmClient = true
+	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
+
+	simd := s.CosmosChains[0]
+
+	// Initialize GMP counter app (shared across all scenarios)
+	gmpCounterProgramID := s.initializeGMPCounterApp(ctx)
+
+	cosmosUser := s.CosmosUsers[0]
+
+	var results []ChunkingTestResult
+
+	// Run all scenarios sequentially and collect results
+	s.Require().True(s.Run("Execute Scenarios", func() {
+		s.T().Logf("Running %d chunking test scenarios sequentially", len(ChunkingTestScenarios))
+
+		results = make([]ChunkingTestResult, 0, len(ChunkingTestScenarios))
+		for _, scenario := range ChunkingTestScenarios {
+			requiredStr := ""
+			if scenario.RequiredToPass {
+				requiredStr = " [REQUIRED]"
+			}
+			s.T().Logf("\n=== Starting: %s%s ===", scenario.Name, requiredStr)
+			s.T().Logf("  Payload: %d bytes, Accounts: %d",
+				scenario.PayloadSize, scenario.AccountsCount)
+
+			result := s.runChunkingScenario(ctx, simd, cosmosUser, gmpCounterProgramID, scenario)
+
+			if result.Success {
+				s.T().Logf("✓ Scenario %s: SUCCESS%s", scenario.Name, requiredStr)
+			} else {
+				s.T().Logf("✗ Scenario %s: FAILED%s - %s", scenario.Name, requiredStr, result.Error)
+			}
+
+			results = append(results, result)
+		}
+	}))
+
+	// Print summary
+	s.Require().True(s.Run("Verify Results", func() {
+		s.T().Logf("\n=== Chunking Test Summary ===")
+		s.T().Logf("%-40s %8s %5s %5s %s", "Scenario", "Payload", "Accs", "Req?", "Status")
+		s.T().Logf("%s", strings.Repeat("-", 80))
+
+		successCount := 0
+		requiredCount := 0
+		requiredSuccessCount := 0
+		var failedRequiredScenarios []string
+
+		for _, result := range results {
+			if result.Scenario.RequiredToPass {
+				requiredCount++
+				if result.Success {
+					requiredSuccessCount++
+				} else {
+					failedRequiredScenarios = append(failedRequiredScenarios, result.Scenario.Name)
+				}
+			}
+			if result.Success {
+				successCount++
+			}
+
+			required := " "
+			if result.Scenario.RequiredToPass {
+				required = "✓"
+			}
+
+			status := "✓ PASS"
+			if !result.Success {
+				status = "✗ FAIL"
+			}
+
+			s.T().Logf("%-40s %6dB %5d %5s %s",
+				result.Scenario.Name,
+				result.Scenario.PayloadSize,
+				result.Scenario.AccountsCount,
+				required,
+				status,
+			)
+		}
+
+		s.T().Logf("%s", strings.Repeat("-", 80))
+
+		if len(failedRequiredScenarios) > 0 {
+			s.T().Logf("\nErrors:")
+			for _, result := range results {
+				if !result.Success && result.Error != "" {
+					s.T().Logf("  [%s]: %s", result.Scenario.Name, result.Error)
+				}
+			}
+		}
+
+		s.T().Logf("\nSummary:")
+		s.T().Logf("  Total: %d/%d passed (%.1f%%)", successCount, len(results), float64(successCount)/float64(len(results))*100)
+		if requiredCount > 0 {
+			s.T().Logf("  Required: %d/%d passed (%.1f%%)", requiredSuccessCount, requiredCount, float64(requiredSuccessCount)/float64(requiredCount)*100)
+		}
+
+		if len(failedRequiredScenarios) > 0 {
+			s.Require().Fail("Required scenario(s) failed", "The following required scenarios failed: %v", failedRequiredScenarios)
+		}
+	}))
+}
+
+// runChunkingScenario runs a single chunking test scenario
+func (s *IbcEurekaSolanaGMPTestSuite) runChunkingScenario(
+	ctx context.Context,
+	simd *cosmos.CosmosChain,
+	cosmosUser ibc.Wallet,
+	gmpCounterProgramID solanago.PublicKey,
+	scenario ChunkingTestScenario,
+) ChunkingTestResult {
+	result := ChunkingTestResult{
+		Scenario: scenario,
+		Success:  false,
+	}
+
+	var cosmosGMPTxHash []byte
+
+	// Send GMP call
+	if !s.Run("Send GMP Call", func() {
+		sendErr := func() error {
+			// Create test payload
+			payload := make([]byte, scenario.PayloadSize)
+			for i := range payload {
+				payload[i] = byte(i % 256)
+			}
+
+			counterAppStatePDA, _ := solana.GmpCounterApp.CounterAppStatePDA(gmpCounterProgramID)
+
+			// Generate additional dummy accounts
+			additionalAccounts := make([]*solanatypes.SolanaAccountMeta, scenario.AccountsCount)
+			for i := 0; i < scenario.AccountsCount; i++ {
+				dummyAccount := solanago.NewWallet().PublicKey()
+				additionalAccounts[i] = &solanatypes.SolanaAccountMeta{
+					Pubkey:     dummyAccount.Bytes(),
+					IsSigner:   false,
+					IsWritable: false,
+				}
+			}
+
+			// Create Borsh-encoded instruction data
+			buf := new(bytes.Buffer)
+			enc := borsh.NewBorshEncoder(buf)
+
+			// Encode data as Vec<u8> (length prefix + bytes)
+			err := enc.Encode(payload)
+			if err != nil {
+				return fmt.Errorf("failed to encode payload: %w", err)
+			}
+
+			instructionData := append(gmp_counter_app.Instruction_ProcessTestPayload[:], buf.Bytes()...)
+
+			payerPosition := uint32(1)
+			solanaInstruction := &solanatypes.GMPSolanaPayload{
+				Data: instructionData,
+				Accounts: append([]*solanatypes.SolanaAccountMeta{
+					{Pubkey: counterAppStatePDA.Bytes(), IsSigner: false, IsWritable: false},
+					{Pubkey: solanago.SystemProgramID.Bytes(), IsSigner: false, IsWritable: false},
+				}, additionalAccounts...),
+				PayerPosition: &payerPosition,
+			}
+
+			marshaledPayload, err := proto.Marshal(solanaInstruction)
+			if err != nil {
+				return fmt.Errorf("failed to marshal protobuf: %w", err)
+			}
+
+			timeout := uint64(time.Now().Add(3 * time.Hour).Unix())
+
+			resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
+				SourceClient:     CosmosClientID,
+				Sender:           cosmosUser.FormattedAddress(),
+				Receiver:         gmpCounterProgramID.String(),
+				Salt:             []byte{},
+				Payload:          marshaledPayload,
+				TimeoutTimestamp: timeout,
+				Memo: fmt.Sprintf("chunking test %s - %d bytes, %d accounts",
+					scenario.Name, scenario.PayloadSize, scenario.AccountsCount),
+				Encoding: testvalues.Ics27ProtobufEncoding,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to broadcast message: %w", err)
+			}
+
+			cosmosGMPTxHash, err = hex.DecodeString(resp.TxHash)
+			if err != nil {
+				return fmt.Errorf("failed to decode tx hash: %w", err)
+			}
+
+			s.T().Logf("GMP packet sent: %s", resp.TxHash)
+			return nil
+		}()
+
+		if sendErr != nil {
+			result.Error = fmt.Sprintf("send failed: %v", sendErr)
+		}
+	}) {
+		return result
+	}
+
+	var solanaRelayTxSig solanago.Signature
+
+	// Relay and execute
+	if !s.Run("Relay to Solana", func() {
+		relayErr := func() error {
+			updateResp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    testvalues.SolanaChainID,
+				DstClientId: SolanaClientID,
+			})
+			if err != nil {
+				return fmt.Errorf("update client failed: %w", err)
+			}
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
+
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    testvalues.SolanaChainID,
+				SourceTxIds: [][]byte{cosmosGMPTxHash},
+				SrcClientId: CosmosClientID,
+				DstClientId: SolanaClientID,
+			})
+			if err != nil {
+				return fmt.Errorf("relay by tx failed: %w", err)
+			}
+
+			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+			if err != nil {
+				return fmt.Errorf("submit chunked relay packets failed: %w", err)
+			}
+
+			s.T().Logf("✓ Packet successfully processed on Solana: %s", solanaRelayTxSig)
+			return nil
+		}()
+
+		if relayErr != nil {
+			result.Error = fmt.Sprintf("relay failed: %v", relayErr)
+		}
+	}) {
+		return result
+	}
+
+	// Relay acknowledgement back to Cosmos
+	if !s.Run("Relay ACK to Cosmos", func() {
+		ackErr := func() error {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    testvalues.SolanaChainID,
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{[]byte(solanaRelayTxSig.String())},
+				SrcClientId: SolanaClientID,
+				DstClientId: CosmosClientID,
+			})
+			if err != nil {
+				return fmt.Errorf("relay ack failed: %w", err)
+			}
+			if resp.Tx == nil {
+				return fmt.Errorf("relay should return transaction body")
+			}
+
+			_, err = s.BroadcastSdkTxBody(ctx, simd, cosmosUser, CosmosDefaultGasLimit, resp.Tx)
+			if err != nil {
+				return fmt.Errorf("broadcast ack failed: %w", err)
+			}
+
+			s.T().Logf("✓ Acknowledgement relayed back to Cosmos")
+			return nil
+		}()
+
+		if ackErr != nil {
+			result.Error = fmt.Sprintf("ack relay failed: %v", ackErr)
+		}
+	}) {
+		return result
+	}
+
+	// Success!
+	result.Success = true
+	return result
 }

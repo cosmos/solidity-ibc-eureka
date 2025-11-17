@@ -18,6 +18,7 @@ use instructions::*;
 /// - `increment`: Increment a user's counter (called by GMP)
 /// - `decrement`: Decrement a user's counter (called by GMP)
 /// - `get_counter`: Get a user's current counter value
+/// - `process_test_payload`: Test instruction for GMP scenarios (large payloads, many accounts)
 ///
 #[program]
 pub mod gmp_counter_app {
@@ -42,5 +43,14 @@ pub mod gmp_counter_app {
     /// Get a user's counter value
     pub fn get_counter(ctx: Context<GetCounter>, user: Pubkey) -> Result<()> {
         instructions::get_counter(ctx, user)
+    }
+
+    /// Process test payload (for GMP testing: large payloads, many accounts)
+    /// Always returns "ok" as acknowledgement
+    pub fn process_test_payload<'info>(
+        ctx: Context<'_, '_, '_, 'info, ProcessTestPayload<'info>>,
+        data: Vec<u8>,
+    ) -> Result<()> {
+        instructions::process_test_payload(ctx, data)
     }
 }

@@ -328,9 +328,13 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	close(chunkResults)
 
 	chunksTotal := time.Since(chunksStart)
-	avgChunkTime := chunksTotal / time.Duration(chunkCount)
-	t.Logf("--- Phase 1 Complete: All %d chunks uploaded in %v (avg: %v/chunk) ---",
-		chunkCount, chunksTotal, avgChunkTime)
+	if chunkCount > 0 {
+		avgChunkTime := chunksTotal / time.Duration(chunkCount)
+		t.Logf("--- Phase 1 Complete: All %d chunks uploaded in %v (avg: %v/chunk) ---",
+			chunkCount, chunksTotal, avgChunkTime)
+	} else {
+		t.Logf("--- Phase 1 Complete: No chunks needed (update fits in single transaction) ---")
+	}
 
 	t.Logf("--- Phase 2: Assembling and updating client ---")
 	assemblyStart := time.Now()
