@@ -1,7 +1,4 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
-// ============================================================================
-// Conversion functions: ibc-rs types → Borsh types (for serialization)
-// ============================================================================
 
 //! Solana from events received from a Cosmos SDK chain.
 
