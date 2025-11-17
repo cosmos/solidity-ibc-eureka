@@ -16,8 +16,6 @@ pub const MAX_PORT_ID_LENGTH: usize = 128;
 pub struct RouterState {
     /// Schema version for upgrades
     pub version: AccountVersion,
-    /// Whether the router is paused (emergency stop)
-    pub paused: bool,
     /// Access manager program ID for role-based access control
     pub access_manager: Pubkey,
     /// Reserved space for future fields
@@ -222,7 +220,6 @@ mod compatibility_tests {
     fn test_router_state_serialization_compatibility() {
         let router_state = RouterState {
             version: AccountVersion::V1,
-            paused: false,
             access_manager: Pubkey::new_unique(),
             _reserved: [0; 256],
         };
@@ -237,7 +234,6 @@ mod compatibility_tests {
             AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
 
         // Verify all fields match
-        assert_eq!(router_state.paused, types_router_state.paused);
         assert_eq!(
             router_state.access_manager,
             types_router_state.access_manager

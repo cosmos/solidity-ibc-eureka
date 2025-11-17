@@ -217,8 +217,6 @@ impl IBCApp {
 pub struct RouterState {
     /// Schema version for upgrades
     pub version: AccountVersion,
-    /// Whether the router is paused (emergency stop)
-    pub paused: bool,
     /// Access manager program ID for role-based access control
     pub access_manager: Pubkey,
     /// Reserved space for future fields

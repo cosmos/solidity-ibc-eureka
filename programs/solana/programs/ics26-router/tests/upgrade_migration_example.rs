@@ -21,7 +21,6 @@ fn setup_router_state() -> (Pubkey, Vec<u8>) {
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        paused: false,
         access_manager: access_manager::ID,
         _reserved: [0; 256],
     };
@@ -68,8 +67,6 @@ pub enum AccountVersionExample {
 pub struct RouterStateExample {
     /// Schema version for upgrades
     pub version: AccountVersionExample,
-    /// Whether the router is paused (existing V1 field)
-    pub paused: bool,
     /// Access manager program ID (existing V1 field)
     pub access_manager: Pubkey,
 
@@ -119,7 +116,6 @@ fn test_router_state_migration_v1_to_v2() {
 
     // Verify it's V1
     assert_eq!(state.version, AccountVersionExample::V1);
-    assert!(!state.paused); // V1 field preserved
 
     // Here the actual migration logic would be done
     state.version = AccountVersionExample::V2;
@@ -128,7 +124,6 @@ fn test_router_state_migration_v1_to_v2() {
 
     // Verify migration
     assert_eq!(state.version, AccountVersionExample::V2);
-    assert!(!state.paused); // V1 field still preserved
     assert!(state.fee_collector.is_some());
     assert_eq!(state.global_rate_limit, 10);
     assert_eq!(state._reserved.len(), 215);
