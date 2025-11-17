@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::hash::hashv;
 
-/// Derives a deterministic suffix in range [0, 9999] from hash(calling_program || sender).
+/// Derives a deterministic suffix in range [0, 9999] from `hash(calling_program || sender)`.
 pub fn derive_sequence_suffix(calling_program: &Pubkey, sender: &Pubkey) -> u16 {
     let hash = hashv(&[calling_program.as_ref(), sender.as_ref()]);
     let bytes = hash.to_bytes();
@@ -16,7 +16,7 @@ pub fn calculate_namespaced_sequence(
     calling_program: &Pubkey,
     sender: &Pubkey,
 ) -> Result<u64> {
-    let suffix = derive_sequence_suffix(calling_program, sender) as u64;
+    let suffix = u64::from(derive_sequence_suffix(calling_program, sender));
 
     base_sequence
         .checked_mul(10000)
