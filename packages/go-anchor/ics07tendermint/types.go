@@ -8,6 +8,7 @@ import (
 	"fmt"
 	errors "github.com/gagliardetto/anchor-go/errors"
 	binary "github.com/gagliardetto/binary"
+	solanago "github.com/gagliardetto/solana-go"
 )
 
 type Ics07TendermintStateConsensusStateStore struct {
@@ -181,6 +182,9 @@ type Ics07TendermintTypesClientState struct {
 	MaxClockDrift         uint64                        `json:"maxClockDrift"`
 	FrozenHeight          Ics07TendermintTypesIbcHeight `json:"frozenHeight"`
 	LatestHeight          Ics07TendermintTypesIbcHeight `json:"latestHeight"`
+
+	// Access manager program ID for role-based access control
+	AccessManager solanago.PublicKey `json:"accessManager"`
 }
 
 func (obj Ics07TendermintTypesClientState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -223,6 +227,11 @@ func (obj Ics07TendermintTypesClientState) MarshalWithEncoder(encoder *binary.En
 	err = encoder.Encode(obj.LatestHeight)
 	if err != nil {
 		return errors.NewField("LatestHeight", err)
+	}
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
 	}
 	return nil
 }
@@ -277,6 +286,11 @@ func (obj *Ics07TendermintTypesClientState) UnmarshalWithDecoder(decoder *binary
 	err = decoder.Decode(&obj.LatestHeight)
 	if err != nil {
 		return errors.NewField("LatestHeight", err)
+	}
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
 	}
 	return nil
 }

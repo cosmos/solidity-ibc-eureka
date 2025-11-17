@@ -8,6 +8,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
+	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
@@ -32,6 +33,7 @@ func (s *Solana) GetNextSequenceNumber(ctx context.Context, clientSequencePDA so
 }
 
 func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPortID string, clientID string, userPubKey solana.PublicKey) []solana.PublicKey {
+	accessManagerPDA, _ := AccessManager.AccessManagerPDA(access_manager.ProgramID)
 	routerStatePDA, _ := Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 	ibcAppPDA, _ := Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(gmpPortID))
 	gmpAppStatePDA, _ := Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
@@ -42,10 +44,12 @@ func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPo
 	return []solana.PublicKey{
 		solana.SystemProgramID,
 		ComputeBudgetProgramID(),
+		access_manager.ProgramID,
 		solana.SysVarInstructionsPubkey,
 		ics26_router.ProgramID,
 		ics07_tendermint.ProgramID,
 		ics27_gmp.ProgramID,
+		accessManagerPDA,
 		routerStatePDA,
 		userPubKey,
 		ibcAppPDA,

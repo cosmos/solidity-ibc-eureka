@@ -67,8 +67,6 @@ pub struct ClientAccount {
     pub client_program_id: Pubkey,
     /// Counterparty chain information
     pub counterparty_info: CounterpartyInfo,
-    /// Authority that registered this client
-    pub authority: Pubkey,
     /// Whether the client is active
     pub active: bool,
     /// Reserved space for future fields

@@ -159,7 +159,6 @@ mod tests {
     fn test_send_call_app_paused() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
@@ -206,7 +205,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 app_state_pda,
-                authority,
                 app_state_bump,
                 true, // paused
             ),
@@ -233,7 +231,6 @@ mod tests {
     fn test_send_call_invalid_timeout() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
@@ -280,7 +277,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 app_state_pda,
-                authority,
                 app_state_bump,
                 false, // not paused
             ),
@@ -307,7 +303,6 @@ mod tests {
     fn test_send_call_invalid_app_state_pda() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
@@ -357,7 +352,7 @@ mod tests {
         };
 
         let accounts = vec![
-            create_gmp_app_state_account(wrong_app_state_pda, authority, app_state_bump, false),
+            create_gmp_app_state_account(wrong_app_state_pda, app_state_bump, false),
             create_authority_account(sender),
             create_authority_account(payer),
             create_router_program_account(router_program),
@@ -381,7 +376,6 @@ mod tests {
     fn test_send_call_wrong_router_program() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let wrong_router_program = Pubkey::new_unique(); // Different router!
@@ -426,7 +420,7 @@ mod tests {
         };
 
         let accounts = vec![
-            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
             create_authority_account(sender),
             create_authority_account(payer),
             create_router_program_account(wrong_router_program), // Wrong one passed
@@ -450,7 +444,6 @@ mod tests {
     fn test_send_call_payload_too_large() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
@@ -495,7 +488,7 @@ mod tests {
         };
 
         let accounts = vec![
-            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
             create_authority_account(sender),
             create_authority_account(payer),
             create_router_program_account(router_program),
@@ -519,7 +512,6 @@ mod tests {
     fn test_send_call_empty_payload() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
@@ -564,7 +556,7 @@ mod tests {
         };
 
         let accounts = vec![
-            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
             create_authority_account(sender),
             create_authority_account(payer),
             create_router_program_account(router_program),
@@ -588,7 +580,6 @@ mod tests {
     fn test_send_call_empty_client_id() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
@@ -633,7 +624,7 @@ mod tests {
         };
 
         let accounts = vec![
-            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
             create_authority_account(sender),
             create_authority_account(payer),
             create_router_program_account(router_program),

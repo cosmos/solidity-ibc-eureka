@@ -2,6 +2,7 @@ use crate::errors::GMPError;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{instruction::Instruction, program::invoke};
 use solana_ibc_types::MsgSendPacket;
+use solana_program::hash::hash;
 
 /// Send IBC packet via CPI to the ICS26 router
 /// This function creates and sends a GMP packet from Solana to another chain
@@ -22,7 +23,7 @@ pub fn send_packet_cpi<'a>(
     let mut instruction_data = Vec::with_capacity(256);
 
     // Anchor instruction discriminator: first 8 bytes of hash of "global:send_packet"
-    let discriminator = anchor_lang::solana_program::hash::hash(b"global:send_packet").to_bytes();
+    let discriminator = hash(b"global:send_packet").to_bytes();
     instruction_data.extend_from_slice(&discriminator[..8]);
 
     // Append serialized MsgSendPacket data

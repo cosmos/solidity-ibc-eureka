@@ -4,10 +4,8 @@ use anchor_lang::prelude::*;
 pub enum RouterError {
     #[msg("Unauthorized sender")]
     UnauthorizedSender,
-    #[msg("Port already bound to IBC app")]
-    PortAlreadyBound,
-    #[msg("Port not found")]
-    PortNotFound,
+    #[msg("Unauthorized role")]
+    UnauthorizedRole,
     #[msg("Invalid port identifier")]
     InvalidPortIdentifier,
     #[msg("Invalid timeout timestamp")]
@@ -40,8 +38,6 @@ pub enum RouterError {
     InvalidClientId,
     #[msg("Invalid light client program")]
     InvalidLightClientProgram,
-    #[msg("Unsupported client type")]
-    UnsupportedClientType,
     #[msg("Invalid counterparty info")]
     InvalidCounterpartyInfo,
     #[msg("Client already exists")]

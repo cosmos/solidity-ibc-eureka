@@ -49,6 +49,7 @@ pub struct ClientState {
     pub max_clock_drift: u64,
     pub frozen_height: IbcHeight,
     pub latest_height: IbcHeight,
+    pub access_manager: Pubkey,
 }
 
 impl ClientState {

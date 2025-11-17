@@ -77,6 +77,61 @@ func NewInitializeInstruction(
 	), nil
 }
 
+// Builds a "set_access_manager" instruction.
+func NewSetAccessManagerInstruction(
+	// Params:
+	chainIdParam string,
+	newAccessManagerParam solanago.PublicKey,
+
+	// Accounts:
+	clientStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_SetAccessManager[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `chainIdParam`:
+		err = enc__.Encode(chainIdParam)
+		if err != nil {
+			return nil, errors.NewField("chainIdParam", err)
+		}
+		// Serialize `newAccessManagerParam`:
+		err = enc__.Encode(newAccessManagerParam)
+		if err != nil {
+			return nil, errors.NewField("newAccessManagerParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "client_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "admin": Read-only, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
 // Builds a "verify_membership" instruction.
 func NewVerifyMembershipInstruction(
 	// Params:
@@ -223,10 +278,12 @@ func NewAssembleAndUpdateClientInstruction(
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
 	trustedConsensusStateAccount solanago.PublicKey,
 	newConsensusStateStoreAccount solanago.PublicKey,
 	submitterAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -254,17 +311,23 @@ func NewAssembleAndUpdateClientInstruction(
 	{
 		// Account 0 "client_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "trusted_consensus_state": Read-only, Non-signer, Required
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Global access control account (owned by access-manager program)
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "trusted_consensus_state": Read-only, Non-signer, Required
 		// Trusted consensus state at the height embedded in the header
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
-		// Account 2 "new_consensus_state_store": Read-only, Non-signer, Required
+		// Account 3 "new_consensus_state_store": Read-only, Non-signer, Required
 		// New consensus state store
 		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, false, false))
-		// Account 3 "submitter": Writable, Signer, Required
+		// Account 4 "submitter": Writable, Signer, Required
 		// The submitter who uploaded the chunks
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Account 5 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 6 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -390,9 +453,11 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
 	trustedConsensusState1account solanago.PublicKey,
 	trustedConsensusState2account solanago.PublicKey,
 	submitterAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -415,12 +480,18 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 	{
 		// Account 0 "client_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "trusted_consensus_state_1": Read-only, Non-signer, Required
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Global access control account (owned by access-manager program)
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "trusted_consensus_state_1": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState1account, false, false))
-		// Account 2 "trusted_consensus_state_2": Read-only, Non-signer, Required
+		// Account 3 "trusted_consensus_state_2": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState2account, false, false))
-		// Account 3 "submitter": Writable, Signer, Required
+		// Account 4 "submitter": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
+		// Account 5 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.

@@ -17,6 +17,7 @@ var ()
 // Instruction discriminators
 var (
 	Instruction_Initialize                    = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_SetAccessManager              = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
 	Instruction_VerifyMembership              = [8]byte{101, 53, 78, 0, 103, 151, 236, 209}
 	Instruction_VerifyNonMembership           = [8]byte{231, 161, 86, 239, 111, 236, 14, 74}
 	Instruction_UploadHeaderChunk             = [8]byte{154, 38, 82, 143, 56, 2, 24, 33}

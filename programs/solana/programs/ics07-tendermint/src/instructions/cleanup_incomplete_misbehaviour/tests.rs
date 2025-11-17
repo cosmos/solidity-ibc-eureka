@@ -74,6 +74,7 @@ fn setup_test_accounts_with_chunks(
             revision_number: 0,
             revision_height: 100,
         },
+        access_manager: access_manager::ID,
     };
 
     let mut client_data = vec![];
@@ -280,6 +281,7 @@ fn test_cleanup_with_missing_chunks() {
             revision_number: 0,
             revision_height: 100,
         },
+        access_manager: access_manager::ID,
     };
 
     let mut client_data = vec![];

@@ -14,14 +14,14 @@ pub struct GMPAppState {
     /// Schema version for upgrades
     pub version: AccountVersion,
 
-    /// Administrative authority
-    pub authority: Pubkey,
-
     /// Emergency pause flag
     pub paused: bool,
 
     /// PDA bump seed
     pub bump: u8,
+
+    /// Access manager program ID for role-based access control
+    pub access_manager: Pubkey,
 
     /// Reserved space for future fields
     pub _reserved: [u8; 256],

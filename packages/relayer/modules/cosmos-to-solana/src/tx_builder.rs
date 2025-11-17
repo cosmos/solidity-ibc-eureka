@@ -42,7 +42,7 @@ use solana_ibc_types::{
         router_instructions, Client, ClientSequence, Commitment, IBCApp, IBCAppState, PayloadChunk,
         ProofChunk, RouterState,
     },
-    MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
+    AccessManager, MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
 };
 use tendermint_rpc::{Client as _, HttpClient};
 
@@ -51,6 +51,7 @@ const MAX_CHUNK_SIZE: usize = 700;
 
 /// Parameters for assembling timeout packet accounts
 struct TimeoutAccountsParams {
+    access_manager: Pubkey,
     router_state: Pubkey,
     ibc_app: Pubkey,
     packet_commitment: Pubkey,
@@ -183,6 +184,8 @@ pub struct TxBuilder {
     pub solana_ics26_program_id: Pubkey,
     /// The Solana ICS07 program ID.
     pub solana_ics07_program_id: Pubkey,
+    /// The Solana access manager program ID.
+    pub solana_access_manager_program_id: Pubkey,
     /// The fee payer address for transactions.
     pub fee_payer: Pubkey,
     /// Address Lookup Table address for reducing transaction size (optional).
@@ -201,6 +204,7 @@ impl TxBuilder {
         target_solana_client: Arc<RpcClient>,
         solana_ics07_program_id: Pubkey,
         solana_ics26_program_id: Pubkey,
+        solana_access_manager_program_id: Pubkey,
         fee_payer: Pubkey,
         alt_address: Option<Pubkey>,
     ) -> Result<Self> {
@@ -209,6 +213,7 @@ impl TxBuilder {
             target_solana_client,
             solana_ics26_program_id,
             solana_ics07_program_id,
+            solana_access_manager_program_id,
             fee_payer,
             alt_address,
         })
@@ -319,9 +324,13 @@ impl TxBuilder {
         // Derive the app state account for the resolved IBC app
         let (ibc_app_state, _) = IBCAppState::pda(dest_port, ibc_app_program_id);
 
+        // Derive the access manager PDA
+        let (access_manager, _) = AccessManager::pda(self.solana_access_manager_program_id);
+
         // Build base accounts list for recv_packet (matches router program's RecvPacket account structure)
         let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(access_manager, false),
             AccountMeta::new_readonly(ibc_app, false),
             AccountMeta::new(client_sequence, false),
             AccountMeta::new(packet_receipt, false),
@@ -459,8 +468,13 @@ impl TxBuilder {
         let (consensus_state, _) =
             ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
 
+        // Derive access manager PDA
+        let (access_manager, _) =
+            solana_ibc_types::AccessManager::pda(self.solana_access_manager_program_id);
+
         let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(access_manager, false),
             AccountMeta::new_readonly(ibc_app_pda, false),
             AccountMeta::new(packet_commitment, false), // Will be closed after ack
             AccountMeta::new_readonly(ibc_app_program, false),
@@ -560,7 +574,12 @@ impl TxBuilder {
         let (consensus_state, _) =
             ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
 
+        // Derive access manager PDA
+        let (access_manager, _) =
+            solana_ibc_types::AccessManager::pda(self.solana_access_manager_program_id);
+
         Ok(Self::assemble_timeout_accounts(TimeoutAccountsParams {
+            access_manager,
             router_state,
             ibc_app,
             packet_commitment,
@@ -580,6 +599,7 @@ impl TxBuilder {
     fn assemble_timeout_accounts(params: TimeoutAccountsParams) -> Vec<AccountMeta> {
         let mut accounts = vec![
             AccountMeta::new_readonly(params.router_state, false),
+            AccountMeta::new_readonly(params.access_manager, false),
             AccountMeta::new_readonly(params.ibc_app, false),
             AccountMeta::new(params.packet_commitment, false),
             AccountMeta::new_readonly(params.ibc_app_program_id, false),
@@ -857,12 +877,17 @@ impl TxBuilder {
             self.solana_ics07_program_id,
         );
 
+        // Derive access manager PDA
+        let (access_manager, _) = AccessManager::pda(self.solana_access_manager_program_id);
+
         let mut accounts = vec![
             AccountMeta::new(client_state_pda, false),
+            AccountMeta::new_readonly(access_manager, false),
             AccountMeta::new_readonly(trusted_consensus_state, false),
             AccountMeta::new(new_consensus_state, false),
             AccountMeta::new(self.fee_payer, true), // submitter
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false), // instructions_sysvar
         ];
 
         for chunk_index in 0..total_chunks {
@@ -1474,7 +1499,8 @@ impl TxBuilder {
             consensus_state: tm_consensus_state,
         } = tm_create_client_params(&self.src_tm_client).await?;
 
-        let client_state = convert_client_state_to_sol(tm_client_state)?;
+        let client_state =
+            convert_client_state_to_sol(tm_client_state, self.solana_access_manager_program_id)?;
         let consensus_state = convert_consensus_state(&tm_consensus_state)?;
 
         let instruction = self.build_create_client_instruction(

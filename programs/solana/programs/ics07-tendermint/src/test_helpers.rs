@@ -88,6 +88,7 @@ pub mod fixtures {
                 revision_number: latest_height.revision_number,
                 revision_height: latest_height.revision_height,
             },
+            access_manager: access_manager::ID,
         }
     }
 
@@ -347,6 +348,7 @@ pub mod fixtures {
                 revision_number: latest_height.revision_number,
                 revision_height: latest_height.revision_height,
             },
+            access_manager: access_manager::ID,
         }
     }
 
@@ -408,8 +410,8 @@ pub mod fixtures {
 pub mod chunk_test_utils {
     use crate::state::{HeaderChunk, CHUNK_DATA_SIZE};
     use crate::types::{ClientState, ConsensusState, IbcHeight, UploadChunkParams};
-    use anchor_lang::solana_program::keccak;
     use solana_sdk::account::Account;
+    use solana_sdk::keccak;
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::system_program;
 
@@ -462,6 +464,7 @@ pub mod chunk_test_utils {
                 revision_number: 0,
                 revision_height: latest_height,
             },
+            access_manager: access_manager::ID,
         };
 
         let mut data = vec![];
@@ -582,5 +585,90 @@ pub mod chunk_test_utils {
         let header_commitment = keccak::hash(&full_header).0;
 
         (all_chunks, header_commitment)
+    }
+}
+
+/// Access control test utilities
+pub mod access_control {
+    use access_manager::RoleData;
+    use anchor_lang::prelude::Pubkey;
+    use anchor_lang::{AnchorSerialize, Discriminator};
+
+    /// Setup access manager account for tests
+    /// Returns (PDA, serialized account data)
+    pub fn setup_access_manager(admin: Pubkey, relayers: Vec<Pubkey>) -> (Pubkey, Vec<u8>) {
+        let (access_manager_pda, _) = Pubkey::find_program_address(
+            &[access_manager::state::AccessManager::SEED],
+            &access_manager::ID,
+        );
+
+        let mut roles = vec![RoleData {
+            role_id: solana_ibc_types::roles::ADMIN_ROLE,
+            members: vec![admin],
+        }];
+
+        if !relayers.is_empty() {
+            roles.push(RoleData {
+                role_id: solana_ibc_types::roles::RELAYER_ROLE,
+                members: relayers,
+            });
+        }
+
+        let access_manager = access_manager::state::AccessManager { roles };
+
+        let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
+        access_manager.serialize(&mut data).unwrap();
+
+        (access_manager_pda, data)
+    }
+
+    /// Create access manager account for mollusk tests
+    pub fn create_access_manager_account(
+        admin: Pubkey,
+        relayers: Vec<Pubkey>,
+    ) -> (Pubkey, solana_sdk::account::Account) {
+        let (pda, data) = setup_access_manager(admin, relayers);
+
+        let account = solana_sdk::account::Account {
+            lamports: 10_000_000,
+            data,
+            owner: access_manager::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        (pda, account)
+    }
+}
+
+/// Create instructions sysvar account for direct call (not CPI)
+pub fn create_instructions_sysvar_account() -> solana_sdk::account::Account {
+    use solana_sdk::pubkey::Pubkey;
+    use solana_sdk::sysvar::instructions::{
+        construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
+    };
+
+    // Create minimal mock instruction to simulate direct call
+    // Current instruction has this program as the program_id
+    let account_pubkey = Pubkey::new_unique();
+    let account = BorrowedAccountMeta {
+        pubkey: &account_pubkey,
+        is_signer: false,
+        is_writable: true,
+    };
+    let mock_instruction = BorrowedInstruction {
+        program_id: &crate::ID, // Direct call to our program
+        accounts: vec![account],
+        data: &[],
+    };
+
+    let ixs_data = construct_instructions_data(&[mock_instruction]);
+
+    solana_sdk::account::Account {
+        lamports: 1_000_000,
+        data: ixs_data,
+        owner: solana_sdk::sysvar::ID,
+        executable: false,
+        rent_epoch: 0,
     }
 }

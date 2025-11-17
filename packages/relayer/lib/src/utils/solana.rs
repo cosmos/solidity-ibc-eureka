@@ -114,6 +114,7 @@ pub fn convert_consensus_state(
 /// - Proof specs are not included in the conversion as Solana Tendemint client hardcodes them
 pub fn convert_client_state_to_sol(
     ibc_client: ibc_proto_eureka::ibc::lightclients::tendermint::v1::ClientState,
+    access_manager: solana_sdk::pubkey::Pubkey,
 ) -> anyhow::Result<solana_ibc_types::ClientState> {
     let trust_level = ibc_client
         .trust_level
@@ -158,6 +159,7 @@ pub fn convert_client_state_to_sol(
             revision_number: latest_height.revision_number,
             revision_height: latest_height.revision_height,
         },
+        access_manager,
     })
 }
 

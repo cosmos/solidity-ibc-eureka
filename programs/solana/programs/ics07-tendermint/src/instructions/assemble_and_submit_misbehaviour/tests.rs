@@ -92,6 +92,7 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
             revision_number: 0,
             revision_height: 200,
         },
+        access_manager: access_manager::ID,
     };
 
     let mut client_data = vec![];
@@ -118,6 +119,16 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
             rent_epoch: 0,
         },
     ));
+
+    // Add access manager account
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+    accounts.push((access_manager_pda, access_manager_account));
 
     if with_valid_consensus_states {
         let consensus_state_1 = ConsensusState {
@@ -217,6 +228,12 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
         },
     ));
 
+    // Add instructions sysvar for CPI validation
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
+
     let mut chunk_pdas = vec![];
     if with_chunks {
         const CHUNK_SIZE: usize = 700;
@@ -275,11 +292,16 @@ fn create_assemble_instruction(test_accounts: &TestAccounts, client_id: &str) ->
         client_id: client_id.to_string(),
     };
 
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
     let mut account_metas = vec![
         AccountMeta::new(test_accounts.client_state_pda, false),
+        AccountMeta::new_readonly(access_manager_pda, false),
         AccountMeta::new_readonly(test_accounts.trusted_consensus_state_1_pda, false),
         AccountMeta::new_readonly(test_accounts.trusted_consensus_state_2_pda, false),
         AccountMeta::new(test_accounts.submitter, true),
+        AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
     ];
 
     for chunk_pda in &test_accounts.chunk_pdas {
@@ -361,9 +383,9 @@ fn test_assemble_and_submit_misbehaviour_invalid_protobuf() {
     let instruction = create_assemble_instruction(&test_accounts, chain_id);
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let checks = vec![
-        Check::err(anchor_lang::prelude::ProgramError::Custom(0x1778)), // InvalidHeader
-    ];
+    let checks = vec![Check::err(
+        anchor_lang::error::Error::from(ErrorCode::InvalidHeader).into(),
+    )];
     mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
 }
 

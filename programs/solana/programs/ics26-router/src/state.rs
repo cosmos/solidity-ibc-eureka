@@ -11,14 +11,15 @@ pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
 
 /// Router state account
-/// TODO: Implement multi-router ACL
 #[account]
 #[derive(InitSpace)]
 pub struct RouterState {
     /// Schema version for upgrades
     pub version: AccountVersion,
-    /// Authority that can perform restricted operations
-    pub authority: Pubkey,
+    /// Whether the router is paused (emergency stop)
+    pub paused: bool,
+    /// Access manager program ID for role-based access control
+    pub access_manager: Pubkey,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -61,8 +62,6 @@ pub struct Client {
     pub client_program_id: Pubkey,
     /// Counterparty chain information
     pub counterparty_info: CounterpartyInfo,
-    /// Authority that registered this client
-    pub authority: Pubkey,
     /// Whether the client is active
     pub active: bool,
     /// Reserved space for future fields
@@ -79,7 +78,6 @@ impl Client {
             client_id: self.client_id.clone(),
             client_program_id: self.client_program_id,
             counterparty_info: self.counterparty_info.clone(),
-            authority: self.authority,
             active: self.active,
             _reserved: self._reserved,
         }

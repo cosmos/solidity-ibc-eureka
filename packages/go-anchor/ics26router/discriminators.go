@@ -30,4 +30,5 @@ var (
 	Instruction_UploadPayloadChunk = [8]byte{191, 138, 167, 248, 208, 192, 24, 82}
 	Instruction_UploadProofChunk   = [8]byte{60, 215, 88, 47, 168, 107, 123, 150}
 	Instruction_CleanupChunks      = [8]byte{161, 232, 178, 127, 188, 117, 9, 18}
+	Instruction_SetAccessManager   = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
 )

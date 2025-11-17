@@ -14,6 +14,17 @@ pub fn assemble_and_update_client(
     chain_id: String,
     target_height: u64,
 ) -> Result<UpdateResult> {
+    // Performs: CPI rejection + signer verification + role check
+    // Ethereum: SP1ICS07Tendermint.sol:111 - updateClient restricted to PROOF_SUBMITTER_ROLE
+    // Note: Solana uses RELAYER_ROLE instead (accepted difference)
+    access_manager::require_role(
+        &ctx.accounts.access_manager,
+        solana_ibc_types::roles::RELAYER_ROLE,
+        &ctx.accounts.submitter,
+        &ctx.accounts.instructions_sysvar,
+        &crate::ID,
+    )?;
+
     require!(
         !ctx.accounts.client_state.is_frozen(),
         ErrorCode::ClientFrozen

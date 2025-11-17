@@ -17,6 +17,15 @@ pub struct RecvPacket<'info> {
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// Global access control account (owned by access-manager program)
+    /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = router_state.access_manager,
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     // Note: Port validation is done in the handler function to avoid Anchor macro issues
     pub ibc_app: Account<'info, IBCApp>,
 
@@ -101,18 +110,21 @@ pub fn recv_packet<'info>(
     ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>,
     msg: MsgRecvPacket,
 ) -> Result<()> {
-    let router_state = &ctx.accounts.router_state;
+    // Performs: CPI rejection + signer verification + role check
+    // Ethereum: ICS26Router.sol:147 - recvPacket restricted to RELAYER_ROLE
+    access_manager::require_role(
+        &ctx.accounts.access_manager,
+        solana_ibc_types::roles::RELAYER_ROLE,
+        &ctx.accounts.relayer,
+        &ctx.accounts.instructions_sysvar,
+        &crate::ID,
+    )?;
+
     let packet_receipt = &mut ctx.accounts.packet_receipt;
     let packet_ack = &mut ctx.accounts.packet_ack;
     let client = &ctx.accounts.client;
     // Get clock directly via syscall
     let clock = Clock::get()?;
-
-    require_keys_eq!(
-        ctx.accounts.relayer.key(),
-        router_state.authority,
-        RouterError::UnauthorizedSender
-    );
 
     require_eq!(
         &msg.packet.source_client,
@@ -282,7 +294,7 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_ibc_types::{Payload, PayloadMetadata, ProofMetadata};
+    use solana_ibc_types::{roles, Payload, PayloadMetadata, ProofMetadata};
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
@@ -297,6 +309,7 @@ mod tests {
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
+        // Expect RouterError::UnauthorizedSender
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
         ))];
@@ -385,12 +398,11 @@ mod tests {
         let port_id = "test-port";
         let light_client_program = MOCK_LIGHT_CLIENT_ID;
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (router_state_pda, router_state_data) = setup_router_state();
 
         // Always setup client expecting "source-client" as counterparty
         let (client_pda, client_data) = setup_client(
             client_id,
-            authority,
             light_client_program,
             "source-client",
             params.active_client,
@@ -452,9 +464,12 @@ mod tests {
         let client_state = Pubkey::new_unique();
         let consensus_state = Pubkey::new_unique();
 
+        // The transaction signer is the relayer
+        let transaction_signer = relayer;
+
         // Create chunk accounts for 1 payload chunk and 1 proof chunk
         let payload_chunk_account = create_payload_chunk_account(
-            relayer,
+            transaction_signer,
             client_id,
             1,
             0, // payload_index
@@ -463,12 +478,22 @@ mod tests {
         );
 
         let proof_chunk_account = create_proof_chunk_account(
-            relayer, client_id, 1, 0, // chunk_index
+            transaction_signer,
+            client_id,
+            1,
+            0, // chunk_index
             test_proof,
         );
 
+        // Setup access control: authority always has RELAYER_ROLE
+        // For authorized tests: transaction_signer == authority (has the role)
+        // For unauthorized tests: transaction_signer != authority (does NOT have the role)
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::RELAYER_ROLE, &[authority])]);
+
         let mut instruction_accounts = vec![
             AccountMeta::new_readonly(router_state_pda, false),
+            AccountMeta::new_readonly(access_manager_pda, false),
             AccountMeta::new_readonly(ibc_app_pda, false),
             AccountMeta::new(client_sequence_pda, false),
             AccountMeta::new(packet_receipt_pda, false),
@@ -498,12 +523,13 @@ mod tests {
         let packet_receipt_account = create_uninitialized_commitment_account(packet_receipt_pda);
         let packet_ack_account = create_uninitialized_commitment_account(packet_ack_pda);
 
-        // Create signer account (relayer and payer are the same)
-        let signer_account = create_system_account(relayer);
+        // Create signer account (transaction_signer and payer are the same)
+        let signer_account = create_system_account(transaction_signer);
 
         // Accounts must be in the exact order of the instruction
         let mut accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             packet_receipt_account,
@@ -513,7 +539,7 @@ mod tests {
             create_bpf_program_account(crate::ID), // router_program
             signer_account,                        // relayer
             create_program_account(system_program::ID),
-            create_instructions_sysvar_account(),
+            create_instructions_sysvar_account_with_caller(crate::ID),
             create_account(client_pda, client_data, crate::ID),
             create_bpf_program_account(light_client_program),
             create_account(client_state, vec![0u8; 100], light_client_program),
@@ -779,13 +805,13 @@ mod tests {
 
         // Find and replace the IBC app account
         if let Some(pos) = ctx.accounts.iter().position(|(pubkey, _)| {
-            // The IBC app is at index 1 in the accounts list based on instruction_accounts setup
-            *pubkey == ctx.accounts[1].0
+            // The IBC app is at index 2 (after access_manager at 0 and router_state at 1)
+            *pubkey == ctx.accounts[2].0
         }) {
             ctx.accounts[pos] = (wrong_ibc_app, wrong_ibc_app_account);
 
             // Also update the instruction to use the wrong account
-            ctx.instruction.accounts[1].pubkey = wrong_ibc_app;
+            ctx.instruction.accounts[2].pubkey = wrong_ibc_app;
         }
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
@@ -819,8 +845,8 @@ mod tests {
         let mut cursor = std::io::Cursor::new(&mut data[8..]);
         existing_ack.serialize(&mut cursor).unwrap();
 
-        // Find the packet_ack account (it's at index 4 in the accounts list)
-        let packet_ack_pubkey = ctx.instruction.accounts[4].pubkey;
+        // Find the packet_ack account (it's at index 5 after access_manager, router_state, ibc_app, client_sequence, packet_receipt)
+        let packet_ack_pubkey = ctx.instruction.accounts[5].pubkey;
         let ack_index = ctx
             .accounts
             .iter()
@@ -957,6 +983,48 @@ mod tests {
             ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
         ))];
 
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_recv_packet_fake_sysvar_wormhole_attack() {
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Replace real sysvar with fake one (Wormhole-style attack)
+        let (instruction, fake_sysvar_account) =
+            setup_fake_sysvar_attack(ctx.instruction, crate::ID);
+        ctx.instruction = instruction;
+        ctx.accounts.push(fake_sysvar_account);
+
+        let mollusk = setup_mollusk_with_mock_programs();
+        mollusk.process_and_validate_instruction(
+            &ctx.instruction,
+            &ctx.accounts,
+            &[expect_sysvar_attack_error()],
+        );
+    }
+
+    #[test]
+    fn test_recv_packet_cpi_rejection() {
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Simulate CPI call from unauthorized program
+        let malicious_program = Pubkey::new_unique();
+        let (instruction, cpi_sysvar_account) =
+            setup_cpi_call_test(ctx.instruction, malicious_program);
+        ctx.instruction = instruction;
+
+        // Remove the existing direct-call sysvar and replace with CPI sysvar
+        ctx.accounts
+            .retain(|(pubkey, _)| *pubkey != solana_sdk::sysvar::instructions::ID);
+        ctx.accounts.push(cpi_sysvar_account);
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        // When CPI is detected by access_manager::require_role, it returns AccessManagerError::CpiNotAllowed (6005)
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32,
+        ))];
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }

@@ -66,6 +66,10 @@ pub enum ErrorCode {
     #[msg("Chunk data too large: exceeds maximum chunk size")]
     ChunkDataTooLarge,
 
+    // Access control errors
+    #[msg("Unauthorized: caller does not have required role")]
+    UnauthorizedRole,
+
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]
     SerializationError,

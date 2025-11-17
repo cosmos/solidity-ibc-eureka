@@ -5,9 +5,20 @@ use anchor_lang::prelude::*;
 
 pub fn initialize(
     ctx: Context<Initialize>,
+    chain_id: String,
+    latest_height: u64,
     client_state: ClientState,
     consensus_state: ConsensusState,
 ) -> Result<()> {
+    // NOTE: chain_id is used in the #[instruction] attribute for account validation
+    // but we also validate it matches the client_state for safety
+    require!(client_state.chain_id == chain_id, ErrorCode::InvalidChainId);
+
+    require!(
+        client_state.latest_height.revision_height == latest_height,
+        ErrorCode::InvalidHeight
+    );
+
     require!(!client_state.chain_id.is_empty(), ErrorCode::InvalidChainId);
 
     require!(
@@ -36,6 +47,7 @@ pub fn initialize(
 
     let client_state_account = &mut ctx.accounts.client_state;
     let latest_height = client_state.latest_height;
+
     client_state_account.set_inner(client_state);
 
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
