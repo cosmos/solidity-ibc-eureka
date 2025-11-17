@@ -164,6 +164,9 @@ pub struct TmUpdateClientParams {
 ///
 /// # Errors
 /// - Failed light block retrieval from Tendermint node
+///
+/// # Panics
+/// - If validator voting power is negative (violates Tendermint protocol invariant)
 #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
 pub async fn tm_update_client_params(
     trusted_height: u64,
@@ -199,7 +202,7 @@ pub async fn tm_update_client_params(
             let total_voting_power: u64 = validator_set
                 .validators
                 .iter()
-                .map(|v| v.voting_power as u64)
+                .map(|v| u64::try_from(v.voting_power).expect("voting power must be non-negative"))
                 .sum();
             let required_voting_power = total_voting_power / 3;
 
@@ -215,7 +218,8 @@ pub async fn tm_update_client_params(
             {
                 if signature.block_id_flag != 1 {
                     // Not absent
-                    cumulative_power += validator.voting_power as u64;
+                    cumulative_power += u64::try_from(validator.voting_power)
+                        .expect("voting power must be non-negative");
                     validators_needed += 1;
                     tracing::info!(
                         "RELAYER: Validator #{}: addr={:?}, power={}, cumulative={}/{} ({}%)",
@@ -296,16 +300,17 @@ pub async fn tm_update_client_params(
             let trusted_next_total_power: u64 = trusted_next_vs
                 .validators
                 .iter()
-                .map(|v| v.voting_power as u64)
+                .map(|v| u64::try_from(v.voting_power).expect("voting power must be non-negative"))
                 .sum();
-            let trusted_next_required = (trusted_next_total_power * 1) / 3;
+            let trusted_next_required = trusted_next_total_power / 3;
 
             let mut trusted_next_cumulative = 0u64;
             let mut trusted_next_needed = 0usize;
             for (validator, signature) in target_vs.validators.iter().zip(commit.signatures.iter())
             {
                 if signature.block_id_flag != 1 && trusted_next_addrs.contains(&validator.address) {
-                    trusted_next_cumulative += validator.voting_power as u64;
+                    trusted_next_cumulative += u64::try_from(validator.voting_power)
+                        .expect("voting power must be non-negative");
                     trusted_next_needed += 1;
                     if trusted_next_cumulative >= trusted_next_required {
                         tracing::info!("RELAYER: Would need {} validators from trusted_next to reach 1/3 threshold", trusted_next_needed);
