@@ -1,16 +1,15 @@
-use crate::types::RoleData;
 use anchor_lang::prelude::*;
+use derive_more::{Deref, DerefMut};
+use solana_ibc_types::access_manager::RoleData;
 use solana_ibc_types::roles;
 
+/// Access manager account - wraps the shared type from solana-ibc-types
 #[account]
-#[derive(InitSpace, Debug)]
-pub struct AccessManager {
-    #[max_len(16)]
-    pub roles: Vec<RoleData>,
-}
+#[derive(InitSpace, Debug, Deref, DerefMut)]
+pub struct AccessManager(pub solana_ibc_types::AccessManager);
 
 impl AccessManager {
-    pub const SEED: &'static [u8] = b"access_manager";
+    pub const SEED: &'static [u8] = solana_ibc_types::AccessManager::SEED;
     pub const UPGRADE_AUTHORITY_SEED: &'static [u8] = b"upgrade_authority";
 
     /// Get upgrade authority PDA for a target program
@@ -76,11 +75,11 @@ mod tests {
     use super::*;
 
     fn create_access_manager() -> AccessManager {
-        AccessManager { roles: vec![] }
+        AccessManager(solana_ibc_types::AccessManager { roles: vec![] })
     }
 
-    fn create_access_manager_with_roles(roles: Vec<RoleData>) -> AccessManager {
-        AccessManager { roles }
+    fn create_access_manager_with_roles(roles: Vec<solana_ibc_types::RoleData>) -> AccessManager {
+        AccessManager(solana_ibc_types::AccessManager { roles })
     }
 
     #[test]
@@ -127,10 +126,11 @@ mod tests {
     #[test]
     fn test_revoke_role() {
         let relayer = Pubkey::new_unique();
-        let mut access_manager = create_access_manager_with_roles(vec![RoleData {
-            role_id: roles::RELAYER_ROLE,
-            members: vec![relayer],
-        }]);
+        let mut access_manager =
+            create_access_manager_with_roles(vec![solana_ibc_types::RoleData {
+                role_id: roles::RELAYER_ROLE,
+                members: vec![relayer],
+            }]);
 
         assert!(access_manager.has_role(roles::RELAYER_ROLE, &relayer));
 
@@ -144,10 +144,11 @@ mod tests {
     #[test]
     fn test_cannot_remove_last_admin() {
         let admin = Pubkey::new_unique();
-        let mut access_manager = create_access_manager_with_roles(vec![RoleData {
-            role_id: roles::ADMIN_ROLE,
-            members: vec![admin],
-        }]);
+        let mut access_manager =
+            create_access_manager_with_roles(vec![solana_ibc_types::RoleData {
+                role_id: roles::ADMIN_ROLE,
+                members: vec![admin],
+            }]);
 
         assert!(access_manager.has_role(roles::ADMIN_ROLE, &admin));
 
@@ -163,10 +164,11 @@ mod tests {
     fn test_can_remove_non_last_admin() {
         let admin1 = Pubkey::new_unique();
         let admin2 = Pubkey::new_unique();
-        let mut access_manager = create_access_manager_with_roles(vec![RoleData {
-            role_id: roles::ADMIN_ROLE,
-            members: vec![admin1, admin2],
-        }]);
+        let mut access_manager =
+            create_access_manager_with_roles(vec![solana_ibc_types::RoleData {
+                role_id: roles::ADMIN_ROLE,
+                members: vec![admin1, admin2],
+            }]);
 
         // Should succeed to revoke one admin when multiple exist
         access_manager

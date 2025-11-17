@@ -1,7 +1,7 @@
 use crate::error::ErrorCode;
 use crate::state::{MisbehaviourChunk, CHUNK_DATA_SIZE};
 use crate::test_helpers::PROGRAM_BINARY_PATH;
-use crate::types::{ClientState, IbcHeight, UploadMisbehaviourChunkParams};
+use crate::types::{ClientState, UploadMisbehaviourChunkParams};
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -66,23 +66,23 @@ fn setup_test_accounts(
     ];
 
     if with_existing_client {
-        let client_state = ClientState {
+        let client_state = ClientState(solana_ibc_types::ClientState {
             chain_id: client_id.to_string(),
             trust_level_numerator: 2,
             trust_level_denominator: 3,
             trusting_period: 86400,
             unbonding_period: 172_800,
             max_clock_drift: 600,
-            frozen_height: IbcHeight {
+            frozen_height: solana_ibc_types::IbcHeight {
                 revision_number: 0,
                 revision_height: 0,
             },
-            latest_height: IbcHeight {
+            latest_height: solana_ibc_types::IbcHeight {
                 revision_number: 0,
                 revision_height: 100,
             },
             access_manager: access_manager::ID,
-        };
+        });
 
         let mut client_data = vec![];
         client_state
@@ -181,23 +181,23 @@ fn test_upload_chunk_with_frozen_client_fails() {
         .iter_mut()
         .find(|(key, _)| *key == client_state_pda)
     {
-        let frozen_client_state = ClientState {
+        let frozen_client_state = ClientState(solana_ibc_types::ClientState {
             chain_id: client_id.to_string(),
             trust_level_numerator: 2,
             trust_level_denominator: 3,
             trusting_period: 86400,
             unbonding_period: 172_800,
             max_clock_drift: 600,
-            frozen_height: IbcHeight {
+            frozen_height: solana_ibc_types::IbcHeight {
                 revision_number: 0,
                 revision_height: 100,
             },
-            latest_height: IbcHeight {
+            latest_height: solana_ibc_types::IbcHeight {
                 revision_number: 0,
                 revision_height: 150,
             },
             access_manager: access_manager::ID,
-        };
+        });
 
         let mut data = vec![];
         frozen_client_state.try_serialize(&mut data).unwrap();

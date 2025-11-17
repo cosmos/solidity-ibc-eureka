@@ -32,6 +32,7 @@ solana-ibc-types.workspace = true
 solana-ibc-macros.workspace = true
 ics25-handler.workspace = true
 access-manager = { workspace = true, features = ["cpi"] }
+derive_more = { workspace = true, features = ["deref", "deref_mut"] }
 sha2 = "0.10"
 hex = "0.4"
 

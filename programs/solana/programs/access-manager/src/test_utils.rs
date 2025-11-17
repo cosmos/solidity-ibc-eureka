@@ -1,7 +1,7 @@
 use crate::state::AccessManager;
-use crate::types::RoleData;
 use anchor_lang::prelude::*;
 use mollusk_svm::{result::InstructionResult, Mollusk};
+use solana_ibc_types::access_manager::RoleData;
 use solana_ibc_types::roles;
 use solana_sdk::{
     account::Account,
@@ -19,12 +19,12 @@ pub fn serialize_access_manager(access_manager: &AccessManager) -> Vec<u8> {
 pub fn create_initialized_access_manager(admin: Pubkey) -> (Pubkey, Account) {
     let (access_manager_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
 
-    let access_manager = AccessManager {
+    let access_manager = AccessManager(solana_ibc_types::AccessManager {
         roles: vec![RoleData {
             role_id: roles::ADMIN_ROLE,
             members: vec![admin],
         }],
-    };
+    });
 
     // Use INIT_SPACE to ensure account has enough space for max roles
     let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
@@ -69,7 +69,7 @@ pub fn create_access_manager_with_role(
         }
     }
 
-    let access_manager = AccessManager { roles: roles_vec };
+    let access_manager = AccessManager(solana_ibc_types::AccessManager { roles: roles_vec });
 
     // Use INIT_SPACE to ensure account has enough space for max roles
     let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];

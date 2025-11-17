@@ -53,12 +53,12 @@ pub fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> V
 
 pub fn setup_router_state() -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
-    let router_state = RouterState {
+    let router_state = RouterState(solana_ibc_types::RouterState {
         version: AccountVersion::V1,
         paused: false,
         access_manager: access_manager::ID,
         _reserved: [0; 256],
-    };
+    });
     let router_state_data = create_account_data(&router_state);
     (router_state_pda, router_state_data)
 }
@@ -103,13 +103,13 @@ pub fn setup_client_sequence(client_id: &str, next_sequence: u64) -> (Pubkey, Ve
 pub fn setup_ibc_app(port_id: &str, app_program_id: Pubkey) -> (Pubkey, Vec<u8>) {
     let (ibc_app_pda, _) =
         Pubkey::find_program_address(&[IBCApp::SEED, port_id.as_bytes()], &crate::ID);
-    let ibc_app = IBCApp {
+    let ibc_app = IBCApp(solana_ibc_types::IBCApp {
         version: AccountVersion::V1,
         port_id: port_id.to_string(),
         app_program_id,
         authority: Pubkey::new_unique(),
         _reserved: [0; 256],
-    };
+    });
     let ibc_app_data = create_account_data(&ibc_app);
     (ibc_app_pda, ibc_app_data)
 }
@@ -138,7 +138,8 @@ pub fn setup_access_manager_with_roles(roles: &[(u64, &[Pubkey])]) -> (Pubkey, V
         });
     }
 
-    let access_manager = access_manager::state::AccessManager { roles: role_data };
+    let access_manager =
+        access_manager::state::AccessManager(solana_ibc_types::AccessManager { roles: role_data });
 
     let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     access_manager.serialize(&mut data).unwrap();

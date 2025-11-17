@@ -16,14 +16,25 @@ pub mod roles {
     pub const UPGRADER_ROLE: u64 = 8;
 }
 
-/// Backwards-compatible helper struct for getting access manager PDA
-/// All actual types have been moved to the access-manager program
-pub struct AccessManager;
+/// Role data containing role ID and members
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, Debug)]
+pub struct RoleData {
+    pub role_id: u64,
+    #[max_len(16)]
+    pub members: Vec<Pubkey>,
+}
+
+/// Access manager state - matches the on-chain account structure in access-manager program
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, InitSpace)]
+pub struct AccessManager {
+    #[max_len(16)]
+    pub roles: Vec<RoleData>,
+}
 
 impl AccessManager {
     pub const SEED: &'static [u8] = b"access_manager";
 
-    /// Get access manager PDA (backwards compatible helper)
+    /// Get access manager PDA
     pub fn pda(program_id: Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[Self::SEED], &program_id)
     }

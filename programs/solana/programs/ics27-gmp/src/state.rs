@@ -1,31 +1,14 @@
 use crate::constants::*;
 use anchor_lang::prelude::*;
+use derive_more::{Deref, DerefMut};
 
-/// Account schema version
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug)]
-pub enum AccountVersion {
-    V1,
-}
+// Re-export AccountVersion from solana_ibc_types
+pub use solana_ibc_types::AccountVersion;
 
-/// Main GMP application state
+/// Main GMP application state - wraps the shared type from solana-ibc-types
 #[account]
-#[derive(InitSpace)]
-pub struct GMPAppState {
-    /// Schema version for upgrades
-    pub version: AccountVersion,
-
-    /// Emergency pause flag
-    pub paused: bool,
-
-    /// PDA bump seed
-    pub bump: u8,
-
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
-
-    /// Reserved space for future fields
-    pub _reserved: [u8; 256],
-}
+#[derive(InitSpace, Deref, DerefMut)]
+pub struct GMPAppState(pub solana_ibc_types::GMPAppState);
 
 impl GMPAppState {
     pub const SEED: &'static [u8] = solana_ibc_types::GMPAppState::SEED;

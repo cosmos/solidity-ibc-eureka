@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use derive_more::{Deref, DerefMut};
 
 // Re-export types from solana_ibc_types for use in instructions
 pub use solana_ibc_types::{
@@ -10,43 +11,22 @@ pub use solana_ibc_types::{
 pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
 
-/// Router state account
+/// Router state account - wraps the shared type from solana-ibc-types
 #[account]
-#[derive(InitSpace)]
-pub struct RouterState {
-    /// Schema version for upgrades
-    pub version: AccountVersion,
-    /// Whether the router is paused (emergency stop)
-    pub paused: bool,
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
-    /// Reserved space for future fields
-    pub _reserved: [u8; 256],
-}
+#[derive(InitSpace, Deref, DerefMut)]
+pub struct RouterState(pub solana_ibc_types::RouterState);
 
 impl RouterState {
     pub const SEED: &'static [u8] = solana_ibc_types::RouterState::SEED;
 }
 
-/// `IBCApp` mapping port IDs to IBC app program IDs
+/// `IBCApp` mapping port IDs to IBC app program IDs - wraps the shared type from solana-ibc-types
 #[account]
-#[derive(InitSpace)]
-pub struct IBCApp {
-    /// Schema version for upgrades
-    pub version: AccountVersion,
-    /// The port identifier
-    #[max_len(MAX_PORT_ID_LENGTH)]
-    pub port_id: String,
-    /// The program ID of the IBC application
-    pub app_program_id: Pubkey,
-    /// Authority that registered this port
-    pub authority: Pubkey,
-    /// Reserved space for future fields
-    pub _reserved: [u8; 256],
-}
+#[derive(InitSpace, Deref, DerefMut)]
+pub struct IBCApp(pub solana_ibc_types::IBCApp);
 
 impl IBCApp {
-    pub const SEED: &'static [u8] = solana_ibc_types::router::IBCApp::SEED;
+    pub const SEED: &'static [u8] = solana_ibc_types::IBCApp::SEED;
 }
 
 /// Client mapping client IDs to light client program IDs
@@ -179,33 +159,10 @@ impl ProofChunk {
 mod compatibility_tests {
     use super::*;
 
-    /// Ensures `IBCApp` in this program remains compatible with `solana_ibc_types::IBCApp`
-    /// This is critical because the relayer deserializes on-chain `IBCApp` accounts
-    /// using `solana_ibc_types::IBCApp`
+    /// Ensures `IBCApp` wrapper maintains SEED compatibility
     #[test]
-    fn test_ibc_app_serialization_compatibility() {
-        let app = IBCApp {
-            version: AccountVersion::V1,
-            port_id: "transfer".to_string(),
-            app_program_id: Pubkey::new_unique(),
-            authority: Pubkey::new_unique(),
-            _reserved: [0; 256],
-        };
-
-        // Serialize the program's IBCApp
-        // Note: try_to_vec() doesn't include discriminator - that's only added by Anchor
-        // when writing to on-chain accounts
-        let serialized = app.try_to_vec().unwrap();
-
-        // Deserialize as solana_ibc_types::IBCApp to verify compatibility
-        let types_app: solana_ibc_types::IBCApp =
-            AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
-
-        // Verify all fields match
-        assert_eq!(app.port_id, types_app.port_id);
-        assert_eq!(app.app_program_id, types_app.app_program_id);
-        assert_eq!(app.authority, types_app.authority);
-        assert_eq!(app._reserved, types_app._reserved);
+    fn test_ibc_app_seed_compatibility() {
+        assert_eq!(IBCApp::SEED, solana_ibc_types::IBCApp::SEED);
     }
 
     /// Ensures `Client` in this program remains compatible with marker type pattern
@@ -215,36 +172,9 @@ mod compatibility_tests {
         assert_eq!(Client::SEED, solana_ibc_types::Client::SEED);
     }
 
-    /// Ensures `RouterState` in this program remains compatible with `solana_ibc_types::RouterState`
-    /// This is critical because the relayer deserializes on-chain `RouterState` accounts
-    /// using `solana_ibc_types::RouterState`
+    /// Ensures `RouterState` wrapper maintains SEED compatibility
     #[test]
-    fn test_router_state_serialization_compatibility() {
-        let router_state = RouterState {
-            version: AccountVersion::V1,
-            paused: false,
-            access_manager: Pubkey::new_unique(),
-            _reserved: [0; 256],
-        };
-
-        // Serialize the program's RouterState
-        // Note: try_to_vec() doesn't include discriminator - that's only added by Anchor
-        // when writing to on-chain accounts
-        let serialized = router_state.try_to_vec().unwrap();
-
-        // Deserialize as solana_ibc_types::RouterState to verify compatibility
-        let types_router_state: solana_ibc_types::RouterState =
-            AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
-
-        // Verify all fields match
-        assert_eq!(router_state.paused, types_router_state.paused);
-        assert_eq!(
-            router_state.access_manager,
-            types_router_state.access_manager
-        );
-        assert_eq!(router_state._reserved, types_router_state._reserved);
-
-        // Verify SEED constant matches
+    fn test_router_state_seed_compatibility() {
         assert_eq!(RouterState::SEED, solana_ibc_types::RouterState::SEED);
     }
 

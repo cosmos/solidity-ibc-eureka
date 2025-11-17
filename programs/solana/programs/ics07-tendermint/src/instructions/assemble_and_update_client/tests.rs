@@ -939,7 +939,7 @@ fn test_assemble_with_frozen_client() {
 
     // Create frozen client state from real fixture
     let mut frozen_client_state = client_state.clone();
-    frozen_client_state.frozen_height = crate::types::IbcHeight {
+    frozen_client_state.frozen_height = solana_ibc_types::IbcHeight {
         revision_number: 0,
         revision_height: 50, // Frozen at height 50
     };

@@ -395,49 +395,16 @@ func UnmarshalIcs26RouterStateCommitment(buf []byte) (*Ics26RouterStateCommitmen
 	return obj, nil
 }
 
-// `IBCApp` mapping port IDs to IBC app program IDs
+// `IBCApp` mapping port IDs to IBC app program IDs - wraps the shared type from solana-ibc-types
 type Ics26RouterStateIbcApp struct {
-	// Schema version for upgrades
-	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
-
-	// The port identifier
-	PortId string `json:"portId"`
-
-	// The program ID of the IBC application
-	AppProgramId solanago.PublicKey `json:"appProgramId"`
-
-	// Authority that registered this port
-	Authority solanago.PublicKey `json:"authority"`
-
-	// Reserved space for future fields
-	Reserved [256]uint8 `json:"reserved"`
+	V0 SolanaIbcTypesRouterIbcApp `json:"v0"`
 }
 
 func (obj Ics26RouterStateIbcApp) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Version`:
-	err = encoder.Encode(obj.Version)
+	// Serialize `V0`:
+	err = encoder.Encode(obj.V0)
 	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Serialize `PortId`:
-	err = encoder.Encode(obj.PortId)
-	if err != nil {
-		return errors.NewField("PortId", err)
-	}
-	// Serialize `AppProgramId`:
-	err = encoder.Encode(obj.AppProgramId)
-	if err != nil {
-		return errors.NewField("AppProgramId", err)
-	}
-	// Serialize `Authority`:
-	err = encoder.Encode(obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	// Serialize `Reserved`:
-	err = encoder.Encode(obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
+		return errors.NewField("V0", err)
 	}
 	return nil
 }
@@ -453,30 +420,10 @@ func (obj Ics26RouterStateIbcApp) Marshal() ([]byte, error) {
 }
 
 func (obj *Ics26RouterStateIbcApp) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Version`:
-	err = decoder.Decode(&obj.Version)
+	// Deserialize `V0`:
+	err = decoder.Decode(&obj.V0)
 	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Deserialize `PortId`:
-	err = decoder.Decode(&obj.PortId)
-	if err != nil {
-		return errors.NewField("PortId", err)
-	}
-	// Deserialize `AppProgramId`:
-	err = decoder.Decode(&obj.AppProgramId)
-	if err != nil {
-		return errors.NewField("AppProgramId", err)
-	}
-	// Deserialize `Authority`:
-	err = decoder.Decode(&obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
-	// Deserialize `Reserved`:
-	err = decoder.Decode(&obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
+		return errors.NewField("V0", err)
 	}
 	return nil
 }
@@ -691,41 +638,16 @@ func UnmarshalIcs26RouterStateProofChunk(buf []byte) (*Ics26RouterStateProofChun
 	return obj, nil
 }
 
-// Router state account
+// Router state account - wraps the shared type from solana-ibc-types
 type Ics26RouterStateRouterState struct {
-	// Schema version for upgrades
-	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
-
-	// Whether the router is paused (emergency stop)
-	Paused bool `json:"paused"`
-
-	// Access manager program ID for role-based access control
-	AccessManager solanago.PublicKey `json:"accessManager"`
-
-	// Reserved space for future fields
-	Reserved [256]uint8 `json:"reserved"`
+	V0 SolanaIbcTypesRouterRouterState `json:"v0"`
 }
 
 func (obj Ics26RouterStateRouterState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Version`:
-	err = encoder.Encode(obj.Version)
+	// Serialize `V0`:
+	err = encoder.Encode(obj.V0)
 	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Serialize `Paused`:
-	err = encoder.Encode(obj.Paused)
-	if err != nil {
-		return errors.NewField("Paused", err)
-	}
-	// Serialize `AccessManager`:
-	err = encoder.Encode(obj.AccessManager)
-	if err != nil {
-		return errors.NewField("AccessManager", err)
-	}
-	// Serialize `Reserved`:
-	err = encoder.Encode(obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
+		return errors.NewField("V0", err)
 	}
 	return nil
 }
@@ -741,25 +663,10 @@ func (obj Ics26RouterStateRouterState) Marshal() ([]byte, error) {
 }
 
 func (obj *Ics26RouterStateRouterState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Version`:
-	err = decoder.Decode(&obj.Version)
+	// Deserialize `V0`:
+	err = decoder.Decode(&obj.V0)
 	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Deserialize `Paused`:
-	err = decoder.Decode(&obj.Paused)
-	if err != nil {
-		return errors.NewField("Paused", err)
-	}
-	// Deserialize `AccessManager`:
-	err = decoder.Decode(&obj.AccessManager)
-	if err != nil {
-		return errors.NewField("AccessManager", err)
-	}
-	// Deserialize `Reserved`:
-	err = decoder.Decode(&obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
+		return errors.NewField("V0", err)
 	}
 	return nil
 }
@@ -948,6 +855,110 @@ func (obj *SolanaIbcTypesRouterCounterpartyInfo) Unmarshal(buf []byte) error {
 
 func UnmarshalSolanaIbcTypesRouterCounterpartyInfo(buf []byte) (*SolanaIbcTypesRouterCounterpartyInfo, error) {
 	obj := new(SolanaIbcTypesRouterCounterpartyInfo)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// IBCApp mapping port IDs to IBC app program IDs
+// This matches the on-chain account structure in the ICS26 router
+type SolanaIbcTypesRouterIbcApp struct {
+	// Schema version for upgrades
+	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
+
+	// The port identifier
+	PortId string `json:"portId"`
+
+	// The program ID of the IBC application
+	AppProgramId solanago.PublicKey `json:"appProgramId"`
+
+	// Authority that registered this port
+	Authority solanago.PublicKey `json:"authority"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
+}
+
+func (obj SolanaIbcTypesRouterIbcApp) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Serialize `PortId`:
+	err = encoder.Encode(obj.PortId)
+	if err != nil {
+		return errors.NewField("PortId", err)
+	}
+	// Serialize `AppProgramId`:
+	err = encoder.Encode(obj.AppProgramId)
+	if err != nil {
+		return errors.NewField("AppProgramId", err)
+	}
+	// Serialize `Authority`:
+	err = encoder.Encode(obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesRouterIbcApp) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesRouterIbcApp: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesRouterIbcApp) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Deserialize `PortId`:
+	err = decoder.Decode(&obj.PortId)
+	if err != nil {
+		return errors.NewField("PortId", err)
+	}
+	// Deserialize `AppProgramId`:
+	err = decoder.Decode(&obj.AppProgramId)
+	if err != nil {
+		return errors.NewField("AppProgramId", err)
+	}
+	// Deserialize `Authority`:
+	err = decoder.Decode(&obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesRouterIbcApp) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesRouterIbcApp: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesRouterIbcApp(buf []byte) (*SolanaIbcTypesRouterIbcApp, error) {
+	obj := new(SolanaIbcTypesRouterIbcApp)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -1673,6 +1684,96 @@ func (obj *SolanaIbcTypesRouterProofMetadata) Unmarshal(buf []byte) error {
 
 func UnmarshalSolanaIbcTypesRouterProofMetadata(buf []byte) (*SolanaIbcTypesRouterProofMetadata, error) {
 	obj := new(SolanaIbcTypesRouterProofMetadata)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Router state account - matches the on-chain account structure in ICS26 router
+type SolanaIbcTypesRouterRouterState struct {
+	// Schema version for upgrades
+	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
+
+	// Whether the router is paused (emergency stop)
+	Paused bool `json:"paused"`
+
+	// Access manager program ID for role-based access control
+	AccessManager solanago.PublicKey `json:"accessManager"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
+}
+
+func (obj SolanaIbcTypesRouterRouterState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Serialize `Paused`:
+	err = encoder.Encode(obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
+	}
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesRouterRouterState) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesRouterRouterState: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesRouterRouterState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Deserialize `Paused`:
+	err = decoder.Decode(&obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
+	}
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesRouterRouterState) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesRouterRouterState: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesRouterRouterState(buf []byte) (*SolanaIbcTypesRouterRouterState, error) {
+	obj := new(SolanaIbcTypesRouterRouterState)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

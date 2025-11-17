@@ -13,8 +13,7 @@ use crate::state::{ConsensusStateStore, HeaderChunk, MisbehaviourChunk};
 declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 
 pub use types::{
-    ClientState, ConsensusState, IbcHeight, UpdateResult, UploadChunkParams,
-    UploadMisbehaviourChunkParams,
+    ClientState, ConsensusState, UpdateResult, UploadChunkParams, UploadMisbehaviourChunkParams,
 };
 
 pub use ics25_handler::{MembershipMsg, NonMembershipMsg};
@@ -265,9 +264,6 @@ pub struct CleanupIncompleteMisbehaviour<'info> {
 #[program]
 pub mod ics07_tendermint {
     use super::*;
-    use crate::types::{
-        ClientState, ConsensusState, UploadChunkParams, UploadMisbehaviourChunkParams,
-    };
 
     pub fn initialize(
         ctx: Context<Initialize>,

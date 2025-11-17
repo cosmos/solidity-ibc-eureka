@@ -25,13 +25,13 @@ pub fn create_gmp_app_state_account(
     bump: u8,
     paused: bool,
 ) -> (Pubkey, SolanaAccount) {
-    let app_state = GMPAppState {
+    let app_state = GMPAppState(solana_ibc_types::GMPAppState {
         version: AccountVersion::V1,
         paused,
         bump,
         access_manager: access_manager::ID,
         _reserved: [0; 256],
-    };
+    });
 
     let mut data = Vec::new();
     data.extend_from_slice(GMPAppState::DISCRIMINATOR);
@@ -69,7 +69,8 @@ pub fn setup_access_manager_with_roles(roles: &[(u64, &[Pubkey])]) -> (Pubkey, S
         });
     }
 
-    let access_manager = access_manager::state::AccessManager { roles: role_data };
+    let access_manager =
+        access_manager::state::AccessManager(solana_ibc_types::AccessManager { roles: role_data });
 
     let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     access_manager.serialize(&mut data).unwrap();

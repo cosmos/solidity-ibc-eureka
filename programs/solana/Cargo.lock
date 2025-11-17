@@ -7,6 +7,7 @@ name = "access-manager"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "derive_more 2.0.1",
  "mollusk-svm",
  "solana-ibc-types",
  "solana-sdk",
@@ -1135,7 +1136,16 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a9b99b9cbbe49445b21764dc0625032a89b145a2642e67603e1c936f5458d05"
 dependencies = [
- "derive_more-impl",
+ "derive_more-impl 1.0.0",
+]
+
+[[package]]
+name = "derive_more"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "093242cf7570c207c83073cf82f79706fe7b8317e98620a47d5be7c3d8497678"
+dependencies = [
+ "derive_more-impl 2.0.1",
 ]
 
 [[package]]
@@ -1148,6 +1158,17 @@ dependencies = [
  "quote",
  "syn 2.0.101",
  "unicode-xid",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bda628edc44c4bb645fbe0f758797143e4e07926f7ebf4e9bdfbd3d2ce621df3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
 ]
 
 [[package]]
@@ -2005,6 +2026,7 @@ dependencies = [
  "access-manager",
  "anchor-lang",
  "bincode",
+ "derive_more 2.0.1",
  "hex",
  "ibc-client-tendermint",
  "ibc-core-client-types",
@@ -2063,6 +2085,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bincode",
+ "derive_more 2.0.1",
  "dummy-ibc-app",
  "hex",
  "ics25-handler",
@@ -2085,6 +2108,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bincode",
+ "derive_more 2.0.1",
  "gmp-counter-app",
  "ics26-router",
  "mollusk-svm",
@@ -4021,6 +4045,7 @@ name = "solana-ibc-types"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "ibc-core-client-types",
  "ibc-eureka-constrained-types",
  "prost",
  "solana-ibc-constants",

@@ -33,6 +33,7 @@ solana-ibc-proto.workspace = true
 solana-ibc-macros.workspace = true
 ics26-router = { workspace = true, features = ["cpi"] }
 access-manager = { workspace = true, features = ["cpi"] }
+derive_more = { workspace = true, features = ["deref", "deref_mut"] }
 
 [dev-dependencies]
 mollusk-svm.workspace = true

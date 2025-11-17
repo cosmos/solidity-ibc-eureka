@@ -2,7 +2,7 @@ use super::*;
 use crate::error::ErrorCode;
 use crate::state::HeaderChunk;
 use crate::test_helpers::{fixtures::assert_error_code, PROGRAM_BINARY_PATH};
-use crate::types::{ClientState, IbcHeight};
+use crate::types::ClientState;
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -64,23 +64,23 @@ fn setup_test_accounts_with_chunks(
     ));
 
     // Add client state account (always needed)
-    let client_state = ClientState {
+    let client_state = ClientState(solana_ibc_types::ClientState {
         chain_id: chain_id.to_string(),
         trust_level_numerator: 2,
         trust_level_denominator: 3,
         trusting_period: 86400,
         unbonding_period: 172_800,
         max_clock_drift: 600,
-        frozen_height: IbcHeight {
+        frozen_height: solana_ibc_types::IbcHeight {
             revision_number: 0,
             revision_height: 0,
         },
-        latest_height: IbcHeight {
+        latest_height: solana_ibc_types::IbcHeight {
             revision_number: 0,
             revision_height: 100, // Higher than cleanup_height
         },
         access_manager: access_manager::ID,
-    };
+    });
 
     let mut client_data = vec![];
     client_state.try_serialize(&mut client_data).unwrap();
@@ -286,23 +286,23 @@ fn test_cleanup_with_missing_chunks() {
     ));
 
     // Add client state
-    let client_state = ClientState {
+    let client_state = ClientState(solana_ibc_types::ClientState {
         chain_id: chain_id.to_string(),
         trust_level_numerator: 2,
         trust_level_denominator: 3,
         trusting_period: 86400,
         unbonding_period: 172_800,
         max_clock_drift: 600,
-        frozen_height: IbcHeight {
+        frozen_height: solana_ibc_types::IbcHeight {
             revision_number: 0,
             revision_height: 0,
         },
-        latest_height: IbcHeight {
+        latest_height: solana_ibc_types::IbcHeight {
             revision_number: 0,
             revision_height: 100,
         },
         access_manager: access_manager::ID,
-    };
+    });
 
     let mut client_data = vec![];
     client_state.try_serialize(&mut client_data).unwrap();

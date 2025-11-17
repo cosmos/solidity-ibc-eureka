@@ -11,65 +11,16 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-// Account schema version
-type Ics27GmpStateAccountVersion binary.BorshEnum
-
-const (
-	Ics27GmpStateAccountVersion_V1 Ics27GmpStateAccountVersion = iota
-)
-
-func (value Ics27GmpStateAccountVersion) String() string {
-	switch value {
-	case Ics27GmpStateAccountVersion_V1:
-		return "V1"
-	default:
-		return ""
-	}
-}
-
-// Main GMP application state
+// Main GMP application state - wraps the shared type from solana-ibc-types
 type Ics27GmpStateGmpAppState struct {
-	// Schema version for upgrades
-	Version Ics27GmpStateAccountVersion `json:"version"`
-
-	// Emergency pause flag
-	Paused bool `json:"paused"`
-
-	// PDA bump seed
-	Bump uint8 `json:"bump"`
-
-	// Access manager program ID for role-based access control
-	AccessManager solanago.PublicKey `json:"accessManager"`
-
-	// Reserved space for future fields
-	Reserved [256]uint8 `json:"reserved"`
+	V0 SolanaIbcTypesIcs27GmpAppState `json:"v0"`
 }
 
 func (obj Ics27GmpStateGmpAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Version`:
-	err = encoder.Encode(obj.Version)
+	// Serialize `V0`:
+	err = encoder.Encode(obj.V0)
 	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Serialize `Paused`:
-	err = encoder.Encode(obj.Paused)
-	if err != nil {
-		return errors.NewField("Paused", err)
-	}
-	// Serialize `Bump`:
-	err = encoder.Encode(obj.Bump)
-	if err != nil {
-		return errors.NewField("Bump", err)
-	}
-	// Serialize `AccessManager`:
-	err = encoder.Encode(obj.AccessManager)
-	if err != nil {
-		return errors.NewField("AccessManager", err)
-	}
-	// Serialize `Reserved`:
-	err = encoder.Encode(obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
+		return errors.NewField("V0", err)
 	}
 	return nil
 }
@@ -85,30 +36,10 @@ func (obj Ics27GmpStateGmpAppState) Marshal() ([]byte, error) {
 }
 
 func (obj *Ics27GmpStateGmpAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Version`:
-	err = decoder.Decode(&obj.Version)
+	// Deserialize `V0`:
+	err = decoder.Decode(&obj.V0)
 	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Deserialize `Paused`:
-	err = decoder.Decode(&obj.Paused)
-	if err != nil {
-		return errors.NewField("Paused", err)
-	}
-	// Deserialize `Bump`:
-	err = decoder.Decode(&obj.Bump)
-	if err != nil {
-		return errors.NewField("Bump", err)
-	}
-	// Deserialize `AccessManager`:
-	err = decoder.Decode(&obj.AccessManager)
-	if err != nil {
-		return errors.NewField("AccessManager", err)
-	}
-	// Deserialize `Reserved`:
-	err = decoder.Decode(&obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
+		return errors.NewField("V0", err)
 	}
 	return nil
 }
@@ -634,4 +565,123 @@ func UnmarshalSolanaIbcTypesAppMsgsPayload(buf []byte) (*SolanaIbcTypesAppMsgsPa
 		return nil, err
 	}
 	return obj, nil
+}
+
+// Main GMP application state - matches the on-chain account structure in ics27-gmp
+type SolanaIbcTypesIcs27GmpAppState struct {
+	// Schema version for upgrades
+	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
+
+	// Emergency pause flag
+	Paused bool `json:"paused"`
+
+	// PDA bump seed
+	Bump uint8 `json:"bump"`
+
+	// Access manager program ID for role-based access control
+	AccessManager solanago.PublicKey `json:"accessManager"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
+}
+
+func (obj SolanaIbcTypesIcs27GmpAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Serialize `Paused`:
+	err = encoder.Encode(obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
+	}
+	// Serialize `Bump`:
+	err = encoder.Encode(obj.Bump)
+	if err != nil {
+		return errors.NewField("Bump", err)
+	}
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesIcs27GmpAppState) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesIcs27GmpAppState: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesIcs27GmpAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Deserialize `Paused`:
+	err = decoder.Decode(&obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
+	}
+	// Deserialize `Bump`:
+	err = decoder.Decode(&obj.Bump)
+	if err != nil {
+		return errors.NewField("Bump", err)
+	}
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesIcs27GmpAppState) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesIcs27GmpAppState: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesIcs27GmpAppState(buf []byte) (*SolanaIbcTypesIcs27GmpAppState, error) {
+	obj := new(SolanaIbcTypesIcs27GmpAppState)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Account schema version for upgradability
+type SolanaIbcTypesRouterAccountVersion binary.BorshEnum
+
+const (
+	SolanaIbcTypesRouterAccountVersion_V1 SolanaIbcTypesRouterAccountVersion = iota
+)
+
+func (value SolanaIbcTypesRouterAccountVersion) String() string {
+	switch value {
+	case SolanaIbcTypesRouterAccountVersion_V1:
+		return "V1"
+	default:
+		return ""
+	}
 }

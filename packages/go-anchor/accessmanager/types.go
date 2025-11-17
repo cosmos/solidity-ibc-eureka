@@ -11,15 +11,16 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
+// Access manager account - wraps the shared type from solana-ibc-types
 type AccessManagerStateAccessManager struct {
-	Roles []AccessManagerTypesRoleData `json:"roles"`
+	V0 SolanaIbcTypesAccessManagerAccessManager `json:"v0"`
 }
 
 func (obj AccessManagerStateAccessManager) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Roles`:
-	err = encoder.Encode(obj.Roles)
+	// Serialize `V0`:
+	err = encoder.Encode(obj.V0)
 	if err != nil {
-		return errors.NewField("Roles", err)
+		return errors.NewField("V0", err)
 	}
 	return nil
 }
@@ -35,10 +36,10 @@ func (obj AccessManagerStateAccessManager) Marshal() ([]byte, error) {
 }
 
 func (obj *AccessManagerStateAccessManager) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Roles`:
-	err = decoder.Decode(&obj.Roles)
+	// Deserialize `V0`:
+	err = decoder.Decode(&obj.V0)
 	if err != nil {
-		return errors.NewField("Roles", err)
+		return errors.NewField("V0", err)
 	}
 	return nil
 }
@@ -60,12 +61,63 @@ func UnmarshalAccessManagerStateAccessManager(buf []byte) (*AccessManagerStateAc
 	return obj, nil
 }
 
-type AccessManagerTypesRoleData struct {
+// Access manager state - matches the on-chain account structure in access-manager program
+type SolanaIbcTypesAccessManagerAccessManager struct {
+	Roles []SolanaIbcTypesAccessManagerRoleData `json:"roles"`
+}
+
+func (obj SolanaIbcTypesAccessManagerAccessManager) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Roles`:
+	err = encoder.Encode(obj.Roles)
+	if err != nil {
+		return errors.NewField("Roles", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesAccessManagerAccessManager) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesAccessManagerAccessManager: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesAccessManagerAccessManager) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Roles`:
+	err = decoder.Decode(&obj.Roles)
+	if err != nil {
+		return errors.NewField("Roles", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesAccessManagerAccessManager) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesAccessManagerAccessManager: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesAccessManagerAccessManager(buf []byte) (*SolanaIbcTypesAccessManagerAccessManager, error) {
+	obj := new(SolanaIbcTypesAccessManagerAccessManager)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Role data containing role ID and members
+type SolanaIbcTypesAccessManagerRoleData struct {
 	RoleId  uint64               `json:"roleId"`
 	Members []solanago.PublicKey `json:"members"`
 }
 
-func (obj AccessManagerTypesRoleData) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj SolanaIbcTypesAccessManagerRoleData) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `RoleId`:
 	err = encoder.Encode(obj.RoleId)
 	if err != nil {
@@ -79,17 +131,17 @@ func (obj AccessManagerTypesRoleData) MarshalWithEncoder(encoder *binary.Encoder
 	return nil
 }
 
-func (obj AccessManagerTypesRoleData) Marshal() ([]byte, error) {
+func (obj SolanaIbcTypesAccessManagerRoleData) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding AccessManagerTypesRoleData: %w", err)
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesAccessManagerRoleData: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *AccessManagerTypesRoleData) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *SolanaIbcTypesAccessManagerRoleData) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `RoleId`:
 	err = decoder.Decode(&obj.RoleId)
 	if err != nil {
@@ -103,16 +155,16 @@ func (obj *AccessManagerTypesRoleData) UnmarshalWithDecoder(decoder *binary.Deco
 	return nil
 }
 
-func (obj *AccessManagerTypesRoleData) Unmarshal(buf []byte) error {
+func (obj *SolanaIbcTypesAccessManagerRoleData) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling AccessManagerTypesRoleData: %w", err)
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesAccessManagerRoleData: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalAccessManagerTypesRoleData(buf []byte) (*AccessManagerTypesRoleData, error) {
-	obj := new(AccessManagerTypesRoleData)
+func UnmarshalSolanaIbcTypesAccessManagerRoleData(buf []byte) (*SolanaIbcTypesAccessManagerRoleData, error) {
+	obj := new(SolanaIbcTypesAccessManagerRoleData)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
