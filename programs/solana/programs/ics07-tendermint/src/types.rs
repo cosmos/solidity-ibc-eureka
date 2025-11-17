@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use derive_more::{Deref, DerefMut};
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use ibc_core_commitment_types::commitment::CommitmentRoot;
 use std::fmt::Debug;
@@ -33,8 +32,22 @@ pub struct UploadMisbehaviourChunkParams {
 
 /// Client state for ICS07 Tendermint - wraps the shared type from solana-ibc-types
 #[account]
-#[derive(InitSpace, Deref, DerefMut)]
+#[derive(InitSpace)]
 pub struct ClientState(pub solana_ibc_types::ClientState);
+
+impl std::ops::Deref for ClientState {
+    type Target = solana_ibc_types::ClientState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ClientState {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 impl ClientState {
     pub const SEED: &'static [u8] = solana_ibc_types::ClientState::SEED;
