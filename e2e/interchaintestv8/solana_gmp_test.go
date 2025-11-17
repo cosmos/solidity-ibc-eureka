@@ -2744,6 +2744,13 @@ func (s *IbcEurekaSolanaGMPTestSuite) runChunkingScenario(
 			}
 
 			s.T().Logf("✓ Packet successfully processed on Solana: %s", solanaRelayTxSig)
+
+			err = s.SolanaChain.WaitForTxStatus(solanaRelayTxSig, rpc.ConfirmationStatusConfirmed)
+			if err != nil {
+				return fmt.Errorf("failed to wait for transaction confirmation: %w", err)
+			}
+
+			s.T().Logf("✓ Transaction confirmed on Solana")
 			return nil
 		}()
 
