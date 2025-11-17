@@ -2724,7 +2724,7 @@ dependencies = [
  "informalsystems-pbjson",
  "prost",
  "serde",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4805,7 +4805,7 @@ dependencies = [
  "serde",
  "tendermint",
  "tendermint-light-client-verifier",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -5108,7 +5108,7 @@ dependencies = [
  "solana-sdk",
  "solana-transaction-status",
  "tendermint",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "tendermint-rpc",
  "tonic 0.13.1",
  "tracing",
@@ -5410,7 +5410,7 @@ dependencies = [
  "prost",
  "serde",
  "subtle-encoding",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -5425,7 +5425,7 @@ dependencies = [
  "ics23",
  "prost",
  "subtle-encoding",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -11999,8 +11999,7 @@ dependencies = [
 [[package]]
 name = "tendermint"
 version = "0.40.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc997743ecfd4864bbca8170d68d9b2bee24653b034210752c2d883ef4b838b1"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "bytes",
  "digest 0.10.7",
@@ -12019,7 +12018,7 @@ dependencies = [
  "signature 2.2.0",
  "subtle",
  "subtle-encoding",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance)",
  "time",
  "zeroize",
 ]
@@ -12118,8 +12117,7 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client-verifier"
 version = "0.40.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "548421907264a3a580634d71459a6ceda0dc569f24c9675adfab17465edf8511"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "derive_more 0.99.20",
  "flex-error",
@@ -12133,6 +12131,20 @@ name = "tendermint-proto"
 version = "0.40.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2c40e13d39ca19082d8a7ed22de7595979350319833698f8b1080f29620a094"
+dependencies = [
+ "bytes",
+ "flex-error",
+ "prost",
+ "serde",
+ "serde_bytes",
+ "subtle-encoding",
+ "time",
+]
+
+[[package]]
+name = "tendermint-proto"
+version = "0.40.4"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "bytes",
  "flex-error",
@@ -12166,7 +12178,7 @@ dependencies = [
  "subtle-encoding",
  "tendermint",
  "tendermint-config",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 1.0.69",
  "time",
  "tokio",

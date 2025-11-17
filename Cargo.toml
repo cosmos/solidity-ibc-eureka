@@ -172,3 +172,7 @@ anchor-client             = { version = "0.31.1" }
 ibc-eureka-relayer-eth-to-cosmos-v1_2 = { package = "ibc-eureka-relayer-eth-to-cosmos", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
 ibc-eureka-relayer-core-v1_2= { package = "ibc-eureka-relayer-core", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
 
+[patch.crates-io]
+tendermint = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-light-client-verifier = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+

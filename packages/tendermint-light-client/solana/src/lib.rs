@@ -88,7 +88,7 @@ pub type SolanaVotingPowerCalculator = ProvidedVotingPowerCalculator<SolanaSigna
 pub struct SolanaSignatureVerifier;
 
 impl signature::Verifier for SolanaSignatureVerifier {
-    fn verify(pubkey: PublicKey, msg: &[u8], signature: &Signature) -> Result<(), Error> {
+    fn verify(&self, pubkey: PublicKey, msg: &[u8], signature: &Signature) -> Result<(), Error> {
         match pubkey {
             // Why brine-ed25519 instead of Solana's native Ed25519Program?
             //
