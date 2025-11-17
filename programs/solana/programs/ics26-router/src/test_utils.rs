@@ -1,6 +1,6 @@
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::state::*;
-use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator, Space};
+use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator};
 use solana_ibc_types::Payload;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::sysvar::Sysvar;

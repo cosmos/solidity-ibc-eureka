@@ -721,7 +721,7 @@ mod tests {
         let accounts_1 = vec![
             create_account(router_state_pda, router_state_data.clone(), crate::ID),
             create_account(ibc_app_pda_1, ibc_app_data_1, crate::ID),
-            create_account(client_sequence_pda, client_sequence_data.clone(), crate::ID),
+            create_account(client_sequence_pda, client_sequence_data, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_1),
             create_instructions_sysvar_account_with_caller(app_program_1),
             create_system_account(payer),
