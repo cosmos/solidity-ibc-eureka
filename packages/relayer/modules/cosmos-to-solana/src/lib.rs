@@ -216,7 +216,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         Ok(Response::new(api::CreateClientResponse {
             tx,
-            address: solana_ibc_constants::ICS07_TENDERMINT_ID.to_string(),
+            address: String::new(),
         }))
     }
 
@@ -250,7 +250,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         Ok(Response::new(api::UpdateClientResponse {
             tx,
-            address: solana_ibc_constants::ICS07_TENDERMINT_ID.to_string(),
+            address: String::new(),
         }))
     }
 }
