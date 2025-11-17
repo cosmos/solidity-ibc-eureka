@@ -2,9 +2,9 @@
 //!
 //! TODO: For upstream PR to ibc-rs/tendermint-rs:
 //! 1. tendermint-light-client-verifier/src/operations/voting_power.rs:319
-//!    Add #[cfg(not(feature = "solana"))] before votes.sort_unstable_by_key()
+//!    Add #[cfg(not(feature = "solana"))] before `votes.sort_unstable_by_key()`
 //!    to skip on-chain sorting when signatures are pre-sorted by relayer
-//! 2. solana-ibc-types/src/borsh_header.rs conversions::commit_to_borsh()
+//! 2. solana-ibc-types/src/borsh_header.rs `conversions::commit_to_borsh()`
 //!    Pre-sort signatures before serialization (saves ~60-80k CU on-chain)
 
 use tendermint::crypto::signature::Error;
@@ -19,7 +19,6 @@ use tendermint_light_client_verifier::{
 
 #[cfg(feature = "solana")]
 use solana_program::{log::sol_log_compute_units, msg};
-
 
 /// Solana-optimized predicates that skip redundant Merkle hashing
 ///
@@ -55,7 +54,7 @@ impl VerificationPredicates for SolanaPredicates {
         Ok(())
     }
 
-    /// Skip next validator set hash validation - already done in check_trusted_next_validator_set()
+    /// Skip next validator set hash validation - already done in `check_trusted_next_validator_set()`
     ///
     /// SAFETY: The hash of `trusted_next_validator_set` is already validated in
     /// `Header::check_trusted_next_validator_set()` (line 123 of header.rs)
@@ -77,19 +76,6 @@ impl VerificationPredicates for SolanaPredicates {
         // Return Ok immediately - validation already done in Header::check_trusted_next_validator_set()
         Ok(())
     }
-
-    // All other predicate methods use the trait's default implementations:
-    // - header_matches_commit()
-    // - valid_commit()
-    // - is_within_trust_period()
-    // - is_header_from_past()
-    // - is_monotonic_bft_time()
-    // - is_monotonic_height()
-    // - is_matching_chain_id()
-    // - valid_next_validator_set()
-    // - has_sufficient_validators_overlap()
-    // - has_sufficient_signers_overlap()
-    // - has_sufficient_validators_and_signers_overlap()
 }
 
 /// Solana-optimized verifier that uses brine-ed25519 for signature verification
@@ -182,7 +168,11 @@ impl tendermint::merkle::MerkleHash for SolanaSha256 {
         self.0.leaf_hash(bytes)
     }
 
-    fn inner_hash(&mut self, left: tendermint::merkle::Hash, right: tendermint::merkle::Hash) -> tendermint::merkle::Hash {
+    fn inner_hash(
+        &mut self,
+        left: tendermint::merkle::Hash,
+        right: tendermint::merkle::Hash,
+    ) -> tendermint::merkle::Hash {
         self.0.inner_hash(left, right)
     }
 }

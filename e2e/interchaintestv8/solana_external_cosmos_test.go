@@ -245,8 +245,8 @@ func (s *ExternalCosmosTestSuite) createClient() {
 	s.T().Logf("Using RPC endpoint: %s", s.ExternalCosmosRPC)
 
 	createClientReq := &relayertypes.CreateClientRequest{
-		SrcChain:   s.ExternalCosmosChainID,
-		DstChain:   testvalues.SolanaChainID,
+		SrcChain: s.ExternalCosmosChainID,
+		DstChain: testvalues.SolanaChainID,
 		Parameters: map[string]string{
 			"trust_level": "1/3",
 		},

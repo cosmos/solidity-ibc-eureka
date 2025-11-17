@@ -31,8 +31,6 @@ pub fn assemble_and_update_client(
     // Return the UpdateResult as bytes for callers to verify
     set_return_data(&result.try_to_vec()?);
 
-    msg!("Update complete: {:?}", result);
-    sol_log_compute_units();
     Ok(result)
 }
 

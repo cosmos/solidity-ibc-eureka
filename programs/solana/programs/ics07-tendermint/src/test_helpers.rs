@@ -198,7 +198,7 @@ pub mod fixtures {
     }
 
     /// Corrupt the header signature in the client message bytes
-    /// Returns the corrupted bytes in Borsh format (what our program expects)
+    /// Returns the corrupted bytes in Borsh format
     pub fn corrupt_header_signature(client_message_hex: &str) -> Vec<u8> {
         use borsh::BorshSerialize;
         use ibc_client_tendermint::types::Header;
@@ -227,7 +227,9 @@ pub mod fixtures {
 
         // Re-encode the corrupted header to Protobuf
         let mut buf = Vec::new();
-        header_proto.encode(&mut buf).expect("Failed to encode header");
+        header_proto
+            .encode(&mut buf)
+            .expect("Failed to encode header");
 
         // Convert from Protobuf to Borsh (like the relayer does)
         let header = <Header as Protobuf<RawHeader>>::decode_vec(&buf)
@@ -265,7 +267,9 @@ pub mod fixtures {
 
         // Re-encode to Protobuf
         let mut buf = Vec::new();
-        header_proto.encode(&mut buf).expect("Failed to encode header");
+        header_proto
+            .encode(&mut buf)
+            .expect("Failed to encode header");
 
         // Convert from Protobuf to Borsh (like the relayer does)
         let header = <Header as Protobuf<RawHeader>>::decode_vec(&buf)

@@ -351,7 +351,6 @@ func (s *Solana) LogTransactionDetails(ctx context.Context, t *testing.T, sig so
 		Commitment:                     rpc.CommitmentConfirmed,
 		MaxSupportedTransactionVersion: &version,
 	})
-
 	if err != nil {
 		t.Logf("❌ Failed to fetch transaction details: %v", err)
 		return

@@ -686,7 +686,9 @@ pub mod conversions {
         }
     }
 
-    pub fn consensus_version_to_borsh(v: tendermint::block::header::Version) -> BorshConsensusVersion {
+    pub fn consensus_version_to_borsh(
+        v: tendermint::block::header::Version,
+    ) -> BorshConsensusVersion {
         BorshConsensusVersion {
             block: v.block,
             app: v.app,

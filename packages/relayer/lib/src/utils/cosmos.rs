@@ -183,15 +183,22 @@ pub async fn tm_update_client_params(
     let proposed_header = target_light_block.into_header(&trusted_light_block);
 
     // Log signature information and calculate voting power needed
-    if let (Some(signed_header), Some(validator_set)) = (&proposed_header.signed_header, &proposed_header.validator_set) {
+    if let (Some(signed_header), Some(validator_set)) = (
+        &proposed_header.signed_header,
+        &proposed_header.validator_set,
+    ) {
         if let Some(commit) = &signed_header.commit {
             let signature_count = commit.signatures.len();
-            let valid_signature_count = commit.signatures.iter()
+            let valid_signature_count = commit
+                .signatures
+                .iter()
                 .filter(|sig| sig.block_id_flag != 1) // Not BLOCK_ID_FLAG_ABSENT (1)
                 .count();
 
             // Calculate voting power requirements (1/3 trust threshold)
-            let total_voting_power: u64 = validator_set.validators.iter()
+            let total_voting_power: u64 = validator_set
+                .validators
+                .iter()
                 .map(|v| v.voting_power as u64)
                 .sum();
             let required_voting_power = (total_voting_power * 1) / 3; // 1/3 threshold
@@ -201,9 +208,13 @@ pub async fn tm_update_client_params(
             let mut validators_needed = 0usize;
 
             tracing::info!("=== RELAYER: Starting validator selection for threshold ===");
-            for (validator, signature) in validator_set.validators.iter()
-                .zip(commit.signatures.iter()) {
-                if signature.block_id_flag != 1 { // Not absent
+            for (validator, signature) in validator_set
+                .validators
+                .iter()
+                .zip(commit.signatures.iter())
+            {
+                if signature.block_id_flag != 1 {
+                    // Not absent
                     cumulative_power += validator.voting_power as u64;
                     validators_needed += 1;
                     tracing::info!(
@@ -216,7 +227,10 @@ pub async fn tm_update_client_params(
                         (cumulative_power * 100) / required_voting_power
                     );
                     if cumulative_power >= required_voting_power {
-                        tracing::info!("RELAYER: Threshold reached! Selected {} validators", validators_needed);
+                        tracing::info!(
+                            "RELAYER: Threshold reached! Selected {} validators",
+                            validators_needed
+                        );
                         break;
                     }
                 }
@@ -234,40 +248,62 @@ pub async fn tm_update_client_params(
     }
 
     // Analyze trusted_validators for dual verification understanding
-    if let (Some(trusted_next_vs), Some(target_vs), Some(signed_header)) =
-        (&proposed_header.trusted_validators, &proposed_header.validator_set, &proposed_header.signed_header) {
+    if let (Some(trusted_next_vs), Some(target_vs), Some(signed_header)) = (
+        &proposed_header.trusted_validators,
+        &proposed_header.validator_set,
+        &proposed_header.signed_header,
+    ) {
         if let Some(commit) = &signed_header.commit {
             tracing::info!("=== RELAYER: Analyzing dual verification sets ===");
-            tracing::info!("RELAYER: Trusted next validator set has {} validators", trusted_next_vs.validators.len());
-            tracing::info!("RELAYER: Target validator set has {} validators", target_vs.validators.len());
+            tracing::info!(
+                "RELAYER: Trusted next validator set has {} validators",
+                trusted_next_vs.validators.len()
+            );
+            tracing::info!(
+                "RELAYER: Target validator set has {} validators",
+                target_vs.validators.len()
+            );
 
             // Find overlap between sets
-            let trusted_next_addrs: std::collections::HashSet<_> = trusted_next_vs.validators.iter()
+            let trusted_next_addrs: std::collections::HashSet<_> = trusted_next_vs
+                .validators
+                .iter()
                 .map(|v| &v.address)
                 .collect();
-            let target_addrs_with_sigs: Vec<_> = target_vs.validators.iter()
+            let target_addrs_with_sigs: Vec<_> = target_vs
+                .validators
+                .iter()
                 .zip(commit.signatures.iter())
                 .filter(|(_, sig)| sig.block_id_flag != 1) // Has signature
                 .map(|(v, _)| &v.address)
                 .collect();
 
-            let overlap_count = target_addrs_with_sigs.iter()
+            let overlap_count = target_addrs_with_sigs
+                .iter()
                 .filter(|addr| trusted_next_addrs.contains(*addr))
                 .count();
 
-            tracing::info!("RELAYER: {} validators with signatures in target are also in trusted_next", overlap_count);
-            tracing::info!("RELAYER: {} validators with signatures are ONLY in target (not in trusted_next)",
-                target_addrs_with_sigs.len() - overlap_count);
+            tracing::info!(
+                "RELAYER: {} validators with signatures in target are also in trusted_next",
+                overlap_count
+            );
+            tracing::info!(
+                "RELAYER: {} validators with signatures are ONLY in target (not in trusted_next)",
+                target_addrs_with_sigs.len() - overlap_count
+            );
 
             // Calculate how many validators needed from trusted_next set
-            let trusted_next_total_power: u64 = trusted_next_vs.validators.iter()
+            let trusted_next_total_power: u64 = trusted_next_vs
+                .validators
+                .iter()
                 .map(|v| v.voting_power as u64)
                 .sum();
             let trusted_next_required = (trusted_next_total_power * 1) / 3;
 
             let mut trusted_next_cumulative = 0u64;
             let mut trusted_next_needed = 0usize;
-            for (validator, signature) in target_vs.validators.iter().zip(commit.signatures.iter()) {
+            for (validator, signature) in target_vs.validators.iter().zip(commit.signatures.iter())
+            {
                 if signature.block_id_flag != 1 && trusted_next_addrs.contains(&validator.address) {
                     trusted_next_cumulative += validator.voting_power as u64;
                     trusted_next_needed += 1;

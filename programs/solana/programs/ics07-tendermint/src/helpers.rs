@@ -14,8 +14,8 @@ pub fn deserialize_header(bytes: &[u8]) -> Result<Header> {
     msg!("deserialize_header: Starting direct deserialization");
     sol_log_compute_units();
 
-    let wrapper = HeaderWrapper::try_from_slice(bytes)
-        .map_err(|_| error!(ErrorCode::InvalidHeader))?;
+    let wrapper =
+        HeaderWrapper::try_from_slice(bytes).map_err(|_| error!(ErrorCode::InvalidHeader))?;
 
     msg!("deserialize_header: Direct deserialization complete");
     sol_log_compute_units();

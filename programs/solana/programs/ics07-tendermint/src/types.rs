@@ -116,7 +116,7 @@ impl From<&ClientState> for UpdateClientState {
     #[inline]
     fn from(cs: &ClientState) -> Self {
         Self {
-            chain_id: cs.chain_id.clone(), // Only clone the String
+            chain_id: cs.chain_id.clone(),
             trust_level: TrustThreshold {
                 numerator: cs.trust_level_numerator,
                 denominator: cs.trust_level_denominator,
