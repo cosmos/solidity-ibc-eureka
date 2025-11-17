@@ -124,7 +124,6 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		)
 		s.Require().NoError(err, "Failed to fund wallets")
 
-		// Deploy programs
 		s.T().Log("Deploying Solana programs...")
 		const keypairDir = "e2e/interchaintestv8/solana/keypairs"
 		const deployerPath = keypairDir + "/deployer_wallet.json"

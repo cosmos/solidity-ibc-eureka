@@ -180,25 +180,20 @@ pub mod fixtures {
         (header_time_nanos / 1_000_000_000) as i64
     }
 
-    /// Create a clock timestamp that's valid for the given header
-    /// This adds a small buffer to the header time to pass clock drift validation
+    /// Create a clock timestamp valid for the given header
     pub fn get_valid_clock_timestamp_for_header(message: &UpdateClientMessage) -> i64 {
         let header_timestamp = get_header_timestamp_from_message(message);
-        // Add 5 seconds buffer after header time to pass validation
         header_timestamp.saturating_add(5)
     }
 
-    /// Create a clock timestamp that's way in the future to simulate expired header
-    /// This is used for testing header expiration scenarios
+    /// Create an expired clock timestamp for testing
     pub fn get_expired_clock_timestamp_for_header(message: &UpdateClientMessage) -> i64 {
         let header_timestamp = get_header_timestamp_from_message(message);
-        // Add 1 year to make the header appear expired
         let one_year_in_seconds: i64 = 86400 * 365;
         header_timestamp.saturating_add(one_year_in_seconds)
     }
 
     /// Corrupt the header signature in the client message bytes
-    /// Returns the corrupted bytes in Borsh format
     pub fn corrupt_header_signature(client_message_hex: &str) -> Vec<u8> {
         use borsh::BorshSerialize;
         use ibc_client_tendermint::types::Header;
@@ -211,27 +206,23 @@ pub mod fixtures {
         let mut header_proto = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
             .expect("Failed to decode header");
 
-        // Corrupt the first signature we find
         if let Some(signed_header) = &mut header_proto.signed_header {
             if let Some(commit) = &mut signed_header.commit {
                 for sig in &mut commit.signatures {
                     if !sig.signature.is_empty() {
-                        // Flip a bit in the middle of the signature
                         let mid_pos = sig.signature.len() / 2;
                         sig.signature[mid_pos] ^= 0x01;
-                        break; // Only corrupt the first signature found
+                        break;
                     }
                 }
             }
         }
 
-        // Re-encode the corrupted header to Protobuf
         let mut buf = Vec::new();
         header_proto
             .encode(&mut buf)
             .expect("Failed to encode header");
 
-        // Convert from Protobuf to Borsh (like the relayer does)
         let header = <Header as Protobuf<RawHeader>>::decode_vec(&buf)
             .expect("Failed to decode corrupted protobuf header");
         let borsh_header = header_to_borsh(header);
@@ -241,7 +232,6 @@ pub mod fixtures {
     }
 
     /// Create client message bytes with wrong trusted height
-    /// Returns the modified bytes in Borsh format (what our program expects)
     pub fn create_message_with_wrong_trusted_height(
         client_message_hex: &str,
         wrong_height: u64,
@@ -255,23 +245,19 @@ pub mod fixtures {
 
         let bytes = hex_to_bytes(client_message_hex);
 
-        // Decode the header
         let mut header_proto = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
             .expect("Failed to decode header from test fixture");
 
-        // Update the trusted height
         header_proto.trusted_height = Some(ibc_proto::ibc::core::client::v1::Height {
             revision_number: 0,
             revision_height: wrong_height,
         });
 
-        // Re-encode to Protobuf
         let mut buf = Vec::new();
         header_proto
             .encode(&mut buf)
             .expect("Failed to encode header");
 
-        // Convert from Protobuf to Borsh (like the relayer does)
         let header = <Header as Protobuf<RawHeader>>::decode_vec(&buf)
             .expect("Failed to decode modified protobuf header");
         let borsh_header = header_to_borsh(header);

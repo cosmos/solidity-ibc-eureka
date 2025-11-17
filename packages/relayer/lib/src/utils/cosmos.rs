@@ -164,6 +164,7 @@ pub struct TmUpdateClientParams {
 ///
 /// # Errors
 /// - Failed light block retrieval from Tendermint node
+#[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
 pub async fn tm_update_client_params(
     trusted_height: u64,
     src_tm_client: &HttpClient,
@@ -182,7 +183,7 @@ pub async fn tm_update_client_params(
 
     let proposed_header = target_light_block.into_header(&trusted_light_block);
 
-    // Log signature information and calculate voting power needed
+    // Log signature information and calculate voting power needed used only to print debug logs
     if let (Some(signed_header), Some(validator_set)) = (
         &proposed_header.signed_header,
         &proposed_header.validator_set,
@@ -195,13 +196,12 @@ pub async fn tm_update_client_params(
                 .filter(|sig| sig.block_id_flag != 1) // Not BLOCK_ID_FLAG_ABSENT (1)
                 .count();
 
-            // Calculate voting power requirements (1/3 trust threshold)
             let total_voting_power: u64 = validator_set
                 .validators
                 .iter()
                 .map(|v| v.voting_power as u64)
                 .sum();
-            let required_voting_power = (total_voting_power * 1) / 3; // 1/3 threshold
+            let required_voting_power = total_voting_power / 3;
 
             // Calculate cumulative voting power from validators with valid signatures
             let mut cumulative_power = 0u64;
