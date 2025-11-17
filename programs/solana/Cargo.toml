@@ -11,7 +11,8 @@ members = [
   "packages/solana-ibc-types",
   "packages/solana-ibc-proto",
   "packages/ics25-handler",
-  "packages/solana-ibc-constants", "packages/solana-ibc-macros",
+  "packages/solana-ibc-constants",
+  "packages/solana-ibc-macros",
 ]
 resolver = "2"
 
@@ -70,12 +71,16 @@ anchor-lang = { version = "0.31.1", default-features = false }
 anchor-spl = { version = "0.31.1" }
 base64 = "0.22"
 
+# Parent workspace packages referenced via path dependencies (not added to root workspace.dependencies)
+# This maintains independence between workspaces, allowing root to use borsh 1.x while Solana uses borsh 0.10.4
 tendermint-light-client-update-client = { path = "../../packages/tendermint-light-client/update-client", default-features = false }
 tendermint-light-client-membership = { path = "../../packages/tendermint-light-client/membership", default-features = false }
 tendermint-light-client-misbehaviour = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false }
 tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-light-client/uc-and-membership", default-features = false }
 ibc-eureka-utils = { path = "../../packages/utils" }
 ibc-eureka-constrained-types = { path = "../../packages/constrained_types", default-features = false }
+
+# Solana-specific packages (local to this workspace)
 solana-ibc-types = { path = "./packages/solana-ibc-types", default-features = false }
 solana-ibc-proto = { path = "./packages/solana-ibc-proto", default-features = false }
 ics25-handler = { path = "./packages/ics25-handler", default-features = false }

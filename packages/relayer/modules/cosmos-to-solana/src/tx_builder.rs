@@ -5,7 +5,6 @@
 
 //! Solana from events received from a Cosmos SDK chain.
 
-use borsh::BorshSerialize;
 use std::{collections::HashMap, sync::Arc};
 
 use anchor_lang::prelude::*;

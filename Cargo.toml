@@ -62,9 +62,6 @@ tendermint-light-client-membership        = { path = "packages/tendermint-light-
 tendermint-light-client-misbehaviour      = { path = "packages/tendermint-light-client/misbehaviour", default-features = false }
 tendermint-light-client-uc-and-membership = { path = "packages/tendermint-light-client/uc-and-membership", default-features = false }
 
-solana-ibc-constants = { path = "programs/solana/packages/solana-ibc-constants", default-features = false }
-solana-ibc-types = { path = "programs/solana/packages/solana-ibc-types", default-features = false }
-solana-ibc-proto = { path = "programs/solana/packages/solana-ibc-proto", default-features = false }
 brine-ed25519 = { version = "0.2", default-features = false }
 
 serde           = { version = "1.0", default-features = false }
@@ -75,12 +72,8 @@ hex             = { version = "0.4", default-features = false }
 base64          = { version = "0.22", default-features = false }
 prost           = { version = "0.13", default-features = false }
 prost-build     = { version = "0.13", default-features = false }
-# Using borsh 0.10.4 for Anchor compatibility (Anchor 0.31.1 requires this exact version)
-# Note: Modern Rust code typically uses borsh 1.x, but we use 0.10.4 because:
-# - Anchor 0.31.1 depends on borsh ^0.10
-# - Solana programs require Anchor compatibility
-# - Having two borsh versions causes derive macro conflicts
-borsh           = { version = "0.10.4", default-features = false }
+# Solana workspace uses borsh 0.10.4 for Anchor compatibility (Anchor 0.31.1 requires that version).
+borsh           = { version = "1.3", default-features = false }
 subtle-encoding = { version = "0.5", default-features = false }
 schemars        = { version = "0.8", default-features = false }
 
