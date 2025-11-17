@@ -138,13 +138,17 @@ anchor deploy
 > ```
 >
 > Then navigate to the Solana programs directory and use anchor-nix commands:
-> 
+>
 > ```sh
 > cd programs/solana
 > anchor-nix build
 > anchor-nix test
 > anchor-nix deploy
 > ```
+
+### Solana Programs
+
+For detailed information about Solana IBC programs including deployment, key generation, access control, and upgradability, see the **[Solana Programs README](programs/solana/README.md)**.
 
 ## Unit Testing
 

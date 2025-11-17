@@ -16,12 +16,12 @@ fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u
     data
 }
 
-fn setup_router_state(authority: Pubkey) -> (Pubkey, Vec<u8>) {
+fn setup_router_state() -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) =
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        authority,
+        access_manager: access_manager::ID,
         _reserved: [0; 256],
     };
     let router_state_data = create_account_data(&router_state);
@@ -30,7 +30,6 @@ fn setup_router_state(authority: Pubkey) -> (Pubkey, Vec<u8>) {
 
 fn setup_client_state(
     client_id: &str,
-    authority: Pubkey,
     light_client_program: Pubkey,
     counterparty_client_id: &str,
     active: bool,
@@ -46,7 +45,6 @@ fn setup_client_state(
             client_id: counterparty_client_id.to_string(),
             merkle_prefix: vec![vec![0x01, 0x02, 0x03]],
         },
-        authority,
         active,
         _reserved: [0; 256],
     };
@@ -61,12 +59,16 @@ pub enum AccountVersionExample {
     V2, // New version added
 }
 
+/// Example V2 `RouterState` demonstrating data migration pattern.
+///
+/// NOTE: Authorization for upgrades is handled by `AccessManager` (`ADMIN_ROLE`).
+/// This test focuses on data serialization/migration, not authorization.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct RouterStateExample {
     /// Schema version for upgrades
     pub version: AccountVersionExample,
-    /// Authority that can perform restricted operations
-    pub authority: Pubkey,
+    /// Access manager program ID (existing V1 field)
+    pub access_manager: Pubkey,
 
     // ========== NEW V2 FIELDS ==========
     /// Fee collector account
@@ -78,6 +80,8 @@ pub struct RouterStateExample {
     pub _reserved: [u8; 215],
 }
 
+/// Example V2 Client demonstrating data migration pattern.
+/// NOTE: Authorization is handled by `AccessManager`, not stored per-client.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct ClientExample {
     /// Schema version for upgrades
@@ -88,8 +92,6 @@ pub struct ClientExample {
     pub client_program_id: Pubkey,
     /// Counterparty chain information
     pub counterparty_info: CounterpartyInfo,
-    /// Authority that registered this client
-    pub authority: Pubkey,
     /// Whether the client is active
     pub active: bool,
 
@@ -106,8 +108,7 @@ pub struct ClientExample {
 #[test]
 fn test_router_state_migration_v1_to_v2() {
     // Create V1 account
-    let authority = Pubkey::new_unique();
-    let (_, v1_data) = setup_router_state(authority);
+    let (_, v1_data) = setup_router_state();
 
     // Deserialize account into the struct with new added fields
     let mut cursor = &v1_data[8..]; // Skip discriminator
@@ -123,7 +124,6 @@ fn test_router_state_migration_v1_to_v2() {
 
     // Verify migration
     assert_eq!(state.version, AccountVersionExample::V2);
-    assert_eq!(state.authority, authority);
     assert!(state.fee_collector.is_some());
     assert_eq!(state.global_rate_limit, 10);
     assert_eq!(state._reserved.len(), 215);
@@ -133,11 +133,10 @@ fn test_router_state_migration_v1_to_v2() {
 fn test_client_migration_v1_to_v2() {
     // Create V1 client
     let client_id = "07-tendermint-0";
-    let authority = Pubkey::new_unique();
     let light_client = Pubkey::new_unique();
     let counterparty = "07-tendermint-1";
 
-    let (_, v1_data) = setup_client_state(client_id, authority, light_client, counterparty, true);
+    let (_, v1_data) = setup_client_state(client_id, light_client, counterparty, true);
 
     // Deserialize V1 account
     let mut cursor = &v1_data[8..]; // Skip discriminator
@@ -155,7 +154,6 @@ fn test_client_migration_v1_to_v2() {
     assert_eq!(state.version, AccountVersionExample::V2);
     assert_eq!(state.client_id, client_id);
     assert_eq!(state.client_program_id, light_client);
-    assert_eq!(state.authority, authority);
     assert!(state.active);
     assert_eq!(state.counterparty_info.client_id, counterparty);
 

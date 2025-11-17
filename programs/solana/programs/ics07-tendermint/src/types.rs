@@ -43,6 +43,8 @@ pub struct ClientState {
     pub max_clock_drift: u64,
     pub frozen_height: IbcHeight,
     pub latest_height: IbcHeight,
+    /// Access manager program ID for role-based access control
+    pub access_manager: Pubkey,
 }
 
 impl ClientState {
@@ -204,6 +206,7 @@ mod compatibility_tests {
                 revision_number: 1,
                 revision_height: 1000,
             },
+            access_manager: access_manager::ID,
         };
 
         let serialized = client_state.try_to_vec().unwrap();

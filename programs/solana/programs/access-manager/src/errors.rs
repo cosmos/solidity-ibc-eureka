@@ -1,0 +1,31 @@
+use anchor_lang::prelude::*;
+use solana_ibc_types::CpiValidationError;
+
+#[error_code]
+pub enum AccessManagerError {
+    #[msg("Unauthorized: caller does not have required role")]
+    Unauthorized,
+    #[msg("Invalid role ID")]
+    InvalidRoleId,
+    #[msg("Cannot remove the last admin")]
+    CannotRemoveLastAdmin,
+    #[msg("Invalid sysenv: cross-program invocation from unexpected program")]
+    InvalidSysenv,
+    #[msg("Account must be a signer")]
+    SignerRequired,
+    #[msg("CPI calls not allowed")]
+    CpiNotAllowed,
+    #[msg("Invalid upgrade authority")]
+    InvalidUpgradeAuthority,
+}
+
+impl From<CpiValidationError> for AccessManagerError {
+    fn from(error: CpiValidationError) -> Self {
+        match error {
+            CpiValidationError::InvalidSysvar => Self::InvalidSysenv,
+            CpiValidationError::UnauthorizedCaller | CpiValidationError::DirectCallNotAllowed => {
+                Self::CpiNotAllowed
+            }
+        }
+    }
+}

@@ -162,14 +162,12 @@ mod tests {
     }
 
     fn setup_send_packet_test_with_params(params: SendPacketTestParams) -> SendPacketTestContext {
-        let authority = Pubkey::new_unique();
         let app_program_id = params.app_program_id.unwrap_or_else(Pubkey::new_unique);
         let payer = Pubkey::new_unique();
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (router_state_pda, router_state_data) = setup_router_state();
         let (client_pda, client_data) = setup_client(
             params.client_id,
-            authority,
             Pubkey::new_unique(),
             "counterparty-client",
             params.active_client,
@@ -445,18 +443,16 @@ mod tests {
     #[test]
     fn test_send_packet_independent_client_sequences() {
         // Test that two different clients have independent sequence counters
-        let authority = Pubkey::new_unique();
         let app_program_id = Pubkey::new_unique();
         let port_id = "test-port";
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (router_state_pda, router_state_data) = setup_router_state();
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, app_program_id);
 
         // Create first client with sequence 10
         let client_id_1 = "test-client-1";
         let (client_pda_1, client_data_1) = setup_client(
             client_id_1,
-            authority,
             Pubkey::new_unique(),
             "counterparty-client-1",
             true,
@@ -468,7 +464,6 @@ mod tests {
         let client_id_2 = "test-client-2";
         let (client_pda_2, client_data_2) = setup_client(
             client_id_2,
-            authority,
             Pubkey::new_unique(),
             "counterparty-client-2",
             true,

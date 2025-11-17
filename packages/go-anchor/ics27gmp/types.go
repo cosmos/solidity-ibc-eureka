@@ -32,14 +32,14 @@ type Ics27GmpStateGmpAppState struct {
 	// Schema version for upgrades
 	Version Ics27GmpStateAccountVersion `json:"version"`
 
-	// Administrative authority
-	Authority solanago.PublicKey `json:"authority"`
-
 	// Emergency pause flag
 	Paused bool `json:"paused"`
 
 	// PDA bump seed
 	Bump uint8 `json:"bump"`
+
+	// Access manager program ID for role-based access control
+	AccessManager solanago.PublicKey `json:"accessManager"`
 
 	// Reserved space for future fields
 	Reserved [256]uint8 `json:"reserved"`
@@ -51,11 +51,6 @@ func (obj Ics27GmpStateGmpAppState) MarshalWithEncoder(encoder *binary.Encoder) 
 	if err != nil {
 		return errors.NewField("Version", err)
 	}
-	// Serialize `Authority`:
-	err = encoder.Encode(obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
 	// Serialize `Paused`:
 	err = encoder.Encode(obj.Paused)
 	if err != nil {
@@ -65,6 +60,11 @@ func (obj Ics27GmpStateGmpAppState) MarshalWithEncoder(encoder *binary.Encoder) 
 	err = encoder.Encode(obj.Bump)
 	if err != nil {
 		return errors.NewField("Bump", err)
+	}
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -90,11 +90,6 @@ func (obj *Ics27GmpStateGmpAppState) UnmarshalWithDecoder(decoder *binary.Decode
 	if err != nil {
 		return errors.NewField("Version", err)
 	}
-	// Deserialize `Authority`:
-	err = decoder.Decode(&obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
-	}
 	// Deserialize `Paused`:
 	err = decoder.Decode(&obj.Paused)
 	if err != nil {
@@ -104,6 +99,11 @@ func (obj *Ics27GmpStateGmpAppState) UnmarshalWithDecoder(decoder *binary.Decode
 	err = decoder.Decode(&obj.Bump)
 	if err != nil {
 		return errors.NewField("Bump", err)
+	}
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)

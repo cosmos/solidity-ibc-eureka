@@ -48,3 +48,31 @@ pub fn validate_cpi_caller(
 
     Ok(())
 }
+
+/// Validates that this instruction is called directly (NOT via CPI)
+///
+/// Checks:
+/// 1. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
+/// 2. Current instruction's `program_id` IS self (rejects CPI calls)
+///
+/// Use this for admin instructions that should only be called directly by users.
+pub fn reject_cpi(
+    instruction_sysvar: &AccountInfo<'_>,
+    self_program_id: &Pubkey,
+) -> core::result::Result<(), CpiValidationError> {
+    // CRITICAL: Validate that the instruction_sysvar account is actually the instructions sysvar
+    if instruction_sysvar.key() != anchor_lang::solana_program::sysvar::instructions::ID {
+        return Err(CpiValidationError::InvalidSysvar);
+    }
+
+    // Get the current instruction (0 = current, relative offset)
+    let current_ix = get_instruction_relative(0, instruction_sysvar)
+        .map_err(|_| CpiValidationError::InvalidSysvar)?;
+
+    // Reject CPI calls (when current instruction is NOT our own program)
+    if current_ix.program_id != *self_program_id {
+        return Err(CpiValidationError::UnauthorizedCaller);
+    }
+
+    Ok(())
+}

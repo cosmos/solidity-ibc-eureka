@@ -14,11 +14,30 @@ import (
 // Builds a "initialize" instruction.
 // Initialize the ICS27 GMP application
 func NewInitializeInstruction(
+	// Params:
+	accessManagerParam solanago.PublicKey,
+
+	// Accounts:
 	appStateAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
-	authorityAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_Initialize[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `accessManagerParam`:
+		err = enc__.Encode(accessManagerParam)
+		if err != nil {
+			return nil, errors.NewField("accessManagerParam", err)
+		}
+	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
@@ -27,17 +46,18 @@ func NewInitializeInstruction(
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 2 "authority": Read-only, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
-		// Account 3 "system_program": Read-only, Non-signer, Required
+		// Account 2 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		nil,
+		buf__.Bytes(),
 	), nil
 }
 
@@ -295,7 +315,9 @@ func NewOnTimeoutPacketInstruction(
 // Pause the entire GMP app (admin only)
 func NewPauseAppInstruction(
 	appStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
 	authorityAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	accounts__ := solanago.AccountMetaSlice{}
 
@@ -304,8 +326,13 @@ func NewPauseAppInstruction(
 		// Account 0 "app_state": Writable, Non-signer, Required
 		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "authority": Read-only, Signer, Required
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "authority": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -320,7 +347,9 @@ func NewPauseAppInstruction(
 // Unpause the entire GMP app (admin only)
 func NewUnpauseAppInstruction(
 	appStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
 	authorityAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	accounts__ := solanago.AccountMetaSlice{}
 
@@ -329,8 +358,13 @@ func NewUnpauseAppInstruction(
 		// Account 0 "app_state": Writable, Non-signer, Required
 		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "authority": Read-only, Signer, Required
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "authority": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -341,30 +375,52 @@ func NewUnpauseAppInstruction(
 	), nil
 }
 
-// Builds a "update_authority" instruction.
-// Update app authority (admin only)
-func NewUpdateAuthorityInstruction(
+// Builds a "set_access_manager" instruction.
+// Set the access manager program (admin only)
+func NewSetAccessManagerInstruction(
+	// Params:
+	newAccessManagerParam solanago.PublicKey,
+
+	// Accounts:
 	appStateAccount solanago.PublicKey,
-	currentAuthorityAccount solanago.PublicKey,
-	newAuthorityAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_SetAccessManager[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `newAccessManagerParam`:
+		err = enc__.Encode(newAccessManagerParam)
+		if err != nil {
+			return nil, errors.NewField("newAccessManagerParam", err)
+		}
+	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
-		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "current_authority": Read-only, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(currentAuthorityAccount, false, true))
-		// Account 2 "new_authority": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(newAuthorityAccount, false, false))
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "admin": Read-only, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		nil,
+		buf__.Bytes(),
 	), nil
 }

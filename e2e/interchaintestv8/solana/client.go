@@ -337,10 +337,8 @@ func mustWrite(err error) {
 }
 
 func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
-	clockSysvarPubkey := solana.MustPublicKeyFromBase58("SysvarC1ock11111111111111111111111111111111")
-
 	// Use confirmed commitment to match relayer read commitment level
-	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, clockSysvarPubkey, &rpc.GetAccountInfoOpts{
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, solana.SysVarClockPubkey, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
 	})
 	if err != nil {
@@ -357,4 +355,16 @@ func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
 
 	unixTimestamp := int64(binary.LittleEndian.Uint64(data[32:40]))
 	return unixTimestamp, nil
+}
+
+// GetProgramDataAddress derives the ProgramData account address for an upgradeable program
+func GetProgramDataAddress(programID solana.PublicKey) (solana.PublicKey, error) {
+	pda, _, err := solana.FindProgramAddress(
+		[][]byte{programID.Bytes()},
+		solana.BPFLoaderUpgradeableProgramID,
+	)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to derive program data address: %w", err)
+	}
+	return pda, nil
 }

@@ -20,5 +20,5 @@ var (
 	Instruction_OnTimeoutPacket         = [8]byte{152, 10, 26, 185, 36, 193, 95, 76}
 	Instruction_PauseApp                = [8]byte{142, 191, 211, 112, 238, 129, 131, 66}
 	Instruction_UnpauseApp              = [8]byte{73, 253, 89, 192, 87, 42, 245, 3}
-	Instruction_UpdateAuthority         = [8]byte{32, 46, 64, 28, 149, 75, 243, 88}
+	Instruction_SetAccessManager        = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
 )

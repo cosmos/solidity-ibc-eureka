@@ -5,8 +5,6 @@ use anchor_lang::prelude::*;
 pub struct GMPAppInitialized {
     /// Router program managing this app
     pub router_program: Pubkey,
-    /// Administrative authority
-    pub authority: Pubkey,
     /// Port ID bound to this app
     pub port_id: String,
     /// App initialization timestamp

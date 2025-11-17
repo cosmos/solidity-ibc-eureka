@@ -33,8 +33,8 @@ pub mod ics27_gmp {
     use super::*;
 
     /// Initialize the ICS27 GMP application
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        instructions::initialize(ctx)
+    pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()> {
+        instructions::initialize(ctx, access_manager)
     }
 
     /// Send a GMP call packet
@@ -76,8 +76,11 @@ pub mod ics27_gmp {
         instructions::unpause_app(ctx)
     }
 
-    /// Update app authority (admin only)
-    pub fn update_authority(ctx: Context<UpdateAuthority>) -> Result<()> {
-        instructions::update_authority(ctx)
+    /// Set the access manager program (admin only)
+    pub fn set_access_manager(
+        ctx: Context<SetAccessManager>,
+        new_access_manager: Pubkey,
+    ) -> Result<()> {
+        instructions::set_access_manager(ctx, new_access_manager)
     }
 }

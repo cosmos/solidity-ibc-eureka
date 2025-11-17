@@ -99,13 +99,8 @@ mod tests {
 
     #[test]
     fn test_on_timeout_packet_app_paused() {
-        use crate::test_utils::ANCHOR_ERROR_OFFSET;
-        use mollusk_svm::result::Check;
-        use solana_sdk::program_error::ProgramError;
-
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
@@ -142,7 +137,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 app_state_pda,
-                authority,
                 app_state_bump,
                 true, // paused
             ),
@@ -163,7 +157,6 @@ mod tests {
     fn test_on_timeout_packet_invalid_app_state_pda() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let port_id = "gmpport".to_string();
@@ -207,7 +200,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 wrong_app_state_pda,
-                authority,
                 wrong_bump,
                 false, // not paused
             ),
@@ -227,7 +219,6 @@ mod tests {
     fn test_on_timeout_packet_direct_call_rejected() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
@@ -236,7 +227,7 @@ mod tests {
         let instruction = create_timeout_instruction(app_state_pda, router_program, payer);
 
         let accounts = vec![
-            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
             create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(crate::ID), // Direct call
             create_authority_account(payer),
@@ -254,7 +245,6 @@ mod tests {
     fn test_on_timeout_packet_unauthorized_router() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
@@ -264,7 +254,7 @@ mod tests {
 
         let unauthorized_program = Pubkey::new_unique();
         let accounts = vec![
-            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
             create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(unauthorized_program), // Unauthorized
             create_authority_account(payer),
@@ -282,7 +272,6 @@ mod tests {
     fn test_on_timeout_packet_fake_sysvar_wormhole_attack() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
@@ -298,7 +287,7 @@ mod tests {
         instruction.accounts[2] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
 
         let accounts = vec![
-            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
             create_router_program_account(router_program),
             // Wormhole attack: provide a DIFFERENT account instead of the real sysvar
             (fake_sysvar_pubkey, fake_sysvar_account),

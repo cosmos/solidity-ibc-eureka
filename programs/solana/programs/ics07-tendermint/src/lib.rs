@@ -20,7 +20,7 @@ pub use types::{
 pub use ics25_handler::{MembershipMsg, NonMembershipMsg};
 
 #[derive(Accounts)]
-#[instruction(chain_id: String, latest_height: u64, client_state: ClientState)]
+#[instruction(chain_id: String, latest_height: u64, client_state: ClientState, consensus_state: ConsensusState)]
 pub struct Initialize<'info> {
     #[account(
         init,
@@ -42,6 +42,33 @@ pub struct Initialize<'info> {
     pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(chain_id: String)]
+pub struct SetAccessManager<'info> {
+    #[account(
+        mut,
+        seeds = [ClientState::SEED, chain_id.as_bytes()],
+        bump,
+        constraint = client_state.chain_id == chain_id.as_str()
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = client_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
+    pub admin: Signer<'info>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
@@ -108,6 +135,15 @@ pub struct AssembleAndUpdateClient<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
+    /// Global access control account (owned by access-manager program)
+    /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = client_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     /// Trusted consensus state at the height embedded in the header
     /// CHECK: Must already exist. Unchecked because PDA seeds require runtime header data.
     pub trusted_consensus_state: UncheckedAccount<'info>,
@@ -121,6 +157,11 @@ pub struct AssembleAndUpdateClient<'info> {
     pub submitter: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
     // Remaining accounts are the chunk accounts in order
     // They will be validated and closed in the instruction handler
 }
@@ -182,12 +223,26 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
+    /// Global access control account (owned by access-manager program)
+    /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = client_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
 
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 
     #[account(mut)]
     pub submitter: Signer<'info>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
     // Remaining accounts are the chunk accounts in order
 }
 
@@ -221,12 +276,21 @@ pub mod ics07_tendermint {
         client_state: ClientState,
         consensus_state: ConsensusState,
     ) -> Result<()> {
-        // NOTE: chain_id is used in the #[instruction] attribute for account validation
-        // but the actual handler doesn't need it as it's embedded in client_state
-        assert_eq!(client_state.chain_id, chain_id);
-        assert_eq!(client_state.latest_height.revision_height, latest_height);
+        instructions::initialize::initialize(
+            ctx,
+            chain_id,
+            latest_height,
+            client_state,
+            consensus_state,
+        )
+    }
 
-        instructions::initialize::initialize(ctx, client_state, consensus_state)
+    pub fn set_access_manager(
+        ctx: Context<SetAccessManager>,
+        chain_id: String,
+        new_access_manager: Pubkey,
+    ) -> Result<()> {
+        instructions::set_access_manager::set_access_manager(ctx, chain_id, new_access_manager)
     }
 
     pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {
@@ -253,8 +317,8 @@ pub mod ics07_tendermint {
 
     /// Assemble chunks and update the client
     /// Automatically cleans up all chunks after successful update
-    pub fn assemble_and_update_client(
-        ctx: Context<AssembleAndUpdateClient>,
+    pub fn assemble_and_update_client<'info>(
+        ctx: Context<'_, '_, '_, 'info, AssembleAndUpdateClient<'info>>,
         chain_id: String,
         target_height: u64,
     ) -> Result<UpdateResult> {
