@@ -7,6 +7,8 @@
 //! 2. solana-ibc-types/src/borsh_header.rs `conversions::commit_to_borsh()`
 //!    Pre-sort signatures before serialization (saves ~60-80k CU on-chain)
 
+use std::collections::HashMap;
+
 use tendermint::crypto::signature::Error;
 use tendermint::{crypto::signature, PublicKey, Signature};
 use tendermint_light_client_verifier::{
@@ -16,6 +18,8 @@ use tendermint_light_client_verifier::{
     types::ValidatorSet,
     PredicateVerifier,
 };
+
+use tendermint::merkle::Hash;
 
 use solana_program::{log::sol_log_compute_units, msg};
 
@@ -133,6 +137,56 @@ impl signature::Verifier for SolanaSignatureVerifier {
     }
 }
 
+/// Cached Merkle
+pub struct SolanaPdaMerkleHash {
+    prehashed_merkle: HashMap<Hash, Hash>,
+    inner: SolanaSha256,
+}
+
+impl SolanaPdaMerkleHash {
+    pub fn new(merkle_cache: HashMap<Hash, Hash>) -> Self {
+        Self {
+            prehashed_merkle: merkle_cache,
+            inner: SolanaSha256::default(),
+        }
+    }
+}
+
+impl tendermint::crypto::Sha256 for SolanaPdaMerkleHash {
+    fn digest(data: impl AsRef<[u8]>) -> [u8; 32] {
+        SolanaSha256Impl::digest(data)
+    }
+}
+
+impl tendermint::merkle::MerkleHash for SolanaPdaMerkleHash {
+    fn empty_hash(&mut self) -> Hash {
+        self.inner.0.empty_hash()
+    }
+
+    fn leaf_hash(&mut self, bytes: &[u8]) -> Hash {
+        self.inner.0.leaf_hash(bytes)
+    }
+
+    fn inner_hash(&mut self, left: Hash, right: Hash) -> Hash {
+        self.inner.0.inner_hash(left, right)
+    }
+
+    fn hash_byte_vectors(&mut self, byte_vecs: &[impl AsRef<[u8]>]) -> Hash {
+        let bytes: Vec<&[u8]> = byte_vecs.iter().map(|v| v.as_ref()).collect();
+        let simple_hash = solana_program::hash::hashv(&bytes);
+        if let Some(hash) = self.prehashed_merkle.get(&simple_hash.to_bytes()) {
+            return *hash;
+        }
+
+        msg!(
+            "[WARNING] Prehashed merkle did not contain {}, doing expensive hashing on-chain",
+            simple_hash
+        );
+
+        self.inner.hash_byte_vectors(byte_vecs)
+    }
+}
+
 /// Merkle
 #[derive(Default)]
 pub struct SolanaSha256(tendermint::merkle::NonIncremental<SolanaSha256Impl>);
@@ -153,19 +207,15 @@ impl tendermint::crypto::Sha256 for SolanaSha256 {
     }
 }
 impl tendermint::merkle::MerkleHash for SolanaSha256 {
-    fn empty_hash(&mut self) -> tendermint::merkle::Hash {
+    fn empty_hash(&mut self) -> Hash {
         self.0.empty_hash()
     }
 
-    fn leaf_hash(&mut self, bytes: &[u8]) -> tendermint::merkle::Hash {
+    fn leaf_hash(&mut self, bytes: &[u8]) -> Hash {
         self.0.leaf_hash(bytes)
     }
 
-    fn inner_hash(
-        &mut self,
-        left: tendermint::merkle::Hash,
-        right: tendermint::merkle::Hash,
-    ) -> tendermint::merkle::Hash {
+    fn inner_hash(&mut self, left: Hash, right: Hash) -> Hash {
         self.0.inner_hash(left, right)
     }
 }
