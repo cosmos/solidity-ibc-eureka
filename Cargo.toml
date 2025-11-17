@@ -9,6 +9,7 @@ members = [
     "packages/tendermint-light-client/membership",
     "packages/tendermint-light-client/misbehaviour",
     "packages/tendermint-light-client/uc-and-membership",
+    "packages/tendermint-light-client/solana",
     "packages/solidity",
     "packages/relayer/lib",
     "packages/relayer/core",
@@ -61,6 +62,7 @@ tendermint-light-client-update-client     = { path = "packages/tendermint-light-
 tendermint-light-client-membership        = { path = "packages/tendermint-light-client/membership", default-features = false }
 tendermint-light-client-misbehaviour      = { path = "packages/tendermint-light-client/misbehaviour", default-features = false }
 tendermint-light-client-uc-and-membership = { path = "packages/tendermint-light-client/uc-and-membership", default-features = false }
+tendermint-light-client-solana            = { path = "packages/tendermint-light-client/solana", default-features = false }
 
 brine-ed25519 = { version = "0.2", default-features = false }
 

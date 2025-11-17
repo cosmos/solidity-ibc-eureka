@@ -37,6 +37,7 @@ tendermint-light-client-update-client = { workspace = true, features = ["solana"
 tendermint-light-client-membership.workspace = true
 tendermint-light-client-misbehaviour.workspace = true
 tendermint-light-client-uc-and-membership.workspace = true
+tendermint-light-client-solana = { workspace = true }
 
 ibc-client-tendermint.workspace = true
 ibc-core-client-types.workspace = true

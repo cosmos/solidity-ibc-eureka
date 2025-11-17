@@ -9,7 +9,7 @@ pub mod state;
 pub mod test_helpers;
 pub mod types;
 
-use crate::state::{ConsensusStateStore, HeaderChunk, MisbehaviourChunk};
+use crate::state::{ConsensusStateStore, HeaderChunk, MisbehaviourChunk, ValidatorsStorage};
 
 declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 solana_allocator::custom_heap!();
@@ -209,6 +209,28 @@ pub struct CleanupIncompleteMisbehaviour<'info> {
     // Remaining accounts are the chunk accounts to close
 }
 
+/// Context for storing and hashing validators
+#[derive(Accounts)]
+#[instruction(params: instructions::store_and_hash_validators::StoreValidatorsParams)]
+pub struct StoreAndHashValidators<'info> {
+    #[account(
+        init,
+        payer = relayer,
+        space = 8 + ValidatorsStorage::INIT_SPACE,
+        seeds = [
+            ValidatorsStorage::SEED,
+            &params.simple_hash,
+            relayer.key().as_ref()
+        ],
+        bump
+    )]
+    pub validators_storage: Account<'info, ValidatorsStorage>,
+
+    #[account(mut)]
+    pub relayer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
 #[program]
 pub mod ics07_tendermint {
     use super::*;
@@ -312,5 +334,15 @@ pub mod ics07_tendermint {
         instructions::cleanup_incomplete_misbehaviour::cleanup_incomplete_misbehaviour(
             ctx, client_id, submitter,
         )
+    }
+
+    /// Store borsh-serialized validators and compute their merkle hash
+    /// This creates a PDA account keyed by [b"validators", SHA256(validators_bytes), relayer_pubkey]
+    /// and stores both the simple hash and the merkle hash computed from validator.hash_bytes()
+    pub fn store_and_hash_validators(
+        ctx: Context<StoreAndHashValidators>,
+        params: instructions::store_and_hash_validators::StoreValidatorsParams,
+    ) -> Result<()> {
+        instructions::store_and_hash_validators::store_and_hash_validators(ctx, params)
     }
 }

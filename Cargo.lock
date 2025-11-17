@@ -12066,6 +12066,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tendermint-light-client-solana"
+version = "0.1.0"
+dependencies = [
+ "brine-ed25519",
+ "sha2 0.10.9",
+ "solana-program",
+ "tendermint",
+ "tendermint-light-client-verifier",
+]
+
+[[package]]
 name = "tendermint-light-client-uc-and-membership"
 version = "0.1.0"
 dependencies = [
@@ -12087,7 +12098,6 @@ dependencies = [
 name = "tendermint-light-client-update-client"
 version = "0.1.0"
 dependencies = [
- "brine-ed25519",
  "hex",
  "ibc-client-tendermint",
  "ibc-core-client",
@@ -12099,8 +12109,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "solana-program",
  "tendermint",
+ "tendermint-light-client-solana",
  "tendermint-light-client-verifier",
  "thiserror 2.0.12",
 ]

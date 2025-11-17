@@ -77,6 +77,7 @@ tendermint-light-client-update-client = { path = "../../packages/tendermint-ligh
 tendermint-light-client-membership = { path = "../../packages/tendermint-light-client/membership", default-features = false }
 tendermint-light-client-misbehaviour = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false }
 tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-light-client/uc-and-membership", default-features = false }
+tendermint-light-client-solana = { path = "../../packages/tendermint-light-client/solana", default-features = false }
 ibc-eureka-utils = { path = "../../packages/utils" }
 ibc-eureka-constrained-types = { path = "../../packages/constrained_types", default-features = false }
 

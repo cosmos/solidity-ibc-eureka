@@ -1995,6 +1995,7 @@ dependencies = [
  "tendermint",
  "tendermint-light-client-membership",
  "tendermint-light-client-misbehaviour",
+ "tendermint-light-client-solana",
  "tendermint-light-client-uc-and-membership",
  "tendermint-light-client-update-client",
  "time",
@@ -5509,6 +5510,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tendermint-light-client-solana"
+version = "0.1.0"
+dependencies = [
+ "brine-ed25519",
+ "sha2 0.10.9",
+ "solana-program",
+ "tendermint",
+ "tendermint-light-client-verifier",
+]
+
+[[package]]
 name = "tendermint-light-client-uc-and-membership"
 version = "0.1.0"
 dependencies = [
@@ -5523,15 +5535,13 @@ dependencies = [
 name = "tendermint-light-client-update-client"
 version = "0.1.0"
 dependencies = [
- "brine-ed25519",
  "ibc-client-tendermint",
  "ibc-core-client",
  "ibc-core-client-types",
  "ibc-core-host-types",
  "ibc-primitives",
  "sha2 0.10.9",
- "solana-program",
- "tendermint",
+ "tendermint-light-client-solana",
  "tendermint-light-client-verifier",
  "thiserror 2.0.12",
 ]

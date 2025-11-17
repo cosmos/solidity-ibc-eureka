@@ -5,9 +5,6 @@
 
 pub mod types;
 
-#[cfg(feature = "solana")]
-pub mod solana;
-
 use sha2 as _;
 
 use std::{str::FromStr, time::Duration};
@@ -148,8 +145,8 @@ pub fn update_client(
 
     #[cfg(feature = "solana")]
     {
-        let verifier = crate::solana::SolanaVerifier::default();
-        verify_header::<_, crate::solana::SolanaSha256>(
+        let verifier = tendermint_light_client_solana::SolanaVerifier::default();
+        verify_header::<_, tendermint_light_client_solana::SolanaSha256>(
             &ctx,
             &proposed_header,
             &client_id,
