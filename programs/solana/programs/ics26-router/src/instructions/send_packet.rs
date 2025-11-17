@@ -29,6 +29,7 @@ pub struct SendPacket<'info> {
 
     /// Packet commitment account - manually created with runtime-calculated sequence
     /// CHECK: Manually validated and created in instruction handler
+    #[account(mut)]
     pub packet_commitment: UncheckedAccount<'info>,
 
     /// Instructions sysvar for validating CPI caller
