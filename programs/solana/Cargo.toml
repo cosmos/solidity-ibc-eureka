@@ -93,7 +93,7 @@ ibc-core-commitment-types = { version = "0.57", default-features = false }
 ibc-primitives = { version = "0.57", default-features = false }
 ibc-proto = { version = "0.51", default-features = false }
 tendermint = { version = "0.40", default-features = false }
-tendermint-light-client-verifier = { path = "../../packages/tendermint-light-client-verifier", version = "0.40", default-features = false, features = ["solana"] }
+tendermint-light-client-verifier = { version = "0.40", default-features = false }
 time = { version = "0.3", default-features = false }
 
 sha2 = { version = "0.10", default-features = false }

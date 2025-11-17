@@ -1748,7 +1748,7 @@ impl TxBuilder {
             target_height,
             trusted_height,
             total_chunks,
-            Some((slot, alt_accounts)), // Pass slot and addresses
+            Some((slot, alt_accounts)),
         )?;
 
         tracing::info!(

@@ -17,13 +17,13 @@ solana-ibc-constants.workspace = true
 ibc-eureka-constrained-types.workspace = true
 solana-ibc-proto.workspace = true
 
-# Dependencies for direct-deser feature
+# Dependencies for light-client feature
 ibc-client-tendermint = { workspace = true, optional = true }
 ibc-core-client-types = { workspace = true, optional = true }
 tendermint = { workspace = true, optional = true }
 
 [features]
-direct-deser = ["dep:ibc-client-tendermint", "dep:ibc-core-client-types", "dep:tendermint"]
+light-client = ["dep:ibc-client-tendermint", "dep:ibc-core-client-types", "dep:tendermint"]
 solana = []
 
 [lib]

@@ -20,7 +20,7 @@
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-#[cfg(feature = "direct-deser")]
+#[cfg(feature = "light-client")]
 use std::io::{self, Read};
 
 /// Borsh-serializable wrapper for ibc_client_tendermint::types::Header
@@ -138,7 +138,7 @@ pub struct BorshHeight {
     pub revision_height: u64,
 }
 
-#[cfg(feature = "direct-deser")]
+#[cfg(feature = "light-client")]
 mod direct_deser {
     use super::*;
     use ibc_client_tendermint::types::Header;
@@ -499,7 +499,7 @@ mod direct_deser {
 ///
 /// These conversions are used to convert Header to BorshHeader for efficient
 /// serialization before uploading to Solana.
-#[cfg(feature = "direct-deser")]
+#[cfg(feature = "light-client")]
 pub mod conversions {
     use super::*;
     use ibc_client_tendermint::types::Header;
@@ -729,5 +729,5 @@ pub mod conversions {
     }
 }
 
-#[cfg(feature = "direct-deser")]
+#[cfg(feature = "light-client")]
 pub use direct_deser::HeaderWrapper;
