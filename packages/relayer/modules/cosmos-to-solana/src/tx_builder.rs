@@ -181,8 +181,6 @@ pub struct TxBuilder {
     pub target_solana_client: Arc<RpcClient>,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: Pubkey,
-    /// The Solana ICS07 program ID.
-    pub solana_ics07_program_id: Pubkey,
     /// The fee payer address for transactions.
     pub fee_payer: Pubkey,
     /// Address Lookup Table address for reducing transaction size (optional).
@@ -199,7 +197,6 @@ impl TxBuilder {
     pub const fn new(
         src_tm_client: HttpClient,
         target_solana_client: Arc<RpcClient>,
-        solana_ics07_program_id: Pubkey,
         solana_ics26_program_id: Pubkey,
         fee_payer: Pubkey,
         alt_address: Option<Pubkey>,
@@ -208,7 +205,6 @@ impl TxBuilder {
             src_tm_client,
             target_solana_client,
             solana_ics26_program_id,
-            solana_ics07_program_id,
             fee_payer,
             alt_address,
         })
@@ -232,12 +228,14 @@ impl TxBuilder {
         client_state: &ClientState,
         consensus_state: &ConsensusState,
     ) -> Result<Instruction> {
-        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
-        let (consensus_state_pda, _) = ConsensusState::pda(
-            client_state_pda,
-            latest_height,
-            self.solana_ics07_program_id,
-        );
+        // For create_client, we use the default ICS07 Tendermint light client
+        let light_client_program_id: Pubkey = solana_ibc_constants::ICS07_TENDERMINT_ID
+            .parse()
+            .expect("Invalid ICS07_TENDERMINT_ID constant");
+
+        let (client_state_pda, _) = ClientState::pda(chain_id, light_client_program_id);
+        let (consensus_state_pda, _) =
+            ConsensusState::pda(client_state_pda, latest_height, light_client_program_id);
 
         tracing::info!("Client state PDA: {}", client_state_pda);
         tracing::info!("Consensus state PDA: {}", consensus_state_pda);
@@ -261,7 +259,7 @@ impl TxBuilder {
         instruction_data.extend_from_slice(&consensus_state.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: self.solana_ics07_program_id,
+            program_id: light_client_program_id,
             accounts,
             data: instruction_data,
         })
@@ -308,10 +306,13 @@ impl TxBuilder {
         );
         let (client, _) = Client::pda(&msg.packet.dest_client, self.solana_ics26_program_id);
 
-        let (client_state, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+        // Resolve the light client program ID for this client
+        let light_client_program_id = self.resolve_client_program_id(&msg.packet.dest_client)?;
+
+        let (client_state, _) = ClientState::pda(chain_id, light_client_program_id);
 
         let (consensus_state, _) =
-            ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
+            ConsensusState::pda(client_state, msg.proof.height, light_client_program_id);
 
         // Resolve the actual IBC app program ID for this port
         let ibc_app_program_id = self.resolve_port_program_id(dest_port)?;
@@ -333,7 +334,7 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false), // instructions sysvar
             AccountMeta::new_readonly(client, false),
-            AccountMeta::new_readonly(self.solana_ics07_program_id, false),
+            AccountMeta::new_readonly(light_client_program_id, false),
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
@@ -450,14 +451,17 @@ impl TxBuilder {
             client
         );
 
+        // Resolve the light client program ID for this client
+        let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
+
         let chain_id = self.chain_id().await?;
         tracing::info!("Cosmos chain ID for ICS07 derivation: {}", chain_id);
 
-        let (client_state, _) = ClientState::pda(&chain_id, self.solana_ics07_program_id);
+        let (client_state, _) = ClientState::pda(&chain_id, light_client_program_id);
         tracing::info!("ICS07 client state PDA: {}", client_state);
 
         let (consensus_state, _) =
-            ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
+            ConsensusState::pda(client_state, msg.proof.height, light_client_program_id);
 
         let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
@@ -470,7 +474,7 @@ impl TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false), // instructions sysvar
             AccountMeta::new_readonly(client, false),
-            AccountMeta::new_readonly(self.solana_ics07_program_id, false),
+            AccountMeta::new_readonly(light_client_program_id, false),
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
@@ -556,9 +560,13 @@ impl TxBuilder {
         let ibc_app_program_id = self.resolve_port_program_id(source_port)?;
         let (ibc_app_state, _) = IBCAppState::pda(source_port, ibc_app_program_id);
         let (client, _) = Client::pda(&msg.packet.source_client, program_id);
-        let (client_state, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+
+        // Resolve the light client program ID for this client
+        let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
+
+        let (client_state, _) = ClientState::pda(chain_id, light_client_program_id);
         let (consensus_state, _) =
-            ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
+            ConsensusState::pda(client_state, msg.proof.height, light_client_program_id);
 
         Ok(Self::assemble_timeout_accounts(TimeoutAccountsParams {
             router_state,
@@ -571,7 +579,7 @@ impl TxBuilder {
             consensus_state,
             fee_payer: self.fee_payer,
             router_program_id: self.solana_ics26_program_id,
-            light_client_program_id: self.solana_ics07_program_id,
+            light_client_program_id,
             chunk_accounts,
         }))
     }
@@ -611,8 +619,12 @@ impl TxBuilder {
     /// Fetch Cosmos client state from the light client on Solana.
     /// # Errors
     /// Returns an error if the client state cannot be fetched or decoded.
-    fn cosmos_client_state(&self, chain_id: &str) -> Result<ClientState> {
-        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+    fn cosmos_client_state(
+        &self,
+        chain_id: &str,
+        light_client_program_id: Pubkey,
+    ) -> Result<ClientState> {
+        let (client_state_pda, _) = ClientState::pda(chain_id, light_client_program_id);
 
         let account = self
             .target_solana_client
@@ -675,6 +687,42 @@ impl TxBuilder {
         Ok(ibc_app.app_program_id)
     }
 
+    /// Resolve the light client program id.
+    fn resolve_client_program_id(&self, client_id: &str) -> Result<Pubkey> {
+        let (client_account, _) = Client::pda(client_id, self.solana_ics26_program_id);
+
+        let account = self
+            .target_solana_client
+            .get_account_with_commitment(&client_account, CommitmentConfig::confirmed())
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to fetch Client account for client '{}': {e}",
+                    client_id
+                )
+            })?
+            .value
+            .ok_or_else(|| {
+                anyhow::anyhow!("Client account not found for client '{}'", client_id)
+            })?;
+
+        if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
+            return Err(anyhow::anyhow!("Account data too short for Client account"));
+        }
+
+        // Deserialize Client account using borsh (skip discriminator)
+        let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
+        let client = solana_ibc_types::ClientAccount::deserialize(&mut data)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize Client account: {e}"))?;
+
+        tracing::info!(
+            "Resolved client '{}' to light client program ID: {}",
+            client_id,
+            client.client_program_id
+        );
+
+        Ok(client.client_program_id)
+    }
+
     fn split_header_into_chunks(header_bytes: &[u8]) -> Vec<Vec<u8>> {
         Self::split_into_chunks(header_bytes)
     }
@@ -684,6 +732,7 @@ impl TxBuilder {
         chunks: &[Vec<u8>],
         chain_id: &str,
         target_height: u64,
+        light_client_program_id: Pubkey,
     ) -> Result<Vec<Vec<u8>>> {
         let mut chunk_txs = Vec::new();
 
@@ -695,6 +744,7 @@ impl TxBuilder {
                 target_height,
                 chunk_index,
                 chunk_data.clone(),
+                light_client_program_id,
             )?;
 
             let chunk_tx = self.create_tx_bytes(&[upload_ix])?;
@@ -804,6 +854,7 @@ impl TxBuilder {
         target_height: u64,
         chunk_index: u8,
         chunk_data: Vec<u8>,
+        light_client_program_id: Pubkey,
     ) -> Result<Instruction> {
         let params = UploadChunkParams {
             chain_id: chain_id.to_string(),
@@ -812,13 +863,13 @@ impl TxBuilder {
             chunk_data,
         };
 
-        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+        let (client_state_pda, _) = ClientState::pda(chain_id, light_client_program_id);
         let (chunk_pda, _) = derive_header_chunk(
             self.fee_payer,
             chain_id,
             target_height,
             chunk_index,
-            self.solana_ics07_program_id,
+            light_client_program_id,
         );
 
         let accounts = vec![
@@ -832,7 +883,7 @@ impl TxBuilder {
         data.extend_from_slice(&params.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: self.solana_ics07_program_id,
+            program_id: light_client_program_id,
             accounts,
             data,
         })
@@ -844,18 +895,13 @@ impl TxBuilder {
         target_height: u64,
         trusted_height: u64,
         total_chunks: u8,
+        light_client_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
-        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
-        let (trusted_consensus_state, _) = ConsensusState::pda(
-            client_state_pda,
-            trusted_height,
-            self.solana_ics07_program_id,
-        );
-        let (new_consensus_state, _) = ConsensusState::pda(
-            client_state_pda,
-            target_height,
-            self.solana_ics07_program_id,
-        );
+        let (client_state_pda, _) = ClientState::pda(chain_id, light_client_program_id);
+        let (trusted_consensus_state, _) =
+            ConsensusState::pda(client_state_pda, trusted_height, light_client_program_id);
+        let (new_consensus_state, _) =
+            ConsensusState::pda(client_state_pda, target_height, light_client_program_id);
 
         let mut accounts = vec![
             AccountMeta::new(client_state_pda, false),
@@ -871,7 +917,7 @@ impl TxBuilder {
                 chain_id,
                 target_height,
                 chunk_index,
-                self.solana_ics07_program_id,
+                light_client_program_id,
             );
             accounts.push(AccountMeta::new(chunk_pda, false));
         }
@@ -884,7 +930,7 @@ impl TxBuilder {
         data.extend_from_slice(&target_height.to_le_bytes());
 
         let ix = Instruction {
-            program_id: self.solana_ics07_program_id,
+            program_id: light_client_program_id,
             accounts,
             data,
         };
@@ -1150,8 +1196,11 @@ impl TxBuilder {
             dst_client_id
         );
 
+        // Resolve the light client program ID for this client
+        let light_client_program_id = self.resolve_client_program_id(&dst_client_id)?;
+
         let chain_id = self.chain_id().await?;
-        let solana_client_state = self.cosmos_client_state(&chain_id)?;
+        let solana_client_state = self.cosmos_client_state(&chain_id, light_client_program_id)?;
         let solana_latest_height = solana_client_state.latest_height.revision_height;
 
         tracing::debug!(
@@ -1499,8 +1548,11 @@ impl TxBuilder {
     /// - Chain ID string is too long for serialization
     #[tracing::instrument(skip_all)]
     pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
+        // Resolve the light client program ID for this client
+        let light_client_program_id = self.resolve_client_program_id(&dst_client_id)?;
+
         let chain_id = self.chain_id().await?;
-        let client_state = self.cosmos_client_state(&chain_id)?;
+        let client_state = self.cosmos_client_state(&chain_id, light_client_program_id)?;
 
         let TmUpdateClientParams {
             target_height,
@@ -1528,13 +1580,19 @@ impl TxBuilder {
             total_chunks
         );
 
-        let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
+        let chunk_txs = self.build_chunk_transactions(
+            &chunks,
+            &chain_id,
+            target_height,
+            light_client_program_id,
+        )?;
 
         let assembly_tx = self.build_assemble_and_update_client_tx(
             &chain_id,
             target_height,
             trusted_height,
             total_chunks,
+            light_client_program_id,
         )?;
 
         tracing::info!(
