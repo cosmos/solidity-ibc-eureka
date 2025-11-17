@@ -17,7 +17,7 @@ pub struct IncrementCounter<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        space = UserCounter::INIT_SPACE,
+        space = 8 + UserCounter::INIT_SPACE,
         seeds = [UserCounter::SEED, user_authority.key().as_ref()],
         bump
     )]
