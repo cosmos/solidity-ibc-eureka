@@ -54,8 +54,6 @@ pub struct CosmosToSolanaConfig {
     pub solana_ics26_program_id: String,
     /// The Solana ICS07 Tendermint light client program ID.
     pub solana_ics07_program_id: String,
-    /// The Solana access manager program ID.
-    pub solana_access_manager_program_id: String,
     /// The Solana fee payer address.
     pub solana_fee_payer: String,
     /// Address Lookup Table address for reducing transaction size (optional).
