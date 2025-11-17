@@ -264,9 +264,6 @@ pub struct CleanupIncompleteMisbehaviour<'info> {
 #[program]
 pub mod ics07_tendermint {
     use super::*;
-    use crate::types::{
-        ClientState, ConsensusState, UploadChunkParams, UploadMisbehaviourChunkParams,
-    };
 
     pub fn initialize(
         ctx: Context<Initialize>,
