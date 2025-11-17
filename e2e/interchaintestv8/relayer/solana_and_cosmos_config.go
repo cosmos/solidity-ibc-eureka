@@ -14,8 +14,6 @@ type SolanaCosmosConfigInfo struct {
 	ICS07ProgramID string
 	// ICS26 Router program ID on Solana
 	ICS26RouterProgramID string
-	// Access Manager program ID on Solana
-	AccessManagerProgramID string
 	// IBC app program ID on Solana
 	IBCAppProgramID string
 	// Signer address for Cosmos transactions
@@ -52,8 +50,6 @@ type CosmosToSolanaModuleConfig struct {
 	SolanaIcs26ProgramId string `json:"solana_ics26_program_id"`
 	// Solana ICS07 Tendermint light client program ID (must be "solana_ics07_program_id")
 	SolanaIcs07ProgramId string `json:"solana_ics07_program_id"`
-	// Solana access manager program ID (must be "solana_access_manager_program_id")
-	SolanaAccessManagerProgramId string `json:"solana_access_manager_program_id"`
 	// Solana fee payer address for unsigned transactions
 	SolanaFeePayer string `json:"solana_fee_payer"`
 	// Address Lookup Table address for reducing transaction size (optional)
@@ -88,14 +84,13 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 			SrcChain: configInfo.CosmosChainID,
 			DstChain: configInfo.SolanaChainID,
 			Config: CosmosToSolanaModuleConfig{
-				SourceRpcUrl:                 configInfo.TmRPC,
-				TargetRpcUrl:                 configInfo.SolanaRPC,
-				SolanaIcs26ProgramId:         configInfo.ICS26RouterProgramID,
-				SolanaIcs07ProgramId:         configInfo.ICS07ProgramID,
-				SolanaAccessManagerProgramId: configInfo.AccessManagerProgramID,
-				SolanaFeePayer:               configInfo.SolanaFeePayer,
-				SolanaAltAddress:             altAddress,
-				MockWasmClient:               configInfo.MockWasmClient,
+				SourceRpcUrl:         configInfo.TmRPC,
+				TargetRpcUrl:         configInfo.SolanaRPC,
+				SolanaIcs26ProgramId: configInfo.ICS26RouterProgramID,
+				SolanaIcs07ProgramId: configInfo.ICS07ProgramID,
+				SolanaFeePayer:       configInfo.SolanaFeePayer,
+				SolanaAltAddress:     altAddress,
+				MockWasmClient:       configInfo.MockWasmClient,
 			},
 		},
 	}

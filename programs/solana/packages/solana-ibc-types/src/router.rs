@@ -212,7 +212,18 @@ impl IBCApp {
     }
 }
 
-pub struct RouterState;
+/// Router state account - matches the on-chain account structure in ICS26 router
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct RouterState {
+    /// Schema version for upgrades
+    pub version: AccountVersion,
+    /// Whether the router is paused (emergency stop)
+    pub paused: bool,
+    /// Access manager program ID for role-based access control
+    pub access_manager: Pubkey,
+    /// Reserved space for future fields
+    pub _reserved: [u8; 256],
+}
 
 impl RouterState {
     pub const SEED: &'static [u8] = b"router_state";

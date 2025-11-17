@@ -271,7 +271,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			TmRPC:                  simd.GetHostRPCAddress(),
 			ICS07ProgramID:         ics07_tendermint.ProgramID.String(),
 			ICS26RouterProgramID:   ics26_router.ProgramID.String(),
-			AccessManagerProgramID: access_manager.ProgramID.String(),
 			CosmosSignerAddress:    s.CosmosUsers[0].FormattedAddress(),
 			SolanaFeePayer:         s.SolanaRelayer.PublicKey().String(),
 			SolanaAltAddress:       s.SolanaAltAddress,

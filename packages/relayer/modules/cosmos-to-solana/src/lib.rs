@@ -79,11 +79,6 @@ impl CosmosToSolanaRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {}", e))?;
 
-        let solana_access_manager_program_id: Pubkey = config
-            .solana_access_manager_program_id
-            .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid Solana access manager program ID: {}", e))?;
-
         let target_listener =
             solana::ChainListener::new(config.target_rpc_url.clone(), solana_ics26_program_id);
 
@@ -104,7 +99,6 @@ impl CosmosToSolanaRelayerModuleService {
             target_listener.client().clone(),
             solana_ics07_program_id,
             solana_ics26_program_id,
-            solana_access_manager_program_id,
             fee_payer,
             alt_address,
         )?;

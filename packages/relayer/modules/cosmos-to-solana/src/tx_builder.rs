@@ -184,8 +184,6 @@ pub struct TxBuilder {
     pub solana_ics26_program_id: Pubkey,
     /// The Solana ICS07 program ID.
     pub solana_ics07_program_id: Pubkey,
-    /// The Solana access manager program ID.
-    pub solana_access_manager_program_id: Pubkey,
     /// The fee payer address for transactions.
     pub fee_payer: Pubkey,
     /// Address Lookup Table address for reducing transaction size (optional).
@@ -204,7 +202,6 @@ impl TxBuilder {
         target_solana_client: Arc<RpcClient>,
         solana_ics07_program_id: Pubkey,
         solana_ics26_program_id: Pubkey,
-        solana_access_manager_program_id: Pubkey,
         fee_payer: Pubkey,
         alt_address: Option<Pubkey>,
     ) -> Result<Self> {
@@ -213,10 +210,36 @@ impl TxBuilder {
             target_solana_client,
             solana_ics26_program_id,
             solana_ics07_program_id,
-            solana_access_manager_program_id,
             fee_payer,
             alt_address,
         })
+    }
+
+    /// Resolves the access manager program ID from the router state.
+    ///
+    /// Future optimization: Consider caching this value.
+    fn resolve_access_manager_program_id(&self) -> Result<Pubkey> {
+        let (router_state_pda, _) = RouterState::pda(self.solana_ics26_program_id);
+
+        let account = self
+            .target_solana_client
+            .get_account_with_commitment(&router_state_pda, CommitmentConfig::confirmed())
+            .map_err(|e| anyhow::anyhow!("Failed to fetch RouterState account: {e}"))?
+            .value
+            .ok_or_else(|| anyhow::anyhow!("Router state account not found"))?;
+
+        if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
+            return Err(anyhow::anyhow!(
+                "Account data too short for RouterState account"
+            ));
+        }
+
+        // Deserialize RouterState account using borsh (skip discriminator)
+        let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
+        let router_state = solana_ibc_types::RouterState::deserialize(&mut data)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize RouterState account: {e}"))?;
+
+        Ok(router_state.access_manager)
     }
 
     async fn chain_id(&self) -> Result<String> {
@@ -325,7 +348,8 @@ impl TxBuilder {
         let (ibc_app_state, _) = IBCAppState::pda(dest_port, ibc_app_program_id);
 
         // Derive the access manager PDA
-        let (access_manager, _) = AccessManager::pda(self.solana_access_manager_program_id);
+        let access_manager_program_id = self.resolve_access_manager_program_id()?;
+        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
 
         // Build base accounts list for recv_packet (matches router program's RecvPacket account structure)
         let mut accounts = vec![
@@ -469,8 +493,8 @@ impl TxBuilder {
             ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
 
         // Derive access manager PDA
-        let (access_manager, _) =
-            solana_ibc_types::AccessManager::pda(self.solana_access_manager_program_id);
+        let access_manager_program_id = self.resolve_access_manager_program_id()?;
+        let (access_manager, _) = solana_ibc_types::AccessManager::pda(access_manager_program_id);
 
         let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
@@ -575,8 +599,8 @@ impl TxBuilder {
             ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
 
         // Derive access manager PDA
-        let (access_manager, _) =
-            solana_ibc_types::AccessManager::pda(self.solana_access_manager_program_id);
+        let access_manager_program_id = self.resolve_access_manager_program_id()?;
+        let (access_manager, _) = solana_ibc_types::AccessManager::pda(access_manager_program_id);
 
         Ok(Self::assemble_timeout_accounts(TimeoutAccountsParams {
             access_manager,
@@ -878,7 +902,8 @@ impl TxBuilder {
         );
 
         // Derive access manager PDA
-        let (access_manager, _) = AccessManager::pda(self.solana_access_manager_program_id);
+        let access_manager_program_id = self.resolve_access_manager_program_id()?;
+        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
 
         let mut accounts = vec![
             AccountMeta::new(client_state_pda, false),
@@ -1499,8 +1524,8 @@ impl TxBuilder {
             consensus_state: tm_consensus_state,
         } = tm_create_client_params(&self.src_tm_client).await?;
 
-        let client_state =
-            convert_client_state_to_sol(tm_client_state, self.solana_access_manager_program_id)?;
+        let access_manager_program_id = self.resolve_access_manager_program_id()?;
+        let client_state = convert_client_state_to_sol(tm_client_state, access_manager_program_id)?;
         let consensus_state = convert_consensus_state(&tm_consensus_state)?;
 
         let instruction = self.build_create_client_instruction(
