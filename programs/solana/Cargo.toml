@@ -105,6 +105,9 @@ prost = { version = "0.13", default-features = false }
 # Build dependencies
 prost-build = { version = "0.13", default-features = false }
 
+# Utilities
+derive_more = { version = "2.0.1", default-features = false }
+
 # Testing
 mollusk-svm = { version = "0.4.1", default-features = false }
 mollusk-svm-bencher = { version = "0.4.1", default-features = false }

@@ -32,15 +32,44 @@ pub struct UpdateClientMsg {
 }
 
 /// IBC height structure
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+#[derive(
+    AnchorSerialize,
+    AnchorDeserialize,
+    Clone,
+    Debug,
+    InitSpace,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+)]
 pub struct IbcHeight {
     pub revision_number: u64,
     pub revision_height: u64,
 }
 
+// Conversions between IbcHeight and ibc_core_client_types::Height
+impl From<IbcHeight> for ibc_core_client_types::Height {
+    fn from(h: IbcHeight) -> Self {
+        Self::new(h.revision_number, h.revision_height).expect("valid height")
+    }
+}
+
+impl From<ibc_core_client_types::Height> for IbcHeight {
+    fn from(h: ibc_core_client_types::Height) -> Self {
+        Self {
+            revision_number: h.revision_number(),
+            revision_height: h.revision_height(),
+        }
+    }
+}
+
 /// Client state for ICS07 Tendermint
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, InitSpace)]
 pub struct ClientState {
+    #[max_len(64)]
     pub chain_id: String,
     pub trust_level_numerator: u64,
     pub trust_level_denominator: u64,

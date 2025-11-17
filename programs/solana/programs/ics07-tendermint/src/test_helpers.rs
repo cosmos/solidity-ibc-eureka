@@ -7,7 +7,7 @@ pub const PROGRAM_BINARY_PATH: &str = "../../target/deploy/ics07_tendermint";
 pub static SUCCESS_CHECK: LazyLock<Vec<Check>> = LazyLock::new(|| vec![Check::success()]);
 
 pub mod fixtures {
-    use crate::types::{ClientState, ConsensusState, IbcHeight};
+    use crate::types::{ClientState, ConsensusState};
     use serde::Deserialize;
 
     #[derive(Deserialize)]
@@ -71,25 +71,26 @@ pub mod fixtures {
             .latest_height
             .expect("Missing latest_height in client state");
 
-        ClientState {
+        ClientState(solana_ibc_types::ClientState {
             chain_id: proto.chain_id,
             trust_level_numerator: trust_level.numerator as u64,
             trust_level_denominator: trust_level.denominator as u64,
             trusting_period: trusting_period.seconds as u64,
             unbonding_period: unbonding_period.seconds as u64,
             max_clock_drift: max_clock_drift.seconds as u64,
-            frozen_height: proto
-                .frozen_height
-                .map_or_else(IbcHeight::default, |frozen_height| IbcHeight {
+            frozen_height: proto.frozen_height.map_or_else(
+                solana_ibc_types::IbcHeight::default,
+                |frozen_height| solana_ibc_types::IbcHeight {
                     revision_number: frozen_height.revision_number,
                     revision_height: frozen_height.revision_height,
-                }),
-            latest_height: IbcHeight {
+                },
+            ),
+            latest_height: solana_ibc_types::IbcHeight {
                 revision_number: latest_height.revision_number,
                 revision_height: latest_height.revision_height,
             },
             access_manager: access_manager::ID,
-        }
+        })
     }
 
     fn decode_consensus_state(consensus_state_hex: &str) -> ConsensusState {
@@ -331,25 +332,26 @@ pub mod fixtures {
             .latest_height
             .expect("Missing latest_height in client state");
 
-        ClientState {
+        ClientState(solana_ibc_types::ClientState {
             chain_id: proto.chain_id,
             trust_level_numerator: trust_level.numerator as u64,
             trust_level_denominator: trust_level.denominator as u64,
             trusting_period: trusting_period.seconds as u64,
             unbonding_period: unbonding_period.seconds as u64,
             max_clock_drift: max_clock_drift.seconds as u64,
-            frozen_height: proto
-                .frozen_height
-                .map_or_else(IbcHeight::default, |frozen_height| IbcHeight {
+            frozen_height: proto.frozen_height.map_or_else(
+                solana_ibc_types::IbcHeight::default,
+                |frozen_height| solana_ibc_types::IbcHeight {
                     revision_number: frozen_height.revision_number,
                     revision_height: frozen_height.revision_height,
-                }),
-            latest_height: IbcHeight {
+                },
+            ),
+            latest_height: solana_ibc_types::IbcHeight {
                 revision_number: latest_height.revision_number,
                 revision_height: latest_height.revision_height,
             },
             access_manager: access_manager::ID,
-        }
+        })
     }
 
     pub fn decode_consensus_state_from_hex(consensus_state_hex: &str) -> ConsensusState {
@@ -409,7 +411,7 @@ pub mod fixtures {
 #[cfg(test)]
 pub mod chunk_test_utils {
     use crate::state::{HeaderChunk, CHUNK_DATA_SIZE};
-    use crate::types::{ClientState, ConsensusState, IbcHeight, UploadChunkParams};
+    use crate::types::{ClientState, ConsensusState, UploadChunkParams};
     use solana_sdk::account::Account;
     use solana_sdk::keccak;
     use solana_sdk::pubkey::Pubkey;
@@ -449,23 +451,23 @@ pub mod chunk_test_utils {
     pub fn create_client_state_account(chain_id: &str, latest_height: u64) -> Account {
         use anchor_lang::AccountSerialize;
 
-        let client_state = ClientState {
+        let client_state = ClientState(solana_ibc_types::ClientState {
             chain_id: chain_id.to_string(),
             trust_level_numerator: 2,
             trust_level_denominator: 3,
             trusting_period: 86400,
             unbonding_period: 172_800,
             max_clock_drift: 600,
-            frozen_height: IbcHeight {
+            frozen_height: solana_ibc_types::IbcHeight {
                 revision_number: 0,
                 revision_height: 0,
             },
-            latest_height: IbcHeight {
+            latest_height: solana_ibc_types::IbcHeight {
                 revision_number: 0,
                 revision_height: latest_height,
             },
             access_manager: access_manager::ID,
-        };
+        });
 
         let mut data = vec![];
         client_state.try_serialize(&mut data).unwrap();
@@ -614,7 +616,8 @@ pub mod access_control {
             });
         }
 
-        let access_manager = access_manager::state::AccessManager { roles };
+        let access_manager =
+            access_manager::state::AccessManager(solana_ibc_types::AccessManager { roles });
 
         let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
         access_manager.serialize(&mut data).unwrap();

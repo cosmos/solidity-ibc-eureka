@@ -30,6 +30,7 @@ anchor-lang = { workspace = true, features = ["init-if-needed"] }
 access-manager = { workspace = true, features = ["cpi"] }
 ics25-handler.workspace = true
 solana-ibc-types.workspace = true
+derive_more = { workspace = true, features = ["deref", "deref_mut"] }
 
 tendermint-light-client-update-client = { workspace = true, features = ["solana"] }
 tendermint-light-client-membership.workspace = true

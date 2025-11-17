@@ -787,13 +787,13 @@ mod tests {
         let wrong_ibc_app = Pubkey::new_unique();
 
         // Create proper IBCApp account data so Anchor's discriminator check passes
-        let ibc_app = IBCApp {
+        let ibc_app = IBCApp(solana_ibc_types::IBCApp {
             version: AccountVersion::V1,
             port_id: "test-port".to_string(),
             app_program_id: MOCK_IBC_APP_PROGRAM_ID,
             authority: Pubkey::new_unique(),
             _reserved: [0; 256],
-        };
+        });
 
         let wrong_ibc_app_account = solana_sdk::account::Account {
             lamports: 10_000_000,

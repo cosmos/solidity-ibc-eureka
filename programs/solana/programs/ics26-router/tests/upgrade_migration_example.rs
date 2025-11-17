@@ -19,12 +19,12 @@ fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u
 fn setup_router_state() -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) =
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let router_state = RouterState {
+    let router_state = RouterState(solana_ibc_types::RouterState {
         version: AccountVersion::V1,
         paused: false,
         access_manager: access_manager::ID,
         _reserved: [0; 256],
-    };
+    });
     let router_state_data = create_account_data(&router_state);
     (router_state_pda, router_state_data)
 }

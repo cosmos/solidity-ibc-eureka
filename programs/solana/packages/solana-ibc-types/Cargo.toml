@@ -16,6 +16,7 @@ prost.workspace = true
 solana-ibc-constants.workspace = true
 ibc-eureka-constrained-types.workspace = true
 solana-ibc-proto.workspace = true
+ibc-core-client-types.workspace = true
 
 [lib]
 crate-type = ["cdylib", "lib"]

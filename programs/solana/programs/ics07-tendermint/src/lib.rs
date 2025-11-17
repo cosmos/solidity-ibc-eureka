@@ -13,8 +13,7 @@ use crate::state::{ConsensusStateStore, HeaderChunk, MisbehaviourChunk};
 declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 
 pub use types::{
-    ClientState, ConsensusState, IbcHeight, UpdateResult, UploadChunkParams,
-    UploadMisbehaviourChunkParams,
+    ClientState, ConsensusState, UpdateResult, UploadChunkParams, UploadMisbehaviourChunkParams,
 };
 
 pub use ics25_handler::{MembershipMsg, NonMembershipMsg};

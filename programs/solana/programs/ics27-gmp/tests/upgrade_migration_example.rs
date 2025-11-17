@@ -20,13 +20,13 @@ fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u
 fn setup_gmp_app_state(paused: bool) -> (Pubkey, Vec<u8>) {
     let (app_state_pda, bump) =
         Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &ics27_gmp::ID);
-    let app_state = GMPAppState {
+    let app_state = GMPAppState(solana_ibc_types::GMPAppState {
         version: AccountVersion::V1,
         paused,
         bump,
         access_manager: access_manager::ID,
         _reserved: [0; 256],
-    };
+    });
     let app_state_data = create_account_data(&app_state);
     (app_state_pda, app_state_data)
 }

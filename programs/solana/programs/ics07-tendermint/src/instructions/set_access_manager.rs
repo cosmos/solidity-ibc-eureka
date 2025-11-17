@@ -82,15 +82,15 @@ mod tests {
 
     fn create_access_manager_account(admin: Pubkey, role: u64) -> SolanaAccount {
         use access_manager::state::AccessManager;
-        use access_manager::types::RoleData;
         use anchor_lang::AccountSerialize;
+        use solana_ibc_types::RoleData;
 
-        let access_manager = AccessManager {
+        let access_manager = AccessManager(solana_ibc_types::AccessManager {
             roles: vec![RoleData {
                 role_id: role,
                 members: vec![admin],
             }],
-        };
+        });
 
         let mut data = vec![0u8; 8 + 10000]; // Enough space
         access_manager.try_serialize(&mut &mut data[..]).unwrap();

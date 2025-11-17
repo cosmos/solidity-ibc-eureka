@@ -1,7 +1,7 @@
 use crate::error::ErrorCode;
 use crate::state::{ConsensusStateStore, MisbehaviourChunk};
 use crate::test_helpers::PROGRAM_BINARY_PATH;
-use crate::types::{ClientState, ConsensusState, IbcHeight};
+use crate::types::{ClientState, ConsensusState};
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -70,7 +70,7 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
     )
     .0;
 
-    let client_state = ClientState {
+    let client_state = ClientState(solana_ibc_types::ClientState {
         chain_id: chain_id.to_string(),
         trust_level_numerator: 2,
         trust_level_denominator: 3,
@@ -78,22 +78,22 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
         unbonding_period: 172_800,
         max_clock_drift: 600,
         frozen_height: if client_frozen {
-            IbcHeight {
+            solana_ibc_types::IbcHeight {
                 revision_number: 0,
                 revision_height: 999,
             }
         } else {
-            IbcHeight {
+            solana_ibc_types::IbcHeight {
                 revision_number: 0,
                 revision_height: 0,
             }
         },
-        latest_height: IbcHeight {
+        latest_height: solana_ibc_types::IbcHeight {
             revision_number: 0,
             revision_height: 200,
         },
         access_manager: access_manager::ID,
-    };
+    });
 
     let mut client_data = vec![];
     client_state.try_serialize(&mut client_data).unwrap();

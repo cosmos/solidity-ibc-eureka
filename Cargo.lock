@@ -9349,6 +9349,7 @@ name = "solana-ibc-types"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "ibc-core-client-types",
  "ibc-eureka-constrained-types",
  "prost",
  "solana-ibc-constants",

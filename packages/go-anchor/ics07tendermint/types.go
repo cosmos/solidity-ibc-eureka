@@ -173,65 +173,16 @@ func UnmarshalIcs07TendermintStateMisbehaviourChunk(buf []byte) (*Ics07Tendermin
 	return obj, nil
 }
 
+// Client state for ICS07 Tendermint - wraps the shared type from solana-ibc-types
 type Ics07TendermintTypesClientState struct {
-	ChainId               string                        `json:"chainId"`
-	TrustLevelNumerator   uint64                        `json:"trustLevelNumerator"`
-	TrustLevelDenominator uint64                        `json:"trustLevelDenominator"`
-	TrustingPeriod        uint64                        `json:"trustingPeriod"`
-	UnbondingPeriod       uint64                        `json:"unbondingPeriod"`
-	MaxClockDrift         uint64                        `json:"maxClockDrift"`
-	FrozenHeight          Ics07TendermintTypesIbcHeight `json:"frozenHeight"`
-	LatestHeight          Ics07TendermintTypesIbcHeight `json:"latestHeight"`
-
-	// Access manager program ID for role-based access control
-	AccessManager solanago.PublicKey `json:"accessManager"`
+	V0 SolanaIbcTypesIcs07ClientState `json:"v0"`
 }
 
 func (obj Ics07TendermintTypesClientState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ChainId`:
-	err = encoder.Encode(obj.ChainId)
+	// Serialize `V0`:
+	err = encoder.Encode(obj.V0)
 	if err != nil {
-		return errors.NewField("ChainId", err)
-	}
-	// Serialize `TrustLevelNumerator`:
-	err = encoder.Encode(obj.TrustLevelNumerator)
-	if err != nil {
-		return errors.NewField("TrustLevelNumerator", err)
-	}
-	// Serialize `TrustLevelDenominator`:
-	err = encoder.Encode(obj.TrustLevelDenominator)
-	if err != nil {
-		return errors.NewField("TrustLevelDenominator", err)
-	}
-	// Serialize `TrustingPeriod`:
-	err = encoder.Encode(obj.TrustingPeriod)
-	if err != nil {
-		return errors.NewField("TrustingPeriod", err)
-	}
-	// Serialize `UnbondingPeriod`:
-	err = encoder.Encode(obj.UnbondingPeriod)
-	if err != nil {
-		return errors.NewField("UnbondingPeriod", err)
-	}
-	// Serialize `MaxClockDrift`:
-	err = encoder.Encode(obj.MaxClockDrift)
-	if err != nil {
-		return errors.NewField("MaxClockDrift", err)
-	}
-	// Serialize `FrozenHeight`:
-	err = encoder.Encode(obj.FrozenHeight)
-	if err != nil {
-		return errors.NewField("FrozenHeight", err)
-	}
-	// Serialize `LatestHeight`:
-	err = encoder.Encode(obj.LatestHeight)
-	if err != nil {
-		return errors.NewField("LatestHeight", err)
-	}
-	// Serialize `AccessManager`:
-	err = encoder.Encode(obj.AccessManager)
-	if err != nil {
-		return errors.NewField("AccessManager", err)
+		return errors.NewField("V0", err)
 	}
 	return nil
 }
@@ -247,50 +198,10 @@ func (obj Ics07TendermintTypesClientState) Marshal() ([]byte, error) {
 }
 
 func (obj *Ics07TendermintTypesClientState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ChainId`:
-	err = decoder.Decode(&obj.ChainId)
+	// Deserialize `V0`:
+	err = decoder.Decode(&obj.V0)
 	if err != nil {
-		return errors.NewField("ChainId", err)
-	}
-	// Deserialize `TrustLevelNumerator`:
-	err = decoder.Decode(&obj.TrustLevelNumerator)
-	if err != nil {
-		return errors.NewField("TrustLevelNumerator", err)
-	}
-	// Deserialize `TrustLevelDenominator`:
-	err = decoder.Decode(&obj.TrustLevelDenominator)
-	if err != nil {
-		return errors.NewField("TrustLevelDenominator", err)
-	}
-	// Deserialize `TrustingPeriod`:
-	err = decoder.Decode(&obj.TrustingPeriod)
-	if err != nil {
-		return errors.NewField("TrustingPeriod", err)
-	}
-	// Deserialize `UnbondingPeriod`:
-	err = decoder.Decode(&obj.UnbondingPeriod)
-	if err != nil {
-		return errors.NewField("UnbondingPeriod", err)
-	}
-	// Deserialize `MaxClockDrift`:
-	err = decoder.Decode(&obj.MaxClockDrift)
-	if err != nil {
-		return errors.NewField("MaxClockDrift", err)
-	}
-	// Deserialize `FrozenHeight`:
-	err = decoder.Decode(&obj.FrozenHeight)
-	if err != nil {
-		return errors.NewField("FrozenHeight", err)
-	}
-	// Deserialize `LatestHeight`:
-	err = decoder.Decode(&obj.LatestHeight)
-	if err != nil {
-		return errors.NewField("LatestHeight", err)
-	}
-	// Deserialize `AccessManager`:
-	err = decoder.Decode(&obj.AccessManager)
-	if err != nil {
-		return errors.NewField("AccessManager", err)
+		return errors.NewField("V0", err)
 	}
 	return nil
 }
@@ -376,66 +287,6 @@ func (obj *Ics07TendermintTypesConsensusState) Unmarshal(buf []byte) error {
 
 func UnmarshalIcs07TendermintTypesConsensusState(buf []byte) (*Ics07TendermintTypesConsensusState, error) {
 	obj := new(Ics07TendermintTypesConsensusState)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type Ics07TendermintTypesIbcHeight struct {
-	RevisionNumber uint64 `json:"revisionNumber"`
-	RevisionHeight uint64 `json:"revisionHeight"`
-}
-
-func (obj Ics07TendermintTypesIbcHeight) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `RevisionNumber`:
-	err = encoder.Encode(obj.RevisionNumber)
-	if err != nil {
-		return errors.NewField("RevisionNumber", err)
-	}
-	// Serialize `RevisionHeight`:
-	err = encoder.Encode(obj.RevisionHeight)
-	if err != nil {
-		return errors.NewField("RevisionHeight", err)
-	}
-	return nil
-}
-
-func (obj Ics07TendermintTypesIbcHeight) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics07TendermintTypesIbcHeight: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *Ics07TendermintTypesIbcHeight) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `RevisionNumber`:
-	err = decoder.Decode(&obj.RevisionNumber)
-	if err != nil {
-		return errors.NewField("RevisionNumber", err)
-	}
-	// Deserialize `RevisionHeight`:
-	err = decoder.Decode(&obj.RevisionHeight)
-	if err != nil {
-		return errors.NewField("RevisionHeight", err)
-	}
-	return nil
-}
-
-func (obj *Ics07TendermintTypesIbcHeight) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics07TendermintTypesIbcHeight: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalIcs07TendermintTypesIbcHeight(buf []byte) (*Ics07TendermintTypesIbcHeight, error) {
-	obj := new(Ics07TendermintTypesIbcHeight)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -781,6 +632,205 @@ func (obj *Ics25HandlerNonMembershipMsg) Unmarshal(buf []byte) error {
 
 func UnmarshalIcs25HandlerNonMembershipMsg(buf []byte) (*Ics25HandlerNonMembershipMsg, error) {
 	obj := new(Ics25HandlerNonMembershipMsg)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Client state for ICS07 Tendermint
+type SolanaIbcTypesIcs07ClientState struct {
+	ChainId               string                       `json:"chainId"`
+	TrustLevelNumerator   uint64                       `json:"trustLevelNumerator"`
+	TrustLevelDenominator uint64                       `json:"trustLevelDenominator"`
+	TrustingPeriod        uint64                       `json:"trustingPeriod"`
+	UnbondingPeriod       uint64                       `json:"unbondingPeriod"`
+	MaxClockDrift         uint64                       `json:"maxClockDrift"`
+	FrozenHeight          SolanaIbcTypesIcs07IbcHeight `json:"frozenHeight"`
+	LatestHeight          SolanaIbcTypesIcs07IbcHeight `json:"latestHeight"`
+	AccessManager         solanago.PublicKey           `json:"accessManager"`
+}
+
+func (obj SolanaIbcTypesIcs07ClientState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ChainId`:
+	err = encoder.Encode(obj.ChainId)
+	if err != nil {
+		return errors.NewField("ChainId", err)
+	}
+	// Serialize `TrustLevelNumerator`:
+	err = encoder.Encode(obj.TrustLevelNumerator)
+	if err != nil {
+		return errors.NewField("TrustLevelNumerator", err)
+	}
+	// Serialize `TrustLevelDenominator`:
+	err = encoder.Encode(obj.TrustLevelDenominator)
+	if err != nil {
+		return errors.NewField("TrustLevelDenominator", err)
+	}
+	// Serialize `TrustingPeriod`:
+	err = encoder.Encode(obj.TrustingPeriod)
+	if err != nil {
+		return errors.NewField("TrustingPeriod", err)
+	}
+	// Serialize `UnbondingPeriod`:
+	err = encoder.Encode(obj.UnbondingPeriod)
+	if err != nil {
+		return errors.NewField("UnbondingPeriod", err)
+	}
+	// Serialize `MaxClockDrift`:
+	err = encoder.Encode(obj.MaxClockDrift)
+	if err != nil {
+		return errors.NewField("MaxClockDrift", err)
+	}
+	// Serialize `FrozenHeight`:
+	err = encoder.Encode(obj.FrozenHeight)
+	if err != nil {
+		return errors.NewField("FrozenHeight", err)
+	}
+	// Serialize `LatestHeight`:
+	err = encoder.Encode(obj.LatestHeight)
+	if err != nil {
+		return errors.NewField("LatestHeight", err)
+	}
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesIcs07ClientState) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesIcs07ClientState: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesIcs07ClientState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ChainId`:
+	err = decoder.Decode(&obj.ChainId)
+	if err != nil {
+		return errors.NewField("ChainId", err)
+	}
+	// Deserialize `TrustLevelNumerator`:
+	err = decoder.Decode(&obj.TrustLevelNumerator)
+	if err != nil {
+		return errors.NewField("TrustLevelNumerator", err)
+	}
+	// Deserialize `TrustLevelDenominator`:
+	err = decoder.Decode(&obj.TrustLevelDenominator)
+	if err != nil {
+		return errors.NewField("TrustLevelDenominator", err)
+	}
+	// Deserialize `TrustingPeriod`:
+	err = decoder.Decode(&obj.TrustingPeriod)
+	if err != nil {
+		return errors.NewField("TrustingPeriod", err)
+	}
+	// Deserialize `UnbondingPeriod`:
+	err = decoder.Decode(&obj.UnbondingPeriod)
+	if err != nil {
+		return errors.NewField("UnbondingPeriod", err)
+	}
+	// Deserialize `MaxClockDrift`:
+	err = decoder.Decode(&obj.MaxClockDrift)
+	if err != nil {
+		return errors.NewField("MaxClockDrift", err)
+	}
+	// Deserialize `FrozenHeight`:
+	err = decoder.Decode(&obj.FrozenHeight)
+	if err != nil {
+		return errors.NewField("FrozenHeight", err)
+	}
+	// Deserialize `LatestHeight`:
+	err = decoder.Decode(&obj.LatestHeight)
+	if err != nil {
+		return errors.NewField("LatestHeight", err)
+	}
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesIcs07ClientState) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesIcs07ClientState: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesIcs07ClientState(buf []byte) (*SolanaIbcTypesIcs07ClientState, error) {
+	obj := new(SolanaIbcTypesIcs07ClientState)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// IBC height structure
+type SolanaIbcTypesIcs07IbcHeight struct {
+	RevisionNumber uint64 `json:"revisionNumber"`
+	RevisionHeight uint64 `json:"revisionHeight"`
+}
+
+func (obj SolanaIbcTypesIcs07IbcHeight) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `RevisionNumber`:
+	err = encoder.Encode(obj.RevisionNumber)
+	if err != nil {
+		return errors.NewField("RevisionNumber", err)
+	}
+	// Serialize `RevisionHeight`:
+	err = encoder.Encode(obj.RevisionHeight)
+	if err != nil {
+		return errors.NewField("RevisionHeight", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesIcs07IbcHeight) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesIcs07IbcHeight: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesIcs07IbcHeight) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `RevisionNumber`:
+	err = decoder.Decode(&obj.RevisionNumber)
+	if err != nil {
+		return errors.NewField("RevisionNumber", err)
+	}
+	// Deserialize `RevisionHeight`:
+	err = decoder.Decode(&obj.RevisionHeight)
+	if err != nil {
+		return errors.NewField("RevisionHeight", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesIcs07IbcHeight) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesIcs07IbcHeight: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesIcs07IbcHeight(buf []byte) (*SolanaIbcTypesIcs07IbcHeight, error) {
+	obj := new(SolanaIbcTypesIcs07IbcHeight)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

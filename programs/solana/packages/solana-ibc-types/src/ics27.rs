@@ -104,8 +104,20 @@ impl SignerSeeds {
     }
 }
 
-/// Marker type for GMP application state PDA
-pub struct GMPAppState;
+/// Main GMP application state - matches the on-chain account structure in ics27-gmp
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, InitSpace)]
+pub struct GMPAppState {
+    /// Schema version for upgrades
+    pub version: crate::AccountVersion,
+    /// Emergency pause flag
+    pub paused: bool,
+    /// PDA bump seed
+    pub bump: u8,
+    /// Access manager program ID for role-based access control
+    pub access_manager: Pubkey,
+    /// Reserved space for future fields
+    pub _reserved: [u8; 256],
+}
 
 impl GMPAppState {
     /// Seed for the main GMP application state PDA

@@ -228,13 +228,13 @@ mod tests {
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let app_state = GMPAppState {
+        let app_state = GMPAppState(solana_ibc_types::GMPAppState {
             version: AccountVersion::V1,
             paused: true,
             bump: app_state_bump,
             access_manager: access_manager::ID,
             _reserved: [0; 256],
-        };
+        });
 
         let mut data = Vec::new();
         data.extend_from_slice(GMPAppState::DISCRIMINATOR);

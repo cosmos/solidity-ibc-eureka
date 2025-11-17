@@ -7,12 +7,11 @@ pub mod instructions;
 pub mod state;
 #[cfg(test)]
 pub mod test_utils;
-pub mod types;
 
 pub use errors::AccessManagerError;
 pub use helpers::require_role;
 use instructions::*;
-pub use types::RoleData;
+pub use solana_ibc_types::RoleData;
 
 declare_id!("4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1");
 

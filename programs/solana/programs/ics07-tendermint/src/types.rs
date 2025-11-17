@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
+use derive_more::{Deref, DerefMut};
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
-use ibc_core_client_types::Height;
 use ibc_core_commitment_types::commitment::CommitmentRoot;
 use std::fmt::Debug;
 use tendermint::Time;
@@ -31,72 +31,27 @@ pub struct UploadMisbehaviourChunkParams {
     pub chunk_data: Vec<u8>,
 }
 
+/// Client state for ICS07 Tendermint - wraps the shared type from solana-ibc-types
 #[account]
-#[derive(InitSpace)]
-pub struct ClientState {
-    #[max_len(64)]
-    pub chain_id: String,
-    pub trust_level_numerator: u64,
-    pub trust_level_denominator: u64,
-    pub trusting_period: u64,
-    pub unbonding_period: u64,
-    pub max_clock_drift: u64,
-    pub frozen_height: IbcHeight,
-    pub latest_height: IbcHeight,
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
-}
+#[derive(InitSpace, Deref, DerefMut)]
+pub struct ClientState(pub solana_ibc_types::ClientState);
 
 impl ClientState {
-    pub const SEED: &'static [u8] = b"client";
+    pub const SEED: &'static [u8] = solana_ibc_types::ClientState::SEED;
 
-    pub const fn is_frozen(&self) -> bool {
+    pub fn is_frozen(&self) -> bool {
         self.frozen_height.revision_height > 0
     }
 
-    /// NOTE: supress clippy due to &mut self can't be const
-    #[allow(clippy::missing_const_for_fn)]
     pub fn freeze(&mut self) {
         self.frozen_height = self.latest_height;
-    }
-}
-
-#[derive(
-    AnchorSerialize,
-    AnchorDeserialize,
-    Clone,
-    Copy,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    InitSpace,
-)]
-pub struct IbcHeight {
-    pub revision_number: u64,
-    pub revision_height: u64,
-}
-
-impl From<IbcHeight> for Height {
-    fn from(h: IbcHeight) -> Self {
-        Self::new(h.revision_number, h.revision_height).expect("valid height")
-    }
-}
-
-impl From<Height> for IbcHeight {
-    fn from(h: Height) -> Self {
-        Self {
-            revision_number: h.revision_number(),
-            revision_height: h.revision_height(),
-        }
     }
 }
 
 impl From<ClientState> for UpdateClientState {
     fn from(cs: ClientState) -> Self {
         Self {
-            chain_id: cs.chain_id,
+            chain_id: cs.chain_id.clone(),
             trust_level: TrustThreshold {
                 numerator: cs.trust_level_numerator,
                 denominator: cs.trust_level_denominator,
@@ -148,24 +103,6 @@ impl TryFrom<IbcConsensusState> for ConsensusState {
 mod compatibility_tests {
     use super::*;
 
-    /// Ensures `IbcHeight` serialization remains compatible between program and solana-ibc-types
-    /// This is critical because these types may be passed between programs
-    #[test]
-    fn test_ibc_height_serialization_compatibility() {
-        let height = IbcHeight {
-            revision_number: 1,
-            revision_height: 1000,
-        };
-
-        let serialized = height.try_to_vec().unwrap();
-
-        let types_height: solana_ibc_types::ics07::IbcHeight =
-            AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
-
-        assert_eq!(height.revision_number, types_height.revision_number);
-        assert_eq!(height.revision_height, types_height.revision_height);
-    }
-
     /// Ensures `ConsensusState` serialization remains compatible between program and solana-ibc-types
     #[test]
     fn test_consensus_state_serialization_compatibility() {
@@ -191,23 +128,23 @@ mod compatibility_tests {
     /// Ensures `ClientState` serialization remains compatible between program and solana-ibc-types
     #[test]
     fn test_client_state_serialization_compatibility() {
-        let client_state = ClientState {
+        let client_state = ClientState(solana_ibc_types::ClientState {
             chain_id: "test-chain".to_string(),
             trust_level_numerator: 1,
             trust_level_denominator: 3,
             trusting_period: 1_209_600,
             unbonding_period: 1_814_400,
             max_clock_drift: 10,
-            frozen_height: IbcHeight {
+            frozen_height: solana_ibc_types::IbcHeight {
                 revision_number: 0,
                 revision_height: 0,
             },
-            latest_height: IbcHeight {
+            latest_height: solana_ibc_types::IbcHeight {
                 revision_number: 1,
                 revision_height: 1000,
             },
             access_manager: access_manager::ID,
-        };
+        });
 
         let serialized = client_state.try_to_vec().unwrap();
 

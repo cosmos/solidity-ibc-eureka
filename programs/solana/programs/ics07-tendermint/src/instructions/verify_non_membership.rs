@@ -41,7 +41,7 @@ mod tests {
     };
     use crate::test_helpers::fixtures::*;
     use crate::test_helpers::PROGRAM_BINARY_PATH;
-    use crate::types::{ClientState, ConsensusState, IbcHeight};
+    use crate::types::{ClientState, ConsensusState};
     use anchor_lang::solana_program::{
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
@@ -255,7 +255,7 @@ mod tests {
         let mut client_state = decode_client_state_from_hex(&fixture.client_state_hex);
         let consensus_state = decode_consensus_state_from_hex(&fixture.consensus_state_hex);
 
-        client_state.frozen_height = IbcHeight {
+        client_state.frozen_height = solana_ibc_types::IbcHeight {
             revision_number: 0,
             revision_height: 1,
         };

@@ -189,11 +189,12 @@ pub struct MsgCleanupChunks {
 
 /// IBCApp mapping port IDs to IBC app program IDs
 /// This matches the on-chain account structure in the ICS26 router
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, InitSpace)]
 pub struct IBCApp {
     /// Schema version for upgrades
     pub version: AccountVersion,
     /// The port identifier
+    #[max_len(128)] // MAX_PORT_ID_LENGTH from router program
     pub port_id: String,
     /// The program ID of the IBC application
     pub app_program_id: Pubkey,
@@ -213,7 +214,7 @@ impl IBCApp {
 }
 
 /// Router state account - matches the on-chain account structure in ICS26 router
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, InitSpace)]
 pub struct RouterState {
     /// Schema version for upgrades
     pub version: AccountVersion,
