@@ -91,7 +91,7 @@ struct UploadChunkParams {
 }
 
 /// Organized transactions for chunked update client
-/// Submission order: alt_create_tx -> alt_extend_txs (sequential) -> chunk_txs (parallel) -> assembly_tx
+/// Submission order: `alt_create_tx` -> `alt_extend_txs` (sequential) -> `chunk_txs` (parallel) -> `assembly_tx`
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct UpdateClientChunkedTxs {
     /// All chunk upload transactions (can be submitted in parallel after ALT is ready)
@@ -1637,6 +1637,7 @@ impl TxBuilder {
     /// - Failed to serialize header or instruction data
     /// - Failed to get recent blockhash from Solana
     /// - Chain ID string is too long for serialization
+    #[allow(clippy::too_many_lines)]
     #[tracing::instrument(skip_all)]
     pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
         let chain_id = self.chain_id().await?;
@@ -1737,7 +1738,7 @@ impl TxBuilder {
             tracing::info!(
                 "Built ALT extension batch {}/{} with {} accounts",
                 batch_idx + 1,
-                (alt_accounts.len() + ALT_EXTEND_BATCH_SIZE - 1) / ALT_EXTEND_BATCH_SIZE,
+                alt_accounts.len().div_ceil(ALT_EXTEND_BATCH_SIZE),
                 account_batch.len()
             );
         }
