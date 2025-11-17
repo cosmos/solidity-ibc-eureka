@@ -698,6 +698,58 @@ impl TxBuilder {
         Self::split_into_chunks(header_bytes)
     }
 
+    fn extract_validators_bytes(
+        borsh_header: &solana_ibc_types::borsh_header::BorshHeader,
+    ) -> Result<(Vec<u8>, Vec<u8>)> {
+        let validators_bytes = borsh_header
+            .validator_set
+            .try_to_vec()
+            .context("Failed to serialize validator_set")?;
+
+        let next_validators_bytes = borsh_header
+            .trusted_next_validator_set
+            .try_to_vec()
+            .context("Failed to serialize trusted_next_validator_set")?;
+
+        Ok((validators_bytes, next_validators_bytes))
+    }
+
+    fn build_store_validators_instruction(
+        &self,
+        validators_bytes: Vec<u8>,
+    ) -> Result<Instruction> {
+        use anchor_lang::solana_program::hash::hash;
+
+        let simple_hash = hash(&validators_bytes).to_bytes();
+
+        let params_data = {
+            let mut data = Vec::new();
+            ::borsh::BorshSerialize::serialize(&simple_hash, &mut data)?;
+            ::borsh::BorshSerialize::serialize(&validators_bytes, &mut data)?;
+            data
+        };
+
+        let (validators_storage_pda, _) = Pubkey::find_program_address(
+            &[b"validators", &simple_hash, self.fee_payer.as_ref()],
+            &self.solana_ics07_program_id,
+        );
+
+        let accounts = vec![
+            AccountMeta::new(validators_storage_pda, false),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        let mut data = ics07_instructions::store_and_hash_validators_discriminator().to_vec();
+        data.extend_from_slice(&params_data);
+
+        Ok(Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data,
+        })
+    }
+
     fn build_chunk_transactions(
         &self,
         chunks: &[Vec<u8>],
@@ -1666,6 +1718,9 @@ impl TxBuilder {
             .context("Failed to serialize header with Borsh")?;
         tracing::info!("Header serialized with Borsh: {} bytes", header_bytes.len());
 
+        let (validators_bytes, next_validators_bytes) =
+            Self::extract_validators_bytes(&borsh_header)?;
+
         let chunks = Self::split_header_into_chunks(&header_bytes);
         let total_chunks = u8::try_from(chunks.len())
             .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
@@ -1676,7 +1731,17 @@ impl TxBuilder {
             total_chunks
         );
 
-        let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
+        let mut chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
+
+        let store_validators_ix = self.build_store_validators_instruction(validators_bytes)?;
+        let store_next_validators_ix =
+            self.build_store_validators_instruction(next_validators_bytes)?;
+
+        let store_validators_tx = self.create_tx_bytes(&[store_validators_ix])?;
+        let store_next_validators_tx = self.create_tx_bytes(&[store_next_validators_ix])?;
+
+        chunk_txs.push(store_validators_tx);
+        chunk_txs.push(store_next_validators_tx);
 
         // Get current slot for ALT derivation
         let slot = self
