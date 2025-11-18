@@ -128,6 +128,7 @@ struct AssembleInstructionParams {
 }
 
 fn create_assemble_instruction(params: AssembleInstructionParams) -> Instruction {
+    let chunk_count = params.chunk_pdas.len() as u8;
     let mut account_metas = vec![
         AccountMeta::new(params.client_state_pda, false),
         AccountMeta::new_readonly(params.trusted_consensus_state_pda, false),
@@ -147,6 +148,7 @@ fn create_assemble_instruction(params: AssembleInstructionParams) -> Instruction
         data: crate::instruction::AssembleAndUpdateClient {
             chain_id: params.chain_id,
             target_height: params.target_height,
+            chunk_count,
         }
         .data(),
     }
@@ -1347,6 +1349,7 @@ fn test_assemble_and_update_with_invalid_signature() {
     let instruction_data = crate::instruction::AssembleAndUpdateClient {
         chain_id: chain_id.to_string(),
         target_height,
+        chunk_count: chunk_accounts.len() as u8,
     };
 
     let instruction = Instruction {

@@ -66,7 +66,9 @@ tendermint-light-client-solana            = { path = "packages/tendermint-light-
 
 brine-ed25519 = { version = "0.2", default-features = false }
 
-serde           = { version = "1.0", default-features = false }
+# Pin serde to 1.0.219 to fix compatibility with alloy-consensus 0.14.0
+# alloy-consensus uses serde::__private APIs that changed in serde 1.0.220+
+serde           = { version = "=1.0.219", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
 serde_cbor      = { version = "0.11", default-features = false }
 serde_with      = { version = "3.11", default-features = false }

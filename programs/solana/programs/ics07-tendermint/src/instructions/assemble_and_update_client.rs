@@ -14,6 +14,7 @@ pub fn assemble_and_update_client<'info>(
     mut ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
     chain_id: String,
     target_height: u64,
+    chunk_count: u8,
 ) -> Result<UpdateResult> {
     require!(
         !ctx.accounts.client_state.is_frozen(),
@@ -21,8 +22,9 @@ pub fn assemble_and_update_client<'info>(
     );
 
     let submitter = ctx.accounts.submitter.key();
+    let chunk_count = chunk_count as usize;
 
-    let (header_bytes, chunk_count) = assemble_chunks(&ctx, &chain_id, target_height)?;
+    let header_bytes = assemble_chunks(&ctx, &chain_id, target_height, chunk_count)?;
 
     let result = process_header_update(&mut ctx, header_bytes, chunk_count)?;
 
@@ -38,28 +40,9 @@ fn assemble_chunks(
     ctx: &Context<AssembleAndUpdateClient>,
     chain_id: &str,
     target_height: u64,
-) -> Result<(Vec<u8>, usize)> {
+    chunk_count: usize,
+) -> Result<Vec<u8>> {
     let submitter = ctx.accounts.submitter.key();
-
-    // Determine chunk count by iterating until we find a non-chunk account
-    let mut chunk_count = 0;
-    for (index, account) in ctx.remaining_accounts.iter().enumerate() {
-        let expected_seeds = &[
-            crate::state::HeaderChunk::SEED,
-            submitter.as_ref(),
-            chain_id.as_bytes(),
-            &target_height.to_le_bytes(),
-            &[index as u8],
-        ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-
-        if account.key() == expected_pda {
-            chunk_count = index + 1;
-        } else {
-            break;
-        }
-    }
-
     let header_size = chunk_count * CHUNK_DATA_SIZE;
     let mut header_bytes = Vec::with_capacity(header_size);
 
@@ -91,7 +74,7 @@ fn assemble_chunks(
         header_bytes.extend_from_slice(&chunk.chunk_data);
     }
 
-    Ok((header_bytes, chunk_count))
+    Ok(header_bytes)
 }
 
 fn process_header_update<'info>(
@@ -151,18 +134,12 @@ fn verify_and_update_header<'info>(
 
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
-    let verification_accounts_param = if !signature_verification_accounts.is_empty() {
-        Some((signature_verification_accounts, &crate::ID))
-    } else {
-        None
-    };
-
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
         &trusted_ibc_state,
         header,
         current_time,
-        verification_accounts_param,
+        Some((signature_verification_accounts, &crate::ID)),
     )
     .map_err(|e| {
         msg!("update_client FAILED: {:?}", e);

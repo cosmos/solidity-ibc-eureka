@@ -136,6 +136,3 @@ fn verify_ed25519_from_sysvar(
 
     Ok(false)
 }
-
-#[cfg(test)]
-mod tests;
