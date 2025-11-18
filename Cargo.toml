@@ -106,7 +106,7 @@ reqwest_0_11       = { package = "reqwest", version = "0.11", default-features =
 tendermint                       = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance", default-features = false }
 tendermint-rpc                   = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance", default-features = false }
 tendermint-light-client-verifier = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance", default-features = false }
-tendermint-proto                 = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance", default-features = false }
+tendermint-proto                 = { version = "0.40", default-features = false }
 
 ibc-client-tendermint       = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier", default-features = false }
 ibc-client-tendermint-types = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier", default-features = false }
@@ -179,7 +179,6 @@ tendermint = { git = "https://github.com/vaporif/tendermint-rs", branch = "verif
 tendermint-light-client = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 tendermint-light-client-verifier = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 tendermint-config = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
-tendermint-proto = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 tendermint-rpc = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 tendermint-testgen = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 

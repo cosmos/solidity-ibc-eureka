@@ -2816,7 +2816,7 @@ dependencies = [
  "informalsystems-pbjson",
  "prost",
  "serde",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3801,7 +3801,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4996,7 +4996,7 @@ dependencies = [
  "serde",
  "tendermint",
  "tendermint-light-client-verifier",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance)",
 ]
 
 [[package]]
@@ -5289,7 +5289,7 @@ dependencies = [
  "solana-sdk",
  "solana-transaction-status",
  "tendermint",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "tendermint-rpc",
  "tonic 0.13.1",
  "tracing",
@@ -5590,7 +5590,7 @@ dependencies = [
  "prost",
  "serde",
  "subtle-encoding",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -5605,7 +5605,7 @@ dependencies = [
  "ics23",
  "prost",
  "subtle-encoding",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -6376,7 +6376,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7449,7 +7449,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
  "heck 0.5.0",
- "itertools 0.10.5",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "once_cell",
@@ -7469,7 +7469,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.10.5",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "syn 2.0.110",
@@ -7588,7 +7588,7 @@ dependencies = [
  "once_cell",
  "socket2 0.6.1",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -8156,7 +8156,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8256,7 +8256,7 @@ dependencies = [
  "security-framework 3.5.1",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -12167,13 +12167,13 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
 name = "tendermint"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#1f9463ddfcbad4385a3ebfb46dde7e91d96186ac"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "bytes",
  "digest 0.10.7",
@@ -12192,7 +12192,7 @@ dependencies = [
  "signature 2.2.0",
  "subtle",
  "subtle-encoding",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance)",
  "time",
  "zeroize",
 ]
@@ -12200,7 +12200,7 @@ dependencies = [
 [[package]]
 name = "tendermint-config"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#1f9463ddfcbad4385a3ebfb46dde7e91d96186ac"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "flex-error",
  "serde",
@@ -12290,7 +12290,7 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client-verifier"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#1f9463ddfcbad4385a3ebfb46dde7e91d96186ac"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "derive_more 0.99.20",
  "flex-error",
@@ -12302,7 +12302,22 @@ dependencies = [
 [[package]]
 name = "tendermint-proto"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#1f9463ddfcbad4385a3ebfb46dde7e91d96186ac"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2c40e13d39ca19082d8a7ed22de7595979350319833698f8b1080f29620a094"
+dependencies = [
+ "bytes",
+ "flex-error",
+ "prost",
+ "serde",
+ "serde_bytes",
+ "subtle-encoding",
+ "time",
+]
+
+[[package]]
+name = "tendermint-proto"
+version = "0.40.4"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "bytes",
  "flex-error",
@@ -12316,7 +12331,7 @@ dependencies = [
 [[package]]
 name = "tendermint-rpc"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#1f9463ddfcbad4385a3ebfb46dde7e91d96186ac"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "async-trait",
  "bytes",
@@ -12335,7 +12350,7 @@ dependencies = [
  "subtle-encoding",
  "tendermint",
  "tendermint-config",
- "tendermint-proto",
+ "tendermint-proto 0.40.4 (git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance)",
  "thiserror 1.0.69",
  "time",
  "tokio",
@@ -13511,7 +13526,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -14156,9 +14171,9 @@ dependencies = [
 [[patch.unused]]
 name = "tendermint-light-client"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#1f9463ddfcbad4385a3ebfb46dde7e91d96186ac"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 
 [[patch.unused]]
 name = "tendermint-testgen"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#1f9463ddfcbad4385a3ebfb46dde7e91d96186ac"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"

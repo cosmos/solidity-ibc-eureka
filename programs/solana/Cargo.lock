@@ -2450,15 +2450,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3126,7 +3117,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
  "heck 0.5.0",
- "itertools 0.14.0",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",
@@ -3144,7 +3135,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 2.0.110",
@@ -5701,7 +5692,7 @@ dependencies = [
 [[package]]
 name = "tendermint"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#1f9463ddfcbad4385a3ebfb46dde7e91d96186ac"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "bytes",
  "digest 0.10.7",
@@ -5800,7 +5791,7 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client-verifier"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#1f9463ddfcbad4385a3ebfb46dde7e91d96186ac"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "derive_more 0.99.20",
  "flex-error",
@@ -5827,7 +5818,7 @@ dependencies = [
 [[package]]
 name = "tendermint-proto"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#1f9463ddfcbad4385a3ebfb46dde7e91d96186ac"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "bytes",
  "flex-error",
