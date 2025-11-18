@@ -740,7 +740,7 @@ impl TxBuilder {
         use solana_ibc_types::borsh_header::{BorshCommitSig, BorshPublicKey};
 
         let commit = &borsh_header.signed_header.commit;
-        let block_header = &borsh_header.signed_header.header;
+        let _block_header = &borsh_header.signed_header.header;
 
         // Parse chain ID
         let chain_id = ChainId::try_from(chain_id.to_string())
@@ -768,7 +768,7 @@ impl TxBuilder {
 
         // Iterate through validator set to get public keys in order
         for (idx, commit_sig) in commit.signatures.iter().enumerate() {
-            let (validator_address, timestamp, signature) = match commit_sig {
+            let (_validator_address, timestamp, signature) = match commit_sig {
                 BorshCommitSig::BlockIdFlagAbsent => continue,
                 BorshCommitSig::BlockIdFlagCommit {
                     validator_address,
@@ -778,7 +778,7 @@ impl TxBuilder {
                     validator_address,
                     timestamp,
                     signature,
-                } => (*validator_address, *timestamp, *signature),
+                } => (*validator_address, timestamp.clone(), *signature),
             };
 
             // Find the corresponding validator to get the public key
@@ -886,24 +886,52 @@ impl TxBuilder {
     /// Returns an error if:
     /// - Failed to serialize signature data
     /// - Failed to build Ed25519Program instruction data
+    #[allow(deprecated)]
     fn build_pre_verify_signatures_instructions(
         &self,
         signature_data: &[SignatureData],
     ) -> Result<Vec<Instruction>> {
         use anchor_lang::solana_program::hash::hashv;
-        use solana_sdk::ed25519_instruction;
 
         let mut instructions = Vec::new();
 
         // Build Ed25519Program instructions for each signature
         for sig_data in signature_data {
-            let ed25519_ix = ed25519_instruction::new_ed25519_instruction(
-                &ed25519_dalek::PublicKey::from_bytes(&sig_data.pubkey)
-                    .map_err(|e| anyhow::anyhow!("Invalid Ed25519 public key: {}", e))?,
-                &sig_data.msg,
-                &ed25519_dalek::Signature::from_bytes(&sig_data.signature)
-                    .map_err(|e| anyhow::anyhow!("Invalid Ed25519 signature: {}", e))?,
-            );
+            // Manually construct Ed25519 verify instruction
+            // Format: [num_signatures: u8, padding: u8, signature_offset: u16, signature_instruction_index: u16,
+            //          public_key_offset: u16, public_key_instruction_index: u16, message_data_offset: u16,
+            //          message_data_size: u16, message_instruction_index: u16, public_key (32 bytes), signature (64 bytes), message]
+            let mut instruction_data = vec![
+                1u8,  // number of signatures
+                0u8,  // padding
+            ];
+
+            // Offsets
+            let signature_offset: u16 = 112; // After header (2 + 5*2 = 12) + pubkey (32) + padding to align = 112
+            let pubkey_offset: u16 = 12; // Right after header
+            let message_data_offset: u16 = 176; // After signature
+            let message_data_size: u16 = sig_data.msg.len() as u16;
+
+            instruction_data.extend_from_slice(&signature_offset.to_le_bytes());
+            instruction_data.extend_from_slice(&0u16.to_le_bytes()); // signature_instruction_index (this instruction)
+            instruction_data.extend_from_slice(&pubkey_offset.to_le_bytes());
+            instruction_data.extend_from_slice(&0u16.to_le_bytes()); // pubkey_instruction_index (this instruction)
+            instruction_data.extend_from_slice(&message_data_offset.to_le_bytes());
+            instruction_data.extend_from_slice(&message_data_size.to_le_bytes());
+            instruction_data.extend_from_slice(&0u16.to_le_bytes()); // message_instruction_index (this instruction)
+
+            // Append public key, signature, and message
+            instruction_data.extend_from_slice(&sig_data.pubkey);
+            // Padding to align signature at offset 112
+            instruction_data.extend_from_slice(&vec![0u8; 68]);
+            instruction_data.extend_from_slice(&sig_data.signature);
+            instruction_data.extend_from_slice(&sig_data.msg);
+
+            let ed25519_ix = Instruction {
+                program_id: solana_sdk::ed25519_program::ID,
+                accounts: vec![],
+                data: instruction_data,
+            };
             instructions.push(ed25519_ix);
         }
 
@@ -935,11 +963,7 @@ impl TxBuilder {
         }
 
         // Serialize signature data
-        let params_data = {
-            let mut data = Vec::new();
-            ::borsh::BorshSerialize::serialize(signature_data, &mut data)?;
-            data
-        };
+        let params_data = signature_data.try_to_vec()?;
 
         let mut data = ics07_instructions::pre_verify_signatures_discriminator().to_vec();
         data.extend_from_slice(&params_data);
@@ -1922,6 +1946,8 @@ impl TxBuilder {
     #[allow(clippy::too_many_lines)]
     #[tracing::instrument(skip_all)]
     pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
+        use anchor_lang::solana_program::hash::hashv;
+
         let chain_id = self.chain_id().await?;
         let client_state = self.cosmos_client_state(&chain_id)?;
 
