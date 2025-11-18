@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 
 use tendermint::crypto::signature::Error;
-use tendermint::{crypto::signature, PublicKey, Signature};
+use tendermint::{PublicKey, Signature};
 use tendermint_light_client_verifier::{
     errors::VerificationError,
     operations::{commit_validator::ProdCommitValidator, ProvidedVotingPowerCalculator},
@@ -87,7 +87,7 @@ pub type SolanaVotingPowerCalculator = ProvidedVotingPowerCalculator<SolanaSigna
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct SolanaSignatureVerifier;
 
-impl signature::Verifier for SolanaSignatureVerifier {
+impl tendermint::crypto::signature::Verifier for SolanaSignatureVerifier {
     fn verify(&self, pubkey: PublicKey, msg: &[u8], signature: &Signature) -> Result<(), Error> {
         match pubkey {
             // Why brine-ed25519 instead of Solana's native Ed25519Program?

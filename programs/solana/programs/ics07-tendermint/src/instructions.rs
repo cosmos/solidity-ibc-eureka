@@ -1,8 +1,9 @@
 pub mod assemble_and_submit_misbehaviour;
 pub mod assemble_and_update_client;
-pub mod cleanup_incomplete_misbehaviour;
 pub mod cleanup_incomplete_upload;
+pub mod cleanup_incomplete_misbehaviour;
 pub mod initialize;
+pub mod pre_verify_signatures;
 pub mod store_and_hash_validators;
 pub mod upload_header_chunk;
 pub mod upload_misbehaviour_chunk;

@@ -103,22 +103,23 @@ thiserror          = { version = "2.0", default-features = false }
 reqwest            = { version = "0.12", default-features = false }
 reqwest_0_11       = { package = "reqwest", version = "0.11", default-features = false }
 
-tendermint                       = { version = "0.40", default-features = false }
-tendermint-rpc                   = { version = "0.40", default-features = false }
-tendermint-light-client-verifier = { version = "0.40", default-features = false }
-tendermint-proto                 = { version = "0.40", default-features = false }
+tendermint                       = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance", default-features = false }
+tendermint-rpc                   = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance", default-features = false }
+tendermint-light-client-verifier = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance", default-features = false }
+tendermint-proto                 = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance", default-features = false }
+
+ibc-client-tendermint       = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier", default-features = false }
+ibc-client-tendermint-types = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier", default-features = false }
+ibc-core-client             = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier", default-features = false }
+ibc-core-host-types         = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier", default-features = false }
+ibc-core-client-types       = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier", default-features = false }
+ibc-core-commitment-types   = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier", default-features = false }
 
 cosmos-sdk-proto = { version = "0.26", default-features = false }
 ibc-proto        = { version = "0.51", default-features = false }
 ibc-proto-eureka = { package = "ibc-proto", git = "https://github.com/srdtrk/ibc-proto-rs", rev = "7074fb20c3a654e945e5ca46627c5a971d785e04", default-features = false }
 ics23            = { version = "0.12", default-features = false }
 
-ibc-client-tendermint       = { version = "0.57", default-features = false }
-ibc-core-client             = { version = "0.57", default-features = false }
-ibc-core-host-types         = { version = "0.57", default-features = false }
-ibc-core-client-types       = { version = "0.57", default-features = false }
-ibc-core-commitment-types   = { version = "0.57", default-features = false }
-ibc-client-tendermint-types = { version = "0.57", default-features = false }
 ibc-primitives              = { version = "0.57", default-features = false }
 
 alloy                  = { version = "1.0", default-features = false }
@@ -173,6 +174,21 @@ ibc-eureka-relayer-eth-to-cosmos-v1_2 = { package = "ibc-eureka-relayer-eth-to-c
 ibc-eureka-relayer-core-v1_2= { package = "ibc-eureka-relayer-core", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
 
 [patch.crates-io]
+# Patch all tendermint-rs crates to use fork with instance-based Verifier trait
 tendermint = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-light-client = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 tendermint-light-client-verifier = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-config = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-proto = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-rpc = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-testgen = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+
+# Patch ibc-rs crates to use fork with instance-based Verifier trait
+ibc-primitives = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier" }
+ibc-client-tendermint = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier" }
+ibc-client-tendermint-types = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier" }
+ibc-core-client = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier" }
+ibc-core-host-types = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier" }
+ibc-core-client-types = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier" }
+ibc-core-commitment-types = { git = "https://github.com/vaporif/ibc-rs", branch = "instance-verifier" }
 

@@ -74,6 +74,12 @@ pub enum ErrorCode {
     #[msg("Validators deserialization failed: invalid borsh data")]
     ValidatorsDeserializationFailed,
 
+    // Signature verification errors
+    #[msg("Invalid number of accounts: mismatch between signatures and PDAs")]
+    InvalidNumberOfAccounts,
+    #[msg("Invalid account data: account data is malformed or too small")]
+    InvalidAccountData,
+
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]
     SerializationError,

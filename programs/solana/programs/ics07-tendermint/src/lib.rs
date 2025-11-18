@@ -9,7 +9,9 @@ pub mod state;
 pub mod test_helpers;
 pub mod types;
 
-use crate::state::{ConsensusStateStore, HeaderChunk, MisbehaviourChunk, ValidatorsStorage};
+use crate::state::{
+    ConsensusStateStore, HeaderChunk, MisbehaviourChunk, ValidatorsStorage,
+};
 
 declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 solana_allocator::custom_heap!();
@@ -231,6 +233,18 @@ pub struct StoreAndHashValidators<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+#[instruction(signatures: Vec<solana_ibc_types::ics07::SignatureData>)]
+pub struct PreVerifySignatures<'info> {
+    /// CHECK: Sysvar instructions account
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
 #[program]
 pub mod ics07_tendermint {
     use super::*;
@@ -344,5 +358,12 @@ pub mod ics07_tendermint {
         params: instructions::store_and_hash_validators::StoreValidatorsParams,
     ) -> Result<()> {
         instructions::store_and_hash_validators::store_and_hash_validators(ctx, params)
+    }
+
+    pub fn pre_verify_signatures(
+        ctx: Context<PreVerifySignatures>,
+        signatures: Vec<solana_ibc_types::ics07::SignatureData>,
+    ) -> Result<()> {
+        instructions::pre_verify_signatures::pre_verify_signatures(ctx, signatures)
     }
 }
