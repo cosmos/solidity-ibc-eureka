@@ -360,8 +360,8 @@ pub mod ics07_tendermint {
         instructions::store_and_hash_validators::store_and_hash_validators(ctx, params)
     }
 
-    pub fn pre_verify_signatures(
-        ctx: Context<PreVerifySignatures>,
+    pub fn pre_verify_signatures<'info>(
+        ctx: Context<'_, '_, '_, 'info, PreVerifySignatures<'info>>,
         signatures: Vec<solana_ibc_types::ics07::SignatureData>,
     ) -> Result<()> {
         instructions::pre_verify_signatures::pre_verify_signatures(ctx, signatures)

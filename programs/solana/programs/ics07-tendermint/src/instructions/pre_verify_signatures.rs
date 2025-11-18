@@ -8,12 +8,12 @@ use solana_ibc_types::ics07::SignatureData;
 
 /// Compute hash of signature data for PDA derivation
 fn compute_signature_hash(sig_data: &SignatureData) -> [u8; 32] {
-    use solana_program::hash::hashv;
-    hashv(&[&sig_data.pubkey, &sig_data.msg, &sig_data.signature]).to_bytes()
+    use anchor_lang::solana_program::hash::hashv;
+    hashv(&[&sig_data.pubkey, sig_data.msg.as_slice(), &sig_data.signature]).to_bytes()
 }
 
-pub fn pre_verify_signatures(
-    ctx: Context<PreVerifySignatures>,
+pub fn pre_verify_signatures<'info>(
+    ctx: Context<'_, '_, '_, 'info, PreVerifySignatures<'info>>,
     signatures: Vec<SignatureData>,
 ) -> Result<()> {
     let ix_sysvar_account = &ctx.accounts.instructions_sysvar;
@@ -73,11 +73,8 @@ pub fn pre_verify_signatures(
         let verification = SignatureVerification { is_valid };
         let mut data = sig_verification_account.try_borrow_mut_data()?;
 
-        // Write discriminator
-        data[0..8].copy_from_slice(&SignatureVerification::discriminator());
-
-        // Serialize the struct after discriminator
-        verification.try_serialize(&mut &mut data[8..])?;
+        // Anchor's try_serialize includes the discriminator automatically
+        verification.try_serialize(&mut data.as_mut())?;
     }
 
     Ok(())
