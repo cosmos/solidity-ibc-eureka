@@ -234,11 +234,23 @@ pub struct StoreAndHashValidators<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(signatures: Vec<solana_ibc_types::ics07::SignatureData>)]
-pub struct PreVerifySignatures<'info> {
+#[instruction(signature: solana_ibc_types::ics07::SignatureData)]
+pub struct PreVerifySignature<'info> {
     /// CHECK: Sysvar instructions account
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
+
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + std::mem::size_of::<crate::state::SignatureVerification>(),
+        seeds = [
+            crate::state::SignatureVerification::SEED,
+            &signature.signature_hash
+        ],
+        bump
+    )]
+    pub signature_verification: Account<'info, crate::state::SignatureVerification>,
 
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -362,10 +374,10 @@ pub mod ics07_tendermint {
         instructions::store_and_hash_validators::store_and_hash_validators(ctx, params)
     }
 
-    pub fn pre_verify_signatures<'info>(
-        ctx: Context<'_, '_, '_, 'info, PreVerifySignatures<'info>>,
-        signatures: Vec<solana_ibc_types::ics07::SignatureData>,
+    pub fn pre_verify_signature<'info>(
+        ctx: Context<'_, '_, '_, 'info, PreVerifySignature<'info>>,
+        signature: solana_ibc_types::ics07::SignatureData,
     ) -> Result<()> {
-        instructions::pre_verify_signatures::pre_verify_signatures(ctx, signatures)
+        instructions::pre_verify_signatures::pre_verify_signature(ctx, signature)
     }
 }

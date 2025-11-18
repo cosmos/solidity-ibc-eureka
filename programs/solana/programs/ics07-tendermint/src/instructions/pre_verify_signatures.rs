@@ -1,75 +1,27 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::hash::hashv;
 use anchor_lang::solana_program::sysvar::instructions as ix_sysvar;
-use anchor_lang::solana_program::{program::invoke, system_instruction};
 
-use crate::error::ErrorCode;
-use crate::state::SignatureVerification;
-use crate::PreVerifySignatures;
+use crate::PreVerifySignature;
 use solana_ibc_types::ics07::SignatureData;
 
-fn compute_signature_hash(sig_data: &SignatureData) -> [u8; 32] {
-    hashv(&[&sig_data.pubkey, sig_data.msg.as_slice(), &sig_data.signature]).to_bytes()
-}
-
-pub fn pre_verify_signatures<'info>(
-    ctx: Context<'_, '_, '_, 'info, PreVerifySignatures<'info>>,
-    signatures: Vec<SignatureData>,
+pub fn pre_verify_signature<'info>(
+    ctx: Context<'_, '_, '_, 'info, PreVerifySignature<'info>>,
+    signature: SignatureData,
 ) -> Result<()> {
     let ix_sysvar = &ctx.accounts.instructions_sysvar;
     let current_ix_index = ix_sysvar::load_current_index_checked(ix_sysvar)?;
 
-    require!(
-        ctx.remaining_accounts.len() == signatures.len(),
-        ErrorCode::InvalidNumberOfAccounts
-    );
+    // Verify the signature using Ed25519Program instruction in sysvar
+    let is_valid = verify_ed25519_from_sysvar(
+        ix_sysvar,
+        current_ix_index,
+        &signature.pubkey,
+        &signature.msg,
+        &signature.signature,
+    )?;
 
-    for (idx, sig_data) in signatures.iter().enumerate() {
-        let account = &ctx.remaining_accounts[idx];
-
-        let sig_hash = compute_signature_hash(sig_data);
-        let (expected_pda, _) = Pubkey::find_program_address(
-            &[SignatureVerification::SEED, &sig_hash],
-            ctx.program_id,
-        );
-
-        require!(
-            account.key() == expected_pda,
-            ErrorCode::AccountValidationFailed
-        );
-
-        let is_valid = verify_ed25519_from_sysvar(
-            ix_sysvar,
-            current_ix_index,
-            &sig_data.pubkey,
-            &sig_data.msg,
-            &sig_data.signature,
-        )?;
-
-        if account.data_is_empty() {
-            let space = 8 + std::mem::size_of::<SignatureVerification>();
-            let rent = Rent::get()?.minimum_balance(space);
-
-            invoke(
-                &system_instruction::create_account(
-                    ctx.accounts.payer.key,
-                    account.key,
-                    rent,
-                    space as u64,
-                    ctx.program_id,
-                ),
-                &[
-                    ctx.accounts.payer.to_account_info(),
-                    account.clone(),
-                    ctx.accounts.system_program.to_account_info(),
-                ],
-            )?;
-        }
-
-        let verification = SignatureVerification { is_valid };
-        let mut data = account.try_borrow_mut_data()?;
-        verification.try_serialize(&mut data.as_mut())?;
-    }
+    // Store verification result (account already initialized by Anchor's init constraint)
+    ctx.accounts.signature_verification.is_valid = is_valid;
 
     Ok(())
 }

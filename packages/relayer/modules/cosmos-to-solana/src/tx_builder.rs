@@ -821,7 +821,16 @@ impl TxBuilder {
                 tendermint_proto::v0_38::types::CanonicalVote,
             >>::encode_length_delimited_vec(canonical_vote);
 
+            // Compute signature hash for PDA derivation
+            use anchor_lang::solana_program::hash::hashv;
+            let signature_hash = hashv(&[
+                &pubkey,
+                sign_bytes.as_slice(),
+                &signature,
+            ]).to_bytes();
+
             signature_data_vec.push(SignatureData {
+                signature_hash,
                 pubkey,
                 msg: sign_bytes,
                 signature,
@@ -874,13 +883,13 @@ impl TxBuilder {
         })
     }
 
-    /// Builds pre-verify signatures instructions for Ed25519 signature verification
+    /// Builds a single signature pre-verification transaction for Ed25519 signature verification
     ///
-    /// This creates:
-    /// 1. Ed25519Program instructions for each signature (for native verification)
-    /// 2. A pre_verify_signatures instruction that validates and stores results in PDAs
+    /// Each transaction contains:
+    /// 1. Ed25519Program instruction for signature verification
+    /// 2. pre_verify_signature instruction that validates and stores result in PDA
     ///
-    /// The signature verification PDAs are derived using:
+    /// The signature verification PDA is derived using:
     /// `[b"sig_verify", hash(pubkey || msg || signature)]`
     ///
     /// # Errors
@@ -888,101 +897,74 @@ impl TxBuilder {
     /// Returns an error if:
     /// - Failed to serialize signature data
     /// - Failed to build Ed25519Program instruction data
+    /// - Failed to create transaction
     #[allow(deprecated)]
-    fn build_pre_verify_signatures_instructions(
+    fn build_pre_verify_signature_transaction(
         &self,
-        signature_data: &[SignatureData],
-    ) -> Result<Vec<Instruction>> {
-        use anchor_lang::solana_program::hash::hashv;
+        sig_data: &SignatureData,
+    ) -> Result<Vec<u8>> {
+        // Build Ed25519Program instruction
+        let mut instruction_data = vec![
+            1u8,  // number of signatures
+            0u8,  // padding
+        ];
 
-        let mut instructions = Vec::new();
+        // Offsets - data starts at byte 16 (after header + offset struct)
+        const DATA_START: u16 = 16;
+        let pubkey_offset: u16 = DATA_START; // pubkey is first
+        let signature_offset: u16 = DATA_START + 32; // signature after pubkey (32 bytes)
+        let message_data_offset: u16 = DATA_START + 32 + 64; // message after signature (64 bytes)
+        let message_data_size: u16 = sig_data.msg.len() as u16;
 
-        // Build Ed25519Program instructions for each signature
-        for sig_data in signature_data {
-            // Manually construct Ed25519 verify instruction
-            // Format: [num_signatures: u8, padding: u8, signature_offset: u16, signature_instruction_index: u16,
-            //          public_key_offset: u16, public_key_instruction_index: u16, message_data_offset: u16,
-            //          message_data_size: u16, message_instruction_index: u16, public_key (32 bytes), signature (64 bytes), message]
-            let mut instruction_data = vec![
-                1u8,  // number of signatures
-                0u8,  // padding
-            ];
+        instruction_data.extend_from_slice(&signature_offset.to_le_bytes());
+        instruction_data.extend_from_slice(&u16::MAX.to_le_bytes()); // signature_instruction_index (u16::MAX = current ix)
+        instruction_data.extend_from_slice(&pubkey_offset.to_le_bytes());
+        instruction_data.extend_from_slice(&u16::MAX.to_le_bytes()); // pubkey_instruction_index (u16::MAX = current ix)
+        instruction_data.extend_from_slice(&message_data_offset.to_le_bytes());
+        instruction_data.extend_from_slice(&message_data_size.to_le_bytes());
+        instruction_data.extend_from_slice(&u16::MAX.to_le_bytes()); // message_instruction_index (u16::MAX = current ix)
 
-            // Offsets
-            let signature_offset: u16 = 112; // After header (2 + 5*2 = 12) + pubkey (32) + padding to align = 112
-            let pubkey_offset: u16 = 12; // Right after header
-            let message_data_offset: u16 = 176; // After signature
-            let message_data_size: u16 = sig_data.msg.len() as u16;
+        // Append public key, signature, and message
+        instruction_data.extend_from_slice(&sig_data.pubkey);
+        instruction_data.extend_from_slice(&sig_data.signature);
+        instruction_data.extend_from_slice(&sig_data.msg);
 
-            instruction_data.extend_from_slice(&signature_offset.to_le_bytes());
-            instruction_data.extend_from_slice(&0u16.to_le_bytes()); // signature_instruction_index (this instruction)
-            instruction_data.extend_from_slice(&pubkey_offset.to_le_bytes());
-            instruction_data.extend_from_slice(&0u16.to_le_bytes()); // pubkey_instruction_index (this instruction)
-            instruction_data.extend_from_slice(&message_data_offset.to_le_bytes());
-            instruction_data.extend_from_slice(&message_data_size.to_le_bytes());
-            instruction_data.extend_from_slice(&0u16.to_le_bytes()); // message_instruction_index (this instruction)
+        let ed25519_ix = Instruction {
+            program_id: solana_sdk::ed25519_program::ID,
+            accounts: vec![],
+            data: instruction_data,
+        };
 
-            // Append public key, signature, and message
-            instruction_data.extend_from_slice(&sig_data.pubkey);
-            // Padding to align signature at offset 112
-            instruction_data.extend_from_slice(&vec![0u8; 68]);
-            instruction_data.extend_from_slice(&sig_data.signature);
-            instruction_data.extend_from_slice(&sig_data.msg);
+        // Use signature hash from SignatureData for PDA derivation
+        let (sig_verify_pda, _) = Pubkey::find_program_address(
+            &[b"sig_verify", &sig_data.signature_hash],
+            &self.solana_ics07_program_id,
+        );
 
-            let ed25519_ix = Instruction {
-                program_id: solana_sdk::ed25519_program::ID,
-                accounts: vec![],
-                data: instruction_data,
-            };
-            instructions.push(ed25519_ix);
-        }
-
-        // Build pre_verify_signatures instruction
-        let mut accounts = vec![
-            AccountMeta::new_readonly(
-                solana_sdk::sysvar::instructions::id(),
-                false,
-            ),
+        // Build pre_verify_signature instruction (singular)
+        let accounts = vec![
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
+            AccountMeta::new(sig_verify_pda, false),
             AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 
-        // Add signature verification PDA accounts as remaining accounts
-        for sig_data in signature_data {
-            let sig_hash = hashv(&[
-                &sig_data.pubkey,
-                sig_data.msg.as_slice(),
-                &sig_data.signature,
-            ])
-            .to_bytes();
+        // Serialize single signature data
+        let params_data = sig_data.try_to_vec()?;
 
-            let (sig_verify_pda, _) = Pubkey::find_program_address(
-                &[b"sig_verify", &sig_hash],
-                &self.solana_ics07_program_id,
-            );
-
-            accounts.push(AccountMeta::new(sig_verify_pda, false));
-        }
-
-        // Serialize signature data
-        let params_data = signature_data.try_to_vec()?;
-
-        let mut data = ics07_instructions::pre_verify_signatures_discriminator().to_vec();
+        let mut data = ics07_instructions::pre_verify_signature_discriminator().to_vec();
         data.extend_from_slice(&params_data);
 
-        instructions.push(Instruction {
+        let pre_verify_ix = Instruction {
             program_id: self.solana_ics07_program_id,
             accounts,
             data,
-        });
+        };
 
-        tracing::info!(
-            "Built {} Ed25519Program instructions + 1 pre_verify_signatures instruction ({} total)",
-            signature_data.len(),
-            instructions.len()
-        );
+        // Create transaction with both instructions
+        let tx_bytes = self.create_tx_bytes(&[ed25519_ix, pre_verify_ix])?;
 
-        Ok(instructions)
+        Ok(tx_bytes)
     }
 
     fn build_chunk_transactions(
@@ -1004,6 +986,13 @@ impl TxBuilder {
             )?;
 
             let chunk_tx = self.create_tx_bytes(&[upload_ix])?;
+
+            // Log transaction details for debugging
+            Self::log_transaction_details(
+                &chunk_tx,
+                &format!("Header chunk {} (chain_id={}, height={})", chunk_index, chain_id, target_height)
+            );
+
             chunk_txs.push(chunk_tx);
         }
 
@@ -1870,6 +1859,90 @@ impl TxBuilder {
         tracing::info!("Static account keys: {:?}", v0_message.account_keys);
     }
 
+    /// Helper to log detailed transaction contents
+    fn log_transaction_details(tx_bytes: &[u8], description: &str) {
+        match bincode::deserialize::<VersionedTransaction>(tx_bytes) {
+            Ok(tx) => {
+                let instructions = match &tx.message {
+                    VersionedMessage::V0(msg) => &msg.instructions,
+                    VersionedMessage::Legacy(msg) => &msg.instructions,
+                };
+
+                tracing::info!("{} - {} instructions:", description, instructions.len());
+
+                for (idx, compiled_ix) in instructions.iter().enumerate() {
+                    let account_keys = match &tx.message {
+                        VersionedMessage::V0(msg) => &msg.account_keys,
+                        VersionedMessage::Legacy(msg) => &msg.account_keys,
+                    };
+
+                    let program_id = account_keys
+                        .get(compiled_ix.program_id_index as usize)
+                        .map(|k| k.to_string())
+                        .unwrap_or_else(|| "UNKNOWN".to_string());
+
+                    let discriminator = if compiled_ix.data.len() >= 8 {
+                        format!("{:02x?}", &compiled_ix.data[0..8])
+                    } else {
+                        format!("{:02x?}", &compiled_ix.data)
+                    };
+
+                    tracing::info!(
+                        "  Instruction {}: program_id={}, discriminator={}, {} accounts, {} bytes data",
+                        idx,
+                        program_id,
+                        discriminator,
+                        compiled_ix.accounts.len(),
+                        compiled_ix.data.len()
+                    );
+
+                    // Try to decode UploadChunkParams if this looks like an upload_header_chunk instruction
+                    if compiled_ix.data.len() > 8 {
+                        let params_data = &compiled_ix.data[8..];
+                        // Manually decode borsh: String (u32 len + bytes), u64, u8, Vec<u8> (u32 len + bytes)
+                        if params_data.len() >= 4 {
+                            let chain_id_len = u32::from_le_bytes([params_data[0], params_data[1], params_data[2], params_data[3]]) as usize;
+                            if params_data.len() >= 4 + chain_id_len + 8 + 1 + 4 {
+                                let chain_id = String::from_utf8_lossy(&params_data[4..4 + chain_id_len]).to_string();
+                                let target_height_bytes = &params_data[4 + chain_id_len..4 + chain_id_len + 8];
+                                let target_height = u64::from_le_bytes([
+                                    target_height_bytes[0], target_height_bytes[1], target_height_bytes[2], target_height_bytes[3],
+                                    target_height_bytes[4], target_height_bytes[5], target_height_bytes[6], target_height_bytes[7],
+                                ]);
+                                let chunk_index = params_data[4 + chain_id_len + 8];
+                                let chunk_data_len_offset = 4 + chain_id_len + 8 + 1;
+                                let chunk_data_len = u32::from_le_bytes([
+                                    params_data[chunk_data_len_offset],
+                                    params_data[chunk_data_len_offset + 1],
+                                    params_data[chunk_data_len_offset + 2],
+                                    params_data[chunk_data_len_offset + 3],
+                                ]) as usize;
+
+                                tracing::info!(
+                                    "    UploadChunkParams: chain_id='{}' (len={}), target_height={}, chunk_index={}, chunk_data_len={}",
+                                    chain_id,
+                                    chain_id_len,
+                                    target_height,
+                                    chunk_index,
+                                    chunk_data_len
+                                );
+                            }
+                        }
+                    }
+
+                    for (acc_idx, &account_index) in compiled_ix.accounts.iter().enumerate() {
+                        if let Some(account_key) = account_keys.get(account_index as usize) {
+                            tracing::info!("    Account {}: {}", acc_idx, account_key);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("{} - Failed to deserialize transaction: {}", description, e);
+            }
+        }
+    }
+
     /// Create a new ICS07 Tendermint client on Solana
     ///
     /// # Errors
@@ -1945,8 +2018,6 @@ impl TxBuilder {
     /// - Chain ID string is too long for serialization
     #[allow(clippy::too_many_lines)]
     pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
-        use anchor_lang::solana_program::hash::hashv;
-
         let chain_id = self.chain_id().await?;
         let client_state = self.cosmos_client_state(&chain_id)?;
 
@@ -1997,22 +2068,26 @@ impl TxBuilder {
         // Build all preparatory transactions: signature pre-verification first, then header chunks
         let mut prep_txs = Vec::new();
 
-        // Build and add pre-verify signatures transactions first (one per signature)
-        // Each signature gets its own transaction due to size constraints
+        // Build and add pre-verify signature transactions first (one per signature)
+        // Each signature gets its own transaction with Ed25519Program + pre_verify_signature instructions
         // These must come before chunks so signatures are verified and stored in PDAs
         if !signature_data.is_empty() {
             let total_signatures = signature_data.len();
 
             for (sig_idx, sig_data) in signature_data.iter().enumerate() {
-                let pre_verify_instructions =
-                    self.build_pre_verify_signatures_instructions(&[sig_data.clone()])?;
-                let pre_verify_tx = self.create_tx_bytes(&pre_verify_instructions)?;
+                let pre_verify_tx = self.build_pre_verify_signature_transaction(sig_data)?;
 
                 tracing::info!(
                     "Pre-verify signature {}/{}: {} bytes (limit: 1644)",
                     sig_idx + 1,
                     total_signatures,
                     pre_verify_tx.len()
+                );
+
+                // Log transaction details for debugging
+                Self::log_transaction_details(
+                    &pre_verify_tx,
+                    &format!("Pre-verify signature {}/{}", sig_idx + 1, total_signatures)
                 );
 
                 prep_txs.push(pre_verify_tx);
@@ -2077,15 +2152,8 @@ impl TxBuilder {
 
         // Add signature verification PDA addresses
         for sig_data in &signature_data {
-            let sig_hash = hashv(&[
-                &sig_data.pubkey,
-                sig_data.msg.as_slice(),
-                &sig_data.signature,
-            ])
-            .to_bytes();
-
             let (sig_verify_pda, _) = Pubkey::find_program_address(
-                &[b"sig_verify", &sig_hash],
+                &[b"sig_verify", &sig_data.signature_hash],
                 &self.solana_ics07_program_id,
             );
 
@@ -2093,9 +2161,9 @@ impl TxBuilder {
         }
 
         tracing::info!(
-            "ALT will contain {} chunk accounts + {} signature verification accounts = {} total accounts",
-            total_chunks,
+            "ALT will contain {} signature accounts + {} chunk accounts = {} total accounts",
             signature_data.len(),
+            total_chunks,
             alt_accounts.len()
         );
 

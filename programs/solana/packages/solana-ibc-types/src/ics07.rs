@@ -12,7 +12,7 @@ pub mod ics07_instructions {
     pub const UPLOAD_HEADER_CHUNK: &str = "upload_header_chunk";
     pub const ASSEMBLE_AND_UPDATE_CLIENT: &str = "assemble_and_update_client";
     pub const STORE_AND_HASH_VALIDATORS: &str = "store_and_hash_validators";
-    pub const PRE_VERIFY_SIGNATURES: &str = "pre_verify_signatures";
+    pub const PRE_VERIFY_SIGNATURE: &str = "pre_verify_signature";
 
     pub fn initialize_discriminator() -> [u8; 8] {
         compute_discriminator(INITIALIZE)
@@ -30,8 +30,8 @@ pub mod ics07_instructions {
         compute_discriminator(STORE_AND_HASH_VALIDATORS)
     }
 
-    pub fn pre_verify_signatures_discriminator() -> [u8; 8] {
-        compute_discriminator(PRE_VERIFY_SIGNATURES)
+    pub fn pre_verify_signature_discriminator() -> [u8; 8] {
+        compute_discriminator(PRE_VERIFY_SIGNATURE)
     }
 }
 
@@ -96,13 +96,8 @@ impl ConsensusState {
 /// Ed25519 signature data for pre-verification
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct SignatureData {
+    pub signature_hash: [u8; 32],
     pub pubkey: [u8; 32],
     pub msg: Vec<u8>,
     pub signature: [u8; 64],
-}
-
-/// Parameters for pre-verifying Ed25519 signatures
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct PreVerifySignaturesParams {
-    pub signatures: Vec<SignatureData>,
 }
