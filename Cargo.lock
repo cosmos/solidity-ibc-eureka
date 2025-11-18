@@ -13996,13 +13996,3 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "tendermint-light-client"
-version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
-
-[[patch.unused]]
-name = "tendermint-testgen"
-version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"

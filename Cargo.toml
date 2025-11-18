@@ -176,12 +176,10 @@ ibc-eureka-relayer-eth-to-cosmos-v1_2 = { package = "ibc-eureka-relayer-eth-to-c
 ibc-eureka-relayer-core-v1_2= { package = "ibc-eureka-relayer-core", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
 
 [patch.crates-io]
-# Patch all tendermint-rs crates to use fork with instance-based Verifier trait
+# Patch tendermint-rs crates to use fork with instance-based Verifier trait
 tendermint = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 tendermint-proto = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
-tendermint-light-client = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 tendermint-light-client-verifier = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 tendermint-config = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 tendermint-rpc = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
-tendermint-testgen = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 
