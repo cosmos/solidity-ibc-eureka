@@ -32,12 +32,13 @@ pub fn pre_verify_signature<'info>(
 }
 
 /// Ed25519Program instruction format offsets
+/// Header: [num_sigs(1), padding(1), sig_offset(2), sig_ix_index(2), pubkey_offset(2), pubkey_ix_index(2), msg_offset(2), msg_size(2), msg_ix_index(2)]
 const ED25519_NUM_SIGNATURES_OFFSET: usize = 0;
-const ED25519_SIGNATURE_OFFSET: usize = 1;
-const ED25519_PUBKEY_OFFSET: usize = 5;
-const ED25519_MESSAGE_OFFSET: usize = 9;
-const ED25519_MESSAGE_SIZE_OFFSET: usize = 11;
-const ED25519_HEADER_SIZE: usize = 13;
+const ED25519_SIGNATURE_OFFSET: usize = 2;  // Bytes 2-3
+const ED25519_PUBKEY_OFFSET: usize = 6;     // Bytes 6-7
+const ED25519_MESSAGE_OFFSET: usize = 10;   // Bytes 10-11
+const ED25519_MESSAGE_SIZE_OFFSET: usize = 12; // Bytes 12-13
+const ED25519_HEADER_SIZE: usize = 16;      // Total header is 16 bytes
 
 /// Verify signature by finding matching Ed25519Program instruction in the sysvar.
 /// Returns true if a prior Ed25519Program instruction already verified this signature.

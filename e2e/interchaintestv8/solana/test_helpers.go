@@ -372,7 +372,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 				return
 			}
 
-			// Fetch transaction details for gas tracking
+			// Fetch transaction details for gas tracking and logs
 			var computeUnits, fee uint64
 			version := uint64(0)
 			txDetails, err := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
@@ -384,6 +384,14 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 					computeUnits = *txDetails.Meta.ComputeUnitsConsumed
 				}
 				fee = txDetails.Meta.Fee
+
+				// Print program logs for this transaction
+				if txDetails.Meta.LogMessages != nil && len(txDetails.Meta.LogMessages) > 0 {
+					t.Logf("[Chunk %d logs] %d log messages:", idx, len(txDetails.Meta.LogMessages))
+					for i, logMsg := range txDetails.Meta.LogMessages {
+						t.Logf("  [%d] %s", i, logMsg)
+					}
+				}
 			}
 
 			t.Logf("[Chunk %d timing] total duration: %v, compute units: %d, fee: %d lamports",
