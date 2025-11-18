@@ -198,15 +198,11 @@ fn update_client_impl<'a>(
         let (accounts, program_id) = verification_accounts
             .expect("verification_accounts must be provided in Solana on-chain context");
 
-        let signature_verifier =
-            tendermint_light_client_solana::SolanaSignatureVerifier::new(accounts, program_id);
-
-        let voting_power_calculator =
-            tendermint_light_client_solana::SolanaVotingPowerCalculator::new(signature_verifier);
-
         let verifier = tendermint_light_client_solana::SolanaVerifier::new(
             tendermint_light_client_solana::SolanaPredicates::default(),
-            voting_power_calculator,
+            tendermint_light_client_solana::SolanaVotingPowerCalculator::new(
+                tendermint_light_client_solana::SolanaSignatureVerifier::new(accounts, program_id)
+            ),
             tendermint_light_client_verifier::operations::commit_validator::ProdCommitValidator,
         );
 

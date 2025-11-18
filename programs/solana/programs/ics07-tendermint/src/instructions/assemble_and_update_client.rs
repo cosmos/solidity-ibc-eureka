@@ -151,9 +151,6 @@ fn verify_and_update_header<'info>(
 
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
-    // Signature verification with optional pre-verification support.
-    // If signature_verification_accounts are provided, the verifier will check for
-    // pre-verified signatures (FREE compute) before falling back to brine-ed25519 (~30k CU per signature).
     let verification_accounts_param = if !signature_verification_accounts.is_empty() {
         Some((signature_verification_accounts, &crate::ID))
     } else {
