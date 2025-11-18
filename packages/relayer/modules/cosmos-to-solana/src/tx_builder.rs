@@ -700,6 +700,7 @@ impl TxBuilder {
         Self::split_into_chunks(header_bytes)
     }
 
+    #[allow(dead_code)]
     fn extract_validators_bytes(
         borsh_header: &solana_ibc_types::borsh_header::BorshHeader,
     ) -> Result<(Vec<u8>, Vec<u8>)> {
@@ -836,6 +837,7 @@ impl TxBuilder {
         Ok(signature_data_vec)
     }
 
+    #[allow(dead_code)]
     fn build_store_validators_instruction(
         &self,
         validators_bytes: Vec<u8>,
@@ -1975,8 +1977,9 @@ impl TxBuilder {
             .context("Failed to serialize header with Borsh")?;
         tracing::info!("Header serialized with Borsh: {} bytes", header_bytes.len());
 
-        let (validators_bytes, next_validators_bytes) =
-            Self::extract_validators_bytes(&borsh_header)?;
+        // TODO: Validators extraction disabled for now - may add back later
+        // let (_validators_bytes, _next_validators_bytes) =
+        //     Self::extract_validators_bytes(&borsh_header)?;
 
         // Extract signature data for pre-verification
         let signature_data = Self::extract_signature_data(&borsh_header, &chain_id)?;
@@ -1986,31 +1989,43 @@ impl TxBuilder {
             .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
 
         tracing::info!(
-            "Header size: {} bytes, split into {} chunks",
+            "Header size: {} bytes, split into {} header chunks",
             header_bytes.len(),
             total_chunks
         );
 
-        let mut chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
+        // Build all preparatory transactions: header chunks + signature pre-verification
+        let mut prep_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
 
-        let store_validators_ix = self.build_store_validators_instruction(validators_bytes)?;
-        let store_next_validators_ix =
-            self.build_store_validators_instruction(next_validators_bytes)?;
+        // TODO: Store validators transactions removed for now - may add back later
+        // let store_validators_ix = self.build_store_validators_instruction(validators_bytes)?;
+        // let store_next_validators_ix = self.build_store_validators_instruction(next_validators_bytes)?;
 
-        let store_validators_tx = self.create_tx_bytes(&[store_validators_ix])?;
-        let store_next_validators_tx = self.create_tx_bytes(&[store_next_validators_ix])?;
-
-        chunk_txs.push(store_validators_tx);
-        chunk_txs.push(store_next_validators_tx);
-
-        // Build and add pre-verify signatures transaction
+        // Build and add pre-verify signatures transactions in batches
+        // Each Ed25519 instruction is ~250-300 bytes, so we batch conservatively
         if !signature_data.is_empty() {
-            let pre_verify_instructions =
-                self.build_pre_verify_signatures_instructions(&signature_data)?;
-            let pre_verify_tx = self.create_tx_bytes(&pre_verify_instructions)?;
-            chunk_txs.push(pre_verify_tx);
+            const SIGNATURE_BATCH_SIZE: usize = 2;
+            let total_batches = signature_data.len().div_ceil(SIGNATURE_BATCH_SIZE);
+
+            for (batch_idx, sig_batch) in signature_data.chunks(SIGNATURE_BATCH_SIZE).enumerate() {
+                let pre_verify_instructions =
+                    self.build_pre_verify_signatures_instructions(sig_batch)?;
+                let pre_verify_tx = self.create_tx_bytes(&pre_verify_instructions)?;
+
+                tracing::info!(
+                    "Pre-verify signature batch {}/{}: {} bytes (limit: 1644) with {} signatures",
+                    batch_idx + 1,
+                    total_batches,
+                    pre_verify_tx.len(),
+                    sig_batch.len()
+                );
+
+                prep_txs.push(pre_verify_tx);
+            }
+
             tracing::info!(
-                "Added pre-verify signatures transaction with {} signatures",
+                "Added {} pre-verify signature batch transactions for {} total signatures",
+                total_batches,
                 signature_data.len()
             );
         }
@@ -2108,15 +2123,19 @@ impl TxBuilder {
             Some((slot, alt_accounts)),
         )?;
 
+        let total_tx_count = 1 + alt_extend_txs.len() + prep_txs.len() + 1; // ALT create + extends + prep txs + assembly
+
         tracing::info!(
-            "Built {} transactions for chunked update client ({} chunks + ALT creation + {} ALT extensions + 1 assembly)",
-            total_chunks as usize + 2 + alt_extend_txs.len(), // chunks + alt_create + alt_extends + assembly
+            "Built {} total transactions: 1 ALT create + {} ALT extends + {} prep txs ({} header chunks + {} signature batches) + 1 assembly",
+            total_tx_count,
+            alt_extend_txs.len(),
+            prep_txs.len(),
             total_chunks,
-            alt_extend_txs.len()
+            signature_data.len().div_ceil(2)
         );
 
         Ok(UpdateClientChunkedTxs {
-            chunk_txs,
+            chunk_txs: prep_txs,
             alt_create_tx,
             alt_extend_txs,
             assembly_tx,
