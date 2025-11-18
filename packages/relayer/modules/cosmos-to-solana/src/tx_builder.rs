@@ -903,17 +903,26 @@ impl TxBuilder {
         &self,
         sig_data: &SignatureData,
     ) -> Result<Vec<u8>> {
+        tracing::debug!(
+            "Building pre-verify for signature: pubkey={}, msg_len={}, sig={}",
+            hex::encode(&sig_data.pubkey),
+            sig_data.msg.len(),
+            hex::encode(&sig_data.signature)
+        );
+
         // Build Ed25519Program instruction
         let mut instruction_data = vec![
             1u8,  // number of signatures
             0u8,  // padding
         ];
 
-        // Offsets - data starts at byte 16 (after header + offset struct)
+        // Offsets - data starts at byte 16 (after 16-byte header)
+        // Ed25519 instruction format per Solana SDK: header, then pubkey, signature, message
+        // See: https://github.com/solana-labs/solana/blob/master/sdk/src/ed25519_instruction.rs
         const DATA_START: u16 = 16;
-        let pubkey_offset: u16 = DATA_START; // pubkey is first
-        let signature_offset: u16 = DATA_START + 32; // signature after pubkey (32 bytes)
-        let message_data_offset: u16 = DATA_START + 32 + 64; // message after signature (64 bytes)
+        let pubkey_offset: u16 = DATA_START; // pubkey is first at byte 16
+        let signature_offset: u16 = DATA_START + 32; // signature after pubkey at byte 48
+        let message_data_offset: u16 = DATA_START + 32 + 64; // message after signature at byte 112
         let message_data_size: u16 = sig_data.msg.len() as u16;
 
         instruction_data.extend_from_slice(&signature_offset.to_le_bytes());
@@ -924,10 +933,19 @@ impl TxBuilder {
         instruction_data.extend_from_slice(&message_data_size.to_le_bytes());
         instruction_data.extend_from_slice(&u16::MAX.to_le_bytes()); // message_instruction_index (u16::MAX = current ix)
 
-        // Append public key, signature, and message
+        // Append public key, signature, and message (in that order per Solana SDK)
         instruction_data.extend_from_slice(&sig_data.pubkey);
         instruction_data.extend_from_slice(&sig_data.signature);
         instruction_data.extend_from_slice(&sig_data.msg);
+
+        tracing::debug!(
+            "Ed25519 instruction data length: {}, offsets: sig={}, pubkey={}, msg={}, msg_size={}",
+            instruction_data.len(),
+            signature_offset,
+            pubkey_offset,
+            message_data_offset,
+            message_data_size
+        );
 
         let ed25519_ix = Instruction {
             program_id: solana_sdk::ed25519_program::ID,
