@@ -128,6 +128,7 @@ impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a>
                     ])
                     .to_bytes();
 
+                    // PDA: [b"sig_verify", hash(pubkey || msg || signature)]
                     let (expected_pda, _) = solana_program::pubkey::Pubkey::find_program_address(
                         &[b"sig_verify", &sig_hash],
                         self.program_id,

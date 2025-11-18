@@ -62,7 +62,7 @@ pub fn update_client_and_membership(
     })
 }
 
-/// IBC light client combined update of client and membership verification (Solana version)
+/// IBC light client combined update of client and membership verification
 ///
 /// # Errors
 ///
