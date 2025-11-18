@@ -6,11 +6,16 @@ edition     = { workspace = true }
 repository  = { workspace = true }
 license     = { workspace = true }
 
+[features]
+default = []
+solana = ["tendermint-light-client-update-client/solana", "dep:solana-program"]
+
 [dependencies]
 ibc-core-commitment-types             = { workspace = true }
 ibc-client-tendermint                 = { workspace = true }
 tendermint-light-client-update-client = { workspace = true }
 tendermint-light-client-membership    = { workspace = true }
+solana-program                        = { version = "2.3.0", default-features = false, optional = true }
 thiserror                             = { workspace = true }
 
 [dev-dependencies]

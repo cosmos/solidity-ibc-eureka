@@ -291,8 +291,8 @@ pub mod ics07_tendermint {
 
     /// Assemble chunks and update the client
     /// Automatically cleans up all chunks after successful update
-    pub fn assemble_and_update_client(
-        ctx: Context<AssembleAndUpdateClient>,
+    pub fn assemble_and_update_client<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
         chain_id: String,
         target_height: u64,
     ) -> Result<UpdateResult> {

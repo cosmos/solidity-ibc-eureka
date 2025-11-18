@@ -101,11 +101,61 @@ pub enum UpdateClientError {
 /// - The client ID cannot be created
 /// - The chain ID is invalid
 /// - Header verification fails
+#[cfg(not(feature = "solana"))]
 pub fn update_client(
     client_state: &ClientState,
     trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
     time: u128,
+) -> Result<UpdateClientOutput, UpdateClientError> {
+    update_client_impl(
+        client_state,
+        trusted_consensus_state,
+        proposed_header,
+        time,
+        None,
+    )
+}
+
+/// IBC light client update client (Solana version with signature verification accounts)
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// - The client ID cannot be created
+/// - The chain ID is invalid
+/// - Header verification fails
+#[cfg(feature = "solana")]
+pub fn update_client<'a>(
+    client_state: &ClientState,
+    trusted_consensus_state: &ConsensusState,
+    proposed_header: Header,
+    time: u128,
+    verification_accounts: Option<(
+        &'a [solana_program::account_info::AccountInfo<'a>],
+        &'a solana_program::pubkey::Pubkey,
+    )>,
+) -> Result<UpdateClientOutput, UpdateClientError> {
+    update_client_impl(
+        client_state,
+        trusted_consensus_state,
+        proposed_header,
+        time,
+        verification_accounts,
+    )
+}
+
+/// Internal implementation for update_client
+fn update_client_impl<'a>(
+    client_state: &ClientState,
+    trusted_consensus_state: &ConsensusState,
+    proposed_header: Header,
+    time: u128,
+    #[cfg(feature = "solana")] verification_accounts: Option<(
+        &'a [solana_program::account_info::AccountInfo<'a>],
+        &'a solana_program::pubkey::Pubkey,
+    )>,
+    #[cfg(not(feature = "solana"))] _verification_accounts: Option<()>,
 ) -> Result<UpdateClientOutput, UpdateClientError> {
     let client_id =
         ClientId::new(TENDERMINT_CLIENT_TYPE, 0).map_err(|_| UpdateClientError::InvalidClientId)?;
@@ -145,7 +195,21 @@ pub fn update_client(
 
     #[cfg(feature = "solana")]
     {
-        let verifier = tendermint_light_client_solana::SolanaVerifier::default();
+        let (accounts, program_id) = verification_accounts
+            .expect("verification_accounts must be provided in Solana on-chain context");
+
+        let signature_verifier =
+            tendermint_light_client_solana::SolanaSignatureVerifier::new(accounts, program_id);
+
+        let voting_power_calculator =
+            tendermint_light_client_solana::SolanaVotingPowerCalculator::new(signature_verifier);
+
+        let verifier = tendermint_light_client_solana::SolanaVerifier::new(
+            tendermint_light_client_solana::SolanaPredicates::default(),
+            voting_power_calculator,
+            tendermint_light_client_verifier::operations::commit_validator::ProdCommitValidator,
+        );
+
         verify_header::<_, tendermint_light_client_solana::SolanaSha256>(
             &ctx,
             &proposed_header,

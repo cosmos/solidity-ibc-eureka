@@ -77,58 +77,134 @@ impl VerificationPredicates for SolanaPredicates {
 
 /// Solana-optimized verifier that uses brine-ed25519 for signature verification
 /// and skips redundant Merkle hashing
-pub type SolanaVerifier =
-    PredicateVerifier<SolanaPredicates, SolanaVotingPowerCalculator, ProdCommitValidator>;
+pub type SolanaVerifier<'a> = PredicateVerifier<
+    SolanaPredicates,
+    SolanaVotingPowerCalculator<'a>,
+    ProdCommitValidator,
+>;
 
 /// Solana voting power calculator using optimized signature verification
-pub type SolanaVotingPowerCalculator = ProvidedVotingPowerCalculator<SolanaSignatureVerifier>;
+pub type SolanaVotingPowerCalculator<'a> = ProvidedVotingPowerCalculator<SolanaSignatureVerifier<'a>>;
 
-/// Solana optimised signature verifier
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-pub struct SolanaSignatureVerifier;
+/// Solana optimised signature verifier with pre-verification account support
+#[derive(Clone, Debug)]
+pub struct SolanaSignatureVerifier<'a> {
+    /// Pre-verified signature accounts from `remaining_accounts`
+    verification_accounts: &'a [solana_program::account_info::AccountInfo<'a>],
+    /// Program ID for PDA derivation
+    program_id: &'a solana_program::pubkey::Pubkey,
+}
 
-impl tendermint::crypto::signature::Verifier for SolanaSignatureVerifier {
+impl<'a> SolanaSignatureVerifier<'a> {
+    /// Create a new verifier with pre-verified account access
+    pub fn new(
+        verification_accounts: &'a [solana_program::account_info::AccountInfo<'a>],
+        program_id: &'a solana_program::pubkey::Pubkey,
+    ) -> Self {
+        Self {
+            verification_accounts,
+            program_id,
+        }
+    }
+
+    /// Create a verifier without pre-verified accounts (fallback to brine-ed25519 only)
+    pub fn without_pre_verification(program_id: &'a solana_program::pubkey::Pubkey) -> Self {
+        Self {
+            verification_accounts: &[],
+            program_id,
+        }
+    }
+}
+
+impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a> {
     fn verify(&self, pubkey: PublicKey, msg: &[u8], signature: &Signature) -> Result<(), Error> {
         match pubkey {
-            // Why brine-ed25519 instead of Solana's native Ed25519Program?
-            //
-            // TLDR: Ed25519Program is fundamentally incompatible with IBC light client verification.
-            //
-            // Solana provides three options for Ed25519 signature verification:
-            //
-            // 1. Ed25519Program (native precompile) - FREE compute units
-            //    ❌ INCOMPATIBLE: Only verifies signatures that are included as Ed25519Program
-            //    instructions in the CURRENT transaction. IBC requires verifying signatures from
-            //    EXTERNAL data (Tendermint headers from another blockchain) that cannot be
-            //    included as instructions in the Solana transaction.
-            //
-            // 2. brine-ed25519 (on-chain library) - ~30k CU per signature ✅ USED
-            //    ✅ WORKS: Can verify any signature from external data (Tendermint validators)
-            //    - Uses native curve operations for efficiency
-            //    - Enables early exit optimizations
-            //    - Total cost: ~200k CU for typical light client update (verifying enough
-            //      validators to meet 2/3 trust threshold, typically 10-20 signatures)
-            //    - Security: Pulled from code-vm (MIT-licensed), audited by OtterSec,
-            //      peer-reviewed by @stegaBOB and @deanmlittle
-            //
-            // 3. Multi-transaction batching with Ed25519Program
-            //    ❌ IMPRACTICAL:
-            //    - Significantly slower: adds 4-8 seconds latency per update (10-20 sequential
-            //      signature verification transactions after parallel chunk upload)
-            //    - Requires splitting verification across multiple transactions
-            //    - Complex state management to track which signatures were verified
-            //    - Atomicity concerns: what if some transactions succeed and others fail?
-            //    - Coordination overhead between transactions
-            //
-            // Cost comparison for typical update (20 signatures verified):
-            // - brine-ed25519: ~600k CU (~$0.00003 USD), ~1.2 second latency
-            // - Ed25519Program: FREE but incompatible with external signatures; multi-tx workaround
-            //   would require splitting operations and add 4-8s latency
-            // - Ethereum equivalent: ~230k gas for ZK proof (~$0.50-5.00 USD, ~12s for proof generation)
-            //
-            // This is the most efficient approach available given the constraint of verifying
-            // signatures from external blockchain data.
             PublicKey::Ed25519(pk) => {
+                // First, check if we have a pre-verified signature in the accounts
+                if !self.verification_accounts.is_empty() {
+                    use solana_program::msg;
+
+                    // Compute the signature hash (must match pre_verify_signatures.rs)
+                    let sig_hash = solana_program::hash::hashv(&[
+                        pk.as_bytes(),
+                        msg,
+                        signature.as_bytes(),
+                    ])
+                    .to_bytes();
+
+                    // Derive the expected PDA
+                    let (expected_pda, _) = solana_program::pubkey::Pubkey::find_program_address(
+                        &[b"sig_verify", &sig_hash],
+                        self.program_id,
+                    );
+
+                    // Search for the account in verification_accounts
+                    for account in self.verification_accounts {
+                        if account.key == &expected_pda {
+                            // Found the account! Read the verification result
+                            let data = account.try_borrow_data().map_err(|_| {
+                                msg!("Failed to borrow verification account data");
+                                Error::VerificationFailed
+                            })?;
+
+                            // Account structure: [8 byte discriminator][1 byte bool]
+                            // Skip anchor discriminator (8 bytes) and read the bool field
+                            if data.len() < 9 {
+                                msg!("Verification account data too short");
+                                return Err(Error::VerificationFailed);
+                            }
+
+                            // Read the is_valid bool field (1 byte at offset 8)
+                            let is_valid = data[8] != 0;
+
+                            if is_valid {
+                                msg!("Using pre-verified signature (FREE!)");
+                                return Ok(());
+                            } else {
+                                msg!("Pre-verified signature marked as invalid");
+                                return Err(Error::VerificationFailed);
+                            }
+                        }
+                    }
+
+                    // Account not found, fall through to brine-ed25519
+                    msg!("Pre-verification account not found, using brine-ed25519");
+                }
+
+                // Fallback to brine-ed25519 verification
+                //
+                // Why brine-ed25519 instead of Solana's native Ed25519Program?
+                //
+                // TLDR: Ed25519Program is fundamentally incompatible with IBC light client verification.
+                //
+                // Solana provides three options for Ed25519 signature verification:
+                //
+                // 1. Ed25519Program (native precompile) - FREE compute units
+                //    ❌ INCOMPATIBLE: Only verifies signatures that are included as Ed25519Program
+                //    instructions in the CURRENT transaction. IBC requires verifying signatures from
+                //    EXTERNAL data (Tendermint headers from another blockchain) that cannot be
+                //    included as instructions in the Solana transaction.
+                //
+                // 2. brine-ed25519 (on-chain library) - ~30k CU per signature ✅ USED AS FALLBACK
+                //    ✅ WORKS: Can verify any signature from external data (Tendermint validators)
+                //    - Uses native curve operations for efficiency
+                //    - Enables early exit optimizations
+                //    - Total cost: ~200k CU for typical light client update (verifying enough
+                //      validators to meet 2/3 trust threshold, typically 10-20 signatures)
+                //    - Security: Pulled from code-vm (MIT-licensed), audited by OtterSec,
+                //      peer-reviewed by @stegaBOB and @deanmlittle
+                //
+                // 3. Multi-transaction pre-verification with Ed25519Program ✅ PREFERRED (IMPLEMENTED)
+                //    The relayer sends a separate pre_verify_signatures transaction with Ed25519Program
+                //    instructions. The results are cached in PDA accounts and read here for FREE.
+                //    - Best of both worlds: FREE verification + no multi-tx complexity in update_client
+                //    - Parallelizable: pre-verification runs concurrently with chunk uploads
+                //    - Graceful degradation: Falls back to brine if pre-verification account missing
+                //
+                // Cost comparison for typical update (20 signatures verified):
+                // - Pre-verification (this implementation): FREE (reads cached results)
+                // - brine-ed25519 (fallback): ~600k CU (~$0.00003 USD)
+                // - Ethereum equivalent: ~230k gas for ZK proof (~$0.50-5.00 USD, ~12s for proof generation)
                 brine_ed25519::sig_verify(pk.as_bytes(), signature.as_bytes(), msg)
                     .map_err(|_| Error::VerificationFailed)
             }

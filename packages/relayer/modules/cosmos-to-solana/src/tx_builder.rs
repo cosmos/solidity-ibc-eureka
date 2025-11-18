@@ -7,6 +7,8 @@ use std::{collections::HashMap, sync::Arc};
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use ibc_client_tendermint::types::Header as TmHeader;
+use tendermint::{block::Id as BlockId, chain::Id as ChainId, vote::CanonicalVote};
+use tendermint_proto::Protobuf;
 use ibc_eureka_relayer_lib::utils::solana::convert_client_state_to_sol;
 use ibc_eureka_relayer_lib::{
     events::{
@@ -43,7 +45,7 @@ use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::gmp;
 
 use solana_ibc_types::{
-    ics07::{ics07_instructions, ClientState, ConsensusState},
+    ics07::{ics07_instructions, ClientState, ConsensusState, SignatureData},
     router::{
         router_instructions, Client, ClientSequence, Commitment, IBCApp, IBCAppState, PayloadChunk,
         ProofChunk, RouterState,
@@ -714,6 +716,126 @@ impl TxBuilder {
         Ok((validators_bytes, next_validators_bytes))
     }
 
+    /// Extracts signature data from a Borsh header for Ed25519 pre-verification
+    ///
+    /// This function:
+    /// 1. Iterates through all commit signatures in the header
+    /// 2. Filters out absent signatures (BlockIdFlagAbsent)
+    /// 3. For each present signature, builds the canonical vote sign bytes
+    /// 4. Returns a vector of `SignatureData` containing (pubkey, msg, signature) tuples
+    ///
+    /// The sign bytes are constructed using Tendermint's canonical vote format:
+    /// - Creates a `CanonicalVote` from the commit data (height, round, block_id, timestamp, chain_id)
+    /// - Encodes as protobuf using length-delimited encoding
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to convert Borsh types to Tendermint types
+    /// - Failed to encode canonical vote as protobuf
+    fn extract_signature_data(
+        borsh_header: &solana_ibc_types::borsh_header::BorshHeader,
+        chain_id: &str,
+    ) -> Result<Vec<SignatureData>> {
+        use solana_ibc_types::borsh_header::{BorshCommitSig, BorshPublicKey};
+
+        let commit = &borsh_header.signed_header.commit;
+        let block_header = &borsh_header.signed_header.header;
+
+        // Parse chain ID
+        let chain_id = ChainId::try_from(chain_id.to_string())
+            .context("Failed to parse chain ID")?;
+
+        // Convert BorshBlockId to BlockId
+        let block_id = {
+            let borsh_block_id = &commit.block_id;
+            let hash = tendermint::Hash::Sha256(
+                borsh_block_id.hash.as_slice().try_into()
+                    .context("Block hash must be 32 bytes")?
+            );
+            let part_set_header = tendermint::block::parts::Header::new(
+                borsh_block_id.part_set_header.total,
+                tendermint::Hash::Sha256(
+                    borsh_block_id.part_set_header.hash.as_slice().try_into()
+                        .context("Part set hash must be 32 bytes")?
+                ),
+            ).context("Failed to create part set header")?;
+
+            BlockId { hash, part_set_header }
+        };
+
+        let mut signature_data_vec = Vec::new();
+
+        // Iterate through validator set to get public keys in order
+        for (idx, commit_sig) in commit.signatures.iter().enumerate() {
+            let (validator_address, timestamp, signature) = match commit_sig {
+                BorshCommitSig::BlockIdFlagAbsent => continue,
+                BorshCommitSig::BlockIdFlagCommit {
+                    validator_address,
+                    timestamp,
+                    signature,
+                } | BorshCommitSig::BlockIdFlagNil {
+                    validator_address,
+                    timestamp,
+                    signature,
+                } => (*validator_address, *timestamp, *signature),
+            };
+
+            // Find the corresponding validator to get the public key
+            let validator = borsh_header.validator_set.validators.get(idx)
+                .ok_or_else(|| anyhow::anyhow!(
+                    "Signature index {} exceeds validator set size {}",
+                    idx,
+                    borsh_header.validator_set.validators.len()
+                ))?;
+
+            // Extract Ed25519 public key
+            let pubkey = match &validator.pub_key {
+                BorshPublicKey::Ed25519(key) => *key,
+                BorshPublicKey::Secp256k1(_) => {
+                    anyhow::bail!("Secp256k1 keys are not supported for signature verification");
+                }
+            };
+
+            // Convert BorshTimestamp to tendermint::Time
+            let tm_timestamp = tendermint::Time::from_unix_timestamp(
+                timestamp.secs,
+                timestamp.nanos as u32,
+            ).context("Failed to convert timestamp")?;
+
+            // Build canonical vote for sign bytes
+            let canonical_vote = CanonicalVote {
+                vote_type: tendermint::vote::Type::Precommit,
+                height: tendermint::block::Height::try_from(commit.height)
+                    .context("Failed to convert height")?,
+                round: tendermint::block::Round::try_from(commit.round)
+                    .context("Failed to convert round")?,
+                block_id: Some(block_id),
+                timestamp: Some(tm_timestamp),
+                chain_id: chain_id.clone(),
+            };
+
+            // Encode as protobuf (length-delimited) to get sign bytes
+            let sign_bytes = <CanonicalVote as Protobuf<
+                tendermint_proto::v0_38::types::CanonicalVote,
+            >>::encode_length_delimited_vec(canonical_vote);
+
+            signature_data_vec.push(SignatureData {
+                pubkey,
+                msg: sign_bytes,
+                signature,
+            });
+        }
+
+        tracing::info!(
+            "Extracted {} signatures for pre-verification (out of {} total)",
+            signature_data_vec.len(),
+            commit.signatures.len()
+        );
+
+        Ok(signature_data_vec)
+    }
+
     fn build_store_validators_instruction(
         &self,
         validators_bytes: Vec<u8>,
@@ -748,6 +870,93 @@ impl TxBuilder {
             accounts,
             data,
         })
+    }
+
+    /// Builds pre-verify signatures instructions for Ed25519 signature verification
+    ///
+    /// This creates:
+    /// 1. Ed25519Program instructions for each signature (for native verification)
+    /// 2. A pre_verify_signatures instruction that validates and stores results in PDAs
+    ///
+    /// The signature verification PDAs are derived using:
+    /// `[b"sig_verify", hash(pubkey || msg || signature)]`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to serialize signature data
+    /// - Failed to build Ed25519Program instruction data
+    fn build_pre_verify_signatures_instructions(
+        &self,
+        signature_data: &[SignatureData],
+    ) -> Result<Vec<Instruction>> {
+        use anchor_lang::solana_program::hash::hashv;
+        use solana_sdk::ed25519_instruction;
+
+        let mut instructions = Vec::new();
+
+        // Build Ed25519Program instructions for each signature
+        for sig_data in signature_data {
+            let ed25519_ix = ed25519_instruction::new_ed25519_instruction(
+                &ed25519_dalek::PublicKey::from_bytes(&sig_data.pubkey)
+                    .map_err(|e| anyhow::anyhow!("Invalid Ed25519 public key: {}", e))?,
+                &sig_data.msg,
+                &ed25519_dalek::Signature::from_bytes(&sig_data.signature)
+                    .map_err(|e| anyhow::anyhow!("Invalid Ed25519 signature: {}", e))?,
+            );
+            instructions.push(ed25519_ix);
+        }
+
+        // Build pre_verify_signatures instruction
+        let mut accounts = vec![
+            AccountMeta::new_readonly(
+                solana_sdk::sysvar::instructions::id(),
+                false,
+            ),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        // Add signature verification PDA accounts as remaining accounts
+        for sig_data in signature_data {
+            let sig_hash = hashv(&[
+                &sig_data.pubkey,
+                sig_data.msg.as_slice(),
+                &sig_data.signature,
+            ])
+            .to_bytes();
+
+            let (sig_verify_pda, _) = Pubkey::find_program_address(
+                &[b"sig_verify", &sig_hash],
+                &self.solana_ics07_program_id,
+            );
+
+            accounts.push(AccountMeta::new(sig_verify_pda, false));
+        }
+
+        // Serialize signature data
+        let params_data = {
+            let mut data = Vec::new();
+            ::borsh::BorshSerialize::serialize(signature_data, &mut data)?;
+            data
+        };
+
+        let mut data = ics07_instructions::pre_verify_signatures_discriminator().to_vec();
+        data.extend_from_slice(&params_data);
+
+        instructions.push(Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data,
+        });
+
+        tracing::info!(
+            "Built {} Ed25519Program instructions + 1 pre_verify_signatures instruction ({} total)",
+            signature_data.len(),
+            instructions.len()
+        );
+
+        Ok(instructions)
     }
 
     fn build_chunk_transactions(
@@ -957,8 +1166,11 @@ impl TxBuilder {
         target_height: u64,
         trusted_height: u64,
         total_chunks: u8,
+        signature_data: &[SignatureData],
         alt_config: Option<(u64, Vec<Pubkey>)>, // (slot, addresses)
     ) -> Result<Vec<u8>> {
+        use anchor_lang::solana_program::hash::hashv;
+
         let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
         let (trusted_consensus_state, _) = ConsensusState::pda(
             client_state_pda,
@@ -989,6 +1201,28 @@ impl TxBuilder {
             );
             accounts.push(AccountMeta::new(chunk_pda, false));
         }
+
+        // Add signature verification PDA accounts as remaining accounts
+        for sig_data in signature_data {
+            let sig_hash = hashv(&[
+                &sig_data.pubkey,
+                sig_data.msg.as_slice(),
+                &sig_data.signature,
+            ])
+            .to_bytes();
+
+            let (sig_verify_pda, _) = Pubkey::find_program_address(
+                &[b"sig_verify", &sig_hash],
+                &self.solana_ics07_program_id,
+            );
+
+            accounts.push(AccountMeta::new_readonly(sig_verify_pda, false));
+        }
+
+        tracing::info!(
+            "Assembly transaction includes {} signature verification accounts",
+            signature_data.len()
+        );
 
         let mut data = ics07_instructions::assemble_and_update_client_discriminator().to_vec();
 
@@ -1721,6 +1955,9 @@ impl TxBuilder {
         let (validators_bytes, next_validators_bytes) =
             Self::extract_validators_bytes(&borsh_header)?;
 
+        // Extract signature data for pre-verification
+        let signature_data = Self::extract_signature_data(&borsh_header, &chain_id)?;
+
         let chunks = Self::split_header_into_chunks(&header_bytes);
         let total_chunks = u8::try_from(chunks.len())
             .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
@@ -1742,6 +1979,18 @@ impl TxBuilder {
 
         chunk_txs.push(store_validators_tx);
         chunk_txs.push(store_next_validators_tx);
+
+        // Build and add pre-verify signatures transaction
+        if !signature_data.is_empty() {
+            let pre_verify_instructions =
+                self.build_pre_verify_signatures_instructions(&signature_data)?;
+            let pre_verify_tx = self.create_tx_bytes(&pre_verify_instructions)?;
+            chunk_txs.push(pre_verify_tx);
+            tracing::info!(
+                "Added pre-verify signatures transaction with {} signatures",
+                signature_data.len()
+            );
+        }
 
         // Get current slot for ALT derivation
         let slot = self
@@ -1786,7 +2035,29 @@ impl TxBuilder {
             alt_accounts.push(chunk_pda);
         }
 
-        tracing::info!("ALT will contain {} accounts", alt_accounts.len());
+        // Add signature verification PDA addresses
+        for sig_data in &signature_data {
+            let sig_hash = hashv(&[
+                &sig_data.pubkey,
+                sig_data.msg.as_slice(),
+                &sig_data.signature,
+            ])
+            .to_bytes();
+
+            let (sig_verify_pda, _) = Pubkey::find_program_address(
+                &[b"sig_verify", &sig_hash],
+                &self.solana_ics07_program_id,
+            );
+
+            alt_accounts.push(sig_verify_pda);
+        }
+
+        tracing::info!(
+            "ALT will contain {} chunk accounts + {} signature verification accounts = {} total accounts",
+            total_chunks,
+            signature_data.len(),
+            alt_accounts.len()
+        );
 
         // Build ALT extension transactions in batches to avoid transaction size limits
         // Each Pubkey is 32 bytes, so we batch ~20-25 accounts per transaction
@@ -1810,6 +2081,7 @@ impl TxBuilder {
             target_height,
             trusted_height,
             total_chunks,
+            &signature_data,
             Some((slot, alt_accounts)),
         )?;
 

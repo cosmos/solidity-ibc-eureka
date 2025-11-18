@@ -5537,6 +5537,7 @@ version = "0.1.0"
 dependencies = [
  "ibc-client-tendermint",
  "ibc-core-commitment-types",
+ "solana-program",
  "tendermint-light-client-membership",
  "tendermint-light-client-update-client",
  "thiserror 2.0.17",
@@ -5552,6 +5553,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-primitives",
  "sha2 0.10.9",
+ "solana-program",
  "tendermint-light-client-solana",
  "tendermint-light-client-verifier",
  "thiserror 2.0.17",
