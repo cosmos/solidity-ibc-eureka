@@ -778,7 +778,7 @@ func (s *IbcEurekaTestSuite) ICS20FinalizedTimeoutPacketFromEthTest(
 
 	s.True(s.Run("Wait for timeout tx to be finalized", func() {
 		err = testutil.WaitForCondition(time.Minute*30, time.Second*30, func() (bool, error) {
-			finalizedBlock, err := eth.EthAPI.Client.BlockByNumber(ctx, big.NewInt(int64(rpc.FinalizedBlockNumber)))
+			finalizedBlock, err := eth.RPCClient.BlockByNumber(ctx, big.NewInt(int64(rpc.FinalizedBlockNumber)))
 			s.Require().NoError(err)
 
 			// Check if the block number is greater than or equal to the send tx block number
@@ -1217,7 +1217,7 @@ func (s *RelayerTestSuite) Test_UpdateClientToCosmos() {
 				return false, err
 			}
 
-			code, err := eth.EthAPI.Client.CodeAt(ctx, ics26Address, big.NewInt(finalizedBlock))
+			code, err := eth.RPCClient.CodeAt(ctx, ics26Address, big.NewInt(finalizedBlock))
 			if err != nil || len(code) == 0 {
 				// Code not found at the finalized block number
 				return false, nil
