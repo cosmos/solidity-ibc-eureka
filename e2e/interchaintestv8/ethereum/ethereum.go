@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
