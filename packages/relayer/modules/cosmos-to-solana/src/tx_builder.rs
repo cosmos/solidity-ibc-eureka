@@ -1549,7 +1549,6 @@ impl TxBuilder {
     /// - Failed to build Solana instructions
     /// - Failed to create transaction bytes
     #[allow(clippy::too_many_lines)]
-    #[tracing::instrument(skip_all)]
     pub async fn relay_events_chunked(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
@@ -1833,7 +1832,7 @@ impl TxBuilder {
         };
 
         let serialized_tx = bincode::serialize(&versioned_tx)?;
-        tracing::warn!(
+        tracing::info!(
             "Transaction size: {} bytes (limit: 1232 bytes raw, 1644 bytes encoded)",
             serialized_tx.len()
         );
@@ -1879,7 +1878,6 @@ impl TxBuilder {
     /// - Failed to convert Tendermint types to Solana types
     /// - Failed to serialize instruction data
     /// - Failed to get recent blockhash from Solana
-    #[tracing::instrument(skip_all)]
     pub async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         // Parse trust level from parameters if provided (format: "1/16")
         let trust_level = if let Some(trust_level_str) = parameters.get("trust_level") {
@@ -1944,7 +1942,6 @@ impl TxBuilder {
     /// - Failed to get recent blockhash from Solana
     /// - Chain ID string is too long for serialization
     #[allow(clippy::too_many_lines)]
-    #[tracing::instrument(skip_all)]
     pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
         use anchor_lang::solana_program::hash::hashv;
 

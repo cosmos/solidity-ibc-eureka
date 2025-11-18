@@ -54,7 +54,6 @@ impl MockTxBuilder {
 
 #[async_trait::async_trait]
 impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
-    #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
         src_events: Vec<SolanaEurekaEventWithHeight>,
@@ -153,7 +152,6 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
         Ok(tx_body.encode_to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
     async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
         tracing::info!("Creating Solana light client on Cosmos");
 
@@ -174,7 +172,6 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
         )
     }
 
-    #[tracing::instrument(skip_all)]
     async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
         let consensus_state = WasmConsensusState {
             data: b"test".to_vec(),
