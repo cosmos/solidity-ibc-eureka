@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+pub mod conversions;
 pub mod error;
 pub mod helpers;
 pub mod instructions;
@@ -11,6 +12,7 @@ pub mod types;
 use crate::state::{ConsensusStateStore, HeaderChunk, MisbehaviourChunk};
 
 declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
+solana_allocator::custom_heap!();
 
 pub use types::{
     ClientState, ConsensusState, IbcHeight, UpdateResult, UploadChunkParams,

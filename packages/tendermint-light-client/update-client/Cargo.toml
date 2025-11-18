@@ -7,8 +7,8 @@ repository  = { workspace = true }
 license     = { workspace = true }
 
 [features]
-default = []
-solana = ["brine-ed25519", "tendermint"]
+default = ["solana"]
+solana = ["brine-ed25519", "tendermint", "solana-program"]
 
 [dependencies]
 tendermint-light-client-verifier = { workspace = true }
@@ -21,6 +21,7 @@ sha2                             = { workspace = true }
 thiserror                        = { workspace = true }
 tendermint                       = { workspace = true, optional = true }
 brine-ed25519                    = { workspace = true, optional = true, features = ["std"] }
+solana-program                   = { version = "2.1", optional = true }
 
 [dev-dependencies]
 serde                            = { workspace = true, features = ["derive"] }

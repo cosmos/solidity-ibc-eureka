@@ -35,7 +35,8 @@ borsh.workspace = true
 ibc-proto-eureka.workspace = true
 ibc-proto.workspace = true
 ibc-client-tendermint.workspace = true
+ibc-core-client-types.workspace = true
 prost.workspace = true
-solana-ibc-types.workspace = true
-solana-ibc-constants.workspace = true
-solana-ibc-proto.workspace = true
+solana-ibc-types = { path = "../../../../programs/solana/packages/solana-ibc-types", features = ["light-client"] }
+solana-ibc-constants = { path = "../../../../programs/solana/packages/solana-ibc-constants" }
+solana-ibc-proto = { path = "../../../../programs/solana/packages/solana-ibc-proto" }
