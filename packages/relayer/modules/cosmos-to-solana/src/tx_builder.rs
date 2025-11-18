@@ -1184,8 +1184,6 @@ impl TxBuilder {
         signature_data: &[SignatureData],
         alt_config: Option<(u64, Vec<Pubkey>)>, // (slot, addresses)
     ) -> Result<Vec<u8>> {
-        use anchor_lang::solana_program::hash::hashv;
-
         let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
         let (trusted_consensus_state, _) = ConsensusState::pda(
             client_state_pda,
@@ -1219,15 +1217,8 @@ impl TxBuilder {
 
         // Add signature verification PDA accounts as remaining accounts
         for sig_data in signature_data {
-            let sig_hash = hashv(&[
-                &sig_data.pubkey,
-                sig_data.msg.as_slice(),
-                &sig_data.signature,
-            ])
-            .to_bytes();
-
             let (sig_verify_pda, _) = Pubkey::find_program_address(
-                &[b"sig_verify", &sig_hash],
+                &[b"sig_verify", &sig_data.signature_hash],
                 &self.solana_ics07_program_id,
             );
 
@@ -1245,6 +1236,7 @@ impl TxBuilder {
         data.extend_from_slice(&chain_id_len.to_le_bytes());
         data.extend_from_slice(chain_id.as_bytes());
         data.extend_from_slice(&target_height.to_le_bytes());
+        data.extend_from_slice(&[total_chunks]); // chunk_count parameter
 
         let ix = Instruction {
             program_id: self.solana_ics07_program_id,
