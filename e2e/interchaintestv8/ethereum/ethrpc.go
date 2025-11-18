@@ -3,6 +3,7 @@ package ethereum
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -168,4 +169,18 @@ func GetTxReciept(ctx context.Context, c *ethclient.Client, hash common.Hash) (*
 	}
 
 	return receipt, nil
+}
+
+func WaitForBlocks(cli *ethclient.Client, n uint64) error {
+	initBlock, err := cli.BlockNumber(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to get initial block number: %w", err)
+	}
+	return testutil.WaitForCondition(60*time.Second, 500*time.Millisecond, func() (bool, error) {
+		block, err := cli.BlockNumber(context.Background())
+		if err != nil {
+			return false, err
+		}
+		return block - initBlock >= n, nil
+	})
 }
