@@ -36,17 +36,16 @@ fn verify_ed25519_from_sysvar(
     signature: &[u8; 64],
 ) -> Result<bool> {
     const ED25519_IX_INDEX: usize = 0;
-
     let ix = ix_sysvar::load_instruction_at_checked(ED25519_IX_INDEX, ix_sysvar)?;
 
-    if ix.program_id != anchor_lang::solana_program::ed25519_program::ID {
+    if ix.program_id != anchor_lang::solana_program::ed25519_program::ID
+        || ix.data.len() < ED25519_HEADER_SIZE + 96
+        || ix.data[ED25519_NUM_SIGNATURES_OFFSET] != 1
+    {
         return Ok(false);
     }
 
-    if ix.data.len() < ED25519_HEADER_SIZE + 96 || ix.data[ED25519_NUM_SIGNATURES_OFFSET] != 1 {
-        return Ok(false);
-    }
-
+    // Check msg size before loading offsets
     let msg_size = u16::from_le_bytes([
         ix.data[ED25519_MESSAGE_SIZE_OFFSET],
         ix.data[ED25519_MESSAGE_SIZE_OFFSET + 1],
@@ -56,35 +55,32 @@ fn verify_ed25519_from_sysvar(
         return Ok(false);
     }
 
-    let pubkey_offset = u16::from_le_bytes([
-        ix.data[ED25519_PUBKEY_OFFSET],
-        ix.data[ED25519_PUBKEY_OFFSET + 1],
-    ]) as usize;
-    let sig_offset = u16::from_le_bytes([
-        ix.data[ED25519_SIGNATURE_OFFSET],
-        ix.data[ED25519_SIGNATURE_OFFSET + 1],
-    ]) as usize;
-    let msg_offset = u16::from_le_bytes([
-        ix.data[ED25519_MESSAGE_OFFSET],
-        ix.data[ED25519_MESSAGE_OFFSET + 1],
-    ]) as usize;
+    let offsets = load_offsets(&ix.data);
 
-    if sig_offset + 64 > ix.data.len()
-        || pubkey_offset + 32 > ix.data.len()
-        || msg_offset + msg_size > ix.data.len()
+    // Bounds check
+    if offsets.signature + 64 > ix.data.len()
+        || offsets.pubkey + 32 > ix.data.len()
+        || offsets.msg + msg_size > ix.data.len()
     {
         return Ok(false);
     }
 
-    if &ix.data[pubkey_offset..pubkey_offset + 32] != pubkey {
-        return Ok(false);
-    }
-    if &ix.data[sig_offset..sig_offset + 64] != signature {
-        return Ok(false);
-    }
-    if &ix.data[msg_offset..msg_offset + msg_size] != msg {
-        return Ok(false);
-    }
+    Ok(&ix.data[offsets.pubkey..offsets.pubkey + 32] == pubkey
+        && &ix.data[offsets.signature..offsets.signature + 64] == signature
+        && &ix.data[offsets.msg..offsets.msg + msg_size] == msg)
+}
 
-    Ok(true)
+#[inline]
+fn load_offsets(data: &[u8]) -> Offsets {
+    Offsets {
+        signature: u16::from_le_bytes([data[2], data[3]]) as usize,
+        pubkey: u16::from_le_bytes([data[6], data[7]]) as usize,
+        msg: u16::from_le_bytes([data[10], data[11]]) as usize,
+    }
+}
+
+struct Offsets {
+    signature: usize,
+    pubkey: usize,
+    msg: usize,
 }
