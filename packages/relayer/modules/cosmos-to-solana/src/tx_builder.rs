@@ -828,15 +828,15 @@ impl TxBuilder {
     }
 
     /// Verify signatures off-chain for logging (returns all including invalid)
-    fn verify_signatures_offchain(
-        signature_data: Vec<SignatureData>,
-    ) -> Vec<SignatureData> {
+    fn verify_signatures_offchain(signature_data: Vec<SignatureData>) -> Vec<SignatureData> {
         use ed25519_consensus::{Signature, VerificationKey};
 
         let mut invalid_count = 0;
         for sig_data in &signature_data {
             let is_valid = VerificationKey::try_from(sig_data.pubkey.as_slice())
-                .and_then(|pk| Signature::try_from(sig_data.signature.as_slice()).map(|sig| (pk, sig)))
+                .and_then(|pk| {
+                    Signature::try_from(sig_data.signature.as_slice()).map(|sig| (pk, sig))
+                })
                 .map_or(false, |(pk, sig)| pk.verify(&sig, &sig_data.msg).is_ok());
 
             if !is_valid {
@@ -845,7 +845,10 @@ impl TxBuilder {
         }
 
         if invalid_count > 0 {
-            tracing::warn!("{} invalid signatures (will still pre-verify)", invalid_count);
+            tracing::warn!(
+                "{} invalid signatures (will still pre-verify)",
+                invalid_count
+            );
         }
 
         signature_data
