@@ -93,6 +93,15 @@ pub enum UpdateClientError {
     HeaderVerificationFailed,
 }
 
+#[cfg(feature = "solana")]
+type VerificationAccounts<'a> = Option<(
+    &'a [solana_program::account_info::AccountInfo<'a>],
+    &'a solana_program::pubkey::Pubkey,
+)>;
+
+#[cfg(not(feature = "solana"))]
+type VerificationAccounts<'a> = Option<()>;
+
 /// IBC light client update client
 ///
 /// # Errors
@@ -101,61 +110,12 @@ pub enum UpdateClientError {
 /// - The client ID cannot be created
 /// - The chain ID is invalid
 /// - Header verification fails
-#[cfg(not(feature = "solana"))]
-pub fn update_client(
-    client_state: &ClientState,
-    trusted_consensus_state: &ConsensusState,
-    proposed_header: Header,
-    time: u128,
-) -> Result<UpdateClientOutput, UpdateClientError> {
-    update_client_impl(
-        client_state,
-        trusted_consensus_state,
-        proposed_header,
-        time,
-        None,
-    )
-}
-
-/// IBC light client update client (Solana version with signature verification accounts)
-///
-/// # Errors
-///
-/// This function will return an error if:
-/// - The client ID cannot be created
-/// - The chain ID is invalid
-/// - Header verification fails
-#[cfg(feature = "solana")]
 pub fn update_client<'a>(
     client_state: &ClientState,
     trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
     time: u128,
-    verification_accounts: Option<(
-        &'a [solana_program::account_info::AccountInfo<'a>],
-        &'a solana_program::pubkey::Pubkey,
-    )>,
-) -> Result<UpdateClientOutput, UpdateClientError> {
-    update_client_impl(
-        client_state,
-        trusted_consensus_state,
-        proposed_header,
-        time,
-        verification_accounts,
-    )
-}
-
-/// Internal implementation for `update_client`
-fn update_client_impl<'a>(
-    client_state: &ClientState,
-    trusted_consensus_state: &ConsensusState,
-    proposed_header: Header,
-    time: u128,
-    #[cfg(feature = "solana")] verification_accounts: Option<(
-        &'a [solana_program::account_info::AccountInfo<'a>],
-        &'a solana_program::pubkey::Pubkey,
-    )>,
-    #[cfg(not(feature = "solana"))] _verification_accounts: Option<()>,
+    #[cfg_attr(not(feature = "solana"), allow(unused_variables))] verification_accounts: VerificationAccounts<'a>,
 ) -> Result<UpdateClientOutput, UpdateClientError> {
     let client_id =
         ClientId::new(TENDERMINT_CLIENT_TYPE, 0).map_err(|_| UpdateClientError::InvalidClientId)?;
