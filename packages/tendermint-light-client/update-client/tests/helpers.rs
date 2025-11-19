@@ -160,11 +160,15 @@ pub fn setup_test_context(fixture: UpdateClientFixture) -> TestContext {
 pub fn execute_update_client(
     ctx: &TestContext,
 ) -> Result<tendermint_light_client_update_client::UpdateClientOutput, UpdateClientError> {
+    // For tests, use empty verification accounts and a dummy program ID
+    let dummy_program_id = solana_program::pubkey::Pubkey::new_unique();
     update_client(
         &ctx.client_state,
         &ctx.trusted_consensus_state,
         ctx.proposed_header.clone(),
         ctx.current_time,
+        &[],
+        &dummy_program_id,
     )
 }
 

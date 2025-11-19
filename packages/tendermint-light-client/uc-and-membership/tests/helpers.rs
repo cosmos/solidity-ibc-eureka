@@ -219,12 +219,16 @@ pub fn execute_uc_and_membership(
     ctx: &TestContext,
 ) -> Result<UcAndMembershipOutput, UcAndMembershipError> {
     let request = vec![(ctx.kv_pair.clone(), ctx.merkle_proof.clone())];
+    // For tests, use empty verification accounts and a dummy program ID
+    let dummy_program_id = solana_program::pubkey::Pubkey::new_unique();
     update_client_and_membership(
         &ctx.client_state,
         &ctx.trusted_consensus_state,
         ctx.proposed_header.clone(),
         ctx.current_time,
         &request,
+        &[],
+        &dummy_program_id,
     )
 }
 

@@ -757,9 +757,8 @@ impl TxBuilder {
                 tendermint::block::CommitSig::BlockIdFlagAbsent => continue,
             };
 
-            let signature_bytes = match signature_opt {
-                Some(sig) => sig,
-                None => continue,
+            let Some(signature_bytes) = signature_opt else {
+                continue;
             };
 
             let validator: &ValidatorInfo = validators
@@ -839,7 +838,7 @@ impl TxBuilder {
                 .and_then(|pk| {
                     Signature::try_from(sig_data.signature.as_slice()).map(|sig| (pk, sig))
                 })
-                .map_or(false, |(pk, sig)| pk.verify(&sig, &sig_data.msg).is_ok());
+                .is_ok_and(|(pk, sig)| pk.verify(&sig, &sig_data.msg).is_ok());
 
             if !is_valid {
                 invalid_count += 1;
@@ -859,7 +858,7 @@ impl TxBuilder {
     /// Select minimal signatures to meet 2/3 threshold on `validator_set`
     /// and `trust_threshold` on `trusted_next_validator_set`
     fn select_minimal_signatures(
-        signature_data: Vec<SignatureData>,
+        signature_data: &[SignatureData],
         header: &TmHeader,
         trust_numerator: u64,
         trust_denominator: u64,
@@ -1007,9 +1006,14 @@ impl TxBuilder {
                 }
             };
 
-            let tm_timestamp =
-                tendermint::Time::from_unix_timestamp(timestamp.secs, timestamp.nanos as u32)
-                    .context("Failed to convert timestamp")?;
+            let tm_timestamp = tendermint::Time::from_unix_timestamp(
+                timestamp.secs,
+                timestamp
+                    .nanos
+                    .try_into()
+                    .context("Timestamp nanos must be non-negative")?,
+            )
+            .context("Failed to convert timestamp")?;
 
             let canonical_vote = CanonicalVote {
                 vote_type: tendermint::vote::Type::Precommit,
@@ -1047,10 +1051,10 @@ impl TxBuilder {
     }
 
     #[allow(dead_code)]
-    fn build_store_validators_instruction(&self, validators_bytes: Vec<u8>) -> Result<Instruction> {
+    fn build_store_validators_instruction(&self, validators_bytes: &[u8]) -> Result<Instruction> {
         use anchor_lang::solana_program::hash::hash;
 
-        let simple_hash = hash(&validators_bytes).to_bytes();
+        let simple_hash = hash(validators_bytes).to_bytes();
 
         let params_data = {
             let mut data = Vec::new();
@@ -1724,7 +1728,7 @@ impl TxBuilder {
     /// - Failed to convert events to messages
     /// - Failed to build Solana instructions
     /// - Failed to create transaction bytes
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
     pub async fn relay_events_chunked(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
@@ -2089,8 +2093,11 @@ impl TxBuilder {
     /// - Failed to serialize header or instruction data
     /// - Failed to get recent blockhash from Solana
     /// - Chain ID string is too long for serialization
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
     pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
+        // ALT extension batch size: Each Pubkey is 32 bytes, so we batch ~20-25 accounts per transaction
+        const ALT_EXTEND_BATCH_SIZE: usize = 20;
+
         let chain_id = self.chain_id().await?;
         let client_state = self.cosmos_client_state(&chain_id)?;
 
@@ -2117,7 +2124,7 @@ impl TxBuilder {
         let mut signature_data = Self::extract_signature_data_from_header(&header, &chain_id)?;
         signature_data = Self::verify_signatures_offchain(signature_data);
         signature_data = Self::select_minimal_signatures(
-            signature_data,
+            &signature_data,
             &header,
             client_state.trust_level_numerator,
             client_state.trust_level_denominator,
@@ -2229,8 +2236,6 @@ impl TxBuilder {
         );
 
         // Build ALT extension transactions in batches to avoid transaction size limits
-        // Each Pubkey is 32 bytes, so we batch ~20-25 accounts per transaction
-        const ALT_EXTEND_BATCH_SIZE: usize = 20;
         let mut alt_extend_txs = Vec::new();
 
         for account_batch in alt_accounts.chunks(ALT_EXTEND_BATCH_SIZE) {

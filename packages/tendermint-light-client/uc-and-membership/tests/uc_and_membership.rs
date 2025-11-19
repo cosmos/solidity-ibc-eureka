@@ -16,12 +16,16 @@ fn test_uc_and_membership_happy_path_with_empty_membership() {
     // Use empty membership request to avoid app hash compatibility issues
     let empty_request = vec![];
 
+    // For tests, use empty verification accounts and a dummy program ID
+    let dummy_program_id = solana_program::pubkey::Pubkey::new_unique();
     let result = tendermint_light_client_uc_and_membership::update_client_and_membership(
         &ctx.client_state,
         &ctx.trusted_consensus_state,
         ctx.proposed_header.clone(),
         ctx.current_time,
         &empty_request,
+        &[],
+        &dummy_program_id,
     );
 
     // This should succeed - update client validation passes, empty membership is valid
@@ -83,12 +87,16 @@ fn test_uc_and_membership_empty_request() {
 
     let empty_request = vec![];
 
+    // For tests, use empty verification accounts and a dummy program ID
+    let dummy_program_id = solana_program::pubkey::Pubkey::new_unique();
     let result = tendermint_light_client_uc_and_membership::update_client_and_membership(
         &ctx.client_state,
         &ctx.trusted_consensus_state,
         ctx.proposed_header.clone(),
         ctx.current_time,
         &empty_request,
+        &[],
+        &dummy_program_id,
     );
 
     let output =
@@ -132,11 +140,14 @@ fn test_uc_and_membership_sequence_validation() {
     ctx.kv_pair.value = b"tampered_value".to_vec();
 
     // First verify that update client would succeed on its own
+    let dummy_program_id = solana_program::pubkey::Pubkey::new_unique();
     let uc_result = tendermint_light_client_update_client::update_client(
         &ctx.client_state,
         &ctx.trusted_consensus_state,
         ctx.proposed_header.clone(),
         ctx.current_time,
+        &[],
+        &dummy_program_id,
     );
 
     uc_result.expect("Expected update client to succeed");
@@ -191,11 +202,14 @@ fn test_uc_and_membership_membership_error_type() {
     ctx.merkle_proof = ibc_core_commitment_types::merkle::MerkleProof { proofs: vec![] };
 
     // First verify that update client would succeed on its own
+    let dummy_program_id = solana_program::pubkey::Pubkey::new_unique();
     let uc_result = tendermint_light_client_update_client::update_client(
         &ctx.client_state,
         &ctx.trusted_consensus_state,
         ctx.proposed_header.clone(),
         ctx.current_time,
+        &[],
+        &dummy_program_id,
     );
 
     uc_result.expect("Update client must succeed for this test - membership errors should only be tested when update client works");
