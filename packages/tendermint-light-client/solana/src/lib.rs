@@ -121,6 +121,13 @@ impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a>
                 if !self.verification_accounts.is_empty() {
                     use solana_program::msg;
 
+                    // Log which signature we're trying to verify
+                    let pk_bytes = pk.as_bytes();
+                    msg!("🔍 Verifying signature for pubkey: {:02x?}{:02x?}{:02x?}{:02x?}{:02x?}{:02x?}{:02x?}{:02x?}...",
+                        pk_bytes[0], pk_bytes[1], pk_bytes[2], pk_bytes[3],
+                        pk_bytes[4], pk_bytes[5], pk_bytes[6], pk_bytes[7]
+                    );
+
                     let sig_hash =
                         solana_program::hash::hashv(&[pk.as_bytes(), msg, signature.as_bytes()])
                             .to_bytes();
@@ -145,9 +152,11 @@ impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a>
 
                             let is_valid = data[8] != 0;
                             if !is_valid {
+                                msg!("✗ Pre-verified signature INVALID");
                                 return Err(Error::VerificationFailed);
                             }
 
+                            msg!("✓ Pre-verified signature VALID");
                             return Ok(());
                         }
                     }

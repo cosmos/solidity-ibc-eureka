@@ -97,6 +97,12 @@ fn process_header_update<'info>(
     // Signature verification accounts come after chunk accounts
     let signature_verification_accounts = &ctx.remaining_accounts[chunk_count..];
 
+    msg!(
+        "Assembly: {} chunks, {} pre-verified sigs",
+        chunk_count,
+        signature_verification_accounts.len()
+    );
+
     let (new_height, new_consensus_state) = verify_and_update_header(
         client_state,
         &trusted_consensus_state.consensus_state,

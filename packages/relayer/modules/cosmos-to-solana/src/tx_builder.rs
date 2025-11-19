@@ -827,6 +827,98 @@ impl TxBuilder {
         Ok(signature_data_vec)
     }
 
+    /// Verify signatures off-chain for logging (returns all including invalid)
+    fn verify_signatures_offchain(
+        signature_data: Vec<SignatureData>,
+    ) -> Vec<SignatureData> {
+        use ed25519_consensus::{Signature, VerificationKey};
+
+        let mut invalid_count = 0;
+        for sig_data in &signature_data {
+            let is_valid = VerificationKey::try_from(sig_data.pubkey.as_slice())
+                .and_then(|pk| Signature::try_from(sig_data.signature.as_slice()).map(|sig| (pk, sig)))
+                .map_or(false, |(pk, sig)| pk.verify(&sig, &sig_data.msg).is_ok());
+
+            if !is_valid {
+                invalid_count += 1;
+            }
+        }
+
+        if invalid_count > 0 {
+            tracing::warn!("{} invalid signatures (will still pre-verify)", invalid_count);
+        }
+
+        signature_data
+    }
+
+    /// Select minimal signatures to meet 2/3 threshold on validator_set
+    /// and trust_threshold on trusted_next_validator_set
+    fn select_minimal_signatures(
+        signature_data: Vec<SignatureData>,
+        header: &TmHeader,
+        trust_numerator: u64,
+        trust_denominator: u64,
+    ) -> Result<Vec<SignatureData>> {
+        let untrusted_validator_set = &header.validator_set;
+        let untrusted_total_power: u64 = untrusted_validator_set.total_voting_power().into();
+        let untrusted_required_power = (untrusted_total_power * 2) / 3;
+
+        let mut accumulated_power = 0u64;
+        let mut selected = Vec::new();
+
+        for (val_idx, validator) in untrusted_validator_set.validators().iter().enumerate() {
+            let pubkey_bytes = validator.pub_key.to_bytes();
+
+            if let Some(sig_data) = signature_data.iter().find(|sig| pubkey_bytes == sig.pubkey) {
+                accumulated_power += u64::from(validator.power());
+                selected.push(sig_data.clone());
+
+                if accumulated_power >= untrusted_required_power {
+                    tracing::info!(
+                        "Selected {} signatures reaching 2/3 at validator {}/{}",
+                        selected.len(),
+                        val_idx + 1,
+                        untrusted_validator_set.validators().len()
+                    );
+                    break;
+                }
+            }
+        }
+
+        if accumulated_power < untrusted_required_power {
+            anyhow::bail!(
+                "Insufficient voting power: {} < {} required",
+                accumulated_power,
+                untrusted_required_power
+            );
+        }
+
+        // Verify selection meets trusted threshold
+        let trusted_validator_set = &header.trusted_next_validator_set;
+        let trusted_total_power: u64 = trusted_validator_set.total_voting_power().into();
+        let trusted_required_power = (trusted_total_power * trust_numerator) / trust_denominator;
+
+        let mut trusted_power = 0u64;
+        let selected_pubkeys: std::collections::HashSet<_> =
+            selected.iter().map(|s| s.pubkey.as_slice()).collect();
+
+        for validator in trusted_validator_set.validators() {
+            if selected_pubkeys.contains(validator.pub_key.to_bytes().as_slice()) {
+                trusted_power += u64::from(validator.power());
+            }
+        }
+
+        if trusted_power < trusted_required_power {
+            anyhow::bail!(
+                "Selection fails trusted threshold: {} < {} required",
+                trusted_power,
+                trusted_required_power
+            );
+        }
+
+        Ok(selected)
+    }
+
     /// DEPRECATED: Extracts signature data from a Borsh header (BUGGY - signatures are sorted!)
     ///
     /// This function is kept for reference but should not be used because BorshHeader
@@ -1346,7 +1438,8 @@ impl TxBuilder {
         }
 
         tracing::info!(
-            "Assembly transaction includes {} signature verification accounts",
+            "Assembly tx: {} chunks + {} pre-verified sigs",
+            total_chunks,
             signature_data.len()
         );
 
@@ -2167,16 +2260,17 @@ impl TxBuilder {
             .context("Failed to convert protobuf Header to ibc-rs Header")?;
 
         // Extract signature data for pre-verification
-        tracing::info!("Extracting signature data from Protobuf Header");
-        let signature_data = Self::extract_signature_data_from_header(&header, &chain_id)?;
+        let mut signature_data = Self::extract_signature_data_from_header(&header, &chain_id)?;
+        signature_data = Self::verify_signatures_offchain(signature_data);
+        signature_data = Self::select_minimal_signatures(
+            signature_data,
+            &header,
+            client_state.trust_level_numerator,
+            client_state.trust_level_denominator,
+        )?;
 
-        // Convert to BorshHeader and serialize with Borsh for efficient memory usage
-        tracing::info!("Converting Header to BorshHeader for efficient serialization");
         let borsh_header = crate::borsh_conversions::header_to_borsh(header);
-        let header_bytes = borsh_header
-            .try_to_vec()
-            .context("Failed to serialize header with Borsh")?;
-        tracing::info!("Header serialized with Borsh: {} bytes", header_bytes.len());
+        let header_bytes = borsh_header.try_to_vec()?;
 
         // TODO: Validators extraction disabled for now - may add back later
         // let (_validators_bytes, _next_validators_bytes) =
