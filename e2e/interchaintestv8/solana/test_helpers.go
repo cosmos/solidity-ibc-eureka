@@ -370,7 +370,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 				var txErr error
 
 				// Retry a few times if transaction not found
-				for retry := 0; retry < 3; retry++ {
+				for retry := range 3 {
 					txDetails, txErr = s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
 						Commitment:                     rpc.CommitmentConfirmed,
 						MaxSupportedTransactionVersion: &version,
@@ -454,7 +454,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 			t.Logf("No transaction signature available to fetch logs")
 		} else {
 			// Wait longer for transaction to be indexed in RPC
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				time.Sleep(1 * time.Second)
 				version := uint64(0)
 				txDetails, fetchErr := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
@@ -517,7 +517,6 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	t.Logf("✓ Assembly transaction completed in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
 		assemblyDuration, sig, assemblyComputeUnits, float64(assemblyFee)/1e9)
 
-	// Log detailed transaction information for debugging
 	s.LogTransactionDetails(ctx, t, sig, "SUCCESS: Assembly Transaction")
 
 	totalDuration := time.Since(totalStart)
@@ -527,7 +526,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	t.Logf("=== Chunked Update Client Complete ===")
 	t.Logf("Total time: %v", totalDuration)
 	t.Logf("  - ALT setup phase: %v", altPhaseDuration)
-	t.Logf("  - Prep tx phase: %v (%d prep txs sequentially)", prepTxsTotal, prepTxCount)
+	t.Logf("  - Prep tx phase: %v (%d in parallel)", prepTxsTotal, prepTxCount)
 	t.Logf("  - Assembly phase: %v", assemblyDuration)
 	t.Logf("Total gas consumption:")
 	t.Logf("  - Prep txs: %d CUs, %.9f SOL", totalPrepComputeUnits, float64(totalPrepFees)/1e9)

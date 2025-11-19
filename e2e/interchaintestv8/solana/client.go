@@ -103,7 +103,6 @@ func (s *Solana) WaitForTxStatus(txSig solana.Signature, status rpc.Confirmation
 			return false, err
 		}
 
-		// Transaction might not be found yet, retry
 		if len(out.Value) == 0 || out.Value[0] == nil {
 			return false, nil
 		}

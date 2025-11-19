@@ -295,7 +295,6 @@ impl TxBuilder {
         chunk_accounts: Vec<Pubkey>,
         payload_data: &[Vec<u8>],
     ) -> Result<Instruction> {
-        // Validate exactly one payload element (inline or metadata for chunked)
         let dest_port = if msg.packet.payloads.is_empty() {
             let [metadata] = msg.payloads.as_slice() else {
                 return Err(anyhow::anyhow!(
@@ -337,10 +336,8 @@ impl TxBuilder {
         // Resolve the actual IBC app program ID for this port
         let ibc_app_program_id = self.resolve_port_program_id(dest_port)?;
 
-        // Derive the app state account for the resolved IBC app
         let (ibc_app_state, _) = IBCAppState::pda(dest_port, ibc_app_program_id);
 
-        // Build base accounts list for recv_packet (matches router program's RecvPacket account structure)
         let mut accounts = vec![
             AccountMeta::new_readonly(router_state, false),
             AccountMeta::new_readonly(ibc_app, false),
@@ -359,16 +356,12 @@ impl TxBuilder {
             AccountMeta::new_readonly(consensus_state, false),
         ];
 
-        // Add chunk accounts FIRST as remaining_accounts (mutable since they'll be closed)
-        // The router's chunking logic expects chunk accounts at the beginning of remaining_accounts
+        // Chunk accounts must be first in remaining_accounts
         for chunk_account in chunk_accounts {
             accounts.push(AccountMeta::new(chunk_account, false));
         }
 
-        // Extract GMP accounts if this is a GMP payload
-        // IMPORTANT: We only extract account information - the payload itself is NOT modified
-        // The packet must be forwarded exactly as received (IBC security invariant)
-        // GMP accounts are added AFTER chunk accounts to maintain correct ordering
+        // Extract GMP accounts (payload forwarded unmodified per IBC spec)
         let (dest_port_for_gmp, encoding, payload_value) = if msg.packet.payloads.is_empty() {
             // Chunked payload case
             let metadata = &msg.payloads[0];
@@ -445,8 +438,6 @@ impl TxBuilder {
             return Err(anyhow::anyhow!("Account data too short for IBCApp account"));
         }
 
-        // Deserialize IBCApp account using borsh (skip discriminator)
-        // Use deserialize instead of try_from_slice to handle extra bytes gracefully
         let mut data = &ibc_app_account.data[ANCHOR_DISCRIMINATOR_SIZE..];
         let ibc_app = solana_ibc_types::IBCApp::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account: {e}"))?;
@@ -454,7 +445,6 @@ impl TxBuilder {
         let ibc_app_program = ibc_app.app_program_id;
         tracing::info!("IBC app program ID: {}", ibc_app_program);
 
-        // Derive the app state PDA using the correct derivation (same as timeout handler)
         let (app_state, _) = IBCAppState::pda(&source_port, ibc_app_program);
 
         let (packet_commitment, _) = Commitment::packet_commitment_pda(
@@ -463,7 +453,6 @@ impl TxBuilder {
             solana_ics26_program_id,
         );
 
-        // Derive the client PDA using ICS26 client ID (from packet source_client)
         let (client, _) = Client::pda(&msg.packet.source_client, solana_ics26_program_id);
         tracing::info!(
             "Router client PDA for '{}': {}",
@@ -496,7 +485,6 @@ impl TxBuilder {
             AccountMeta::new_readonly(consensus_state, false),
         ];
 
-        // Add chunk accounts as remaining_accounts (mutable since they'll be closed)
         for chunk_account in chunk_accounts {
             accounts.push(AccountMeta::new(chunk_account, false));
         }
@@ -681,8 +669,6 @@ impl TxBuilder {
             return Err(anyhow::anyhow!("Account data too short for IBCApp account"));
         }
 
-        // Deserialize IBCApp account using borsh (skip discriminator)
-        // Use deserialize instead of try_from_slice to handle extra bytes gracefully
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
         let ibc_app = solana_ibc_types::IBCApp::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account: {e}"))?;
@@ -772,21 +758,21 @@ impl TxBuilder {
                 tendermint::block::CommitSig::BlockIdFlagAbsent => continue,
             };
 
-            // Skip if signature is None
             let signature_bytes = match signature_opt {
                 Some(sig) => sig,
                 None => continue,
             };
 
-            // Find the validator by address (NOT by index!)
-            let validator: &ValidatorInfo = validators.iter()
+            let validator: &ValidatorInfo = validators
+                .iter()
                 .find(|v| v.address == *validator_address)
-                .ok_or_else(|| anyhow::anyhow!(
-                    "Validator address {:?} not found in validator set",
-                    validator_address
-                ))?;
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Validator address {:?} not found in validator set",
+                        validator_address
+                    )
+                })?;
 
-            // Extract Ed25519 public key
             let pubkey = match &validator.pub_key {
                 tendermint::PublicKey::Ed25519(key) => key.as_bytes(),
                 _ => {
@@ -794,7 +780,6 @@ impl TxBuilder {
                 }
             };
 
-            // Build canonical vote for sign bytes
             let canonical_vote = CanonicalVote {
                 vote_type: tendermint::vote::Type::Precommit,
                 height: commit.height,
@@ -809,20 +794,14 @@ impl TxBuilder {
                 tendermint_proto::v0_38::types::CanonicalVote,
             >>::encode_length_delimited_vec(canonical_vote);
 
-            // Convert signature to array
-            let signature: [u8; 64] = signature_bytes.as_bytes()
+            let signature: [u8; 64] = signature_bytes
+                .as_bytes()
                 .try_into()
                 .context("Signature must be 64 bytes")?;
 
-            // Compute signature hash for PDA derivation
             use anchor_lang::solana_program::hash::hashv;
-            let signature_hash = hashv(&[
-                pubkey,
-                sign_bytes.as_slice(),
-                &signature,
-            ]).to_bytes();
+            let signature_hash = hashv(&[pubkey, sign_bytes.as_slice(), &signature]).to_bytes();
 
-            // Skip duplicate signatures (same hash = same PDA)
             if !seen_hashes.insert(signature_hash) {
                 duplicates_skipped += 1;
                 tracing::info!(
@@ -891,7 +870,6 @@ impl TxBuilder {
 
         let mut signature_data_vec = Vec::new();
 
-        // Iterate through validator set to get public keys in order
         for (idx, commit_sig) in commit.signatures.iter().enumerate() {
             let (_validator_address, timestamp, signature) = match commit_sig {
                 BorshCommitSig::BlockIdFlagAbsent => continue,
@@ -906,7 +884,6 @@ impl TxBuilder {
                 } => (*validator_address, timestamp.clone(), *signature),
             };
 
-            // Find the corresponding validator to get the public key
             let validator = borsh_header.validator_set.validators.get(idx)
                 .ok_or_else(|| anyhow::anyhow!(
                     "Signature index {} exceeds validator set size {}",
@@ -914,7 +891,6 @@ impl TxBuilder {
                     borsh_header.validator_set.validators.len()
                 ))?;
 
-            // Extract Ed25519 public key
             let pubkey = match &validator.pub_key {
                 BorshPublicKey::Ed25519(key) => *key,
                 BorshPublicKey::Secp256k1(_) => {
@@ -922,13 +898,12 @@ impl TxBuilder {
                 }
             };
 
-            // Convert BorshTimestamp to tendermint::Time
             let tm_timestamp = tendermint::Time::from_unix_timestamp(
                 timestamp.secs,
                 timestamp.nanos as u32,
-            ).context("Failed to convert timestamp")?;
+            )
+            .context("Failed to convert timestamp")?;
 
-            // Build canonical vote for sign bytes
             let canonical_vote = CanonicalVote {
                 vote_type: tendermint::vote::Type::Precommit,
                 height: tendermint::block::Height::try_from(commit.height)
@@ -1077,7 +1052,6 @@ impl TxBuilder {
             data: instruction_data,
         };
 
-        // Use signature hash from SignatureData for PDA derivation
         let (sig_verify_pda, _) = Pubkey::find_program_address(
             &[b"sig_verify", &sig_data.signature_hash],
             &self.solana_ics07_program_id,
