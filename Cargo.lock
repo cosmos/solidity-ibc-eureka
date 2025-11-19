@@ -12089,7 +12089,6 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
- "solana-program",
  "tendermint",
  "tendermint-light-client-membership",
  "tendermint-light-client-update-client",

@@ -35,7 +35,6 @@ pub enum UcAndMembershipError {
 /// Returns `UcAndMembershipError::InvalidAppHash` if the app hash is not 32 bytes.
 /// Returns `UcAndMembershipError::UpdateClient` if update client verification fails.
 /// Returns `UcAndMembershipError::Membership` if membership verification fails.
-#[cfg(not(feature = "solana"))]
 pub fn update_client_and_membership(
     client_state: &ClientState,
     trusted_consensus_state: &ConsensusState,
@@ -62,40 +61,3 @@ pub fn update_client_and_membership(
     })
 }
 
-/// IBC light client combined update of client and membership verification with Solana signature verification
-///
-/// # Errors
-///
-/// Returns `UcAndMembershipError::InvalidAppHash` if the app hash is not 32 bytes.
-/// Returns `UcAndMembershipError::UpdateClient` if update client verification fails.
-/// Returns `UcAndMembershipError::Membership` if membership verification fails.
-#[cfg(feature = "solana")]
-pub fn update_client_and_membership<'a>(
-    client_state: &ClientState,
-    trusted_consensus_state: &ConsensusState,
-    proposed_header: Header,
-    time: u128,
-    request: &[(KVPair, MerkleProof)],
-    verification_accounts: &'a [solana_program::account_info::AccountInfo<'a>],
-    program_id: &'a solana_program::pubkey::Pubkey,
-) -> Result<UcAndMembershipOutput, UcAndMembershipError> {
-    let app_hash_bytes = proposed_header.signed_header.header().app_hash.as_bytes();
-    let app_hash: [u8; 32] = app_hash_bytes
-        .try_into()
-        .map_err(|_| UcAndMembershipError::InvalidAppHash(app_hash_bytes.len()))?;
-
-    let uc_output = tendermint_light_client_update_client::update_client(
-        client_state,
-        trusted_consensus_state,
-        proposed_header,
-        time,
-        verification_accounts,
-        program_id,
-    )?;
-
-    tendermint_light_client_membership::membership(app_hash, request)?;
-
-    Ok(UcAndMembershipOutput {
-        update_output: uc_output,
-    })
-}
