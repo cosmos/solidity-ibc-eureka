@@ -1106,11 +1106,9 @@ impl TxBuilder {
             0u8, // padding
         ];
 
-        // Build signature offsets using Solana SDK type for type safety
         // Ed25519 instruction format per Solana SDK: header, then pubkey, signature, message
         // See: https://github.com/solana-labs/solana/blob/master/sdk/src/ed25519_instruction.rs
-        #[allow(clippy::cast_possible_truncation)] // DATA_START is 16, fits in u16
-        let data_start = DATA_START as u16;
+        let data_start = u16::try_from(DATA_START).expect("DATA_START (16) must fit in u16");
         let pubkey_offset = data_start; // pubkey is first at DATA_START
         let signature_offset = data_start + 32; // signature after pubkey
         let message_data_offset = data_start + 32 + 64; // message after signature
@@ -1140,15 +1138,6 @@ impl TxBuilder {
         instruction_data.extend_from_slice(&sig_data.pubkey);
         instruction_data.extend_from_slice(&sig_data.signature);
         instruction_data.extend_from_slice(&sig_data.msg);
-
-        tracing::debug!(
-            "Ed25519 instruction data length: {}, offsets: sig={}, pubkey={}, msg={}, msg_size={}",
-            instruction_data.len(),
-            signature_offset,
-            pubkey_offset,
-            message_data_offset,
-            message_data_size
-        );
 
         let ed25519_ix = Instruction {
             program_id: solana_sdk::ed25519_program::ID,
