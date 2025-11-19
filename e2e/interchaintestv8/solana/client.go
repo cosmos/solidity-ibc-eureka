@@ -360,6 +360,7 @@ func (s *Solana) LogTransactionDetails(ctx context.Context, t *testing.T, sig so
 		return
 	}
 
+	// Log compute units consumed
 	if txDetails.Meta.ComputeUnitsConsumed != nil {
 		t.Logf("⚙️  Compute units consumed: %d", *txDetails.Meta.ComputeUnitsConsumed)
 	}

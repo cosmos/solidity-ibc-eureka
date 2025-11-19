@@ -87,10 +87,11 @@ struct UploadChunkParams {
 }
 
 /// Organized transactions for chunked update client
-/// Submission order: `alt_create_tx` -> `alt_extend_txs` (sequential) -> `chunk_txs` (parallel: sigs + chunks) -> `assembly_tx`
+/// Submission order: `alt_create_tx` -> [`alt_extend_txs` (sequential) || `chunk_txs` (parallel)] -> `assembly_tx`
+/// Note: ALT extensions and prep txs run concurrently after ALT creation
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct UpdateClientChunkedTxs {
-    /// All preparatory transactions: signatures + chunks (can ALL be submitted in parallel after ALT is ready)
+    /// All preparatory transactions: signatures + chunks (submitted in parallel with ALT extensions)
     pub chunk_txs: Vec<Vec<u8>>,
     /// ALT creation transaction (must be submitted first)
     pub alt_create_tx: Vec<u8>,
@@ -293,6 +294,7 @@ impl TxBuilder {
         chunk_accounts: Vec<Pubkey>,
         payload_data: &[Vec<u8>],
     ) -> Result<Instruction> {
+        // Validate exactly one payload element (inline or metadata for chunked)
         let dest_port = if msg.packet.payloads.is_empty() {
             let [metadata] = msg.payloads.as_slice() else {
                 return Err(anyhow::anyhow!(
