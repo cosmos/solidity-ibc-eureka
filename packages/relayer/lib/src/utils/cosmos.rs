@@ -210,7 +210,7 @@ pub async fn tm_update_client_params(
             let mut cumulative_power = 0u64;
             let mut validators_needed = 0usize;
 
-            tracing::info!("=== RELAYER: Starting validator selection for threshold ===");
+            tracing::debug!("=== RELAYER: Starting validator selection for threshold ===");
             for (validator, signature) in validator_set
                 .validators
                 .iter()
@@ -221,7 +221,7 @@ pub async fn tm_update_client_params(
                     cumulative_power += u64::try_from(validator.voting_power)
                         .expect("voting power must be non-negative");
                     validators_needed += 1;
-                    tracing::info!(
+                    tracing::debug!(
                         "RELAYER: Validator #{}: addr={:?}, power={}, cumulative={}/{} ({}%)",
                         validators_needed,
                         validator.address,
@@ -231,7 +231,7 @@ pub async fn tm_update_client_params(
                         (cumulative_power * 100) / required_voting_power
                     );
                     if cumulative_power >= required_voting_power {
-                        tracing::info!(
+                        tracing::debug!(
                             "RELAYER: Threshold reached! Selected {} validators",
                             validators_needed
                         );
@@ -258,12 +258,12 @@ pub async fn tm_update_client_params(
         &proposed_header.signed_header,
     ) {
         if let Some(commit) = &signed_header.commit {
-            tracing::info!("=== RELAYER: Analyzing dual verification sets ===");
-            tracing::info!(
+            tracing::debug!("=== RELAYER: Analyzing dual verification sets ===");
+            tracing::debug!(
                 "RELAYER: Trusted next validator set has {} validators",
                 trusted_next_vs.validators.len()
             );
-            tracing::info!(
+            tracing::debug!(
                 "RELAYER: Target validator set has {} validators",
                 target_vs.validators.len()
             );
@@ -287,11 +287,11 @@ pub async fn tm_update_client_params(
                 .filter(|addr| trusted_next_addrs.contains(*addr))
                 .count();
 
-            tracing::info!(
+            tracing::debug!(
                 "RELAYER: {} validators with signatures in target are also in trusted_next",
                 overlap_count
             );
-            tracing::info!(
+            tracing::debug!(
                 "RELAYER: {} validators with signatures are ONLY in target (not in trusted_next)",
                 target_addrs_with_sigs.len() - overlap_count
             );
@@ -313,7 +313,7 @@ pub async fn tm_update_client_params(
                         .expect("voting power must be non-negative");
                     trusted_next_needed += 1;
                     if trusted_next_cumulative >= trusted_next_required {
-                        tracing::info!("RELAYER: Would need {} validators from trusted_next to reach 1/3 threshold", trusted_next_needed);
+                        tracing::debug!("RELAYER: Would need {} validators from trusted_next to reach 1/3 threshold", trusted_next_needed);
                         break;
                     }
                 }

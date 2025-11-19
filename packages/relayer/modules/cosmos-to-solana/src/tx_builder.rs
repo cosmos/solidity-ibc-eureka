@@ -1474,13 +1474,6 @@ impl TxBuilder {
         let recent_blockhash = self.get_recent_blockhash()?;
 
         // Build v0 message with the provided ALT
-        tracing::info!(
-            "Building v0 transaction with dedicated ALT ({} addresses)",
-            alt_addresses.len()
-        );
-        tracing::info!("ALT address: {}", alt_address);
-        tracing::info!("ALT addresses: {:?}", alt_addresses);
-
         let alt_account = AddressLookupTableAccount {
             key: alt_address,
             addresses: alt_addresses,
@@ -1488,8 +1481,6 @@ impl TxBuilder {
 
         let v0_message =
             self.compile_v0_message_with_alt(instructions, recent_blockhash, alt_account)?;
-
-        Self::log_v0_message_stats(&v0_message);
 
         Self::serialize_v0_transaction(v0_message)
     }
@@ -1963,15 +1954,8 @@ impl TxBuilder {
         alt_addresses: Vec<Pubkey>,
     ) -> Result<Vec<u8>> {
         let v0_message = if alt_addresses.is_empty() {
-            tracing::info!("Building v0 transaction without ALT");
             self.compile_v0_message(instructions, recent_blockhash)?
         } else {
-            tracing::info!(
-                "Building v0 transaction with ALT ({} addresses)",
-                alt_addresses.len()
-            );
-            tracing::info!("ALT addresses: {:?}", alt_addresses);
-
             let alt_account = AddressLookupTableAccount {
                 key: self.alt_address.expect("ALT address should be set"),
                 addresses: alt_addresses,
@@ -1979,8 +1963,6 @@ impl TxBuilder {
 
             self.compile_v0_message_with_alt(instructions, recent_blockhash, alt_account)?
         };
-
-        Self::log_v0_message_stats(&v0_message);
 
         Self::serialize_v0_transaction(v0_message)
     }
@@ -2017,11 +1999,6 @@ impl TxBuilder {
         };
 
         let serialized_tx = bincode::serialize(&versioned_tx)?;
-        tracing::info!(
-            "Transaction size: {} bytes (limit: 1232 bytes raw, 1644 bytes encoded)",
-            serialized_tx.len()
-        );
-
         Ok(serialized_tx)
     }
 
@@ -2037,20 +2014,6 @@ impl TxBuilder {
             .map_err(|e| anyhow::anyhow!("Failed to deserialize ALT: {e}"))?;
 
         Ok(lookup_table.addresses.to_vec())
-    }
-
-    fn log_v0_message_stats(v0_message: &v0::Message) {
-        tracing::info!(
-            "Compiled v0 message: {} static accounts, {} ALT accounts",
-            v0_message.account_keys.len(),
-            v0_message
-                .address_table_lookups
-                .iter()
-                .map(|lookup| lookup.readonly_indexes.len() + lookup.writable_indexes.len())
-                .sum::<usize>()
-        );
-
-        tracing::info!("Static account keys: {:?}", v0_message.account_keys);
     }
 
     /// Create a new ICS07 Tendermint client on Solana
@@ -2186,27 +2149,8 @@ impl TxBuilder {
         if !signature_data.is_empty() {
             let total_signatures = signature_data.len();
 
-            for (sig_idx, sig_data) in signature_data.iter().enumerate() {
-                // Log the actual signature data being sent (full values for verification)
-                tracing::info!(
-                    "Pre-verify signature {}/{} data: sig_hash={:?}, pubkey={:?}, msg_len={}, signature={:?}",
-                    sig_idx + 1,
-                    total_signatures,
-                    sig_data.signature_hash,
-                    sig_data.pubkey,
-                    sig_data.msg.len(),
-                    sig_data.signature
-                );
-
+            for sig_data in &signature_data {
                 let pre_verify_tx = self.build_pre_verify_signature_transaction(sig_data)?;
-
-                tracing::info!(
-                    "Pre-verify signature {}/{}: {} bytes (limit: 1644)",
-                    sig_idx + 1,
-                    total_signatures,
-                    pre_verify_tx.len()
-                );
-
                 prep_txs.push(pre_verify_tx);
             }
 
@@ -2289,15 +2233,9 @@ impl TxBuilder {
         const ALT_EXTEND_BATCH_SIZE: usize = 20;
         let mut alt_extend_txs = Vec::new();
 
-        for (batch_idx, account_batch) in alt_accounts.chunks(ALT_EXTEND_BATCH_SIZE).enumerate() {
+        for account_batch in alt_accounts.chunks(ALT_EXTEND_BATCH_SIZE) {
             let extend_tx = self.build_extend_alt_tx(slot, account_batch.to_vec())?;
             alt_extend_txs.push(extend_tx);
-            tracing::info!(
-                "Built ALT extension batch {}/{} with {} accounts",
-                batch_idx + 1,
-                alt_accounts.len().div_ceil(ALT_EXTEND_BATCH_SIZE),
-                account_batch.len()
-            );
         }
 
         // Build assembly transaction that uses the new ALT
