@@ -21,7 +21,7 @@ use tendermint_light_client_verifier::{
 
 use tendermint::merkle::Hash;
 
-use solana_program::{log::sol_log_compute_units, msg};
+use solana_program::msg;
 
 /// Solana-optimized predicates that skip redundant Merkle hashing
 ///
