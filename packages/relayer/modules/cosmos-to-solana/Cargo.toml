@@ -31,7 +31,6 @@ sha2.workspace = true
 anchor-lang.workspace = true
 anchor-client.workspace = true
 borsh.workspace = true
-ed25519-dalek.workspace = true
 
 ibc-proto-eureka.workspace = true
 ibc-proto.workspace = true

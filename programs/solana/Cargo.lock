@@ -5554,6 +5554,7 @@ dependencies = [
  "ibc-primitives",
  "sha2 0.10.9",
  "solana-program",
+ "tendermint",
  "tendermint-light-client-solana",
  "tendermint-light-client-verifier",
  "thiserror 2.0.17",

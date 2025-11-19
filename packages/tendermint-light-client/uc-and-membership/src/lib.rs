@@ -62,7 +62,7 @@ pub fn update_client_and_membership(
     })
 }
 
-/// IBC light client combined update of client and membership verification
+/// IBC light client combined update of client and membership verification with Solana signature verification
 ///
 /// # Errors
 ///
@@ -76,10 +76,8 @@ pub fn update_client_and_membership<'a>(
     proposed_header: Header,
     time: u128,
     request: &[(KVPair, MerkleProof)],
-    verification_accounts: Option<(
-        &'a [solana_program::account_info::AccountInfo<'a>],
-        &'a solana_program::pubkey::Pubkey,
-    )>,
+    verification_accounts: &'a [solana_program::account_info::AccountInfo<'a>],
+    program_id: &'a solana_program::pubkey::Pubkey,
 ) -> Result<UcAndMembershipOutput, UcAndMembershipError> {
     let app_hash_bytes = proposed_header.signed_header.header().app_hash.as_bytes();
     let app_hash: [u8; 32] = app_hash_bytes
@@ -92,6 +90,7 @@ pub fn update_client_and_membership<'a>(
         proposed_header,
         time,
         verification_accounts,
+        program_id,
     )?;
 
     tendermint_light_client_membership::membership(app_hash, request)?;

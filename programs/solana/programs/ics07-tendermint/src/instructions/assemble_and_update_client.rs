@@ -139,7 +139,8 @@ fn verify_and_update_header<'info>(
         &trusted_ibc_state,
         header,
         current_time,
-        Some((signature_verification_accounts, &crate::ID)),
+        signature_verification_accounts,
+        &crate::ID,
     )
     .map_err(|e| {
         msg!("update_client FAILED: {:?}", e);
