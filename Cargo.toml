@@ -178,6 +178,8 @@ ibc-eureka-relayer-core-v1_2= { package = "ibc-eureka-relayer-core", git = "http
 
 [patch.crates-io]
 # Patch tendermint-rs crates to use fork with instance-based Verifier trait
+# TODO: Switch to cometbft/cometbft-rs once PR with instance-based Verifier trait is accepted
+# See: https://github.com/vaporif/tendermint-rs/tree/verifier-with-instance
 tendermint = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 tendermint-proto = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
 tendermint-light-client-verifier = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
