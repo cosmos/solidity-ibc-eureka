@@ -145,7 +145,7 @@ pub fn update_client<'a>(
     )
 }
 
-/// Internal implementation for update_client
+/// Internal implementation for `update_client`
 fn update_client_impl<'a>(
     client_state: &ClientState,
     trusted_consensus_state: &ConsensusState,
@@ -199,9 +199,9 @@ fn update_client_impl<'a>(
             .expect("verification_accounts must be provided in Solana on-chain context");
 
         let verifier = tendermint_light_client_solana::SolanaVerifier::new(
-            tendermint_light_client_solana::SolanaPredicates::default(),
+            tendermint_light_client_solana::SolanaPredicates,
             tendermint_light_client_solana::SolanaVotingPowerCalculator::new(
-                tendermint_light_client_solana::SolanaSignatureVerifier::new(accounts, program_id)
+                tendermint_light_client_solana::SolanaSignatureVerifier::new(accounts, program_id),
             ),
             tendermint_light_client_verifier::operations::commit_validator::ProdCommitValidator,
         );

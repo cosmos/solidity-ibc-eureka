@@ -7,8 +7,6 @@ use std::{collections::HashMap, sync::Arc};
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use ibc_client_tendermint::types::Header as TmHeader;
-use tendermint::{block::Id as BlockId, chain::Id as ChainId, vote::CanonicalVote};
-use tendermint_proto::Protobuf;
 use ibc_eureka_relayer_lib::utils::solana::convert_client_state_to_sol;
 use ibc_eureka_relayer_lib::{
     events::{
@@ -40,6 +38,8 @@ use solana_sdk::{
     pubkey::Pubkey,
     transaction::VersionedTransaction,
 };
+use tendermint::{block::Id as BlockId, chain::Id as ChainId, vote::CanonicalVote};
+use tendermint_proto::Protobuf;
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::gmp;
@@ -734,8 +734,8 @@ impl TxBuilder {
         let validators = &header.validator_set.validators();
 
         // Parse chain ID
-        let chain_id = ChainId::try_from(chain_id.to_string())
-            .context("Failed to parse chain ID")?;
+        let chain_id =
+            ChainId::try_from(chain_id.to_string()).context("Failed to parse chain ID")?;
 
         let mut signature_data_vec = Vec::new();
         let mut seen_hashes = std::collections::HashSet::new();
@@ -814,8 +814,7 @@ impl TxBuilder {
 
             signature_data_vec.push(SignatureData {
                 signature_hash,
-                pubkey: pubkey.try_into()
-                    .context("Public key must be 32 bytes")?,
+                pubkey: pubkey.try_into().context("Public key must be 32 bytes")?,
                 msg: sign_bytes,
                 signature,
             });
@@ -847,25 +846,36 @@ impl TxBuilder {
         let _block_header = &borsh_header.signed_header.header;
 
         // Parse chain ID
-        let chain_id = ChainId::try_from(chain_id.to_string())
-            .context("Failed to parse chain ID")?;
+        let chain_id =
+            ChainId::try_from(chain_id.to_string()).context("Failed to parse chain ID")?;
 
         // Convert BorshBlockId to BlockId
         let block_id = {
             let borsh_block_id = &commit.block_id;
             let hash = tendermint::Hash::Sha256(
-                borsh_block_id.hash.as_slice().try_into()
-                    .context("Block hash must be 32 bytes")?
+                borsh_block_id
+                    .hash
+                    .as_slice()
+                    .try_into()
+                    .context("Block hash must be 32 bytes")?,
             );
             let part_set_header = tendermint::block::parts::Header::new(
                 borsh_block_id.part_set_header.total,
                 tendermint::Hash::Sha256(
-                    borsh_block_id.part_set_header.hash.as_slice().try_into()
-                        .context("Part set hash must be 32 bytes")?
+                    borsh_block_id
+                        .part_set_header
+                        .hash
+                        .as_slice()
+                        .try_into()
+                        .context("Part set hash must be 32 bytes")?,
                 ),
-            ).context("Failed to create part set header")?;
+            )
+            .context("Failed to create part set header")?;
 
-            BlockId { hash, part_set_header }
+            BlockId {
+                hash,
+                part_set_header,
+            }
         };
 
         let mut signature_data_vec = Vec::new();
@@ -877,19 +887,25 @@ impl TxBuilder {
                     validator_address,
                     timestamp,
                     signature,
-                } | BorshCommitSig::BlockIdFlagNil {
+                }
+                | BorshCommitSig::BlockIdFlagNil {
                     validator_address,
                     timestamp,
                     signature,
                 } => (*validator_address, timestamp.clone(), *signature),
             };
 
-            let validator = borsh_header.validator_set.validators.get(idx)
-                .ok_or_else(|| anyhow::anyhow!(
-                    "Signature index {} exceeds validator set size {}",
-                    idx,
-                    borsh_header.validator_set.validators.len()
-                ))?;
+            let validator = borsh_header
+                .validator_set
+                .validators
+                .get(idx)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Signature index {} exceeds validator set size {}",
+                        idx,
+                        borsh_header.validator_set.validators.len()
+                    )
+                })?;
 
             let pubkey = match &validator.pub_key {
                 BorshPublicKey::Ed25519(key) => *key,
@@ -898,11 +914,9 @@ impl TxBuilder {
                 }
             };
 
-            let tm_timestamp = tendermint::Time::from_unix_timestamp(
-                timestamp.secs,
-                timestamp.nanos as u32,
-            )
-            .context("Failed to convert timestamp")?;
+            let tm_timestamp =
+                tendermint::Time::from_unix_timestamp(timestamp.secs, timestamp.nanos as u32)
+                    .context("Failed to convert timestamp")?;
 
             let canonical_vote = CanonicalVote {
                 vote_type: tendermint::vote::Type::Precommit,
@@ -922,11 +936,7 @@ impl TxBuilder {
 
             // Compute signature hash for PDA derivation
             use anchor_lang::solana_program::hash::hashv;
-            let signature_hash = hashv(&[
-                &pubkey,
-                sign_bytes.as_slice(),
-                &signature,
-            ]).to_bytes();
+            let signature_hash = hashv(&[&pubkey, sign_bytes.as_slice(), &signature]).to_bytes();
 
             signature_data_vec.push(SignatureData {
                 signature_hash,
@@ -946,10 +956,7 @@ impl TxBuilder {
     }
 
     #[allow(dead_code)]
-    fn build_store_validators_instruction(
-        &self,
-        validators_bytes: Vec<u8>,
-    ) -> Result<Instruction> {
+    fn build_store_validators_instruction(&self, validators_bytes: Vec<u8>) -> Result<Instruction> {
         use anchor_lang::solana_program::hash::hash;
 
         let simple_hash = hash(&validators_bytes).to_bytes();
@@ -998,10 +1005,7 @@ impl TxBuilder {
     /// - Failed to build Ed25519Program instruction data
     /// - Failed to create transaction
     #[allow(deprecated)]
-    fn build_pre_verify_signature_transaction(
-        &self,
-        sig_data: &SignatureData,
-    ) -> Result<Vec<u8>> {
+    fn build_pre_verify_signature_transaction(&self, sig_data: &SignatureData) -> Result<Vec<u8>> {
         tracing::debug!(
             "Building pre-verify for signature: pubkey={}, msg_len={}, sig={}",
             hex::encode(&sig_data.pubkey),
@@ -1011,8 +1015,8 @@ impl TxBuilder {
 
         // Build Ed25519Program instruction
         let mut instruction_data = vec![
-            1u8,  // number of signatures
-            0u8,  // padding
+            1u8, // number of signatures
+            0u8, // padding
         ];
 
         // Offsets - data starts at byte 16 (after 16-byte header)
@@ -1106,7 +1110,10 @@ impl TxBuilder {
             // Log transaction details for debugging
             Self::log_transaction_details(
                 &chunk_tx,
-                &format!("Header chunk {} (chain_id={}, height={})", chunk_index, chain_id, target_height)
+                &format!(
+                    "Header chunk {} (chain_id={}, height={})",
+                    chunk_index, chain_id, target_height
+                ),
             );
 
             chunk_txs.push(chunk_tx);
@@ -2009,13 +2016,27 @@ impl TxBuilder {
                         let params_data = &compiled_ix.data[8..];
                         // Manually decode borsh: String (u32 len + bytes), u64, u8, Vec<u8> (u32 len + bytes)
                         if params_data.len() >= 4 {
-                            let chain_id_len = u32::from_le_bytes([params_data[0], params_data[1], params_data[2], params_data[3]]) as usize;
+                            let chain_id_len = u32::from_le_bytes([
+                                params_data[0],
+                                params_data[1],
+                                params_data[2],
+                                params_data[3],
+                            ]) as usize;
                             if params_data.len() >= 4 + chain_id_len + 8 + 1 + 4 {
-                                let chain_id = String::from_utf8_lossy(&params_data[4..4 + chain_id_len]).to_string();
-                                let target_height_bytes = &params_data[4 + chain_id_len..4 + chain_id_len + 8];
+                                let chain_id =
+                                    String::from_utf8_lossy(&params_data[4..4 + chain_id_len])
+                                        .to_string();
+                                let target_height_bytes =
+                                    &params_data[4 + chain_id_len..4 + chain_id_len + 8];
                                 let target_height = u64::from_le_bytes([
-                                    target_height_bytes[0], target_height_bytes[1], target_height_bytes[2], target_height_bytes[3],
-                                    target_height_bytes[4], target_height_bytes[5], target_height_bytes[6], target_height_bytes[7],
+                                    target_height_bytes[0],
+                                    target_height_bytes[1],
+                                    target_height_bytes[2],
+                                    target_height_bytes[3],
+                                    target_height_bytes[4],
+                                    target_height_bytes[5],
+                                    target_height_bytes[6],
+                                    target_height_bytes[7],
                                 ]);
                                 let chunk_index = params_data[4 + chain_id_len + 8];
                                 let chunk_data_len_offset = 4 + chain_id_len + 8 + 1;
@@ -2207,7 +2228,7 @@ impl TxBuilder {
                 // Log transaction details for debugging
                 Self::log_transaction_details(
                     &pre_verify_tx,
-                    &format!("Pre-verify signature {}/{}", sig_idx + 1, total_signatures)
+                    &format!("Pre-verify signature {}/{}", sig_idx + 1, total_signatures),
                 );
 
                 prep_txs.push(pre_verify_tx);

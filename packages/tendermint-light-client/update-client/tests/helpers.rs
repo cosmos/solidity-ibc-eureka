@@ -165,6 +165,7 @@ pub fn execute_update_client(
         &ctx.trusted_consensus_state,
         ctx.proposed_header.clone(),
         ctx.current_time,
+        None,
     )
 }
 
