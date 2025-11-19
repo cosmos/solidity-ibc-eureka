@@ -75,8 +75,10 @@ impl VerificationPredicates for SolanaPredicates {
     }
 }
 
-/// Solana-optimized verifier that uses brine-ed25519 for signature verification
-/// and skips redundant Merkle hashing
+/// Solana-optimized verifier with pre-verified Ed25519 signatures and optimized Merkle hashing
+///
+/// Signature verification: Pre-verification PDAs (~18k CU/sig via Ed25519Program) with brine-ed25519 fallback (~30k CU/sig)
+/// Merkle hashing: Skips redundant validator set hash validation (already done in validate_basic)
 pub type SolanaVerifier<'a> =
     PredicateVerifier<SolanaPredicates, SolanaVotingPowerCalculator<'a>, ProdCommitValidator>;
 

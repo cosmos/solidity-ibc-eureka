@@ -261,7 +261,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 
 	totalStart := time.Now()
 
-	// New transaction order: alt_create, alt_extend_batches..., SEPARATOR (empty), chunks..., assembly
+	// Transaction order: alt_create, alt_extend_batches..., SEPARATOR (empty), chunks..., assembly
 	// Layout:
 	// - batch.Txs[0]: alt_create
 	// - batch.Txs[1..N]: alt_extend_txs (N batches)
@@ -445,6 +445,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 
 	sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
 	if err != nil {
+		t.Logf("Assembly transaction error: %v", err)
 		t.Logf("Assembly transaction failed, fetching detailed logs...")
 		// Try to get the signature from the error to fetch logs
 		// Even if submission failed, the transaction may have been sent
@@ -452,9 +453,23 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 			// If we don't have a signature, we can't fetch logs
 			t.Logf("No transaction signature available to fetch logs")
 		} else {
-			// Wait a moment for transaction to be processed
-			time.Sleep(500 * time.Millisecond)
-			s.LogTransactionDetails(ctx, t, sig, "FAILED Assembly Transaction")
+			// Wait longer for transaction to be indexed in RPC
+			for i := 0; i < 10; i++ {
+				time.Sleep(1 * time.Second)
+				version := uint64(0)
+				txDetails, fetchErr := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
+					Encoding:                       solana.EncodingBase64,
+					Commitment:                     rpc.CommitmentConfirmed,
+					MaxSupportedTransactionVersion: &version,
+				})
+				if fetchErr == nil && txDetails != nil {
+					s.LogTransactionDetails(ctx, t, sig, "FAILED Assembly Transaction")
+					break
+				}
+				if i == 9 {
+					t.Logf("Failed to fetch transaction details after 10 retries")
+				}
+			}
 		}
 		require.NoError(err, "Assembly transaction failed")
 	}
