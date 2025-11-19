@@ -1996,7 +1996,6 @@ dependencies = [
  "tendermint-light-client-membership",
  "tendermint-light-client-misbehaviour",
  "tendermint-light-client-solana",
- "tendermint-light-client-uc-and-membership",
  "tendermint-light-client-update-client",
  "time",
 ]
@@ -5517,18 +5516,6 @@ dependencies = [
  "solana-program",
  "tendermint",
  "tendermint-light-client-verifier",
-]
-
-[[package]]
-name = "tendermint-light-client-uc-and-membership"
-version = "0.1.0"
-dependencies = [
- "ibc-client-tendermint",
- "ibc-core-commitment-types",
- "solana-program",
- "tendermint-light-client-membership",
- "tendermint-light-client-update-client",
- "thiserror 2.0.12",
 ]
 
 [[package]]
