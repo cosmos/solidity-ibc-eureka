@@ -89,10 +89,10 @@ struct UploadChunkParams {
 }
 
 /// Organized transactions for chunked update client
-/// Submission order: `alt_create_tx` -> `alt_extend_txs` (sequential) -> `chunk_txs` (parallel) -> `assembly_tx`
+/// Submission order: `alt_create_tx` -> `alt_extend_txs` (sequential) -> `chunk_txs` (parallel: sigs + chunks) -> `assembly_tx`
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct UpdateClientChunkedTxs {
-    /// All chunk upload transactions (can be submitted in parallel after ALT is ready)
+    /// All preparatory transactions: signatures + chunks (can ALL be submitted in parallel after ALT is ready)
     pub chunk_txs: Vec<Vec<u8>>,
     /// ALT creation transaction (must be submitted first)
     pub alt_create_tx: Vec<u8>,
@@ -807,26 +807,12 @@ impl TxBuilder {
             // Encode as protobuf to get sign bytes (CometBFT uses MarshalDelimited = varint length-prefixed)
             let sign_bytes = <CanonicalVote as Protobuf<
                 tendermint_proto::v0_38::types::CanonicalVote,
-            >>::encode_length_delimited_vec(canonical_vote.clone());
-
-            // DEBUG: Print full canonical vote structure and sign bytes
-            tracing::info!("=== Signature {} Debug Info ===", idx);
-            tracing::info!("  Canonical Vote:");
-            tracing::info!("    vote_type: {:?}", canonical_vote.vote_type);
-            tracing::info!("    height: {}", canonical_vote.height);
-            tracing::info!("    round: {}", canonical_vote.round);
-            tracing::info!("    block_id: {:?}", canonical_vote.block_id);
-            tracing::info!("    timestamp: {:?}", canonical_vote.timestamp);
-            tracing::info!("    chain_id: {}", canonical_vote.chain_id);
-            tracing::info!("  sign_bytes (len={}): {}", sign_bytes.len(), hex::encode(&sign_bytes));
-            tracing::info!("  pubkey: {}", hex::encode(pubkey));
+            >>::encode_length_delimited_vec(canonical_vote);
 
             // Convert signature to array
             let signature: [u8; 64] = signature_bytes.as_bytes()
                 .try_into()
                 .context("Signature must be 64 bytes")?;
-
-            tracing::info!("  signature: {}", hex::encode(&signature));
 
             // Compute signature hash for PDA derivation
             use anchor_lang::solana_program::hash::hashv;
@@ -835,29 +821,6 @@ impl TxBuilder {
                 sign_bytes.as_slice(),
                 &signature,
             ]).to_bytes();
-
-            // Verify signature using ed25519-dalek (Verifier trait needed for verify_strict method)
-            #[allow(unused_imports)]
-            use ed25519_dalek::{Signature, VerifyingKey, Verifier as _};
-            let verification_result = (|| -> Result<bool, anyhow::Error> {
-                let verifying_key = VerifyingKey::from_bytes(
-                    pubkey.try_into().context("Pubkey must be 32 bytes")?
-                )?;
-                let signature_obj = Signature::from_bytes(&signature);
-                Ok(verifying_key.verify_strict(&sign_bytes, &signature_obj).is_ok())
-            })();
-
-            match verification_result {
-                Ok(true) => {
-                    tracing::info!("  ✓ Verification: VALID");
-                }
-                Ok(false) => {
-                    tracing::warn!("  ✗ Verification: INVALID");
-                }
-                Err(e) => {
-                    tracing::error!("  ✗ Verification ERROR: {}", e);
-                }
-            }
 
             // Skip duplicate signatures (same hash = same PDA)
             if !seen_hashes.insert(signature_hash) {
@@ -885,26 +848,6 @@ impl TxBuilder {
             commit.signatures.len(),
             duplicates_skipped
         );
-
-        // Verify at least one signature is valid
-        #[allow(unused_imports)]
-        use ed25519_dalek::{Signature, VerifyingKey, Verifier as _};
-        let valid_count = signature_data_vec.iter().filter(|sig_data| {
-            let Ok(verifying_key) = VerifyingKey::from_bytes(&sig_data.pubkey) else {
-                return false;
-            };
-            let signature_obj = Signature::from_bytes(&sig_data.signature);
-            verifying_key.verify_strict(&sig_data.msg, &signature_obj).is_ok()
-        }).count();
-
-        if valid_count == 0 && !signature_data_vec.is_empty() {
-            anyhow::bail!(
-                "All {} signatures are INVALID - sign_bytes construction is incorrect",
-                signature_data_vec.len()
-            );
-        }
-
-        tracing::info!("{} out of {} signatures are VALID", valid_count, signature_data_vec.len());
 
         Ok(signature_data_vec)
     }
@@ -2309,7 +2252,7 @@ impl TxBuilder {
         // let store_validators_ix = self.build_store_validators_instruction(validators_bytes)?;
         // let store_next_validators_ix = self.build_store_validators_instruction(next_validators_bytes)?;
 
-        // Now add header chunk transactions
+        // Build header chunk transactions and add them to prep_txs (all submitted in parallel)
         let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
         prep_txs.extend(chunk_txs);
 
