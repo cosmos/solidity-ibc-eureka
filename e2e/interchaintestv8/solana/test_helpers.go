@@ -284,57 +284,53 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 
 	altExtendCount := separatorIdx - 1 // Subtract 1 for alt_create at index 0
 
-	// Phase 1: Submit ALT creation and extension transactions
-	t.Logf("--- Phase 1: Creating and extending ALT for assembly transaction ---")
-	altPhaseStart := time.Now()
+	// Phase 1: Submit ALT ops and prep txs in parallel
+	t.Logf("--- Phase 1: Creating ALT and uploading prep transactions in parallel ---")
+	phase1Start := time.Now()
 
-	// Submit ALT creation transaction (always index 0)
-	t.Logf("Submitting ALT creation transaction...")
-	altCreateTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[0]))
-	require.NoError(err, "Failed to decode ALT creation tx")
-
-	altCreateSig, err := s.SignAndBroadcastTxWithOpts(ctx, altCreateTx, rpc.ConfirmationStatusConfirmed, user)
-	require.NoError(err, "Failed to submit ALT creation tx")
-	t.Logf("✓ ALT creation tx submitted: %s", altCreateSig)
-
-	// Submit ALT extension transactions sequentially
-	t.Logf("Submitting %d ALT extension transactions...", altExtendCount)
-	for i := range altExtendCount {
-		extendIdx := 1 + i
-		altExtendTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[extendIdx]))
-		require.NoError(err, "Failed to decode ALT extension tx %d", i+1)
-
-		altExtendSig, err := s.SignAndBroadcastTxWithOpts(ctx, altExtendTx, rpc.ConfirmationStatusConfirmed, user)
-		require.NoError(err, "Failed to submit ALT extension tx %d", i+1)
-		t.Logf("✓ ALT extension tx %d/%d submitted: %s", i+1, altExtendCount, altExtendSig)
-	}
-
-	// Wait for ALT to activate (requires at least 1 slot)
-	t.Logf("Waiting for ALT to activate (next slot)...")
-	currentSlot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
-	require.NoError(err, "Failed to get current slot")
-
-	targetSlot := currentSlot + 1
-	for {
-		slot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
-		require.NoError(err, "Failed to poll slot")
-		if slot >= targetSlot {
-			t.Logf("✓ ALT activated at slot %d (waited for slot %d)", slot, targetSlot)
-			break
+	// Start ALT operations in background goroutine
+	altDone := make(chan error, 1)
+	go func() {
+		// Submit ALT creation transaction (always index 0)
+		altCreateTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[0]))
+		if err != nil {
+			altDone <- fmt.Errorf("failed to decode ALT creation tx: %w", err)
+			return
 		}
-		time.Sleep(100 * time.Millisecond)
-	}
 
-	altPhaseDuration := time.Since(altPhaseStart)
-	t.Logf("--- Phase 1 Complete: ALT ready in %v ---", altPhaseDuration)
+		altCreateSig, err := s.SignAndBroadcastTxWithOpts(ctx, altCreateTx, rpc.ConfirmationStatusConfirmed, user)
+		if err != nil {
+			altDone <- fmt.Errorf("failed to submit ALT creation tx: %w", err)
+			return
+		}
+		t.Logf("✓ ALT creation tx submitted: %s", altCreateSig)
 
-	// Phase 2: Upload signature verifications and header chunks in parallel
-	// Skip separator at separatorIdx
+		// Submit ALT extension transactions sequentially
+		for i := range altExtendCount {
+			extendIdx := 1 + i
+			altExtendTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[extendIdx]))
+			if err != nil {
+				altDone <- fmt.Errorf("failed to decode ALT extension tx %d: %w", i+1, err)
+				return
+			}
+
+			altExtendSig, err := s.SignAndBroadcastTxWithOpts(ctx, altExtendTx, rpc.ConfirmationStatusConfirmed, user)
+			if err != nil {
+				altDone <- fmt.Errorf("failed to submit ALT extension tx %d: %w", i+1, err)
+				return
+			}
+			t.Logf("✓ ALT extension tx %d/%d submitted: %s", i+1, altExtendCount, altExtendSig)
+		}
+
+		altDone <- nil
+	}()
+
+	// Upload signature verifications and header chunks in parallel with ALT ops
 	chunkStart := separatorIdx + 1
 	chunkEnd := len(batch.Txs) - 1 // Last tx is assembly
 	prepTxCount := chunkEnd - chunkStart
 
-	t.Logf("--- Phase 2: Uploading %d prep transactions (signature verifications + header chunks) in parallel ---", prepTxCount)
+	t.Logf("Uploading %d prep transactions (signature verifications + header chunks) in parallel...", prepTxCount)
 	chunksStart := time.Now()
 
 	var completedPrepTxs int
@@ -430,14 +426,38 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	prepTxsTotal := time.Since(chunksStart)
 	avgPrepTxTime := prepTxsTotal / time.Duration(prepTxCount)
 	avgPrepTxComputeUnits := totalPrepComputeUnits / uint64(prepTxCount)
-	t.Logf("--- Phase 2 Complete: All %d prep transactions submitted in %v ---",
-		prepTxCount, prepTxsTotal)
+	t.Logf("✓ All %d prep transactions submitted in %v", prepTxCount, prepTxsTotal)
 	t.Logf("  Average per prep tx: %v duration, %d CUs, %.9f SOL",
 		avgPrepTxTime, avgPrepTxComputeUnits, float64(totalPrepFees)/float64(prepTxCount)/1e9)
 	t.Logf("  Total prep tx gas: %d CUs, %.9f SOL",
 		totalPrepComputeUnits, float64(totalPrepFees)/1e9)
 
-	t.Logf("--- Phase 3: Assembling and updating client ---")
+	// Wait for ALT operations to complete
+	if err := <-altDone; err != nil {
+		require.NoError(err, "ALT operations failed")
+	}
+	t.Logf("✓ ALT create + extend complete")
+
+	// Wait for ALT to activate (requires at least 1 slot)
+	t.Logf("Waiting for ALT to activate (next slot)...")
+	currentSlot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
+	require.NoError(err, "Failed to get current slot")
+
+	targetSlot := currentSlot + 1
+	for {
+		slot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
+		require.NoError(err, "Failed to poll slot")
+		if slot >= targetSlot {
+			t.Logf("✓ ALT activated at slot %d (waited for slot %d)", slot, targetSlot)
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	phase1Duration := time.Since(phase1Start)
+	t.Logf("--- Phase 1 Complete: ALT + prep txs ready in %v ---", phase1Duration)
+
+	t.Logf("--- Phase 2: Assembling and updating client ---")
 	assemblyStart := time.Now()
 
 	tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[len(batch.Txs)-1]))
@@ -525,9 +545,8 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 
 	t.Logf("=== Chunked Update Client Complete ===")
 	t.Logf("Total time: %v", totalDuration)
-	t.Logf("  - ALT setup phase: %v", altPhaseDuration)
-	t.Logf("  - Prep tx phase: %v (%d in parallel)", prepTxsTotal, prepTxCount)
-	t.Logf("  - Assembly phase: %v", assemblyDuration)
+	t.Logf("  - Phase 1 (ALT + prep txs): %v (%d prep txs in parallel)", phase1Duration, prepTxCount)
+	t.Logf("  - Phase 2 (Assembly): %v", assemblyDuration)
 	t.Logf("Total gas consumption:")
 	t.Logf("  - Prep txs: %d CUs, %.9f SOL", totalPrepComputeUnits, float64(totalPrepFees)/1e9)
 	t.Logf("  - Assembly: %d CUs, %.9f SOL", assemblyComputeUnits, float64(assemblyFee)/1e9)

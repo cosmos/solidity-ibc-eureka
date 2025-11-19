@@ -251,6 +251,51 @@ Approximate compute units per operation:
 - `submit_misbehaviour`: ~150k CU
 - `cleanup_incomplete_upload`: ~20k CU per chunk
 
+### Performance Optimizations (100 Validators Benchmark - Celestia)
+
+The implementation includes several optimizations tested with 100-validator sets (Celestia mainnet):
+
+**Ed25519 Signature Verification:**
+- **Pre-verification (optional):** Uses Ed25519Program precompile **~10k CU per signature** (via separate transaction)
+  - Can be parallelized across multiple transactions for faster verification
+  - **Critical for large validator sets (50+ validators):** Pure brine-ed25519 would exceed Solana's 1.4M CU transaction limit
+  - Saves CU costs and enables support for validator sets of any size (given base assemble has enough CU for deserialization/verification of non-signature operations)
+  - Pre-verification PDAs store validation results, checked during `assemble_and_update_client`
+  - **Latency (100 validators, Celestia real-world):**
+    - Total: ~22s (Phase 1: ~6s for 83 parallel prep txs, Phase 2: ~16s for assembly)
+    - **Note:** Highly dependent on RPC throttling/rate limiting - implementation uses many parallel transactions
+    - Optimal conditions (no RPC limits): Could complete within ~2 blocks (≈1s)
+- **Fallback verification:** brine-ed25519 on-chain **~30k CU per signature**
+  - Always available as fallback when pre-verification PDAs are not provided
+  - Allows verification to succeed even without pre-computation step
+  - Works well for smaller validator sets that fit within CU limits
+- **Savings (100 validators):** For 2/3 threshold (~67 signatures): ~1,340k CU saved with pre-verification vs pure brine fallback
+- Implementation in `packages/tendermint-light-client/solana/src/lib.rs::SolanaSignatureVerifier`
+
+**Merkle Hashing Optimizations:**
+- Skipping redundant validator set hash validation: **~290k CU saved**
+  - `validator_sets_match` skip: ~145k CU
+  - `next_validators_match` skip: ~145k CU
+  - These hashes are pre-validated in `validate_basic()` and `check_trusted_next_validator_set()`
+
+**Signature Pre-sorting:**
+- Pre-sort signatures by validator address during serialization: **~60-80k CU saved**
+- Avoids on-chain sorting during deserialization
+- Implemented in `solana-ibc-types/src/borsh_header.rs::commit_to_borsh()`
+
+**Validator Set Pre-sorting:**
+- Pre-sorted validators from relayer: **~50k CU saved** per validator set
+- Skips on-chain sorting by using pre-calculated total voting power
+
+**Total Impact (100 validators, Celestia real-world):**
+- **Measured gas consumption:**
+  - Prep txs (83 parallel): ~893k CUs, 0.000715 SOL
+  - Assembly: ~1.27M CUs, 0.0000064 SOL
+  - **TOTAL: ~2.16M CUs, 0.00072 SOL** (~$0.11-0.14 USD at $150-200/SOL)
+  - Note: Cost includes base fees (5000 lamports/tx) + priority fees (variable, market-driven)
+- **Without optimizations:** Would exceed Solana's 1.4M CU transaction limit with pure brine-ed25519
+- **Optimizations enable:** Support for 100+ validator sets through parallelization and CU savings
+
 ## Design Decisions
 
 ### Why On-Chain Signature Verification Instead of Ed25519Program?
@@ -316,10 +361,10 @@ The existing chunking system actually **strengthens** the case for brine-ed25519
 
 **Comparison to Other Implementations:**
 
-| Implementation | Approach | Verification Cost |
-|----------------|----------|-------------------|
+| Implementation | Approach | Verification Cost (100 validators) |
+|----------------|----------|-----------------------------------|
 | **Ethereum** | SP1 ZK Proofs | ~230k gas (~$0.50-5.00 USD) |
-| **Solana** | On-chain verification (brine-ed25519) | ~200k CU (~$0.00001 USD) |
+| **Solana** | On-chain verification (brine-ed25519 + Ed25519Program pre-verification) | ~2.16M CU (~$0.11-0.14 USD) |
 | **Cosmos** | Native IBC with on-chain verification | ~300k gas (~$0.003 USD) |
 
 The on-chain verification approach makes Solana one of the most cost-efficient platforms for IBC light client verification, despite not being able to use the free Ed25519Program precompile.

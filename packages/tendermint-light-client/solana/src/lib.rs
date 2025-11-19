@@ -1,11 +1,11 @@
-//! Solana-optimized Tendermint light client verifier using brine-ed25519
+//! Solana-optimized Tendermint light client verifier using precompiled Ed25519Program and brine-ed25519
 //!
-//! TODO: For upstream PR to ibc-rs/tendermint-rs:
+//! TODO: Additional optimizations - for upstream PR to ibc-rs/tendermint-rs:
 //! 1. tendermint-light-client-verifier/src/operations/voting_power.rs:319
 //!    Add #[cfg(not(feature = "solana"))] before `votes.sort_unstable_by_key()`
 //!    to skip on-chain sorting when signatures are pre-sorted by relayer
 //! 2. solana-ibc-types/src/borsh_header.rs `conversions::commit_to_borsh()`
-//!    Pre-sort signatures before serialization (saves ~60-80k CU on-chain)
+//!    Pre-sort signatures before serialization (saves ~60-80k CU on-chain for 100 validators)
 
 use std::collections::HashMap;
 
@@ -27,7 +27,9 @@ use solana_program::{log::sol_log_compute_units, msg};
 ///
 /// The validator set hashes are already validated in `validate_basic()` and
 /// `check_trusted_next_validator_set()` before the verifier is called, so we can
-/// safely skip recomputing them here to save ~290k compute units.
+/// safely skip recomputing them here.
+///
+/// **Performance (100 validators):** Saves ~290k compute units total (~145k per validator set hash)
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SolanaPredicates;
 
@@ -41,15 +43,12 @@ impl VerificationPredicates for SolanaPredicates {
     /// before this function is called, so we can safely skip the redundant
     /// Merkle hash computation here.
     ///
-    /// Savings: ~145k compute units
+    /// **Performance (100 validators):** Saves ~145k compute units
     fn validator_sets_match(
         &self,
         _validators: &ValidatorSet,
         _header_validators_hash: tendermint::Hash,
     ) -> Result<(), VerificationError> {
-        msg!("[solana-predicates] Skipping redundant validator_sets_match hash (already validated in validate_basic)");
-        sol_log_compute_units();
-
         // Return Ok immediately - validation already done in Header::validate_basic()
         Ok(())
     }
@@ -61,15 +60,12 @@ impl VerificationPredicates for SolanaPredicates {
     /// before this function is called, so we can safely skip the redundant
     /// Merkle hash computation here.
     ///
-    /// Savings: ~145k compute units
+    /// **Performance (100 validators):** Saves ~145k compute units
     fn next_validators_match(
         &self,
         _next_validators: &ValidatorSet,
         _header_next_validators_hash: tendermint::Hash,
     ) -> Result<(), VerificationError> {
-        msg!("[solana-predicates] Skipping redundant next_validators_match hash (already validated in check_trusted_next_validator_set)");
-        sol_log_compute_units();
-
         // Return Ok immediately - validation already done in Header::check_trusted_next_validator_set()
         Ok(())
     }
@@ -77,8 +73,9 @@ impl VerificationPredicates for SolanaPredicates {
 
 /// Solana-optimized verifier with pre-verified Ed25519 signatures and optimized Merkle hashing
 ///
-/// Signature verification: Pre-verification PDAs (~10k CU/sig via Ed25519Program) with brine-ed25519 fallback (~30k CU/sig)
-/// Merkle hashing: Skips redundant validator set hash validation (already done in validate_basic)
+/// **Signature verification:** Pre-verification PDAs (~10k CU/sig via Ed25519Program) with brine-ed25519 fallback (~30k CU/sig)
+/// **Merkle hashing:** Skips redundant validator set hash validation (saves ~290k CU for 100 validators)
+/// **Total verification cost (100 validators, Celestia):** ~1.27M CU assembly + ~893k CU prep txs = ~2.16M CU total
 pub type SolanaVerifier<'a> =
     PredicateVerifier<SolanaPredicates, SolanaVotingPowerCalculator<'a>, ProdCommitValidator>;
 
@@ -121,13 +118,6 @@ impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a>
                 if !self.verification_accounts.is_empty() {
                     use solana_program::msg;
 
-                    // Log which signature we're trying to verify
-                    let pk_bytes = pk.as_bytes();
-                    msg!("🔍 Verifying signature for pubkey: {:02x?}{:02x?}{:02x?}{:02x?}{:02x?}{:02x?}{:02x?}{:02x?}...",
-                        pk_bytes[0], pk_bytes[1], pk_bytes[2], pk_bytes[3],
-                        pk_bytes[4], pk_bytes[5], pk_bytes[6], pk_bytes[7]
-                    );
-
                     let sig_hash =
                         solana_program::hash::hashv(&[pk.as_bytes(), msg, signature.as_bytes()])
                             .to_bytes();
@@ -152,11 +142,9 @@ impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a>
 
                             let is_valid = data[8] != 0;
                             if !is_valid {
-                                msg!("✗ Pre-verified signature INVALID");
                                 return Err(Error::VerificationFailed);
                             }
 
-                            msg!("✓ Pre-verified signature VALID");
                             return Ok(());
                         }
                     }
