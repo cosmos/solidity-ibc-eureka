@@ -77,14 +77,12 @@ impl VerificationPredicates for SolanaPredicates {
 
 /// Solana-optimized verifier that uses brine-ed25519 for signature verification
 /// and skips redundant Merkle hashing
-pub type SolanaVerifier<'a> = PredicateVerifier<
-    SolanaPredicates,
-    SolanaVotingPowerCalculator<'a>,
-    ProdCommitValidator,
->;
+pub type SolanaVerifier<'a> =
+    PredicateVerifier<SolanaPredicates, SolanaVotingPowerCalculator<'a>, ProdCommitValidator>;
 
 /// Solana voting power calculator using optimized signature verification
-pub type SolanaVotingPowerCalculator<'a> = ProvidedVotingPowerCalculator<SolanaSignatureVerifier<'a>>;
+pub type SolanaVotingPowerCalculator<'a> =
+    ProvidedVotingPowerCalculator<SolanaSignatureVerifier<'a>>;
 
 /// Solana optimised signature verifier with pre-verification account support
 #[derive(Clone, Debug)]
@@ -121,12 +119,9 @@ impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a>
                 if !self.verification_accounts.is_empty() {
                     use solana_program::msg;
 
-                    let sig_hash = solana_program::hash::hashv(&[
-                        pk.as_bytes(),
-                        msg,
-                        signature.as_bytes(),
-                    ])
-                    .to_bytes();
+                    let sig_hash =
+                        solana_program::hash::hashv(&[pk.as_bytes(), msg, signature.as_bytes()])
+                            .to_bytes();
 
                     // PDA: [b"sig_verify", hash(pubkey || msg || signature)]
                     let (expected_pda, _) = solana_program::pubkey::Pubkey::find_program_address(
@@ -147,14 +142,11 @@ impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a>
                             }
 
                             let is_valid = data[8] != 0;
-
-                            if is_valid {
-                                msg!("Using pre-verified signature (FREE!)");
-                                return Ok(());
-                            } else {
-                                msg!("Pre-verified signature marked as invalid");
+                            if !is_valid {
                                 return Err(Error::VerificationFailed);
                             }
+
+                            return Ok(());
                         }
                     }
 

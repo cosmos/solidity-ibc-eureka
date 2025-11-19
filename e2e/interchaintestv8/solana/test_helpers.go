@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -327,103 +328,104 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	altPhaseDuration := time.Since(altPhaseStart)
 	t.Logf("--- Phase 1 Complete: ALT ready in %v ---", altPhaseDuration)
 
-	// Phase 2: Upload signature verifications and header chunks sequentially
+	// Phase 2: Upload signature verifications and header chunks in parallel
 	// Skip separator at separatorIdx
 	chunkStart := separatorIdx + 1
 	chunkEnd := len(batch.Txs) - 1 // Last tx is assembly
 	prepTxCount := chunkEnd - chunkStart
 
-	t.Logf("--- Phase 2: Uploading %d prep transactions (signature verifications + header chunks) sequentially ---", prepTxCount)
+	t.Logf("--- Phase 2: Uploading %d prep transactions (signature verifications + header chunks) in parallel ---", prepTxCount)
 	chunksStart := time.Now()
 
-	completedPrepTxs := 0
+	var completedPrepTxs int
 	var totalPrepComputeUnits, totalPrepFees uint64
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	// Submit all prep txs in parallel
 	for idx := chunkStart; idx < chunkEnd; idx++ {
-		prepTxStart := time.Now()
+		wg.Add(1)
+		go func(txIdx int) {
+			defer wg.Done()
+			prepTxStart := time.Now()
 
-		tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[idx]))
-		require.NoError(err, "Failed to decode prep tx %d", idx)
-
-		sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
-		prepTxDuration := time.Since(prepTxStart)
-
-		// Fetch transaction details for gas tracking and logs (for both success and failure)
-		var computeUnits, fee uint64
-		version := uint64(0)
-
-		// If we got a signature, fetch transaction details even if submission failed
-		if sig != (solana.Signature{}) {
-			t.Logf("[Prep tx %d] Got signature: %s, fetching transaction details...", idx, sig)
-
-			// Wait longer and retry to ensure transaction is fully processed
-			time.Sleep(500 * time.Millisecond)
-
-			var txDetails *rpc.GetTransactionResult
-			var txErr error
-
-			// Retry a few times if transaction not found
-			for retry := 0; retry < 3; retry++ {
-				txDetails, txErr = s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
-					Commitment:                     rpc.CommitmentConfirmed,
-					MaxSupportedTransactionVersion: &version,
-				})
-
-				if txErr == nil && txDetails != nil && txDetails.Meta != nil && txDetails.Meta.LogMessages != nil {
-					break
-				}
-
-				if retry < 2 {
-					t.Logf("[Prep tx %d] Retry %d: waiting for transaction details...", idx, retry+1)
-					time.Sleep(500 * time.Millisecond)
-				}
+			tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[txIdx]))
+			if err != nil {
+				t.Errorf("Failed to decode prep tx %d: %v", txIdx, err)
+				return
 			}
 
-			if txErr != nil {
-				t.Logf("[Prep tx %d] Failed to fetch transaction details: %v", idx, txErr)
-			} else if txDetails == nil {
-				t.Logf("[Prep tx %d] Transaction details are nil", idx)
-			} else {
-				t.Logf("[Prep tx %d] Transaction details fetched, slot=%v, blockTime=%v", idx, txDetails.Slot, txDetails.BlockTime)
+			sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
+			prepTxDuration := time.Since(prepTxStart)
 
-				if txDetails.Meta == nil {
-					t.Logf("[Prep tx %d] Transaction meta is nil", idx)
-				} else {
-					t.Logf("[Prep tx %d] Transaction meta: err=%v, fee=%d, computeUnits=%v",
-						idx, txDetails.Meta.Err, txDetails.Meta.Fee, txDetails.Meta.ComputeUnitsConsumed)
+			// Fetch transaction details for gas tracking and logs
+			var computeUnits, fee uint64
+			version := uint64(0)
 
+			if sig != (solana.Signature{}) {
+				// Wait for transaction to be processed
+				time.Sleep(500 * time.Millisecond)
+
+				var txDetails *rpc.GetTransactionResult
+				var txErr error
+
+				// Retry a few times if transaction not found
+				for retry := 0; retry < 3; retry++ {
+					txDetails, txErr = s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
+						Commitment:                     rpc.CommitmentConfirmed,
+						MaxSupportedTransactionVersion: &version,
+					})
+
+					if txErr == nil && txDetails != nil && txDetails.Meta != nil {
+						break
+					}
+
+					if retry < 2 {
+						time.Sleep(500 * time.Millisecond)
+					}
+				}
+
+				// Extract compute units and fees if available
+				if txErr == nil && txDetails != nil && txDetails.Meta != nil {
 					if txDetails.Meta.ComputeUnitsConsumed != nil {
 						computeUnits = *txDetails.Meta.ComputeUnitsConsumed
 					}
 					fee = txDetails.Meta.Fee
 
-					// Print program logs for this transaction (both success and failure)
-					if txDetails.Meta.LogMessages != nil && len(txDetails.Meta.LogMessages) > 0 {
-						t.Logf("[Prep tx %d logs] %d log messages:", idx, len(txDetails.Meta.LogMessages))
-						for i, logMsg := range txDetails.Meta.LogMessages {
-							t.Logf("  [%d] %s", i, logMsg)
+					// Only log details on error
+					if txDetails.Meta.Err != nil {
+						t.Logf("[Prep tx %d] ❌ Transaction error: %v", txIdx, txDetails.Meta.Err)
+						if txDetails.Meta.LogMessages != nil && len(txDetails.Meta.LogMessages) > 0 {
+							t.Logf("[Prep tx %d logs] %d log messages:", txIdx, len(txDetails.Meta.LogMessages))
+							for i, logMsg := range txDetails.Meta.LogMessages {
+								t.Logf("  [%d] %s", i, logMsg)
+							}
 						}
-					} else {
-						t.Logf("[Prep tx %d] No log messages in transaction (Meta.LogMessages is nil=%v, len=%d)",
-							idx, txDetails.Meta.LogMessages == nil, len(txDetails.Meta.LogMessages))
 					}
 				}
 			}
-		} else {
-			t.Logf("[Prep tx %d] No signature returned (zero signature)", idx)
-		}
 
-		require.NoError(err, "Failed to submit prep tx %d (signature verification or header chunk)", idx)
+			if err != nil {
+				t.Errorf("Failed to submit prep tx %d: %v", txIdx, err)
+				return
+			}
 
-		t.Logf("[Prep tx %d timing] total duration: %v, compute units: %d, fee: %d lamports",
-			idx, prepTxDuration, computeUnits, fee)
+			// Update shared counters with mutex
+			mu.Lock()
+			completedPrepTxs++
+			totalPrepComputeUnits += computeUnits
+			totalPrepFees += fee
+			txNum := completedPrepTxs
+			mu.Unlock()
 
-		completedPrepTxs++
-		totalPrepComputeUnits += computeUnits
-		totalPrepFees += fee
-		t.Logf("✓ Prep tx %d/%d submitted in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
-			completedPrepTxs, prepTxCount, prepTxDuration, sig,
-			computeUnits, float64(fee)/1e9)
+			t.Logf("✓ Prep tx %d/%d submitted in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
+				txNum, prepTxCount, prepTxDuration, sig,
+				computeUnits, float64(fee)/1e9)
+		}(idx)
 	}
+
+	// Wait for all prep txs to complete
+	wg.Wait()
 
 	prepTxsTotal := time.Since(chunksStart)
 	avgPrepTxTime := prepTxsTotal / time.Duration(prepTxCount)

@@ -361,32 +361,25 @@ func (s *Solana) LogTransactionDetails(ctx context.Context, t *testing.T, sig so
 		return
 	}
 
-	// Log compute units consumed
 	if txDetails.Meta.ComputeUnitsConsumed != nil {
 		t.Logf("⚙️  Compute units consumed: %d", *txDetails.Meta.ComputeUnitsConsumed)
 	}
 
-	// Log fee
 	t.Logf("💰 Fee: %d lamports (%.9f SOL)", txDetails.Meta.Fee, float64(txDetails.Meta.Fee)/1e9)
 
-	// Log transaction error if any
 	if txDetails.Meta.Err != nil {
 		t.Logf("❌ Transaction error: %+v", txDetails.Meta.Err)
+
+		if len(txDetails.Meta.LogMessages) > 0 {
+			t.Logf("📋 Program Logs (%d messages):", len(txDetails.Meta.LogMessages))
+			for i, log := range txDetails.Meta.LogMessages {
+				t.Logf("  [%d] %s", i, log)
+			}
+		}
+		t.Logf("=====================================")
 	} else {
 		t.Logf("✅ Transaction succeeded")
 	}
-
-	// Log all program logs
-	if len(txDetails.Meta.LogMessages) > 0 {
-		t.Logf("📋 Program Logs (%d messages):", len(txDetails.Meta.LogMessages))
-		for i, log := range txDetails.Meta.LogMessages {
-			t.Logf("  [%d] %s", i, log)
-		}
-	} else {
-		t.Logf("📋 No program logs available")
-	}
-
-	t.Logf("=====================================")
 }
 
 func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
