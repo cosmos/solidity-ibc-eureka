@@ -380,7 +380,6 @@ func (s *Solana) LogTransactionDetails(ctx context.Context, t *testing.T, sig so
 		t.Logf("✅ Transaction succeeded")
 	}
 }
-
 func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
 	clockSysvarPubkey := solana.MustPublicKeyFromBase58("SysvarC1ock11111111111111111111111111111111")
 
