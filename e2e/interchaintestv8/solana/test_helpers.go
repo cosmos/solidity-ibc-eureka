@@ -395,7 +395,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 					// Only log details on error
 					if txDetails.Meta.Err != nil {
 						t.Logf("[Prep tx %d] ❌ Transaction error: %v", txIdx, txDetails.Meta.Err)
-						if txDetails.Meta.LogMessages != nil && len(txDetails.Meta.LogMessages) > 0 {
+						if len(txDetails.Meta.LogMessages) > 0 {
 							t.Logf("[Prep tx %d logs] %d log messages:", txIdx, len(txDetails.Meta.LogMessages))
 							for i, logMsg := range txDetails.Meta.LogMessages {
 								t.Logf("  [%d] %s", i, logMsg)
