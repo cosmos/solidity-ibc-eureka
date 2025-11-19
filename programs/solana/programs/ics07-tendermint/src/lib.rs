@@ -363,8 +363,8 @@ pub mod ics07_tendermint {
     }
 
     /// Store borsh-serialized validators and compute their merkle hash
-    /// This creates a PDA account keyed by [b"validators", SHA256(validators_bytes), relayer_pubkey]
-    /// and stores both the simple hash and the merkle hash computed from validator.hash_bytes()
+    /// This creates a PDA account keyed by [b"validators", `SHA256(validators_bytes)`, `relayer_pubkey`]
+    /// and stores both the simple hash and the merkle hash computed from `validator.hash_bytes()`
     pub fn store_and_hash_validators(
         ctx: Context<StoreAndHashValidators>,
         params: instructions::store_and_hash_validators::StoreValidatorsParams,

@@ -389,7 +389,9 @@ fn test_store_validators_empty_validator_set() {
         mollusk_svm::result::ProgramResult::Failure(_) => {
             // Expected to fail with conversion error
         }
-        _ => panic!("Unexpected result"),
+        mollusk_svm::result::ProgramResult::UnknownError(_) => {
+            panic!("Unexpected result: UnknownError")
+        }
     }
 }
 
