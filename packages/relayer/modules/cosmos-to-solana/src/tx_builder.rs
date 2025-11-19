@@ -717,21 +717,21 @@ impl TxBuilder {
         Ok((validators_bytes, next_validators_bytes))
     }
 
-    /// Extracts signature data from an unsorted Tendermint Header for Ed25519 pre-verification
-    ///
-    /// IMPORTANT: This function must be called BEFORE converting the Header to BorshHeader,
-    /// because BorshHeader sorts signatures by validator address (for on-chain efficiency),
-    /// which breaks the index-based mapping between signatures and validators.
+    /// Extracts signature data from Protobuf Tendermint Header for Ed25519 pre-verification
     ///
     /// This function:
-    /// 1. Iterates through all commit signatures in the header
-    /// 2. Filters out absent signatures (BlockIdFlagAbsent)
-    /// 3. For each present signature, builds the canonical vote sign bytes
-    /// 4. Returns a vector of `SignatureData` containing (pubkey, msg, signature) tuples
+    /// 1. Iterates through all commit signatures in the protobuf header
+    /// 2. Matches validators by address (from CommitSig), not by index - order doesn't matter
+    /// 3. Filters out absent signatures (BlockIdFlagAbsent)
+    /// 4. For each present signature, builds the canonical vote sign bytes using protobuf encoding
+    /// 5. Returns a vector of `SignatureData` containing (pubkey, msg, signature) tuples
     ///
     /// The sign bytes are constructed using Tendermint's canonical vote format:
     /// - Creates a `CanonicalVote` from the commit data (height, round, block_id, timestamp, chain_id)
-    /// - Encodes as protobuf using length-delimited encoding
+    /// - Encodes as protobuf using length-delimited encoding (MarshalDelimited)
+    ///
+    /// Pre-verification on Solana: Each signature costs ~18k CU via Ed25519Program precompile,
+    /// compared to ~30k CU for brine-ed25519 fallback verification
     ///
     /// # Errors
     ///
@@ -2174,11 +2174,8 @@ impl TxBuilder {
         let header = TmHeader::try_from(proposed_header)
             .context("Failed to convert protobuf Header to ibc-rs Header")?;
 
-        // CRITICAL: Extract signature data BEFORE converting to BorshHeader
-        // BorshHeader sorts signatures by validator address (for on-chain efficiency),
-        // which breaks the index-based mapping between signatures and validators.
-        // We must extract from the unsorted Header to get correct pubkey-signature pairs.
-        tracing::info!("Extracting signature data from unsorted Header");
+        // Extract signature data for pre-verification
+        tracing::info!("Extracting signature data from Protobuf Header");
         let signature_data = Self::extract_signature_data_from_header(&header, &chain_id)?;
 
         // Convert to BorshHeader and serialize with Borsh for efficient memory usage
