@@ -7,7 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use ibc_client_tendermint::types::Header as TmHeader;
-use ibc_eureka_relayer_lib::utils::solana::convert_client_state_to_sol;
+use ibc_eureka_relayer_lib::utils::solana::{convert_client_state_to_sol, MAX_CHUNK_SIZE};
 use ibc_eureka_relayer_lib::{
     events::{
         solana::solana_timeout_packet_to_tm_timeout, EurekaEventWithHeight,
@@ -53,9 +53,6 @@ use solana_ibc_types::{
     MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
 };
 use tendermint_rpc::{Client as _, HttpClient};
-
-/// Maximum size for a chunk (matches `CHUNK_DATA_SIZE` in Solana program)
-const MAX_CHUNK_SIZE: usize = 900;
 
 /// Parameters for assembling timeout packet accounts
 struct TimeoutAccountsParams {
