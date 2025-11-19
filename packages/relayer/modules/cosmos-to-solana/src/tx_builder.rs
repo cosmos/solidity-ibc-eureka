@@ -26,6 +26,7 @@ use ibc_eureka_relayer_lib::{
 };
 use ibc_proto_eureka::ibc::lightclients::tendermint::v1::Fraction;
 use solana_client::rpc_client::RpcClient;
+use solana_sdk::hash::hashv;
 use solana_sdk::{
     address_lookup_table::{
         instruction::{create_lookup_table, extend_lookup_table},
@@ -705,16 +706,16 @@ impl TxBuilder {
     ///
     /// This function:
     /// 1. Iterates through all commit signatures in the protobuf header
-    /// 2. Matches validators by address (from CommitSig), not by index - order doesn't matter
-    /// 3. Filters out absent signatures (BlockIdFlagAbsent)
+    /// 2. Matches validators by address (from `CommitSig`), not by index - order doesn't matter
+    /// 3. Filters out absent signatures (`BlockIdFlagAbsent`)
     /// 4. For each present signature, builds the canonical vote sign bytes using protobuf encoding
     /// 5. Returns a vector of `SignatureData` containing (pubkey, msg, signature) tuples
     ///
     /// The sign bytes are constructed using Tendermint's canonical vote format:
-    /// - Creates a `CanonicalVote` from the commit data (height, round, block_id, timestamp, chain_id)
-    /// - Encodes as protobuf using length-delimited encoding (MarshalDelimited)
+    /// - Creates a `CanonicalVote` from the commit data (height, round, `block_id`, timestamp, `chain_id`)
+    /// - Encodes as protobuf using length-delimited encoding (`MarshalDelimited`)
     ///
-    /// Pre-verification on Solana: Each signature costs ~18k CU via Ed25519Program precompile,
+    /// Pre-verification on Solana: Each signature costs ~10k CU via `Ed25519Program` precompile,
     /// compared to ~30k CU for brine-ed25519 fallback verification
     ///
     /// # Errors
@@ -747,8 +748,8 @@ impl TxBuilder {
                     validator_address,
                     timestamp,
                     signature,
-                } => (validator_address, timestamp, signature),
-                tendermint::block::CommitSig::BlockIdFlagNil {
+                }
+                | tendermint::block::CommitSig::BlockIdFlagNil {
                     validator_address,
                     timestamp,
                     signature,
@@ -797,8 +798,8 @@ impl TxBuilder {
                 .try_into()
                 .context("Signature must be 64 bytes")?;
 
-            use anchor_lang::solana_program::hash::hashv;
-            let signature_hash = hashv(&[pubkey, sign_bytes.as_slice(), &signature]).to_bytes();
+            let signature_hash =
+                solana_sdk::hash::hashv(&[pubkey, sign_bytes.as_slice(), &signature]).to_bytes();
 
             if !seen_hashes.insert(signature_hash) {
                 duplicates_skipped += 1;
@@ -855,8 +856,8 @@ impl TxBuilder {
         signature_data
     }
 
-    /// Select minimal signatures to meet 2/3 threshold on validator_set
-    /// and trust_threshold on trusted_next_validator_set
+    /// Select minimal signatures to meet 2/3 threshold on `validator_set`
+    /// and `trust_threshold` on `trusted_next_validator_set`
     fn select_minimal_signatures(
         signature_data: Vec<SignatureData>,
         header: &TmHeader,
@@ -874,7 +875,7 @@ impl TxBuilder {
             let pubkey_bytes = validator.pub_key.to_bytes();
 
             if let Some(sig_data) = signature_data.iter().find(|sig| pubkey_bytes == sig.pubkey) {
-                accumulated_power += u64::from(validator.power());
+                accumulated_power += validator.power();
                 selected.push(sig_data.clone());
 
                 if accumulated_power >= untrusted_required_power {
@@ -908,7 +909,7 @@ impl TxBuilder {
 
         for validator in trusted_validator_set.validators() {
             if selected_pubkeys.contains(validator.pub_key.to_bytes().as_slice()) {
-                trusted_power += u64::from(validator.power());
+                trusted_power += validator.power();
             }
         }
 
@@ -925,7 +926,7 @@ impl TxBuilder {
 
     /// DEPRECATED: Extracts signature data from a Borsh header (BUGGY - signatures are sorted!)
     ///
-    /// This function is kept for reference but should not be used because BorshHeader
+    /// This function is kept for reference but should not be used because `BorshHeader`
     /// sorts signatures by validator address, breaking the index-based mapping.
     /// Use `extract_signature_data_from_header()` instead.
     #[allow(dead_code)]
@@ -936,7 +937,6 @@ impl TxBuilder {
         use solana_ibc_types::borsh_header::{BorshCommitSig, BorshPublicKey};
 
         let commit = &borsh_header.signed_header.commit;
-        let _block_header = &borsh_header.signed_header.header;
 
         // Parse chain ID
         let chain_id =
@@ -1015,8 +1015,7 @@ impl TxBuilder {
                 vote_type: tendermint::vote::Type::Precommit,
                 height: tendermint::block::Height::try_from(commit.height)
                     .context("Failed to convert height")?,
-                round: tendermint::block::Round::try_from(commit.round)
-                    .context("Failed to convert round")?,
+                round: commit.round.into(),
                 block_id: Some(block_id),
                 timestamp: Some(tm_timestamp),
                 chain_id: chain_id.clone(),
@@ -1028,7 +1027,6 @@ impl TxBuilder {
             >>::encode_length_delimited_vec(canonical_vote);
 
             // Compute signature hash for PDA derivation
-            use anchor_lang::solana_program::hash::hashv;
             let signature_hash = hashv(&[&pubkey, sign_bytes.as_slice(), &signature]).to_bytes();
 
             signature_data_vec.push(SignatureData {
@@ -1195,14 +1193,6 @@ impl TxBuilder {
             )?;
 
             let chunk_tx = self.create_tx_bytes(&[upload_ix])?;
-
-            // Log transaction details for debugging
-            Self::log_transaction_details(
-                &chunk_tx,
-                &format!(
-                    "Header chunk {chunk_index} (chain_id={chain_id}, height={target_height})"
-                ),
-            );
 
             chunk_txs.push(chunk_tx);
         }
@@ -2063,104 +2053,6 @@ impl TxBuilder {
         tracing::info!("Static account keys: {:?}", v0_message.account_keys);
     }
 
-    /// Helper to log detailed transaction contents
-    fn log_transaction_details(tx_bytes: &[u8], description: &str) {
-        match bincode::deserialize::<VersionedTransaction>(tx_bytes) {
-            Ok(tx) => {
-                let instructions = match &tx.message {
-                    VersionedMessage::V0(msg) => &msg.instructions,
-                    VersionedMessage::Legacy(msg) => &msg.instructions,
-                };
-
-                tracing::info!("{} - {} instructions:", description, instructions.len());
-
-                for (idx, compiled_ix) in instructions.iter().enumerate() {
-                    let account_keys = match &tx.message {
-                        VersionedMessage::V0(msg) => &msg.account_keys,
-                        VersionedMessage::Legacy(msg) => &msg.account_keys,
-                    };
-
-                    let program_id = account_keys
-                        .get(compiled_ix.program_id_index as usize)
-                        .map(|k| k.to_string())
-                        .unwrap_or_else(|| "UNKNOWN".to_string());
-
-                    let discriminator = if compiled_ix.data.len() >= 8 {
-                        format!("{:02x?}", &compiled_ix.data[0..8])
-                    } else {
-                        format!("{:02x?}", &compiled_ix.data)
-                    };
-
-                    tracing::info!(
-                        "  Instruction {}: program_id={}, discriminator={}, {} accounts, {} bytes data",
-                        idx,
-                        program_id,
-                        discriminator,
-                        compiled_ix.accounts.len(),
-                        compiled_ix.data.len()
-                    );
-
-                    // Try to decode UploadChunkParams if this looks like an upload_header_chunk instruction
-                    if compiled_ix.data.len() > 8 {
-                        let params_data = &compiled_ix.data[8..];
-                        // Manually decode borsh: String (u32 len + bytes), u64, u8, Vec<u8> (u32 len + bytes)
-                        if params_data.len() >= 4 {
-                            let chain_id_len = u32::from_le_bytes([
-                                params_data[0],
-                                params_data[1],
-                                params_data[2],
-                                params_data[3],
-                            ]) as usize;
-                            if params_data.len() >= 4 + chain_id_len + 8 + 1 + 4 {
-                                let chain_id =
-                                    String::from_utf8_lossy(&params_data[4..4 + chain_id_len])
-                                        .to_string();
-                                let target_height_bytes =
-                                    &params_data[4 + chain_id_len..4 + chain_id_len + 8];
-                                let target_height = u64::from_le_bytes([
-                                    target_height_bytes[0],
-                                    target_height_bytes[1],
-                                    target_height_bytes[2],
-                                    target_height_bytes[3],
-                                    target_height_bytes[4],
-                                    target_height_bytes[5],
-                                    target_height_bytes[6],
-                                    target_height_bytes[7],
-                                ]);
-                                let chunk_index = params_data[4 + chain_id_len + 8];
-                                let chunk_data_len_offset = 4 + chain_id_len + 8 + 1;
-                                let chunk_data_len = u32::from_le_bytes([
-                                    params_data[chunk_data_len_offset],
-                                    params_data[chunk_data_len_offset + 1],
-                                    params_data[chunk_data_len_offset + 2],
-                                    params_data[chunk_data_len_offset + 3],
-                                ]) as usize;
-
-                                tracing::info!(
-                                    "    UploadChunkParams: chain_id='{}' (len={}), target_height={}, chunk_index={}, chunk_data_len={}",
-                                    chain_id,
-                                    chain_id_len,
-                                    target_height,
-                                    chunk_index,
-                                    chunk_data_len
-                                );
-                            }
-                        }
-                    }
-
-                    for (acc_idx, &account_index) in compiled_ix.accounts.iter().enumerate() {
-                        if let Some(account_key) = account_keys.get(account_index as usize) {
-                            tracing::info!("    Account {}: {}", acc_idx, account_key);
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                tracing::warn!("{} - Failed to deserialize transaction: {}", description, e);
-            }
-        }
-    }
-
     /// Create a new ICS07 Tendermint client on Solana
     ///
     /// # Errors
@@ -2313,12 +2205,6 @@ impl TxBuilder {
                     sig_idx + 1,
                     total_signatures,
                     pre_verify_tx.len()
-                );
-
-                // Log transaction details for debugging
-                Self::log_transaction_details(
-                    &pre_verify_tx,
-                    &format!("Pre-verify signature {}/{}", sig_idx + 1, total_signatures),
                 );
 
                 prep_txs.push(pre_verify_tx);
