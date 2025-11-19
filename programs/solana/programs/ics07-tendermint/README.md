@@ -251,9 +251,9 @@ Approximate compute units per operation:
 - `submit_misbehaviour`: ~150k CU
 - `cleanup_incomplete_upload`: ~20k CU per chunk
 
-### Performance Optimizations (100 Validators Benchmark - Celestia)
+### Performance Optimizations (Real-World Benchmarks)
 
-The implementation includes several optimizations tested with 100-validator sets (Celestia mainnet):
+The implementation includes several optimizations tested with real Tendermint chains (Noble: 20 validators, Celestia: 100 validators):
 
 **Ed25519 Signature Verification:**
 - **Pre-verification (optional):** Uses Ed25519Program precompile **~10k CU per signature** (via separate transaction)
@@ -261,15 +261,18 @@ The implementation includes several optimizations tested with 100-validator sets
   - **Critical for large validator sets (50+ validators):** Pure brine-ed25519 would exceed Solana's 1.4M CU transaction limit
   - Saves CU costs and enables support for validator sets of any size (given base assemble has enough CU for deserialization/verification of non-signature operations)
   - Pre-verification PDAs store validation results, checked during `assemble_and_update_client`
-  - **Latency (100 validators, Celestia real-world):**
-    - Total: ~22s (Phase 1: ~6s for 83 parallel prep txs, Phase 2: ~16s for assembly)
+  - **Latency (real-world, RPC-dependent):**
+    - Noble (20 validators, ~14 sigs at 2/3): ~18s total (Phase 1: ~3.3s for 19 prep txs, Phase 2: ~15s assembly)
+    - Celestia (100 validators, ~67 sigs at 2/3): ~22s total (Phase 1: ~6s for 83 prep txs, Phase 2: ~16s assembly)
     - **Note:** Highly dependent on RPC throttling/rate limiting - implementation uses many parallel transactions
     - Optimal conditions (no RPC limits): Could complete within ~2 blocks (≈1s)
 - **Fallback verification:** brine-ed25519 on-chain **~30k CU per signature**
   - Always available as fallback when pre-verification PDAs are not provided
   - Allows verification to succeed even without pre-computation step
   - Works well for smaller validator sets that fit within CU limits
-- **Savings (100 validators):** For 2/3 threshold (~67 signatures): ~1,340k CU saved with pre-verification vs pure brine fallback
+- **Savings examples (2/3 threshold):**
+  - Noble (20 validators, ~14 sigs): ~280k CU saved with pre-verification vs pure brine
+  - Celestia (100 validators, ~67 sigs): ~1,340k CU saved with pre-verification vs pure brine
 - Implementation in `packages/tendermint-light-client/solana/src/lib.rs::SolanaSignatureVerifier`
 
 **Merkle Hashing Optimizations:**
@@ -287,14 +290,36 @@ The implementation includes several optimizations tested with 100-validator sets
 - Pre-sorted validators from relayer: **~50k CU saved** per validator set
 - Skips on-chain sorting by using pre-calculated total voting power
 
-**Total Impact (100 validators, Celestia real-world):**
-- **Measured gas consumption:**
-  - Prep txs (83 parallel): ~893k CUs, 0.000715 SOL
-  - Assembly: ~1.27M CUs, 0.0000064 SOL
-  - **TOTAL: ~2.16M CUs, 0.00072 SOL** (~$0.11-0.14 USD at $150-200/SOL)
-  - Note: Cost includes base fees (5000 lamports/tx) + priority fees (variable, market-driven)
-- **Without optimizations:** Would exceed Solana's 1.4M CU transaction limit with pure brine-ed25519
-- **Optimizations enable:** Support for 100+ validator sets through parallelization and CU savings
+**Total Impact (Measured Real-World Costs):**
+
+The update process is split into two phases:
+
+**Phase 1: Prep Transactions (Parallel)**
+- ALT (Address Lookup Table) creation + extension for address compression
+- Header chunks upload (data transport for large headers)
+- Ed25519Program signature pre-verification (optional, saves CU in assembly)
+
+**Phase 2: Assembly Transaction**
+- Deserializes and assembles header from uploaded chunks
+- Verifies signatures (using pre-verification PDAs or brine-ed25519 fallback)
+- Performs light client verification and updates state
+
+**Noble (20 validators, 2/3 = ~14 signatures):**
+- **Phase 1** - 19 parallel prep txs: 199,343 CUs, 0.000160 SOL (~3.3s)
+- **Phase 2** - Assembly: 348,679 CUs, 0.0000064 SOL (~15s)
+- **TOTAL: ~548k CUs, 0.000166 SOL** (~$0.025-0.033 USD at $150-200/SOL, ~18s)
+
+**Celestia (100 validators, 2/3 = ~67 signatures):**
+- **Phase 1** - 83 parallel prep txs: 893,310 CUs, 0.000715 SOL (~6s)
+- **Phase 2** - Assembly: 1,270,083 CUs, 0.0000064 SOL (~16s)
+- **TOTAL: ~2.16M CUs, 0.000721 SOL** (~$0.11-0.14 USD at $150-200/SOL, ~22s)
+
+**Key Insights:**
+- Cost scales roughly linearly with validator count (~5x validators = ~4x cost)
+- Latency dominated by RPC throttling/rate limiting, not CU consumption
+- Costs include base fees (5000 lamports/tx) + priority fees (variable, market-driven)
+- Without optimizations: Large validator sets would exceed Solana's 1.4M CU transaction limit
+- Optimizations enable: Support for validator sets of any size through parallelization
 
 ## Design Decisions
 
@@ -359,15 +384,16 @@ The existing chunking system actually **strengthens** the case for brine-ed25519
      - Coordination overhead
      - No cost benefit if verification state must be maintained on-chain
 
-**Comparison to Other Implementations:**
+**Performance Across Different Tendermint Chains:**
 
-| Implementation | Approach | Verification Cost (100 validators) |
-|----------------|----------|-----------------------------------|
-| **Ethereum** | SP1 ZK Proofs | ~230k gas (~$0.50-5.00 USD) |
-| **Solana** | On-chain verification (brine-ed25519 + Ed25519Program pre-verification) | ~2.16M CU (~$0.11-0.14 USD) |
-| **Cosmos** | Native IBC with on-chain verification | ~300k gas (~$0.003 USD) |
+The same Solana Tendermint light client implementation handles different chains with costs scaling based on validator count:
 
-The on-chain verification approach makes Solana one of the most cost-efficient platforms for IBC light client verification, despite not being able to use the free Ed25519Program precompile.
+| Chain | Validators | 2/3 Threshold | Prep Txs | Total CUs | Total Cost (SOL) | USD Cost | Latency |
+|-------|-----------|---------------|----------|-----------|------------------|----------|---------|
+| **Noble** | 20 | ~14 sigs | 19 parallel | ~548k | 0.000166 | ~$0.025-0.033 | ~18s |
+| **Celestia** | 100 | ~67 sigs | 83 parallel | ~2.16M | 0.000721 | ~$0.11-0.14 | ~22s |
+
+All costs measured on mainnet with real validator sets. Latency is highly dependent on RPC throttling/rate limiting.
 
 For implementation details, see the `SolanaSignatureVerifier` in `packages/tendermint-light-client/update-client/src/solana.rs`.
 

@@ -43,7 +43,7 @@ impl VerificationPredicates for SolanaPredicates {
     /// before this function is called, so we can safely skip the redundant
     /// Merkle hash computation here.
     ///
-    /// **Performance (100 validators):** Saves ~145k compute units
+    /// **Performance:** Saves ~145k compute units (tested with 100 validators)
     fn validator_sets_match(
         &self,
         _validators: &ValidatorSet,
@@ -60,7 +60,7 @@ impl VerificationPredicates for SolanaPredicates {
     /// before this function is called, so we can safely skip the redundant
     /// Merkle hash computation here.
     ///
-    /// **Performance (100 validators):** Saves ~145k compute units
+    /// **Performance:** Saves ~145k compute units (tested with 100 validators)
     fn next_validators_match(
         &self,
         _next_validators: &ValidatorSet,
@@ -75,7 +75,9 @@ impl VerificationPredicates for SolanaPredicates {
 ///
 /// **Signature verification:** Pre-verification PDAs (~10k CU/sig via Ed25519Program) with brine-ed25519 fallback (~30k CU/sig)
 /// **Merkle hashing:** Skips redundant validator set hash validation (saves ~290k CU for 100 validators)
-/// **Total verification cost (100 validators, Celestia):** ~1.27M CU assembly + ~893k CU prep txs = ~2.16M CU total
+/// **Real-world costs:**
+/// - Noble (20 validators): ~548k CU total (~$0.025-0.033 USD)
+/// - Celestia (100 validators): ~2.16M CU total (~$0.11-0.14 USD)
 pub type SolanaVerifier<'a> =
     PredicateVerifier<SolanaPredicates, SolanaVotingPowerCalculator<'a>, ProdCommitValidator>;
 
