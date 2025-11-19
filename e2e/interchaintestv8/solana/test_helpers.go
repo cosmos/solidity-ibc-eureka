@@ -330,7 +330,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	chunkEnd := len(batch.Txs) - 1 // Last tx is assembly
 	prepTxCount := chunkEnd - chunkStart
 
-	t.Logf("Uploading %d prep transactions (signature verifications + header chunks) in parallel...", prepTxCount)
+	t.Logf("Uploading %d prep transactions (signature verifications + header chunks) in parallel with ALT operations...", prepTxCount)
 	chunksStart := time.Now()
 
 	var completedPrepTxs int
