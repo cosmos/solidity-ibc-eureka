@@ -65,6 +65,7 @@ tendermint-light-client-uc-and-membership = { path = "packages/tendermint-light-
 tendermint-light-client-solana            = { path = "packages/tendermint-light-client/solana", default-features = false }
 
 brine-ed25519 = { version = "0.2", default-features = false }
+ed25519-dalek = { version = "2.0", default-features = false }
 
 # Pin serde to 1.0.219 to fix compatibility with alloy-consensus 0.14.0
 # alloy-consensus uses serde::__private APIs that changed in serde 1.0.220+

@@ -327,53 +327,70 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	altPhaseDuration := time.Since(altPhaseStart)
 	t.Logf("--- Phase 1 Complete: ALT ready in %v ---", altPhaseDuration)
 
-	// Phase 2: Upload chunks in parallel
+	// Phase 2: Upload signature verifications and header chunks sequentially
 	// Skip separator at separatorIdx
 	chunkStart := separatorIdx + 1
 	chunkEnd := len(batch.Txs) - 1 // Last tx is assembly
-	chunkCount := chunkEnd - chunkStart
+	prepTxCount := chunkEnd - chunkStart
 
-	type chunkResult struct {
-		index        int
-		sig          solana.Signature
-		err          error
-		duration     time.Duration
-		computeUnits uint64
-		fee          uint64
-	}
-
-	t.Logf("--- Phase 2: Uploading %d chunks in parallel ---", chunkCount)
+	t.Logf("--- Phase 2: Uploading %d prep transactions (signature verifications + header chunks) sequentially ---", prepTxCount)
 	chunksStart := time.Now()
-	chunkResults := make(chan chunkResult, chunkEnd-chunkStart)
 
-	for i := chunkStart; i < chunkEnd; i++ {
-		go func(idx int) {
-			chunkTxStart := time.Now()
+	completedPrepTxs := 0
+	var totalPrepComputeUnits, totalPrepFees uint64
+	for idx := chunkStart; idx < chunkEnd; idx++ {
+		prepTxStart := time.Now()
 
-			tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[idx]))
-			if err != nil {
-				chunkResults <- chunkResult{
-					index:    idx,
-					err:      fmt.Errorf("failed to decode chunk %d: %w", idx, err),
-					duration: time.Since(chunkTxStart),
-				}
-				return
-			}
+		tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[idx]))
+		require.NoError(err, "Failed to decode prep tx %d", idx)
 
-			sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
-			chunkDuration := time.Since(chunkTxStart)
+		sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
+		prepTxDuration := time.Since(prepTxStart)
 
-			// Fetch transaction details for gas tracking and logs (for both success and failure)
-			var computeUnits, fee uint64
-			version := uint64(0)
+		// Fetch transaction details for gas tracking and logs (for both success and failure)
+		var computeUnits, fee uint64
+		version := uint64(0)
 
-			// If we got a signature, fetch transaction details even if submission failed
-			if sig != (solana.Signature{}) {
-				txDetails, txErr := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
+		// If we got a signature, fetch transaction details even if submission failed
+		if sig != (solana.Signature{}) {
+			t.Logf("[Prep tx %d] Got signature: %s, fetching transaction details...", idx, sig)
+
+			// Wait longer and retry to ensure transaction is fully processed
+			time.Sleep(500 * time.Millisecond)
+
+			var txDetails *rpc.GetTransactionResult
+			var txErr error
+
+			// Retry a few times if transaction not found
+			for retry := 0; retry < 3; retry++ {
+				txDetails, txErr = s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
 					Commitment:                     rpc.CommitmentConfirmed,
 					MaxSupportedTransactionVersion: &version,
 				})
-				if txErr == nil && txDetails != nil && txDetails.Meta != nil {
+
+				if txErr == nil && txDetails != nil && txDetails.Meta != nil && txDetails.Meta.LogMessages != nil {
+					break
+				}
+
+				if retry < 2 {
+					t.Logf("[Prep tx %d] Retry %d: waiting for transaction details...", idx, retry+1)
+					time.Sleep(500 * time.Millisecond)
+				}
+			}
+
+			if txErr != nil {
+				t.Logf("[Prep tx %d] Failed to fetch transaction details: %v", idx, txErr)
+			} else if txDetails == nil {
+				t.Logf("[Prep tx %d] Transaction details are nil", idx)
+			} else {
+				t.Logf("[Prep tx %d] Transaction details fetched, slot=%v, blockTime=%v", idx, txDetails.Slot, txDetails.BlockTime)
+
+				if txDetails.Meta == nil {
+					t.Logf("[Prep tx %d] Transaction meta is nil", idx)
+				} else {
+					t.Logf("[Prep tx %d] Transaction meta: err=%v, fee=%d, computeUnits=%v",
+						idx, txDetails.Meta.Err, txDetails.Meta.Fee, txDetails.Meta.ComputeUnitsConsumed)
+
 					if txDetails.Meta.ComputeUnitsConsumed != nil {
 						computeUnits = *txDetails.Meta.ComputeUnitsConsumed
 					}
@@ -381,59 +398,42 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 
 					// Print program logs for this transaction (both success and failure)
 					if txDetails.Meta.LogMessages != nil && len(txDetails.Meta.LogMessages) > 0 {
-						t.Logf("[Chunk %d logs] %d log messages:", idx, len(txDetails.Meta.LogMessages))
+						t.Logf("[Prep tx %d logs] %d log messages:", idx, len(txDetails.Meta.LogMessages))
 						for i, logMsg := range txDetails.Meta.LogMessages {
 							t.Logf("  [%d] %s", i, logMsg)
 						}
+					} else {
+						t.Logf("[Prep tx %d] No log messages in transaction (Meta.LogMessages is nil=%v, len=%d)",
+							idx, txDetails.Meta.LogMessages == nil, len(txDetails.Meta.LogMessages))
 					}
 				}
 			}
+		} else {
+			t.Logf("[Prep tx %d] No signature returned (zero signature)", idx)
+		}
 
-			if err != nil {
-				chunkResults <- chunkResult{
-					index:    idx,
-					err:      fmt.Errorf("failed to submit chunk %d: %w", idx, err),
-					duration: chunkDuration,
-				}
-				return
-			}
+		require.NoError(err, "Failed to submit prep tx %d (signature verification or header chunk)", idx)
 
-			t.Logf("[Chunk %d timing] total duration: %v, compute units: %d, fee: %d lamports",
-				idx, chunkDuration, computeUnits, fee)
+		t.Logf("[Prep tx %d timing] total duration: %v, compute units: %d, fee: %d lamports",
+			idx, prepTxDuration, computeUnits, fee)
 
-			chunkResults <- chunkResult{
-				index:        idx,
-				sig:          sig,
-				duration:     chunkDuration,
-				computeUnits: computeUnits,
-				fee:          fee,
-			}
-		}(i)
+		completedPrepTxs++
+		totalPrepComputeUnits += computeUnits
+		totalPrepFees += fee
+		t.Logf("✓ Prep tx %d/%d submitted in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
+			completedPrepTxs, prepTxCount, prepTxDuration, sig,
+			computeUnits, float64(fee)/1e9)
 	}
 
-	completedChunks := 0
-	var totalChunkComputeUnits, totalChunkFees uint64
-	for i := 0; i < chunkEnd-chunkStart; i++ {
-		result := <-chunkResults
-		require.NoError(result.err, "Chunk was not submitted")
-		completedChunks++
-		totalChunkComputeUnits += result.computeUnits
-		totalChunkFees += result.fee
-		t.Logf("✓ Chunk %d/%d uploaded in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
-			completedChunks, chunkCount, result.duration, result.sig,
-			result.computeUnits, float64(result.fee)/1e9)
-	}
-	close(chunkResults)
-
-	chunksTotal := time.Since(chunksStart)
-	avgChunkTime := chunksTotal / time.Duration(chunkCount)
-	avgChunkComputeUnits := totalChunkComputeUnits / uint64(chunkCount)
-	t.Logf("--- Phase 2 Complete: All %d chunks uploaded in %v ---",
-		chunkCount, chunksTotal)
-	t.Logf("  Average per chunk: %v duration, %d CUs, %.9f SOL",
-		avgChunkTime, avgChunkComputeUnits, float64(totalChunkFees)/float64(chunkCount)/1e9)
-	t.Logf("  Total chunk gas: %d CUs, %.9f SOL",
-		totalChunkComputeUnits, float64(totalChunkFees)/1e9)
+	prepTxsTotal := time.Since(chunksStart)
+	avgPrepTxTime := prepTxsTotal / time.Duration(prepTxCount)
+	avgPrepTxComputeUnits := totalPrepComputeUnits / uint64(prepTxCount)
+	t.Logf("--- Phase 2 Complete: All %d prep transactions submitted in %v ---",
+		prepTxCount, prepTxsTotal)
+	t.Logf("  Average per prep tx: %v duration, %d CUs, %.9f SOL",
+		avgPrepTxTime, avgPrepTxComputeUnits, float64(totalPrepFees)/float64(prepTxCount)/1e9)
+	t.Logf("  Total prep tx gas: %d CUs, %.9f SOL",
+		totalPrepComputeUnits, float64(totalPrepFees)/1e9)
 
 	t.Logf("--- Phase 3: Assembling and updating client ---")
 	assemblyStart := time.Now()
@@ -504,16 +504,16 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	s.LogTransactionDetails(ctx, t, sig, "SUCCESS: Assembly Transaction")
 
 	totalDuration := time.Since(totalStart)
-	totalComputeUnits := totalChunkComputeUnits + assemblyComputeUnits
-	totalFees := totalChunkFees + assemblyFee
+	totalComputeUnits := totalPrepComputeUnits + assemblyComputeUnits
+	totalFees := totalPrepFees + assemblyFee
 
 	t.Logf("=== Chunked Update Client Complete ===")
 	t.Logf("Total time: %v", totalDuration)
 	t.Logf("  - ALT setup phase: %v", altPhaseDuration)
-	t.Logf("  - Chunk upload phase: %v (%d chunks in parallel)", chunksTotal, chunkCount)
+	t.Logf("  - Prep tx phase: %v (%d prep txs sequentially)", prepTxsTotal, prepTxCount)
 	t.Logf("  - Assembly phase: %v", assemblyDuration)
 	t.Logf("Total gas consumption:")
-	t.Logf("  - Chunks: %d CUs, %.9f SOL", totalChunkComputeUnits, float64(totalChunkFees)/1e9)
+	t.Logf("  - Prep txs: %d CUs, %.9f SOL", totalPrepComputeUnits, float64(totalPrepFees)/1e9)
 	t.Logf("  - Assembly: %d CUs, %.9f SOL", assemblyComputeUnits, float64(assemblyFee)/1e9)
 	t.Logf("  - TOTAL: %d CUs, %.9f SOL", totalComputeUnits, float64(totalFees)/1e9)
 }

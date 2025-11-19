@@ -717,7 +717,11 @@ impl TxBuilder {
         Ok((validators_bytes, next_validators_bytes))
     }
 
-    /// Extracts signature data from a Borsh header for Ed25519 pre-verification
+    /// Extracts signature data from an unsorted Tendermint Header for Ed25519 pre-verification
+    ///
+    /// IMPORTANT: This function must be called BEFORE converting the Header to BorshHeader,
+    /// because BorshHeader sorts signatures by validator address (for on-chain efficiency),
+    /// which breaks the index-based mapping between signatures and validators.
     ///
     /// This function:
     /// 1. Iterates through all commit signatures in the header
@@ -732,8 +736,185 @@ impl TxBuilder {
     /// # Errors
     ///
     /// Returns an error if:
-    /// - Failed to convert Borsh types to Tendermint types
+    /// - Failed to convert types
     /// - Failed to encode canonical vote as protobuf
+    fn extract_signature_data_from_header(
+        header: &ibc_client_tendermint::types::Header,
+        chain_id: &str,
+    ) -> Result<Vec<SignatureData>> {
+        use tendermint::validator::Info as ValidatorInfo;
+
+        let commit = &header.signed_header.commit;
+        let validators = &header.validator_set.validators();
+
+        // Parse chain ID
+        let chain_id = ChainId::try_from(chain_id.to_string())
+            .context("Failed to parse chain ID")?;
+
+        let mut signature_data_vec = Vec::new();
+        let mut seen_hashes = std::collections::HashSet::new();
+        let mut duplicates_skipped = 0;
+
+        // Iterate through commit signatures - match validators by address, not index
+        for (idx, commit_sig) in commit.signatures.iter().enumerate() {
+            // Extract signature data and validator address, skip if absent
+            let (validator_address, timestamp, signature_opt) = match commit_sig {
+                tendermint::block::CommitSig::BlockIdFlagCommit {
+                    validator_address,
+                    timestamp,
+                    signature,
+                } => (validator_address, timestamp, signature),
+                tendermint::block::CommitSig::BlockIdFlagNil {
+                    validator_address,
+                    timestamp,
+                    signature,
+                } => (validator_address, timestamp, signature),
+                tendermint::block::CommitSig::BlockIdFlagAbsent => continue,
+            };
+
+            // Skip if signature is None
+            let signature_bytes = match signature_opt {
+                Some(sig) => sig,
+                None => continue,
+            };
+
+            // Find the validator by address (NOT by index!)
+            let validator: &ValidatorInfo = validators.iter()
+                .find(|v| v.address == *validator_address)
+                .ok_or_else(|| anyhow::anyhow!(
+                    "Validator address {:?} not found in validator set",
+                    validator_address
+                ))?;
+
+            // Extract Ed25519 public key
+            let pubkey = match &validator.pub_key {
+                tendermint::PublicKey::Ed25519(key) => key.as_bytes(),
+                _ => {
+                    anyhow::bail!("Only Ed25519 keys are supported for signature verification");
+                }
+            };
+
+            // Build canonical vote for sign bytes
+            let canonical_vote = CanonicalVote {
+                vote_type: tendermint::vote::Type::Precommit,
+                height: commit.height,
+                round: commit.round,
+                block_id: Some(commit.block_id),
+                timestamp: Some(*timestamp),
+                chain_id: chain_id.clone(),
+            };
+
+            // Encode as protobuf to get sign bytes (CometBFT uses MarshalDelimited = varint length-prefixed)
+            let sign_bytes = <CanonicalVote as Protobuf<
+                tendermint_proto::v0_38::types::CanonicalVote,
+            >>::encode_length_delimited_vec(canonical_vote.clone());
+
+            // DEBUG: Print full canonical vote structure and sign bytes
+            tracing::info!("=== Signature {} Debug Info ===", idx);
+            tracing::info!("  Canonical Vote:");
+            tracing::info!("    vote_type: {:?}", canonical_vote.vote_type);
+            tracing::info!("    height: {}", canonical_vote.height);
+            tracing::info!("    round: {}", canonical_vote.round);
+            tracing::info!("    block_id: {:?}", canonical_vote.block_id);
+            tracing::info!("    timestamp: {:?}", canonical_vote.timestamp);
+            tracing::info!("    chain_id: {}", canonical_vote.chain_id);
+            tracing::info!("  sign_bytes (len={}): {}", sign_bytes.len(), hex::encode(&sign_bytes));
+            tracing::info!("  pubkey: {}", hex::encode(pubkey));
+
+            // Convert signature to array
+            let signature: [u8; 64] = signature_bytes.as_bytes()
+                .try_into()
+                .context("Signature must be 64 bytes")?;
+
+            tracing::info!("  signature: {}", hex::encode(&signature));
+
+            // Compute signature hash for PDA derivation
+            use anchor_lang::solana_program::hash::hashv;
+            let signature_hash = hashv(&[
+                pubkey,
+                sign_bytes.as_slice(),
+                &signature,
+            ]).to_bytes();
+
+            // Verify signature using ed25519-dalek (Verifier trait needed for verify_strict method)
+            #[allow(unused_imports)]
+            use ed25519_dalek::{Signature, VerifyingKey, Verifier as _};
+            let verification_result = (|| -> Result<bool, anyhow::Error> {
+                let verifying_key = VerifyingKey::from_bytes(
+                    pubkey.try_into().context("Pubkey must be 32 bytes")?
+                )?;
+                let signature_obj = Signature::from_bytes(&signature);
+                Ok(verifying_key.verify_strict(&sign_bytes, &signature_obj).is_ok())
+            })();
+
+            match verification_result {
+                Ok(true) => {
+                    tracing::info!("  ✓ Verification: VALID");
+                }
+                Ok(false) => {
+                    tracing::warn!("  ✗ Verification: INVALID");
+                }
+                Err(e) => {
+                    tracing::error!("  ✗ Verification ERROR: {}", e);
+                }
+            }
+
+            // Skip duplicate signatures (same hash = same PDA)
+            if !seen_hashes.insert(signature_hash) {
+                duplicates_skipped += 1;
+                tracing::info!(
+                    "Skipping duplicate signature at index {} with hash {:?}",
+                    idx,
+                    &signature_hash[..8]
+                );
+                continue;
+            }
+
+            signature_data_vec.push(SignatureData {
+                signature_hash,
+                pubkey: pubkey.try_into()
+                    .context("Public key must be 32 bytes")?,
+                msg: sign_bytes,
+                signature,
+            });
+        }
+
+        tracing::info!(
+            "Extracted {} signatures for pre-verification (out of {} total, {} duplicates skipped)",
+            signature_data_vec.len(),
+            commit.signatures.len(),
+            duplicates_skipped
+        );
+
+        // Verify at least one signature is valid
+        #[allow(unused_imports)]
+        use ed25519_dalek::{Signature, VerifyingKey, Verifier as _};
+        let valid_count = signature_data_vec.iter().filter(|sig_data| {
+            let Ok(verifying_key) = VerifyingKey::from_bytes(&sig_data.pubkey) else {
+                return false;
+            };
+            let signature_obj = Signature::from_bytes(&sig_data.signature);
+            verifying_key.verify_strict(&sig_data.msg, &signature_obj).is_ok()
+        }).count();
+
+        if valid_count == 0 && !signature_data_vec.is_empty() {
+            anyhow::bail!(
+                "All {} signatures are INVALID - sign_bytes construction is incorrect",
+                signature_data_vec.len()
+            );
+        }
+
+        tracing::info!("{} out of {} signatures are VALID", valid_count, signature_data_vec.len());
+
+        Ok(signature_data_vec)
+    }
+
+    /// DEPRECATED: Extracts signature data from a Borsh header (BUGGY - signatures are sorted!)
+    ///
+    /// This function is kept for reference but should not be used because BorshHeader
+    /// sorts signatures by validator address, breaking the index-based mapping.
+    /// Use `extract_signature_data_from_header()` instead.
+    #[allow(dead_code)]
     fn extract_signature_data(
         borsh_header: &solana_ibc_types::borsh_header::BorshHeader,
         chain_id: &str,
@@ -816,7 +997,7 @@ impl TxBuilder {
                 chain_id: chain_id.clone(),
             };
 
-            // Encode as protobuf (length-delimited) to get sign bytes
+            // Encode as protobuf to get sign bytes (CometBFT uses MarshalDelimited = varint length-prefixed)
             let sign_bytes = <CanonicalVote as Protobuf<
                 tendermint_proto::v0_38::types::CanonicalVote,
             >>::encode_length_delimited_vec(canonical_vote);
@@ -2050,6 +2231,13 @@ impl TxBuilder {
         let header = TmHeader::try_from(proposed_header)
             .context("Failed to convert protobuf Header to ibc-rs Header")?;
 
+        // CRITICAL: Extract signature data BEFORE converting to BorshHeader
+        // BorshHeader sorts signatures by validator address (for on-chain efficiency),
+        // which breaks the index-based mapping between signatures and validators.
+        // We must extract from the unsorted Header to get correct pubkey-signature pairs.
+        tracing::info!("Extracting signature data from unsorted Header");
+        let signature_data = Self::extract_signature_data_from_header(&header, &chain_id)?;
+
         // Convert to BorshHeader and serialize with Borsh for efficient memory usage
         tracing::info!("Converting Header to BorshHeader for efficient serialization");
         let borsh_header = crate::borsh_conversions::header_to_borsh(header);
@@ -2061,9 +2249,6 @@ impl TxBuilder {
         // TODO: Validators extraction disabled for now - may add back later
         // let (_validators_bytes, _next_validators_bytes) =
         //     Self::extract_validators_bytes(&borsh_header)?;
-
-        // Extract signature data for pre-verification
-        let signature_data = Self::extract_signature_data(&borsh_header, &chain_id)?;
 
         let chunks = Self::split_header_into_chunks(&header_bytes);
         let total_chunks = u8::try_from(chunks.len())
@@ -2085,6 +2270,17 @@ impl TxBuilder {
             let total_signatures = signature_data.len();
 
             for (sig_idx, sig_data) in signature_data.iter().enumerate() {
+                // Log the actual signature data being sent (full values for verification)
+                tracing::info!(
+                    "Pre-verify signature {}/{} data: sig_hash={:?}, pubkey={:?}, msg_len={}, signature={:?}",
+                    sig_idx + 1,
+                    total_signatures,
+                    sig_data.signature_hash,
+                    sig_data.pubkey,
+                    sig_data.msg.len(),
+                    sig_data.signature
+                );
+
                 let pre_verify_tx = self.build_pre_verify_signature_transaction(sig_data)?;
 
                 tracing::info!(
