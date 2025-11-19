@@ -60,4 +60,3 @@ pub fn update_client_and_membership(
         update_output: uc_output,
     })
 }
-
