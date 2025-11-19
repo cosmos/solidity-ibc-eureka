@@ -9,9 +9,7 @@ pub mod state;
 pub mod test_helpers;
 pub mod types;
 
-use crate::state::{
-    ConsensusStateStore, HeaderChunk, MisbehaviourChunk, ValidatorsStorage,
-};
+use crate::state::{ConsensusStateStore, HeaderChunk, MisbehaviourChunk, ValidatorsStorage};
 
 declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 solana_allocator::custom_heap!();

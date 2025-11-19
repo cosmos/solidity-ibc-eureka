@@ -33,6 +33,7 @@ use solana_sdk::{
         AddressLookupTableAccount,
     },
     commitment_config::CommitmentConfig,
+    ed25519_instruction::{Ed25519SignatureOffsets, DATA_START},
     instruction::{AccountMeta, Instruction},
     message::{v0, VersionedMessage},
     pubkey::Pubkey,
@@ -1084,8 +1085,8 @@ impl TxBuilder {
     /// Builds a single signature pre-verification transaction for Ed25519 signature verification
     ///
     /// Each transaction contains:
-    /// 1. Ed25519Program instruction for signature verification
-    /// 2. pre_verify_signature instruction that validates and stores result in PDA
+    /// 1. `Ed25519Program` instruction for signature verification
+    /// 2. `pre_verify_signature` instruction that validates and stores result in PDA
     ///
     /// The signature verification PDA is derived using:
     /// `[b"sig_verify", hash(pubkey || msg || signature)]`
@@ -1094,39 +1095,46 @@ impl TxBuilder {
     ///
     /// Returns an error if:
     /// - Failed to serialize signature data
-    /// - Failed to build Ed25519Program instruction data
+    /// - Failed to build `Ed25519Program` instruction data
     /// - Failed to create transaction
     #[allow(deprecated)]
     fn build_pre_verify_signature_transaction(&self, sig_data: &SignatureData) -> Result<Vec<u8>> {
-        tracing::debug!(
-            "Building pre-verify for signature: pubkey={}, msg_len={}, sig={}",
-            hex::encode(&sig_data.pubkey),
-            sig_data.msg.len(),
-            hex::encode(&sig_data.signature)
-        );
-
-        // Build Ed25519Program instruction
+        // Build Ed25519Program instruction, we can't use ed25519_instruction constructor since we
+        // don't have keypair now
         let mut instruction_data = vec![
             1u8, // number of signatures
             0u8, // padding
         ];
 
-        // Offsets - data starts at byte 16 (after 16-byte header)
+        // Build signature offsets using Solana SDK type for type safety
         // Ed25519 instruction format per Solana SDK: header, then pubkey, signature, message
         // See: https://github.com/solana-labs/solana/blob/master/sdk/src/ed25519_instruction.rs
-        const DATA_START: u16 = 16;
-        let pubkey_offset: u16 = DATA_START; // pubkey is first at byte 16
-        let signature_offset: u16 = DATA_START + 32; // signature after pubkey at byte 48
-        let message_data_offset: u16 = DATA_START + 32 + 64; // message after signature at byte 112
-        let message_data_size: u16 = sig_data.msg.len() as u16;
+        #[allow(clippy::cast_possible_truncation)] // DATA_START is 16, fits in u16
+        let data_start = DATA_START as u16;
+        let pubkey_offset = data_start; // pubkey is first at DATA_START
+        let signature_offset = data_start + 32; // signature after pubkey
+        let message_data_offset = data_start + 32 + 64; // message after signature
+        let message_data_size = u16::try_from(sig_data.msg.len())
+            .context("CanonicalVote message exceeds 65,535 bytes (Ed25519 instruction limit)")?;
 
-        instruction_data.extend_from_slice(&signature_offset.to_le_bytes());
-        instruction_data.extend_from_slice(&u16::MAX.to_le_bytes()); // signature_instruction_index (u16::MAX = current ix)
-        instruction_data.extend_from_slice(&pubkey_offset.to_le_bytes());
-        instruction_data.extend_from_slice(&u16::MAX.to_le_bytes()); // pubkey_instruction_index (u16::MAX = current ix)
-        instruction_data.extend_from_slice(&message_data_offset.to_le_bytes());
-        instruction_data.extend_from_slice(&message_data_size.to_le_bytes());
-        instruction_data.extend_from_slice(&u16::MAX.to_le_bytes()); // message_instruction_index (u16::MAX = current ix)
+        // Create Ed25519SignatureOffsets struct (all data in current instruction, hence u16::MAX indices)
+        let offsets = Ed25519SignatureOffsets {
+            signature_offset,
+            signature_instruction_index: u16::MAX,
+            public_key_offset: pubkey_offset,
+            public_key_instruction_index: u16::MAX,
+            message_data_offset,
+            message_data_size,
+            message_instruction_index: u16::MAX,
+        };
+
+        // Serialize offsets struct to bytes (Pod type, C-compatible repr)
+        // SAFETY: Ed25519SignatureOffsets is #[repr(C)] and implements Pod trait,
+        // size is 14 bytes (7 u16 fields)
+        #[allow(clippy::borrow_as_ptr)] // Required for Pod serialization
+        let offsets_bytes =
+            unsafe { std::slice::from_raw_parts((&raw const offsets).cast::<u8>(), 14) };
+        instruction_data.extend_from_slice(offsets_bytes);
 
         // Append public key, signature, and message (in that order per Solana SDK)
         instruction_data.extend_from_slice(&sig_data.pubkey);
@@ -1203,8 +1211,7 @@ impl TxBuilder {
             Self::log_transaction_details(
                 &chunk_tx,
                 &format!(
-                    "Header chunk {} (chain_id={}, height={})",
-                    chunk_index, chain_id, target_height
+                    "Header chunk {chunk_index} (chain_id={chain_id}, height={target_height})"
                 ),
             );
 
