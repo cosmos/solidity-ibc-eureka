@@ -11,7 +11,6 @@ pub mod ics07_instructions {
     pub const INITIALIZE: &str = "initialize";
     pub const UPLOAD_HEADER_CHUNK: &str = "upload_header_chunk";
     pub const ASSEMBLE_AND_UPDATE_CLIENT: &str = "assemble_and_update_client";
-    pub const STORE_AND_HASH_VALIDATORS: &str = "store_and_hash_validators";
     pub const PRE_VERIFY_SIGNATURE: &str = "pre_verify_signature";
 
     pub fn initialize_discriminator() -> [u8; 8] {
@@ -24,10 +23,6 @@ pub mod ics07_instructions {
 
     pub fn assemble_and_update_client_discriminator() -> [u8; 8] {
         compute_discriminator(ASSEMBLE_AND_UPDATE_CLIENT)
-    }
-
-    pub fn store_and_hash_validators_discriminator() -> [u8; 8] {
-        compute_discriminator(STORE_AND_HASH_VALIDATORS)
     }
 
     pub fn pre_verify_signature_discriminator() -> [u8; 8] {

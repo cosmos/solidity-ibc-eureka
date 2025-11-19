@@ -66,14 +66,6 @@ pub enum ErrorCode {
     #[msg("Chunk data too large: exceeds maximum chunk size")]
     ChunkDataTooLarge,
 
-    // Validator errors
-    #[msg("Invalid validators hash: merkle hash does not match expected value")]
-    InvalidValidatorsHash,
-    #[msg("Invalid simple hash: SHA256 hash does not match PDA derivation")]
-    InvalidSimpleHash,
-    #[msg("Validators deserialization failed: invalid borsh data")]
-    ValidatorsDeserializationFailed,
-
     // Signature verification errors
     #[msg("Invalid number of accounts: mismatch between signatures and PDAs")]
     InvalidNumberOfAccounts,

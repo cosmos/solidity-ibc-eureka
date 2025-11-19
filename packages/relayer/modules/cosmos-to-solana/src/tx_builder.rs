@@ -26,7 +26,6 @@ use ibc_eureka_relayer_lib::{
 };
 use ibc_proto_eureka::ibc::lightclients::tendermint::v1::Fraction;
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::hash::hashv;
 use solana_sdk::{
     address_lookup_table::{
         instruction::{create_lookup_table, extend_lookup_table},
@@ -40,7 +39,7 @@ use solana_sdk::{
     pubkey::Pubkey,
     transaction::VersionedTransaction,
 };
-use tendermint::{block::Id as BlockId, chain::Id as ChainId, vote::CanonicalVote};
+use tendermint::{chain::Id as ChainId, vote::CanonicalVote};
 use tendermint_proto::Protobuf;
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
@@ -685,23 +684,6 @@ impl TxBuilder {
         Self::split_into_chunks(header_bytes)
     }
 
-    #[allow(dead_code)]
-    fn extract_validators_bytes(
-        borsh_header: &solana_ibc_types::borsh_header::BorshHeader,
-    ) -> Result<(Vec<u8>, Vec<u8>)> {
-        let validators_bytes = borsh_header
-            .validator_set
-            .try_to_vec()
-            .context("Failed to serialize validator_set")?;
-
-        let next_validators_bytes = borsh_header
-            .trusted_next_validator_set
-            .try_to_vec()
-            .context("Failed to serialize trusted_next_validator_set")?;
-
-        Ok((validators_bytes, next_validators_bytes))
-    }
-
     /// Extracts signature data from Protobuf Tendermint Header for Ed25519 pre-verification
     ///
     /// This function:
@@ -921,167 +903,6 @@ impl TxBuilder {
         }
 
         Ok(selected)
-    }
-
-    /// DEPRECATED: Extracts signature data from a Borsh header (BUGGY - signatures are sorted!)
-    ///
-    /// This function is kept for reference but should not be used because `BorshHeader`
-    /// sorts signatures by validator address, breaking the index-based mapping.
-    /// Use `extract_signature_data_from_header()` instead.
-    #[allow(dead_code)]
-    fn extract_signature_data(
-        borsh_header: &solana_ibc_types::borsh_header::BorshHeader,
-        chain_id: &str,
-    ) -> Result<Vec<SignatureData>> {
-        use solana_ibc_types::borsh_header::{BorshCommitSig, BorshPublicKey};
-
-        let commit = &borsh_header.signed_header.commit;
-
-        // Parse chain ID
-        let chain_id =
-            ChainId::try_from(chain_id.to_string()).context("Failed to parse chain ID")?;
-
-        // Convert BorshBlockId to BlockId
-        let block_id = {
-            let borsh_block_id = &commit.block_id;
-            let hash = tendermint::Hash::Sha256(
-                borsh_block_id
-                    .hash
-                    .as_slice()
-                    .try_into()
-                    .context("Block hash must be 32 bytes")?,
-            );
-            let part_set_header = tendermint::block::parts::Header::new(
-                borsh_block_id.part_set_header.total,
-                tendermint::Hash::Sha256(
-                    borsh_block_id
-                        .part_set_header
-                        .hash
-                        .as_slice()
-                        .try_into()
-                        .context("Part set hash must be 32 bytes")?,
-                ),
-            )
-            .context("Failed to create part set header")?;
-
-            BlockId {
-                hash,
-                part_set_header,
-            }
-        };
-
-        let mut signature_data_vec = Vec::new();
-
-        for (idx, commit_sig) in commit.signatures.iter().enumerate() {
-            let (_validator_address, timestamp, signature) = match commit_sig {
-                BorshCommitSig::BlockIdFlagAbsent => continue,
-                BorshCommitSig::BlockIdFlagCommit {
-                    validator_address,
-                    timestamp,
-                    signature,
-                }
-                | BorshCommitSig::BlockIdFlagNil {
-                    validator_address,
-                    timestamp,
-                    signature,
-                } => (*validator_address, timestamp.clone(), *signature),
-            };
-
-            let validator = borsh_header
-                .validator_set
-                .validators
-                .get(idx)
-                .ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "Signature index {} exceeds validator set size {}",
-                        idx,
-                        borsh_header.validator_set.validators.len()
-                    )
-                })?;
-
-            let pubkey = match &validator.pub_key {
-                BorshPublicKey::Ed25519(key) => *key,
-                BorshPublicKey::Secp256k1(_) => {
-                    anyhow::bail!("Secp256k1 keys are not supported for signature verification");
-                }
-            };
-
-            let tm_timestamp = tendermint::Time::from_unix_timestamp(
-                timestamp.secs,
-                timestamp
-                    .nanos
-                    .try_into()
-                    .context("Timestamp nanos must be non-negative")?,
-            )
-            .context("Failed to convert timestamp")?;
-
-            let canonical_vote = CanonicalVote {
-                vote_type: tendermint::vote::Type::Precommit,
-                height: tendermint::block::Height::try_from(commit.height)
-                    .context("Failed to convert height")?,
-                round: commit.round.into(),
-                block_id: Some(block_id),
-                timestamp: Some(tm_timestamp),
-                chain_id: chain_id.clone(),
-            };
-
-            // Encode as protobuf to get sign bytes (CometBFT uses MarshalDelimited = varint length-prefixed)
-            let sign_bytes = <CanonicalVote as Protobuf<
-                tendermint_proto::v0_38::types::CanonicalVote,
-            >>::encode_length_delimited_vec(canonical_vote);
-
-            // Compute signature hash for PDA derivation
-            let signature_hash = hashv(&[&pubkey, sign_bytes.as_slice(), &signature]).to_bytes();
-
-            signature_data_vec.push(SignatureData {
-                signature_hash,
-                pubkey,
-                msg: sign_bytes,
-                signature,
-            });
-        }
-
-        tracing::info!(
-            "Extracted {} signatures for pre-verification (out of {} total)",
-            signature_data_vec.len(),
-            commit.signatures.len()
-        );
-
-        Ok(signature_data_vec)
-    }
-
-    #[allow(dead_code)]
-    fn build_store_validators_instruction(&self, validators_bytes: &[u8]) -> Result<Instruction> {
-        use anchor_lang::solana_program::hash::hash;
-
-        let simple_hash = hash(validators_bytes).to_bytes();
-
-        let params_data = {
-            let mut data = Vec::new();
-            ::borsh::BorshSerialize::serialize(&simple_hash, &mut data)?;
-            ::borsh::BorshSerialize::serialize(&validators_bytes, &mut data)?;
-            data
-        };
-
-        let (validators_storage_pda, _) = Pubkey::find_program_address(
-            &[b"validators", &simple_hash, self.fee_payer.as_ref()],
-            &self.solana_ics07_program_id,
-        );
-
-        let accounts = vec![
-            AccountMeta::new(validators_storage_pda, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        ];
-
-        let mut data = ics07_instructions::store_and_hash_validators_discriminator().to_vec();
-        data.extend_from_slice(&params_data);
-
-        Ok(Instruction {
-            program_id: self.solana_ics07_program_id,
-            accounts,
-            data,
-        })
     }
 
     /// Builds a single signature pre-verification transaction for Ed25519 signature verification
@@ -2133,10 +1954,6 @@ impl TxBuilder {
         let borsh_header = crate::borsh_conversions::header_to_borsh(header);
         let header_bytes = borsh_header.try_to_vec()?;
 
-        // TODO: Validators extraction disabled for now - may add back later
-        // let (_validators_bytes, _next_validators_bytes) =
-        //     Self::extract_validators_bytes(&borsh_header)?;
-
         let chunks = Self::split_header_into_chunks(&header_bytes);
         let total_chunks = u8::try_from(chunks.len())
             .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
@@ -2166,10 +1983,6 @@ impl TxBuilder {
                 total_signatures
             );
         }
-
-        // TODO: Store validators transactions removed for now - may add back later
-        // let store_validators_ix = self.build_store_validators_instruction(validators_bytes)?;
-        // let store_next_validators_ix = self.build_store_validators_instruction(next_validators_bytes)?;
 
         // Build header chunk transactions and add them to prep_txs (all submitted in parallel)
         let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;

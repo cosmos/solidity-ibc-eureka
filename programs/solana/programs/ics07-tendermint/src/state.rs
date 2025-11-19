@@ -40,23 +40,6 @@ impl MisbehaviourChunk {
     pub const SEED: &'static [u8] = b"misbehaviour_chunk";
 }
 
-/// Storage for validator set with computed hashes
-#[account]
-#[derive(InitSpace)]
-pub struct ValidatorsStorage {
-    /// Simple SHA256 hash of the borsh-serialized validators bytes
-    pub simple_hash: [u8; 32],
-    /// Merkle hash computed from `validator.hash_bytes()` using ibc-rs
-    pub merkle_hash: [u8; 32],
-    /// Borsh-serialized validators bytes (max 32KB)
-    #[max_len(32768)]
-    pub validators_bytes: Vec<u8>,
-}
-
-impl ValidatorsStorage {
-    pub const SEED: &'static [u8] = b"validators";
-}
-
 /// Storage for Ed25519 signature verification results
 #[account]
 #[derive(InitSpace)]
