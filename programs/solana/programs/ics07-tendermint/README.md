@@ -251,9 +251,9 @@ Approximate compute units per operation:
 - `submit_misbehaviour`: ~150k CU
 - `cleanup_incomplete_upload`: ~20k CU per chunk
 
-### Performance Optimizations (Real-World Benchmarks)
+### Update Client Performance Optimizations (Real-World Benchmarks)
 
-The implementation includes several optimizations tested with real Tendermint chains (Noble: 20 validators, Celestia: 100 validators):
+The update client implementation includes several optimizations tested with real Tendermint chains (Noble: 20 validators, Celestia: 100 validators):
 
 **Ed25519 Signature Verification:**
 - **Pre-verification (optional):** Uses Ed25519Program precompile **~10k CU per signature** (via separate transaction)
@@ -290,9 +290,9 @@ The implementation includes several optimizations tested with real Tendermint ch
 - Pre-sorted validators from relayer: **~50k CU saved** per validator set
 - Skips on-chain sorting by using pre-calculated total voting power
 
-**Total Impact (Measured Real-World Costs):**
+**Total Update Client Cost (Measured Real-World):**
 
-The update process is split into two phases:
+The update client process is split into two phases:
 
 **Phase 1: Prep Transactions (Parallel)**
 - ALT (Address Lookup Table) creation + extension for address compression
@@ -384,9 +384,9 @@ The existing chunking system actually **strengthens** the case for brine-ed25519
      - Coordination overhead
      - No cost benefit if verification state must be maintained on-chain
 
-**Performance Across Different Tendermint Chains:**
+**Update Client Performance Across Different Tendermint Chains:**
 
-The same Solana Tendermint light client implementation handles different chains with costs scaling based on validator count:
+The same Solana Tendermint light client implementation handles different chains with update client costs scaling based on validator count:
 
 | Chain | Validators | 2/3 Threshold | Prep Txs | Total CUs | Total Cost (SOL) | USD Cost | Latency |
 |-------|-----------|---------------|----------|-----------|------------------|----------|---------|
