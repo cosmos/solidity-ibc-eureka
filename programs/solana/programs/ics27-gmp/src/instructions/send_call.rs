@@ -161,7 +161,9 @@ mod tests {
     use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
+    use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
+    use solana_sdk::program_error::ProgramError;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
@@ -673,7 +675,7 @@ mod tests {
         let authority = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
+        let router_program = ics26_router::ID;
         let router_state = Pubkey::new_unique();
         let client_sequence = Pubkey::new_unique();
         let packet_commitment = Pubkey::new_unique();
@@ -728,11 +730,11 @@ mod tests {
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with invalid receiver pubkey"
-        );
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::InvalidProgramId as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[test]
@@ -742,7 +744,7 @@ mod tests {
         let authority = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
+        let router_program = ics26_router::ID;
         let router_state = Pubkey::new_unique();
         let client_sequence = Pubkey::new_unique();
         let packet_commitment = Pubkey::new_unique();
@@ -797,11 +799,11 @@ mod tests {
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with salt too long (10 bytes > 8 max)"
-        );
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::InvalidSalt as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[test]
@@ -811,7 +813,7 @@ mod tests {
         let authority = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
+        let router_program = ics26_router::ID;
         let router_state = Pubkey::new_unique();
         let client_sequence = Pubkey::new_unique();
         let packet_commitment = Pubkey::new_unique();
@@ -866,10 +868,10 @@ mod tests {
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with memo too long (257 bytes > 256 max)"
-        );
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::InvalidMemo as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }
