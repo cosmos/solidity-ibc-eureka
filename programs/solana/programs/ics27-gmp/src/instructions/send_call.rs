@@ -5,6 +5,7 @@ use crate::proto::GmpPacketData;
 use crate::state::{GMPAppState, SendCallMsg};
 use anchor_lang::prelude::*;
 use solana_ibc_types::{MsgSendPacket, Payload};
+use std::str::FromStr;
 
 /// Send a GMP call packet
 #[derive(Accounts)]
@@ -79,7 +80,19 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         GMPError::TimeoutTooLong
     );
 
-    // Create protobuf packet data for wire format (no validation needed for outgoing packets)
+    Pubkey::from_str(&msg.receiver).map_err(|_| GMPError::InvalidProgramId)?;
+
+    require!(msg.salt.len() <= MAX_SALT_LENGTH, GMPError::InvalidSalt);
+
+    require!(!msg.payload.is_empty(), GMPError::EmptyPayload);
+    require!(
+        msg.payload.len() <= MAX_PAYLOAD_LENGTH,
+        GMPError::InvalidExecutionPayload
+    );
+
+    require!(msg.memo.len() <= MAX_MEMO_LENGTH, GMPError::InvalidMemo);
+
+    // Create protobuf packet data for wire format (validation completed above)
     let proto_packet_data = GmpPacketData {
         sender: ctx.accounts.sender.key().to_string(),
         receiver: msg.receiver,
@@ -650,6 +663,213 @@ mod tests {
         assert!(
             result.program_result.is_err(),
             "SendCall should fail with empty client_id"
+        );
+    }
+
+    #[test]
+    fn test_send_call_invalid_receiver_pubkey() {
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let authority = Pubkey::new_unique();
+        let sender = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let router_program = Pubkey::new_unique();
+        let router_state = Pubkey::new_unique();
+        let client_sequence = Pubkey::new_unique();
+        let packet_commitment = Pubkey::new_unique();
+        let ibc_app = Pubkey::new_unique();
+        let client = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+
+        let msg = SendCallMsg {
+            source_client: "cosmoshub-1".to_string(),
+            receiver: "not-a-valid-pubkey!!!".to_string(), // Invalid pubkey format!
+            salt: vec![1, 2, 3],
+            payload: vec![4, 5, 6],
+            timeout_timestamp: 9_999_999_999,
+            memo: String::new(),
+        };
+
+        let instruction_data = crate::instruction::SendCall { msg };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(sender, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new_readonly(router_state, false),
+                AccountMeta::new(client_sequence, false),
+                AccountMeta::new(packet_commitment, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
+                AccountMeta::new_readonly(ibc_app, false),
+                AccountMeta::new_readonly(client, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
+            create_authority_account(sender),
+            create_authority_account(payer),
+            create_router_program_account(router_program),
+            create_authority_account(router_state),
+            create_authority_account(client_sequence),
+            create_authority_account(packet_commitment),
+            create_instructions_sysvar_account(),
+            create_authority_account(ibc_app),
+            create_authority_account(client),
+            create_system_program_account(),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            result.program_result.is_err(),
+            "SendCall should fail with invalid receiver pubkey"
+        );
+    }
+
+    #[test]
+    fn test_send_call_salt_too_long() {
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let authority = Pubkey::new_unique();
+        let sender = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let router_program = Pubkey::new_unique();
+        let router_state = Pubkey::new_unique();
+        let client_sequence = Pubkey::new_unique();
+        let packet_commitment = Pubkey::new_unique();
+        let ibc_app = Pubkey::new_unique();
+        let client = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+
+        let msg = SendCallMsg {
+            source_client: "cosmoshub-1".to_string(),
+            receiver: Pubkey::new_unique().to_string(),
+            salt: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10], // 10 bytes - exceeds MAX_SALT_LENGTH (8)!
+            payload: vec![4, 5, 6],
+            timeout_timestamp: 9_999_999_999,
+            memo: String::new(),
+        };
+
+        let instruction_data = crate::instruction::SendCall { msg };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(sender, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new_readonly(router_state, false),
+                AccountMeta::new(client_sequence, false),
+                AccountMeta::new(packet_commitment, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
+                AccountMeta::new_readonly(ibc_app, false),
+                AccountMeta::new_readonly(client, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
+            create_authority_account(sender),
+            create_authority_account(payer),
+            create_router_program_account(router_program),
+            create_authority_account(router_state),
+            create_authority_account(client_sequence),
+            create_authority_account(packet_commitment),
+            create_instructions_sysvar_account(),
+            create_authority_account(ibc_app),
+            create_authority_account(client),
+            create_system_program_account(),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            result.program_result.is_err(),
+            "SendCall should fail with salt too long (10 bytes > 8 max)"
+        );
+    }
+
+    #[test]
+    fn test_send_call_memo_too_long() {
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let authority = Pubkey::new_unique();
+        let sender = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let router_program = Pubkey::new_unique();
+        let router_state = Pubkey::new_unique();
+        let client_sequence = Pubkey::new_unique();
+        let packet_commitment = Pubkey::new_unique();
+        let ibc_app = Pubkey::new_unique();
+        let client = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+
+        let msg = SendCallMsg {
+            source_client: "cosmoshub-1".to_string(),
+            receiver: Pubkey::new_unique().to_string(),
+            salt: vec![1, 2, 3],
+            payload: vec![4, 5, 6],
+            timeout_timestamp: 9_999_999_999,
+            memo: "a".repeat(crate::constants::MAX_MEMO_LENGTH + 1), // 257 bytes - exceeds max!
+        };
+
+        let instruction_data = crate::instruction::SendCall { msg };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(sender, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new_readonly(router_state, false),
+                AccountMeta::new(client_sequence, false),
+                AccountMeta::new(packet_commitment, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
+                AccountMeta::new_readonly(ibc_app, false),
+                AccountMeta::new_readonly(client, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_gmp_app_state_account(app_state_pda, authority, app_state_bump, false),
+            create_authority_account(sender),
+            create_authority_account(payer),
+            create_router_program_account(router_program),
+            create_authority_account(router_state),
+            create_authority_account(client_sequence),
+            create_authority_account(packet_commitment),
+            create_instructions_sysvar_account(),
+            create_authority_account(ibc_app),
+            create_authority_account(client),
+            create_system_program_account(),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            result.program_result.is_err(),
+            "SendCall should fail with memo too long (257 bytes > 256 max)"
         );
     }
 }
