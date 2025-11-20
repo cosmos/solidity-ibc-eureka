@@ -88,6 +88,7 @@ struct UploadChunkParams {
 
 /// Organized transactions for chunked update client
 /// Submission order: `alt_create_tx` -> [`alt_extend_txs` (sequential) || `chunk_txs` (parallel)] -> `assembly_tx`
+///
 /// Note: ALT extensions and prep txs run concurrently after ALT creation
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct UpdateClientChunkedTxs {
@@ -1542,6 +1543,96 @@ impl TxBuilder {
         })
     }
 
+    /// Validates that Solana client height is sufficient for proving events and returns proof parameters
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if Solana client is not at a sufficient height to prove the events
+    fn validate_height_and_get_proof_params(
+        src_events: &[EurekaEventWithHeight],
+        solana_latest_height: u64,
+        solana_revision_number: u64,
+    ) -> Result<ibc_proto_eureka::ibc::core::client::v1::Height> {
+        let max_event_height = src_events
+            .iter()
+            .map(|e| e.height)
+            .max()
+            .unwrap_or_else(|| {
+                let timeout_height = solana_latest_height.saturating_sub(1);
+                tracing::debug!(
+                    "Timeout proof: proving non-receipt at height {} using consensus state at {}",
+                    timeout_height,
+                    solana_latest_height
+                );
+                timeout_height
+            });
+
+        // Minimum height
+        let required_height = max_event_height + 1;
+
+        if solana_latest_height < required_height {
+            anyhow::bail!(
+                "Solana client is at height {} but need height {} to prove events at height {}. Update Solana client to at least height {} first!",
+                solana_latest_height,
+                required_height,
+                max_event_height,
+                required_height
+            );
+        }
+
+        let proof_height = ibc_proto_eureka::ibc::core::client::v1::Height {
+            revision_number: solana_revision_number,
+            revision_height: solana_latest_height,
+        };
+
+        tracing::debug!(
+            target_height = proof_height.revision_height,
+            max_event_height,
+            "Using Solana's latest height for proof generation"
+        );
+
+        Ok(proof_height)
+    }
+
+    /// Updates a timeout message with proof data from a Tendermint timeout message
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the proof is too large to fit in u8
+    fn update_timeout_proof_chunks(
+        timeout_with_chunks: &mut ibc_eureka_relayer_lib::utils::solana::TimeoutPacketWithChunks,
+        tm_msg: &ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout,
+    ) -> Result<()> {
+        // Update proof chunks with actual proof data
+        timeout_with_chunks
+            .proof_chunks
+            .clone_from(&tm_msg.proof_unreceived);
+
+        // Update proof metadata
+        let proof_total_chunks = u8::try_from(
+            tm_msg
+                .proof_unreceived
+                .len()
+                .div_ceil(MAX_CHUNK_SIZE)
+                .max(1),
+        )
+        .context("proof too big to fit in u8")?;
+
+        timeout_with_chunks.msg.proof.total_chunks = proof_total_chunks;
+
+        // Update proof height from TM message (injected by inject_tendermint_proofs)
+        if let Some(proof_height) = &tm_msg.proof_height {
+            timeout_with_chunks.msg.proof.height = proof_height.revision_height;
+            tracing::info!(
+                "Updated timeout packet seq {} proof height to {} (from TM message)",
+                timeout_with_chunks.msg.packet.sequence,
+                proof_height.revision_height
+            );
+        }
+
+        Ok(())
+    }
+
     /// Build relay transaction from Cosmos events to Solana
     /// Returns a vector of packet transactions with chunks preserved
     ///
@@ -1576,43 +1667,11 @@ impl TxBuilder {
             "Solana client state retrieved"
         );
 
-        let max_event_height = src_events
-            .iter()
-            .map(|e| e.height)
-            .max()
-            .unwrap_or_else(|| {
-                let timeout_height = solana_latest_height.saturating_sub(1);
-                tracing::debug!(
-                    "Timeout proof: proving non-receipt at height {} using consensus state at {}",
-                    timeout_height,
-                    solana_latest_height
-                );
-                timeout_height
-            });
-
-        // Minimum height
-        let required_height = max_event_height + 1;
-
-        if solana_latest_height < required_height {
-            anyhow::bail!(
-                "Solana client is at height {} but need height {} to prove events at height {}. Update Solana client to at least height {} first!",
-                solana_latest_height,
-                required_height,
-                max_event_height,
-                required_height
-            );
-        }
-
-        let proof_height = ibc_proto_eureka::ibc::core::client::v1::Height {
-            revision_number: solana_client_state.latest_height.revision_number,
-            revision_height: solana_latest_height,
-        };
-
-        tracing::debug!(
-            target_height = proof_height.revision_height,
-            max_event_height,
-            "Using Solana's latest height for proof generation"
-        );
+        let proof_height = Self::validate_height_and_get_proof_params(
+            &src_events,
+            solana_latest_height,
+            solana_client_state.latest_height.revision_number,
+        )?;
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
@@ -1672,33 +1731,7 @@ impl TxBuilder {
         let mut timeout_msgs_with_chunks = timeout_msgs;
         for (idx, timeout_with_chunks) in timeout_msgs_with_chunks.iter_mut().enumerate() {
             let tm_msg = &timeout_msgs_tm[idx];
-
-            // Update proof chunks with actual proof data
-            timeout_with_chunks
-                .proof_chunks
-                .clone_from(&tm_msg.proof_unreceived);
-
-            // Update proof metadata
-            let proof_total_chunks = u8::try_from(
-                tm_msg
-                    .proof_unreceived
-                    .len()
-                    .div_ceil(MAX_CHUNK_SIZE)
-                    .max(1),
-            )
-            .context("proof too big to fit in u8")?;
-
-            timeout_with_chunks.msg.proof.total_chunks = proof_total_chunks;
-
-            // Update proof height from TM message (injected by inject_tendermint_proofs)
-            if let Some(proof_height) = &tm_msg.proof_height {
-                timeout_with_chunks.msg.proof.height = proof_height.revision_height;
-                tracing::info!(
-                    "Updated timeout packet seq {} proof height to {} (from TM message)",
-                    timeout_with_chunks.msg.packet.sequence,
-                    proof_height.revision_height
-                );
-            }
+            Self::update_timeout_proof_chunks(timeout_with_chunks, tm_msg)?;
         }
 
         let mut packet_txs = Vec::new();
