@@ -3420,8 +3420,8 @@ dependencies = [
  "hash-db",
  "hash256-std-hasher",
  "hex",
- "memory-db",
- "primitive-types 0.13.1",
+ "memory-db 0.34.0",
+ "primitive-types 0.14.0",
  "rlp 0.6.1",
  "rlp-derive",
  "sha3",
@@ -3438,7 +3438,7 @@ dependencies = [
  "hash-db",
  "hash256-std-hasher",
  "hex",
- "memory-db",
+ "memory-db 0.32.0",
  "primitive-types 0.13.1",
  "rlp 0.6.1",
  "rlp-derive",
@@ -3456,7 +3456,7 @@ dependencies = [
  "hash-db",
  "hash256-std-hasher",
  "hex",
- "memory-db",
+ "memory-db 0.32.0",
  "primitive-types 0.13.1",
  "rlp 0.6.1",
  "rlp-derive",
@@ -5399,6 +5399,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "memory-db"
+version = "0.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e300c54e3239a86f9c61cc63ab0f03862eb40b1c6e065dc6fd6ceaeff6da93d"
+dependencies = [
+ "foldhash 0.1.5",
+ "hash-db",
+ "hashbrown 0.15.5",
+]
+
+[[package]]
 name = "memuse"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6305,6 +6316,17 @@ name = "primitive-types"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d15600a7d856470b7d278b3fe0e311fe28c2526348549f8ef2ff7db3299c87f5"
+dependencies = [
+ "fixed-hash",
+ "impl-rlp",
+ "uint 0.10.0",
+]
+
+[[package]]
+name = "primitive-types"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "721a1da530b5a2633218dc9f75713394c983c352be88d2d7c9ee85e2c4c21794"
 dependencies = [
  "fixed-hash",
  "impl-rlp",
