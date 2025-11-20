@@ -129,9 +129,9 @@ cosmwasm-std    = { version = "2.2", default-features = false }
 cw2             = { version = "2.0", default-features = false }
 
 # The dependencies below are maintained by Sigma Prime (for use in Lighthouse (and the broader Ethereum ecosystem))
-ethereum_ssz        = { version = "0.9", default-features = false }
-ethereum_ssz_derive = { version = "0.9", default-features = false }
-tree_hash_derive    = { version = "0.10", default-features = false }
+ethereum_ssz        = { version = "0.10", default-features = false }
+ethereum_ssz_derive = { version = "0.10", default-features = false }
+tree_hash_derive    = { version = "0.11", default-features = false }
 
 # The dependencies below are maintained by Parity Tech
 trie-db            = { version = "0.30", default-features = false }
