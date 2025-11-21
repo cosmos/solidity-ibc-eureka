@@ -162,43 +162,7 @@ impl TryFrom<&[u8]> for ValidatedGmpPacketData {
 
         let packet = GmpPacketData::decode(bytes).map_err(|_| GMPPacketError::DecodeError)?;
 
-        // Validate and construct constrained sender
-        let sender = packet
-            .sender
-            .try_into()
-            .map_err(|_| GMPPacketError::InvalidSender)?;
-
-        // Validate and construct constrained receiver
-        let receiver = packet
-            .receiver
-            .try_into()
-            .map_err(|_| GMPPacketError::InvalidReceiver)?;
-
-        // Validate and construct constrained salt
-        let salt = packet
-            .salt
-            .try_into()
-            .map_err(|_| GMPPacketError::InvalidSalt)?;
-
-        // Validate payload is non-empty (no max length constraint)
-        let payload = packet
-            .payload
-            .try_into()
-            .map_err(|_| GMPPacketError::EmptyPayload)?;
-
-        // Validate and construct constrained memo
-        let memo = packet
-            .memo
-            .try_into()
-            .map_err(|_| GMPPacketError::MemoTooLong)?;
-
-        Ok(Self {
-            sender,
-            receiver,
-            salt,
-            payload,
-            memo,
-        })
+        Self::new(packet.sender, packet.receiver, packet.salt, packet.payload, packet.memo)
     }
 }
 
