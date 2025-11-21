@@ -9,6 +9,7 @@ members = [
     "packages/tendermint-light-client/membership",
     "packages/tendermint-light-client/misbehaviour",
     "packages/tendermint-light-client/uc-and-membership",
+    "packages/tendermint-light-client/solana",
     "packages/solidity",
     "packages/relayer/lib",
     "packages/relayer/core",
@@ -61,10 +62,14 @@ tendermint-light-client-update-client     = { path = "packages/tendermint-light-
 tendermint-light-client-membership        = { path = "packages/tendermint-light-client/membership", default-features = false }
 tendermint-light-client-misbehaviour      = { path = "packages/tendermint-light-client/misbehaviour", default-features = false }
 tendermint-light-client-uc-and-membership = { path = "packages/tendermint-light-client/uc-and-membership", default-features = false }
+tendermint-light-client-solana            = { path = "packages/tendermint-light-client/solana", default-features = false }
 
 brine-ed25519 = { version = "0.2", default-features = false }
+ed25519-dalek = { version = "2.0", default-features = false }
 
-serde           = { version = "1.0", default-features = false }
+# Pin serde to 1.0.219 to fix compatibility with alloy-consensus 0.14.0
+# alloy-consensus uses serde::__private APIs that changed in serde 1.0.220+
+serde           = { version = "=1.0.219", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
 serde_cbor      = { version = "0.11", default-features = false }
 serde_with      = { version = "3.11", default-features = false }
@@ -112,11 +117,12 @@ ibc-proto-eureka = { package = "ibc-proto", git = "https://github.com/srdtrk/ibc
 ics23            = { version = "0.12", default-features = false }
 
 ibc-client-tendermint       = { version = "0.57", default-features = false }
+ibc-client-tendermint-types = { version = "0.57", default-features = false }
 ibc-core-client             = { version = "0.57", default-features = false }
 ibc-core-host-types         = { version = "0.57", default-features = false }
 ibc-core-client-types       = { version = "0.57", default-features = false }
 ibc-core-commitment-types   = { version = "0.57", default-features = false }
-ibc-client-tendermint-types = { version = "0.57", default-features = false }
+
 ibc-primitives              = { version = "0.57", default-features = false }
 
 alloy                  = { version = "1.0", default-features = false }
@@ -169,4 +175,15 @@ anchor-client             = { version = "0.31.1" }
 # TODO: Remove these dependencies once ethereum wasm client v1.2.0 backwards compatibility is not needed
 ibc-eureka-relayer-eth-to-cosmos-v1_2 = { package = "ibc-eureka-relayer-eth-to-cosmos", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
 ibc-eureka-relayer-core-v1_2= { package = "ibc-eureka-relayer-core", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
+
+[patch.crates-io]
+# Patch tendermint-rs crates to use fork with instance-based Verifier trait
+# TODO: Switch to cometbft/cometbft-rs once PR with instance-based Verifier trait is accepted
+# See: https://github.com/vaporif/tendermint-rs/tree/verifier-with-instance
+tendermint = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-proto = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-light-client-verifier = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-config = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-rpc = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+
 

@@ -9,7 +9,7 @@ license     = { workspace = true }
 [dependencies]
 ibc-core-commitment-types             = { workspace = true }
 ibc-client-tendermint                 = { workspace = true }
-tendermint-light-client-update-client = { workspace = true }
+tendermint-light-client-update-client = { workspace = true, default-features = false }
 tendermint-light-client-membership    = { workspace = true }
 thiserror                             = { workspace = true }
 

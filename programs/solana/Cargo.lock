@@ -1995,7 +1995,7 @@ dependencies = [
  "tendermint",
  "tendermint-light-client-membership",
  "tendermint-light-client-misbehaviour",
- "tendermint-light-client-uc-and-membership",
+ "tendermint-light-client-solana",
  "tendermint-light-client-update-client",
  "time",
 ]
@@ -5461,8 +5461,7 @@ dependencies = [
 [[package]]
 name = "tendermint"
 version = "0.40.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc997743ecfd4864bbca8170d68d9b2bee24653b034210752c2d883ef4b838b1"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "bytes",
  "digest 0.10.7",
@@ -5509,21 +5508,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "tendermint-light-client-uc-and-membership"
+name = "tendermint-light-client-solana"
 version = "0.1.0"
 dependencies = [
- "ibc-client-tendermint",
- "ibc-core-commitment-types",
- "tendermint-light-client-membership",
- "tendermint-light-client-update-client",
- "thiserror 2.0.12",
+ "brine-ed25519",
+ "sha2 0.10.9",
+ "solana-program",
+ "tendermint",
+ "tendermint-light-client-verifier",
 ]
 
 [[package]]
 name = "tendermint-light-client-update-client"
 version = "0.1.0"
 dependencies = [
- "brine-ed25519",
  "ibc-client-tendermint",
  "ibc-core-client",
  "ibc-core-client-types",
@@ -5532,6 +5530,7 @@ dependencies = [
  "sha2 0.10.9",
  "solana-program",
  "tendermint",
+ "tendermint-light-client-solana",
  "tendermint-light-client-verifier",
  "thiserror 2.0.12",
 ]
@@ -5539,8 +5538,7 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client-verifier"
 version = "0.40.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "548421907264a3a580634d71459a6ceda0dc569f24c9675adfab17465edf8511"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "derive_more 0.99.20",
  "flex-error",
@@ -5552,8 +5550,7 @@ dependencies = [
 [[package]]
 name = "tendermint-proto"
 version = "0.40.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2c40e13d39ca19082d8a7ed22de7595979350319833698f8b1080f29620a094"
+source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
 dependencies = [
  "bytes",
  "flex-error",

@@ -40,6 +40,18 @@ impl MisbehaviourChunk {
     pub const SEED: &'static [u8] = b"misbehaviour_chunk";
 }
 
+/// Storage for Ed25519 signature verification results
+#[account]
+#[derive(InitSpace)]
+pub struct SignatureVerification {
+    /// Whether the signature is valid
+    pub is_valid: bool,
+}
+
+impl SignatureVerification {
+    pub const SEED: &'static [u8] = b"sig_verify";
+}
+
 #[cfg(test)]
 mod compatibility_tests {
     use super::*;

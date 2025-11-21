@@ -5,9 +5,6 @@
 
 pub mod types;
 
-#[cfg(feature = "solana")]
-pub mod solana;
-
 use sha2 as _;
 
 use std::{str::FromStr, time::Duration};
@@ -18,6 +15,7 @@ use ibc_client_tendermint::{
 };
 use ibc_core_client_types::Height;
 use ibc_core_host_types::identifiers::{ChainId, ClientId};
+use tendermint::{crypto::Sha256, merkle::MerkleHash};
 use tendermint_light_client_verifier::{
     options::Options, types::TrustThreshold as TmTrustThreshold,
 };
@@ -104,12 +102,99 @@ pub enum UpdateClientError {
 /// - The client ID cannot be created
 /// - The chain ID is invalid
 /// - Header verification fails
+#[cfg(not(feature = "solana"))]
 pub fn update_client(
     client_state: &ClientState,
     trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
     time: u128,
 ) -> Result<UpdateClientOutput, UpdateClientError> {
+    update_client_impl(client_state, trusted_consensus_state, proposed_header, time)
+}
+
+/// IBC light client update client with Solana signature verification
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// - The client ID cannot be created
+/// - The chain ID is invalid
+/// - Header verification fails
+#[cfg(feature = "solana")]
+pub fn update_client<'a>(
+    client_state: &ClientState,
+    trusted_consensus_state: &ConsensusState,
+    proposed_header: Header,
+    time: u128,
+    verification_accounts: &'a [solana_program::account_info::AccountInfo<'a>],
+    program_id: &'a solana_program::pubkey::Pubkey,
+) -> Result<UpdateClientOutput, UpdateClientError> {
+    update_client_impl(
+        client_state,
+        trusted_consensus_state,
+        proposed_header,
+        time,
+        verification_accounts,
+        program_id,
+    )
+}
+
+#[cfg(not(feature = "solana"))]
+fn update_client_impl(
+    client_state: &ClientState,
+    trusted_consensus_state: &ConsensusState,
+    proposed_header: Header,
+    time: u128,
+) -> Result<UpdateClientOutput, UpdateClientError> {
+    let verifier = ProdVerifier::default();
+    verify_and_create_output::<_, sha2::Sha256>(
+        client_state,
+        trusted_consensus_state,
+        proposed_header,
+        time,
+        &verifier,
+    )
+}
+
+#[cfg(feature = "solana")]
+fn update_client_impl<'a>(
+    client_state: &ClientState,
+    trusted_consensus_state: &ConsensusState,
+    proposed_header: Header,
+    time: u128,
+    verification_accounts: &'a [solana_program::account_info::AccountInfo<'a>],
+    program_id: &'a solana_program::pubkey::Pubkey,
+) -> Result<UpdateClientOutput, UpdateClientError> {
+    let verifier = tendermint_light_client_solana::SolanaVerifier::new(
+        tendermint_light_client_solana::SolanaPredicates,
+        tendermint_light_client_solana::SolanaVotingPowerCalculator::new(
+            tendermint_light_client_solana::SolanaSignatureVerifier::new(
+                verification_accounts,
+                program_id,
+            ),
+        ),
+        tendermint_light_client_verifier::operations::commit_validator::ProdCommitValidator,
+    );
+    verify_and_create_output::<_, tendermint_light_client_solana::SolanaSha256>(
+        client_state,
+        trusted_consensus_state,
+        proposed_header,
+        time,
+        &verifier,
+    )
+}
+
+fn verify_and_create_output<V, H>(
+    client_state: &ClientState,
+    trusted_consensus_state: &ConsensusState,
+    proposed_header: Header,
+    time: u128,
+    verifier: &V,
+) -> Result<UpdateClientOutput, UpdateClientError>
+where
+    V: tendermint_light_client_verifier::Verifier,
+    H: MerkleHash + Sha256 + Default,
+{
     let client_id =
         ClientId::new(TENDERMINT_CLIENT_TYPE, 0).map_err(|_| UpdateClientError::InvalidClientId)?;
     let chain_id = ChainId::from_str(&client_state.chain_id)
@@ -132,33 +217,15 @@ pub fn update_client(
         trusted_consensus_state,
     );
 
-    #[cfg(not(feature = "solana"))]
-    {
-        let verifier = ProdVerifier::default();
-        verify_header::<_, sha2::Sha256>(
-            &ctx,
-            &proposed_header,
-            &client_id,
-            &chain_id,
-            &options,
-            &verifier,
-        )
-        .map_err(|_| UpdateClientError::HeaderVerificationFailed)?;
-    }
-
-    #[cfg(feature = "solana")]
-    {
-        let verifier = crate::solana::SolanaVerifier::default();
-        verify_header::<_, crate::solana::SolanaSha256>(
-            &ctx,
-            &proposed_header,
-            &client_id,
-            &chain_id,
-            &options,
-            &verifier,
-        )
-        .map_err(|_| UpdateClientError::HeaderVerificationFailed)?;
-    }
+    verify_header::<_, H>(
+        &ctx,
+        &proposed_header,
+        &client_id,
+        &chain_id,
+        &options,
+        verifier,
+    )
+    .map_err(|_| UpdateClientError::HeaderVerificationFailed)?;
 
     let trusted_height = proposed_header.trusted_height;
     let latest_height = proposed_header.height();

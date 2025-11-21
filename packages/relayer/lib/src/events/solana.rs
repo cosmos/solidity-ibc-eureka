@@ -15,9 +15,7 @@ use solana_ibc_types::{
 };
 
 use crate::events::{EurekaEvent, EurekaEventWithHeight};
-
-/// Maximum size for a chunk (matches `CHUNK_DATA_SIZE` in Solana program)
-const MAX_CHUNK_SIZE: usize = 900;
+use crate::utils::solana::MAX_CHUNK_SIZE;
 
 /// Parsed IBC event from Solana transaction logs
 #[derive(Debug, Clone)]

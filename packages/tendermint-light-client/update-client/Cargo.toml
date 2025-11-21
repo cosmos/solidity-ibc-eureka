@@ -7,21 +7,21 @@ repository  = { workspace = true }
 license     = { workspace = true }
 
 [features]
-default = ["solana"]
-solana = ["brine-ed25519", "tendermint", "solana-program"]
+default = []
+solana = ["dep:tendermint-light-client-solana", "dep:solana-program"]
 
 [dependencies]
 tendermint-light-client-verifier = { workspace = true }
+tendermint-light-client-solana   = { workspace = true, optional = true }
+solana-program                   = { version = "2.3.0", default-features = false, optional = true }
 ibc-client-tendermint            = { workspace = true, features = ["serde"] }
 ibc-core-host-types              = { workspace = true }
 ibc-core-client                  = { workspace = true }
 ibc-core-client-types            = { workspace = true }
 ibc-primitives                   = { workspace = true }
+tendermint                       = { workspace = true }
 sha2                             = { workspace = true }
 thiserror                        = { workspace = true }
-tendermint                       = { workspace = true, optional = true }
-brine-ed25519                    = { workspace = true, optional = true, features = ["std"] }
-solana-program                   = { version = "2.1", optional = true }
 
 [dev-dependencies]
 serde                            = { workspace = true, features = ["derive"] }

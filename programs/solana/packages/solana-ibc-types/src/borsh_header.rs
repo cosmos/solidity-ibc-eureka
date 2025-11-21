@@ -303,7 +303,7 @@ mod direct_deser {
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
 
         // Directly construct ValidatorSet - validators are pre-sorted by relayer
-        // This saves ~50k CUs per validator set by skipping sort
+        // This saves ~50k CUs per validator set by skipping sort (tested with 100 validators)
         Ok(ValidatorSet {
             validators,
             proposer,
@@ -625,7 +625,7 @@ pub mod conversions {
 
     pub fn commit_to_borsh(c: Commit) -> BorshCommit {
         // Convert and sort signatures by validator address
-        // This pre-sorting saves ~60-80k CUs during on-chain deserialization
+        // This pre-sorting saves ~60-80k CUs during on-chain deserialization (tested with 100 validators)
         // The sort must match the order expected by the verifier's binary search
         let mut signatures: Vec<BorshCommitSig> =
             c.signatures.into_iter().map(commit_sig_to_borsh).collect();

@@ -15,7 +15,7 @@ use crate::events::{SolanaEurekaEvent, SolanaEurekaEventWithHeight};
 use tracing;
 
 /// Maximum size for a chunk (matches `CHUNK_DATA_SIZE` in Solana program)
-const MAX_CHUNK_SIZE: usize = 700;
+pub const MAX_CHUNK_SIZE: usize = 900;
 
 /// Threshold for inlining payloads vs chunking (combined size)
 const INLINE_THRESHOLD: usize = 300;
