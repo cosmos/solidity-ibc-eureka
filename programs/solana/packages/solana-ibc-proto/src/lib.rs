@@ -138,15 +138,14 @@ impl ValidatedGmpPacketData {
 
     /// Encode to protobuf bytes
     ///
-    /// This method directly encodes the validated data to protobuf format
-    /// without requiring an intermediate GmpPacketData conversion.
-    pub fn encode_to_vec(&self) -> Vec<u8> {
+    /// This method consumes the validated data and encodes it to protobuf format.
+    pub fn encode_to_vec(self) -> Vec<u8> {
         let proto = GmpPacketData {
-            sender: self.sender.to_string(),
-            receiver: self.receiver.to_string(),
-            salt: self.salt.to_vec(),
-            payload: self.payload.to_vec(),
-            memo: self.memo.to_string(),
+            sender: self.sender.into_string(),
+            receiver: self.receiver.into_string(),
+            salt: self.salt.into_vec(),
+            payload: self.payload.into_inner(),
+            memo: self.memo.into_string(),
         };
 
         proto.encode_to_vec()
