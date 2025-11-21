@@ -256,7 +256,7 @@ fn parse_trust_threshold(input: &str) -> anyhow::Result<TrustThreshold> {
         .parse()
         .map_err(|_| anyhow::anyhow!("invalid denominator for the fraction"))?;
     TrustThreshold::new(numerator, denominator)
-        .map_err(|e| anyhow::anyhow!("invalid trust threshold: {}", e))
+        .map_err(|e| anyhow::anyhow!("invalid trust threshold: {e}"))
 }
 
 fn parse_proof_type(input: &str) -> anyhow::Result<SupportedZkAlgorithm> {
