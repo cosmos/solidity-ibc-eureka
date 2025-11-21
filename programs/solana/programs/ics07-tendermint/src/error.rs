@@ -66,6 +66,12 @@ pub enum ErrorCode {
     #[msg("Chunk data too large: exceeds maximum chunk size")]
     ChunkDataTooLarge,
 
+    // Signature verification errors
+    #[msg("Invalid number of accounts: mismatch between signatures and PDAs")]
+    InvalidNumberOfAccounts,
+    #[msg("Invalid account data: account data is malformed or too small")]
+    InvalidAccountData,
+
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]
     SerializationError,
@@ -75,4 +81,15 @@ pub enum ErrorCode {
     InvalidAccountOwner,
     #[msg("Arithmetic overflow detected")]
     ArithmeticOverflow,
+
+    // Conversion errors
+    #[msg("Conversion error: invalid header data")]
+    ConversionError,
+}
+
+impl From<crate::conversions::ConversionError> for ErrorCode {
+    fn from(err: crate::conversions::ConversionError) -> Self {
+        msg!("Conversion failed: {}", err.as_str());
+        Self::ConversionError
+    }
 }

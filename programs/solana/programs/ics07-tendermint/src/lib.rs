@@ -102,7 +102,7 @@ pub struct UploadHeaderChunk<'info> {
 /// Context for assembling chunks and updating the client
 /// This will automatically clean up any old chunks at the same height
 #[derive(Accounts)]
-#[instruction(chain_id: String, target_height: u64)]
+#[instruction(chain_id: String, target_height: u64, chunk_count: u8)]
 pub struct AssembleAndUpdateClient<'info> {
     #[account(
         mut,
@@ -209,6 +209,30 @@ pub struct CleanupIncompleteMisbehaviour<'info> {
     // Remaining accounts are the chunk accounts to close
 }
 
+#[derive(Accounts)]
+#[instruction(signature: solana_ibc_types::ics07::SignatureData)]
+pub struct PreVerifySignature<'info> {
+    /// CHECK: Sysvar instructions account
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + std::mem::size_of::<crate::state::SignatureVerification>(),
+        seeds = [
+            crate::state::SignatureVerification::SEED,
+            &signature.signature_hash
+        ],
+        bump
+    )]
+    pub signature_verification: Account<'info, crate::state::SignatureVerification>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
 #[program]
 pub mod ics07_tendermint {
     use super::*;
@@ -255,15 +279,17 @@ pub mod ics07_tendermint {
 
     /// Assemble chunks and update the client
     /// Automatically cleans up all chunks after successful update
-    pub fn assemble_and_update_client(
-        ctx: Context<AssembleAndUpdateClient>,
+    pub fn assemble_and_update_client<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
         chain_id: String,
         target_height: u64,
+        chunk_count: u8,
     ) -> Result<UpdateResult> {
         instructions::assemble_and_update_client::assemble_and_update_client(
             ctx,
             chain_id,
             target_height,
+            chunk_count,
         )
     }
 
@@ -312,5 +338,12 @@ pub mod ics07_tendermint {
         instructions::cleanup_incomplete_misbehaviour::cleanup_incomplete_misbehaviour(
             ctx, client_id, submitter,
         )
+    }
+
+    pub fn pre_verify_signature<'info>(
+        ctx: Context<'_, '_, '_, 'info, PreVerifySignature<'info>>,
+        signature: solana_ibc_types::ics07::SignatureData,
+    ) -> Result<()> {
+        instructions::pre_verify_signatures::pre_verify_signature(ctx, signature)
     }
 }

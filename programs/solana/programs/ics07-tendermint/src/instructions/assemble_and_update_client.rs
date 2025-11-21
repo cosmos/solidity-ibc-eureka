@@ -10,10 +10,11 @@ use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
-pub fn assemble_and_update_client(
-    mut ctx: Context<AssembleAndUpdateClient>,
+pub fn assemble_and_update_client<'info>(
+    mut ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
     chain_id: String,
     target_height: u64,
+    chunk_count: u8,
 ) -> Result<UpdateResult> {
     require!(
         !ctx.accounts.client_state.is_frozen(),
@@ -21,12 +22,13 @@ pub fn assemble_and_update_client(
     );
 
     let submitter = ctx.accounts.submitter.key();
+    let chunk_count = chunk_count as usize;
 
-    let header_bytes = assemble_chunks(&ctx, &chain_id, target_height)?;
+    let header_bytes = assemble_chunks(&ctx, &chain_id, target_height, chunk_count)?;
 
-    let result = process_header_update(&mut ctx, header_bytes)?;
+    let result = process_header_update(&mut ctx, header_bytes, chunk_count)?;
 
-    cleanup_chunks(&ctx, &chain_id, target_height, submitter)?;
+    cleanup_chunks(&ctx, &chain_id, target_height, submitter, chunk_count)?;
 
     // Return the UpdateResult as bytes for callers to verify
     set_return_data(&result.try_to_vec()?);
@@ -38,12 +40,13 @@ fn assemble_chunks(
     ctx: &Context<AssembleAndUpdateClient>,
     chain_id: &str,
     target_height: u64,
+    chunk_count: usize,
 ) -> Result<Vec<u8>> {
     let submitter = ctx.accounts.submitter.key();
-    let header_size = ctx.remaining_accounts.len() * CHUNK_DATA_SIZE;
+    let header_size = chunk_count * CHUNK_DATA_SIZE;
     let mut header_bytes = Vec::with_capacity(header_size);
 
-    for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
+    for (index, chunk_account) in ctx.remaining_accounts[..chunk_count].iter().enumerate() {
         let expected_seeds = &[
             crate::state::HeaderChunk::SEED,
             submitter.as_ref(),
@@ -74,9 +77,10 @@ fn assemble_chunks(
     Ok(header_bytes)
 }
 
-fn process_header_update(
-    ctx: &mut Context<AssembleAndUpdateClient>,
+fn process_header_update<'info>(
+    ctx: &mut Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
     header_bytes: Vec<u8>,
+    chunk_count: usize,
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
@@ -90,10 +94,20 @@ fn process_header_update(
         trusted_height,
     )?;
 
+    // Signature verification accounts come after chunk accounts
+    let signature_verification_accounts = &ctx.remaining_accounts[chunk_count..];
+
+    msg!(
+        "Assembly: {} chunks, {} pre-verified sigs",
+        chunk_count,
+        signature_verification_accounts.len()
+    );
+
     let (new_height, new_consensus_state) = verify_and_update_header(
         client_state,
         &trusted_consensus_state.consensus_state,
         header,
+        signature_verification_accounts,
     )?;
 
     let result = store_consensus_state(StoreConsensusStateParams {
@@ -115,30 +129,24 @@ fn process_header_update(
     Ok(result)
 }
 
-fn verify_and_update_header(
+fn verify_and_update_header<'info>(
     client_state: &crate::types::ClientState,
     trusted_state: &ConsensusState,
     header: Header,
+    signature_verification_accounts: &'info [anchor_lang::prelude::AccountInfo<'info>],
 ) -> Result<(ibc_core_client_types::Height, ConsensusState)> {
     let update_client_state: UpdateClientState = client_state.into();
     let trusted_ibc_state: IbcConsensusState = trusted_state.into();
 
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
-    // Signature verification happens here using brine-ed25519 (~30k CU per signature).
-    // Note: This happens AFTER header assembly. The signatures are embedded inside the header
-    // data that was uploaded via chunks. We cannot use Ed25519Program because:
-    // 1. Signatures come from external blockchain data (Tendermint validators)
-    // 2. They're only accessible after header assembly and deserialization
-    // 3. Ed25519Program requires signatures as separate instructions in the SAME transaction
-    // 4. Using Ed25519Program would require double multi-tx coordination (chunks + signatures),
-    //    adding 4-8 seconds of latency per update (10-20 sequential signature verifications)
-    // See README "Design Decisions" section for full explanation.
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,
         &trusted_ibc_state,
         header,
         current_time,
+        signature_verification_accounts,
+        &crate::ID,
     )
     .map_err(|e| {
         msg!("update_client FAILED: {:?}", e);
@@ -159,8 +167,9 @@ fn cleanup_chunks(
     chain_id: &str,
     target_height: u64,
     submitter: Pubkey,
+    chunk_count: usize,
 ) -> Result<()> {
-    for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
+    for (index, chunk_account) in ctx.remaining_accounts[..chunk_count].iter().enumerate() {
         // Double-check PDA (paranoid check)
         let expected_seeds = &[
             crate::state::HeaderChunk::SEED,
