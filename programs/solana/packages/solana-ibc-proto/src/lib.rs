@@ -97,6 +97,60 @@ pub struct ValidatedGmpPacketData {
     pub memo: Memo,
 }
 
+impl ValidatedGmpPacketData {
+    /// Create a new validated GMP packet data from raw components
+    ///
+    /// Validates all fields against their constraints before construction.
+    /// This is used for outgoing packets (send path) to ensure data integrity.
+    pub fn new(
+        sender: String,
+        receiver: String,
+        salt: Vec<u8>,
+        payload: Vec<u8>,
+        memo: String,
+    ) -> core::result::Result<Self, GMPPacketError> {
+        let sender = sender
+            .try_into()
+            .map_err(|_| GMPPacketError::InvalidSender)?;
+
+        let receiver = receiver
+            .try_into()
+            .map_err(|_| GMPPacketError::InvalidReceiver)?;
+
+        let salt = salt.try_into().map_err(|_| GMPPacketError::InvalidSalt)?;
+
+        let payload = payload
+            .try_into()
+            .map_err(|_| GMPPacketError::EmptyPayload)?;
+
+        let memo = memo.try_into().map_err(|_| GMPPacketError::MemoTooLong)?;
+
+        Ok(Self {
+            sender,
+            receiver,
+            salt,
+            payload,
+            memo,
+        })
+    }
+
+    /// Encode to protobuf bytes
+    ///
+    /// This method directly encodes the validated data to protobuf format
+    /// without requiring an intermediate GmpPacketData conversion.
+    pub fn encode_to_vec(&self) -> Vec<u8> {
+        let proto = GmpPacketData {
+            sender: self.sender.to_string(),
+            receiver: self.receiver.to_string(),
+            salt: self.salt.to_vec(),
+            payload: self.payload.to_vec(),
+            memo: self.memo.to_string(),
+        };
+
+        proto.encode_to_vec()
+    }
+}
+
 /// TryFrom implementation for decoding and validating from protobuf bytes
 impl TryFrom<&[u8]> for ValidatedGmpPacketData {
     type Error = GMPPacketError;

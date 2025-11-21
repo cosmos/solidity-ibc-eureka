@@ -1,25 +1,14 @@
 /// Program constants for ICS27 GMP
-///
+// Re-export validation constants from solana-ibc-types
+pub use solana_ibc_types::{
+    MAX_CLIENT_ID_LENGTH, MAX_MEMO_LENGTH, MAX_RECEIVER_LENGTH, MAX_SALT_LENGTH, MAX_SENDER_LENGTH,
+};
+
 /// Port ID for this GMP app instance (fixed at compile time)
 pub const GMP_PORT_ID: &str = "gmpport";
 
-/// Maximum length for client ID
-pub const MAX_CLIENT_ID_LENGTH: usize = 32;
-
-/// Maximum length for sender address (supports both Ethereum hex and Cosmos bech32)
-pub const MAX_SENDER_LENGTH: usize = 128; // Supports bech32 addresses up to ~90 chars
-
-/// Maximum length for salt
-pub const MAX_SALT_LENGTH: usize = 8;
-
 /// Maximum length for port ID
 pub const MAX_PORT_ID_LENGTH: usize = 128;
-
-/// Maximum length for memo
-pub const MAX_MEMO_LENGTH: usize = 256;
-
-/// Maximum length for execution payload
-pub const MAX_PAYLOAD_LENGTH: usize = 1024;
 
 /// ICS27 version (must match Cosmos GMP module version)
 pub const ICS27_VERSION: &str = "ics27-2";
