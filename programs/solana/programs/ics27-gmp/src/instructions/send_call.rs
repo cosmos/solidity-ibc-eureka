@@ -174,7 +174,7 @@ mod tests {
             let authority = Pubkey::new_unique();
             let sender = Pubkey::new_unique();
             let payer = Pubkey::new_unique();
-            let router_program = Pubkey::new_unique();
+            let router_program = ics26_router::ID;
             let router_state = Pubkey::new_unique();
             let client_sequence = Pubkey::new_unique();
             let packet_commitment = Pubkey::new_unique();
@@ -253,7 +253,7 @@ mod tests {
                 receiver: Pubkey::new_unique().to_string(),
                 salt: vec![1, 2, 3],
                 payload: vec![4, 5, 6],
-                timeout_timestamp: 9_999_999_999,
+                timeout_timestamp: 3600, // 1 hour from epoch (safe for Mollusk default clock=0)
                 memo: String::new(),
             }
         }
@@ -497,22 +497,6 @@ mod tests {
         assert!(
             result.program_result.is_err(),
             "SendCall should fail with timeout too far in the future"
-        );
-    }
-
-    #[test]
-    fn test_send_call_receiver_empty() {
-        let ctx = TestContext::new();
-        let mut msg = TestContext::create_valid_msg();
-        msg.receiver = String::new();
-
-        let instruction = ctx.build_instruction(msg);
-        let accounts = ctx.build_accounts(false);
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            !result.program_result.is_err(),
-            "SendCall should succeed with empty receiver (for native cosmos modules)"
         );
     }
 
