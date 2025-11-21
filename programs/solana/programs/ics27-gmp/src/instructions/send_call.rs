@@ -511,8 +511,8 @@ mod tests {
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with empty receiver"
+            !result.program_result.is_err(),
+            "SendCall should succeed with empty receiver (for native cosmos modules)"
         );
     }
 

@@ -61,7 +61,9 @@ pub const MAX_MEMO_LENGTH: usize = 256;
 pub type ClientId = ConstrainedString<1, MAX_CLIENT_ID_LENGTH>;
 pub type Salt = ConstrainedBytes<0, MAX_SALT_LENGTH>;
 pub type Sender = ConstrainedString<1, MAX_SENDER_LENGTH>;
-pub type Receiver = ConstrainedString<1, MAX_RECEIVER_LENGTH>;
+/// Receiver can be empty to support native Cosmos module calls
+/// where the receiver is implicitly determined by the GMP payload routing
+pub type Receiver = ConstrainedString<0, MAX_RECEIVER_LENGTH>;
 pub type Memo = ConstrainedString<0, MAX_MEMO_LENGTH>;
 pub type Payload = NonEmpty<Vec<u8>>;
 
