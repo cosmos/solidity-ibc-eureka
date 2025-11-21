@@ -162,7 +162,13 @@ impl TryFrom<&[u8]> for ValidatedGmpPacketData {
 
         let packet = GmpPacketData::decode(bytes).map_err(|_| GMPPacketError::DecodeError)?;
 
-        Self::new(packet.sender, packet.receiver, packet.salt, packet.payload, packet.memo)
+        Self::new(
+            packet.sender,
+            packet.receiver,
+            packet.salt,
+            packet.payload,
+            packet.memo,
+        )
     }
 }
 
