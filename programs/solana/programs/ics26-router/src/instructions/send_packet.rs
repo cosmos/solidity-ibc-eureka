@@ -51,6 +51,64 @@ pub struct SendPacket<'info> {
     pub client: Account<'info, Client>,
 }
 
+/// Creates a packet commitment PDA account manually.
+///
+/// We use manual account creation instead of Anchor's `init` constraint because
+/// the sequence is computed at runtime using `calculate_namespaced_sequence`,
+/// which Anchor's IDL cannot capture in static seed derivation.
+fn create_packet_commitment_account<'info>(
+    source_client: &str,
+    sequence: u64,
+    packet_commitment_info: &UncheckedAccount<'info>,
+    payer: &AccountInfo<'info>,
+    system_program: &AccountInfo<'info>,
+) -> Result<()> {
+    let (expected_pda, bump) = Pubkey::find_program_address(
+        &[
+            Commitment::PACKET_COMMITMENT_SEED,
+            source_client.as_bytes(),
+            &sequence.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
+    require!(
+        packet_commitment_info.key() == expected_pda,
+        RouterError::InvalidChunkAccount
+    );
+
+    let account_size = 8 + Commitment::INIT_SPACE;
+    let rent = Rent::get()?;
+    let lamports = rent.minimum_balance(account_size);
+
+    let sequence_bytes = sequence.to_le_bytes();
+    let signer_seeds: &[&[&[u8]]] = &[&[
+        Commitment::PACKET_COMMITMENT_SEED,
+        source_client.as_bytes(),
+        &sequence_bytes,
+        &[bump],
+    ]];
+
+    anchor_lang::system_program::create_account(
+        CpiContext::new_with_signer(
+            system_program.clone(),
+            anchor_lang::system_program::CreateAccount {
+                from: payer.clone(),
+                to: packet_commitment_info.to_account_info(),
+            },
+            signer_seeds,
+        ),
+        lamports,
+        account_size as u64,
+        &crate::ID,
+    )?;
+
+    // Initialize the commitment account data
+    let mut data = packet_commitment_info.try_borrow_mut_data()?;
+    data[0..8].copy_from_slice(Commitment::DISCRIMINATOR);
+
+    Ok(())
+}
+
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
     let ibc_app = &ctx.accounts.ibc_app;
     let client_sequence = &mut ctx.accounts.client_sequence;
@@ -82,47 +140,13 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
         &ctx.accounts.payer.key(),
     )?;
 
-    let (expected_pda, bump) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_COMMITMENT_SEED,
-            msg.source_client.as_bytes(),
-            &sequence.to_le_bytes(),
-        ],
-        &crate::ID,
-    );
-    require!(
-        packet_commitment_info.key() == expected_pda,
-        RouterError::InvalidChunkAccount
-    );
-
-    let account_size = 8 + Commitment::INIT_SPACE;
-    let rent = Rent::get()?;
-    let lamports = rent.minimum_balance(account_size);
-
-    let signer_seeds: &[&[&[u8]]] = &[&[
-        Commitment::PACKET_COMMITMENT_SEED,
-        msg.source_client.as_bytes(),
-        &sequence.to_le_bytes(),
-        &[bump],
-    ]];
-
-    anchor_lang::system_program::create_account(
-        CpiContext::new_with_signer(
-            ctx.accounts.system_program.to_account_info(),
-            anchor_lang::system_program::CreateAccount {
-                from: ctx.accounts.payer.to_account_info(),
-                to: packet_commitment_info.to_account_info(),
-            },
-            signer_seeds,
-        ),
-        lamports,
-        account_size as u64,
-        &crate::ID,
+    create_packet_commitment_account(
+        &msg.source_client,
+        sequence,
+        packet_commitment_info,
+        &ctx.accounts.payer.to_account_info(),
+        &ctx.accounts.system_program.to_account_info(),
     )?;
-
-    // Initialize the commitment account data
-    let mut data = packet_commitment_info.try_borrow_mut_data()?;
-    data[0..8].copy_from_slice(Commitment::DISCRIMINATOR);
 
     client_sequence.next_sequence_send = client_sequence
         .next_sequence_send
@@ -142,6 +166,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     let commitment = ics24::packet_commitment_bytes32(&packet);
 
     // Write the commitment value to the account
+    let mut data = packet_commitment_info.try_borrow_mut_data()?;
     data[8..40].copy_from_slice(&commitment);
 
     emit!(SendPacketEvent {
