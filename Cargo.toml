@@ -177,13 +177,11 @@ ibc-eureka-relayer-eth-to-cosmos-v1_2 = { package = "ibc-eureka-relayer-eth-to-c
 ibc-eureka-relayer-core-v1_2= { package = "ibc-eureka-relayer-core", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
 
 [patch.crates-io]
-# Patch tendermint-rs crates to use fork with instance-based Verifier trait
-# TODO: Switch to cometbft/cometbft-rs once PR with instance-based Verifier trait is accepted
-# See: https://github.com/vaporif/tendermint-rs/tree/verifier-with-instance
-tendermint = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
-tendermint-proto = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
-tendermint-light-client-verifier = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
-tendermint-config = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
-tendermint-rpc = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+# TODO: remove on publish of verifier with &self in verify method
+tendermint.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-proto.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-light-client-verifier.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-config.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-rpc.git = "https://github.com/cometbft/tendermint-rs"
 
 
