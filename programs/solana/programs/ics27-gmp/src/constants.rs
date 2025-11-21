@@ -1,4 +1,5 @@
 /// Program constants for ICS27 GMP
+
 // Re-export validation constants from solana-ibc-types
 pub use solana_ibc_types::{
     MAX_CLIENT_ID_LENGTH, MAX_MEMO_LENGTH, MAX_RECEIVER_LENGTH, MAX_SALT_LENGTH, MAX_SENDER_LENGTH,
@@ -6,9 +7,6 @@ pub use solana_ibc_types::{
 
 /// Port ID for this GMP app instance (fixed at compile time)
 pub const GMP_PORT_ID: &str = "gmpport";
-
-/// Maximum length for port ID
-pub const MAX_PORT_ID_LENGTH: usize = 128;
 
 /// ICS27 version (must match Cosmos GMP module version)
 pub const ICS27_VERSION: &str = "ics27-2";
