@@ -35,7 +35,7 @@ anchor-lang = { workspace = true }
 solana-sdk = { workspace = true }
 solana-client = { workspace = true }
 solana-transaction-status = { workspace = true }
-solana-ibc-types = { workspace = true }
+solana-ibc-types = { path = "../../../programs/solana/packages/solana-ibc-types" }
 
 ibc-proto                 = { workspace = true }
 ibc-proto-eureka          = { workspace = true }

@@ -12,9 +12,21 @@ categories = ["cryptography", "blockchain"]
 [dependencies]
 anchor-lang.workspace = true
 prost.workspace = true
-solana-ibc-constants.workspace = true
+# Explicitly pin borsh 0.10.4 for Anchor compatibility (not workspace = true).
+# This ensures correct version even when built from root workspace context via path dependencies.
+borsh = { version = "0.10.4", default-features = false }
+solana-ibc-constants = { path = "../solana-ibc-constants" }
 ibc-eureka-constrained-types.workspace = true
-solana-ibc-proto.workspace = true
+solana-ibc-proto = { path = "../solana-ibc-proto" }
+
+# Dependencies for light-client feature
+ibc-client-tendermint = { workspace = true, optional = true }
+ibc-core-client-types = { workspace = true, optional = true }
+tendermint = { workspace = true, optional = true }
+
+[features]
+light-client = ["dep:ibc-client-tendermint", "dep:ibc-core-client-types", "dep:tendermint"]
+solana = []
 
 [lib]
 crate-type = ["cdylib", "lib"]

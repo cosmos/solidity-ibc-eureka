@@ -3,6 +3,7 @@
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 #![allow(missing_docs, unused_crate_dependencies)]
 
+pub mod borsh_conversions;
 pub mod constants;
 pub mod gmp;
 pub mod proto;
@@ -216,13 +217,14 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     #[tracing::instrument(skip_all)]
     async fn create_client(
         &self,
-        _request: Request<api::CreateClientRequest>,
+        request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
         tracing::info!("Handling create client request for Cosmos to Solana...");
 
+        let inner_req = request.into_inner();
         let tx = self
             .tx_builder
-            .create_client()
+            .create_client(&inner_req.parameters)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
@@ -251,9 +253,19 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         );
 
         let mut txs = Vec::new();
+        // First create ALT
+        txs.push(chunked.alt_create_tx);
+        // Then extend ALT with all account batches (sequential)
+        for extend_tx in chunked.alt_extend_txs {
+            txs.push(extend_tx);
+        }
+        // Add empty separator to mark end of ALT extensions and start of chunks
+        txs.push(Vec::new());
+        // Then upload all chunks (can be submitted in parallel)
         for tx in chunked.chunk_txs {
             txs.push(tx);
         }
+        // Assembly transaction must be last (uses the ALT)
         txs.push(chunked.assembly_tx);
 
         // Serialize multiple transactions into TransactionBatch

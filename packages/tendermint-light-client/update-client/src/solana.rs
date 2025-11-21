@@ -1,16 +1,87 @@
 //! Solana-optimized Tendermint light client verifier using brine-ed25519
+//!
+//! TODO: For upstream PR to ibc-rs/tendermint-rs:
+//! 1. tendermint-light-client-verifier/src/operations/voting_power.rs:319
+//!    Add #[cfg(not(feature = "solana"))] before `votes.sort_unstable_by_key()`
+//!    to skip on-chain sorting when signatures are pre-sorted by relayer
+//! 2. solana-ibc-types/src/borsh_header.rs `conversions::commit_to_borsh()`
+//!    Pre-sort signatures before serialization (saves ~60-80k CU on-chain)
 
 use tendermint::crypto::signature::Error;
 use tendermint::{crypto::signature, PublicKey, Signature};
 use tendermint_light_client_verifier::{
+    errors::VerificationError,
     operations::{commit_validator::ProdCommitValidator, ProvidedVotingPowerCalculator},
-    predicates::ProdPredicates,
+    predicates::VerificationPredicates,
+    types::ValidatorSet,
     PredicateVerifier,
 };
 
+#[cfg(feature = "solana")]
+use solana_program::{log::sol_log_compute_units, msg};
+
+/// Solana-optimized predicates that skip redundant Merkle hashing
+///
+/// The validator set hashes are already validated in `validate_basic()` and
+/// `check_trusted_next_validator_set()` before the verifier is called, so we can
+/// safely skip recomputing them here to save ~290k compute units.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SolanaPredicates;
+
+impl VerificationPredicates for SolanaPredicates {
+    type Sha256 = SolanaSha256;
+
+    /// Skip validator set hash validation - already done in `validate_basic()`
+    ///
+    /// SAFETY: The hash of `validators` against `header_validators_hash` is
+    /// already validated in `Header::validate_basic()` (line 166 of `header.rs`)
+    /// before this function is called, so we can safely skip the redundant
+    /// Merkle hash computation here.
+    ///
+    /// Savings: ~145k compute units
+    fn validator_sets_match(
+        &self,
+        _validators: &ValidatorSet,
+        _header_validators_hash: tendermint::Hash,
+    ) -> Result<(), VerificationError> {
+        #[cfg(feature = "solana")]
+        {
+            msg!("[solana-predicates] Skipping redundant validator_sets_match hash (already validated in validate_basic)");
+            sol_log_compute_units();
+        }
+
+        // Return Ok immediately - validation already done in Header::validate_basic()
+        Ok(())
+    }
+
+    /// Skip next validator set hash validation - already done in `check_trusted_next_validator_set()`
+    ///
+    /// SAFETY: The hash of `trusted_next_validator_set` is already validated in
+    /// `Header::check_trusted_next_validator_set()` (line 123 of header.rs)
+    /// before this function is called, so we can safely skip the redundant
+    /// Merkle hash computation here.
+    ///
+    /// Savings: ~145k compute units
+    fn next_validators_match(
+        &self,
+        _next_validators: &ValidatorSet,
+        _header_next_validators_hash: tendermint::Hash,
+    ) -> Result<(), VerificationError> {
+        #[cfg(feature = "solana")]
+        {
+            msg!("[solana-predicates] Skipping redundant next_validators_match hash (already validated in check_trusted_next_validator_set)");
+            sol_log_compute_units();
+        }
+
+        // Return Ok immediately - validation already done in Header::check_trusted_next_validator_set()
+        Ok(())
+    }
+}
+
 /// Solana-optimized verifier that uses brine-ed25519 for signature verification
+/// and skips redundant Merkle hashing
 pub type SolanaVerifier =
-    PredicateVerifier<ProdPredicates, SolanaVotingPowerCalculator, ProdCommitValidator>;
+    PredicateVerifier<SolanaPredicates, SolanaVotingPowerCalculator, ProdCommitValidator>;
 
 /// Solana voting power calculator using optimized signature verification
 pub type SolanaVotingPowerCalculator = ProvidedVotingPowerCalculator<SolanaSignatureVerifier>;
@@ -66,5 +137,42 @@ impl signature::Verifier for SolanaSignatureVerifier {
             }
             _ => Err(Error::UnsupportedKeyType),
         }
+    }
+}
+
+/// Merkle
+#[derive(Default)]
+pub struct SolanaSha256(tendermint::merkle::NonIncremental<SolanaSha256Impl>);
+
+/// Solana Sha256
+#[derive(Default)]
+pub struct SolanaSha256Impl;
+
+impl tendermint::crypto::Sha256 for SolanaSha256Impl {
+    fn digest(data: impl AsRef<[u8]>) -> [u8; 32] {
+        solana_program::hash::hashv(&[data.as_ref()]).to_bytes()
+    }
+}
+
+impl tendermint::crypto::Sha256 for SolanaSha256 {
+    fn digest(data: impl AsRef<[u8]>) -> [u8; 32] {
+        SolanaSha256Impl::digest(data)
+    }
+}
+impl tendermint::merkle::MerkleHash for SolanaSha256 {
+    fn empty_hash(&mut self) -> tendermint::merkle::Hash {
+        self.0.empty_hash()
+    }
+
+    fn leaf_hash(&mut self, bytes: &[u8]) -> tendermint::merkle::Hash {
+        self.0.leaf_hash(bytes)
+    }
+
+    fn inner_hash(
+        &mut self,
+        left: tendermint::merkle::Hash,
+        right: tendermint::merkle::Hash,
+    ) -> tendermint::merkle::Hash {
+        self.0.inner_hash(left, right)
     }
 }

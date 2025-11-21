@@ -1,9 +1,10 @@
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_header;
-use crate::state::{ConsensusStateStore, HeaderChunk};
+use crate::state::{ConsensusStateStore, HeaderChunk, CHUNK_DATA_SIZE};
 use crate::types::{ConsensusState, UpdateResult};
 use crate::AssembleAndUpdateClient;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::log::sol_log_compute_units;
 use anchor_lang::solana_program::program::set_return_data;
 use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
@@ -39,7 +40,8 @@ fn assemble_chunks(
     target_height: u64,
 ) -> Result<Vec<u8>> {
     let submitter = ctx.accounts.submitter.key();
-    let mut header_bytes = Vec::new();
+    let header_size = ctx.remaining_accounts.len() * CHUNK_DATA_SIZE;
+    let mut header_bytes = Vec::with_capacity(header_size);
 
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
         let expected_seeds = &[
@@ -79,6 +81,7 @@ fn process_header_update(
     let client_state = &mut ctx.accounts.client_state;
 
     let header = deserialize_header(&header_bytes)?;
+
     let trusted_height = header.trusted_height.revision_height();
 
     let trusted_consensus_state = load_consensus_state(
@@ -117,8 +120,9 @@ fn verify_and_update_header(
     trusted_state: &ConsensusState,
     header: Header,
 ) -> Result<(ibc_core_client_types::Height, ConsensusState)> {
-    let update_client_state: UpdateClientState = client_state.clone().into();
-    let trusted_ibc_state: IbcConsensusState = trusted_state.clone().into();
+    let update_client_state: UpdateClientState = client_state.into();
+    let trusted_ibc_state: IbcConsensusState = trusted_state.into();
+
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
     // Signature verification happens here using brine-ed25519 (~30k CU per signature).
@@ -136,15 +140,18 @@ fn verify_and_update_header(
         header,
         current_time,
     )
-    .map_err(|_| ErrorCode::UpdateClientFailed)?;
+    .map_err(|e| {
+        msg!("update_client FAILED: {:?}", e);
+        sol_log_compute_units();
+        ErrorCode::UpdateClientFailed
+    })?;
 
-    Ok((
-        output.latest_height,
-        output
-            .new_consensus_state
-            .try_into()
-            .map_err(|_| ErrorCode::SerializationError)?,
-    ))
+    let new_consensus_state = output
+        .new_consensus_state
+        .try_into()
+        .map_err(|_| ErrorCode::SerializationError)?;
+
+    Ok((output.latest_height, new_consensus_state))
 }
 
 fn cleanup_chunks(
