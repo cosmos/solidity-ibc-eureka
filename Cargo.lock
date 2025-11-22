@@ -4703,6 +4703,7 @@ dependencies = [
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "ics23",
  "prost",
  "serde",
  "serde_json",
@@ -4712,6 +4713,7 @@ dependencies = [
  "tendermint",
  "tendermint-light-client-verifier",
  "tendermint-rpc",
+ "tonic 0.13.1",
  "tracing",
 ]
 
