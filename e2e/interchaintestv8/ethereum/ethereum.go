@@ -19,7 +19,6 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/cosmos/interchaintest/v10/testutil"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
