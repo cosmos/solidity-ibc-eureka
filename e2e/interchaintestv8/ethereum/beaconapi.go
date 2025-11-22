@@ -13,10 +13,6 @@ import (
 	ethttp "github.com/attestantio/go-eth2-client/http"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
-
-	ethcommon "github.com/ethereum/go-ethereum/common"
-
-	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
 type BeaconAPIClient struct {
@@ -32,33 +28,6 @@ type BeaconAPIClient struct {
 
 func (b BeaconAPIClient) GetBeaconAPIURL() string {
 	return b.url
-}
-
-func (s Spec) ToForkParameters() ethereumtypes.ForkParameters {
-	return ethereumtypes.ForkParameters{
-		GenesisForkVersion: ethcommon.Bytes2Hex(s.GenesisForkVersion[:]),
-		GenesisSlot:        s.GenesisSlot,
-		Altair: ethereumtypes.Fork{
-			Version: ethcommon.Bytes2Hex(s.AltairForkVersion[:]),
-			Epoch:   s.AltairForkEpoch,
-		},
-		Bellatrix: ethereumtypes.Fork{
-			Version: ethcommon.Bytes2Hex(s.BellatrixForkVersion[:]),
-			Epoch:   s.BellatrixForkEpoch,
-		},
-		Capella: ethereumtypes.Fork{
-			Version: ethcommon.Bytes2Hex(s.CapellaForkVersion[:]),
-			Epoch:   s.CapellaForkEpoch,
-		},
-		Deneb: ethereumtypes.Fork{
-			Version: ethcommon.Bytes2Hex(s.DenebForkVersion[:]),
-			Epoch:   s.DenebForkEpoch,
-		},
-		Electra: ethereumtypes.Fork{
-			Version: ethcommon.Bytes2Hex(s.ElectraForkVersion[:]),
-			Epoch:   s.ElectraForkEpoch,
-		},
-	}
 }
 
 func (s Spec) Period() uint64 {
@@ -162,6 +131,7 @@ func (b BeaconAPIClient) GetSpec() (Spec, error) {
 		if err != nil {
 			return Spec{}, err
 		}
+
 		var spec Spec
 		if err := json.Unmarshal(specJsonBz, &spec); err != nil {
 			return Spec{}, err

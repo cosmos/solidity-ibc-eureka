@@ -221,8 +221,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	// Handle remaining Ethereum cases
 	switch s.ethTestnetType {
 	case testvalues.EthTestnetTypePoW:
-		// PoW Ethereum chain was included in Cosmos chains, extract it
-		// (handled below at line 178+)
+		icChainSpecs = append(icChainSpecs, &interchaintest.ChainSpec{ChainConfig: icfoundry.DefaultEthereumAnvilChainConfig("ethereum")})
 	case testvalues.EthTestnetTypePoS:
 		// Already setup in parallel goroutine above
 	case testvalues.EthTestnetTypeNone:

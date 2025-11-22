@@ -355,8 +355,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
 
         // receive again, should hit rate limit and write error ack
         vm.expectEmit();
-        emit IICS26Router
-            .IBCAppRecvPacketCallbackError(abi.encodeWithSelector(
+        emit IICS26Router.IBCAppRecvPacketCallbackError(abi.encodeWithSelector(
                 IRateLimitErrors.RateLimitExceeded.selector, defaultAmount - 1, defaultAmount
             ));
         (,, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(

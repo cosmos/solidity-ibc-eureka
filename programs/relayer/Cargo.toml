@@ -16,7 +16,7 @@ ibc-eureka-relayer-cosmos-to-solana     = { workspace = true, default-features =
 
 tokio              = { workspace = true, default-features = true }
 prometheus         = { workspace = true, default-features = true }
-warp               = { workspace = true, default-features = true }
+warp               = { workspace = true, default-features = true, features = ["server"] }
 tracing            = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true, default-features = true }
 clap               = { workspace = true, default-features = true }

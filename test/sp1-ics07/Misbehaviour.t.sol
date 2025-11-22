@@ -6,7 +6,7 @@ pragma solidity ^0.8.28;
 // solhint-disable-next-line no-global-import
 import "forge-std/console.sol";
 import { SP1ICS07TendermintTest } from "./SP1ICS07TendermintTest.sol";
-import { IMisbehaviourMsgs } from "../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol";
+import { IMisbehaviourMsgs } from "../../contracts/light-clients/sp1-ics07/msgs/IMisbehaviourMsgs.sol";
 import { SP1Verifier } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
