@@ -67,9 +67,7 @@ tendermint-light-client-solana            = { path = "packages/tendermint-light-
 brine-ed25519 = { version = "0.2", default-features = false }
 ed25519-dalek = { version = "2.0", default-features = false }
 
-# Pin serde to 1.0.219 to fix compatibility with alloy-consensus 0.14.0
-# alloy-consensus uses serde::__private APIs that changed in serde 1.0.220+
-serde           = { version = "=1.0.219", default-features = false }
+serde           = { version = "1.0", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
 serde_cbor      = { version = "0.11", default-features = false }
 serde_with      = { version = "3.11", default-features = false }
@@ -90,7 +88,7 @@ tokio            = { version = "1.0", default-features = false }
 tonic            = { version = "0.13", default-features = false }
 tonic-build      = { version = "0.13", default-features = false }
 tonic-reflection = { version = "0.13", default-features = false }
-warp             = { version = "0.3", default-features = false }
+warp             = { version = "0.4", default-features = false }
 
 prometheus         = { version = "0.14", default-features = false }
 tracing            = { version = "0.1", default-features = false }
@@ -125,38 +123,39 @@ ibc-core-commitment-types   = { version = "0.57", default-features = false }
 
 ibc-primitives              = { version = "0.57", default-features = false }
 
-alloy                  = { version = "1.0", default-features = false }
-alloy-contract         = { version = "1.0", default-features = false }
-alloy-sol-types        = { version = "1.0", default-features = false }
-alloy-primitives       = { version = "1.0", default-features = false }
-alloy-serde            = { version = "1.0", default-features = false }
-alloy-network          = { version = "1.0", default-features = false }
-alloy-signer-local     = { version = "1.0", default-features = false }
+alloy                  = { version = "1.1", default-features = false }
+alloy-contract         = { version = "1.1", default-features = false }
+alloy-sol-types        = { version = "1.1", default-features = false }
+alloy-primitives       = { version = "1.1", default-features = false }
+alloy-serde            = { version = "1.1", default-features = false }
+alloy-network          = { version = "1.1", default-features = false }
+alloy-signer-local     = { version = "1.1", default-features = false }
 alloy-rlp              = { version = "0.3", default-features = false }
-alloy-provider         = { version = "1.0", default-features = false }
-alloy-transport        = { version = "1.0", default-features = false }
-alloy-rpc-types-eth    = { version = "1.0", default-features = false }
+alloy-provider         = { version = "1.1", default-features = false }
+alloy-transport        = { version = "1.1", default-features = false }
+alloy-rpc-types-eth    = { version = "1.1", default-features = false }
 
-sp1-sdk    = { version = "=5.0.0", default-features = false }
-sp1-prover = { version = "=5.0.5", default-features = false }
+sp1-sdk    = { version = "5.0", default-features = false }
+sp1-prover = { version = "5.0", default-features = false }
 
+# NOTE: When updating, use `cargo update -p ed25519-zebra --precise 4.0.3` to avoid pulling in a version that conflicts with cosmwasm-crypto
 cosmwasm-schema = { version = "2.2", default-features = false }
 cosmwasm-std    = { version = "2.2", default-features = false }
 cw2             = { version = "2.0", default-features = false }
 
 # The dependencies below are maintained by Sigma Prime (for use in Lighthouse (and the broader Ethereum ecosystem))
-ethereum_ssz        = { version = "0.9", default-features = false }
-ethereum_ssz_derive = { version = "0.9", default-features = false }
-tree_hash_derive    = { version = "0.10", default-features = false }
+ethereum_ssz        = { version = "0.10", default-features = false }
+ethereum_ssz_derive = { version = "0.10", default-features = false }
+tree_hash_derive    = { version = "0.11", default-features = false }
 
 # The dependencies below are maintained by Parity Tech
 trie-db            = { version = "0.30", default-features = false }
 hash-db            = { version = "0.16", default-features = false }
-memory-db          = { version = "0.32", default-features = false }
+memory-db          = { version = "0.34", default-features = false }
 hash256-std-hasher = { version = "0.15", default-features = false }
 rlp                = { version = "0.6", default-features = false }
 rlp-derive         = { version = "0.2", default-features = false }
-primitive-types    = { version = "0.13", default-features = false }
+primitive-types    = { version = "0.14", default-features = false }
 
 # test/dev-dependencies
 milagro_bls   = { git = "https://github.com/Snowfork/milagro_bls", rev = "bc2b5b5e8d48b7e2e1bfaa56dc2d93e13cb32095", default-features = false } # Only used for testing, not to be used in production!

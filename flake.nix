@@ -50,8 +50,6 @@
               jq
               parallel
               rust
-              anchor
-              anchor-go
               protobuf
               slither-analyzer
               buf
@@ -59,6 +57,9 @@
               protoc-gen-go-grpc
               quicktype
               inputs.natlint.packages.${system}.default
+            ]
+             ++ lib.optionals pkgs.stdenv.isDarwin [
+              apple-sdk_12
             ];
             NIX_LD_LIBRARY_PATH = with pkgs.buildPackages; lib.makeLibraryPath [
               stdenv.cc.cc

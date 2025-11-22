@@ -59,9 +59,9 @@ where
                     .provider()
                     .get_transaction_by_hash(tx_id)
                     .await?
-                    .ok_or_else(|| anyhow!("Transaction {} not found", tx_id))?
+                    .ok_or_else(|| anyhow!("Transaction {tx_id} not found"))?
                     .block_hash
-                    .ok_or_else(|| anyhow!("Transaction {} has not been mined", tx_id))?;
+                    .ok_or_else(|| anyhow!("Transaction {tx_id} has not been mined"))?;
 
                 let event_filter = Filter::new()
                     .events(EurekaEventWithHeight::evm_signatures())

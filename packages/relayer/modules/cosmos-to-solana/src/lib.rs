@@ -71,12 +71,12 @@ impl CosmosToSolanaRelayerModuleService {
         let solana_ics26_program_id = config
             .solana_ics26_program_id
             .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid Solana ICS26 program ID: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid Solana ICS26 program ID: {e}"))?;
 
         let solana_ics07_program_id: Pubkey = config
             .solana_ics07_program_id
             .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {e}"))?;
 
         let target_listener =
             solana::ChainListener::new(config.target_rpc_url.clone(), solana_ics26_program_id);
@@ -84,14 +84,14 @@ impl CosmosToSolanaRelayerModuleService {
         let fee_payer = config
             .solana_fee_payer
             .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid fee payer address: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid fee payer address: {e}"))?;
 
         let alt_address = config
             .solana_alt_address
             .as_ref()
             .map(|addr| addr.parse())
             .transpose()
-            .map_err(|e| anyhow::anyhow!("Invalid ALT address: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid ALT address: {e}"))?;
 
         let tx_builder = tx_builder::TxBuilder::new(
             src_listener.client().clone(),

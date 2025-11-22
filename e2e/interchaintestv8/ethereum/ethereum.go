@@ -10,9 +10,6 @@ import (
 	"math/big"
 	"os"
 	"os/exec"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -22,15 +19,12 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/cosmos/interchaintest/v10/testutil"
-
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 type Ethereum struct {
 	ChainID         *big.Int
 	RPC             string
-	EthAPI          EthAPI
 	BeaconAPIClient *BeaconAPIClient
 	RPCClient       *ethclient.Client
 
@@ -46,15 +40,10 @@ func NewEthereum(ctx context.Context, rpc string, beaconAPIClient *BeaconAPIClie
 	if err != nil {
 		return Ethereum{}, err
 	}
-	ethAPI, err := NewEthAPI(rpc)
-	if err != nil {
-		return Ethereum{}, err
-	}
 
 	return Ethereum{
 		ChainID:         chainID,
 		RPC:             rpc,
-		EthAPI:          ethAPI,
 		BeaconAPIClient: beaconAPIClient,
 		RPCClient:       ethClient,
 		Faucet:          faucet,
@@ -144,7 +133,7 @@ func (e Ethereum) CreateAndFundUser() (*ecdsa.PrivateKey, error) {
 		return nil, err
 	}
 
-	address := crypto.PubkeyToAddress(key.PublicKey).Hex()
+	address := crypto.PubkeyToAddress(key.PublicKey)
 	if err := e.FundUser(address, testvalues.StartingEthBalance); err != nil {
 		return nil, err
 	}
@@ -152,77 +141,30 @@ func (e Ethereum) CreateAndFundUser() (*ecdsa.PrivateKey, error) {
 	return key, nil
 }
 
-func (e Ethereum) FundUser(address string, amount math.Int) error {
+func (e Ethereum) FundUser(address ethcommon.Address, amount math.Int) error {
 	return e.SendEth(e.Faucet, address, amount)
 }
 
-func (e Ethereum) SendEth(key *ecdsa.PrivateKey, toAddress string, amount math.Int) error {
-	cmd := exec.Command(
-		"cast",
-		"send",
-		toAddress,
-		"--value", amount.String(),
-		"--private-key", fmt.Sprintf("0x%s", hex.EncodeToString(crypto.FromECDSA(key))),
-		"--rpc-url", e.RPC,
-		"--priority-gas-price", "1gwei",
-		"--gas-price", "3gwei",
-	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to send eth with %s: %w", strings.Join(cmd.Args, " "), err)
+func (e Ethereum) SendEth(key *ecdsa.PrivateKey, toAddress ethcommon.Address, amount math.Int) error {
+	ctx := context.Background()
+	txHash, err := SendTx(ctx, e.RPCClient, key, &toAddress, amount.BigInt(), nil, 0)
+	if err != nil {
+		return err
 	}
-
+	receipt, err := e.GetTxReciept(ctx, txHash)
+	if err != nil {
+		return err
+	}
+	if receipt.Status != ethtypes.ReceiptStatusSuccessful {
+		return fmt.Errorf("SendEth transaction failed on-chain with status %d", receipt.Status)
+	}
 	return nil
 }
 
-func (e *Ethereum) Height() (int64, error) {
-	cmd := exec.Command("cast", "block-number", "--rpc-url", e.RPC)
-	stdout, err := cmd.Output()
-	if err != nil {
-		return 0, err
-	}
-	return strconv.ParseInt(strings.TrimSpace(string(stdout)), 10, 64)
-}
-
 func (e *Ethereum) GetTxReciept(ctx context.Context, hash ethcommon.Hash) (*ethtypes.Receipt, error) {
-	var receipt *ethtypes.Receipt
-	err := testutil.WaitForCondition(time.Second*40, time.Second, func() (bool, error) {
-		var err error
-		receipt, err = e.RPCClient.TransactionReceipt(ctx, hash)
-		if err != nil {
-			return false, nil
-		}
-
-		return receipt != nil, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return receipt, nil
+	return GetTxReciept(ctx, e.RPCClient, hash)
 }
 
 func (e *Ethereum) GetTransactOpts(key *ecdsa.PrivateKey) (*bind.TransactOpts, error) {
-	fromAddress := crypto.PubkeyToAddress(key.PublicKey)
-	nonce, err := e.RPCClient.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		nonce = 0
-	}
-
-	gasPrice, err := e.RPCClient.SuggestGasPrice(context.Background())
-	if err != nil {
-		panic(err)
-	}
-
-	txOpts, err := bind.NewKeyedTransactorWithChainID(key, e.ChainID)
-	if err != nil {
-		return nil, err
-	}
-
-	txOpts.Nonce = big.NewInt(int64(nonce))
-	txOpts.GasPrice = gasPrice
-
-	return txOpts, nil
+	return GetTransactOpts(context.Background(), e.RPCClient, key)
 }
