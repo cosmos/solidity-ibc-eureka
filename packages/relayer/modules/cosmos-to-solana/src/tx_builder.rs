@@ -661,10 +661,10 @@ impl TxBuilder {
             .target_solana_client
             .get_account_with_commitment(&ibc_app_account, CommitmentConfig::confirmed())
             .map_err(|e| {
-                anyhow::anyhow!("Failed to fetch IBCApp account for port '{}': {e}", port_id)
+                anyhow::anyhow!("Failed to fetch IBCApp account for port '{port_id}': {e}")
             })?
             .value
-            .ok_or_else(|| anyhow::anyhow!("IBCApp account not found for port '{}'", port_id))?;
+            .ok_or_else(|| anyhow::anyhow!("IBCApp account not found for port '{port_id}'"))?;
 
         if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
             return Err(anyhow::anyhow!("Account data too short for IBCApp account"));
@@ -751,8 +751,7 @@ impl TxBuilder {
                 .find(|v| v.address == *validator_address)
                 .ok_or_else(|| {
                     anyhow::anyhow!(
-                        "Validator address {:?} not found in validator set",
-                        validator_address
+                        "Validator address {validator_address:?} not found in validator set",
                     )
                 })?;
 
@@ -876,9 +875,7 @@ impl TxBuilder {
 
         if accumulated_power < untrusted_required_power {
             anyhow::bail!(
-                "Insufficient voting power: {} < {} required",
-                accumulated_power,
-                untrusted_required_power
+                "Insufficient voting power: {accumulated_power} < {untrusted_required_power} required",
             );
         }
 
@@ -899,9 +896,7 @@ impl TxBuilder {
 
         if trusted_power < trusted_required_power {
             anyhow::bail!(
-                "Selection fails trusted threshold: {} < {} required",
-                trusted_power,
-                trusted_required_power
+                "Selection fails trusted threshold: {trusted_power} < {trusted_required_power} required",
             );
         }
 
@@ -1012,7 +1007,7 @@ impl TxBuilder {
 
         for (index, chunk_data) in chunks.iter().enumerate() {
             let chunk_index = u8::try_from(index)
-                .map_err(|_| anyhow::anyhow!("Chunk index {} exceeds u8 max", index))?;
+                .map_err(|_| anyhow::anyhow!("Chunk index {index} exceeds u8 max"))?;
             let upload_ix = self.build_upload_header_chunk_instruction(
                 chain_id,
                 target_height,
@@ -1572,11 +1567,7 @@ impl TxBuilder {
 
         if solana_latest_height < required_height {
             anyhow::bail!(
-                "Solana client is at height {} but need height {} to prove events at height {}. Update Solana client to at least height {} first!",
-                solana_latest_height,
-                required_height,
-                max_event_height,
-                required_height
+                "Solana client is at height {solana_latest_height} but need height {required_height} to prove events at height {max_event_height}. Update Solana client to at least height {required_height} first!",
             );
         }
 
@@ -1866,9 +1857,9 @@ impl TxBuilder {
         let alt_account = self
             .target_solana_client
             .get_account_with_commitment(&alt_address, CommitmentConfig::confirmed())
-            .map_err(|e| anyhow::anyhow!("Failed to fetch ALT account {}: {e}", alt_address))?
+            .map_err(|e| anyhow::anyhow!("Failed to fetch ALT account {alt_address}: {e}"))?
             .value
-            .ok_or_else(|| anyhow::anyhow!("ALT account {} not found", alt_address))?;
+            .ok_or_else(|| anyhow::anyhow!("ALT account {alt_address} not found"))?;
 
         let lookup_table = AddressLookupTable::deserialize(&alt_account.data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize ALT: {e}"))?;
@@ -1892,8 +1883,7 @@ impl TxBuilder {
             let parts: Vec<&str> = trust_level_str.split('/').collect();
             if parts.len() != 2 {
                 anyhow::bail!(
-                    "Invalid trust level format: expected 'numerator/denominator', got '{}'",
-                    trust_level_str
+                    "Invalid trust level format: expected 'numerator/denominator', got '{trust_level_str}'",
                 );
             }
             let numerator = parts[0]
