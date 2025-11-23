@@ -87,65 +87,15 @@ struct UploadChunkParams {
     chunk_data: Vec<u8>,
 }
 
-/// Organized transactions for chunked recv packet
+/// Organized transactions for chunked packet operations
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct RecvPacketChunkedTxs {
+pub struct PacketChunkedTxs {
     /// All chunk upload transactions for payloads and proof
     pub chunk_txs: Vec<Vec<u8>>,
-    /// Final recv packet transaction
-    pub recv_tx: Vec<u8>,
+    /// Final packet transaction (recv/ack/timeout)
+    pub final_tx: Vec<u8>,
 }
 
-/// Organized transactions for chunked ack packet
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct AckPacketChunkedTxs {
-    /// All chunk upload transactions for payloads and proof
-    pub chunk_txs: Vec<Vec<u8>>,
-    /// Final ack packet transaction
-    pub ack_tx: Vec<u8>,
-}
-
-/// Organized transactions for chunked timeout packet
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct TimeoutPacketChunkedTxs {
-    /// All chunk upload transactions for payloads and proof
-    pub chunk_txs: Vec<Vec<u8>>,
-    /// Final timeout packet transaction
-    pub timeout_tx: Vec<u8>,
-}
-
-/// Enum for different types of chunked packet transactions
-#[derive(Debug)]
-pub enum PacketChunkedTxs {
-    /// Recv packet with chunks
-    Recv(RecvPacketChunkedTxs),
-    /// Ack packet with chunks
-    Ack(AckPacketChunkedTxs),
-    /// Timeout packet with chunks
-    Timeout(TimeoutPacketChunkedTxs),
-}
-
-impl PacketChunkedTxs {
-    /// Get the chunk transactions for this packet
-    #[must_use]
-    pub fn chunks(&self) -> &[Vec<u8>] {
-        match self {
-            Self::Recv(r) => &r.chunk_txs,
-            Self::Ack(a) => &a.chunk_txs,
-            Self::Timeout(t) => &t.chunk_txs,
-        }
-    }
-
-    /// Get the final transaction for this packet
-    #[must_use]
-    pub fn final_tx(&self) -> &[u8] {
-        match self {
-            Self::Recv(r) => &r.recv_tx,
-            Self::Ack(a) => &a.ack_tx,
-            Self::Timeout(t) => &t.timeout_tx,
-        }
-    }
-}
 
 /// Helper to derive header chunk PDA
 fn derive_header_chunk(
@@ -1396,7 +1346,7 @@ impl TxBuilder {
         msg: &MsgRecvPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
-    ) -> Result<RecvPacketChunkedTxs> {
+    ) -> Result<PacketChunkedTxs> {
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.dest_client,
             msg.packet.sequence,
@@ -1426,7 +1376,10 @@ impl TxBuilder {
 
         let recv_tx = self.create_tx_bytes(&instructions)?;
 
-        Ok(RecvPacketChunkedTxs { chunk_txs, recv_tx })
+        Ok(PacketChunkedTxs {
+            chunk_txs,
+            final_tx: recv_tx,
+        })
     }
 
     async fn build_ack_packet_chunked(
@@ -1434,7 +1387,7 @@ impl TxBuilder {
         msg: &MsgAckPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
-    ) -> Result<AckPacketChunkedTxs> {
+    ) -> Result<PacketChunkedTxs> {
         tracing::info!(
             "build_ack_packet_chunked: seq={}, payloads.len={}, proof.total_chunks={}",
             msg.packet.sequence,
@@ -1478,7 +1431,10 @@ impl TxBuilder {
 
         let ack_tx = self.create_tx_bytes(&instructions)?;
 
-        Ok(AckPacketChunkedTxs { chunk_txs, ack_tx })
+        Ok(PacketChunkedTxs {
+            chunk_txs,
+            final_tx: ack_tx,
+        })
     }
 
     fn build_timeout_packet_chunked(
@@ -1487,7 +1443,7 @@ impl TxBuilder {
         msg: &MsgTimeoutPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
-    ) -> Result<TimeoutPacketChunkedTxs> {
+    ) -> Result<PacketChunkedTxs> {
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.source_client,
             msg.packet.sequence,
@@ -1513,9 +1469,9 @@ impl TxBuilder {
 
         let timeout_tx = self.create_tx_bytes(&instructions)?;
 
-        Ok(TimeoutPacketChunkedTxs {
+        Ok(PacketChunkedTxs {
             chunk_txs,
-            timeout_tx,
+            final_tx: timeout_tx,
         })
     }
 
@@ -1722,7 +1678,7 @@ impl TxBuilder {
                 &recv_with_chunks.proof_chunks,
             )?;
 
-            packet_txs.push(PacketChunkedTxs::Recv(chunked));
+            packet_txs.push(chunked);
         }
 
         // Process ack messages with chunking
@@ -1739,7 +1695,7 @@ impl TxBuilder {
                 )
                 .await?;
 
-            packet_txs.push(PacketChunkedTxs::Ack(chunked));
+            packet_txs.push(chunked);
         }
 
         // Process timeout messages with chunking
@@ -1752,7 +1708,7 @@ impl TxBuilder {
                 &timeout_with_chunks.proof_chunks,
             )?;
 
-            packet_txs.push(PacketChunkedTxs::Timeout(chunked));
+            packet_txs.push(chunked);
         }
 
         Ok(packet_txs)

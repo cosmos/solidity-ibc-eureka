@@ -198,8 +198,8 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         let packets = packet_txs
             .iter()
             .map(|pkt| api::PacketTransactions {
-                chunks: pkt.chunks().to_vec(),
-                final_tx: pkt.final_tx().to_vec(),
+                chunks: pkt.chunk_txs.clone(),
+                final_tx: pkt.final_tx.clone(),
             })
             .collect();
 
