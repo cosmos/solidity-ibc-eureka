@@ -7,6 +7,7 @@
 //! 2. solana-ibc-types/src/borsh_header.rs `conversions::commit_to_borsh()`
 //!    Pre-sort signatures before serialization (saves ~60-80k CU on-chain for 100 validators)
 
+use ibc_core_commitment_types::proto::ics23::HostFunctionsManager;
 use tendermint::crypto::signature::Error;
 use tendermint::{PublicKey, Signature};
 use tendermint_light_client_verifier::{
@@ -206,11 +207,11 @@ impl ics23::HostFunctionsProvider for SolanaHostFunctionsManager {
     }
 
     fn sha2_512(message: &[u8]) -> [u8; 64] {
-        ibc_core_commitment_types::proto::ics23::HostFunctionsManager::sha2_512(message)
+        HostFunctionsManager::sha2_512(message)
     }
 
     fn sha2_512_truncated(message: &[u8]) -> [u8; 32] {
-        ibc_core_commitment_types::proto::ics23::HostFunctionsManager::sha2_512_truncated(message)
+        HostFunctionsManager::sha2_512_truncated(message)
     }
 
     fn keccak_256(message: &[u8]) -> [u8; 32] {
@@ -218,18 +219,18 @@ impl ics23::HostFunctionsProvider for SolanaHostFunctionsManager {
     }
 
     fn ripemd160(message: &[u8]) -> [u8; 20] {
-        ibc_core_commitment_types::proto::ics23::HostFunctionsManager::ripemd160(message)
+        HostFunctionsManager::ripemd160(message)
     }
 
     fn blake2b_512(message: &[u8]) -> [u8; 64] {
-        ibc_core_commitment_types::proto::ics23::HostFunctionsManager::blake2b_512(message)
+        HostFunctionsManager::blake2b_512(message)
     }
 
     fn blake2s_256(message: &[u8]) -> [u8; 32] {
-        ibc_core_commitment_types::proto::ics23::HostFunctionsManager::blake2s_256(message)
+        HostFunctionsManager::blake2s_256(message)
     }
 
     fn blake3(message: &[u8]) -> [u8; 32] {
-        ibc_core_commitment_types::proto::ics23::HostFunctionsManager::blake3(message)
+        HostFunctionsManager::blake3(message)
     }
 }
