@@ -3195,6 +3195,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "solana-borsh"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc402b16657abbfa9991cd5cbfac5a11d809f7e7d28d3bb291baeb088b39060e"
+dependencies = [
+ "borsh 1.5.7",
+]
+
+[[package]]
 name = "solana-bpf-loader-program"
 version = "3.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4038,7 +4047,7 @@ dependencies = [
  "solana-big-mod-exp 2.2.1",
  "solana-bincode 2.2.1",
  "solana-blake3-hasher 2.2.1",
- "solana-borsh",
+ "solana-borsh 2.2.1",
  "solana-clock 2.2.2",
  "solana-cpi 2.2.1",
  "solana-decode-error",
@@ -4097,6 +4106,7 @@ dependencies = [
  "solana-account-info 3.1.0",
  "solana-big-mod-exp 3.0.0",
  "solana-blake3-hasher 3.1.0",
+ "solana-borsh 3.0.0",
  "solana-clock 3.0.0",
  "solana-cpi 3.1.0",
  "solana-define-syscall 3.0.0",
@@ -4179,6 +4189,7 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1af32c995a7b692a915bb7414d5f8e838450cf7c70414e763d8abcae7b51f28"
 dependencies = [
+ "borsh 1.5.7",
  "serde",
  "serde_derive",
 ]
@@ -5380,7 +5391,7 @@ dependencies = [
  "borsh 1.5.7",
  "num-derive",
  "num-traits",
- "solana-borsh",
+ "solana-borsh 2.2.1",
  "solana-decode-error",
  "solana-instruction 2.3.0",
  "solana-msg 2.2.1",
@@ -5546,7 +5557,7 @@ version = "0.1.0"
 dependencies = [
  "brine-ed25519",
  "sha2 0.10.9",
- "solana-program 2.3.0",
+ "solana-program 3.0.0",
  "tendermint",
  "tendermint-light-client-verifier",
 ]

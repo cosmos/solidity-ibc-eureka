@@ -10282,6 +10282,7 @@ dependencies = [
  "prost",
  "solana-ibc-constants",
  "solana-ibc-proto",
+ "solana-program 3.0.0",
  "tendermint",
 ]
 
@@ -14195,7 +14196,7 @@ version = "0.1.0"
 dependencies = [
  "brine-ed25519",
  "sha2 0.10.9",
- "solana-program 2.3.0",
+ "solana-program 3.0.0",
  "tendermint",
  "tendermint-light-client-verifier",
 ]
