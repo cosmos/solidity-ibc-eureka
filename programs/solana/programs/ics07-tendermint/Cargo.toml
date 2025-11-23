@@ -34,7 +34,7 @@ ics25-handler.workspace = true
 solana-ibc-types = { workspace = true, features = ["light-client"] }
 
 tendermint-light-client-update-client = { workspace = true, features = ["solana"] }
-tendermint-light-client-membership.workspace = true
+tendermint-light-client-membership = { workspace = true, features = ["solana"] }
 tendermint-light-client-misbehaviour.workspace = true
 tendermint-light-client-solana = { workspace = true }
 
