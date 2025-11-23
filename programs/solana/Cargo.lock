@@ -1779,6 +1779,7 @@ dependencies = [
  "serde_json",
  "solana-allocator",
  "solana-ibc-types",
+ "solana-program 3.0.0",
  "solana-sdk",
  "tendermint",
  "tendermint-light-client-membership",
@@ -1828,6 +1829,7 @@ dependencies = [
  "mollusk-svm-bencher",
  "sha2 0.10.9",
  "solana-ibc-types",
+ "solana-program 3.0.0",
  "solana-sdk",
 ]
 
@@ -1845,6 +1847,7 @@ dependencies = [
  "solana-ibc-macros",
  "solana-ibc-proto",
  "solana-ibc-types",
+ "solana-program 3.0.0",
  "solana-sdk",
 ]
 
@@ -3606,6 +3609,7 @@ dependencies = [
  "prost",
  "solana-ibc-constants",
  "solana-ibc-proto",
+ "solana-program 3.0.0",
  "tendermint",
 ]
 

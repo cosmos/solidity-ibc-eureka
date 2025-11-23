@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::instructions as ix_sysvar;
+use solana_program::ed25519_program;
 
 use crate::PreVerifySignature;
 use solana_ibc_types::ics07::SignatureData;
@@ -38,7 +39,7 @@ fn verify_ed25519_from_sysvar(
     const ED25519_IX_INDEX: usize = 0;
     let ix = ix_sysvar::load_instruction_at_checked(ED25519_IX_INDEX, ix_sysvar)?;
 
-    if ix.program_id != anchor_lang::solana_program::ed25519_program::ID
+    if ix.program_id != Pubkey::from(ed25519_program::ID.to_bytes())
         || ix.data.len() < ED25519_HEADER_SIZE + 96
         || ix.data[ED25519_NUM_SIGNATURES_OFFSET] != 1
     {

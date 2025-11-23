@@ -30,6 +30,7 @@ anchor-spl.workspace = true
 solana-ibc-types.workspace = true
 solana-ibc-proto.workspace = true
 solana-ibc-macros.workspace = true
+solana-program.workspace = true
 ics26-router = { workspace = true, features = ["cpi"] }
 
 [dev-dependencies]

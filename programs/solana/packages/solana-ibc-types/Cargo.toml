@@ -18,6 +18,7 @@ borsh = { version = "=0.10.4", default-features = false }
 solana-ibc-constants = { path = "../solana-ibc-constants" }
 ibc-eureka-constrained-types.workspace = true
 solana-ibc-proto = { path = "../solana-ibc-proto" }
+solana-program.workspace = true
 
 # Dependencies for light-client feature
 ibc-client-tendermint = { workspace = true, optional = true }

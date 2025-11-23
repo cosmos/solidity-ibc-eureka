@@ -32,6 +32,7 @@ anchor-lang = { workspace = true, features = ["init-if-needed"] }
 borsh.workspace = true
 ics25-handler.workspace = true
 solana-ibc-types = { workspace = true, features = ["light-client"] }
+solana-program.workspace = true
 
 tendermint-light-client-update-client = { workspace = true, features = ["solana"] }
 tendermint-light-client-membership.workspace = true
@@ -51,6 +52,7 @@ time = { workspace = true, features = ["macros"] }
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
 solana-sdk.workspace = true
+solana-program.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 hex.workspace = true
