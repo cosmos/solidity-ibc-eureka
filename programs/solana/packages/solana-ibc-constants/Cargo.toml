@@ -12,5 +12,3 @@ categories = ["cryptography", "blockchain"]
 [lib]
 crate-type = ["cdylib", "lib"]
 
-[dependencies]
-# No dependencies needed - just constants

@@ -14,7 +14,7 @@ anchor-lang.workspace = true
 prost.workspace = true
 # Explicitly pin borsh 0.10.4 for Anchor compatibility (not workspace = true).
 # This ensures correct version even when built from root workspace context via path dependencies.
-borsh = { version = "0.10.4", default-features = false }
+borsh = { version = "=0.10.4", default-features = false }
 solana-ibc-constants = { path = "../solana-ibc-constants" }
 ibc-eureka-constrained-types.workspace = true
 solana-ibc-proto = { path = "../solana-ibc-proto" }
