@@ -129,15 +129,11 @@ pub struct AssembleAndUpdateClient<'info> {
 
 /// Context for cleaning up incomplete header uploads or signatures
 #[derive(Accounts)]
-#[instruction(submitter: Pubkey)]
 pub struct CleanupIncompleteUpload<'info> {
     /// The original submitter who gets their rent back
     /// Must be the signer to prove they own the upload
-    #[account(
-        mut,
-        constraint = submitter_account.key() == submitter
-    )]
-    pub submitter_account: Signer<'info>,
+    #[account(mut)]
+    pub submitter: Signer<'info>,
     // Remaining accounts are the chunk and signature verification accounts to close
 }
 
@@ -289,11 +285,8 @@ pub mod ics07_tendermint {
     /// Clean up incomplete header uploads
     /// This can be called to reclaim rent from failed or abandoned uploads
     /// Closes both `HeaderChunk` and `SignatureVerification` PDAs owned by the submitter
-    pub fn cleanup_incomplete_upload(
-        ctx: Context<CleanupIncompleteUpload>,
-        submitter: Pubkey,
-    ) -> Result<()> {
-        instructions::cleanup_incomplete_upload::cleanup_incomplete_upload(ctx, submitter)
+    pub fn cleanup_incomplete_upload(ctx: Context<CleanupIncompleteUpload>) -> Result<()> {
+        instructions::cleanup_incomplete_upload::cleanup_incomplete_upload(ctx)
     }
 
     /// Upload a chunk of misbehaviour data for multi-transaction submission

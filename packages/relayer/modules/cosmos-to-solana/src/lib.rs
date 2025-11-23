@@ -194,17 +194,9 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             packet_txs.len()
         );
 
-        // Serialize packet transactions into RelayPacketBatch
-        let packets = packet_txs
-            .iter()
-            .map(|pkt| api::PacketTransactions {
-                chunks: pkt.chunk_txs.clone(),
-                final_tx: pkt.final_tx.clone(),
-                cleanup_tx: pkt.cleanup_tx.clone(),
-            })
-            .collect();
-
-        let batch = api::RelayPacketBatch { packets };
+        let batch = api::SolanaRelayPacketBatch {
+            packets: packet_txs,
+        };
         let tx = prost::Message::encode_to_vec(&batch);
 
         Ok(Response::new(api::RelayByTxResponse {

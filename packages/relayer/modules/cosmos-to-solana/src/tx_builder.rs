@@ -44,7 +44,7 @@ use tendermint_proto::Protobuf;
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::gmp;
-use ibc_eureka_relayer_core::api;
+use ibc_eureka_relayer_core::api::{self, SolanaPacketTxs};
 
 use solana_ibc_types::{
     ics07::{ics07_instructions, ClientState, ConsensusState, SignatureData},
@@ -85,17 +85,6 @@ struct UploadChunkParams {
     target_height: u64,
     chunk_index: u8,
     chunk_data: Vec<u8>,
-}
-
-/// Organized transactions for chunked packet operations
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct SolanaPacketTxs {
-    /// All chunk upload transactions for payloads and proof
-    pub chunk_txs: Vec<Vec<u8>>,
-    /// Final packet transaction (recv/ack/timeout)
-    pub final_tx: Vec<u8>,
-    /// Cleanup transaction (reclaims rent from chunks)
-    pub cleanup_tx: Vec<u8>,
 }
 
 /// Helper to derive header chunk PDA
@@ -1385,7 +1374,7 @@ impl TxBuilder {
         )?;
 
         Ok(SolanaPacketTxs {
-            chunk_txs,
+            chunks: chunk_txs,
             final_tx: recv_tx,
             cleanup_tx,
         })
@@ -1448,7 +1437,7 @@ impl TxBuilder {
         )?;
 
         Ok(SolanaPacketTxs {
-            chunk_txs,
+            chunks: chunk_txs,
             final_tx: ack_tx,
             cleanup_tx,
         })
@@ -1494,7 +1483,7 @@ impl TxBuilder {
         )?;
 
         Ok(SolanaPacketTxs {
-            chunk_txs,
+            chunks: chunk_txs,
             final_tx: timeout_tx,
             cleanup_tx,
         })

@@ -28,10 +28,10 @@ func (s *Solana) SubmitChunkedRelayPackets(
 ) (solana.Signature, error) {
 	t.Helper()
 
-	var batch relayertypes.RelayPacketBatch
+	var batch relayertypes.SolanaRelayPacketBatch
 	err := proto.Unmarshal(resp.Tx, &batch)
 	if err != nil {
-		return solana.Signature{}, fmt.Errorf("failed to unmarshal RelayPacketBatch: %w", err)
+		return solana.Signature{}, fmt.Errorf("failed to unmarshal SolanaRelayPacketBatch: %w", err)
 	}
 	if len(batch.Packets) == 0 {
 		return solana.Signature{}, fmt.Errorf("no relay packets provided")
@@ -60,7 +60,7 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	packetResults := make(chan packetResult, len(batch.Packets))
 
 	for packetIdx, packet := range batch.Packets {
-		go func(pktIdx int, pkt *relayertypes.PacketTransactions) {
+		go func(pktIdx int, pkt *relayertypes.SolanaPacketTxs) {
 			packetStart := time.Now()
 			t.Logf("--- Packet %d: Starting (%d chunks + 1 final tx) ---", pktIdx+1, len(pkt.Chunks))
 

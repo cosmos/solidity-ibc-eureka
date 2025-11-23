@@ -138,8 +138,8 @@ fn setup_test_accounts_with_chunks(
     }
 }
 
-fn create_cleanup_instruction(test_accounts: &TestAccounts, submitter: Pubkey) -> Instruction {
-    let instruction_data = crate::instruction::CleanupIncompleteUpload { submitter };
+fn create_cleanup_instruction(test_accounts: &TestAccounts) -> Instruction {
+    let instruction_data = crate::instruction::CleanupIncompleteUpload;
 
     let mut account_metas = vec![AccountMeta::new(test_accounts.submitter, true)];
 
@@ -203,7 +203,7 @@ fn test_cleanup_successful_with_rent_reclaim() {
     let total_expected_rent = chunk_rent_per * u64::from(num_chunks);
     let initial_submitter_balance = 10_000_000_000u64;
 
-    let instruction = create_cleanup_instruction(&test_accounts, submitter);
+    let instruction = create_cleanup_instruction(&test_accounts);
 
     let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
 
@@ -358,7 +358,7 @@ fn test_cleanup_with_missing_chunks() {
         },
     ));
 
-    let instruction_data = crate::instruction::CleanupIncompleteUpload { submitter };
+    let instruction_data = crate::instruction::CleanupIncompleteUpload;
 
     let instruction = Instruction {
         program_id: crate::ID,
@@ -425,7 +425,7 @@ fn test_cleanup_with_wrong_chunk_order() {
     let test_accounts =
         setup_test_accounts_with_chunks(chain_id, cleanup_height, submitter, 3, true);
 
-    let instruction_data = crate::instruction::CleanupIncompleteUpload { submitter };
+    let instruction_data = crate::instruction::CleanupIncompleteUpload;
 
     // Pass chunks in wrong order (2, 0, 1 instead of 0, 1, 2)
     let instruction = Instruction {

@@ -3,10 +3,9 @@ use anchor_lang::prelude::*;
 use anchor_lang::Discriminator;
 
 /// Cleans up incomplete update client uploads by closing both `HeaderChunk` and `SignatureVerification` PDAs
-pub fn cleanup_incomplete_upload(
-    ctx: Context<CleanupIncompleteUpload>,
-    submitter: Pubkey,
-) -> Result<()> {
+pub fn cleanup_incomplete_upload(ctx: Context<CleanupIncompleteUpload>) -> Result<()> {
+    let submitter = ctx.accounts.submitter.key();
+
     for account in ctx.remaining_accounts {
         if account.owner != &crate::ID || account.lamports() == 0 {
             continue;
@@ -15,7 +14,7 @@ pub fn cleanup_incomplete_upload(
         let should_close = is_owned_by_submitter(account, submitter)?;
 
         if should_close {
-            crate::helpers::close_account(account, &ctx.accounts.submitter_account)?;
+            crate::helpers::close_account(account, &ctx.accounts.submitter)?;
         }
     }
 

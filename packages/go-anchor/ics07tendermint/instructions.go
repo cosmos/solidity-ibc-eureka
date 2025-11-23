@@ -284,11 +284,8 @@ func NewAssembleAndUpdateClientInstruction(
 // Builds a "cleanup_incomplete_upload" instruction.
 // Clean up incomplete header uploads at lower heights // This can be called to reclaim rent from failed or abandoned uploads
 func NewCleanupIncompleteUploadInstruction(
-	// Params:
-	submitterParam solanago.PublicKey,
-
 	// Accounts:
-	submitterAccountAccount solanago.PublicKey,
+	submitterAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -298,21 +295,15 @@ func NewCleanupIncompleteUploadInstruction(
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
-	{
-		// Serialize `submitterParam`:
-		err = enc__.Encode(submitterParam)
-		if err != nil {
-			return nil, errors.NewField("submitterParam", err)
-		}
-	}
+
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "submitter_account": Writable, Signer, Required
+		// Account 0 "submitter": Writable, Signer, Required
 		// The original submitter who gets their rent back
 		// Must be the signer to prove they own the upload
-		accounts__.Append(solanago.NewAccountMeta(submitterAccountAccount, true, true))
+		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 	}
 
 	// Create the instruction.
