@@ -253,6 +253,16 @@ func (s *Solana) DeploySolanaProgramAsync(ctx context.Context, programName, keyp
 
 func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet) {
 	t.Helper()
+	s.submitChunkedUpdateClient(ctx, t, require, resp, user, false)
+}
+
+func (s *Solana) SubmitChunkedUpdateClientSkipCleanup(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet) {
+	t.Helper()
+	s.submitChunkedUpdateClient(ctx, t, require, resp, user, true)
+}
+
+func (s *Solana) submitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet, skipCleanup bool) {
+	t.Helper()
 
 	var solanaUpdateClient relayertypes.SolanaUpdateClient
 	err := proto.Unmarshal(resp.Tx, &solanaUpdateClient)
@@ -520,17 +530,57 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 
 	s.LogTransactionDetails(ctx, t, sig, "SUCCESS: Assembly Transaction")
 
+	var cleanupComputeUnits, cleanupFee uint64
+	var cleanupDuration time.Duration
+
+	// Phase 3: Cleanup (optional - can be skipped for large updates to avoid tx size limits)
+	// TODO: Add cleanup accounts to ALT for large updates to enable cleanup
+	if !skipCleanup && len(solanaUpdateClient.CleanupTx) > 0 {
+		t.Logf("--- Phase 3: Cleanup (reclaiming rent) ---")
+		cleanupStart := time.Now()
+
+		cleanupTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(solanaUpdateClient.CleanupTx))
+		require.NoError(err, "Failed to decode cleanup tx")
+
+		cleanupSig, err := s.SignAndBroadcastTxWithOpts(ctx, cleanupTx, rpc.ConfirmationStatusConfirmed, user)
+		require.NoError(err, "Cleanup transaction failed")
+
+		cleanupTxDetails, err := s.RPCClient.GetTransaction(ctx, cleanupSig, &rpc.GetTransactionOpts{
+			Encoding:                       solana.EncodingBase64,
+			Commitment:                     rpc.CommitmentConfirmed,
+			MaxSupportedTransactionVersion: &version,
+		})
+		if err == nil && cleanupTxDetails != nil && cleanupTxDetails.Meta != nil {
+			if cleanupTxDetails.Meta.ComputeUnitsConsumed != nil {
+				cleanupComputeUnits = *cleanupTxDetails.Meta.ComputeUnitsConsumed
+			}
+			cleanupFee = cleanupTxDetails.Meta.Fee
+		}
+
+		cleanupDuration = time.Since(cleanupStart)
+		t.Logf("✓ Cleanup transaction completed in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
+			cleanupDuration, cleanupSig, cleanupComputeUnits, float64(cleanupFee)/1e9)
+	} else if skipCleanup {
+		t.Logf("--- Phase 3: Cleanup skipped (disabled via skipCleanup flag) ---")
+	}
+
 	totalDuration := time.Since(totalStart)
-	totalComputeUnits := totalPrepComputeUnits + assemblyComputeUnits
-	totalFees := totalPrepFees + assemblyFee
+	totalComputeUnits := totalPrepComputeUnits + assemblyComputeUnits + cleanupComputeUnits
+	totalFees := totalPrepFees + assemblyFee + cleanupFee
 
 	t.Logf("=== Chunked Update Client Complete ===")
 	t.Logf("Total time: %v", totalDuration)
 	t.Logf("  - Phase 1 (ALT + prep txs): %v (%d prep txs in parallel)", phase1Duration, prepTxCount)
 	t.Logf("  - Phase 2 (Assembly): %v", assemblyDuration)
+	if len(solanaUpdateClient.CleanupTx) > 0 {
+		t.Logf("  - Phase 3 (Cleanup): %v", cleanupDuration)
+	}
 	t.Logf("Total gas consumption:")
 	t.Logf("  - Prep txs: %d CUs, %.9f SOL", totalPrepComputeUnits, float64(totalPrepFees)/1e9)
 	t.Logf("  - Assembly: %d CUs, %.9f SOL", assemblyComputeUnits, float64(assemblyFee)/1e9)
+	if len(solanaUpdateClient.CleanupTx) > 0 {
+		t.Logf("  - Cleanup: %d CUs, %.9f SOL", cleanupComputeUnits, float64(cleanupFee)/1e9)
+	}
 	t.Logf("  - TOTAL: %d CUs, %.9f SOL", totalComputeUnits, float64(totalFees)/1e9)
 }
 

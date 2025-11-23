@@ -22,7 +22,7 @@ pub fn cleanup_incomplete_upload(
     Ok(())
 }
 
-/// Checks if an account is a HeaderChunk or SignatureVerification owned by the given submitter
+/// Checks if an account is a `HeaderChunk` or `SignatureVerification` owned by the given submitter
 pub(crate) fn is_owned_by_submitter(account: &AccountInfo, submitter: Pubkey) -> Result<bool> {
     let data = account.try_borrow_data()?;
 

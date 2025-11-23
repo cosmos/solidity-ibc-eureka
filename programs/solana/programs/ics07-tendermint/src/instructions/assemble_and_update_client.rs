@@ -21,15 +21,11 @@ pub fn assemble_and_update_client<'info>(
         ErrorCode::ClientFrozen
     );
 
-    let submitter = ctx.accounts.submitter.key();
     let chunk_count = chunk_count as usize;
 
     let header_bytes = assemble_chunks(&ctx, &chain_id, target_height, chunk_count)?;
 
     let result = process_header_update(&mut ctx, header_bytes, chunk_count)?;
-
-    // TODO: Re-enable cleanup after fixing access violation
-    // cleanup_accounts(&ctx, submitter)?;
 
     // Return the UpdateResult as bytes for callers to verify
     set_return_data(&result.try_to_vec()?);
@@ -161,24 +157,6 @@ fn verify_and_update_header<'info>(
         .map_err(|_| ErrorCode::SerializationError)?;
 
     Ok((output.latest_height, new_consensus_state))
-}
-
-fn cleanup_accounts(ctx: &Context<AssembleAndUpdateClient>, submitter: Pubkey) -> Result<()> {
-    use crate::instructions::cleanup_incomplete_upload::is_owned_by_submitter;
-
-    for account in ctx.remaining_accounts {
-        if account.owner != &crate::ID || account.lamports() == 0 {
-            continue;
-        }
-
-        let should_close = is_owned_by_submitter(account, submitter)?;
-
-        if should_close {
-            crate::helpers::close_account(account, &ctx.accounts.submitter)?;
-        }
-    }
-
-    Ok(())
 }
 
 // Helper function to load and validate consensus state

@@ -148,7 +148,9 @@ type SolanaUpdateClient struct {
 	// Final assembly transaction (must be submitted last after ALT activation, uses ALT for compression)
 	AssemblyTx []byte `protobuf:"bytes,4,opt,name=assembly_tx,json=assemblyTx,proto3" json:"assembly_tx,omitempty"`
 	// Target height being updated to
-	TargetHeight  uint64 `protobuf:"varint,5,opt,name=target_height,json=targetHeight,proto3" json:"target_height,omitempty"`
+	TargetHeight uint64 `protobuf:"varint,5,opt,name=target_height,json=targetHeight,proto3" json:"target_height,omitempty"`
+	// Cleanup transaction (reclaims rent from chunks and signatures after assembly)
+	CleanupTx     []byte `protobuf:"bytes,6,opt,name=cleanup_tx,json=cleanupTx,proto3" json:"cleanup_tx,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -216,6 +218,13 @@ func (x *SolanaUpdateClient) GetTargetHeight() uint64 {
 		return x.TargetHeight
 	}
 	return 0
+}
+
+func (x *SolanaUpdateClient) GetCleanupTx() []byte {
+	if x != nil {
+		return x.CleanupTx
+	}
+	return nil
 }
 
 // Transactions for a single packet (chunks + final instruction)
@@ -812,14 +821,16 @@ const file_relayer_relayer_proto_rawDesc = "" +
 	"\rsrc_client_id\x18\x05 \x01(\tR\vsrcClientId\x12\"\n" +
 	"\rdst_client_id\x18\x06 \x01(\tR\vdstClientId\x120\n" +
 	"\x14src_packet_sequences\x18\a \x03(\x04R\x12srcPacketSequences\x120\n" +
-	"\x14dst_packet_sequences\x18\b \x03(\x04R\x12dstPacketSequences\"\xc1\x01\n" +
+	"\x14dst_packet_sequences\x18\b \x03(\x04R\x12dstPacketSequences\"\xe0\x01\n" +
 	"\x12SolanaUpdateClient\x12\x1b\n" +
 	"\tchunk_txs\x18\x01 \x03(\fR\bchunkTxs\x12\"\n" +
 	"\ralt_create_tx\x18\x02 \x01(\fR\valtCreateTx\x12$\n" +
 	"\x0ealt_extend_txs\x18\x03 \x03(\fR\faltExtendTxs\x12\x1f\n" +
 	"\vassembly_tx\x18\x04 \x01(\fR\n" +
 	"assemblyTx\x12#\n" +
-	"\rtarget_height\x18\x05 \x01(\x04R\ftargetHeight\"G\n" +
+	"\rtarget_height\x18\x05 \x01(\x04R\ftargetHeight\x12\x1d\n" +
+	"\n" +
+	"cleanup_tx\x18\x06 \x01(\fR\tcleanupTx\"G\n" +
 	"\x12PacketTransactions\x12\x16\n" +
 	"\x06chunks\x18\x01 \x03(\fR\x06chunks\x12\x19\n" +
 	"\bfinal_tx\x18\x02 \x01(\fR\afinalTx\"I\n" +

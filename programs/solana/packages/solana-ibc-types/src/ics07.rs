@@ -12,6 +12,7 @@ pub mod ics07_instructions {
     pub const UPLOAD_HEADER_CHUNK: &str = "upload_header_chunk";
     pub const ASSEMBLE_AND_UPDATE_CLIENT: &str = "assemble_and_update_client";
     pub const PRE_VERIFY_SIGNATURE: &str = "pre_verify_signature";
+    pub const CLEANUP_INCOMPLETE_UPLOAD: &str = "cleanup_incomplete_upload";
 
     pub fn initialize_discriminator() -> [u8; 8] {
         compute_discriminator(INITIALIZE)
@@ -27,6 +28,10 @@ pub mod ics07_instructions {
 
     pub fn pre_verify_signature_discriminator() -> [u8; 8] {
         compute_discriminator(PRE_VERIFY_SIGNATURE)
+    }
+
+    pub fn cleanup_incomplete_upload_discriminator() -> [u8; 8] {
+        compute_discriminator(CLEANUP_INCOMPLETE_UPLOAD)
     }
 }
 

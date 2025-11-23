@@ -44,7 +44,7 @@ message RelayByTxRequest {
 }
 
 // Solana-specific update client transactions with chunking and ALT support
-// Submission order: alt_create_tx -> alt_extend_txs (sequential) -> [chunk_txs (parallel)] -> assembly_tx
+// Submission order: alt_create_tx -> alt_extend_txs (sequential) -> [chunk_txs (parallel)] -> assembly_tx -> cleanup_tx
 message SolanaUpdateClient {
     // All preparatory transactions: signatures + chunks (submitted in parallel with ALT extensions)
     repeated bytes chunk_txs = 1;
@@ -56,6 +56,8 @@ message SolanaUpdateClient {
     bytes assembly_tx = 4;
     // Target height being updated to
     uint64 target_height = 5;
+    // Cleanup transaction (reclaims rent from chunks and signatures after assembly)
+    bytes cleanup_tx = 6;
 }
 
 // Transactions for a single packet (chunks + final instruction)

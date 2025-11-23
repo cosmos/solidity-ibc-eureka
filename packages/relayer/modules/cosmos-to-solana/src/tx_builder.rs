@@ -96,7 +96,6 @@ pub struct PacketChunkedTxs {
     pub final_tx: Vec<u8>,
 }
 
-
 /// Helper to derive header chunk PDA
 fn derive_header_chunk(
     submitter: Pubkey,
@@ -2030,9 +2029,13 @@ impl TxBuilder {
 
         let total_tx_count = 1 + alt_extend_txs.len() + prep_txs.len() + 1; // ALT create + extends + prep txs + assembly
 
+        // Build cleanup transaction to reclaim rent from chunks and signatures
+        let cleanup_tx =
+            self.build_cleanup_tx(&chain_id, target_height, total_chunks, &signature_data)?;
+
         tracing::info!(
-            "Built {} total transactions: 1 ALT create + {} ALT extends + {} prep txs ({} header chunks + {} signatures) + 1 assembly",
-            total_tx_count,
+            "Built {} total transactions: 1 ALT create + {} ALT extends + {} prep txs ({} header chunks + {} signatures) + 1 assembly + 1 cleanup",
+            total_tx_count + 1,
             alt_extend_txs.len(),
             prep_txs.len(),
             total_chunks,
@@ -2045,6 +2048,52 @@ impl TxBuilder {
             alt_extend_txs,
             assembly_tx,
             target_height,
+            cleanup_tx,
         })
+    }
+
+    fn build_cleanup_tx(
+        &self,
+        chain_id: &str,
+        target_height: u64,
+        total_chunks: u8,
+        signature_data: &[SignatureData],
+    ) -> Result<Vec<u8>> {
+        let mut accounts = vec![AccountMeta::new(self.fee_payer, true)];
+
+        // Add all chunk accounts
+        for chunk_index in 0..total_chunks {
+            let (chunk_pda, _) = derive_header_chunk(
+                self.fee_payer,
+                chain_id,
+                target_height,
+                chunk_index,
+                self.solana_ics07_program_id,
+            );
+            accounts.push(AccountMeta::new(chunk_pda, false));
+        }
+
+        // Add all signature verification accounts
+        for sig_data in signature_data {
+            let (sig_verify_pda, _) = Pubkey::find_program_address(
+                &[b"sig_verify", &sig_data.signature_hash],
+                &self.solana_ics07_program_id,
+            );
+            accounts.push(AccountMeta::new(sig_verify_pda, false));
+        }
+
+        let mut data = ics07_instructions::cleanup_incomplete_upload_discriminator().to_vec();
+        data.extend_from_slice(&self.fee_payer.try_to_vec()?);
+
+        let instruction = Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data,
+        };
+
+        let mut instructions = Self::extend_compute_ix();
+        instructions.push(instruction);
+
+        self.create_tx_bytes(&instructions)
     }
 }
