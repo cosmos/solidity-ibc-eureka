@@ -29,6 +29,7 @@ anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl.workspace = true
 solana-ibc-types.workspace = true
 ics25-handler.workspace = true
+solana-program.workspace = true
 sha2 = "0.10"
 hex = "0.4"
 

@@ -4,9 +4,9 @@ use crate::state::{ConsensusStateStore, HeaderChunk, CHUNK_DATA_SIZE};
 use crate::types::{ConsensusState, UpdateResult};
 use crate::AssembleAndUpdateClient;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::log::sol_log_compute_units;
-use anchor_lang::solana_program::program::set_return_data;
 use anchor_lang::system_program;
+use solana_program::log::sol_log_compute_units;
+use solana_program::program::set_return_data;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 

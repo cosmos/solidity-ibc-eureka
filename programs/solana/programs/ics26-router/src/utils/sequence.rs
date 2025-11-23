@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::hash::hashv;
+use solana_program::hash::hashv;
 
 /// Derives a deterministic suffix in range [0, 9999] from `hash(calling_program || sender)`.
 pub fn derive_sequence_suffix(calling_program: &Pubkey, sender: &Pubkey) -> u16 {
