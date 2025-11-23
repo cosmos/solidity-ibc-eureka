@@ -472,7 +472,10 @@ pub mod chunk_test_utils {
     pub fn create_chunk_account(chunk_data: Vec<u8>) -> Account {
         use anchor_lang::AccountSerialize;
 
-        let chunk = HeaderChunk { chunk_data };
+        let chunk = HeaderChunk {
+            submitter: Pubkey::default(),
+            chunk_data,
+        };
 
         let mut data = vec![];
         chunk.try_serialize(&mut data).unwrap();

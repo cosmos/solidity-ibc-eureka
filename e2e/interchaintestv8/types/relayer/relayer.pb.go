@@ -135,29 +135,38 @@ func (x *RelayByTxRequest) GetDstPacketSequences() []uint64 {
 	return nil
 }
 
-// Transaction batch wrapper for multiple transactions
-type TransactionBatch struct {
+// Solana-specific update client transactions with chunking and ALT support
+// Submission order: alt_create_tx -> alt_extend_txs (sequential) -> [chunk_txs (parallel)] -> assembly_tx
+type SolanaUpdateClient struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// List of transaction bytes
-	Txs           [][]byte `protobuf:"bytes,1,rep,name=txs,proto3" json:"txs,omitempty"`
+	// All preparatory transactions: signatures + chunks (submitted in parallel with ALT extensions)
+	ChunkTxs [][]byte `protobuf:"bytes,1,rep,name=chunk_txs,json=chunkTxs,proto3" json:"chunk_txs,omitempty"`
+	// ALT creation transaction (must be submitted first)
+	AltCreateTx []byte `protobuf:"bytes,2,opt,name=alt_create_tx,json=altCreateTx,proto3" json:"alt_create_tx,omitempty"`
+	// ALT extension transactions (adds chunk accounts to ALT in batches, submit sequentially after creation)
+	AltExtendTxs [][]byte `protobuf:"bytes,3,rep,name=alt_extend_txs,json=altExtendTxs,proto3" json:"alt_extend_txs,omitempty"`
+	// Final assembly transaction (must be submitted last after ALT activation, uses ALT for compression)
+	AssemblyTx []byte `protobuf:"bytes,4,opt,name=assembly_tx,json=assemblyTx,proto3" json:"assembly_tx,omitempty"`
+	// Target height being updated to
+	TargetHeight  uint64 `protobuf:"varint,5,opt,name=target_height,json=targetHeight,proto3" json:"target_height,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TransactionBatch) Reset() {
-	*x = TransactionBatch{}
+func (x *SolanaUpdateClient) Reset() {
+	*x = SolanaUpdateClient{}
 	mi := &file_relayer_relayer_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TransactionBatch) String() string {
+func (x *SolanaUpdateClient) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TransactionBatch) ProtoMessage() {}
+func (*SolanaUpdateClient) ProtoMessage() {}
 
-func (x *TransactionBatch) ProtoReflect() protoreflect.Message {
+func (x *SolanaUpdateClient) ProtoReflect() protoreflect.Message {
 	mi := &file_relayer_relayer_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -169,16 +178,44 @@ func (x *TransactionBatch) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TransactionBatch.ProtoReflect.Descriptor instead.
-func (*TransactionBatch) Descriptor() ([]byte, []int) {
+// Deprecated: Use SolanaUpdateClient.ProtoReflect.Descriptor instead.
+func (*SolanaUpdateClient) Descriptor() ([]byte, []int) {
 	return file_relayer_relayer_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *TransactionBatch) GetTxs() [][]byte {
+func (x *SolanaUpdateClient) GetChunkTxs() [][]byte {
 	if x != nil {
-		return x.Txs
+		return x.ChunkTxs
 	}
 	return nil
+}
+
+func (x *SolanaUpdateClient) GetAltCreateTx() []byte {
+	if x != nil {
+		return x.AltCreateTx
+	}
+	return nil
+}
+
+func (x *SolanaUpdateClient) GetAltExtendTxs() [][]byte {
+	if x != nil {
+		return x.AltExtendTxs
+	}
+	return nil
+}
+
+func (x *SolanaUpdateClient) GetAssemblyTx() []byte {
+	if x != nil {
+		return x.AssemblyTx
+	}
+	return nil
+}
+
+func (x *SolanaUpdateClient) GetTargetHeight() uint64 {
+	if x != nil {
+		return x.TargetHeight
+	}
+	return 0
 }
 
 // Transactions for a single packet (chunks + final instruction)
@@ -527,7 +564,7 @@ type UpdateClientResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The transaction to be submitted by caller
 	// For single transactions: contains the raw transaction bytes
-	// For multiple transactions (e.g. Solana chunks): contains serialized TransactionBatch
+	// For Solana: contains serialized SolanaUpdateClient
 	Tx []byte `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`
 	// The contract address to submit the transaction, if applicable
 	Address       string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
@@ -775,9 +812,14 @@ const file_relayer_relayer_proto_rawDesc = "" +
 	"\rsrc_client_id\x18\x05 \x01(\tR\vsrcClientId\x12\"\n" +
 	"\rdst_client_id\x18\x06 \x01(\tR\vdstClientId\x120\n" +
 	"\x14src_packet_sequences\x18\a \x03(\x04R\x12srcPacketSequences\x120\n" +
-	"\x14dst_packet_sequences\x18\b \x03(\x04R\x12dstPacketSequences\"$\n" +
-	"\x10TransactionBatch\x12\x10\n" +
-	"\x03txs\x18\x01 \x03(\fR\x03txs\"G\n" +
+	"\x14dst_packet_sequences\x18\b \x03(\x04R\x12dstPacketSequences\"\xc1\x01\n" +
+	"\x12SolanaUpdateClient\x12\x1b\n" +
+	"\tchunk_txs\x18\x01 \x03(\fR\bchunkTxs\x12\"\n" +
+	"\ralt_create_tx\x18\x02 \x01(\fR\valtCreateTx\x12$\n" +
+	"\x0ealt_extend_txs\x18\x03 \x03(\fR\faltExtendTxs\x12\x1f\n" +
+	"\vassembly_tx\x18\x04 \x01(\fR\n" +
+	"assemblyTx\x12#\n" +
+	"\rtarget_height\x18\x05 \x01(\x04R\ftargetHeight\"G\n" +
 	"\x12PacketTransactions\x12\x16\n" +
 	"\x06chunks\x18\x01 \x03(\fR\x06chunks\x12\x19\n" +
 	"\bfinal_tx\x18\x02 \x01(\fR\afinalTx\"I\n" +
@@ -842,7 +884,7 @@ func file_relayer_relayer_proto_rawDescGZIP() []byte {
 var file_relayer_relayer_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_relayer_relayer_proto_goTypes = []any{
 	(*RelayByTxRequest)(nil),     // 0: relayer.RelayByTxRequest
-	(*TransactionBatch)(nil),     // 1: relayer.TransactionBatch
+	(*SolanaUpdateClient)(nil),   // 1: relayer.SolanaUpdateClient
 	(*PacketTransactions)(nil),   // 2: relayer.PacketTransactions
 	(*RelayPacketBatch)(nil),     // 3: relayer.RelayPacketBatch
 	(*RelayByTxResponse)(nil),    // 4: relayer.RelayByTxResponse

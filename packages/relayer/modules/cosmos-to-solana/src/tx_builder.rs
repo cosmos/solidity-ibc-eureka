@@ -44,6 +44,7 @@ use tendermint_proto::Protobuf;
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::gmp;
+use ibc_eureka_relayer_core::api;
 
 use solana_ibc_types::{
     ics07::{ics07_instructions, ClientState, ConsensusState, SignatureData},
@@ -84,26 +85,6 @@ struct UploadChunkParams {
     target_height: u64,
     chunk_index: u8,
     chunk_data: Vec<u8>,
-}
-
-/// Organized transactions for chunked update client
-/// Submission order: `alt_create_tx` -> [`alt_extend_txs` (sequential) || `chunk_txs` (parallel)] -> `assembly_tx`
-///
-/// Note: ALT extensions and prep txs run concurrently after ALT creation
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct UpdateClientChunkedTxs {
-    /// All preparatory transactions: signatures + chunks (submitted in parallel with ALT extensions)
-    pub chunk_txs: Vec<Vec<u8>>,
-    /// ALT creation transaction (must be submitted first)
-    pub alt_create_tx: Vec<u8>,
-    /// ALT extension transactions (adds chunk accounts to ALT in batches, submit sequentially after creation)
-    pub alt_extend_txs: Vec<Vec<u8>>,
-    /// Final assembly transaction (must be submitted last after ALT activation, uses ALT for compression)
-    pub assembly_tx: Vec<u8>,
-    /// Total number of chunks
-    pub total_chunks: usize,
-    /// Target height being updated to
-    pub target_height: u64,
 }
 
 /// Organized transactions for chunked recv packet
@@ -1940,7 +1921,7 @@ impl TxBuilder {
     /// - Failed to get recent blockhash from Solana
     /// - Chain ID string is too long for serialization
     #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
-    pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
+    pub async fn update_client(&self, dst_client_id: String) -> Result<api::SolanaUpdateClient> {
         // ALT extension batch size: Each Pubkey is 32 bytes, so we batch ~20-25 accounts per transaction
         const ALT_EXTEND_BATCH_SIZE: usize = 20;
 
@@ -2102,12 +2083,11 @@ impl TxBuilder {
             signature_data.len()
         );
 
-        Ok(UpdateClientChunkedTxs {
+        Ok(api::SolanaUpdateClient {
             chunk_txs: prep_txs,
             alt_create_tx,
             alt_extend_txs,
             assembly_tx,
-            total_chunks: total_chunks as usize,
             target_height,
         })
     }

@@ -254,35 +254,19 @@ func (s *Solana) DeploySolanaProgramAsync(ctx context.Context, programName, keyp
 func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet) {
 	t.Helper()
 
-	var batch relayertypes.TransactionBatch
-	err := proto.Unmarshal(resp.Tx, &batch)
-	require.NoError(err, "Failed to unmarshal TransactionBatch")
-	require.NotEmpty(batch.Txs, "no chunked transactions provided")
+	var solanaUpdateClient relayertypes.SolanaUpdateClient
+	err := proto.Unmarshal(resp.Tx, &solanaUpdateClient)
+	require.NoError(err, "Failed to unmarshal SolanaUpdateClient")
+	require.NotEmpty(solanaUpdateClient.ChunkTxs, "no chunked transactions provided")
 
 	totalStart := time.Now()
 
-	// Transaction order: alt_create, alt_extend_batches..., SEPARATOR (empty), chunks..., assembly
-	// Layout:
-	// - batch.Txs[0]: alt_create
-	// - batch.Txs[1..N]: alt_extend_txs (N batches)
-	// - batch.Txs[N+1]: empty separator (len == 0)
-	// - batch.Txs[N+2..M]: chunks
-	// - batch.Txs[M]: assembly
-
 	t.Logf("=== Starting Chunked Update Client ===")
-	t.Logf("Total transactions: %d", len(batch.Txs))
+	t.Logf("Target height: %d", solanaUpdateClient.TargetHeight)
+	t.Logf("ALT extend transactions: %d", len(solanaUpdateClient.AltExtendTxs))
+	t.Logf("Chunk transactions: %d", len(solanaUpdateClient.ChunkTxs))
 
-	// Find the separator (empty transaction) to determine where ALT extensions end
-	separatorIdx := -1
-	for i := 1; i < len(batch.Txs); i++ {
-		if len(batch.Txs[i]) == 0 {
-			separatorIdx = i
-			break
-		}
-	}
-	require.NotEqual(-1, separatorIdx, "Failed to find separator transaction")
-
-	altExtendCount := separatorIdx - 1 // Subtract 1 for alt_create at index 0
+	altExtendCount := len(solanaUpdateClient.AltExtendTxs)
 
 	// Phase 1: Submit ALT ops and prep txs in parallel
 	t.Logf("--- Phase 1: Creating ALT and uploading prep transactions in parallel ---")
@@ -291,8 +275,8 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	// Start ALT operations in background goroutine
 	altDone := make(chan error, 1)
 	go func() {
-		// Submit ALT creation transaction (always index 0)
-		altCreateTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[0]))
+		// Submit ALT creation transaction
+		altCreateTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(solanaUpdateClient.AltCreateTx))
 		if err != nil {
 			altDone <- fmt.Errorf("failed to decode ALT creation tx: %w", err)
 			return
@@ -306,9 +290,8 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 		t.Logf("✓ ALT creation tx submitted: %s", altCreateSig)
 
 		// Submit ALT extension transactions sequentially
-		for i := range altExtendCount {
-			extendIdx := 1 + i
-			altExtendTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[extendIdx]))
+		for i, altExtendTxBytes := range solanaUpdateClient.AltExtendTxs {
+			altExtendTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(altExtendTxBytes))
 			if err != nil {
 				altDone <- fmt.Errorf("failed to decode ALT extension tx %d: %w", i+1, err)
 				return
@@ -326,9 +309,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	}()
 
 	// Upload signature verifications and header chunks in parallel with ALT ops
-	chunkStart := separatorIdx + 1
-	chunkEnd := len(batch.Txs) - 1 // Last tx is assembly
-	prepTxCount := chunkEnd - chunkStart
+	prepTxCount := len(solanaUpdateClient.ChunkTxs)
 
 	t.Logf("Uploading %d prep transactions (signature verifications + header chunks) in parallel with ALT operations...", prepTxCount)
 	chunksStart := time.Now()
@@ -339,13 +320,13 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	var wg sync.WaitGroup
 
 	// Submit all prep txs in parallel
-	for idx := chunkStart; idx < chunkEnd; idx++ {
+	for idx, chunkTxBytes := range solanaUpdateClient.ChunkTxs {
 		wg.Add(1)
-		go func(txIdx int) {
+		go func(txIdx int, txBytes []byte) {
 			defer wg.Done()
 			prepTxStart := time.Now()
 
-			tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[txIdx]))
+			tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(txBytes))
 			if err != nil {
 				t.Errorf("Failed to decode prep tx %d: %v", txIdx, err)
 				return
@@ -417,7 +398,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 			t.Logf("✓ Prep tx %d/%d submitted in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
 				txNum, prepTxCount, prepTxDuration, sig,
 				computeUnits, float64(fee)/1e9)
-		}(idx)
+		}(idx, chunkTxBytes)
 	}
 
 	// Wait for all prep txs to complete
@@ -460,7 +441,7 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	t.Logf("--- Phase 2: Assembling and updating client ---")
 	assemblyStart := time.Now()
 
-	tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[len(batch.Txs)-1]))
+	tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(solanaUpdateClient.AssemblyTx))
 	require.NoError(err, "Failed to decode assembly tx")
 
 	sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)

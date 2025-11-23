@@ -1,53 +1,52 @@
 use crate::CleanupIncompleteUpload;
 use anchor_lang::prelude::*;
+use anchor_lang::Discriminator;
 
+/// Cleans up incomplete update client uploads by closing both `HeaderChunk` and `SignatureVerification` PDAs
 pub fn cleanup_incomplete_upload(
     ctx: Context<CleanupIncompleteUpload>,
-    chain_id: String,
-    cleanup_height: u64,
     submitter: Pubkey,
 ) -> Result<()> {
-    // Close all chunk accounts that were uploaded
-    // IMPORTANT: We must validate that these are actually chunk PDAs to avoid
-    // accidentally closing other accounts
-    for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
-        // Derive the expected chunk PDA for this index
-        let expected_seeds = &[
-            crate::state::HeaderChunk::SEED,
-            submitter.as_ref(),
-            chain_id.as_bytes(),
-            &cleanup_height.to_le_bytes(),
-            &[index as u8],
-        ];
-        let (expected_chunk_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-
-        // CRITICAL: Verify this is the correct chunk account
-        if chunk_account.key() != expected_chunk_pda {
-            // This is not the chunk we're looking for, skip it
-            // This could happen if the relayer passes accounts in wrong order
+    for account in ctx.remaining_accounts {
+        if account.owner != &crate::ID || account.lamports() == 0 {
             continue;
         }
 
-        // Check if account exists and is owned by our program
-        if chunk_account.owner == &crate::ID && chunk_account.lamports() > 0 {
-            // Safe to close - it's a verified chunk PDA owned by our program
-            {
-                let mut data = chunk_account.try_borrow_mut_data()?;
-                data.fill(0);
-            }
+        let should_close = is_owned_by_submitter(account, submitter)?;
 
-            let mut lamports = chunk_account.try_borrow_mut_lamports()?;
-            let mut submitter_lamports =
-                ctx.accounts.submitter_account.try_borrow_mut_lamports()?;
-            **submitter_lamports = submitter_lamports
-                .checked_add(**lamports)
-                .ok_or(crate::error::ErrorCode::ArithmeticOverflow)?;
-            **lamports = 0;
+        if should_close {
+            crate::helpers::close_account(account, &ctx.accounts.submitter_account)?;
         }
-        // If account doesn't exist or isn't owned by us, skip it
     }
 
     Ok(())
+}
+
+/// Checks if an account is a HeaderChunk or SignatureVerification owned by the given submitter
+pub(crate) fn is_owned_by_submitter(account: &AccountInfo, submitter: Pubkey) -> Result<bool> {
+    let data = account.try_borrow_data()?;
+
+    if data.len() < 8 {
+        return Ok(false);
+    }
+
+    let disc = &data[..8];
+
+    if disc == crate::state::HeaderChunk::DISCRIMINATOR {
+        return Ok(
+            anchor_lang::AccountDeserialize::try_deserialize(&mut &data[..])
+                .is_ok_and(|chunk: crate::state::HeaderChunk| chunk.submitter == submitter),
+        );
+    }
+
+    if disc == crate::state::SignatureVerification::DISCRIMINATOR {
+        return Ok(
+            anchor_lang::AccountDeserialize::try_deserialize(&mut &data[..])
+                .is_ok_and(|sig: crate::state::SignatureVerification| sig.submitter == submitter),
+        );
+    }
+
+    Ok(false)
 }
 
 #[cfg(test)]

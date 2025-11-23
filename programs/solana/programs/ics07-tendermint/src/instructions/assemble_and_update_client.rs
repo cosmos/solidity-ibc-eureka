@@ -28,7 +28,8 @@ pub fn assemble_and_update_client<'info>(
 
     let result = process_header_update(&mut ctx, header_bytes, chunk_count)?;
 
-    cleanup_chunks(&ctx, &chain_id, target_height, submitter, chunk_count)?;
+    // TODO: Re-enable cleanup after fixing access violation
+    // cleanup_accounts(&ctx, submitter)?;
 
     // Return the UpdateResult as bytes for callers to verify
     set_return_data(&result.try_to_vec()?);
@@ -162,46 +163,21 @@ fn verify_and_update_header<'info>(
     Ok((output.latest_height, new_consensus_state))
 }
 
-fn cleanup_chunks(
-    ctx: &Context<AssembleAndUpdateClient>,
-    chain_id: &str,
-    target_height: u64,
-    submitter: Pubkey,
-    chunk_count: usize,
-) -> Result<()> {
-    for (index, chunk_account) in ctx.remaining_accounts[..chunk_count].iter().enumerate() {
-        // Double-check PDA (paranoid check)
-        let expected_seeds = &[
-            crate::state::HeaderChunk::SEED,
-            submitter.as_ref(),
-            chain_id.as_bytes(),
-            &target_height.to_le_bytes(),
-            &[index as u8],
-        ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-        require_keys_eq!(
-            chunk_account.key(),
-            expected_pda,
-            ErrorCode::InvalidChunkAccount
-        );
+fn cleanup_accounts(ctx: &Context<AssembleAndUpdateClient>, submitter: Pubkey) -> Result<()> {
+    use crate::instructions::cleanup_incomplete_upload::is_owned_by_submitter;
 
-        require_keys_eq!(
-            *chunk_account.owner,
-            crate::ID,
-            ErrorCode::InvalidAccountOwner
-        );
+    for account in ctx.remaining_accounts {
+        if account.owner != &crate::ID || account.lamports() == 0 {
+            continue;
+        }
 
-        let mut data = chunk_account.try_borrow_mut_data()?;
-        data.fill(0);
+        let should_close = is_owned_by_submitter(account, submitter)?;
 
-        let mut lamports = chunk_account.try_borrow_mut_lamports()?;
-        let mut submitter_lamports = ctx.accounts.submitter.try_borrow_mut_lamports()?;
-
-        **submitter_lamports = submitter_lamports
-            .checked_add(**lamports)
-            .ok_or(ErrorCode::ArithmeticOverflow)?;
-        **lamports = 0;
+        if should_close {
+            crate::helpers::close_account(account, &ctx.accounts.submitter)?;
+        }
     }
+
     Ok(())
 }
 

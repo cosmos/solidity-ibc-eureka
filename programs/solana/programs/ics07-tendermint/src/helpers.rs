@@ -28,7 +28,30 @@ pub fn deserialize_merkle_proof(bytes: &[u8]) -> Result<MerkleProof> {
         .map_err(|_| error!(ErrorCode::InvalidProof))
 }
 
+// TODO: switch to borsch
 pub fn deserialize_misbehaviour(bytes: &[u8]) -> Result<Misbehaviour> {
     <Misbehaviour as Protobuf<RawMisbehaviour>>::decode_vec(bytes)
         .map_err(|_| error!(ErrorCode::InvalidHeader))
+}
+
+/// Closes an account and transfers its lamports to the recipient
+pub fn close_account(account: &AccountInfo, recipient: &AccountInfo) -> Result<()> {
+    // Zero out account data
+    {
+        let mut data = account.try_borrow_mut_data()?;
+        data.fill(0);
+    }
+
+    // Transfer lamports in a separate scope to ensure borrows are dropped
+    {
+        let mut lamports = account.try_borrow_mut_lamports()?;
+        let mut recipient_lamports = recipient.try_borrow_mut_lamports()?;
+
+        **recipient_lamports = recipient_lamports
+            .checked_add(**lamports)
+            .ok_or(ErrorCode::ArithmeticOverflow)?;
+        **lamports = 0;
+    }
+
+    Ok(())
 }

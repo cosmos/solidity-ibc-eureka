@@ -127,17 +127,10 @@ pub struct AssembleAndUpdateClient<'info> {
     // They will be validated and closed in the instruction handler
 }
 
-/// Context for cleaning up incomplete header uploads
-/// This can be called to reclaim rent from failed or abandoned chunk uploads
+/// Context for cleaning up incomplete header uploads or signatures
 #[derive(Accounts)]
-#[instruction(chain_id: String, cleanup_height: u64, submitter: Pubkey)]
+#[instruction(submitter: Pubkey)]
 pub struct CleanupIncompleteUpload<'info> {
-    /// Client state to verify this is a valid client
-    #[account(
-        constraint = client_state.chain_id == chain_id,
-    )]
-    pub client_state: Account<'info, ClientState>,
-
     /// The original submitter who gets their rent back
     /// Must be the signer to prove they own the upload
     #[account(
@@ -145,7 +138,7 @@ pub struct CleanupIncompleteUpload<'info> {
         constraint = submitter_account.key() == submitter
     )]
     pub submitter_account: Signer<'info>,
-    // Remaining accounts are the chunk accounts to close
+    // Remaining accounts are the chunk and signature verification accounts to close
 }
 
 #[derive(Accounts)]
@@ -293,20 +286,14 @@ pub mod ics07_tendermint {
         )
     }
 
-    /// Clean up incomplete header uploads at lower heights
+    /// Clean up incomplete header uploads
     /// This can be called to reclaim rent from failed or abandoned uploads
+    /// Closes both `HeaderChunk` and `SignatureVerification` PDAs owned by the submitter
     pub fn cleanup_incomplete_upload(
         ctx: Context<CleanupIncompleteUpload>,
-        chain_id: String,
-        cleanup_height: u64,
         submitter: Pubkey,
     ) -> Result<()> {
-        instructions::cleanup_incomplete_upload::cleanup_incomplete_upload(
-            ctx,
-            chain_id,
-            cleanup_height,
-            submitter,
-        )
+        instructions::cleanup_incomplete_upload::cleanup_incomplete_upload(ctx, submitter)
     }
 
     /// Upload a chunk of misbehaviour data for multi-transaction submission

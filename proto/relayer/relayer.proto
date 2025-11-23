@@ -43,10 +43,19 @@ message RelayByTxRequest {
     repeated uint64 dst_packet_sequences = 8;
 }
 
-// Transaction batch wrapper for multiple transactions
-message TransactionBatch {
-    // List of transaction bytes
-    repeated bytes txs = 1;
+// Solana-specific update client transactions with chunking and ALT support
+// Submission order: alt_create_tx -> alt_extend_txs (sequential) -> [chunk_txs (parallel)] -> assembly_tx
+message SolanaUpdateClient {
+    // All preparatory transactions: signatures + chunks (submitted in parallel with ALT extensions)
+    repeated bytes chunk_txs = 1;
+    // ALT creation transaction (must be submitted first)
+    bytes alt_create_tx = 2;
+    // ALT extension transactions (adds chunk accounts to ALT in batches, submit sequentially after creation)
+    repeated bytes alt_extend_txs = 3;
+    // Final assembly transaction (must be submitted last after ALT activation, uses ALT for compression)
+    bytes assembly_tx = 4;
+    // Target height being updated to
+    uint64 target_height = 5;
 }
 
 // Transactions for a single packet (chunks + final instruction)
@@ -105,7 +114,7 @@ message UpdateClientRequest {
 message UpdateClientResponse {
     // The transaction to be submitted by caller
     // For single transactions: contains the raw transaction bytes
-    // For multiple transactions (e.g. Solana chunks): contains serialized TransactionBatch
+    // For Solana: contains serialized SolanaUpdateClient
     bytes tx = 1;
     // The contract address to submit the transaction, if applicable
     string address = 2;

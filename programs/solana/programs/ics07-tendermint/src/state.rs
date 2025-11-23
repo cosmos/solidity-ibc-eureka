@@ -18,6 +18,8 @@ impl ConsensusStateStore {
 #[account]
 #[derive(InitSpace)]
 pub struct HeaderChunk {
+    /// The submitter who created this chunk
+    pub submitter: Pubkey,
     /// The chunk data
     #[max_len(CHUNK_DATA_SIZE)]
     pub chunk_data: Vec<u8>,
@@ -44,6 +46,8 @@ impl MisbehaviourChunk {
 #[account]
 #[derive(InitSpace)]
 pub struct SignatureVerification {
+    /// The submitter who created this verification
+    pub submitter: Pubkey,
     /// Whether the signature is valid
     pub is_valid: bool,
 }
