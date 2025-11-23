@@ -136,7 +136,7 @@ func (x *RelayByTxRequest) GetDstPacketSequences() []uint64 {
 }
 
 // Solana-specific update client transactions with chunking and ALT support
-// Submission order: alt_create_tx -> alt_extend_txs (sequential) -> [chunk_txs (parallel)] -> assembly_tx
+// Submission order: alt_create_tx -> alt_extend_txs (sequential) -> [chunk_txs (parallel)] -> assembly_tx -> cleanup_tx
 type SolanaUpdateClient struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// All preparatory transactions: signatures + chunks (submitted in parallel with ALT extensions)
@@ -227,13 +227,16 @@ func (x *SolanaUpdateClient) GetCleanupTx() []byte {
 	return nil
 }
 
-// Transactions for a single packet (chunks + final instruction)
+// Transactions for a single packet (chunks + final instruction + cleanup)
+// Submission order: chunks (parallel) -> final_tx -> cleanup_tx
 type PacketTransactions struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Chunk upload transactions (can be submitted in parallel)
 	Chunks [][]byte `protobuf:"bytes,1,rep,name=chunks,proto3" json:"chunks,omitempty"`
 	// Final packet transaction (recv_packet, ack_packet, or timeout_packet)
-	FinalTx       []byte `protobuf:"bytes,2,opt,name=final_tx,json=finalTx,proto3" json:"final_tx,omitempty"`
+	FinalTx []byte `protobuf:"bytes,2,opt,name=final_tx,json=finalTx,proto3" json:"final_tx,omitempty"`
+	// Cleanup transaction (reclaims rent from chunks)
+	CleanupTx     []byte `protobuf:"bytes,3,opt,name=cleanup_tx,json=cleanupTx,proto3" json:"cleanup_tx,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -278,6 +281,13 @@ func (x *PacketTransactions) GetChunks() [][]byte {
 func (x *PacketTransactions) GetFinalTx() []byte {
 	if x != nil {
 		return x.FinalTx
+	}
+	return nil
+}
+
+func (x *PacketTransactions) GetCleanupTx() []byte {
+	if x != nil {
+		return x.CleanupTx
 	}
 	return nil
 }
@@ -830,10 +840,12 @@ const file_relayer_relayer_proto_rawDesc = "" +
 	"assemblyTx\x12#\n" +
 	"\rtarget_height\x18\x05 \x01(\x04R\ftargetHeight\x12\x1d\n" +
 	"\n" +
-	"cleanup_tx\x18\x06 \x01(\fR\tcleanupTx\"G\n" +
+	"cleanup_tx\x18\x06 \x01(\fR\tcleanupTx\"f\n" +
 	"\x12PacketTransactions\x12\x16\n" +
 	"\x06chunks\x18\x01 \x03(\fR\x06chunks\x12\x19\n" +
-	"\bfinal_tx\x18\x02 \x01(\fR\afinalTx\"I\n" +
+	"\bfinal_tx\x18\x02 \x01(\fR\afinalTx\x12\x1d\n" +
+	"\n" +
+	"cleanup_tx\x18\x03 \x01(\fR\tcleanupTx\"I\n" +
 	"\x10RelayPacketBatch\x125\n" +
 	"\apackets\x18\x01 \x03(\v2\x1b.relayer.PacketTransactionsR\apackets\"=\n" +
 	"\x11RelayByTxResponse\x12\x0e\n" +

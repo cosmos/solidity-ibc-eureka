@@ -193,6 +193,8 @@ func (s *Solana) SubmitChunkedRelayPackets(
 			}
 
 			t.Logf("✓ Packet %d: Final tx completed and finalized in %v - tx: %s", pktIdx+1, finalDuration, sig)
+
+			totalDuration = time.Since(packetStart)
 			t.Logf("--- Packet %d: Complete in %v (chunks: %v, final: %v) ---",
 				pktIdx+1, totalDuration, chunksDuration, finalDuration)
 
@@ -202,6 +204,31 @@ func (s *Solana) SubmitChunkedRelayPackets(
 				chunksDuration: chunksDuration,
 				finalDuration:  finalDuration,
 				totalDuration:  totalDuration,
+			}
+
+			// Phase 3: Submit cleanup transaction (async, not tracked in timing)
+			if len(pkt.CleanupTx) > 0 {
+				go func(pktIdx int, cleanupTxBytes []byte) {
+					cleanupTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(cleanupTxBytes))
+					if err != nil {
+						t.Logf("⚠ Packet %d: Failed to decode cleanup tx: %v", pktIdx+1, err)
+						return
+					}
+
+					recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
+					if err != nil {
+						t.Logf("⚠ Packet %d: Failed to get blockhash for cleanup tx: %v", pktIdx+1, err)
+						return
+					}
+					cleanupTx.Message.RecentBlockhash = recent.Value.Blockhash
+
+					cleanupSig, err := s.SignAndBroadcastTxWithOpts(ctx, cleanupTx, rpc.ConfirmationStatusConfirmed, user)
+					if err != nil {
+						t.Logf("⚠ Packet %d: Cleanup tx failed: %v", pktIdx+1, err)
+					} else {
+						t.Logf("✓ Packet %d: Cleanup tx completed - tx: %s", pktIdx+1, cleanupSig)
+					}
+				}(pktIdx, pkt.CleanupTx)
 			}
 		}(packetIdx, packet)
 	}

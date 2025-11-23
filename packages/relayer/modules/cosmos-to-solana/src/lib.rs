@@ -200,6 +200,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .map(|pkt| api::PacketTransactions {
                 chunks: pkt.chunk_txs.clone(),
                 final_tx: pkt.final_tx.clone(),
+                cleanup_tx: pkt.cleanup_tx.clone(),
             })
             .collect();
 

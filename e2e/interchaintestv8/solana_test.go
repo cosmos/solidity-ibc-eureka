@@ -1488,10 +1488,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 
 	s.Require().True(s.Run("Call cleanup_chunks instruction", func() {
 		cleanupInstruction, err := ics07_tendermint.NewCleanupIncompleteUploadInstruction(
-			cosmosChainID,
-			testHeight,
 			submitter,
-			clientStatePDA,
 			submitter,
 		)
 		s.Require().NoError(err)

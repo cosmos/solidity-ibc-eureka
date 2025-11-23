@@ -14,6 +14,7 @@ pub mod router_instructions {
     pub const TIMEOUT_PACKET: &str = "timeout_packet";
     pub const UPLOAD_PAYLOAD_CHUNK: &str = "upload_payload_chunk";
     pub const UPLOAD_PROOF_CHUNK: &str = "upload_proof_chunk";
+    pub const CLEANUP_CHUNKS: &str = "cleanup_chunks";
 
     pub fn recv_packet_discriminator() -> [u8; 8] {
         compute_discriminator(RECV_PACKET)
@@ -33,6 +34,10 @@ pub mod router_instructions {
 
     pub fn upload_proof_chunk_discriminator() -> [u8; 8] {
         compute_discriminator(UPLOAD_PROOF_CHUNK)
+    }
+
+    pub fn cleanup_chunks_discriminator() -> [u8; 8] {
+        compute_discriminator(CLEANUP_CHUNKS)
     }
 }
 
