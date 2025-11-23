@@ -12453,6 +12453,7 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
+ "tendermint-light-client-solana",
  "thiserror 2.0.17",
 ]
 
@@ -12474,6 +12475,8 @@ name = "tendermint-light-client-solana"
 version = "0.1.0"
 dependencies = [
  "brine-ed25519",
+ "ibc-core-commitment-types",
+ "ics23",
  "sha2 0.10.9",
  "solana-program",
  "tendermint",

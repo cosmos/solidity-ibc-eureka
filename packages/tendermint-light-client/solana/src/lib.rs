@@ -195,3 +195,41 @@ impl tendermint::merkle::MerkleHash for SolanaSha256 {
         self.0.inner_hash(left, right)
     }
 }
+
+/// Solana-optimized host functions for ICS-23 Merkle proof verification
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SolanaHostFunctionsManager;
+
+impl ics23::HostFunctionsProvider for SolanaHostFunctionsManager {
+    fn sha2_256(message: &[u8]) -> [u8; 32] {
+        solana_program::hash::hash(message).to_bytes()
+    }
+
+    fn sha2_512(message: &[u8]) -> [u8; 64] {
+        ibc_core_commitment_types::proto::ics23::HostFunctionsManager::sha2_512(message)
+    }
+
+    fn sha2_512_truncated(message: &[u8]) -> [u8; 32] {
+        ibc_core_commitment_types::proto::ics23::HostFunctionsManager::sha2_512_truncated(message)
+    }
+
+    fn keccak_256(message: &[u8]) -> [u8; 32] {
+        solana_program::keccak::hash(message).to_bytes()
+    }
+
+    fn ripemd160(message: &[u8]) -> [u8; 20] {
+        ibc_core_commitment_types::proto::ics23::HostFunctionsManager::ripemd160(message)
+    }
+
+    fn blake2b_512(message: &[u8]) -> [u8; 64] {
+        ibc_core_commitment_types::proto::ics23::HostFunctionsManager::blake2b_512(message)
+    }
+
+    fn blake2s_256(message: &[u8]) -> [u8; 32] {
+        ibc_core_commitment_types::proto::ics23::HostFunctionsManager::blake2s_256(message)
+    }
+
+    fn blake3(message: &[u8]) -> [u8; 32] {
+        ibc_core_commitment_types::proto::ics23::HostFunctionsManager::blake3(message)
+    }
+}

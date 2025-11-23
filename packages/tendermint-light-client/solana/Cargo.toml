@@ -11,4 +11,6 @@ tendermint-light-client-verifier = { workspace = true }
 brine-ed25519 = { workspace = true, features = ["std"] }
 sha2 = { workspace = true }
 solana-program = { version = "2.3", default-features = false }
+ibc-core-commitment-types = { workspace = true }
+ics23 = { workspace = true }
 
