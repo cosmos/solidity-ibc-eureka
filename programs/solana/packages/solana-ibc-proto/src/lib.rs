@@ -61,7 +61,9 @@ pub const MAX_MEMO_LENGTH: usize = 256;
 pub type ClientId = ConstrainedString<1, MAX_CLIENT_ID_LENGTH>;
 pub type Salt = ConstrainedBytes<0, MAX_SALT_LENGTH>;
 pub type Sender = ConstrainedString<1, MAX_SENDER_LENGTH>;
-pub type Receiver = ConstrainedString<1, MAX_RECEIVER_LENGTH>;
+/// Receiver can be empty to support native Cosmos module calls
+/// where the receiver is implicitly determined by the GMP payload routing
+pub type Receiver = ConstrainedString<0, MAX_RECEIVER_LENGTH>;
 pub type Memo = ConstrainedString<0, MAX_MEMO_LENGTH>;
 pub type Payload = NonEmpty<Vec<u8>>;
 
@@ -97,6 +99,59 @@ pub struct ValidatedGmpPacketData {
     pub memo: Memo,
 }
 
+impl ValidatedGmpPacketData {
+    /// Create a new validated GMP packet data from raw components
+    ///
+    /// Validates all fields against their constraints before construction.
+    /// This is used for outgoing packets (send path) to ensure data integrity.
+    pub fn new(
+        sender: String,
+        receiver: String,
+        salt: Vec<u8>,
+        payload: Vec<u8>,
+        memo: String,
+    ) -> core::result::Result<Self, GMPPacketError> {
+        let sender = sender
+            .try_into()
+            .map_err(|_| GMPPacketError::InvalidSender)?;
+
+        let receiver = receiver
+            .try_into()
+            .map_err(|_| GMPPacketError::InvalidReceiver)?;
+
+        let salt = salt.try_into().map_err(|_| GMPPacketError::InvalidSalt)?;
+
+        let payload = payload
+            .try_into()
+            .map_err(|_| GMPPacketError::EmptyPayload)?;
+
+        let memo = memo.try_into().map_err(|_| GMPPacketError::MemoTooLong)?;
+
+        Ok(Self {
+            sender,
+            receiver,
+            salt,
+            payload,
+            memo,
+        })
+    }
+
+    /// Encode to protobuf bytes
+    ///
+    /// This method consumes the validated data and encodes it to protobuf format.
+    pub fn encode_to_vec(self) -> Vec<u8> {
+        let proto = GmpPacketData {
+            sender: self.sender.into_string(),
+            receiver: self.receiver.into_string(),
+            salt: self.salt.into_vec(),
+            payload: self.payload.into_inner(),
+            memo: self.memo.into_string(),
+        };
+
+        proto.encode_to_vec()
+    }
+}
+
 /// TryFrom implementation for decoding and validating from protobuf bytes
 impl TryFrom<&[u8]> for ValidatedGmpPacketData {
     type Error = GMPPacketError;
@@ -106,43 +161,13 @@ impl TryFrom<&[u8]> for ValidatedGmpPacketData {
 
         let packet = GmpPacketData::decode(bytes).map_err(|_| GMPPacketError::DecodeError)?;
 
-        // Validate and construct constrained sender
-        let sender = packet
-            .sender
-            .try_into()
-            .map_err(|_| GMPPacketError::InvalidSender)?;
-
-        // Validate and construct constrained receiver
-        let receiver = packet
-            .receiver
-            .try_into()
-            .map_err(|_| GMPPacketError::InvalidReceiver)?;
-
-        // Validate and construct constrained salt
-        let salt = packet
-            .salt
-            .try_into()
-            .map_err(|_| GMPPacketError::InvalidSalt)?;
-
-        // Validate payload is non-empty (no max length constraint)
-        let payload = packet
-            .payload
-            .try_into()
-            .map_err(|_| GMPPacketError::EmptyPayload)?;
-
-        // Validate and construct constrained memo
-        let memo = packet
-            .memo
-            .try_into()
-            .map_err(|_| GMPPacketError::MemoTooLong)?;
-
-        Ok(Self {
-            sender,
-            receiver,
-            salt,
-            payload,
-            memo,
-        })
+        Self::new(
+            packet.sender,
+            packet.receiver,
+            packet.salt,
+            packet.payload,
+            packet.memo,
+        )
     }
 }
 
