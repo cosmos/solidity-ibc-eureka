@@ -13,6 +13,7 @@ categories = ["cryptography", "blockchain"]
 prost = { workspace = true, features = ["prost-derive"] }
 anchor-lang = { workspace = true }
 ibc-eureka-constrained-types = { workspace = true }
+ibc-proto = { workspace = true }
 
 [build-dependencies]
 prost-build.workspace = true

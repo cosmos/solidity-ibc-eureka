@@ -4,7 +4,9 @@
 //! By centralizing proto generation, we ensure type consistency and enable shared validation logic.
 
 use anchor_lang::prelude::*;
-use prost::Message;
+
+// Re-export Protobuf trait for users
+pub use ibc_proto::Protobuf;
 
 // Re-export constrained types
 pub use ibc_eureka_constrained_types::{
@@ -21,9 +23,16 @@ pub mod solana {
     include!(concat!(env!("OUT_DIR"), "/solana.rs"));
 }
 
-// Re-export GMP types under familiar names
-pub use ibc_applications_gmp_v1::{Acknowledgement as GmpAcknowledgement, GmpPacketData};
-pub use solana::{GmpSolanaPayload, SolanaAccountMeta};
+pub use ibc_applications_gmp_v1::{
+    Acknowledgement as GmpAcknowledgement, GmpPacketData as RawGmpPacketData,
+};
+pub use solana::{
+    GmpSolanaPayload as RawGmpSolanaPayload, SolanaAccountMeta as RawSolanaAccountMeta,
+};
+
+impl Protobuf<RawGmpPacketData> for RawGmpPacketData {}
+impl Protobuf<RawGmpSolanaPayload> for RawGmpSolanaPayload {}
+impl Protobuf<RawSolanaAccountMeta> for RawSolanaAccountMeta {}
 
 /// Validation errors for GMP payloads
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,12 +95,26 @@ pub enum GMPPacketError {
     MemoTooLong,
 }
 
-/// Validated GMP packet data with constrained types
+impl core::fmt::Display for GMPPacketError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::DecodeError => write!(f, "Failed to decode GMP packet"),
+            Self::InvalidSender => write!(f, "Invalid sender address"),
+            Self::InvalidReceiver => write!(f, "Invalid receiver address"),
+            Self::InvalidSalt => write!(f, "Invalid salt"),
+            Self::EmptyPayload => write!(f, "Empty payload"),
+            Self::InvalidPayload => write!(f, "Invalid payload"),
+            Self::MemoTooLong => write!(f, "Memo too long"),
+        }
+    }
+}
+
+/// Domain type for GMP packet data with validated and constrained fields.
 ///
 /// All fields are validated and constrained at the type level.
 /// The payload is validated to be non-empty (no maximum length constraint).
 #[derive(Debug, Clone)]
-pub struct ValidatedGmpPacketData {
+pub struct GmpPacketData {
     pub sender: Sender,
     pub receiver: Receiver,
     pub salt: Salt,
@@ -99,33 +122,36 @@ pub struct ValidatedGmpPacketData {
     pub memo: Memo,
 }
 
-impl ValidatedGmpPacketData {
-    /// Create a new validated GMP packet data from raw components
-    ///
-    /// Validates all fields against their constraints before construction.
-    /// This is used for outgoing packets (send path) to ensure data integrity.
-    pub fn new(
-        sender: String,
-        receiver: String,
-        salt: Vec<u8>,
-        payload: Vec<u8>,
-        memo: String,
-    ) -> core::result::Result<Self, GMPPacketError> {
-        let sender = sender
+impl Protobuf<RawGmpPacketData> for GmpPacketData {}
+
+impl TryFrom<RawGmpPacketData> for GmpPacketData {
+    type Error = GMPPacketError;
+
+    fn try_from(raw: RawGmpPacketData) -> core::result::Result<Self, Self::Error> {
+        let sender = raw
+            .sender
             .try_into()
             .map_err(|_| GMPPacketError::InvalidSender)?;
 
-        let receiver = receiver
+        let receiver = raw
+            .receiver
             .try_into()
             .map_err(|_| GMPPacketError::InvalidReceiver)?;
 
-        let salt = salt.try_into().map_err(|_| GMPPacketError::InvalidSalt)?;
+        let salt = raw
+            .salt
+            .try_into()
+            .map_err(|_| GMPPacketError::InvalidSalt)?;
 
-        let payload = payload
+        let payload = raw
+            .payload
             .try_into()
             .map_err(|_| GMPPacketError::EmptyPayload)?;
 
-        let memo = memo.try_into().map_err(|_| GMPPacketError::MemoTooLong)?;
+        let memo = raw
+            .memo
+            .try_into()
+            .map_err(|_| GMPPacketError::MemoTooLong)?;
 
         Ok(Self {
             sender,
@@ -135,105 +161,87 @@ impl ValidatedGmpPacketData {
             memo,
         })
     }
+}
 
-    /// Encode to protobuf bytes
-    ///
-    /// This method consumes the validated data and encodes it to protobuf format.
-    pub fn encode_to_vec(self) -> Vec<u8> {
-        let proto = GmpPacketData {
-            sender: self.sender.into_string(),
-            receiver: self.receiver.into_string(),
-            salt: self.salt.into_vec(),
-            payload: self.payload.into_inner(),
-            memo: self.memo.into_string(),
-        };
-
-        proto.encode_to_vec()
+impl From<GmpPacketData> for RawGmpPacketData {
+    fn from(domain: GmpPacketData) -> Self {
+        Self {
+            sender: domain.sender.into_string(),
+            receiver: domain.receiver.into_string(),
+            salt: domain.salt.into_vec(),
+            payload: domain.payload.into_inner(),
+            memo: domain.memo.into_string(),
+        }
     }
 }
 
-/// TryFrom implementation for decoding and validating from protobuf bytes
-impl TryFrom<&[u8]> for ValidatedGmpPacketData {
-    type Error = GMPPacketError;
-
-    fn try_from(bytes: &[u8]) -> core::result::Result<Self, Self::Error> {
-        use prost::Message;
-
-        let packet = GmpPacketData::decode(bytes).map_err(|_| GMPPacketError::DecodeError)?;
-
-        Self::new(
-            packet.sender,
-            packet.receiver,
-            packet.salt,
-            packet.payload,
-            packet.memo,
-        )
-    }
-}
-
-/// Validated account metadata with Solana Pubkey
+/// Domain type for Solana account metadata with validated Pubkey
 #[derive(Debug, Clone)]
-pub struct ValidatedAccountMeta {
+pub struct SolanaAccountMeta {
     pub pubkey: Pubkey,
     pub is_signer: bool,
     pub is_writable: bool,
 }
 
-impl ValidatedAccountMeta {
-    /// Convert to Anchor AccountMeta
-    pub const fn to_account_meta(&self) -> AccountMeta {
-        AccountMeta {
-            pubkey: self.pubkey,
-            is_signer: self.is_signer,
-            is_writable: self.is_writable,
+impl From<&SolanaAccountMeta> for anchor_lang::prelude::AccountMeta {
+    fn from(meta: &SolanaAccountMeta) -> Self {
+        Self {
+            pubkey: meta.pubkey,
+            is_signer: meta.is_signer,
+            is_writable: meta.is_writable,
         }
     }
 }
 
-/// Validated GMP Solana payload with type-safe fields
+/// Domain type for GMP Solana payload with type-safe fields
 #[derive(Debug, Clone)]
-pub struct ValidatedGMPSolanaPayload {
+pub struct GmpSolanaPayload {
     pub data: Vec<u8>,
-    pub accounts: Vec<ValidatedAccountMeta>,
+    pub accounts: Vec<SolanaAccountMeta>,
     pub payer_position: Option<u32>,
 }
 
-impl ValidatedGMPSolanaPayload {
+impl GmpSolanaPayload {
     /// Convert accounts to Anchor AccountMeta format
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        self.accounts
-            .iter()
-            .map(ValidatedAccountMeta::to_account_meta)
-            .collect()
+    pub fn to_account_metas(&self) -> Vec<anchor_lang::prelude::AccountMeta> {
+        self.accounts.iter().map(Into::into).collect()
     }
 }
 
-impl TryFrom<NonEmpty<Vec<u8>>> for ValidatedGMPSolanaPayload {
-    type Error = GmpValidationError;
-
-    fn try_from(payload: NonEmpty<Vec<u8>>) -> core::result::Result<Self, Self::Error> {
-        Self::try_from(payload.into_inner())
+impl From<GmpSolanaPayload> for RawGmpSolanaPayload {
+    fn from(domain: GmpSolanaPayload) -> Self {
+        Self {
+            data: domain.data,
+            accounts: domain
+                .accounts
+                .into_iter()
+                .map(|acc| RawSolanaAccountMeta {
+                    pubkey: acc.pubkey.to_bytes().to_vec(),
+                    is_signer: acc.is_signer,
+                    is_writable: acc.is_writable,
+                })
+                .collect(),
+            payer_position: domain.payer_position,
+        }
     }
 }
 
-impl TryFrom<Vec<u8>> for ValidatedGMPSolanaPayload {
+impl Protobuf<RawGmpSolanaPayload> for GmpSolanaPayload {}
+
+impl TryFrom<RawGmpSolanaPayload> for GmpSolanaPayload {
     type Error = GmpValidationError;
 
-    fn try_from(data: Vec<u8>) -> core::result::Result<Self, Self::Error> {
-        use prost::Message;
-        let payload = GmpSolanaPayload::decode(data.as_slice())
-            .map_err(|_| GmpValidationError::DecodeError)?;
-
+    fn try_from(raw: RawGmpSolanaPayload) -> core::result::Result<Self, Self::Error> {
         // Validate data
-        if payload.data.is_empty() {
+        if raw.data.is_empty() {
             return Err(GmpValidationError::EmptyPayload);
         }
 
-        let mut accounts = Vec::with_capacity(payload.accounts.len());
-        for account in payload.accounts {
+        let mut accounts = Vec::with_capacity(raw.accounts.len());
+        for account in raw.accounts {
             let pubkey = Pubkey::try_from(&account.pubkey[..])
                 .map_err(|_| GmpValidationError::InvalidAccountKey)?;
-            accounts.push(ValidatedAccountMeta {
+            accounts.push(SolanaAccountMeta {
                 pubkey,
                 is_signer: account.is_signer,
                 is_writable: account.is_writable,
@@ -241,44 +249,19 @@ impl TryFrom<Vec<u8>> for ValidatedGMPSolanaPayload {
         }
 
         Ok(Self {
-            data: payload.data,
+            data: raw.data,
             accounts,
-            payer_position: payload.payer_position,
+            payer_position: raw.payer_position,
         })
     }
 }
 
-// Helper methods for encoding (we still need these for creating packets)
-impl GmpPacketData {
-    /// Encode to protobuf bytes
-    pub fn encode_to_vec(&self) -> Vec<u8> {
-        Message::encode_to_vec(self)
-    }
-}
+// GmpAcknowledgement is a simple protobuf type that doesn't need validation
+impl Protobuf<GmpAcknowledgement> for GmpAcknowledgement {}
 
-impl GmpSolanaPayload {
-    /// Encode to protobuf bytes
-    pub fn encode_to_vec(&self) -> Vec<u8> {
-        Message::encode_to_vec(self)
-    }
-}
-
-// Helper methods for GmpAcknowledgement (encapsulate prost usage)
 impl GmpAcknowledgement {
     /// Create new acknowledgement with result data
     pub const fn new(result: Vec<u8>) -> Self {
         Self { result }
-    }
-
-    /// Encode to protobuf bytes (compatible with Borsh `try_to_vec`)
-    pub fn try_to_vec(&self) -> core::result::Result<Vec<u8>, prost::EncodeError> {
-        let mut buf = Vec::new();
-        Message::encode(self, &mut buf)?;
-        Ok(buf)
-    }
-
-    /// Decode from protobuf bytes (compatible with Borsh `try_from_slice`)
-    pub fn try_from_slice(data: &[u8]) -> core::result::Result<Self, prost::DecodeError> {
-        <Self as Message>::decode(data)
     }
 }

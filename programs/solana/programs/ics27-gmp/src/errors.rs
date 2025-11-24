@@ -131,6 +131,9 @@ pub enum GMPError {
 
     #[msg("Failed to parse sequence from router account")]
     SequenceParseError,
+
+    #[msg("Failed to decode protobuf message")]
+    DecodeError,
 }
 
 /// Convert GMP packet errors to GMP errors

@@ -32,7 +32,7 @@ pub use ics07::{ics07_instructions, ClientState, ConsensusState, IbcHeight, Upda
 
 pub use ics27::{
     ClientId, ConstrainedBytes, ConstrainedError, ConstrainedString, ConstrainedVec, GMPAccount,
-    GMPAppState, GMPPacketError, Salt, SignerSeeds, ValidatedGmpPacketData, MAX_MEMO_LENGTH,
+    GMPAppState, GMPPacketError, GmpPacketData, Salt, SignerSeeds, MAX_MEMO_LENGTH,
     MAX_RECEIVER_LENGTH, MAX_SALT_LENGTH, MAX_SENDER_LENGTH,
 };
 

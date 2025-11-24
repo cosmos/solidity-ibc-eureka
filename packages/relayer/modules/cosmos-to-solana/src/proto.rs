@@ -4,7 +4,4 @@
 //! Proto generation is centralized to ensure type consistency across programs and relayer.
 
 // Re-export from shared proto crate
-pub use solana_ibc_proto::{
-    GmpAcknowledgement as GmpPacketDataAcknowledgement, GmpPacketData, GmpSolanaPayload,
-    SolanaAccountMeta, ValidatedGMPSolanaPayload,
-};
+pub use solana_ibc_proto::{GmpPacketData, GmpSolanaPayload, Protobuf, SolanaAccountMeta};

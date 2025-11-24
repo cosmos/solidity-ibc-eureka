@@ -3,7 +3,8 @@ use crate::errors::GMPError;
 use crate::events::GMPCallSent;
 use crate::state::{GMPAppState, SendCallMsg};
 use anchor_lang::prelude::*;
-use solana_ibc_types::{MsgSendPacket, Payload, ValidatedGmpPacketData};
+use solana_ibc_proto::{Protobuf, RawGmpPacketData};
+use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 
 /// Send a GMP call packet
 #[derive(Accounts)]
@@ -78,17 +79,20 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         GMPError::TimeoutTooLong
     );
 
-    // Create, validate, and encode packet data
-    let validated_packet_data = ValidatedGmpPacketData::new(
-        ctx.accounts.sender.key().to_string(),
-        msg.receiver.clone(),
-        msg.salt.clone(),
-        msg.payload.clone(),
-        msg.memo.clone(),
-    )
-    .map_err(GMPError::from)?;
+    // Create raw GMP packet
+    let raw_packet_data = RawGmpPacketData {
+        sender: ctx.accounts.sender.key().to_string(),
+        receiver: msg.receiver.clone(),
+        salt: msg.salt.clone(),
+        payload: msg.payload.clone(),
+        memo: msg.memo.clone(),
+    };
 
-    let packet_data_bytes = validated_packet_data.encode_to_vec();
+    // Validate GMP packet
+    let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(GMPError::from)?;
+
+    // Encode to protobuf bytes
+    let packet_data_bytes = packet_data.encode_vec();
 
     // Create IBC packet payload
     let ibc_payload = Payload {

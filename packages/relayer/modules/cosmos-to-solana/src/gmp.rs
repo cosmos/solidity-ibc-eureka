@@ -6,11 +6,10 @@
 use std::str::FromStr;
 
 use anyhow::Result;
-use solana_ibc_types::ValidatedGmpPacketData;
 use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey};
 
 use crate::constants::{GMP_PORT_ID, PROTOBUF_ENCODING};
-use crate::proto::ValidatedGMPSolanaPayload;
+use crate::proto::{GmpPacketData, GmpSolanaPayload, Protobuf};
 
 /// Extract GMP accounts from packet payload
 ///
@@ -57,8 +56,8 @@ fn is_gmp_payload(dest_port: &str, encoding: &str) -> bool {
 }
 
 /// Decode and validate GMP packet, returning None on failure
-fn decode_gmp_packet(payload_value: &[u8], dest_port: &str) -> Option<ValidatedGmpPacketData> {
-    ValidatedGmpPacketData::try_from(payload_value)
+fn decode_gmp_packet(payload_value: &[u8], dest_port: &str) -> Option<GmpPacketData> {
+    GmpPacketData::decode_vec(payload_value)
         .inspect_err(|e| {
             tracing::debug!(
                 "Failed to decode/validate GMP packet for port {}: {e:?}",
@@ -68,15 +67,15 @@ fn decode_gmp_packet(payload_value: &[u8], dest_port: &str) -> Option<ValidatedG
         .ok()
 }
 
-/// Build the complete account list from validated GMP packet
+/// Build the complete account list from GMP packet
 fn build_gmp_account_list(
-    validated_packet: ValidatedGmpPacketData,
+    packet: GmpPacketData,
     dest_client: &str,
     ibc_app_program_id: Pubkey,
     dest_port: &str,
 ) -> Result<Vec<AccountMeta>> {
     // Parse receiver as Solana Pubkey (target program)
-    let target_program = Pubkey::from_str(&validated_packet.receiver)
+    let target_program = Pubkey::from_str(&packet.receiver)
         .map_err(|e| anyhow::anyhow!("Invalid target program pubkey: {e}"))?;
 
     tracing::info!(
@@ -88,11 +87,11 @@ fn build_gmp_account_list(
     let client_id = solana_ibc_types::ClientId::new(dest_client)
         .map_err(|e| anyhow::anyhow!("Invalid client ID: {e:?}"))?;
 
-    // Derive GMP account PDA with validated types
+    // Derive GMP account PDA
     let gmp_account = solana_ibc_types::GMPAccount::new(
         client_id,
-        validated_packet.sender,
-        validated_packet.salt,
+        packet.sender,
+        packet.salt,
         &ibc_app_program_id,
     );
 
@@ -113,11 +112,9 @@ fn build_gmp_account_list(
         },
     ];
 
-    // Parse and validate GMP Solana payload and extract additional accounts
-    let gmp_solana_payload: ValidatedGMPSolanaPayload = validated_packet
-        .payload
-        .try_into()
-        .map_err(|e| anyhow::anyhow!("Failed to validate GMP Solana payload: {e}"))?;
+    // Decode and validate GMP Solana payload
+    let gmp_solana_payload = GmpSolanaPayload::decode_vec(&packet.payload)
+        .map_err(|e| anyhow::anyhow!("Failed to decode/validate GMP Solana payload: {e}"))?;
 
     add_instruction_accounts(&gmp_solana_payload, &mut account_metas);
 
@@ -131,11 +128,8 @@ fn build_gmp_account_list(
     Ok(account_metas)
 }
 
-/// Add accounts from `ValidatedGMPSolanaPayload` to the account list
-fn add_instruction_accounts(
-    instruction: &ValidatedGMPSolanaPayload,
-    account_metas: &mut Vec<AccountMeta>,
-) {
+/// Add accounts from `GmpSolanaPayload` to the account list
+fn add_instruction_accounts(instruction: &GmpSolanaPayload, account_metas: &mut Vec<AccountMeta>) {
     for account_meta in &instruction.accounts {
         account_metas.push(AccountMeta {
             pubkey: account_meta.pubkey,

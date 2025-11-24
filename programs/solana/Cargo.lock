@@ -3974,6 +3974,7 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "ibc-eureka-constrained-types",
+ "ibc-proto",
  "prost",
  "prost-build",
 ]

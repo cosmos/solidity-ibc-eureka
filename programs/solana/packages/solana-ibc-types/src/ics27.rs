@@ -9,7 +9,7 @@ use anchor_lang::solana_program::hash::hash;
 // Re-export from solana-ibc-proto
 pub use solana_ibc_proto::{
     ClientId, ConstrainedBytes, ConstrainedError, ConstrainedString, ConstrainedVec,
-    GMPPacketError, Memo, Receiver, Salt, Sender, ValidatedGmpPacketData, MAX_MEMO_LENGTH,
+    GMPPacketError, GmpPacketData, Memo, Receiver, Salt, Sender, MAX_MEMO_LENGTH,
     MAX_RECEIVER_LENGTH, MAX_SALT_LENGTH, MAX_SENDER_LENGTH,
 };
 
