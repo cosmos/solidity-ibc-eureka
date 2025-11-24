@@ -151,8 +151,8 @@ pub fn on_recv_packet<'info>(
 
     // Decode the GMP Solana payload
     // The payload contains all required accounts and instruction data
-    let raw_solana_payload = RawGmpSolanaPayload::decode(&packet_data.payload.into_inner()[..])
-        .map_err(|_| GMPError::DecodeError)?;
+    let raw_solana_payload =
+        RawGmpSolanaPayload::decode(&packet_data.payload[..]).map_err(|_| GMPError::DecodeError)?;
 
     // Validate GMP Solana payload
     let solana_payload = GmpSolanaPayload::try_from(raw_solana_payload).map_err(GMPError::from)?;

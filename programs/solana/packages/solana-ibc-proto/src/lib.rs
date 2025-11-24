@@ -164,13 +164,13 @@ impl TryFrom<RawGmpPacketData> for GmpPacketData {
 }
 
 impl From<GmpPacketData> for RawGmpPacketData {
-    fn from(domain: GmpPacketData) -> Self {
+    fn from(packet: GmpPacketData) -> Self {
         Self {
-            sender: domain.sender.into_string(),
-            receiver: domain.receiver.into_string(),
-            salt: domain.salt.into_vec(),
-            payload: domain.payload.into_inner(),
-            memo: domain.memo.into_string(),
+            sender: packet.sender.into_string(),
+            receiver: packet.receiver.into_string(),
+            salt: packet.salt.into_vec(),
+            payload: packet.payload.into_inner(),
+            memo: packet.memo.into_string(),
         }
     }
 }
@@ -209,10 +209,10 @@ impl GmpSolanaPayload {
 }
 
 impl From<GmpSolanaPayload> for RawGmpSolanaPayload {
-    fn from(domain: GmpSolanaPayload) -> Self {
+    fn from(payload: GmpSolanaPayload) -> Self {
         Self {
-            data: domain.data,
-            accounts: domain
+            data: payload.data,
+            accounts: payload
                 .accounts
                 .into_iter()
                 .map(|acc| RawSolanaAccountMeta {
@@ -221,7 +221,7 @@ impl From<GmpSolanaPayload> for RawGmpSolanaPayload {
                     is_writable: acc.is_writable,
                 })
                 .collect(),
-            payer_position: domain.payer_position,
+            payer_position: payload.payer_position,
         }
     }
 }
