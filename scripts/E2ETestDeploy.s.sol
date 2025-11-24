@@ -10,7 +10,7 @@ pragma solidity ^0.8.28;
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
 
-import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
+import { IICS07TendermintMsgs } from "../contracts/light-clients/sp1-ics07/msgs/IICS07TendermintMsgs.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";

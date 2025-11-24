@@ -183,13 +183,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         ics20Transfer.sendTransfer(msgSendTransfer);
     }
 
-    function testFuzz_success_sendTransferWithPermit2(
-        uint256 amount,
-        uint64 seq,
-        uint64 timeoutTimestamp
-    )
-        public
-    {
+    function testFuzz_success_sendTransferWithPermit2(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
         vm.assume(amount > 0);
 
         address sender = env.createAndFundUser(amount);
@@ -221,13 +215,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         assertEq(sequence, seq);
     }
 
-    function testFuzz_failure_sendTransferWithPermit2(
-        uint256 amount,
-        uint64 seq,
-        uint64 timeoutTimestamp
-    )
-        public
-    {
+    function testFuzz_failure_sendTransferWithPermit2(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
         vm.assume(amount > 0);
 
         address sender = env.createAndFundUser(amount);
@@ -290,13 +278,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
     }
 
-    function testFuzz_success_sendTransferWithSender(
-        uint256 amount,
-        uint64 seq,
-        uint64 timeoutTimestamp
-    )
-        public
-    {
+    function testFuzz_success_sendTransferWithSender(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
         vm.assume(amount > 0);
 
         address sender = makeAddr("sender");

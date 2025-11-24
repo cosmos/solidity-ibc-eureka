@@ -40,6 +40,7 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
@@ -777,7 +778,7 @@ func (s *IbcEurekaTestSuite) ICS20FinalizedTimeoutPacketFromEthTest(
 
 	s.True(s.Run("Wait for timeout tx to be finalized", func() {
 		err = testutil.WaitForCondition(time.Minute*30, time.Second*30, func() (bool, error) {
-			finalizedBlock, err := eth.EthAPI.Client.BlockByNumber(ctx, big.NewInt(int64(rpc.FinalizedBlockNumber)))
+			finalizedBlock, err := eth.RPCClient.BlockByNumber(ctx, big.NewInt(int64(rpc.FinalizedBlockNumber)))
 			s.Require().NoError(err)
 
 			// Check if the block number is greater than or equal to the send tx block number
@@ -1216,7 +1217,7 @@ func (s *RelayerTestSuite) Test_UpdateClientToCosmos() {
 				return false, err
 			}
 
-			code, err := eth.EthAPI.Client.CodeAt(ctx, ics26Address, big.NewInt(finalizedBlock))
+			code, err := eth.RPCClient.CodeAt(ctx, ics26Address, big.NewInt(finalizedBlock))
 			if err != nil || len(code) == 0 {
 				// Code not found at the finalized block number
 				return false, nil
@@ -1720,4 +1721,48 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(
 		s.Require().Equal(totalTransferAmount, resp.Balance.Amount.BigInt())
 		s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 	}))
+}
+
+func (s *RelayerTestSuite) Test_Fulu_Fork() {
+	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
+		s.T().Skip("Test is only relevant for PoS networks")
+	}
+
+	ctx := context.Background()
+	proofType := types.GetEnvProofType()
+
+	var fuluForkEpoch uint64
+	if chainconfig.GetKurtosisPreset() == testvalues.EnvValueEthereumPosPreset_Minimal {
+		fuluForkEpoch = 12
+	} else {
+		// For mainnet, epochs are longer so we set the fork epoch lower to avoid long waits
+		fuluForkEpoch = 7
+	}
+	chainconfig.KurtosisConfig.NetworkParams.FuluForkEpoch = fuluForkEpoch
+
+	s.SetupSuite(ctx, proofType)
+
+	s.FilteredRecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
+
+	spec, err := s.EthChain.BeaconAPIClient.GetSpec()
+	s.Require().NoError(err)
+	err = testutil.WaitForCondition(time.Minute*30, time.Second*30, func() (bool, error) {
+		finalityUpdate, err := s.EthChain.BeaconAPIClient.GetFinalityUpdate()
+		if err != nil {
+			return false, err
+		}
+
+		finalitySlot, err := strconv.Atoi(finalityUpdate.Data.FinalizedHeader.Beacon.Slot)
+		if err != nil {
+			return false, err
+		}
+
+		latestFinalityEpoch := uint64(finalitySlot) / spec.SlotsPerEpoch
+
+		fmt.Printf("Waiting for epoch %d, current epoch: %d\n", fuluForkEpoch, latestFinalityEpoch)
+		return latestFinalityEpoch >= fuluForkEpoch, nil
+	})
+	s.Require().NoError(err)
+
+	s.FilteredRecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
 }

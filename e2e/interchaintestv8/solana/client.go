@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"slices"
+	"testing"
 	"time"
 
 	bin "github.com/gagliardetto/binary"
@@ -102,7 +103,6 @@ func (s *Solana) WaitForTxStatus(txSig solana.Signature, status rpc.Confirmation
 			return false, err
 		}
 
-		// Transaction might not be found yet, retry
 		if len(out.Value) == 0 || out.Value[0] == nil {
 			return false, nil
 		}
@@ -202,7 +202,8 @@ func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Tran
 
 	err = s.WaitForTxStatus(sig, status)
 	if err != nil {
-		return solana.Signature{}, err
+		// Return the signature even on error so logs can be fetched
+		return sig, err
 	}
 
 	return sig, err
@@ -333,6 +334,51 @@ func (s *Solana) CreateAddressLookupTable(ctx context.Context, authority *solana
 func mustWrite(err error) {
 	if err != nil {
 		panic(fmt.Sprintf("unexpected encoding error: %v", err))
+	}
+}
+
+// LogTransactionDetails fetches and logs detailed information about a transaction
+// including compute units consumed, error details, and program logs
+func (s *Solana) LogTransactionDetails(ctx context.Context, t *testing.T, sig solana.Signature, context string) {
+	t.Helper()
+	t.Logf("=== Transaction Details: %s ===", context)
+	t.Logf("Transaction signature: %s", sig)
+
+	version := uint64(0)
+	txDetails, err := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
+		Encoding:                       solana.EncodingBase64,
+		Commitment:                     rpc.CommitmentConfirmed,
+		MaxSupportedTransactionVersion: &version,
+	})
+	if err != nil {
+		t.Logf("❌ Failed to fetch transaction details: %v", err)
+		return
+	}
+
+	if txDetails == nil || txDetails.Meta == nil {
+		t.Logf("⚠️  Transaction details not available (may still be processing)")
+		return
+	}
+
+	// Log compute units consumed
+	if txDetails.Meta.ComputeUnitsConsumed != nil {
+		t.Logf("⚙️  Compute units consumed: %d", *txDetails.Meta.ComputeUnitsConsumed)
+	}
+
+	t.Logf("💰 Fee: %d lamports (%.9f SOL)", txDetails.Meta.Fee, float64(txDetails.Meta.Fee)/1e9)
+
+	if txDetails.Meta.Err != nil {
+		t.Logf("❌ Transaction error: %+v", txDetails.Meta.Err)
+
+		if len(txDetails.Meta.LogMessages) > 0 {
+			t.Logf("📋 Program Logs (%d messages):", len(txDetails.Meta.LogMessages))
+			for i, log := range txDetails.Meta.LogMessages {
+				t.Logf("  [%d] %s", i, log)
+			}
+		}
+		t.Logf("=====================================")
+	} else {
+		t.Logf("✅ Transaction succeeded")
 	}
 }
 

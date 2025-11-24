@@ -19,6 +19,7 @@ pub fn upload_header_chunk(
         ErrorCode::ChunkDataTooLarge
     );
 
+    chunk.submitter = ctx.accounts.submitter.key();
     chunk.chunk_data = params.chunk_data;
 
     Ok(())

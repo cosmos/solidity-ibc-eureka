@@ -5,6 +5,7 @@
 //! light client types (ICS07), and Solana-specific PDA utilities.
 
 pub mod app_msgs;
+pub mod borsh_header;
 pub mod cpi;
 pub mod events;
 pub mod ibc_app_interface;

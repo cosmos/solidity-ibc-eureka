@@ -4,6 +4,11 @@ use mollusk_svm::result::Check;
 
 pub const PROGRAM_BINARY_PATH: &str = "../../target/deploy/ics07_tendermint";
 
+// Solana compute budget constants for tests
+// Match production runtime configuration
+pub const TEST_HEAP_SIZE: u32 = 256 * 1024; // 256KB heap for large header deserialization
+pub const TEST_COMPUTE_UNIT_LIMIT: u64 = 1_400_000; // Solana's actual CU limit
+
 pub static SUCCESS_CHECK: LazyLock<Vec<Check>> = LazyLock::new(|| vec![Check::success()]);
 
 pub mod fixtures {
@@ -138,90 +143,127 @@ pub mod fixtures {
             .saturating_add(nanos as u64)
     }
 
+    /// Convert Protobuf header bytes to Borsh format (like the relayer does)
+    /// Fixtures contain Protobuf-encoded headers, but our program expects Borsh
+    pub fn protobuf_to_borsh_header(protobuf_bytes: &[u8]) -> Vec<u8> {
+        use borsh::BorshSerialize;
+        use ibc_client_tendermint::types::Header;
+        use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
+        use ibc_proto::Protobuf;
+        use solana_ibc_types::borsh_header::conversions::header_to_borsh;
+
+        // Decode from Protobuf (fixture format)
+        let header = <Header as Protobuf<RawHeader>>::decode_vec(protobuf_bytes)
+            .expect("Failed to decode protobuf header from fixture");
+
+        // Convert to BorshHeader and serialize (exactly like the relayer does)
+        let borsh_header = header_to_borsh(header);
+        borsh_header
+            .try_to_vec()
+            .expect("Failed to encode header to Borsh")
+    }
+
     /// Extract header timestamp from update client message
     /// Returns the header time as Unix timestamp in seconds (suitable for Clock sysvar)
     pub fn get_header_timestamp_from_message(message: &UpdateClientMessage) -> i64 {
-        use crate::helpers::deserialize_header;
+        use ibc_client_tendermint::types::Header;
+        use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
+        use ibc_proto::Protobuf;
 
-        let client_message = hex_to_bytes(&message.client_message_hex);
-        let header =
-            deserialize_header(&client_message).expect("Failed to deserialize header from fixture");
+        // Decode from Protobuf fixture to get timestamp
+        let client_message_proto = hex_to_bytes(&message.client_message_hex);
+        let header = <Header as Protobuf<RawHeader>>::decode_vec(&client_message_proto)
+            .expect("Failed to decode header from fixture");
 
         // Extract timestamp from header and convert to Unix seconds
         let header_time_nanos = header.signed_header.header.time.unix_timestamp_nanos() as u64;
         (header_time_nanos / 1_000_000_000) as i64
     }
 
-    /// Create a clock timestamp that's valid for the given header
-    /// This adds a small buffer to the header time to pass clock drift validation
+    /// Create a clock timestamp valid for the given header
     pub fn get_valid_clock_timestamp_for_header(message: &UpdateClientMessage) -> i64 {
         let header_timestamp = get_header_timestamp_from_message(message);
-        // Add 5 seconds buffer after header time to pass validation
         header_timestamp.saturating_add(5)
     }
 
-    /// Create a clock timestamp that's way in the future to simulate expired header
-    /// This is used for testing header expiration scenarios
+    /// Create an expired clock timestamp for testing
     pub fn get_expired_clock_timestamp_for_header(message: &UpdateClientMessage) -> i64 {
         let header_timestamp = get_header_timestamp_from_message(message);
-        // Add 1 year to make the header appear expired
         let one_year_in_seconds: i64 = 86400 * 365;
         header_timestamp.saturating_add(one_year_in_seconds)
     }
 
     /// Corrupt the header signature in the client message bytes
-    /// Returns the corrupted bytes
     pub fn corrupt_header_signature(client_message_hex: &str) -> Vec<u8> {
+        use borsh::BorshSerialize;
+        use ibc_client_tendermint::types::Header;
+        use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
+        use ibc_proto::Protobuf;
         use prost::Message;
+        use solana_ibc_types::borsh_header::conversions::header_to_borsh;
 
         let bytes = hex_to_bytes(client_message_hex);
-        let mut header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
+        let mut header_proto = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
             .expect("Failed to decode header");
 
-        // Corrupt the first signature we find
-        if let Some(signed_header) = &mut header.signed_header {
+        if let Some(signed_header) = &mut header_proto.signed_header {
             if let Some(commit) = &mut signed_header.commit {
                 for sig in &mut commit.signatures {
                     if !sig.signature.is_empty() {
-                        // Flip a bit in the middle of the signature
                         let mid_pos = sig.signature.len() / 2;
                         sig.signature[mid_pos] ^= 0x01;
-                        break; // Only corrupt the first signature found
+                        break;
                     }
                 }
             }
         }
 
-        // Re-encode the corrupted header
         let mut buf = Vec::new();
-        header.encode(&mut buf).expect("Failed to encode header");
-        buf
+        header_proto
+            .encode(&mut buf)
+            .expect("Failed to encode header");
+
+        let header = <Header as Protobuf<RawHeader>>::decode_vec(&buf)
+            .expect("Failed to decode corrupted protobuf header");
+        let borsh_header = header_to_borsh(header);
+        borsh_header
+            .try_to_vec()
+            .expect("Failed to encode corrupted header to Borsh")
     }
 
     /// Create client message bytes with wrong trusted height
-    /// This modifies the `trusted_height` field in the protobuf
     pub fn create_message_with_wrong_trusted_height(
         client_message_hex: &str,
         wrong_height: u64,
     ) -> Vec<u8> {
+        use borsh::BorshSerialize;
+        use ibc_client_tendermint::types::Header;
+        use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
+        use ibc_proto::Protobuf;
         use prost::Message;
+        use solana_ibc_types::borsh_header::conversions::header_to_borsh;
 
         let bytes = hex_to_bytes(client_message_hex);
 
-        // Decode the header
-        let mut header = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
+        let mut header_proto = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
             .expect("Failed to decode header from test fixture");
 
-        // Update the trusted height
-        header.trusted_height = Some(ibc_proto::ibc::core::client::v1::Height {
+        header_proto.trusted_height = Some(ibc_proto::ibc::core::client::v1::Height {
             revision_number: 0,
             revision_height: wrong_height,
         });
 
-        // Re-encode
         let mut buf = Vec::new();
-        header.encode(&mut buf).expect("Failed to encode header");
-        buf
+        header_proto
+            .encode(&mut buf)
+            .expect("Failed to encode header");
+
+        let header = <Header as Protobuf<RawHeader>>::decode_vec(&buf)
+            .expect("Failed to decode modified protobuf header");
+        let borsh_header = header_to_borsh(header);
+        borsh_header
+            .try_to_vec()
+            .expect("Failed to encode modified header to Borsh")
     }
 
     // Generic test helper functions
@@ -430,7 +472,10 @@ pub mod chunk_test_utils {
     pub fn create_chunk_account(chunk_data: Vec<u8>) -> Account {
         use anchor_lang::AccountSerialize;
 
-        let chunk = HeaderChunk { chunk_data };
+        let chunk = HeaderChunk {
+            submitter: Pubkey::default(),
+            chunk_data,
+        };
 
         let mut data = vec![];
         chunk.try_serialize(&mut data).unwrap();

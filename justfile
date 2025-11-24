@@ -32,8 +32,9 @@ build-sp1-programs:
 [group('build')]
 build-solana:
   @echo "Building Solana Anchor program..."
-  if command -v anchor-nix >/dev/null 2>&1; then \
+  @if command -v anchor-nix >/dev/null 2>&1; then \
     echo "🦀 Using anchor-nix"; \
+    echo "Note: 'ln: failed to create symbolic link criterion: Permission denied' can be safely ignored"; \
     (cd programs/solana && anchor-nix build); \
   else \
     echo "🦀 Using anchor"; \
@@ -324,7 +325,7 @@ test-e2e-solana-gmp testname:
 [group('test')]
 test-anchor-solana *ARGS:
 	@echo "Running Solana Client Anchor tests (anchor-nix preferred) ..."
-	if command -v anchor-nix >/dev/null 2>&1; then \
+	@if command -v anchor-nix >/dev/null 2>&1; then \
 		echo "🦀 Using anchor-nix"; \
 		(cd programs/solana && anchor-nix test {{ARGS}}); \
 	else \
@@ -336,7 +337,7 @@ test-anchor-solana *ARGS:
 [group('test')]
 test-solana *ARGS:
 	@echo "Building and running Solana unit tests..."
-	if command -v anchor-nix >/dev/null 2>&1; then \
+	@if command -v anchor-nix >/dev/null 2>&1; then \
 		echo "🦀 Using anchor-nix"; \
 		(cd programs/solana && anchor-nix unit-test {{ARGS}}); \
 	else \

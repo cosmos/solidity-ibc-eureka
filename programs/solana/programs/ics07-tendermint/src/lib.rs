@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+pub mod conversions;
 pub mod error;
 pub mod helpers;
 pub mod instructions;
@@ -11,6 +12,7 @@ pub mod types;
 use crate::state::{ConsensusStateStore, HeaderChunk, MisbehaviourChunk};
 
 declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
+solana_allocator::custom_heap!();
 
 pub use types::{
     ClientState, ConsensusState, IbcHeight, UpdateResult, UploadChunkParams,
@@ -100,7 +102,7 @@ pub struct UploadHeaderChunk<'info> {
 /// Context for assembling chunks and updating the client
 /// This will automatically clean up any old chunks at the same height
 #[derive(Accounts)]
-#[instruction(chain_id: String, target_height: u64)]
+#[instruction(chain_id: String, target_height: u64, chunk_count: u8)]
 pub struct AssembleAndUpdateClient<'info> {
     #[account(
         mut,
@@ -125,25 +127,14 @@ pub struct AssembleAndUpdateClient<'info> {
     // They will be validated and closed in the instruction handler
 }
 
-/// Context for cleaning up incomplete header uploads
-/// This can be called to reclaim rent from failed or abandoned chunk uploads
+/// Context for cleaning up incomplete header uploads or signatures
 #[derive(Accounts)]
-#[instruction(chain_id: String, cleanup_height: u64, submitter: Pubkey)]
 pub struct CleanupIncompleteUpload<'info> {
-    /// Client state to verify this is a valid client
-    #[account(
-        constraint = client_state.chain_id == chain_id,
-    )]
-    pub client_state: Account<'info, ClientState>,
-
     /// The original submitter who gets their rent back
     /// Must be the signer to prove they own the upload
-    #[account(
-        mut,
-        constraint = submitter_account.key() == submitter
-    )]
-    pub submitter_account: Signer<'info>,
-    // Remaining accounts are the chunk accounts to close
+    #[account(mut)]
+    pub submitter: Signer<'info>,
+    // Remaining accounts are the chunk and signature verification accounts to close
 }
 
 #[derive(Accounts)]
@@ -207,6 +198,30 @@ pub struct CleanupIncompleteMisbehaviour<'info> {
     // Remaining accounts are the chunk accounts to close
 }
 
+#[derive(Accounts)]
+#[instruction(signature: solana_ibc_types::ics07::SignatureData)]
+pub struct PreVerifySignature<'info> {
+    /// CHECK: Sysvar instructions account
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + std::mem::size_of::<crate::state::SignatureVerification>(),
+        seeds = [
+            crate::state::SignatureVerification::SEED,
+            &signature.signature_hash
+        ],
+        bump
+    )]
+    pub signature_verification: Account<'info, crate::state::SignatureVerification>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
 #[program]
 pub mod ics07_tendermint {
     use super::*;
@@ -253,32 +268,25 @@ pub mod ics07_tendermint {
 
     /// Assemble chunks and update the client
     /// Automatically cleans up all chunks after successful update
-    pub fn assemble_and_update_client(
-        ctx: Context<AssembleAndUpdateClient>,
+    pub fn assemble_and_update_client<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
         chain_id: String,
         target_height: u64,
+        chunk_count: u8,
     ) -> Result<UpdateResult> {
         instructions::assemble_and_update_client::assemble_and_update_client(
             ctx,
             chain_id,
             target_height,
+            chunk_count,
         )
     }
 
-    /// Clean up incomplete header uploads at lower heights
+    /// Clean up incomplete header uploads
     /// This can be called to reclaim rent from failed or abandoned uploads
-    pub fn cleanup_incomplete_upload(
-        ctx: Context<CleanupIncompleteUpload>,
-        chain_id: String,
-        cleanup_height: u64,
-        submitter: Pubkey,
-    ) -> Result<()> {
-        instructions::cleanup_incomplete_upload::cleanup_incomplete_upload(
-            ctx,
-            chain_id,
-            cleanup_height,
-            submitter,
-        )
+    /// Closes both `HeaderChunk` and `SignatureVerification` PDAs owned by the submitter
+    pub fn cleanup_incomplete_upload(ctx: Context<CleanupIncompleteUpload>) -> Result<()> {
+        instructions::cleanup_incomplete_upload::cleanup_incomplete_upload(ctx)
     }
 
     /// Upload a chunk of misbehaviour data for multi-transaction submission
@@ -310,5 +318,12 @@ pub mod ics07_tendermint {
         instructions::cleanup_incomplete_misbehaviour::cleanup_incomplete_misbehaviour(
             ctx, client_id, submitter,
         )
+    }
+
+    pub fn pre_verify_signature<'info>(
+        ctx: Context<'_, '_, '_, 'info, PreVerifySignature<'info>>,
+        signature: solana_ibc_types::ics07::SignatureData,
+    ) -> Result<()> {
+        instructions::pre_verify_signatures::pre_verify_signature(ctx, signature)
     }
 }

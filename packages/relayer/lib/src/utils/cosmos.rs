@@ -21,7 +21,7 @@ use ibc_proto_eureka::{
             channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
             client::v1::{Height, MsgCreateClient, MsgUpdateClient},
         },
-        lightclients::tendermint::v1::ClientState,
+        lightclients::tendermint::v1::{ClientState, Fraction},
         lightclients::wasm::v1::{
             ClientState as WasmClientState, ConsensusState as WasmConsensusState,
         },
@@ -33,7 +33,7 @@ use tendermint_rpc::HttpClient;
 
 use crate::{
     events::{EurekaEvent, EurekaEventWithHeight},
-    tendermint_client::build_tendermint_client_state,
+    tendermint_client::build_tendermint_client_state_with_trust_level,
 };
 
 /// The key for the checksum hex in the tendermint create client parameters map.
@@ -164,6 +164,10 @@ pub struct TmUpdateClientParams {
 ///
 /// # Errors
 /// - Failed light block retrieval from Tendermint node
+///
+/// # Panics
+/// - If validator voting power is negative (violates Tendermint protocol invariant)
+#[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
 pub async fn tm_update_client_params(
     trusted_height: u64,
     src_tm_client: &HttpClient,
@@ -181,6 +185,141 @@ pub async fn tm_update_client_params(
     );
 
     let proposed_header = target_light_block.into_header(&trusted_light_block);
+
+    // Log signature information and calculate voting power needed used only to print debug logs
+    if let (Some(signed_header), Some(validator_set)) = (
+        &proposed_header.signed_header,
+        &proposed_header.validator_set,
+    ) {
+        if let Some(commit) = &signed_header.commit {
+            let signature_count = commit.signatures.len();
+            let valid_signature_count = commit
+                .signatures
+                .iter()
+                .filter(|sig| sig.block_id_flag != 1) // Not BLOCK_ID_FLAG_ABSENT (1)
+                .count();
+
+            let total_voting_power: u64 = validator_set
+                .validators
+                .iter()
+                .map(|v| u64::try_from(v.voting_power).expect("voting power must be non-negative"))
+                .sum();
+            let required_voting_power = total_voting_power / 3;
+
+            // Calculate cumulative voting power from validators with valid signatures
+            let mut cumulative_power = 0u64;
+            let mut validators_needed = 0usize;
+
+            tracing::debug!("=== RELAYER: Starting validator selection for threshold ===");
+            for (validator, signature) in validator_set
+                .validators
+                .iter()
+                .zip(commit.signatures.iter())
+            {
+                if signature.block_id_flag != 1 {
+                    // Not absent
+                    cumulative_power += u64::try_from(validator.voting_power)
+                        .expect("voting power must be non-negative");
+                    validators_needed += 1;
+                    tracing::debug!(
+                        "RELAYER: Validator #{}: addr={:?}, power={}, cumulative={}/{} ({}%)",
+                        validators_needed,
+                        validator.address,
+                        validator.voting_power,
+                        cumulative_power,
+                        required_voting_power,
+                        (cumulative_power * 100) / required_voting_power
+                    );
+                    if cumulative_power >= required_voting_power {
+                        tracing::debug!(
+                            "RELAYER: Threshold reached! Selected {} validators",
+                            validators_needed
+                        );
+                        break;
+                    }
+                }
+            }
+
+            tracing::info!(
+                "Header has {} total slots, {} valid signatures. Total voting power: {}, Required: {} (1/3), Need to verify {} validators to reach threshold",
+                signature_count,
+                valid_signature_count,
+                total_voting_power,
+                required_voting_power,
+                validators_needed
+            );
+        }
+    }
+
+    // Analyze trusted_validators for dual verification understanding
+    if let (Some(trusted_next_vs), Some(target_vs), Some(signed_header)) = (
+        &proposed_header.trusted_validators,
+        &proposed_header.validator_set,
+        &proposed_header.signed_header,
+    ) {
+        if let Some(commit) = &signed_header.commit {
+            tracing::debug!("=== RELAYER: Analyzing dual verification sets ===");
+            tracing::debug!(
+                "RELAYER: Trusted next validator set has {} validators",
+                trusted_next_vs.validators.len()
+            );
+            tracing::debug!(
+                "RELAYER: Target validator set has {} validators",
+                target_vs.validators.len()
+            );
+
+            // Find overlap between sets
+            let trusted_next_addrs: std::collections::HashSet<_> = trusted_next_vs
+                .validators
+                .iter()
+                .map(|v| &v.address)
+                .collect();
+            let target_addrs_with_sigs: Vec<_> = target_vs
+                .validators
+                .iter()
+                .zip(commit.signatures.iter())
+                .filter(|(_, sig)| sig.block_id_flag != 1) // Has signature
+                .map(|(v, _)| &v.address)
+                .collect();
+
+            let overlap_count = target_addrs_with_sigs
+                .iter()
+                .filter(|addr| trusted_next_addrs.contains(*addr))
+                .count();
+
+            tracing::debug!(
+                "RELAYER: {} validators with signatures in target are also in trusted_next",
+                overlap_count
+            );
+            tracing::debug!(
+                "RELAYER: {} validators with signatures are ONLY in target (not in trusted_next)",
+                target_addrs_with_sigs.len() - overlap_count
+            );
+
+            // Calculate how many validators needed from trusted_next set
+            let trusted_next_total_power: u64 = trusted_next_vs
+                .validators
+                .iter()
+                .map(|v| u64::try_from(v.voting_power).expect("voting power must be non-negative"))
+                .sum();
+            let trusted_next_required = trusted_next_total_power / 3;
+
+            let mut trusted_next_cumulative = 0u64;
+            let mut trusted_next_needed = 0usize;
+            for (validator, signature) in target_vs.validators.iter().zip(commit.signatures.iter())
+            {
+                if signature.block_id_flag != 1 && trusted_next_addrs.contains(&validator.address) {
+                    trusted_next_cumulative += u64::try_from(validator.voting_power)
+                        .expect("voting power must be non-negative");
+                    trusted_next_needed += 1;
+                    if trusted_next_cumulative >= trusted_next_required {
+                        tracing::debug!("RELAYER: Would need {} validators from trusted_next to reach 1/3 threshold", trusted_next_needed);
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     Ok(TmUpdateClientParams {
         target_height,
@@ -202,6 +341,7 @@ pub struct TmCreateClientParams {
 /// Generates parameters for creating a new Tendermint IBC light client.
 /// # Arguments
 /// * `src_tm_client` - HTTP client connected to the source Tendermint chain
+/// * `trust_level` - Optional trust level (defaults to 1/3 if None)
 ///
 /// # Returns
 /// Client creation parameters with
@@ -211,6 +351,7 @@ pub struct TmCreateClientParams {
 /// - Failed to fetch light block or chain parameters
 pub async fn tm_create_client_params(
     src_tm_client: &HttpClient,
+    trust_level: Option<Fraction>,
 ) -> anyhow::Result<TmCreateClientParams> {
     let latest_light_block = src_tm_client.get_light_block(None).await?;
     // NOTE: might cache
@@ -236,12 +377,13 @@ pub async fn tm_create_client_params(
         nanos: 0,
     };
 
-    let client_state = build_tendermint_client_state(
+    let client_state = build_tendermint_client_state_with_trust_level(
         chain_id.to_string(),
         height,
         trusting_period,
         unbonding_period,
         vec![ics23::iavl_spec(), ics23::tendermint_spec()],
+        trust_level,
     );
 
     let consensus_state = latest_light_block.to_consensus_state();

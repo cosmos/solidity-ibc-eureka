@@ -5,13 +5,13 @@ import { Test } from "forge-std/Test.sol";
 
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
-import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
-import { IUpdateClientMsgs } from "../../contracts/light-clients/msgs/IUpdateClientMsgs.sol";
-import { IMembershipMsgs } from "../../contracts/light-clients/msgs/IMembershipMsgs.sol";
-import { IMisbehaviourMsgs } from "../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol";
-import { ISP1Msgs } from "../../contracts/light-clients/msgs/ISP1Msgs.sol";
+import { IICS07TendermintMsgs } from "../../contracts/light-clients/sp1-ics07/msgs/IICS07TendermintMsgs.sol";
+import { IUpdateClientMsgs } from "../../contracts/light-clients/sp1-ics07/msgs/IUpdateClientMsgs.sol";
+import { IMembershipMsgs } from "../../contracts/light-clients/sp1-ics07/msgs/IMembershipMsgs.sol";
+import { IMisbehaviourMsgs } from "../../contracts/light-clients/sp1-ics07/msgs/IMisbehaviourMsgs.sol";
+import { ISP1Msgs } from "../../contracts/light-clients/sp1-ics07/msgs/ISP1Msgs.sol";
 
-import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
+import { SP1ICS07Tendermint } from "../../contracts/light-clients/sp1-ics07/SP1ICS07Tendermint.sol";
 
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 
