@@ -194,16 +194,9 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             packet_txs.len()
         );
 
-        // Serialize packet transactions into RelayPacketBatch
-        let packets = packet_txs
-            .iter()
-            .map(|pkt| api::PacketTransactions {
-                chunks: pkt.chunks().to_vec(),
-                final_tx: pkt.final_tx().to_vec(),
-            })
-            .collect();
-
-        let batch = api::RelayPacketBatch { packets };
+        let batch = api::SolanaRelayPacketBatch {
+            packets: packet_txs,
+        };
         let tx = prost::Message::encode_to_vec(&batch);
 
         Ok(Response::new(api::RelayByTxResponse {
@@ -237,36 +230,18 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
         tracing::info!("Handling update client request for Cosmos to Solana...");
 
-        let chunked = self
+        let solana_update_client = self
             .tx_builder
             .update_client(request.into_inner().dst_client_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!(
-            "Using chunked update client with {} chunks",
-            chunked.total_chunks
+            "Using chunked update client with {} signatures/chunks",
+            solana_update_client.chunk_txs.len()
         );
 
-        let mut txs = Vec::new();
-        // First create ALT
-        txs.push(chunked.alt_create_tx);
-        // Then extend ALT with all account batches (sequential)
-        for extend_tx in chunked.alt_extend_txs {
-            txs.push(extend_tx);
-        }
-        // Add empty separator to mark end of ALT extensions and start of chunks
-        txs.push(Vec::new());
-        // Then upload all chunks (can be submitted in parallel)
-        for tx in chunked.chunk_txs {
-            txs.push(tx);
-        }
-        // Assembly transaction must be last (uses the ALT)
-        txs.push(chunked.assembly_tx);
-
-        // Serialize multiple transactions into TransactionBatch
-        let batch = api::TransactionBatch { txs };
-        let tx = prost::Message::encode_to_vec(&batch);
+        let tx = prost::Message::encode_to_vec(&solana_update_client);
 
         Ok(Response::new(api::UpdateClientResponse {
             tx,

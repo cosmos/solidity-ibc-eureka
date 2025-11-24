@@ -298,7 +298,7 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_UpdateClient() {
 	s.Require().NotEmpty(updateResp.Tx, "Relayer returned empty transaction")
 
 	s.T().Log("Submitting chunked update client transactions...")
-	s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
+	s.SolanaChain.SubmitChunkedUpdateClientSkipCleanup(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
 
 	s.T().Logf("Successfully updated Tendermint client on Solana")
 
@@ -340,7 +340,7 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_MultipleUpdates() {
 		})
 		s.Require().NoError(err, "Failed to create update %d", i+1)
 
-		s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
+		s.SolanaChain.SubmitChunkedUpdateClientSkipCleanup(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
 
 		clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(s.ExternalCosmosChainID))
 		accountInfo, err := s.SolanaRPCConn.GetAccountInfoWithOpts(ctx, clientStateAccount, &rpc.GetAccountInfoOpts{

@@ -284,14 +284,8 @@ func NewAssembleAndUpdateClientInstruction(
 // Builds a "cleanup_incomplete_upload" instruction.
 // Clean up incomplete header uploads at lower heights // This can be called to reclaim rent from failed or abandoned uploads
 func NewCleanupIncompleteUploadInstruction(
-	// Params:
-	chainIdParam string,
-	cleanupHeightParam uint64,
-	submitterParam solanago.PublicKey,
-
 	// Accounts:
-	clientStateAccount solanago.PublicKey,
-	submitterAccountAccount solanago.PublicKey,
+	submitterAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -301,34 +295,15 @@ func NewCleanupIncompleteUploadInstruction(
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
-	{
-		// Serialize `chainIdParam`:
-		err = enc__.Encode(chainIdParam)
-		if err != nil {
-			return nil, errors.NewField("chainIdParam", err)
-		}
-		// Serialize `cleanupHeightParam`:
-		err = enc__.Encode(cleanupHeightParam)
-		if err != nil {
-			return nil, errors.NewField("cleanupHeightParam", err)
-		}
-		// Serialize `submitterParam`:
-		err = enc__.Encode(submitterParam)
-		if err != nil {
-			return nil, errors.NewField("submitterParam", err)
-		}
-	}
+
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "client_state": Read-only, Non-signer, Required
-		// Client state to verify this is a valid client
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 1 "submitter_account": Writable, Signer, Required
+		// Account 0 "submitter": Writable, Signer, Required
 		// The original submitter who gets their rent back
 		// Must be the signer to prove they own the upload
-		accounts__.Append(solanago.NewAccountMeta(submitterAccountAccount, true, true))
+		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 	}
 
 	// Create the instruction.

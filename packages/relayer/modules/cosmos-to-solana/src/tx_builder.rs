@@ -44,6 +44,7 @@ use tendermint_proto::Protobuf;
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::gmp;
+use ibc_eureka_relayer_core::api::{self, SolanaPacketTxs};
 
 use solana_ibc_types::{
     ics07::{ics07_instructions, ClientState, ConsensusState, SignatureData},
@@ -84,86 +85,6 @@ struct UploadChunkParams {
     target_height: u64,
     chunk_index: u8,
     chunk_data: Vec<u8>,
-}
-
-/// Organized transactions for chunked update client
-/// Submission order: `alt_create_tx` -> [`alt_extend_txs` (sequential) || `chunk_txs` (parallel)] -> `assembly_tx`
-///
-/// Note: ALT extensions and prep txs run concurrently after ALT creation
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct UpdateClientChunkedTxs {
-    /// All preparatory transactions: signatures + chunks (submitted in parallel with ALT extensions)
-    pub chunk_txs: Vec<Vec<u8>>,
-    /// ALT creation transaction (must be submitted first)
-    pub alt_create_tx: Vec<u8>,
-    /// ALT extension transactions (adds chunk accounts to ALT in batches, submit sequentially after creation)
-    pub alt_extend_txs: Vec<Vec<u8>>,
-    /// Final assembly transaction (must be submitted last after ALT activation, uses ALT for compression)
-    pub assembly_tx: Vec<u8>,
-    /// Total number of chunks
-    pub total_chunks: usize,
-    /// Target height being updated to
-    pub target_height: u64,
-}
-
-/// Organized transactions for chunked recv packet
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct RecvPacketChunkedTxs {
-    /// All chunk upload transactions for payloads and proof
-    pub chunk_txs: Vec<Vec<u8>>,
-    /// Final recv packet transaction
-    pub recv_tx: Vec<u8>,
-}
-
-/// Organized transactions for chunked ack packet
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct AckPacketChunkedTxs {
-    /// All chunk upload transactions for payloads and proof
-    pub chunk_txs: Vec<Vec<u8>>,
-    /// Final ack packet transaction
-    pub ack_tx: Vec<u8>,
-}
-
-/// Organized transactions for chunked timeout packet
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct TimeoutPacketChunkedTxs {
-    /// All chunk upload transactions for payloads and proof
-    pub chunk_txs: Vec<Vec<u8>>,
-    /// Final timeout packet transaction
-    pub timeout_tx: Vec<u8>,
-}
-
-/// Enum for different types of chunked packet transactions
-#[derive(Debug)]
-pub enum PacketChunkedTxs {
-    /// Recv packet with chunks
-    Recv(RecvPacketChunkedTxs),
-    /// Ack packet with chunks
-    Ack(AckPacketChunkedTxs),
-    /// Timeout packet with chunks
-    Timeout(TimeoutPacketChunkedTxs),
-}
-
-impl PacketChunkedTxs {
-    /// Get the chunk transactions for this packet
-    #[must_use]
-    pub fn chunks(&self) -> &[Vec<u8>] {
-        match self {
-            Self::Recv(r) => &r.chunk_txs,
-            Self::Ack(a) => &a.chunk_txs,
-            Self::Timeout(t) => &t.chunk_txs,
-        }
-    }
-
-    /// Get the final transaction for this packet
-    #[must_use]
-    pub fn final_tx(&self) -> &[u8] {
-        match self {
-            Self::Recv(r) => &r.recv_tx,
-            Self::Ack(a) => &a.ack_tx,
-            Self::Timeout(t) => &t.timeout_tx,
-        }
-    }
 }
 
 /// Helper to derive header chunk PDA
@@ -1415,7 +1336,7 @@ impl TxBuilder {
         msg: &MsgRecvPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
-    ) -> Result<RecvPacketChunkedTxs> {
+    ) -> Result<SolanaPacketTxs> {
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.dest_client,
             msg.packet.sequence,
@@ -1445,7 +1366,18 @@ impl TxBuilder {
 
         let recv_tx = self.create_tx_bytes(&instructions)?;
 
-        Ok(RecvPacketChunkedTxs { chunk_txs, recv_tx })
+        let cleanup_tx = self.build_packet_cleanup_tx(
+            &msg.packet.dest_client,
+            msg.packet.sequence,
+            &msg.payloads,
+            msg.proof.total_chunks,
+        )?;
+
+        Ok(SolanaPacketTxs {
+            chunks: chunk_txs,
+            final_tx: recv_tx,
+            cleanup_tx,
+        })
     }
 
     async fn build_ack_packet_chunked(
@@ -1453,7 +1385,7 @@ impl TxBuilder {
         msg: &MsgAckPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
-    ) -> Result<AckPacketChunkedTxs> {
+    ) -> Result<SolanaPacketTxs> {
         tracing::info!(
             "build_ack_packet_chunked: seq={}, payloads.len={}, proof.total_chunks={}",
             msg.packet.sequence,
@@ -1497,7 +1429,18 @@ impl TxBuilder {
 
         let ack_tx = self.create_tx_bytes(&instructions)?;
 
-        Ok(AckPacketChunkedTxs { chunk_txs, ack_tx })
+        let cleanup_tx = self.build_packet_cleanup_tx(
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            &msg.payloads,
+            msg.proof.total_chunks,
+        )?;
+
+        Ok(SolanaPacketTxs {
+            chunks: chunk_txs,
+            final_tx: ack_tx,
+            cleanup_tx,
+        })
     }
 
     fn build_timeout_packet_chunked(
@@ -1506,7 +1449,7 @@ impl TxBuilder {
         msg: &MsgTimeoutPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
-    ) -> Result<TimeoutPacketChunkedTxs> {
+    ) -> Result<SolanaPacketTxs> {
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.source_client,
             msg.packet.sequence,
@@ -1532,9 +1475,17 @@ impl TxBuilder {
 
         let timeout_tx = self.create_tx_bytes(&instructions)?;
 
-        Ok(TimeoutPacketChunkedTxs {
-            chunk_txs,
-            timeout_tx,
+        let cleanup_tx = self.build_packet_cleanup_tx(
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            &msg.payloads,
+            msg.proof.total_chunks,
+        )?;
+
+        Ok(SolanaPacketTxs {
+            chunks: chunk_txs,
+            final_tx: timeout_tx,
+            cleanup_tx,
         })
     }
 
@@ -1642,7 +1593,7 @@ impl TxBuilder {
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
         dst_packet_seqs: Vec<u64>,
-    ) -> Result<Vec<PacketChunkedTxs>> {
+    ) -> Result<Vec<SolanaPacketTxs>> {
         tracing::info!(
             "Relaying chunked events from Cosmos to Solana for client {}",
             dst_client_id
@@ -1741,7 +1692,7 @@ impl TxBuilder {
                 &recv_with_chunks.proof_chunks,
             )?;
 
-            packet_txs.push(PacketChunkedTxs::Recv(chunked));
+            packet_txs.push(chunked);
         }
 
         // Process ack messages with chunking
@@ -1758,7 +1709,7 @@ impl TxBuilder {
                 )
                 .await?;
 
-            packet_txs.push(PacketChunkedTxs::Ack(chunked));
+            packet_txs.push(chunked);
         }
 
         // Process timeout messages with chunking
@@ -1771,7 +1722,7 @@ impl TxBuilder {
                 &timeout_with_chunks.proof_chunks,
             )?;
 
-            packet_txs.push(PacketChunkedTxs::Timeout(chunked));
+            packet_txs.push(chunked);
         }
 
         Ok(packet_txs)
@@ -1940,7 +1891,7 @@ impl TxBuilder {
     /// - Failed to get recent blockhash from Solana
     /// - Chain ID string is too long for serialization
     #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
-    pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
+    pub async fn update_client(&self, dst_client_id: String) -> Result<api::SolanaUpdateClient> {
         // ALT extension batch size: Each Pubkey is 32 bytes, so we batch ~20-25 accounts per transaction
         const ALT_EXTEND_BATCH_SIZE: usize = 20;
 
@@ -2093,22 +2044,138 @@ impl TxBuilder {
 
         let total_tx_count = 1 + alt_extend_txs.len() + prep_txs.len() + 1; // ALT create + extends + prep txs + assembly
 
+        // Build cleanup transaction to reclaim rent from chunks and signatures
+        let cleanup_tx =
+            self.build_cleanup_tx(&chain_id, target_height, total_chunks, &signature_data)?;
+
         tracing::info!(
-            "Built {} total transactions: 1 ALT create + {} ALT extends + {} prep txs ({} header chunks + {} signatures) + 1 assembly",
-            total_tx_count,
+            "Built {} total transactions: 1 ALT create + {} ALT extends + {} prep txs ({} header chunks + {} signatures) + 1 assembly + 1 cleanup",
+            total_tx_count + 1,
             alt_extend_txs.len(),
             prep_txs.len(),
             total_chunks,
             signature_data.len()
         );
 
-        Ok(UpdateClientChunkedTxs {
+        Ok(api::SolanaUpdateClient {
             chunk_txs: prep_txs,
             alt_create_tx,
             alt_extend_txs,
             assembly_tx,
-            total_chunks: total_chunks as usize,
             target_height,
+            cleanup_tx,
         })
+    }
+
+    fn build_cleanup_tx(
+        &self,
+        chain_id: &str,
+        target_height: u64,
+        total_chunks: u8,
+        signature_data: &[SignatureData],
+    ) -> Result<Vec<u8>> {
+        let mut accounts = vec![AccountMeta::new(self.fee_payer, true)];
+
+        // Add all chunk accounts
+        for chunk_index in 0..total_chunks {
+            let (chunk_pda, _) = derive_header_chunk(
+                self.fee_payer,
+                chain_id,
+                target_height,
+                chunk_index,
+                self.solana_ics07_program_id,
+            );
+            accounts.push(AccountMeta::new(chunk_pda, false));
+        }
+
+        // Add all signature verification accounts
+        for sig_data in signature_data {
+            let (sig_verify_pda, _) = Pubkey::find_program_address(
+                &[b"sig_verify", &sig_data.signature_hash],
+                &self.solana_ics07_program_id,
+            );
+            accounts.push(AccountMeta::new(sig_verify_pda, false));
+        }
+
+        let mut data = ics07_instructions::cleanup_incomplete_upload_discriminator().to_vec();
+        data.extend_from_slice(&self.fee_payer.try_to_vec()?);
+
+        let instruction = Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data,
+        };
+
+        let mut instructions = Self::extend_compute_ix();
+        instructions.push(instruction);
+
+        self.create_tx_bytes(&instructions)
+    }
+
+    fn build_packet_cleanup_tx(
+        &self,
+        client_id: &str,
+        sequence: u64,
+        msg_payloads: &[solana_ibc_types::PayloadMetadata],
+        proof_total_chunks: u8,
+    ) -> Result<Vec<u8>> {
+        use solana_ibc_types::router::{
+            router_instructions, MsgCleanupChunks, PayloadChunk, ProofChunk,
+        };
+
+        let mut accounts = vec![AccountMeta::new(self.fee_payer, true)];
+
+        // Add all payload chunk accounts
+        for (payload_idx, payload_metadata) in msg_payloads.iter().enumerate() {
+            let payload_index = u8::try_from(payload_idx)
+                .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
+
+            for chunk_index in 0..payload_metadata.total_chunks {
+                let (chunk_pda, _) = PayloadChunk::pda(
+                    self.fee_payer,
+                    client_id,
+                    sequence,
+                    payload_index,
+                    chunk_index,
+                    self.solana_ics26_program_id,
+                );
+                accounts.push(AccountMeta::new(chunk_pda, false));
+            }
+        }
+
+        // Add all proof chunk accounts
+        for chunk_index in 0..proof_total_chunks {
+            let (chunk_pda, _) = ProofChunk::pda(
+                self.fee_payer,
+                client_id,
+                sequence,
+                chunk_index,
+                self.solana_ics26_program_id,
+            );
+            accounts.push(AccountMeta::new(chunk_pda, false));
+        }
+
+        // Build cleanup message
+        let payload_chunks: Vec<u8> = msg_payloads.iter().map(|p| p.total_chunks).collect();
+        let msg = MsgCleanupChunks {
+            client_id: client_id.to_string(),
+            sequence,
+            payload_chunks,
+            total_proof_chunks: proof_total_chunks,
+        };
+
+        let mut data = router_instructions::cleanup_chunks_discriminator().to_vec();
+        data.extend_from_slice(&msg.try_to_vec()?);
+
+        let instruction = Instruction {
+            program_id: self.solana_ics26_program_id,
+            accounts,
+            data,
+        };
+
+        let mut instructions = Self::extend_compute_ix();
+        instructions.push(instruction);
+
+        self.create_tx_bytes(&instructions)
     }
 }
