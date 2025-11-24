@@ -81,8 +81,8 @@ pub enum GMPError {
     #[msg("Invalid memo length")]
     InvalidMemo,
 
-    #[msg("Invalid execution payload format")]
-    InvalidExecutionPayload,
+    #[msg("Invalid Solana payload format")]
+    InvalidSolanaPayload,
 
     #[msg("Account already exists")]
     AccountAlreadyExists,
@@ -136,26 +136,11 @@ pub enum GMPError {
     DecodeError,
 }
 
-/// Convert GMP packet errors to GMP errors
-impl From<solana_ibc_types::GMPPacketError> for GMPError {
-    fn from(err: solana_ibc_types::GMPPacketError) -> Self {
-        match err {
-            solana_ibc_types::GMPPacketError::InvalidSalt => Self::InvalidSalt,
-            solana_ibc_types::GMPPacketError::EmptyPayload => Self::EmptyPayload,
-            solana_ibc_types::GMPPacketError::MemoTooLong => Self::InvalidMemo,
-            solana_ibc_types::GMPPacketError::InvalidSender => Self::InvalidSender,
-            solana_ibc_types::GMPPacketError::InvalidReceiver
-            | solana_ibc_types::GMPPacketError::InvalidPayload
-            | solana_ibc_types::GMPPacketError::DecodeError => Self::InvalidPacketData,
-        }
-    }
-}
-
 /// Convert GMP validation errors to GMP errors
 impl From<solana_ibc_proto::GmpValidationError> for GMPError {
     fn from(err: solana_ibc_proto::GmpValidationError) -> Self {
         match err {
-            solana_ibc_proto::GmpValidationError::DecodeError => Self::InvalidExecutionPayload,
+            solana_ibc_proto::GmpValidationError::DecodeError => Self::InvalidSolanaPayload,
             solana_ibc_proto::GmpValidationError::InvalidProgramId => Self::InvalidProgramId,
             solana_ibc_proto::GmpValidationError::EmptyPayload => Self::EmptyPayload,
             solana_ibc_proto::GmpValidationError::TooManyAccounts => Self::TooManyAccounts,

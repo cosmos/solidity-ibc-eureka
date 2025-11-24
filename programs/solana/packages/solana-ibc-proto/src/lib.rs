@@ -5,8 +5,11 @@
 
 use anchor_lang::prelude::*;
 
-// Re-export Protobuf trait for users
-pub use ibc_proto::Protobuf;
+// Re-export Protobuf trait and Error type for users
+pub use ibc_proto::{Error as ProtobufError, Protobuf};
+
+// Re-export prost Message trait for raw protobuf decoding
+pub use prost::Message as ProstMessage;
 
 // Re-export constrained types
 pub use ibc_eureka_constrained_types::{
@@ -32,10 +35,6 @@ pub use ibc_applications_gmp_v1::{
 pub use solana::{
     GmpSolanaPayload as RawGmpSolanaPayload, SolanaAccountMeta as RawSolanaAccountMeta,
 };
-
-impl Protobuf<RawGmpPacketData> for RawGmpPacketData {}
-impl Protobuf<RawGmpSolanaPayload> for RawGmpSolanaPayload {}
-impl Protobuf<RawSolanaAccountMeta> for RawSolanaAccountMeta {}
 
 /// Maximum client ID length (64 bytes)
 pub const MAX_CLIENT_ID_LENGTH: usize = 64;

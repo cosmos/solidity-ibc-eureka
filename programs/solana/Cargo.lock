@@ -3977,6 +3977,7 @@ dependencies = [
  "ibc-proto",
  "prost",
  "prost-build",
+ "thiserror 2.0.12",
 ]
 
 [[package]]

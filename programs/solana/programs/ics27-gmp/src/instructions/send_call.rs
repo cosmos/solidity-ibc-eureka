@@ -89,7 +89,10 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     };
 
     // Validate GMP packet
-    let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(GMPError::from)?;
+    let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
+        msg!("GMP packet validation failed: {}", e);
+        GMPError::InvalidPacketData
+    })?;
 
     // Encode to protobuf bytes
     let packet_data_bytes = packet_data.encode_vec();

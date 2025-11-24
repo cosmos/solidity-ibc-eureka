@@ -4,9 +4,7 @@ use crate::proto::GmpSolanaPayload;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_proto::{
-    GmpAcknowledgement, GmpPacketData, Protobuf, RawGmpPacketData, RawGmpSolanaPayload,
-};
+use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf};
 use solana_ibc_types::GMPAccount;
 
 /// Receive IBC packet and execute call (called by router via CPI)
@@ -108,12 +106,12 @@ pub fn on_recv_packet<'info>(
     // Validate target_program is executable
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
-    // Decode GMP packet data from protobuf payload
-    let raw_packet_data = RawGmpPacketData::decode(msg.payload.value.as_slice())
-        .map_err(|_| GMPError::DecodeError)?;
-
-    // Validate packet data
-    let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(GMPError::from)?;
+    // Decode and validate GMP packet data from protobuf payload
+    // Uses Protobuf::decode which internally validates all constraints
+    let packet_data = GmpPacketData::decode(msg.payload.value.as_slice()).map_err(|e| {
+        msg!("GMP packet validation failed: {}", e);
+        GMPError::InvalidPacketData
+    })?;
 
     // Parse receiver as Solana Pubkey (for incoming packets, receiver is a Solana address)
     let receiver_pubkey =
@@ -151,13 +149,12 @@ pub fn on_recv_packet<'info>(
         GMPError::GMPAccountPDAMismatch
     );
 
-    // Decode the GMP Solana payload
+    // Decode and validate the GMP Solana payload
     // The payload contains all required accounts and instruction data
-    let raw_solana_payload =
-        RawGmpSolanaPayload::decode(&packet_data.payload[..]).map_err(|_| GMPError::DecodeError)?;
-
-    // Validate GMP Solana payload
-    let solana_payload = GmpSolanaPayload::try_from(raw_solana_payload).map_err(GMPError::from)?;
+    let solana_payload = GmpSolanaPayload::decode(&packet_data.payload[..]).map_err(|e| {
+        msg!("GMP Solana payload validation failed: {}", e);
+        GMPError::InvalidSolanaPayload
+    })?;
 
     // Build account metas from GMP Solana payload
     let mut account_metas = solana_payload.to_account_metas();
@@ -221,7 +218,7 @@ pub fn on_recv_packet<'info>(
 
     // Create acknowledgement with execution result
     // Matches ibc-go's Acknowledgement format (just the result bytes)
-    Ok(GmpAcknowledgement::new(result).encode_vec())
+    Ok(GmpAcknowledgement::new(result).encode_to_vec())
 }
 
 #[cfg(test)]
@@ -234,6 +231,7 @@ mod tests {
     use gmp_counter_app::ID as COUNTER_APP_ID;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
+    use solana_ibc_proto::ProstMessage;
     use solana_ibc_types::GMPAccount;
     use solana_sdk::account::Account;
     use solana_sdk::bpf_loader_upgradeable;
@@ -271,7 +269,7 @@ mod tests {
             vec![],
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
         let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
@@ -312,7 +310,7 @@ mod tests {
             vec![],
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
         let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
@@ -356,7 +354,7 @@ mod tests {
             vec![],
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
         let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
@@ -402,7 +400,7 @@ mod tests {
             vec![],
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
         let mut instruction =
@@ -468,7 +466,7 @@ mod tests {
             memo: String::new(),
         };
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
             source_client: "cosmos-1".to_string(),
@@ -542,7 +540,7 @@ mod tests {
             payer_position: None,
         };
 
-        let solana_payload_bytes = solana_payload.encode_vec();
+        let solana_payload_bytes = solana_payload.encode_to_vec();
 
         // Packet claims to be from wrong_sender - this will derive a different PDA
         let packet_data = create_gmp_packet_data(
@@ -552,7 +550,7 @@ mod tests {
             solana_payload_bytes,
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
         let mut instruction =
@@ -606,7 +604,7 @@ mod tests {
             payer_position: None,
         };
 
-        let solana_payload_bytes = solana_payload.encode_vec();
+        let solana_payload_bytes = solana_payload.encode_to_vec();
 
         // Packet uses wrong_salt - this will derive a different PDA
         let packet_data = create_gmp_packet_data(
@@ -616,7 +614,7 @@ mod tests {
             solana_payload_bytes,
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
         let mut instruction =
@@ -670,7 +668,7 @@ mod tests {
             payer_position: None,
         };
 
-        let solana_payload_bytes = solana_payload.encode_vec();
+        let solana_payload_bytes = solana_payload.encode_to_vec();
 
         // Packet claims to be from wrong_client_id - this will derive a different PDA
         let packet_data = create_gmp_packet_data(
@@ -680,7 +678,7 @@ mod tests {
             solana_payload_bytes,
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(wrong_client_id, packet_data_bytes, 1);
         let mut instruction =
@@ -732,7 +730,7 @@ mod tests {
             vec![],
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
         let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
@@ -770,7 +768,7 @@ mod tests {
             vec![1, 2, 3],
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         // Create custom recv_msg with invalid version
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
@@ -824,7 +822,7 @@ mod tests {
             vec![1, 2, 3],
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         // Create custom recv_msg with invalid source port
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
@@ -878,7 +876,7 @@ mod tests {
             vec![1, 2, 3],
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         // Create custom recv_msg with invalid encoding
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
@@ -932,7 +930,7 @@ mod tests {
             vec![1, 2, 3],
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         // Create custom recv_msg with invalid dest port
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
@@ -989,7 +987,7 @@ mod tests {
             vec![],
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
         let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
@@ -1029,7 +1027,7 @@ mod tests {
             payer_position: None,
         };
 
-        let solana_payload_bytes = solana_payload.encode_vec();
+        let solana_payload_bytes = solana_payload.encode_to_vec();
 
         // Packet says to execute on DUMMY_TARGET_PROGRAM
         let packet_data = create_gmp_packet_data(
@@ -1039,7 +1037,7 @@ mod tests {
             solana_payload_bytes,
         );
 
-        let packet_data_bytes = packet_data.encode_vec();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
         let mut instruction =
@@ -1165,7 +1163,7 @@ mod tests {
             payer_position: Some(3), // Inject payer at position 3
         };
 
-        let solana_payload_bytes = solana_payload.encode_vec();
+        let solana_payload_bytes = solana_payload.encode_to_vec();
 
         // Create GMPPacketData with the counter instruction as payload using protobuf
         let proto_packet_data = RawGmpPacketData {
@@ -1176,7 +1174,7 @@ mod tests {
             memo: String::new(),
         };
 
-        let packet_data_bytes = proto_packet_data.encode_vec();
+        let packet_data_bytes = proto_packet_data.encode_to_vec();
 
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
             source_client: "cosmos-1".to_string(),
@@ -1439,7 +1437,7 @@ mod tests {
             payer_position: Some(3), // Inject payer at position 3
         };
 
-        let solana_payload_bytes = solana_payload.encode_vec();
+        let solana_payload_bytes = solana_payload.encode_to_vec();
 
         // Create GMPPacketData with the counter instruction as payload using protobuf
         let proto_packet_data = RawGmpPacketData {
@@ -1450,7 +1448,7 @@ mod tests {
             memo: String::new(),
         };
 
-        let packet_data_bytes = proto_packet_data.encode_vec();
+        let packet_data_bytes = proto_packet_data.encode_to_vec();
 
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
             source_client: "cosmos-1".to_string(),
@@ -1565,5 +1563,121 @@ mod tests {
 
         // With stateless approach, no account state is created or rolled back
         // The GMP account PDA is used as a signer without storing state
+    }
+
+    #[test]
+    fn test_invalid_packet_data_returns_error() {
+        let ctx = create_gmp_test_context();
+        let (client_id, _sender, salt, gmp_account_pda) = create_test_account_data();
+        let target_program = crate::test_utils::DUMMY_TARGET_PROGRAM;
+
+        // Create invalid packet data with empty sender (will fail validation)
+        let invalid_packet_data = RawGmpPacketData {
+            sender: String::new(), // Invalid: empty sender
+            receiver: target_program.to_string(),
+            salt,
+            payload: vec![1, 2, 3, 4],
+            memo: String::new(),
+        };
+
+        let packet_data_bytes = invalid_packet_data.encode_to_vec();
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // Add remaining accounts to the instruction
+        instruction.accounts.extend(vec![
+            AccountMeta::new(gmp_account_pda, false), // [0] gmp_account_pda
+            AccountMeta::new_readonly(target_program, false), // [1] target_program
+        ]);
+
+        let accounts = vec![
+            create_gmp_app_state_account(
+                ctx.app_state_pda,
+                ctx.authority,
+                ctx.app_state_bump,
+                false,
+            ),
+            create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
+            create_authority_account(ctx.payer),
+            create_system_program_account(),
+            // Remaining accounts - matching the instruction's remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
+        ];
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + GMPError::InvalidPacketData as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_invalid_solana_payload_returns_error() {
+        let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
+        let target_program = crate::test_utils::DUMMY_TARGET_PROGRAM;
+
+        // Create invalid Solana payload with empty data (will fail validation during decode)
+        let invalid_solana_payload = RawGmpSolanaPayload {
+            data: vec![], // Invalid: empty instruction data
+            accounts: vec![],
+            payer_position: None,
+        };
+
+        // Encode the invalid solana payload - this creates a valid protobuf but with empty data field
+        let mut invalid_payload_bytes = invalid_solana_payload.encode_to_vec();
+
+        // If encoding results in empty vec, add a dummy byte to pass NonEmpty constraint
+        // The payload will still be invalid when decoded as GmpSolanaPayload
+        if invalid_payload_bytes.is_empty() {
+            invalid_payload_bytes = vec![0xFF]; // Invalid protobuf that will fail decode
+        }
+
+        // Create packet data with the invalid payload bytes directly (not using helper)
+        let packet_data = RawGmpPacketData {
+            sender: sender.to_string(),
+            receiver: target_program.to_string(),
+            salt,
+            payload: invalid_payload_bytes, // This will pass GmpPacketData validation but fail GmpSolanaPayload validation
+            memo: String::new(),
+        };
+
+        let packet_data_bytes = packet_data.encode_to_vec();
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // Add remaining accounts to the instruction
+        instruction.accounts.extend(vec![
+            AccountMeta::new(gmp_account_pda, false), // [0] gmp_account_pda
+            AccountMeta::new_readonly(target_program, false), // [1] target_program
+        ]);
+
+        let accounts = vec![
+            create_gmp_app_state_account(
+                ctx.app_state_pda,
+                ctx.authority,
+                ctx.app_state_bump,
+                false,
+            ),
+            create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
+            create_authority_account(ctx.payer),
+            create_system_program_account(),
+            // Remaining accounts - matching the instruction's remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
+        ];
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + GMPError::InvalidSolanaPayload as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }

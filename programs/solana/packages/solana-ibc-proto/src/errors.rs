@@ -1,54 +1,40 @@
 /// Errors for GMP packet validation
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum GMPPacketError {
     /// Failed to decode protobuf
+    #[error("Failed to decode GMP packet")]
     DecodeError,
     /// Sender validation failed
+    #[error("Invalid sender address")]
     InvalidSender,
     /// Receiver validation failed
+    #[error("Invalid receiver address")]
     InvalidReceiver,
     /// Salt validation failed
+    #[error("Invalid salt")]
     InvalidSalt,
     /// Payload is empty
+    #[error("Empty payload")]
     EmptyPayload,
     /// Payload validation failed
+    #[error("Invalid payload")]
     InvalidPayload,
     /// Memo exceeds maximum length
+    #[error("Memo too long")]
     MemoTooLong,
 }
 
-impl core::fmt::Display for GMPPacketError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::DecodeError => write!(f, "Failed to decode GMP packet"),
-            Self::InvalidSender => write!(f, "Invalid sender address"),
-            Self::InvalidReceiver => write!(f, "Invalid receiver address"),
-            Self::InvalidSalt => write!(f, "Invalid salt"),
-            Self::EmptyPayload => write!(f, "Empty payload"),
-            Self::InvalidPayload => write!(f, "Invalid payload"),
-            Self::MemoTooLong => write!(f, "Memo too long"),
-        }
-    }
-}
-
 /// Validation errors for GMP payloads
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum GmpValidationError {
+    #[error("Failed to decode GMP payload")]
     DecodeError,
+    #[error("Invalid program ID (must be 32 bytes)")]
     InvalidProgramId,
+    #[error("Empty payload data")]
     EmptyPayload,
+    #[error("Too many accounts (max 32)")]
     TooManyAccounts,
+    #[error("Invalid account key (must be 32 bytes)")]
     InvalidAccountKey,
-}
-
-impl core::fmt::Display for GmpValidationError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::DecodeError => write!(f, "Failed to decode GMP payload"),
-            Self::InvalidProgramId => write!(f, "Invalid program ID (must be 32 bytes)"),
-            Self::EmptyPayload => write!(f, "Empty payload data"),
-            Self::TooManyAccounts => write!(f, "Too many accounts (max 32)"),
-            Self::InvalidAccountKey => write!(f, "Invalid account key (must be 32 bytes)"),
-        }
-    }
 }
