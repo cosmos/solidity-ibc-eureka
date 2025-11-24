@@ -9680,7 +9680,7 @@ dependencies = [
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "prost-build",
- "thiserror 2.0.12",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
