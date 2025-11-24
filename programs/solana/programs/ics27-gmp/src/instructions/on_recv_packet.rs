@@ -4,7 +4,9 @@ use crate::proto::GmpSolanaPayload;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_proto::{GmpPacketData, Protobuf, RawGmpPacketData, RawGmpSolanaPayload};
+use solana_ibc_proto::{
+    GmpAcknowledgement, GmpPacketData, Protobuf, RawGmpPacketData, RawGmpSolanaPayload,
+};
 use solana_ibc_types::GMPAccount;
 
 /// Receive IBC packet and execute call (called by router via CPI)
@@ -219,7 +221,7 @@ pub fn on_recv_packet<'info>(
 
     // Create acknowledgement with execution result
     // Matches ibc-go's Acknowledgement format (just the result bytes)
-    Ok(solana_ibc_proto::GmpAcknowledgement::new(result).encode_vec())
+    Ok(GmpAcknowledgement::new(result).encode_vec())
 }
 
 #[cfg(test)]
