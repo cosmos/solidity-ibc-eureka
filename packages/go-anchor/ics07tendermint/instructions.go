@@ -6,6 +6,7 @@ package ics07_tendermint
 import (
 	"bytes"
 	"fmt"
+
 	errors "github.com/gagliardetto/anchor-go/errors"
 	binary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
@@ -355,6 +356,14 @@ func NewAssembleAndUpdateClientInstruction(
 func NewCleanupIncompleteUploadInstruction(
 	submitterAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_CleanupIncompleteUpload[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
@@ -369,7 +378,7 @@ func NewCleanupIncompleteUploadInstruction(
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		nil,
+		buf__.Bytes(),
 	), nil
 }
 
