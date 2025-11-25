@@ -1192,12 +1192,17 @@ impl TxBuilder {
             self.solana_ics07_program_id,
         );
 
+        // Derive app state PDA (stores access_manager program reference)
+        let (app_state_pda, _) =
+            solana_ibc_types::ics07::AppState::pda(self.solana_ics07_program_id);
+
         // Derive access manager PDA
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);
 
         let mut accounts = vec![
             AccountMeta::new(client_state_pda, false),
+            AccountMeta::new_readonly(app_state_pda, false),
             AccountMeta::new_readonly(access_manager, false),
             AccountMeta::new_readonly(trusted_consensus_state, false),
             AccountMeta::new(new_consensus_state, false),
