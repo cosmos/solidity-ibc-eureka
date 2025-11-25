@@ -818,16 +818,22 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		}))
 
 		var packetCommitmentPDA solanago.PublicKey
-		var nextSequence uint64
+		var baseSequence uint64
 		s.Require().True(s.Run("Get next sequence number and packet commitment PDA", func() {
 			var err error
-			nextSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+			baseSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
 			s.Require().NoError(err)
 
-			nextSequenceBytes := make([]byte, 8)
-			binary.LittleEndian.PutUint64(nextSequenceBytes, nextSequence)
-			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), nextSequenceBytes)
-			s.T().Logf("Using sequence number: %d", nextSequence)
+			namespacedSequence := solana.CalculateNamespacedSequence(
+				baseSequence,
+				ics27_gmp.ProgramID,
+				s.SolanaUser.PublicKey(),
+			)
+
+			namespacedSequenceBytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
+			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
+			s.T().Logf("Using base sequence: %d, namespaced sequence: %d", baseSequence, namespacedSequence)
 		}))
 
 		var sendCallInstruction solanago.Instruction
@@ -955,7 +961,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		}))
 
 		s.Require().True(s.Run("Verify acknowledgement was processed", func() {
-			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1)
+			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, ics27_gmp.ProgramID, s.SolanaUser.PublicKey())
 		}))
 	}))
 }
@@ -1070,7 +1076,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 	}))
 
 	var solanaPacketTxHash []byte
-	var nextSequence uint64
+	var baseSequence uint64
 
 	s.Require().True(s.Run("Send call from Solana with short timeout", func() {
 		var payload []byte
@@ -1102,13 +1108,19 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 		var packetCommitmentPDA solanago.PublicKey
 		s.Require().True(s.Run("Get next sequence number and packet commitment PDA", func() {
 			var err error
-			nextSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+			baseSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
 			s.Require().NoError(err)
 
-			nextSequenceBytes := make([]byte, 8)
-			binary.LittleEndian.PutUint64(nextSequenceBytes, nextSequence)
-			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), nextSequenceBytes)
-			s.T().Logf("Using sequence number: %d (timeout test)", nextSequence)
+			namespacedSequence := solana.CalculateNamespacedSequence(
+				baseSequence,
+				ics27_gmp.ProgramID,
+				s.SolanaUser.PublicKey(),
+			)
+
+			namespacedSequenceBytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
+			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
+			s.T().Logf("Using base sequence: %d, namespaced sequence: %d (timeout test)", baseSequence, namespacedSequence)
 		}))
 
 		var sendCallInstruction solanago.Instruction
@@ -1217,8 +1229,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 		s.Require().True(s.Run("Verify timeout effects", func() {
 			s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
-				s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, nextSequence)
-				s.T().Logf("Packet commitment successfully deleted from Solana for sequence %d", nextSequence)
+				s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, baseSequence, ics27_gmp.ProgramID, s.SolanaUser.PublicKey())
+				s.T().Logf("Packet commitment successfully deleted from Solana for base sequence %d", baseSequence)
 			}))
 
 			s.Require().True(s.Run("Verify Cosmos account balance unchanged", func() {
@@ -1810,16 +1822,22 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 		}))
 
 		var packetCommitmentPDA solanago.PublicKey
-		var nextSequence uint64
+		var baseSequence uint64
 		s.Require().True(s.Run("Get next sequence number and packet commitment PDA", func() {
 			var err error
-			nextSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+			baseSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
 			s.Require().NoError(err)
 
-			nextSequenceBytes := make([]byte, 8)
-			binary.LittleEndian.PutUint64(nextSequenceBytes, nextSequence)
-			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), nextSequenceBytes)
-			s.T().Logf("Using sequence number: %d", nextSequence)
+			namespacedSequence := solana.CalculateNamespacedSequence(
+				baseSequence,
+				ics27_gmp.ProgramID,
+				s.SolanaUser.PublicKey(),
+			)
+
+			namespacedSequenceBytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
+			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
+			s.T().Logf("Using base sequence: %d, namespaced sequence: %d", baseSequence, namespacedSequence)
 		}))
 
 		var sendCallInstruction solanago.Instruction
@@ -1938,15 +1956,15 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 		// Derive packet commitment PDA for the sequence we used
 		clientSequencePDA, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-		// Get the sequence we used (it was incremented after send)
-		sequence, err := s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+		// Get the base sequence we used (it was incremented after send)
+		currentBaseSequence, err := s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
 		s.Require().NoError(err)
 
-		// The sequence we used was (current - 1)
-		usedSequence := sequence - 1
+		// The base sequence we used was (current - 1)
+		usedBaseSequence := currentBaseSequence - 1
 
-		s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, usedSequence)
-		s.T().Logf("Verified packet commitment deleted for sequence %d", usedSequence)
+		s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, usedBaseSequence, ics27_gmp.ProgramID, s.SolanaUser.PublicKey())
+		s.T().Logf("Verified packet commitment deleted for base sequence %d", usedBaseSequence)
 	}))
 }
 

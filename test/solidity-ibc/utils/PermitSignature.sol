@@ -112,11 +112,7 @@ contract PermitSignature {
         return bytes.concat(r, vs);
     }
 
-    function _getCompactSignature(
-        uint8 vRaw,
-        bytes32 rRaw,
-        bytes32 sRaw
-    )
+    function _getCompactSignature(uint8 vRaw, bytes32 rRaw, bytes32 sRaw)
         internal
         pure
         returns (bytes32 r, bytes32 vs)

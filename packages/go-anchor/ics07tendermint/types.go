@@ -787,3 +787,74 @@ func UnmarshalIcs25HandlerNonMembershipMsg(buf []byte) (*Ics25HandlerNonMembersh
 	}
 	return obj, nil
 }
+
+type SolanaIbcTypesIcs07SignatureData struct {
+	Pubkey    [32]uint8 `json:"pubkey"`
+	Msg       []byte    `json:"msg"`
+	Signature [64]uint8 `json:"signature"`
+}
+
+func (obj SolanaIbcTypesIcs07SignatureData) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Pubkey`:
+	err = encoder.Encode(obj.Pubkey)
+	if err != nil {
+		return errors.NewField("Pubkey", err)
+	}
+	// Serialize `Msg`:
+	err = encoder.Encode(obj.Msg)
+	if err != nil {
+		return errors.NewField("Msg", err)
+	}
+	// Serialize `Signature`:
+	err = encoder.Encode(obj.Signature)
+	if err != nil {
+		return errors.NewField("Signature", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesIcs07SignatureData) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesIcs07SignatureData: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesIcs07SignatureData) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Pubkey`:
+	err = decoder.Decode(&obj.Pubkey)
+	if err != nil {
+		return errors.NewField("Pubkey", err)
+	}
+	// Deserialize `Msg`:
+	err = decoder.Decode(&obj.Msg)
+	if err != nil {
+		return errors.NewField("Msg", err)
+	}
+	// Deserialize `Signature`:
+	err = decoder.Decode(&obj.Signature)
+	if err != nil {
+		return errors.NewField("Signature", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesIcs07SignatureData) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesIcs07SignatureData: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesIcs07SignatureData(buf []byte) (*SolanaIbcTypesIcs07SignatureData, error) {
+	obj := new(SolanaIbcTypesIcs07SignatureData)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}

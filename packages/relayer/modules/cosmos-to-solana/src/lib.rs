@@ -3,6 +3,7 @@
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 #![allow(missing_docs, unused_crate_dependencies)]
 
+pub mod borsh_conversions;
 pub mod constants;
 pub mod gmp;
 pub mod proto;
@@ -70,12 +71,12 @@ impl CosmosToSolanaRelayerModuleService {
         let solana_ics26_program_id = config
             .solana_ics26_program_id
             .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid Solana ICS26 program ID: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid Solana ICS26 program ID: {e}"))?;
 
         let solana_ics07_program_id: Pubkey = config
             .solana_ics07_program_id
             .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {e}"))?;
 
         let target_listener =
             solana::ChainListener::new(config.target_rpc_url.clone(), solana_ics26_program_id);
@@ -83,14 +84,14 @@ impl CosmosToSolanaRelayerModuleService {
         let fee_payer = config
             .solana_fee_payer
             .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid fee payer address: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid fee payer address: {e}"))?;
 
         let alt_address = config
             .solana_alt_address
             .as_ref()
             .map(|addr| addr.parse())
             .transpose()
-            .map_err(|e| anyhow::anyhow!("Invalid ALT address: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid ALT address: {e}"))?;
 
         let tx_builder = tx_builder::TxBuilder::new(
             src_listener.client().clone(),
@@ -112,7 +113,6 @@ impl CosmosToSolanaRelayerModuleService {
 
 #[tonic::async_trait]
 impl RelayerService for CosmosToSolanaRelayerModuleService {
-    #[tracing::instrument(skip_all)]
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
@@ -139,7 +139,6 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
     }
 
     // NOTE: Client would not be automatically updated and should be done manually
-    #[tracing::instrument(skip_all)]
     async fn relay_by_tx(
         &self,
         request: Request<api::RelayByTxRequest>,
@@ -195,16 +194,9 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             packet_txs.len()
         );
 
-        // Serialize packet transactions into RelayPacketBatch
-        let packets = packet_txs
-            .iter()
-            .map(|pkt| api::PacketTransactions {
-                chunks: pkt.chunks().to_vec(),
-                final_tx: pkt.final_tx().to_vec(),
-            })
-            .collect();
-
-        let batch = api::RelayPacketBatch { packets };
+        let batch = api::SolanaRelayPacketBatch {
+            packets: packet_txs,
+        };
         let tx = prost::Message::encode_to_vec(&batch);
 
         Ok(Response::new(api::RelayByTxResponse {
@@ -213,16 +205,16 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         }))
     }
 
-    #[tracing::instrument(skip_all)]
     async fn create_client(
         &self,
-        _request: Request<api::CreateClientRequest>,
+        request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
         tracing::info!("Handling create client request for Cosmos to Solana...");
 
+        let inner_req = request.into_inner();
         let tx = self
             .tx_builder
-            .create_client()
+            .create_client(&inner_req.parameters)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
@@ -232,33 +224,24 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         }))
     }
 
-    #[tracing::instrument(skip_all)]
     async fn update_client(
         &self,
         request: Request<api::UpdateClientRequest>,
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
         tracing::info!("Handling update client request for Cosmos to Solana...");
 
-        let chunked = self
+        let solana_update_client = self
             .tx_builder
             .update_client(request.into_inner().dst_client_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!(
-            "Using chunked update client with {} chunks",
-            chunked.total_chunks
+            "Using chunked update client with {} signatures/chunks",
+            solana_update_client.chunk_txs.len()
         );
 
-        let mut txs = Vec::new();
-        for tx in chunked.chunk_txs {
-            txs.push(tx);
-        }
-        txs.push(chunked.assembly_tx);
-
-        // Serialize multiple transactions into TransactionBatch
-        let batch = api::TransactionBatch { txs };
-        let tx = prost::Message::encode_to_vec(&batch);
+        let tx = prost::Message::encode_to_vec(&solana_update_client);
 
         Ok(Response::new(api::UpdateClientResponse {
             tx,

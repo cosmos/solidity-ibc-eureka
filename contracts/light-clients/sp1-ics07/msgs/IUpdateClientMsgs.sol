@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { ISP1Msgs } from "./ISP1Msgs.sol";
 import { IICS07TendermintMsgs } from "./IICS07TendermintMsgs.sol";
-import { IICS02ClientMsgs } from "../../msgs/IICS02ClientMsgs.sol";
+import { IICS02ClientMsgs } from "../../../msgs/IICS02ClientMsgs.sol";
 
 /// @title Update Client Program Messages
 /// @author srdtrk

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,10 +28,10 @@ func (s *Solana) SubmitChunkedRelayPackets(
 ) (solana.Signature, error) {
 	t.Helper()
 
-	var batch relayertypes.RelayPacketBatch
+	var batch relayertypes.SolanaRelayPacketBatch
 	err := proto.Unmarshal(resp.Tx, &batch)
 	if err != nil {
-		return solana.Signature{}, fmt.Errorf("failed to unmarshal RelayPacketBatch: %w", err)
+		return solana.Signature{}, fmt.Errorf("failed to unmarshal SolanaRelayPacketBatch: %w", err)
 	}
 	if len(batch.Packets) == 0 {
 		return solana.Signature{}, fmt.Errorf("no relay packets provided")
@@ -59,7 +60,7 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	packetResults := make(chan packetResult, len(batch.Packets))
 
 	for packetIdx, packet := range batch.Packets {
-		go func(pktIdx int, pkt *relayertypes.PacketTransactions) {
+		go func(pktIdx int, pkt *relayertypes.SolanaPacketTxs) {
 			packetStart := time.Now()
 			t.Logf("--- Packet %d: Starting (%d chunks + 1 final tx) ---", pktIdx+1, len(pkt.Chunks))
 
@@ -192,6 +193,8 @@ func (s *Solana) SubmitChunkedRelayPackets(
 			}
 
 			t.Logf("✓ Packet %d: Final tx completed and finalized in %v - tx: %s", pktIdx+1, finalDuration, sig)
+
+			totalDuration = time.Since(packetStart)
 			t.Logf("--- Packet %d: Complete in %v (chunks: %v, final: %v) ---",
 				pktIdx+1, totalDuration, chunksDuration, finalDuration)
 
@@ -201,6 +204,31 @@ func (s *Solana) SubmitChunkedRelayPackets(
 				chunksDuration: chunksDuration,
 				finalDuration:  finalDuration,
 				totalDuration:  totalDuration,
+			}
+
+			// Phase 3: Submit cleanup transaction (async, not tracked in timing)
+			if len(pkt.CleanupTx) > 0 {
+				go func(pktIdx int, cleanupTxBytes []byte) {
+					cleanupTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(cleanupTxBytes))
+					if err != nil {
+						t.Logf("⚠ Packet %d: Failed to decode cleanup tx: %v", pktIdx+1, err)
+						return
+					}
+
+					recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
+					if err != nil {
+						t.Logf("⚠ Packet %d: Failed to get blockhash for cleanup tx: %v", pktIdx+1, err)
+						return
+					}
+					cleanupTx.Message.RecentBlockhash = recent.Value.Blockhash
+
+					cleanupSig, err := s.SignAndBroadcastTxWithOpts(ctx, cleanupTx, rpc.ConfirmationStatusConfirmed, user)
+					if err != nil {
+						t.Logf("⚠ Packet %d: Cleanup tx failed: %v", pktIdx+1, err)
+					} else {
+						t.Logf("✓ Packet %d: Cleanup tx completed - tx: %s", pktIdx+1, cleanupSig)
+					}
+				}(pktIdx, pkt.CleanupTx)
 			}
 		}(packetIdx, packet)
 	}
@@ -252,103 +280,253 @@ func (s *Solana) DeploySolanaProgramAsync(ctx context.Context, programName, keyp
 
 func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet) {
 	t.Helper()
+	s.submitChunkedUpdateClient(ctx, t, require, resp, user, false)
+}
 
-	var batch relayertypes.TransactionBatch
-	err := proto.Unmarshal(resp.Tx, &batch)
-	require.NoError(err, "Failed to unmarshal TransactionBatch")
-	require.NotEmpty(batch.Txs, "no chunked transactions provided")
+func (s *Solana) SubmitChunkedUpdateClientSkipCleanup(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet) {
+	t.Helper()
+	s.submitChunkedUpdateClient(ctx, t, require, resp, user, true)
+}
+
+func (s *Solana) submitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet, skipCleanup bool) {
+	t.Helper()
+
+	var solanaUpdateClient relayertypes.SolanaUpdateClient
+	err := proto.Unmarshal(resp.Tx, &solanaUpdateClient)
+	require.NoError(err, "Failed to unmarshal SolanaUpdateClient")
+	require.NotEmpty(solanaUpdateClient.ChunkTxs, "no chunked transactions provided")
 
 	totalStart := time.Now()
 
-	chunkCount := len(batch.Txs) - 1
 	t.Logf("=== Starting Chunked Update Client ===")
-	t.Logf("Total transactions: %d (%d chunks + 1 assembly)",
-		len(batch.Txs),
-		chunkCount)
+	t.Logf("Target height: %d", solanaUpdateClient.TargetHeight)
+	t.Logf("ALT extend transactions: %d", len(solanaUpdateClient.AltExtendTxs))
+	t.Logf("Chunk transactions: %d", len(solanaUpdateClient.ChunkTxs))
 
-	chunkStart := 0
-	chunkEnd := len(batch.Txs) - 1
+	altExtendCount := len(solanaUpdateClient.AltExtendTxs)
 
-	type chunkResult struct {
-		index    int
-		sig      solana.Signature
-		err      error
-		duration time.Duration
-	}
+	// Phase 1: Submit ALT ops and prep txs in parallel
+	t.Logf("--- Phase 1: Creating ALT and uploading prep transactions in parallel ---")
+	phase1Start := time.Now()
 
-	t.Logf("--- Phase 1: Uploading %d chunks in parallel ---", chunkCount)
+	// Start ALT operations in background goroutine
+	altDone := make(chan error, 1)
+	go func() {
+		// Submit ALT creation transaction
+		altCreateTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(solanaUpdateClient.AltCreateTx))
+		if err != nil {
+			altDone <- fmt.Errorf("failed to decode ALT creation tx: %w", err)
+			return
+		}
+
+		altCreateSig, err := s.SignAndBroadcastTxWithOpts(ctx, altCreateTx, rpc.ConfirmationStatusConfirmed, user)
+		if err != nil {
+			altDone <- fmt.Errorf("failed to submit ALT creation tx: %w", err)
+			return
+		}
+		t.Logf("✓ ALT creation tx submitted: %s", altCreateSig)
+
+		// Submit ALT extension transactions sequentially
+		for i, altExtendTxBytes := range solanaUpdateClient.AltExtendTxs {
+			altExtendTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(altExtendTxBytes))
+			if err != nil {
+				altDone <- fmt.Errorf("failed to decode ALT extension tx %d: %w", i+1, err)
+				return
+			}
+
+			altExtendSig, err := s.SignAndBroadcastTxWithOpts(ctx, altExtendTx, rpc.ConfirmationStatusConfirmed, user)
+			if err != nil {
+				altDone <- fmt.Errorf("failed to submit ALT extension tx %d: %w", i+1, err)
+				return
+			}
+			t.Logf("✓ ALT extension tx %d/%d submitted: %s", i+1, altExtendCount, altExtendSig)
+		}
+
+		altDone <- nil
+	}()
+
+	// Upload signature verifications and header chunks in parallel with ALT ops
+	prepTxCount := len(solanaUpdateClient.ChunkTxs)
+
+	t.Logf("Uploading %d prep transactions (signature verifications + header chunks) in parallel with ALT operations...", prepTxCount)
 	chunksStart := time.Now()
-	chunkResults := make(chan chunkResult, chunkEnd-chunkStart)
 
-	for i := chunkStart; i < chunkEnd; i++ {
-		go func(idx int) {
-			chunkTxStart := time.Now()
+	var completedPrepTxs int
+	var totalPrepComputeUnits, totalPrepFees uint64
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 
-			tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[idx]))
+	// Submit all prep txs in parallel
+	for idx, chunkTxBytes := range solanaUpdateClient.ChunkTxs {
+		wg.Add(1)
+		go func(txIdx int, txBytes []byte) {
+			defer wg.Done()
+			prepTxStart := time.Now()
+
+			tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(txBytes))
 			if err != nil {
-				chunkResults <- chunkResult{
-					index:    idx,
-					err:      fmt.Errorf("failed to decode chunk %d: %w", idx, err),
-					duration: time.Since(chunkTxStart),
-				}
+				t.Errorf("Failed to decode prep tx %d: %v", txIdx, err)
 				return
 			}
 
-			sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusProcessed, user)
-			chunkDuration := time.Since(chunkTxStart)
+			sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
+			prepTxDuration := time.Since(prepTxStart)
+
+			// Fetch transaction details for gas tracking and logs
+			var computeUnits, fee uint64
+			version := uint64(0)
+
+			if sig != (solana.Signature{}) {
+				// Wait for transaction to be processed
+				time.Sleep(500 * time.Millisecond)
+
+				var txDetails *rpc.GetTransactionResult
+				var txErr error
+
+				// Retry a few times if transaction not found
+				for retry := range 3 {
+					txDetails, txErr = s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
+						Commitment:                     rpc.CommitmentConfirmed,
+						MaxSupportedTransactionVersion: &version,
+					})
+
+					if txErr == nil && txDetails != nil && txDetails.Meta != nil {
+						break
+					}
+
+					if retry < 2 {
+						time.Sleep(500 * time.Millisecond)
+					}
+				}
+
+				// Extract compute units and fees if available
+				if txErr == nil && txDetails != nil && txDetails.Meta != nil {
+					if txDetails.Meta.ComputeUnitsConsumed != nil {
+						computeUnits = *txDetails.Meta.ComputeUnitsConsumed
+					}
+					fee = txDetails.Meta.Fee
+
+					// Only log details on error
+					if txDetails.Meta.Err != nil {
+						t.Logf("[Prep tx %d] ❌ Transaction error: %v", txIdx, txDetails.Meta.Err)
+						if len(txDetails.Meta.LogMessages) > 0 {
+							t.Logf("[Prep tx %d logs] %d log messages:", txIdx, len(txDetails.Meta.LogMessages))
+							for i, logMsg := range txDetails.Meta.LogMessages {
+								t.Logf("  [%d] %s", i, logMsg)
+							}
+						}
+					}
+				}
+			}
 
 			if err != nil {
-				chunkResults <- chunkResult{
-					index:    idx,
-					err:      fmt.Errorf("failed to submit chunk %d: %w", idx, err),
-					duration: chunkDuration,
-				}
+				t.Errorf("Failed to submit prep tx %d: %v", txIdx, err)
 				return
 			}
 
-			t.Logf("[Chunk %d timing] total duration: %v",
-				idx, chunkDuration)
+			// Update shared counters with mutex
+			mu.Lock()
+			completedPrepTxs++
+			totalPrepComputeUnits += computeUnits
+			totalPrepFees += fee
+			txNum := completedPrepTxs
+			mu.Unlock()
 
-			chunkResults <- chunkResult{
-				index:    idx,
-				sig:      sig,
-				duration: chunkDuration,
-			}
-		}(i)
+			t.Logf("✓ Prep tx %d/%d submitted in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
+				txNum, prepTxCount, prepTxDuration, sig,
+				computeUnits, float64(fee)/1e9)
+		}(idx, chunkTxBytes)
 	}
 
-	completedChunks := 0
-	for i := 0; i < chunkEnd-chunkStart; i++ {
-		result := <-chunkResults
-		require.NoError(result.err, "Chunk was not submitted")
-		completedChunks++
-		t.Logf("✓ Chunk %d/%d uploaded in %v - tx: %s",
-			completedChunks, chunkCount, result.duration, result.sig)
-	}
-	close(chunkResults)
+	// Wait for all prep txs to complete
+	wg.Wait()
 
-	chunksTotal := time.Since(chunksStart)
-	avgChunkTime := chunksTotal / time.Duration(chunkCount)
-	t.Logf("--- Phase 1 Complete: All %d chunks uploaded in %v (avg: %v/chunk) ---",
-		chunkCount, chunksTotal, avgChunkTime)
+	prepTxsTotal := time.Since(chunksStart)
+	avgPrepTxTime := prepTxsTotal / time.Duration(prepTxCount)
+	avgPrepTxComputeUnits := totalPrepComputeUnits / uint64(prepTxCount)
+	t.Logf("✓ All %d prep transactions submitted in %v", prepTxCount, prepTxsTotal)
+	t.Logf("  Average per prep tx: %v duration, %d CUs, %.9f SOL",
+		avgPrepTxTime, avgPrepTxComputeUnits, float64(totalPrepFees)/float64(prepTxCount)/1e9)
+	t.Logf("  Total prep tx gas: %d CUs, %.9f SOL",
+		totalPrepComputeUnits, float64(totalPrepFees)/1e9)
+
+	// Wait for ALT operations to complete
+	if err := <-altDone; err != nil {
+		require.NoError(err, "ALT operations failed")
+	}
+	t.Logf("✓ ALT create + extend complete")
+
+	// Wait for ALT to activate (requires at least 1 slot)
+	t.Logf("Waiting for ALT to activate (next slot)...")
+	currentSlot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
+	require.NoError(err, "Failed to get current slot")
+
+	targetSlot := currentSlot + 1
+	for {
+		slot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
+		require.NoError(err, "Failed to poll slot")
+		if slot >= targetSlot {
+			t.Logf("✓ ALT activated at slot %d (waited for slot %d)", slot, targetSlot)
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	phase1Duration := time.Since(phase1Start)
+	t.Logf("--- Phase 1 Complete: ALT + prep txs ready in %v ---", phase1Duration)
 
 	t.Logf("--- Phase 2: Assembling and updating client ---")
 	assemblyStart := time.Now()
 
-	tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.Txs[len(batch.Txs)-1]))
+	tx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(solanaUpdateClient.AssemblyTx))
 	require.NoError(err, "Failed to decode assembly tx")
 
 	sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
-	require.NoError(err)
+	if err != nil {
+		t.Logf("Assembly transaction error: %v", err)
+		t.Logf("Assembly transaction failed, fetching detailed logs...")
+		// Try to get the signature from the error to fetch logs
+		// Even if submission failed, the transaction may have been sent
+		if sig.IsZero() {
+			// If we don't have a signature, we can't fetch logs
+			t.Logf("No transaction signature available to fetch logs")
+		} else {
+			// Wait longer for transaction to be indexed in RPC
+			for i := range 10 {
+				time.Sleep(1 * time.Second)
+				version := uint64(0)
+				txDetails, fetchErr := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
+					Encoding:                       solana.EncodingBase64,
+					Commitment:                     rpc.CommitmentConfirmed,
+					MaxSupportedTransactionVersion: &version,
+				})
+				if fetchErr == nil && txDetails != nil {
+					s.LogTransactionDetails(ctx, t, sig, "FAILED Assembly Transaction")
+					break
+				}
+				if i == 9 {
+					t.Logf("Failed to fetch transaction details after 10 retries")
+				}
+			}
+		}
+		require.NoError(err, "Assembly transaction failed")
+	}
 
-	// Get transaction details to verify UpdateResult
-	// Note: The RPC client needs to fetch the transaction with the "full" encoding
-	// to get return data. This verifies that the update was successful.
+	// Get transaction details to verify UpdateResult and track gas
+	var assemblyComputeUnits, assemblyFee uint64
+	version := uint64(0)
 	txDetails, err := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
-		Encoding:   solana.EncodingBase64,
-		Commitment: rpc.CommitmentConfirmed,
+		Encoding:                       solana.EncodingBase64,
+		Commitment:                     rpc.CommitmentConfirmed,
+		MaxSupportedTransactionVersion: &version,
 	})
 	if err == nil && txDetails != nil && txDetails.Meta != nil {
+		// Get gas metrics
+		if txDetails.Meta.ComputeUnitsConsumed != nil {
+			assemblyComputeUnits = *txDetails.Meta.ComputeUnitsConsumed
+		}
+		assemblyFee = txDetails.Meta.Fee
+
 		// Check if transaction has return data (UpdateResult)
 		returnDataBytes := txDetails.Meta.ReturnData.Data.Content
 		if len(returnDataBytes) > 0 {
@@ -374,37 +552,89 @@ func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	}
 
 	assemblyDuration := time.Since(assemblyStart)
-	t.Logf("✓ Assembly transaction completed in %v - tx: %s", assemblyDuration, sig)
+	t.Logf("✓ Assembly transaction completed in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
+		assemblyDuration, sig, assemblyComputeUnits, float64(assemblyFee)/1e9)
+
+	s.LogTransactionDetails(ctx, t, sig, "SUCCESS: Assembly Transaction")
+
+	var cleanupComputeUnits, cleanupFee uint64
+	var cleanupDuration time.Duration
+
+	// Phase 3: Cleanup (optional - can be skipped for large updates to avoid tx size limits)
+	// TODO: Add cleanup accounts to ALT for large updates to enable cleanup
+	if !skipCleanup && len(solanaUpdateClient.CleanupTx) > 0 {
+		t.Logf("--- Phase 3: Cleanup (reclaiming rent) ---")
+		cleanupStart := time.Now()
+
+		cleanupTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(solanaUpdateClient.CleanupTx))
+		require.NoError(err, "Failed to decode cleanup tx")
+
+		cleanupSig, err := s.SignAndBroadcastTxWithOpts(ctx, cleanupTx, rpc.ConfirmationStatusConfirmed, user)
+		require.NoError(err, "Cleanup transaction failed")
+
+		cleanupTxDetails, err := s.RPCClient.GetTransaction(ctx, cleanupSig, &rpc.GetTransactionOpts{
+			Encoding:                       solana.EncodingBase64,
+			Commitment:                     rpc.CommitmentConfirmed,
+			MaxSupportedTransactionVersion: &version,
+		})
+		if err == nil && cleanupTxDetails != nil && cleanupTxDetails.Meta != nil {
+			if cleanupTxDetails.Meta.ComputeUnitsConsumed != nil {
+				cleanupComputeUnits = *cleanupTxDetails.Meta.ComputeUnitsConsumed
+			}
+			cleanupFee = cleanupTxDetails.Meta.Fee
+		}
+
+		cleanupDuration = time.Since(cleanupStart)
+		t.Logf("✓ Cleanup transaction completed in %v - tx: %s (gas: %d CUs, fee: %.9f SOL)",
+			cleanupDuration, cleanupSig, cleanupComputeUnits, float64(cleanupFee)/1e9)
+	} else if skipCleanup {
+		t.Logf("--- Phase 3: Cleanup skipped (disabled via skipCleanup flag) ---")
+	}
 
 	totalDuration := time.Since(totalStart)
+	totalComputeUnits := totalPrepComputeUnits + assemblyComputeUnits + cleanupComputeUnits
+	totalFees := totalPrepFees + assemblyFee + cleanupFee
+
 	t.Logf("=== Chunked Update Client Complete ===")
 	t.Logf("Total time: %v", totalDuration)
-	t.Logf("  - Chunk upload phase: %v (%d chunks in parallel)", chunksTotal, chunkCount)
-	t.Logf("  - Assembly phase: %v", assemblyDuration)
+	t.Logf("  - Phase 1 (ALT + prep txs): %v (%d prep txs in parallel)", phase1Duration, prepTxCount)
+	t.Logf("  - Phase 2 (Assembly): %v", assemblyDuration)
+	if len(solanaUpdateClient.CleanupTx) > 0 {
+		t.Logf("  - Phase 3 (Cleanup): %v", cleanupDuration)
+	}
+	t.Logf("Total gas consumption:")
+	t.Logf("  - Prep txs: %d CUs, %.9f SOL", totalPrepComputeUnits, float64(totalPrepFees)/1e9)
+	t.Logf("  - Assembly: %d CUs, %.9f SOL", assemblyComputeUnits, float64(assemblyFee)/1e9)
+	if len(solanaUpdateClient.CleanupTx) > 0 {
+		t.Logf("  - Cleanup: %d CUs, %.9f SOL", cleanupComputeUnits, float64(cleanupFee)/1e9)
+	}
+	t.Logf("  - TOTAL: %d CUs, %.9f SOL", totalComputeUnits, float64(totalFees)/1e9)
 }
 
-func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T, require *require.Assertions, clientID string, sequence uint64) {
+func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T, require *require.Assertions, clientID string, baseSequence uint64, callingProgram, sender solana.PublicKey) {
 	t.Helper()
+
+	namespacedSequence := CalculateNamespacedSequence(baseSequence, callingProgram, sender)
+
 	sequenceBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
+	binary.LittleEndian.PutUint64(sequenceBytes, namespacedSequence)
 	packetCommitmentPDA, _ := Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(clientID), sequenceBytes)
 
-	// Use confirmed commitment to match relayer read commitment level
 	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, packetCommitmentPDA, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
 	})
 	if err != nil {
-		t.Logf("Packet commitment deleted (account not found) for client %s, sequence %d", clientID, sequence)
+		t.Logf("Packet commitment deleted (account not found) for client %s, base sequence %d (namespaced: %d)", clientID, baseSequence, namespacedSequence)
 		return
 	}
 
 	if accountInfo.Value == nil || accountInfo.Value.Lamports == 0 {
-		t.Logf("Packet commitment deleted (account closed) for client %s, sequence %d", clientID, sequence)
+		t.Logf("Packet commitment deleted (account closed) for client %s, base sequence %d (namespaced: %d)", clientID, baseSequence, namespacedSequence)
 		return
 	}
 
 	require.Fail("Packet commitment should have been deleted after acknowledgment",
-		"Account %s still exists with %d lamports", packetCommitmentPDA.String(), accountInfo.Value.Lamports)
+		"Account %s still exists with %d lamports (base sequence: %d, namespaced: %d)", packetCommitmentPDA.String(), accountInfo.Value.Lamports, baseSequence, namespacedSequence)
 }
 
 func (s *Solana) CreateIBCAddressLookupTable(ctx context.Context, t *testing.T, require *require.Assertions, user *solana.Wallet, cosmosChainID string, gmpPortID string, clientID string) solana.PublicKey {

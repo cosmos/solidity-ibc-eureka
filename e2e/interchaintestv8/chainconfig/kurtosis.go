@@ -24,7 +24,7 @@ import (
 
 const (
 	// ethereumPackageId is the package ID used by Kurtosis to find the Ethereum package we use for the testnet
-	ethereumPackageId = "github.com/ethpandaops/ethereum-package@5.0.1"
+	ethereumPackageId = "github.com/ethpandaops/ethereum-package@90fcb093671d5be9bf248e20d97f1c46b70d49f1"
 
 	faucetPrivateKey = "0x04b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
 )
@@ -36,18 +36,20 @@ var (
 		Participants: []kurtosisParticipant{
 			{
 				CLType:         "lodestar",
-				CLImage:        "chainsafe/lodestar:v1.33.0",
+				CLImage:        "chainsafe/lodestar:v1.35.0",
 				ELType:         "geth",
-				ELImage:        "ethereum/client-go:v1.16.2",
+				ELImage:        "ethereum/client-go:v1.16.5",
 				ELExtraParams:  []string{"--gcmode=archive"},
 				ELLogLevel:     "info",
-				ValidatorCount: 64,
+				ValidatorCount: 128,
+				// Supernode required for Fulu testing
+				Supernode: true,
 			},
 		},
-		// We
+		// We can change the preset dynamically before spinning up the testnet
 		NetworkParams: kurtosisNetworkConfigParams{
-			Preset:           "minimal",
-			ElectraForkEpoch: 1,
+			Preset:        "minimal",
+			FuluForkEpoch: 1,
 		},
 		WaitForFinalization: true,
 		AdditionalServices:  []string{},
@@ -56,9 +58,9 @@ var (
 	consensusService = fmt.Sprintf("cl-1-%s-%s", KurtosisConfig.Participants[0].CLType, KurtosisConfig.Participants[0].ELType)
 )
 
-// getKurtosisPreset returns the Kurtosis preset to use.
+// GetKurtosisPreset returns the Kurtosis preset to use.
 // It retrieves the preset from the environment variable or falls back to the default.
-func getKurtosisPreset() string {
+func GetKurtosisPreset() string {
 	preset := os.Getenv(testvalues.EnvKeyEthereumPosNetworkPreset)
 	if preset == "" {
 		return testvalues.EnvValueEthereumPosPreset_Minimal
@@ -77,31 +79,55 @@ type EthKurtosisChain struct {
 
 // To see all the configuration options: github.com/ethpandaops/ethereum-package
 type kurtosisNetworkParams struct {
-	Participants        []kurtosisParticipant       `json:"participants"`
-	NetworkParams       kurtosisNetworkConfigParams `json:"network_params"`
-	WaitForFinalization bool                        `json:"wait_for_finalization"`
-	AdditionalServices  []string                    `json:"additional_services"`
+	// Specification of the participants in the network
+	Participants []kurtosisParticipant `json:"participants"`
+	// Default configuration parameters for the network
+	NetworkParams kurtosisNetworkConfigParams `json:"network_params"`
+	// If set, the package will block until a finalized epoch has occurred.
+	WaitForFinalization bool `json:"wait_for_finalization"`
+	// Additional services to start in the network
+	AdditionalServices []string `json:"additional_services"`
 }
 
 type kurtosisParticipant struct {
-	CLType         string   `json:"cl_type"`
-	CLImage        string   `json:"cl_image"`
-	ELType         string   `json:"el_type"`
-	ELImage        string   `json:"el_image"`
-	ELExtraParams  []string `json:"el_extra_params"`
-	ELLogLevel     string   `json:"el_log_level"`
-	ValidatorCount uint64   `json:"validator_count"`
+	// The type of CL client that should be started
+	CLType string `json:"cl_type"`
+	// The Docker image that should be used for the CL client
+	CLImage string `json:"cl_image"`
+	// The type of EL client that should be started
+	ELType string `json:"el_type"`
+	// The Docker image that should be used for the EL client
+	ELImage string `json:"el_image"`
+	// A list of optional extra params that will be passed to the EL client container for modifying its behaviour
+	ELExtraParams []string `json:"el_extra_params"`
+	// The log level string that this participant's EL client should log at
+	ELLogLevel string `json:"el_log_level"`
+	// Count of the number of validators you want to run for a given participant
+	ValidatorCount uint64 `json:"validator_count"`
+	// Whether to act as a supernode for the network
+	Supernode bool `json:"supernode"`
 }
 
 type kurtosisNetworkConfigParams struct {
-	Preset           string `json:"preset"`
-	ElectraForkEpoch uint64 `json:"electra_fork_epoch"`
+	// Preset for the network. Options: "mainnet", "minimal"
+	Preset string `json:"preset"`
+	// Number of seconds per slot on the Beacon chain
+	SecondsPerSlot uint64 `json:"seconds_per_slot,omitempty"`
+	// Duration of a slot in milliseconds
+	SlotDuration uint64 `json:"slot_duration_ms,omitempty"`
+	// Fulu fork epoch
+	FuluForkEpoch uint64 `json:"fulu_fork_epoch"`
 }
 
 // SpinUpKurtosisPoS spins up a kurtosis enclave with Etheruem PoS testnet using github.com/ethpandaops/ethereum-package
 func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	// Load dynamic configurations
-	KurtosisConfig.NetworkParams.Preset = getKurtosisPreset()
+	KurtosisConfig.NetworkParams.Preset = GetKurtosisPreset()
+	if KurtosisConfig.NetworkParams.Preset == testvalues.EnvValueEthereumPosPreset_Minimal {
+		// Speed up slots to 2 seconds for minimal preset
+		KurtosisConfig.NetworkParams.SlotDuration = 2000
+		KurtosisConfig.NetworkParams.SecondsPerSlot = 2
+	}
 
 	faucet, err := crypto.ToECDSA(ethcommon.FromHex(faucetPrivateKey))
 	if err != nil {
@@ -151,6 +177,7 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	}
 	rpcPortSpec := executionCtx.GetPublicPorts()["rpc"]
 	rpc := fmt.Sprintf("http://localhost:%d", rpcPortSpec.GetNumber())
+	fmt.Println("Local Execution RPC: ", rpc)
 
 	// consensusCtx is the service context (kurtosis concept) for the consensus node that allows us to get the public ports
 	consensusCtx, err := enclaveCtx.GetServiceContext(consensusService)
@@ -159,6 +186,7 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	}
 	beaconPortSpec := consensusCtx.GetPublicPorts()["http"]
 	beaconRPC := fmt.Sprintf("http://localhost:%d", beaconPortSpec.GetNumber())
+	fmt.Println("Local Beacon RPC: ", beaconRPC)
 
 	// Wait for the chain to finalize
 	var beaconAPIClient ethereum.BeaconAPIClient

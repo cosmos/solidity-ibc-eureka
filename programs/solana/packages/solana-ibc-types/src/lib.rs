@@ -6,6 +6,7 @@
 
 pub mod access_manager;
 pub mod app_msgs;
+pub mod borsh_header;
 pub mod cpi;
 pub mod events;
 pub mod ibc_app_interface;

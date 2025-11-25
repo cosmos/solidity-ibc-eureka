@@ -1,8 +1,8 @@
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::state::*;
 use access_manager::RoleData;
-use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator, Space};
-use solana_ibc_types::{roles, Payload};
+use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator};
+use solana_ibc_types::Payload;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::sysvar::Sysvar;
 
@@ -405,14 +405,12 @@ pub fn create_account_with_lamports(
 pub fn create_uninitialized_commitment_account(
     pubkey: Pubkey,
 ) -> (Pubkey, solana_sdk::account::Account) {
-    use solana_sdk::rent::Rent;
-
-    let account_size = 8 + Commitment::INIT_SPACE;
-
+    // Create a truly non-existent account (0 lamports, empty data)
+    // This allows create_account to succeed
     (
         pubkey,
         solana_sdk::account::Account {
-            lamports: Rent::default().minimum_balance(account_size),
+            lamports: 0,
             data: vec![],
             owner: solana_sdk::system_program::ID,
             executable: false,

@@ -129,7 +129,7 @@ impl Commitment {
 pub const MAX_TIMEOUT_DURATION: i64 = 86400;
 
 /// Maximum size of chunk data
-pub const CHUNK_DATA_SIZE: usize = 700;
+pub const CHUNK_DATA_SIZE: usize = 900;
 
 /// Storage for payload chunks during multi-transaction upload
 #[account]

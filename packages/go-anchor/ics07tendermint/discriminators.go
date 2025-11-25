@@ -26,4 +26,5 @@ var (
 	Instruction_UploadMisbehaviourChunk       = [8]byte{150, 89, 208, 203, 92, 179, 160, 140}
 	Instruction_AssembleAndSubmitMisbehaviour = [8]byte{182, 151, 225, 14, 100, 151, 177, 234}
 	Instruction_CleanupIncompleteMisbehaviour = [8]byte{128, 250, 150, 138, 153, 111, 26, 224}
+	Instruction_PreVerifySignatures           = [8]byte{8, 151, 34, 75, 194, 126, 52, 111}
 )

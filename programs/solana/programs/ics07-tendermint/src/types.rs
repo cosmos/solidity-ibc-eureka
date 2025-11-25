@@ -79,12 +79,14 @@ pub struct IbcHeight {
 }
 
 impl From<IbcHeight> for Height {
+    #[inline]
     fn from(h: IbcHeight) -> Self {
         Self::new(h.revision_number, h.revision_height).expect("valid height")
     }
 }
 
 impl From<Height> for IbcHeight {
+    #[inline]
     fn from(h: Height) -> Self {
         Self {
             revision_number: h.revision_number(),
@@ -94,9 +96,29 @@ impl From<Height> for IbcHeight {
 }
 
 impl From<ClientState> for UpdateClientState {
+    #[inline]
     fn from(cs: ClientState) -> Self {
         Self {
             chain_id: cs.chain_id,
+            trust_level: TrustThreshold {
+                numerator: cs.trust_level_numerator,
+                denominator: cs.trust_level_denominator,
+            },
+            trusting_period_seconds: cs.trusting_period,
+            unbonding_period_seconds: cs.unbonding_period,
+            max_clock_drift_seconds: cs.max_clock_drift,
+            is_frozen: cs.frozen_height.revision_height > 0,
+            latest_height: cs.latest_height.into(),
+        }
+    }
+}
+
+// Reference-based conversion to avoid cloning the entire ClientState
+impl From<&ClientState> for UpdateClientState {
+    #[inline]
+    fn from(cs: &ClientState) -> Self {
+        Self {
+            chain_id: cs.chain_id.clone(),
             trust_level: TrustThreshold {
                 numerator: cs.trust_level_numerator,
                 denominator: cs.trust_level_denominator,
@@ -118,7 +140,25 @@ pub struct ConsensusState {
 }
 
 impl From<ConsensusState> for IbcConsensusState {
+    #[inline]
     fn from(cs: ConsensusState) -> Self {
+        let time = OffsetDateTime::from_unix_timestamp_nanos(cs.timestamp.into())
+            .expect("invalid timestamp");
+        let seconds = time.unix_timestamp();
+        let nanos = time.nanosecond();
+
+        Self {
+            timestamp: Time::from_unix_timestamp(seconds, nanos).expect("invalid time"),
+            root: CommitmentRoot::from_bytes(&cs.root),
+            next_validators_hash: tendermint::Hash::Sha256(cs.next_validators_hash),
+        }
+    }
+}
+
+// Reference-based conversion to avoid cloning ConsensusState
+impl From<&ConsensusState> for IbcConsensusState {
+    #[inline]
+    fn from(cs: &ConsensusState) -> Self {
         let time = OffsetDateTime::from_unix_timestamp_nanos(cs.timestamp.into())
             .expect("invalid timestamp");
         let seconds = time.unix_timestamp();
@@ -135,6 +175,7 @@ impl From<ConsensusState> for IbcConsensusState {
 impl TryFrom<IbcConsensusState> for ConsensusState {
     type Error = <[u8; 32] as TryFrom<Vec<u8>>>::Error;
 
+    #[inline]
     fn try_from(cs: IbcConsensusState) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
             timestamp: cs.timestamp.unix_timestamp_nanos() as u64,

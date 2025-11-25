@@ -1,11 +1,13 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
+
 //! Solana from events received from a Cosmos SDK chain.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
-use ibc_eureka_relayer_lib::utils::solana::convert_client_state_to_sol;
+use ibc_client_tendermint::types::Header as TmHeader;
+use ibc_eureka_relayer_lib::utils::solana::{convert_client_state_to_sol, MAX_CHUNK_SIZE};
 use ibc_eureka_relayer_lib::{
     events::{
         solana::solana_timeout_packet_to_tm_timeout, EurekaEventWithHeight,
@@ -22,22 +24,30 @@ use ibc_eureka_relayer_lib::{
         },
     },
 };
-use prost::Message;
+use ibc_proto_eureka::ibc::lightclients::tendermint::v1::Fraction;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
-    address_lookup_table::{state::AddressLookupTable, AddressLookupTableAccount},
+    address_lookup_table::{
+        instruction::{create_lookup_table, extend_lookup_table},
+        state::AddressLookupTable,
+        AddressLookupTableAccount,
+    },
     commitment_config::CommitmentConfig,
+    ed25519_instruction::{Ed25519SignatureOffsets, DATA_START},
     instruction::{AccountMeta, Instruction},
     message::{v0, VersionedMessage},
     pubkey::Pubkey,
     transaction::VersionedTransaction,
 };
+use tendermint::{chain::Id as ChainId, vote::CanonicalVote};
+use tendermint_proto::Protobuf;
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::gmp;
+use ibc_eureka_relayer_core::api::{self, SolanaPacketTxs};
 
 use solana_ibc_types::{
-    ics07::{ics07_instructions, ClientState, ConsensusState},
+    ics07::{ics07_instructions, ClientState, ConsensusState, SignatureData},
     router::{
         router_instructions, Client, ClientSequence, Commitment, IBCApp, IBCAppState, PayloadChunk,
         ProofChunk, RouterState,
@@ -45,9 +55,6 @@ use solana_ibc_types::{
     AccessManager, MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
 };
 use tendermint_rpc::{Client as _, HttpClient};
-
-/// Maximum size for a chunk (matches `CHUNK_DATA_SIZE` in Solana program)
-const MAX_CHUNK_SIZE: usize = 700;
 
 /// Parameters for assembling timeout packet accounts
 struct TimeoutAccountsParams {
@@ -81,79 +88,6 @@ struct UploadChunkParams {
     chunk_data: Vec<u8>,
 }
 
-/// Organized transactions for chunked update client
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct UpdateClientChunkedTxs {
-    /// All chunk upload transactions (can be submitted in parallel)
-    pub chunk_txs: Vec<Vec<u8>>,
-    /// Final assembly transaction (must be submitted last, includes metadata as parameters)
-    pub assembly_tx: Vec<u8>,
-    /// Total number of chunks
-    pub total_chunks: usize,
-    /// Target height being updated to
-    pub target_height: u64,
-}
-
-/// Organized transactions for chunked recv packet
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct RecvPacketChunkedTxs {
-    /// All chunk upload transactions for payloads and proof
-    pub chunk_txs: Vec<Vec<u8>>,
-    /// Final recv packet transaction
-    pub recv_tx: Vec<u8>,
-}
-
-/// Organized transactions for chunked ack packet
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct AckPacketChunkedTxs {
-    /// All chunk upload transactions for payloads and proof
-    pub chunk_txs: Vec<Vec<u8>>,
-    /// Final ack packet transaction
-    pub ack_tx: Vec<u8>,
-}
-
-/// Organized transactions for chunked timeout packet
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct TimeoutPacketChunkedTxs {
-    /// All chunk upload transactions for payloads and proof
-    pub chunk_txs: Vec<Vec<u8>>,
-    /// Final timeout packet transaction
-    pub timeout_tx: Vec<u8>,
-}
-
-/// Enum for different types of chunked packet transactions
-#[derive(Debug)]
-pub enum PacketChunkedTxs {
-    /// Recv packet with chunks
-    Recv(RecvPacketChunkedTxs),
-    /// Ack packet with chunks
-    Ack(AckPacketChunkedTxs),
-    /// Timeout packet with chunks
-    Timeout(TimeoutPacketChunkedTxs),
-}
-
-impl PacketChunkedTxs {
-    /// Get the chunk transactions for this packet
-    #[must_use]
-    pub fn chunks(&self) -> &[Vec<u8>] {
-        match self {
-            Self::Recv(r) => &r.chunk_txs,
-            Self::Ack(a) => &a.chunk_txs,
-            Self::Timeout(t) => &t.chunk_txs,
-        }
-    }
-
-    /// Get the final transaction for this packet
-    #[must_use]
-    pub fn final_tx(&self) -> &[u8] {
-        match self {
-            Self::Recv(r) => &r.recv_tx,
-            Self::Ack(a) => &a.ack_tx,
-            Self::Timeout(t) => &t.timeout_tx,
-        }
-    }
-}
-
 /// Helper to derive header chunk PDA
 fn derive_header_chunk(
     submitter: Pubkey,
@@ -171,6 +105,14 @@ fn derive_header_chunk(
             &[chunk_index],
         ],
         &program_id,
+    )
+}
+
+/// Helper to derive ALT address from current slot and authority
+fn derive_alt_address(slot: u64, authority: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[authority.as_ref(), &slot.to_le_bytes()],
+        &solana_sdk::address_lookup_table::program::id(),
     )
 }
 
@@ -344,7 +286,6 @@ impl TxBuilder {
         // Resolve the actual IBC app program ID for this port
         let ibc_app_program_id = self.resolve_port_program_id(dest_port)?;
 
-        // Derive the app state account for the resolved IBC app
         let (ibc_app_state, _) = IBCAppState::pda(dest_port, ibc_app_program_id);
 
         // Derive the access manager PDA
@@ -371,16 +312,12 @@ impl TxBuilder {
             AccountMeta::new_readonly(consensus_state, false),
         ];
 
-        // Add chunk accounts FIRST as remaining_accounts (mutable since they'll be closed)
-        // The router's chunking logic expects chunk accounts at the beginning of remaining_accounts
+        // Chunk accounts must be first in remaining_accounts
         for chunk_account in chunk_accounts {
             accounts.push(AccountMeta::new(chunk_account, false));
         }
 
-        // Extract GMP accounts if this is a GMP payload
-        // IMPORTANT: We only extract account information - the payload itself is NOT modified
-        // The packet must be forwarded exactly as received (IBC security invariant)
-        // GMP accounts are added AFTER chunk accounts to maintain correct ordering
+        // Extract GMP accounts (payload forwarded unmodified per IBC spec)
         let (dest_port_for_gmp, encoding, payload_value) = if msg.packet.payloads.is_empty() {
             // Chunked payload case
             let metadata = &msg.payloads[0];
@@ -457,8 +394,6 @@ impl TxBuilder {
             return Err(anyhow::anyhow!("Account data too short for IBCApp account"));
         }
 
-        // Deserialize IBCApp account using borsh (skip discriminator)
-        // Use deserialize instead of try_from_slice to handle extra bytes gracefully
         let mut data = &ibc_app_account.data[ANCHOR_DISCRIMINATOR_SIZE..];
         let ibc_app = solana_ibc_types::IBCApp::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account: {e}"))?;
@@ -466,7 +401,6 @@ impl TxBuilder {
         let ibc_app_program = ibc_app.app_program_id;
         tracing::info!("IBC app program ID: {}", ibc_app_program);
 
-        // Derive the app state PDA using the correct derivation (same as timeout handler)
         let (app_state, _) = IBCAppState::pda(&source_port, ibc_app_program);
 
         let (packet_commitment, _) = Commitment::packet_commitment_pda(
@@ -475,7 +409,6 @@ impl TxBuilder {
             solana_ics26_program_id,
         );
 
-        // Derive the client PDA using ICS26 client ID (from packet source_client)
         let (client, _) = Client::pda(&msg.packet.source_client, solana_ics26_program_id);
         tracing::info!(
             "Router client PDA for '{}': {}",
@@ -513,7 +446,6 @@ impl TxBuilder {
             AccountMeta::new_readonly(consensus_state, false),
         ];
 
-        // Add chunk accounts as remaining_accounts (mutable since they'll be closed)
         for chunk_account in chunk_accounts {
             accounts.push(AccountMeta::new(chunk_account, false));
         }
@@ -695,17 +627,15 @@ impl TxBuilder {
             .target_solana_client
             .get_account_with_commitment(&ibc_app_account, CommitmentConfig::confirmed())
             .map_err(|e| {
-                anyhow::anyhow!("Failed to fetch IBCApp account for port '{}': {e}", port_id)
+                anyhow::anyhow!("Failed to fetch IBCApp account for port '{port_id}': {e}")
             })?
             .value
-            .ok_or_else(|| anyhow::anyhow!("IBCApp account not found for port '{}'", port_id))?;
+            .ok_or_else(|| anyhow::anyhow!("IBCApp account not found for port '{port_id}'"))?;
 
         if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
             return Err(anyhow::anyhow!("Account data too short for IBCApp account"));
         }
 
-        // Deserialize IBCApp account using borsh (skip discriminator)
-        // Use deserialize instead of try_from_slice to handle extra bytes gracefully
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
         let ibc_app = solana_ibc_types::IBCApp::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account: {e}"))?;
@@ -723,6 +653,316 @@ impl TxBuilder {
         Self::split_into_chunks(header_bytes)
     }
 
+    /// Extracts signature data from Protobuf Tendermint Header for Ed25519 pre-verification
+    ///
+    /// This function:
+    /// 1. Iterates through all commit signatures in the protobuf header
+    /// 2. Matches validators by address (from `CommitSig`), not by index - order doesn't matter
+    /// 3. Filters out absent signatures (`BlockIdFlagAbsent`)
+    /// 4. For each present signature, builds the canonical vote sign bytes using protobuf encoding
+    /// 5. Returns a vector of `SignatureData` containing (pubkey, msg, signature) tuples
+    ///
+    /// The sign bytes are constructed using Tendermint's canonical vote format:
+    /// - Creates a `CanonicalVote` from the commit data (height, round, `block_id`, timestamp, `chain_id`)
+    /// - Encodes as protobuf using length-delimited encoding (`MarshalDelimited`)
+    ///
+    /// Pre-verification on Solana: Each signature costs ~10k CU via `Ed25519Program` precompile,
+    /// compared to ~30k CU for brine-ed25519 fallback verification
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to convert types
+    /// - Failed to encode canonical vote as protobuf
+    fn extract_signature_data_from_header(
+        header: &ibc_client_tendermint::types::Header,
+        chain_id: &str,
+    ) -> Result<Vec<SignatureData>> {
+        use tendermint::validator::Info as ValidatorInfo;
+
+        let commit = &header.signed_header.commit;
+        let validators = &header.validator_set.validators();
+
+        // Parse chain ID
+        let chain_id =
+            ChainId::try_from(chain_id.to_string()).context("Failed to parse chain ID")?;
+
+        let mut signature_data_vec = Vec::new();
+        let mut seen_hashes = std::collections::HashSet::new();
+        let mut duplicates_skipped = 0;
+
+        // Iterate through commit signatures - match validators by address, not index
+        for (idx, commit_sig) in commit.signatures.iter().enumerate() {
+            // Extract signature data and validator address, skip if absent
+            let (validator_address, timestamp, signature_opt) = match commit_sig {
+                tendermint::block::CommitSig::BlockIdFlagCommit {
+                    validator_address,
+                    timestamp,
+                    signature,
+                }
+                | tendermint::block::CommitSig::BlockIdFlagNil {
+                    validator_address,
+                    timestamp,
+                    signature,
+                } => (validator_address, timestamp, signature),
+                tendermint::block::CommitSig::BlockIdFlagAbsent => continue,
+            };
+
+            let Some(signature_bytes) = signature_opt else {
+                continue;
+            };
+
+            let validator: &ValidatorInfo = validators
+                .iter()
+                .find(|v| v.address == *validator_address)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Validator address {validator_address:?} not found in validator set",
+                    )
+                })?;
+
+            let pubkey = match &validator.pub_key {
+                tendermint::PublicKey::Ed25519(key) => key.as_bytes(),
+                _ => {
+                    anyhow::bail!("Only Ed25519 keys are supported for signature verification");
+                }
+            };
+
+            let canonical_vote = CanonicalVote {
+                vote_type: tendermint::vote::Type::Precommit,
+                height: commit.height,
+                round: commit.round,
+                block_id: Some(commit.block_id),
+                timestamp: Some(*timestamp),
+                chain_id: chain_id.clone(),
+            };
+
+            // Encode as protobuf to get sign bytes (CometBFT uses MarshalDelimited = varint length-prefixed)
+            let sign_bytes = <CanonicalVote as Protobuf<
+                tendermint_proto::v0_38::types::CanonicalVote,
+            >>::encode_length_delimited_vec(canonical_vote);
+
+            let signature: [u8; 64] = signature_bytes
+                .as_bytes()
+                .try_into()
+                .context("Signature must be 64 bytes")?;
+
+            let signature_hash =
+                solana_sdk::hash::hashv(&[pubkey, sign_bytes.as_slice(), &signature]).to_bytes();
+
+            if !seen_hashes.insert(signature_hash) {
+                duplicates_skipped += 1;
+                tracing::info!(
+                    "Skipping duplicate signature at index {} with hash {:?}",
+                    idx,
+                    &signature_hash[..8]
+                );
+                continue;
+            }
+
+            signature_data_vec.push(SignatureData {
+                signature_hash,
+                pubkey: pubkey.try_into().context("Public key must be 32 bytes")?,
+                msg: sign_bytes,
+                signature,
+            });
+        }
+
+        tracing::info!(
+            "Extracted {} signatures for pre-verification (out of {} total, {} duplicates skipped)",
+            signature_data_vec.len(),
+            commit.signatures.len(),
+            duplicates_skipped
+        );
+
+        Ok(signature_data_vec)
+    }
+
+    /// Verify signatures off-chain for logging (returns all including invalid)
+    fn verify_signatures_offchain(signature_data: Vec<SignatureData>) -> Vec<SignatureData> {
+        use ed25519_consensus::{Signature, VerificationKey};
+
+        let mut invalid_count = 0;
+        for sig_data in &signature_data {
+            let is_valid = VerificationKey::try_from(sig_data.pubkey.as_slice())
+                .and_then(|pk| {
+                    Signature::try_from(sig_data.signature.as_slice()).map(|sig| (pk, sig))
+                })
+                .is_ok_and(|(pk, sig)| pk.verify(&sig, &sig_data.msg).is_ok());
+
+            if !is_valid {
+                invalid_count += 1;
+            }
+        }
+
+        if invalid_count > 0 {
+            tracing::warn!(
+                "{} invalid signatures (will still pre-verify)",
+                invalid_count
+            );
+        }
+
+        signature_data
+    }
+
+    /// Select minimal signatures to meet 2/3 threshold on `validator_set`
+    /// and `trust_threshold` on `trusted_next_validator_set`
+    fn select_minimal_signatures(
+        signature_data: &[SignatureData],
+        header: &TmHeader,
+        trust_numerator: u64,
+        trust_denominator: u64,
+    ) -> Result<Vec<SignatureData>> {
+        let untrusted_validator_set = &header.validator_set;
+        let untrusted_total_power: u64 = untrusted_validator_set.total_voting_power().into();
+        let untrusted_required_power = (untrusted_total_power * 2) / 3;
+
+        let mut accumulated_power = 0u64;
+        let mut selected = Vec::new();
+
+        for (val_idx, validator) in untrusted_validator_set.validators().iter().enumerate() {
+            let pubkey_bytes = validator.pub_key.to_bytes();
+
+            if let Some(sig_data) = signature_data.iter().find(|sig| pubkey_bytes == sig.pubkey) {
+                accumulated_power += validator.power();
+                selected.push(sig_data.clone());
+
+                if accumulated_power >= untrusted_required_power {
+                    tracing::info!(
+                        "Selected {} signatures reaching 2/3 at validator {}/{}",
+                        selected.len(),
+                        val_idx + 1,
+                        untrusted_validator_set.validators().len()
+                    );
+                    break;
+                }
+            }
+        }
+
+        if accumulated_power < untrusted_required_power {
+            anyhow::bail!(
+                "Insufficient voting power: {accumulated_power} < {untrusted_required_power} required",
+            );
+        }
+
+        // Verify selection meets trusted threshold
+        let trusted_validator_set = &header.trusted_next_validator_set;
+        let trusted_total_power: u64 = trusted_validator_set.total_voting_power().into();
+        let trusted_required_power = (trusted_total_power * trust_numerator) / trust_denominator;
+
+        let mut trusted_power = 0u64;
+        let selected_pubkeys: std::collections::HashSet<_> =
+            selected.iter().map(|s| s.pubkey.as_slice()).collect();
+
+        for validator in trusted_validator_set.validators() {
+            if selected_pubkeys.contains(validator.pub_key.to_bytes().as_slice()) {
+                trusted_power += validator.power();
+            }
+        }
+
+        if trusted_power < trusted_required_power {
+            anyhow::bail!(
+                "Selection fails trusted threshold: {trusted_power} < {trusted_required_power} required",
+            );
+        }
+
+        Ok(selected)
+    }
+
+    /// Builds a single signature pre-verification transaction for Ed25519 signature verification
+    ///
+    /// Each transaction contains:
+    /// 1. `Ed25519Program` instruction for signature verification
+    /// 2. `pre_verify_signature` instruction that validates and stores result in PDA
+    ///
+    /// The signature verification PDA is derived using:
+    /// `[b"sig_verify", hash(pubkey || msg || signature)]`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to serialize signature data
+    /// - Failed to build `Ed25519Program` instruction data
+    /// - Failed to create transaction
+    #[allow(deprecated)]
+    fn build_pre_verify_signature_transaction(&self, sig_data: &SignatureData) -> Result<Vec<u8>> {
+        // Build Ed25519Program instruction, we can't use ed25519_instruction constructor since we
+        // don't have keypair now
+        let mut instruction_data = vec![
+            1u8, // number of signatures
+            0u8, // padding
+        ];
+
+        // Ed25519 instruction format per Solana SDK: header, then pubkey, signature, message
+        // See: https://github.com/solana-labs/solana/blob/master/sdk/src/ed25519_instruction.rs
+        let data_start = u16::try_from(DATA_START).expect("DATA_START (16) must fit in u16");
+        let pubkey_offset = data_start; // pubkey is first at DATA_START
+        let signature_offset = data_start + 32; // signature after pubkey
+        let message_data_offset = data_start + 32 + 64; // message after signature
+        let message_data_size = u16::try_from(sig_data.msg.len())
+            .context("CanonicalVote message exceeds 65,535 bytes (Ed25519 instruction limit)")?;
+
+        // Create Ed25519SignatureOffsets struct (all data in current instruction, hence u16::MAX indices)
+        let offsets = Ed25519SignatureOffsets {
+            signature_offset,
+            signature_instruction_index: u16::MAX,
+            public_key_offset: pubkey_offset,
+            public_key_instruction_index: u16::MAX,
+            message_data_offset,
+            message_data_size,
+            message_instruction_index: u16::MAX,
+        };
+
+        // Serialize offsets struct to bytes (Pod type, C-compatible repr)
+        // SAFETY: Ed25519SignatureOffsets is #[repr(C)] and implements Pod trait,
+        // size is 14 bytes (7 u16 fields)
+        #[allow(clippy::borrow_as_ptr)] // Required for Pod serialization
+        let offsets_bytes =
+            unsafe { std::slice::from_raw_parts((&raw const offsets).cast::<u8>(), 14) };
+        instruction_data.extend_from_slice(offsets_bytes);
+
+        // Append public key, signature, and message (in that order per Solana SDK)
+        instruction_data.extend_from_slice(&sig_data.pubkey);
+        instruction_data.extend_from_slice(&sig_data.signature);
+        instruction_data.extend_from_slice(&sig_data.msg);
+
+        let ed25519_ix = Instruction {
+            program_id: solana_sdk::ed25519_program::ID,
+            accounts: vec![],
+            data: instruction_data,
+        };
+
+        let (sig_verify_pda, _) = Pubkey::find_program_address(
+            &[b"sig_verify", &sig_data.signature_hash],
+            &self.solana_ics07_program_id,
+        );
+
+        // Build pre_verify_signature instruction (singular)
+        let accounts = vec![
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
+            AccountMeta::new(sig_verify_pda, false),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ];
+
+        // Serialize single signature data
+        let params_data = sig_data.try_to_vec()?;
+
+        let mut data = ics07_instructions::pre_verify_signature_discriminator().to_vec();
+        data.extend_from_slice(&params_data);
+
+        let pre_verify_ix = Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data,
+        };
+
+        // Create transaction with both instructions
+        let tx_bytes = self.create_tx_bytes(&[ed25519_ix, pre_verify_ix])?;
+
+        Ok(tx_bytes)
+    }
+
     fn build_chunk_transactions(
         &self,
         chunks: &[Vec<u8>],
@@ -733,7 +973,7 @@ impl TxBuilder {
 
         for (index, chunk_data) in chunks.iter().enumerate() {
             let chunk_index = u8::try_from(index)
-                .map_err(|_| anyhow::anyhow!("Chunk index {} exceeds u8 max", index))?;
+                .map_err(|_| anyhow::anyhow!("Chunk index {index} exceeds u8 max"))?;
             let upload_ix = self.build_upload_header_chunk_instruction(
                 chain_id,
                 target_height,
@@ -742,6 +982,7 @@ impl TxBuilder {
             )?;
 
             let chunk_tx = self.create_tx_bytes(&[upload_ix])?;
+
             chunk_txs.push(chunk_tx);
         }
 
@@ -760,6 +1001,23 @@ impl TxBuilder {
             );
 
         vec![compute_budget_ix, priority_fee_ix]
+    }
+
+    fn extend_compute_ix_with_heap() -> Vec<Instruction> {
+        let compute_budget_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(
+                MAX_COMPUTE_UNIT_LIMIT,
+            );
+
+        let priority_fee_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(
+                DEFAULT_PRIORITY_FEE,
+            );
+
+        let heap_size_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::request_heap_frame(256 * 1024);
+
+        vec![compute_budget_ix, priority_fee_ix, heap_size_ix]
     }
 
     fn build_upload_payload_chunk_instruction(
@@ -882,12 +1140,39 @@ impl TxBuilder {
         })
     }
 
+    /// Builds ALT creation transaction for the given slot and authority
+    fn build_create_alt_tx(&self, slot: u64) -> Result<Vec<u8>> {
+        let (create_ix, _alt_address) = create_lookup_table(
+            self.fee_payer, // authority
+            self.fee_payer, // payer
+            slot,           // recent_slot
+        );
+
+        self.create_tx_bytes(&[create_ix])
+    }
+
+    /// Builds ALT extension transaction to add accounts to the ALT
+    fn build_extend_alt_tx(&self, slot: u64, accounts: Vec<Pubkey>) -> Result<Vec<u8>> {
+        let (alt_address, _) = derive_alt_address(slot, self.fee_payer);
+
+        let extend_ix = extend_lookup_table(
+            alt_address,          // lookup_table_address
+            self.fee_payer,       // authority
+            Some(self.fee_payer), // payer (optional)
+            accounts,             // new_addresses
+        );
+
+        self.create_tx_bytes(&[extend_ix])
+    }
+
     fn build_assemble_and_update_client_tx(
         &self,
         chain_id: &str,
         target_height: u64,
         trusted_height: u64,
         total_chunks: u8,
+        signature_data: &[SignatureData],
+        alt_config: Option<(u64, Vec<Pubkey>)>, // (slot, addresses)
     ) -> Result<Vec<u8>> {
         let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
         let (trusted_consensus_state, _) = ConsensusState::pda(
@@ -926,12 +1211,29 @@ impl TxBuilder {
             accounts.push(AccountMeta::new(chunk_pda, false));
         }
 
+        // Add signature verification PDA accounts as remaining accounts
+        for sig_data in signature_data {
+            let (sig_verify_pda, _) = Pubkey::find_program_address(
+                &[b"sig_verify", &sig_data.signature_hash],
+                &self.solana_ics07_program_id,
+            );
+
+            accounts.push(AccountMeta::new_readonly(sig_verify_pda, false));
+        }
+
+        tracing::info!(
+            "Assembly tx: {} chunks + {} pre-verified sigs",
+            total_chunks,
+            signature_data.len()
+        );
+
         let mut data = ics07_instructions::assemble_and_update_client_discriminator().to_vec();
 
         let chain_id_len = u32::try_from(chain_id.len()).expect("chain_id too long");
         data.extend_from_slice(&chain_id_len.to_le_bytes());
         data.extend_from_slice(chain_id.as_bytes());
         data.extend_from_slice(&target_height.to_le_bytes());
+        data.extend_from_slice(&[total_chunks]); // chunk_count parameter
 
         let ix = Instruction {
             program_id: self.solana_ics07_program_id,
@@ -939,10 +1241,43 @@ impl TxBuilder {
             data,
         };
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = Self::extend_compute_ix_with_heap();
         instructions.push(ix);
 
-        self.create_tx_bytes(&instructions)
+        // Use dedicated ALT if provided, otherwise fall back to static ALT
+        match alt_config {
+            Some((slot, addresses)) => {
+                let (alt_address, _) = derive_alt_address(slot, self.fee_payer);
+                self.create_tx_bytes_with_alt(&instructions, alt_address, addresses)
+            }
+            None => self.create_tx_bytes(&instructions),
+        }
+    }
+
+    /// Create transaction bytes using provided ALT addresses
+    /// Used when building transactions that reference an ALT that doesn't exist yet
+    fn create_tx_bytes_with_alt(
+        &self,
+        instructions: &[Instruction],
+        alt_address: Pubkey,
+        alt_addresses: Vec<Pubkey>,
+    ) -> Result<Vec<u8>> {
+        if instructions.is_empty() {
+            anyhow::bail!("No instructions to execute on Solana");
+        }
+
+        let recent_blockhash = self.get_recent_blockhash()?;
+
+        // Build v0 message with the provided ALT
+        let alt_account = AddressLookupTableAccount {
+            key: alt_address,
+            addresses: alt_addresses,
+        };
+
+        let v0_message =
+            self.compile_v0_message_with_alt(instructions, recent_blockhash, alt_account)?;
+
+        Self::serialize_v0_transaction(v0_message)
     }
 }
 
@@ -1052,7 +1387,7 @@ impl TxBuilder {
         msg: &MsgRecvPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
-    ) -> Result<RecvPacketChunkedTxs> {
+    ) -> Result<SolanaPacketTxs> {
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.dest_client,
             msg.packet.sequence,
@@ -1082,7 +1417,18 @@ impl TxBuilder {
 
         let recv_tx = self.create_tx_bytes(&instructions)?;
 
-        Ok(RecvPacketChunkedTxs { chunk_txs, recv_tx })
+        let cleanup_tx = self.build_packet_cleanup_tx(
+            &msg.packet.dest_client,
+            msg.packet.sequence,
+            &msg.payloads,
+            msg.proof.total_chunks,
+        )?;
+
+        Ok(SolanaPacketTxs {
+            chunks: chunk_txs,
+            final_tx: recv_tx,
+            cleanup_tx,
+        })
     }
 
     async fn build_ack_packet_chunked(
@@ -1090,7 +1436,7 @@ impl TxBuilder {
         msg: &MsgAckPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
-    ) -> Result<AckPacketChunkedTxs> {
+    ) -> Result<SolanaPacketTxs> {
         tracing::info!(
             "build_ack_packet_chunked: seq={}, payloads.len={}, proof.total_chunks={}",
             msg.packet.sequence,
@@ -1134,7 +1480,18 @@ impl TxBuilder {
 
         let ack_tx = self.create_tx_bytes(&instructions)?;
 
-        Ok(AckPacketChunkedTxs { chunk_txs, ack_tx })
+        let cleanup_tx = self.build_packet_cleanup_tx(
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            &msg.payloads,
+            msg.proof.total_chunks,
+        )?;
+
+        Ok(SolanaPacketTxs {
+            chunks: chunk_txs,
+            final_tx: ack_tx,
+            cleanup_tx,
+        })
     }
 
     fn build_timeout_packet_chunked(
@@ -1143,7 +1500,7 @@ impl TxBuilder {
         msg: &MsgTimeoutPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
-    ) -> Result<TimeoutPacketChunkedTxs> {
+    ) -> Result<SolanaPacketTxs> {
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.source_client,
             msg.packet.sequence,
@@ -1169,47 +1526,30 @@ impl TxBuilder {
 
         let timeout_tx = self.create_tx_bytes(&instructions)?;
 
-        Ok(TimeoutPacketChunkedTxs {
-            chunk_txs,
-            timeout_tx,
+        let cleanup_tx = self.build_packet_cleanup_tx(
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            &msg.payloads,
+            msg.proof.total_chunks,
+        )?;
+
+        Ok(SolanaPacketTxs {
+            chunks: chunk_txs,
+            final_tx: timeout_tx,
+            cleanup_tx,
         })
     }
 
-    /// Build relay transaction from Cosmos events to Solana
-    /// Returns a vector of packet transactions with chunks preserved
+    /// Validates that Solana client height is sufficient for proving events and returns proof parameters
     ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - Failed to convert events to messages
-    /// - Failed to build Solana instructions
-    /// - Failed to create transaction bytes
-    #[allow(clippy::too_many_lines)]
-    #[tracing::instrument(skip_all)]
-    pub async fn relay_events_chunked(
-        &self,
-        src_events: Vec<EurekaEventWithHeight>,
-        dest_events: Vec<SolanaEurekaEventWithHeight>,
-        src_client_id: String,
-        dst_client_id: String,
-        src_packet_seqs: Vec<u64>,
-        dst_packet_seqs: Vec<u64>,
-    ) -> Result<Vec<PacketChunkedTxs>> {
-        tracing::info!(
-            "Relaying chunked events from Cosmos to Solana for client {}",
-            dst_client_id
-        );
-
-        let chain_id = self.chain_id().await?;
-        let solana_client_state = self.cosmos_client_state(&chain_id)?;
-        let solana_latest_height = solana_client_state.latest_height.revision_height;
-
-        tracing::debug!(
-            chain_id = %chain_id,
-            latest_height = solana_latest_height,
-            "Solana client state retrieved"
-        );
-
+    /// Returns an error if Solana client is not at a sufficient height to prove the events
+    fn validate_height_and_get_proof_params(
+        src_events: &[EurekaEventWithHeight],
+        solana_latest_height: u64,
+        solana_revision_number: u64,
+    ) -> Result<ibc_proto_eureka::ibc::core::client::v1::Height> {
         let max_event_height = src_events
             .iter()
             .map(|e| e.height)
@@ -1229,16 +1569,12 @@ impl TxBuilder {
 
         if solana_latest_height < required_height {
             anyhow::bail!(
-                "Solana client is at height {} but need height {} to prove events at height {}. Update Solana client to at least height {} first!",
-                solana_latest_height,
-                required_height,
-                max_event_height,
-                required_height
+                "Solana client is at height {solana_latest_height} but need height {required_height} to prove events at height {max_event_height}. Update Solana client to at least height {required_height} first!",
             );
         }
 
         let proof_height = ibc_proto_eureka::ibc::core::client::v1::Height {
-            revision_number: solana_client_state.latest_height.revision_number,
+            revision_number: solana_revision_number,
             revision_height: solana_latest_height,
         };
 
@@ -1247,6 +1583,88 @@ impl TxBuilder {
             max_event_height,
             "Using Solana's latest height for proof generation"
         );
+
+        Ok(proof_height)
+    }
+
+    /// Updates a timeout message with proof data from a Tendermint timeout message
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the proof is too large to fit in u8
+    fn update_timeout_proof_chunks(
+        timeout_with_chunks: &mut ibc_eureka_relayer_lib::utils::solana::TimeoutPacketWithChunks,
+        tm_msg: &ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout,
+    ) -> Result<()> {
+        // Update proof chunks with actual proof data
+        timeout_with_chunks
+            .proof_chunks
+            .clone_from(&tm_msg.proof_unreceived);
+
+        // Update proof metadata
+        let proof_total_chunks = u8::try_from(
+            tm_msg
+                .proof_unreceived
+                .len()
+                .div_ceil(MAX_CHUNK_SIZE)
+                .max(1),
+        )
+        .context("proof too big to fit in u8")?;
+
+        timeout_with_chunks.msg.proof.total_chunks = proof_total_chunks;
+
+        // Update proof height from TM message (injected by inject_tendermint_proofs)
+        if let Some(proof_height) = &tm_msg.proof_height {
+            timeout_with_chunks.msg.proof.height = proof_height.revision_height;
+            tracing::info!(
+                "Updated timeout packet seq {} proof height to {} (from TM message)",
+                timeout_with_chunks.msg.packet.sequence,
+                proof_height.revision_height
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Build relay transaction from Cosmos events to Solana
+    /// Returns a vector of packet transactions with chunks preserved
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to convert events to messages
+    /// - Failed to build Solana instructions
+    /// - Failed to create transaction bytes
+    #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
+    pub async fn relay_events_chunked(
+        &self,
+        src_events: Vec<EurekaEventWithHeight>,
+        dest_events: Vec<SolanaEurekaEventWithHeight>,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
+    ) -> Result<Vec<SolanaPacketTxs>> {
+        tracing::info!(
+            "Relaying chunked events from Cosmos to Solana for client {}",
+            dst_client_id
+        );
+
+        let chain_id = self.chain_id().await?;
+        let solana_client_state = self.cosmos_client_state(&chain_id)?;
+        let solana_latest_height = solana_client_state.latest_height.revision_height;
+
+        tracing::debug!(
+            chain_id = %chain_id,
+            latest_height = solana_latest_height,
+            "Solana client state retrieved"
+        );
+
+        let proof_height = Self::validate_height_and_get_proof_params(
+            &src_events,
+            solana_latest_height,
+            solana_client_state.latest_height.revision_number,
+        )?;
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
@@ -1306,33 +1724,7 @@ impl TxBuilder {
         let mut timeout_msgs_with_chunks = timeout_msgs;
         for (idx, timeout_with_chunks) in timeout_msgs_with_chunks.iter_mut().enumerate() {
             let tm_msg = &timeout_msgs_tm[idx];
-
-            // Update proof chunks with actual proof data
-            timeout_with_chunks
-                .proof_chunks
-                .clone_from(&tm_msg.proof_unreceived);
-
-            // Update proof metadata
-            let proof_total_chunks = u8::try_from(
-                tm_msg
-                    .proof_unreceived
-                    .len()
-                    .div_ceil(MAX_CHUNK_SIZE)
-                    .max(1),
-            )
-            .context("proof too big to fit in u8")?;
-
-            timeout_with_chunks.msg.proof.total_chunks = proof_total_chunks;
-
-            // Update proof height from TM message (injected by inject_tendermint_proofs)
-            if let Some(proof_height) = &tm_msg.proof_height {
-                timeout_with_chunks.msg.proof.height = proof_height.revision_height;
-                tracing::info!(
-                    "Updated timeout packet seq {} proof height to {} (from TM message)",
-                    timeout_with_chunks.msg.packet.sequence,
-                    proof_height.revision_height
-                );
-            }
+            Self::update_timeout_proof_chunks(timeout_with_chunks, tm_msg)?;
         }
 
         let mut packet_txs = Vec::new();
@@ -1351,7 +1743,7 @@ impl TxBuilder {
                 &recv_with_chunks.proof_chunks,
             )?;
 
-            packet_txs.push(PacketChunkedTxs::Recv(chunked));
+            packet_txs.push(chunked);
         }
 
         // Process ack messages with chunking
@@ -1368,7 +1760,7 @@ impl TxBuilder {
                 )
                 .await?;
 
-            packet_txs.push(PacketChunkedTxs::Ack(chunked));
+            packet_txs.push(chunked);
         }
 
         // Process timeout messages with chunking
@@ -1381,7 +1773,7 @@ impl TxBuilder {
                 &timeout_with_chunks.proof_chunks,
             )?;
 
-            packet_txs.push(PacketChunkedTxs::Timeout(chunked));
+            packet_txs.push(chunked);
         }
 
         Ok(packet_txs)
@@ -1415,15 +1807,8 @@ impl TxBuilder {
         alt_addresses: Vec<Pubkey>,
     ) -> Result<Vec<u8>> {
         let v0_message = if alt_addresses.is_empty() {
-            tracing::info!("Building v0 transaction without ALT");
             self.compile_v0_message(instructions, recent_blockhash)?
         } else {
-            tracing::info!(
-                "Building v0 transaction with ALT ({} addresses)",
-                alt_addresses.len()
-            );
-            tracing::info!("ALT addresses: {:?}", alt_addresses);
-
             let alt_account = AddressLookupTableAccount {
                 key: self.alt_address.expect("ALT address should be set"),
                 addresses: alt_addresses,
@@ -1431,8 +1816,6 @@ impl TxBuilder {
 
             self.compile_v0_message_with_alt(instructions, recent_blockhash, alt_account)?
         };
-
-        Self::log_v0_message_stats(&v0_message);
 
         Self::serialize_v0_transaction(v0_message)
     }
@@ -1469,11 +1852,6 @@ impl TxBuilder {
         };
 
         let serialized_tx = bincode::serialize(&versioned_tx)?;
-        tracing::warn!(
-            "Transaction size: {} bytes (limit: 1232 bytes raw, 1644 bytes encoded)",
-            serialized_tx.len()
-        );
-
         Ok(serialized_tx)
     }
 
@@ -1481,28 +1859,14 @@ impl TxBuilder {
         let alt_account = self
             .target_solana_client
             .get_account_with_commitment(&alt_address, CommitmentConfig::confirmed())
-            .map_err(|e| anyhow::anyhow!("Failed to fetch ALT account {}: {e}", alt_address))?
+            .map_err(|e| anyhow::anyhow!("Failed to fetch ALT account {alt_address}: {e}"))?
             .value
-            .ok_or_else(|| anyhow::anyhow!("ALT account {} not found", alt_address))?;
+            .ok_or_else(|| anyhow::anyhow!("ALT account {alt_address} not found"))?;
 
         let lookup_table = AddressLookupTable::deserialize(&alt_account.data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize ALT: {e}"))?;
 
         Ok(lookup_table.addresses.to_vec())
-    }
-
-    fn log_v0_message_stats(v0_message: &v0::Message) {
-        tracing::info!(
-            "Compiled v0 message: {} static accounts, {} ALT accounts",
-            v0_message.account_keys.len(),
-            v0_message
-                .address_table_lookups
-                .iter()
-                .map(|lookup| lookup.readonly_indexes.len() + lookup.writable_indexes.len())
-                .sum::<usize>()
-        );
-
-        tracing::info!("Static account keys: {:?}", v0_message.account_keys);
     }
 
     /// Create a new ICS07 Tendermint client on Solana
@@ -1515,14 +1879,44 @@ impl TxBuilder {
     /// - Failed to convert Tendermint types to Solana types
     /// - Failed to serialize instruction data
     /// - Failed to get recent blockhash from Solana
-    #[tracing::instrument(skip_all)]
-    pub async fn create_client(&self) -> Result<Vec<u8>> {
+    pub async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        // Parse trust level from parameters if provided (format: "1/16")
+        let trust_level = if let Some(trust_level_str) = parameters.get("trust_level") {
+            let parts: Vec<&str> = trust_level_str.split('/').collect();
+            if parts.len() != 2 {
+                anyhow::bail!(
+                    "Invalid trust level format: expected 'numerator/denominator', got '{trust_level_str}'",
+                );
+            }
+            let numerator = parts[0]
+                .parse::<u64>()
+                .map_err(|_| anyhow::anyhow!("Invalid trust level numerator: {}", parts[0]))?;
+            let denominator = parts[1]
+                .parse::<u64>()
+                .map_err(|_| anyhow::anyhow!("Invalid trust level denominator: {}", parts[1]))?;
+
+            if numerator == 0 || denominator == 0 {
+                anyhow::bail!("Trust level numerator and denominator must be greater than 0");
+            }
+            if numerator >= denominator {
+                anyhow::bail!("Trust level numerator must be less than denominator");
+            }
+
+            tracing::info!("Using custom trust level: {}/{}", numerator, denominator);
+            Some(Fraction {
+                numerator,
+                denominator,
+            })
+        } else {
+            None
+        };
+
         let chain_id = self.chain_id().await?;
         let TmCreateClientParams {
             latest_height,
             client_state: tm_client_state,
             consensus_state: tm_consensus_state,
-        } = tm_create_client_params(&self.src_tm_client).await?;
+        } = tm_create_client_params(&self.src_tm_client, trust_level).await?;
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let client_state = convert_client_state_to_sol(tm_client_state, access_manager_program_id)?;
@@ -1548,8 +1942,11 @@ impl TxBuilder {
     /// - Failed to serialize header or instruction data
     /// - Failed to get recent blockhash from Solana
     /// - Chain ID string is too long for serialization
-    #[tracing::instrument(skip_all)]
-    pub async fn update_client(&self, dst_client_id: String) -> Result<UpdateClientChunkedTxs> {
+    #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
+    pub async fn update_client(&self, dst_client_id: String) -> Result<api::SolanaUpdateClient> {
+        // ALT extension batch size: Each Pubkey is 32 bytes, so we batch ~20-25 accounts per transaction
+        const ALT_EXTEND_BATCH_SIZE: usize = 20;
+
         let chain_id = self.chain_id().await?;
         let client_state = self.cosmos_client_state(&chain_id)?;
 
@@ -1568,37 +1965,269 @@ impl TxBuilder {
             "Building chunked update client transactions for client {dst_client_id} to height {target_height}",
         );
 
-        let header_bytes = proposed_header.encode_to_vec();
+        // Convert protobuf Header to ibc-rs Header type
+        let header = TmHeader::try_from(proposed_header)
+            .context("Failed to convert protobuf Header to ibc-rs Header")?;
+
+        // Extract signature data for pre-verification
+        let mut signature_data = Self::extract_signature_data_from_header(&header, &chain_id)?;
+        signature_data = Self::verify_signatures_offchain(signature_data);
+        signature_data = Self::select_minimal_signatures(
+            &signature_data,
+            &header,
+            client_state.trust_level_numerator,
+            client_state.trust_level_denominator,
+        )?;
+
+        let borsh_header = crate::borsh_conversions::header_to_borsh(header);
+        let header_bytes = borsh_header.try_to_vec()?;
+
         let chunks = Self::split_header_into_chunks(&header_bytes);
         let total_chunks = u8::try_from(chunks.len())
             .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
 
         tracing::info!(
-            "Header size: {} bytes, split into {} chunks",
+            "Header size: {} bytes, split into {} header chunks",
             header_bytes.len(),
             total_chunks
         );
 
-        let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
+        // Build all preparatory transactions: signature pre-verification first, then header chunks
+        let mut prep_txs = Vec::new();
 
+        // Build and add pre-verify signature transactions first (one per signature)
+        // Each signature gets its own transaction with Ed25519Program + pre_verify_signature instructions
+        // These must come before chunks so signatures are verified and stored in PDAs
+        if !signature_data.is_empty() {
+            let total_signatures = signature_data.len();
+
+            for sig_data in &signature_data {
+                let pre_verify_tx = self.build_pre_verify_signature_transaction(sig_data)?;
+                prep_txs.push(pre_verify_tx);
+            }
+
+            tracing::info!(
+                "Added {} pre-verify signature transactions",
+                total_signatures
+            );
+        }
+
+        // Build header chunk transactions and add them to prep_txs (all submitted in parallel)
+        let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
+        prep_txs.extend(chunk_txs);
+
+        // Get current slot for ALT derivation
+        let slot = self
+            .target_solana_client
+            .get_slot_with_commitment(CommitmentConfig::processed())?;
+
+        tracing::info!("Current Solana slot: {}", slot);
+
+        // Build ALT creation transaction
+        let alt_create_tx = self.build_create_alt_tx(slot)?;
+
+        // Collect all accounts that need to be in the ALT for assembly transaction
+        let (client_state_pda, _) = ClientState::pda(&chain_id, self.solana_ics07_program_id);
+        let (trusted_consensus_state, _) = ConsensusState::pda(
+            client_state_pda,
+            trusted_height,
+            self.solana_ics07_program_id,
+        );
+        let (new_consensus_state, _) = ConsensusState::pda(
+            client_state_pda,
+            target_height,
+            self.solana_ics07_program_id,
+        );
+
+        let mut alt_accounts = vec![
+            client_state_pda,
+            trusted_consensus_state,
+            new_consensus_state,
+            self.fee_payer,
+            solana_sdk::system_program::id(),
+        ];
+
+        // Add all chunk account addresses
+        for chunk_index in 0..total_chunks {
+            let (chunk_pda, _) = derive_header_chunk(
+                self.fee_payer,
+                &chain_id,
+                target_height,
+                chunk_index,
+                self.solana_ics07_program_id,
+            );
+            alt_accounts.push(chunk_pda);
+        }
+
+        // Add signature verification PDA addresses
+        for sig_data in &signature_data {
+            let (sig_verify_pda, _) = Pubkey::find_program_address(
+                &[b"sig_verify", &sig_data.signature_hash],
+                &self.solana_ics07_program_id,
+            );
+
+            alt_accounts.push(sig_verify_pda);
+        }
+
+        tracing::info!(
+            "ALT will contain {} signature accounts + {} chunk accounts = {} total accounts",
+            signature_data.len(),
+            total_chunks,
+            alt_accounts.len()
+        );
+
+        // Build ALT extension transactions in batches to avoid transaction size limits
+        let mut alt_extend_txs = Vec::new();
+
+        for account_batch in alt_accounts.chunks(ALT_EXTEND_BATCH_SIZE) {
+            let extend_tx = self.build_extend_alt_tx(slot, account_batch.to_vec())?;
+            alt_extend_txs.push(extend_tx);
+        }
+
+        // Build assembly transaction that uses the new ALT
         let assembly_tx = self.build_assemble_and_update_client_tx(
             &chain_id,
             target_height,
             trusted_height,
             total_chunks,
+            &signature_data,
+            Some((slot, alt_accounts)),
         )?;
 
+        let total_tx_count = 1 + alt_extend_txs.len() + prep_txs.len() + 1; // ALT create + extends + prep txs + assembly
+
+        // Build cleanup transaction to reclaim rent from chunks and signatures
+        let cleanup_tx =
+            self.build_cleanup_tx(&chain_id, target_height, total_chunks, &signature_data)?;
+
         tracing::info!(
-            "Built {} transactions for chunked update client ({} chunks + 1 assembly with metadata as parameters)",
-            total_chunks + 1, // chunks + assembly
-            total_chunks
+            "Built {} total transactions: 1 ALT create + {} ALT extends + {} prep txs ({} header chunks + {} signatures) + 1 assembly + 1 cleanup",
+            total_tx_count + 1,
+            alt_extend_txs.len(),
+            prep_txs.len(),
+            total_chunks,
+            signature_data.len()
         );
 
-        Ok(UpdateClientChunkedTxs {
-            chunk_txs,
+        Ok(api::SolanaUpdateClient {
+            chunk_txs: prep_txs,
+            alt_create_tx,
+            alt_extend_txs,
             assembly_tx,
-            total_chunks: total_chunks as usize,
             target_height,
+            cleanup_tx,
         })
+    }
+
+    fn build_cleanup_tx(
+        &self,
+        chain_id: &str,
+        target_height: u64,
+        total_chunks: u8,
+        signature_data: &[SignatureData],
+    ) -> Result<Vec<u8>> {
+        let mut accounts = vec![AccountMeta::new(self.fee_payer, true)];
+
+        // Add all chunk accounts
+        for chunk_index in 0..total_chunks {
+            let (chunk_pda, _) = derive_header_chunk(
+                self.fee_payer,
+                chain_id,
+                target_height,
+                chunk_index,
+                self.solana_ics07_program_id,
+            );
+            accounts.push(AccountMeta::new(chunk_pda, false));
+        }
+
+        // Add all signature verification accounts
+        for sig_data in signature_data {
+            let (sig_verify_pda, _) = Pubkey::find_program_address(
+                &[b"sig_verify", &sig_data.signature_hash],
+                &self.solana_ics07_program_id,
+            );
+            accounts.push(AccountMeta::new(sig_verify_pda, false));
+        }
+
+        let mut data = ics07_instructions::cleanup_incomplete_upload_discriminator().to_vec();
+        data.extend_from_slice(&self.fee_payer.try_to_vec()?);
+
+        let instruction = Instruction {
+            program_id: self.solana_ics07_program_id,
+            accounts,
+            data,
+        };
+
+        let mut instructions = Self::extend_compute_ix();
+        instructions.push(instruction);
+
+        self.create_tx_bytes(&instructions)
+    }
+
+    fn build_packet_cleanup_tx(
+        &self,
+        client_id: &str,
+        sequence: u64,
+        msg_payloads: &[solana_ibc_types::PayloadMetadata],
+        proof_total_chunks: u8,
+    ) -> Result<Vec<u8>> {
+        use solana_ibc_types::router::{
+            router_instructions, MsgCleanupChunks, PayloadChunk, ProofChunk,
+        };
+
+        let mut accounts = vec![AccountMeta::new(self.fee_payer, true)];
+
+        // Add all payload chunk accounts
+        for (payload_idx, payload_metadata) in msg_payloads.iter().enumerate() {
+            let payload_index = u8::try_from(payload_idx)
+                .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
+
+            for chunk_index in 0..payload_metadata.total_chunks {
+                let (chunk_pda, _) = PayloadChunk::pda(
+                    self.fee_payer,
+                    client_id,
+                    sequence,
+                    payload_index,
+                    chunk_index,
+                    self.solana_ics26_program_id,
+                );
+                accounts.push(AccountMeta::new(chunk_pda, false));
+            }
+        }
+
+        // Add all proof chunk accounts
+        for chunk_index in 0..proof_total_chunks {
+            let (chunk_pda, _) = ProofChunk::pda(
+                self.fee_payer,
+                client_id,
+                sequence,
+                chunk_index,
+                self.solana_ics26_program_id,
+            );
+            accounts.push(AccountMeta::new(chunk_pda, false));
+        }
+
+        // Build cleanup message
+        let payload_chunks: Vec<u8> = msg_payloads.iter().map(|p| p.total_chunks).collect();
+        let msg = MsgCleanupChunks {
+            client_id: client_id.to_string(),
+            sequence,
+            payload_chunks,
+            total_proof_chunks: proof_total_chunks,
+        };
+
+        let mut data = router_instructions::cleanup_chunks_discriminator().to_vec();
+        data.extend_from_slice(&msg.try_to_vec()?);
+
+        let instruction = Instruction {
+            program_id: self.solana_ics26_program_id,
+            accounts,
+            data,
+        };
+
+        let mut instructions = Self::extend_compute_ix();
+        instructions.push(instruction);
+
+        self.create_tx_bytes(&instructions)
     }
 }

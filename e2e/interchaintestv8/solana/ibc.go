@@ -2,6 +2,7 @@ package solana
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 
@@ -30,6 +31,21 @@ func (s *Solana) GetNextSequenceNumber(ctx context.Context, clientSequencePDA so
 
 	nextSequence := binary.LittleEndian.Uint64(data[9:17])
 	return nextSequence, nil
+}
+
+// CalculateNamespacedSequence mirrors the on-chain Rust logic for sequence namespacing.
+// Formula: sequence = base_sequence * 10000 + suffix
+// where suffix = hash(calling_program || sender) % 10000
+func CalculateNamespacedSequence(baseSequence uint64, callingProgram, sender solana.PublicKey) uint64 {
+	hasher := sha256.New()
+	hasher.Write(callingProgram.Bytes())
+	hasher.Write(sender.Bytes())
+	hash := hasher.Sum(nil)
+
+	rawU16 := binary.LittleEndian.Uint16(hash[0:2])
+	suffix := uint64(rawU16 % 10000)
+
+	return baseSequence*10000 + suffix
 }
 
 func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPortID string, clientID string, userPubKey solana.PublicKey) []solana.PublicKey {
