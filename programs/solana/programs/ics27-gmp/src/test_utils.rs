@@ -1,4 +1,5 @@
 use crate::constants::{GMP_PORT_ID, ICS27_ENCODING, ICS27_VERSION};
+use crate::proto::RawGmpPacketData;
 use crate::state::{AccountVersion, GMPAppState};
 use access_manager::RoleData;
 use anchor_lang::{AnchorSerialize, Discriminator, InstructionData};
@@ -309,8 +310,8 @@ pub fn create_gmp_packet_data(
     receiver: &str,
     salt: Vec<u8>,
     payload: Vec<u8>,
-) -> crate::proto::GmpPacketData {
-    crate::proto::GmpPacketData {
+) -> RawGmpPacketData {
+    RawGmpPacketData {
         sender: sender.to_string(),
         receiver: receiver.to_string(),
         salt,

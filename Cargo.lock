@@ -9698,8 +9698,10 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "ibc-eureka-constrained-types",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "prost-build",
+ "thiserror 2.0.17",
 ]
 
 [[package]]

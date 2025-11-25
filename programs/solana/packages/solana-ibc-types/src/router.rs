@@ -5,6 +5,9 @@
 use crate::Payload;
 use anchor_lang::prelude::*;
 
+// Import validation constant from solana-ibc-proto (single source of truth)
+use solana_ibc_proto::MAX_CLIENT_ID_LENGTH;
+
 /// ICS26 router instruction names and discriminators
 pub mod router_instructions {
     use crate::utils::compute_discriminator;
@@ -46,8 +49,6 @@ pub mod router_instructions {
 pub enum AccountVersion {
     V1,
 }
-
-pub const MAX_CLIENT_ID_LENGTH: usize = 64;
 
 /// Counterparty chain information
 #[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]

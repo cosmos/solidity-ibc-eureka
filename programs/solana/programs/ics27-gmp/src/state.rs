@@ -63,10 +63,7 @@ pub struct SendCallMsg {
     pub memo: String,
 }
 
-// Re-export generated Protobuf types
+// Re-export types from proto crate
 pub use crate::proto::{
-    GmpAcknowledgement as GMPAcknowledgement, GmpSolanaPayload, SolanaAccountMeta,
+    GmpAcknowledgement, GmpSolanaPayload, GmpValidationError, SolanaAccountMeta,
 };
-
-// Re-export shared validated types from proto crate
-pub use solana_ibc_proto::{GmpValidationError, ValidatedAccountMeta, ValidatedGMPSolanaPayload};
