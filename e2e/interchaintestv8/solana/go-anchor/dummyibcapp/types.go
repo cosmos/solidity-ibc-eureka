@@ -476,9 +476,6 @@ type Ics26RouterStateClient struct {
 	// Counterparty chain information
 	CounterpartyInfo SolanaIbcTypesRouterCounterpartyInfo `json:"counterpartyInfo"`
 
-	// Authority that registered this client
-	Authority solanago.PublicKey `json:"authority"`
-
 	// Whether the client is active
 	Active bool `json:"active"`
 
@@ -506,11 +503,6 @@ func (obj Ics26RouterStateClient) MarshalWithEncoder(encoder *binary.Encoder) (e
 	err = encoder.Encode(obj.CounterpartyInfo)
 	if err != nil {
 		return errors.NewField("CounterpartyInfo", err)
-	}
-	// Serialize `Authority`:
-	err = encoder.Encode(obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
 	}
 	// Serialize `Active`:
 	err = encoder.Encode(obj.Active)
@@ -555,11 +547,6 @@ func (obj *Ics26RouterStateClient) UnmarshalWithDecoder(decoder *binary.Decoder)
 	err = decoder.Decode(&obj.CounterpartyInfo)
 	if err != nil {
 		return errors.NewField("CounterpartyInfo", err)
-	}
-	// Deserialize `Authority`:
-	err = decoder.Decode(&obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
 	}
 	// Deserialize `Active`:
 	err = decoder.Decode(&obj.Active)
@@ -772,13 +759,12 @@ func UnmarshalIcs26RouterStateIbcApp(buf []byte) (*Ics26RouterStateIbcApp, error
 }
 
 // Router state account
-// TODO: Implement multi-router ACL
 type Ics26RouterStateRouterState struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
 
-	// Authority that can perform restricted operations
-	Authority solanago.PublicKey `json:"authority"`
+	// Access manager program ID for role-based access control
+	AccessManager solanago.PublicKey `json:"accessManager"`
 
 	// Reserved space for future fields
 	Reserved [256]uint8 `json:"reserved"`
@@ -790,10 +776,10 @@ func (obj Ics26RouterStateRouterState) MarshalWithEncoder(encoder *binary.Encode
 	if err != nil {
 		return errors.NewField("Version", err)
 	}
-	// Serialize `Authority`:
-	err = encoder.Encode(obj.Authority)
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
 	if err != nil {
-		return errors.NewField("Authority", err)
+		return errors.NewField("AccessManager", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -819,10 +805,10 @@ func (obj *Ics26RouterStateRouterState) UnmarshalWithDecoder(decoder *binary.Dec
 	if err != nil {
 		return errors.NewField("Version", err)
 	}
-	// Deserialize `Authority`:
-	err = decoder.Decode(&obj.Authority)
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
 	if err != nil {
-		return errors.NewField("Authority", err)
+		return errors.NewField("AccessManager", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)

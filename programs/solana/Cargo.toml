@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "programs/access-manager",
   "programs/ics07-tendermint",
   "programs/ics26-router",
   "programs/ics27-gmp",
@@ -67,8 +68,8 @@ keywords = [
 ]
 
 [workspace.dependencies]
-anchor-lang = { version = "0.31.1", default-features = false }
-anchor-spl = { version = "0.31.1" }
+anchor-lang = { version = "0.32.1", default-features = false }
+anchor-spl = { version = "0.32.1" }
 base64 = "0.22"
 
 # Parent workspace packages referenced via path dependencies (not added to root workspace.dependencies)
@@ -87,6 +88,7 @@ solana-ibc-proto = { path = "./packages/solana-ibc-proto", default-features = fa
 ics25-handler = { path = "./packages/ics25-handler", default-features = false }
 solana-ibc-constants = { path = "./packages/solana-ibc-constants", default-features = false }
 solana-ibc-macros = { path = "./packages/solana-ibc-macros" }
+access-manager = { path = "./programs/access-manager", default-features = false }
 ics26-router = { path = "./programs/ics26-router", default-features = false }
 gmp-counter-app = { path = "./programs/gmp-counter-app", default-features = false }
 

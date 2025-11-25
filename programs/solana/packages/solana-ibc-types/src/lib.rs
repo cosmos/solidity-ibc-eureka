@@ -4,6 +4,7 @@
 //! implementing IBC on Solana, including router messages (ICS26),
 //! light client types (ICS07), and Solana-specific PDA utilities.
 
+pub mod access_manager;
 pub mod app_msgs;
 pub mod borsh_header;
 pub mod cpi;
@@ -38,11 +39,12 @@ pub use ics27::{
 };
 
 pub use events::{
-    AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded, NoopEvent, SendPacketEvent,
-    TimeoutPacketEvent, WriteAcknowledgementEvent,
+    AccessManagerUpdated, AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded,
+    NoopEvent, SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
 };
 
 pub use ibc_app_interface::ibc_app_instructions;
 
-pub use cpi::{validate_cpi_caller, CpiValidationError};
+pub use access_manager::{roles, AccessManager};
+pub use cpi::{reject_cpi, validate_cpi_caller, CpiValidationError};
 pub use utils::compute_discriminator;

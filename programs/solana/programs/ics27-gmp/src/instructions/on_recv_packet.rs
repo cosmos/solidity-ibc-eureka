@@ -277,7 +277,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 true, // paused
             ),
@@ -318,7 +317,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -365,7 +363,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -417,7 +414,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -445,7 +441,6 @@ mod tests {
     fn test_on_recv_packet_invalid_app_state_pda() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let port_id = "gmpport".to_string();
@@ -501,7 +496,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 wrong_app_state_pda,
-                authority,
                 wrong_bump,
                 false, // not paused
             ),
@@ -568,7 +562,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -632,7 +625,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -696,7 +688,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -738,7 +729,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -790,7 +780,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -844,7 +833,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -898,7 +886,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -952,7 +939,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -995,7 +981,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -1057,7 +1042,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
@@ -1101,13 +1085,13 @@ mod tests {
             &bpf_loader_upgradeable::ID,
         );
 
-        let authority = Pubkey::new_unique();
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         // Create packet data that will call the counter app
+        let authority = Pubkey::new_unique();
         let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         // Counter app state and user counter PDAs
@@ -1228,7 +1212,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 app_state_pda,
-                authority,
                 app_state_bump,
                 false, // not paused
             ),
@@ -1375,13 +1358,13 @@ mod tests {
             &bpf_loader_upgradeable::ID,
         );
 
-        let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         // Create packet data
+        let authority = Pubkey::new_unique();
         let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         // Counter app state PDA
@@ -1502,7 +1485,6 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 app_state_pda,
-                authority,
                 app_state_bump,
                 false, // not paused
             ),
@@ -1592,12 +1574,7 @@ mod tests {
         ]);
 
         let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.authority,
-                ctx.app_state_bump,
-                false,
-            ),
+            create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
             create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
@@ -1658,12 +1635,7 @@ mod tests {
         ]);
 
         let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.authority,
-                ctx.app_state_bump,
-                false,
-            ),
+            create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
             create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),

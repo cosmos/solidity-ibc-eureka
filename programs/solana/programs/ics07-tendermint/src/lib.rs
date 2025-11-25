@@ -15,14 +15,14 @@ declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 solana_allocator::custom_heap!();
 
 pub use types::{
-    ClientState, ConsensusState, IbcHeight, UpdateResult, UploadChunkParams,
+    AppState, ClientState, ConsensusState, IbcHeight, UpdateResult, UploadChunkParams,
     UploadMisbehaviourChunkParams,
 };
 
 pub use ics25_handler::{MembershipMsg, NonMembershipMsg};
 
 #[derive(Accounts)]
-#[instruction(chain_id: String, latest_height: u64, client_state: ClientState)]
+#[instruction(chain_id: String, latest_height: u64, client_state: ClientState, consensus_state: ConsensusState, access_manager: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,
@@ -40,10 +40,43 @@ pub struct Initialize<'info> {
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + AppState::INIT_SPACE,
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
     #[account(mut)]
     pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct SetAccessManager<'info> {
+    #[account(
+        mut,
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
+
+    /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
+    pub admin: Signer<'info>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
@@ -110,6 +143,21 @@ pub struct AssembleAndUpdateClient<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
+    #[account(
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
+
+    /// Global access control account (owned by access-manager program)
+    /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     /// Trusted consensus state at the height embedded in the header
     /// CHECK: Must already exist. Unchecked because PDA seeds require runtime header data.
     pub trusted_consensus_state: UncheckedAccount<'info>,
@@ -123,6 +171,11 @@ pub struct AssembleAndUpdateClient<'info> {
     pub submitter: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
     // Remaining accounts are the chunk accounts in order
     // They will be validated and closed in the instruction handler
 }
@@ -173,12 +226,32 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
+    #[account(
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
+
+    /// Global access control account (owned by access-manager program)
+    /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
 
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 
     #[account(mut)]
     pub submitter: Signer<'info>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
     // Remaining accounts are the chunk accounts in order
 }
 
@@ -235,13 +308,23 @@ pub mod ics07_tendermint {
         latest_height: u64,
         client_state: ClientState,
         consensus_state: ConsensusState,
+        access_manager: Pubkey,
     ) -> Result<()> {
-        // NOTE: chain_id is used in the #[instruction] attribute for account validation
-        // but the actual handler doesn't need it as it's embedded in client_state
-        assert_eq!(client_state.chain_id, chain_id);
-        assert_eq!(client_state.latest_height.revision_height, latest_height);
+        instructions::initialize::initialize(
+            ctx,
+            chain_id,
+            latest_height,
+            client_state,
+            consensus_state,
+            access_manager,
+        )
+    }
 
-        instructions::initialize::initialize(ctx, client_state, consensus_state)
+    pub fn set_access_manager(
+        ctx: Context<SetAccessManager>,
+        new_access_manager: Pubkey,
+    ) -> Result<()> {
+        instructions::set_access_manager::set_access_manager(ctx, new_access_manager)
     }
 
     pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {

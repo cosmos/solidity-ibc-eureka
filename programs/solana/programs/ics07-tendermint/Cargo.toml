@@ -29,6 +29,8 @@ custom-heap = ["dep:solana-allocator"]
 [dependencies]
 solana-allocator = { version = "0.1", optional = true }
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
+solana-program.workspace = true
+access-manager = { workspace = true, features = ["cpi"] }
 borsh.workspace = true
 ics25-handler.workspace = true
 solana-ibc-types = { workspace = true, features = ["light-client"] }

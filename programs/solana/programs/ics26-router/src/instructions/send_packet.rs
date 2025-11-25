@@ -229,14 +229,12 @@ mod tests {
     }
 
     fn setup_send_packet_test_with_params(params: SendPacketTestParams) -> SendPacketTestContext {
-        let authority = Pubkey::new_unique();
         let app_program_id = params.app_program_id.unwrap_or_else(Pubkey::new_unique);
         let payer = Pubkey::new_unique();
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (router_state_pda, router_state_data) = setup_router_state();
         let (client_pda, client_data) = setup_client(
             params.client_id,
-            authority,
             Pubkey::new_unique(),
             "counterparty-client",
             params.active_client,
@@ -521,18 +519,16 @@ mod tests {
     #[test]
     fn test_send_packet_independent_client_sequences() {
         // Test that two different clients have independent sequence counters
-        let authority = Pubkey::new_unique();
         let app_program_id = Pubkey::new_unique();
         let port_id = "test-port";
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (router_state_pda, router_state_data) = setup_router_state();
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, app_program_id);
 
         // Create first client with sequence 10
         let client_id_1 = "test-client-1";
         let (client_pda_1, client_data_1) = setup_client(
             client_id_1,
-            authority,
             Pubkey::new_unique(),
             "counterparty-client-1",
             true,
@@ -544,7 +540,6 @@ mod tests {
         let client_id_2 = "test-client-2";
         let (client_pda_2, client_data_2) = setup_client(
             client_id_2,
-            authority,
             Pubkey::new_unique(),
             "counterparty-client-2",
             true,
@@ -683,7 +678,6 @@ mod tests {
     fn test_send_packet_concurrent_different_programs() {
         // Test that two different programs can send packets concurrently with the same base sequence
         // because they get different namespaced sequences
-        let authority = Pubkey::new_unique();
         let app_program_1 = Pubkey::new_unique();
         let app_program_2 = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
@@ -691,14 +685,9 @@ mod tests {
         let port_id_1 = "test-port-1";
         let port_id_2 = "test-port-2";
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
-        let (client_pda, client_data) = setup_client(
-            client_id,
-            authority,
-            Pubkey::new_unique(),
-            "counterparty-client",
-            true,
-        );
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (client_pda, client_data) =
+            setup_client(client_id, Pubkey::new_unique(), "counterparty-client", true);
         let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 1);
         let (ibc_app_pda_1, ibc_app_data_1) = setup_ibc_app(port_id_1, app_program_1);
         let (ibc_app_pda_2, ibc_app_data_2) = setup_ibc_app(port_id_2, app_program_2);

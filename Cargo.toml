@@ -164,12 +164,13 @@ cw-ics08-wasm-eth-v1_2_0 = { package = "cw-ics08-wasm-eth", git = "https://githu
 ethereum-light-client-v1_2_0 = { package = "ethereum-light-client", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
 
 # Solana dependencies
+solana-program            = { version = "2.0" }
 solana-client             = { version = "2.0" }
 solana-sdk                = { version = "2.0" }
 solana-transaction-status = { version = "2.0" }
 bincode                   = { version = "1.3" }
-anchor-lang               = { version = "0.31.1" }
-anchor-client             = { version = "0.31.1" }
+anchor-lang               = { version = "0.32.1" }
+anchor-client             = { version = "0.32.1" }
 
 # TODO: Remove these dependencies once ethereum wasm client v1.2.0 backwards compatibility is not needed
 ibc-eureka-relayer-eth-to-cosmos-v1_2 = { package = "ibc-eureka-relayer-eth-to-cosmos", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }

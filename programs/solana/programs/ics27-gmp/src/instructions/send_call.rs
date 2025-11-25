@@ -163,7 +163,6 @@ mod tests {
 
     struct TestContext {
         mollusk: Mollusk,
-        authority: Pubkey,
         sender: Pubkey,
         payer: Pubkey,
         router_program: Pubkey,
@@ -178,7 +177,6 @@ mod tests {
 
     impl TestContext {
         fn new() -> Self {
-            let authority = Pubkey::new_unique();
             let sender = Pubkey::new_unique();
             let payer = Pubkey::new_unique();
             let router_program = ics26_router::ID;
@@ -194,7 +192,6 @@ mod tests {
 
             Self {
                 mollusk: Mollusk::new(&crate::ID, crate::get_gmp_program_path()),
-                authority,
                 sender,
                 payer,
                 router_program,
@@ -235,12 +232,7 @@ mod tests {
 
         fn build_accounts(&self, paused: bool) -> Vec<(Pubkey, solana_sdk::account::Account)> {
             vec![
-                create_gmp_app_state_account(
-                    self.app_state_pda,
-                    self.authority,
-                    self.app_state_bump,
-                    paused,
-                ),
+                create_gmp_app_state_account(self.app_state_pda, self.app_state_bump, paused),
                 create_authority_account(self.sender),
                 create_authority_account(self.payer),
                 create_router_program_account(self.router_program),
@@ -299,7 +291,7 @@ mod tests {
             wrong_pda: Pubkey,
         ) -> Vec<(Pubkey, solana_sdk::account::Account)> {
             vec![
-                create_gmp_app_state_account(wrong_pda, self.authority, self.app_state_bump, false),
+                create_gmp_app_state_account(wrong_pda, self.app_state_bump, false),
                 create_authority_account(self.sender),
                 create_authority_account(self.payer),
                 create_router_program_account(self.router_program),
@@ -347,12 +339,7 @@ mod tests {
             wrong_router: Pubkey,
         ) -> Vec<(Pubkey, solana_sdk::account::Account)> {
             vec![
-                create_gmp_app_state_account(
-                    self.app_state_pda,
-                    self.authority,
-                    self.app_state_bump,
-                    false,
-                ),
+                create_gmp_app_state_account(self.app_state_pda, self.app_state_bump, false),
                 create_authority_account(self.sender),
                 create_authority_account(self.payer),
                 create_router_program_account(wrong_router),

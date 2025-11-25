@@ -11,14 +11,13 @@ pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
 
 /// Router state account
-/// TODO: Implement multi-router ACL
 #[account]
 #[derive(InitSpace)]
 pub struct RouterState {
     /// Schema version for upgrades
     pub version: AccountVersion,
-    /// Authority that can perform restricted operations
-    pub authority: Pubkey,
+    /// Access manager program ID for role-based access control
+    pub access_manager: Pubkey,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -61,8 +60,6 @@ pub struct Client {
     pub client_program_id: Pubkey,
     /// Counterparty chain information
     pub counterparty_info: CounterpartyInfo,
-    /// Authority that registered this client
-    pub authority: Pubkey,
     /// Whether the client is active
     pub active: bool,
     /// Reserved space for future fields
@@ -79,7 +76,6 @@ impl Client {
             client_id: self.client_id.clone(),
             client_program_id: self.client_program_id,
             counterparty_info: self.counterparty_info.clone(),
-            authority: self.authority,
             active: self.active,
             _reserved: self._reserved,
         }
@@ -217,9 +213,34 @@ mod compatibility_tests {
         assert_eq!(Client::SEED, solana_ibc_types::Client::SEED);
     }
 
-    /// Ensures `RouterState` in this program remains compatible with marker type pattern
+    /// Ensures `RouterState` in this program remains compatible with `solana_ibc_types::RouterState`
+    /// This is critical because the relayer deserializes on-chain `RouterState` accounts
+    /// using `solana_ibc_types::RouterState`
     #[test]
-    fn test_router_state_seed_compatibility() {
+    fn test_router_state_serialization_compatibility() {
+        let router_state = RouterState {
+            version: AccountVersion::V1,
+            access_manager: Pubkey::new_unique(),
+            _reserved: [0; 256],
+        };
+
+        // Serialize the program's RouterState
+        // Note: try_to_vec() doesn't include discriminator - that's only added by Anchor
+        // when writing to on-chain accounts
+        let serialized = router_state.try_to_vec().unwrap();
+
+        // Deserialize as solana_ibc_types::RouterState to verify compatibility
+        let types_router_state: solana_ibc_types::RouterState =
+            AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
+
+        // Verify all fields match
+        assert_eq!(
+            router_state.access_manager,
+            types_router_state.access_manager
+        );
+        assert_eq!(router_state._reserved, types_router_state._reserved);
+
+        // Verify SEED constant matches
         assert_eq!(RouterState::SEED, solana_ibc_types::RouterState::SEED);
     }
 

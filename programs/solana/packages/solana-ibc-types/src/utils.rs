@@ -1,6 +1,6 @@
 //! Utility functions for IBC on Solana
 
-use anchor_lang::solana_program::hash::hash;
+use solana_program::hash::hash;
 
 /// Compute Anchor instruction discriminator
 ///

@@ -11,10 +11,17 @@ pub struct AddClient<'info> {
 
     #[account(
         seeds = [RouterState::SEED],
-        bump,
-        constraint = router_state.authority == authority.key() @ RouterError::UnauthorizedAuthority,
+        bump
     )]
     pub router_state: Account<'info, RouterState>,
+
+    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = router_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
 
     #[account(
         init,
@@ -40,6 +47,11 @@ pub struct AddClient<'info> {
     pub light_client_program: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
@@ -50,20 +62,31 @@ pub struct MigrateClient<'info> {
 
     #[account(
         seeds = [RouterState::SEED],
-        bump,
-        constraint = router_state.authority == authority.key() @ RouterError::UnauthorizedAuthority,
+        bump
     )]
     pub router_state: Account<'info, RouterState>,
+
+    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = router_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
 
     #[account(
         mut,
         seeds = [Client::SEED, client_id.as_bytes()],
-        bump,
-        constraint = client.authority == authority.key() @ RouterError::UnauthorizedAuthority,
+        bump
     )]
     pub client: Account<'info, Client>,
 
     pub relayer: Signer<'info>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 /// Parameters for migrating a client
@@ -82,14 +105,16 @@ pub fn add_client(
     client_id: String,
     counterparty_info: CounterpartyInfo,
 ) -> Result<()> {
+    access_manager::require_role(
+        &ctx.accounts.access_manager,
+        solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
+        &ctx.accounts.relayer,
+        &ctx.accounts.instructions_sysvar,
+        &crate::ID,
+    )?;
+
     let client = &mut ctx.accounts.client;
     let light_client_program = &ctx.accounts.light_client_program;
-    let router_state = &ctx.accounts.router_state;
-
-    require!(
-        ctx.accounts.relayer.key() == router_state.authority,
-        RouterError::UnauthorizedSender
-    );
 
     require!(
         validate_custom_ibc_identifier(&client_id),
@@ -108,7 +133,6 @@ pub fn add_client(
     client.client_id = client_id;
     client.client_program_id = light_client_program.key();
     client.counterparty_info = counterparty_info;
-    client.authority = ctx.accounts.authority.key();
     client.active = true;
     client._reserved = [0u8; 256];
 
@@ -129,12 +153,14 @@ pub fn migrate_client(
     params: MigrateClientParams,
 ) -> Result<()> {
     let client = &mut ctx.accounts.client;
-    let router_state = &ctx.accounts.router_state;
 
-    require!(
-        ctx.accounts.relayer.key() == router_state.authority,
-        RouterError::UnauthorizedSender
-    );
+    access_manager::require_role(
+        &ctx.accounts.access_manager,
+        solana_ibc_types::roles::ADMIN_ROLE,
+        &ctx.accounts.relayer,
+        &ctx.accounts.instructions_sysvar,
+        &crate::ID,
+    )?;
 
     require!(
         params.client_program_id.is_some()
@@ -215,6 +241,7 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
+    use solana_ibc_types::roles;
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
@@ -261,7 +288,9 @@ mod tests {
         let relayer = authority;
         let light_client_program = Pubkey::new_unique();
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::ID_CUSTOMIZER_ROLE, &[authority])]);
         let (client_pda, _) =
             Pubkey::find_program_address(&[Client::SEED, config.client_id.as_bytes()], &crate::ID);
         let (client_sequence_pda, _) = Pubkey::find_program_address(
@@ -281,11 +310,13 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(authority, true),
                 AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         };
@@ -293,10 +324,13 @@ mod tests {
         let accounts = vec![
             create_system_account(authority),
             create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(client_pda, 0),
             create_uninitialized_account(client_sequence_pda, 0),
+            create_system_account(relayer),
             create_program_account(light_client_program),
             create_program_account(system_program::ID),
+            create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
@@ -386,7 +420,6 @@ mod tests {
             .expect("Failed to deserialize client");
 
         assert_eq!(deserialized_client.client_id, client_id);
-        assert_eq!(deserialized_client.authority, authority);
         assert!(deserialized_client.active);
         assert_eq!(
             deserialized_client.counterparty_info.client_id,
@@ -470,14 +503,11 @@ mod tests {
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client-02";
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
-        let (client_pda, client_data) = setup_client(
-            client_id,
-            authority,
-            light_client_program,
-            "counterparty-client",
-            true,
-        );
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::ADMIN_ROLE, &[authority])]);
+        let (client_pda, client_data) =
+            setup_client(client_id, light_client_program, "counterparty-client", true);
 
         let instruction_data = crate::instruction::MigrateClient {
             client_id: client_id.to_string(),
@@ -493,8 +523,10 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(authority, true),
                 AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         };
@@ -502,7 +534,10 @@ mod tests {
         let accounts = vec![
             create_system_account(authority),
             create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(client_pda, client_data, crate::ID),
+            create_system_account(relayer),
+            create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
@@ -524,7 +559,6 @@ mod tests {
         assert!(!deserialized_client.active, "Client should be deactivated");
         assert_eq!(deserialized_client.client_id, client_id);
         assert_eq!(deserialized_client.client_program_id, light_client_program);
-        assert_eq!(deserialized_client.authority, authority);
     }
 
     #[test]
@@ -535,10 +569,11 @@ mod tests {
         let new_light_client_program = Pubkey::new_unique();
         let client_id = "test-client-03";
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::ADMIN_ROLE, &[authority])]);
         let (client_pda, client_data) = setup_client(
             client_id,
-            authority,
             old_light_client_program,
             "counterparty-client",
             true,
@@ -558,8 +593,10 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(authority, true),
                 AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         };
@@ -567,7 +604,10 @@ mod tests {
         let accounts = vec![
             create_system_account(authority),
             create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(client_pda, client_data, crate::ID),
+            create_system_account(relayer),
+            create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
@@ -590,7 +630,6 @@ mod tests {
             "Client program ID should be updated"
         );
         assert_eq!(deserialized_client.client_id, client_id);
-        assert_eq!(deserialized_client.authority, authority);
         assert!(deserialized_client.active);
     }
 
@@ -606,14 +645,11 @@ mod tests {
             merkle_prefix: vec![vec![0x02, 0x03]],
         };
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
-        let (client_pda, client_data) = setup_client(
-            client_id,
-            authority,
-            light_client_program,
-            "old-counterparty",
-            true,
-        );
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::ADMIN_ROLE, &[authority])]);
+        let (client_pda, client_data) =
+            setup_client(client_id, light_client_program, "old-counterparty", true);
 
         let instruction_data = crate::instruction::MigrateClient {
             client_id: client_id.to_string(),
@@ -629,8 +665,10 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(authority, true),
                 AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         };
@@ -638,7 +676,10 @@ mod tests {
         let accounts = vec![
             create_system_account(authority),
             create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(client_pda, client_data, crate::ID),
+            create_system_account(relayer),
+            create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
@@ -680,10 +721,11 @@ mod tests {
             merkle_prefix: vec![vec![0x04, 0x05, 0x06]],
         };
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::ADMIN_ROLE, &[authority])]);
         let (client_pda, client_data) = setup_client(
             client_id,
-            authority,
             old_light_client_program,
             "old-counterparty",
             true,
@@ -703,8 +745,10 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(authority, true),
                 AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         };
@@ -712,7 +756,10 @@ mod tests {
         let accounts = vec![
             create_system_account(authority),
             create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(client_pda, client_data, crate::ID),
+            create_system_account(relayer),
+            create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
@@ -752,14 +799,11 @@ mod tests {
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client-07";
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
-        let (client_pda, client_data) = setup_client(
-            client_id,
-            authority,
-            light_client_program,
-            "counterparty-client",
-            true,
-        );
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::ADMIN_ROLE, &[authority])]);
+        let (client_pda, client_data) =
+            setup_client(client_id, light_client_program, "counterparty-client", true);
 
         let instruction_data = crate::instruction::MigrateClient {
             client_id: client_id.to_string(),
@@ -775,8 +819,10 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(authority, true),
                 AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         };
@@ -784,7 +830,10 @@ mod tests {
         let accounts = vec![
             create_system_account(authority),
             create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(client_pda, client_data, crate::ID),
+            create_system_account(relayer),
+            create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
@@ -803,14 +852,11 @@ mod tests {
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client-08";
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
-        let (client_pda, client_data) = setup_client(
-            client_id,
-            authority,
-            light_client_program,
-            "counterparty-client",
-            true,
-        );
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::ADMIN_ROLE, &[authority])]);
+        let (client_pda, client_data) =
+            setup_client(client_id, light_client_program, "counterparty-client", true);
 
         let instruction_data = crate::instruction::MigrateClient {
             client_id: client_id.to_string(),
@@ -829,8 +875,10 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(authority, true),
                 AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         };
@@ -838,7 +886,10 @@ mod tests {
         let accounts = vec![
             create_system_account(authority),
             create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(client_pda, client_data, crate::ID),
+            create_system_account(relayer),
+            create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
@@ -852,13 +903,15 @@ mod tests {
 
     #[test]
     fn test_add_client_unauthorized_authority() {
-        let correct_authority = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
         let wrong_authority = Pubkey::new_unique();
         let relayer = wrong_authority;
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client";
 
-        let (router_state_pda, router_state_data) = setup_router_state(correct_authority);
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::ID_CUSTOMIZER_ROLE, &[authority])]);
         let (client_pda, _) =
             Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
         let (client_sequence_pda, _) =
@@ -877,11 +930,13 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(wrong_authority, true), // Wrong authority tries to add client
                 AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         };
@@ -889,18 +944,147 @@ mod tests {
         let accounts = vec![
             create_system_account(wrong_authority),
             create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
+            create_uninitialized_account(client_pda, 0),
+            create_uninitialized_account(client_sequence_pda, 0),
+            create_system_account(relayer),
+            create_program_account(light_client_program),
+            create_program_account(system_program::ID),
+            create_instructions_sysvar_account_with_caller(crate::ID),
+            create_program_account(access_manager::ID),
+        ];
+
+        let mollusk = setup_mollusk_with_light_client();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::Unauthorized as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_add_client_fake_sysvar_wormhole_attack() {
+        let authority = Pubkey::new_unique();
+        let relayer = authority;
+        let light_client_program = Pubkey::new_unique();
+        let client_id = "test-client";
+
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::ID_CUSTOMIZER_ROLE, &[authority])]);
+        let (client_pda, _) =
+            Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) =
+            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
+
+        let instruction_data = crate::instruction::AddClient {
+            client_id: client_id.to_string(),
+            counterparty_info: CounterpartyInfo {
+                client_id: "counterparty-client".to_string(),
+                merkle_prefix: vec![vec![0x01, 0x02, 0x03]],
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(authority, true),
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
+                AccountMeta::new(client_pda, false),
+                AccountMeta::new(client_sequence_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(light_client_program, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        // Replace real sysvar with fake one (Wormhole-style attack)
+        let (instruction, fake_sysvar_account) = setup_fake_sysvar_attack(instruction, crate::ID);
+
+        let accounts = vec![
+            create_system_account(authority),
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(client_pda, 0),
             create_uninitialized_account(client_sequence_pda, 0),
             create_program_account(light_client_program),
             create_program_account(system_program::ID),
+            fake_sysvar_account,
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+        mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[expect_sysvar_attack_error()],
+        );
+    }
+
+    #[test]
+    fn test_add_client_cpi_rejection() {
+        let authority = Pubkey::new_unique();
+        let relayer = authority;
+        let light_client_program = Pubkey::new_unique();
+        let client_id = "test-client";
+
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::ID_CUSTOMIZER_ROLE, &[authority])]);
+        let (client_pda, _) =
+            Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) =
+            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
+
+        let instruction_data = crate::instruction::AddClient {
+            client_id: client_id.to_string(),
+            counterparty_info: CounterpartyInfo {
+                client_id: "counterparty-client".to_string(),
+                merkle_prefix: vec![vec![0x01, 0x02, 0x03]],
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(authority, true),
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
+                AccountMeta::new(client_pda, false),
+                AccountMeta::new(client_sequence_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(light_client_program, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        // Simulate CPI call from unauthorized program
+        let malicious_program = Pubkey::new_unique();
+        let (instruction, cpi_sysvar_account) = setup_cpi_call_test(instruction, malicious_program);
+
+        let accounts = vec![
+            create_system_account(authority),
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
+            create_uninitialized_account(client_pda, 0),
+            create_uninitialized_account(client_sequence_pda, 0),
+            create_system_account(relayer),
+            create_program_account(light_client_program),
+            create_program_account(system_program::ID),
+            cpi_sysvar_account,
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
+        // When CPI is detected by access_manager::require_role, it returns AccessManagerError::CpiNotAllowed (6005)
         let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedAuthority as u32,
+            ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32,
         ))];
-
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }

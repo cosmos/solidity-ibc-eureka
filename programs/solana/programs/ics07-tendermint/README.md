@@ -33,15 +33,18 @@ The client implements a mandatory chunked upload mechanism for all header update
 ### Core IBC Instructions
 
 #### `initialize`
+
 Initializes a new Tendermint light client instance for a specific chain. Multiple clients can be initialized to track different Tendermint-based chains simultaneously.
 
 **Parameters:**
+
 - `chain_id`: The unique chain identifier (e.g., "cosmoshub-4", "osmosis-1", "noble-1")
 - `latest_height`: Initial trusted height
 - `client_state`: Initial client configuration (trust level, periods, etc.)
 - `consensus_state`: Initial trusted consensus state
 
 **Accounts:**
+
 - `client_state` (init): PDA storing client configuration, derived from chain_id
 - `consensus_state_store` (init): PDA storing consensus state at height
 - `payer` (signer, mut): Account paying for initialization
@@ -54,28 +57,34 @@ Initializes a new Tendermint light client instance for a specific chain. Multipl
 Since Tendermint headers always exceed Solana's transaction size limits, all header updates must use the chunked upload system described below.
 
 #### `create_metadata`
+
 Creates metadata for a header upload. This instruction must be called once before uploading chunks.
 
 **Parameters:**
+
 - `chain_id`: Target chain identifier
 - `target_height`: Height being updated to
 - `total_chunks`: Total number of chunks expected
 - `header_commitment`: Keccak hash of the complete header
 
 **Accounts:**
+
 - `metadata` (init): PDA for header metadata
 - `client_state`: Validates chain exists
 - `submitter` (signer, mut): Relayer creating metadata and paying rent
 - `system_program`: System program
 
 **Notes:**
+
 - Must be called exactly once per upload attempt
 - Creates a new metadata account for tracking the upload
 
 #### `upload_header_chunk`
+
 Uploads a single chunk of a large header. Requires metadata to be created first via `create_metadata`.
 
 **Parameters:**
+
 - `params`: UploadChunkParams containing:
   - `chain_id`: Target chain
   - `target_height`: Height being updated to
@@ -84,6 +93,7 @@ Uploads a single chunk of a large header. Requires metadata to be created first 
   - `chunk_hash`: Keccak hash of the chunk data for integrity verification
 
 **Accounts:**
+
 - `chunk` (init_if_needed): PDA for this specific chunk
 - `metadata` (mut): PDA for header metadata (must already exist)
 - `client_state`: Validates chain exists
@@ -97,9 +107,11 @@ Uploads a single chunk of a large header. Requires metadata to be created first 
 **Parallel Upload**: After metadata is created, all chunks can be uploaded in parallel transactions for faster throughput. Each chunk upload is independent.
 
 #### `assemble_and_update_client`
+
 Assembles uploaded chunks into a complete header and updates the client.
 
 **Accounts:**
+
 - `client_state` (mut): Client being updated
 - `metadata` (mut, close): Header metadata (closed after success)
 - `trusted_consensus_state`: Consensus at trusted height
@@ -110,6 +122,7 @@ Assembles uploaded chunks into a complete header and updates the client.
 - Remaining accounts: Chunk accounts in order (all closed after success)
 
 **Process:**
+
 1. Validates all chunks are present and match commitment
 2. Reconstructs complete header from chunks
 3. Verifies header against trusted state
@@ -117,14 +130,17 @@ Assembles uploaded chunks into a complete header and updates the client.
 5. Closes all temporary accounts, returning rent to submitter
 
 #### `cleanup_incomplete_upload`
+
 Allows relayers to reclaim rent from failed or abandoned uploads.
 
 **Parameters:**
+
 - `chain_id`: Chain identifier
 - `cleanup_height`: Height of upload to clean
 - `submitter`: Original submitter address
 
 **Accounts:**
+
 - `client_state`: Validates chain exists
 - `metadata` (mut, close): Metadata to close
 - `submitter_account` (signer, mut): Must be original submitter
@@ -135,34 +151,43 @@ Allows relayers to reclaim rent from failed or abandoned uploads.
 ### Verification Instructions
 
 #### `verify_membership`
+
 Verifies a key-value pair exists in the counterparty chain's state.
 
 **Parameters:**
+
 - `msg`: MembershipMsg with proof details
 
 **Accounts:**
+
 - `client_state`: Client configuration
 - `consensus_state_at_height`: Consensus state at proof height
 
 #### `verify_non_membership`
+
 Verifies a key does not exist in the counterparty chain's state.
 
 **Parameters:**
+
 - `msg`: MembershipMsg with proof details
 
 **Accounts:**
+
 - `client_state`: Client configuration
 - `consensus_state_at_height`: Consensus state at proof height
 
 ### Misbehaviour Handling
 
 #### `submit_misbehaviour`
+
 Submits evidence of misbehaviour to freeze the client.
 
 **Parameters:**
+
 - `msg`: MisbehaviourMsg with conflicting headers
 
 **Accounts:**
+
 - `client_state` (mut): Client to potentially freeze
 - `trusted_consensus_state_1`: First trusted state
 - `trusted_consensus_state_2`: Second trusted state
@@ -179,6 +204,7 @@ header_metadata: [b"header_metadata", submitter, chain_id, height_bytes]
 ```
 
 This PDA structure ensures that:
+
 - Each chain has its own isolated client state
 - Consensus states are chain-specific
 - Upload operations cannot interfere across different chains
@@ -202,6 +228,7 @@ This PDA structure ensures that:
 ### Parallel Upload Optimization
 
 For maximum throughput with large headers:
+
 1. Call `create_metadata` to initialize metadata
 2. Upload all chunks in parallel transactions
 3. Wait for all confirmations
@@ -228,6 +255,7 @@ This parallel approach can reduce upload time from `n * block_time` to `2 * bloc
 ## Testing
 
 The implementation includes comprehensive tests for:
+
 - Happy path updates with real Tendermint fixtures
 - Chunked upload and assembly
 - Error conditions (missing chunks, wrong order, corruption)
@@ -236,6 +264,7 @@ The implementation includes comprehensive tests for:
 - Multi-relayer scenarios
 
 Run tests:
+
 ```bash
 cargo test --package ics07-tendermint
 ```
@@ -243,6 +272,7 @@ cargo test --package ics07-tendermint
 ## Gas/Compute Costs
 
 Approximate compute units per operation:
+
 - `initialize`: ~50k CU
 - `upload_header_chunk`: ~30k CU per chunk
 - `assemble_and_update_client`: ~200k CU (includes verification)
@@ -256,6 +286,7 @@ Approximate compute units per operation:
 The update client implementation includes several optimizations tested with real Tendermint chains (Noble: 20 validators, Celestia: 100 validators):
 
 **Ed25519 Signature Verification:**
+
 - **Pre-verification (optional):** Uses Ed25519Program precompile **~10k CU per signature** (via separate transaction)
   - Can be parallelized across multiple transactions for faster verification
   - **Critical for large validator sets (50+ validators):** Pure brine-ed25519 would exceed Solana's 1.4M CU transaction limit
@@ -276,17 +307,20 @@ The update client implementation includes several optimizations tested with real
 - Implementation in `packages/tendermint-light-client/solana/src/lib.rs::SolanaSignatureVerifier`
 
 **Merkle Hashing Optimizations:**
+
 - Skipping redundant validator set hash validation: **~290k CU saved**
   - `validator_sets_match` skip: ~145k CU
   - `next_validators_match` skip: ~145k CU
   - These hashes are pre-validated in `validate_basic()` and `check_trusted_next_validator_set()`
 
 **Signature Pre-sorting:**
+
 - Pre-sort signatures by validator address during serialization: **~60-80k CU saved**
 - Avoids on-chain sorting during deserialization
 - Implemented in `solana-ibc-types/src/borsh_header.rs::commit_to_borsh()`
 
 **Validator Set Pre-sorting:**
+
 - Pre-sorted validators from relayer: **~50k CU saved** per validator set
 - Skips on-chain sorting by using pre-calculated total voting power
 
@@ -295,26 +329,31 @@ The update client implementation includes several optimizations tested with real
 The update client process is split into two phases:
 
 **Phase 1: Prep Transactions (Parallel)**
+
 - ALT (Address Lookup Table) creation + extension for address compression
 - Header chunks upload (data transport for large headers)
 - Ed25519Program signature pre-verification (optional, saves CU in assembly)
 
 **Phase 2: Assembly Transaction**
+
 - Deserializes and assembles header from uploaded chunks
 - Verifies signatures (using pre-verification PDAs or brine-ed25519 fallback)
 - Performs light client verification and updates state
 
 **Noble (20 validators, 2/3 = ~14 signatures):**
+
 - **Phase 1** - 19 parallel prep txs: 199,343 CUs, 0.000160 SOL (~3.3s)
 - **Phase 2** - Assembly: 348,679 CUs, 0.0000064 SOL (~15s)
 - **TOTAL: ~548k CUs, 0.000166 SOL** (~$0.025-0.033 USD at $150-200/SOL, ~18s)
 
 **Celestia (100 validators, 2/3 = ~67 signatures):**
+
 - **Phase 1** - 83 parallel prep txs: 893,310 CUs, 0.000715 SOL (~6s)
 - **Phase 2** - Assembly: 1,270,083 CUs, 0.0000064 SOL (~16s)
 - **TOTAL: ~2.16M CUs, 0.000721 SOL** (~$0.11-0.14 USD at $150-200/SOL, ~22s)
 
 **Key Insights:**
+
 - Cost scales roughly linearly with validator count (~5x validators = ~4x cost)
 - Latency dominated by RPC throttling/rate limiting, not CU consumption
 - Costs include base fees (5000 lamports/tx) + priority fees (variable, market-driven)
@@ -330,6 +369,7 @@ This implementation uses `brine-ed25519` for on-chain Ed25519 signature verifica
 **Why Ed25519Program Doesn't Work for IBC:**
 
 Solana's Ed25519Program is a precompile that verifies signatures included as Ed25519Program instructions in the current transaction. However, IBC light clients verify signatures from **external blockchain data** (Tendermint headers from Cosmos chains). These signatures:
+
 - Come from Tendermint validators signing blocks on another chain
 - Are embedded in header data uploaded via `upload_header_chunk`
 - Cannot be reformulated as Ed25519Program instructions in the Solana transaction
@@ -341,6 +381,7 @@ This implementation already uses multi-transaction chunking to upload large head
 The key insight: **chunking is for DATA TRANSPORT, not signature verification**. The signatures are embedded INSIDE the serialized header data and can only be verified AFTER the header is fully assembled and deserialized in `assemble_and_update_client`.
 
 Using Ed25519Program would require:
+
 ```
 Current approach (brine-ed25519):
   1. Upload header chunks in PARALLEL (N transactions, ~2 block times)
@@ -356,6 +397,7 @@ Hypothetical Ed25519Program approach:
 ```
 
 This would create **double multi-transaction coordination** (chunks + signature verifications), with:
+
 - **Significantly slower updates**: Current system uses parallel chunk upload (~2 blocks). Ed25519Program would add M sequential signature verification transactions, increasing latency by 4-8 seconds per update
 - Additional state storage for verification results (rent costs likely exceed CU savings)
 - More complex atomicity concerns (chunks AND signature verifications must all succeed)
@@ -366,10 +408,12 @@ The existing chunking system actually **strengthens** the case for brine-ed25519
 **Alternatives Considered:**
 
 1. **Ed25519Program (native precompile)** - FREE compute units
+
    - ❌ Incompatible with external signature verification
    - Only works for signatures that are part of the transaction instruction set
 
 2. **brine-ed25519 (on-chain library)** - ~30k CU per signature ✅ **CHOSEN**
+
    - ✅ Can verify any signature from external data
    - Uses optimized curve operations for efficiency
    - Typical update: ~200k CU total (10-20 signatures for 2/3 trust threshold)
@@ -388,10 +432,10 @@ The existing chunking system actually **strengthens** the case for brine-ed25519
 
 The same Solana Tendermint light client implementation handles different chains with update client costs scaling based on validator count:
 
-| Chain | Validators | 2/3 Threshold | Prep Txs | Total CUs | Total Cost (SOL) | USD Cost | Latency |
-|-------|-----------|---------------|----------|-----------|------------------|----------|---------|
-| **Noble** | 20 | ~14 sigs | 19 parallel | ~548k | 0.000166 | ~$0.025-0.033 | ~18s |
-| **Celestia** | 100 | ~67 sigs | 83 parallel | ~2.16M | 0.000721 | ~$0.11-0.14 | ~22s |
+| Chain        | Validators | 2/3 Threshold | Prep Txs    | Total CUs | Total Cost (SOL) | USD Cost      | Latency |
+| ------------ | ---------- | ------------- | ----------- | --------- | ---------------- | ------------- | ------- |
+| **Noble**    | 20         | ~14 sigs      | 19 parallel | ~548k     | 0.000166         | ~$0.025-0.033 | ~18s    |
+| **Celestia** | 100        | ~67 sigs      | 83 parallel | ~2.16M    | 0.000721         | ~$0.11-0.14   | ~22s    |
 
 All costs measured on mainnet with real validator sets. Latency is highly dependent on RPC throttling/rate limiting.
 
@@ -422,4 +466,3 @@ For implementation details, see the `SolanaSignatureVerifier` in `packages/tende
 3. Check client not frozen before relying on proofs
 4. Monitor for client updates
 5. **Multi-Chain Applications**: Can interact with multiple chains by referencing different chain_id PDAs
-

@@ -27,8 +27,50 @@
         rust = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
         };
+
+        # Override Anchor to v0.32.1 to fix a bug where `anchor keys sync --provider.cluster`
+        # was not respecting the cluster flag and updated all cluster sections instead of
+        # just the specified one. This was fixed in v0.32.0 (PR #3761).
+        # We use v0.32.1 for the latest bug fixes and improvements.
+        anchor = pkgs.rustPlatform.buildRustPackage rec {
+          pname = "anchor";
+          version = "0.32.1";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "solana-foundation";
+            repo = "anchor";
+            tag = "v${version}";
+            hash = "sha256-oyCe8STDciRtdhOWgJrT+k50HhUWL2LSG8m4Ewnu2dc=";
+            fetchSubmodules = true;
+          };
+
+          cargoHash = "sha256-XrVvhJ1lFLBA+DwWgTV34jufrcjszpbCgXpF+TUoEvo=";
+
+          nativeBuildInputs = with pkgs; [ perl pkg-config ];
+
+          buildInputs = with pkgs; [ openssl ]
+            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [ pkgs.apple-sdk_15 ];
+
+          checkFlags = [
+            # the following test cases try to access network, skip them
+            "--skip=tests::test_check_and_get_full_commit_when_full_commit"
+            "--skip=tests::test_check_and_get_full_commit_when_partial_commit"
+            "--skip=tests::test_get_anchor_version_from_commit"
+          ];
+
+          meta = with pkgs.lib; {
+            description = "Solana Sealevel Framework";
+            homepage = "https://github.com/solana-foundation/anchor";
+            changelog = "https://github.com/solana-foundation/anchor/blob/${src.rev}/CHANGELOG.md";
+            license = licenses.asl20;
+            maintainers = with maintainers; [ ];
+            mainProgram = "anchor";
+          };
+        };
+
         solana-agave = pkgs.callPackage ./nix/agave.nix {
-          inherit (pkgs) rust-bin anchor;
+          inherit (pkgs) rust-bin;
+          inherit anchor;
         };
         anchor-go = pkgs.callPackage ./nix/anchor-go.nix {};
       in
@@ -107,6 +149,8 @@
               echo "  anchor-nix build                - Build with Solana toolchain + generate IDL with nightly"
               echo "  anchor-nix test                 - Build and run anchor client tests"
               echo "  anchor-nix unit-test [options]  - Build program then run cargo test"
+              echo "  anchor-nix keys [subcommand]    - Manage program keypairs (sync, list, etc.)"
+              echo "  anchor-nix deploy [options]     - Deploy programs to specified cluster"
               echo ""
 
               # WORKAROUND: Fix Darwin SDK conflicts (Oct 2025)

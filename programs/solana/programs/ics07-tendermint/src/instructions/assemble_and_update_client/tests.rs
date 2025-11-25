@@ -8,6 +8,7 @@ use crate::test_helpers::{
     },
     PROGRAM_BINARY_PATH, TEST_COMPUTE_UNIT_LIMIT, TEST_HEAP_SIZE,
 };
+use crate::types::AppState;
 use anchor_lang::{AccountDeserialize, AccountSerialize, AnchorDeserialize, InstructionData};
 use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
 use solana_sdk::account::Account;
@@ -117,7 +118,32 @@ fn get_chunk_pdas(
     chunk_pdas
 }
 
+fn create_app_state_account(access_manager_program_id: Pubkey) -> (Pubkey, Account) {
+    let (app_state_pda, _) = Pubkey::find_program_address(&[AppState::SEED], &crate::ID);
+
+    let app_state = AppState {
+        access_manager: access_manager_program_id,
+        _reserved: [0; 256],
+    };
+
+    let mut app_state_data = vec![];
+    app_state.try_serialize(&mut app_state_data).unwrap();
+
+    (
+        app_state_pda,
+        Account {
+            lamports: 1_000_000,
+            data: app_state_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 struct AssembleInstructionParams {
+    app_state_pda: Pubkey,
+    access_manager_pda: Pubkey,
     client_state_pda: Pubkey,
     trusted_consensus_state_pda: Pubkey,
     new_consensus_state_pda: Pubkey,
@@ -131,10 +157,13 @@ fn create_assemble_instruction(params: AssembleInstructionParams) -> Instruction
     let chunk_count = params.chunk_pdas.len() as u8;
     let mut account_metas = vec![
         AccountMeta::new(params.client_state_pda, false),
+        AccountMeta::new_readonly(params.app_state_pda, false),
+        AccountMeta::new_readonly(params.access_manager_pda, false),
         AccountMeta::new_readonly(params.trusted_consensus_state_pda, false),
         AccountMeta::new(params.new_consensus_state_pda, false),
         AccountMeta::new(params.submitter, true),
         AccountMeta::new_readonly(system_program::ID, false),
+        AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
     ];
 
     // Add chunk accounts
@@ -167,6 +196,14 @@ fn test_successful_assembly_and_update() {
     let chain_id = &client_state.chain_id;
     let target_height = update_message.new_height;
     let submitter = Pubkey::new_unique();
+    let relayer = Pubkey::new_unique();
+
+    // Setup access control
+    let (access_manager_pda, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(relayer, vec![relayer]);
+
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
 
     // Split the real header into chunks
     let chunk_size = client_message_bytes.len() / 3 + 1;
@@ -209,6 +246,8 @@ fn test_successful_assembly_and_update() {
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
@@ -230,10 +269,13 @@ fn test_successful_assembly_and_update() {
 
     // Setup accounts for instruction
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
         (client_state_pda, client_state_account),
         (trusted_consensus_pda, trusted_consensus_account),
         (consensus_state_pda, Account::default()),
         (submitter, submitter_account),
+        (relayer, create_submitter_account(1_000_000_000)),
         (payer, create_submitter_account(1_000_000_000)),
         keyed_account_for_system_program(),
     ];
@@ -264,6 +306,12 @@ fn test_successful_assembly_and_update() {
             executable: false,
             rent_epoch: 0,
         },
+    ));
+
+    // Add instructions sysvar for CPI validation
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
     let result = mollusk.process_instruction(&instruction, &accounts);
@@ -304,6 +352,11 @@ fn test_assembly_with_corrupted_chunk() {
     let chain_id = "test-chain";
     let target_height = 100u64;
     let submitter = Pubkey::new_unique();
+    let relayer = Pubkey::new_unique();
+
+    // Setup access control
+    let (_access_manager_pda, _access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(relayer, vec![relayer]);
 
     let (_, chunks) = create_test_header_and_chunks(2);
 
@@ -322,11 +375,20 @@ fn test_assembly_with_corrupted_chunk() {
     // Create metadata // Get chunk PDAs
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 2);
 
+    // Access manager PDA
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     // Create instruction
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
@@ -336,8 +398,17 @@ fn test_assembly_with_corrupted_chunk() {
         target_height,
     });
 
+    // Setup access manager with submitter as relayer
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
     // Setup accounts with corrupted second chunk
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
         (client_state_pda, create_client_state_account(chain_id, 90)),
         (
             trusted_consensus_pda,
@@ -356,6 +427,32 @@ fn test_assembly_with_corrupted_chunk() {
     let mut corrupted_data = chunks[1].clone();
     corrupted_data[0] ^= 0xFF; // Flip bits to corrupt
     accounts.push((chunk_pdas[1], create_chunk_account(corrupted_data)));
+
+    // Add Clock sysvar for update client validation
+    let clock = solana_sdk::sysvar::clock::Clock {
+        slot: 0,
+        epoch_start_timestamp: 0,
+        epoch: 0,
+        leader_schedule_epoch: 0,
+        unix_timestamp: 0,
+    };
+    let clock_data = bincode::serialize(&clock).expect("Failed to serialize Clock for test");
+    accounts.push((
+        solana_sdk::sysvar::clock::ID,
+        Account {
+            lamports: 1,
+            data: clock_data,
+            owner: solana_sdk::native_loader::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    // Add instructions sysvar for CPI validation
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
@@ -390,10 +487,19 @@ fn test_assembly_wrong_submitter() {
         &crate::ID,
     );
 
+    // Access manager PDA
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
@@ -403,7 +509,16 @@ fn test_assembly_wrong_submitter() {
         target_height,
     });
 
+    // Setup access manager with wrong_submitter as relayer
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            wrong_submitter,
+            vec![wrong_submitter],
+        );
+
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
         (client_state_pda, create_client_state_account(chain_id, 90)),
         (
             trusted_consensus_pda,
@@ -419,6 +534,32 @@ fn test_assembly_wrong_submitter() {
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
         accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
     }
+
+    // Add Clock sysvar for update client validation
+    let clock = solana_sdk::sysvar::clock::Clock {
+        slot: 0,
+        epoch_start_timestamp: 0,
+        epoch: 0,
+        leader_schedule_epoch: 0,
+        unix_timestamp: 0,
+    };
+    let clock_data = bincode::serialize(&clock).expect("Failed to serialize Clock for test");
+    accounts.push((
+        solana_sdk::sysvar::clock::ID,
+        Account {
+            lamports: 1,
+            data: clock_data,
+            owner: solana_sdk::native_loader::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    // Add instructions sysvar for CPI validation
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
@@ -455,10 +596,19 @@ fn test_assembly_chunks_in_wrong_order() {
     // Pass chunks in wrong order (2, 0, 1 instead of 0, 1, 2)
     let wrong_order_pdas = vec![chunk_pdas[2], chunk_pdas[0], chunk_pdas[1]];
 
+    // Access manager PDA
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
@@ -468,7 +618,16 @@ fn test_assembly_chunks_in_wrong_order() {
         target_height,
     });
 
+    // Setup access manager with submitter as relayer
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
         (client_state_pda, create_client_state_account(chain_id, 90)),
         (
             trusted_consensus_pda,
@@ -484,6 +643,32 @@ fn test_assembly_chunks_in_wrong_order() {
     accounts.push((chunk_pdas[2], create_chunk_account(chunks[2].clone())));
     accounts.push((chunk_pdas[0], create_chunk_account(chunks[0].clone())));
     accounts.push((chunk_pdas[1], create_chunk_account(chunks[1].clone())));
+
+    // Add Clock sysvar for update client validation
+    let clock = solana_sdk::sysvar::clock::Clock {
+        slot: 0,
+        epoch_start_timestamp: 0,
+        epoch: 0,
+        leader_schedule_epoch: 0,
+        unix_timestamp: 0,
+    };
+    let clock_data = bincode::serialize(&clock).expect("Failed to serialize Clock for test");
+    accounts.push((
+        solana_sdk::sysvar::clock::ID,
+        Account {
+            lamports: 1,
+            data: clock_data,
+            owner: solana_sdk::native_loader::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    // Add instructions sysvar for CPI validation
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
@@ -502,6 +687,11 @@ fn test_rent_reclaim_after_assembly() {
     let chain_id = "test-chain";
     let target_height = 100u64;
     let submitter = Pubkey::new_unique();
+    let relayer = Pubkey::new_unique();
+
+    // Setup access control
+    let (_access_manager_pda, _access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(relayer, vec![relayer]);
 
     let (_, chunks) = create_test_header_and_chunks(2);
 
@@ -523,10 +713,19 @@ fn test_rent_reclaim_after_assembly() {
     // Submitter account
     let submitter_account = create_submitter_account(initial_balance);
 
+    // Access manager PDA
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
@@ -536,7 +735,16 @@ fn test_rent_reclaim_after_assembly() {
         target_height,
     });
 
+    // Setup access manager with submitter as relayer
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
         (client_state_pda, create_client_state_account(chain_id, 90)),
         (
             trusted_consensus_pda,
@@ -552,6 +760,32 @@ fn test_rent_reclaim_after_assembly() {
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
         accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
     }
+
+    // Add Clock sysvar for update client validation
+    let clock = solana_sdk::sysvar::clock::Clock {
+        slot: 0,
+        epoch_start_timestamp: 0,
+        epoch: 0,
+        leader_schedule_epoch: 0,
+        unix_timestamp: 0,
+    };
+    let clock_data = bincode::serialize(&clock).expect("Failed to serialize Clock for test");
+    accounts.push((
+        solana_sdk::sysvar::clock::ID,
+        Account {
+            lamports: 1,
+            data: clock_data,
+            owner: solana_sdk::native_loader::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    // Add instructions sysvar for CPI validation
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
@@ -607,6 +841,13 @@ fn test_assemble_and_update_client_happy_path() {
     );
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, num_chunks);
 
+    // Access manager PDA
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     // Create existing client state with proper data
     let mut client_state_account =
         create_client_state_account(chain_id, client_state.latest_height.revision_height);
@@ -628,6 +869,8 @@ fn test_assemble_and_update_client_happy_path() {
     let payer = Pubkey::new_unique();
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
@@ -649,7 +892,16 @@ fn test_assemble_and_update_client_happy_path() {
     };
     let clock_data = bincode::serialize(&clock).expect("Failed to serialize Clock for test");
 
+    // Setup access manager with submitter as relayer
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
         (client_state_pda, client_state_account),
         (trusted_consensus_pda, trusted_consensus_account),
         (consensus_state_pda, Account::default()),
@@ -667,6 +919,12 @@ fn test_assemble_and_update_client_happy_path() {
             },
         ),
     ];
+
+    // Add instructions sysvar for CPI validation
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
 
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
         accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
@@ -779,7 +1037,16 @@ fn test_assemble_with_frozen_client() {
         &crate::ID,
     );
 
+    // Access manager PDA
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
@@ -798,7 +1065,16 @@ fn test_assemble_with_frozen_client() {
     .try_serialize(&mut trusted_consensus_data)
     .unwrap();
 
+    // Setup access manager with submitter as relayer
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
         (client_state_pda, frozen_client),
         (
             trusted_consensus_pda,
@@ -824,6 +1100,12 @@ fn test_assemble_with_frozen_client() {
     let clock_timestamp = get_valid_clock_timestamp_for_header(&update_msg);
     let (clock_pubkey, clock_account) = create_clock_account(clock_timestamp);
     accounts.push((clock_pubkey, clock_account));
+
+    // Add instructions sysvar for CPI validation
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
 
     // Increase compute budget for processing real data
     let mut mollusk_with_budget = mollusk;
@@ -917,7 +1199,16 @@ fn test_assemble_with_existing_consensus_state() {
     .try_serialize(&mut trusted_consensus_data)
     .unwrap();
 
+    // Access manager PDA
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
@@ -927,7 +1218,16 @@ fn test_assemble_with_existing_consensus_state() {
         target_height,
     });
 
+    // Setup access manager with submitter as relayer
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
         (client_state_pda, client_account),
         (
             trusted_consensus_pda,
@@ -953,6 +1253,12 @@ fn test_assemble_with_existing_consensus_state() {
     let clock_timestamp = get_valid_clock_timestamp_for_header(&update_msg);
     let (clock_pubkey, clock_account) = create_clock_account(clock_timestamp);
     accounts.push((clock_pubkey, clock_account));
+
+    // Add instructions sysvar for CPI validation
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
 
     // Increase compute budget for this complex operation (header verification is expensive)
     let mut mollusk_with_budget = mollusk;
@@ -1027,10 +1333,19 @@ fn test_assemble_with_invalid_header_after_assembly() {
     );
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 2);
 
-    let payer = Pubkey::new_unique();
+    // Access manager PDA
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
+    let _payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
@@ -1040,20 +1355,54 @@ fn test_assemble_with_invalid_header_after_assembly() {
         target_height,
     });
 
+    // Setup access manager with submitter as relayer
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (client_state_pda, create_client_state_account(chain_id, 90)),
+        (access_manager_pda, access_manager_account),
         (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
         ),
         (consensus_state_pda, Account::default()),
         (submitter, create_submitter_account(10_000_000_000)),
-        (payer, create_submitter_account(1_000_000_000)),
         keyed_account_for_system_program(),
     ];
 
     accounts.push((chunk_pdas[0], create_chunk_account(chunk1)));
     accounts.push((chunk_pdas[1], create_chunk_account(chunk2)));
+
+    // Add Clock sysvar for update client validation
+    let clock = solana_sdk::sysvar::clock::Clock {
+        slot: 0,
+        epoch_start_timestamp: 0,
+        epoch: 0,
+        leader_schedule_epoch: 0,
+        unix_timestamp: 0,
+    };
+    let clock_data = bincode::serialize(&clock).expect("Failed to serialize Clock for test");
+    accounts.push((
+        solana_sdk::sysvar::clock::ID,
+        Account {
+            lamports: 1,
+            data: clock_data,
+            owner: solana_sdk::native_loader::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    // Add instructions sysvar for CPI validation
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
@@ -1095,11 +1444,20 @@ fn test_assemble_updates_latest_height() {
     );
     let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 2);
 
-    let payer = Pubkey::new_unique();
+    // Access manager PDA
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
+    let _payer = Pubkey::new_unique();
     let trusted_height = update_message.trusted_height;
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
         new_consensus_state_pda: consensus_state_pda,
@@ -1125,12 +1483,20 @@ fn test_assemble_updates_latest_height() {
         consensus_state.timestamp,
     );
 
+    // Setup access manager with submitter as relayer
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (client_state_pda, initial_client),
+        (access_manager_pda, access_manager_account),
         (trusted_consensus_pda, trusted_consensus_account),
         (consensus_state_pda, Account::default()),
         (submitter, create_submitter_account(10_000_000_000)),
-        (payer, create_submitter_account(1_000_000_000)),
         keyed_account_for_system_program(),
     ];
 
@@ -1158,6 +1524,12 @@ fn test_assemble_updates_latest_height() {
             executable: false,
             rent_epoch: 0,
         },
+    ));
+
+    // Add instructions sysvar for CPI validation
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
     let result = mollusk.process_instruction(&instruction, &accounts);
@@ -1283,12 +1655,28 @@ fn test_assemble_and_update_with_invalid_signature() {
         chunk_accounts.push((chunk_pda, chunk_account));
     }
 
+    // Access manager PDA
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
+    // Setup access manager with submitter as relayer
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
     // Prepare accounts
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (
             client_state_pda,
             create_client_state_account(chain_id, trusted_height),
         ),
+        (access_manager_pda, access_manager_account),
         (
             trusted_consensus_pda,
             create_consensus_state_account(
@@ -1335,10 +1723,13 @@ fn test_assemble_and_update_with_invalid_signature() {
     // Create instruction
     let mut account_metas = vec![
         AccountMeta::new(client_state_pda, false),
+        AccountMeta::new_readonly(app_state_pda, false),
+        AccountMeta::new_readonly(access_manager_pda, false),
         AccountMeta::new_readonly(trusted_consensus_pda, false),
         AccountMeta::new(new_consensus_pda, false),
         AccountMeta::new(submitter, true),
         AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+        AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
     ];
 
     // Add chunk accounts to instruction
@@ -1376,6 +1767,12 @@ fn test_assemble_and_update_with_invalid_signature() {
             executable: false,
             rent_epoch: 0,
         },
+    ));
+
+    // Add instructions sysvar for CPI validation
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
     // Need higher compute budget for signature verification

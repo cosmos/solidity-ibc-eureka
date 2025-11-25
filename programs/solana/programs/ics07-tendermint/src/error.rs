@@ -66,6 +66,9 @@ pub enum ErrorCode {
     #[msg("Chunk data too large: exceeds maximum chunk size")]
     ChunkDataTooLarge,
 
+    // Access control errors
+    #[msg("Unauthorized: caller does not have required role")]
+    UnauthorizedRole,
     // Signature verification errors
     #[msg("Invalid number of accounts: mismatch between signatures and PDAs")]
     InvalidNumberOfAccounts,

@@ -4,6 +4,7 @@ pub mod cleanup_incomplete_misbehaviour;
 pub mod cleanup_incomplete_upload;
 pub mod initialize;
 pub mod pre_verify_signatures;
+pub mod set_access_manager;
 pub mod upload_header_chunk;
 pub mod upload_misbehaviour_chunk;
 pub mod verify_membership;
