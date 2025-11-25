@@ -616,7 +616,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			namespacedSequence := solana.CalculateNamespacedSequence(
 				baseSequence,
 				s.DummyAppProgramID,
-				s.SolanaUser.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
 			)
 
 			namespacedSequenceBytes := make([]byte, 8)
@@ -754,7 +754,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 			s.Require().NoError(err)
 
-			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.DummyAppProgramID, s.SolanaUser.PublicKey())
+			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.DummyAppProgramID, s.SolanaRelayer.PublicKey())
 		}))
 	}))
 }
@@ -808,7 +808,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			namespacedSequence := solana.CalculateNamespacedSequence(
 				baseSequence,
 				s.DummyAppProgramID,
-				s.SolanaUser.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
 			)
 
 			namespacedSequenceBytes := make([]byte, 8)
@@ -953,7 +953,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 			s.Require().NoError(err)
 
-			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.DummyAppProgramID, s.SolanaUser.PublicKey())
+			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.DummyAppProgramID, s.SolanaRelayer.PublicKey())
 		}))
 	}))
 }
@@ -1070,7 +1070,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 			s.Require().NoError(err)
 
-			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, s.DummyAppProgramID, s.SolanaUser.PublicKey())
+			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, s.DummyAppProgramID, s.SolanaRelayer.PublicKey())
 		}))
 	}))
 

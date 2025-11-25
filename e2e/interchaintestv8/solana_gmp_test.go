@@ -827,7 +827,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			namespacedSequence := solana.CalculateNamespacedSequence(
 				baseSequence,
 				ics27_gmp.ProgramID,
-				s.SolanaUser.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
 			)
 
 			namespacedSequenceBytes := make([]byte, 8)
@@ -961,7 +961,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		}))
 
 		s.Require().True(s.Run("Verify acknowledgement was processed", func() {
-			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, ics27_gmp.ProgramID, s.SolanaUser.PublicKey())
+			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
 		}))
 	}))
 }
@@ -1114,7 +1114,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			namespacedSequence := solana.CalculateNamespacedSequence(
 				baseSequence,
 				ics27_gmp.ProgramID,
-				s.SolanaUser.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
 			)
 
 			namespacedSequenceBytes := make([]byte, 8)
@@ -1229,7 +1229,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 		s.Require().True(s.Run("Verify timeout effects", func() {
 			s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
-				s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, baseSequence, ics27_gmp.ProgramID, s.SolanaUser.PublicKey())
+				s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, baseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
 				s.T().Logf("Packet commitment successfully deleted from Solana for base sequence %d", baseSequence)
 			}))
 
@@ -1831,7 +1831,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 			namespacedSequence := solana.CalculateNamespacedSequence(
 				baseSequence,
 				ics27_gmp.ProgramID,
-				s.SolanaUser.PublicKey(),
+				s.SolanaRelayer.PublicKey(),
 			)
 
 			namespacedSequenceBytes := make([]byte, 8)
@@ -1963,7 +1963,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 		// The base sequence we used was (current - 1)
 		usedBaseSequence := currentBaseSequence - 1
 
-		s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, usedBaseSequence, ics27_gmp.ProgramID, s.SolanaUser.PublicKey())
+		s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, usedBaseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
 		s.T().Logf("Verified packet commitment deleted for base sequence %d", usedBaseSequence)
 	}))
 }

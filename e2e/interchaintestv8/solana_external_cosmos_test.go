@@ -13,6 +13,7 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
+	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 
@@ -158,10 +159,11 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 
 		initInstruction, err := ics26_router.NewInitializeInstruction(
-			s.SolanaUser.PublicKey(),
+			access_manager.ProgramID,
 			routerStateAccount,
 			s.SolanaUser.PublicKey(),
 			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
