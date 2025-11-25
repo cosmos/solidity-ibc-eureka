@@ -201,6 +201,7 @@ impl TxBuilder {
         latest_height: u64,
         client_state: &ClientState,
         consensus_state: &ConsensusState,
+        access_manager: Pubkey,
     ) -> Result<Instruction> {
         let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
         let (consensus_state_pda, _) = ConsensusState::pda(
@@ -208,13 +209,17 @@ impl TxBuilder {
             latest_height,
             self.solana_ics07_program_id,
         );
+        let (app_state_pda, _) =
+            solana_ibc_types::ics07::AppState::pda(self.solana_ics07_program_id);
 
         tracing::info!("Client state PDA: {}", client_state_pda);
         tracing::info!("Consensus state PDA: {}", consensus_state_pda);
+        tracing::info!("App state PDA: {}", app_state_pda);
 
         let accounts = vec![
             AccountMeta::new(client_state_pda, false),
             AccountMeta::new(consensus_state_pda, false),
+            AccountMeta::new(app_state_pda, false),
             AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
@@ -229,6 +234,7 @@ impl TxBuilder {
         instruction_data.extend_from_slice(&latest_height.try_to_vec()?);
         instruction_data.extend_from_slice(&client_state.try_to_vec()?);
         instruction_data.extend_from_slice(&consensus_state.try_to_vec()?);
+        instruction_data.extend_from_slice(&access_manager.try_to_vec()?);
 
         Ok(Instruction {
             program_id: self.solana_ics07_program_id,
@@ -1919,7 +1925,7 @@ impl TxBuilder {
         } = tm_create_client_params(&self.src_tm_client, trust_level).await?;
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
-        let client_state = convert_client_state_to_sol(tm_client_state, access_manager_program_id)?;
+        let client_state = convert_client_state_to_sol(tm_client_state)?;
         let consensus_state = convert_consensus_state(&tm_consensus_state)?;
 
         let instruction = self.build_create_client_instruction(
@@ -1927,6 +1933,7 @@ impl TxBuilder {
             latest_height,
             &client_state,
             &consensus_state,
+            access_manager_program_id,
         )?;
 
         self.create_tx_bytes(&[instruction])

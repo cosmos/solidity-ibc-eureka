@@ -81,7 +81,6 @@ fn setup_test_accounts(
                 revision_number: 0,
                 revision_height: 100,
             },
-            access_manager: access_manager::ID,
         };
 
         let mut client_data = vec![];
@@ -196,7 +195,6 @@ fn test_upload_chunk_with_frozen_client_fails() {
                 revision_number: 0,
                 revision_height: 150,
             },
-            access_manager: access_manager::ID,
         };
 
         let mut data = vec![];

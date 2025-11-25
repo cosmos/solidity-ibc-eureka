@@ -250,6 +250,69 @@ func UnmarshalIcs07TendermintStateSignatureVerification(buf []byte) (*Ics07Tende
 	return obj, nil
 }
 
+type Ics07TendermintTypesAppState struct {
+	// Access manager program ID for role-based access control
+	AccessManager solanago.PublicKey `json:"accessManager"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
+}
+
+func (obj Ics07TendermintTypesAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj Ics07TendermintTypesAppState) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics07TendermintTypesAppState: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics07TendermintTypesAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj *Ics07TendermintTypesAppState) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics07TendermintTypesAppState: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs07TendermintTypesAppState(buf []byte) (*Ics07TendermintTypesAppState, error) {
+	obj := new(Ics07TendermintTypesAppState)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 type Ics07TendermintTypesClientState struct {
 	ChainId               string                        `json:"chainId"`
 	TrustLevelNumerator   uint64                        `json:"trustLevelNumerator"`
@@ -259,9 +322,6 @@ type Ics07TendermintTypesClientState struct {
 	MaxClockDrift         uint64                        `json:"maxClockDrift"`
 	FrozenHeight          Ics07TendermintTypesIbcHeight `json:"frozenHeight"`
 	LatestHeight          Ics07TendermintTypesIbcHeight `json:"latestHeight"`
-
-	// Access manager program ID for role-based access control
-	AccessManager solanago.PublicKey `json:"accessManager"`
 }
 
 func (obj Ics07TendermintTypesClientState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -304,11 +364,6 @@ func (obj Ics07TendermintTypesClientState) MarshalWithEncoder(encoder *binary.En
 	err = encoder.Encode(obj.LatestHeight)
 	if err != nil {
 		return errors.NewField("LatestHeight", err)
-	}
-	// Serialize `AccessManager`:
-	err = encoder.Encode(obj.AccessManager)
-	if err != nil {
-		return errors.NewField("AccessManager", err)
 	}
 	return nil
 }
@@ -363,11 +418,6 @@ func (obj *Ics07TendermintTypesClientState) UnmarshalWithDecoder(decoder *binary
 	err = decoder.Decode(&obj.LatestHeight)
 	if err != nil {
 		return errors.NewField("LatestHeight", err)
-	}
-	// Deserialize `AccessManager`:
-	err = decoder.Decode(&obj.AccessManager)
-	if err != nil {
-		return errors.NewField("AccessManager", err)
 	}
 	return nil
 }

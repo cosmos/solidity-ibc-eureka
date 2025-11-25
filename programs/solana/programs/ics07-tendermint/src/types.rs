@@ -43,8 +43,19 @@ pub struct ClientState {
     pub max_clock_drift: u64,
     pub frozen_height: IbcHeight,
     pub latest_height: IbcHeight,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct AppState {
     /// Access manager program ID for role-based access control
     pub access_manager: Pubkey,
+    /// Reserved space for future fields
+    pub _reserved: [u8; 256],
+}
+
+impl AppState {
+    pub const SEED: &'static [u8] = b"app_state";
 }
 
 impl ClientState {
@@ -247,7 +258,6 @@ mod compatibility_tests {
                 revision_number: 1,
                 revision_height: 1000,
             },
-            access_manager: access_manager::ID,
         };
 
         let serialized = client_state.try_to_vec().unwrap();
@@ -292,6 +302,29 @@ mod compatibility_tests {
             client_state.latest_height.revision_height,
             types_client_state.latest_height.revision_height
         );
+    }
+
+    /// Ensures `AppState` serialization remains compatible between program and solana-ibc-types
+    #[test]
+    fn test_app_state_serialization_compatibility() {
+        let app_state = AppState {
+            access_manager: access_manager::ID,
+            _reserved: [0; 256],
+        };
+
+        let serialized = app_state.try_to_vec().unwrap();
+
+        let types_app_state: solana_ibc_types::ics07::AppState =
+            AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
+
+        assert_eq!(app_state.access_manager, types_app_state.access_manager);
+        assert_eq!(app_state._reserved, types_app_state._reserved);
+    }
+
+    /// Ensures `AppState` SEED constant matches between program and solana-ibc-types
+    #[test]
+    fn test_app_state_seed_compatibility() {
+        assert_eq!(AppState::SEED, solana_ibc_types::ics07::AppState::SEED);
     }
 
     /// Ensures `ClientState` SEED constant matches between program and solana-ibc-types

@@ -9,6 +9,7 @@ pub fn initialize(
     latest_height: u64,
     client_state: ClientState,
     consensus_state: ConsensusState,
+    access_manager: Pubkey,
 ) -> Result<()> {
     // NOTE: chain_id is used in the #[instruction] attribute for account validation
     // but we also validate it matches the client_state for safety
@@ -54,6 +55,10 @@ pub fn initialize(
     consensus_state_store.height = latest_height.revision_height;
     consensus_state_store.consensus_state = consensus_state;
 
+    let app_state = &mut ctx.accounts.app_state;
+    app_state.access_manager = access_manager;
+    app_state._reserved = [0; 256];
+
     Ok(())
 }
 
@@ -74,6 +79,7 @@ mod tests {
         payer: Pubkey,
         client_state_pda: Pubkey,
         consensus_state_store_pda: Pubkey,
+        app_state_pda: Pubkey,
         accounts: Vec<(Pubkey, Account)>,
     }
 
@@ -96,6 +102,8 @@ mod tests {
             ],
             &crate::ID,
         );
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
 
         let accounts = vec![
             (
@@ -110,6 +118,16 @@ mod tests {
             ),
             (
                 consensus_state_store_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                app_state_pda,
                 Account {
                     lamports: 0,
                     data: vec![],
@@ -144,6 +162,7 @@ mod tests {
             payer,
             client_state_pda,
             consensus_state_store_pda,
+            app_state_pda,
             accounts,
         }
     }
@@ -158,6 +177,7 @@ mod tests {
             latest_height: client_state.latest_height.revision_height,
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
+            access_manager: access_manager::ID,
         };
 
         Instruction {
@@ -165,6 +185,7 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(test_accounts.client_state_pda, false),
                 AccountMeta::new(test_accounts.consensus_state_store_pda, false),
+                AccountMeta::new(test_accounts.app_state_pda, false),
                 AccountMeta::new(test_accounts.payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
             ],
@@ -216,6 +237,8 @@ mod tests {
 
     #[test]
     fn test_initialize_happy_path() {
+        use crate::types::AppState;
+
         // Load all fixtures efficiently (single JSON parse)
         let (client_state, consensus_state, _) = load_primary_fixtures();
 
@@ -237,12 +260,15 @@ mod tests {
             ],
             &crate::ID,
         );
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::Initialize {
             chain_id: chain_id.clone(),
             latest_height,
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
+            access_manager: access_manager::ID,
         };
 
         let instruction = Instruction {
@@ -250,6 +276,7 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(client_state_pda, false),
                 AccountMeta::new(consensus_state_store_pda, false),
+                AccountMeta::new(app_state_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
             ],
@@ -270,6 +297,16 @@ mod tests {
             ),
             (
                 consensus_state_store_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                app_state_pda,
                 Account {
                     lamports: 0,
                     data: vec![],
@@ -308,6 +345,7 @@ mod tests {
             Check::account(&consensus_state_store_pda)
                 .owner(&crate::ID)
                 .build(),
+            Check::account(&app_state_pda).owner(&crate::ID).build(),
         ];
 
         let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
@@ -417,6 +455,29 @@ mod tests {
                 .next_validators_hash,
             consensus_state.next_validators_hash
         );
+
+        // Verify app_state was created correctly
+        let app_state_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| pubkey == &app_state_pda)
+            .map(|(_, account)| account)
+            .expect("App state account not found");
+
+        assert!(
+            app_state_account.lamports > 0,
+            "App state account should be rent-exempt"
+        );
+        assert!(
+            app_state_account.data.len() > 8,
+            "App state account should have data"
+        );
+
+        let deserialized_app_state: AppState =
+            AppState::try_deserialize(&mut &app_state_account.data[..])
+                .expect("Failed to deserialize app state");
+
+        assert_eq!(deserialized_app_state.access_manager, access_manager::ID);
     }
 
     #[test]

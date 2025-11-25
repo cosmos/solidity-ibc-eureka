@@ -3,10 +3,9 @@ use solana_ibc_types::events::AccessManagerUpdated;
 
 pub fn set_access_manager(
     ctx: Context<crate::SetAccessManager>,
-    _chain_id: String,
     new_access_manager: Pubkey,
 ) -> Result<()> {
-    let old_access_manager = ctx.accounts.client_state.access_manager;
+    let old_access_manager = ctx.accounts.app_state.access_manager;
 
     // Performs: CPI rejection + signer verification + role check
     access_manager::require_role(
@@ -17,7 +16,7 @@ pub fn set_access_manager(
         &crate::ID,
     )?;
 
-    ctx.accounts.client_state.access_manager = new_access_manager;
+    ctx.accounts.app_state.access_manager = new_access_manager;
 
     emit!(AccessManagerUpdated {
         old_access_manager,
@@ -25,8 +24,7 @@ pub fn set_access_manager(
     });
 
     msg!(
-        "Access manager for client {} updated from {} to {}",
-        ctx.accounts.client_state.chain_id,
+        "Access manager updated from {} to {}",
         old_access_manager,
         new_access_manager
     );
@@ -37,8 +35,8 @@ pub fn set_access_manager(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::{fixtures::load_primary_fixtures, PROGRAM_BINARY_PATH};
-    use crate::types::ClientState;
+    use crate::test_helpers::PROGRAM_BINARY_PATH;
+    use crate::types::AppState;
     use access_manager::AccessManagerError;
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
@@ -60,16 +58,16 @@ mod tests {
         }
     }
 
-    fn create_client_state_account(chain_id: &str, access_manager: Pubkey) -> SolanaAccount {
+    fn create_app_state_account(access_manager: Pubkey) -> SolanaAccount {
         use anchor_lang::AccountSerialize;
 
-        let (client_state, _, _) = load_primary_fixtures();
-        let mut client_state = client_state;
-        client_state.chain_id = chain_id.to_string();
-        client_state.access_manager = access_manager;
+        let app_state = AppState {
+            access_manager,
+            _reserved: [0; 256],
+        };
 
-        let mut data = vec![0u8; 8 + ClientState::INIT_SPACE];
-        client_state.try_serialize(&mut &mut data[..]).unwrap();
+        let mut data = vec![0u8; 8 + AppState::INIT_SPACE];
+        app_state.try_serialize(&mut &mut data[..]).unwrap();
 
         SolanaAccount {
             lamports: 10_000_000,
@@ -137,27 +135,22 @@ mod tests {
 
     #[test]
     fn test_set_access_manager_success() {
-        let chain_id = "test-chain";
         let admin = Pubkey::new_unique();
         let new_access_manager = Pubkey::new_unique();
 
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[ClientState::SEED, chain_id.as_bytes()], &crate::ID);
+        let (app_state_pda, _) = Pubkey::find_program_address(&[AppState::SEED], &crate::ID);
 
         let (access_manager_pda, _) = Pubkey::find_program_address(
             &[access_manager::state::AccessManager::SEED],
             &access_manager::ID,
         );
 
-        let instruction_data = crate::instruction::SetAccessManager {
-            chain_id: chain_id.to_string(),
-            new_access_manager,
-        };
+        let instruction_data = crate::instruction::SetAccessManager { new_access_manager };
 
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(app_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new_readonly(admin, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
@@ -165,13 +158,13 @@ mod tests {
             data: instruction_data.data(),
         };
 
-        let client_state_account = create_client_state_account(chain_id, access_manager::ID);
+        let app_state_account = create_app_state_account(access_manager::ID);
         let access_manager_account = create_access_manager_account(admin, roles::ADMIN_ROLE);
         let (instructions_sysvar_pubkey, instructions_sysvar_account) =
             create_instructions_sysvar_account();
 
         let accounts = vec![
-            (client_state_pda, client_state_account),
+            (app_state_pda, app_state_account),
             (access_manager_pda, access_manager_account),
             (admin, create_signer_account()),
             (instructions_sysvar_pubkey, instructions_sysvar_account),
@@ -181,40 +174,34 @@ mod tests {
         let checks = vec![Check::success()];
         let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
 
-        let client_state_account = result
-            .get_account(&client_state_pda)
-            .expect("Client state account not found");
-        let client_state: ClientState =
-            ClientState::try_deserialize(&mut &client_state_account.data[..])
-                .expect("Failed to deserialize client state");
+        let app_state_account = result
+            .get_account(&app_state_pda)
+            .expect("App state account not found");
+        let app_state: AppState = AppState::try_deserialize(&mut &app_state_account.data[..])
+            .expect("Failed to deserialize app state");
 
-        assert_eq!(client_state.access_manager, new_access_manager);
+        assert_eq!(app_state.access_manager, new_access_manager);
     }
 
     #[test]
     fn test_set_access_manager_not_admin() {
-        let chain_id = "test-chain";
         let admin = Pubkey::new_unique();
         let non_admin = Pubkey::new_unique();
         let new_access_manager = Pubkey::new_unique();
 
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[ClientState::SEED, chain_id.as_bytes()], &crate::ID);
+        let (app_state_pda, _) = Pubkey::find_program_address(&[AppState::SEED], &crate::ID);
 
         let (access_manager_pda, _) = Pubkey::find_program_address(
             &[access_manager::state::AccessManager::SEED],
             &access_manager::ID,
         );
 
-        let instruction_data = crate::instruction::SetAccessManager {
-            chain_id: chain_id.to_string(),
-            new_access_manager,
-        };
+        let instruction_data = crate::instruction::SetAccessManager { new_access_manager };
 
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(app_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new_readonly(non_admin, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
@@ -222,13 +209,13 @@ mod tests {
             data: instruction_data.data(),
         };
 
-        let client_state_account = create_client_state_account(chain_id, access_manager::ID);
+        let app_state_account = create_app_state_account(access_manager::ID);
         let access_manager_account = create_access_manager_account(admin, roles::ADMIN_ROLE);
         let (instructions_sysvar_pubkey, instructions_sysvar_account) =
             create_instructions_sysvar_account();
 
         let accounts = vec![
-            (client_state_pda, client_state_account),
+            (app_state_pda, app_state_account),
             (access_manager_pda, access_manager_account),
             (non_admin, create_signer_account()),
             (instructions_sysvar_pubkey, instructions_sysvar_account),

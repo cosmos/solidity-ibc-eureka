@@ -174,6 +174,17 @@ func (gmpCounterAppPDAs) UserCounterWithAccountSeedPDA(programID solanago.Public
 	return pda, bump
 }
 
+func (ics07TendermintPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("app_state")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics07Tendermint.AppStatePDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (ics07TendermintPDAs) ClientPDA(programID solanago.PublicKey, chainId []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("client"), chainId},

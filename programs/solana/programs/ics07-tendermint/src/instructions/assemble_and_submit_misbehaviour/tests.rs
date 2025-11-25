@@ -1,7 +1,7 @@
 use crate::error::ErrorCode;
 use crate::state::{ConsensusStateStore, MisbehaviourChunk};
 use crate::test_helpers::PROGRAM_BINARY_PATH;
-use crate::types::{ClientState, ConsensusState, IbcHeight};
+use crate::types::{AppState, ClientState, ConsensusState, IbcHeight};
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -15,6 +15,7 @@ use solana_sdk::account::Account;
 
 struct TestAccounts {
     client_state_pda: Pubkey,
+    app_state_pda: Pubkey,
     trusted_consensus_state_1_pda: Pubkey,
     trusted_consensus_state_2_pda: Pubkey,
     submitter: Pubkey,
@@ -70,6 +71,8 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
     )
     .0;
 
+    let (app_state_pda, _) = Pubkey::find_program_address(&[AppState::SEED], &crate::ID);
+
     let client_state = ClientState {
         chain_id: chain_id.to_string(),
         trust_level_numerator: 2,
@@ -92,7 +95,6 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
             revision_number: 0,
             revision_height: 200,
         },
-        access_manager: access_manager::ID,
     };
 
     let mut client_data = vec![];
@@ -115,6 +117,24 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
             lamports: 10_000_000_000,
             data: vec![],
             owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    // Add app_state account
+    let app_state = AppState {
+        access_manager: access_manager::ID,
+        _reserved: [0; 256],
+    };
+    let mut app_state_data = vec![];
+    app_state.try_serialize(&mut app_state_data).unwrap();
+    accounts.push((
+        app_state_pda,
+        Account {
+            lamports: 1_000_000,
+            data: app_state_data,
+            owner: crate::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -279,6 +299,7 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
 
     TestAccounts {
         client_state_pda,
+        app_state_pda,
         trusted_consensus_state_1_pda,
         trusted_consensus_state_2_pda,
         submitter,
@@ -297,6 +318,7 @@ fn create_assemble_instruction(test_accounts: &TestAccounts, client_id: &str) ->
 
     let mut account_metas = vec![
         AccountMeta::new(test_accounts.client_state_pda, false),
+        AccountMeta::new_readonly(test_accounts.app_state_pda, false),
         AccountMeta::new_readonly(access_manager_pda, false),
         AccountMeta::new_readonly(test_accounts.trusted_consensus_state_1_pda, false),
         AccountMeta::new_readonly(test_accounts.trusted_consensus_state_2_pda, false),

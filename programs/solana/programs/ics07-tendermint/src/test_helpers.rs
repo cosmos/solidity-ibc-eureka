@@ -93,7 +93,6 @@ pub mod fixtures {
                 revision_number: latest_height.revision_number,
                 revision_height: latest_height.revision_height,
             },
-            access_manager: access_manager::ID,
         }
     }
 
@@ -390,7 +389,6 @@ pub mod fixtures {
                 revision_number: latest_height.revision_number,
                 revision_height: latest_height.revision_height,
             },
-            access_manager: access_manager::ID,
         }
     }
 
@@ -509,7 +507,6 @@ pub mod chunk_test_utils {
                 revision_number: 0,
                 revision_height: latest_height,
             },
-            access_manager: access_manager::ID,
         };
 
         let mut data = vec![];

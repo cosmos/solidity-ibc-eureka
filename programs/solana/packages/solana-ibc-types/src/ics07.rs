@@ -59,7 +59,21 @@ pub struct ClientState {
     pub max_clock_drift: u64,
     pub frozen_height: IbcHeight,
     pub latest_height: IbcHeight,
+}
+
+/// App state for ICS07 Tendermint
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct AppState {
     pub access_manager: Pubkey,
+    pub _reserved: [u8; 256],
+}
+
+impl AppState {
+    pub const SEED: &'static [u8] = b"app_state";
+
+    pub fn pda(program_id: Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[Self::SEED], &program_id)
+    }
 }
 
 impl ClientState {

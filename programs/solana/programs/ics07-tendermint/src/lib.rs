@@ -15,14 +15,14 @@ declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
 solana_allocator::custom_heap!();
 
 pub use types::{
-    ClientState, ConsensusState, IbcHeight, UpdateResult, UploadChunkParams,
+    AppState, ClientState, ConsensusState, IbcHeight, UpdateResult, UploadChunkParams,
     UploadMisbehaviourChunkParams,
 };
 
 pub use ics25_handler::{MembershipMsg, NonMembershipMsg};
 
 #[derive(Accounts)]
-#[instruction(chain_id: String, latest_height: u64, client_state: ClientState, consensus_state: ConsensusState)]
+#[instruction(chain_id: String, latest_height: u64, client_state: ClientState, consensus_state: ConsensusState, access_manager: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,
@@ -40,6 +40,14 @@ pub struct Initialize<'info> {
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + AppState::INIT_SPACE,
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
     #[account(mut)]
     pub payer: Signer<'info>,
 
@@ -47,21 +55,19 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(chain_id: String)]
 pub struct SetAccessManager<'info> {
     #[account(
         mut,
-        seeds = [ClientState::SEED, chain_id.as_bytes()],
-        bump,
-        constraint = client_state.chain_id == chain_id.as_str()
+        seeds = [AppState::SEED],
+        bump
     )]
-    pub client_state: Account<'info, ClientState>,
+    pub app_state: Account<'info, AppState>,
 
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = client_state.access_manager
+        seeds::program = app_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -137,12 +143,18 @@ pub struct AssembleAndUpdateClient<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
+    #[account(
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
+
     /// Global access control account (owned by access-manager program)
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = client_state.access_manager
+        seeds::program = app_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -214,12 +226,18 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
+    #[account(
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
+
     /// Global access control account (owned by access-manager program)
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = client_state.access_manager
+        seeds::program = app_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -290,6 +308,7 @@ pub mod ics07_tendermint {
         latest_height: u64,
         client_state: ClientState,
         consensus_state: ConsensusState,
+        access_manager: Pubkey,
     ) -> Result<()> {
         instructions::initialize::initialize(
             ctx,
@@ -297,15 +316,15 @@ pub mod ics07_tendermint {
             latest_height,
             client_state,
             consensus_state,
+            access_manager,
         )
     }
 
     pub fn set_access_manager(
         ctx: Context<SetAccessManager>,
-        chain_id: String,
         new_access_manager: Pubkey,
     ) -> Result<()> {
-        instructions::set_access_manager::set_access_manager(ctx, chain_id, new_access_manager)
+        instructions::set_access_manager::set_access_manager(ctx, new_access_manager)
     }
 
     pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {

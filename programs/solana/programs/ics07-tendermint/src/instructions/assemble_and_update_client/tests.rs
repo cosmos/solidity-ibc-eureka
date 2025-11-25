@@ -8,6 +8,7 @@ use crate::test_helpers::{
     },
     PROGRAM_BINARY_PATH, TEST_COMPUTE_UNIT_LIMIT, TEST_HEAP_SIZE,
 };
+use crate::types::AppState;
 use anchor_lang::{AccountDeserialize, AccountSerialize, AnchorDeserialize, InstructionData};
 use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
 use solana_sdk::account::Account;
@@ -117,7 +118,31 @@ fn get_chunk_pdas(
     chunk_pdas
 }
 
+fn create_app_state_account(access_manager_program_id: Pubkey) -> (Pubkey, Account) {
+    let (app_state_pda, _) = Pubkey::find_program_address(&[AppState::SEED], &crate::ID);
+
+    let app_state = AppState {
+        access_manager: access_manager_program_id,
+        _reserved: [0; 256],
+    };
+
+    let mut app_state_data = vec![];
+    app_state.try_serialize(&mut app_state_data).unwrap();
+
+    (
+        app_state_pda,
+        Account {
+            lamports: 1_000_000,
+            data: app_state_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 struct AssembleInstructionParams {
+    app_state_pda: Pubkey,
     access_manager_pda: Pubkey,
     client_state_pda: Pubkey,
     trusted_consensus_state_pda: Pubkey,
@@ -132,6 +157,7 @@ fn create_assemble_instruction(params: AssembleInstructionParams) -> Instruction
     let chunk_count = params.chunk_pdas.len() as u8;
     let mut account_metas = vec![
         AccountMeta::new(params.client_state_pda, false),
+        AccountMeta::new_readonly(params.app_state_pda, false),
         AccountMeta::new_readonly(params.access_manager_pda, false),
         AccountMeta::new_readonly(params.trusted_consensus_state_pda, false),
         AccountMeta::new(params.new_consensus_state_pda, false),
@@ -176,6 +202,9 @@ fn test_successful_assembly_and_update() {
     let (access_manager_pda, access_manager_account) =
         crate::test_helpers::access_control::create_access_manager_account(relayer, vec![relayer]);
 
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     // Split the real header into chunks
     let chunk_size = client_message_bytes.len() / 3 + 1;
     let mut chunks = vec![];
@@ -217,6 +246,7 @@ fn test_successful_assembly_and_update() {
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
         access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
@@ -239,6 +269,7 @@ fn test_successful_assembly_and_update() {
 
     // Setup accounts for instruction
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (access_manager_pda, access_manager_account),
         (client_state_pda, client_state_account),
         (trusted_consensus_pda, trusted_consensus_account),
@@ -348,11 +379,15 @@ fn test_assembly_with_corrupted_chunk() {
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
 
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     // Create instruction
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
         access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
@@ -372,6 +407,7 @@ fn test_assembly_with_corrupted_chunk() {
 
     // Setup accounts with corrupted second chunk
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (access_manager_pda, access_manager_account),
         (client_state_pda, create_client_state_account(chain_id, 90)),
         (
@@ -455,10 +491,14 @@ fn test_assembly_wrong_submitter() {
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
 
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
         access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
@@ -477,6 +517,7 @@ fn test_assembly_wrong_submitter() {
         );
 
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (access_manager_pda, access_manager_account),
         (client_state_pda, create_client_state_account(chain_id, 90)),
         (
@@ -559,10 +600,14 @@ fn test_assembly_chunks_in_wrong_order() {
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
 
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
         access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
@@ -581,6 +626,7 @@ fn test_assembly_chunks_in_wrong_order() {
         );
 
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (access_manager_pda, access_manager_account),
         (client_state_pda, create_client_state_account(chain_id, 90)),
         (
@@ -671,10 +717,14 @@ fn test_rent_reclaim_after_assembly() {
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
 
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     let payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
         access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
@@ -693,6 +743,7 @@ fn test_rent_reclaim_after_assembly() {
         );
 
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (access_manager_pda, access_manager_account),
         (client_state_pda, create_client_state_account(chain_id, 90)),
         (
@@ -794,6 +845,9 @@ fn test_assemble_and_update_client_happy_path() {
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
 
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     // Create existing client state with proper data
     let mut client_state_account =
         create_client_state_account(chain_id, client_state.latest_height.revision_height);
@@ -815,6 +869,7 @@ fn test_assemble_and_update_client_happy_path() {
     let payer = Pubkey::new_unique();
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
         access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
@@ -845,6 +900,7 @@ fn test_assemble_and_update_client_happy_path() {
         );
 
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (access_manager_pda, access_manager_account),
         (client_state_pda, client_state_account),
         (trusted_consensus_pda, trusted_consensus_account),
@@ -985,7 +1041,11 @@ fn test_assemble_with_frozen_client() {
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
 
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
         access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
@@ -1013,6 +1073,7 @@ fn test_assemble_with_frozen_client() {
         );
 
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (access_manager_pda, access_manager_account),
         (client_state_pda, frozen_client),
         (
@@ -1142,7 +1203,11 @@ fn test_assemble_with_existing_consensus_state() {
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
 
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
         access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
@@ -1161,6 +1226,7 @@ fn test_assemble_with_existing_consensus_state() {
         );
 
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (access_manager_pda, access_manager_account),
         (client_state_pda, client_account),
         (
@@ -1271,10 +1337,14 @@ fn test_assemble_with_invalid_header_after_assembly() {
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
 
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     let _payer = Pubkey::new_unique();
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
         access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
@@ -1293,6 +1363,7 @@ fn test_assemble_with_invalid_header_after_assembly() {
         );
 
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (client_state_pda, create_client_state_account(chain_id, 90)),
         (access_manager_pda, access_manager_account),
         (
@@ -1377,11 +1448,15 @@ fn test_assemble_updates_latest_height() {
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
 
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     let _payer = Pubkey::new_unique();
     let trusted_height = update_message.trusted_height;
     let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
         access_manager_pda,
         client_state_pda,
         trusted_consensus_state_pda: trusted_consensus_pda,
@@ -1416,6 +1491,7 @@ fn test_assemble_updates_latest_height() {
         );
 
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (client_state_pda, initial_client),
         (access_manager_pda, access_manager_account),
         (trusted_consensus_pda, trusted_consensus_account),
@@ -1583,6 +1659,9 @@ fn test_assemble_and_update_with_invalid_signature() {
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
 
+    // Setup app state
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
     // Setup access manager with submitter as relayer
     let (_, access_manager_account) =
         crate::test_helpers::access_control::create_access_manager_account(
@@ -1592,6 +1671,7 @@ fn test_assemble_and_update_with_invalid_signature() {
 
     // Prepare accounts
     let mut accounts = vec![
+        (app_state_pda, app_state_account),
         (
             client_state_pda,
             create_client_state_account(chain_id, trusted_height),
@@ -1643,6 +1723,7 @@ fn test_assemble_and_update_with_invalid_signature() {
     // Create instruction
     let mut account_metas = vec![
         AccountMeta::new(client_state_pda, false),
+        AccountMeta::new_readonly(app_state_pda, false),
         AccountMeta::new_readonly(access_manager_pda, false),
         AccountMeta::new_readonly(trusted_consensus_pda, false),
         AccountMeta::new(new_consensus_pda, false),

@@ -9,6 +9,7 @@ var (
 	Account_Ics07TendermintStateHeaderChunk           = [8]byte{236, 15, 220, 133, 128, 6, 145, 240}
 	Account_Ics07TendermintStateMisbehaviourChunk     = [8]byte{176, 75, 200, 147, 222, 20, 68, 192}
 	Account_Ics07TendermintStateSignatureVerification = [8]byte{81, 117, 47, 112, 35, 80, 229, 151}
+	Account_Ics07TendermintTypesAppState              = [8]byte{217, 117, 146, 200, 12, 223, 18, 55}
 	Account_Ics07TendermintTypesClientState           = [8]byte{147, 10, 249, 80, 145, 124, 219, 60}
 )
 

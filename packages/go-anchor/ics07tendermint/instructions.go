@@ -18,10 +18,12 @@ func NewInitializeInstruction(
 	latestHeightParam uint64,
 	clientStateParam Ics07TendermintTypesClientState,
 	consensusStateParam Ics07TendermintTypesConsensusState,
+	accessManagerParam solanago.PublicKey,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
 	consensusStateStoreAccount solanago.PublicKey,
+	appStateAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -54,6 +56,11 @@ func NewInitializeInstruction(
 		if err != nil {
 			return nil, errors.NewField("consensusStateParam", err)
 		}
+		// Serialize `accessManagerParam`:
+		err = enc__.Encode(accessManagerParam)
+		if err != nil {
+			return nil, errors.NewField("accessManagerParam", err)
+		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
 
@@ -63,9 +70,11 @@ func NewInitializeInstruction(
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
 		// Account 1 "consensus_state_store": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateStoreAccount, true, false))
-		// Account 2 "payer": Writable, Signer, Required
+		// Account 2 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 3 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 3 "system_program": Read-only, Non-signer, Required
+		// Account 4 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -80,11 +89,10 @@ func NewInitializeInstruction(
 // Builds a "set_access_manager" instruction.
 func NewSetAccessManagerInstruction(
 	// Params:
-	chainIdParam string,
 	newAccessManagerParam solanago.PublicKey,
 
 	// Accounts:
-	clientStateAccount solanago.PublicKey,
+	appStateAccount solanago.PublicKey,
 	accessManagerAccount solanago.PublicKey,
 	adminAccount solanago.PublicKey,
 	instructionsSysvarAccount solanago.PublicKey,
@@ -98,11 +106,6 @@ func NewSetAccessManagerInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `chainIdParam`:
-		err = enc__.Encode(chainIdParam)
-		if err != nil {
-			return nil, errors.NewField("chainIdParam", err)
-		}
 		// Serialize `newAccessManagerParam`:
 		err = enc__.Encode(newAccessManagerParam)
 		if err != nil {
@@ -113,8 +116,8 @@ func NewSetAccessManagerInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "client_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
@@ -279,6 +282,7 @@ func NewAssembleAndUpdateClientInstruction(
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
+	appStateAccount solanago.PublicKey,
 	accessManagerAccount solanago.PublicKey,
 	trustedConsensusStateAccount solanago.PublicKey,
 	newConsensusStateStoreAccount solanago.PublicKey,
@@ -317,21 +321,23 @@ func NewAssembleAndUpdateClientInstruction(
 	{
 		// Account 0 "client_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Account 1 "app_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
+		// Account 2 "access_manager": Read-only, Non-signer, Required
 		// Global access control account (owned by access-manager program)
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
-		// Account 2 "trusted_consensus_state": Read-only, Non-signer, Required
+		// Account 3 "trusted_consensus_state": Read-only, Non-signer, Required
 		// Trusted consensus state at the height embedded in the header
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
-		// Account 3 "new_consensus_state_store": Read-only, Non-signer, Required
+		// Account 4 "new_consensus_state_store": Read-only, Non-signer, Required
 		// New consensus state store
 		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, false, false))
-		// Account 4 "submitter": Writable, Signer, Required
+		// Account 5 "submitter": Writable, Signer, Required
 		// The submitter who uploaded the chunks
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
-		// Account 5 "system_program": Read-only, Non-signer, Required
+		// Account 6 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 6 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI validation
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
@@ -424,6 +430,7 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
+	appStateAccount solanago.PublicKey,
 	accessManagerAccount solanago.PublicKey,
 	trustedConsensusState1account solanago.PublicKey,
 	trustedConsensusState2account solanago.PublicKey,
@@ -451,16 +458,18 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 	{
 		// Account 0 "client_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Account 1 "app_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
+		// Account 2 "access_manager": Read-only, Non-signer, Required
 		// Global access control account (owned by access-manager program)
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
-		// Account 2 "trusted_consensus_state_1": Read-only, Non-signer, Required
+		// Account 3 "trusted_consensus_state_1": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState1account, false, false))
-		// Account 3 "trusted_consensus_state_2": Read-only, Non-signer, Required
+		// Account 4 "trusted_consensus_state_2": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState2account, false, false))
-		// Account 4 "submitter": Writable, Signer, Required
+		// Account 5 "submitter": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
-		// Account 5 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Account 6 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI validation
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
