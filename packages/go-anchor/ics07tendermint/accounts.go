@@ -36,6 +36,13 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal account as Ics07TendermintStateMisbehaviourChunk: %w", err)
 		}
 		return value, nil
+	case Account_Ics07TendermintStateSignatureVerification:
+		value := new(Ics07TendermintStateSignatureVerification)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal account as Ics07TendermintStateSignatureVerification: %w", err)
+		}
+		return value, nil
 	case Account_Ics07TendermintTypesClientState:
 		value := new(Ics07TendermintTypesClientState)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -95,6 +102,23 @@ func ParseAccount_Ics07TendermintStateMisbehaviourChunk(accountData []byte) (*Ic
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal account of type Ics07TendermintStateMisbehaviourChunk: %w", err)
+	}
+	return acc, nil
+}
+
+func ParseAccount_Ics07TendermintStateSignatureVerification(accountData []byte) (*Ics07TendermintStateSignatureVerification, error) {
+	decoder := binary.NewBorshDecoder(accountData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Account_Ics07TendermintStateSignatureVerification {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics07TendermintStateSignatureVerification, binary.FormatDiscriminator(discriminator))
+	}
+	acc := new(Ics07TendermintStateSignatureVerification)
+	err = acc.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics07TendermintStateSignatureVerification: %w", err)
 	}
 	return acc, nil
 }

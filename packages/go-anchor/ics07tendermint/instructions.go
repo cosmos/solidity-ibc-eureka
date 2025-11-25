@@ -345,20 +345,10 @@ func NewAssembleAndUpdateClientInstruction(
 }
 
 // Builds a "cleanup_incomplete_upload" instruction.
-// Clean up incomplete header uploads at lower heights // This can be called to reclaim rent from failed or abandoned uploads
+// Clean up incomplete header uploads // This can be called to reclaim rent from failed or abandoned uploads // Closes both `HeaderChunk` and `SignatureVerification` PDAs owned by the submitter
 func NewCleanupIncompleteUploadInstruction(
-	// Accounts:
 	submitterAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_CleanupIncompleteUpload[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
@@ -373,7 +363,7 @@ func NewCleanupIncompleteUploadInstruction(
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		buf__.Bytes(),
+		nil,
 	), nil
 }
 
@@ -532,13 +522,14 @@ func NewCleanupIncompleteMisbehaviourInstruction(
 	), nil
 }
 
-// Builds a "pre_verify_signatures" instruction.
-func NewPreVerifySignaturesInstruction(
+// Builds a "pre_verify_signature" instruction.
+func NewPreVerifySignatureInstruction(
 	// Params:
-	signaturesParam []SolanaIbcTypesIcs07SignatureData,
+	signatureParam SolanaIbcTypesIcs07SignatureData,
 
 	// Accounts:
 	instructionsSysvarAccount solanago.PublicKey,
+	signatureVerificationAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -546,15 +537,15 @@ func NewPreVerifySignaturesInstruction(
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_PreVerifySignatures[:], false)
+	err := enc__.WriteBytes(Instruction_PreVerifySignature[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `signaturesParam`:
-		err = enc__.Encode(signaturesParam)
+		// Serialize `signatureParam`:
+		err = enc__.Encode(signatureParam)
 		if err != nil {
-			return nil, errors.NewField("signaturesParam", err)
+			return nil, errors.NewField("signatureParam", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
@@ -563,9 +554,11 @@ func NewPreVerifySignaturesInstruction(
 	{
 		// Account 0 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
-		// Account 1 "payer": Writable, Signer, Required
+		// Account 1 "signature_verification": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(signatureVerificationAccount, true, false))
+		// Account 2 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 2 "system_program": Read-only, Non-signer, Required
+		// Account 3 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 

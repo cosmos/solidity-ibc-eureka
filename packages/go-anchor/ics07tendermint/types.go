@@ -73,11 +73,19 @@ func UnmarshalIcs07TendermintStateConsensusStateStore(buf []byte) (*Ics07Tenderm
 
 // Storage for a single chunk of header data during multi-transaction upload
 type Ics07TendermintStateHeaderChunk struct {
+	// The submitter who created this chunk
+	Submitter solanago.PublicKey `json:"submitter"`
+
 	// The chunk data
 	ChunkData []byte `json:"chunkData"`
 }
 
 func (obj Ics07TendermintStateHeaderChunk) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Submitter`:
+	err = encoder.Encode(obj.Submitter)
+	if err != nil {
+		return errors.NewField("Submitter", err)
+	}
 	// Serialize `ChunkData`:
 	err = encoder.Encode(obj.ChunkData)
 	if err != nil {
@@ -97,6 +105,11 @@ func (obj Ics07TendermintStateHeaderChunk) Marshal() ([]byte, error) {
 }
 
 func (obj *Ics07TendermintStateHeaderChunk) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Submitter`:
+	err = decoder.Decode(&obj.Submitter)
+	if err != nil {
+		return errors.NewField("Submitter", err)
+	}
 	// Deserialize `ChunkData`:
 	err = decoder.Decode(&obj.ChunkData)
 	if err != nil {
@@ -166,6 +179,70 @@ func (obj *Ics07TendermintStateMisbehaviourChunk) Unmarshal(buf []byte) error {
 
 func UnmarshalIcs07TendermintStateMisbehaviourChunk(buf []byte) (*Ics07TendermintStateMisbehaviourChunk, error) {
 	obj := new(Ics07TendermintStateMisbehaviourChunk)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Storage for Ed25519 signature verification results
+type Ics07TendermintStateSignatureVerification struct {
+	// The submitter who created this verification
+	Submitter solanago.PublicKey `json:"submitter"`
+
+	// Whether the signature is valid
+	IsValid bool `json:"isValid"`
+}
+
+func (obj Ics07TendermintStateSignatureVerification) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Submitter`:
+	err = encoder.Encode(obj.Submitter)
+	if err != nil {
+		return errors.NewField("Submitter", err)
+	}
+	// Serialize `IsValid`:
+	err = encoder.Encode(obj.IsValid)
+	if err != nil {
+		return errors.NewField("IsValid", err)
+	}
+	return nil
+}
+
+func (obj Ics07TendermintStateSignatureVerification) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics07TendermintStateSignatureVerification: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics07TendermintStateSignatureVerification) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Submitter`:
+	err = decoder.Decode(&obj.Submitter)
+	if err != nil {
+		return errors.NewField("Submitter", err)
+	}
+	// Deserialize `IsValid`:
+	err = decoder.Decode(&obj.IsValid)
+	if err != nil {
+		return errors.NewField("IsValid", err)
+	}
+	return nil
+}
+
+func (obj *Ics07TendermintStateSignatureVerification) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics07TendermintStateSignatureVerification: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs07TendermintStateSignatureVerification(buf []byte) (*Ics07TendermintStateSignatureVerification, error) {
+	obj := new(Ics07TendermintStateSignatureVerification)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -788,13 +865,20 @@ func UnmarshalIcs25HandlerNonMembershipMsg(buf []byte) (*Ics25HandlerNonMembersh
 	return obj, nil
 }
 
+// Ed25519 signature data for pre-verification
 type SolanaIbcTypesIcs07SignatureData struct {
-	Pubkey    [32]uint8 `json:"pubkey"`
-	Msg       []byte    `json:"msg"`
-	Signature [64]uint8 `json:"signature"`
+	SignatureHash [32]uint8 `json:"signatureHash"`
+	Pubkey        [32]uint8 `json:"pubkey"`
+	Msg           []byte    `json:"msg"`
+	Signature     [64]uint8 `json:"signature"`
 }
 
 func (obj SolanaIbcTypesIcs07SignatureData) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `SignatureHash`:
+	err = encoder.Encode(obj.SignatureHash)
+	if err != nil {
+		return errors.NewField("SignatureHash", err)
+	}
 	// Serialize `Pubkey`:
 	err = encoder.Encode(obj.Pubkey)
 	if err != nil {
@@ -824,6 +908,11 @@ func (obj SolanaIbcTypesIcs07SignatureData) Marshal() ([]byte, error) {
 }
 
 func (obj *SolanaIbcTypesIcs07SignatureData) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `SignatureHash`:
+	err = decoder.Decode(&obj.SignatureHash)
+	if err != nil {
+		return errors.NewField("SignatureHash", err)
+	}
 	// Deserialize `Pubkey`:
 	err = decoder.Decode(&obj.Pubkey)
 	if err != nil {

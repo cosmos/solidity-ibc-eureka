@@ -5,10 +5,11 @@ package ics07_tendermint
 
 // Account discriminators
 var (
-	Account_Ics07TendermintStateConsensusStateStore = [8]byte{82, 126, 130, 187, 68, 64, 80, 32}
-	Account_Ics07TendermintStateHeaderChunk         = [8]byte{236, 15, 220, 133, 128, 6, 145, 240}
-	Account_Ics07TendermintStateMisbehaviourChunk   = [8]byte{176, 75, 200, 147, 222, 20, 68, 192}
-	Account_Ics07TendermintTypesClientState         = [8]byte{147, 10, 249, 80, 145, 124, 219, 60}
+	Account_Ics07TendermintStateConsensusStateStore   = [8]byte{82, 126, 130, 187, 68, 64, 80, 32}
+	Account_Ics07TendermintStateHeaderChunk           = [8]byte{236, 15, 220, 133, 128, 6, 145, 240}
+	Account_Ics07TendermintStateMisbehaviourChunk     = [8]byte{176, 75, 200, 147, 222, 20, 68, 192}
+	Account_Ics07TendermintStateSignatureVerification = [8]byte{81, 117, 47, 112, 35, 80, 229, 151}
+	Account_Ics07TendermintTypesClientState           = [8]byte{147, 10, 249, 80, 145, 124, 219, 60}
 )
 
 // Event discriminators
@@ -26,5 +27,5 @@ var (
 	Instruction_UploadMisbehaviourChunk       = [8]byte{150, 89, 208, 203, 92, 179, 160, 140}
 	Instruction_AssembleAndSubmitMisbehaviour = [8]byte{182, 151, 225, 14, 100, 151, 177, 234}
 	Instruction_CleanupIncompleteMisbehaviour = [8]byte{128, 250, 150, 138, 153, 111, 26, 224}
-	Instruction_PreVerifySignatures           = [8]byte{8, 151, 34, 75, 194, 126, 52, 111}
+	Instruction_PreVerifySignature            = [8]byte{121, 29, 68, 190, 85, 124, 111, 45}
 )

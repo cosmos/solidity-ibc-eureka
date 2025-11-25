@@ -163,6 +163,7 @@ func NewSendPacketInstruction(
 		// Account 2 "client_sequence": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
 		// Account 3 "packet_commitment": Writable, Non-signer, Required
+		// Packet commitment account - manually created with runtime-calculated sequence
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 4 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for validating CPI caller

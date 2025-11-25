@@ -262,17 +262,6 @@ func (ics26RouterPDAs) PacketCommitmentPDA(programID solanago.PublicKey, sourceC
 	return pda, bump
 }
 
-func (ics26RouterPDAs) PacketCommitmentWithAccountSeedPDA(programID solanago.PublicKey, sourceClient []byte, nextSequenceSend []byte) (solanago.PublicKey, uint8) {
-	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("packet_commitment"), sourceClient, nextSequenceSend},
-		programID,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics26Router.PacketCommitmentWithAccountSeedPDA PDA: %v", err))
-	}
-	return pda, bump
-}
-
 func (ics26RouterPDAs) PacketReceiptPDA(programID solanago.PublicKey, destClient []byte, sequence []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("packet_receipt"), destClient, sequence},

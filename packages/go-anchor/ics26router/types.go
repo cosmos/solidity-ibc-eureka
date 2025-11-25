@@ -696,9 +696,6 @@ type Ics26RouterStateRouterState struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
 
-	// Whether the router is paused (emergency stop)
-	Paused bool `json:"paused"`
-
 	// Access manager program ID for role-based access control
 	AccessManager solanago.PublicKey `json:"accessManager"`
 
@@ -711,11 +708,6 @@ func (obj Ics26RouterStateRouterState) MarshalWithEncoder(encoder *binary.Encode
 	err = encoder.Encode(obj.Version)
 	if err != nil {
 		return errors.NewField("Version", err)
-	}
-	// Serialize `Paused`:
-	err = encoder.Encode(obj.Paused)
-	if err != nil {
-		return errors.NewField("Paused", err)
 	}
 	// Serialize `AccessManager`:
 	err = encoder.Encode(obj.AccessManager)
@@ -745,11 +737,6 @@ func (obj *Ics26RouterStateRouterState) UnmarshalWithDecoder(decoder *binary.Dec
 	err = decoder.Decode(&obj.Version)
 	if err != nil {
 		return errors.NewField("Version", err)
-	}
-	// Deserialize `Paused`:
-	err = decoder.Decode(&obj.Paused)
-	if err != nil {
-		return errors.NewField("Paused", err)
 	}
 	// Deserialize `AccessManager`:
 	err = decoder.Decode(&obj.AccessManager)
