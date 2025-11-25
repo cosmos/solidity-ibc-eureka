@@ -20,8 +20,6 @@ use tendermint_light_client_verifier::{
 
 use tendermint::merkle::Hash;
 
-use solana_program::msg;
-
 /// Solana-optimized predicates that skip redundant Merkle hashing
 ///
 /// The validator set hashes are already validated in `validate_basic()` and
