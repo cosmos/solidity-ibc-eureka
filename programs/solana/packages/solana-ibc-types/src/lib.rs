@@ -23,14 +23,18 @@ pub use router::{
     router_instructions, AccountVersion, Client, ClientAccount, ClientSequence, Commitment,
     CounterpartyInfo, IBCApp, IBCAppState, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket,
     MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet, PayloadChunk, PayloadMetadata,
-    ProofChunk, ProofMetadata, RouterState, MAX_CLIENT_ID_LENGTH,
+    ProofChunk, ProofMetadata, RouterState,
 };
+
+// Re-export MAX_CLIENT_ID_LENGTH from solana-ibc-proto (single source of truth)
+pub use solana_ibc_proto::MAX_CLIENT_ID_LENGTH;
 
 pub use ics07::{ics07_instructions, ClientState, ConsensusState, IbcHeight, UpdateClientMsg};
 
 pub use ics27::{
     ClientId, ConstrainedBytes, ConstrainedError, ConstrainedString, ConstrainedVec, GMPAccount,
-    GMPAppState, GMPPacketError, Salt, SignerSeeds, ValidatedGmpPacketData,
+    GMPAppState, GMPPacketError, GmpPacketData, Salt, SignerSeeds, MAX_MEMO_LENGTH,
+    MAX_RECEIVER_LENGTH, MAX_SALT_LENGTH, MAX_SENDER_LENGTH,
 };
 
 pub use events::{
