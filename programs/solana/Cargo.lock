@@ -2021,6 +2021,7 @@ dependencies = [
  "serde_json",
  "solana-allocator",
  "solana-ibc-types",
+ "solana-program",
  "solana-sdk",
  "tendermint",
  "tendermint-light-client-membership",

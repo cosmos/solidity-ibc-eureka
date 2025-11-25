@@ -678,7 +678,6 @@ mod tests {
     fn test_send_packet_concurrent_different_programs() {
         // Test that two different programs can send packets concurrently with the same base sequence
         // because they get different namespaced sequences
-        let authority = Pubkey::new_unique();
         let app_program_1 = Pubkey::new_unique();
         let app_program_2 = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
@@ -686,10 +685,9 @@ mod tests {
         let port_id_1 = "test-port-1";
         let port_id_2 = "test-port-2";
 
-        let (router_state_pda, router_state_data) = setup_router_state(authority);
+        let (router_state_pda, router_state_data) = setup_router_state();
         let (client_pda, client_data) = setup_client(
             client_id,
-            authority,
             Pubkey::new_unique(),
             "counterparty-client",
             true,

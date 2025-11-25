@@ -39,7 +39,7 @@ fn verify_ed25519_from_sysvar(
     const ED25519_IX_INDEX: usize = 0;
     let ix = ix_sysvar::load_instruction_at_checked(ED25519_IX_INDEX, ix_sysvar)?;
 
-    if ix.program_id != anchor_lang::solana_program::ed25519_program::ID
+    if ix.program_id != solana_program::ed25519_program::ID
         || ix.data.len() < ED25519_HEADER_SIZE + 96
         || ix.data[ED25519_NUM_SIGNATURES_OFFSET] != 1
     {
