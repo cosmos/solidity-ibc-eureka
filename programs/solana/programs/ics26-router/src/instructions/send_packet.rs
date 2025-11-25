@@ -686,12 +686,8 @@ mod tests {
         let port_id_2 = "test-port-2";
 
         let (router_state_pda, router_state_data) = setup_router_state();
-        let (client_pda, client_data) = setup_client(
-            client_id,
-            Pubkey::new_unique(),
-            "counterparty-client",
-            true,
-        );
+        let (client_pda, client_data) =
+            setup_client(client_id, Pubkey::new_unique(), "counterparty-client", true);
         let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 1);
         let (ibc_app_pda_1, ibc_app_data_1) = setup_ibc_app(port_id_1, app_program_1);
         let (ibc_app_pda_2, ibc_app_data_2) = setup_ibc_app(port_id_2, app_program_2);
