@@ -42,13 +42,12 @@ type Chain struct {
 }
 
 type Options struct {
-	RepoRoot         string
 	ChainID          string
 	EVMChainID       uint64
 	Bech32Prefix     string
 	Denom            string
 	DisplayDenom     string
-	SenderHex        string
+	// SenderHex        string
 	SenderBech32     string
 	FundSender       bool
 	ConsensusTimeout map[string]string
