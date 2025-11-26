@@ -30,13 +30,6 @@ pub struct RecvPacket<'info> {
     pub ibc_app: Account<'info, IBCApp>,
 
     #[account(
-        mut,
-        seeds = [ClientSequence::SEED, msg.packet.dest_client.as_bytes()],
-        bump
-    )]
-    pub client_sequence: Account<'info, ClientSequence>,
-
-    #[account(
         init_if_needed,
         payer = relayer,
         space = 8 + Commitment::INIT_SPACE,
@@ -408,7 +401,6 @@ mod tests {
         let ibc_app_program_id = MOCK_IBC_APP_PROGRAM_ID;
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, ibc_app_program_id);
         let ibc_app_state = Pubkey::new_unique();
-        let (client_sequence_pda, client_sequence_data) = setup_client_sequence(client_id, 0);
 
         let current_timestamp = 1000;
 
@@ -493,7 +485,6 @@ mod tests {
             AccountMeta::new_readonly(router_state_pda, false),
             AccountMeta::new_readonly(access_manager_pda, false),
             AccountMeta::new_readonly(ibc_app_pda, false),
-            AccountMeta::new(client_sequence_pda, false),
             AccountMeta::new(packet_receipt_pda, false),
             AccountMeta::new(packet_ack_pda, false),
             AccountMeta::new_readonly(ibc_app_program_id, false),
@@ -529,7 +520,6 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
-            create_account(client_sequence_pda, client_sequence_data, crate::ID),
             packet_receipt_account,
             packet_ack_account,
             create_bpf_program_account(ibc_app_program_id),
@@ -843,8 +833,8 @@ mod tests {
         let mut cursor = std::io::Cursor::new(&mut data[8..]);
         existing_ack.serialize(&mut cursor).unwrap();
 
-        // Find the packet_ack account (it's at index 5 after access_manager, router_state, ibc_app, client_sequence, packet_receipt)
-        let packet_ack_pubkey = ctx.instruction.accounts[5].pubkey;
+        // Find the packet_ack account (it's at index 4 after router_state, access_manager, ibc_app, packet_receipt)
+        let packet_ack_pubkey = ctx.instruction.accounts[4].pubkey;
         let ack_index = ctx
             .accounts
             .iter()
