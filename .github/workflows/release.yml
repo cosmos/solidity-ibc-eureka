@@ -9,7 +9,7 @@ jobs:
     runs-on: depot-ubuntu-24.04-4
     if: startsWith(github.ref_name, 'sp1-programs-')
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Install SP1 toolchain
@@ -38,7 +38,7 @@ jobs:
     runs-on: depot-ubuntu-24.04-4
     if: startsWith(github.ref_name, 'cw-ics08-wasm-eth-')
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Upload cw-ics08-wasm-eth to release
         uses: svenstaro/upload-release-action@v2

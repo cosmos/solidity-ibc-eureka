@@ -16,7 +16,7 @@ jobs:
   lint:
     runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -35,7 +35,7 @@ jobs:
   build:
     runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -51,7 +51,7 @@ jobs:
     needs: [lint, build]
     runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -79,7 +79,7 @@ jobs:
     needs: [build]
     runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -101,7 +101,7 @@ jobs:
     needs: [test]
     runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
