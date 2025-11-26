@@ -49,8 +49,8 @@ use ibc_eureka_relayer_core::api::{self, SolanaPacketTxs};
 use solana_ibc_types::{
     ics07::{ics07_instructions, ClientState, ConsensusState, SignatureData},
     router::{
-        router_instructions, Client, ClientSequence, Commitment, IBCApp, IBCAppState, PayloadChunk,
-        ProofChunk, RouterState,
+        router_instructions, Client, Commitment, IBCApp, IBCAppState, PayloadChunk, ProofChunk,
+        RouterState,
     },
     AccessManager, MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
 };
@@ -270,8 +270,6 @@ impl TxBuilder {
         let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
         let (ibc_app, _) = IBCApp::pda(dest_port, self.solana_ics26_program_id);
 
-        let (client_sequence, _) =
-            ClientSequence::pda(&msg.packet.dest_client, self.solana_ics26_program_id);
         let (packet_receipt, _) = Commitment::packet_receipt_pda(
             &msg.packet.dest_client,
             msg.packet.sequence,
@@ -303,7 +301,6 @@ impl TxBuilder {
             AccountMeta::new_readonly(router_state, false),
             AccountMeta::new_readonly(access_manager, false),
             AccountMeta::new_readonly(ibc_app, false),
-            AccountMeta::new(client_sequence, false),
             AccountMeta::new(packet_receipt, false),
             AccountMeta::new(packet_ack, false),
             AccountMeta::new_readonly(ibc_app_program_id, false), // IBC app program (e.g., ICS27 GMP)
