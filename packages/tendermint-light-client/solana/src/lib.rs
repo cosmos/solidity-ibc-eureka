@@ -8,6 +8,8 @@
 //!    Pre-sort signatures before serialization (saves ~60-80k CU on-chain for 100 validators)
 
 use ibc_core_commitment_types::proto::ics23::HostFunctionsManager;
+use solana_account_info::AccountInfo;
+use solana_pubkey::Pubkey;
 use tendermint::crypto::signature::Error;
 use tendermint::{PublicKey, Signature};
 use tendermint_light_client_verifier::{
@@ -86,23 +88,20 @@ pub type SolanaVotingPowerCalculator<'a> =
 #[derive(Clone, Debug)]
 pub struct SolanaSignatureVerifier<'a> {
     /// Pre-verified signature accounts from `remaining_accounts`
-    verification_accounts: &'a [solana_program::account_info::AccountInfo<'a>],
+    verification_accounts: &'a [AccountInfo<'a>],
     /// Program ID for PDA derivation
-    program_id: &'a solana_program::pubkey::Pubkey,
+    program_id: &'a Pubkey,
 }
 
 impl<'a> SolanaSignatureVerifier<'a> {
-    pub fn new(
-        verification_accounts: &'a [solana_program::account_info::AccountInfo<'a>],
-        program_id: &'a solana_program::pubkey::Pubkey,
-    ) -> Self {
+    pub fn new(verification_accounts: &'a [AccountInfo<'a>], program_id: &'a Pubkey) -> Self {
         Self {
             verification_accounts,
             program_id,
         }
     }
 
-    pub fn without_pre_verification(program_id: &'a solana_program::pubkey::Pubkey) -> Self {
+    pub fn without_pre_verification(program_id: &'a Pubkey) -> Self {
         Self {
             verification_accounts: &[],
             program_id,
@@ -115,17 +114,15 @@ impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a>
         match pubkey {
             PublicKey::Ed25519(pk) => {
                 if !self.verification_accounts.is_empty() {
-                    use solana_program::msg;
+                    use solana_msg::msg;
 
                     let sig_hash =
-                        solana_program::hash::hashv(&[pk.as_bytes(), msg, signature.as_bytes()])
+                        solana_sha256_hasher::hashv(&[pk.as_bytes(), msg, signature.as_bytes()])
                             .to_bytes();
 
                     // PDA: [b"sig_verify", hash(pubkey || msg || signature)]
-                    let (expected_pda, _) = solana_program::pubkey::Pubkey::find_program_address(
-                        &[b"sig_verify", &sig_hash],
-                        self.program_id,
-                    );
+                    let (expected_pda, _) =
+                        Pubkey::find_program_address(&[b"sig_verify", &sig_hash], self.program_id);
 
                     for account in self.verification_accounts {
                         if account.key == &expected_pda {
@@ -172,7 +169,7 @@ pub struct SolanaSha256Impl;
 
 impl tendermint::crypto::Sha256 for SolanaSha256Impl {
     fn digest(data: impl AsRef<[u8]>) -> [u8; 32] {
-        solana_program::hash::hashv(&[data.as_ref()]).to_bytes()
+        solana_sha256_hasher::hashv(&[data.as_ref()]).to_bytes()
     }
 }
 
@@ -201,7 +198,7 @@ pub struct SolanaHostFunctionsManager;
 
 impl ics23::HostFunctionsProvider for SolanaHostFunctionsManager {
     fn sha2_256(message: &[u8]) -> [u8; 32] {
-        solana_program::hash::hash(message).to_bytes()
+        solana_sha256_hasher::hash(message).to_bytes()
     }
 
     fn sha2_512(message: &[u8]) -> [u8; 64] {
@@ -213,7 +210,7 @@ impl ics23::HostFunctionsProvider for SolanaHostFunctionsManager {
     }
 
     fn keccak_256(message: &[u8]) -> [u8; 32] {
-        solana_program::keccak::hash(message).to_bytes()
+        solana_keccak_hasher::hash(message).to_bytes()
     }
 
     fn ripemd160(message: &[u8]) -> [u8; 20] {

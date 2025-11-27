@@ -4,7 +4,6 @@
 //! to ensure consistent PDA derivation across the system.
 
 use anchor_lang::prelude::*;
-use solana_program::hash::hash;
 
 // Re-export from solana-ibc-proto
 pub use solana_ibc_proto::{
@@ -35,8 +34,7 @@ impl GMPAccount {
     ///
     /// Accepts validated types, so no validation needed - construction cannot fail
     pub fn new(client_id: ClientId, sender: Sender, salt: Salt, program_id: &Pubkey) -> Self {
-        // Calculate hash and PDA
-        let sender_hash = hash(sender.as_bytes()).to_bytes();
+        let sender_hash = solana_sha256_hasher::hash(sender.as_bytes()).to_bytes();
         let (pda, bump) = Pubkey::find_program_address(
             &[Self::SEED, client_id.as_bytes(), &sender_hash, &salt],
             program_id,

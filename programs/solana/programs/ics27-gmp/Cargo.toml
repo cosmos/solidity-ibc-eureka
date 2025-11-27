@@ -27,12 +27,12 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl.workspace = true
-solana-program.workspace = true
 solana-ibc-types.workspace = true
 solana-ibc-proto.workspace = true
 solana-ibc-macros.workspace = true
 ics26-router = { workspace = true, features = ["cpi"] }
 access-manager = { workspace = true, features = ["cpi"] }
+solana-sha256-hasher.workspace = true
 
 [dev-dependencies]
 mollusk-svm.workspace = true

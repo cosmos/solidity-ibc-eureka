@@ -7,7 +7,6 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
 use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
-use solana_program::log::sol_log_compute_units;
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
 pub fn assemble_and_update_client<'info>(
@@ -155,7 +154,6 @@ fn verify_and_update_header<'info>(
     )
     .map_err(|e| {
         msg!("update_client FAILED: {:?}", e);
-        sol_log_compute_units();
         ErrorCode::UpdateClientFailed
     })?;
 
