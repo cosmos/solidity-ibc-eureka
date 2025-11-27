@@ -11,7 +11,7 @@ use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
 /// Logs the remaining compute units. Safe wrapper around the syscall.
 #[inline]
-fn sol_log_compute_units() {
+const fn sol_log_compute_units() {
     #[cfg(target_os = "solana")]
     unsafe {
         solana_define_syscall::definitions::sol_log_compute_units_();
