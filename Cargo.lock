@@ -9716,7 +9716,7 @@ dependencies = [
  "prost",
  "solana-ibc-constants",
  "solana-ibc-proto",
- "solana-program",
+ "solana-sha256-hasher",
  "tendermint",
 ]
 
@@ -12530,7 +12530,11 @@ dependencies = [
  "ibc-core-commitment-types",
  "ics23",
  "sha2 0.10.9",
- "solana-program",
+ "solana-account-info",
+ "solana-keccak-hasher",
+ "solana-msg",
+ "solana-pubkey",
+ "solana-sha256-hasher",
  "tendermint",
  "tendermint-light-client-verifier",
 ]

@@ -3,7 +3,7 @@ use crate::state::Packet;
 use anchor_lang::prelude::*;
 use sha2::{Digest, Sha256};
 use solana_ibc_types::Payload;
-use solana_program::keccak::hash as keccak256;
+use solana_keccak_hasher::hash as keccak256;
 
 // Include auto-generated constants from build.rs
 include!(concat!(env!("OUT_DIR"), "/constants.rs"));

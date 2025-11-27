@@ -7,8 +7,16 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
 use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
-use solana_program::log::sol_log_compute_units;
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
+
+/// Logs the remaining compute units. Safe wrapper around the syscall.
+#[inline]
+fn sol_log_compute_units() {
+    #[cfg(target_os = "solana")]
+    unsafe {
+        solana_define_syscall::definitions::sol_log_compute_units_();
+    }
+}
 
 pub fn assemble_and_update_client<'info>(
     mut ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,

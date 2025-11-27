@@ -2,7 +2,7 @@ use crate::errors::GMPError;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{instruction::Instruction, program::invoke};
 use solana_ibc_types::MsgSendPacket;
-use solana_program::hash::hash;
+use solana_sha256_hasher::hash;
 
 /// Send IBC packet via CPI to the ICS26 router
 /// This function creates and sends a GMP packet from Solana to another chain

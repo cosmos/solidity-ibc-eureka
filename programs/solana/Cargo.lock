@@ -2020,9 +2020,10 @@ dependencies = [
  "serde",
  "serde_json",
  "solana-allocator",
+ "solana-define-syscall",
  "solana-ibc-types",
- "solana-program",
  "solana-sdk",
+ "solana-sdk-ids",
  "tendermint",
  "tendermint-light-client-membership",
  "tendermint-light-client-misbehaviour",
@@ -2076,8 +2077,9 @@ dependencies = [
  "sha2 0.10.9",
  "solana-ibc-macros",
  "solana-ibc-types",
- "solana-program",
+ "solana-keccak-hasher",
  "solana-sdk",
+ "solana-sha256-hasher",
 ]
 
 [[package]]
@@ -2095,8 +2097,8 @@ dependencies = [
  "solana-ibc-macros",
  "solana-ibc-proto",
  "solana-ibc-types",
- "solana-program",
  "solana-sdk",
+ "solana-sha256-hasher",
 ]
 
 [[package]]
@@ -4042,7 +4044,7 @@ dependencies = [
  "prost",
  "solana-ibc-constants",
  "solana-ibc-proto",
- "solana-program",
+ "solana-sha256-hasher",
  "tendermint",
 ]
 
@@ -5619,7 +5621,11 @@ dependencies = [
  "ibc-core-commitment-types",
  "ics23",
  "sha2 0.10.9",
- "solana-program",
+ "solana-account-info",
+ "solana-keccak-hasher",
+ "solana-msg",
+ "solana-pubkey",
+ "solana-sha256-hasher",
  "tendermint",
  "tendermint-light-client-verifier",
 ]

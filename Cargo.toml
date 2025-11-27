@@ -172,6 +172,12 @@ bincode                   = { version = "1.3" }
 anchor-lang               = { version = "0.32.1" }
 anchor-client             = { version = "0.32.1" }
 
+solana-account-info   = { version = "2.2", default-features = false }
+solana-pubkey         = { version = "2.2", default-features = false, features = ["sha2", "curve25519"] }
+solana-sha256-hasher  = { version = "2.2", default-features = false }
+solana-keccak-hasher  = { version = "2.2", default-features = false }
+solana-msg            = { version = "2.2", default-features = false }
+
 # TODO: Remove these dependencies once ethereum wasm client v1.2.0 backwards compatibility is not needed
 ibc-eureka-relayer-eth-to-cosmos-v1_2 = { package = "ibc-eureka-relayer-eth-to-cosmos", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
 ibc-eureka-relayer-core-v1_2= { package = "ibc-eureka-relayer-core", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }

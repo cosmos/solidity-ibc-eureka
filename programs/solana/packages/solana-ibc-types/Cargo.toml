@@ -11,8 +11,8 @@ categories = ["cryptography", "blockchain"]
 
 [dependencies]
 anchor-lang.workspace = true
-solana-program.workspace = true
 prost.workspace = true
+solana-sha256-hasher.workspace = true
 # Explicitly pin borsh 0.10.4 for Anchor compatibility (not workspace = true).
 # This ensures correct version even when built from root workspace context via path dependencies.
 borsh = { version = "0.10.4", default-features = false }
