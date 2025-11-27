@@ -115,9 +115,8 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         external
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return sendTransferAsUser(
-            token, sender, receiver, amount, _th.DEFAULT_TIMEOUT_TIMESTAMP(), _th.FIRST_CLIENT_ID()
-        );
+        return
+            sendTransferAsUser(token, sender, receiver, amount, _th.DEFAULT_TIMEOUT_TIMESTAMP(), _th.FIRST_CLIENT_ID());
     }
 
     function sendTransferAsUser(
@@ -222,14 +221,23 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         return abi.decode(packetBz, (IICS26RouterMsgs.Packet));
     }
 
-    function sendGmpAsUser(address sender, string calldata receiver, bytes calldata payload)
+    function sendGmpAsUser(
+        address sender,
+        string calldata receiver,
+        bytes calldata payload
+    )
         external
         returns (IICS26RouterMsgs.Packet memory)
     {
         return sendGmpAsUser(sender, receiver, payload, "", "", _th.DEFAULT_TIMEOUT_TIMESTAMP(), _th.FIRST_CLIENT_ID());
     }
 
-    function sendGmpAsUser(address sender, string calldata receiver, bytes calldata payload, bytes calldata salt)
+    function sendGmpAsUser(
+        address sender,
+        string calldata receiver,
+        bytes calldata payload,
+        bytes calldata salt
+    )
         external
         returns (IICS26RouterMsgs.Packet memory)
     {
@@ -247,9 +255,8 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         external
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return sendGmpAsUser(
-            sender, receiver, payload, salt, memo, _th.DEFAULT_TIMEOUT_TIMESTAMP(), _th.FIRST_CLIENT_ID()
-        );
+        return
+            sendGmpAsUser(sender, receiver, payload, salt, memo, _th.DEFAULT_TIMEOUT_TIMESTAMP(), _th.FIRST_CLIENT_ID());
     }
 
     function sendGmpAsUser(

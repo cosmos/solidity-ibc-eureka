@@ -333,7 +333,12 @@ contract ICS27GMPTest is Test {
         ics27Gmp.onRecvPacket(msg_);
     }
 
-    function testFuzz_success_onAcknowledgementPacket(uint16 payloadLen, uint16 ackLen, uint16 saltLen, uint64 seq)
+    function testFuzz_success_onAcknowledgementPacket(
+        uint16 payloadLen,
+        uint16 ackLen,
+        uint16 saltLen,
+        uint64 seq
+    )
         public
     {
         vm.assume(payloadLen > 0);
@@ -379,7 +384,12 @@ contract ICS27GMPTest is Test {
         ics27Gmp.onAcknowledgementPacket(msg_);
     }
 
-    function testFuzz_failure_onAcknowledgementPacket(uint16 payloadLen, uint16 ackLen, uint16 saltLen, uint64 seq)
+    function testFuzz_failure_onAcknowledgementPacket(
+        uint16 payloadLen,
+        uint16 ackLen,
+        uint16 saltLen,
+        uint64 seq
+    )
         public
     {
         vm.assume(payloadLen > 0);
