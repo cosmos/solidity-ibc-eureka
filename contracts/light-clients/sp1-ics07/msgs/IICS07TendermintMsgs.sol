@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IICS02ClientMsgs } from "../../msgs/IICS02ClientMsgs.sol";
+import { IICS02ClientMsgs } from "../../../msgs/IICS02ClientMsgs.sol";
 
 /// @title ICS07 Tendermint Messages
 /// @author srdtrk

@@ -21,12 +21,12 @@ alloy_sol_types::sol!("../../contracts/msgs/IICS20TransferMsgs.sol");
 alloy_sol_types::sol!("../../contracts/msgs/IICS27GMPMsgs.sol");
 alloy_sol_types::sol!("../../contracts/msgs/IIBCAppCallbacks.sol");
 
-alloy_sol_types::sol!("../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol");
-alloy_sol_types::sol!("../../contracts/light-clients/msgs/ISP1Msgs.sol");
-alloy_sol_types::sol!("../../contracts/light-clients/msgs/IMembershipMsgs.sol");
-alloy_sol_types::sol!("../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol");
-alloy_sol_types::sol!("../../contracts/light-clients/msgs/IUpdateClientMsgs.sol");
-alloy_sol_types::sol!("../../contracts/light-clients/msgs/IUcAndMembershipMsgs.sol");
+alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IICS07TendermintMsgs.sol");
+alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/ISP1Msgs.sol");
+alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IMembershipMsgs.sol");
+alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IMisbehaviourMsgs.sol");
+alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IUpdateClientMsgs.sol");
+alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IUcAndMembershipMsgs.sol");
 
 #[cfg(feature = "rpc")]
 impl ISP1Msgs::SP1Proof {

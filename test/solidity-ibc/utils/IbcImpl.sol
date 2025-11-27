@@ -106,7 +106,12 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         );
     }
 
-    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, uint256 amount)
+    function sendTransferAsUser(
+        IERC20 token,
+        address sender,
+        string calldata receiver,
+        uint256 amount
+    )
         external
         returns (IICS26RouterMsgs.Packet memory)
     {

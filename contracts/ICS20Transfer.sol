@@ -212,7 +212,10 @@ contract ICS20Transfer is
     /// @inheritdoc IICS20TransferAccessControlled
     // NOTE: Reentrancy disabled for this function via the `nonReentrant` modifier.
     // slither-disable-next-line reentrancy-no-eth
-    function sendTransferWithSender(IICS20TransferMsgs.SendTransferMsg calldata msg_, address sender)
+    function sendTransferWithSender(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        address sender
+    )
         external
         whenNotPaused
         nonReentrant

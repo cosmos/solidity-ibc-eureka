@@ -9,7 +9,7 @@
         "@uniswap/permit2": "github:Uniswap/permit2",
       },
       "devDependencies": {
-        "forge-std": "github:foundry-rs/forge-std#v1.10.0",
+        "forge-std": "github:foundry-rs/forge-std#v1.11.0",
         "quicktype": "^23.2.6",
         "solhint": "^6.0.1",
         "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0",
@@ -167,7 +167,7 @@
 
     "find-replace": ["find-replace@3.0.0", "", { "dependencies": { "array-back": "^3.0.1" } }, "sha512-6Tb2myMioCAgv5kfvP5/PkZZ/ntTpVK39fHY7WkWBgvbeE+VHd/tZuZ4mrC+bxh4cfOZeYKVPaJIZtZXV7GNCQ=="],
 
-    "forge-std": ["forge-std@github:foundry-rs/forge-std#8bbcf6e", {}, "foundry-rs-forge-std-8bbcf6e"],
+    "forge-std": ["forge-std@github:foundry-rs/forge-std#8e40513", {}, "foundry-rs-forge-std-8e40513"],
 
     "form-data-encoder": ["form-data-encoder@2.1.4", "", {}, "sha512-yDYSgNMraqvnxiEXO4hi88+YZxaHC6QKzb5N84iRCTDeRO7ZALpir/lVmf/uXUhnwUr2O4HU8s/n6x+yNjQkHw=="],
 

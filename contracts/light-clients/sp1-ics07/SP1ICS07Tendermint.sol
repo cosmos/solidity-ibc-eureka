@@ -9,12 +9,12 @@ import { IMembershipMsgs } from "./msgs/IMembershipMsgs.sol";
 import { IUpdateClientAndMembershipMsgs } from "./msgs/IUcAndMembershipMsgs.sol";
 import { IMisbehaviourMsgs } from "./msgs/IMisbehaviourMsgs.sol";
 import { ISP1Msgs } from "./msgs/ISP1Msgs.sol";
-import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
-import { IICS02ClientMsgs } from "../msgs/IICS02ClientMsgs.sol";
+import { ILightClientMsgs } from "../../msgs/ILightClientMsgs.sol";
+import { IICS02ClientMsgs } from "../../msgs/IICS02ClientMsgs.sol";
 
 import { ISP1ICS07TendermintErrors } from "./errors/ISP1ICS07TendermintErrors.sol";
-import { ISP1ICS07Tendermint } from "./ISP1ICS07Tendermint.sol";
-import { ILightClient } from "../interfaces/ILightClient.sol";
+import { ISP1ICS07Tendermint } from "./interfaces/ISP1ICS07Tendermint.sol";
+import { ILightClient } from "../../interfaces/ILightClient.sol";
 import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 
 import { Paths } from "./utils/Paths.sol";
@@ -219,12 +219,6 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
         // If the misbehaviour and proof is valid, the client needs to be frozen
         clientState.isFrozen = true;
-    }
-
-    /// @inheritdoc ILightClient
-    function upgradeClient(bytes calldata) external view notFrozen onlyProofSubmitter {
-        // NOTE: This feature will not be supported. (#130)
-        revert FeatureNotSupported();
     }
 
     /// @notice Handles the `SP1MembershipProof` proof type.
@@ -451,7 +445,10 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @dev This function does not check the equality of the latest height and isFrozen.
     /// @param publicClientState The public client state.
     /// @param time The time in unix nanoseconds.
-    function _validateClientStateAndTime(IICS07TendermintMsgs.ClientState memory publicClientState, uint128 time)
+    function _validateClientStateAndTime(
+        IICS07TendermintMsgs.ClientState memory publicClientState,
+        uint128 time
+    )
         private
         view
     {

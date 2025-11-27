@@ -6,7 +6,7 @@ pragma solidity ^0.8.28;
 // solhint-disable-next-line no-global-import
 import "forge-std/console.sol";
 import { SP1ICS07TendermintTest } from "./SP1ICS07TendermintTest.sol";
-import { IMisbehaviourMsgs } from "../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol";
+import { IMisbehaviourMsgs } from "../../contracts/light-clients/sp1-ics07/msgs/IMisbehaviourMsgs.sol";
 import { SP1Verifier } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
@@ -101,10 +101,6 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         // try to submit a misbehaviour msg
         vm.expectRevert(abi.encodeWithSelector(FrozenClientState.selector));
         ics07Tendermint.misbehaviour(fixture.submitMsg);
-
-        // try to submit upgrade client
-        vm.expectRevert(abi.encodeWithSelector(FrozenClientState.selector));
-        ics07Tendermint.upgradeClient(bytes(""));
     }
 
     // solhint-disable-next-line function-max-lines

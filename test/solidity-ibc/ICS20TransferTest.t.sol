@@ -350,7 +350,11 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         vm.stopPrank();
     }
 
-    function testFuzz_success_onAcknowledgementPacketCallback(uint256 amount, uint64 seq, uint64 timeoutTimestamp)
+    function testFuzz_success_onAcknowledgementPacketCallback(
+        uint256 amount,
+        uint64 seq,
+        uint64 timeoutTimestamp
+    )
         public
     {
         // override sender
