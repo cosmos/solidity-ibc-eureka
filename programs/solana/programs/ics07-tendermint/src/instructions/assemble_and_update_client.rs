@@ -9,15 +9,6 @@ use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
-/// Logs the remaining compute units. Safe wrapper around the syscall.
-#[inline]
-const fn sol_log_compute_units() {
-    #[cfg(target_os = "solana")]
-    unsafe {
-        solana_define_syscall::definitions::sol_log_compute_units_();
-    }
-}
-
 pub fn assemble_and_update_client<'info>(
     mut ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
     chain_id: String,
@@ -163,7 +154,6 @@ fn verify_and_update_header<'info>(
     )
     .map_err(|e| {
         msg!("update_client FAILED: {:?}", e);
-        sol_log_compute_units();
         ErrorCode::UpdateClientFailed
     })?;
 
