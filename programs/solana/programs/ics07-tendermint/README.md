@@ -42,46 +42,40 @@ Initializes a new Tendermint light client instance for a specific chain. Multipl
 - `latest_height`: Initial trusted height
 - `client_state`: Initial client configuration (trust level, periods, etc.)
 - `consensus_state`: Initial trusted consensus state
+- `access_manager`: The access manager program ID for role-based access control
 
 **Accounts:**
 
 - `client_state` (init): PDA storing client configuration, derived from chain_id
 - `consensus_state_store` (init): PDA storing consensus state at height
+- `app_state` (init): PDA storing global application state including access manager
 - `payer` (signer, mut): Account paying for initialization
 - `system_program`: System program
 
 **Multi-Chain Support**: Each chain_id creates a separate client instance with its own state. This allows Solana to maintain IBC connections with multiple Tendermint chains concurrently.
 
+#### `set_access_manager`
+
+Updates the access manager program ID. Only callable by admin via the current access manager.
+
+**Parameters:**
+
+- `new_access_manager`: The new access manager program ID
+
+**Accounts:**
+
+- `app_state` (mut): PDA storing global application state
+- `access_manager`: Current access manager account for validation
+- `admin` (signer): Admin account
+- `instructions_sysvar`: Instructions sysvar for CPI validation
+
 ### Chunked Upload Instructions
 
 Since Tendermint headers always exceed Solana's transaction size limits, all header updates must use the chunked upload system described below.
 
-#### `create_metadata`
-
-Creates metadata for a header upload. This instruction must be called once before uploading chunks.
-
-**Parameters:**
-
-- `chain_id`: Target chain identifier
-- `target_height`: Height being updated to
-- `total_chunks`: Total number of chunks expected
-- `header_commitment`: Keccak hash of the complete header
-
-**Accounts:**
-
-- `metadata` (init): PDA for header metadata
-- `client_state`: Validates chain exists
-- `submitter` (signer, mut): Relayer creating metadata and paying rent
-- `system_program`: System program
-
-**Notes:**
-
-- Must be called exactly once per upload attempt
-- Creates a new metadata account for tracking the upload
-
 #### `upload_header_chunk`
 
-Uploads a single chunk of a large header. Requires metadata to be created first via `create_metadata`.
+Uploads a single chunk of a large header. Each chunk creates a new PDA.
 
 **Parameters:**
 
@@ -90,63 +84,80 @@ Uploads a single chunk of a large header. Requires metadata to be created first 
   - `target_height`: Height being updated to
   - `chunk_index`: Position of this chunk (0-indexed)
   - `chunk_data`: The actual chunk bytes (max 900 bytes)
-  - `chunk_hash`: Keccak hash of the chunk data for integrity verification
 
 **Accounts:**
 
-- `chunk` (init_if_needed): PDA for this specific chunk
-- `metadata` (mut): PDA for header metadata (must already exist)
-- `client_state`: Validates chain exists
+- `chunk` (init): PDA for this specific chunk (fails if already exists)
+- `client_state`: Validates chain exists and chain_id matches
 - `submitter` (signer, mut): Relayer uploading and paying rent
 - `system_program`: System program
 
 **Storage Cost**: Each chunk account costs rent, paid by submitter
 
-**Validation**: The instruction validates that the chunk's chain_id and target_height match the metadata, and that the chunk_index is within the expected range (< total_chunks from metadata).
-
-**Parallel Upload**: After metadata is created, all chunks can be uploaded in parallel transactions for faster throughput. Each chunk upload is independent.
+**Parallel Upload**: All chunks can be uploaded in parallel transactions for faster throughput. Each chunk upload is independent.
 
 #### `assemble_and_update_client`
 
 Assembles uploaded chunks into a complete header and updates the client.
 
+**Parameters:**
+
+- `chain_id`: Target chain identifier
+- `target_height`: Height being updated to
+- `chunk_count`: Number of chunks to assemble
+
 **Accounts:**
 
 - `client_state` (mut): Client being updated
-- `metadata` (mut, close): Header metadata (closed after success)
-- `trusted_consensus_state`: Consensus at trusted height
-- `new_consensus_state_store`: New consensus state account
-- `submitter` (mut): Original submitter (receives rent back)
-- `payer` (signer, mut): Pays for new consensus state
+- `app_state`: PDA storing global application state
+- `access_manager`: Access manager account for role validation
+- `trusted_consensus_state`: Consensus at trusted height (unchecked, validated in handler)
+- `new_consensus_state_store`: New consensus state account (unchecked, may not exist yet)
+- `submitter` (signer, mut): Relayer submitting the update
 - `system_program`: System program
-- Remaining accounts: Chunk accounts in order (all closed after success)
+- `instructions_sysvar`: Instructions sysvar for CPI validation
+- Remaining accounts: Chunk accounts in order
 
 **Process:**
 
-1. Validates all chunks are present and match commitment
+1. Validates all chunks are present
 2. Reconstructs complete header from chunks
 3. Verifies header against trusted state
 4. Updates client state
-5. Closes all temporary accounts, returning rent to submitter
+
+**Note:** Chunk accounts are NOT automatically closed. Relayers must call `cleanup_incomplete_upload` after success to reclaim rent.
 
 #### `cleanup_incomplete_upload`
 
-Allows relayers to reclaim rent from failed or abandoned uploads.
-
-**Parameters:**
-
-- `chain_id`: Chain identifier
-- `cleanup_height`: Height of upload to clean
-- `submitter`: Original submitter address
+Allows relayers to reclaim rent from uploads. Must be called after both successful and failed uploads to close `HeaderChunk` and `SignatureVerification` PDAs owned by the submitter.
 
 **Accounts:**
 
-- `client_state`: Validates chain exists
-- `metadata` (mut, close): Metadata to close
-- `submitter_account` (signer, mut): Must be original submitter
-- Remaining accounts: Chunk accounts to close
+- `submitter` (signer, mut): Original submitter who gets their rent back
+- Remaining accounts: Chunk and signature verification accounts to close
 
 **Security**: Only the original submitter can clean up their own uploads
+
+#### `pre_verify_signature`
+
+Pre-verifies an Ed25519 signature using Solana's Ed25519Program precompile. This saves compute units during `assemble_and_update_client` by storing verification results in a PDA.
+
+**Parameters:**
+
+- `signature`: SignatureData containing the signature hash to verify
+
+**Accounts:**
+
+- `instructions_sysvar`: Instructions sysvar for Ed25519Program verification
+- `signature_verification` (init): PDA storing the verification result
+- `payer` (signer, mut): Account paying for the verification PDA
+- `system_program`: System program
+
+**Notes:**
+
+- Multiple signatures can be pre-verified in parallel transactions
+- Critical for large validator sets (50+ validators) that would exceed Solana's 1.4M CU limit with pure on-chain verification
+- Verification PDAs are checked during `assemble_and_update_client` and can fall back to on-chain verification if not present
 
 ### Verification Instructions
 
@@ -178,50 +189,98 @@ Verifies a key does not exist in the counterparty chain's state.
 
 ### Misbehaviour Handling
 
-#### `submit_misbehaviour`
+Misbehaviour submission uses a chunked upload system similar to header updates, as misbehaviour proofs contain two headers and can also exceed transaction size limits.
 
-Submits evidence of misbehaviour to freeze the client.
+#### `upload_misbehaviour_chunk`
+
+Uploads a single chunk of misbehaviour data.
 
 **Parameters:**
 
-- `msg`: MisbehaviourMsg with conflicting headers
+- `params`: UploadMisbehaviourChunkParams containing:
+  - `client_id`: Target client identifier
+  - `chunk_index`: Position of this chunk (0-indexed)
+  - `chunk_data`: The actual chunk bytes (max 900 bytes)
+
+**Accounts:**
+
+- `chunk` (init): PDA for this specific misbehaviour chunk
+- `client_state`: Validates client exists and client_id matches
+- `submitter` (signer, mut): Relayer uploading and paying rent
+- `system_program`: System program
+
+#### `assemble_and_submit_misbehaviour`
+
+Assembles uploaded misbehaviour chunks and freezes the client if valid.
+
+**Parameters:**
+
+- `client_id`: Target client identifier
 
 **Accounts:**
 
 - `client_state` (mut): Client to potentially freeze
+- `app_state`: PDA storing global application state
+- `access_manager`: Access manager account for role validation
 - `trusted_consensus_state_1`: First trusted state
 - `trusted_consensus_state_2`: Second trusted state
+- `submitter` (signer, mut): Relayer submitting the misbehaviour
+- `instructions_sysvar`: Instructions sysvar for CPI validation
+- Remaining accounts: Misbehaviour chunk accounts in order
+
+**Note:** Chunk accounts are NOT automatically closed. Relayers must call `cleanup_incomplete_misbehaviour` after success to reclaim rent.
+
+#### `cleanup_incomplete_misbehaviour`
+
+Allows relayers to reclaim rent from misbehaviour submissions. Must be called after both successful and failed submissions to close chunk accounts.
+
+**Parameters:**
+
+- `client_id`: Target client identifier
+- `submitter`: Original submitter address
+
+**Accounts:**
+
+- `client_state`: Validates client exists
+- `submitter_account` (signer, mut): Must be original submitter
+- Remaining accounts: Misbehaviour chunk accounts to close
 
 ## PDA Derivations
 
 All storage uses Program Derived Addresses (PDAs) for deterministic addressing. The chain_id is a key component in most PDAs, ensuring complete isolation between different chain clients:
 
 ```
+app_state: [b"app_state"]
 client_state: [b"client", chain_id]
 consensus_state: [b"consensus_state", client_state, height_bytes]
 header_chunk: [b"header_chunk", submitter, chain_id, height_bytes, chunk_index]
-header_metadata: [b"header_metadata", submitter, chain_id, height_bytes]
+misbehaviour_chunk: [b"misbehaviour_chunk", submitter, client_id, chunk_index]
+signature_verification: [b"sig_verify", signature_hash]
 ```
 
 This PDA structure ensures that:
 
+- Global app state manages access control
 - Each chain has its own isolated client state
 - Consensus states are chain-specific
 - Upload operations cannot interfere across different chains
 - Multiple chains can be tracked simultaneously without conflicts
+- Signature pre-verification results are cached for reuse
 
 ## Upload Flow Example
 
 ```
 1. Relayer receives 3.6KB Tendermint header
 2. Splits into 4 chunks of 900 bytes each
-3. Creates metadata with create_metadata instruction
-4. Uploads all chunks (can be done in parallel):
+3. Uploads all chunks in parallel (can be done in parallel):
    - Chunks 0-3: All uploaded independently in parallel
+4. Optionally pre-verifies signatures in parallel (for large validator sets)
 5. Calls assemble_and_update_client:
    - Header reconstructed and verified
    - Client state updated
-   - All 5 temporary accounts closed (metadata + 4 chunks)
+6. Calls cleanup_incomplete_upload:
+   - All 4 chunk accounts closed
+   - Signature verification accounts closed
    - Rent (~0.05 SOL) returned to relayer
 ```
 
@@ -229,8 +288,8 @@ This PDA structure ensures that:
 
 For maximum throughput with large headers:
 
-1. Call `create_metadata` to initialize metadata
-2. Upload all chunks in parallel transactions
+1. Upload all chunks in parallel transactions
+2. Optionally pre-verify signatures in parallel (for 50+ validators)
 3. Wait for all confirmations
 4. Call `assemble_and_update_client`
 
@@ -238,10 +297,9 @@ This parallel approach can reduce upload time from `n * block_time` to `2 * bloc
 
 ## Rent and Economics
 
-- **Temporary Storage**: Chunks and metadata are temporary, existing only during upload
+- **Temporary Storage**: Chunks and signature verifications are temporary, existing only during upload
 - **Rent Responsibility**: Uploading relayer pays all rent (~0.01 SOL per account)
-- **Automatic Refund**: Successful assembly returns all rent to the submitter
-- **Cleanup Incentive**: Failed uploads can be cleaned up by submitter to reclaim rent
+- **Manual Cleanup Required**: Relayers must call cleanup instructions after both successful and failed operations to reclaim rent
 - **No Cross-Relayer Interference**: Each relayer's uploads are isolated
 
 ## Security Considerations
@@ -275,11 +333,14 @@ Approximate compute units per operation:
 
 - `initialize`: ~50k CU
 - `upload_header_chunk`: ~30k CU per chunk
+- `pre_verify_signature`: ~10k CU per signature (via Ed25519Program precompile)
 - `assemble_and_update_client`: ~200k CU (includes verification)
 - `verify_membership`: ~100k CU
 - `verify_non_membership`: ~100k CU
-- `submit_misbehaviour`: ~150k CU
+- `upload_misbehaviour_chunk`: ~30k CU per chunk
+- `assemble_and_submit_misbehaviour`: ~150k CU
 - `cleanup_incomplete_upload`: ~20k CU per chunk
+- `cleanup_incomplete_misbehaviour`: ~20k CU per chunk
 
 ### Update Client Performance Optimizations (Real-World Benchmarks)
 
@@ -448,16 +509,17 @@ For implementation details, see the `SolanaSignatureVerifier` in `packages/tende
 1. **Choose the target chain**: Determine which Tendermint chain you're relaying for (each chain_id has its own client)
 2. Monitor Tendermint chain for new headers
 3. Split header into 900-byte chunks
-4. Create metadata via `create_metadata` (specify the correct chain_id)
-5. Upload all chunks in parallel for optimal performance
+4. Upload all chunks in parallel for optimal performance
+5. Optionally pre-verify signatures in parallel (recommended for 50+ validators)
 6. Call `assemble_and_update_client` once all chunks are confirmed
-7. Handle failures:
+7. Call `cleanup_incomplete_upload` to reclaim rent from chunks and signature verification accounts
+8. Handle failures:
    - Retry failed chunks
-   - Call `cleanup_incomplete_upload` if abandoning (will need to start fresh with new metadata)
+   - Call `cleanup_incomplete_upload` to reclaim rent before retrying
 
 **Multi-Chain Relaying**: Relayers can operate across multiple chains simultaneously. Each chain's uploads are isolated by chain_id in the PDA derivation.
 
-**Performance Tip**: With the separated metadata creation, all chunks can now be uploaded in parallel. A 9KB header (10 chunks of 900 bytes) can be uploaded in ~2 block times instead of ~10.
+**Performance Tip**: All chunks can be uploaded in parallel. A 9KB header (10 chunks of 900 bytes) can be uploaded in ~2 block times instead of ~10.
 
 ### For IBC Applications
 
