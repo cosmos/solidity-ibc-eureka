@@ -33,8 +33,30 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	if err != nil {
 		return solana.Signature{}, fmt.Errorf("failed to unmarshal SolanaRelayPacketBatch: %w", err)
 	}
+
+	// Submit update client first if present in response
+	if batch.UpdateClient != nil && len(batch.UpdateClient.ChunkTxs) > 0 {
+		t.Logf("=== Update client included in relay response (target height: %d), submitting first ===",
+			batch.UpdateClient.TargetHeight)
+
+		// Marshal the update client back to bytes for the existing helper
+		updateClientBytes, err := proto.Marshal(batch.UpdateClient)
+		if err != nil {
+			return solana.Signature{}, fmt.Errorf("failed to marshal update client: %w", err)
+		}
+		updateResp := &relayertypes.UpdateClientResponse{
+			Tx: updateClientBytes,
+		}
+
+		// Use existing helper (non-skip cleanup variant)
+		s.submitChunkedUpdateClient(ctx, t, require.New(t), updateResp, user, false)
+		t.Logf("=== Update client submission complete, proceeding with packets ===")
+	}
+
+	// Handle case where there are no packets (update only)
 	if len(batch.Packets) == 0 {
-		return solana.Signature{}, fmt.Errorf("no relay packets provided")
+		t.Logf("No relay packets to submit (update client only)")
+		return solana.Signature{}, nil
 	}
 
 	totalStart := time.Now()

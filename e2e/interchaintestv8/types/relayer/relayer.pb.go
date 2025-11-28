@@ -296,7 +296,10 @@ func (x *SolanaPacketTxs) GetCleanupTx() []byte {
 type SolanaRelayPacketBatch struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// List of packet transactions
-	Packets       []*SolanaPacketTxs `protobuf:"bytes,1,rep,name=packets,proto3" json:"packets,omitempty"`
+	Packets []*SolanaPacketTxs `protobuf:"bytes,1,rep,name=packets,proto3" json:"packets,omitempty"`
+	// Optional: update client transactions if client needs updating before relay
+	// Submission order: update_client first (if present), then packets
+	UpdateClient  *SolanaUpdateClient `protobuf:"bytes,2,opt,name=update_client,json=updateClient,proto3" json:"update_client,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -334,6 +337,13 @@ func (*SolanaRelayPacketBatch) Descriptor() ([]byte, []int) {
 func (x *SolanaRelayPacketBatch) GetPackets() []*SolanaPacketTxs {
 	if x != nil {
 		return x.Packets
+	}
+	return nil
+}
+
+func (x *SolanaRelayPacketBatch) GetUpdateClient() *SolanaUpdateClient {
+	if x != nil {
+		return x.UpdateClient
 	}
 	return nil
 }
@@ -845,9 +855,10 @@ const file_relayer_relayer_proto_rawDesc = "" +
 	"\x06chunks\x18\x01 \x03(\fR\x06chunks\x12\x19\n" +
 	"\bfinal_tx\x18\x02 \x01(\fR\afinalTx\x12\x1d\n" +
 	"\n" +
-	"cleanup_tx\x18\x03 \x01(\fR\tcleanupTx\"L\n" +
+	"cleanup_tx\x18\x03 \x01(\fR\tcleanupTx\"\x8e\x01\n" +
 	"\x16SolanaRelayPacketBatch\x122\n" +
-	"\apackets\x18\x01 \x03(\v2\x18.relayer.SolanaPacketTxsR\apackets\"=\n" +
+	"\apackets\x18\x01 \x03(\v2\x18.relayer.SolanaPacketTxsR\apackets\x12@\n" +
+	"\rupdate_client\x18\x02 \x01(\v2\x1b.relayer.SolanaUpdateClientR\fupdateClient\"=\n" +
 	"\x11RelayByTxResponse\x12\x0e\n" +
 	"\x02tx\x18\x01 \x01(\fR\x02tx\x12\x18\n" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\"\xdc\x01\n" +
@@ -923,23 +934,24 @@ var file_relayer_relayer_proto_goTypes = []any{
 }
 var file_relayer_relayer_proto_depIdxs = []int32{
 	2,  // 0: relayer.SolanaRelayPacketBatch.packets:type_name -> relayer.SolanaPacketTxs
-	12, // 1: relayer.CreateClientRequest.parameters:type_name -> relayer.CreateClientRequest.ParametersEntry
-	11, // 2: relayer.InfoResponse.target_chain:type_name -> relayer.Chain
-	11, // 3: relayer.InfoResponse.source_chain:type_name -> relayer.Chain
-	13, // 4: relayer.InfoResponse.metadata:type_name -> relayer.InfoResponse.MetadataEntry
-	0,  // 5: relayer.RelayerService.RelayByTx:input_type -> relayer.RelayByTxRequest
-	5,  // 6: relayer.RelayerService.CreateClient:input_type -> relayer.CreateClientRequest
-	7,  // 7: relayer.RelayerService.UpdateClient:input_type -> relayer.UpdateClientRequest
-	9,  // 8: relayer.RelayerService.Info:input_type -> relayer.InfoRequest
-	4,  // 9: relayer.RelayerService.RelayByTx:output_type -> relayer.RelayByTxResponse
-	6,  // 10: relayer.RelayerService.CreateClient:output_type -> relayer.CreateClientResponse
-	8,  // 11: relayer.RelayerService.UpdateClient:output_type -> relayer.UpdateClientResponse
-	10, // 12: relayer.RelayerService.Info:output_type -> relayer.InfoResponse
-	9,  // [9:13] is the sub-list for method output_type
-	5,  // [5:9] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	1,  // 1: relayer.SolanaRelayPacketBatch.update_client:type_name -> relayer.SolanaUpdateClient
+	12, // 2: relayer.CreateClientRequest.parameters:type_name -> relayer.CreateClientRequest.ParametersEntry
+	11, // 3: relayer.InfoResponse.target_chain:type_name -> relayer.Chain
+	11, // 4: relayer.InfoResponse.source_chain:type_name -> relayer.Chain
+	13, // 5: relayer.InfoResponse.metadata:type_name -> relayer.InfoResponse.MetadataEntry
+	0,  // 6: relayer.RelayerService.RelayByTx:input_type -> relayer.RelayByTxRequest
+	5,  // 7: relayer.RelayerService.CreateClient:input_type -> relayer.CreateClientRequest
+	7,  // 8: relayer.RelayerService.UpdateClient:input_type -> relayer.UpdateClientRequest
+	9,  // 9: relayer.RelayerService.Info:input_type -> relayer.InfoRequest
+	4,  // 10: relayer.RelayerService.RelayByTx:output_type -> relayer.RelayByTxResponse
+	6,  // 11: relayer.RelayerService.CreateClient:output_type -> relayer.CreateClientResponse
+	8,  // 12: relayer.RelayerService.UpdateClient:output_type -> relayer.UpdateClientResponse
+	10, // 13: relayer.RelayerService.Info:output_type -> relayer.InfoResponse
+	10, // [10:14] is the sub-list for method output_type
+	6,  // [6:10] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_relayer_relayer_proto_init() }

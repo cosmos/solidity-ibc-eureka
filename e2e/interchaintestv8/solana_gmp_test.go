@@ -657,33 +657,19 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	// Relay and execute on Solana
 	var solanaRelayTxSig solanago.Signature
 	s.Require().True(s.Run("Relay and Execute SPL Transfer on Solana", func() {
-		s.Require().True(s.Run("Update Tendermint client on Solana", func() {
-			updateResp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(updateResp.Tx, "Relayer Update client should return transaction")
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosGMPTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
-		}))
-
-		s.Require().True(s.Run("Retrieve relay tx from relayer", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				SourceTxIds: [][]byte{cosmosGMPTxHash},
-				SrcClientId: CosmosClientID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
-
-			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
-			s.Require().NoError(err)
-			s.T().Logf("SPL transfer executed on Solana: %s", solanaRelayTxSig)
-		}))
+		solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("SPL transfer executed on Solana: %s", solanaRelayTxSig)
 	}))
 
 	// Verify transfer completed
@@ -932,37 +918,21 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet in Solana", func() {
-		s.Require().True(s.Run("Update Tendermint client on Solana", func() {
-			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transaction")
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{ackTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaRelayer)
-		}))
+		sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("Acknowledgement transaction broadcasted: %s", sig)
 
-		s.Require().True(s.Run("Relay acknowledgement", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				SourceTxIds: [][]byte{ackTxHash},
-				SrcClientId: CosmosClientID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
-
-			sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
-			s.Require().NoError(err)
-			s.T().Logf("Acknowledgement transaction broadcasted: %s", sig)
-		}))
-
-		s.Require().True(s.Run("Verify acknowledgement was processed", func() {
-			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
-		}))
+		s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
 	}))
 }
 
@@ -1194,38 +1164,21 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 	time.Sleep(40 * time.Second)
 
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {
-		// Update Tendermint client on Solana before relaying timeout
-		// The relayer now queries Cosmos for current height for timeout proofs,
-		// so we just need to ensure Solana has a recent consensus state
-		s.Require().True(s.Run("Update Tendermint client on Solana", func() {
-			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transaction")
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:     simd.Config().ChainID,
+			DstChain:     testvalues.SolanaChainID,
+			TimeoutTxIds: [][]byte{solanaPacketTxHash},
+			SrcClientId:  CosmosClientID,
+			DstClientId:  SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaRelayer)
-		}))
+		sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("Timeout transaction broadcasted: %s", sig)
 
-		s.Require().True(s.Run("Relay timeout transaction", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:     simd.Config().ChainID,
-				DstChain:     testvalues.SolanaChainID,
-				TimeoutTxIds: [][]byte{solanaPacketTxHash},
-				SrcClientId:  CosmosClientID,
-				DstClientId:  SolanaClientID,
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
-
-			sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
-			s.Require().NoError(err)
-			s.T().Logf("Timeout transaction broadcasted: %s", sig)
-
-			s.T().Log("Timeout successfully processed on Solana")
-		}))
+		s.T().Log("Timeout successfully processed on Solana")
 
 		s.Require().True(s.Run("Verify timeout effects", func() {
 			s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
@@ -1426,18 +1379,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	// Retrieve the recv relay txs before timeout - we'll try to use them after timeout
 	var recvRelayTxs *relayertypes.RelayByTxResponse
 	s.Require().True(s.Run("Retrieve recv relay txs before timeout", func() {
-		s.Require().True(s.Run("Update Tendermint client on Solana", func() {
-			updateResp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(updateResp.Tx, "Relayer Update client should return transaction")
-
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
-		}))
-
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
@@ -1448,6 +1389,18 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 		s.Require().NoError(err)
 		recvRelayTxs = resp
 		s.T().Log("Retrieved recv relay transactions before timeout")
+
+		// Submit UpdateClient only (not packets) so we can verify packets fail after timeout
+		var batch relayertypes.SolanaRelayPacketBatch
+		err = proto.Unmarshal(resp.Tx, &batch)
+		s.Require().NoError(err)
+		if batch.UpdateClient != nil {
+			updateClientBytes, err := proto.Marshal(batch.UpdateClient)
+			s.Require().NoError(err)
+			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), &relayertypes.UpdateClientResponse{
+				Tx: updateClientBytes,
+			}, s.SolanaRelayer)
+		}
 	}))
 
 	// Sleep for 40 seconds to let the packet timeout (timeout is set to 35 seconds)
@@ -1689,38 +1642,24 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 
 	// Relay packet to Solana and execute (will fail due to CPI error)
 	s.Require().True(s.Run("Relay and Execute on Solana", func() {
-		s.Require().True(s.Run("Update Tendermint client on Solana", func() {
-			updateResp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(updateResp.Tx, "Relayer Update client should return transaction")
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosGMPTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
-		}))
-
-		s.Require().True(s.Run("Relay packet to Solana (will fail)", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				SourceTxIds: [][]byte{cosmosGMPTxHash},
-				SrcClientId: CosmosClientID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
-
-			// Transaction will fail due to CPI error (insufficient balance for SPL token transfer)
-			// Expected error: SPL Token program InstructionError with Custom error code 1 (InsufficientFunds)
-			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
-			s.Require().Error(err)
-			s.T().Logf("Received error: %v", err)
-			// Expected Solana error format: map[InstructionError:[%!s(float64=2) map[Custom:%!s(float64=1)]]]
-			// where instruction index 2 failed with Custom error code 1 (InsufficientFunds)
-			s.Require().Contains(err.Error(), "map[InstructionError:[%!s(float64=2) map[Custom:%!s(float64=1)]]]")
-		}))
+		// Transaction will fail due to CPI error (insufficient balance for SPL token transfer)
+		// Expected error: SPL Token program InstructionError with Custom error code 1 (InsufficientFunds)
+		_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().Error(err)
+		s.T().Logf("Received error: %v", err)
+		// Expected Solana error format: map[InstructionError:[%!s(float64=2) map[Custom:%!s(float64=1)]]]
+		// where instruction index 2 failed with Custom error code 1 (InsufficientFunds)
+		s.Require().Contains(err.Error(), "map[InstructionError:[%!s(float64=2) map[Custom:%!s(float64=1)]]]")
 	}))
 }
 
@@ -1919,36 +1858,22 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 
 	// Relay error acknowledgment back to Solana
 	s.Require().True(s.Run("Relay error acknowledgment to Solana", func() {
-		s.Require().True(s.Run("Update Tendermint client on Solana", func() {
-			updateResp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(updateResp.Tx, "Relayer Update client should return transaction")
+		cosmosRecvTxHashBytes, err := hex.DecodeString(cosmosRecvTxHash)
+		s.Require().NoError(err)
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
-		}))
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosRecvTxHashBytes},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
 
-		s.Require().True(s.Run("Get acknowledgment relay transactions", func() {
-			cosmosRecvTxHashBytes, err := hex.DecodeString(cosmosRecvTxHash)
-			s.Require().NoError(err)
-
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				SourceTxIds: [][]byte{cosmosRecvTxHashBytes},
-				SrcClientId: CosmosClientID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx)
-
-			sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
-			s.Require().NoError(err)
-			s.T().Logf("Error acknowledgment successfully relayed to Solana: %s", sig)
-		}))
+		sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("Error acknowledgment successfully relayed to Solana: %s", sig)
 	}))
 
 	// Verify the packet commitment was deleted (ack processed)

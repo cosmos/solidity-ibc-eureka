@@ -727,35 +727,20 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
-		s.Require().True(s.Run("Update Tendermint client on Solana via chunks", func() {
-			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transaction")
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosPacketRelayTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaRelayer)
-			s.Require().NoError(err, "Failed to submit chunked update client transactions")
-		}))
+		_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
 
-		s.Require().True(s.Run("Relay acknowledgment", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				SourceTxIds: [][]byte{cosmosPacketRelayTxHash},
-				SrcClientId: CosmosClientID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
-
-			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
-			s.Require().NoError(err)
-
-			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.DummyAppProgramID, s.SolanaRelayer.PublicKey())
-		}))
+		s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.DummyAppProgramID, s.SolanaRelayer.PublicKey())
 	}))
 }
 
@@ -926,35 +911,20 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	}))
 
 	s.Require().True(s.Run("Acknowledge transfer on Solana", func() {
-		s.Require().True(s.Run("Update Tendermint client on Solana via chunks", func() {
-			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err, "Relayer failed to generate update txs")
-			s.Require().NotEmpty(resp.Tx, "Update client should return transaction")
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosRelayTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaRelayer)
-			s.Require().NoError(err, "Failed to submit chunked update client transactions")
-		}))
+		_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
 
-		s.Require().True(s.Run("Relay acknowledgment", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				SourceTxIds: [][]byte{cosmosRelayTxHash},
-				SrcClientId: CosmosClientID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
-
-			_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
-			s.Require().NoError(err)
-
-			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.DummyAppProgramID, s.SolanaRelayer.PublicKey())
-		}))
+		s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.DummyAppProgramID, s.SolanaRelayer.PublicKey())
 	}))
 }
 
@@ -1043,35 +1013,20 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
-		s.Require().True(s.Run("Update Tendermint client on Solana via chunks", func() {
-			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err, "Relayer Update Client failed")
-			s.Require().NotEmpty(resp.Tx, "Relayer Update client should return transaction")
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosRelayPacketTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaRelayer)
-			s.Require().NoError(err, "Failed to submit chunked update client transactions")
-		}))
+		solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
 
-		s.Require().True(s.Run("Relay acknowledgment", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
-				SourceTxIds: [][]byte{cosmosRelayPacketTxHash},
-				SrcClientId: CosmosClientID,
-				DstClientId: SolanaClientID,
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
-
-			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
-			s.Require().NoError(err)
-
-			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, s.DummyAppProgramID, s.SolanaRelayer.PublicKey())
-		}))
+		s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, s.DummyAppProgramID, s.SolanaRelayer.PublicKey())
 	}))
 
 	s.Require().True(s.Run("Verify packet received on Solana", func() {

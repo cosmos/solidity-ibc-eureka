@@ -1548,6 +1548,29 @@ impl TxBuilder {
         })
     }
 
+    /// Checks if a client update is needed to prove the given events.
+    ///
+    /// Returns `Some(required_height)` if the current client height is insufficient
+    /// to prove the events, `None` otherwise.
+    fn needs_update_client(
+        src_events: &[EurekaEventWithHeight],
+        current_height: u64,
+    ) -> Option<u64> {
+        let max_event_height = src_events
+            .iter()
+            .map(|e| e.height)
+            .max()
+            .unwrap_or_else(|| current_height.saturating_sub(1));
+
+        let required_height = max_event_height + 1;
+
+        if current_height < required_height {
+            Some(required_height)
+        } else {
+            None
+        }
+    }
+
     /// Validates that Solana client height is sufficient for proving events and returns proof parameters
     ///
     /// # Errors
@@ -1653,9 +1676,46 @@ impl TxBuilder {
         src_packet_seqs: Vec<u64>,
         dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<SolanaPacketTxs>> {
+        self.relay_events_chunked_internal(
+            src_events,
+            dest_events,
+            src_client_id,
+            dst_client_id,
+            src_packet_seqs,
+            dst_packet_seqs,
+            None, // No override - use validation
+        )
+        .await
+    }
+
+    /// Internal relay implementation with optional proof height override.
+    ///
+    /// When `proof_height_override` is `Some`, skips height validation and uses
+    /// the provided height for proof generation. This is used when the caller
+    /// knows an update client will be executed first.
+    #[allow(
+        clippy::too_many_lines,
+        clippy::cognitive_complexity,
+        clippy::too_many_arguments
+    )]
+    async fn relay_events_chunked_internal(
+        &self,
+        src_events: Vec<EurekaEventWithHeight>,
+        dest_events: Vec<SolanaEurekaEventWithHeight>,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
+        proof_height_override: Option<u64>,
+    ) -> Result<Vec<SolanaPacketTxs>> {
         tracing::info!(
-            "Relaying chunked events from Cosmos to Solana for client {}",
-            dst_client_id
+            "Relaying chunked events from Cosmos to Solana for client {}{}",
+            dst_client_id,
+            if proof_height_override.is_some() {
+                " (with proof height override)"
+            } else {
+                ""
+            }
         );
 
         let chain_id = self.chain_id().await?;
@@ -1668,11 +1728,29 @@ impl TxBuilder {
             "Solana client state retrieved"
         );
 
-        let proof_height = Self::validate_height_and_get_proof_params(
-            &src_events,
-            solana_latest_height,
-            solana_client_state.latest_height.revision_number,
-        )?;
+        let proof_height = match proof_height_override {
+            Some(override_height) => {
+                // Use override height - caller is responsible for ensuring
+                // update client will bring the client to this height
+                tracing::info!(
+                    "Using proof height override: {} (current client height: {})",
+                    override_height,
+                    solana_latest_height
+                );
+                ibc_proto_eureka::ibc::core::client::v1::Height {
+                    revision_number: solana_client_state.latest_height.revision_number,
+                    revision_height: override_height,
+                }
+            }
+            None => {
+                // Existing validation logic
+                Self::validate_height_and_get_proof_params(
+                    &src_events,
+                    solana_latest_height,
+                    solana_client_state.latest_height.revision_number,
+                )?
+            }
+        };
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
@@ -1785,6 +1863,101 @@ impl TxBuilder {
         }
 
         Ok(packet_txs)
+    }
+
+    /// Build relay transactions with optional update client (auto-generated when needed).
+    ///
+    /// This method checks if the light client on Solana has sufficient height
+    /// to prove the source events. If not, it generates update client transactions
+    /// along with the packet transactions.
+    ///
+    /// # Returns
+    ///
+    /// A tuple of (`packet_txs`, `update_client`) where:
+    /// - `packet_txs` are the relay packet transactions
+    /// - `update_client` is `Some` if the client needs updating before relay, `None` otherwise
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Failed to fetch chain state from Solana or Cosmos
+    /// - Update client transaction building fails
+    /// - Packet transaction building fails
+    #[allow(clippy::too_many_arguments)]
+    pub async fn relay_events_with_update(
+        &self,
+        src_events: Vec<EurekaEventWithHeight>,
+        dest_events: Vec<SolanaEurekaEventWithHeight>,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
+    ) -> Result<(Vec<SolanaPacketTxs>, Option<api::SolanaUpdateClient>)> {
+        tracing::info!(
+            "Relaying events from Cosmos to Solana for client {} (with update check)",
+            dst_client_id
+        );
+
+        let chain_id = self.chain_id().await?;
+        let solana_client_state = self.cosmos_client_state(&chain_id)?;
+        let current_height = solana_client_state.latest_height.revision_height;
+
+        tracing::debug!(
+            chain_id = %chain_id,
+            current_height = current_height,
+            "Solana client state retrieved"
+        );
+
+        // Check if update is needed
+        let (update_client, proof_height) =
+            if let Some(required_height) = Self::needs_update_client(&src_events, current_height) {
+                tracing::info!(
+                    "Client update needed: current height {} < required height {}",
+                    current_height,
+                    required_height
+                );
+
+                // Generate update client transactions
+                let update = self
+                    .update_client(dst_client_id.clone())
+                    .await
+                    .context("Failed to generate update client transactions")?;
+
+                let target = update.target_height;
+                tracing::info!(
+                    "Update client transactions generated, target height: {}",
+                    target
+                );
+
+                (Some(update), target)
+            } else {
+                tracing::info!(
+                    "No client update needed, current height {} is sufficient",
+                    current_height
+                );
+                (None, current_height)
+            };
+
+        // Build packet transactions with the appropriate proof height
+        let packets = self
+            .relay_events_chunked_internal(
+                src_events,
+                dest_events,
+                src_client_id,
+                dst_client_id,
+                src_packet_seqs,
+                dst_packet_seqs,
+                Some(proof_height),
+            )
+            .await?;
+
+        tracing::info!(
+            "Relay complete: {} packets, update_client: {}",
+            packets.len(),
+            update_client.is_some()
+        );
+
+        Ok((packets, update_client))
     }
 
     fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>> {

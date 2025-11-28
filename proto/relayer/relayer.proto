@@ -75,6 +75,9 @@ message SolanaPacketTxs {
 message SolanaRelayPacketBatch {
     // List of packet transactions
     repeated SolanaPacketTxs packets = 1;
+    // Optional: update client transactions if client needs updating before relay
+    // Submission order: update_client first (if present), then packets
+    SolanaUpdateClient update_client = 2;
 }
 
 // The relay by tx response message
