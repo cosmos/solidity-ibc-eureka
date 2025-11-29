@@ -33,10 +33,6 @@ impl super::TxBuilder {
         let (app_state_pda, _) =
             solana_ibc_types::ics07::AppState::pda(self.solana_ics07_program_id);
 
-        tracing::info!("Client state PDA: {}", client_state_pda);
-        tracing::info!("Consensus state PDA: {}", consensus_state_pda);
-        tracing::info!("App state PDA: {}", app_state_pda);
-
         let accounts = vec![
             AccountMeta::new(client_state_pda, false),
             AccountMeta::new(consensus_state_pda, false),
@@ -105,7 +101,7 @@ impl super::TxBuilder {
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
         ];
 
-        for chunk_index in 0..total_chunks {
+        accounts.extend((0..total_chunks).map(|chunk_index| {
             let (chunk_pda, _) = derive_header_chunk(
                 self.fee_payer,
                 chain_id,
@@ -113,23 +109,16 @@ impl super::TxBuilder {
                 chunk_index,
                 self.solana_ics07_program_id,
             );
-            accounts.push(AccountMeta::new(chunk_pda, false));
-        }
+            AccountMeta::new(chunk_pda, false)
+        }));
 
-        for sig_data in signature_data {
+        accounts.extend(signature_data.iter().map(|sig_data| {
             let (sig_verify_pda, _) = Pubkey::find_program_address(
                 &[b"sig_verify", &sig_data.signature_hash],
                 &self.solana_ics07_program_id,
             );
-
-            accounts.push(AccountMeta::new_readonly(sig_verify_pda, false));
-        }
-
-        tracing::info!(
-            "Assembly tx: {} chunks + {} pre-verified sigs",
-            total_chunks,
-            signature_data.len()
-        );
+            AccountMeta::new_readonly(sig_verify_pda, false)
+        }));
 
         let mut data = ics07_instructions::assemble_and_update_client_discriminator().to_vec();
 
@@ -166,7 +155,7 @@ impl super::TxBuilder {
     ) -> Result<Vec<u8>> {
         let mut accounts = vec![AccountMeta::new(self.fee_payer, true)];
 
-        for chunk_index in 0..total_chunks {
+        accounts.extend((0..total_chunks).map(|chunk_index| {
             let (chunk_pda, _) = derive_header_chunk(
                 self.fee_payer,
                 chain_id,
@@ -174,16 +163,16 @@ impl super::TxBuilder {
                 chunk_index,
                 self.solana_ics07_program_id,
             );
-            accounts.push(AccountMeta::new(chunk_pda, false));
-        }
+            AccountMeta::new(chunk_pda, false)
+        }));
 
-        for sig_data in signature_data {
+        accounts.extend(signature_data.iter().map(|sig_data| {
             let (sig_verify_pda, _) = Pubkey::find_program_address(
                 &[b"sig_verify", &sig_data.signature_hash],
                 &self.solana_ics07_program_id,
             );
-            accounts.push(AccountMeta::new(sig_verify_pda, false));
-        }
+            AccountMeta::new(sig_verify_pda, false)
+        }));
 
         let mut data = ics07_instructions::cleanup_incomplete_upload_discriminator().to_vec();
         data.extend_from_slice(&self.fee_payer.try_to_vec()?);
@@ -246,24 +235,21 @@ impl super::TxBuilder {
         chain_id: &str,
         target_height: u64,
     ) -> Result<Vec<Vec<u8>>> {
-        let mut chunk_txs = Vec::new();
-
-        for (index, chunk_data) in chunks.iter().enumerate() {
-            let chunk_index = u8::try_from(index)
-                .map_err(|_| anyhow::anyhow!("Chunk index {index} exceeds u8 max"))?;
-            let upload_ix = self.build_upload_header_chunk_instruction(
-                chain_id,
-                target_height,
-                chunk_index,
-                chunk_data.clone(),
-            )?;
-
-            let chunk_tx = self.create_tx_bytes(&[upload_ix])?;
-
-            chunk_txs.push(chunk_tx);
-        }
-
-        Ok(chunk_txs)
+        chunks
+            .iter()
+            .enumerate()
+            .map(|(index, chunk_data)| {
+                let chunk_index = u8::try_from(index)
+                    .map_err(|_| anyhow::anyhow!("Chunk index {index} exceeds u8 max"))?;
+                let upload_ix = self.build_upload_header_chunk_instruction(
+                    chain_id,
+                    target_height,
+                    chunk_index,
+                    chunk_data.clone(),
+                )?;
+                self.create_tx_bytes(&[upload_ix])
+            })
+            .collect()
     }
 
     /// Extracts signature data from Protobuf Tendermint Header for Ed25519 pre-verification

@@ -114,12 +114,9 @@ impl super::TxBuilder {
             .value
             .ok_or_else(|| anyhow::anyhow!("Client state account not found"))?;
 
-        let client_state = ClientState::try_from_slice(&account.data[ANCHOR_DISCRIMINATOR_SIZE..])
-            .or_else(|_| {
-                let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-                ClientState::deserialize(&mut data)
-            })
-            .context("Failed to deserialize client state")?;
+        let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
+        let client_state =
+            ClientState::deserialize(&mut data).context("Failed to deserialize client state")?;
 
         Ok(client_state)
     }

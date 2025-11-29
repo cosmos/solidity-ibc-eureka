@@ -259,13 +259,6 @@ impl super::TxBuilder {
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
     ) -> Result<SolanaPacketTxs> {
-        tracing::info!(
-            "build_ack_packet_chunked: seq={}, payloads.len={}, proof.total_chunks={}",
-            msg.packet.sequence,
-            msg.payloads.len(),
-            msg.proof.total_chunks
-        );
-
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.source_client,
             msg.packet.sequence,
@@ -275,11 +268,6 @@ impl super::TxBuilder {
             proof_data,
         )?;
 
-        tracing::info!(
-            "  Total chunk upload txs: {}, then 1 final ack_packet tx",
-            chunk_txs.len()
-        );
-
         let remaining_account_pubkeys = self.build_chunk_remaining_accounts(
             &msg.packet.source_client,
             msg.packet.sequence,
@@ -287,11 +275,6 @@ impl super::TxBuilder {
             payload_data,
             msg.proof.total_chunks,
         )?;
-
-        tracing::info!(
-            "  Adding {} remaining_accounts (chunk PDAs) to ack_packet instruction",
-            remaining_account_pubkeys.len()
-        );
 
         let ack_instruction = self
             .build_ack_packet_instruction(msg, remaining_account_pubkeys)
