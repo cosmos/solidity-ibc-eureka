@@ -138,7 +138,6 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         }))
     }
 
-    // NOTE: Client would not be automatically updated and should be done manually
     async fn relay_by_tx(
         &self,
         request: Request<api::RelayByTxRequest>,
@@ -176,9 +175,10 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             target_events.len()
         );
 
-        let packet_txs = self
+        // Use the combined method that includes update client if needed
+        let (packet_txs, update_client) = self
             .tx_builder
-            .relay_events_chunked(
+            .relay_events_with_update(
                 src_events,
                 target_events,
                 inner_req.src_client_id,
@@ -190,12 +190,18 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .map_err(to_tonic_status)?;
 
         tracing::info!(
-            "Relay by tx request completed with {} packets.",
-            packet_txs.len()
+            "Relay by tx request completed with {} packets{}.",
+            packet_txs.len(),
+            if update_client.is_some() {
+                " (with update client)"
+            } else {
+                ""
+            }
         );
 
         let batch = api::SolanaRelayPacketBatch {
             packets: packet_txs,
+            update_client,
         };
         let tx = prost::Message::encode_to_vec(&batch);
 
