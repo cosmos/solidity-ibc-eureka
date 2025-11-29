@@ -416,7 +416,7 @@ impl super::TxBuilder {
     }
 
     /// Builds a single signature pre-verification transaction
-    /// NOTE: Can't use solana_sdk ed25519_instruction because it requires tx signing which we do
+    /// NOTE: Can't use `solana_sdk` `ed25519_instruction` because it requires tx signing which we do
     /// in the grpc caller, not here
     pub(crate) fn build_pre_verify_signature_transaction(
         &self,
