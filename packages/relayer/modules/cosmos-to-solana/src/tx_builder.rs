@@ -1550,7 +1550,7 @@ impl TxBuilder {
 
     /// Extracts the maximum timeout timestamp (in seconds) from timeout events.
     ///
-    /// Returns `None` if there are no timeout events (SendPacket events).
+    /// Returns `None` if there are no timeout events (`SendPacket` events).
     fn max_timeout_timestamp(dest_events: &[SolanaEurekaEventWithHeight]) -> Option<u64> {
         dest_events
             .iter()
@@ -1558,7 +1558,7 @@ impl TxBuilder {
                 SolanaEurekaEvent::SendPacket(event) => {
                     Some(u64::try_from(event.timeout_timestamp).unwrap_or_default())
                 }
-                _ => None,
+                SolanaEurekaEvent::WriteAcknowledgement(_) => None,
             })
             .max()
     }
