@@ -10,7 +10,7 @@ use ibc_client_tendermint::types::Header as TmHeader;
 use ibc_eureka_relayer_lib::utils::solana::{convert_client_state_to_sol, MAX_CHUNK_SIZE};
 use ibc_eureka_relayer_lib::{
     events::{
-        solana::solana_timeout_packet_to_tm_timeout, EurekaEventWithHeight,
+        solana::solana_timeout_packet_to_tm_timeout, EurekaEventWithHeight, SolanaEurekaEvent,
         SolanaEurekaEventWithHeight,
     },
     utils::{
@@ -1548,14 +1548,76 @@ impl TxBuilder {
         })
     }
 
+    /// Extracts the maximum timeout timestamp (in seconds) from timeout events.
+    ///
+    /// Returns `None` if there are no timeout events (SendPacket events).
+    fn max_timeout_timestamp(dest_events: &[SolanaEurekaEventWithHeight]) -> Option<u64> {
+        dest_events
+            .iter()
+            .filter_map(|e| match &e.event {
+                SolanaEurekaEvent::SendPacket(event) => {
+                    Some(u64::try_from(event.timeout_timestamp).unwrap_or_default())
+                }
+                _ => None,
+            })
+            .max()
+    }
+
+    /// Fetches the consensus state timestamp in seconds for a given height.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the consensus state cannot be fetched or decoded.
+    fn get_consensus_state_timestamp_secs(&self, chain_id: &str, height: u64) -> Result<u64> {
+        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+        let (consensus_state_pda, _) =
+            ConsensusState::pda(client_state_pda, height, self.solana_ics07_program_id);
+
+        let account = self
+            .target_solana_client
+            .get_account_with_commitment(&consensus_state_pda, CommitmentConfig::confirmed())
+            .context("Failed to fetch consensus state account")?
+            .value
+            .ok_or_else(|| anyhow::anyhow!("Consensus state account not found"))?;
+
+        let consensus_state =
+            ConsensusState::try_from_slice(&account.data[ANCHOR_DISCRIMINATOR_SIZE..])
+                .or_else(|_| {
+                    let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
+                    ConsensusState::deserialize(&mut data)
+                })
+                .context("Failed to deserialize consensus state")?;
+
+        Ok(consensus_state.timestamp / 1_000_000_000)
+    }
+
     /// Checks if a client update is needed to prove the given events.
     ///
     /// Returns `Some(required_height)` if the current client height is insufficient
     /// to prove the events, `None` otherwise.
+    ///
+    /// For timeout packets, also checks if the consensus state timestamp is
+    /// sufficient (must be >= packet timeout timestamp).
     fn needs_update_client(
         src_events: &[EurekaEventWithHeight],
         current_height: u64,
+        current_consensus_timestamp_secs: Option<u64>,
+        max_timeout_ts: Option<u64>,
     ) -> Option<u64> {
+        // Check if timeout packets need a more recent consensus state
+        if let (Some(consensus_ts), Some(timeout_ts)) =
+            (current_consensus_timestamp_secs, max_timeout_ts)
+        {
+            if consensus_ts < timeout_ts {
+                tracing::info!(
+                    "Client update needed for timeout: consensus_ts={} < timeout_ts={}",
+                    consensus_ts,
+                    timeout_ts
+                );
+                return Some(current_height + 1);
+            }
+        }
+
         let max_event_height = src_events
             .iter()
             .map(|e| e.height)
@@ -1908,9 +1970,20 @@ impl TxBuilder {
             "Solana client state retrieved"
         );
 
-        // Check if update is needed
-        let (update_client, proof_height) =
-            if let Some(required_height) = Self::needs_update_client(&src_events, current_height) {
+        let max_timeout_ts = Self::max_timeout_timestamp(&dest_events);
+        let current_consensus_timestamp_secs = if max_timeout_ts.is_some() {
+            self.get_consensus_state_timestamp_secs(&chain_id, current_height)
+                .ok()
+        } else {
+            None
+        };
+
+        let (update_client, proof_height) = if let Some(required_height) = Self::needs_update_client(
+            &src_events,
+            current_height,
+            current_consensus_timestamp_secs,
+            max_timeout_ts,
+        ) {
                 tracing::info!(
                     "Client update needed: current height {} < required height {}",
                     current_height,
