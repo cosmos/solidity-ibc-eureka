@@ -1984,32 +1984,32 @@ impl TxBuilder {
             current_consensus_timestamp_secs,
             max_timeout_ts,
         ) {
-                tracing::info!(
-                    "Client update needed: current height {} < required height {}",
-                    current_height,
-                    required_height
-                );
+            tracing::info!(
+                "Client update needed: current height {} < required height {}",
+                current_height,
+                required_height
+            );
 
-                // Generate update client transactions
-                let update = self
-                    .update_client(dst_client_id.clone())
-                    .await
-                    .context("Failed to generate update client transactions")?;
+            // Generate update client transactions
+            let update = self
+                .update_client(dst_client_id.clone())
+                .await
+                .context("Failed to generate update client transactions")?;
 
-                let target = update.target_height;
-                tracing::info!(
-                    "Update client transactions generated, target height: {}",
-                    target
-                );
+            let target = update.target_height;
+            tracing::info!(
+                "Update client transactions generated, target height: {}",
+                target
+            );
 
-                (Some(update), target)
-            } else {
-                tracing::info!(
-                    "No client update needed, current height {} is sufficient",
-                    current_height
-                );
-                (None, current_height)
-            };
+            (Some(update), target)
+        } else {
+            tracing::info!(
+                "No client update needed, current height {} is sufficient",
+                current_height
+            );
+            (None, current_height)
+        };
 
         // Build packet transactions with the appropriate proof height
         let packets = self
