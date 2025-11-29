@@ -669,19 +669,6 @@ impl TxBuilder {
         current_consensus_timestamp_secs: Option<u64>,
         max_timeout_ts: Option<u64>,
     ) -> Option<u64> {
-        if let (Some(consensus_ts), Some(timeout_ts)) =
-            (current_consensus_timestamp_secs, max_timeout_ts)
-        {
-            if consensus_ts < timeout_ts {
-                tracing::info!(
-                    "Client update needed for timeout: consensus_ts={} < timeout_ts={}",
-                    consensus_ts,
-                    timeout_ts
-                );
-                return Some(current_height + 1);
-            }
-        }
-
         let max_event_height = src_events
             .iter()
             .map(|e| e.height)
@@ -690,8 +677,25 @@ impl TxBuilder {
 
         let required_height = max_event_height + 1;
 
-        if current_height < required_height {
-            Some(required_height)
+        // Need update if height is insufficient for proofs
+        let needs_height_update = current_height < required_height;
+
+        // Need update if timestamp is insufficient for timeouts
+        let needs_timestamp_update = matches!(
+            (current_consensus_timestamp_secs, max_timeout_ts),
+            (Some(consensus_ts), Some(timeout_ts)) if consensus_ts < timeout_ts
+        );
+
+        if needs_timestamp_update {
+            tracing::info!(
+                "Client update needed for timeout: consensus_ts={:?} < timeout_ts={:?}",
+                current_consensus_timestamp_secs,
+                max_timeout_ts
+            );
+        }
+
+        if needs_height_update || needs_timestamp_update {
+            Some(required_height.max(current_height + 1))
         } else {
             None
         }
