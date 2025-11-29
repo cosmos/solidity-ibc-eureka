@@ -206,9 +206,7 @@ impl TxBuilder {
             .context("Failed to convert protobuf Header to ibc-rs Header")?;
 
         let signature_data = Self::select_minimal_signatures(
-            &Self::verify_signatures_offchain(Self::extract_signature_data_from_header(
-                &header, &chain_id,
-            )?),
+            &Self::extract_signature_data_from_header(&header, &chain_id)?,
             &header,
             client_state.trust_level_numerator,
             client_state.trust_level_denominator,
