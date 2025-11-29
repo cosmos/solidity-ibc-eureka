@@ -56,6 +56,22 @@ pub(crate) struct TimeoutAccountsParams {
     pub chunk_accounts: Vec<Pubkey>,
 }
 
+/// Parameters for relaying events between Cosmos and Solana
+pub struct RelayParams {
+    /// Events from the source chain (Cosmos)
+    pub src_events: Vec<EurekaEventWithHeight>,
+    /// Events from the destination chain (Solana)
+    pub dest_events: Vec<SolanaEurekaEventWithHeight>,
+    /// Client ID on the source chain
+    pub src_client_id: String,
+    /// Client ID on the destination chain
+    pub dst_client_id: String,
+    /// Packet sequences from the source chain
+    pub src_packet_seqs: Vec<u64>,
+    /// Packet sequences from the destination chain
+    pub dst_packet_seqs: Vec<u64>,
+}
+
 /// Maximum compute units allowed per Solana transaction
 pub(crate) const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
 
@@ -357,84 +373,47 @@ impl TxBuilder {
     ///
     /// # Errors
     /// Returns an error if proof generation or transaction building fails.
-    #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
-    pub async fn relay_events_chunked(
+    pub async fn relay_events_chunked(&self, params: RelayParams) -> Result<Vec<SolanaPacketTxs>> {
+        self.relay_events_chunked_internal(params, None).await
+    }
+
+    /// Internal relay implementation with optional proof height override
+    async fn relay_events_chunked_internal(
         &self,
-        src_events: Vec<EurekaEventWithHeight>,
-        dest_events: Vec<SolanaEurekaEventWithHeight>,
-        src_client_id: String,
-        dst_client_id: String,
-        src_packet_seqs: Vec<u64>,
-        dst_packet_seqs: Vec<u64>,
+        params: RelayParams,
+        proof_height_override: Option<u64>,
     ) -> Result<Vec<SolanaPacketTxs>> {
-        self.relay_events_chunked_internal(
+        let RelayParams {
             src_events,
             dest_events,
             src_client_id,
             dst_client_id,
             src_packet_seqs,
             dst_packet_seqs,
-            None,
-        )
-        .await
-    }
-
-    /// Internal relay implementation with optional proof height override
-    #[allow(
-        clippy::too_many_lines,
-        clippy::cognitive_complexity,
-        clippy::too_many_arguments
-    )]
-    async fn relay_events_chunked_internal(
-        &self,
-        src_events: Vec<EurekaEventWithHeight>,
-        dest_events: Vec<SolanaEurekaEventWithHeight>,
-        src_client_id: String,
-        dst_client_id: String,
-        src_packet_seqs: Vec<u64>,
-        dst_packet_seqs: Vec<u64>,
-        proof_height_override: Option<u64>,
-    ) -> Result<Vec<SolanaPacketTxs>> {
-        tracing::info!(
-            "Relaying chunked events from Cosmos to Solana for client {}{}",
-            dst_client_id,
-            if proof_height_override.is_some() {
-                " (with proof height override)"
-            } else {
-                ""
-            }
-        );
+        } = params;
 
         let chain_id = self.chain_id().await?;
-        let solana_client_state = self.cosmos_client_state(&chain_id)?;
-        let solana_latest_height = solana_client_state.latest_height.revision_height;
+        let client_state = self.cosmos_client_state(&chain_id)?;
 
-        tracing::debug!(
-            chain_id = %chain_id,
-            latest_height = solana_latest_height,
-            "Solana client state retrieved"
-        );
+        let proof_height = proof_height_override.map_or_else(
+            || {
+                Self::validate_height_and_get_proof_params(
+                    &src_events,
+                    client_state.latest_height.revision_height,
+                    client_state.latest_height.revision_number,
+                )
+            },
+            |h| {
+                Ok(ibc_proto_eureka::ibc::core::client::v1::Height {
+                    revision_number: client_state.latest_height.revision_number,
+                    revision_height: h,
+                })
+            },
+        )?;
 
-        let proof_height = match proof_height_override {
-            Some(override_height) => {
-                tracing::info!(
-                    "Using proof height override: {} (current client height: {})",
-                    override_height,
-                    solana_latest_height
-                );
-                ibc_proto_eureka::ibc::core::client::v1::Height {
-                    revision_number: solana_client_state.latest_height.revision_number,
-                    revision_height: override_height,
-                }
-            }
-            None => Self::validate_height_and_get_proof_params(
-                &src_events,
-                solana_latest_height,
-                solana_client_state.latest_height.revision_number,
-            )?,
-        };
-
-        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+        let now_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
 
         let slot = self
             .target_solana_client
@@ -447,10 +426,8 @@ impl TxBuilder {
             &dst_client_id,
             &dst_packet_seqs,
             slot,
-            now_since_unix.as_secs(),
+            now_secs,
         );
-
-        let mock_signer_address = String::new();
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
@@ -458,23 +435,13 @@ impl TxBuilder {
             &dst_client_id,
             &src_packet_seqs,
             &dst_packet_seqs,
-            &mock_signer_address,
-            now_since_unix.as_secs(),
+            "",
+            now_secs,
         );
-
-        tracing::info!("Events to relay to Solana:");
-        tracing::info!("  - Timeout messages: {}", timeout_msgs.len());
-        tracing::info!("  - Recv messages: {}", recv_msgs.len());
-        tracing::info!("  - Ack messages: {}", ack_msgs.len());
 
         let mut timeout_msgs_tm: Vec<_> = timeout_msgs
             .iter()
-            .map(|timeout_with_chunks| {
-                solana_timeout_packet_to_tm_timeout(
-                    timeout_with_chunks.msg.clone(),
-                    mock_signer_address.clone(),
-                )
-            })
+            .map(|t| solana_timeout_packet_to_tm_timeout(t.msg.clone(), String::new()))
             .collect::<Result<Vec<_>, _>>()?;
 
         cosmos::inject_tendermint_proofs(
@@ -487,50 +454,39 @@ impl TxBuilder {
         .await?;
 
         let mut timeout_msgs_with_chunks = timeout_msgs;
-        for (idx, timeout_with_chunks) in timeout_msgs_with_chunks.iter_mut().enumerate() {
-            let tm_msg = &timeout_msgs_tm[idx];
+        for (timeout_with_chunks, tm_msg) in
+            timeout_msgs_with_chunks.iter_mut().zip(&timeout_msgs_tm)
+        {
             Self::update_timeout_proof_chunks(timeout_with_chunks, tm_msg);
         }
 
         let mut packet_txs = Vec::new();
-        let chain_id = self.chain_id().await?;
 
         for recv_msg in recv_msgs {
-            let recv_with_chunks = ibc_to_solana_recv_packet(recv_msg)?;
-
-            let chunked = self.build_recv_packet_chunked(
+            let r = ibc_to_solana_recv_packet(recv_msg)?;
+            packet_txs.push(self.build_recv_packet_chunked(
                 &chain_id,
-                &recv_with_chunks.msg,
-                &recv_with_chunks.payload_chunks,
-                &recv_with_chunks.proof_chunks,
-            )?;
-
-            packet_txs.push(chunked);
+                &r.msg,
+                &r.payload_chunks,
+                &r.proof_chunks,
+            )?);
         }
 
         for ack_msg in ack_msgs {
-            let ack_with_chunks = ibc_to_solana_ack_packet(ack_msg)?;
-
-            let chunked = self
-                .build_ack_packet_chunked(
-                    &ack_with_chunks.msg,
-                    &ack_with_chunks.payload_chunks,
-                    &ack_with_chunks.proof_chunks,
-                )
-                .await?;
-
-            packet_txs.push(chunked);
+            let a = ibc_to_solana_ack_packet(ack_msg)?;
+            packet_txs.push(
+                self.build_ack_packet_chunked(&a.msg, &a.payload_chunks, &a.proof_chunks)
+                    .await?,
+            );
         }
 
-        for timeout_with_chunks in timeout_msgs_with_chunks {
-            let chunked = self.build_timeout_packet_chunked(
+        for t in timeout_msgs_with_chunks {
+            packet_txs.push(self.build_timeout_packet_chunked(
                 &chain_id,
-                &timeout_with_chunks.msg,
-                &timeout_with_chunks.payload_chunks,
-                &timeout_with_chunks.proof_chunks,
-            )?;
-
-            packet_txs.push(chunked);
+                &t.msg,
+                &t.payload_chunks,
+                &t.proof_chunks,
+            )?);
         }
 
         Ok(packet_txs)
@@ -540,94 +496,42 @@ impl TxBuilder {
     ///
     /// # Errors
     /// Returns an error if update client generation or relay building fails.
-    #[allow(clippy::too_many_arguments)]
     pub async fn relay_events_with_update(
         &self,
-        src_events: Vec<EurekaEventWithHeight>,
-        dest_events: Vec<SolanaEurekaEventWithHeight>,
-        src_client_id: String,
-        dst_client_id: String,
-        src_packet_seqs: Vec<u64>,
-        dst_packet_seqs: Vec<u64>,
+        params: RelayParams,
     ) -> Result<(Vec<SolanaPacketTxs>, Option<api::SolanaUpdateClient>)> {
-        tracing::info!(
-            "Relaying events from Cosmos to Solana for client {} (with update check)",
-            dst_client_id
-        );
-
         let chain_id = self.chain_id().await?;
-        let solana_client_state = self.cosmos_client_state(&chain_id)?;
-        let current_height = solana_client_state.latest_height.revision_height;
+        let client_state = self.cosmos_client_state(&chain_id)?;
+        let current_height = client_state.latest_height.revision_height;
 
-        tracing::debug!(
-            chain_id = %chain_id,
-            current_height = current_height,
-            "Solana client state retrieved"
-        );
-
-        let max_timeout_ts = Self::max_timeout_timestamp(&dest_events);
-        let current_consensus_timestamp_secs = if max_timeout_ts.is_some() {
+        let max_timeout_ts = Self::max_timeout_timestamp(&params.dest_events);
+        let consensus_ts = max_timeout_ts.and_then(|_| {
             self.get_consensus_state_timestamp_secs(&chain_id, current_height)
                 .ok()
-        } else {
-            None
-        };
+        });
 
-        let (update_client, proof_height) = if let Some(required_height) = Self::needs_update_client(
-            &src_events,
+        let update_client = match Self::needs_update_client(
+            &params.src_events,
             current_height,
-            current_consensus_timestamp_secs,
+            consensus_ts,
             max_timeout_ts,
         ) {
-            tracing::info!(
-                "Client update needed: current height {} < required height {}",
-                current_height,
-                required_height
-            );
-
-            let update = self
-                .update_client(dst_client_id.clone())
-                .await
-                .context("Failed to generate update client transactions")?;
-
-            let target = update.target_height;
-            tracing::info!(
-                "Update client transactions generated, target height: {}",
-                target
-            );
-
-            (Some(update), target)
-        } else {
-            tracing::info!(
-                "No client update needed, current height {} is sufficient",
-                current_height
-            );
-            (None, current_height)
+            Some(_) => Some(self.update_client(params.dst_client_id.clone()).await?),
+            None => None,
         };
 
-        let packets = self
-            .relay_events_chunked_internal(
-                src_events,
-                dest_events,
-                src_client_id,
-                dst_client_id,
-                src_packet_seqs,
-                dst_packet_seqs,
-                Some(proof_height),
-            )
-            .await?;
+        let proof_height = update_client
+            .as_ref()
+            .map_or(current_height, |u| u.target_height);
 
-        tracing::info!(
-            "Built {} packet transactions, update_client: {}",
-            packets.len(),
-            update_client.is_some()
-        );
+        let packets = self
+            .relay_events_chunked_internal(params, Some(proof_height))
+            .await?;
 
         Ok((packets, update_client))
     }
 
     // Relay helper functions
-
     fn max_timeout_timestamp(dest_events: &[SolanaEurekaEventWithHeight]) -> Option<u64> {
         dest_events
             .iter()
