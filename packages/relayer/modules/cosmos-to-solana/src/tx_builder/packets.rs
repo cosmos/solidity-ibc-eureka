@@ -104,7 +104,11 @@ impl super::TxBuilder {
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
-        accounts.extend(chunk_accounts.into_iter().map(|a| AccountMeta::new(a, false)));
+        accounts.extend(
+            chunk_accounts
+                .into_iter()
+                .map(|a| AccountMeta::new(a, false)),
+        );
 
         let gmp_accounts = gmp::extract_gmp_accounts(
             payload_info.dest_port,
@@ -186,7 +190,11 @@ impl super::TxBuilder {
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
-        accounts.extend(chunk_accounts.into_iter().map(|a| AccountMeta::new(a, false)));
+        accounts.extend(
+            chunk_accounts
+                .into_iter()
+                .map(|a| AccountMeta::new(a, false)),
+        );
 
         let mut data = router_instructions::ack_packet_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
@@ -205,8 +213,12 @@ impl super::TxBuilder {
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
         let source_port = Self::extract_timeout_source_port(msg)?;
-        let accounts =
-            self.build_timeout_accounts_with_derived_keys(chain_id, msg, &source_port, chunk_accounts)?;
+        let accounts = self.build_timeout_accounts_with_derived_keys(
+            chain_id,
+            msg,
+            &source_port,
+            chunk_accounts,
+        )?;
         let data = Self::build_timeout_instruction_data(msg)?;
 
         Ok(Instruction {
@@ -282,7 +294,12 @@ impl super::TxBuilder {
             AccountMeta::new_readonly(params.client_state, false),
             AccountMeta::new_readonly(params.consensus_state, false),
         ];
-        accounts.extend(params.chunk_accounts.into_iter().map(|a| AccountMeta::new(a, false)));
+        accounts.extend(
+            params
+                .chunk_accounts
+                .into_iter()
+                .map(|a| AccountMeta::new(a, false)),
+        );
         accounts
     }
 

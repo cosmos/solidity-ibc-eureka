@@ -234,10 +234,16 @@ impl TxBuilder {
         let alt_create_tx = self.build_create_alt_tx(slot)?;
 
         let (client_state_pda, _) = ClientState::pda(&chain_id, self.solana_ics07_program_id);
-        let (trusted_consensus_state, _) =
-            ConsensusState::pda(client_state_pda, trusted_height, self.solana_ics07_program_id);
-        let (new_consensus_state, _) =
-            ConsensusState::pda(client_state_pda, target_height, self.solana_ics07_program_id);
+        let (trusted_consensus_state, _) = ConsensusState::pda(
+            client_state_pda,
+            trusted_height,
+            self.solana_ics07_program_id,
+        );
+        let (new_consensus_state, _) = ConsensusState::pda(
+            client_state_pda,
+            target_height,
+            self.solana_ics07_program_id,
+        );
 
         let mut alt_accounts = vec![
             client_state_pda,
@@ -481,8 +487,8 @@ impl TxBuilder {
             .ok_or_else(|| anyhow::anyhow!("Consensus state account not found"))?;
 
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-        let consensus_state =
-            ConsensusState::deserialize(&mut data).context("Failed to deserialize consensus state")?;
+        let consensus_state = ConsensusState::deserialize(&mut data)
+            .context("Failed to deserialize consensus state")?;
 
         Ok(consensus_state.timestamp / 1_000_000_000)
     }
