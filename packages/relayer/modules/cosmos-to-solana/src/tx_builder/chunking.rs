@@ -20,10 +20,6 @@ impl super::TxBuilder {
         data.chunks(MAX_CHUNK_SIZE).map(<[u8]>::to_vec).collect()
     }
 
-    pub(crate) fn split_header_into_chunks(header_bytes: &[u8]) -> Vec<Vec<u8>> {
-        Self::split_into_chunks(header_bytes)
-    }
-
     pub(crate) fn build_upload_payload_chunk_instruction(
         &self,
         client_id: &str,

@@ -216,7 +216,7 @@ impl TxBuilder {
 
         let borsh_header = crate::borsh_conversions::header_to_borsh(header);
         let header_bytes = borsh_header.try_to_vec()?;
-        let chunks = Self::split_header_into_chunks(&header_bytes);
+        let chunks = Self::split_into_chunks(&header_bytes);
         let total_chunks = u8::try_from(chunks.len())
             .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
 
