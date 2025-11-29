@@ -178,14 +178,14 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         // Use the combined method that includes update client if needed
         let (packet_txs, update_client) = self
             .tx_builder
-            .relay_events_with_update(
+            .relay_events_with_update(tx_builder::RelayParams {
                 src_events,
-                target_events,
-                inner_req.src_client_id,
-                inner_req.dst_client_id,
-                inner_req.src_packet_sequences,
-                inner_req.dst_packet_sequences,
-            )
+                dest_events: target_events,
+                src_client_id: inner_req.src_client_id,
+                dst_client_id: inner_req.dst_client_id,
+                src_packet_seqs: inner_req.src_packet_sequences,
+                dst_packet_seqs: inner_req.dst_packet_sequences,
+            })
             .await
             .map_err(to_tonic_status)?;
 
