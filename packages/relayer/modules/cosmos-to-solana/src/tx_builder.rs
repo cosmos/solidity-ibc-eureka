@@ -151,35 +151,10 @@ impl TxBuilder {
     /// # Errors
     /// Returns an error if parameters are invalid or Solana/Tendermint calls fail.
     pub async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
-        let trust_level = if let Some(trust_level_str) = parameters.get("trust_level") {
-            let parts: Vec<&str> = trust_level_str.split('/').collect();
-            if parts.len() != 2 {
-                anyhow::bail!(
-                    "Invalid trust level format: expected 'numerator/denominator', got '{trust_level_str}'",
-                );
-            }
-            let numerator = parts[0]
-                .parse::<u64>()
-                .map_err(|_| anyhow::anyhow!("Invalid trust level numerator: {}", parts[0]))?;
-            let denominator = parts[1]
-                .parse::<u64>()
-                .map_err(|_| anyhow::anyhow!("Invalid trust level denominator: {}", parts[1]))?;
-
-            if numerator == 0 || denominator == 0 {
-                anyhow::bail!("Trust level numerator and denominator must be greater than 0");
-            }
-            if numerator >= denominator {
-                anyhow::bail!("Trust level numerator must be less than denominator");
-            }
-
-            tracing::info!("Using custom trust level: {}/{}", numerator, denominator);
-            Some(Fraction {
-                numerator,
-                denominator,
-            })
-        } else {
-            None
-        };
+        let trust_level = parameters
+            .get("trust_level")
+            .map(|s| Self::parse_trust_level(s))
+            .transpose()?;
 
         let chain_id = self.chain_id().await?;
         let TmCreateClientParams {
@@ -207,7 +182,7 @@ impl TxBuilder {
     ///
     /// # Errors
     /// Returns an error if Solana/Tendermint calls fail or transaction building fails.
-    #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
+    #[allow(clippy::too_many_lines)]
     pub async fn update_client(&self, dst_client_id: String) -> Result<api::SolanaUpdateClient> {
         const ALT_EXTEND_BATCH_SIZE: usize = 20;
 
@@ -225,18 +200,15 @@ impl TxBuilder {
         )
         .await?;
 
-        tracing::info!(
-            "Building chunked update client transactions for client {dst_client_id} to height {target_height}",
-        );
+        tracing::info!("Building update client for {dst_client_id} to height {target_height}");
 
         let header = TmHeader::try_from(proposed_header)
             .context("Failed to convert protobuf Header to ibc-rs Header")?;
 
-        let mut signature_data = Self::extract_signature_data_from_header(&header, &chain_id)?;
-        signature_data = Self::verify_signatures_offchain(signature_data);
-
-        signature_data = Self::select_minimal_signatures(
-            &signature_data,
+        let signature_data = Self::select_minimal_signatures(
+            &Self::verify_signatures_offchain(Self::extract_signature_data_from_header(
+                &header, &chain_id,
+            )?),
             &header,
             client_state.trust_level_numerator,
             client_state.trust_level_denominator,
@@ -244,55 +216,28 @@ impl TxBuilder {
 
         let borsh_header = crate::borsh_conversions::header_to_borsh(header);
         let header_bytes = borsh_header.try_to_vec()?;
-
         let chunks = Self::split_header_into_chunks(&header_bytes);
         let total_chunks = u8::try_from(chunks.len())
             .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
 
-        tracing::info!(
-            "Header size: {} bytes, split into {} header chunks",
-            header_bytes.len(),
-            total_chunks
-        );
+        let mut prep_txs: Vec<Vec<u8>> = signature_data
+            .iter()
+            .map(|sig_data| self.build_pre_verify_signature_transaction(sig_data))
+            .collect::<Result<Vec<_>>>()?;
 
-        let mut prep_txs = Vec::new();
-
-        if !signature_data.is_empty() {
-            let total_signatures = signature_data.len();
-
-            for sig_data in &signature_data {
-                let pre_verify_tx = self.build_pre_verify_signature_transaction(sig_data)?;
-                prep_txs.push(pre_verify_tx);
-            }
-
-            tracing::info!(
-                "Added {} pre-verify signature transactions",
-                total_signatures
-            );
-        }
-
-        let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
-        prep_txs.extend(chunk_txs);
+        prep_txs.extend(self.build_chunk_transactions(&chunks, &chain_id, target_height)?);
 
         let slot = self
             .target_solana_client
             .get_slot_with_commitment(CommitmentConfig::processed())?;
 
-        tracing::info!("Current Solana slot: {}", slot);
-
         let alt_create_tx = self.build_create_alt_tx(slot)?;
 
         let (client_state_pda, _) = ClientState::pda(&chain_id, self.solana_ics07_program_id);
-        let (trusted_consensus_state, _) = ConsensusState::pda(
-            client_state_pda,
-            trusted_height,
-            self.solana_ics07_program_id,
-        );
-        let (new_consensus_state, _) = ConsensusState::pda(
-            client_state_pda,
-            target_height,
-            self.solana_ics07_program_id,
-        );
+        let (trusted_consensus_state, _) =
+            ConsensusState::pda(client_state_pda, trusted_height, self.solana_ics07_program_id);
+        let (new_consensus_state, _) =
+            ConsensusState::pda(client_state_pda, target_height, self.solana_ics07_program_id);
 
         let mut alt_accounts = vec![
             client_state_pda,
@@ -302,39 +247,29 @@ impl TxBuilder {
             solana_sdk::system_program::id(),
         ];
 
-        for chunk_index in 0..total_chunks {
-            let (chunk_pda, _) = derive_header_chunk(
+        alt_accounts.extend((0..total_chunks).map(|chunk_index| {
+            derive_header_chunk(
                 self.fee_payer,
                 &chain_id,
                 target_height,
                 chunk_index,
                 self.solana_ics07_program_id,
-            );
-            alt_accounts.push(chunk_pda);
-        }
+            )
+            .0
+        }));
 
-        for sig_data in &signature_data {
-            let (sig_verify_pda, _) = Pubkey::find_program_address(
+        alt_accounts.extend(signature_data.iter().map(|sig_data| {
+            Pubkey::find_program_address(
                 &[b"sig_verify", &sig_data.signature_hash],
                 &self.solana_ics07_program_id,
-            );
+            )
+            .0
+        }));
 
-            alt_accounts.push(sig_verify_pda);
-        }
-
-        tracing::info!(
-            "ALT will contain {} signature accounts + {} chunk accounts = {} total accounts",
-            signature_data.len(),
-            total_chunks,
-            alt_accounts.len()
-        );
-
-        let mut alt_extend_txs = Vec::new();
-
-        for account_batch in alt_accounts.chunks(ALT_EXTEND_BATCH_SIZE) {
-            let extend_tx = self.build_extend_alt_tx(slot, account_batch.to_vec())?;
-            alt_extend_txs.push(extend_tx);
-        }
+        let alt_extend_txs: Vec<Vec<u8>> = alt_accounts
+            .chunks(ALT_EXTEND_BATCH_SIZE)
+            .map(|batch| self.build_extend_alt_tx(slot, batch.to_vec()))
+            .collect::<Result<Vec<_>>>()?;
 
         let assembly_tx = self.build_assemble_and_update_client_tx(
             &chain_id,
@@ -345,19 +280,8 @@ impl TxBuilder {
             Some((slot, alt_accounts)),
         )?;
 
-        let total_tx_count = 1 + alt_extend_txs.len() + prep_txs.len() + 1;
-
         let cleanup_tx =
             self.build_cleanup_tx(&chain_id, target_height, total_chunks, &signature_data)?;
-
-        tracing::info!(
-            "Built {} total transactions: 1 ALT create + {} ALT extends + {} prep txs ({} header chunks + {} signatures) + 1 assembly + 1 cleanup",
-            total_tx_count + 1,
-            alt_extend_txs.len(),
-            prep_txs.len(),
-            total_chunks,
-            signature_data.len()
-        );
 
         Ok(api::SolanaUpdateClient {
             chunk_txs: prep_txs,
@@ -556,13 +480,9 @@ impl TxBuilder {
             .value
             .ok_or_else(|| anyhow::anyhow!("Consensus state account not found"))?;
 
+        let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
         let consensus_state =
-            ConsensusState::try_from_slice(&account.data[ANCHOR_DISCRIMINATOR_SIZE..])
-                .or_else(|_| {
-                    let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-                    ConsensusState::deserialize(&mut data)
-                })
-                .context("Failed to deserialize consensus state")?;
+            ConsensusState::deserialize(&mut data).context("Failed to deserialize consensus state")?;
 
         Ok(consensus_state.timestamp / 1_000_000_000)
     }
@@ -614,15 +534,7 @@ impl TxBuilder {
             .iter()
             .map(|e| e.height)
             .max()
-            .unwrap_or_else(|| {
-                let timeout_height = solana_latest_height.saturating_sub(1);
-                tracing::debug!(
-                    "Timeout proof: proving non-receipt at height {} using consensus state at {}",
-                    timeout_height,
-                    solana_latest_height
-                );
-                timeout_height
-            });
+            .unwrap_or_else(|| solana_latest_height.saturating_sub(1));
 
         let required_height = max_event_height + 1;
 
@@ -632,18 +544,10 @@ impl TxBuilder {
             );
         }
 
-        let proof_height = ibc_proto_eureka::ibc::core::client::v1::Height {
+        Ok(ibc_proto_eureka::ibc::core::client::v1::Height {
             revision_number: solana_revision_number,
             revision_height: solana_latest_height,
-        };
-
-        tracing::debug!(
-            target_height = proof_height.revision_height,
-            max_event_height,
-            "Using Solana's latest height for proof generation"
-        );
-
-        Ok(proof_height)
+        })
     }
 
     #[allow(clippy::cast_possible_truncation)]
@@ -662,5 +566,33 @@ impl TxBuilder {
             .map_or(0, |h| h.revision_height);
         timeout_with_chunks.msg.proof.total_chunks = proof_total_chunks;
         timeout_with_chunks.proof_chunks.clone_from(proof_bytes);
+    }
+
+    fn parse_trust_level(trust_level_str: &str) -> Result<Fraction> {
+        let parts: Vec<&str> = trust_level_str.split('/').collect();
+        let [num_str, denom_str] = parts.as_slice() else {
+            anyhow::bail!(
+                "Invalid trust level format: expected 'numerator/denominator', got '{trust_level_str}'"
+            );
+        };
+
+        let numerator = num_str
+            .parse::<u64>()
+            .map_err(|_| anyhow::anyhow!("Invalid trust level numerator: {num_str}"))?;
+        let denominator = denom_str
+            .parse::<u64>()
+            .map_err(|_| anyhow::anyhow!("Invalid trust level denominator: {denom_str}"))?;
+
+        if numerator == 0 || denominator == 0 {
+            anyhow::bail!("Trust level numerator and denominator must be greater than 0");
+        }
+        if numerator >= denominator {
+            anyhow::bail!("Trust level numerator must be less than denominator");
+        }
+
+        Ok(Fraction {
+            numerator,
+            denominator,
+        })
     }
 }
