@@ -600,12 +600,8 @@ impl TxBuilder {
             .value
             .ok_or_else(|| anyhow::anyhow!("Client state account not found"))?;
 
-        let client_state = ClientState::try_from_slice(&account.data[ANCHOR_DISCRIMINATOR_SIZE..])
-            .or_else(|_| {
-                // If try_from_slice fails due to extra bytes, use deserialize which is more lenient
-                let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-                ClientState::deserialize(&mut data)
-            })
+        let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
+        let client_state = ClientState::deserialize(&mut data)
             .context("Failed to deserialize client state")?;
 
         Ok(client_state)
@@ -1580,13 +1576,9 @@ impl TxBuilder {
             .value
             .ok_or_else(|| anyhow::anyhow!("Consensus state account not found"))?;
 
-        let consensus_state =
-            ConsensusState::try_from_slice(&account.data[ANCHOR_DISCRIMINATOR_SIZE..])
-                .or_else(|_| {
-                    let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-                    ConsensusState::deserialize(&mut data)
-                })
-                .context("Failed to deserialize consensus state")?;
+        let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
+        let consensus_state = ConsensusState::deserialize(&mut data)
+            .context("Failed to deserialize consensus state")?;
 
         Ok(consensus_state.timestamp / 1_000_000_000)
     }
