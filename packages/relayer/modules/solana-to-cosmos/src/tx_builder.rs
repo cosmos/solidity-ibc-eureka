@@ -85,42 +85,6 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
             .map(EurekaEventWithHeight::from)
             .collect();
 
-        for (i, event) in src_events_as_sol_events.iter().enumerate() {
-            match &event.event {
-                ibc_eureka_relayer_lib::events::EurekaEvent::SendPacket(packet) => {
-                    tracing::info!(
-                        "Event {}: SendPacket with {} payloads",
-                        i,
-                        packet.payloads.len()
-                    );
-                    for (j, payload) in packet.payloads.iter().enumerate() {
-                        tracing::info!(
-                            "  Payload {}: port={}, value_len={}",
-                            j,
-                            payload.sourcePort,
-                            payload.value.len()
-                        );
-                    }
-                }
-                ibc_eureka_relayer_lib::events::EurekaEvent::WriteAcknowledgement(packet, acks) => {
-                    tracing::info!(
-                        "Event {}: WriteAcknowledgement with {} payloads, {} acks",
-                        i,
-                        packet.payloads.len(),
-                        acks.len()
-                    );
-                    for (j, payload) in packet.payloads.iter().enumerate() {
-                        tracing::info!(
-                            "  Payload {}: port={}, value_len={}",
-                            j,
-                            payload.sourcePort,
-                            payload.value.len()
-                        );
-                    }
-                }
-            }
-        }
-
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events_as_sol_events,
             &src_client_id,
@@ -130,10 +94,6 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
             &self.signer_address,
             now_since_unix.as_secs(),
         );
-
-        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
-        tracing::debug!("Recv messages: #{}", recv_msgs.len());
-        tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
         cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
 

@@ -33,6 +33,7 @@ access-manager = { workspace = true, features = ["cpi"] }
 borsh.workspace = true
 ics25-handler.workspace = true
 solana-ibc-types = { workspace = true, features = ["light-client"] }
+solana-ibc-constants.workspace = true
 solana-sdk-ids.workspace = true
 solana-define-syscall.workspace = true
 

@@ -180,6 +180,11 @@ pub struct AssembleAndUpdateClient<'info> {
     // They will be validated and closed in the instruction handler
 }
 
+impl AssembleAndUpdateClient<'_> {
+    /// Number of static accounts (excludes remaining_accounts for chunks/sigs)
+    pub const STATIC_ACCOUNTS: usize = solana_ibc_constants::ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS;
+}
+
 /// Context for cleaning up incomplete header uploads or signatures
 #[derive(Accounts)]
 pub struct CleanupIncompleteUpload<'info> {
@@ -408,5 +413,26 @@ pub mod ics07_tendermint {
         signature: solana_ibc_types::ics07::SignatureData,
     ) -> Result<()> {
         instructions::pre_verify_signatures::pre_verify_signature(ctx, signature)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_static_accounts_matches_idl() {
+        let idl = include_str!("../../../target/idl/ics07_tendermint.json");
+        let parsed: serde_json::Value = serde_json::from_str(idl).unwrap();
+        let accounts = parsed["instructions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|i| i["name"] == "assemble_and_update_client")
+            .unwrap()["accounts"]
+            .as_array()
+            .unwrap()
+            .len();
+        assert_eq!(accounts, AssembleAndUpdateClient::STATIC_ACCOUNTS);
     }
 }

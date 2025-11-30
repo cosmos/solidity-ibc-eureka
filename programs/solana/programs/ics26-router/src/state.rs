@@ -128,8 +128,7 @@ impl Commitment {
 /// Maximum timeout duration (1 day in seconds)
 pub const MAX_TIMEOUT_DURATION: i64 = 86400;
 
-/// Maximum size of chunk data
-pub const CHUNK_DATA_SIZE: usize = 900;
+pub use solana_ibc_constants::CHUNK_DATA_SIZE;
 
 /// Storage for payload chunks during multi-transaction upload
 #[account]

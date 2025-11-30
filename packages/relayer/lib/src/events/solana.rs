@@ -15,7 +15,7 @@ use solana_ibc_types::{
 };
 
 use crate::events::{EurekaEvent, EurekaEventWithHeight};
-use crate::utils::solana::MAX_CHUNK_SIZE;
+use solana_ibc_constants::CHUNK_DATA_SIZE;
 
 /// Parsed IBC event from Solana transaction logs
 #[derive(Debug, Clone)]
@@ -154,8 +154,8 @@ pub fn tm_timeout_to_solana_timeout_packet(
         .into_iter()
         .map(|p| {
             // Calculate total chunks for each payload
-            let total_chunks = if p.value.len() > MAX_CHUNK_SIZE {
-                u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE)).context("payload too big")?
+            let total_chunks = if p.value.len() > CHUNK_DATA_SIZE {
+                u8::try_from(p.value.len().div_ceil(CHUNK_DATA_SIZE)).context("payload too big")?
             } else {
                 0
             };
@@ -170,8 +170,8 @@ pub fn tm_timeout_to_solana_timeout_packet(
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
 
-    let proof_total_chunks = if msg.proof_unreceived.len() > MAX_CHUNK_SIZE {
-        u8::try_from(msg.proof_unreceived.len().div_ceil(MAX_CHUNK_SIZE))
+    let proof_total_chunks = if msg.proof_unreceived.len() > CHUNK_DATA_SIZE {
+        u8::try_from(msg.proof_unreceived.len().div_ceil(CHUNK_DATA_SIZE))
             .context("proof too big")?
     } else {
         0

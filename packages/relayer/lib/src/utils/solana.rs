@@ -1,5 +1,6 @@
 //! Relayer utilities for `solana-eureka` chains.
 use anyhow::Context;
+use solana_ibc_constants::CHUNK_DATA_SIZE;
 use solana_ibc_types::{
     IbcHeight, MsgAckPacket as SolanaAckPacket, MsgRecvPacket as SolanaMsgRecvPacket,
     MsgTimeoutPacket, Packet, Payload, PayloadMetadata, ProofMetadata,
@@ -11,11 +12,6 @@ use ibc_proto_eureka::ibc::core::channel::v2::{
 };
 
 use crate::events::{SolanaEurekaEvent, SolanaEurekaEventWithHeight};
-
-use tracing;
-
-/// Maximum size for a chunk (matches `CHUNK_DATA_SIZE` in Solana program)
-pub const MAX_CHUNK_SIZE: usize = 900;
 
 /// Threshold for inlining payloads vs chunking (combined size)
 const INLINE_THRESHOLD: usize = 300;
@@ -347,7 +343,7 @@ fn build_chunked_metadata_from_solana_payloads(
     payloads
         .iter()
         .map(|p| {
-            let total_chunks = u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE).max(1))
+            let total_chunks = u8::try_from(p.value.len().div_ceil(CHUNK_DATA_SIZE).max(1))
                 .context("payload too big to fit in u8")?;
             tracing::info!(
                 "packet seq={}: payload size={}, chunks={}",
@@ -436,7 +432,7 @@ fn build_chunked_packet(
     let payloads_metadata: Vec<PayloadMetadata> = payloads
         .into_iter()
         .map(|p| {
-            let total_chunks = u8::try_from(p.value.len().div_ceil(MAX_CHUNK_SIZE).max(1))
+            let total_chunks = u8::try_from(p.value.len().div_ceil(CHUNK_DATA_SIZE).max(1))
                 .context("payload too big to fit in u8")?;
             tracing::info!(
                 "packet seq={}: payload size={}, chunks={}",
@@ -555,9 +551,14 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Recv
 
     // Create proof metadata
     let proof_chunks = value.proof_commitment.clone();
-    let proof_total_chunks =
-        u8::try_from(value.proof_commitment.len().div_ceil(MAX_CHUNK_SIZE).max(1))
-            .context("proof too big to fit in u8")?;
+    let proof_total_chunks = u8::try_from(
+        value
+            .proof_commitment
+            .len()
+            .div_ceil(CHUNK_DATA_SIZE)
+            .max(1),
+    )
+    .context("proof too big to fit in u8")?;
 
     tracing::info!(
         "recv_packet seq={}: proof_size={}, proof_chunks={}",
@@ -631,7 +632,7 @@ pub fn ibc_to_solana_ack_packet(
     )?;
 
     let proof_chunks = value.proof_acked.clone();
-    let proof_total_chunks = u8::try_from(value.proof_acked.len().div_ceil(MAX_CHUNK_SIZE).max(1))
+    let proof_total_chunks = u8::try_from(value.proof_acked.len().div_ceil(CHUNK_DATA_SIZE).max(1))
         .context("proof too big")?;
 
     tracing::info!("=== CONVERTING TO SOLANA FORMAT ===");

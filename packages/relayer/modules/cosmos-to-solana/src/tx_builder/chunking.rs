@@ -8,7 +8,7 @@ use solana_sdk::{
 };
 
 use ibc_eureka_relayer_core::api::SolanaPacketTxs;
-use ibc_eureka_relayer_lib::utils::solana::MAX_CHUNK_SIZE;
+use solana_ibc_constants::CHUNK_DATA_SIZE;
 use solana_ibc_types::{
     router::{router_instructions, MsgCleanupChunks, PayloadChunk, ProofChunk},
     MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
@@ -17,7 +17,7 @@ use solana_ibc_types::{
 impl super::TxBuilder {
     /// Helper function to split data into chunks
     pub(crate) fn split_into_chunks(data: &[u8]) -> Vec<Vec<u8>> {
-        data.chunks(MAX_CHUNK_SIZE).map(<[u8]>::to_vec).collect()
+        data.chunks(CHUNK_DATA_SIZE).map(<[u8]>::to_vec).collect()
     }
 
     pub(crate) fn build_upload_payload_chunk_instruction(

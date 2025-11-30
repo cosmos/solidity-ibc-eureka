@@ -28,6 +28,7 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl.workspace = true
 solana-ibc-types.workspace = true
+solana-ibc-constants.workspace = true
 solana-ibc-macros.workspace = true
 ics25-handler.workspace = true
 access-manager = { workspace = true, features = ["cpi"] }
