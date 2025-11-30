@@ -24,6 +24,8 @@ type SolanaCosmosConfigInfo struct {
 	SolanaAltAddress string
 	// Whether we use the mock WASM client in Cosmos (for Solana->Cosmos)
 	MockWasmClient bool
+	// Signature threshold for skipping pre-verification (nil = use default 50, 0 = always use pre-verify)
+	SkipPreVerifyThreshold *int
 }
 
 type SolanaToCosmosModuleConfig struct {
@@ -56,6 +58,8 @@ type CosmosToSolanaModuleConfig struct {
 	SolanaAltAddress *string `json:"solana_alt_address,omitempty"`
 	// Whether to use mock WASM client on Cosmos for testing
 	MockWasmClient bool `json:"mock_wasm_client"`
+	// Signature threshold for skipping pre-verification (optional, default: 50, 0 = always use pre-verify)
+	SkipPreVerifyThreshold *int `json:"skip_pre_verify_threshold,omitempty"`
 }
 
 func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig {
@@ -84,13 +88,14 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 			SrcChain: configInfo.CosmosChainID,
 			DstChain: configInfo.SolanaChainID,
 			Config: CosmosToSolanaModuleConfig{
-				SourceRpcUrl:         configInfo.TmRPC,
-				TargetRpcUrl:         configInfo.SolanaRPC,
-				SolanaIcs26ProgramId: configInfo.ICS26RouterProgramID,
-				SolanaIcs07ProgramId: configInfo.ICS07ProgramID,
-				SolanaFeePayer:       configInfo.SolanaFeePayer,
-				SolanaAltAddress:     altAddress,
-				MockWasmClient:       configInfo.MockWasmClient,
+				SourceRpcUrl:           configInfo.TmRPC,
+				TargetRpcUrl:           configInfo.SolanaRPC,
+				SolanaIcs26ProgramId:   configInfo.ICS26RouterProgramID,
+				SolanaIcs07ProgramId:   configInfo.ICS07ProgramID,
+				SolanaFeePayer:         configInfo.SolanaFeePayer,
+				SolanaAltAddress:       altAddress,
+				MockWasmClient:         configInfo.MockWasmClient,
+				SkipPreVerifyThreshold: configInfo.SkipPreVerifyThreshold,
 			},
 		},
 	}
