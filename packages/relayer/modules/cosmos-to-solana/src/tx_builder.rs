@@ -79,6 +79,9 @@ pub(crate) const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
 /// Priority fee in micro-lamports per compute unit
 pub(crate) const DEFAULT_PRIORITY_FEE: u64 = 1000;
 
+/// Maximum accounts that fit in a Solana transaction without ALT
+const MAX_ACCOUNTS_WITHOUT_ALT: usize = 30;
+
 /// Parameters for uploading a header chunk (mirrors the Solana program's type)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub(crate) struct UploadChunkParams {
@@ -225,9 +228,7 @@ impl TxBuilder {
             .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
 
         // Check if we can use the optimized path (skip pre-verify and ALT)
-        // The assembly transaction without ALT can fit up to ~30 accounts
         // Accounts = static accounts + chunk PDAs (no signature PDAs in optimized path)
-        const MAX_ACCOUNTS_WITHOUT_ALT: usize = 30;
         let optimized_accounts = ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS + total_chunks as usize;
         let can_skip_alt = optimized_accounts <= MAX_ACCOUNTS_WITHOUT_ALT;
 

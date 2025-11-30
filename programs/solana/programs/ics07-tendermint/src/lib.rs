@@ -181,7 +181,7 @@ pub struct AssembleAndUpdateClient<'info> {
 }
 
 impl AssembleAndUpdateClient<'_> {
-    /// Number of static accounts (excludes remaining_accounts for chunks/sigs)
+    /// Number of static accounts (excludes `remaining_accounts` for chunks/sigs)
     pub const STATIC_ACCOUNTS: usize = solana_ibc_constants::ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS;
 }
 
