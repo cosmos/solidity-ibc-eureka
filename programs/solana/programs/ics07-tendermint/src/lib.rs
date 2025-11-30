@@ -422,7 +422,10 @@ mod tests {
 
     #[test]
     fn test_static_accounts_matches_idl() {
-        let idl_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../target/idl/ics07_tendermint.json");
+        let idl_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../target/idl/ics07_tendermint.json"
+        );
         let Ok(idl) = std::fs::read_to_string(idl_path) else {
             eprintln!("Skipping test: IDL file not found at {idl_path}");
             return;

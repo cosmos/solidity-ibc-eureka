@@ -68,6 +68,10 @@ pub struct CosmosToSolanaConfig {
     pub skip_pre_verify_threshold: Option<usize>,
 }
 
+#[allow(
+    clippy::unnecessary_wraps,
+    reason = "Option required for serde default to match field type"
+)]
 const fn default_skip_pre_verify_threshold() -> Option<usize> {
     Some(50)
 }
