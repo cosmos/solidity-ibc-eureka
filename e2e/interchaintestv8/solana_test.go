@@ -74,6 +74,9 @@ type IbcEurekaSolanaTestSuite struct {
 	// ALT configuration - if set, will be used when starting relayer
 	SolanaAltAddress string
 	RelayerProcess   *os.Process
+
+	// Signature threshold for skipping pre-verification (nil = use default 50)
+	SkipPreVerifyThreshold *int
 }
 
 func TestWithIbcEurekaSolanaTestSuite(t *testing.T) {
@@ -265,16 +268,17 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Log("Starting relayer asynchronously...")
 
 		configInfo := relayer.SolanaCosmosConfigInfo{
-			SolanaChainID:        testvalues.SolanaChainID,
-			CosmosChainID:        simd.Config().ChainID,
-			SolanaRPC:            testvalues.SolanaLocalnetRPC,
-			TmRPC:                simd.GetHostRPCAddress(),
-			ICS07ProgramID:       ics07_tendermint.ProgramID.String(),
-			ICS26RouterProgramID: ics26_router.ProgramID.String(),
-			CosmosSignerAddress:  s.CosmosUsers[0].FormattedAddress(),
-			SolanaFeePayer:       s.SolanaRelayer.PublicKey().String(),
-			SolanaAltAddress:     s.SolanaAltAddress,
-			MockWasmClient:       s.UseMockWasmClient,
+			SolanaChainID:          testvalues.SolanaChainID,
+			CosmosChainID:          simd.Config().ChainID,
+			SolanaRPC:              testvalues.SolanaLocalnetRPC,
+			TmRPC:                  simd.GetHostRPCAddress(),
+			ICS07ProgramID:         ics07_tendermint.ProgramID.String(),
+			ICS26RouterProgramID:   ics26_router.ProgramID.String(),
+			CosmosSignerAddress:    s.CosmosUsers[0].FormattedAddress(),
+			SolanaFeePayer:         s.SolanaRelayer.PublicKey().String(),
+			SolanaAltAddress:       s.SolanaAltAddress,
+			MockWasmClient:         s.UseMockWasmClient,
+			SkipPreVerifyThreshold: s.SkipPreVerifyThreshold,
 		}
 
 		config := relayer.NewConfig(relayer.CreateSolanaCosmosModules(configInfo))
@@ -929,9 +933,21 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 }
 
 func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer() {
+	s.runCosmosToSolanaTransfer(nil) // nil = use default threshold (optimized path)
+}
+
+// Test_CosmosToSolanaTransfer_WithPreVerify tests the full path with pre-verification
+// and Address Lookup Table (ALT) by setting skip_pre_verify_threshold to 0.
+func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer_WithPreVerify() {
+	threshold := 0
+	s.runCosmosToSolanaTransfer(&threshold) // 0 = force pre-verify + ALT path
+}
+
+func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThreshold *int) {
 	ctx := context.Background()
 
 	s.UseMockWasmClient = true
+	s.SkipPreVerifyThreshold = skipPreVerifyThreshold
 
 	s.SetupSuite(ctx)
 	s.setupDummyApp(ctx)

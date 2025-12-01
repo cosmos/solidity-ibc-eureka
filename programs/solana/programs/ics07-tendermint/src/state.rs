@@ -1,7 +1,6 @@
 use crate::types::ConsensusState;
 use anchor_lang::prelude::*;
-
-pub const CHUNK_DATA_SIZE: usize = 900;
+pub use solana_ibc_constants::CHUNK_DATA_SIZE;
 
 #[account]
 #[derive(InitSpace)]

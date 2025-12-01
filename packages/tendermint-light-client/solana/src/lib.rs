@@ -100,13 +100,6 @@ impl<'a> SolanaSignatureVerifier<'a> {
             program_id,
         }
     }
-
-    pub fn without_pre_verification(program_id: &'a Pubkey) -> Self {
-        Self {
-            verification_accounts: &[],
-            program_id,
-        }
-    }
 }
 
 impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a> {

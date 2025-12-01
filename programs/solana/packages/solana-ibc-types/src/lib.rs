@@ -30,7 +30,10 @@ pub use router::{
 // Re-export MAX_CLIENT_ID_LENGTH from solana-ibc-proto (single source of truth)
 pub use solana_ibc_proto::MAX_CLIENT_ID_LENGTH;
 
-pub use ics07::{ics07_instructions, ClientState, ConsensusState, IbcHeight, UpdateClientMsg};
+pub use ics07::{
+    ics07_instructions, ClientState, ConsensusState, IbcHeight, UpdateClientMsg,
+    ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS,
+};
 
 pub use ics27::{
     ClientId, ConstrainedBytes, ConstrainedError, ConstrainedString, ConstrainedVec, GMPAccount,

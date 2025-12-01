@@ -35,6 +35,7 @@ use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use ibc_eureka_relayer_core::api::{self, SolanaPacketTxs};
 
+use solana_ibc_constants::ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS;
 use solana_ibc_types::ics07::{ClientState, ConsensusState};
 
 pub use transaction::derive_alt_address;
@@ -77,6 +78,9 @@ pub(crate) const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
 
 /// Priority fee in micro-lamports per compute unit
 pub(crate) const DEFAULT_PRIORITY_FEE: u64 = 1000;
+
+/// Maximum accounts that fit in a Solana transaction without ALT
+const MAX_ACCOUNTS_WITHOUT_ALT: usize = 30;
 
 /// Parameters for uploading a header chunk (mirrors the Solana program's type)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -121,6 +125,9 @@ pub struct TxBuilder {
     pub fee_payer: Pubkey,
     /// Address Lookup Table address for reducing transaction size (optional).
     pub alt_address: Option<Pubkey>,
+    /// Signature threshold for skipping pre-verification.
+    /// None = always use pre-verification, Some(n) = skip when signatures ≤ n.
+    pub skip_pre_verify_threshold: Option<usize>,
 }
 
 impl TxBuilder {
@@ -135,6 +142,7 @@ impl TxBuilder {
         solana_ics26_program_id: Pubkey,
         fee_payer: Pubkey,
         alt_address: Option<Pubkey>,
+        skip_pre_verify_threshold: Option<usize>,
     ) -> Result<Self> {
         Ok(Self {
             src_tm_client,
@@ -143,6 +151,7 @@ impl TxBuilder {
             solana_ics07_program_id,
             fee_payer,
             alt_address,
+            skip_pre_verify_threshold,
         })
     }
 
@@ -217,6 +226,51 @@ impl TxBuilder {
         let chunks = Self::split_into_chunks(&header_bytes);
         let total_chunks = u8::try_from(chunks.len())
             .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
+
+        // Check if we can use the optimized path (skip pre-verify and ALT)
+        // Accounts = static accounts + chunk PDAs (no signature PDAs in optimized path)
+        let optimized_accounts = ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS + total_chunks as usize;
+        let can_skip_alt = optimized_accounts <= MAX_ACCOUNTS_WITHOUT_ALT;
+
+        let use_optimized_path = self
+            .skip_pre_verify_threshold
+            .is_some_and(|threshold| signature_data.len() <= threshold && can_skip_alt);
+
+        if use_optimized_path {
+            tracing::info!(
+                "Using optimized path: {} signatures <= threshold, {} accounts <= {}, skipping pre-verify and ALT",
+                signature_data.len(),
+                optimized_accounts,
+                MAX_ACCOUNTS_WITHOUT_ALT
+            );
+
+            let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
+
+            let assembly_tx = self.build_assemble_and_update_client_tx(
+                &chain_id,
+                target_height,
+                trusted_height,
+                total_chunks,
+                &[],
+                None,
+            )?;
+
+            let cleanup_tx = self.build_cleanup_tx(&chain_id, target_height, total_chunks, &[])?;
+
+            return Ok(api::SolanaUpdateClient {
+                chunk_txs,
+                alt_create_tx: vec![],
+                alt_extend_txs: vec![],
+                assembly_tx,
+                target_height,
+                cleanup_tx,
+            });
+        }
+
+        tracing::info!(
+            "Using full path: {} signatures > threshold, using pre-verify and ALT",
+            signature_data.len()
+        );
 
         let mut prep_txs: Vec<Vec<u8>> = signature_data
             .iter()
@@ -559,10 +613,10 @@ impl TxBuilder {
         timeout_with_chunks: &mut ibc_eureka_relayer_lib::utils::solana::TimeoutPacketWithChunks,
         tm_msg: &ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout,
     ) {
-        use ibc_eureka_relayer_lib::utils::solana::MAX_CHUNK_SIZE;
+        use solana_ibc_constants::CHUNK_DATA_SIZE;
 
         let proof_bytes = &tm_msg.proof_unreceived;
-        let proof_total_chunks = proof_bytes.len().div_ceil(MAX_CHUNK_SIZE) as u8;
+        let proof_total_chunks = proof_bytes.len().div_ceil(CHUNK_DATA_SIZE) as u8;
 
         timeout_with_chunks.msg.proof.height = tm_msg
             .proof_height

@@ -327,46 +327,52 @@ func (s *Solana) submitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	t.Logf("Chunk transactions: %d", len(solanaUpdateClient.ChunkTxs))
 
 	altExtendCount := len(solanaUpdateClient.AltExtendTxs)
+	hasAlt := len(solanaUpdateClient.AltCreateTx) > 0
 
 	// Phase 1: Submit ALT ops and prep txs in parallel
 	t.Logf("--- Phase 1: Creating ALT and uploading prep transactions in parallel ---")
 	phase1Start := time.Now()
 
-	// Start ALT operations in background goroutine
+	// Start ALT operations in background goroutine (only if ALT is being used)
 	altDone := make(chan error, 1)
-	go func() {
-		// Submit ALT creation transaction
-		altCreateTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(solanaUpdateClient.AltCreateTx))
-		if err != nil {
-			altDone <- fmt.Errorf("failed to decode ALT creation tx: %w", err)
-			return
-		}
-
-		altCreateSig, err := s.SignAndBroadcastTxWithOpts(ctx, altCreateTx, rpc.ConfirmationStatusConfirmed, user)
-		if err != nil {
-			altDone <- fmt.Errorf("failed to submit ALT creation tx: %w", err)
-			return
-		}
-		t.Logf("✓ ALT creation tx submitted: %s", altCreateSig)
-
-		// Submit ALT extension transactions sequentially
-		for i, altExtendTxBytes := range solanaUpdateClient.AltExtendTxs {
-			altExtendTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(altExtendTxBytes))
+	if hasAlt {
+		go func() {
+			// Submit ALT creation transaction
+			altCreateTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(solanaUpdateClient.AltCreateTx))
 			if err != nil {
-				altDone <- fmt.Errorf("failed to decode ALT extension tx %d: %w", i+1, err)
+				altDone <- fmt.Errorf("failed to decode ALT creation tx: %w", err)
 				return
 			}
 
-			altExtendSig, err := s.SignAndBroadcastTxWithOpts(ctx, altExtendTx, rpc.ConfirmationStatusConfirmed, user)
+			altCreateSig, err := s.SignAndBroadcastTxWithOpts(ctx, altCreateTx, rpc.ConfirmationStatusConfirmed, user)
 			if err != nil {
-				altDone <- fmt.Errorf("failed to submit ALT extension tx %d: %w", i+1, err)
+				altDone <- fmt.Errorf("failed to submit ALT creation tx: %w", err)
 				return
 			}
-			t.Logf("✓ ALT extension tx %d/%d submitted: %s", i+1, altExtendCount, altExtendSig)
-		}
+			t.Logf("✓ ALT creation tx submitted: %s", altCreateSig)
 
+			// Submit ALT extension transactions sequentially
+			for i, altExtendTxBytes := range solanaUpdateClient.AltExtendTxs {
+				altExtendTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(altExtendTxBytes))
+				if err != nil {
+					altDone <- fmt.Errorf("failed to decode ALT extension tx %d: %w", i+1, err)
+					return
+				}
+
+				altExtendSig, err := s.SignAndBroadcastTxWithOpts(ctx, altExtendTx, rpc.ConfirmationStatusConfirmed, user)
+				if err != nil {
+					altDone <- fmt.Errorf("failed to submit ALT extension tx %d: %w", i+1, err)
+					return
+				}
+				t.Logf("✓ ALT extension tx %d/%d submitted: %s", i+1, altExtendCount, altExtendSig)
+			}
+
+			altDone <- nil
+		}()
+	} else {
+		t.Logf("Skipping ALT operations (optimized path for low validator count)")
 		altDone <- nil
-	}()
+	}
 
 	// Upload signature verifications and header chunks in parallel with ALT ops
 	prepTxCount := len(solanaUpdateClient.ChunkTxs)
@@ -477,22 +483,25 @@ func (s *Solana) submitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	if err := <-altDone; err != nil {
 		require.NoError(err, "ALT operations failed")
 	}
-	t.Logf("✓ ALT create + extend complete")
 
-	// Wait for ALT to activate (requires at least 1 slot)
-	t.Logf("Waiting for ALT to activate (next slot)...")
-	currentSlot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
-	require.NoError(err, "Failed to get current slot")
+	if hasAlt {
+		t.Logf("✓ ALT create + extend complete")
 
-	targetSlot := currentSlot + 1
-	for {
-		slot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
-		require.NoError(err, "Failed to poll slot")
-		if slot >= targetSlot {
-			t.Logf("✓ ALT activated at slot %d (waited for slot %d)", slot, targetSlot)
-			break
+		// Wait for ALT to activate (requires at least 1 slot)
+		t.Logf("Waiting for ALT to activate (next slot)...")
+		currentSlot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
+		require.NoError(err, "Failed to get current slot")
+
+		targetSlot := currentSlot + 1
+		for {
+			slot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
+			require.NoError(err, "Failed to poll slot")
+			if slot >= targetSlot {
+				t.Logf("✓ ALT activated at slot %d (waited for slot %d)", slot, targetSlot)
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
 		}
-		time.Sleep(100 * time.Millisecond)
 	}
 
 	phase1Duration := time.Since(phase1Start)

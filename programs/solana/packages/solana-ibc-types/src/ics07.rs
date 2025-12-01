@@ -4,6 +4,8 @@
 
 use anchor_lang::prelude::*;
 
+pub use solana_ibc_constants::ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS;
+
 /// ICS07 Tendermint instruction names and discriminators
 pub mod ics07_instructions {
     use crate::utils::compute_discriminator;

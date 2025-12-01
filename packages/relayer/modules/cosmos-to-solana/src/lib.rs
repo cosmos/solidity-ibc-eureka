@@ -61,6 +61,19 @@ pub struct CosmosToSolanaConfig {
     pub solana_alt_address: Option<String>,
     /// Whether to use mock WASM client on Cosmos for testing.
     pub mock_wasm_client: bool,
+    /// Signature threshold below which pre-verification is skipped.
+    /// None = always use pre-verification, Some(n) = skip when signatures ≤ n.
+    /// Default: Some(50)
+    #[serde(default = "default_skip_pre_verify_threshold")]
+    pub skip_pre_verify_threshold: Option<usize>,
+}
+
+#[allow(
+    clippy::unnecessary_wraps,
+    reason = "Option required for serde default to match field type"
+)]
+const fn default_skip_pre_verify_threshold() -> Option<usize> {
+    Some(50)
 }
 
 impl CosmosToSolanaRelayerModuleService {
@@ -100,6 +113,7 @@ impl CosmosToSolanaRelayerModuleService {
             solana_ics26_program_id,
             fee_payer,
             alt_address,
+            config.skip_pre_verify_threshold,
         )?;
 
         Ok(Self {

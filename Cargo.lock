@@ -5581,6 +5581,7 @@ dependencies = [
  "serde",
  "serde_json",
  "solana-client",
+ "solana-ibc-constants",
  "solana-ibc-types",
  "solana-sdk",
  "solana-transaction-status",
