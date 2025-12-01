@@ -12562,6 +12562,7 @@ dependencies = [
 name = "tendermint-light-client-update-client"
 version = "0.1.0"
 dependencies = [
+ "anchor-lang",
  "hex",
  "ibc-client-tendermint",
  "ibc-core-client",
@@ -12573,7 +12574,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "solana-program",
  "tendermint",
  "tendermint-light-client-solana",
  "tendermint-light-client-verifier",

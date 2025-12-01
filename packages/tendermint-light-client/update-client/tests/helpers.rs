@@ -172,7 +172,7 @@ pub fn execute_update_client(
     #[cfg(feature = "solana")]
     {
         // For tests with solana feature, use empty verification accounts and a dummy program ID
-        let dummy_program_id = solana_program::pubkey::Pubkey::new_unique();
+        let dummy_program_id = anchor_lang::prelude::Pubkey::new_unique();
         update_client(
             &ctx.client_state,
             &ctx.trusted_consensus_state,

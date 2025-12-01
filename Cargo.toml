@@ -164,7 +164,6 @@ cw-ics08-wasm-eth-v1_2_0 = { package = "cw-ics08-wasm-eth", git = "https://githu
 ethereum-light-client-v1_2_0 = { package = "ethereum-light-client", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
 
 # Solana dependencies
-solana-program            = { version = "2.0" }
 solana-client             = { version = "2.0" }
 solana-sdk                = { version = "2.0" }
 solana-transaction-status = { version = "2.0" }
