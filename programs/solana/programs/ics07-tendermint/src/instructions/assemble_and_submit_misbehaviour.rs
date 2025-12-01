@@ -6,9 +6,10 @@ use anchor_lang::prelude::*;
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use tendermint_light_client_update_client::ClientState as TmClientState;
 
-pub fn assemble_and_submit_misbehaviour(
-    mut ctx: Context<AssembleAndSubmitMisbehaviour>,
+pub fn assemble_and_submit_misbehaviour<'info>(
+    mut ctx: Context<'_, '_, 'info, 'info, AssembleAndSubmitMisbehaviour<'info>>,
     client_id: String,
+    chunk_count: u8,
 ) -> Result<()> {
     access_manager::require_role(
         &ctx.accounts.access_manager,
@@ -23,13 +24,20 @@ pub fn assemble_and_submit_misbehaviour(
         ErrorCode::ClientAlreadyFrozen
     );
 
+    let chunk_count = chunk_count as usize;
     let submitter = ctx.accounts.submitter.key();
 
-    let misbehaviour_bytes = assemble_chunks(&ctx, &client_id, submitter)?;
+    let misbehaviour_bytes = assemble_chunks(&ctx, &client_id, submitter, chunk_count)?;
 
-    process_misbehaviour(&mut ctx, misbehaviour_bytes)?;
+    let signature_verification_accounts = &ctx.remaining_accounts[chunk_count..];
 
-    cleanup_chunks(&ctx, &client_id, submitter)?;
+    process_misbehaviour(
+        &mut ctx,
+        misbehaviour_bytes,
+        signature_verification_accounts,
+    )?;
+
+    cleanup_chunks(&ctx, &client_id, submitter, chunk_count)?;
 
     Ok(())
 }
@@ -38,10 +46,11 @@ fn assemble_chunks(
     ctx: &Context<AssembleAndSubmitMisbehaviour>,
     client_id: &str,
     submitter: Pubkey,
+    chunk_count: usize,
 ) -> Result<Vec<u8>> {
     let mut misbehaviour_bytes = Vec::new();
 
-    for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
+    for (index, chunk_account) in ctx.remaining_accounts[..chunk_count].iter().enumerate() {
         validate_and_load_chunk(
             chunk_account,
             client_id,
@@ -88,9 +97,10 @@ fn validate_and_load_chunk(
     Ok(())
 }
 
-fn process_misbehaviour(
-    ctx: &mut Context<AssembleAndSubmitMisbehaviour>,
+fn process_misbehaviour<'info>(
+    ctx: &mut Context<'_, '_, 'info, 'info, AssembleAndSubmitMisbehaviour<'info>>,
     misbehaviour_bytes: Vec<u8>,
+    signature_verification_accounts: &'info [AccountInfo<'info>],
 ) -> Result<()> {
     let client_state = &ctx.accounts.client_state;
 
@@ -118,6 +128,8 @@ fn process_misbehaviour(
         trusted_consensus_state_1,
         trusted_consensus_state_2,
         current_time,
+        signature_verification_accounts,
+        &crate::ID,
     )
     .map_err(|_| error!(ErrorCode::MisbehaviourCheckFailed))?;
 
@@ -149,8 +161,9 @@ fn cleanup_chunks(
     ctx: &Context<AssembleAndSubmitMisbehaviour>,
     client_id: &str,
     submitter: Pubkey,
+    chunk_count: usize,
 ) -> Result<()> {
-    for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
+    for (index, chunk_account) in ctx.remaining_accounts[..chunk_count].iter().enumerate() {
         let expected_seeds = &[
             crate::state::MisbehaviourChunk::SEED,
             submitter.as_ref(),

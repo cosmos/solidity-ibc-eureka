@@ -309,8 +309,10 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
 }
 
 fn create_assemble_instruction(test_accounts: &TestAccounts, client_id: &str) -> Instruction {
+    let chunk_count = test_accounts.chunk_pdas.len() as u8;
     let instruction_data = crate::instruction::AssembleAndSubmitMisbehaviour {
         client_id: client_id.to_string(),
+        chunk_count,
     };
 
     let (access_manager_pda, _) =

@@ -387,12 +387,15 @@ pub mod ics07_tendermint {
 
     /// Assemble chunks and submit misbehaviour
     /// Automatically freezes the client and cleans up all chunks
-    pub fn assemble_and_submit_misbehaviour(
-        ctx: Context<AssembleAndSubmitMisbehaviour>,
+    pub fn assemble_and_submit_misbehaviour<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AssembleAndSubmitMisbehaviour<'info>>,
         client_id: String,
+        chunk_count: u8,
     ) -> Result<()> {
         instructions::assemble_and_submit_misbehaviour::assemble_and_submit_misbehaviour(
-            ctx, client_id,
+            ctx,
+            client_id,
+            chunk_count,
         )
     }
 
