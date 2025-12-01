@@ -8,6 +8,8 @@
     unused_crate_dependencies
 )]
 
+use tendermint as _;
+
 pub mod tx_builder;
 
 use std::collections::HashMap;
@@ -19,10 +21,10 @@ use alloy::{
 use ibc_eureka_relayer_lib::{
     events::EurekaEventWithHeight,
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
+    service_utils::{parse_cosmos_tx_hashes, parse_eth_tx_hashes, to_tonic_status},
     tx_builder::TxBuilderService,
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
-use tendermint::Hash;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
@@ -114,11 +116,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         tracing::info!("Handling info request for Eth to Cosmos...");
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
-                chain_id: self
-                    .tm_listener
-                    .chain_id()
-                    .await
-                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+                chain_id: self.tm_listener.chain_id().await.map_err(to_tonic_status)?,
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
@@ -127,7 +125,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
                     .eth_listener
                     .chain_id()
                     .await
-                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+                    .map_err(to_tonic_status)?,
                 ibc_version: "2".to_string(),
                 ibc_contract: self.tx_builder.ics26_router_address().to_string(),
             }),
@@ -145,20 +143,10 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
-        let eth_txs = inner_req
-            .source_tx_ids
-            .into_iter()
-            .map(TryInto::<[u8; 32]>::try_into)
-            .map(|tx_hash| tx_hash.map(TxHash::from))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|tx| tonic::Status::from_error(format!("invalid tx hash: {tx:?}").into()))?;
+        let eth_tx_hashes = parse_eth_tx_hashes(inner_req.source_tx_ids)?;
+        let eth_txs = eth_tx_hashes.into_iter().map(TxHash::from).collect();
 
-        let cosmos_txs = inner_req
-            .timeout_tx_ids
-            .into_iter()
-            .map(Hash::try_from)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| tonic::Status::from_error(e.into()))?;
+        let cosmos_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
 
         let eth_events = self
             .eth_listener

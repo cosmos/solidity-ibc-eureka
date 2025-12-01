@@ -8,6 +8,8 @@
     unused_crate_dependencies
 )]
 
+use tendermint as _;
+
 pub mod tx_builder;
 
 use alloy::{
@@ -16,6 +18,7 @@ use alloy::{
 };
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
+    service_utils::{parse_cosmos_tx_hashes, to_tonic_status},
     tx_builder::TxBuilderService,
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
@@ -25,7 +28,6 @@ use sp1_ics07_tendermint_prover::programs::{
 };
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{Prover, ProverClient};
-use tendermint::Hash;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 use tx_builder::TxBuilder;
@@ -249,16 +251,12 @@ impl RelayerService for CosmosToEthRelayerModuleService {
                     .eth_listener
                     .chain_id()
                     .await
-                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+                    .map_err(to_tonic_status)?,
                 ibc_version: "2".to_string(),
                 ibc_contract: self.tx_builder.ics26_router.address().to_string(),
             }),
             source_chain: Some(api::Chain {
-                chain_id: self
-                    .tm_listener
-                    .chain_id()
-                    .await
-                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+                chain_id: self.tm_listener.chain_id().await.map_err(to_tonic_status)?,
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
@@ -276,12 +274,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
-        let cosmos_txs = inner_req
-            .source_tx_ids
-            .into_iter()
-            .map(Hash::try_from)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| tonic::Status::from_error(e.into()))?;
+        let cosmos_txs = parse_cosmos_tx_hashes(inner_req.source_tx_ids)?;
 
         let eth_txs = inner_req
             .timeout_tx_ids
