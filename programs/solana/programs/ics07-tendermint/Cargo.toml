@@ -39,7 +39,7 @@ solana-define-syscall.workspace = true
 
 tendermint-light-client-update-client = { workspace = true, features = ["solana"] }
 tendermint-light-client-membership = { workspace = true, features = ["solana"] }
-tendermint-light-client-misbehaviour.workspace = true
+tendermint-light-client-misbehaviour = { workspace = true, features = ["solana"] }
 tendermint-light-client-solana = { workspace = true }
 
 ibc-client-tendermint.workspace = true

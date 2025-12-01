@@ -12514,10 +12514,13 @@ dependencies = [
 name = "tendermint-light-client-misbehaviour"
 version = "0.1.0"
 dependencies = [
+ "anchor-lang",
  "ibc-client-tendermint",
  "ibc-core-client-types",
  "ibc-core-host-types",
  "sha2 0.10.9",
+ "tendermint",
+ "tendermint-light-client-solana",
  "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
  "thiserror 2.0.17",
