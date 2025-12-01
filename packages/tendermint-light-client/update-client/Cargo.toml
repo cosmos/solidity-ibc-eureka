@@ -8,12 +8,12 @@ license     = { workspace = true }
 
 [features]
 default = []
-solana = ["dep:tendermint-light-client-solana", "dep:solana-program"]
+solana = ["dep:tendermint-light-client-solana", "dep:anchor-lang"]
 
 [dependencies]
 tendermint-light-client-verifier = { workspace = true }
 tendermint-light-client-solana   = { workspace = true, optional = true }
-solana-program                   = { version = "2.3.0", default-features = false, optional = true }
+anchor-lang                      = { workspace = true, optional = true}
 ibc-client-tendermint            = { workspace = true, features = ["serde"] }
 ibc-core-host-types              = { workspace = true }
 ibc-core-client                  = { workspace = true }

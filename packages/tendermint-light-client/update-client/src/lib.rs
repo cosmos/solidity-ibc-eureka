@@ -126,8 +126,8 @@ pub fn update_client<'a>(
     trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
     time: u128,
-    verification_accounts: &'a [solana_program::account_info::AccountInfo<'a>],
-    program_id: &'a solana_program::pubkey::Pubkey,
+    verification_accounts: &'a [anchor_lang::prelude::AccountInfo<'a>],
+    program_id: &'a anchor_lang::prelude::Pubkey,
 ) -> Result<UpdateClientOutput, UpdateClientError> {
     update_client_impl(
         client_state,
@@ -162,8 +162,8 @@ fn update_client_impl<'a>(
     trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
     time: u128,
-    verification_accounts: &'a [solana_program::account_info::AccountInfo<'a>],
-    program_id: &'a solana_program::pubkey::Pubkey,
+    verification_accounts: &'a [anchor_lang::prelude::AccountInfo<'a>],
+    program_id: &'a anchor_lang::prelude::Pubkey,
 ) -> Result<UpdateClientOutput, UpdateClientError> {
     let verifier = tendermint_light_client_solana::SolanaVerifier::new(
         tendermint_light_client_solana::SolanaPredicates,
