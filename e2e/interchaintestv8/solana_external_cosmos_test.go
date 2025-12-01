@@ -126,10 +126,17 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		s.Require().NoError(err, "Failed to fund wallets")
 
 		s.T().Log("Deploying Solana programs...")
-		const keypairDir = "e2e/interchaintestv8/solana/keypairs"
+		const keypairDir = "solana-keypairs/localnet"
 		const deployerPath = keypairDir + "/deployer_wallet.json"
 
 		deployResults, err := e2esuite.RunParallelTasksWithResults(
+			e2esuite.ParallelTaskWithResult[solanago.PublicKey]{
+				Name: "Deploy Access Manager",
+				Run: func() (solanago.PublicKey, error) {
+					keypairPath := fmt.Sprintf("%s/access_manager-keypair.json", keypairDir)
+					return s.SolanaChain.DeploySolanaProgramAsync(ctx, "access_manager", keypairPath, deployerPath)
+				},
+			},
 			e2esuite.ParallelTaskWithResult[solanago.PublicKey]{
 				Name: "Deploy ICS07 Tendermint",
 				Run: func() (solanago.PublicKey, error) {
@@ -147,11 +154,51 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		)
 		s.Require().NoError(err, "Program deployment failed")
 
+		access_manager.ProgramID = deployResults["Deploy Access Manager"]
 		ics07_tendermint.ProgramID = deployResults["Deploy ICS07 Tendermint"]
 		ics26_router.ProgramID = deployResults["Deploy ICS26 Router"]
 
+		s.T().Logf("Access Manager deployed at: %s", access_manager.ProgramID)
 		s.T().Logf("ICS07 Tendermint deployed at: %s", ics07_tendermint.ProgramID)
 		s.T().Logf("ICS26 Router deployed at: %s", ics26_router.ProgramID)
+	}))
+
+	s.Require().True(s.Run("Initialize Access Control", func() {
+		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+		initInstruction, err := access_manager.NewInitializeInstruction(
+			s.SolanaUser.PublicKey(),
+			accessControlAccount,
+			s.SolanaUser.PublicKey(),
+			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
+		s.Require().NoError(err)
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Log("Access control initialized")
+	}))
+
+	s.Require().True(s.Run("Grant RELAYER_ROLE to SolanaUser", func() {
+		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+		const RELAYER_ROLE = uint64(1)
+
+		grantRelayerRoleInstruction, err := access_manager.NewGrantRoleInstruction(
+			RELAYER_ROLE,
+			s.SolanaUser.PublicKey(),
+			accessControlAccount,
+			s.SolanaUser.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), grantRelayerRoleInstruction)
+		s.Require().NoError(err)
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Log("Granted RELAYER_ROLE to SolanaUser")
 	}))
 
 	s.Require().True(s.Run("Initialize ICS26 Router", func() {
@@ -179,7 +226,7 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		s.T().Log("Creating Address Lookup Table for external Cosmos chain...")
 		altAddress := s.SolanaChain.CreateIBCAddressLookupTable(
 			ctx, s.T(), s.Require(), s.SolanaUser,
-			s.ExternalCosmosChainID, "transfer", SolanaExternalClientID,
+			s.ExternalCosmosChainID, "transfer", s.ExternalCosmosChainID,
 		)
 		s.SolanaAltAddress = altAddress.String()
 		s.T().Logf("Created Address Lookup Table: %s", s.SolanaAltAddress)
@@ -294,7 +341,7 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_UpdateClient() {
 	updateResp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
 		SrcChain:    s.ExternalCosmosChainID,
 		DstChain:    testvalues.SolanaChainID,
-		DstClientId: SolanaExternalClientID,
+		DstClientId: s.ExternalCosmosChainID,
 	})
 	s.Require().NoError(err, "Failed to create update client transaction")
 	s.Require().NotEmpty(updateResp.Tx, "Relayer returned empty transaction")
@@ -338,7 +385,7 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_MultipleUpdates() {
 		updateResp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
 			SrcChain:    s.ExternalCosmosChainID,
 			DstChain:    testvalues.SolanaChainID,
-			DstClientId: SolanaExternalClientID,
+			DstClientId: s.ExternalCosmosChainID,
 		})
 		s.Require().NoError(err, "Failed to create update %d", i+1)
 
@@ -358,5 +405,3 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_MultipleUpdates() {
 
 	s.T().Logf("Successfully performed %d consecutive client updates", numUpdates)
 }
-
-const SolanaExternalClientID = testvalues.CustomClientID
