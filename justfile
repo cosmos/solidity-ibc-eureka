@@ -1,5 +1,9 @@
 set dotenv-load
 
+# Default task lists all available tasks
+default:
+  just --list
+
 # Build the contracts using `forge build`
 [group('build')]
 build-contracts: clean-foundry
