@@ -128,6 +128,15 @@ cosmwasm-schema = { version = "2.2", default-features = false }
 cosmwasm-std    = { version = "2.2", default-features = false }
 cw2             = { version = "2.0", default-features = false }
 
+moka = { version = "0.12", features = ["future"] }
+uuid = { version = "1.18", default-features = false }
+
+# OpenTelemetry
+opentelemetry         = { version = "0.30", default-features = false }
+opentelemetry-otlp    = { version = "0.30", default-features = false }
+opentelemetry_sdk     = { version = "0.30", default-features = false }
+tracing-opentelemetry = { version = "0.31", default-features = false }
+
 # The dependencies below are maintained by Sigma Prime (for use in Lighthouse (and the broader Ethereum ecosystem))
 ethereum_ssz        = { version = "0.10", default-features = false }
 ethereum_ssz_derive = { version = "0.10", default-features = false }
