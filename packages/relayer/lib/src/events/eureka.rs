@@ -48,12 +48,8 @@ impl TryFrom<&Log> for EurekaEventWithHeight {
     type Error = anyhow::Error;
 
     fn try_from(log: &Log) -> anyhow::Result<Self> {
-        let sol_event = routerEvents::decode_log(&log.inner).map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to decode log into ICS26Router event: {}",
-                e.to_string()
-            )
-        })?;
+        let sol_event = routerEvents::decode_log(&log.inner)
+            .map_err(|e| anyhow::anyhow!("Failed to decode log into ICS26Router event: {e}"))?;
         let event_type = match sol_event.data {
             routerEvents::SendPacket(event) => Ok(EurekaEvent::SendPacket(event.packet)),
             routerEvents::WriteAcknowledgement(event) => Ok(EurekaEvent::WriteAcknowledgement(
@@ -71,7 +67,7 @@ impl TryFrom<&Log> for EurekaEventWithHeight {
             event: event_type,
             height: log
                 .block_number
-                .ok_or_else(|| anyhow::anyhow!("Block number not found in log: {:?}", log))?,
+                .ok_or_else(|| anyhow::anyhow!("Block number not found in log: {log:?}"))?,
         })
     }
 }

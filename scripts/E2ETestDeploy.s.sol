@@ -10,16 +10,19 @@ pragma solidity ^0.8.28;
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
 
-import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
+import { IICS07TendermintMsgs } from "../contracts/light-clients/sp1-ics07/msgs/IICS07TendermintMsgs.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
+import { ICS27GMP } from "../contracts/ICS27GMP.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
+import { ICS27Lib } from "../contracts/utils/ICS27Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { DeployAccessManagerWithRoles } from "./deployments/DeployAccessManagerWithRoles.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
+import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
@@ -47,6 +50,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         // Deploy IBC Eureka with proxy
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
+        address ics27GmpLogic = address(new ICS27GMP());
 
         AccessManager accessManager = new AccessManager(msg.sender);
 
@@ -67,6 +71,13 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
             )
         );
 
+        ERC1967Proxy gmpProxy = new ERC1967Proxy(
+            ics27GmpLogic,
+            abi.encodeCall(
+                ICS27GMP.initialize, (address(routerProxy), address(new ICS27Account()), address(accessManager))
+            )
+        );
+
         // Wire up the IBCAdmin and access control
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
 
@@ -76,6 +87,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
 
         // Wire Transfer app
         ICS26Router(address(routerProxy)).addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(transferProxy));
+        ICS26Router(address(routerProxy)).addIBCApp(ICS27Lib.DEFAULT_PORT_ID, address(gmpProxy));
 
         // Mint some tokens
         TestERC20 erc20 = new TestERC20();
@@ -89,6 +101,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         json.serialize("verifierMock", Strings.toHexString(address(verifierMock)));
         json.serialize("ics26Router", Strings.toHexString(address(routerProxy)));
         json.serialize("ics20Transfer", Strings.toHexString(address(transferProxy)));
+        json.serialize("ics27Gmp", Strings.toHexString(address(gmpProxy)));
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;

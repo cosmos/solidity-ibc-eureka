@@ -417,19 +417,6 @@
   },
   {
     "type": "function",
-    "name": "upgradeClient",
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "verifyMembership",
     "inputs": [
       {

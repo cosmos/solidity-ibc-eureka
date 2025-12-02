@@ -24,12 +24,16 @@ build-sp1-programs:
   cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-uc-and-membership --locked
   cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-misbehaviour --locked
 
-# Build and optimize the eth wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
+# Build and optimize the eth wasm light client using a local docker image. Requires `docker` and `gzip`
 [group('build')]
 build-cw-ics08-wasm-eth:
-	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.17.0 ./programs/cw-ics08-wasm-eth
-	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
-	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
+  -@docker image rm cosmwasm-builder:latest
+  cd programs/cw-ics08-wasm-eth && docker buildx build --platform linux/amd64 -t cosmwasm-builder:latest .
+  docker run --rm --platform=linux/amd64  -t \
+    -v "$PWD":/code \
+    cosmwasm-builder:latest
+  cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
+  gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
 # Build the relayer docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built
@@ -95,12 +99,16 @@ generate-abi: build-contracts
 	jq '.abi' out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json > abi/SP1ICS07Tendermint.json
 	jq '.abi' out/ERC20.sol/ERC20.json > abi/ERC20.json
 	jq '.abi' out/IBCERC20.sol/IBCERC20.json > abi/IBCERC20.json
+	jq '.abi' out/ICS27Account.sol/ICS27Account.json > abi/ICS27Account.json
+	jq '.abi' out/ICS27GMP.sol/ICS27GMP.json > abi/ICS27GMP.json
 	jq '.abi' out/RelayerHelper.sol/RelayerHelper.json > abi/RelayerHelper.json
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out packages/go-abigen/sp1ics07tendermint/contract.go
 	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out packages/go-abigen/ics20transfer/contract.go
 	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out packages/go-abigen/ics26router/contract.go
 	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out packages/go-abigen/ibcerc20/contract.go
+	abigen --abi abi/ICS27Account.json --pkg ics27account --type Contract --out packages/go-abigen/ics27account/contract.go
+	abigen --abi abi/ICS27GMP.json --pkg ics27gmp --type Contract --out packages/go-abigen/ics27gmp/contract.go
 	abigen --abi abi/RelayerHelper.json --pkg relayerhelper --type Contract --out packages/go-abigen/relayerhelper/contract.go
 
 # Generate the ABI files with bytecode for the required contracts (only SP1ICS07Tendermint)
@@ -241,7 +249,7 @@ test-e2e-cosmos-relayer testname:
 
 # Run anu e2e test in the SP1ICS07TendermintTestSuite. For example, `just test-e2e-sp1-ics07 Test_Deploy`
 [group('test')]
-test-e2e-sp1-ics07 testname:
+test-e2e-sp1-ics07 testname: install-operator
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithSP1ICS07TendermintTestSuite/{{testname}}
 
@@ -250,6 +258,12 @@ test-e2e-sp1-ics07 testname:
 test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
+
+# Run any e2e test in the IbcEurekaGmpTestSuite. For example, `just test-e2e-multichain TestDeploy_Groth16`
+[group('test')]
+test-e2e-gmp testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaGmpTestSuite/{{testname}}
 
 # Clean up the foundry cache and out directories
 [group('clean')]

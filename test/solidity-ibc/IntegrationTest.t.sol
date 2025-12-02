@@ -100,8 +100,9 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
 
         defaultNativeDenom = erc20AddressStr;
 
-        clientIdentifier =
-            ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
+        clientIdentifier = ics26Router.addClient(
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
+        );
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
@@ -157,7 +158,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
                 packet: recvPacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-             })
+            })
         );
         multicallData[1] = abi.encodeCall(
             IICS26RouterAccessControlled.recvPacket,
@@ -165,7 +166,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
                 packet: recvPacket2,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-             })
+            })
         );
 
         ics26Router.multicall(multicallData);
@@ -220,7 +221,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
                 packet: receivePacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-             })
+            })
         );
         multicallData[1] = abi.encodeCall(
             IICS26RouterAccessControlled.recvPacket,
@@ -228,7 +229,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
                 packet: invalidPacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-             })
+            })
         );
 
         vm.expectRevert(
@@ -354,9 +355,9 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
 
         // receive again, should hit rate limit and write error ack
         vm.expectEmit();
-        emit IICS26Router.IBCAppRecvPacketCallbackError(
-            abi.encodeWithSelector(IRateLimitErrors.RateLimitExceeded.selector, defaultAmount - 1, defaultAmount)
-        );
+        emit IICS26Router.IBCAppRecvPacketCallbackError(abi.encodeWithSelector(
+                IRateLimitErrors.RateLimitExceeded.selector, defaultAmount - 1, defaultAmount
+            ));
         (,, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(
             "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom
         );
@@ -466,11 +467,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
         returns (IICS20TransferMsgs.FungibleTokenPacketData memory)
     {
         return IICS20TransferMsgs.FungibleTokenPacketData({
-            denom: denom,
-            amount: amount,
-            sender: sender,
-            receiver: receiver,
-            memo: "memo"
+            denom: denom, amount: amount, sender: sender, receiver: receiver, memo: "memo"
         });
     }
 
@@ -507,12 +504,9 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
         internal
         returns (IERC20 receivedERC20, string memory receivedDenom, IICS26RouterMsgs.Packet memory receivePacket)
     {
-        IICS20TransferMsgs.FungibleTokenPacketData memory receivePacketData = IICS20TransferMsgs.FungibleTokenPacketData({
-            denom: denom,
-            amount: amount,
-            sender: sender,
-            receiver: receiver,
-            memo: "memo"
+        IICS20TransferMsgs.FungibleTokenPacketData memory
+            receivePacketData = IICS20TransferMsgs.FungibleTokenPacketData({
+            denom: denom, amount: amount, sender: sender, receiver: receiver, memo: "memo"
         });
 
         IICS26RouterMsgs.Payload[] memory payloads = _getPayloads(abi.encode(receivePacketData));
@@ -539,7 +533,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
                 packet: receivePacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-             })
+            })
         );
 
         try ics20Transfer.ibcERC20Contract(expectedDenom) returns (address ibcERC20Addres) {

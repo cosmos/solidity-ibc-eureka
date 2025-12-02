@@ -5,13 +5,13 @@ import { Test } from "forge-std/Test.sol";
 
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
-import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
-import { IUpdateClientMsgs } from "../../contracts/light-clients/msgs/IUpdateClientMsgs.sol";
-import { IMembershipMsgs } from "../../contracts/light-clients/msgs/IMembershipMsgs.sol";
-import { IMisbehaviourMsgs } from "../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol";
-import { ISP1Msgs } from "../../contracts/light-clients/msgs/ISP1Msgs.sol";
+import { IICS07TendermintMsgs } from "../../contracts/light-clients/sp1-ics07/msgs/IICS07TendermintMsgs.sol";
+import { IUpdateClientMsgs } from "../../contracts/light-clients/sp1-ics07/msgs/IUpdateClientMsgs.sol";
+import { IMembershipMsgs } from "../../contracts/light-clients/sp1-ics07/msgs/IMembershipMsgs.sol";
+import { IMisbehaviourMsgs } from "../../contracts/light-clients/sp1-ics07/msgs/IMisbehaviourMsgs.sol";
+import { ISP1Msgs } from "../../contracts/light-clients/sp1-ics07/msgs/ISP1Msgs.sol";
 
-import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
+import { SP1ICS07Tendermint } from "../../contracts/light-clients/sp1-ics07/SP1ICS07Tendermint.sol";
 
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 
@@ -63,15 +63,9 @@ abstract contract SP1ICS07MockTest is Test {
     /// @notice Create a new mock consensus state
     /// @param timestamp The timestamp of the consensus state in unix nanoseconds
     /// @return The new consensus state
-    function newMockConsensusState(uint128 timestamp)
-        public
-        pure
-        returns (IICS07TendermintMsgs.ConsensusState memory)
-    {
+    function newMockConsensusState(uint128 timestamp) public pure returns (IICS07TendermintMsgs.ConsensusState memory) {
         return IICS07TendermintMsgs.ConsensusState({
-            timestamp: timestamp,
-            root: MOCK_ROOT,
-            nextValidatorsHash: MOCK_VAL_HASH
+            timestamp: timestamp, root: MOCK_ROOT, nextValidatorsHash: MOCK_VAL_HASH
         });
     }
 
@@ -109,8 +103,7 @@ abstract contract SP1ICS07MockTest is Test {
         });
 
         IMembershipMsgs.MembershipProof memory proof = IMembershipMsgs.MembershipProof({
-            proofType: IMembershipMsgs.MembershipProofType.SP1MembershipProof,
-            proof: abi.encode(sp1Proof)
+            proofType: IMembershipMsgs.MembershipProofType.SP1MembershipProof, proof: abi.encode(sp1Proof)
         });
 
         return ILightClientMsgs.MsgVerifyMembership({
@@ -132,8 +125,7 @@ abstract contract SP1ICS07MockTest is Test {
         });
 
         IMembershipMsgs.MembershipProof memory proof = IMembershipMsgs.MembershipProof({
-            proofType: IMembershipMsgs.MembershipProofType.SP1MembershipProof,
-            proof: abi.encode(sp1Proof)
+            proofType: IMembershipMsgs.MembershipProofType.SP1MembershipProof, proof: abi.encode(sp1Proof)
         });
 
         return ILightClientMsgs.MsgVerifyNonMembership({

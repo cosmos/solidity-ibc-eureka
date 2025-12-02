@@ -55,6 +55,8 @@ pub fn validate_merkle_branch(
     let mut value = leaf;
     for (i, branch_node) in branch.iter().take(depth).enumerate() {
         let mut hasher = Sha256::new();
+        #[allow(unknown_lints, clippy::manual_is_multiple_of)]
+        // TODO: replace when <https://github.com/CosmWasm/cosmwasm/issues/2485> is resolved
         if (index / 2u64.checked_pow(u32::try_from(i).unwrap()).unwrap()) % 2 != 0 {
             hasher.update(branch_node);
             hasher.update(value);
@@ -166,6 +168,10 @@ mod test {
             },
             electra: Fork {
                 version: FixedBytes([5, 0, 0, 1]),
+                epoch: 0,
+            },
+            fulu: Fork {
+                version: FixedBytes([6, 0, 0, 1]),
                 epoch: 0,
             },
         };

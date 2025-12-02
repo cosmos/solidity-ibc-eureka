@@ -7,9 +7,9 @@ import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
-import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
+import { SP1ICS07Tendermint } from "../../contracts/light-clients/sp1-ics07/SP1ICS07Tendermint.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
-import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
+import { IICS07TendermintMsgs } from "../../contracts/light-clients/sp1-ics07/msgs/IICS07TendermintMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -145,11 +145,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs, DeployAccessManager
         vm.warp(timestamp);
 
         return Fixture({
-            genesisFixture: genesisFixture,
-            msg: msgBz,
-            erc20Address: erc20Address,
-            timestamp: timestamp,
-            packet: packet
+            genesisFixture: genesisFixture, msg: msgBz, erc20Address: erc20Address, timestamp: timestamp, packet: packet
         });
     }
 }

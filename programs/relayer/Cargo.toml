@@ -14,9 +14,10 @@ ibc-eureka-relayer-eth-to-cosmos-compat = { workspace = true, default-features =
 
 tokio      = { workspace = true, default-features = true }
 prometheus = { workspace = true, default-features = true }
-warp       = { workspace = true, default-features = true }
+warp               = { workspace = true, default-features = true, features = ["server"] }
 clap       = { workspace = true, default-features = true }
 anyhow     = { workspace = true, default-features = true, features = ["backtrace"] }
+
 serde_json = { workspace = true, default-features = true }
 
 tracing            = { workspace = true, default-features = true, features = ["attributes", "std"] }

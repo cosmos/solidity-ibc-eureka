@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
 
             // Start the metrics server.
             tokio::spawn(async {
-                let metrics_route = warp::path("metrics").map(|| {
+                let metrics_route = warp::path("metrics".to_string()).map(|| {
                     let encoder = TextEncoder::new();
                     let metric_families = prometheus::gather();
                     let mut buffer = Vec::new();

@@ -53,10 +53,7 @@ interface IICS02Client is IICS02ClientAccessControlled {
     /// @notice Returns the counterparty client information given the client identifier.
     /// @param clientId The client identifier
     /// @return The counterparty client information
-    function getCounterparty(string calldata clientId)
-        external
-        view
-        returns (IICS02ClientMsgs.CounterpartyInfo memory);
+    function getCounterparty(string calldata clientId) external view returns (IICS02ClientMsgs.CounterpartyInfo memory);
 
     /// @notice Returns the address of the client contract given the client identifier.
     /// @param clientId The client identifier

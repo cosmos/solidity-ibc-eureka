@@ -200,10 +200,10 @@ pub fn setup_test_context(fixture: UcAndMembershipFixture) -> TestContext {
     let kv_pair = KVPair::from(&fixture.membership_msg);
     let merkle_proof = hex_to_merkle_proof(&fixture.membership_msg.proof);
 
-    let current_time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
+    let one_hour_nanos: u128 = 3600 * 1_000_000_000;
+
+    let current_time = (trusted_consensus_state.timestamp.unix_timestamp_nanos() as u128)
+        .saturating_add(one_hour_nanos);
 
     TestContext {
         client_state,
