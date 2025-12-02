@@ -28,7 +28,7 @@ impl Drop for ObservabilityGuard {
         }
         if let Some(provider) = self.otel_logger_provider.take() {
             // There is no shutdown on SdkLoggerProvider in 0.30; drop flushes processors.
-            let _ = provider;
+            drop(provider);
         }
     }
 }
@@ -190,7 +190,6 @@ mod tests {
 
         let provider = setup_otlp_logger(&config);
         assert!(provider.is_ok());
-        drop(provider);
     }
 
     #[tokio::test]
@@ -204,7 +203,6 @@ mod tests {
 
         let tracer_provider = setup_otlp_tracer(&config);
         assert!(tracer_provider.is_ok());
-        drop(tracer_provider);
     }
 
     #[tokio::test]
