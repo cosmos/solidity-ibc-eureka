@@ -152,7 +152,7 @@ pub fn timeout_packet<'info>(
     let non_membership_msg = NonMembershipMsg {
         height: msg.proof.height,
         proof: proof_data,
-        path: vec![ics24::IBC_MERKLE_PREFIX.to_vec(), receipt_path],
+        path: ics24::prefixed_path(&client.counterparty_info.merkle_prefix, &receipt_path)?,
     };
 
     let light_client_cpi = LightClientCpi::new(client);
