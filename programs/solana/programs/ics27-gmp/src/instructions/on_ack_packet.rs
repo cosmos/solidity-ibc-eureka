@@ -72,7 +72,6 @@ pub fn on_acknowledgement_packet(
         source_client: msg.source_client,
         sequence: msg.sequence,
         sender: result.sender.clone(),
-        acknowledgement_size: msg.acknowledgement.len() as u64,
         result_pda: result.key(),
         timestamp: clock.unix_timestamp,
     });
