@@ -1,6 +1,34 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::instructions::get_instruction_relative;
 
+// # How `get_instruction_relative(0, ...)` works
+//
+// The Instructions sysvar stores only top-level transaction instructions,
+// not nested CPI calls. During CPI, the instruction index doesn't change.
+//
+// ## Direct call - instruction IS our program:
+//
+//   Transaction
+//   ├─ Instruction 0: Program B (we are here, direct call)
+//   │                 get_instruction_relative(0) → Instruction 0
+//   │                 current_ix.program_id == self_program_id ✓
+//   │
+//   └─ Instruction 1: Program C
+//
+// ## CPI call - instruction is the CALLER's program:
+//
+//   Transaction
+//   ├─ Instruction 0: Program A ──┐
+//   │                             │ CPI
+//   │                             ▼
+//   │                      Program B (we are here)
+//   │                      get_instruction_relative(0) → Instruction 0
+//   │                      current_ix.program_id == Program A (caller)
+//   │
+//   └─ Instruction 1: Program C
+//
+// This allows us to verify WHO initiated the call.
+
 #[error_code]
 pub enum CpiValidationError {
     #[msg("Invalid sysvar account")]
@@ -32,7 +60,7 @@ pub fn validate_cpi_caller(
         return Err(CpiValidationError::InvalidSysvar);
     }
 
-    // Get the current instruction (0 = current, relative offset)
+    // Get the current instruction (0 = current, relative offset) - see above explanation
     let current_ix = get_instruction_relative(0, instruction_sysvar)
         .map_err(|_| CpiValidationError::InvalidSysvar)?;
 
@@ -65,7 +93,7 @@ pub fn reject_cpi(
         return Err(CpiValidationError::InvalidSysvar);
     }
 
-    // Get the current instruction (0 = current, relative offset)
+    // Get the current instruction (0 = current, relative offset) - see above explanation
     let current_ix = get_instruction_relative(0, instruction_sysvar)
         .map_err(|_| CpiValidationError::InvalidSysvar)?;
 
