@@ -1,7 +1,7 @@
 use crate::errors::RouterError;
 use crate::state::{AccountVersion, RouterState};
 use anchor_lang::prelude::*;
-use solana_ibc_types::reject_cpi;
+use solana_ibc_types::validate_direct_or_whitelisted_cpi;
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -27,7 +27,8 @@ pub struct Initialize<'info> {
 
 pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()> {
     // Reject CPI calls - this instruction must be called directly
-    reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(RouterError::from)?;
+    validate_direct_or_whitelisted_cpi(&ctx.accounts.instructions_sysvar, &[], &crate::ID)
+        .map_err(RouterError::from)?;
 
     let router_state = &mut ctx.accounts.router_state;
     router_state.version = AccountVersion::V1;

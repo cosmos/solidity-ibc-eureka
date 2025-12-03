@@ -47,11 +47,15 @@ pub fn require_role(
     instructions_sysvar: &AccountInfo,
     program_id: &Pubkey,
 ) -> Result<()> {
-    // Layer 1: Reject CPI calls - instruction must be called directly
+    // Layer 1: Validate caller - instruction must be called directly
     // This prevents malicious programs from bypassing signer checks by spoofing signers in a CPI call.
     // Only direct user transactions can pass this check, ensuring the signer is authentic.
-    solana_ibc_types::reject_cpi(instructions_sysvar, program_id)
-        .map_err(|_| error!(AccessManagerError::CpiNotAllowed))?;
+    solana_ibc_types::validate_direct_or_whitelisted_cpi(
+        instructions_sysvar,
+        crate::WHITELISTED_CPI_PROGRAMS,
+        program_id,
+    )
+    .map_err(|_| error!(AccessManagerError::CpiNotAllowed))?;
 
     // Layer 2: Verify the account is actually a signer
     require!(signer_account.is_signer, AccessManagerError::SignerRequired);
