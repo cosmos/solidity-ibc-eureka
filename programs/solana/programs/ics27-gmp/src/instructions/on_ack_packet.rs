@@ -1,7 +1,7 @@
 use crate::constants::*;
 use crate::errors::GMPError;
 use crate::events::GMPCallAcknowledged;
-use crate::state::{AccountVersion, CallResultStatus, GMPAppState, GMPCallResult, GMPCallResultAccount};
+use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
 use anchor_lang::prelude::*;
 use solana_ibc_proto::{GmpPacketData, ProstMessage, RawGmpPacketData};
 
@@ -57,23 +57,18 @@ pub fn on_acknowledgement_packet(
         GmpPacketData::try_from(raw_packet).map_err(|_| GMPError::InvalidPacketData)?;
 
     let clock = Clock::get()?;
+    let sender = packet_data.sender.into_string();
     let result = &mut ctx.accounts.result_account;
-    result.version = AccountVersion::V1;
-    result.sender = packet_data.sender.into_string();
-    result.sequence = msg.sequence;
-    result.source_client = msg.source_client.clone();
-    result.dest_client = msg.dest_client;
-    result.status = CallResultStatus::Acknowledged;
-    result.acknowledgement = msg.acknowledgement.clone();
-    result.result_timestamp = clock.unix_timestamp;
-    result.bump = ctx.bumps.result_account;
+    let result_pda = result.key();
+
+    result.init_acknowledged(msg, sender, clock.unix_timestamp, ctx.bumps.result_account);
 
     emit!(GMPCallAcknowledged {
-        source_client: msg.source_client,
-        sequence: msg.sequence,
+        source_client: result.source_client.clone(),
+        sequence: result.sequence,
         sender: result.sender.clone(),
-        result_pda: result.key(),
-        timestamp: clock.unix_timestamp,
+        result_pda,
+        timestamp: result.result_timestamp,
     });
 
     Ok(())

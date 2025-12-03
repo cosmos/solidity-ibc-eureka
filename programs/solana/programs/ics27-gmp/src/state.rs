@@ -88,3 +88,41 @@ pub struct GMPCallResultAccount {
     pub result_timestamp: i64,
     pub bump: u8,
 }
+
+impl GMPCallResultAccount {
+    pub fn init_acknowledged(
+        &mut self,
+        msg: solana_ibc_types::OnAcknowledgementPacketMsg,
+        sender: String,
+        timestamp: i64,
+        bump: u8,
+    ) {
+        self.version = AccountVersion::V1;
+        self.sender = sender;
+        self.sequence = msg.sequence;
+        self.source_client = msg.source_client;
+        self.dest_client = msg.dest_client;
+        self.status = CallResultStatus::Acknowledged;
+        self.acknowledgement = msg.acknowledgement;
+        self.result_timestamp = timestamp;
+        self.bump = bump;
+    }
+
+    pub fn init_timed_out(
+        &mut self,
+        msg: solana_ibc_types::OnTimeoutPacketMsg,
+        sender: String,
+        timestamp: i64,
+        bump: u8,
+    ) {
+        self.version = AccountVersion::V1;
+        self.sender = sender;
+        self.sequence = msg.sequence;
+        self.source_client = msg.source_client;
+        self.dest_client = msg.dest_client;
+        self.status = CallResultStatus::TimedOut;
+        self.acknowledgement = vec![];
+        self.result_timestamp = timestamp;
+        self.bump = bump;
+    }
+}
