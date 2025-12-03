@@ -111,3 +111,28 @@ impl GMPAppState {
     /// Follows the standard IBC app pattern: [`APP_STATE_SEED`, `port_id`]
     pub const SEED: &'static [u8] = b"app_state";
 }
+
+/// Status of a GMP call result
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug, InitSpace)]
+pub enum CallResultStatus {
+    Acknowledged,
+    TimedOut,
+}
+
+/// GMP call result PDA marker. Seeds: [b"gmp_result", source_client, sequence]
+pub struct GMPCallResult;
+
+impl GMPCallResult {
+    pub const SEED: &'static [u8] = b"gmp_result";
+
+    pub fn pda(source_client: &str, sequence: u64, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[
+                Self::SEED,
+                source_client.as_bytes(),
+                &sequence.to_le_bytes(),
+            ],
+            program_id,
+        )
+    }
+}
