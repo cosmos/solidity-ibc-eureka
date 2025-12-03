@@ -1,7 +1,9 @@
 use crate::constants::*;
 use crate::errors::GMPError;
-use crate::state::GMPAppState;
+use crate::events::GMPCallAcknowledged;
+use crate::state::{AccountVersion, CallResultStatus, GMPAppState, GMPCallResult, GMPCallResultAccount};
 use anchor_lang::prelude::*;
+use solana_ibc_proto::{GmpPacketData, ProstMessage, RawGmpPacketData};
 
 /// Process IBC packet acknowledgement (called by router via CPI)
 #[derive(Accounts)]
@@ -23,24 +25,57 @@ pub struct OnAckPacket<'info> {
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
-    /// Relayer fee payer (passed by router but not used in acknowledgement handler)
     #[account(mut)]
     pub payer: Signer<'info>,
+
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + GMPCallResultAccount::INIT_SPACE,
+        seeds = [GMPCallResult::SEED, msg.source_client.as_bytes(), &msg.sequence.to_le_bytes()],
+        bump
+    )]
+    pub result_account: Account<'info, GMPCallResultAccount>,
 
     pub system_program: Program<'info, System>,
 }
 
 pub fn on_acknowledgement_packet(
     ctx: Context<OnAckPacket>,
-    _msg: solana_ibc_types::OnAcknowledgementPacketMsg,
+    msg: solana_ibc_types::OnAcknowledgementPacketMsg,
 ) -> Result<()> {
-    // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
         &ctx.accounts.router_program.key(),
         &crate::ID,
     )
     .map_err(GMPError::from)?;
+
+    let raw_packet = RawGmpPacketData::decode(msg.payload.value.as_slice())
+        .map_err(|_| GMPError::InvalidPacketData)?;
+    let packet_data =
+        GmpPacketData::try_from(raw_packet).map_err(|_| GMPError::InvalidPacketData)?;
+
+    let clock = Clock::get()?;
+    let result = &mut ctx.accounts.result_account;
+    result.version = AccountVersion::V1;
+    result.sender = packet_data.sender.into_string();
+    result.sequence = msg.sequence;
+    result.source_client = msg.source_client.clone();
+    result.dest_client = msg.dest_client;
+    result.status = CallResultStatus::Acknowledged;
+    result.acknowledgement = msg.acknowledgement.clone();
+    result.result_timestamp = clock.unix_timestamp;
+    result.bump = ctx.bumps.result_account;
+
+    emit!(GMPCallAcknowledged {
+        source_client: msg.source_client,
+        sequence: msg.sequence,
+        sender: result.sender.clone(),
+        acknowledgement_size: msg.acknowledgement.len() as u64,
+        result_pda: result.key(),
+        timestamp: clock.unix_timestamp,
+    });
 
     Ok(())
 }
