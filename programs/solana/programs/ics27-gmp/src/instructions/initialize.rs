@@ -3,7 +3,7 @@ use crate::errors::GMPError;
 use crate::events::GMPAppInitialized;
 use crate::state::{AccountVersion, GMPAppState};
 use anchor_lang::prelude::*;
-use solana_ibc_types::validate_direct_or_whitelisted_cpi;
+use solana_ibc_types::cpi::reject_cpi;
 
 /// Initialize the ICS27 GMP application
 #[derive(Accounts)]
@@ -30,8 +30,7 @@ pub struct Initialize<'info> {
 
 pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()> {
     // Reject CPI calls - this instruction must be called directly
-    validate_direct_or_whitelisted_cpi(&ctx.accounts.instructions_sysvar, &[], &crate::ID)
-        .map_err(GMPError::from)?;
+    reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(GMPError::from)?;
 
     let app_state = &mut ctx.accounts.app_state;
     let clock = Clock::get()?;
