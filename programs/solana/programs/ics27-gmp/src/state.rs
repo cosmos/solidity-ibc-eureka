@@ -90,7 +90,7 @@ pub struct GMPCallResultAccount {
 }
 
 impl GMPCallResultAccount {
-    pub fn new_acknowledged(
+    pub const fn new_acknowledged(
         source_client: String,
         sequence: u64,
         sender: String,
@@ -102,8 +102,8 @@ impl GMPCallResultAccount {
             version: AccountVersion::V1,
             sender,
             sequence,
-            source_client: source_client.clone(),
-            dest_client: String::new(), // Not used for ack
+            source_client,
+            dest_client: String::new(),
             status: CallResultStatus::Acknowledged,
             acknowledgement,
             result_timestamp: timestamp,
@@ -111,7 +111,7 @@ impl GMPCallResultAccount {
         }
     }
 
-    pub fn new_timed_out(
+    pub const fn new_timed_out(
         source_client: String,
         sequence: u64,
         sender: String,
@@ -122,10 +122,10 @@ impl GMPCallResultAccount {
             version: AccountVersion::V1,
             sender,
             sequence,
-            source_client: source_client.clone(),
-            dest_client: String::new(), // Not used for timeout
+            source_client,
+            dest_client: String::new(),
             status: CallResultStatus::TimedOut,
-            acknowledgement: vec![],
+            acknowledgement: Vec::new(),
             result_timestamp: timestamp,
             bump,
         }
