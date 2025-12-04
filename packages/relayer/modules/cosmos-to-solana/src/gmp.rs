@@ -155,6 +155,7 @@ pub fn compute_gmp_result_pda(
         return None;
     }
 
-    let (pda, _bump) = solana_ibc_types::GMPCallResult::pda(source_client, sequence, &gmp_program_id);
+    let (pda, _bump) =
+        solana_ibc_types::GMPCallResult::pda(source_client, sequence, &gmp_program_id);
     Some(pda)
 }
