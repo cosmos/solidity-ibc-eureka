@@ -6,11 +6,6 @@ use anchor_lang::prelude::*;
 use solana_ibc_proto::{GmpPacketData, ProstMessage, RawGmpPacketData};
 
 /// Process IBC packet acknowledgement (called by router via CPI)
-///
-/// # Account Layout
-/// The router CPI passes accounts in a fixed order, with app-specific accounts in remaining_accounts:
-/// - Fixed accounts: app_state, router_program, instruction_sysvar, payer, system_program
-/// - remaining_accounts[0]: result_account PDA (to be initialized)
 #[derive(Accounts)]
 #[instruction(msg: solana_ibc_types::OnAcknowledgementPacketMsg)]
 pub struct OnAckPacket<'info> {
@@ -105,7 +100,7 @@ pub fn on_acknowledgement_packet<'info>(
         msg.source_client.clone(),
         msg.sequence,
         sender.clone(),
-        msg.acknowledgement.clone(),
+        msg.acknowledgement,
         clock.unix_timestamp,
         bump,
     );
