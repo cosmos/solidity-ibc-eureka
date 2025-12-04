@@ -14,6 +14,8 @@ use solana_ibc_types::{
     MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
 };
 
+use crate::gmp;
+
 impl super::TxBuilder {
     /// Helper function to split data into chunks
     pub(crate) fn split_into_chunks(data: &[u8]) -> Vec<Vec<u8>> {
@@ -242,10 +244,12 @@ impl super::TxBuilder {
             msg.proof.total_chunks,
         )?;
 
+        // recv_packet doesn't create GMP result PDA - that happens when ack/timeout comes back
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: recv_tx,
             cleanup_tx,
+            gmp_result_pda: Vec::new(),
         })
     }
 
@@ -288,10 +292,27 @@ impl super::TxBuilder {
             msg.proof.total_chunks,
         )?;
 
+        let gmp_result_pda = msg
+            .packet
+            .payloads
+            .first()
+            .and_then(|payload| {
+                let gmp_program_id = self.resolve_port_program_id(&payload.source_port).ok()?;
+                gmp::compute_gmp_result_pda(
+                    &payload.source_port,
+                    &msg.packet.source_client,
+                    msg.packet.sequence,
+                    gmp_program_id,
+                )
+            })
+            .map(|pda| pda.to_bytes().to_vec())
+            .unwrap_or_default();
+
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: ack_tx,
             cleanup_tx,
+            gmp_result_pda,
         })
     }
 
@@ -334,10 +355,27 @@ impl super::TxBuilder {
             msg.proof.total_chunks,
         )?;
 
+        let gmp_result_pda = msg
+            .packet
+            .payloads
+            .first()
+            .and_then(|payload| {
+                let gmp_program_id = self.resolve_port_program_id(&payload.source_port).ok()?;
+                gmp::compute_gmp_result_pda(
+                    &payload.source_port,
+                    &msg.packet.source_client,
+                    msg.packet.sequence,
+                    gmp_program_id,
+                )
+            })
+            .map(|pda| pda.to_bytes().to_vec())
+            .unwrap_or_default();
+
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: timeout_tx,
             cleanup_tx,
+            gmp_result_pda,
         })
     }
 

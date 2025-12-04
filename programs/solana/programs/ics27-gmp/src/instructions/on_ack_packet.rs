@@ -6,6 +6,11 @@ use anchor_lang::prelude::*;
 use solana_ibc_proto::{GmpPacketData, ProstMessage, RawGmpPacketData};
 
 /// Process IBC packet acknowledgement (called by router via CPI)
+///
+/// # Account Layout
+/// The router CPI passes accounts in a fixed order, with app-specific accounts in remaining_accounts:
+/// - Fixed accounts: app_state, router_program, instruction_sysvar, payer, system_program
+/// - remaining_accounts[0]: result_account PDA (to be initialized)
 #[derive(Accounts)]
 #[instruction(msg: solana_ibc_types::OnAcknowledgementPacketMsg)]
 pub struct OnAckPacket<'info> {
@@ -28,20 +33,11 @@ pub struct OnAckPacket<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    #[account(
-        init,
-        payer = payer,
-        space = 8 + GMPCallResultAccount::INIT_SPACE,
-        seeds = [GMPCallResult::SEED, msg.source_client.as_bytes(), &msg.sequence.to_le_bytes()],
-        bump
-    )]
-    pub result_account: Account<'info, GMPCallResultAccount>,
-
     pub system_program: Program<'info, System>,
 }
 
-pub fn on_acknowledgement_packet(
-    ctx: Context<OnAckPacket>,
+pub fn on_acknowledgement_packet<'info>(
+    ctx: Context<'_, '_, 'info, 'info, OnAckPacket<'info>>,
     msg: solana_ibc_types::OnAcknowledgementPacketMsg,
 ) -> Result<()> {
     solana_ibc_types::validate_cpi_caller(
@@ -56,19 +52,73 @@ pub fn on_acknowledgement_packet(
     let packet_data =
         GmpPacketData::try_from(raw_packet).map_err(|_| GMPError::InvalidPacketData)?;
 
+    // Extract result_account from remaining_accounts[0]
+    let result_account_info = ctx
+        .remaining_accounts
+        .first()
+        .ok_or(GMPError::InsufficientAccounts)?;
+
+    // Derive expected PDA and bump
+    let (expected_pda, bump) = GMPCallResult::pda(&msg.source_client, msg.sequence, &crate::ID);
+    require_keys_eq!(
+        result_account_info.key(),
+        expected_pda,
+        GMPError::ResultAccountPDAMismatch
+    );
+
+    // Initialize the account manually using system program
+    let space = 8 + GMPCallResultAccount::INIT_SPACE;
+    let rent = Rent::get()?;
+    let lamports = rent.minimum_balance(space);
+
+    anchor_lang::system_program::create_account(
+        CpiContext::new_with_signer(
+            ctx.accounts.system_program.to_account_info(),
+            anchor_lang::system_program::CreateAccount {
+                from: ctx.accounts.payer.to_account_info(),
+                to: result_account_info.clone(),
+            },
+            &[&[
+                GMPCallResult::SEED,
+                msg.source_client.as_bytes(),
+                &msg.sequence.to_le_bytes(),
+                &[bump],
+            ]],
+        ),
+        lamports,
+        space as u64,
+        &crate::ID,
+    )?;
+
+    // Deserialize as mutable account and initialize
+    let mut result_data = result_account_info.try_borrow_mut_data()?;
+
+    // Write discriminator
+    result_data[..8].copy_from_slice(GMPCallResultAccount::DISCRIMINATOR);
+
+    // Initialize the account data
     let clock = Clock::get()?;
     let sender = packet_data.sender.into_string();
-    let result = &mut ctx.accounts.result_account;
-    let result_pda = result.key();
+    let result_pda = result_account_info.key();
 
-    result.init_acknowledged(msg, sender, clock.unix_timestamp, ctx.bumps.result_account);
+    let result_account = GMPCallResultAccount::new_acknowledged(
+        msg.source_client.clone(),
+        msg.sequence,
+        sender.clone(),
+        msg.acknowledgement.clone(),
+        clock.unix_timestamp,
+        bump,
+    );
+
+    // Serialize the account data after the discriminator
+    result_account.serialize(&mut &mut result_data[8..])?;
 
     emit!(GMPCallAcknowledged {
-        source_client: result.source_client.clone(),
-        sequence: result.sequence,
-        sender: result.sender.clone(),
+        source_client: result_account.source_client,
+        sequence: result_account.sequence,
+        sender,
         result_pda,
-        timestamp: result.result_timestamp,
+        timestamp: result_account.result_timestamp,
     });
 
     Ok(())

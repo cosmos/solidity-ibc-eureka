@@ -196,6 +196,16 @@ impl super::TxBuilder {
                 .map(|a| AccountMeta::new(a, false)),
         );
 
+        // Add GMP result PDA for GMP packets (will be initialized by on_ack_packet)
+        if let Some(result_pda) = gmp::compute_gmp_result_pda(
+            source_port,
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            ibc_app_program,
+        ) {
+            accounts.push(AccountMeta::new(result_pda, false));
+        }
+
         let mut data = router_instructions::ack_packet_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
 
@@ -213,12 +223,24 @@ impl super::TxBuilder {
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
         let source_port = Self::extract_timeout_source_port(msg)?;
-        let accounts = self.build_timeout_accounts_with_derived_keys(
+        let mut accounts = self.build_timeout_accounts_with_derived_keys(
             chain_id,
             msg,
             &source_port,
             chunk_accounts,
         )?;
+
+        // Add GMP result PDA for GMP packets (will be initialized by on_timeout_packet)
+        let ibc_app_program_id = self.resolve_port_program_id(&source_port)?;
+        if let Some(result_pda) = gmp::compute_gmp_result_pda(
+            &source_port,
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            ibc_app_program_id,
+        ) {
+            accounts.push(AccountMeta::new(result_pda, false));
+        }
+
         let data = Self::build_timeout_instruction_data(msg)?;
 
         Ok(Instruction {
