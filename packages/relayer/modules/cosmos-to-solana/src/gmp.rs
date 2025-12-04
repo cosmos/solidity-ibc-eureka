@@ -138,3 +138,23 @@ fn add_instruction_accounts(instruction: &GmpSolanaPayload, account_metas: &mut 
         });
     }
 }
+
+/// Compute the GMP call result PDA for a given source client and sequence.
+///
+/// This PDA stores the acknowledgement or timeout result of a GMP call.
+/// Seeds: ["gmp_result", source_client, sequence (little-endian u64)]
+///
+/// Returns None if the port is not GMP port.
+pub fn compute_gmp_result_pda(
+    source_port: &str,
+    source_client: &str,
+    sequence: u64,
+    gmp_program_id: Pubkey,
+) -> Option<Pubkey> {
+    if source_port != GMP_PORT_ID {
+        return None;
+    }
+
+    let (pda, _bump) = solana_ibc_types::GMPCallResult::pda(source_client, sequence, &gmp_program_id);
+    Some(pda)
+}

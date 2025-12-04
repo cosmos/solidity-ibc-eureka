@@ -48,6 +48,22 @@ func CalculateNamespacedSequence(baseSequence uint64, callingProgram, sender sol
 	return baseSequence*10000 + suffix
 }
 
+// GMPCallResultPDA derives the PDA for a GMP call result account.
+// This PDA stores the acknowledgement or timeout result of a GMP call.
+// Seeds: ["gmp_result", source_client, sequence (little-endian u64)]
+func GMPCallResultPDA(programID solana.PublicKey, sourceClient string, sequence uint64) (solana.PublicKey, uint8) {
+	seqBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(seqBytes, sequence)
+	pda, bump, err := solana.FindProgramAddress(
+		[][]byte{[]byte("gmp_result"), []byte(sourceClient), seqBytes},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive GMPCallResultPDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPortID string, clientID string, userPubKey solana.PublicKey) []solana.PublicKey {
 	accessManagerPDA, _ := AccessManager.AccessManagerPDA(access_manager.ProgramID)
 	routerStatePDA, _ := Ics26Router.RouterStatePDA(ics26_router.ProgramID)

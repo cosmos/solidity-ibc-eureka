@@ -90,6 +90,47 @@ pub struct GMPCallResultAccount {
 }
 
 impl GMPCallResultAccount {
+    pub fn new_acknowledged(
+        source_client: String,
+        sequence: u64,
+        sender: String,
+        acknowledgement: Vec<u8>,
+        timestamp: i64,
+        bump: u8,
+    ) -> Self {
+        Self {
+            version: AccountVersion::V1,
+            sender,
+            sequence,
+            source_client: source_client.clone(),
+            dest_client: String::new(), // Not used for ack
+            status: CallResultStatus::Acknowledged,
+            acknowledgement,
+            result_timestamp: timestamp,
+            bump,
+        }
+    }
+
+    pub fn new_timed_out(
+        source_client: String,
+        sequence: u64,
+        sender: String,
+        timestamp: i64,
+        bump: u8,
+    ) -> Self {
+        Self {
+            version: AccountVersion::V1,
+            sender,
+            sequence,
+            source_client: source_client.clone(),
+            dest_client: String::new(), // Not used for timeout
+            status: CallResultStatus::TimedOut,
+            acknowledgement: vec![],
+            result_timestamp: timestamp,
+            bump,
+        }
+    }
+
     pub fn init_acknowledged(
         &mut self,
         msg: solana_ibc_types::OnAcknowledgementPacketMsg,
