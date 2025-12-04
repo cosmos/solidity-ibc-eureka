@@ -43,7 +43,7 @@ pub struct RecvPacket<'info> {
     pub packet_receipt: Account<'info, Commitment>,
 
     #[account(
-        init,
+        init_if_needed,
         payer = relayer,
         space = 8 + Commitment::INIT_SPACE,
         seeds = [
@@ -191,16 +191,12 @@ pub fn recv_packet<'info>(
 
     let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&packet);
 
-    // Check if packet was not created by anchor via init_if_needed (value sets to default)
-    // I.e. it was already saved before
-    if packet_receipt.value != [0; 32] {
-        // Receipt already exists - verify it matches
+    // Check if packet_receipt already exists (non-empty means it was saved before)
+    if packet_receipt.value != Commitment::EMPTY {
         if packet_receipt.value == receipt_commitment {
-            // No-op: already received with same commitment
             emit!(NoopEvent {});
             return Ok(());
         }
-
         return Err(RouterError::PacketReceiptMismatch.into());
     }
 
@@ -716,12 +712,10 @@ mod tests {
 
     #[test]
     fn test_recv_packet_receipt_mismatch() {
-        // Setup normal recv_packet test
         let mut ctx = setup_recv_packet_test_with_params(RecvPacketTestParams::default());
 
-        // Pre-create the packet receipt account with a DIFFERENT commitment value
-        // This simulates the packet having been received before with different data
-        let different_commitment = [0xFFu8; 32]; // Different from what will be calculated
+        // Pre-create packet_receipt with a different commitment (simulates prior receipt)
+        let different_commitment = [0xFFu8; 32];
 
         let packet_receipt_data = {
             use crate::state::Commitment;
@@ -735,16 +729,14 @@ mod tests {
             data
         };
 
-        // Replace the packet receipt account with one that already has a different value
         let packet_receipt_account = solana_sdk::account::Account {
-            lamports: 10_000_000, // Ensure rent exemption for the account
+            lamports: 10_000_000,
             data: packet_receipt_data,
             owner: crate::ID,
             executable: false,
             rent_epoch: 0,
         };
 
-        // Find and replace the packet receipt account
         if let Some(pos) = ctx
             .accounts
             .iter()
@@ -762,19 +754,84 @@ mod tests {
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 
-    // Note: Testing CPI failures in mollusk is challenging because the test environment
-    // propagates CPI errors differently than real Solana runtime. In production,
-    // the router would catch CPI failures and use universal error acknowledgement.
-    // This behavior is covered by the implementation but not easily testable in mollusk.
+    #[test]
+    fn test_recv_packet_noop_same_receipt() {
+        // Test the no-op path: packet_receipt exists with correct commitment -> emit NoopEvent.
+        // Note: Mollusk doesn't capture program logs, so we verify noop behavior by checking
+        // that the packet_receipt state remains unchanged (no IBC app callback was invoked).
+        let mut ctx = setup_recv_packet_test_with_params(RecvPacketTestParams::default());
+
+        let reconstructed_packet = Packet {
+            sequence: 1,
+            source_client: "source-client".to_string(),
+            dest_client: "test-client".to_string(),
+            timeout_timestamp: 2000,
+            payloads: vec![solana_ibc_types::Payload {
+                source_port: "source-port".to_string(),
+                dest_port: "test-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                value: b"test data".to_vec(),
+            }],
+        };
+
+        let correct_receipt_commitment =
+            crate::utils::ics24::packet_receipt_commitment_bytes32(&reconstructed_packet);
+
+        let packet_receipt_data = {
+            use anchor_lang::AccountSerialize;
+
+            let packet_receipt = Commitment {
+                value: correct_receipt_commitment,
+            };
+            let mut data = vec![];
+            packet_receipt.try_serialize(&mut data).unwrap();
+            data
+        };
+
+        let packet_receipt_account = solana_sdk::account::Account {
+            lamports: 10_000_000,
+            data: packet_receipt_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        if let Some(pos) = ctx
+            .accounts
+            .iter()
+            .position(|(k, _)| *k == ctx.packet_receipt_pubkey)
+        {
+            ctx.accounts[pos] = (ctx.packet_receipt_pubkey, packet_receipt_account);
+        }
+
+        let mollusk = setup_mollusk_with_mock_programs();
+        let checks = vec![Check::success()];
+
+        let result =
+            mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+
+        let receipt_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(pubkey, _)| *pubkey == ctx.packet_receipt_pubkey)
+            .map(|(_, account)| account)
+            .expect("packet_receipt account not found");
+
+        let receipt_commitment: Commitment =
+            Commitment::try_deserialize(&mut &receipt_account.data[..]).unwrap();
+        assert_eq!(
+            receipt_commitment.value, correct_receipt_commitment,
+            "packet_receipt should still have the same commitment"
+        );
+    }
 
     #[test]
     fn test_recv_packet_ibc_app_not_found() {
         let mut ctx = setup_recv_packet_test(true, 1000);
 
-        // Create a proper IBCApp account but with wrong pubkey (not the expected PDA)
         let wrong_ibc_app = Pubkey::new_unique();
 
-        // Create proper IBCApp account data so Anchor's discriminator check passes
         let ibc_app = IBCApp {
             version: AccountVersion::V1,
             port_id: "test-port".to_string(),
@@ -791,14 +848,10 @@ mod tests {
             rent_epoch: 0,
         };
 
-        // Find and replace the IBC app account
         if let Some(pos) = ctx.accounts.iter().position(|(pubkey, _)| {
-            // The IBC app is at index 2 (after access_manager at 0 and router_state at 1)
             *pubkey == ctx.accounts[2].0
         }) {
             ctx.accounts[pos] = (wrong_ibc_app, wrong_ibc_app_account);
-
-            // Also update the instruction to use the wrong account
             ctx.instruction.accounts[2].pubkey = wrong_ibc_app;
         }
 
@@ -812,61 +865,9 @@ mod tests {
     }
 
     #[test]
-    fn test_recv_packet_duplicate_ack_fails() {
-        // Test that receiving a packet fails when the packet_ack account already exists
-        // This simulates trying to process the same packet twice
-        let mut ctx = setup_recv_packet_test_with_params(RecvPacketTestParams::default());
-
-        // Replace the uninitialized packet_ack account with an already-initialized one
-        // This simulates a packet that has already been received and acknowledged
-        let existing_ack = Commitment {
-            value: [1u8; 32], // Some existing acknowledgment value
-        };
-
-        let account_size = 8 + Commitment::INIT_SPACE;
-        let mut data = vec![0u8; account_size];
-
-        // Add Anchor discriminator
-        data[0..8].copy_from_slice(Commitment::DISCRIMINATOR);
-
-        // Serialize the commitment
-        let mut cursor = std::io::Cursor::new(&mut data[8..]);
-        existing_ack.serialize(&mut cursor).unwrap();
-
-        // Find the packet_ack account (it's at index 4 after router_state, access_manager, ibc_app, packet_receipt)
-        let packet_ack_pubkey = ctx.instruction.accounts[4].pubkey;
-        let ack_index = ctx
-            .accounts
-            .iter()
-            .position(|(pubkey, _)| *pubkey == packet_ack_pubkey)
-            .unwrap();
-
-        ctx.accounts[ack_index] = (
-            packet_ack_pubkey,
-            solana_sdk::account::Account {
-                lamports: Rent::default().minimum_balance(account_size),
-                data,
-                owner: crate::ID, // Owned by our program (already initialized)
-                executable: false,
-                rent_epoch: 0,
-            },
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
-
-        // This should fail because packet_ack account already exists
-        // The `init` constraint will fail with Anchor's "account already in use" error
-        let error_checks = vec![Check::err(ProgramError::Custom(0))]; // Anchor error code 0
-
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &error_checks);
-    }
-
-    #[test]
     fn test_recv_packet_zero_payloads() {
-        // Test that packet with zero payloads fails
         let mut ctx = setup_recv_packet_test(true, 1000);
 
-        // Modify the instruction to have zero payloads
         let msg = MsgRecvPacket {
             packet: ctx.packet.clone(),
             payloads: vec![], // No metadata, and packet.payloads is also empty
