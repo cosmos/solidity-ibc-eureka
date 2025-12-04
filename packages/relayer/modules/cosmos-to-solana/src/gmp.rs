@@ -142,9 +142,9 @@ fn add_instruction_accounts(instruction: &GmpSolanaPayload, account_metas: &mut 
 /// Compute the GMP call result PDA for a given source client and sequence.
 ///
 /// This PDA stores the acknowledgement or timeout result of a GMP call.
-/// Seeds: ["gmp_result", source_client, sequence (little-endian u64)]
 ///
-/// Returns None if the port is not GMP port.
+/// Returns `None` if the port is not GMP port.
+#[must_use]
 pub fn compute_gmp_result_pda(
     source_port: &str,
     source_client: &str,
