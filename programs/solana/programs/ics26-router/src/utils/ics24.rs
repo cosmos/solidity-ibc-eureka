@@ -8,9 +8,6 @@ use solana_keccak_hasher::hash as keccak256;
 // Include auto-generated constants from build.rs
 include!(concat!(env!("OUT_DIR"), "/constants.rs"));
 
-/// IBC merkle prefix for constructing commitment paths
-pub const IBC_MERKLE_PREFIX: &[u8] = b"ibc";
-
 // TODO: move to a shared crate
 pub fn packet_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
     let mut path = Vec::new();
