@@ -292,6 +292,7 @@ impl super::TxBuilder {
             msg.proof.total_chunks,
         )?;
 
+        // TODO: Support multi-payload packets #602
         let gmp_result_pda = msg
             .packet
             .payloads
@@ -355,6 +356,7 @@ impl super::TxBuilder {
             msg.proof.total_chunks,
         )?;
 
+        // TODO: Support multi-payload packets #602
         let gmp_result_pda = msg
             .packet
             .payloads
