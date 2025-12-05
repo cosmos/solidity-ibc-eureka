@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - 'justfile'
       - '**.rs'
       - '**.go'
       - '**.toml'
