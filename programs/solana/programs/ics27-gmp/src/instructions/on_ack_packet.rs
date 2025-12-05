@@ -1,7 +1,9 @@
 use crate::constants::*;
 use crate::errors::GMPError;
-use crate::state::GMPAppState;
+use crate::events::GMPCallAcknowledged;
+use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
 use anchor_lang::prelude::*;
+use solana_ibc_proto::{GmpPacketData, ProstMessage, RawGmpPacketData};
 
 /// Process IBC packet acknowledgement (called by router via CPI)
 #[derive(Accounts)]
@@ -23,24 +25,96 @@ pub struct OnAckPacket<'info> {
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
-    /// Relayer fee payer (passed by router but not used in acknowledgement handler)
     #[account(mut)]
     pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }
 
-pub fn on_acknowledgement_packet(
-    ctx: Context<OnAckPacket>,
-    _msg: solana_ibc_types::OnAcknowledgementPacketMsg,
+pub fn on_acknowledgement_packet<'info>(
+    ctx: Context<'_, '_, 'info, 'info, OnAckPacket<'info>>,
+    msg: solana_ibc_types::OnAcknowledgementPacketMsg,
 ) -> Result<()> {
-    // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
         &ctx.accounts.router_program.key(),
         &crate::ID,
     )
     .map_err(GMPError::from)?;
+
+    let raw_packet = RawGmpPacketData::decode(msg.payload.value.as_slice())
+        .map_err(|_| GMPError::InvalidPacketData)?;
+    let packet_data =
+        GmpPacketData::try_from(raw_packet).map_err(|_| GMPError::InvalidPacketData)?;
+
+    // Extract result_account from remaining_accounts[0]
+    let result_account_info = ctx
+        .remaining_accounts
+        .first()
+        .ok_or(GMPError::InsufficientAccounts)?;
+
+    // Derive expected PDA and bump
+    let (expected_pda, bump) = GMPCallResult::pda(&msg.source_client, msg.sequence, &crate::ID);
+    require_keys_eq!(
+        result_account_info.key(),
+        expected_pda,
+        GMPError::ResultAccountPDAMismatch
+    );
+
+    // Initialize the account manually using system program
+    let space = 8 + GMPCallResultAccount::INIT_SPACE;
+    let rent = Rent::get()?;
+    let lamports = rent.minimum_balance(space);
+
+    anchor_lang::system_program::create_account(
+        CpiContext::new_with_signer(
+            ctx.accounts.system_program.to_account_info(),
+            anchor_lang::system_program::CreateAccount {
+                from: ctx.accounts.payer.to_account_info(),
+                to: result_account_info.clone(),
+            },
+            &[&[
+                GMPCallResult::SEED,
+                msg.source_client.as_bytes(),
+                &msg.sequence.to_le_bytes(),
+                &[bump],
+            ]],
+        ),
+        lamports,
+        space as u64,
+        &crate::ID,
+    )?;
+
+    // Deserialize as mutable account and initialize
+    let mut result_data = result_account_info.try_borrow_mut_data()?;
+
+    // Write discriminator
+    result_data[..8].copy_from_slice(GMPCallResultAccount::DISCRIMINATOR);
+
+    // Initialize the account data
+    let clock = Clock::get()?;
+    let sender = packet_data.sender.into_string();
+    let result_pda = result_account_info.key();
+
+    let result_account = GMPCallResultAccount::new_acknowledged(
+        msg.source_client.clone(),
+        msg.sequence,
+        sender.clone(),
+        msg.acknowledgement,
+        clock.unix_timestamp,
+        bump,
+    );
+
+    // Serialize the account data after the discriminator
+    result_account.serialize(&mut &mut result_data[8..])?;
+
+    emit!(GMPCallAcknowledged {
+        source_client: result_account.source_client,
+        sequence: result_account.sequence,
+        sender,
+        result_pda,
+        timestamp: result_account.result_timestamp,
+    });
 
     Ok(())
 }
