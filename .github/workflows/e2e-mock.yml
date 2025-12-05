@@ -10,7 +10,8 @@ on:
       - '**.mod'
       - '**.sum'
       - '**.sol'
-      - '.github/workflows/quick-e2e.yml'
+      - '.github/workflows/e2e-mock.yml'
+      - '.github/actions/**'
       - 'bun.lockb'
 
 concurrency:
