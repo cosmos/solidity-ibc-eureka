@@ -20,11 +20,14 @@ runs:
 
     - name: Install SP1 toolchain
       if: steps.cache-sp1-toolchain.outputs.cache-hit != 'true'
-      shell: bash
-      run: |
-        curl -L https://sp1.succinct.xyz | bash
-        ~/.sp1/bin/sp1up --token ${{ inputs.github_token }}
-        ~/.sp1/bin/cargo-prove prove --version
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: 4
+        max_attempts: 3
+        retry_wait_seconds: 5
+        command: |
+          curl -L https://sp1.succinct.xyz | bash
+          ~/.sp1/bin/sp1up --token ${{ inputs.github_token }}
 
     - name: Cache SP1 Programs
       id: cache-sp1-programs

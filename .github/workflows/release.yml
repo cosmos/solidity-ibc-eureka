@@ -13,11 +13,15 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Install SP1 toolchain
-        shell: bash
-        run: |
-          curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
-          ~/.sp1/bin/cargo-prove prove --version
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 5
+          command: |
+            curl -L https://sp1.succinct.xyz | bash
+            ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
+            ~/.sp1/bin/cargo-prove prove --version
       - name: Install just
         uses: extractions/setup-just@v3
 
@@ -30,7 +34,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file_glob: true
-          file: programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-{update-client,membership,uc-and-membership,misbehaviour} 
+          file: programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-{update-client,membership,uc-and-membership,misbehaviour}
           tag: ${{ github.ref }}
           overwrite: true
 
