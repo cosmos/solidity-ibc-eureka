@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"slices"
+	"testing"
 	"time"
 
 	bin "github.com/gagliardetto/binary"
@@ -102,7 +103,6 @@ func (s *Solana) WaitForTxStatus(txSig solana.Signature, status rpc.Confirmation
 			return false, err
 		}
 
-		// Transaction might not be found yet, retry
 		if len(out.Value) == 0 || out.Value[0] == nil {
 			return false, nil
 		}
@@ -202,7 +202,8 @@ func (s *Solana) SignAndBroadcastTxWithOpts(ctx context.Context, tx *solana.Tran
 
 	err = s.WaitForTxStatus(sig, status)
 	if err != nil {
-		return solana.Signature{}, err
+		// Return the signature even on error so logs can be fetched
+		return sig, err
 	}
 
 	return sig, err
@@ -336,11 +337,54 @@ func mustWrite(err error) {
 	}
 }
 
-func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
-	clockSysvarPubkey := solana.MustPublicKeyFromBase58("SysvarC1ock11111111111111111111111111111111")
+// LogTransactionDetails fetches and logs detailed information about a transaction
+// including compute units consumed, error details, and program logs
+func (s *Solana) LogTransactionDetails(ctx context.Context, t *testing.T, sig solana.Signature, context string) {
+	t.Helper()
+	t.Logf("=== Transaction Details: %s ===", context)
+	t.Logf("Transaction signature: %s", sig)
 
+	version := uint64(0)
+	txDetails, err := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
+		Encoding:                       solana.EncodingBase64,
+		Commitment:                     rpc.CommitmentConfirmed,
+		MaxSupportedTransactionVersion: &version,
+	})
+	if err != nil {
+		t.Logf("❌ Failed to fetch transaction details: %v", err)
+		return
+	}
+
+	if txDetails == nil || txDetails.Meta == nil {
+		t.Logf("⚠️  Transaction details not available (may still be processing)")
+		return
+	}
+
+	// Log compute units consumed
+	if txDetails.Meta.ComputeUnitsConsumed != nil {
+		t.Logf("⚙️  Compute units consumed: %d", *txDetails.Meta.ComputeUnitsConsumed)
+	}
+
+	t.Logf("💰 Fee: %d lamports (%.9f SOL)", txDetails.Meta.Fee, float64(txDetails.Meta.Fee)/1e9)
+
+	if txDetails.Meta.Err != nil {
+		t.Logf("❌ Transaction error: %+v", txDetails.Meta.Err)
+
+		if len(txDetails.Meta.LogMessages) > 0 {
+			t.Logf("📋 Program Logs (%d messages):", len(txDetails.Meta.LogMessages))
+			for i, log := range txDetails.Meta.LogMessages {
+				t.Logf("  [%d] %s", i, log)
+			}
+		}
+		t.Logf("=====================================")
+	} else {
+		t.Logf("✅ Transaction succeeded")
+	}
+}
+
+func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
 	// Use confirmed commitment to match relayer read commitment level
-	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, clockSysvarPubkey, &rpc.GetAccountInfoOpts{
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, solana.SysVarClockPubkey, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
 	})
 	if err != nil {
@@ -357,4 +401,16 @@ func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
 
 	unixTimestamp := int64(binary.LittleEndian.Uint64(data[32:40]))
 	return unixTimestamp, nil
+}
+
+// GetProgramDataAddress derives the ProgramData account address for an upgradeable program
+func GetProgramDataAddress(programID solana.PublicKey) (solana.PublicKey, error) {
+	pda, _, err := solana.FindProgramAddress(
+		[][]byte{programID.Bytes()},
+		solana.BPFLoaderUpgradeableProgramID,
+	)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to derive program data address: %w", err)
+	}
+	return pda, nil
 }

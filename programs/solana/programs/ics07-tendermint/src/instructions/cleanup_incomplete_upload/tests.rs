@@ -21,7 +21,7 @@ struct TestAccounts {
 
 fn setup_test_accounts_with_chunks(
     chain_id: &str,
-    cleanup_height: u64,
+    target_height: u64,
     submitter: Pubkey,
     num_chunks: u8,
     with_populated_chunks: bool,
@@ -34,7 +34,7 @@ fn setup_test_accounts_with_chunks(
                 crate::state::HeaderChunk::SEED,
                 submitter.as_ref(),
                 chain_id.as_bytes(),
-                &cleanup_height.to_le_bytes(),
+                &target_height.to_le_bytes(),
                 &[i],
             ],
             &crate::ID,
@@ -77,7 +77,7 @@ fn setup_test_accounts_with_chunks(
         },
         latest_height: IbcHeight {
             revision_number: 0,
-            revision_height: 100, // Higher than cleanup_height
+            revision_height: 100, // Higher than target_height
         },
     };
 
@@ -99,6 +99,7 @@ fn setup_test_accounts_with_chunks(
     for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
         if with_populated_chunks {
             let chunk = HeaderChunk {
+                submitter,
                 chunk_data: vec![i as u8; 100],
             };
 
@@ -137,22 +138,10 @@ fn setup_test_accounts_with_chunks(
     }
 }
 
-fn create_cleanup_instruction(
-    test_accounts: &TestAccounts,
-    chain_id: String,
-    cleanup_height: u64,
-    submitter: Pubkey,
-) -> Instruction {
-    let instruction_data = crate::instruction::CleanupIncompleteUpload {
-        chain_id,
-        cleanup_height,
-        submitter,
-    };
+fn create_cleanup_instruction(test_accounts: &TestAccounts) -> Instruction {
+    let instruction_data = crate::instruction::CleanupIncompleteUpload;
 
-    let mut account_metas = vec![
-        AccountMeta::new_readonly(test_accounts.client_state_pda, false),
-        AccountMeta::new(test_accounts.submitter, true),
-    ];
+    let mut account_metas = vec![AccountMeta::new(test_accounts.submitter, true)];
 
     // Add chunk accounts as remaining accounts
     for chunk_pda in &test_accounts.chunk_pdas {
@@ -214,12 +203,7 @@ fn test_cleanup_successful_with_rent_reclaim() {
     let total_expected_rent = chunk_rent_per * u64::from(num_chunks);
     let initial_submitter_balance = 10_000_000_000u64;
 
-    let instruction = create_cleanup_instruction(
-        &test_accounts,
-        chain_id.to_string(),
-        cleanup_height,
-        submitter,
-    );
+    let instruction = create_cleanup_instruction(&test_accounts);
 
     let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
 
@@ -331,6 +315,7 @@ fn test_cleanup_with_missing_chunks() {
         .0;
 
         let chunk = HeaderChunk {
+            submitter,
             chunk_data: vec![i; 100],
         };
 
@@ -373,16 +358,11 @@ fn test_cleanup_with_missing_chunks() {
         },
     ));
 
-    let instruction_data = crate::instruction::CleanupIncompleteUpload {
-        chain_id: chain_id.to_string(),
-        cleanup_height,
-        submitter,
-    };
+    let instruction_data = crate::instruction::CleanupIncompleteUpload;
 
     let instruction = Instruction {
         program_id: crate::ID,
         accounts: vec![
-            AccountMeta::new_readonly(client_state_pda, false),
             AccountMeta::new(submitter, true),
             // Pass all chunk PDAs even though one is missing
             AccountMeta::new(
@@ -445,17 +425,12 @@ fn test_cleanup_with_wrong_chunk_order() {
     let test_accounts =
         setup_test_accounts_with_chunks(chain_id, cleanup_height, submitter, 3, true);
 
-    let instruction_data = crate::instruction::CleanupIncompleteUpload {
-        chain_id: chain_id.to_string(),
-        cleanup_height,
-        submitter,
-    };
+    let instruction_data = crate::instruction::CleanupIncompleteUpload;
 
     // Pass chunks in wrong order (2, 0, 1 instead of 0, 1, 2)
     let instruction = Instruction {
         program_id: crate::ID,
         accounts: vec![
-            AccountMeta::new_readonly(test_accounts.client_state_pda, false),
             AccountMeta::new(test_accounts.submitter, true),
             AccountMeta::new(test_accounts.chunk_pdas[2], false),
             AccountMeta::new(test_accounts.chunk_pdas[0], false),

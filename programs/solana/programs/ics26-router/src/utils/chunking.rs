@@ -97,7 +97,6 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
 
         let chunk_account = &params.remaining_accounts[account_index];
 
-        // Verify PDA
         let expected_seeds = &[
             PayloadChunk::SEED,
             params.submitter.as_ref(),
@@ -108,12 +107,18 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
-        require!(
-            chunk_account.key() == expected_pda,
+        require_keys_eq!(
+            chunk_account.key(),
+            expected_pda,
             RouterError::InvalidChunkAccount
         );
 
-        // Load and validate chunk
+        require_keys_eq!(
+            *chunk_account.owner,
+            crate::ID,
+            RouterError::InvalidAccountOwner
+        );
+
         let chunk_data = chunk_account.try_borrow_data()?;
         let chunk: PayloadChunk = PayloadChunk::try_deserialize(&mut &chunk_data[..])?;
 
@@ -196,7 +201,6 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
 
         let chunk_account = &params.remaining_accounts[account_index];
 
-        // Verify PDA
         let expected_seeds = &[
             ProofChunk::SEED,
             params.submitter.as_ref(),
@@ -206,12 +210,18 @@ pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
 
-        require!(
-            chunk_account.key() == expected_pda,
+        require_keys_eq!(
+            chunk_account.key(),
+            expected_pda,
             RouterError::InvalidChunkAccount
         );
 
-        // Load and validate chunk
+        require_keys_eq!(
+            *chunk_account.owner,
+            crate::ID,
+            RouterError::InvalidAccountOwner
+        );
+
         let chunk_data = chunk_account.try_borrow_data()?;
         let chunk: ProofChunk = ProofChunk::try_deserialize(&mut &chunk_data[..])?;
 
@@ -253,9 +263,17 @@ fn cleanup_payload_chunks(params: CleanupPayloadChunksParams) -> Result<()> {
             &[i as u8],
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-        require!(
-            chunk_account.key() == expected_pda,
+
+        require_keys_eq!(
+            chunk_account.key(),
+            expected_pda,
             RouterError::InvalidChunkAccount
+        );
+
+        require_keys_eq!(
+            *chunk_account.owner,
+            crate::ID,
+            RouterError::InvalidAccountOwner
         );
 
         // Clear the chunk data to prevent replay
@@ -279,9 +297,16 @@ fn cleanup_proof_chunks(params: CleanupProofChunksParams) -> Result<()> {
             &[i as u8],
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-        require!(
-            chunk_account.key() == expected_pda,
+        require_keys_eq!(
+            chunk_account.key(),
+            expected_pda,
             RouterError::InvalidChunkAccount
+        );
+
+        require_keys_eq!(
+            *chunk_account.owner,
+            crate::ID,
+            RouterError::InvalidAccountOwner
         );
 
         // Clear the chunk data to prevent replay

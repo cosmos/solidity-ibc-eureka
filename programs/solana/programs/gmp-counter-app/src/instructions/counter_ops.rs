@@ -17,13 +17,13 @@ pub struct IncrementCounter<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        space = UserCounter::INIT_SPACE,
+        space = 8 + UserCounter::INIT_SPACE,
         seeds = [UserCounter::SEED, user_authority.key().as_ref()],
         bump
     )]
     pub user_counter: Account<'info, UserCounter>,
 
-    /// The user authority (`account_state` PDA for ICS27)
+    /// The user authority (`gmp_account` PDA for ICS27)
     /// MUST be a signer to authorize operations on this user's counter
     pub user_authority: Signer<'info>,
 

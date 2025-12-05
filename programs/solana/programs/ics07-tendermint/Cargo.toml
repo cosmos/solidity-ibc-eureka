@@ -17,23 +17,30 @@ crate-type = ["cdylib", "lib"]
 name = "ics07_tendermint"
 
 [features]
-default = []
+default = ["custom-heap"]
 cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 idl-build = ["anchor-lang/idl-build"]
+custom-heap = ["dep:solana-allocator"]
 
 
 [dependencies]
+solana-allocator = { version = "0.1", optional = true }
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
+access-manager = { workspace = true, features = ["cpi"] }
+borsh.workspace = true
 ics25-handler.workspace = true
-solana-ibc-types.workspace = true
+solana-ibc-types = { workspace = true, features = ["light-client"] }
+solana-ibc-constants.workspace = true
+solana-sdk-ids.workspace = true
+solana-define-syscall.workspace = true
 
 tendermint-light-client-update-client = { workspace = true, features = ["solana"] }
-tendermint-light-client-membership.workspace = true
-tendermint-light-client-misbehaviour.workspace = true
-tendermint-light-client-uc-and-membership.workspace = true
+tendermint-light-client-membership = { workspace = true, features = ["solana"] }
+tendermint-light-client-misbehaviour = { workspace = true, features = ["solana"] }
+tendermint-light-client-solana = { workspace = true }
 
 ibc-client-tendermint.workspace = true
 ibc-core-client-types.workspace = true

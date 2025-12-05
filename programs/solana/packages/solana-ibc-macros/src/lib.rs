@@ -1,7 +1,7 @@
 //! Procedural macros for IBC applications on Solana
 //!
-//! This crate provides the `#[ibc_app]` macro which validates that IBC applications
-//! implement all required callback functions with correct signatures.
+//! This crate provides:
+//! - `#[ibc_app]` - Validates IBC app callback implementations
 
 use proc_macro::TokenStream;
 use quote::quote;

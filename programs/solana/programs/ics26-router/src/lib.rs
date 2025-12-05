@@ -22,8 +22,8 @@ declare_id!("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx");
 pub mod ics26_router {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, authority: Pubkey) -> Result<()> {
-        instructions::initialize(ctx, authority)
+    pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()> {
+        instructions::initialize(ctx, access_manager)
     }
 
     pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
@@ -87,5 +87,12 @@ pub mod ics26_router {
         msg: MsgCleanupChunks,
     ) -> Result<()> {
         instructions::cleanup_chunks(ctx, msg)
+    }
+
+    pub fn set_access_manager(
+        ctx: Context<SetAccessManager>,
+        new_access_manager: Pubkey,
+    ) -> Result<()> {
+        instructions::set_access_manager(ctx, new_access_manager)
     }
 }

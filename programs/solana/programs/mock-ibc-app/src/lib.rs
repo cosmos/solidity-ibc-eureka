@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use solana_ibc_macros::ibc_app;
 use solana_ibc_types::{OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg};
 
-declare_id!("9qnEj3T1NsaGkN3Sj7hgJZiKrVbKVBNmVphJ6PW1PDAB");
+declare_id!("4Fo5RuY7bEPZNz1FjkM9cUkUVc2BVhdYBjDA8P6Tmox1");
 
 /// Mock IBC Application Program for Testing
 ///
@@ -20,6 +20,11 @@ pub mod mock_ibc_app {
             if data == b"RETURN_ERROR_ACK" {
                 // Return the universal error acknowledgement
                 set_return_data(b"error");
+                return Ok(());
+            }
+            if data == b"NO_RETURN_DATA" {
+                // Test case: don't call set_return_data at all
+                // This should cause router to return InvalidAppResponse error
                 return Ok(());
             }
         }

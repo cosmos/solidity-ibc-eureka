@@ -1,0 +1,18 @@
+[package]
+name       = "ibc-eureka-constrained-types"
+version    = { workspace = true }
+edition    = { workspace = true }
+repository = { workspace = true }
+license    = { workspace = true }
+description = "Generic constrained types for validated data with compile-time length constraints"
+keywords   = ["ibc", "validation", "types", "constraints"]
+
+[dependencies]
+# No dependencies - this package is dependency-free
+
+[features]
+default = ["std"]
+std = []
+
+[lib]
+crate-type = ["lib"]

@@ -170,6 +170,10 @@ mod test {
                 version: FixedBytes([5, 0, 0, 1]),
                 epoch: 0,
             },
+            fulu: Fork {
+                version: FixedBytes([6, 0, 0, 1]),
+                epoch: 0,
+            },
         };
 
         // inputs

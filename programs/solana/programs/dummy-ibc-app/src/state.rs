@@ -20,7 +20,6 @@ pub struct DummyIbcAppState {
 }
 
 impl DummyIbcAppState {
-    pub const ROUTER_CALLER_SEED: &'static [u8] = b"router_caller";
     pub const ESCROW_SEED: &'static [u8] = b"escrow";
 }
 

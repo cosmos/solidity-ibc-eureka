@@ -5,13 +5,13 @@ package ics26_router
 
 // Account discriminators
 var (
-	Account_Client         = [8]byte{221, 237, 145, 143, 170, 194, 133, 115}
-	Account_ClientSequence = [8]byte{18, 97, 143, 135, 107, 101, 53, 226}
-	Account_Commitment     = [8]byte{61, 112, 129, 128, 24, 147, 77, 87}
-	Account_IbcApp         = [8]byte{204, 125, 117, 159, 158, 163, 105, 66}
-	Account_PayloadChunk   = [8]byte{82, 192, 37, 21, 4, 6, 71, 89}
-	Account_ProofChunk     = [8]byte{44, 69, 61, 168, 202, 104, 103, 207}
-	Account_RouterState    = [8]byte{141, 157, 194, 155, 75, 208, 200, 27}
+	Account_Ics26RouterStateClient         = [8]byte{221, 237, 145, 143, 170, 194, 133, 115}
+	Account_Ics26RouterStateClientSequence = [8]byte{18, 97, 143, 135, 107, 101, 53, 226}
+	Account_Ics26RouterStateCommitment     = [8]byte{61, 112, 129, 128, 24, 147, 77, 87}
+	Account_Ics26RouterStateIbcApp         = [8]byte{204, 125, 117, 159, 158, 163, 105, 66}
+	Account_Ics26RouterStatePayloadChunk   = [8]byte{82, 192, 37, 21, 4, 6, 71, 89}
+	Account_Ics26RouterStateProofChunk     = [8]byte{44, 69, 61, 168, 202, 104, 103, 207}
+	Account_Ics26RouterStateRouterState    = [8]byte{141, 157, 194, 155, 75, 208, 200, 27}
 )
 
 // Event discriminators
@@ -19,15 +19,16 @@ var ()
 
 // Instruction discriminators
 var (
-	Instruction_AckPacket          = [8]byte{43, 194, 45, 54, 2, 40, 211, 228}
-	Instruction_AddClient          = [8]byte{97, 103, 215, 121, 86, 53, 223, 241}
-	Instruction_AddIbcApp          = [8]byte{233, 201, 201, 149, 2, 13, 134, 27}
-	Instruction_CleanupChunks      = [8]byte{161, 232, 178, 127, 188, 117, 9, 18}
 	Instruction_Initialize         = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
-	Instruction_RecvPacket         = [8]byte{130, 14, 240, 161, 35, 63, 45, 71}
+	Instruction_AddIbcApp          = [8]byte{233, 201, 201, 149, 2, 13, 134, 27}
 	Instruction_SendPacket         = [8]byte{242, 7, 23, 143, 124, 157, 42, 102}
+	Instruction_RecvPacket         = [8]byte{130, 14, 240, 161, 35, 63, 45, 71}
+	Instruction_AckPacket          = [8]byte{43, 194, 45, 54, 2, 40, 211, 228}
 	Instruction_TimeoutPacket      = [8]byte{224, 56, 82, 83, 77, 13, 120, 103}
-	Instruction_UpdateClient       = [8]byte{184, 89, 17, 76, 97, 57, 165, 10}
+	Instruction_AddClient          = [8]byte{97, 103, 215, 121, 86, 53, 223, 241}
+	Instruction_MigrateClient      = [8]byte{95, 190, 13, 80, 51, 174, 34, 252}
 	Instruction_UploadPayloadChunk = [8]byte{191, 138, 167, 248, 208, 192, 24, 82}
 	Instruction_UploadProofChunk   = [8]byte{60, 215, 88, 47, 168, 107, 123, 150}
+	Instruction_CleanupChunks      = [8]byte{161, 232, 178, 127, 188, 117, 9, 18}
+	Instruction_SetAccessManager   = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
 )

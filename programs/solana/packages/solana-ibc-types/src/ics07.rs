@@ -4,6 +4,8 @@
 
 use anchor_lang::prelude::*;
 
+pub use solana_ibc_constants::ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS;
+
 /// ICS07 Tendermint instruction names and discriminators
 pub mod ics07_instructions {
     use crate::utils::compute_discriminator;
@@ -11,6 +13,8 @@ pub mod ics07_instructions {
     pub const INITIALIZE: &str = "initialize";
     pub const UPLOAD_HEADER_CHUNK: &str = "upload_header_chunk";
     pub const ASSEMBLE_AND_UPDATE_CLIENT: &str = "assemble_and_update_client";
+    pub const PRE_VERIFY_SIGNATURE: &str = "pre_verify_signature";
+    pub const CLEANUP_INCOMPLETE_UPLOAD: &str = "cleanup_incomplete_upload";
 
     pub fn initialize_discriminator() -> [u8; 8] {
         compute_discriminator(INITIALIZE)
@@ -22,6 +26,14 @@ pub mod ics07_instructions {
 
     pub fn assemble_and_update_client_discriminator() -> [u8; 8] {
         compute_discriminator(ASSEMBLE_AND_UPDATE_CLIENT)
+    }
+
+    pub fn pre_verify_signature_discriminator() -> [u8; 8] {
+        compute_discriminator(PRE_VERIFY_SIGNATURE)
+    }
+
+    pub fn cleanup_incomplete_upload_discriminator() -> [u8; 8] {
+        compute_discriminator(CLEANUP_INCOMPLETE_UPLOAD)
     }
 }
 
@@ -49,6 +61,21 @@ pub struct ClientState {
     pub max_clock_drift: u64,
     pub frozen_height: IbcHeight,
     pub latest_height: IbcHeight,
+}
+
+/// App state for ICS07 Tendermint
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct AppState {
+    pub access_manager: Pubkey,
+    pub _reserved: [u8; 256],
+}
+
+impl AppState {
+    pub const SEED: &'static [u8] = b"app_state";
+
+    pub fn pda(program_id: Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[Self::SEED], &program_id)
+    }
 }
 
 impl ClientState {
@@ -81,4 +108,13 @@ impl ConsensusState {
             &program_id,
         )
     }
+}
+
+/// Ed25519 signature data for pre-verification
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct SignatureData {
+    pub signature_hash: [u8; 32],
+    pub pubkey: [u8; 32],
+    pub msg: Vec<u8>,
+    pub signature: [u8; 64],
 }

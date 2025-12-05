@@ -1,15 +1,28 @@
 use crate::constants::*;
 use crate::errors::GMPError;
-use crate::events::{GMPAccountCreated, GMPExecutionCompleted, GMPExecutionFailed};
-use crate::state::{
-    AccountState, GMPAcknowledgement, GMPAppState, GMPPacketData, SolanaInstruction,
-};
+use crate::proto::GmpSolanaPayload;
+use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{hash::hash, instruction::Instruction, program::invoke_signed};
-
-const EXECUTION_SUCCESS_RESULT: &[u8] = b"execution_success";
+use anchor_lang::solana_program::instruction::Instruction;
+use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf};
+use solana_ibc_types::GMPAccount;
 
 /// Receive IBC packet and execute call (called by router via CPI)
+///
+/// # Account Layout
+/// The router is generic and passes all IBC-app-specific accounts via `remaining_accounts`.
+/// GMP defines its own account layout in `remaining_accounts`:
+///
+/// `remaining_accounts`:
+/// - [0]: `gmp_account` - GMP account PDA (created if needed, signs via `invoke_signed`)
+/// - [1]: `target_program` - The program to execute (extracted internally, must be executable)
+/// - [2..]: accounts from payload - All accounts required by target program
+///
+/// Note: `target_program` cannot be a direct Anchor account because:
+/// 1. The router is generic and doesn't know about GMP-specific account needs
+/// 2. Different IBC apps have different account layouts
+/// 3. The router passes all app-specific accounts via `remaining_accounts`
+///
 #[derive(Accounts)]
 #[instruction(msg: solana_ibc_types::OnRecvPacketMsg)]
 pub struct OnRecvPacket<'info> {
@@ -17,49 +30,51 @@ pub struct OnRecvPacket<'info> {
     #[account(
         mut,
         seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
-        bump = app_state.bump
+        bump = app_state.bump,
+        constraint = !app_state.paused @ GMPError::AppPaused
     )]
     pub app_state: Account<'info, GMPAppState>,
 
     /// Router program calling this instruction
-    /// CHECK: Validated in handler
-    pub router_program: UncheckedAccount<'info>,
+    pub router_program: Program<'info, ics26_router::program::Ics26Router>,
+
+    /// Instructions sysvar for validating CPI caller
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instruction_sysvar: AccountInfo<'info>,
 
     /// Relayer fee payer - used for account creation rent
     /// NOTE: This cannot be the GMP account PDA because PDAs with data cannot
     /// be used as payers in System Program transfers. The relayer's fee payer
     /// is used for rent, while the GMP account PDA signs via `invoke_signed`.
-    /// CHECK: Validated for sufficient funds when account creation is needed
     #[account(mut)]
-    pub payer: UncheckedAccount<'info>,
+    pub payer: Signer<'info>,
 
-    /// CHECK: System program
-    pub system_program: UncheckedAccount<'info>,
-    // Additional accounts (accessed via remaining_accounts from relayer):
-    // - [0]: account_state - GMP account PDA (created if needed, signs via invoke_signed)
-    // - [1]: target_program - Target program to execute
-    // - [2+]: accounts from payload - All accounts required by target program
+    pub system_program: Program<'info, System>,
+}
+
+impl OnRecvPacket<'_> {
+    /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
+    pub const FIXED_REMAINING_ACCOUNTS: usize = 2;
+
+    /// Index of GMP account PDA in `remaining_accounts`
+    pub const GMP_ACCOUNT_INDEX: usize = 0;
+
+    /// Index of target program in `remaining_accounts`
+    pub const TARGET_PROGRAM_INDEX: usize = 1;
 }
 
 pub fn on_recv_packet<'info>(
-    ctx: Context<'_, '_, '_, 'info, OnRecvPacket<'info>>,
+    ctx: Context<'_, '_, 'info, 'info, OnRecvPacket<'info>>,
     msg: solana_ibc_types::OnRecvPacketMsg,
 ) -> Result<Vec<u8>> {
-    let clock = Clock::get()?;
-    let current_time = clock.unix_timestamp;
-    let app_state = &mut ctx.accounts.app_state;
-
-    // Validate router program
-    require!(
-        ctx.accounts.router_program.key() == app_state.router_program,
-        GMPError::UnauthorizedRouter
-    );
-
-    // Check if app is operational
-    app_state.can_operate()?;
-
-    // Validate IBC payload fields (matching Solidity ICS27GMP validations)
-    // See: ICS27GMP.sol lines 115-130
+    // Verify this function is called via CPI from the authorized router
+    solana_ibc_types::validate_cpi_caller(
+        &ctx.accounts.instruction_sysvar,
+        &ics26_router::program::Ics26Router::id(),
+        &crate::ID,
+    )
+    .map_err(GMPError::from)?;
 
     // Validate version
     require!(
@@ -82,590 +97,350 @@ pub fn on_recv_packet<'info>(
     // Validate dest port
     require!(msg.payload.dest_port == GMP_PORT_ID, GMPError::InvalidPort);
 
-    // Parse packet data from router message
-    let packet_data = crate::router_cpi::parse_packet_data_from_router_cpi(&msg)?;
+    // Extract target_program from `remaining_accounts`
+    let target_program = ctx
+        .remaining_accounts
+        .get(OnRecvPacket::TARGET_PROGRAM_INDEX)
+        .ok_or(GMPError::InsufficientAccounts)?;
 
-    // Validate packet data
-    packet_data.validate()?;
+    // Validate target_program is executable
+    require!(target_program.executable, GMPError::TargetNotExecutable);
 
-    // Get account and target program from remaining accounts
-    // The router passes these as the first two remaining accounts
-    require!(
-        ctx.remaining_accounts.len() >= 2,
-        GMPError::InsufficientAccounts
-    );
-
-    // Work around lifetime issues by accessing items inline
-    if ctx.remaining_accounts.len() < 2 {
-        return Err(GMPError::InsufficientAccounts.into());
-    }
+    // Decode and validate GMP packet data from protobuf payload
+    // Uses Protobuf::decode which internally validates all constraints
+    let packet_data = GmpPacketData::decode(msg.payload.value.as_slice()).map_err(|e| {
+        msg!("GMP packet validation failed: {}", e);
+        GMPError::InvalidPacketData
+    })?;
 
     // Parse receiver as Solana Pubkey (for incoming packets, receiver is a Solana address)
     let receiver_pubkey =
-        Pubkey::try_from(packet_data.receiver.as_str()).map_err(|_| GMPError::InvalidAccountKey)?;
+        Pubkey::try_from(&packet_data.receiver[..]).map_err(|_| GMPError::InvalidAccountKey)?;
 
     // Validate target program matches packet data
-    require!(
-        ctx.remaining_accounts[1].key() == receiver_pubkey,
+    require_keys_eq!(
+        target_program.key(),
+        receiver_pubkey,
         GMPError::AccountKeyMismatch
     );
 
-    // Derive expected account address
-    let (expected_account_address, _bump) = AccountState::derive_address(
-        &packet_data.client_id,
-        &packet_data.sender,
-        &packet_data.salt,
-        ctx.program_id,
-    )?;
+    // Create ClientId from dest_client (local client on this chain)
+    let client_id = solana_ibc_types::ClientId::try_from(msg.dest_client)
+        .map_err(|_| GMPError::InvalidClientId)?;
 
-    // Validate account info matches derived address
-    require!(
-        ctx.remaining_accounts[0].key() == expected_account_address,
-        GMPError::InvalidAccountAddress
+    // Create account identifier and derive expected GMP account PDA address
+    let gmp_account = GMPAccount::new(
+        client_id,
+        packet_data.sender.clone(),
+        packet_data.salt.clone(),
+        &crate::ID,
     );
 
-    // Validate account ownership (security check)
-    if !ctx.remaining_accounts[0].data_is_empty() {
-        crate::utils::validate_account_ownership(&ctx.remaining_accounts[0], ctx.program_id)?;
-    }
+    // Extract GMP account PDA from `remaining_accounts`
+    let gmp_account_info = ctx
+        .remaining_accounts
+        .get(OnRecvPacket::GMP_ACCOUNT_INDEX)
+        .ok_or(GMPError::InsufficientAccounts)?;
 
-    // Get or create account state using utility function
-    let account_info = &ctx.remaining_accounts[0];
-    let payer_account_info = ctx.accounts.payer.to_account_info();
-    let system_program_account_info = ctx.accounts.system_program.to_account_info();
-    let (mut account_state, is_new_account) = crate::utils::get_or_create_account(
-        account_info,
-        &packet_data.client_id,
-        &packet_data.sender,
-        &packet_data.salt,
-        &payer_account_info,
-        &system_program_account_info,
-        ctx.program_id,
-        current_time,
-        _bump,
-    )?;
-
-    // Validate execution authority
-    validate_execution_authority(&account_state, &packet_data)?;
-
-    // Parse the SolanaInstruction from Protobuf payload
-    // The payload contains the target program ID, all required accounts, and instruction data
-    let solana_instruction = SolanaInstruction::try_from_slice(&packet_data.payload)?;
-    solana_instruction.validate()?;
-
-    // Prepare signer seeds for invoke_signed
-    // The GMP account PDA will sign for the target program execution
-    // NOTE: Sender is hashed to fit Solana's 32-byte PDA seed constraint
-    let sender_hash = hash(account_state.sender.as_bytes()).to_bytes();
-    let client_id_bytes = account_state.client_id.as_bytes().to_vec();
-    let salt_bytes = account_state.salt.clone();
-    let bump = account_state.bump;
-
-    // Build signer seeds on stack for invoke_signed
-    let bump_array = [bump];
-    let signer_seeds: &[&[u8]] = &[
-        AccountState::SEED, // b"gmp_account"
-        &client_id_bytes,   // Source chain client ID
-        &sender_hash,       // Hashed sender address (32 bytes)
-        &salt_bytes,        // User-provided salt
-        &bump_array,        // PDA bump seed
-    ];
-
-    // Execute with nonce protection and record result
-    let execution_result = execute_with_nonce_protection(&mut account_state, current_time, || {
-        execute_target_program(
-            &solana_instruction,
-            ctx.remaining_accounts,
-            signer_seeds,
-            &ctx.accounts.payer,
-        )
-    });
-
-    // Save account state using utility function
-    let account_info = &ctx.remaining_accounts[0];
-    crate::utils::save_account_state(account_info, &account_state)?;
-
-    // Emit event for new accounts
-    if is_new_account {
-        emit!(GMPAccountCreated {
-            account: ctx.remaining_accounts[0].key(),
-            client_id: packet_data.client_id.clone(),
-            sender: packet_data.sender.clone(),
-            salt: packet_data.salt.clone(),
-            created_at: current_time,
-        });
-    }
-
-    // Handle execution result and create acknowledgement
-    match execution_result {
-        Ok(result) => {
-            emit!(GMPExecutionCompleted {
-                account: ctx.remaining_accounts[0].key(),
-                target_program: ctx.remaining_accounts[1].key(),
-                client_id: packet_data.client_id.clone(),
-                sender: packet_data.sender.clone(),
-                nonce: account_state.nonce,
-                success: true,
-                result_size: result.len() as u64,
-                timestamp: current_time,
-            });
-
-            let ack = GMPAcknowledgement::success(result);
-            Ok(ack.try_to_vec()?)
-        }
-        Err(e) => {
-            let error_msg = format!("Execution failed: {e:?}");
-
-            emit!(GMPExecutionFailed {
-                account: ctx.remaining_accounts[0].key(),
-                target_program: ctx.remaining_accounts[1].key(),
-                error_code: 0, // Simplified error code handling
-                error_message: error_msg.clone(),
-                timestamp: current_time,
-            });
-
-            // Return error acknowledgement instead of failing transaction
-            // This matches Ethereum behavior
-            let ack = GMPAcknowledgement::error(error_msg);
-            Ok(ack.try_to_vec()?)
-        }
-    }
-}
-
-/// Validate that the execution is authorized for this GMP account
-/// Only the original creator (same `client_id`, sender, and salt) can execute via this account
-///
-/// Note: This function is public primarily for testing purposes
-pub fn validate_execution_authority(
-    account_state: &AccountState,
-    packet_data: &GMPPacketData,
-) -> Result<()> {
-    // Ensure the packet comes from the same source chain client
-    require!(
-        account_state.client_id == packet_data.client_id,
-        GMPError::WrongCounterpartyClient
+    // Validate GMP account PDA matches expected address
+    require_keys_eq!(
+        gmp_account_info.key(),
+        gmp_account.pda,
+        GMPError::GMPAccountPDAMismatch
     );
 
-    // Ensure the packet is from the original sender who created this account
+    // Decode and validate the GMP Solana payload
+    // The payload contains all required accounts and instruction data
+    let solana_payload = GmpSolanaPayload::decode(&packet_data.payload[..]).map_err(|e| {
+        msg!("GMP Solana payload validation failed: {}", e);
+        GMPError::InvalidSolanaPayload
+    })?;
+
+    // Build account metas from GMP Solana payload
+    let mut account_metas = solana_payload.to_account_metas();
+
+    // Skip gmp_account_pda[0] and target_program[1]
+    let remaining_accounts_for_execution =
+        &ctx.remaining_accounts[OnRecvPacket::FIXED_REMAINING_ACCOUNTS..];
+
+    // Validate account count matches exactly (before payer injection)
     require!(
-        account_state.sender == packet_data.sender,
-        GMPError::UnauthorizedSender
+        remaining_accounts_for_execution.len() == account_metas.len(),
+        GMPError::AccountCountMismatch
     );
 
-    // Ensure the salt matches (for deterministic PDA derivation)
-    require!(
-        account_state.salt == packet_data.salt,
-        GMPError::InvalidSalt
-    );
-
-    Ok(())
-}
-
-/// Execute with nonce protection and error handling
-/// Increments the nonce before execution to prevent replay attacks
-///
-/// Note: This function is public primarily for testing purposes
-pub fn execute_with_nonce_protection<F, T>(
-    account_state: &mut AccountState,
-    current_time: i64,
-    execution_fn: F,
-) -> Result<T>
-where
-    F: FnOnce() -> Result<T>,
-{
-    // Increment nonce BEFORE execution to prevent replay attacks
-    // Even if execution fails, the nonce is incremented
-    account_state.execute_nonce_increment(current_time);
-
-    // Execute the target program
-    execution_fn()
-}
-
-/// Execute target program with GMP account PDA as signer
-fn execute_target_program<'a>(
-    solana_instruction: &SolanaInstruction,
-    remaining_accounts: &[AccountInfo<'a>],
-    signer_seeds: &[&[u8]],
-    payer: &AccountInfo<'a>,
-) -> Result<Vec<u8>> {
-    let program_id = solana_instruction.get_program_id()?;
-    let mut account_metas = solana_instruction.to_account_metas()?;
-
-    let payer_position = inject_payer_if_needed(
-        &mut account_metas,
-        solana_instruction.payer_position,
-        payer.key,
-    )?;
-
-    let target_account_infos =
-        map_and_validate_accounts(&account_metas, remaining_accounts, payer_position, payer)?;
-
-    let instruction = Instruction {
-        program_id,
-        accounts: account_metas,
-        data: solana_instruction.data.clone(),
-    };
-
-    invoke_signed(&instruction, &target_account_infos, &[signer_seeds])
-        .map(|()| EXECUTION_SUCCESS_RESULT.to_vec())
-        .map_err(|_| GMPError::TargetExecutionFailed.into())
-}
-
-/// Inject payer into account metas if specified
-///
-/// Note: This function is public primarily for testing purposes
-pub fn inject_payer_if_needed(
-    account_metas: &mut Vec<AccountMeta>,
-    payer_position: Option<u32>,
-    payer_key: &Pubkey,
-) -> Result<Option<usize>> {
-    match payer_position {
-        None => Ok(None),
-        Some(pos) if (pos as usize) <= account_metas.len() => {
-            let pos_usize = pos as usize;
-            account_metas.insert(pos_usize, AccountMeta::new(*payer_key, true));
-            Ok(Some(pos_usize))
-        }
-        _ => Err(GMPError::InvalidPayerPosition.into()),
-    }
-}
-
-/// Calculate offset for account mapping based on payer injection position
-///
-/// Note: This function is public primarily for testing purposes
-pub const fn calculate_account_offset(
-    account_index: usize,
-    payer_position: Option<usize>,
-    base_offset: usize,
-) -> usize {
-    match payer_position {
-        Some(pos) if account_index > pos => base_offset - 1,
-        _ => base_offset,
-    }
-}
-
-/// Map account metas to account infos and validate permissions
-fn map_and_validate_accounts<'a>(
-    account_metas: &[AccountMeta],
-    remaining_accounts: &[AccountInfo<'a>],
-    payer_position: Option<usize>,
-    payer: &AccountInfo<'a>,
-) -> Result<Vec<AccountInfo<'a>>> {
-    const TARGET_ACCOUNTS_OFFSET: usize = 2;
-
-    require!(
-        account_metas.len() + TARGET_ACCOUNTS_OFFSET <= remaining_accounts.len() + 1,
-        GMPError::InsufficientAccounts
-    );
-
-    let mut target_account_infos = Vec::new();
-
-    for (i, meta) in account_metas.iter().enumerate() {
-        let account_info = if Some(i) == payer_position {
-            payer
-        } else {
-            let offset = calculate_account_offset(i, payer_position, TARGET_ACCOUNTS_OFFSET);
-            &remaining_accounts[i + offset]
-        };
-
-        require!(
-            account_info.key() == meta.pubkey,
+    // Validate all accounts match the provided metadata
+    for (meta, account_info) in account_metas.iter().zip(remaining_accounts_for_execution) {
+        require_keys_eq!(
+            account_info.key(),
+            meta.pubkey,
             GMPError::AccountKeyMismatch
         );
 
-        if meta.is_writable && !account_info.is_writable {
-            return Err(GMPError::InsufficientAccountPermissions.into());
-        }
-
-        target_account_infos.push(account_info.clone());
+        require!(
+            account_info.is_writable == meta.is_writable,
+            GMPError::InsufficientAccountPermissions
+        );
     }
 
-    Ok(target_account_infos)
+    // Build target_account_infos from remaining_accounts
+    let mut target_account_infos = remaining_accounts_for_execution.to_vec();
+
+    // Inject payer at specified position
+    if let Some(pos) = solana_payload.payer_position {
+        let pos_usize = pos as usize;
+        require!(
+            pos_usize <= account_metas.len(),
+            GMPError::InvalidPayerPosition
+        );
+        target_account_infos.insert(pos_usize, ctx.accounts.payer.to_account_info());
+        account_metas.insert(pos_usize, AccountMeta::new(*ctx.accounts.payer.key, true));
+    }
+
+    let instruction = Instruction {
+        program_id: receiver_pubkey,
+        accounts: account_metas,
+        data: solana_payload.data,
+    };
+
+    // Call target program via CPI with GMP account PDA as signer
+    // Note: CPI errors cause immediate transaction abort in Solana, so we cannot
+    // handle execution failures gracefully like Ethereum. The ? operator will
+    // propagate any error and abort the entire transaction.
+    gmp_account.invoke_signed(&instruction, &target_account_infos)?;
+
+    // Get return data from the target program (if any)
+    // Only accept return data from the target program itself, not from nested CPIs
+    let result = match anchor_lang::solana_program::program::get_return_data() {
+        Some((return_program_id, data)) if return_program_id == receiver_pubkey => data,
+        _ => vec![], // No return data or came from nested CPI
+    };
+
+    // Create acknowledgement with execution result
+    // Matches ibc-go's Acknowledgement format (just the result bytes)
+    Ok(GmpAcknowledgement::new(result).encode_to_vec())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{
-        AccountState, GMPAppState, GMPPacketData, SolanaAccountMeta, SolanaInstruction,
-    };
+    use crate::proto::{RawGmpPacketData, RawGmpSolanaPayload, RawSolanaAccountMeta};
+    use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
+    use gmp_counter_app::ID as COUNTER_APP_ID;
+    use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
+    use solana_ibc_proto::ProstMessage;
+    use solana_ibc_types::GMPAccount;
+    use solana_sdk::account::Account;
+    use solana_sdk::bpf_loader_upgradeable;
+    use solana_sdk::program_error::ProgramError;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction as SolanaInstructionSDK},
         pubkey::Pubkey,
         system_program,
     };
 
-    #[test]
-    fn test_validate_execution_authority_success() {
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = b"salt";
-
-        let (_account_pda, bump) =
-            AccountState::derive_address(client_id, sender, salt, &crate::ID).unwrap();
-
-        let account_state = AccountState {
-            client_id: client_id.to_string(),
-            sender: sender.to_string(),
-            salt: salt.to_vec(),
-            nonce: 0,
-            created_at: 1_600_000_000,
-            last_executed_at: 1_600_000_000,
-            execution_count: 0,
-            bump,
-        };
-
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
-            sender: sender.to_string(),
-            receiver: Pubkey::new_unique().to_string(),
-            salt: salt.to_vec(),
-            payload: vec![1, 2, 3],
-            memo: String::new(),
-        };
-
-        assert!(validate_execution_authority(&account_state, &packet_data).is_ok());
-    }
-
-    #[test]
-    fn test_validate_execution_authority_wrong_client() {
-        let (_account_pda, bump) =
-            AccountState::derive_address("cosmoshub-1", "cosmos1test", b"", &crate::ID).unwrap();
-
-        let account_state = AccountState {
-            client_id: "cosmoshub-1".to_string(),
-            sender: "cosmos1test".to_string(),
-            salt: vec![],
-            nonce: 0,
-            created_at: 1_600_000_000,
-            last_executed_at: 1_600_000_000,
-            execution_count: 0,
-            bump,
-        };
-
-        let packet_data = GMPPacketData {
-            client_id: "different-client".to_string(),
-            sender: "cosmos1test".to_string(),
-            receiver: Pubkey::new_unique().to_string(),
-            salt: vec![],
-            payload: vec![1, 2, 3],
-            memo: String::new(),
-        };
-
-        assert!(validate_execution_authority(&account_state, &packet_data).is_err());
-    }
-
-    #[test]
-    fn test_execute_with_nonce_protection_increments_on_success() {
-        let (_account_pda, bump) =
-            AccountState::derive_address("cosmoshub-1", "cosmos1test", b"", &crate::ID).unwrap();
-
-        let mut account_state = AccountState {
-            client_id: "cosmoshub-1".to_string(),
-            sender: "cosmos1test".to_string(),
-            salt: vec![],
-            nonce: 5,
-            created_at: 1_600_000_000,
-            last_executed_at: 1_600_000_000,
-            execution_count: 10,
-            bump,
-        };
-
-        let current_time = 1_700_000_000;
-        let old_nonce = account_state.nonce;
-
-        let result = execute_with_nonce_protection(&mut account_state, current_time, || {
-            Ok("success".to_string())
-        });
-
-        assert!(result.is_ok());
-        assert_eq!(account_state.nonce, old_nonce + 1);
-    }
-
-    #[test]
-    fn test_inject_payer_at_beginning() {
-        let payer_key = Pubkey::new_unique();
-        let mut account_metas = vec![
-            AccountMeta::new(Pubkey::new_unique(), false),
-            AccountMeta::new_readonly(Pubkey::new_unique(), false),
-        ];
-
-        let result = inject_payer_if_needed(&mut account_metas, Some(0), &payer_key);
-
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), Some(0));
-        assert_eq!(account_metas.len(), 3);
-        assert_eq!(account_metas[0].pubkey, payer_key);
-    }
-
-    #[test]
-    fn test_inject_payer_none() {
-        let payer_key = Pubkey::new_unique();
-        let mut account_metas = vec![
-            AccountMeta::new(Pubkey::new_unique(), false),
-            AccountMeta::new_readonly(Pubkey::new_unique(), false),
-        ];
-
-        let original_len = account_metas.len();
-        let result = inject_payer_if_needed(&mut account_metas, None, &payer_key);
-
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), None);
-        assert_eq!(account_metas.len(), original_len);
-    }
-
-    #[test]
-    fn test_calculate_account_offset_no_payer() {
-        assert_eq!(calculate_account_offset(0, None, 2), 2);
-        assert_eq!(calculate_account_offset(5, None, 2), 2);
-    }
-
-    #[test]
-    fn test_calculate_account_offset_with_payer_after() {
-        assert_eq!(calculate_account_offset(3, Some(2), 2), 1);
-        assert_eq!(calculate_account_offset(4, Some(2), 2), 1);
+    /// Helper function to create a `GMPAccount` from test data
+    fn create_test_gmp_account(
+        client_id: &str,
+        sender: &str,
+        salt: Vec<u8>,
+        program_id: &Pubkey,
+    ) -> GMPAccount {
+        GMPAccount::new(
+            client_id.try_into().unwrap(),
+            sender.try_into().unwrap(),
+            salt.try_into().unwrap(),
+            program_id,
+        )
     }
 
     #[test]
     fn test_on_recv_packet_app_paused() {
         let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = vec![1u8, 2, 3];
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            vec![],
+        );
 
-        let (account_state_pda, _account_bump) =
-            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
-
-        let packet_data =
-            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![]);
-        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
-        let instruction = create_recv_packet_instruction(
-            ctx.app_state_pda,
-            ctx.router_program,
-            ctx.payer,
-            recv_msg,
-        );
+        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
 
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.router_program,
-                ctx.authority,
                 ctx.app_state_bump,
                 true, // paused
             ),
             create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            create_uninitialized_account_for_pda(account_state_pda),
-            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::AppPaused as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[test]
-    fn test_on_recv_packet_frozen_account() {
+    fn test_on_recv_packet_direct_call_rejected() {
         let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = vec![1u8, 2, 3];
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            vec![],
+        );
 
-        let (account_state_pda, account_bump) =
-            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
-
-        let packet_data =
-            create_gmp_packet_data(client_id, sender, system_program::ID, salt.clone(), vec![]);
-        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
-        let instruction = create_recv_packet_instruction(
-            ctx.app_state_pda,
-            ctx.router_program,
-            ctx.payer,
-            recv_msg,
-        );
+        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
 
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.router_program,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
             create_router_program_account(ctx.router_program),
+            // For a direct call, the instructions sysvar will show GMP as the caller (not router)
+            create_instructions_sysvar_account_with_caller(crate::ID),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            create_account_state(
-                account_state_pda,
-                client_id.to_string(),
-                sender.to_string(),
-                salt,
-                account_bump,
-            ),
-            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        // Direct calls fail with DirectCallNotAllowed since validate_cpi_caller checks
+        // that the instruction was called via CPI from the authorized router
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::DirectCallNotAllowed as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[test]
     fn test_on_recv_packet_unauthorized_router() {
         let ctx = create_gmp_test_context();
-        let wrong_router = Pubkey::new_unique();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = vec![1u8, 2, 3];
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            vec![],
+        );
 
-        let (account_state_pda, _account_bump) =
-            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
-
-        let packet_data =
-            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![]);
-        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
-        let instruction =
-            create_recv_packet_instruction(ctx.app_state_pda, wrong_router, ctx.payer, recv_msg);
+        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // Create an unauthorized program ID (not the authorized router)
+        let unauthorized_program = Pubkey::new_unique();
 
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.router_program, // State has correct router
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(wrong_router),
+            create_router_program_account(ctx.router_program),
+            // Simulate CPI from an unauthorized program (not the router)
+            create_instructions_sysvar_account_with_caller(unauthorized_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            create_uninitialized_account_for_pda(account_state_pda),
-            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail with unauthorized router"
+        // Unauthorized router calls fail with UnauthorizedRouter error
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::UnauthorizedRouter as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_on_recv_packet_fake_sysvar_wormhole_attack() {
+        let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
+
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            vec![],
         );
+
+        let packet_data_bytes = packet_data.encode_to_vec();
+
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // Simulate Wormhole attack: pass a completely different account with fake sysvar data
+        // instead of the real instructions sysvar
+        let (fake_sysvar_pubkey, fake_sysvar_account) =
+            create_fake_instructions_sysvar_account(ctx.router_program);
+
+        // Modify the instruction to reference the fake sysvar (simulating attacker control)
+        instruction.accounts[2] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
+
+        let accounts = vec![
+            create_gmp_app_state_account(
+                ctx.app_state_pda,
+                ctx.app_state_bump,
+                false, // not paused
+            ),
+            create_router_program_account(ctx.router_program),
+            // Wormhole attack: provide a DIFFERENT account instead of the real sysvar
+            (fake_sysvar_pubkey, fake_sysvar_account),
+            create_authority_account(ctx.payer),
+            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
+        ];
+
+        // Should be rejected by Anchor's address constraint check
+        // This happens before validate_cpi_caller even runs
+        let checks = vec![Check::err(ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintAddress as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[test]
     fn test_on_recv_packet_invalid_app_state_pda() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let port_id = "gmpport".to_string();
@@ -676,15 +451,9 @@ mod tests {
         // Use wrong PDA
         let wrong_app_state_pda = Pubkey::new_unique();
 
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = vec![1u8, 2, 3];
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
-        let (account_state_pda, _account_bump) =
-            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
-
-        let packet_data = GMPPacketData {
-            client_id: client_id.to_string(),
+        let packet_data = RawGmpPacketData {
             sender: sender.to_string(),
             receiver: system_program::ID.to_string(),
             salt,
@@ -692,11 +461,11 @@ mod tests {
             memo: String::new(),
         };
 
-        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
@@ -715,6 +484,7 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(wrong_app_state_pda, false), // Wrong PDA!
                 AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, false),
                 AccountMeta::new_readonly(system_program::ID, false),
             ],
@@ -726,16 +496,16 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 wrong_app_state_pda,
-                router_program,
-                authority,
                 wrong_bump,
                 false, // not paused
             ),
             create_router_program_account(router_program),
+            create_instructions_sysvar_account_with_caller(router_program),
             create_authority_account(payer),
             create_system_program_account(),
-            create_uninitialized_account_for_pda(account_state_pda),
-            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
@@ -749,147 +519,224 @@ mod tests {
     fn test_on_recv_packet_wrong_sender() {
         let ctx = create_gmp_test_context();
 
-        let client_id = "cosmoshub-1";
+        let (client_id, _default_sender, salt, _default_pda) = create_test_account_data();
         let original_sender = "cosmos1original";
         let wrong_sender = "cosmos1attacker";
-        let salt = vec![1u8, 2, 3];
 
-        // Account was created by original_sender
-        let (account_state_pda, account_bump) =
-            AccountState::derive_address(client_id, original_sender, &salt, &crate::ID).unwrap();
+        // Derive PDA for original_sender (the correct one)
+        let (correct_pda, _) =
+            create_test_gmp_account(client_id, original_sender, salt.clone(), &crate::ID).pda();
 
-        // Packet claims to be from wrong_sender
+        // Create a minimal valid payload
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: vec![],
+            data: vec![0u8], // Minimal non-empty data
+            payer_position: None,
+        };
+
+        let solana_payload_bytes = solana_payload.encode_to_vec();
+
+        // Packet claims to be from wrong_sender - this will derive a different PDA
         let packet_data = create_gmp_packet_data(
-            client_id,
             wrong_sender,
-            system_program::ID,
-            salt.clone(),
-            vec![],
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            solana_payload_bytes,
         );
-        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
-        let instruction = create_recv_packet_instruction(
-            ctx.app_state_pda,
-            ctx.router_program,
-            ctx.payer,
-            recv_msg,
-        );
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // Add remaining accounts to instruction
+        instruction
+            .accounts
+            .push(AccountMeta::new(correct_pda, false)); // [0] GMP account PDA
+        instruction.accounts.push(AccountMeta::new_readonly(
+            crate::test_utils::DUMMY_TARGET_PROGRAM,
+            false,
+        )); // [1] target_program
 
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.router_program,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
             create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            create_account_state(
-                account_state_pda,
-                client_id.to_string(),
-                original_sender.to_string(), // Account owned by original sender
-                salt,
-                account_bump,
-            ),
-            create_system_program_account(),
+            // Remaining accounts - providing the PDA for original_sender, but packet claims wrong_sender
+            create_uninitialized_account_for_pda(correct_pda), // [0] GMP account PDA
+            create_dummy_target_program_account(),             // [1] target_program
         ];
 
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail when sender doesn't match account owner"
-        );
+        // Should fail with GMPAccountPDAMismatch because derived PDA (from wrong_sender) doesn't match provided PDA (from original_sender)
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::GMPAccountPDAMismatch as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[test]
     fn test_on_recv_packet_wrong_salt() {
         let ctx = create_gmp_test_context();
 
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let original_salt = vec![1u8, 2, 3];
+        let (client_id, sender, _original_salt, correct_pda) = create_test_account_data();
         let wrong_salt = vec![4u8, 5, 6];
 
-        // Account was created with original_salt
-        let (account_state_pda, account_bump) =
-            AccountState::derive_address(client_id, sender, &original_salt, &crate::ID).unwrap();
+        // Create a minimal valid payload
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: vec![],
+            data: vec![0u8], // Minimal non-empty data
+            payer_position: None,
+        };
 
-        // Packet uses wrong_salt
-        let packet_data =
-            create_gmp_packet_data(client_id, sender, system_program::ID, wrong_salt, vec![]);
-        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+        let solana_payload_bytes = solana_payload.encode_to_vec();
+
+        // Packet uses wrong_salt - this will derive a different PDA
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            wrong_salt,
+            solana_payload_bytes,
+        );
+
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
-        let instruction = create_recv_packet_instruction(
-            ctx.app_state_pda,
-            ctx.router_program,
-            ctx.payer,
-            recv_msg,
-        );
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // Add remaining accounts to instruction
+        instruction
+            .accounts
+            .push(AccountMeta::new(correct_pda, false)); // [0] GMP account PDA
+        instruction.accounts.push(AccountMeta::new_readonly(
+            crate::test_utils::DUMMY_TARGET_PROGRAM,
+            false,
+        )); // [1] target_program
 
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.router_program,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
             create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            create_account_state(
-                account_state_pda,
-                client_id.to_string(),
-                sender.to_string(),
-                original_salt, // Account has original salt
-                account_bump,
-            ),
-            create_system_program_account(),
+            // Remaining accounts - providing the PDA for original_salt, but packet claims wrong_salt
+            create_uninitialized_account_for_pda(correct_pda), // [0] GMP account PDA
+            create_dummy_target_program_account(),             // [1] target_program
         ];
 
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail when salt doesn't match"
+        // Should fail with GMPAccountPDAMismatch because derived PDA (from wrong_salt) doesn't match provided PDA (from original_salt)
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::GMPAccountPDAMismatch as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_on_recv_packet_wrong_client() {
+        let ctx = create_gmp_test_context();
+
+        let (_original_client_id, sender, salt, correct_pda) = create_test_account_data();
+        let wrong_client_id = "different-client";
+
+        // Create a minimal valid payload
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: vec![],
+            data: vec![0u8], // Minimal non-empty data
+            payer_position: None,
+        };
+
+        let solana_payload_bytes = solana_payload.encode_to_vec();
+
+        // Packet claims to be from wrong_client_id - this will derive a different PDA
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            solana_payload_bytes,
         );
+
+        let packet_data_bytes = packet_data.encode_to_vec();
+
+        let recv_msg = create_recv_packet_msg(wrong_client_id, packet_data_bytes, 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // Add remaining accounts to instruction
+        instruction
+            .accounts
+            .push(AccountMeta::new(correct_pda, false)); // [0] GMP account PDA
+        instruction.accounts.push(AccountMeta::new_readonly(
+            crate::test_utils::DUMMY_TARGET_PROGRAM,
+            false,
+        )); // [1] target_program
+
+        let accounts = vec![
+            create_gmp_app_state_account(
+                ctx.app_state_pda,
+                ctx.app_state_bump,
+                false, // not paused
+            ),
+            create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
+            create_authority_account(ctx.payer),
+            create_system_program_account(),
+            // Remaining accounts - providing the PDA for original_client_id, but packet claims wrong_client_id
+            create_uninitialized_account_for_pda(correct_pda), // [0] GMP account PDA
+            create_dummy_target_program_account(),             // [1] target_program
+        ];
+
+        // Should fail with GMPAccountPDAMismatch because derived PDA (from wrong_client_id) doesn't match provided PDA (from original_client_id)
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::GMPAccountPDAMismatch as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[test]
     fn test_on_recv_packet_insufficient_accounts() {
         let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, _gmp_account_pda) = create_test_account_data();
 
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = vec![1u8, 2, 3];
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            vec![],
+        );
 
-        let packet_data =
-            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![]);
-        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
-        let instruction = create_recv_packet_instruction(
-            ctx.app_state_pda,
-            ctx.router_program,
-            ctx.payer,
-            recv_msg,
-        );
+        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
 
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.router_program,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
             create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            // Missing remaining accounts!
+            // Missing remaining accounts! (should have at least gmp_account_pda and target_program)
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
@@ -902,22 +749,21 @@ mod tests {
     #[test]
     fn test_on_recv_packet_invalid_version() {
         let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = vec![1u8, 2, 3];
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            vec![1, 2, 3],
+        );
 
-        let (account_state_pda, _account_bump) =
-            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
-
-        let packet_data =
-            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![1, 2, 3]);
-        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         // Create custom recv_msg with invalid version
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
@@ -929,26 +775,21 @@ mod tests {
             relayer: Pubkey::new_unique(),
         };
 
-        let instruction = create_recv_packet_instruction(
-            ctx.app_state_pda,
-            ctx.router_program,
-            ctx.payer,
-            recv_msg,
-        );
+        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
 
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.router_program,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
             create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            create_uninitialized_account_for_pda(account_state_pda),
-            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
@@ -961,22 +802,21 @@ mod tests {
     #[test]
     fn test_on_recv_packet_invalid_source_port() {
         let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = vec![1u8, 2, 3];
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            vec![1, 2, 3],
+        );
 
-        let (account_state_pda, _account_bump) =
-            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
-
-        let packet_data =
-            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![1, 2, 3]);
-        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         // Create custom recv_msg with invalid source port
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: "transfer".to_string(), // Invalid source port!
@@ -988,26 +828,21 @@ mod tests {
             relayer: Pubkey::new_unique(),
         };
 
-        let instruction = create_recv_packet_instruction(
-            ctx.app_state_pda,
-            ctx.router_program,
-            ctx.payer,
-            recv_msg,
-        );
+        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
 
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.router_program,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
             create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            create_uninitialized_account_for_pda(account_state_pda),
-            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
@@ -1020,22 +855,21 @@ mod tests {
     #[test]
     fn test_on_recv_packet_invalid_encoding() {
         let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = vec![1u8, 2, 3];
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            vec![1, 2, 3],
+        );
 
-        let (account_state_pda, _account_bump) =
-            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
-
-        let packet_data =
-            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![1, 2, 3]);
-        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         // Create custom recv_msg with invalid encoding
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
@@ -1047,26 +881,21 @@ mod tests {
             relayer: Pubkey::new_unique(),
         };
 
-        let instruction = create_recv_packet_instruction(
-            ctx.app_state_pda,
-            ctx.router_program,
-            ctx.payer,
-            recv_msg,
-        );
+        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
 
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.router_program,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
             create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            create_uninitialized_account_for_pda(account_state_pda),
-            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
@@ -1079,22 +908,21 @@ mod tests {
     #[test]
     fn test_on_recv_packet_invalid_dest_port() {
         let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = vec![1u8, 2, 3];
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            vec![1, 2, 3],
+        );
 
-        let (account_state_pda, _account_bump) =
-            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
-
-        let packet_data =
-            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![1, 2, 3]);
-        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         // Create custom recv_msg with invalid dest port
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
@@ -1106,26 +934,21 @@ mod tests {
             relayer: Pubkey::new_unique(),
         };
 
-        let instruction = create_recv_packet_instruction(
-            ctx.app_state_pda,
-            ctx.router_program,
-            ctx.payer,
-            recv_msg,
-        );
+        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
 
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.router_program,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
             create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            create_uninitialized_account_for_pda(account_state_pda),
-            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
@@ -1138,58 +961,119 @@ mod tests {
     #[test]
     fn test_on_recv_packet_account_key_mismatch() {
         let ctx = create_gmp_test_context();
-
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = vec![1u8, 2, 3];
-
-        let (expected_account_state_pda, _account_bump) =
-            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
+        let (client_id, sender, salt, expected_gmp_account_pda) = create_test_account_data();
 
         // Use a different account key than expected
         let wrong_account_key = Pubkey::new_unique();
 
-        let packet_data =
-            create_gmp_packet_data(client_id, sender, system_program::ID, salt, vec![]);
-        let packet_data_bytes = packet_data.try_to_vec().unwrap();
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            vec![],
+        );
+
+        let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
-        let instruction = create_recv_packet_instruction(
-            ctx.app_state_pda,
-            ctx.router_program,
-            ctx.payer,
-            recv_msg,
-        );
+        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
 
         let accounts = vec![
             create_gmp_app_state_account(
                 ctx.app_state_pda,
-                ctx.router_program,
-                ctx.authority,
                 ctx.app_state_bump,
                 false, // not paused
             ),
             create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            create_uninitialized_account_for_pda(wrong_account_key), // Wrong account key!
-            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(wrong_account_key), // [0] Wrong account key!
+            create_dummy_target_program_account(),                   // [1] target_program
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
-            "OnRecvPacket should fail when account key doesn't match expected PDA (expected: {expected_account_state_pda}, got: {wrong_account_key})"
+            "OnRecvPacket should fail when account key doesn't match expected PDA (expected: {expected_gmp_account_pda}, got: {wrong_account_key})"
         );
     }
 
     #[test]
-    fn test_on_recv_packet_success_with_cpi() {
-        use gmp_counter_app::ID as COUNTER_APP_ID;
-        use prost::Message as ProstMessage;
-        use solana_sdk::account::Account;
-        use solana_sdk::bpf_loader_upgradeable;
+    fn test_on_recv_packet_target_program_mismatch() {
+        let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
+        // Create a minimal valid GMP Solana payload
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: vec![],
+            data: vec![0u8], // Minimal non-empty data
+            payer_position: None,
+        };
+
+        let solana_payload_bytes = solana_payload.encode_to_vec();
+
+        // Packet says to execute on DUMMY_TARGET_PROGRAM
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            solana_payload_bytes,
+        );
+
+        let packet_data_bytes = packet_data.encode_to_vec();
+
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // But relayer provides a different program in remaining_accounts[1]
+        let wrong_target_program = Pubkey::new_unique();
+
+        // Add remaining accounts to instruction
+        instruction
+            .accounts
+            .push(AccountMeta::new(gmp_account_pda, false)); // [0] GMP account PDA
+        instruction
+            .accounts
+            .push(AccountMeta::new_readonly(wrong_target_program, false)); // [1] Wrong target program!
+
+        let accounts = vec![
+            create_gmp_app_state_account(
+                ctx.app_state_pda,
+                ctx.app_state_bump,
+                false, // not paused
+            ),
+            create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
+            create_authority_account(ctx.payer),
+            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] GMP account PDA (correct)
+            (
+                wrong_target_program, // [1] Wrong target program!
+                solana_sdk::account::Account {
+                    lamports: 1_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        // Should fail with AccountKeyMismatch error
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::AccountKeyMismatch as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_on_recv_packet_success_with_cpi() {
         // Create Mollusk instance and load both programs
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
@@ -1201,19 +1085,14 @@ mod tests {
             &bpf_loader_upgradeable::ID,
         );
 
-        let authority = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
+        let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         // Create packet data that will call the counter app
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = vec![1u8, 2, 3];
-
-        let (account_state_pda, _account_bump) =
-            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
+        let authority = Pubkey::new_unique();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         // Counter app state and user counter PDAs
         let (counter_app_state_pda, counter_app_state_bump) = Pubkey::find_program_address(
@@ -1224,40 +1103,41 @@ mod tests {
         let (user_counter_pda, _user_counter_bump) = Pubkey::find_program_address(
             &[
                 gmp_counter_app::state::UserCounter::SEED,
-                account_state_pda.as_ref(),
+                gmp_account_pda.as_ref(),
             ],
             &COUNTER_APP_ID,
         );
 
-        // Create SolanaInstruction that will increment the counter
+        // Create counter instruction that will increment the counter
         let counter_instruction = gmp_counter_app::instruction::Increment { amount: 5 };
         let counter_instruction_data = anchor_lang::InstructionData::data(&counter_instruction);
 
-        // Build SolanaInstruction for the payload
-        let solana_instruction = SolanaInstruction {
-            program_id: COUNTER_APP_ID.to_bytes().to_vec(),
+        // Build GMPSolanaPayload for the payload
+        let solana_payload = RawGmpSolanaPayload {
             accounts: vec![
                 // app_state
-                SolanaAccountMeta {
+                RawSolanaAccountMeta {
                     pubkey: counter_app_state_pda.to_bytes().to_vec(),
                     is_signer: false,
                     is_writable: true,
                 },
                 // user_counter
-                SolanaAccountMeta {
+                RawSolanaAccountMeta {
                     pubkey: user_counter_pda.to_bytes().to_vec(),
                     is_signer: false,
                     is_writable: true,
                 },
-                // user_authority (account_state_pda will sign via invoke_signed)
-                SolanaAccountMeta {
-                    pubkey: account_state_pda.to_bytes().to_vec(),
+                // user_authority (gmp_account_pda will sign via invoke_signed)
+                // Note: marked writable because gmp_account_pda is also used as GMP account (writable)
+                // and Solana merges duplicate pubkeys with most permissive flags
+                RawSolanaAccountMeta {
+                    pubkey: gmp_account_pda.to_bytes().to_vec(),
                     is_signer: true,
-                    is_writable: false,
+                    is_writable: true,
                 },
                 // payer will be injected at position 3 by GMP
                 // system_program
-                SolanaAccountMeta {
+                RawSolanaAccountMeta {
                     pubkey: system_program::ID.to_bytes().to_vec(),
                     is_signer: false,
                     is_writable: false,
@@ -1267,26 +1147,22 @@ mod tests {
             payer_position: Some(3), // Inject payer at position 3
         };
 
-        let mut solana_instruction_bytes = Vec::new();
-        solana_instruction
-            .encode(&mut solana_instruction_bytes)
-            .unwrap();
+        let solana_payload_bytes = solana_payload.encode_to_vec();
 
         // Create GMPPacketData with the counter instruction as payload using protobuf
-        let proto_packet_data = crate::proto::GmpPacketData {
+        let proto_packet_data = RawGmpPacketData {
             sender: sender.to_string(),
             receiver: COUNTER_APP_ID.to_string(),
-            salt: salt.clone(),
-            payload: solana_instruction_bytes,
+            salt,
+            payload: solana_payload_bytes,
             memo: String::new(),
         };
 
-        let mut packet_data_bytes = Vec::new();
-        proto_packet_data.encode(&mut packet_data_bytes).unwrap();
+        let packet_data_bytes = proto_packet_data.encode_to_vec();
 
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
@@ -1305,14 +1181,15 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
                 AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 // Remaining accounts for CPI:
-                AccountMeta::new(account_state_pda, false), // [0] account_state (GMP account)
+                AccountMeta::new(gmp_account_pda, false), // [0] gmp_account_pda
                 AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target_program
                 AccountMeta::new(counter_app_state_pda, false), // [2] counter app state
-                AccountMeta::new(user_counter_pda, false),  // [3] user counter
-                AccountMeta::new_readonly(account_state_pda, false), // [4] user_authority (same as [0])
+                AccountMeta::new(user_counter_pda, false), // [3] user counter
+                AccountMeta::new(gmp_account_pda, true), // [4] user_authority (gmp_account_pda signs via invoke_signed, writable due to duplicate)
                 AccountMeta::new_readonly(system_program::ID, false), // [5] system program
             ],
             data: instruction_data.data(),
@@ -1335,17 +1212,12 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 app_state_pda,
-                router_program,
-                authority,
                 app_state_bump,
                 false, // not paused
             ),
             create_router_program_account(router_program),
-            create_authority_account(payer),
-            create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // Account state will be created
-            // Counter app program (loaded via mollusk.add_program())
+            create_instructions_sysvar_account_with_caller(router_program),
+            // Counter app program (target_program) - must be executable
             (
                 COUNTER_APP_ID,
                 Account {
@@ -1356,6 +1228,10 @@ mod tests {
                     rent_epoch: 0,
                 },
             ),
+            create_authority_account(payer),
+            create_system_program_account(),
+            // Remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // Account state will be created
             (
                 counter_app_state_pda,
                 Account {
@@ -1367,6 +1243,7 @@ mod tests {
                 },
             ),
             create_uninitialized_account_for_pda(user_counter_pda), // User counter will be created
+            create_authority_account(gmp_account_pda),
             create_system_program_account(),
         ];
 
@@ -1398,48 +1275,37 @@ mod tests {
             &result.return_data[..]
         };
 
-        let ack = crate::state::GMPAcknowledgement::decode(ack_bytes).unwrap();
+        let ack = solana_ibc_proto::GmpAcknowledgement::decode_vec(ack_bytes).unwrap();
 
+        // Following ibc-go convention: non-empty result = success
         assert!(
-            ack.success,
-            "CPI execution should succeed, but got error: {}",
-            ack.error
+            !ack.result.is_empty(),
+            "CPI execution should succeed (non-empty result)"
         );
 
-        // Verify account state was created and has correct data
-        let acc = result
-            .get_account(&account_state_pda)
-            .expect("Account state should be created");
-
+        // Verify the acknowledgement contains the correct counter value
+        // Counter app returns u64 in little-endian (8 bytes)
         assert_eq!(
-            acc.owner,
-            crate::ID,
-            "Account should be owned by GMP program"
+            ack.result.len(),
+            8,
+            "Counter return value should be 8 bytes (u64)"
         );
-        assert!(!acc.data.is_empty(), "Account should have data");
-
-        // Check discriminator
+        let returned_counter = u64::from_le_bytes(ack.result[..8].try_into().unwrap());
+        // Counter should be incremented to 5 (initial 0 + increment 5)
         assert_eq!(
-            &acc.data[0..crate::constants::DISCRIMINATOR_SIZE],
-            AccountState::DISCRIMINATOR,
-            "Should have correct discriminator"
+            returned_counter, 5,
+            "Acknowledgement should contain counter value 5, got {returned_counter}"
         );
 
-        // Deserialize and verify account state
-        let account_state =
-            AccountState::try_deserialize(&mut &acc.data[crate::constants::DISCRIMINATOR_SIZE..])
-                .expect("Failed to deserialize account state");
-        assert_eq!(account_state.nonce, 1, "Nonce should be incremented to 1");
-        assert_eq!(account_state.client_id, client_id);
-        assert_eq!(account_state.sender, sender);
-        assert_eq!(account_state.salt, salt);
+        // With stateless approach, no account state is created
+        // The GMP account PDA is used as a signer without storing state
     }
 
     /// Verifies that CPI errors cause immediate transaction failure
     ///
     /// Test Scenario:
     /// 1. GMP receives a packet requesting a counter app CPI call
-    /// 2. The payer has insufficient lamports (3M - enough for `account_state` but not for `user_counter`)
+    /// 2. The payer has insufficient lamports (3M - enough for `gmp_account_pda` but not for `user_counter`)
     /// 3. GMP invokes counter app via CPI
     /// 4. Counter app fails when attempting to create `user_counter` (insufficient lamports)
     /// 5. The entire transaction aborts - no error acknowledgment is returned
@@ -1482,11 +1348,6 @@ mod tests {
     /// This is fundamentally different from EVM's try/catch mechanism or Cosmos SDK's error returns.
     #[test]
     fn test_on_recv_packet_failed_execution_returns_error_ack() {
-        use gmp_counter_app::ID as COUNTER_APP_ID;
-        use prost::Message as ProstMessage;
-        use solana_sdk::account::Account;
-        use solana_sdk::bpf_loader_upgradeable;
-
         // Create Mollusk instance and load both programs
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
@@ -1497,19 +1358,14 @@ mod tests {
             &bpf_loader_upgradeable::ID,
         );
 
-        let authority = Pubkey::new_unique();
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
         // Create packet data
-        let client_id = "cosmoshub-1";
-        let sender = "cosmos1test";
-        let salt = vec![1u8, 2, 3];
-
-        let (account_state_pda, _account_bump) =
-            AccountState::derive_address(client_id, sender, &salt, &crate::ID).unwrap();
+        let authority = Pubkey::new_unique();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         // Counter app state PDA
         let (counter_app_state_pda, counter_app_state_bump) = Pubkey::find_program_address(
@@ -1520,7 +1376,7 @@ mod tests {
         let (user_counter_pda, _user_counter_bump) = Pubkey::find_program_address(
             &[
                 gmp_counter_app::state::UserCounter::SEED,
-                account_state_pda.as_ref(),
+                gmp_account_pda.as_ref(),
             ],
             &COUNTER_APP_ID,
         );
@@ -1529,31 +1385,32 @@ mod tests {
         let counter_instruction = gmp_counter_app::instruction::Increment { amount: 5 };
         let counter_instruction_data = anchor_lang::InstructionData::data(&counter_instruction);
 
-        // Build SolanaInstruction for the payload
-        let solana_instruction = SolanaInstruction {
-            program_id: COUNTER_APP_ID.to_bytes().to_vec(),
+        // Build GMPSolanaPayload for the payload
+        let solana_payload = RawGmpSolanaPayload {
             accounts: vec![
                 // app_state
-                SolanaAccountMeta {
+                RawSolanaAccountMeta {
                     pubkey: counter_app_state_pda.to_bytes().to_vec(),
                     is_signer: false,
                     is_writable: true,
                 },
                 // user_counter
-                SolanaAccountMeta {
+                RawSolanaAccountMeta {
                     pubkey: user_counter_pda.to_bytes().to_vec(),
                     is_signer: false,
                     is_writable: true,
                 },
-                // user_authority (account_state_pda will sign via invoke_signed)
-                SolanaAccountMeta {
-                    pubkey: account_state_pda.to_bytes().to_vec(),
+                // user_authority (gmp_account_pda will sign via invoke_signed)
+                // Note: marked writable because gmp_account_pda is also used as GMP account (writable)
+                // and Solana merges duplicate pubkeys with most permissive flags
+                RawSolanaAccountMeta {
+                    pubkey: gmp_account_pda.to_bytes().to_vec(),
                     is_signer: true,
-                    is_writable: false,
+                    is_writable: true,
                 },
                 // payer will be injected at position 3 by GMP
                 // system_program
-                SolanaAccountMeta {
+                RawSolanaAccountMeta {
                     pubkey: system_program::ID.to_bytes().to_vec(),
                     is_signer: false,
                     is_writable: false,
@@ -1563,26 +1420,22 @@ mod tests {
             payer_position: Some(3), // Inject payer at position 3
         };
 
-        let mut solana_instruction_bytes = Vec::new();
-        solana_instruction
-            .encode(&mut solana_instruction_bytes)
-            .unwrap();
+        let solana_payload_bytes = solana_payload.encode_to_vec();
 
         // Create GMPPacketData with the counter instruction as payload using protobuf
-        let proto_packet_data = crate::proto::GmpPacketData {
+        let proto_packet_data = RawGmpPacketData {
             sender: sender.to_string(),
             receiver: COUNTER_APP_ID.to_string(),
             salt,
-            payload: solana_instruction_bytes,
+            payload: solana_payload_bytes,
             memo: String::new(),
         };
 
-        let mut packet_data_bytes = Vec::new();
-        proto_packet_data.encode(&mut packet_data_bytes).unwrap();
+        let packet_data_bytes = proto_packet_data.encode_to_vec();
 
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: client_id.to_string(),
-            dest_client: "solana-1".to_string(),
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
@@ -1601,14 +1454,15 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
                 AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 // Remaining accounts for CPI:
-                AccountMeta::new(account_state_pda, false), // [0] account_state (GMP account)
+                AccountMeta::new(gmp_account_pda, false), // [0] gmp_account_pda (GMP account)
                 AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target_program
                 AccountMeta::new(counter_app_state_pda, false), // [2] counter app state
-                AccountMeta::new(user_counter_pda, false),  // [3] user counter
-                AccountMeta::new_readonly(account_state_pda, false), // [4] user_authority (same as [0])
+                AccountMeta::new(user_counter_pda, false), // [3] user counter
+                AccountMeta::new(gmp_account_pda, true), // [4] user_authority (gmp_account_pda signs via invoke_signed, writable due to duplicate)
                 AccountMeta::new_readonly(system_program::ID, false), // [5] system program
             ],
             data: instruction_data.data(),
@@ -1631,16 +1485,15 @@ mod tests {
         let accounts = vec![
             create_gmp_app_state_account(
                 app_state_pda,
-                router_program,
-                authority,
                 app_state_bump,
                 false, // not paused
             ),
             create_router_program_account(router_program),
+            create_instructions_sysvar_account(),
             (
                 payer,
                 Account {
-                    lamports: 3_000_000, // Enough for GMP account_state (~2.4M) but not enough for counter user_counter too
+                    lamports: 3_000_000, // Enough for GMP gmp_account_pda (~2.4M) but not enough for counter user_counter too
                     data: vec![],
                     owner: system_program::ID,
                     executable: false,
@@ -1649,7 +1502,7 @@ mod tests {
             ),
             create_system_program_account(),
             // Remaining accounts
-            create_uninitialized_account_for_pda(account_state_pda), // Account state will be created
+            create_uninitialized_account_for_pda(gmp_account_pda), // Account state will be created
             // Counter app program (loaded via mollusk.add_program())
             (
                 COUNTER_APP_ID,
@@ -1672,6 +1525,7 @@ mod tests {
                 },
             ),
             create_uninitialized_account_for_pda(user_counter_pda), // User counter - will fail to init due to insufficient payer funds
+            create_authority_account(gmp_account_pda),
             create_system_program_account(),
         ];
 
@@ -1689,12 +1543,113 @@ mod tests {
             "No return data should be present when transaction aborts"
         );
 
-        // Verify account state was NOT created (transaction rolled back)
-        if let Some(acc) = result.get_account(&account_state_pda) {
-            assert!(
-                acc.data.is_empty() || acc.data.iter().all(|&b| b == 0),
-                "Account should remain uninitialized after transaction abort"
-            );
+        // With stateless approach, no account state is created or rolled back
+        // The GMP account PDA is used as a signer without storing state
+    }
+
+    #[test]
+    fn test_invalid_packet_data_returns_error() {
+        let ctx = create_gmp_test_context();
+        let (client_id, _sender, salt, gmp_account_pda) = create_test_account_data();
+        let target_program = crate::test_utils::DUMMY_TARGET_PROGRAM;
+
+        // Create invalid packet data with empty sender (will fail validation)
+        let invalid_packet_data = RawGmpPacketData {
+            sender: String::new(), // Invalid: empty sender
+            receiver: target_program.to_string(),
+            salt,
+            payload: vec![1, 2, 3, 4],
+            memo: String::new(),
+        };
+
+        let packet_data_bytes = invalid_packet_data.encode_to_vec();
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // Add remaining accounts to the instruction
+        instruction.accounts.extend(vec![
+            AccountMeta::new(gmp_account_pda, false), // [0] gmp_account_pda
+            AccountMeta::new_readonly(target_program, false), // [1] target_program
+        ]);
+
+        let accounts = vec![
+            create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
+            create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
+            create_authority_account(ctx.payer),
+            create_system_program_account(),
+            // Remaining accounts - matching the instruction's remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
+        ];
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + GMPError::InvalidPacketData as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_invalid_solana_payload_returns_error() {
+        let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
+        let target_program = crate::test_utils::DUMMY_TARGET_PROGRAM;
+
+        // Create invalid Solana payload with empty data (will fail validation during decode)
+        let invalid_solana_payload = RawGmpSolanaPayload {
+            data: vec![], // Invalid: empty instruction data
+            accounts: vec![],
+            payer_position: None,
+        };
+
+        // Encode the invalid solana payload - this creates a valid protobuf but with empty data field
+        let mut invalid_payload_bytes = invalid_solana_payload.encode_to_vec();
+
+        // If encoding results in empty vec, add a dummy byte to pass NonEmpty constraint
+        // The payload will still be invalid when decoded as GmpSolanaPayload
+        if invalid_payload_bytes.is_empty() {
+            invalid_payload_bytes = vec![0xFF]; // Invalid protobuf that will fail decode
         }
+
+        // Create packet data with the invalid payload bytes directly (not using helper)
+        let packet_data = RawGmpPacketData {
+            sender: sender.to_string(),
+            receiver: target_program.to_string(),
+            salt,
+            payload: invalid_payload_bytes, // This will pass GmpPacketData validation but fail GmpSolanaPayload validation
+            memo: String::new(),
+        };
+
+        let packet_data_bytes = packet_data.encode_to_vec();
+        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // Add remaining accounts to the instruction
+        instruction.accounts.extend(vec![
+            AccountMeta::new(gmp_account_pda, false), // [0] gmp_account_pda
+            AccountMeta::new_readonly(target_program, false), // [1] target_program
+        ]);
+
+        let accounts = vec![
+            create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
+            create_router_program_account(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
+            create_authority_account(ctx.payer),
+            create_system_program_account(),
+            // Remaining accounts - matching the instruction's remaining accounts
+            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
+            create_dummy_target_program_account(),                 // [1] target_program
+        ];
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + GMPError::InvalidSolanaPayload as u32,
+        ))];
+
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }

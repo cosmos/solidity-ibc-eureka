@@ -23,6 +23,14 @@ pub struct UploadChunkParams {
     pub chunk_data: Vec<u8>,
 }
 
+/// Parameters for uploading a misbehaviour chunk
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct UploadMisbehaviourChunkParams {
+    pub client_id: String,
+    pub chunk_index: u8,
+    pub chunk_data: Vec<u8>,
+}
+
 #[account]
 #[derive(InitSpace)]
 pub struct ClientState {
@@ -35,6 +43,19 @@ pub struct ClientState {
     pub max_clock_drift: u64,
     pub frozen_height: IbcHeight,
     pub latest_height: IbcHeight,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct AppState {
+    /// Access manager program ID for role-based access control
+    pub access_manager: Pubkey,
+    /// Reserved space for future fields
+    pub _reserved: [u8; 256],
+}
+
+impl AppState {
+    pub const SEED: &'static [u8] = b"app_state";
 }
 
 impl ClientState {
@@ -69,12 +90,14 @@ pub struct IbcHeight {
 }
 
 impl From<IbcHeight> for Height {
+    #[inline]
     fn from(h: IbcHeight) -> Self {
         Self::new(h.revision_number, h.revision_height).expect("valid height")
     }
 }
 
 impl From<Height> for IbcHeight {
+    #[inline]
     fn from(h: Height) -> Self {
         Self {
             revision_number: h.revision_number(),
@@ -84,9 +107,29 @@ impl From<Height> for IbcHeight {
 }
 
 impl From<ClientState> for UpdateClientState {
+    #[inline]
     fn from(cs: ClientState) -> Self {
         Self {
             chain_id: cs.chain_id,
+            trust_level: TrustThreshold {
+                numerator: cs.trust_level_numerator,
+                denominator: cs.trust_level_denominator,
+            },
+            trusting_period_seconds: cs.trusting_period,
+            unbonding_period_seconds: cs.unbonding_period,
+            max_clock_drift_seconds: cs.max_clock_drift,
+            is_frozen: cs.frozen_height.revision_height > 0,
+            latest_height: cs.latest_height.into(),
+        }
+    }
+}
+
+// Reference-based conversion to avoid cloning the entire ClientState
+impl From<&ClientState> for UpdateClientState {
+    #[inline]
+    fn from(cs: &ClientState) -> Self {
+        Self {
+            chain_id: cs.chain_id.clone(),
             trust_level: TrustThreshold {
                 numerator: cs.trust_level_numerator,
                 denominator: cs.trust_level_denominator,
@@ -108,7 +151,25 @@ pub struct ConsensusState {
 }
 
 impl From<ConsensusState> for IbcConsensusState {
+    #[inline]
     fn from(cs: ConsensusState) -> Self {
+        let time = OffsetDateTime::from_unix_timestamp_nanos(cs.timestamp.into())
+            .expect("invalid timestamp");
+        let seconds = time.unix_timestamp();
+        let nanos = time.nanosecond();
+
+        Self {
+            timestamp: Time::from_unix_timestamp(seconds, nanos).expect("invalid time"),
+            root: CommitmentRoot::from_bytes(&cs.root),
+            next_validators_hash: tendermint::Hash::Sha256(cs.next_validators_hash),
+        }
+    }
+}
+
+// Reference-based conversion to avoid cloning ConsensusState
+impl From<&ConsensusState> for IbcConsensusState {
+    #[inline]
+    fn from(cs: &ConsensusState) -> Self {
         let time = OffsetDateTime::from_unix_timestamp_nanos(cs.timestamp.into())
             .expect("invalid timestamp");
         let seconds = time.unix_timestamp();
@@ -125,6 +186,7 @@ impl From<ConsensusState> for IbcConsensusState {
 impl TryFrom<IbcConsensusState> for ConsensusState {
     type Error = <[u8; 32] as TryFrom<Vec<u8>>>::Error;
 
+    #[inline]
     fn try_from(cs: IbcConsensusState) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
             timestamp: cs.timestamp.unix_timestamp_nanos() as u64,
@@ -132,12 +194,6 @@ impl TryFrom<IbcConsensusState> for ConsensusState {
             next_validators_hash: cs.next_validators_hash.as_bytes().to_vec().try_into()?,
         })
     }
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct MisbehaviourMsg {
-    pub client_id: String,
-    pub misbehaviour: Vec<u8>, // Protobuf encoded Misbehaviour
 }
 
 #[cfg(test)]
@@ -246,6 +302,29 @@ mod compatibility_tests {
             client_state.latest_height.revision_height,
             types_client_state.latest_height.revision_height
         );
+    }
+
+    /// Ensures `AppState` serialization remains compatible between program and solana-ibc-types
+    #[test]
+    fn test_app_state_serialization_compatibility() {
+        let app_state = AppState {
+            access_manager: access_manager::ID,
+            _reserved: [0; 256],
+        };
+
+        let serialized = app_state.try_to_vec().unwrap();
+
+        let types_app_state: solana_ibc_types::ics07::AppState =
+            AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
+
+        assert_eq!(app_state.access_manager, types_app_state.access_manager);
+        assert_eq!(app_state._reserved, types_app_state._reserved);
+    }
+
+    /// Ensures `AppState` SEED constant matches between program and solana-ibc-types
+    #[test]
+    fn test_app_state_seed_compatibility() {
+        assert_eq!(AppState::SEED, solana_ibc_types::ics07::AppState::SEED);
     }
 
     /// Ensures `ClientState` SEED constant matches between program and solana-ibc-types

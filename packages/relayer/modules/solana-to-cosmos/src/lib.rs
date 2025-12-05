@@ -103,7 +103,6 @@ impl SolanaToCosmosRelayerModuleService {
 
 #[tonic::async_trait]
 impl RelayerService for SolanaToCosmosRelayerModuleService {
-    #[tracing::instrument(skip_all)]
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
@@ -129,7 +128,6 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         }))
     }
 
-    #[tracing::instrument(skip_all)]
     async fn relay_by_tx(
         &self,
         request: Request<api::RelayByTxRequest>,
@@ -189,7 +187,6 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         }))
     }
 
-    #[tracing::instrument(skip_all)]
     async fn create_client(
         &self,
         request: Request<api::CreateClientRequest>,
@@ -209,7 +206,6 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         }))
     }
 
-    #[tracing::instrument(skip_all)]
     async fn update_client(
         &self,
         request: Request<api::UpdateClientRequest>,

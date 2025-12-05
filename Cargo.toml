@@ -9,6 +9,7 @@ members = [
     "packages/tendermint-light-client/membership",
     "packages/tendermint-light-client/misbehaviour",
     "packages/tendermint-light-client/uc-and-membership",
+    "packages/tendermint-light-client/solana",
     "packages/solidity",
     "packages/relayer/lib",
     "packages/relayer/core",
@@ -20,6 +21,7 @@ members = [
     "packages/relayer/modules/cosmos-to-solana",
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
+    "packages/constrained_types",
 
     "programs/relayer",
     "programs/operator",
@@ -45,6 +47,7 @@ ibc-eureka-relayer-eth-to-cosmos-compat = { path = "packages/relayer/modules/eth
 ibc-eureka-relayer-solana-to-cosmos     = { path = "packages/relayer/modules/solana-to-cosmos", default-features = false }
 ibc-eureka-relayer-cosmos-to-solana     = { path = "packages/relayer/modules/cosmos-to-solana", default-features = false }
 ibc-eureka-utils                        = { path = "packages/utils", default-features = false }
+ibc-eureka-constrained-types            = { path = "packages/constrained_types", default-features = false }
 sp1-ics07-tendermint-prover             = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }
 sp1-ics07-tendermint-update-client      = { path = "programs/sp1-programs/update-client", default-features = false }
 sp1-ics07-tendermint-membership         = { path = "programs/sp1-programs/membership", default-features = false }
@@ -59,10 +62,10 @@ tendermint-light-client-update-client     = { path = "packages/tendermint-light-
 tendermint-light-client-membership        = { path = "packages/tendermint-light-client/membership", default-features = false }
 tendermint-light-client-misbehaviour      = { path = "packages/tendermint-light-client/misbehaviour", default-features = false }
 tendermint-light-client-uc-and-membership = { path = "packages/tendermint-light-client/uc-and-membership", default-features = false }
+tendermint-light-client-solana            = { path = "packages/tendermint-light-client/solana", default-features = false }
 
-solana-ibc-constants = { path = "programs/solana/packages/solana-ibc-constants", default-features = false }
-solana-ibc-types = { path = "programs/solana/packages/solana-ibc-types", default-features = false }
 brine-ed25519 = { version = "0.2", default-features = false }
+ed25519-dalek = { version = "2.0", default-features = false }
 
 serde           = { version = "1.0", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
@@ -72,6 +75,8 @@ hex             = { version = "0.4", default-features = false }
 base64          = { version = "0.22", default-features = false }
 prost           = { version = "0.13", default-features = false }
 prost-build     = { version = "0.13", default-features = false }
+# Solana workspace uses borsh 0.10.4 for Anchor compatibility (Anchor 0.31.1 requires that version).
+borsh           = { version = "1.3", default-features = false }
 subtle-encoding = { version = "0.5", default-features = false }
 schemars        = { version = "0.8", default-features = false }
 
@@ -83,7 +88,7 @@ tokio            = { version = "1.0", default-features = false }
 tonic            = { version = "0.13", default-features = false }
 tonic-build      = { version = "0.13", default-features = false }
 tonic-reflection = { version = "0.13", default-features = false }
-warp             = { version = "0.3", default-features = false }
+warp             = { version = "0.4", default-features = false }
 
 prometheus         = { version = "0.14", default-features = false }
 tracing            = { version = "0.1", default-features = false }
@@ -110,45 +115,47 @@ ibc-proto-eureka = { package = "ibc-proto", git = "https://github.com/srdtrk/ibc
 ics23            = { version = "0.12", default-features = false }
 
 ibc-client-tendermint       = { version = "0.57", default-features = false }
+ibc-client-tendermint-types = { version = "0.57", default-features = false }
 ibc-core-client             = { version = "0.57", default-features = false }
 ibc-core-host-types         = { version = "0.57", default-features = false }
 ibc-core-client-types       = { version = "0.57", default-features = false }
 ibc-core-commitment-types   = { version = "0.57", default-features = false }
-ibc-client-tendermint-types = { version = "0.57", default-features = false }
+
 ibc-primitives              = { version = "0.57", default-features = false }
 
-alloy                  = { version = "1.0", default-features = false }
-alloy-contract         = { version = "1.0", default-features = false }
-alloy-sol-types        = { version = "1.0", default-features = false }
-alloy-primitives       = { version = "1.0", default-features = false }
-alloy-serde            = { version = "1.0", default-features = false }
-alloy-network          = { version = "1.0", default-features = false }
-alloy-signer-local     = { version = "1.0", default-features = false }
+alloy                  = { version = "1.1", default-features = false }
+alloy-contract         = { version = "1.1", default-features = false }
+alloy-sol-types        = { version = "1.1", default-features = false }
+alloy-primitives       = { version = "1.1", default-features = false }
+alloy-serde            = { version = "1.1", default-features = false }
+alloy-network          = { version = "1.1", default-features = false }
+alloy-signer-local     = { version = "1.1", default-features = false }
 alloy-rlp              = { version = "0.3", default-features = false }
-alloy-provider         = { version = "1.0", default-features = false }
-alloy-transport        = { version = "1.0", default-features = false }
-alloy-rpc-types-eth    = { version = "1.0", default-features = false }
+alloy-provider         = { version = "1.1", default-features = false }
+alloy-transport        = { version = "1.1", default-features = false }
+alloy-rpc-types-eth    = { version = "1.1", default-features = false }
 
-sp1-sdk    = { version = "=5.0.0", default-features = false }
-sp1-prover = { version = "=5.0.5", default-features = false }
+sp1-sdk    = { version = "5.0", default-features = false }
+sp1-prover = { version = "5.0", default-features = false }
 
+# NOTE: When updating, use `cargo update -p ed25519-zebra --precise 4.0.3` to avoid pulling in a version that conflicts with cosmwasm-crypto
 cosmwasm-schema = { version = "2.2", default-features = false }
 cosmwasm-std    = { version = "2.2", default-features = false }
 cw2             = { version = "2.0", default-features = false }
 
 # The dependencies below are maintained by Sigma Prime (for use in Lighthouse (and the broader Ethereum ecosystem))
-ethereum_ssz        = { version = "0.9", default-features = false }
-ethereum_ssz_derive = { version = "0.9", default-features = false }
-tree_hash_derive    = { version = "0.10", default-features = false }
+ethereum_ssz        = { version = "0.10", default-features = false }
+ethereum_ssz_derive = { version = "0.10", default-features = false }
+tree_hash_derive    = { version = "0.11", default-features = false }
 
 # The dependencies below are maintained by Parity Tech
 trie-db            = { version = "0.30", default-features = false }
 hash-db            = { version = "0.16", default-features = false }
-memory-db          = { version = "0.32", default-features = false }
+memory-db          = { version = "0.34", default-features = false }
 hash256-std-hasher = { version = "0.15", default-features = false }
 rlp                = { version = "0.6", default-features = false }
 rlp-derive         = { version = "0.2", default-features = false }
-primitive-types    = { version = "0.13", default-features = false }
+primitive-types    = { version = "0.14", default-features = false }
 
 # test/dev-dependencies
 milagro_bls   = { git = "https://github.com/Snowfork/milagro_bls", rev = "bc2b5b5e8d48b7e2e1bfaa56dc2d93e13cb32095", default-features = false } # Only used for testing, not to be used in production!
@@ -160,11 +167,26 @@ ethereum-light-client-v1_2_0 = { package = "ethereum-light-client", git = "https
 solana-client             = { version = "2.0" }
 solana-sdk                = { version = "2.0" }
 solana-transaction-status = { version = "2.0" }
-borsh                     = { version = "1.3" }
 bincode                   = { version = "1.3" }
-anchor-lang               = { version = "0.31.1" }
-anchor-client             = { version = "0.31.1" }
+anchor-lang               = { version = "0.32.1" }
+anchor-client             = { version = "0.32.1" }
+
+solana-account-info   = { version = "2.2", default-features = false }
+solana-pubkey         = { version = "2.2", default-features = false, features = ["sha2", "curve25519"] }
+solana-sha256-hasher  = { version = "2.2", default-features = false }
+solana-keccak-hasher  = { version = "2.2", default-features = false }
+solana-msg            = { version = "2.2", default-features = false }
 
 # TODO: Remove these dependencies once ethereum wasm client v1.2.0 backwards compatibility is not needed
 ibc-eureka-relayer-eth-to-cosmos-v1_2 = { package = "ibc-eureka-relayer-eth-to-cosmos", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
 ibc-eureka-relayer-core-v1_2= { package = "ibc-eureka-relayer-core", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
+
+[patch.crates-io]
+# TODO: remove on publish of verifier with &self in verify method
+tendermint.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-proto.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-light-client-verifier.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-config.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-rpc.git = "https://github.com/cometbft/tendermint-rs"
+
+

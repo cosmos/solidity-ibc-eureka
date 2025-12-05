@@ -8,20 +8,323 @@ import (
 	"fmt"
 	errors "github.com/gagliardetto/anchor-go/errors"
 	binary "github.com/gagliardetto/binary"
+	solanago "github.com/gagliardetto/solana-go"
 )
 
-type ClientState struct {
-	ChainId               string    `json:"chainId"`
-	TrustLevelNumerator   uint64    `json:"trustLevelNumerator"`
-	TrustLevelDenominator uint64    `json:"trustLevelDenominator"`
-	TrustingPeriod        uint64    `json:"trustingPeriod"`
-	UnbondingPeriod       uint64    `json:"unbondingPeriod"`
-	MaxClockDrift         uint64    `json:"maxClockDrift"`
-	FrozenHeight          IbcHeight `json:"frozenHeight"`
-	LatestHeight          IbcHeight `json:"latestHeight"`
+type Ics07TendermintStateConsensusStateStore struct {
+	Height         uint64                             `json:"height"`
+	ConsensusState Ics07TendermintTypesConsensusState `json:"consensusState"`
 }
 
-func (obj ClientState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics07TendermintStateConsensusStateStore) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Height`:
+	err = encoder.Encode(obj.Height)
+	if err != nil {
+		return errors.NewField("Height", err)
+	}
+	// Serialize `ConsensusState`:
+	err = encoder.Encode(obj.ConsensusState)
+	if err != nil {
+		return errors.NewField("ConsensusState", err)
+	}
+	return nil
+}
+
+func (obj Ics07TendermintStateConsensusStateStore) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics07TendermintStateConsensusStateStore: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics07TendermintStateConsensusStateStore) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Height`:
+	err = decoder.Decode(&obj.Height)
+	if err != nil {
+		return errors.NewField("Height", err)
+	}
+	// Deserialize `ConsensusState`:
+	err = decoder.Decode(&obj.ConsensusState)
+	if err != nil {
+		return errors.NewField("ConsensusState", err)
+	}
+	return nil
+}
+
+func (obj *Ics07TendermintStateConsensusStateStore) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics07TendermintStateConsensusStateStore: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs07TendermintStateConsensusStateStore(buf []byte) (*Ics07TendermintStateConsensusStateStore, error) {
+	obj := new(Ics07TendermintStateConsensusStateStore)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Storage for a single chunk of header data during multi-transaction upload
+type Ics07TendermintStateHeaderChunk struct {
+	// The submitter who created this chunk
+	Submitter solanago.PublicKey `json:"submitter"`
+
+	// The chunk data
+	ChunkData []byte `json:"chunkData"`
+}
+
+func (obj Ics07TendermintStateHeaderChunk) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Submitter`:
+	err = encoder.Encode(obj.Submitter)
+	if err != nil {
+		return errors.NewField("Submitter", err)
+	}
+	// Serialize `ChunkData`:
+	err = encoder.Encode(obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj Ics07TendermintStateHeaderChunk) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics07TendermintStateHeaderChunk: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics07TendermintStateHeaderChunk) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Submitter`:
+	err = decoder.Decode(&obj.Submitter)
+	if err != nil {
+		return errors.NewField("Submitter", err)
+	}
+	// Deserialize `ChunkData`:
+	err = decoder.Decode(&obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj *Ics07TendermintStateHeaderChunk) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics07TendermintStateHeaderChunk: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs07TendermintStateHeaderChunk(buf []byte) (*Ics07TendermintStateHeaderChunk, error) {
+	obj := new(Ics07TendermintStateHeaderChunk)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Storage for a single chunk of misbehaviour data during multi-transaction upload
+type Ics07TendermintStateMisbehaviourChunk struct {
+	// The chunk data
+	ChunkData []byte `json:"chunkData"`
+}
+
+func (obj Ics07TendermintStateMisbehaviourChunk) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ChunkData`:
+	err = encoder.Encode(obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj Ics07TendermintStateMisbehaviourChunk) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics07TendermintStateMisbehaviourChunk: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics07TendermintStateMisbehaviourChunk) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ChunkData`:
+	err = decoder.Decode(&obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj *Ics07TendermintStateMisbehaviourChunk) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics07TendermintStateMisbehaviourChunk: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs07TendermintStateMisbehaviourChunk(buf []byte) (*Ics07TendermintStateMisbehaviourChunk, error) {
+	obj := new(Ics07TendermintStateMisbehaviourChunk)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Storage for Ed25519 signature verification results
+type Ics07TendermintStateSignatureVerification struct {
+	// The submitter who created this verification
+	Submitter solanago.PublicKey `json:"submitter"`
+
+	// Whether the signature is valid
+	IsValid bool `json:"isValid"`
+}
+
+func (obj Ics07TendermintStateSignatureVerification) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Submitter`:
+	err = encoder.Encode(obj.Submitter)
+	if err != nil {
+		return errors.NewField("Submitter", err)
+	}
+	// Serialize `IsValid`:
+	err = encoder.Encode(obj.IsValid)
+	if err != nil {
+		return errors.NewField("IsValid", err)
+	}
+	return nil
+}
+
+func (obj Ics07TendermintStateSignatureVerification) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics07TendermintStateSignatureVerification: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics07TendermintStateSignatureVerification) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Submitter`:
+	err = decoder.Decode(&obj.Submitter)
+	if err != nil {
+		return errors.NewField("Submitter", err)
+	}
+	// Deserialize `IsValid`:
+	err = decoder.Decode(&obj.IsValid)
+	if err != nil {
+		return errors.NewField("IsValid", err)
+	}
+	return nil
+}
+
+func (obj *Ics07TendermintStateSignatureVerification) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics07TendermintStateSignatureVerification: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs07TendermintStateSignatureVerification(buf []byte) (*Ics07TendermintStateSignatureVerification, error) {
+	obj := new(Ics07TendermintStateSignatureVerification)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type Ics07TendermintTypesAppState struct {
+	// Access manager program ID for role-based access control
+	AccessManager solanago.PublicKey `json:"accessManager"`
+
+	// Reserved space for future fields
+	Reserved [256]uint8 `json:"reserved"`
+}
+
+func (obj Ics07TendermintTypesAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj Ics07TendermintTypesAppState) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics07TendermintTypesAppState: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics07TendermintTypesAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
+	return nil
+}
+
+func (obj *Ics07TendermintTypesAppState) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics07TendermintTypesAppState: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs07TendermintTypesAppState(buf []byte) (*Ics07TendermintTypesAppState, error) {
+	obj := new(Ics07TendermintTypesAppState)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type Ics07TendermintTypesClientState struct {
+	ChainId               string                        `json:"chainId"`
+	TrustLevelNumerator   uint64                        `json:"trustLevelNumerator"`
+	TrustLevelDenominator uint64                        `json:"trustLevelDenominator"`
+	TrustingPeriod        uint64                        `json:"trustingPeriod"`
+	UnbondingPeriod       uint64                        `json:"unbondingPeriod"`
+	MaxClockDrift         uint64                        `json:"maxClockDrift"`
+	FrozenHeight          Ics07TendermintTypesIbcHeight `json:"frozenHeight"`
+	LatestHeight          Ics07TendermintTypesIbcHeight `json:"latestHeight"`
+}
+
+func (obj Ics07TendermintTypesClientState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `ChainId`:
 	err = encoder.Encode(obj.ChainId)
 	if err != nil {
@@ -65,17 +368,17 @@ func (obj ClientState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	return nil
 }
 
-func (obj ClientState) Marshal() ([]byte, error) {
+func (obj Ics07TendermintTypesClientState) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding ClientState: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics07TendermintTypesClientState: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *ClientState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics07TendermintTypesClientState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `ChainId`:
 	err = decoder.Decode(&obj.ChainId)
 	if err != nil {
@@ -119,16 +422,16 @@ func (obj *ClientState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error
 	return nil
 }
 
-func (obj *ClientState) Unmarshal(buf []byte) error {
+func (obj *Ics07TendermintTypesClientState) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling ClientState: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics07TendermintTypesClientState: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalClientState(buf []byte) (*ClientState, error) {
-	obj := new(ClientState)
+func UnmarshalIcs07TendermintTypesClientState(buf []byte) (*Ics07TendermintTypesClientState, error) {
+	obj := new(Ics07TendermintTypesClientState)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -136,13 +439,13 @@ func UnmarshalClientState(buf []byte) (*ClientState, error) {
 	return obj, nil
 }
 
-type ConsensusState struct {
+type Ics07TendermintTypesConsensusState struct {
 	Timestamp          uint64    `json:"timestamp"`
 	Root               [32]uint8 `json:"root"`
 	NextValidatorsHash [32]uint8 `json:"nextValidatorsHash"`
 }
 
-func (obj ConsensusState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics07TendermintTypesConsensusState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `Timestamp`:
 	err = encoder.Encode(obj.Timestamp)
 	if err != nil {
@@ -161,17 +464,17 @@ func (obj ConsensusState) MarshalWithEncoder(encoder *binary.Encoder) (err error
 	return nil
 }
 
-func (obj ConsensusState) Marshal() ([]byte, error) {
+func (obj Ics07TendermintTypesConsensusState) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding ConsensusState: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics07TendermintTypesConsensusState: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *ConsensusState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics07TendermintTypesConsensusState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `Timestamp`:
 	err = decoder.Decode(&obj.Timestamp)
 	if err != nil {
@@ -190,16 +493,16 @@ func (obj *ConsensusState) UnmarshalWithDecoder(decoder *binary.Decoder) (err er
 	return nil
 }
 
-func (obj *ConsensusState) Unmarshal(buf []byte) error {
+func (obj *Ics07TendermintTypesConsensusState) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling ConsensusState: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics07TendermintTypesConsensusState: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalConsensusState(buf []byte) (*ConsensusState, error) {
-	obj := new(ConsensusState)
+func UnmarshalIcs07TendermintTypesConsensusState(buf []byte) (*Ics07TendermintTypesConsensusState, error) {
+	obj := new(Ics07TendermintTypesConsensusState)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -207,123 +510,12 @@ func UnmarshalConsensusState(buf []byte) (*ConsensusState, error) {
 	return obj, nil
 }
 
-type ConsensusStateStore struct {
-	Height         uint64         `json:"height"`
-	ConsensusState ConsensusState `json:"consensusState"`
-}
-
-func (obj ConsensusStateStore) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Height`:
-	err = encoder.Encode(obj.Height)
-	if err != nil {
-		return errors.NewField("Height", err)
-	}
-	// Serialize `ConsensusState`:
-	err = encoder.Encode(obj.ConsensusState)
-	if err != nil {
-		return errors.NewField("ConsensusState", err)
-	}
-	return nil
-}
-
-func (obj ConsensusStateStore) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding ConsensusStateStore: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *ConsensusStateStore) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Height`:
-	err = decoder.Decode(&obj.Height)
-	if err != nil {
-		return errors.NewField("Height", err)
-	}
-	// Deserialize `ConsensusState`:
-	err = decoder.Decode(&obj.ConsensusState)
-	if err != nil {
-		return errors.NewField("ConsensusState", err)
-	}
-	return nil
-}
-
-func (obj *ConsensusStateStore) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling ConsensusStateStore: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalConsensusStateStore(buf []byte) (*ConsensusStateStore, error) {
-	obj := new(ConsensusStateStore)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Storage for a single chunk of header data during multi-transaction upload
-type HeaderChunk struct {
-	// The chunk data
-	ChunkData []byte `json:"chunkData"`
-}
-
-func (obj HeaderChunk) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ChunkData`:
-	err = encoder.Encode(obj.ChunkData)
-	if err != nil {
-		return errors.NewField("ChunkData", err)
-	}
-	return nil
-}
-
-func (obj HeaderChunk) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding HeaderChunk: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *HeaderChunk) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ChunkData`:
-	err = decoder.Decode(&obj.ChunkData)
-	if err != nil {
-		return errors.NewField("ChunkData", err)
-	}
-	return nil
-}
-
-func (obj *HeaderChunk) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling HeaderChunk: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalHeaderChunk(buf []byte) (*HeaderChunk, error) {
-	obj := new(HeaderChunk)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type IbcHeight struct {
+type Ics07TendermintTypesIbcHeight struct {
 	RevisionNumber uint64 `json:"revisionNumber"`
 	RevisionHeight uint64 `json:"revisionHeight"`
 }
 
-func (obj IbcHeight) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics07TendermintTypesIbcHeight) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `RevisionNumber`:
 	err = encoder.Encode(obj.RevisionNumber)
 	if err != nil {
@@ -337,17 +529,17 @@ func (obj IbcHeight) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	return nil
 }
 
-func (obj IbcHeight) Marshal() ([]byte, error) {
+func (obj Ics07TendermintTypesIbcHeight) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding IbcHeight: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics07TendermintTypesIbcHeight: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *IbcHeight) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics07TendermintTypesIbcHeight) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `RevisionNumber`:
 	err = decoder.Decode(&obj.RevisionNumber)
 	if err != nil {
@@ -361,16 +553,16 @@ func (obj *IbcHeight) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) 
 	return nil
 }
 
-func (obj *IbcHeight) Unmarshal(buf []byte) error {
+func (obj *Ics07TendermintTypesIbcHeight) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling IbcHeight: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics07TendermintTypesIbcHeight: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalIbcHeight(buf []byte) (*IbcHeight, error) {
-	obj := new(IbcHeight)
+func UnmarshalIcs07TendermintTypesIbcHeight(buf []byte) (*Ics07TendermintTypesIbcHeight, error) {
+	obj := new(Ics07TendermintTypesIbcHeight)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -378,259 +570,36 @@ func UnmarshalIbcHeight(buf []byte) (*IbcHeight, error) {
 	return obj, nil
 }
 
-// Standard message structure for membership verification
-// All light clients must accept this structure for both membership and non-membership proofs
-type MembershipMsg struct {
-	// The height at which to verify
-	Height uint64 `json:"height"`
-
-	// Delay time period (for time-based delays)
-	DelayTimePeriod uint64 `json:"delayTimePeriod"`
-
-	// Delay block period (for block-based delays)
-	DelayBlockPeriod uint64 `json:"delayBlockPeriod"`
-
-	// The merkle proof
-	Proof []byte `json:"proof"`
-
-	// The merkle path to the value
-	Path [][]byte `json:"path"`
-
-	// The value to verify (empty for non-membership)
-	Value []byte `json:"value"`
-}
-
-func (obj MembershipMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Height`:
-	err = encoder.Encode(obj.Height)
-	if err != nil {
-		return errors.NewField("Height", err)
-	}
-	// Serialize `DelayTimePeriod`:
-	err = encoder.Encode(obj.DelayTimePeriod)
-	if err != nil {
-		return errors.NewField("DelayTimePeriod", err)
-	}
-	// Serialize `DelayBlockPeriod`:
-	err = encoder.Encode(obj.DelayBlockPeriod)
-	if err != nil {
-		return errors.NewField("DelayBlockPeriod", err)
-	}
-	// Serialize `Proof`:
-	err = encoder.Encode(obj.Proof)
-	if err != nil {
-		return errors.NewField("Proof", err)
-	}
-	// Serialize `Path`:
-	err = encoder.Encode(obj.Path)
-	if err != nil {
-		return errors.NewField("Path", err)
-	}
-	// Serialize `Value`:
-	err = encoder.Encode(obj.Value)
-	if err != nil {
-		return errors.NewField("Value", err)
-	}
-	return nil
-}
-
-func (obj MembershipMsg) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding MembershipMsg: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *MembershipMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Height`:
-	err = decoder.Decode(&obj.Height)
-	if err != nil {
-		return errors.NewField("Height", err)
-	}
-	// Deserialize `DelayTimePeriod`:
-	err = decoder.Decode(&obj.DelayTimePeriod)
-	if err != nil {
-		return errors.NewField("DelayTimePeriod", err)
-	}
-	// Deserialize `DelayBlockPeriod`:
-	err = decoder.Decode(&obj.DelayBlockPeriod)
-	if err != nil {
-		return errors.NewField("DelayBlockPeriod", err)
-	}
-	// Deserialize `Proof`:
-	err = decoder.Decode(&obj.Proof)
-	if err != nil {
-		return errors.NewField("Proof", err)
-	}
-	// Deserialize `Path`:
-	err = decoder.Decode(&obj.Path)
-	if err != nil {
-		return errors.NewField("Path", err)
-	}
-	// Deserialize `Value`:
-	err = decoder.Decode(&obj.Value)
-	if err != nil {
-		return errors.NewField("Value", err)
-	}
-	return nil
-}
-
-func (obj *MembershipMsg) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling MembershipMsg: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalMembershipMsg(buf []byte) (*MembershipMsg, error) {
-	obj := new(MembershipMsg)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type MisbehaviourMsg struct {
-	ClientId     string `json:"clientId"`
-	Misbehaviour []byte `json:"misbehaviour"`
-}
-
-func (obj MisbehaviourMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `Misbehaviour`:
-	err = encoder.Encode(obj.Misbehaviour)
-	if err != nil {
-		return errors.NewField("Misbehaviour", err)
-	}
-	return nil
-}
-
-func (obj MisbehaviourMsg) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding MisbehaviourMsg: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *MisbehaviourMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `Misbehaviour`:
-	err = decoder.Decode(&obj.Misbehaviour)
-	if err != nil {
-		return errors.NewField("Misbehaviour", err)
-	}
-	return nil
-}
-
-func (obj *MisbehaviourMsg) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling MisbehaviourMsg: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalMisbehaviourMsg(buf []byte) (*MisbehaviourMsg, error) {
-	obj := new(MisbehaviourMsg)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type UpdateClientMsg struct {
-	ClientMessage []byte `json:"clientMessage"`
-}
-
-func (obj UpdateClientMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientMessage`:
-	err = encoder.Encode(obj.ClientMessage)
-	if err != nil {
-		return errors.NewField("ClientMessage", err)
-	}
-	return nil
-}
-
-func (obj UpdateClientMsg) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding UpdateClientMsg: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *UpdateClientMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientMessage`:
-	err = decoder.Decode(&obj.ClientMessage)
-	if err != nil {
-		return errors.NewField("ClientMessage", err)
-	}
-	return nil
-}
-
-func (obj *UpdateClientMsg) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling UpdateClientMsg: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalUpdateClientMsg(buf []byte) (*UpdateClientMsg, error) {
-	obj := new(UpdateClientMsg)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type UpdateResult binary.BorshEnum
+type Ics07TendermintTypesUpdateResult binary.BorshEnum
 
 const (
-	UpdateResult_Update UpdateResult = iota
-	UpdateResult_NoOp
+	Ics07TendermintTypesUpdateResult_UpdateSuccess Ics07TendermintTypesUpdateResult = iota
+	Ics07TendermintTypesUpdateResult_NoOp
+	Ics07TendermintTypesUpdateResult_Misbehaviour
 )
 
-func (value UpdateResult) String() string {
+func (value Ics07TendermintTypesUpdateResult) String() string {
 	switch value {
-	case UpdateResult_Update:
-		return "Update"
-	case UpdateResult_NoOp:
+	case Ics07TendermintTypesUpdateResult_UpdateSuccess:
+		return "UpdateSuccess"
+	case Ics07TendermintTypesUpdateResult_NoOp:
 		return "NoOp"
+	case Ics07TendermintTypesUpdateResult_Misbehaviour:
+		return "Misbehaviour"
 	default:
 		return ""
 	}
 }
 
 // Parameters for uploading a header chunk
-type UploadChunkParams struct {
+type Ics07TendermintTypesUploadChunkParams struct {
 	ChainId      string `json:"chainId"`
 	TargetHeight uint64 `json:"targetHeight"`
 	ChunkIndex   uint8  `json:"chunkIndex"`
 	ChunkData    []byte `json:"chunkData"`
 }
 
-func (obj UploadChunkParams) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics07TendermintTypesUploadChunkParams) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `ChainId`:
 	err = encoder.Encode(obj.ChainId)
 	if err != nil {
@@ -654,17 +623,17 @@ func (obj UploadChunkParams) MarshalWithEncoder(encoder *binary.Encoder) (err er
 	return nil
 }
 
-func (obj UploadChunkParams) Marshal() ([]byte, error) {
+func (obj Ics07TendermintTypesUploadChunkParams) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding UploadChunkParams: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics07TendermintTypesUploadChunkParams: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *UploadChunkParams) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics07TendermintTypesUploadChunkParams) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `ChainId`:
 	err = decoder.Decode(&obj.ChainId)
 	if err != nil {
@@ -688,16 +657,340 @@ func (obj *UploadChunkParams) UnmarshalWithDecoder(decoder *binary.Decoder) (err
 	return nil
 }
 
-func (obj *UploadChunkParams) Unmarshal(buf []byte) error {
+func (obj *Ics07TendermintTypesUploadChunkParams) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling UploadChunkParams: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics07TendermintTypesUploadChunkParams: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalUploadChunkParams(buf []byte) (*UploadChunkParams, error) {
-	obj := new(UploadChunkParams)
+func UnmarshalIcs07TendermintTypesUploadChunkParams(buf []byte) (*Ics07TendermintTypesUploadChunkParams, error) {
+	obj := new(Ics07TendermintTypesUploadChunkParams)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Parameters for uploading a misbehaviour chunk
+type Ics07TendermintTypesUploadMisbehaviourChunkParams struct {
+	ClientId   string `json:"clientId"`
+	ChunkIndex uint8  `json:"chunkIndex"`
+	ChunkData  []byte `json:"chunkData"`
+}
+
+func (obj Ics07TendermintTypesUploadMisbehaviourChunkParams) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Serialize `ChunkIndex`:
+	err = encoder.Encode(obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Serialize `ChunkData`:
+	err = encoder.Encode(obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj Ics07TendermintTypesUploadMisbehaviourChunkParams) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics07TendermintTypesUploadMisbehaviourChunkParams: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics07TendermintTypesUploadMisbehaviourChunkParams) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `ChunkIndex`:
+	err = decoder.Decode(&obj.ChunkIndex)
+	if err != nil {
+		return errors.NewField("ChunkIndex", err)
+	}
+	// Deserialize `ChunkData`:
+	err = decoder.Decode(&obj.ChunkData)
+	if err != nil {
+		return errors.NewField("ChunkData", err)
+	}
+	return nil
+}
+
+func (obj *Ics07TendermintTypesUploadMisbehaviourChunkParams) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics07TendermintTypesUploadMisbehaviourChunkParams: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs07TendermintTypesUploadMisbehaviourChunkParams(buf []byte) (*Ics07TendermintTypesUploadMisbehaviourChunkParams, error) {
+	obj := new(Ics07TendermintTypesUploadMisbehaviourChunkParams)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Standard message structure for membership verification
+// All light clients must accept this structure
+type Ics25HandlerMembershipMsg struct {
+	// The height at which to verify
+	Height uint64 `json:"height"`
+
+	// The merkle proof
+	Proof []byte `json:"proof"`
+
+	// The merkle path to the value
+	Path [][]byte `json:"path"`
+
+	// The value to verify
+	Value []byte `json:"value"`
+}
+
+func (obj Ics25HandlerMembershipMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Height`:
+	err = encoder.Encode(obj.Height)
+	if err != nil {
+		return errors.NewField("Height", err)
+	}
+	// Serialize `Proof`:
+	err = encoder.Encode(obj.Proof)
+	if err != nil {
+		return errors.NewField("Proof", err)
+	}
+	// Serialize `Path`:
+	err = encoder.Encode(obj.Path)
+	if err != nil {
+		return errors.NewField("Path", err)
+	}
+	// Serialize `Value`:
+	err = encoder.Encode(obj.Value)
+	if err != nil {
+		return errors.NewField("Value", err)
+	}
+	return nil
+}
+
+func (obj Ics25HandlerMembershipMsg) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics25HandlerMembershipMsg: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics25HandlerMembershipMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Height`:
+	err = decoder.Decode(&obj.Height)
+	if err != nil {
+		return errors.NewField("Height", err)
+	}
+	// Deserialize `Proof`:
+	err = decoder.Decode(&obj.Proof)
+	if err != nil {
+		return errors.NewField("Proof", err)
+	}
+	// Deserialize `Path`:
+	err = decoder.Decode(&obj.Path)
+	if err != nil {
+		return errors.NewField("Path", err)
+	}
+	// Deserialize `Value`:
+	err = decoder.Decode(&obj.Value)
+	if err != nil {
+		return errors.NewField("Value", err)
+	}
+	return nil
+}
+
+func (obj *Ics25HandlerMembershipMsg) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics25HandlerMembershipMsg: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs25HandlerMembershipMsg(buf []byte) (*Ics25HandlerMembershipMsg, error) {
+	obj := new(Ics25HandlerMembershipMsg)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Standard message structure for non-membership verification
+// All light clients must accept this structure
+type Ics25HandlerNonMembershipMsg struct {
+	// The height at which to verify
+	Height uint64 `json:"height"`
+
+	// The merkle proof
+	Proof []byte `json:"proof"`
+
+	// The merkle path to the value
+	Path [][]byte `json:"path"`
+}
+
+func (obj Ics25HandlerNonMembershipMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Height`:
+	err = encoder.Encode(obj.Height)
+	if err != nil {
+		return errors.NewField("Height", err)
+	}
+	// Serialize `Proof`:
+	err = encoder.Encode(obj.Proof)
+	if err != nil {
+		return errors.NewField("Proof", err)
+	}
+	// Serialize `Path`:
+	err = encoder.Encode(obj.Path)
+	if err != nil {
+		return errors.NewField("Path", err)
+	}
+	return nil
+}
+
+func (obj Ics25HandlerNonMembershipMsg) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics25HandlerNonMembershipMsg: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics25HandlerNonMembershipMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Height`:
+	err = decoder.Decode(&obj.Height)
+	if err != nil {
+		return errors.NewField("Height", err)
+	}
+	// Deserialize `Proof`:
+	err = decoder.Decode(&obj.Proof)
+	if err != nil {
+		return errors.NewField("Proof", err)
+	}
+	// Deserialize `Path`:
+	err = decoder.Decode(&obj.Path)
+	if err != nil {
+		return errors.NewField("Path", err)
+	}
+	return nil
+}
+
+func (obj *Ics25HandlerNonMembershipMsg) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics25HandlerNonMembershipMsg: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs25HandlerNonMembershipMsg(buf []byte) (*Ics25HandlerNonMembershipMsg, error) {
+	obj := new(Ics25HandlerNonMembershipMsg)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Ed25519 signature data for pre-verification
+type SolanaIbcTypesIcs07SignatureData struct {
+	SignatureHash [32]uint8 `json:"signatureHash"`
+	Pubkey        [32]uint8 `json:"pubkey"`
+	Msg           []byte    `json:"msg"`
+	Signature     [64]uint8 `json:"signature"`
+}
+
+func (obj SolanaIbcTypesIcs07SignatureData) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `SignatureHash`:
+	err = encoder.Encode(obj.SignatureHash)
+	if err != nil {
+		return errors.NewField("SignatureHash", err)
+	}
+	// Serialize `Pubkey`:
+	err = encoder.Encode(obj.Pubkey)
+	if err != nil {
+		return errors.NewField("Pubkey", err)
+	}
+	// Serialize `Msg`:
+	err = encoder.Encode(obj.Msg)
+	if err != nil {
+		return errors.NewField("Msg", err)
+	}
+	// Serialize `Signature`:
+	err = encoder.Encode(obj.Signature)
+	if err != nil {
+		return errors.NewField("Signature", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesIcs07SignatureData) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesIcs07SignatureData: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesIcs07SignatureData) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `SignatureHash`:
+	err = decoder.Decode(&obj.SignatureHash)
+	if err != nil {
+		return errors.NewField("SignatureHash", err)
+	}
+	// Deserialize `Pubkey`:
+	err = decoder.Decode(&obj.Pubkey)
+	if err != nil {
+		return errors.NewField("Pubkey", err)
+	}
+	// Deserialize `Msg`:
+	err = decoder.Decode(&obj.Msg)
+	if err != nil {
+		return errors.NewField("Msg", err)
+	}
+	// Deserialize `Signature`:
+	err = decoder.Decode(&obj.Signature)
+	if err != nil {
+		return errors.NewField("Signature", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesIcs07SignatureData) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesIcs07SignatureData: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesIcs07SignatureData(buf []byte) (*SolanaIbcTypesIcs07SignatureData, error) {
+	obj := new(SolanaIbcTypesIcs07SignatureData)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

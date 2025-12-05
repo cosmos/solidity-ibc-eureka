@@ -1,11 +1,12 @@
 use crate::constants::*;
-use crate::events::{GMPAppInitialized, RouterCallerCreated};
-use crate::state::GMPAppState;
+use crate::errors::GMPError;
+use crate::events::GMPAppInitialized;
+use crate::state::{AccountVersion, GMPAppState};
 use anchor_lang::prelude::*;
+use solana_ibc_types::cpi::reject_cpi;
 
 /// Initialize the ICS27 GMP application
 #[derive(Accounts)]
-#[instruction(router_program: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,
@@ -16,53 +17,42 @@ pub struct Initialize<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
-    /// Router caller PDA that represents our app to the router
-    /// CHECK: This is a PDA that just needs to exist for router authorization
-    #[account(
-        init,
-        payer = payer,
-        space = 8,
-        seeds = [b"router_caller"],
-        bump,
-    )]
-    pub router_caller: AccountInfo<'info>,
-
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub authority: Signer<'info>,
     pub system_program: Program<'info, System>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
-pub fn initialize(ctx: Context<Initialize>, router_program: Pubkey) -> Result<()> {
+pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()> {
+    // Reject CPI calls - this instruction must be called directly
+    reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(GMPError::from)?;
+
     let app_state = &mut ctx.accounts.app_state;
     let clock = Clock::get()?;
 
     // Initialize app state
-    app_state.router_program = router_program;
-    app_state.authority = ctx.accounts.authority.key();
-    app_state.version = 1;
+    app_state.version = AccountVersion::V1;
     app_state.paused = false;
     app_state.bump = ctx.bumps.app_state;
+    app_state.access_manager = access_manager;
+    app_state._reserved = [0; 256];
 
-    // Emit initialization events
+    // Emit initialization event
     emit!(GMPAppInitialized {
-        router_program,
-        authority: app_state.authority,
+        router_program: ics26_router::ID,
         port_id: GMP_PORT_ID.to_string(),
         timestamp: clock.unix_timestamp,
     });
 
-    emit!(RouterCallerCreated {
-        router_caller: ctx.accounts.router_caller.key(),
-        bump: ctx.bumps.router_caller,
-    });
-
     msg!(
-        "ICS27 GMP app initialized with router: {}, port_id: {}, router_caller: {}",
-        router_program,
-        GMP_PORT_ID,
-        ctx.accounts.router_caller.key()
+        "ICS27 GMP app initialized with router: {}, port_id: {}",
+        ics26_router::ID,
+        GMP_PORT_ID
     );
     Ok(())
 }
@@ -70,30 +60,27 @@ pub fn initialize(ctx: Context<Initialize>, router_program: Pubkey) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_sdk::instruction::{AccountMeta, Instruction};
+    use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::system_program;
 
-    fn create_initialize_instruction(
-        app_state: Pubkey,
-        router_caller: Pubkey,
-        payer: Pubkey,
-        authority: Pubkey,
-        router_program: Pubkey,
-    ) -> Instruction {
-        let instruction_data = crate::instruction::Initialize { router_program };
+    fn create_initialize_instruction(app_state: Pubkey, payer: Pubkey) -> Instruction {
+        let instruction_data = crate::instruction::Initialize {
+            access_manager: access_manager::ID,
+        };
 
         Instruction {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(app_state, false),
-                AccountMeta::new(router_caller, false),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(authority, true),
                 AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         }
@@ -101,26 +88,15 @@ mod tests {
 
     #[test]
     fn test_initialize_success() {
-        let authority = Pubkey::new_unique();
-        let payer = authority;
-        let router_program = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
 
         let (app_state_pda, _) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let instruction = create_initialize_instruction(
-            app_state_pda,
-            router_caller_pda,
-            payer,
-            authority,
-            router_program,
-        );
+        let instruction = create_initialize_instruction(app_state_pda, payer);
 
         let accounts = vec![
             (app_state_pda, solana_sdk::account::Account::default()),
-            (router_caller_pda, solana_sdk::account::Account::default()),
             (
                 payer,
                 solana_sdk::account::Account {
@@ -138,6 +114,7 @@ mod tests {
                     ..Default::default()
                 },
             ),
+            create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
@@ -152,22 +129,12 @@ mod tests {
 
     #[test]
     fn test_initialize_already_initialized() {
-        let authority = Pubkey::new_unique();
-        let payer = authority;
-        let router_program = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
 
         let (app_state_pda, _) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
 
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let instruction = create_initialize_instruction(
-            app_state_pda,
-            router_caller_pda,
-            payer,
-            authority,
-            router_program,
-        );
+        let instruction = create_initialize_instruction(app_state_pda, payer);
 
         // Create accounts that are already initialized (owned by program, not system)
         let accounts = vec![
@@ -180,7 +147,6 @@ mod tests {
                     ..Default::default()
                 },
             ),
-            (router_caller_pda, solana_sdk::account::Account::default()),
             (
                 payer,
                 solana_sdk::account::Account {
@@ -198,6 +164,7 @@ mod tests {
                     ..Default::default()
                 },
             ),
+            create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
@@ -207,5 +174,117 @@ mod tests {
             result.program_result.is_err(),
             "Initialize should fail when account already initialized"
         );
+    }
+
+    #[test]
+    fn test_initialize_fake_sysvar_wormhole_attack() {
+        let payer = Pubkey::new_unique();
+
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+
+        let instruction_data = crate::instruction::Initialize {
+            access_manager: access_manager::ID,
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        // Replace real sysvar with fake one (Wormhole-style attack)
+        let (instruction, fake_sysvar_account) = setup_fake_sysvar_attack(instruction, crate::ID);
+
+        let accounts = vec![
+            (app_state_pda, solana_sdk::account::Account::default()),
+            (
+                payer,
+                solana_sdk::account::Account {
+                    lamports: 1_000_000_000,
+                    owner: system_program::ID,
+                    ..Default::default()
+                },
+            ),
+            (
+                system_program::ID,
+                solana_sdk::account::Account {
+                    lamports: 1,
+                    executable: true,
+                    owner: solana_sdk::native_loader::ID,
+                    ..Default::default()
+                },
+            ),
+            fake_sysvar_account,
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[expect_sysvar_attack_error()],
+        );
+    }
+
+    #[test]
+    fn test_initialize_cpi_rejection() {
+        let payer = Pubkey::new_unique();
+
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+
+        let instruction_data = crate::instruction::Initialize {
+            access_manager: access_manager::ID,
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        // Simulate CPI call from unauthorized program
+        let malicious_program = Pubkey::new_unique();
+        let (instruction, cpi_sysvar_account) = setup_cpi_call_test(instruction, malicious_program);
+
+        let accounts = vec![
+            (app_state_pda, solana_sdk::account::Account::default()),
+            (
+                payer,
+                solana_sdk::account::Account {
+                    lamports: 1_000_000_000,
+                    owner: system_program::ID,
+                    ..Default::default()
+                },
+            ),
+            (
+                system_program::ID,
+                solana_sdk::account::Account {
+                    lamports: 1,
+                    executable: true,
+                    owner: solana_sdk::native_loader::ID,
+                    ..Default::default()
+                },
+            ),
+            cpi_sysvar_account,
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::UnauthorizedRouter as u32,
+        ))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }

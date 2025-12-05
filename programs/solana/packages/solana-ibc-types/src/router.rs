@@ -5,6 +5,9 @@
 use crate::Payload;
 use anchor_lang::prelude::*;
 
+// Import validation constant from solana-ibc-proto (single source of truth)
+use solana_ibc_proto::MAX_CLIENT_ID_LENGTH;
+
 /// ICS26 router instruction names and discriminators
 pub mod router_instructions {
     use crate::utils::compute_discriminator;
@@ -14,6 +17,7 @@ pub mod router_instructions {
     pub const TIMEOUT_PACKET: &str = "timeout_packet";
     pub const UPLOAD_PAYLOAD_CHUNK: &str = "upload_payload_chunk";
     pub const UPLOAD_PROOF_CHUNK: &str = "upload_proof_chunk";
+    pub const CLEANUP_CHUNKS: &str = "cleanup_chunks";
 
     pub fn recv_packet_discriminator() -> [u8; 8] {
         compute_discriminator(RECV_PACKET)
@@ -34,6 +38,10 @@ pub mod router_instructions {
     pub fn upload_proof_chunk_discriminator() -> [u8; 8] {
         compute_discriminator(UPLOAD_PROOF_CHUNK)
     }
+
+    pub fn cleanup_chunks_discriminator() -> [u8; 8] {
+        compute_discriminator(CLEANUP_CHUNKS)
+    }
 }
 
 /// Account schema version for upgradability
@@ -41,8 +49,6 @@ pub mod router_instructions {
 pub enum AccountVersion {
     V1,
 }
-
-pub const MAX_CLIENT_ID_LENGTH: usize = 64;
 
 /// Counterparty chain information
 #[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
@@ -67,8 +73,6 @@ pub struct ClientAccount {
     pub client_program_id: Pubkey,
     /// Counterparty chain information
     pub counterparty_info: CounterpartyInfo,
-    /// Authority that registered this client
-    pub authority: Pubkey,
     /// Whether the client is active
     pub active: bool,
     /// Reserved space for future fields
@@ -214,7 +218,16 @@ impl IBCApp {
     }
 }
 
-pub struct RouterState;
+/// Router state account - matches the on-chain account structure in ICS26 router
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct RouterState {
+    /// Schema version for upgrades
+    pub version: AccountVersion,
+    /// Access manager program ID for role-based access control
+    pub access_manager: Pubkey,
+    /// Reserved space for future fields
+    pub _reserved: [u8; 256],
+}
 
 impl RouterState {
     pub const SEED: &'static [u8] = b"router_state";

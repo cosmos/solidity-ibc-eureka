@@ -20,6 +20,7 @@ tracing = { workspace = true, default-features = true }
 tendermint = { workspace = true, features = ["std"] }
 tendermint-rpc = { workspace = true, features = ["http-client"] }
 tendermint-proto = { workspace = true, features = ["std"] }
+ed25519-consensus = "2.1"
 
 # Solana specific dependencies
 solana-client.workspace = true
@@ -35,9 +36,8 @@ borsh.workspace = true
 ibc-proto-eureka.workspace = true
 ibc-proto.workspace = true
 ibc-client-tendermint.workspace = true
+ibc-core-client-types.workspace = true
 prost.workspace = true
-solana-ibc-types.workspace = true
-solana-ibc-constants.workspace = true
-
-[build-dependencies]
-prost-build.workspace = true
+solana-ibc-types = { path = "../../../../programs/solana/packages/solana-ibc-types", features = ["light-client"] }
+solana-ibc-constants = { path = "../../../../programs/solana/packages/solana-ibc-constants" }
+solana-ibc-proto = { path = "../../../../programs/solana/packages/solana-ibc-proto" }

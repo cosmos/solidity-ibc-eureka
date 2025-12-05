@@ -21,7 +21,6 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
 
     tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)])
         .map_err(|_| error!(ErrorCode::MembershipVerificationFailed))?;
-
     Ok(())
 }
 
@@ -29,6 +28,9 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
 mod tests {
     use super::*;
     use crate::state::ConsensusStateStore;
+    use crate::test_helpers::chunk_test_utils::{
+        derive_client_state_pda, derive_consensus_state_pda,
+    };
     use crate::test_helpers::fixtures::*;
     use crate::test_helpers::PROGRAM_BINARY_PATH;
     use crate::types::{ClientState, ConsensusState, IbcHeight};
@@ -55,10 +57,6 @@ mod tests {
         client_state: ClientState,
         consensus_state: ConsensusState,
     ) -> TestAccounts {
-        use crate::test_helpers::chunk_test_utils::{
-            derive_client_state_pda, derive_consensus_state_pda,
-        };
-
         let client_state_pda = derive_client_state_pda(&chain_id);
         let consensus_state_pda = derive_consensus_state_pda(&client_state_pda, height);
 
@@ -299,8 +297,6 @@ mod tests {
 
     #[test]
     fn test_verify_membership_nonexistent_height() {
-        use crate::test_helpers::chunk_test_utils::derive_client_state_pda;
-
         let fixture = load_membership_verification_fixture("verify_membership_key_0");
         let client_state = decode_client_state_from_hex(&fixture.client_state_hex);
 
@@ -313,10 +309,7 @@ mod tests {
         client_state.try_serialize(&mut client_data).unwrap();
 
         let nonexistent_consensus_pda =
-            crate::test_helpers::chunk_test_utils::derive_consensus_state_pda(
-                &client_state_pda,
-                nonexistent_height,
-            );
+            derive_consensus_state_pda(&client_state_pda, nonexistent_height);
 
         let accounts = vec![
             (

@@ -114,8 +114,7 @@ pub fn normalize_merkle_branch(branch: &[B256], gindex: u64) -> Vec<B256> {
 
 #[cfg(test)]
 mod test {
-    use alloy_primitives::B256;
-    use hex::FromHex;
+    use alloy_primitives::{hex::FromHex, B256};
 
     use crate::sync_protocol_helpers::normalize_merkle_branch;
 

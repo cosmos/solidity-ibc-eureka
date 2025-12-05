@@ -135,29 +135,40 @@ func (x *RelayByTxRequest) GetDstPacketSequences() []uint64 {
 	return nil
 }
 
-// Transaction batch wrapper for multiple transactions
-type TransactionBatch struct {
+// Solana-specific update client transactions with chunking and ALT support
+// Submission order: alt_create_tx -> alt_extend_txs (sequential) -> [chunk_txs (parallel)] -> assembly_tx -> cleanup_tx
+type SolanaUpdateClient struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// List of transaction bytes
-	Txs           [][]byte `protobuf:"bytes,1,rep,name=txs,proto3" json:"txs,omitempty"`
+	// All preparatory transactions: signatures + chunks (submitted in parallel with ALT extensions)
+	ChunkTxs [][]byte `protobuf:"bytes,1,rep,name=chunk_txs,json=chunkTxs,proto3" json:"chunk_txs,omitempty"`
+	// ALT creation transaction (must be submitted first)
+	AltCreateTx []byte `protobuf:"bytes,2,opt,name=alt_create_tx,json=altCreateTx,proto3" json:"alt_create_tx,omitempty"`
+	// ALT extension transactions (adds chunk accounts to ALT in batches, submit sequentially after creation)
+	AltExtendTxs [][]byte `protobuf:"bytes,3,rep,name=alt_extend_txs,json=altExtendTxs,proto3" json:"alt_extend_txs,omitempty"`
+	// Final assembly transaction (must be submitted last after ALT activation, uses ALT for compression)
+	AssemblyTx []byte `protobuf:"bytes,4,opt,name=assembly_tx,json=assemblyTx,proto3" json:"assembly_tx,omitempty"`
+	// Target height being updated to
+	TargetHeight uint64 `protobuf:"varint,5,opt,name=target_height,json=targetHeight,proto3" json:"target_height,omitempty"`
+	// Cleanup transaction (reclaims rent from chunks and signatures after assembly)
+	CleanupTx     []byte `protobuf:"bytes,6,opt,name=cleanup_tx,json=cleanupTx,proto3" json:"cleanup_tx,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TransactionBatch) Reset() {
-	*x = TransactionBatch{}
+func (x *SolanaUpdateClient) Reset() {
+	*x = SolanaUpdateClient{}
 	mi := &file_relayer_relayer_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TransactionBatch) String() string {
+func (x *SolanaUpdateClient) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TransactionBatch) ProtoMessage() {}
+func (*SolanaUpdateClient) ProtoMessage() {}
 
-func (x *TransactionBatch) ProtoReflect() protoreflect.Message {
+func (x *SolanaUpdateClient) ProtoReflect() protoreflect.Message {
 	mi := &file_relayer_relayer_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -169,43 +180,81 @@ func (x *TransactionBatch) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TransactionBatch.ProtoReflect.Descriptor instead.
-func (*TransactionBatch) Descriptor() ([]byte, []int) {
+// Deprecated: Use SolanaUpdateClient.ProtoReflect.Descriptor instead.
+func (*SolanaUpdateClient) Descriptor() ([]byte, []int) {
 	return file_relayer_relayer_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *TransactionBatch) GetTxs() [][]byte {
+func (x *SolanaUpdateClient) GetChunkTxs() [][]byte {
 	if x != nil {
-		return x.Txs
+		return x.ChunkTxs
 	}
 	return nil
 }
 
-// Transactions for a single packet (chunks + final instruction)
-type PacketTransactions struct {
+func (x *SolanaUpdateClient) GetAltCreateTx() []byte {
+	if x != nil {
+		return x.AltCreateTx
+	}
+	return nil
+}
+
+func (x *SolanaUpdateClient) GetAltExtendTxs() [][]byte {
+	if x != nil {
+		return x.AltExtendTxs
+	}
+	return nil
+}
+
+func (x *SolanaUpdateClient) GetAssemblyTx() []byte {
+	if x != nil {
+		return x.AssemblyTx
+	}
+	return nil
+}
+
+func (x *SolanaUpdateClient) GetTargetHeight() uint64 {
+	if x != nil {
+		return x.TargetHeight
+	}
+	return 0
+}
+
+func (x *SolanaUpdateClient) GetCleanupTx() []byte {
+	if x != nil {
+		return x.CleanupTx
+	}
+	return nil
+}
+
+// Transactions for a single packet (chunks + final instruction + cleanup)
+// Submission order: chunks (parallel) -> final_tx -> cleanup_tx
+type SolanaPacketTxs struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Chunk upload transactions (can be submitted in parallel)
 	Chunks [][]byte `protobuf:"bytes,1,rep,name=chunks,proto3" json:"chunks,omitempty"`
 	// Final packet transaction (recv_packet, ack_packet, or timeout_packet)
-	FinalTx       []byte `protobuf:"bytes,2,opt,name=final_tx,json=finalTx,proto3" json:"final_tx,omitempty"`
+	FinalTx []byte `protobuf:"bytes,2,opt,name=final_tx,json=finalTx,proto3" json:"final_tx,omitempty"`
+	// Cleanup transaction (reclaims rent from chunks)
+	CleanupTx     []byte `protobuf:"bytes,3,opt,name=cleanup_tx,json=cleanupTx,proto3" json:"cleanup_tx,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PacketTransactions) Reset() {
-	*x = PacketTransactions{}
+func (x *SolanaPacketTxs) Reset() {
+	*x = SolanaPacketTxs{}
 	mi := &file_relayer_relayer_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PacketTransactions) String() string {
+func (x *SolanaPacketTxs) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PacketTransactions) ProtoMessage() {}
+func (*SolanaPacketTxs) ProtoMessage() {}
 
-func (x *PacketTransactions) ProtoReflect() protoreflect.Message {
+func (x *SolanaPacketTxs) ProtoReflect() protoreflect.Message {
 	mi := &file_relayer_relayer_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -217,48 +266,58 @@ func (x *PacketTransactions) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PacketTransactions.ProtoReflect.Descriptor instead.
-func (*PacketTransactions) Descriptor() ([]byte, []int) {
+// Deprecated: Use SolanaPacketTxs.ProtoReflect.Descriptor instead.
+func (*SolanaPacketTxs) Descriptor() ([]byte, []int) {
 	return file_relayer_relayer_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *PacketTransactions) GetChunks() [][]byte {
+func (x *SolanaPacketTxs) GetChunks() [][]byte {
 	if x != nil {
 		return x.Chunks
 	}
 	return nil
 }
 
-func (x *PacketTransactions) GetFinalTx() []byte {
+func (x *SolanaPacketTxs) GetFinalTx() []byte {
 	if x != nil {
 		return x.FinalTx
 	}
 	return nil
 }
 
+func (x *SolanaPacketTxs) GetCleanupTx() []byte {
+	if x != nil {
+		return x.CleanupTx
+	}
+	return nil
+}
+
 // Batch of packet transactions for relay operations
-type RelayPacketBatch struct {
+type SolanaRelayPacketBatch struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// List of packet transactions
-	Packets       []*PacketTransactions `protobuf:"bytes,1,rep,name=packets,proto3" json:"packets,omitempty"`
+	Packets []*SolanaPacketTxs `protobuf:"bytes,1,rep,name=packets,proto3" json:"packets,omitempty"`
+	// Optional: update client transactions if client needs updating before relay
+	// Submission order: update_client first (if present), then packets
+	UpdateClient  *SolanaUpdateClient `protobuf:"bytes,2,opt,name=update_client,json=updateClient,proto3" json:"update_client,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RelayPacketBatch) Reset() {
-	*x = RelayPacketBatch{}
+func (x *SolanaRelayPacketBatch) Reset() {
+	*x = SolanaRelayPacketBatch{}
 	mi := &file_relayer_relayer_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RelayPacketBatch) String() string {
+func (x *SolanaRelayPacketBatch) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RelayPacketBatch) ProtoMessage() {}
+func (*SolanaRelayPacketBatch) ProtoMessage() {}
 
-func (x *RelayPacketBatch) ProtoReflect() protoreflect.Message {
+func (x *SolanaRelayPacketBatch) ProtoReflect() protoreflect.Message {
 	mi := &file_relayer_relayer_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -270,14 +329,21 @@ func (x *RelayPacketBatch) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RelayPacketBatch.ProtoReflect.Descriptor instead.
-func (*RelayPacketBatch) Descriptor() ([]byte, []int) {
+// Deprecated: Use SolanaRelayPacketBatch.ProtoReflect.Descriptor instead.
+func (*SolanaRelayPacketBatch) Descriptor() ([]byte, []int) {
 	return file_relayer_relayer_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *RelayPacketBatch) GetPackets() []*PacketTransactions {
+func (x *SolanaRelayPacketBatch) GetPackets() []*SolanaPacketTxs {
 	if x != nil {
 		return x.Packets
+	}
+	return nil
+}
+
+func (x *SolanaRelayPacketBatch) GetUpdateClient() *SolanaUpdateClient {
+	if x != nil {
+		return x.UpdateClient
 	}
 	return nil
 }
@@ -287,7 +353,7 @@ type RelayByTxResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The multicall transaction to be submitted by caller
 	// For single transactions: contains the raw transaction bytes
-	// For multiple transactions (e.g. Solana chunks): contains serialized RelayPacketBatch
+	// For multiple transactions (e.g. Solana chunks): contains serialized SolanaRelayPacketBatch
 	Tx []byte `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`
 	// The contract address to submit the transaction, if applicable
 	Address       string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
@@ -527,7 +593,7 @@ type UpdateClientResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The transaction to be submitted by caller
 	// For single transactions: contains the raw transaction bytes
-	// For multiple transactions (e.g. Solana chunks): contains serialized TransactionBatch
+	// For Solana: contains serialized SolanaUpdateClient
 	Tx []byte `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`
 	// The contract address to submit the transaction, if applicable
 	Address       string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
@@ -775,14 +841,24 @@ const file_relayer_relayer_proto_rawDesc = "" +
 	"\rsrc_client_id\x18\x05 \x01(\tR\vsrcClientId\x12\"\n" +
 	"\rdst_client_id\x18\x06 \x01(\tR\vdstClientId\x120\n" +
 	"\x14src_packet_sequences\x18\a \x03(\x04R\x12srcPacketSequences\x120\n" +
-	"\x14dst_packet_sequences\x18\b \x03(\x04R\x12dstPacketSequences\"$\n" +
-	"\x10TransactionBatch\x12\x10\n" +
-	"\x03txs\x18\x01 \x03(\fR\x03txs\"G\n" +
-	"\x12PacketTransactions\x12\x16\n" +
+	"\x14dst_packet_sequences\x18\b \x03(\x04R\x12dstPacketSequences\"\xe0\x01\n" +
+	"\x12SolanaUpdateClient\x12\x1b\n" +
+	"\tchunk_txs\x18\x01 \x03(\fR\bchunkTxs\x12\"\n" +
+	"\ralt_create_tx\x18\x02 \x01(\fR\valtCreateTx\x12$\n" +
+	"\x0ealt_extend_txs\x18\x03 \x03(\fR\faltExtendTxs\x12\x1f\n" +
+	"\vassembly_tx\x18\x04 \x01(\fR\n" +
+	"assemblyTx\x12#\n" +
+	"\rtarget_height\x18\x05 \x01(\x04R\ftargetHeight\x12\x1d\n" +
+	"\n" +
+	"cleanup_tx\x18\x06 \x01(\fR\tcleanupTx\"c\n" +
+	"\x0fSolanaPacketTxs\x12\x16\n" +
 	"\x06chunks\x18\x01 \x03(\fR\x06chunks\x12\x19\n" +
-	"\bfinal_tx\x18\x02 \x01(\fR\afinalTx\"I\n" +
-	"\x10RelayPacketBatch\x125\n" +
-	"\apackets\x18\x01 \x03(\v2\x1b.relayer.PacketTransactionsR\apackets\"=\n" +
+	"\bfinal_tx\x18\x02 \x01(\fR\afinalTx\x12\x1d\n" +
+	"\n" +
+	"cleanup_tx\x18\x03 \x01(\fR\tcleanupTx\"\x8e\x01\n" +
+	"\x16SolanaRelayPacketBatch\x122\n" +
+	"\apackets\x18\x01 \x03(\v2\x18.relayer.SolanaPacketTxsR\apackets\x12@\n" +
+	"\rupdate_client\x18\x02 \x01(\v2\x1b.relayer.SolanaUpdateClientR\fupdateClient\"=\n" +
 	"\x11RelayByTxResponse\x12\x0e\n" +
 	"\x02tx\x18\x01 \x01(\fR\x02tx\x12\x18\n" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\"\xdc\x01\n" +
@@ -841,40 +917,41 @@ func file_relayer_relayer_proto_rawDescGZIP() []byte {
 
 var file_relayer_relayer_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_relayer_relayer_proto_goTypes = []any{
-	(*RelayByTxRequest)(nil),     // 0: relayer.RelayByTxRequest
-	(*TransactionBatch)(nil),     // 1: relayer.TransactionBatch
-	(*PacketTransactions)(nil),   // 2: relayer.PacketTransactions
-	(*RelayPacketBatch)(nil),     // 3: relayer.RelayPacketBatch
-	(*RelayByTxResponse)(nil),    // 4: relayer.RelayByTxResponse
-	(*CreateClientRequest)(nil),  // 5: relayer.CreateClientRequest
-	(*CreateClientResponse)(nil), // 6: relayer.CreateClientResponse
-	(*UpdateClientRequest)(nil),  // 7: relayer.UpdateClientRequest
-	(*UpdateClientResponse)(nil), // 8: relayer.UpdateClientResponse
-	(*InfoRequest)(nil),          // 9: relayer.InfoRequest
-	(*InfoResponse)(nil),         // 10: relayer.InfoResponse
-	(*Chain)(nil),                // 11: relayer.Chain
-	nil,                          // 12: relayer.CreateClientRequest.ParametersEntry
-	nil,                          // 13: relayer.InfoResponse.MetadataEntry
+	(*RelayByTxRequest)(nil),       // 0: relayer.RelayByTxRequest
+	(*SolanaUpdateClient)(nil),     // 1: relayer.SolanaUpdateClient
+	(*SolanaPacketTxs)(nil),        // 2: relayer.SolanaPacketTxs
+	(*SolanaRelayPacketBatch)(nil), // 3: relayer.SolanaRelayPacketBatch
+	(*RelayByTxResponse)(nil),      // 4: relayer.RelayByTxResponse
+	(*CreateClientRequest)(nil),    // 5: relayer.CreateClientRequest
+	(*CreateClientResponse)(nil),   // 6: relayer.CreateClientResponse
+	(*UpdateClientRequest)(nil),    // 7: relayer.UpdateClientRequest
+	(*UpdateClientResponse)(nil),   // 8: relayer.UpdateClientResponse
+	(*InfoRequest)(nil),            // 9: relayer.InfoRequest
+	(*InfoResponse)(nil),           // 10: relayer.InfoResponse
+	(*Chain)(nil),                  // 11: relayer.Chain
+	nil,                            // 12: relayer.CreateClientRequest.ParametersEntry
+	nil,                            // 13: relayer.InfoResponse.MetadataEntry
 }
 var file_relayer_relayer_proto_depIdxs = []int32{
-	2,  // 0: relayer.RelayPacketBatch.packets:type_name -> relayer.PacketTransactions
-	12, // 1: relayer.CreateClientRequest.parameters:type_name -> relayer.CreateClientRequest.ParametersEntry
-	11, // 2: relayer.InfoResponse.target_chain:type_name -> relayer.Chain
-	11, // 3: relayer.InfoResponse.source_chain:type_name -> relayer.Chain
-	13, // 4: relayer.InfoResponse.metadata:type_name -> relayer.InfoResponse.MetadataEntry
-	0,  // 5: relayer.RelayerService.RelayByTx:input_type -> relayer.RelayByTxRequest
-	5,  // 6: relayer.RelayerService.CreateClient:input_type -> relayer.CreateClientRequest
-	7,  // 7: relayer.RelayerService.UpdateClient:input_type -> relayer.UpdateClientRequest
-	9,  // 8: relayer.RelayerService.Info:input_type -> relayer.InfoRequest
-	4,  // 9: relayer.RelayerService.RelayByTx:output_type -> relayer.RelayByTxResponse
-	6,  // 10: relayer.RelayerService.CreateClient:output_type -> relayer.CreateClientResponse
-	8,  // 11: relayer.RelayerService.UpdateClient:output_type -> relayer.UpdateClientResponse
-	10, // 12: relayer.RelayerService.Info:output_type -> relayer.InfoResponse
-	9,  // [9:13] is the sub-list for method output_type
-	5,  // [5:9] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	2,  // 0: relayer.SolanaRelayPacketBatch.packets:type_name -> relayer.SolanaPacketTxs
+	1,  // 1: relayer.SolanaRelayPacketBatch.update_client:type_name -> relayer.SolanaUpdateClient
+	12, // 2: relayer.CreateClientRequest.parameters:type_name -> relayer.CreateClientRequest.ParametersEntry
+	11, // 3: relayer.InfoResponse.target_chain:type_name -> relayer.Chain
+	11, // 4: relayer.InfoResponse.source_chain:type_name -> relayer.Chain
+	13, // 5: relayer.InfoResponse.metadata:type_name -> relayer.InfoResponse.MetadataEntry
+	0,  // 6: relayer.RelayerService.RelayByTx:input_type -> relayer.RelayByTxRequest
+	5,  // 7: relayer.RelayerService.CreateClient:input_type -> relayer.CreateClientRequest
+	7,  // 8: relayer.RelayerService.UpdateClient:input_type -> relayer.UpdateClientRequest
+	9,  // 9: relayer.RelayerService.Info:input_type -> relayer.InfoRequest
+	4,  // 10: relayer.RelayerService.RelayByTx:output_type -> relayer.RelayByTxResponse
+	6,  // 11: relayer.RelayerService.CreateClient:output_type -> relayer.CreateClientResponse
+	8,  // 12: relayer.RelayerService.UpdateClient:output_type -> relayer.UpdateClientResponse
+	10, // 13: relayer.RelayerService.Info:output_type -> relayer.InfoResponse
+	10, // [10:14] is the sub-list for method output_type
+	6,  // [6:10] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_relayer_relayer_proto_init() }

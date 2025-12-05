@@ -1,11 +1,10 @@
 use crate::constants::*;
 use crate::errors::GMPError;
 use crate::events::GMPCallSent;
-use crate::proto::GmpPacketData;
 use crate::state::{GMPAppState, SendCallMsg};
 use anchor_lang::prelude::*;
-use prost::Message as ProstMessage;
-use solana_ibc_types::{MsgSendPacket, Payload};
+use solana_ibc_proto::{Protobuf, RawGmpPacketData};
+use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 
 /// Send a GMP call packet
 #[derive(Accounts)]
@@ -15,7 +14,8 @@ pub struct SendCall<'info> {
     #[account(
         mut,
         seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
-        bump = app_state.bump
+        bump = app_state.bump,
+        constraint = !app_state.paused @ GMPError::AppPaused
     )]
     pub app_state: Account<'info, GMPAppState>,
 
@@ -26,11 +26,7 @@ pub struct SendCall<'info> {
     pub payer: Signer<'info>,
 
     /// Router program for sending packets
-    /// CHECK: Validated against `app_state`
-    #[account(
-        constraint = router_program.key() == app_state.router_program @ GMPError::InvalidRouter
-    )]
-    pub router_program: AccountInfo<'info>,
+    pub router_program: Program<'info, ics26_router::program::Ics26Router>,
 
     /// Router state account
     /// CHECK: Router program validates this
@@ -47,13 +43,10 @@ pub struct SendCall<'info> {
     #[account(mut)]
     pub packet_commitment: AccountInfo<'info>,
 
-    /// Router caller PDA that represents our app
-    /// CHECK: This is a PDA derived with `router_caller` seeds
-    #[account(
-        seeds = [b"router_caller"],
-        bump,
-    )]
-    pub router_caller: AccountInfo<'info>,
+    /// Instructions sysvar for router CPI validation
+    /// CHECK: Router program validates this
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instruction_sysvar: AccountInfo<'info>,
 
     /// IBC app registration account
     /// CHECK: Router program validates this
@@ -71,35 +64,38 @@ pub struct SendCall<'info> {
 pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
-    let app_state = &mut ctx.accounts.app_state;
 
-    // Check if app is operational
-    app_state.can_operate()?;
+    // Validate IBC routing fields
+    let source_client = solana_ibc_types::ClientId::new(&msg.source_client)
+        .map_err(|_| GMPError::InvalidClientId)?;
 
-    // Validate message
-    msg.validate(current_time)?;
+    // Validate timeout bounds
+    require!(
+        msg.timeout_timestamp > current_time + MIN_TIMEOUT_DURATION,
+        GMPError::TimeoutTooSoon
+    );
+    require!(
+        msg.timeout_timestamp < current_time + MAX_TIMEOUT_DURATION,
+        GMPError::TimeoutTooLong
+    );
 
-    // Create protobuf packet data (matching Ethereum format - no client_id)
-    // Note: Empty receiver (system program / all zeros) indicates Cosmos SDK message execution
-    let receiver_str = if msg.receiver == Pubkey::default() {
-        String::new() // Empty string for Cosmos SDK messages
-    } else {
-        msg.receiver.to_string()
-    };
-
-    let proto_packet_data = GmpPacketData {
+    // Create raw GMP packet
+    let raw_packet_data = RawGmpPacketData {
         sender: ctx.accounts.sender.key().to_string(),
-        receiver: receiver_str,
+        receiver: msg.receiver.clone(),
         salt: msg.salt.clone(),
         payload: msg.payload.clone(),
         memo: msg.memo.clone(),
     };
 
-    // Encode using protobuf
-    let mut packet_data_bytes = Vec::new();
-    proto_packet_data
-        .encode(&mut packet_data_bytes)
-        .map_err(|_| GMPError::InvalidPacketData)?;
+    // Validate GMP packet
+    let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
+        msg!("GMP packet validation failed: {}", e);
+        GMPError::InvalidPacketData
+    })?;
+
+    // Encode to protobuf bytes
+    let packet_data_bytes = packet_data.encode_vec();
 
     // Create IBC packet payload
     let ibc_payload = Payload {
@@ -112,7 +108,7 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
 
     // Create send packet message for router
     let router_msg = MsgSendPacket {
-        source_client: msg.source_client.clone(),
+        source_client: source_client.to_string(),
         timeout_timestamp: msg.timeout_timestamp,
         payload: ibc_payload,
     };
@@ -123,22 +119,21 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         &ctx.accounts.router_state,
         &ctx.accounts.client_sequence,
         &ctx.accounts.packet_commitment,
-        &ctx.accounts.router_caller.to_account_info(),
+        &ctx.accounts.instruction_sysvar,
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.ibc_app,
         &ctx.accounts.client,
         &ctx.accounts.system_program.to_account_info(),
         router_msg,
-        ctx.bumps.router_caller,
     )?;
 
     // Emit event
     emit!(GMPCallSent {
         sequence,
         sender: ctx.accounts.sender.key(),
-        receiver: msg.receiver,
-        client_id: msg.source_client,
-        salt: msg.salt,
+        receiver: msg.receiver.clone(),
+        client_id: source_client.to_string(),
+        salt: msg.salt.clone(),
         payload_size: msg.payload.len() as u64,
         timeout_timestamp: msg.timeout_timestamp,
     });
@@ -146,7 +141,7 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     msg!(
         "GMP call sent: sender={}, receiver={}, sequence={}",
         ctx.accounts.sender.key(),
-        msg.receiver,
+        &msg.receiver,
         sequence
     );
 
@@ -166,75 +161,207 @@ mod tests {
         system_program,
     };
 
+    struct TestContext {
+        mollusk: Mollusk,
+        sender: Pubkey,
+        payer: Pubkey,
+        router_program: Pubkey,
+        router_state: Pubkey,
+        client_sequence: Pubkey,
+        packet_commitment: Pubkey,
+        ibc_app: Pubkey,
+        client: Pubkey,
+        app_state_pda: Pubkey,
+        app_state_bump: u8,
+    }
+
+    impl TestContext {
+        fn new() -> Self {
+            let sender = Pubkey::new_unique();
+            let payer = Pubkey::new_unique();
+            let router_program = ics26_router::ID;
+            let router_state = Pubkey::new_unique();
+            let client_sequence = Pubkey::new_unique();
+            let packet_commitment = Pubkey::new_unique();
+            let ibc_app = Pubkey::new_unique();
+            let client = Pubkey::new_unique();
+            let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
+                &[GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
+                &crate::ID,
+            );
+
+            Self {
+                mollusk: Mollusk::new(&crate::ID, crate::get_gmp_program_path()),
+                sender,
+                payer,
+                router_program,
+                router_state,
+                client_sequence,
+                packet_commitment,
+                ibc_app,
+                client,
+                app_state_pda,
+                app_state_bump,
+            }
+        }
+
+        fn build_instruction(&self, msg: SendCallMsg) -> Instruction {
+            let instruction_data = crate::instruction::SendCall { msg };
+
+            Instruction {
+                program_id: crate::ID,
+                accounts: vec![
+                    AccountMeta::new(self.app_state_pda, false),
+                    AccountMeta::new_readonly(self.sender, true),
+                    AccountMeta::new(self.payer, true),
+                    AccountMeta::new_readonly(self.router_program, false),
+                    AccountMeta::new_readonly(self.router_state, false),
+                    AccountMeta::new(self.client_sequence, false),
+                    AccountMeta::new(self.packet_commitment, false),
+                    AccountMeta::new_readonly(
+                        anchor_lang::solana_program::sysvar::instructions::ID,
+                        false,
+                    ),
+                    AccountMeta::new_readonly(self.ibc_app, false),
+                    AccountMeta::new_readonly(self.client, false),
+                    AccountMeta::new_readonly(system_program::ID, false),
+                ],
+                data: instruction_data.data(),
+            }
+        }
+
+        fn build_accounts(&self, paused: bool) -> Vec<(Pubkey, solana_sdk::account::Account)> {
+            vec![
+                create_gmp_app_state_account(self.app_state_pda, self.app_state_bump, paused),
+                create_authority_account(self.sender),
+                create_authority_account(self.payer),
+                create_router_program_account(self.router_program),
+                create_authority_account(self.router_state),
+                create_authority_account(self.client_sequence),
+                create_authority_account(self.packet_commitment),
+                create_instructions_sysvar_account(),
+                create_authority_account(self.ibc_app),
+                create_authority_account(self.client),
+                create_system_program_account(),
+            ]
+        }
+
+        fn create_valid_msg() -> SendCallMsg {
+            SendCallMsg {
+                source_client: "cosmoshub-1".to_string(),
+                receiver: Pubkey::new_unique().to_string(),
+                salt: vec![1, 2, 3],
+                payload: vec![4, 5, 6],
+                timeout_timestamp: 3600, // 1 hour from epoch (safe for Mollusk default clock=0)
+                memo: String::new(),
+            }
+        }
+
+        fn build_instruction_with_wrong_pda(
+            &self,
+            msg: SendCallMsg,
+            wrong_pda: Pubkey,
+        ) -> Instruction {
+            let instruction_data = crate::instruction::SendCall { msg };
+
+            Instruction {
+                program_id: crate::ID,
+                accounts: vec![
+                    AccountMeta::new(wrong_pda, false), // Wrong PDA!
+                    AccountMeta::new_readonly(self.sender, true),
+                    AccountMeta::new(self.payer, true),
+                    AccountMeta::new_readonly(self.router_program, false),
+                    AccountMeta::new_readonly(self.router_state, false),
+                    AccountMeta::new(self.client_sequence, false),
+                    AccountMeta::new(self.packet_commitment, false),
+                    AccountMeta::new_readonly(
+                        anchor_lang::solana_program::sysvar::instructions::ID,
+                        false,
+                    ),
+                    AccountMeta::new_readonly(self.ibc_app, false),
+                    AccountMeta::new_readonly(self.client, false),
+                    AccountMeta::new_readonly(system_program::ID, false),
+                ],
+                data: instruction_data.data(),
+            }
+        }
+
+        fn build_accounts_with_wrong_pda(
+            &self,
+            wrong_pda: Pubkey,
+        ) -> Vec<(Pubkey, solana_sdk::account::Account)> {
+            vec![
+                create_gmp_app_state_account(wrong_pda, self.app_state_bump, false),
+                create_authority_account(self.sender),
+                create_authority_account(self.payer),
+                create_router_program_account(self.router_program),
+                create_authority_account(self.router_state),
+                create_authority_account(self.client_sequence),
+                create_authority_account(self.packet_commitment),
+                create_instructions_sysvar_account(),
+                create_authority_account(self.ibc_app),
+                create_authority_account(self.client),
+                create_system_program_account(),
+            ]
+        }
+
+        fn build_instruction_with_wrong_router(
+            &self,
+            msg: SendCallMsg,
+            wrong_router: Pubkey,
+        ) -> Instruction {
+            let instruction_data = crate::instruction::SendCall { msg };
+
+            Instruction {
+                program_id: crate::ID,
+                accounts: vec![
+                    AccountMeta::new(self.app_state_pda, false),
+                    AccountMeta::new_readonly(self.sender, true),
+                    AccountMeta::new(self.payer, true),
+                    AccountMeta::new_readonly(wrong_router, false), // Wrong router!
+                    AccountMeta::new_readonly(self.router_state, false),
+                    AccountMeta::new(self.client_sequence, false),
+                    AccountMeta::new(self.packet_commitment, false),
+                    AccountMeta::new_readonly(
+                        anchor_lang::solana_program::sysvar::instructions::ID,
+                        false,
+                    ),
+                    AccountMeta::new_readonly(self.ibc_app, false),
+                    AccountMeta::new_readonly(self.client, false),
+                    AccountMeta::new_readonly(system_program::ID, false),
+                ],
+                data: instruction_data.data(),
+            }
+        }
+
+        fn build_accounts_with_wrong_router(
+            &self,
+            wrong_router: Pubkey,
+        ) -> Vec<(Pubkey, solana_sdk::account::Account)> {
+            vec![
+                create_gmp_app_state_account(self.app_state_pda, self.app_state_bump, false),
+                create_authority_account(self.sender),
+                create_authority_account(self.payer),
+                create_router_program_account(wrong_router),
+                create_authority_account(self.router_state),
+                create_authority_account(self.client_sequence),
+                create_authority_account(self.packet_commitment),
+                create_instructions_sysvar_account(),
+                create_authority_account(self.ibc_app),
+                create_authority_account(self.client),
+                create_system_program_account(),
+            ]
+        }
+    }
+
     #[test]
     fn test_send_call_app_paused() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+        let ctx = TestContext::new();
+        let msg = TestContext::create_valid_msg();
+        let instruction = ctx.build_instruction(msg);
+        let accounts = ctx.build_accounts(true); // paused
 
-        let authority = Pubkey::new_unique();
-        let sender = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let router_state = Pubkey::new_unique();
-        let client_sequence = Pubkey::new_unique();
-        let packet_commitment = Pubkey::new_unique();
-        let ibc_app = Pubkey::new_unique();
-        let client = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
-
-        let (router_caller_pda, _router_caller_bump) =
-            Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let msg = SendCallMsg {
-            source_client: "cosmoshub-1".to_string(),
-            receiver: Pubkey::new_unique(),
-            salt: vec![1, 2, 3],
-            payload: vec![4, 5, 6],
-            timeout_timestamp: 9_999_999_999,
-            memo: String::new(),
-        };
-
-        let instruction_data = crate::instruction::SendCall { msg };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(sender, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new_readonly(router_state, false),
-                AccountMeta::new(client_sequence, false),
-                AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
-                AccountMeta::new_readonly(ibc_app, false),
-                AccountMeta::new_readonly(client, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
-                true, // paused
-            ),
-            create_authority_account(sender),
-            create_authority_account(payer),
-            create_router_program_account(router_program),
-            create_authority_account(router_state),
-            create_authority_account(client_sequence),
-            create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
-            create_authority_account(ibc_app),
-            create_authority_account(client),
-            create_system_program_account(),
-        ];
-
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "SendCall should fail when app is paused"
@@ -243,73 +370,14 @@ mod tests {
 
     #[test]
     fn test_send_call_invalid_timeout() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+        let ctx = TestContext::new();
+        let mut msg = TestContext::create_valid_msg();
+        msg.timeout_timestamp = 1_000_000; // Timeout in the past
 
-        let authority = Pubkey::new_unique();
-        let sender = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let router_state = Pubkey::new_unique();
-        let client_sequence = Pubkey::new_unique();
-        let packet_commitment = Pubkey::new_unique();
-        let ibc_app = Pubkey::new_unique();
-        let client = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let instruction = ctx.build_instruction(msg);
+        let accounts = ctx.build_accounts(false);
 
-        let (router_caller_pda, _router_caller_bump) =
-            Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let msg = SendCallMsg {
-            source_client: "cosmoshub-1".to_string(),
-            receiver: Pubkey::new_unique(),
-            salt: vec![1, 2, 3],
-            payload: vec![4, 5, 6],
-            timeout_timestamp: 1_000_000, // Timeout in the past
-            memo: String::new(),
-        };
-
-        let instruction_data = crate::instruction::SendCall { msg };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(sender, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new_readonly(router_state, false),
-                AccountMeta::new(client_sequence, false),
-                AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
-                AccountMeta::new_readonly(ibc_app, false),
-                AccountMeta::new_readonly(client, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
-                false, // not paused
-            ),
-            create_authority_account(sender),
-            create_authority_account(payer),
-            create_router_program_account(router_program),
-            create_authority_account(router_state),
-            create_authority_account(client_sequence),
-            create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
-            create_authority_account(ibc_app),
-            create_authority_account(client),
-            create_system_program_account(),
-        ];
-
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "SendCall should fail with timeout in the past"
@@ -318,77 +386,13 @@ mod tests {
 
     #[test]
     fn test_send_call_invalid_app_state_pda() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+        let ctx = TestContext::new();
+        let msg = TestContext::create_valid_msg();
+        let wrong_pda = Pubkey::new_unique();
+        let instruction = ctx.build_instruction_with_wrong_pda(msg, wrong_pda);
+        let accounts = ctx.build_accounts_with_wrong_pda(wrong_pda);
 
-        let authority = Pubkey::new_unique();
-        let sender = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let router_state = Pubkey::new_unique();
-        let client_sequence = Pubkey::new_unique();
-        let packet_commitment = Pubkey::new_unique();
-        let ibc_app = Pubkey::new_unique();
-        let client = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
-
-        let (_correct_app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, port_id.as_bytes()], &crate::ID);
-
-        // Use wrong PDA in instruction
-        let wrong_app_state_pda = Pubkey::new_unique();
-
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let msg = SendCallMsg {
-            source_client: "cosmoshub-1".to_string(),
-            receiver: Pubkey::new_unique(),
-            salt: vec![1, 2, 3],
-            payload: vec![4, 5, 6],
-            timeout_timestamp: 9_999_999_999,
-            memo: String::new(),
-        };
-
-        let instruction_data = crate::instruction::SendCall { msg };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(wrong_app_state_pda, false), // Wrong PDA!
-                AccountMeta::new_readonly(sender, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new_readonly(router_state, false),
-                AccountMeta::new(client_sequence, false),
-                AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
-                AccountMeta::new_readonly(ibc_app, false),
-                AccountMeta::new_readonly(client, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                wrong_app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
-                false,
-            ),
-            create_authority_account(sender),
-            create_authority_account(payer),
-            create_router_program_account(router_program),
-            create_authority_account(router_state),
-            create_authority_account(client_sequence),
-            create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
-            create_authority_account(ibc_app),
-            create_authority_account(client),
-            create_system_program_account(),
-        ];
-
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "SendCall should fail with invalid app_state PDA"
@@ -397,73 +401,13 @@ mod tests {
 
     #[test]
     fn test_send_call_wrong_router_program() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+        let ctx = TestContext::new();
+        let msg = TestContext::create_valid_msg();
+        let wrong_router = Pubkey::new_unique();
+        let instruction = ctx.build_instruction_with_wrong_router(msg, wrong_router);
+        let accounts = ctx.build_accounts_with_wrong_router(wrong_router);
 
-        let authority = Pubkey::new_unique();
-        let sender = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let correct_router_program = Pubkey::new_unique();
-        let wrong_router_program = Pubkey::new_unique(); // Different router!
-        let router_state = Pubkey::new_unique();
-        let client_sequence = Pubkey::new_unique();
-        let packet_commitment = Pubkey::new_unique();
-        let ibc_app = Pubkey::new_unique();
-        let client = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
-
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let msg = SendCallMsg {
-            source_client: "cosmoshub-1".to_string(),
-            receiver: Pubkey::new_unique(),
-            salt: vec![1, 2, 3],
-            payload: vec![4, 5, 6],
-            timeout_timestamp: 9_999_999_999,
-            memo: String::new(),
-        };
-
-        let instruction_data = crate::instruction::SendCall { msg };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(sender, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(wrong_router_program, false), // Wrong router!
-                AccountMeta::new_readonly(router_state, false),
-                AccountMeta::new(client_sequence, false),
-                AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
-                AccountMeta::new_readonly(ibc_app, false),
-                AccountMeta::new_readonly(client, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                app_state_pda,
-                correct_router_program, // Stored in state
-                authority,
-                app_state_bump,
-                false,
-            ),
-            create_authority_account(sender),
-            create_authority_account(payer),
-            create_router_program_account(wrong_router_program), // Wrong one passed
-            create_authority_account(router_state),
-            create_authority_account(client_sequence),
-            create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
-            create_authority_account(ibc_app),
-            create_authority_account(client),
-            create_system_program_account(),
-        ];
-
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "SendCall should fail with wrong router_program"
@@ -471,147 +415,15 @@ mod tests {
     }
 
     #[test]
-    fn test_send_call_payload_too_large() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let authority = Pubkey::new_unique();
-        let sender = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let router_state = Pubkey::new_unique();
-        let client_sequence = Pubkey::new_unique();
-        let packet_commitment = Pubkey::new_unique();
-        let ibc_app = Pubkey::new_unique();
-        let client = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
-
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let msg = SendCallMsg {
-            source_client: "cosmoshub-1".to_string(),
-            receiver: Pubkey::new_unique(),
-            salt: vec![1, 2, 3],
-            payload: vec![0; crate::constants::MAX_PAYLOAD_LENGTH + 1], // Exceeds limit!
-            timeout_timestamp: 9_999_999_999,
-            memo: String::new(),
-        };
-
-        let instruction_data = crate::instruction::SendCall { msg };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(sender, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new_readonly(router_state, false),
-                AccountMeta::new(client_sequence, false),
-                AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
-                AccountMeta::new_readonly(ibc_app, false),
-                AccountMeta::new_readonly(client, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
-                false,
-            ),
-            create_authority_account(sender),
-            create_authority_account(payer),
-            create_router_program_account(router_program),
-            create_authority_account(router_state),
-            create_authority_account(client_sequence),
-            create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
-            create_authority_account(ibc_app),
-            create_authority_account(client),
-            create_system_program_account(),
-        ];
-
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with payload too large"
-        );
-    }
-
-    #[test]
     fn test_send_call_empty_payload() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+        let ctx = TestContext::new();
+        let mut msg = TestContext::create_valid_msg();
+        msg.payload = vec![];
 
-        let authority = Pubkey::new_unique();
-        let sender = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let router_state = Pubkey::new_unique();
-        let client_sequence = Pubkey::new_unique();
-        let packet_commitment = Pubkey::new_unique();
-        let ibc_app = Pubkey::new_unique();
-        let client = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let instruction = ctx.build_instruction(msg);
+        let accounts = ctx.build_accounts(false);
 
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let msg = SendCallMsg {
-            source_client: "cosmoshub-1".to_string(),
-            receiver: Pubkey::new_unique(),
-            salt: vec![1, 2, 3],
-            payload: vec![], // Empty payload!
-            timeout_timestamp: 9_999_999_999,
-            memo: String::new(),
-        };
-
-        let instruction_data = crate::instruction::SendCall { msg };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(sender, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new_readonly(router_state, false),
-                AccountMeta::new(client_sequence, false),
-                AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
-                AccountMeta::new_readonly(ibc_app, false),
-                AccountMeta::new_readonly(client, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
-                false,
-            ),
-            create_authority_account(sender),
-            create_authority_account(payer),
-            create_router_program_account(router_program),
-            create_authority_account(router_state),
-            create_authority_account(client_sequence),
-            create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
-            create_authority_account(ibc_app),
-            create_authority_account(client),
-            create_system_program_account(),
-        ];
-
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "SendCall should fail with empty payload"
@@ -619,73 +431,79 @@ mod tests {
     }
 
     #[test]
+    fn test_send_call_salt_too_long() {
+        let ctx = TestContext::new();
+        let mut msg = TestContext::create_valid_msg();
+        msg.salt = vec![0u8; crate::constants::MAX_SALT_LENGTH + 1];
+
+        let instruction = ctx.build_instruction(msg);
+        let accounts = ctx.build_accounts(false);
+
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            result.program_result.is_err(),
+            "SendCall should fail with salt too long"
+        );
+    }
+
+    #[test]
+    fn test_send_call_memo_too_long() {
+        let ctx = TestContext::new();
+        let mut msg = TestContext::create_valid_msg();
+        msg.memo = "x".repeat(crate::constants::MAX_MEMO_LENGTH + 1);
+
+        let instruction = ctx.build_instruction(msg);
+        let accounts = ctx.build_accounts(false);
+
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            result.program_result.is_err(),
+            "SendCall should fail with memo too long"
+        );
+    }
+
+    #[test]
+    fn test_send_call_receiver_too_long() {
+        let ctx = TestContext::new();
+        let mut msg = TestContext::create_valid_msg();
+        msg.receiver = "x".repeat(crate::constants::MAX_RECEIVER_LENGTH + 1);
+
+        let instruction = ctx.build_instruction(msg);
+        let accounts = ctx.build_accounts(false);
+
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            result.program_result.is_err(),
+            "SendCall should fail with receiver too long"
+        );
+    }
+
+    #[test]
+    fn test_send_call_timeout_too_far_in_future() {
+        let ctx = TestContext::new();
+        let mut msg = TestContext::create_valid_msg();
+        msg.timeout_timestamp = i64::MAX;
+
+        let instruction = ctx.build_instruction(msg);
+        let accounts = ctx.build_accounts(false);
+
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            result.program_result.is_err(),
+            "SendCall should fail with timeout too far in the future"
+        );
+    }
+
+    #[test]
     fn test_send_call_empty_client_id() {
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+        let ctx = TestContext::new();
+        let mut msg = TestContext::create_valid_msg();
+        msg.source_client = String::new();
 
-        let authority = Pubkey::new_unique();
-        let sender = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let router_program = Pubkey::new_unique();
-        let router_state = Pubkey::new_unique();
-        let client_sequence = Pubkey::new_unique();
-        let packet_commitment = Pubkey::new_unique();
-        let ibc_app = Pubkey::new_unique();
-        let client = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let instruction = ctx.build_instruction(msg);
+        let accounts = ctx.build_accounts(false);
 
-        let (router_caller_pda, _) = Pubkey::find_program_address(&[b"router_caller"], &crate::ID);
-
-        let msg = SendCallMsg {
-            source_client: String::new(), // Empty client ID!
-            receiver: Pubkey::new_unique(),
-            salt: vec![1, 2, 3],
-            payload: vec![4, 5, 6],
-            timeout_timestamp: 9_999_999_999,
-            memo: String::new(),
-        };
-
-        let instruction_data = crate::instruction::SendCall { msg };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(sender, true),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(router_program, false),
-                AccountMeta::new_readonly(router_state, false),
-                AccountMeta::new(client_sequence, false),
-                AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(router_caller_pda, false),
-                AccountMeta::new_readonly(ibc_app, false),
-                AccountMeta::new_readonly(client, false),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                app_state_pda,
-                router_program,
-                authority,
-                app_state_bump,
-                false,
-            ),
-            create_authority_account(sender),
-            create_authority_account(payer),
-            create_router_program_account(router_program),
-            create_authority_account(router_state),
-            create_authority_account(client_sequence),
-            create_authority_account(packet_commitment),
-            create_authority_account(router_caller_pda),
-            create_authority_account(ibc_app),
-            create_authority_account(client),
-            create_system_program_account(),
-        ];
-
-        let result = mollusk.process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
             "SendCall should fail with empty client_id"

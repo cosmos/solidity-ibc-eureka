@@ -276,9 +276,65 @@ let
 
       setup_solana
 
-      if ! "$REAL_ANCHOR" build --no-idl -- --no-rustup-override --skip-tools-install "''${extra_args[@]}"; then
-        echo "❌ Program build failed"
-        return 1
+      # Parse arguments
+      local skip_idl=false
+      local cargo_args=()
+      local specific_package=""
+
+      for arg in "''${extra_args[@]}"; do
+        if [[ "$arg" == "--no-idl" ]]; then
+          skip_idl=true
+        elif [[ "$arg" != "--" ]]; then
+          cargo_args+=("$arg")
+        fi
+      done
+
+      # Check for -p flag to determine specific package
+      for ((i=0; i<''${#cargo_args[@]}; i++)); do
+        if [[ "''${cargo_args[$i]}" == "-p" && $((i+1)) -lt ''${#cargo_args[@]} ]]; then
+          specific_package="''${cargo_args[$((i+1))]}"
+          echo "🎯 Building package: $specific_package"
+          break
+        fi
+      done
+
+      # Build the program(s)
+      if [ -n "$specific_package" ]; then
+        # Build specific package directly with cargo-build-sbf to avoid building all programs
+        echo "   Building only $specific_package (skipping other programs)..."
+
+        # Find the program directory
+        local program_dir=""
+        for dir in programs/*/; do
+          if [ "$(basename "$dir")" = "$specific_package" ]; then
+            program_dir="$dir"
+            break
+          fi
+        done
+
+        if [ -z "$program_dir" ]; then
+          echo "❌ Program directory not found for: $specific_package"
+          return 1
+        fi
+
+        # Build using cargo-build-sbf directly
+        # Use the same flags as anchor to skip tool installation
+        if ! cargo build-sbf --manifest-path "''${program_dir}Cargo.toml" --no-rustup-override --skip-tools-install; then
+          echo "❌ Program build failed"
+          return 1
+        fi
+      else
+        # Build all programs using anchor
+        if ! "$REAL_ANCHOR" build --no-idl -- --no-rustup-override --skip-tools-install; then
+          echo "❌ Program build failed"
+          return 1
+        fi
+      fi
+
+      # Skip IDL generation if requested
+      if [ "$skip_idl" = true ]; then
+        echo "⏭️  Skipping IDL generation (--no-idl flag)"
+        return 0
       fi
 
       if cargo_toml=$(has_idl_build_feature); then
@@ -296,6 +352,11 @@ let
         # Extract IDL from each program using cargo test with idl-build feature
         for program_dir in programs/*/; do
           program_name=$(basename "$program_dir")
+
+          # Skip if building specific package and this isn't it
+          if [ -n "$specific_package" ] && [ "$program_name" != "$specific_package" ]; then
+            continue
+          fi
 
           has_idl_build=false
           if [ -f "$program_dir/Cargo.toml" ]; then
@@ -467,6 +528,16 @@ let
         run_unit_test "$@"
         ;;
 
+      keys)
+        # Pass through to real anchor for keys command (sync, list, etc.)
+        "$REAL_ANCHOR" "$@"
+        ;;
+
+      deploy)
+        # Pass through to real anchor for deploy command
+        "$REAL_ANCHOR" "$@"
+        ;;
+
       *)
         cat <<EOF
 anchor-nix: Anchor wrapper for Nix environments
@@ -475,6 +546,8 @@ Usage:
   anchor-nix build [options]      - Build program with Solana toolchain, generate IDL with nightly
   anchor-nix test [options]       - Build and run anchor client tests
   anchor-nix unit-test [options]  - Build program then run cargo test
+  anchor-nix keys [subcommand]    - Manage program keypairs (sync, list, etc.)
+  anchor-nix deploy [options]     - Deploy programs to specified cluster
 
 This wrapper automatically handles toolchain switching to provide:
   - Fast, deterministic builds with Solana/Agave toolchain

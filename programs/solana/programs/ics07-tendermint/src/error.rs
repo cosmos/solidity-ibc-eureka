@@ -33,6 +33,8 @@ pub enum ErrorCode {
     UpdateClientFailed,
 
     // Misbehaviour errors
+    #[msg("Invalid misbehaviour: failed to deserialize or validate misbehaviour")]
+    InvalidMisbehaviour,
     #[msg("Misbehaviour detected: conflicting consensus state at same height")]
     MisbehaviourConflictingState,
     #[msg("Misbehaviour detected: non-increasing timestamp")]
@@ -66,9 +68,33 @@ pub enum ErrorCode {
     #[msg("Chunk data too large: exceeds maximum chunk size")]
     ChunkDataTooLarge,
 
+    // Access control errors
+    #[msg("Unauthorized: caller does not have required role")]
+    UnauthorizedRole,
+    // Signature verification errors
+    #[msg("Invalid number of accounts: mismatch between signatures and PDAs")]
+    InvalidNumberOfAccounts,
+    #[msg("Invalid account data: account data is malformed or too small")]
+    InvalidAccountData,
+
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]
     SerializationError,
     #[msg("Account validation failed: invalid account or PDA")]
     AccountValidationFailed,
+    #[msg("Invalid account owner: account is not owned by the expected program")]
+    InvalidAccountOwner,
+    #[msg("Arithmetic overflow detected")]
+    ArithmeticOverflow,
+
+    // Conversion errors
+    #[msg("Conversion error: invalid header data")]
+    ConversionError,
+}
+
+impl From<crate::conversions::ConversionError> for ErrorCode {
+    fn from(err: crate::conversions::ConversionError) -> Self {
+        msg!("Conversion failed: {}", err.as_str());
+        Self::ConversionError
+    }
 }

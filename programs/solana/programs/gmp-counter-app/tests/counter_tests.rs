@@ -1,4 +1,4 @@
-use anchor_lang::{AnchorSerialize, Discriminator, InstructionData};
+use anchor_lang::{AnchorSerialize, Discriminator, InstructionData, Space};
 use gmp_counter_app::{state::*, ID};
 use mollusk_svm::Mollusk;
 use solana_sdk::{
@@ -169,7 +169,7 @@ fn test_increment_counter_new_user() {
     let mollusk = Mollusk::new(&ID, get_gmp_counter_program_path());
 
     let authority = Pubkey::new_unique();
-    let user_authority = Pubkey::new_unique(); // The ICS27 account_state PDA would be here
+    let user_authority = Pubkey::new_unique(); // The ICS27 gmp_account PDA would be here
     let (app_state_pda, app_state_bump) =
         Pubkey::find_program_address(&[CounterAppState::SEED], &ID);
     let (user_counter_pda, _) =

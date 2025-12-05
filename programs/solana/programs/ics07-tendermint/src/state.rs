@@ -1,7 +1,6 @@
 use crate::types::ConsensusState;
 use anchor_lang::prelude::*;
-
-pub const CHUNK_DATA_SIZE: usize = 700;
+pub use solana_ibc_constants::CHUNK_DATA_SIZE;
 
 #[account]
 #[derive(InitSpace)]
@@ -18,6 +17,8 @@ impl ConsensusStateStore {
 #[account]
 #[derive(InitSpace)]
 pub struct HeaderChunk {
+    /// The submitter who created this chunk
+    pub submitter: Pubkey,
     /// The chunk data
     #[max_len(CHUNK_DATA_SIZE)]
     pub chunk_data: Vec<u8>,
@@ -25,6 +26,33 @@ pub struct HeaderChunk {
 
 impl HeaderChunk {
     pub const SEED: &'static [u8] = b"header_chunk";
+}
+
+/// Storage for a single chunk of misbehaviour data during multi-transaction upload
+#[account]
+#[derive(InitSpace)]
+pub struct MisbehaviourChunk {
+    /// The chunk data
+    #[max_len(CHUNK_DATA_SIZE)]
+    pub chunk_data: Vec<u8>,
+}
+
+impl MisbehaviourChunk {
+    pub const SEED: &'static [u8] = b"misbehaviour_chunk";
+}
+
+/// Storage for Ed25519 signature verification results
+#[account]
+#[derive(InitSpace)]
+pub struct SignatureVerification {
+    /// The submitter who created this verification
+    pub submitter: Pubkey,
+    /// Whether the signature is valid
+    pub is_valid: bool,
+}
+
+impl SignatureVerification {
+    pub const SEED: &'static [u8] = b"sig_verify";
 }
 
 #[cfg(test)]
