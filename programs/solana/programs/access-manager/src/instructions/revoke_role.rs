@@ -2,7 +2,7 @@ use crate::errors::AccessManagerError;
 use crate::events::RoleRevokedEvent;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
-use solana_ibc_types::{reject_cpi, roles};
+use solana_ibc_types::{roles, validate_direct_or_whitelisted_cpi};
 
 #[derive(Accounts)]
 pub struct RevokeRole<'info> {
@@ -22,8 +22,13 @@ pub struct RevokeRole<'info> {
 }
 
 pub fn revoke_role(ctx: Context<RevokeRole>, role_id: u64, account: Pubkey) -> Result<()> {
-    // Reject CPI calls - this instruction must be called directly
-    reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(AccessManagerError::from)?;
+    // Validate caller
+    validate_direct_or_whitelisted_cpi(
+        &ctx.accounts.instructions_sysvar,
+        crate::WHITELISTED_CPI_PROGRAMS,
+        &crate::ID,
+    )
+    .map_err(AccessManagerError::from)?;
 
     // Only admins can revoke roles
     require!(

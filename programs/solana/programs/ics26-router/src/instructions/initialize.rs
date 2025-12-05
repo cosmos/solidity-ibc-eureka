@@ -1,7 +1,7 @@
 use crate::errors::RouterError;
 use crate::state::{AccountVersion, RouterState};
 use anchor_lang::prelude::*;
-use solana_ibc_types::reject_cpi;
+use solana_ibc_types::cpi::reject_cpi;
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {

@@ -3,7 +3,7 @@ use crate::errors::GMPError;
 use crate::events::GMPAppInitialized;
 use crate::state::{AccountVersion, GMPAppState};
 use anchor_lang::prelude::*;
-use solana_ibc_types::reject_cpi;
+use solana_ibc_types::cpi::reject_cpi;
 
 /// Initialize the ICS27 GMP application
 #[derive(Accounts)]

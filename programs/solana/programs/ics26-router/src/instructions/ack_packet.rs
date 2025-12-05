@@ -158,7 +158,7 @@ pub fn ack_packet<'info>(
     let membership_msg = MembershipMsg {
         height: msg.proof.height,
         proof: proof_data,
-        path: vec![ics24::IBC_MERKLE_PREFIX.to_vec(), ack_path],
+        path: ics24::prefixed_path(&client.counterparty_info.merkle_prefix, &ack_path)?,
         value: ack_commitment.to_vec(),
     };
 
