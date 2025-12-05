@@ -13,15 +13,11 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Install SP1 toolchain
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          retry_wait_seconds: 5
-          command: |
-            curl -L https://sp1.succinct.xyz | bash
-            ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
-            ~/.sp1/bin/cargo-prove prove --version
+        shell: bash
+        run: |
+          curl -L https://sp1.succinct.xyz | bash
+          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
+          ~/.sp1/bin/cargo-prove prove --version
       - name: Install just
         uses: extractions/setup-just@v3
 
