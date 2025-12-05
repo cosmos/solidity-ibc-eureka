@@ -486,6 +486,9 @@ mod tests {
 
     #[test]
     fn test_ack_packet_noop_no_commitment() {
+        // Test the no-op path: packet_commitment doesn't exist -> emit NoopEvent.
+        // Note: Mollusk doesn't capture program logs, so we verify noop behavior by checking
+        // that the packet_commitment account remains system-owned (no IBC app callback was invoked).
         let ctx = setup_ack_packet_test_with_params(AckPacketTestParams {
             with_existing_commitment: false, // No packet commitment exists
             ..Default::default()
@@ -496,7 +499,18 @@ mod tests {
         // When packet commitment doesn't exist, it should succeed (noop)
         let checks = vec![Check::success()];
 
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+        let result =
+            mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+
+        // Verify packet commitment account is still system-owned (wasn't modified)
+        let packet_commitment_account = result
+            .get_account(&ctx.packet_commitment_pubkey)
+            .expect("packet commitment account should exist");
+        assert_eq!(
+            packet_commitment_account.owner,
+            system_program::ID,
+            "packet_commitment should still be owned by system program in noop case"
+        );
     }
 
     #[test]
