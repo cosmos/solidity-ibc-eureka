@@ -11,31 +11,64 @@ runs:
     - name: Set up foundry tooling
       uses: ./.github/actions/foundry-setup
 
+    - name: Cache SP1 Toolchain
+      id: cache-sp1-toolchain
+      uses: actions/cache@v4
+      with:
+        path: ~/.sp1
+        key: ${{ runner.os }}-sp1-toolchain-v1
+
     - name: Install SP1 toolchain
+      if: steps.cache-sp1-toolchain.outputs.cache-hit != 'true'
       shell: bash
       run: |
         curl -L https://sp1.succinct.xyz | bash
         ~/.sp1/bin/sp1up --token ${{ inputs.github_token }}
         ~/.sp1/bin/cargo-prove prove --version
 
+    - name: Cache SP1 Programs
+      id: cache-sp1-programs
+      uses: actions/cache@v4
+      with:
+        path: programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
+        key: ${{ runner.os }}-sp1-programs-${{ hashFiles('programs/sp1-programs/**', 'Cargo.lock') }}
+
     - name: Install just
+      if: steps.cache-sp1-programs.outputs.cache-hit != 'true'
       uses: extractions/setup-just@v2
 
     - name: Build SP1 Programs
+      if: steps.cache-sp1-programs.outputs.cache-hit != 'true'
       shell: bash
       run: just build-sp1-programs
 
-    - name: Install operator
-      uses: actions-rs/cargo@v1
+    - name: Cache Relayer
+      id: cache-relayer
+      uses: actions/cache@v4
       with:
-        command: install
-        args: --bin operator --path programs/operator --locked
+        path: ~/.cargo/bin/relayer
+        key: ${{ runner.os }}-relayer-${{ hashFiles('programs/relayer/**', 'packages/**', 'Cargo.lock') }}
 
     - name: Install relayer
+      if: steps.cache-relayer.outputs.cache-hit != 'true'
       uses: actions-rs/cargo@v1
       with:
         command: install
         args: --bin relayer --path programs/relayer --locked
+
+    - name: Cache Operator
+      id: cache-operator
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/bin/operator
+        key: ${{ runner.os }}-operator-${{ hashFiles('programs/operator/**', 'packages/**', 'Cargo.lock') }}
+
+    - name: Install operator
+      if: steps.cache-operator.outputs.cache-hit != 'true'
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: --bin operator --path programs/operator --locked
 
     - name: Package artifacts
       shell: bash
