@@ -848,9 +848,11 @@ mod tests {
             rent_epoch: 0,
         };
 
-        if let Some(pos) = ctx.accounts.iter().position(|(pubkey, _)| {
-            *pubkey == ctx.accounts[2].0
-        }) {
+        if let Some(pos) = ctx
+            .accounts
+            .iter()
+            .position(|(pubkey, _)| *pubkey == ctx.accounts[2].0)
+        {
             ctx.accounts[pos] = (wrong_ibc_app, wrong_ibc_app_account);
             ctx.instruction.accounts[2].pubkey = wrong_ibc_app;
         }
