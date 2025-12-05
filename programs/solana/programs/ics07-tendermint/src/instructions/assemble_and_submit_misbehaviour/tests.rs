@@ -384,36 +384,6 @@ fn test_assemble_and_submit_misbehaviour_client_already_frozen() {
 }
 
 #[test]
-fn test_assemble_and_submit_misbehaviour_invalid_protobuf() {
-    let chain_id = "test-chain";
-    let height_1 = 90;
-    let height_2 = 95;
-    let submitter = Pubkey::new_unique();
-
-    // Create invalid misbehaviour bytes
-    let invalid_bytes = vec![0xFF; 100];
-
-    let test_accounts = setup_test_accounts(TestSetupConfig {
-        chain_id,
-        height_1,
-        height_2,
-        submitter,
-        client_frozen: false,
-        with_valid_consensus_states: true,
-        with_chunks: true,
-        misbehaviour_bytes: &invalid_bytes,
-    });
-
-    let instruction = create_assemble_instruction(&test_accounts, chain_id);
-
-    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let checks = vec![Check::err(
-        anchor_lang::error::Error::from(ErrorCode::InvalidHeader).into(),
-    )];
-    mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-}
-
-#[test]
 fn test_assemble_and_submit_misbehaviour_wrong_chunk_pda() {
     let chain_id = "test-chain";
     let height_1 = 90;

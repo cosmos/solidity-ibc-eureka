@@ -33,6 +33,8 @@ pub enum ErrorCode {
     UpdateClientFailed,
 
     // Misbehaviour errors
+    #[msg("Invalid misbehaviour: failed to deserialize or validate misbehaviour")]
+    InvalidMisbehaviour,
     #[msg("Misbehaviour detected: conflicting consensus state at same height")]
     MisbehaviourConflictingState,
     #[msg("Misbehaviour detected: non-increasing timestamp")]
