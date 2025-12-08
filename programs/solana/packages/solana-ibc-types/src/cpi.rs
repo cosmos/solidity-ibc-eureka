@@ -1,5 +1,9 @@
-use anchor_lang::prelude::*;
-use anchor_lang::solana_program::sysvar::instructions::get_instruction_relative;
+use anchor_lang::{
+    error_code,
+    prelude::{AccountInfo, Pubkey},
+    solana_program::sysvar::instructions::get_instruction_relative,
+    Key,
+};
 
 // # How `get_instruction_relative(0, ...)` works
 //
@@ -37,8 +41,6 @@ pub enum CpiValidationError {
     DirectCallNotAllowed,
     #[msg("Unauthorized CPI caller")]
     UnauthorizedCaller,
-    #[msg("External CPI not allowed - instruction must originate from this program")]
-    ExternalCpiNotAllowed,
 }
 
 /// Validates that this instruction is called via CPI from the authorized program
@@ -54,7 +56,7 @@ pub fn validate_cpi_caller(
     instruction_sysvar: &AccountInfo<'_>,
     authorized_program: &Pubkey,
     self_program_id: &Pubkey,
-) -> core::result::Result<(), CpiValidationError> {
+) -> Result<(), CpiValidationError> {
     // CRITICAL: Validate that the instruction_sysvar account is actually the instructions sysvar
     // This prevents attacks where a malicious actor passes a fake sysvar account
     // See Wormhole attack: https://github.com/sbellem/wormhole-attack-analysis
@@ -79,20 +81,16 @@ pub fn validate_cpi_caller(
     Ok(())
 }
 
-/// Validates that this program is the entrypoint of the current transaction instruction
+/// Validates that this instruction is either called directly OR via CPI from a whitelisted program
 ///
 /// Checks:
 /// 1. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
-/// 2. Top-level instruction's `program_id` IS self (rejects external CPI callers)
+/// 2. Current instruction's `program_id` is either self (direct call) or in the whitelist
 ///
-/// **Important**: This does NOT prevent recursive CPI (A → B → A). It only ensures
-/// our program is the top-level instruction. For most admin use cases this is sufficient
-/// since it prevents external programs from triggering admin operations via CPI.
-///
-/// Use this for admin instructions that should only be initiated by direct user transactions
-/// or by our own internal CPI calls.
-pub fn reject_cpi(
+/// Use this for instructions that can be called both directly by users and via CPI from trusted programs.
+pub fn require_direct_call_or_whitelisted_caller(
     instruction_sysvar: &AccountInfo<'_>,
+    whitelisted_programs: &[Pubkey],
     self_program_id: &Pubkey,
 ) -> core::result::Result<(), CpiValidationError> {
     // CRITICAL: Validate that the instruction_sysvar account is actually the instructions sysvar
@@ -104,10 +102,31 @@ pub fn reject_cpi(
     let current_ix = get_instruction_relative(0, instruction_sysvar)
         .map_err(|_| CpiValidationError::InvalidSysvar)?;
 
-    // Reject external CPI (when top-level instruction is NOT our own program)
-    if current_ix.program_id != *self_program_id {
-        return Err(CpiValidationError::ExternalCpiNotAllowed);
+    // Allow direct calls
+    if current_ix.program_id == *self_program_id {
+        return Ok(());
     }
 
-    Ok(())
+    // Allow CPI from whitelisted programs
+    if whitelisted_programs.contains(&current_ix.program_id) {
+        return Ok(());
+    }
+
+    Err(CpiValidationError::UnauthorizedCaller)
+}
+
+/// Validates that this program is the entrypoint of the current transaction instruction
+///
+/// Checks:
+/// 1. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
+/// 2. Top-level instruction's `program_id` IS self (rejects external CPI callers)
+///
+/// **Important**: This does NOT prevent recursive CPI (A → B → A). It only ensures
+/// our program is the top-level instruction. For most admin use cases this is sufficient
+/// since it prevents external programs from triggering admin operations via CPI.
+pub fn reject_cpi(
+    instruction_sysvar: &AccountInfo<'_>,
+    self_program_id: &Pubkey,
+) -> core::result::Result<(), CpiValidationError> {
+    require_direct_call_or_whitelisted_caller(instruction_sysvar, &[], self_program_id)
 }
