@@ -492,7 +492,7 @@ pub mod fixtures {
             let validator = create_mock_validator();
             let validator_set = BorshValidatorSet {
                 validators: vec![validator.clone()],
-                proposer: Some(validator.clone()),
+                proposer: Some(validator),
                 total_voting_power: 100,
             };
 
