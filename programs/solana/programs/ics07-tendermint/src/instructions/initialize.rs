@@ -621,7 +621,7 @@ mod tests {
             chain_id: chain_id.clone(),
             latest_height,
             client_state: client_state.clone(),
-            consensus_state: consensus_state.clone(),
+            consensus_state,
             access_manager: access_manager::ID,
         };
 
