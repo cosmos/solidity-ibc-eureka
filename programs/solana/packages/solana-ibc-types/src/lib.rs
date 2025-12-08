@@ -50,6 +50,6 @@ pub use ibc_app_interface::ibc_app_instructions;
 
 pub use access_manager::{roles, AccessManager};
 pub use cpi::{
-    reject_cpi, validate_cpi_caller, validate_direct_or_whitelisted_cpi, CpiValidationError,
+    reject_cpi, require_direct_call_or_whitelisted_caller, validate_cpi_caller, CpiValidationError,
 };
 pub use utils::compute_discriminator;

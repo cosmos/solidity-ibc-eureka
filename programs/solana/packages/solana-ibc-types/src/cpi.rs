@@ -53,14 +53,14 @@ pub fn validate_cpi_caller(
     Ok(())
 }
 
-/// Validates that this instruction is either called directly OR via CPI from a whitelisted program
+/// Requires that this instruction is either called directly OR via CPI from a whitelisted program
 ///
 /// Checks:
 /// 1. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
 /// 2. Current instruction's `program_id` is either self (direct call) or in the whitelist
 ///
 /// Use this for instructions that can be called both directly by users and via CPI from trusted programs.
-pub fn validate_direct_or_whitelisted_cpi(
+pub fn require_direct_call_or_whitelisted_caller(
     instruction_sysvar: &AccountInfo<'_>,
     whitelisted_programs: &[Pubkey],
     self_program_id: &Pubkey,
@@ -87,7 +87,7 @@ pub fn validate_direct_or_whitelisted_cpi(
     Err(CpiValidationError::UnauthorizedCaller)
 }
 
-/// Validates that this instruction is called directly.
+/// Requires that this instruction is called directly (rejects all CPI calls).
 ///
 /// Checks:
 /// 1. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
@@ -96,5 +96,5 @@ pub fn reject_cpi(
     instruction_sysvar: &AccountInfo<'_>,
     self_program_id: &Pubkey,
 ) -> core::result::Result<(), CpiValidationError> {
-    validate_direct_or_whitelisted_cpi(instruction_sysvar, &[], self_program_id)
+    require_direct_call_or_whitelisted_caller(instruction_sysvar, &[], self_program_id)
 }

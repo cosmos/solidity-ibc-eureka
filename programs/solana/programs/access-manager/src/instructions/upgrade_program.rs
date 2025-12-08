@@ -3,7 +3,7 @@ use crate::events::ProgramUpgradedEvent;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
-use solana_ibc_types::roles;
+use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
 
 #[derive(Accounts)]
 #[instruction(target_program: Pubkey)]
@@ -62,13 +62,21 @@ pub struct UpgradeProgram<'info> {
 }
 
 pub fn upgrade_program(ctx: Context<UpgradeProgram>, target_program: Pubkey) -> Result<()> {
-    crate::helpers::require_role(
-        &ctx.accounts.access_manager.to_account_info(),
-        roles::ADMIN_ROLE,
-        &ctx.accounts.authority.to_account_info(),
+    // Validate caller
+    require_direct_call_or_whitelisted_caller(
         &ctx.accounts.instructions_sysvar,
+        crate::WHITELISTED_CPI_PROGRAMS,
         &crate::ID,
-    )?;
+    )
+    .map_err(AccessManagerError::from)?;
+
+    // Only admins can upgrade programs
+    require!(
+        ctx.accounts
+            .access_manager
+            .has_role(roles::ADMIN_ROLE, &ctx.accounts.authority.key()),
+        AccessManagerError::Unauthorized
+    );
 
     let (upgrade_authority_pda, bump) =
         AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
