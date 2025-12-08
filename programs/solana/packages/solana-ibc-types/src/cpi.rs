@@ -122,8 +122,7 @@ pub fn require_direct_call_or_whitelisted_caller(
 /// 2. Top-level instruction's `program_id` IS self (rejects external CPI callers)
 ///
 /// **Important**: This does NOT prevent recursive CPI (A → B → A). It only ensures
-/// our program is the top-level instruction. For most admin use cases this is sufficient
-/// since it prevents external programs from triggering admin operations via CPI.
+/// our program is the top-level instruction.
 pub fn reject_cpi(
     instruction_sysvar: &AccountInfo<'_>,
     self_program_id: &Pubkey,
