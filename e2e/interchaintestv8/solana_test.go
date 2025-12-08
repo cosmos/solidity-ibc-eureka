@@ -25,6 +25,7 @@ import (
 
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	ibcclientutils "github.com/cosmos/ibc-go/v10/modules/core/02-client/client/utils"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
@@ -1577,122 +1578,73 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 	s.SetupSuite(ctx)
 
 	simd := s.CosmosChains[0]
-	cosmosChainID := simd.Config().ChainID
 
-	clientStatePDA, _, err := solanago.FindProgramAddress(
-		[][]byte{
-			[]byte("client"),
-			[]byte(cosmosChainID),
-		},
-		ics07_tendermint.ProgramID,
-	)
-	s.Require().NoError(err)
-
-	s.Require().True(s.Run("Update client to establish consensus states", func() {
-		resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
-			SrcChain:    simd.Config().ChainID,
-			DstChain:    testvalues.SolanaChainID,
-			DstClientId: SolanaClientID,
-		})
-		s.Require().NoError(err)
-		s.Require().NotEmpty(resp.Tx)
-
-		s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaUser)
-	}))
-
-	var trustedHeight uint64
+	var height clienttypes.Height
 	var trustedHeader tmclient.Header
-	s.Require().True(s.Run("Get trusted consensus state height", func() {
+	s.Require().True(s.Run("Get trusted header", func() {
+		var latestHeight int64
+		var err error
+		trustedHeader, latestHeight, err = ibcclientutils.QueryTendermintHeader(simd.Validators[0].CliContext())
+		s.Require().NoError(err)
+		s.Require().NotZero(latestHeight)
+
+		height = clienttypes.NewHeight(clienttypes.ParseChainID(simd.Config().ChainID), uint64(latestHeight))
+
+		clientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
 		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
 		})
 		s.Require().NoError(err)
 
-		clientState, err := ics07_tendermint.ParseAccount_ClientState(accountInfo.Value.Data.GetBinary())
+		clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
 		s.Require().NoError(err)
 
-		trustedHeight = clientState.LatestHeight.RevisionHeight
-		s.T().Logf("Trusted consensus state height: %d", trustedHeight)
+		trustedHeight := clienttypes.NewHeight(clienttypes.ParseChainID(simd.Config().ChainID), clientState.LatestHeight.RevisionHeight)
 
-		var latestHeight int64
-		trustedHeader, latestHeight, err = ibcclientutils.QueryTendermintHeader(simd.Validators[0].CliContext())
-		s.Require().NoError(err)
-		s.Require().NotZero(latestHeight)
+		trustedHeader.TrustedHeight = trustedHeight
+		trustedHeader.TrustedValidators = trustedHeader.ValidatorSet
 	}))
 
-	var misbehaviourBytes []byte
-	s.Require().True(s.Run("Create misbehaviour evidence", func() {
-		header1 := s.CreateTMClientHeader(
+	s.Require().True(s.Run("Valid misbehaviour - double sign", func() {
+		newHeader := s.CreateTMClientHeader(
 			ctx,
 			simd,
-			int64(trustedHeight),
+			int64(height.RevisionHeight),
 			trustedHeader.GetTime().Add(time.Minute),
 			trustedHeader,
 		)
 
-		header2 := s.CreateTMClientHeader(
+		misbehaviour := &tmclient.Misbehaviour{
+			Header1: &newHeader,
+			Header2: &trustedHeader,
+		}
+
+		borshBytes, err := solana.MisbehaviourToBorsh(SolanaClientID, misbehaviour)
+		s.Require().NoError(err)
+
+		s.SolanaChain.SubmitChunkedMisbehaviour(
 			ctx,
-			simd,
-			int64(trustedHeight),
-			trustedHeader.GetTime().Add(2*time.Minute),
-			trustedHeader,
+			s.T(),
+			s.Require(),
+			simd.Config().ChainID,
+			simd.Config().ChainID,
+			borshBytes,
+			misbehaviour.Header1.TrustedHeight.RevisionHeight,
+			misbehaviour.Header2.TrustedHeight.RevisionHeight,
+			s.SolanaRelayer,
 		)
 
-		misbehaviour := tmclient.Misbehaviour{
-			ClientId: SolanaClientID,
-			Header1:  &header1,
-			Header2:  &header2,
-		}
-
-		var err error
-		misbehaviourBytes, err = simd.Config().EncodingConfig.Codec.Marshal(&misbehaviour)
-		s.Require().NoError(err)
-	}))
-
-	s.Require().True(s.Run("Submit misbehaviour", func() {
-		heightBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(heightBytes, trustedHeight)
-
-		consensusStatePDA, _, err := solanago.FindProgramAddress(
-			[][]byte{
-				[]byte("consensus_state"),
-				clientStatePDA.Bytes(),
-				heightBytes,
-			},
-			ics07_tendermint.ProgramID,
-		)
-		s.Require().NoError(err)
-
-		msg := ics07_tendermint.MisbehaviourMsg{
-			ClientId:     cosmosChainID,
-			Misbehaviour: misbehaviourBytes,
-		}
-
-		instruction, err := ics07_tendermint.NewSubmitMisbehaviourInstruction(
-			msg,
-			clientStatePDA,
-			consensusStatePDA,
-			consensusStatePDA,
-		)
-		s.Require().NoError(err)
-
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), instruction)
-		s.Require().NoError(err)
-
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
-		s.Require().NoError(err)
-	}))
-
-	s.Require().True(s.Run("Verify client is frozen", func() {
+		clientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
 		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
 		})
 		s.Require().NoError(err)
 
-		clientState, err := ics07_tendermint.ParseAccount_ClientState(accountInfo.Value.Data.GetBinary())
+		clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
 		s.Require().NoError(err)
 
-		s.Require().NotEqual(uint64(0), clientState.FrozenHeight.RevisionHeight, "Client should be frozen")
+		isFrozen := clientState.FrozenHeight.RevisionHeight > 0 || clientState.FrozenHeight.RevisionNumber > 0
+		s.Require().True(isFrozen, "Client should be frozen after misbehaviour submission")
 	}))
 }
 

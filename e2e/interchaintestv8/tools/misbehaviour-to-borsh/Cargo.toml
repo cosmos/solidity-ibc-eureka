@@ -1,0 +1,28 @@
+[package]
+name = "misbehaviour-to-borsh"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool to convert Tendermint misbehaviour from protobuf to Borsh format"
+
+[workspace]
+
+[dependencies]
+solana-ibc-types = { path = "../../../../programs/solana/packages/solana-ibc-types", features = ["light-client"] }
+
+ibc-proto = "0.51"
+ibc-client-tendermint = "0.57"
+
+# Borsh must match Solana workspace version (0.10.4)
+borsh = "0.10.4"
+
+prost = "0.13"
+
+hex = "0.4"
+
+anyhow = "1.0"
+
+[patch.crates-io]
+# Match the patches from the Solana workspace for tendermint-rs
+tendermint = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-proto = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-light-client-verifier = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
