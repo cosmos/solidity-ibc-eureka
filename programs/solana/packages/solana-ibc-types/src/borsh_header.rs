@@ -138,10 +138,18 @@ pub struct BorshHeight {
     pub revision_height: u64,
 }
 
+/// Borsh-serializable wrapper for ibc_client_tendermint::types::Misbehaviour
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
+pub struct BorshMisbehaviour {
+    pub client_id: String,
+    pub header1: BorshHeader,
+    pub header2: BorshHeader,
+}
+
 #[cfg(feature = "light-client")]
 mod direct_deser {
     use super::*;
-    use ibc_client_tendermint::types::Header;
+    use ibc_client_tendermint::types::{Header, Misbehaviour};
     use ibc_core_client_types::Height;
     use tendermint::account::Id as AccountId;
     use tendermint::block::parts::Header as PartSetHeader;
@@ -193,6 +201,63 @@ mod direct_deser {
                 trusted_next_validator_set,
             }))
         }
+    }
+
+    /// Zero-copy wrapper for direct deserialization of Misbehaviour
+    ///
+    /// This wrapper implements BorshDeserialize to convert bytes directly into
+    /// ibc_client_tendermint::types::Misbehaviour, bypassing the intermediate BorshMisbehaviour
+    /// representation. This saves ~300k compute units by eliminating redundant
+    /// type conversions and allocations.
+    #[repr(transparent)]
+    pub struct MisbehaviourWrapper(pub Misbehaviour);
+
+    impl std::ops::Deref for MisbehaviourWrapper {
+        type Target = Misbehaviour;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    impl std::ops::DerefMut for MisbehaviourWrapper {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.0
+        }
+    }
+
+    impl From<MisbehaviourWrapper> for Misbehaviour {
+        fn from(wrapper: MisbehaviourWrapper) -> Self {
+            wrapper.0
+        }
+    }
+
+    impl BorshDeserialize for MisbehaviourWrapper {
+        fn deserialize_reader<R: Read>(reader: &mut R) -> io::Result<Self> {
+            let client_id = String::deserialize_reader(reader)?;
+            let client_id = client_id
+                .parse()
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid client ID"))?;
+            let header1 = deserialize_header(reader)?;
+            let header2 = deserialize_header(reader)?;
+
+            Ok(MisbehaviourWrapper(Misbehaviour::new(
+                client_id, header1, header2,
+            )))
+        }
+    }
+
+    fn deserialize_header<R: Read>(reader: &mut R) -> io::Result<Header> {
+        let signed_header = deserialize_signed_header(reader)?;
+        let validator_set = deserialize_validator_set(reader)?;
+        let trusted_height = deserialize_height(reader)?;
+        let trusted_next_validator_set = deserialize_validator_set(reader)?;
+
+        Ok(Header {
+            signed_header,
+            validator_set,
+            trusted_height,
+            trusted_next_validator_set,
+        })
     }
 
     fn deserialize_height<R: Read>(reader: &mut R) -> io::Result<Height> {
@@ -502,7 +567,7 @@ mod direct_deser {
 #[cfg(feature = "light-client")]
 pub mod conversions {
     use super::*;
-    use ibc_client_tendermint::types::Header;
+    use ibc_client_tendermint::types::{Header, Misbehaviour};
     use ibc_core_client_types::Height;
     use tendermint::block::parts::Header as PartSetHeader;
     use tendermint::block::Id as BlockId;
@@ -729,7 +794,15 @@ pub mod conversions {
             trusted_next_validator_set: validator_set_to_borsh(h.trusted_next_validator_set),
         }
     }
+
+    pub fn misbehaviour_to_borsh(m: &Misbehaviour) -> BorshMisbehaviour {
+        BorshMisbehaviour {
+            client_id: m.client_id().to_string(),
+            header1: header_to_borsh(m.header1().clone()),
+            header2: header_to_borsh(m.header2().clone()),
+        }
+    }
 }
 
 #[cfg(feature = "light-client")]
-pub use direct_deser::HeaderWrapper;
+pub use direct_deser::{HeaderWrapper, MisbehaviourWrapper};
