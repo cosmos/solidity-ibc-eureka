@@ -419,6 +419,23 @@ fn extract_payload_accounts(
 }
 ```
 
+## Call Result Callbacks
+
+When a GMP packet is acknowledged or times out, the GMP program creates a `GMPCallResultAccount` PDA to store the result:
+
+```rust
+// PDA seeds: ["gmp_result", source_client, sequence]
+let (result_pda, bump) = Pubkey::find_program_address(&[
+    b"gmp_result",
+    source_client.as_bytes(),
+    &sequence.to_le_bytes(),
+], &gmp_program_id);
+```
+
+The account stores: `status` (Acknowledged/TimedOut), `sender`, `sequence`, `source_client`, `acknowledgement` data, and `timestamp`.
+
+**Relayer Integration**: The relayer computes and returns `gmp_result_pda` in `SolanaPacketTxs` for each ack/timeout packet, allowing callers to query results after relay.
+
 ## Security Model
 
 - **Account Control**: Only GMP program can sign via `invoke_signed` - users cannot directly control PDAs
