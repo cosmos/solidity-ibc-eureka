@@ -16,11 +16,6 @@ pub struct Initialize<'info> {
     pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
-
-    /// Instructions sysvar for CPI validation
-    /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()> {
@@ -62,7 +57,6 @@ mod tests {
                 AccountMeta::new(router_state_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         };
@@ -99,7 +93,6 @@ mod tests {
                     rent_epoch: 0,
                 },
             ),
-            crate::test_utils::create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
@@ -148,79 +141,6 @@ mod tests {
     }
 
     #[test]
-    fn test_initialize_fake_sysvar_wormhole_attack() {
-        let payer = Pubkey::new_unique();
-
-        let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
-
-        // Simulate Wormhole attack: pass a completely different account with fake sysvar data
-        let (fake_sysvar_pubkey, fake_sysvar_account) =
-            crate::test_utils::create_fake_instructions_sysvar_account(crate::ID);
-
-        let instruction_data = crate::instruction::Initialize {
-            access_manager: access_manager::ID,
-        };
-
-        let mut instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(router_state_pda, false),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        // Modify the instruction to reference the fake sysvar (simulating attacker control)
-        instruction.accounts[3] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
-
-        let accounts = vec![
-            (
-                router_state_pda,
-                Account {
-                    lamports: 0,
-                    data: vec![],
-                    owner: system_program::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                payer,
-                Account {
-                    lamports: 10_000_000_000,
-                    data: vec![],
-                    owner: system_program::ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
-            (
-                system_program::ID,
-                Account {
-                    lamports: 0,
-                    data: vec![],
-                    owner: native_loader::ID,
-                    executable: true,
-                    rent_epoch: 0,
-                },
-            ),
-            // Wormhole attack: provide a DIFFERENT account instead of the real sysvar
-            (fake_sysvar_pubkey, fake_sysvar_account),
-        ];
-
-        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
-
-        // Should be rejected by Anchor's address constraint check
-        let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
-            anchor_lang::error::ErrorCode::ConstraintAddress as u32,
-        ))];
-
-        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
-    }
-
-    #[test]
     fn test_initialize_cannot_reinitialize() {
         let payer = Pubkey::new_unique();
 
@@ -237,7 +157,6 @@ mod tests {
                 AccountMeta::new(router_state_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         };
@@ -265,7 +184,6 @@ mod tests {
                     rent_epoch: 0,
                 },
             ),
-            create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, get_router_program_path());

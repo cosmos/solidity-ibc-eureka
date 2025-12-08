@@ -20,7 +20,6 @@ func NewInitializeInstruction(
 	routerStateAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
-	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -47,9 +46,6 @@ func NewInitializeInstruction(
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 2 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
-		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.

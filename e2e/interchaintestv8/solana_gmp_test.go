@@ -124,11 +124,10 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 
 		// Initialize ICS27 GMP app
 		initInstruction, err := ics27_gmp.NewInitializeInstruction(
-			access_manager.ProgramID,          // access_manager program ID
-			gmpAppStatePDA,                    // app state account
-			s.SolanaRelayer.PublicKey(),       // payer
-			solanago.SystemProgramID,          // system program
-			solanago.SysVarInstructionsPubkey, // instructions sysvar
+			access_manager.ProgramID,    // access_manager program ID
+			gmpAppStatePDA,              // app state account
+			s.SolanaRelayer.PublicKey(), // payer
+			solanago.SystemProgramID,    // system program
 		)
 		s.Require().NoError(err)
 
