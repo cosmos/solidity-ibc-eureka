@@ -32,8 +32,6 @@ impl AccountIdentifier {
     }
 
     /// Compute sha256 hash of this identifier
-    ///
-    /// Concatenates the fields in the same order as the Solidity struct.
     pub fn hash(&self) -> [u8; 32] {
         let mut data = Vec::new();
         data.extend_from_slice(self.client_id.as_bytes());
