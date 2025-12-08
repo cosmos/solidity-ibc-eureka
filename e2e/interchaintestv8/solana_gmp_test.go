@@ -65,21 +65,22 @@ const (
 	DummyTargetProgramID = "4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi"
 )
 
-// gmpAccountPDA derives GMP account PDA with sender hash
+// gmpAccountPDA derives GMP account PDA using AccountIdentifier hash
 // This is a specialized PDA that uses SHA256 hashing and is not in the IDL.
 // GMP accounts are stateless - no account storage, only PDA validation.
 // See: packages/solana-ibc-types/src/ics27.rs - GMPAccount::new
 func gmpAccountPDA(programID solanago.PublicKey, clientID string, sender string, salt []byte) (solanago.PublicKey, uint8) {
+	// Hash the AccountIdentifier: sha256(clientID + sender + salt)
 	hasher := sha256.New()
+	hasher.Write([]byte(clientID))
 	hasher.Write([]byte(sender))
-	senderHash := hasher.Sum(nil)
+	hasher.Write(salt)
+	accountIDHash := hasher.Sum(nil)
 
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{
 			[]byte("gmp_account"),
-			[]byte(clientID),
-			senderHash,
-			salt,
+			accountIDHash,
 		},
 		programID,
 	)
