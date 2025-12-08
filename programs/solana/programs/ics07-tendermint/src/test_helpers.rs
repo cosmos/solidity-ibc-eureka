@@ -425,10 +425,9 @@ pub mod fixtures {
     pub mod misbehaviour {
         use super::*;
         use solana_ibc_types::borsh_header::{
-            BorshBlockHeader, BorshBlockId, BorshCommit, BorshCommitSig,
-            BorshConsensusVersion, BorshHeader, BorshHeight, BorshMisbehaviour,
-            BorshPartSetHeader, BorshPublicKey, BorshSignedHeader, BorshTimestamp,
-            BorshValidator, BorshValidatorSet,
+            BorshBlockHeader, BorshBlockId, BorshCommit, BorshCommitSig, BorshConsensusVersion,
+            BorshHeader, BorshHeight, BorshMisbehaviour, BorshPartSetHeader, BorshPublicKey,
+            BorshSignedHeader, BorshTimestamp, BorshValidator, BorshValidatorSet,
         };
 
         /// Creates a Borsh-serialized mock misbehaviour for testing
