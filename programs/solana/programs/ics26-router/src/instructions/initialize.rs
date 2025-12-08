@@ -34,7 +34,6 @@ pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::errors::RouterError;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
