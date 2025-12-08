@@ -20,9 +20,11 @@ pub use solana_ibc_proto::{
 pub struct GMPAccount {
     pub client_id: ClientId,
     pub sender: Sender,
+    // TODO: add AccountIdentifier
     pub salt: Salt,
     pub sender_hash: [u8; 32],
     pub pda: Pubkey,
+    // TODO: rename to account_bump
     pub bump: u8,
 }
 

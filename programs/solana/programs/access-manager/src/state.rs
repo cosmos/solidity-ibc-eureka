@@ -213,4 +213,129 @@ mod tests {
         assert!(access_manager.has_role(roles::RELAYER_ROLE, &relayer1));
         assert!(access_manager.has_role(roles::RELAYER_ROLE, &relayer2));
     }
+
+    #[test]
+    fn test_has_role_empty_roles() {
+        let account = Pubkey::new_unique();
+        let access_manager = create_access_manager();
+
+        assert!(!access_manager.has_role(roles::ADMIN_ROLE, &account));
+        assert!(!access_manager.has_role(roles::RELAYER_ROLE, &account));
+    }
+
+    #[test]
+    fn test_revoke_role_empty_roles() {
+        let account = Pubkey::new_unique();
+        let mut access_manager = create_access_manager();
+
+        // Should not panic when revoking from empty roles
+        let result = access_manager.revoke_role(roles::RELAYER_ROLE, &account);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_revoke_role_account_not_in_role() {
+        let member = Pubkey::new_unique();
+        let non_member = Pubkey::new_unique();
+        let mut access_manager = create_access_manager_with_roles(vec![RoleData {
+            role_id: roles::RELAYER_ROLE,
+            members: vec![member],
+        }]);
+
+        // Should not panic when revoking non-existent member
+        let result = access_manager.revoke_role(roles::RELAYER_ROLE, &non_member);
+        assert!(result.is_ok());
+
+        // Original member should still exist
+        assert!(access_manager.has_role(roles::RELAYER_ROLE, &member));
+    }
+
+    #[test]
+    fn test_is_last_admin_empty_roles() {
+        let account = Pubkey::new_unique();
+        let mut access_manager = create_access_manager();
+
+        // Should succeed - no admin role means account isn't last admin
+        let result = access_manager.revoke_role(roles::ADMIN_ROLE, &account);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_revoke_admin_when_account_not_admin() {
+        let admin = Pubkey::new_unique();
+        let non_admin = Pubkey::new_unique();
+        let mut access_manager = create_access_manager_with_roles(vec![RoleData {
+            role_id: roles::ADMIN_ROLE,
+            members: vec![admin],
+        }]);
+
+        // Should succeed - non_admin isn't the last admin (they're not admin at all)
+        let result = access_manager.revoke_role(roles::ADMIN_ROLE, &non_admin);
+        assert!(result.is_ok());
+
+        // Original admin should still exist
+        assert!(access_manager.has_role(roles::ADMIN_ROLE, &admin));
+    }
+
+    #[test]
+    fn test_roles_are_isolated() {
+        let account = Pubkey::new_unique();
+        let mut access_manager = create_access_manager();
+
+        access_manager
+            .grant_role(roles::RELAYER_ROLE, account)
+            .unwrap();
+        access_manager
+            .grant_role(roles::PAUSER_ROLE, account)
+            .unwrap();
+
+        assert!(access_manager.has_role(roles::RELAYER_ROLE, &account));
+        assert!(access_manager.has_role(roles::PAUSER_ROLE, &account));
+
+        // Revoking one role should not affect the other
+        access_manager
+            .revoke_role(roles::RELAYER_ROLE, &account)
+            .unwrap();
+
+        assert!(!access_manager.has_role(roles::RELAYER_ROLE, &account));
+        assert!(access_manager.has_role(roles::PAUSER_ROLE, &account));
+    }
+
+    #[test]
+    fn test_revoke_non_existent_role_id() {
+        let account = Pubkey::new_unique();
+        let mut access_manager = create_access_manager_with_roles(vec![RoleData {
+            role_id: roles::RELAYER_ROLE,
+            members: vec![account],
+        }]);
+
+        // Revoke a role ID that doesn't exist in roles vec
+        let non_existent_role = 999;
+        let result = access_manager.revoke_role(non_existent_role, &account);
+        assert!(result.is_ok());
+
+        // Original role should be unaffected
+        assert!(access_manager.has_role(roles::RELAYER_ROLE, &account));
+    }
+
+    #[test]
+    fn test_public_role_grant_revoke() {
+        let account = Pubkey::new_unique();
+        let mut access_manager = create_access_manager();
+
+        // PUBLIC_ROLE is always accessible regardless of grants
+        assert!(access_manager.has_role(roles::PUBLIC_ROLE, &account));
+
+        // Granting PUBLIC_ROLE adds it to storage (though meaningless)
+        access_manager
+            .grant_role(roles::PUBLIC_ROLE, account)
+            .unwrap();
+        assert!(access_manager.has_role(roles::PUBLIC_ROLE, &account));
+
+        // Revoking PUBLIC_ROLE removes from storage but still accessible
+        access_manager
+            .revoke_role(roles::PUBLIC_ROLE, &account)
+            .unwrap();
+        assert!(access_manager.has_role(roles::PUBLIC_ROLE, &account));
+    }
 }
