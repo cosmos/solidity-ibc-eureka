@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
@@ -12,6 +13,7 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
 	malicious_caller "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/maliciouscaller"
+	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
 
 	solanago "github.com/gagliardetto/solana-go"
@@ -65,25 +67,37 @@ const (
 	DummyTargetProgramID = "4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi"
 )
 
+// accountIdentifier mirrors the Rust Hashable struct for Borsh serialization
+type accountIdentifier struct {
+	ClientID string
+	Sender   string
+	Salt     []byte
+}
+
 // gmpAccountPDA derives GMP account PDA using AccountIdentifier hash
 // This is a specialized PDA that uses SHA256 hashing and is not in the IDL.
 // GMP accounts are stateless - no account storage, only PDA validation.
 // See: packages/solana-ibc-types/src/ics27.rs - GMPAccount::new
 func gmpAccountPDA(programID solanago.PublicKey, clientID string, sender string, salt []byte) (solanago.PublicKey, uint8) {
-	// Hash the AccountIdentifier using Borsh encoding to prevent collision attacks.
-	hasher := sha256.New()
-	_ = binary.Write(hasher, binary.LittleEndian, uint32(len(clientID)))
-	hasher.Write([]byte(clientID))
-	_ = binary.Write(hasher, binary.LittleEndian, uint32(len(sender)))
-	hasher.Write([]byte(sender))
-	_ = binary.Write(hasher, binary.LittleEndian, uint32(len(salt)))
-	hasher.Write(salt)
-	accountIDHash := hasher.Sum(nil)
+	// Borsh-encode the AccountIdentifier struct to match Rust implementation
+	id := accountIdentifier{
+		ClientID: clientID,
+		Sender:   sender,
+		Salt:     salt,
+	}
+
+	buf := new(bytes.Buffer)
+	encoder := bin.NewBorshEncoder(buf)
+	if err := encoder.Encode(id); err != nil {
+		panic(fmt.Sprintf("failed to borsh encode account identifier: %v", err))
+	}
+
+	accountIDHash := sha256.Sum256(buf.Bytes())
 
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{
 			[]byte("gmp_account"),
-			accountIDHash,
+			accountIDHash[:],
 		},
 		programID,
 	)
