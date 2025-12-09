@@ -216,6 +216,10 @@ mod tests {
             vec![1, 2, 3].try_into().unwrap(),
         );
 
-        assert_ne!(id1.hash(), id2.hash(), "Different client_id should produce different hash");
+        assert_ne!(
+            id1.hash(),
+            id2.hash(),
+            "Different client_id should produce different hash"
+        );
     }
 }
