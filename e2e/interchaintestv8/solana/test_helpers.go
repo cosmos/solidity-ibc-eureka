@@ -15,6 +15,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
+	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
+	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
@@ -678,4 +680,209 @@ func (s *Solana) CreateIBCAddressLookupTable(ctx context.Context, t *testing.T, 
 	t.Logf("Created and extended ALT %s with %d common accounts", altAddress, len(commonAccounts))
 
 	return altAddress
+}
+
+// MisbehaviourChunkPDA computes the PDA for a misbehaviour chunk account
+func MisbehaviourChunkPDA(submitter solana.PublicKey, clientID string, chunkIndex uint8, programID solana.PublicKey) (solana.PublicKey, uint8, error) {
+	return solana.FindProgramAddress(
+		[][]byte{
+			[]byte("misbehaviour_chunk"),
+			submitter.Bytes(),
+			[]byte(clientID),
+			{chunkIndex},
+		},
+		programID,
+	)
+}
+
+// ChunkDataSize is the maximum size of chunk data for multi-transaction uploads
+const ChunkDataSize = 900
+
+// SubmitChunkedMisbehaviour uploads misbehaviour data in chunks and assembles it to freeze the client
+func (s *Solana) SubmitChunkedMisbehaviour(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	clientID string,
+	cosmosChainID string,
+	misbehaviourBytes []byte,
+	trustedHeight1 uint64,
+	trustedHeight2 uint64,
+	user *solana.Wallet,
+) {
+	t.Helper()
+
+	totalStart := time.Now()
+	t.Logf("=== Starting Chunked Misbehaviour Submission ===")
+	t.Logf("Client ID: %s", clientID)
+	t.Logf("Misbehaviour data size: %d bytes", len(misbehaviourBytes))
+
+	// Split misbehaviour data into chunks
+	var chunks [][]byte
+	for i := 0; i < len(misbehaviourBytes); i += ChunkDataSize {
+		end := i + ChunkDataSize
+		if end > len(misbehaviourBytes) {
+			end = len(misbehaviourBytes)
+		}
+		chunks = append(chunks, misbehaviourBytes[i:end])
+	}
+	t.Logf("Split into %d chunks", len(chunks))
+
+	// Phase 1: Upload all chunks in parallel
+	t.Logf("--- Phase 1: Uploading %d chunks in parallel ---", len(chunks))
+	chunksStart := time.Now()
+
+	clientStatePDA, _ := Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
+
+	type chunkResult struct {
+		chunkIdx int
+		sig      solana.Signature
+		err      error
+		duration time.Duration
+	}
+
+	chunkResults := make(chan chunkResult, len(chunks))
+
+	for chunkIdx, chunkData := range chunks {
+		go func(idx int, data []byte) {
+			chunkStart := time.Now()
+
+			chunkPDA, _, err := MisbehaviourChunkPDA(user.PublicKey(), clientID, uint8(idx), ics07_tendermint.ProgramID)
+			if err != nil {
+				chunkResults <- chunkResult{chunkIdx: idx, err: fmt.Errorf("failed to derive chunk PDA: %w", err), duration: time.Since(chunkStart)}
+				return
+			}
+
+			params := ics07_tendermint.Ics07TendermintTypesUploadMisbehaviourChunkParams{
+				ClientId:   clientID,
+				ChunkIndex: uint8(idx),
+				ChunkData:  data,
+			}
+
+			ix, err := ics07_tendermint.NewUploadMisbehaviourChunkInstruction(
+				params,
+				chunkPDA,
+				clientStatePDA,
+				user.PublicKey(),
+				solana.SystemProgramID,
+			)
+			if err != nil {
+				chunkResults <- chunkResult{chunkIdx: idx, err: fmt.Errorf("failed to create instruction: %w", err), duration: time.Since(chunkStart)}
+				return
+			}
+
+			recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
+			if err != nil {
+				chunkResults <- chunkResult{chunkIdx: idx, err: fmt.Errorf("failed to get blockhash: %w", err), duration: time.Since(chunkStart)}
+				return
+			}
+
+			tx, err := solana.NewTransaction(
+				[]solana.Instruction{ix},
+				recent.Value.Blockhash,
+				solana.TransactionPayer(user.PublicKey()),
+			)
+			if err != nil {
+				chunkResults <- chunkResult{chunkIdx: idx, err: fmt.Errorf("failed to create transaction: %w", err), duration: time.Since(chunkStart)}
+				return
+			}
+
+			sig, err := s.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, user)
+			chunkDuration := time.Since(chunkStart)
+
+			if err != nil {
+				chunkResults <- chunkResult{chunkIdx: idx, err: fmt.Errorf("failed to submit chunk: %w", err), duration: chunkDuration}
+				return
+			}
+
+			chunkResults <- chunkResult{chunkIdx: idx, sig: sig, duration: chunkDuration}
+		}(chunkIdx, chunkData)
+	}
+
+	// Collect all chunk results
+	var chunkErr error
+	for i := 0; i < len(chunks); i++ {
+		result := <-chunkResults
+		if result.err != nil {
+			chunkErr = result.err
+			t.Logf("✗ Chunk %d failed: %v", result.chunkIdx+1, result.err)
+		} else {
+			t.Logf("✓ Chunk %d/%d completed in %v - tx: %s",
+				result.chunkIdx+1, len(chunks), result.duration, result.sig)
+		}
+	}
+	close(chunkResults)
+
+	chunksDuration := time.Since(chunksStart)
+	require.NoError(chunkErr, "Chunk upload failed")
+	t.Logf("--- Phase 1 Complete: All %d chunks uploaded in %v ---", len(chunks), chunksDuration)
+
+	// Phase 2: Assemble and submit misbehaviour
+	t.Logf("--- Phase 2: Assembling and submitting misbehaviour ---")
+	assemblyStart := time.Now()
+
+	appStatePDA, _ := Ics07Tendermint.AppStatePDA(ics07_tendermint.ProgramID)
+	accessManagerPDA, _ := AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
+	// Convert heights to bytes for consensus state PDA
+	height1Bytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(height1Bytes, trustedHeight1)
+	height2Bytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(height2Bytes, trustedHeight2)
+
+	// Get trusted consensus state PDAs (use client state PDA address as seed, not chain ID)
+	trustedConsensusState1PDA, _ := Ics07Tendermint.ConsensusStatePDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height1Bytes)
+	trustedConsensusState2PDA, _ := Ics07Tendermint.ConsensusStatePDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height2Bytes)
+
+	assembleIx, err := ics07_tendermint.NewAssembleAndSubmitMisbehaviourInstruction(
+		clientID,
+		uint8(len(chunks)),
+		clientStatePDA,
+		appStatePDA,
+		accessManagerPDA,
+		trustedConsensusState1PDA,
+		trustedConsensusState2PDA,
+		user.PublicKey(),
+		solana.SysVarInstructionsPubkey,
+	)
+	require.NoError(err, "Failed to create assemble instruction")
+
+	// Add remaining accounts (chunk accounts) to the instruction
+	if ix, ok := assembleIx.(*solana.GenericInstruction); ok {
+		for i := 0; i < len(chunks); i++ {
+			chunkPDA, _, err := MisbehaviourChunkPDA(user.PublicKey(), clientID, uint8(i), ics07_tendermint.ProgramID)
+			require.NoError(err, "Failed to derive chunk PDA for assembly")
+			ix.AccountValues = append(ix.AccountValues, solana.Meta(chunkPDA).WRITE())
+		}
+	}
+
+	recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
+	require.NoError(err, "Failed to get blockhash for assembly")
+
+	computeBudgetIx := NewComputeBudgetInstruction(1_400_000)
+
+	assembleTx, err := solana.NewTransaction(
+		[]solana.Instruction{computeBudgetIx, assembleIx},
+		recent.Value.Blockhash,
+		solana.TransactionPayer(user.PublicKey()),
+	)
+	require.NoError(err, "Failed to create assembly transaction")
+
+	assembleSig, err := s.SignAndBroadcastTxWithOpts(ctx, assembleTx, rpc.ConfirmationStatusConfirmed, user)
+	assemblyDuration := time.Since(assemblyStart)
+
+	if err != nil {
+		t.Logf("Assembly transaction error: %v", err)
+		s.LogTransactionDetails(ctx, t, assembleSig, "FAILED Assembly Transaction")
+	}
+	require.NoError(err, "Assembly transaction failed")
+
+	t.Logf("✓ Assembly transaction completed in %v - tx: %s", assemblyDuration, assembleSig)
+	s.LogTransactionDetails(ctx, t, assembleSig, "SUCCESS: Assembly Transaction")
+
+	totalDuration := time.Since(totalStart)
+	t.Logf("=== Chunked Misbehaviour Submission Complete ===")
+	t.Logf("Total time: %v", totalDuration)
+	t.Logf("  - Phase 1 (Chunk uploads): %v", chunksDuration)
+	t.Logf("  - Phase 2 (Assembly): %v", assemblyDuration)
 }

@@ -424,16 +424,163 @@ pub mod fixtures {
     /// Helper functions for misbehaviour testing
     pub mod misbehaviour {
         use super::*;
+        use solana_ibc_types::borsh_header::{
+            BorshBlockHeader, BorshBlockId, BorshCommit, BorshCommitSig, BorshConsensusVersion,
+            BorshHeader, BorshHeight, BorshMisbehaviour, BorshPartSetHeader, BorshPublicKey,
+            BorshSignedHeader, BorshTimestamp, BorshValidator, BorshValidatorSet,
+        };
 
+        /// Creates a Borsh-serialized mock misbehaviour for testing
         pub fn create_mock_tendermint_misbehaviour(
-            _chain_id: &str,
-            _header1_height: u64,
-            _header2_height: u64,
-            _trusted_height_1: u64,
-            _trusted_height_2: u64,
-            _conflicting_app_hashes: bool,
+            chain_id: &str,
+            header1_height: u64,
+            header2_height: u64,
+            trusted_height_1: u64,
+            trusted_height_2: u64,
+            conflicting_app_hashes: bool,
         ) -> Vec<u8> {
-            vec![0xDE, 0xAD, 0xBE, 0xEF] // Mock data
+            let misbehaviour = create_borsh_misbehaviour(
+                chain_id,
+                header1_height,
+                header2_height,
+                trusted_height_1,
+                trusted_height_2,
+                conflicting_app_hashes,
+            );
+            borsh::to_vec(&misbehaviour).expect("Failed to serialize misbehaviour")
+        }
+
+        fn create_borsh_misbehaviour(
+            chain_id: &str,
+            header1_height: u64,
+            header2_height: u64,
+            trusted_height_1: u64,
+            trusted_height_2: u64,
+            conflicting_app_hashes: bool,
+        ) -> BorshMisbehaviour {
+            // Create two headers with same height but different app hashes (double sign)
+            let app_hash1 = vec![1u8; 32];
+            let app_hash2 = if conflicting_app_hashes {
+                vec![2u8; 32]
+            } else {
+                vec![1u8; 32]
+            };
+
+            BorshMisbehaviour {
+                client_id: "07-tendermint-0".to_string(),
+                header1: create_mock_borsh_header(
+                    chain_id,
+                    header1_height,
+                    trusted_height_1,
+                    app_hash1,
+                ),
+                header2: create_mock_borsh_header(
+                    chain_id,
+                    header2_height,
+                    trusted_height_2,
+                    app_hash2,
+                ),
+            }
+        }
+
+        fn create_mock_borsh_header(
+            chain_id: &str,
+            height: u64,
+            trusted_height: u64,
+            app_hash: Vec<u8>,
+        ) -> BorshHeader {
+            let validator = create_mock_validator();
+            let validator_set = BorshValidatorSet {
+                validators: vec![validator.clone()],
+                proposer: Some(validator),
+                total_voting_power: 100,
+            };
+
+            BorshHeader {
+                signed_header: create_mock_signed_header(chain_id, height, app_hash),
+                validator_set: validator_set.clone(),
+                trusted_height: BorshHeight {
+                    revision_number: 0,
+                    revision_height: trusted_height,
+                },
+                trusted_next_validator_set: validator_set,
+            }
+        }
+
+        fn create_mock_signed_header(
+            chain_id: &str,
+            height: u64,
+            app_hash: Vec<u8>,
+        ) -> BorshSignedHeader {
+            BorshSignedHeader {
+                header: create_mock_block_header(chain_id, height, app_hash),
+                commit: create_mock_commit(height),
+            }
+        }
+
+        fn create_mock_block_header(
+            chain_id: &str,
+            height: u64,
+            app_hash: Vec<u8>,
+        ) -> BorshBlockHeader {
+            BorshBlockHeader {
+                version: BorshConsensusVersion { block: 11, app: 0 },
+                chain_id: chain_id.to_string(),
+                height,
+                time: BorshTimestamp {
+                    secs: 1_700_000_000,
+                    nanos: 0,
+                },
+                last_block_id: Some(create_mock_block_id()),
+                last_commit_hash: Some(vec![3u8; 32]),
+                data_hash: Some(vec![4u8; 32]),
+                validators_hash: vec![5u8; 32],
+                next_validators_hash: vec![6u8; 32],
+                consensus_hash: vec![7u8; 32],
+                app_hash,
+                last_results_hash: Some(vec![8u8; 32]),
+                evidence_hash: Some(vec![9u8; 32]),
+                proposer_address: vec![10u8; 20],
+            }
+        }
+
+        fn create_mock_block_id() -> BorshBlockId {
+            BorshBlockId {
+                hash: vec![11u8; 32],
+                part_set_header: BorshPartSetHeader {
+                    total: 1,
+                    hash: vec![12u8; 32],
+                },
+            }
+        }
+
+        fn create_mock_commit(height: u64) -> BorshCommit {
+            BorshCommit {
+                height,
+                round: 0,
+                block_id: create_mock_block_id(),
+                signatures: vec![create_mock_commit_sig()],
+            }
+        }
+
+        fn create_mock_commit_sig() -> BorshCommitSig {
+            BorshCommitSig::BlockIdFlagCommit {
+                validator_address: [10u8; 20],
+                timestamp: BorshTimestamp {
+                    secs: 1_700_000_000,
+                    nanos: 0,
+                },
+                signature: [0u8; 64],
+            }
+        }
+
+        fn create_mock_validator() -> BorshValidator {
+            BorshValidator {
+                address: [10u8; 20],
+                pub_key: BorshPublicKey::Ed25519([0u8; 32]),
+                voting_power: 100,
+                proposer_priority: 0,
+            }
         }
 
         pub fn misbehaviour_fixture_exists(filename: &str) -> bool {

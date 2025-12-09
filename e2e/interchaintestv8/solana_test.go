@@ -24,9 +24,12 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	ibcclientutils "github.com/cosmos/ibc-go/v10/modules/core/02-client/client/utils"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
@@ -1566,6 +1569,82 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 				s.Require().Equal(make([]byte, len(data)), data, chunk.name+" data should be zeroed")
 			}
 		}
+	}))
+}
+
+func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign() {
+	ctx := context.Background()
+	s.UseMockWasmClient = true
+	s.SetupSuite(ctx)
+
+	simd := s.CosmosChains[0]
+
+	var height clienttypes.Height
+	var trustedHeader tmclient.Header
+	s.Require().True(s.Run("Get trusted header", func() {
+		var latestHeight int64
+		var err error
+		trustedHeader, latestHeight, err = ibcclientutils.QueryTendermintHeader(simd.Validators[0].CliContext())
+		s.Require().NoError(err)
+		s.Require().NotZero(latestHeight)
+
+		height = clienttypes.NewHeight(clienttypes.ParseChainID(simd.Config().ChainID), uint64(latestHeight))
+
+		clientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
+		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+
+		clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
+		s.Require().NoError(err)
+
+		trustedHeight := clienttypes.NewHeight(clienttypes.ParseChainID(simd.Config().ChainID), clientState.LatestHeight.RevisionHeight)
+
+		trustedHeader.TrustedHeight = trustedHeight
+		trustedHeader.TrustedValidators = trustedHeader.ValidatorSet
+	}))
+
+	s.Require().True(s.Run("Valid misbehaviour - double sign", func() {
+		newHeader := s.CreateTMClientHeader(
+			ctx,
+			simd,
+			int64(height.RevisionHeight),
+			trustedHeader.GetTime().Add(time.Minute),
+			trustedHeader,
+		)
+
+		misbehaviour := &tmclient.Misbehaviour{
+			Header1: &newHeader,
+			Header2: &trustedHeader,
+		}
+
+		borshBytes, err := solana.MisbehaviourToBorsh(SolanaClientID, misbehaviour)
+		s.Require().NoError(err)
+
+		s.SolanaChain.SubmitChunkedMisbehaviour(
+			ctx,
+			s.T(),
+			s.Require(),
+			simd.Config().ChainID,
+			simd.Config().ChainID,
+			borshBytes,
+			misbehaviour.Header1.TrustedHeight.RevisionHeight,
+			misbehaviour.Header2.TrustedHeight.RevisionHeight,
+			s.SolanaRelayer,
+		)
+
+		clientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
+		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+
+		clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
+		s.Require().NoError(err)
+
+		isFrozen := clientState.FrozenHeight.RevisionHeight > 0 || clientState.FrozenHeight.RevisionNumber > 0
+		s.Require().True(isFrozen, "Client should be frozen after misbehaviour submission")
 	}))
 }
 
