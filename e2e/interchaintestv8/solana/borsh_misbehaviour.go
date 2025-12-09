@@ -21,7 +21,7 @@ func MisbehaviourToBorsh(clientID string, misbehaviour *tmclient.Misbehaviour) (
 		return nil, fmt.Errorf("failed to marshal misbehaviour to protobuf: %w", err)
 	}
 
-	cmd := exec.Command("cargo", "run", "--manifest-path", "e2e/interchaintestv8/tools/misbehaviour-to-borsh/Cargo.toml", "--release", "--quiet")
+	cmd := exec.Command("cargo", "run", "--manifest-path", "tools/misbehaviour-to-borsh/Cargo.toml", "--release", "--quiet")
 	cmd.Stdin = bytes.NewReader(protoBytes)
 
 	var stdout, stderr bytes.Buffer
