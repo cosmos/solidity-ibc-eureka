@@ -39,11 +39,13 @@ contract ICS27GMP is
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
     /// @param _accounts The mapping of account identifiers to account contracts.
+    /// @param _accountIds The mapping of account contracts to account identifiers. (only for reverse lookup)
     /// @param _ics26 The ICS26Router contract address. Immutable.
     /// @param _accountBeacon The address of the ICS27Account beacon contract. Immutable.
     /// @custom:storage-location erc7201:ibc.storage.ICS27GMP
     struct ICS27GMPStorage {
         mapping(bytes32 accountIdHash => IICS27Account account) _accounts;
+        mapping(address account => IICS27GMPMsgs.AccountIdentifier accountId) _accountIds;
         IICS26Router _ics26;
         UpgradeableBeacon _accountBeacon;
     }
@@ -77,6 +79,15 @@ contract ICS27GMP is
     /// @inheritdoc IICS27GMP
     function getAccountBeacon() external view returns (address) {
         return address(_getICS27GMPStorage()._accountBeacon);
+    }
+
+    /// @inheritdoc IICS27GMP
+    function getAccountIdentifier(address account) external view returns (IICS27GMPMsgs.AccountIdentifier memory) {
+        ICS27GMPStorage storage $ = _getICS27GMPStorage();
+
+        IICS27GMPMsgs.AccountIdentifier memory accountId = $._accountIds[account];
+        require(bytes(accountId.clientId).length != 0, ICS27AccountNotFound(account));
+        return accountId;
     }
 
     /// @inheritdoc IICS27GMP
@@ -188,6 +199,7 @@ contract ICS27GMP is
         address accountAddress = Create2.deploy(0, accountIdHash, bytecode);
 
         $._accounts[accountIdHash] = IICS27Account(accountAddress);
+        $._accountIds[accountAddress] = accountId;
         return IICS27Account(accountAddress);
     }
 

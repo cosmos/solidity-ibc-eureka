@@ -23,6 +23,10 @@ interface IICS27Errors {
     /// @param actual actual encoding of the packet data
     error ICS27UnexpectedEncoding(string expected, string actual);
 
+    /// @notice Account not found
+    /// @param account The account address
+    error ICS27AccountNotFound(address account);
+
     /// @notice Invalid port
     /// @param expected Expected port
     /// @param actual Actual port
