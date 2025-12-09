@@ -1,7 +1,4 @@
 //! IBC event types for the ICS26 router program
-//!
-//! Note: These events are duplicated from solana_ibc_types to enable IDL generation.
-//! Anchor's IDL builder only discovers #[event] macros in the program crate itself.
 
 use crate::state::{ClientAccount, Packet};
 use anchor_lang::prelude::*;
