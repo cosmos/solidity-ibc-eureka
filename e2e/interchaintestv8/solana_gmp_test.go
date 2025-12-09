@@ -70,7 +70,7 @@ const (
 // GMP accounts are stateless - no account storage, only PDA validation.
 // See: packages/solana-ibc-types/src/ics27.rs - GMPAccount::new
 func gmpAccountPDA(programID solanago.PublicKey, clientID string, sender string, salt []byte) (solanago.PublicKey, uint8) {
-	// Hash the AccountIdentifier using Borsh-compatible encoding to prevent collision attacks.
+	// Hash the AccountIdentifier using Borsh encoding to prevent collision attacks.
 	// Borsh encodes String as: u32 length (little-endian) + bytes
 	// Borsh encodes Vec<u8> as: u32 length (little-endian) + bytes
 	hasher := sha256.New()
