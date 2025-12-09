@@ -719,18 +719,21 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			s.Require().Len(event.Acknowledgements, 1, "Should have exactly one ack")
 
 			// SPL Token program doesn't return data, so ack result is empty
-			// Protobuf format for empty result: just tag 0x0a with length 0, or empty bytes
 			ackBytes := event.Acknowledgements[0]
 			s.T().Logf("SPL transfer ack bytes: %v (len=%d)", ackBytes, len(ackBytes))
 
-			// Empty result in protobuf: either empty bytes [] or [0x0a, 0x00] (field 1, length 0)
-			if len(ackBytes) > 0 {
-				s.Require().Equal(byte(0x0a), ackBytes[0], "First byte should be protobuf tag 0x0a")
-				if len(ackBytes) > 1 {
-					resultLen := int(ackBytes[1])
-					s.Require().Equal(0, resultLen, "SPL transfer ack result should be empty")
-				}
-			}
+			// Decode Borsh-encoded bytes
+			var protoBytes []byte
+			err = bin.NewBorshDecoder(ackBytes).Decode(&protoBytes)
+			s.Require().NoError(err, "Failed to decode Borsh-encoded ack bytes")
+
+			// Parse protobuf acknowledgement
+			var ack gmptypes.Acknowledgement
+			err = proto.Unmarshal(protoBytes, &ack)
+			s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
+
+			// SPL Token program returns empty result on success
+			s.Require().Empty(ack.Result, "SPL transfer ack result should be empty")
 			s.T().Logf("SPL transfer ack verified on Solana: empty result (success)")
 		}))
 
