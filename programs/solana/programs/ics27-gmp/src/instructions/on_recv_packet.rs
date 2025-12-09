@@ -66,7 +66,6 @@ pub fn on_recv_packet<'info>(
     ctx: Context<'_, '_, 'info, 'info, OnRecvPacket<'info>>,
     msg: solana_ibc_types::OnRecvPacketMsg,
 ) -> Result<Vec<u8>> {
-    // TODO: make authorized_program conssitent
     // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
