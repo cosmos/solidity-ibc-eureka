@@ -153,7 +153,6 @@ The AccessManager provides role-based access control across all IBC programs.
 | `2`        | `PAUSER_ROLE`        | Pause operations during emergencies     |
 | `3`        | `UNPAUSER_ROLE`      | Resume operations after emergency       |
 | `6`        | `ID_CUSTOMIZER_ROLE` | Customize client and connection IDs     |
-| `8`        | `UPGRADER_ROLE`      | Upgrade program bytecode                |
 | `u64::MAX` | `PUBLIC_ROLE`        | Anyone (unrestricted access)            |
 
 **Note:** Some role IDs (4, 5, 7) are reserved for future use and Ethereum compatibility but not currently implemented on Solana.
@@ -184,10 +183,10 @@ Grant a role to an account:
 just grant-solana-role <cluster> <role-id> <account-pubkey>
 ```
 
-Example (grant UPGRADER_ROLE):
+Example (grant RELAYER_ROLE):
 
 ```bash
-just grant-solana-role localnet 8 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z
+just grant-solana-role localnet 1 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z
 ```
 
 #### Revoke Role
@@ -201,7 +200,7 @@ just revoke-solana-role <cluster> <role-id> <account-pubkey>
 Example:
 
 ```bash
-just revoke-solana-role localnet 8 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z
+just revoke-solana-role localnet 1 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z
 ```
 
 ### Role Verification
@@ -240,19 +239,7 @@ Example:
 just initialize-access-manager localnet 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z
 ```
 
-**Step 2: Grant UPGRADER_ROLE to authorized account**
-
-```bash
-just grant-solana-role <cluster> 8 <upgrader-pubkey>
-```
-
-Example:
-
-```bash
-just grant-solana-role localnet 8 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z
-```
-
-**Step 3: Transfer upgrade authority to AccessManager PDA**
+**Step 2: Transfer upgrade authority to AccessManager PDA**
 
 ```bash
 just set-upgrade-authority <program-id> <cluster> [current-authority-keypair]
@@ -272,7 +259,7 @@ just set-upgrade-authority FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx localnet
 
 ### Performing Upgrades
 
-Once upgrade authority is transferred to AccessManager, upgrades require UPGRADER_ROLE.
+Once upgrade authority is transferred to AccessManager, upgrades require ADMIN_ROLE.
 
 #### Complete Upgrade (Recommended)
 
@@ -298,7 +285,7 @@ This command automatically:
 
 **Requirements:**
 
-- Upgrader keypair must have UPGRADER_ROLE
+- Upgrader keypair must have ADMIN_ROLE
 - Deployer wallet must have SOL for buffer creation
 - Program must already be deployed with AccessManager as upgrade authority
 
@@ -413,7 +400,7 @@ bin/solana-ibc upgrade program \
 
 **Access Control:**
 
-- Only accounts with `UPGRADER_ROLE` can trigger upgrades
+- Only accounts with `ADMIN_ROLE` can trigger upgrades
 - CPI calls to `upgrade_program` are blocked
 - Instructions sysvar verification prevents fake sysvar attacks
 
@@ -432,10 +419,10 @@ bin/solana-ibc upgrade program \
 
 ### Revoking Upgrade Permissions
 
-Remove upgrade capability from an account using the justfile command:
+To revoke upgrade capability, revoke ADMIN_ROLE from an account:
 
 ```bash
-just revoke-solana-role 8 <UPGRADER_PUBKEY> <cluster>
+just revoke-solana-role 0 <ADMIN_PUBKEY> <cluster>
 ```
 
 Or using the `solana-ibc` CLI directly:
@@ -444,10 +431,12 @@ Or using the `solana-ibc` CLI directly:
 bin/solana-ibc access-manager revoke \
   <CLUSTER_URL> \
   <ADMIN_KEYPAIR> \
-  8 \
-  <UPGRADER_PUBKEY> \
+  0 \
+  <ADMIN_PUBKEY_TO_REVOKE> \
   <ACCESS_MANAGER_PROGRAM_ID>
 ```
+
+**Note:** Be careful not to revoke the last admin, as this would lock you out of admin operations.
 
 ## Development
 

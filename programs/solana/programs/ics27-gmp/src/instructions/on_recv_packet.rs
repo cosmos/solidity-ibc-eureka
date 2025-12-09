@@ -7,6 +7,15 @@ use anchor_lang::solana_program::instruction::Instruction;
 use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf};
 use solana_ibc_types::GMPAccount;
 
+/// Number of fixed accounts in `remaining_accounts` (before target program accounts)
+const FIXED_REMAINING_ACCOUNTS: usize = 2;
+
+/// Index of GMP account PDA in `remaining_accounts`
+const GMP_ACCOUNT_INDEX: usize = 0;
+
+/// Index of target program in `remaining_accounts`
+const TARGET_PROGRAM_INDEX: usize = 1;
+
 /// Receive IBC packet and execute call (called by router via CPI)
 ///
 /// # Account Layout
@@ -53,17 +62,6 @@ pub struct OnRecvPacket<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl OnRecvPacket<'_> {
-    /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
-    pub const FIXED_REMAINING_ACCOUNTS: usize = 2;
-
-    /// Index of GMP account PDA in `remaining_accounts`
-    pub const GMP_ACCOUNT_INDEX: usize = 0;
-
-    /// Index of target program in `remaining_accounts`
-    pub const TARGET_PROGRAM_INDEX: usize = 1;
-}
-
 pub fn on_recv_packet<'info>(
     ctx: Context<'_, '_, 'info, 'info, OnRecvPacket<'info>>,
     msg: solana_ibc_types::OnRecvPacketMsg,
@@ -71,7 +69,7 @@ pub fn on_recv_packet<'info>(
     // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
-        &ics26_router::program::Ics26Router::id(),
+        &ctx.accounts.router_program.key(),
         &crate::ID,
     )
     .map_err(GMPError::from)?;
@@ -100,7 +98,7 @@ pub fn on_recv_packet<'info>(
     // Extract target_program from `remaining_accounts`
     let target_program = ctx
         .remaining_accounts
-        .get(OnRecvPacket::TARGET_PROGRAM_INDEX)
+        .get(TARGET_PROGRAM_INDEX)
         .ok_or(GMPError::InsufficientAccounts)?;
 
     // Validate target_program is executable
@@ -139,7 +137,7 @@ pub fn on_recv_packet<'info>(
     // Extract GMP account PDA from `remaining_accounts`
     let gmp_account_info = ctx
         .remaining_accounts
-        .get(OnRecvPacket::GMP_ACCOUNT_INDEX)
+        .get(GMP_ACCOUNT_INDEX)
         .ok_or(GMPError::InsufficientAccounts)?;
 
     // Validate GMP account PDA matches expected address
@@ -160,8 +158,7 @@ pub fn on_recv_packet<'info>(
     let mut account_metas = solana_payload.to_account_metas();
 
     // Skip gmp_account_pda[0] and target_program[1]
-    let remaining_accounts_for_execution =
-        &ctx.remaining_accounts[OnRecvPacket::FIXED_REMAINING_ACCOUNTS..];
+    let remaining_accounts_for_execution = &ctx.remaining_accounts[FIXED_REMAINING_ACCOUNTS..];
 
     // Validate account count matches exactly (before payer injection)
     require!(

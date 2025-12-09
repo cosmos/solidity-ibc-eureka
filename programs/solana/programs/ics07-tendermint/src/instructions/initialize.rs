@@ -593,4 +593,112 @@ mod tests {
             ErrorCode::InvalidHeight,
         );
     }
+
+    #[test]
+    fn test_initialize_cannot_reinitialize() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        let chain_id = &client_state.chain_id;
+        let latest_height = client_state.latest_height.revision_height;
+        let payer = Pubkey::new_unique();
+
+        let (client_state_pda, _) = Pubkey::find_program_address(
+            &[crate::types::ClientState::SEED, chain_id.as_bytes()],
+            &crate::ID,
+        );
+        let (consensus_state_store_pda, _) = Pubkey::find_program_address(
+            &[
+                crate::state::ConsensusStateStore::SEED,
+                client_state_pda.as_ref(),
+                &latest_height.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
+
+        let instruction_data = crate::instruction::Initialize {
+            chain_id: chain_id.clone(),
+            latest_height,
+            client_state: client_state.clone(),
+            consensus_state,
+            access_manager: access_manager::ID,
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(consensus_state_store_pda, false),
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        // Create already-initialized accounts (owned by program, with data)
+        let accounts = vec![
+            (
+                client_state_pda,
+                Account {
+                    lamports: 1_000_000,
+                    data: vec![0; 256],
+                    owner: crate::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                consensus_state_store_pda,
+                Account {
+                    lamports: 1_000_000,
+                    data: vec![0; 128],
+                    owner: crate::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                app_state_pda,
+                Account {
+                    lamports: 1_000_000,
+                    data: vec![0; 128],
+                    owner: crate::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: 10_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+
+        // Anchor's `init` constraint fails when account already exists
+        // Error code 0 means the account is already in use
+        let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
+            0,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }
