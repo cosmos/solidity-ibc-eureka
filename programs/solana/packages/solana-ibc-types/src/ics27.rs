@@ -32,11 +32,29 @@ impl AccountIdentifier {
     }
 
     /// Compute sha256 hash of this identifier
+    ///
+    /// Uses Borsh serialization to ensure deterministic, collision-resistant encoding.
+    /// Borsh automatically length-prefixes variable-length fields (strings use u32 length prefix).
     pub fn hash(&self) -> [u8; 32] {
-        let mut data = Vec::new();
-        data.extend_from_slice(self.client_id.as_bytes());
-        data.extend_from_slice(self.sender.as_bytes());
-        data.extend_from_slice(&self.salt);
+        use borsh::BorshSerialize;
+
+        // Wrapper struct for Borsh serialization
+        // Borsh encodes String as: u32 length + bytes
+        // Borsh encodes Vec<u8> as: u32 length + bytes
+        #[derive(BorshSerialize)]
+        struct Hashable {
+            client_id: String,
+            sender: String,
+            salt: Vec<u8>,
+        }
+
+        let hashable = Hashable {
+            client_id: self.client_id.to_string(),
+            sender: self.sender.to_string(),
+            salt: self.salt.to_vec(),
+        };
+
+        let data = borsh::to_vec(&hashable).expect("borsh serialization cannot fail");
         solana_sha256_hasher::hash(&data).to_bytes()
     }
 }
@@ -126,4 +144,78 @@ impl GMPAppState {
     /// Seed for the main GMP application state PDA
     /// Follows the standard IBC app pattern: [`APP_STATE_SEED`, `port_id`]
     pub const SEED: &'static [u8] = b"app_state";
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test that different client_id/sender boundaries produce different hashes.
+    /// This verifies the length-prefix fix prevents collision attacks.
+    #[test]
+    fn test_no_collision_different_boundaries() {
+        // Case 1: client_id="ab", sender="cdef"
+        let id1 = AccountIdentifier::new(
+            "ab".to_string().try_into().unwrap(),
+            "cdef".to_string().try_into().unwrap(),
+            vec![].try_into().unwrap(),
+        );
+
+        // Case 2: client_id="abc", sender="def" - different logical values
+        let id2 = AccountIdentifier::new(
+            "abc".to_string().try_into().unwrap(),
+            "def".to_string().try_into().unwrap(),
+            vec![].try_into().unwrap(),
+        );
+
+        // With length-prefix fix: these produce DIFFERENT hashes
+        assert_ne!(
+            id1.hash(),
+            id2.hash(),
+            "Different field boundaries must produce different hashes"
+        );
+    }
+
+    /// Test that sender/salt boundary shifts produce different hashes.
+    #[test]
+    fn test_no_collision_sender_salt_boundary() {
+        // sender="abc", salt=[0x64, 0x65, 0x66] ("def" in ASCII)
+        let id1 = AccountIdentifier::new(
+            "client".to_string().try_into().unwrap(),
+            "abc".to_string().try_into().unwrap(),
+            vec![0x64, 0x65, 0x66].try_into().unwrap(),
+        );
+
+        // sender="abcdef", salt=[]
+        let id2 = AccountIdentifier::new(
+            "client".to_string().try_into().unwrap(),
+            "abcdef".to_string().try_into().unwrap(),
+            vec![].try_into().unwrap(),
+        );
+
+        // With length-prefix fix: these produce DIFFERENT hashes
+        assert_ne!(
+            id1.hash(),
+            id2.hash(),
+            "Different sender/salt boundaries must produce different hashes"
+        );
+    }
+
+    /// Test that truly different identifiers produce different hashes
+    #[test]
+    fn test_different_identifiers_different_hashes() {
+        let id1 = AccountIdentifier::new(
+            "07-tendermint-0".to_string().try_into().unwrap(),
+            "cosmos1abc".to_string().try_into().unwrap(),
+            vec![1, 2, 3].try_into().unwrap(),
+        );
+
+        let id2 = AccountIdentifier::new(
+            "07-tendermint-1".to_string().try_into().unwrap(),
+            "cosmos1abc".to_string().try_into().unwrap(),
+            vec![1, 2, 3].try_into().unwrap(),
+        );
+
+        assert_ne!(id1.hash(), id2.hash(), "Different client_id should produce different hash");
+    }
 }
