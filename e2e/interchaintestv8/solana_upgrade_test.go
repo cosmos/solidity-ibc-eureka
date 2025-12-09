@@ -25,6 +25,8 @@ const (
 // IbcEurekaSolanaUpgradeTestSuite tests program upgradability via AccessManager
 type IbcEurekaSolanaUpgradeTestSuite struct {
 	IbcEurekaSolanaTestSuite
+
+	UpgraderWallet *solanago.Wallet
 }
 
 func TestWithIbcEurekaSolanaUpgradeTestSuite(t *testing.T) {
@@ -43,16 +45,17 @@ func TestWithIbcEurekaSolanaUpgradeTestSuite(t *testing.T) {
 // PDA, we enable role-based upgrades where only accounts with ADMIN_ROLE can upgrade.
 //
 // TEST FLOW:
-// 1. Derive required PDAs (program data account, upgrade authority PDA)
-// 2. Transfer program upgrade authority from deployer to AccessManager's PDA (one-time setup)
-// 3. Write new program bytecode to a buffer account
-// 4. Transfer buffer authority to match program upgrade authority (security requirement)
-// 5. Call AccessManager.upgrade_program() with ADMIN_ROLE
+// 1. Create an upgrader wallet and grant it ADMIN_ROLE
+// 2. Derive required PDAs (program data account, upgrade authority PDA)
+// 3. Transfer program upgrade authority from deployer to AccessManager's PDA (one-time setup)
+// 4. Write new program bytecode to a buffer account
+// 5. Transfer buffer authority to match program upgrade authority (security requirement)
+// 6. Call AccessManager.upgrade_program() with the upgrader wallet (has ADMIN_ROLE)
 //   - AccessManager checks role membership
 //   - AccessManager calls BPFLoaderUpgradeable.upgrade via invoke_signed with PDA signature
 //   - BPF Loader verifies authorities match and replaces bytecode
 //
-// 6. Verify unauthorized accounts cannot upgrade (negative test)
+// 7. Verify unauthorized accounts cannot upgrade (negative test)
 //
 // SECURITY MODEL:
 // - Role-based access: Only ADMIN_ROLE can trigger upgrades (AccessManager enforcement)
@@ -64,6 +67,34 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 
 	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
+
+	s.Require().True(s.Run("Setup: Create upgrader wallet", func() {
+		var err error
+		s.UpgraderWallet, err = s.SolanaChain.CreateAndFundWallet()
+		s.Require().NoError(err, "failed to create and fund upgrader wallet")
+	}))
+
+	s.Require().True(s.Run("Setup: Grant ADMIN_ROLE to upgrader wallet", func() {
+		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
+		grantAdminRoleInstruction, err := access_manager.NewGrantRoleInstruction(
+			ADMIN_ROLE,
+			s.UpgraderWallet.PublicKey(),
+			accessControlAccount,
+			s.SolanaRelayer.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err, "failed to build grant ADMIN_ROLE instruction")
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(
+			s.SolanaRelayer.PublicKey(),
+			grantAdminRoleInstruction,
+		)
+		s.Require().NoError(err, "failed to create grant role transaction")
+
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err, "failed to grant ADMIN_ROLE")
+	}))
 
 	targetProgramID := ics26_router.ProgramID
 
@@ -130,8 +161,8 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 			programDataAccount,
 			bufferAccount,
 			upgradeAuthorityPDA,
-			s.SolanaRelayer.PublicKey(),
-			s.SolanaRelayer.PublicKey(),
+			s.UpgraderWallet.PublicKey(),
+			s.UpgraderWallet.PublicKey(),
 			solanago.SysVarInstructionsPubkey,
 			solanago.BPFLoaderUpgradeableProgramID,
 			solanago.SysVarRentPubkey,
@@ -142,13 +173,13 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 		computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
 
 		tx, err := s.SolanaChain.NewTransactionFromInstructions(
-			s.SolanaRelayer.PublicKey(),
+			s.UpgraderWallet.PublicKey(),
 			computeBudgetIx,
 			upgradeProgramInstruction,
 		)
 		s.Require().NoError(err, "failed to create upgrade transaction")
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
 		s.Require().NoError(err, "program upgrade should succeed with ADMIN_ROLE")
 		s.Require().NotEqual(solanago.Signature{}, sig, "upgrade signature should not be empty")
 	}))
