@@ -40,9 +40,8 @@ pub use solana::{
 pub const MAX_CLIENT_ID_LENGTH: usize = 64;
 /// Maximum sender address length (128 bytes)
 pub const MAX_SENDER_LENGTH: usize = 128;
-/// Maximum receiver address length (for Solana pubkey as string: 32-44 bytes)
-// TODO: make it consitent
-pub const MAX_RECEIVER_LENGTH: usize = 64;
+/// Maximum receiver address length (128 bytes)
+pub const MAX_RECEIVER_LENGTH: usize = 128;
 /// Maximum salt length (32 bytes)
 pub const MAX_SALT_LENGTH: usize = 32;
 /// Maximum memo length (256 bytes)
