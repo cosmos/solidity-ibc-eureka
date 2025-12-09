@@ -71,16 +71,11 @@ const (
 // See: packages/solana-ibc-types/src/ics27.rs - GMPAccount::new
 func gmpAccountPDA(programID solanago.PublicKey, clientID string, sender string, salt []byte) (solanago.PublicKey, uint8) {
 	// Hash the AccountIdentifier using Borsh encoding to prevent collision attacks.
-	// Borsh encodes String as: u32 length (little-endian) + bytes
-	// Borsh encodes Vec<u8> as: u32 length (little-endian) + bytes
 	hasher := sha256.New()
-	// Borsh-encode client_id (String)
 	_ = binary.Write(hasher, binary.LittleEndian, uint32(len(clientID)))
 	hasher.Write([]byte(clientID))
-	// Borsh-encode sender (String)
 	_ = binary.Write(hasher, binary.LittleEndian, uint32(len(sender)))
 	hasher.Write([]byte(sender))
-	// Borsh-encode salt (Vec<u8>)
 	_ = binary.Write(hasher, binary.LittleEndian, uint32(len(salt)))
 	hasher.Write(salt)
 	accountIDHash := hasher.Sum(nil)
