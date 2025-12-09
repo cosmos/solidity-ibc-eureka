@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
-use solana_ibc_types::events::AccessManagerUpdated;
+
+use crate::events::AccessManagerUpdated;
 
 pub fn set_access_manager(
     ctx: Context<crate::SetAccessManager>,

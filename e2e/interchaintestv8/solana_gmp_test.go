@@ -34,6 +34,7 @@ import (
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
@@ -455,82 +456,78 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			finalCounterUser0, expectedFinalUser0, finalCounterUser1, expectedFinalUser1)
 	}))
 
-	s.Require().True(s.Run("Relay acknowledgments back to Cosmos", func() {
+	s.Require().True(s.Run("Verify acknowledgments on Solana and relay to Cosmos", func() {
 		simd := s.CosmosChains[0]
 
-		s.Require().True(s.Run("Relay User0 first acknowledgment", func() {
+		// Helper to verify ack content on Solana and relay to Cosmos
+		// The WriteAcknowledgementEvent on Solana contains the protobuf-encoded GmpAcknowledgement
+		// with the counter value returned by the GMP counter app
+		verifyAndRelayAck := func(solanaRelayTxSig solanago.Signature, label string, expectedCounterValue uint64) {
+			// First verify the ack content on Solana
+			s.Require().True(s.Run(fmt.Sprintf("Verify %s ack on Solana", label), func() {
+				events, err := s.SolanaChain.GetWriteAcknowledgementEvents(ctx, solanaRelayTxSig)
+				s.Require().NoError(err, "Failed to get WriteAcknowledgementEvents")
+				s.Require().Len(events, 1, "Should have exactly one WriteAcknowledgementEvent")
+
+				event := events[0]
+				s.Require().Len(event.Acknowledgements, 1, "Should have exactly one ack (one payload)")
+
+				// The ack is Borsh-encoded Vec<u8> containing protobuf GmpAcknowledgement
+				ackBytes := event.Acknowledgements[0]
+
+				// Decode Borsh-encoded bytes
+				var protoBytes []byte
+				err = bin.NewBorshDecoder(ackBytes).Decode(&protoBytes)
+				s.Require().NoError(err, "Failed to decode Borsh-encoded ack bytes")
+
+				// Parse protobuf acknowledgement
+				var ack gmptypes.Acknowledgement
+				err = proto.Unmarshal(protoBytes, &ack)
+				s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
+
+				// Extract counter value (u64 little-endian)
+				s.Require().Len(ack.Result, 8, "Result should be 8 bytes (u64)")
+				actualCounter := binary.LittleEndian.Uint64(ack.Result)
+				s.Require().Equal(expectedCounterValue, actualCounter,
+					"Counter in ack should be %d, got %d", expectedCounterValue, actualCounter)
+				s.T().Logf("%s ack verified on Solana: counter=%d", label, actualCounter)
+			}))
+
+			// Then relay the ack to Cosmos
 			var ackRelayTxBodyBz []byte
-			s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
+			s.Require().True(s.Run(fmt.Sprintf("Retrieve %s ack relay tx", label), func() {
 				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 					SrcChain:    testvalues.SolanaChainID,
 					DstChain:    simd.Config().ChainID,
-					SourceTxIds: [][]byte{[]byte(solanaRelayTxSigUser0.String())},
+					SourceTxIds: [][]byte{[]byte(solanaRelayTxSig.String())},
 					SrcClientId: SolanaClientID,
 					DstClientId: CosmosClientID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
-				s.T().Logf("Retrieved User0 first GMP acknowledgment relay transaction")
-
 				ackRelayTxBodyBz = resp.Tx
 			}))
 
-			s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
+			s.Require().True(s.Run(fmt.Sprintf("Broadcast %s ack to Cosmos", label), func() {
 				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
-				s.T().Logf("User0 first GMP acknowledgment relay transaction: %s (code: %d, gas: %d)",
-					relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
+				s.Require().Equal(uint32(0), relayTxResult.Code, "Ack relay tx should succeed")
+				s.T().Logf("%s ack relayed to Cosmos: %s (code: %d, gas: %d)",
+					label, relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
+
+				// Verify acknowledge_packet event was emitted
+				_, err := cosmos.GetEventValue(relayTxResult.Events, channeltypesv2.EventTypeAcknowledgePacket, channeltypesv2.AttributeKeySequence)
+				s.Require().NoError(err, "acknowledge_packet event should be emitted")
 			}))
-		}))
+		}
 
-		s.Require().True(s.Run("Relay User0 second acknowledgment", func() {
-			var ackRelayTxBodyBz []byte
-			s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:    testvalues.SolanaChainID,
-					DstChain:    simd.Config().ChainID,
-					SourceTxIds: [][]byte{[]byte(solanaRelayTxSigUser0Second.String())},
-					SrcClientId: SolanaClientID,
-					DstClientId: CosmosClientID,
-				})
-				s.Require().NoError(err)
-				s.Require().NotEmpty(resp.Tx)
-				s.T().Logf("Retrieved User0 second GMP acknowledgment relay transaction")
+		// User0 first increment: 0 + 5 = 5
+		verifyAndRelayAck(solanaRelayTxSigUser0, "User0 first", initialCounterUser0+DefaultIncrementAmount)
+		// User0 second increment: 5 + 7 = 12
+		verifyAndRelayAck(solanaRelayTxSigUser0Second, "User0 second", initialCounterUser0+DefaultIncrementAmount+7)
+		// User1 first increment: 0 + 3 = 3
+		verifyAndRelayAck(solanaRelayTxSigUser1, "User1", initialCounterUser1+3)
 
-				ackRelayTxBodyBz = resp.Tx
-			}))
-
-			s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
-				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
-				s.T().Logf("User0 second GMP acknowledgment relay transaction: %s (code: %d, gas: %d)",
-					relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
-			}))
-		}))
-
-		s.Require().True(s.Run("Relay User1 acknowledgment", func() {
-			var ackRelayTxBodyBz []byte
-			s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:    testvalues.SolanaChainID,
-					DstChain:    simd.Config().ChainID,
-					SourceTxIds: [][]byte{[]byte(solanaRelayTxSigUser1.String())},
-					SrcClientId: SolanaClientID,
-					DstClientId: CosmosClientID,
-				})
-				s.Require().NoError(err)
-				s.Require().NotEmpty(resp.Tx)
-				s.T().Logf("Retrieved User1 GMP acknowledgment relay transaction")
-
-				ackRelayTxBodyBz = resp.Tx
-			}))
-
-			s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
-				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
-				s.T().Logf("User1 GMP acknowledgment relay transaction: %s (code: %d, gas: %d)",
-					relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
-			}))
-		}))
-
-		s.T().Logf("GMP calls from Cosmos successfully acknowledged")
+		s.T().Logf("All GMP acknowledgments verified and relayed successfully")
 	}))
 }
 
@@ -710,8 +707,33 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		s.T().Logf("  Dest:   %d → %d (+%d)", initialDestBalance, finalDestBalance, transferAmount)
 	}))
 
-	// Relay acknowledgment back to Cosmos
-	s.Require().True(s.Run("Relay Acknowledgment to Cosmos", func() {
+	// Verify acknowledgment on Solana and relay to Cosmos
+	s.Require().True(s.Run("Verify and Relay Acknowledgment", func() {
+		// Verify ack on Solana
+		s.Require().True(s.Run("Verify ack on Solana", func() {
+			events, err := s.SolanaChain.GetWriteAcknowledgementEvents(ctx, solanaRelayTxSig)
+			s.Require().NoError(err, "Failed to get WriteAcknowledgementEvents")
+			s.Require().Len(events, 1, "Should have exactly one WriteAcknowledgementEvent")
+
+			event := events[0]
+			s.Require().Len(event.Acknowledgements, 1, "Should have exactly one ack")
+
+			// SPL Token program doesn't return data, so ack result is empty
+			// Protobuf format for empty result: just tag 0x0a with length 0, or empty bytes
+			ackBytes := event.Acknowledgements[0]
+			s.T().Logf("SPL transfer ack bytes: %v (len=%d)", ackBytes, len(ackBytes))
+
+			// Empty result in protobuf: either empty bytes [] or [0x0a, 0x00] (field 1, length 0)
+			if len(ackBytes) > 0 {
+				s.Require().Equal(byte(0x0a), ackBytes[0], "First byte should be protobuf tag 0x0a")
+				if len(ackBytes) > 1 {
+					resultLen := int(ackBytes[1])
+					s.Require().Equal(0, resultLen, "SPL transfer ack result should be empty")
+				}
+			}
+			s.T().Logf("SPL transfer ack verified on Solana: empty result (success)")
+		}))
+
 		var ackRelayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -724,13 +746,16 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
 			ackRelayTxBodyBz = resp.Tx
-			s.T().Logf("Retrieved acknowledgment relay transaction")
 		}))
 
-		s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
+		s.Require().True(s.Run("Broadcast ack to Cosmos", func() {
 			relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, cosmosUser, CosmosDefaultGasLimit, ackRelayTxBodyBz)
-			s.T().Logf("SPL transfer acknowledgment relay transaction: %s (code: %d, gas: %d)",
+			s.Require().Equal(uint32(0), relayTxResult.Code, "Ack relay tx should succeed")
+			s.T().Logf("SPL transfer ack relayed to Cosmos: %s (code: %d, gas: %d)",
 				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
+
+			_, err := cosmos.GetEventValue(relayTxResult.Events, channeltypesv2.EventTypeAcknowledgePacket, channeltypesv2.AttributeKeySequence)
+			s.Require().NoError(err, "acknowledge_packet event should be emitted")
 		}))
 
 		s.T().Logf("✓ SPL token transfer via GMP completed successfully")

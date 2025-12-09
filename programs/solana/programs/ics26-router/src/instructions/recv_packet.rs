@@ -3,9 +3,9 @@ use crate::router_cpi::LightClientCpi;
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
 use crate::utils::{chunking, ics24, packet};
+use crate::{NoopEvent, WriteAcknowledgementEvent};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
-use solana_ibc_types::events::{NoopEvent, WriteAcknowledgementEvent};
 use solana_ibc_types::ibc_app::{on_recv_packet, OnRecvPacket, OnRecvPacketMsg};
 
 #[derive(Accounts)]

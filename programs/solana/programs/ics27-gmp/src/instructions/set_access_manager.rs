@@ -1,7 +1,7 @@
 use crate::constants::GMP_PORT_ID;
+use crate::events::AccessManagerUpdated;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
-use solana_ibc_types::events::AccessManagerUpdated;
 
 #[derive(Accounts)]
 pub struct SetAccessManager<'info> {

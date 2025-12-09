@@ -3,9 +3,9 @@ use crate::router_cpi::LightClientCpi;
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
 use crate::utils::{chunking, ics24, packet};
+use crate::{NoopEvent, TimeoutPacketEvent};
 use anchor_lang::prelude::*;
 use ics25_handler::NonMembershipMsg;
-use solana_ibc_types::events::{NoopEvent, TimeoutPacketEvent};
 use solana_ibc_types::ibc_app::{on_timeout_packet, OnTimeoutPacket, OnTimeoutPacketMsg};
 #[cfg(test)]
 use solana_ibc_types::IBCAppState;
