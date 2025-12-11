@@ -1788,11 +1788,7 @@ fn test_assemble_zero_chunk_count_rejected() {
     let result = mollusk.process_instruction(&instruction, &accounts);
 
     // Should fail immediately with InvalidChunkCount because chunk_count must be > 0
-    assert_error_code(
-        result,
-        ErrorCode::InvalidChunkCount,
-        "zero chunks rejected",
-    );
+    assert_error_code(result, ErrorCode::InvalidChunkCount, "zero chunks rejected");
 }
 
 /// Test that header with invalid cryptographic proof fails during `update_client`
