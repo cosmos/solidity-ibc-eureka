@@ -5,11 +5,13 @@ import { Test } from "forge-std/Test.sol";
 
 import { AttestationLightClient } from "../../contracts/light-clients/attestation/AttestationLightClient.sol";
 import { IAttestationMsgs as AM } from "../../contracts/light-clients/attestation/msgs/IAttestationMsgs.sol";
+import { IAttestationLightClientMsgs } from "../../contracts/light-clients/attestation/msgs/IAttestationLightClientMsgs.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import {
     IAttestationLightClientErrors
 } from "../../contracts/light-clients/attestation/errors/IAttestationLightClientErrors.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 contract AttestationLightClientTest is Test {
     AttestationLightClient internal client;
@@ -44,6 +46,18 @@ contract AttestationLightClientTest is Test {
             initialTimestampSeconds: INITIAL_TS,
             roleManager: address(0)
         });
+
+        assertEq(client.getConsensusTimestamp(INITIAL_HEIGHT), INITIAL_TS);
+
+        bytes memory cs = client.getClientState();
+        IAttestationLightClientMsgs.ClientState memory expected = IAttestationLightClientMsgs.ClientState({
+            attestorAddresses: addrs,
+            minRequiredSigs: 2,
+            latestHeight: INITIAL_HEIGHT,
+            isFrozen: false
+        });
+
+        assertEq(abi.encode(expected), cs);
     }
 
     function test_updateClient_success_updates_height_and_ts() public {
@@ -61,6 +75,46 @@ contract AttestationLightClientTest is Test {
         ILightClientMsgs.UpdateResult res = client.updateClient(abi.encode(proof));
         assertEq(uint8(res), uint8(ILightClientMsgs.UpdateResult.Update));
         assertEq(client.getConsensusTimestamp(newHeight), newTs);
+    }
+
+    function test_proofSubmittterRole() public {
+        attestorPrivKey1 = 0xA11CE;
+        attestorPrivKey2 = 0xB0B;
+        attestorPrivKey3 = 0xC0C;
+        attestorAddr1 = vm.addr(attestorPrivKey1);
+        attestorAddr2 = vm.addr(attestorPrivKey2);
+        attestorAddr3 = vm.addr(attestorPrivKey3);
+
+        address[] memory addrs = new address[](3);
+        addrs[0] = attestorAddr1;
+        addrs[1] = attestorAddr2;
+        addrs[2] = attestorAddr3;
+
+        address roleManager = makeAddr("roleManager");
+
+        client = new AttestationLightClient({
+            attestorAddresses: addrs,
+            minRequiredSigs: 2,
+            initialHeight: INITIAL_HEIGHT,
+            initialTimestampSeconds: INITIAL_TS,
+            roleManager: roleManager
+        });
+
+        // Check that the deployer (this contract) has the PROOF_SUBMITTER_ROLE
+        bytes32 PROOF_SUBMITTER_ROLE = keccak256("PROOF_SUBMITTER_ROLE");
+        assertTrue(client.hasRole(PROOF_SUBMITTER_ROLE, address(roleManager)));
+
+        // Check that an arbitrary address does not have the PROOF_SUBMITTER_ROLE
+        address unauthorized = makeAddr("unauthorized");
+        assertFalse(client.hasRole(PROOF_SUBMITTER_ROLE, unauthorized));
+
+        vm.prank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, PROOF_SUBMITTER_ROLE
+            )
+        );
+        client.updateClient(bytes(""));
     }
 
     function test_updateClient_noop_same_height_same_ts() public {
