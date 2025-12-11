@@ -267,7 +267,9 @@ contract AttestationLightClientTest is Test {
         msgVerify.value = abi.encode(_packet("y").commitment);
 
         vm.expectRevert(
-            abi.encodeWithSelector(IAttestationLightClientErrors.HeightMismatch.selector, INITIAL_HEIGHT, attestedHeight)
+            abi.encodeWithSelector(
+                IAttestationLightClientErrors.HeightMismatch.selector, INITIAL_HEIGHT, attestedHeight
+            )
         );
         client.verifyMembership(msgVerify);
     }
