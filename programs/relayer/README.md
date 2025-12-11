@@ -26,12 +26,45 @@ This is a work-in-progress implementation, and the relayer is not yet usable. Th
 | EVM | Cosmos SDK | `cw-ics08-wasm-eth` | ✅ |
 | Cosmos SDK | Cosmos SDK | `07-tendermint` | ✅ |
 
-## Usage
+## Quickstart
 
-To run the relayer binary, you need to write a configuration file. At the moment, there is a working example configuration file at [`config.example.json`](./config.example.json). You can copy this file and modify it to suit your needs.
+1) Install: `just install-relayer` (or `cargo install --bin relayer --path programs/relayer --locked`).
+2) Copy and edit `config.example.json` -> `config.json`. At minimum set:
+   - `tm_rpc_url`, `eth_rpc_url`, `eth_beacon_api_url` (when eth->cosmos),
+   - `ics26_address` (deployed router), `signer_address` (cosmos account for cosmos->* paths),
+   - SP1 prover block: choose `network` with `network_private_key` (see `.env.example`) or `mock` for local/dev.
+   - Paths to SP1 ELF binaries if you built them elsewhere.
+3) Run: `relayer -c config.json`. Use `RUST_LOG=info` and `ENABLE_LOCAL_OBSERVABILITY=true` to emit OTLP locally (see `.env.example`).
 
-After building/installing the relayer binary, you can run the relayer with the following command:
-
-```sh
-relayer -c config.json
+### Minimal cosmos->eth config snippet
+```json
+{
+  "server": { "address": "127.0.0.1", "port": 3000 },
+  "modules": [
+    {
+      "name": "cosmos_to_eth",
+      "src_chain": "cosmoshub-4",
+      "dst_chain": "0x1",
+      "config": {
+        "tm_rpc_url": "http://localhost:26657",
+        "ics26_address": "0xYourRouter",
+        "eth_rpc_url": "http://localhost:8545",
+        "sp1_prover": { "type": "mock" },
+        "sp1_programs": {
+          "update_client": "programs/sp1-programs/.../sp1-ics07-tendermint-update-client",
+          "membership": "programs/sp1-programs/.../sp1-ics07-tendermint-membership",
+          "update_client_and_membership": "programs/sp1-programs/.../sp1-ics07-tendermint-uc-and-membership",
+          "misbehaviour": "programs/sp1-programs/.../sp1-ics07-tendermint-misbehaviour"
+        }
+      }
+    }
+  ]
+}
 ```
+
+### Run
+```sh
+RUST_LOG=info relayer -c config.json
+```
+
+Use `--help` to see command-line options and available flags.
