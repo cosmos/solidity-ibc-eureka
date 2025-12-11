@@ -1,6 +1,6 @@
 //! Defines the client interface for the relayer server.
 
-use clap::{command, Parser};
+use clap::Parser;
 
 /// The command line interface for the relayer.
 #[derive(Clone, Debug, Parser)]
