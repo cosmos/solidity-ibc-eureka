@@ -76,7 +76,7 @@ contract AttestationLightClientTest is Test {
         assertEq(client.getConsensusTimestamp(newHeight), newTs);
     }
 
-    function test_proofSubmittterRole() public {
+    function test_proofSubmitterRole() public {
         attestorPrivKey1 = 0xA11CE;
         attestorPrivKey2 = 0xB0B;
         attestorPrivKey3 = 0xC0C;
@@ -100,17 +100,17 @@ contract AttestationLightClientTest is Test {
         });
 
         // Check that the deployer (this contract) has the PROOF_SUBMITTER_ROLE
-        bytes32 PROOF_SUBMITTER_ROLE = keccak256("PROOF_SUBMITTER_ROLE");
-        assertTrue(client.hasRole(PROOF_SUBMITTER_ROLE, address(roleManager)));
+        bytes32 proofSubmitterRole = keccak256("PROOF_SUBMITTER_ROLE");
+        assertTrue(client.hasRole(proofSubmitterRole, address(roleManager)));
 
         // Check that an arbitrary address does not have the PROOF_SUBMITTER_ROLE
         address unauthorized = makeAddr("unauthorized");
-        assertFalse(client.hasRole(PROOF_SUBMITTER_ROLE, unauthorized));
+        assertFalse(client.hasRole(proofSubmitterRole, unauthorized));
 
         vm.prank(unauthorized);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, PROOF_SUBMITTER_ROLE
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, proofSubmitterRole
             )
         );
         client.updateClient(bytes(""));
