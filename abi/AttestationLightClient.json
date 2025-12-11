@@ -469,27 +469,6 @@
   },
   {
     "type": "error",
-    "name": "ConflictingTimestamp",
-    "inputs": [
-      {
-        "name": "height",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "storedTimestamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "providedTimestamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "ConsensusTimestampNotFound",
     "inputs": [
       {
