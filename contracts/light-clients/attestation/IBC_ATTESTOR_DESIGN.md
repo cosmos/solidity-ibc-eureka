@@ -9,10 +9,8 @@ This document specifies how the Solidity light client for IBC Attestations works
 - Support membership checks for packet commitments attested as a list of commitments.
 
 ### Non-goals (initial scope)
-- Non-membership verification.
 - Misbehaviour evidence processing and freezing (placeholder/TODO only).
 - Time validity windows (no clock-drift checks beyond stored timestamps).
-- Upgrades (unsupported).
 
 ## System Overview
 
@@ -77,7 +75,7 @@ Verification:
 State transition:
 - If `consensusTimestampAtHeight[height]` already exists:
   - If `timestamp == consensusTimestampAtHeight[height]`: return `UpdateResult.NoOp` (idempotent).
-  - Else: revert with `ConflictingTimestamp(height, stored, provided)`.
+  - Else: freeze the client and return `UpdateResult.Misbehaviour`.
 - Else (first time for this height):
   - Set `consensusTimestampAtHeight[height] = timestamp`.
   - Set `latestHeight = height`.
@@ -103,14 +101,15 @@ Usage:
 Input mapping (from `ILightClientMsgs.MsgVerifyMembership`):
 - `proof: bytes` — `abi.encode(AttestationProof)` where `attestationData = abi.encode(PacketAttestation{height, packets})`.
 - `proofHeight: Height` — the height to verify against.
-- `path: bytes[]` — ignored by this client.
+- `path: bytes[]` — The path of the commitment.
 - `value: bytes` — ABI-encoded `bytes32` packet commitment to check for membership.
 
 Verification:
 - Require `consensusTimestampAtHeight[proofHeight.revisionHeight]` to exist.
 - Compute `digest = sha256(proof.attestationData)` and verify signatures as in `updateClient` via `ECDSA.recover`.
 - Decode `attestationData` into `PacketAttestation { height, packets }` via `abi.decode` and require `height == proofHeight.revisionHeight`.
-- Decode `value` to `bytes32` and require it to match exactly one `commitment` field in the `packets` array (byte equality).
+- Decode `pathHash` to `bytes32` and require it to match one `sha256(path[i])` in the `packets` array.
+- Decode `value` to `bytes32` and require it to match the corresponding `packet.commitment` in the matched `packets` entry.
 
 Return:
 - The trusted timestamp (in seconds) stored for `proofHeight.revisionHeight`.
@@ -118,17 +117,36 @@ Return:
 Access control:
 - Gated by `PROOF_SUBMITTER_ROLE`.
 
-### verifyNonMembership(...)
+### verifyNonMembership(MsgVerifyNonMembership)
 
-Out of scope for this version. The function MUST revert with a clear "feature not supported" error.
+Purpose: Verify non-membership of a packet commitment in the counterparty chain's state at a given height and return the trusted timestamp for that height.
+
+Usage:
+- `value` in the attestation is `bytes32(0)` to indicate non-membership.
+- The attested list and height are passed inside the `proof` and must be the exact data signed by the attestors.
+
+Input mapping (from `ILightClientMsgs.MsgVerifyNonMembership`):
+
+- `proof: bytes` — `abi.encode(AttestationProof)` where `attestationData = abi.encode(PacketAttestation{height, packets})`.
+- `proofHeight: Height` — the height to verify against.
+- `path: bytes[]` — The path of the non-membership check.
+
+Verification:
+- Require `consensusTimestampAtHeight[proofHeight.revisionHeight]` to exist.
+- Compute `digest = sha256(proof.attestationData)` and verify signatures as in `updateClient` via `ECDSA.recover`.
+- Decode `attestationData` into `PacketAttestation { height, packets }` via `abi.decode` and require `height == proofHeight.revisionHeight`.
+- Decode `pathHash` to `bytes32` and require it to match one of the SHA-256 hashes of the corresponding `path` entries in `packets`.
+- Decode `value` to `bytes32` and require it to match exactly `bytes32(0)` to indicate non-membership.
+
+Return:
+- The trusted timestamp (in seconds) stored for `proofHeight.revisionHeight`.
+
+Access control:
+- Gated by `PROOF_SUBMITTER_ROLE`.
 
 ### misbehaviour(...)
 
 Out of scope for this version. The function exists but MUST revert with a clear TODO note to implement evidence verification and freezing.
-
-### upgradeClient(...)
-
-Unsupported. MUST revert.
 
 ## Roles and Permissions
 
@@ -166,11 +184,7 @@ Recommended future hardening (non-breaking if added to the signed payload defini
 
 ## Open TODOs / Future Work
 - Implement misbehaviour detection and freezing (conflicting attestations for the same height, etc.).
-- Standardize/align `attestationData` encoding across platforms (update CosmWasm client to use the ABI-equivalent formats defined here).
 - Consider adding domain separation to the signed payload.
 - Implement monotonic increase check for `latestHeight` and/or restrict out-of-order updates.
-- Consider non-membership proofs.
-- Consider client upgrades for attestor set rotation and quorum changes.
+- Consider attestor set rotation and quorum changes.
 - Optional: proof caching within a transaction if needed for multi-membership checks.
-
-

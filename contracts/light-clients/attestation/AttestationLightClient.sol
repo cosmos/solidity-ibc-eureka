@@ -24,6 +24,9 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
     /// @inheritdoc IAttestationLightClient
     bytes32 public constant PROOF_SUBMITTER_ROLE = keccak256("PROOF_SUBMITTER_ROLE");
 
+    /// @notice Length of a compact ECDSA signature (r||s||v).
+    uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
+
     /// @notice Initializes the attestor light client with its fixed attestor set and initial height/timestamp.
     /// @param attestorAddresses The configured attestor addresses (EOAs)
     /// @param minRequiredSigs The quorum threshold
@@ -52,7 +55,9 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
         });
 
         for (uint256 i = 0; i < attestorAddresses.length; ++i) {
-            _isAttestor[attestorAddresses[i]] = true;
+            address attestor = attestorAddresses[i];
+            require(_isAttestor[attestor] == false, DuplicateSigner(attestor));
+            _isAttestor[attestor] = true;
         }
 
         _consensusTimestampAtHeight[initialHeight] = initialTimestampSeconds;
@@ -99,8 +104,9 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
 
         // Check if height already exists, if it does, check if the timestamp is the same, otherwise freeze the client
         // and return UpdateResult.Misbehaviour
-        if (_consensusTimestampAtHeight[state.height] != 0) {
-            if (_consensusTimestampAtHeight[state.height] != state.timestamp) {
+        uint64 existingTimestamp = _consensusTimestampAtHeight[state.height];
+        if (existingTimestamp != 0) {
+            if (existingTimestamp != state.timestamp) {
                 clientState.isFrozen = true;
                 return ILightClientMsgs.UpdateResult.Misbehaviour;
             }
@@ -208,8 +214,12 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
     function _verifySignaturesThreshold(bytes32 digest, bytes[] memory signatures) private view {
         require(signatures.length > 0, EmptySignatures());
 
-        address[] memory seen = new address[](signatures.length);
+        require(
+            signatures.length > clientState.minRequiredSigs - 1,
+            ThresholdNotMet(signatures.length, clientState.minRequiredSigs)
+        );
 
+        address[] memory seen = new address[](signatures.length);
         for (uint256 i = 0; i < signatures.length; ++i) {
             bytes memory sig = signatures[i];
             address recovered = _verifySignature(digest, sig);
@@ -220,11 +230,6 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
             }
             seen[i] = recovered;
         }
-
-        require(
-            signatures.length > clientState.minRequiredSigs - 1,
-            ThresholdNotMet(signatures.length, clientState.minRequiredSigs)
-        );
     }
 
     /// @notice Verifies a single signature and returns the recovered signer address.
@@ -233,7 +238,7 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
     /// @return The recovered signer address.
     /// @dev Reverts with `InvalidSignatureLength`, `SignatureInvalid`, or `UnknownSigner` on failure.
     function _verifySignature(bytes32 digest, bytes memory signature) private view returns (address) {
-        require(signature.length == 65, InvalidSignatureLength(signature));
+        require(signature.length == ECDSA_SIGNATURE_LENGTH, InvalidSignatureLength(signature));
 
         address recovered = ECDSA.recover(digest, signature);
         require(recovered != address(0), SignatureInvalid(signature));

@@ -17,11 +17,6 @@ interface IAttestationLightClientErrors {
     /// @notice Missing trusted timestamp for the given height.
     /// @param height The height that has no associated timestamp.
     error ConsensusTimestampNotFound(uint64 height);
-    /// @notice Conflicting timestamp for an already stored height.
-    /// @param height The height that already has a timestamp.
-    /// @param storedTimestamp The previously stored timestamp.
-    /// @param providedTimestamp The new, conflicting timestamp.
-    error ConflictingTimestamp(uint64 height, uint64 storedTimestamp, uint64 providedTimestamp);
     /// @notice ECDSA signature has an invalid length.
     /// @param signature The invalid signature.
     error InvalidSignatureLength(bytes signature);
