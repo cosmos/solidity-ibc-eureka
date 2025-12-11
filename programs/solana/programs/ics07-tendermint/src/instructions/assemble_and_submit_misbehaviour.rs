@@ -71,6 +71,12 @@ pub fn assemble_and_submit_misbehaviour<'info>(
     );
 
     let chunk_count = chunk_count as usize;
+
+    require!(
+        chunk_count > 0 && chunk_count <= ctx.remaining_accounts.len(),
+        ErrorCode::InvalidChunkCount
+    );
+
     let submitter = ctx.accounts.submitter.key();
 
     let misbehaviour_bytes = assemble_chunks(&ctx, submitter, chunk_count)?;
