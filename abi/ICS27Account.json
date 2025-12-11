@@ -192,6 +192,17 @@
   },
   {
     "type": "error",
+    "name": "ICS27AccountNotFound",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ICS27InvalidAddress",
     "inputs": [
       {

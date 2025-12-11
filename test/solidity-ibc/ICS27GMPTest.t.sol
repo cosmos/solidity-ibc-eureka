@@ -202,11 +202,16 @@ contract ICS27GMPTest is Test {
             relayer: relayer
         });
 
+        // compute the expected account address
         IICS27GMPMsgs.AccountIdentifier memory accountId =
             IICS27GMPMsgs.AccountIdentifier({ clientId: msg_.destinationClient, sender: sender, salt: salt });
 
         address predeterminedAccount = ics27Gmp.getOrComputeAccountAddress(accountId);
         assertTrue(predeterminedAccount != address(0), "Predetermined account address should not be zero");
+
+        // make sure the account does not exist yet
+        vm.expectRevert(abi.encodeWithSelector(IICS27Errors.ICS27AccountNotFound.selector, predeterminedAccount));
+        ics27Gmp.getAccountIdentifier(predeterminedAccount);
 
         vm.expectCall(receiver, payload);
         vm.prank(mockIcs26);
@@ -215,6 +220,11 @@ contract ICS27GMPTest is Test {
 
         address actualAccount = ics27Gmp.getOrComputeAccountAddress(accountId);
         assertEq(actualAccount, predeterminedAccount, "Account address mismatch");
+
+        IICS27GMPMsgs.AccountIdentifier memory retrievedAccountId = ics27Gmp.getAccountIdentifier(actualAccount);
+        assertEq(
+            keccak256(abi.encode(retrievedAccountId)), keccak256(abi.encode(accountId)), "AccountIdentifier mismatch"
+        );
 
         // Call again to cover the case where the account already exists
         vm.expectCall(receiver, payload);
