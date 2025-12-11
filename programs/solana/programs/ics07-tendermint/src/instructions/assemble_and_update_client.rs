@@ -30,6 +30,11 @@ pub fn assemble_and_update_client<'info>(
 
     let chunk_count = chunk_count as usize;
 
+    require!(
+        chunk_count > 0 && chunk_count <= ctx.remaining_accounts.len(),
+        ErrorCode::InvalidChunkCount
+    );
+
     let header_bytes = assemble_chunks(&ctx, &chain_id, target_height, chunk_count)?;
 
     let result = process_header_update(&mut ctx, header_bytes, chunk_count)?;
