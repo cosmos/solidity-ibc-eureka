@@ -8,7 +8,7 @@ import { IAttestationMsgs as AM } from "../../contracts/light-clients/attestatio
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 
-contract AttestationLightClientGas is Test {
+contract AttestationLightClientGasTest is Test {
     uint64 internal constant INITIAL_HEIGHT = 100;
     uint64 internal constant INITIAL_TS = 1_700_000_000;
 
