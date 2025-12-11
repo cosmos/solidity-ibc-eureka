@@ -5,7 +5,9 @@ import { Test } from "forge-std/Test.sol";
 
 import { AttestationLightClient } from "../../contracts/light-clients/attestation/AttestationLightClient.sol";
 import { IAttestationMsgs as AM } from "../../contracts/light-clients/attestation/msgs/IAttestationMsgs.sol";
-import { IAttestationLightClientMsgs } from "../../contracts/light-clients/attestation/msgs/IAttestationLightClientMsgs.sol";
+import {
+    IAttestationLightClientMsgs
+} from "../../contracts/light-clients/attestation/msgs/IAttestationLightClientMsgs.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import {
@@ -51,10 +53,7 @@ contract AttestationLightClientTest is Test {
 
         bytes memory cs = client.getClientState();
         IAttestationLightClientMsgs.ClientState memory expected = IAttestationLightClientMsgs.ClientState({
-            attestorAddresses: addrs,
-            minRequiredSigs: 2,
-            latestHeight: INITIAL_HEIGHT,
-            isFrozen: false
+            attestorAddresses: addrs, minRequiredSigs: 2, latestHeight: INITIAL_HEIGHT, isFrozen: false
         });
 
         assertEq(abi.encode(expected), cs);
