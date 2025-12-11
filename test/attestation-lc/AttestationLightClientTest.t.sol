@@ -57,6 +57,10 @@ contract AttestationLightClientTest is Test {
         });
 
         assertEq(abi.encode(expected), cs);
+
+        (address[] memory attestationSet, uint8 minSigs) = client.getAttestationSet();
+        assertEq(attestationSet, addrs);
+        assertEq(minSigs, 2);
     }
 
     function test_updateClient_success_updates_height_and_ts() public {
