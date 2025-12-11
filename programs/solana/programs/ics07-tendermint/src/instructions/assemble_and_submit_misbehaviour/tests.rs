@@ -383,7 +383,7 @@ fn test_assemble_and_submit_misbehaviour_client_already_frozen() {
     mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
 }
 
-/// Test that chunk_count exceeding remaining_accounts fails with InvalidChunkCount
+/// Test that `chunk_count` exceeding `remaining_accounts` fails with `InvalidChunkCount`
 #[test]
 fn test_assemble_and_submit_misbehaviour_chunk_count_exceeds_remaining_accounts() {
     let chain_id = "test-chain";
@@ -445,7 +445,7 @@ fn test_assemble_and_submit_misbehaviour_chunk_count_exceeds_remaining_accounts(
     mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
 }
 
-/// Test that chunk_count = 0 fails with InvalidChunkCount
+/// Test that `chunk_count` = 0 fails with `InvalidChunkCount`
 #[test]
 fn test_assemble_and_submit_misbehaviour_zero_chunk_count_rejected() {
     let chain_id = "test-chain";

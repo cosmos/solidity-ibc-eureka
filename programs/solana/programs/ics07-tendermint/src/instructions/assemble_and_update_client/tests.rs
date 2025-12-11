@@ -1572,7 +1572,7 @@ fn test_assemble_updates_latest_height() {
     }
 }
 
-/// Test that chunk_count exceeding remaining_accounts fails with InvalidChunkCount
+/// Test that `chunk_count` exceeding `remaining_accounts` fails with `InvalidChunkCount`
 #[test]
 fn test_assemble_chunk_count_exceeds_remaining_accounts() {
     let mollusk = setup_mollusk();
@@ -1692,7 +1692,7 @@ fn test_assemble_chunk_count_exceeds_remaining_accounts() {
     );
 }
 
-/// Test that chunk_count = 0 fails with InvalidChunkCount
+/// Test that `chunk_count` = 0 fails with `InvalidChunkCount`
 #[test]
 fn test_assemble_zero_chunk_count_rejected() {
     let mollusk = setup_mollusk();
