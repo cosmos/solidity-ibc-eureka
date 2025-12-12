@@ -156,10 +156,10 @@ pub enum EthereumIBCError {
     NotEnoughSignatures,
 
     #[error("failed to verify finalized_header is finalized: {0}")]
-    ValidateFinalizedHeaderFailed(#[source] Box<EthereumIBCError>),
+    ValidateFinalizedHeaderFailed(#[source] Box<Self>),
 
     #[error("failed to verify next sync committee against attested header: {0}")]
-    ValidateNextSyncCommitteeFailed(#[source] Box<EthereumIBCError>),
+    ValidateNextSyncCommitteeFailed(#[source] Box<Self>),
 
     #[error("client's store period must be equal to update's finalized period")]
     StorePeriodMustBeEqualToFinalizedPeriod,
