@@ -106,6 +106,7 @@ generate-abi: build-contracts
 	jq '.abi' out/ICS27Account.sol/ICS27Account.json > abi/ICS27Account.json
 	jq '.abi' out/ICS27GMP.sol/ICS27GMP.json > abi/ICS27GMP.json
 	jq '.abi' out/RelayerHelper.sol/RelayerHelper.json > abi/RelayerHelper.json
+	jq '.abi' out/AttestationLightClient.sol/AttestationLightClient.json > abi/AttestationLightClient.json
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out packages/go-abigen/sp1ics07tendermint/contract.go
 	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out packages/go-abigen/ics20transfer/contract.go
@@ -114,11 +115,13 @@ generate-abi: build-contracts
 	abigen --abi abi/ICS27Account.json --pkg ics27account --type Contract --out packages/go-abigen/ics27account/contract.go
 	abigen --abi abi/ICS27GMP.json --pkg ics27gmp --type Contract --out packages/go-abigen/ics27gmp/contract.go
 	abigen --abi abi/RelayerHelper.json --pkg relayerhelper --type Contract --out packages/go-abigen/relayerhelper/contract.go
+	abigen --abi abi/AttestationLightClient.json --pkg attestation --type Contract --out packages/go-abigen/attestation/contract.go
 
-# Generate the ABI files with bytecode for the required contracts (only SP1ICS07Tendermint)
+# Generate the ABI files with bytecode for the required contracts
 [group('generate')]
 generate-abi-bytecode: build-contracts
 	cp out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json abi/bytecode
+	cp out/AttestationLightClient.sol/AttestationLightClient.json abi/bytecode
 
 # Generate the fixtures for the wasm tests using the e2e tests
 [group('generate')]

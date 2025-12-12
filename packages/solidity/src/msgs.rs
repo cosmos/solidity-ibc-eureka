@@ -27,6 +27,10 @@ alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IMembershipM
 alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IMisbehaviourMsgs.sol");
 alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IUpdateClientMsgs.sol");
 alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IUcAndMembershipMsgs.sol");
+alloy_sol_types::sol!("../../contracts/light-clients/attestation/msgs/IAttestationMsgs.sol");
+alloy_sol_types::sol!(
+    "../../contracts/light-clients/attestation/msgs/IAttestationLightClientMsgs.sol"
+);
 
 #[cfg(feature = "rpc")]
 impl ISP1Msgs::SP1Proof {
