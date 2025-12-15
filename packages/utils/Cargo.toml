@@ -10,6 +10,7 @@ anyhow                           = { workspace = true, features = ["std"] }
 async-trait                      = { workspace = true }
 prost                            = { workspace = true }
 ibc-proto                        = { workspace = true }
+ibc-proto-eureka                 = { workspace = true }
 cosmos-sdk-proto                 = { workspace = true }
 ibc-client-tendermint-types      = { workspace = true }
 ibc-eureka-solidity-types        = { workspace = true }
