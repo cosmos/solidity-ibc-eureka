@@ -1,0 +1,35 @@
+# Contracts
+
+This directory implements the IBC Eureka protocol stack in Solidity. Most entrypoints are upgradeable and deploy per-client/per-channel components through beacons so packet handling, tokenization, and message execution can be upgraded independently.
+
+## Core applications
+- `ICS26Router.sol` – Core IBC router that registers apps by port id, stores commitments via `IBCStoreUpgradeable`, tracks light clients through `ICS02ClientUpgradeable`, and drives the packet lifecycle (send/recv/ack/timeout) with relayer and admin role gates.
+- `ICS20Transfer.sol` – ICS20 fungible token app. It mints/burns `IBCERC20` wrappers for non-native denoms, escrows native tokens per client via `Escrow` beacons, enforces pausing/rate limits, and routes packets through the ICS26 router (supports Permit2 flow).
+- `ICS27GMP.sol` – ICS27 general message passing app. It spawns deterministic `ICS27Account` proxies via a beacon, encodes call payloads, and sends GMP packets through ICS26; acknowledgements feed results back to callers.
+
+## Utilities (`utils/`)
+- `Escrow.sol` – Per-client token escrow controlled by `ICS20Transfer`; enforces daily rate limits before releasing funds back out.
+- `IBCERC20.sol` – Upgradeable ERC20 minted/burned by `ICS20Transfer` to represent inbound IBC denoms; allows one-time custom metadata.
+- `ICS27Account.sol` – Minimal execution account used by ICS27 to perform arbitrary calls/value transfers; only the owning ICS27 contract can drive it.
+- `ICS02ClientUpgradeable.sol` – Registry/router for light clients; assigns client ids, stores counterparty info, and gates client upgrades via AccessManager roles.
+- `IBCStoreUpgradeable.sol` – Commitment store for packet commitments/acks/receipts plus next send sequence tracking; uses `ICS24Host` paths.
+- `ICS24Host.sol` and `IBCIdentifiers.sol` – Pure helpers for canonical host paths/keys and identifier validation.
+- `ICS20Lib.sol` / `ICS27Lib.sol` – Encoding/version helpers for ICS20 and ICS27 plus utility logic (denom parsing, GMP ack encoding, beacon proxy bytecode for ICS27 accounts).
+- `IBCRolesLib.sol` – Shared role ids and selector lists for access-managed permissions across ICS20/ICS26/ICS02.
+- `IBCSenderCallbacksLib.sol`, `IBCCallbackReceiver.sol` – Helpers for standardized callback interfaces used by apps.
+- `RateLimitUpgradeable.sol` – Reusable per-token, per-day rate limiting mixin used by escrow.
+- `RelayerHelper.sol` – Read-only helper for relayers to query packet commitments, receipts, and successful acknowledgements from `ICS26Router`.
+
+## Light clients (`light-clients/`)
+- `attestation/AttestationLightClient.sol` – m-of-n attestor-set light client using ECDSA signatures with role-gated proof submission.
+- `ics02-wrapper/ICS02PrecompileWrapper.sol` – Thin adapter that exposes the `ILightClient` interface over the Cosmos EVM ICS02 precompile at a fixed address.
+- `sp1-ics07/SP1ICS07Tendermint.sol` – Tendermint light client verified via SP1 programs and verifier contract; supports update, (non)membership proofs, and misbehaviour handling.
+
+## Interfaces, errors, and message shapes
+- `interfaces/` – External interfaces for apps, light clients, stores, rate limiting, pausing, and callbacks.
+- `errors/` – Custom error definitions used across the stack for gas-efficient reverts.
+- `msgs/` – ABI-encoded packet/message structs for ICS02/20/26/27, light clients, and app callbacks.
+
+## Messages and docs
+- `PICKUP.md` – Notes for maintainers on pending tasks.
+- `light-clients/attestation/IBC_ATTESTOR_DESIGN.md` & `ics02-wrapper/README.md` – Additional design notes for their respective light clients.
