@@ -15,6 +15,10 @@ interface IIFT {
     /// @param iftSendCallConstructor The address of the call constructor for the counterparty chain
     event IFTBridgeRegistered(string clientId, string counterpartyIFTAddress, address iftSendCallConstructor);
 
+    /// @notice Emitted when an existing IBC bridge is removed
+    /// @param clientId The IBC client identifier that was removed
+    event IFTBridgeRemoved(string clientId);
+
     /// @notice Emitted when a bridge transfer is initiated
     /// @param clientId The IBC client identifier over which the transfer is being made
     /// @param sequence The IBC sequence number of the packet
@@ -56,6 +60,11 @@ interface IIFT {
         address iftSendCallConstructor
     )
         external;
+
+    /// @notice Removes an existing IBC bridge
+    /// @dev Only callable by the authority. Existing pending transfers will still be processable.
+    /// @param clientId The IBC client identifier to remove
+    function removeIFTBridge(string calldata clientId) external;
 
     /// @notice Initiates a transfer of tokens to a counterparty chain via IBC
     /// @dev Burns tokens from the sender and sends a GMP packet to mint on the counterparty
