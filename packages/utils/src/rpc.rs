@@ -15,8 +15,13 @@ use ibc_core_client_types::proto::v1::{
     QueryClientStateRequest, QueryClientStateResponse, QueryConsensusStateRequest,
     QueryConsensusStateResponse,
 };
+
 use ibc_core_commitment_types::merkle::MerkleProof;
-use ibc_proto::ibc::core::channel::v1::QueryPacketCommitmentResponse;
+use ibc_proto_eureka::ibc::core::channel::v2::{
+    QueryPacketAcknowledgementRequest, QueryPacketAcknowledgementResponse,
+    QueryPacketCommitmentRequest, QueryPacketCommitmentResponse, QueryPacketReceiptRequest,
+    QueryPacketReceiptResponse,
+};
 use tendermint::{
     block::{signed_header::SignedHeader, Height},
     validator::Set,
@@ -25,79 +30,6 @@ use tendermint_light_client_verifier::types::{LightBlock, ValidatorSet};
 use tendermint_rpc::{Client, HttpClient, Paging, Url};
 
 use crate::merkle::convert_tm_to_ics_merkle_proof;
-
-/// IBC V2 packet commitment request.
-/// <https://github.com/cosmos/ibc-go/blob/release/v10.3.x/proto/ibc/core/channel/v2/query.proto#L75>
-#[derive(Clone, PartialEq, ::prost::Message)]
-struct QueryPacketCommitmentRequest {
-    /// Client identifier.
-    #[prost(string, tag = "1")]
-    pub client_id: String,
-
-    /// Packet sequence number.
-    #[prost(uint64, tag = "2")]
-    pub sequence: u64,
-}
-
-/// IBC V2 packet receipt request.
-/// <https://github.com/cosmos/ibc-go/blob/release/v10.3.x/proto/ibc/core/channel/v2/query.proto#L89>
-#[derive(Clone, PartialEq, ::prost::Message)]
-struct QueryPacketReceiptRequest {
-    /// Client identifier.
-    #[prost(string, tag = "1")]
-    pub client_id: String,
-
-    /// Packet sequence number.
-    #[prost(uint64, tag = "2")]
-    pub sequence: u64,
-}
-
-/// IBC V2 packet receipt response.
-/// <https://github.com/cosmos/ibc-go/blob/release/v10.3.x/proto/ibc/core/channel/v2/query.proto#L157>
-#[derive(Clone, PartialEq, Eq, ::prost::Message)]
-pub struct QueryPacketReceiptResponse {
-    /// Whether the packet has been received.
-    #[prost(bool, tag = "2")]
-    pub received: bool,
-
-    /// Merkle proof of existence or non-existence.
-    #[prost(bytes = "vec", tag = "3")]
-    pub proof: Vec<u8>,
-
-    /// Height at which the proof was retrieved.
-    #[prost(message, optional, tag = "4")]
-    pub proof_height: Option<ibc_core_client_types::proto::v1::Height>,
-}
-
-/// IBC V2 packet acknowledgement request.
-/// <https://github.com/cosmos/ibc-go/blob/release/v10.3.x/proto/ibc/core/channel/v2/query.proto>
-#[derive(Clone, PartialEq, ::prost::Message)]
-struct QueryPacketAcknowledgementRequest {
-    /// Client identifier.
-    #[prost(string, tag = "1")]
-    pub client_id: String,
-
-    /// Packet sequence number.
-    #[prost(uint64, tag = "2")]
-    pub sequence: u64,
-}
-
-/// IBC V2 packet acknowledgement response.
-/// <https://github.com/cosmos/ibc-go/blob/release/v10.3.x/proto/ibc/core/channel/v2/query.proto>
-#[derive(Clone, PartialEq, Eq, ::prost::Message)]
-pub struct QueryPacketAcknowledgementResponse {
-    /// Acknowledgement associated with the request fields.
-    #[prost(bytes = "vec", tag = "1")]
-    pub acknowledgement: Vec<u8>,
-
-    /// Merkle proof of existence.
-    #[prost(bytes = "vec", tag = "2")]
-    pub proof: Vec<u8>,
-
-    /// Height at which the proof was retrieved.
-    #[prost(message, optional, tag = "3")]
-    pub proof_height: Option<ibc_core_client_types::proto::v1::Height>,
-}
 
 /// An extension trait for [`HttpClient`] that provides additional methods for
 /// obtaining light blocks.
