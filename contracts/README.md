@@ -25,6 +25,14 @@ This directory implements the IBC Eureka protocol stack in Solidity. Most entryp
 - `ics02-wrapper/ICS02PrecompileWrapper.sol` – Thin adapter that exposes the `ILightClient` interface over the Cosmos EVM ICS02 precompile at a fixed address.
 - `sp1-ics07/SP1ICS07Tendermint.sol` – Tendermint light client verified via SP1 programs and verifier contract; supports update, (non)membership proofs, and misbehaviour handling.
 
+## Interchain Fungible Tokens (IFT)
+- Code reference: `contracts` on branch `mariuszzak/ift` (see https://github.com/cosmos/solidity-ibc-eureka/tree/mariuszzak/ift/contracts).
+- IFT is an issuer-controlled ERC20 that bridges via ICS27-GMP instead of ICS20. The abstract `IFTBase` burns on send, constructs a mint call for the counterparty IFT, and tracks pending transfers keyed by (clientId, sequence).
+- Bridges: `registerIFTBridge` configures a counterparty IFT contract per IBC client along with an `IIFTSendCallConstructor` helper to encode the mint call for that chain.
+- Sending: `iftTransfer` burns locally, builds ICS27 `SendCall` to the remote IFT, records `PendingTransfer`, and emits initiation events; default timeout is 15 minutes if not provided.
+- Receiving: `iftMint` is callable only by the ICS27-controlled account; it mints locally after verifying the counterparty sender matches the registered bridge and clears pending transfers on ack/timeout callbacks to refund/mint as appropriate.
+- Extensibility: implement concrete ERC20 constructors and different `IIFTSendCallConstructor` variants for EVM vs Cosmos SDK token factory flows; access is governed by `AccessManaged` authority roles.
+
 ## Interfaces, errors, and message shapes
 - `interfaces/` – External interfaces for apps, light clients, stores, rate limiting, pausing, and callbacks.
 - `errors/` – Custom error definitions used across the stack for gas-efficient reverts.
