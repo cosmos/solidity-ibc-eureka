@@ -15,7 +15,6 @@ use ibc_core_client_types::proto::v1::{
     QueryClientStateRequest, QueryClientStateResponse, QueryConsensusStateRequest,
     QueryConsensusStateResponse,
 };
-
 use ibc_core_commitment_types::merkle::MerkleProof;
 use ibc_proto_eureka::ibc::core::channel::v2::{
     QueryPacketAcknowledgementRequest, QueryPacketAcknowledgementResponse,
