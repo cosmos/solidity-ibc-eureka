@@ -1,6 +1,6 @@
 # Contracts
 
-This directory implements the IBC Eureka protocol stack in Solidity. Most entrypoints are upgradeable and deploy per-client/per-channel components through beacons so packet handling, tokenization, and message execution can be upgraded independently.
+This directory implements the IBC v2 protocol stack in Solidity. Most entrypoints are upgradeable and deploy per-client/per-user components through beacons so packet handling, tokenization, and message execution can be upgraded independently.
 
 ## Core applications
 - `ICS26Router.sol` – Core IBC router that registers apps by port id, stores commitments via `IBCStoreUpgradeable`, tracks light clients through `ICS02ClientUpgradeable`, and drives the packet lifecycle (send/recv/ack/timeout) with relayer and admin role gates.
