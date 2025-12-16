@@ -8,6 +8,8 @@ import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgrade
 
 /// @title IFT Ownable
 /// @notice This is the ownable and upgradable implementation of IFT
+/// @dev If you need a custom IFT implementation, then inherit from IFTBaseUpgradeable instead of deploying this contract directly
+/// @dev WARNING: This contract is experimental
 contract IFTOwnable is IFTBaseUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
     /// @notice Initializes the IFTOwnable contract with the given owner
     /// @param owner_ The owner of the contract
