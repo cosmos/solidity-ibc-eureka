@@ -12,7 +12,7 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 )
 
-// MisbehaviourToBorsh converts a Tendermint misbehaviour to Borsh format using a Rust helper binary.
+// MisbehaviourToBorsh converts a Tendermint misbehaviour to Borsh format using the operator binary.
 func MisbehaviourToBorsh(clientID string, misbehaviour *tmclient.Misbehaviour) ([]byte, error) {
 	misbehaviour.ClientId = clientID
 
@@ -21,7 +21,7 @@ func MisbehaviourToBorsh(clientID string, misbehaviour *tmclient.Misbehaviour) (
 		return nil, fmt.Errorf("failed to marshal misbehaviour to protobuf: %w", err)
 	}
 
-	cmd := exec.Command("cargo", "run", "--manifest-path", "tools/misbehaviour-to-borsh/Cargo.toml", "--release", "--quiet")
+	cmd := exec.Command("operator", "solana-misbehaviour-to-borsh")
 	cmd.Stdin = bytes.NewReader(protoBytes)
 
 	var stdout, stderr bytes.Buffer
@@ -29,7 +29,7 @@ func MisbehaviourToBorsh(clientID string, misbehaviour *tmclient.Misbehaviour) (
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("misbehaviour-to-borsh failed: %w\nstderr: %s", err, stderr.String())
+		return nil, fmt.Errorf("operator solana-misbehaviour-to-borsh failed: %w\nstderr: %s", err, stderr.String())
 	}
 
 	hexStr := strings.TrimSpace(stdout.String())

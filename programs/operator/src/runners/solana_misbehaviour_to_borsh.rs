@@ -1,13 +1,22 @@
+//! Convert Solana misbehaviour from protobuf to Borsh format.
+
 use std::io::{self, Read};
 
 use anyhow::{Context, Result};
-use borsh::BorshSerialize;
+use borsh_0_10::BorshSerialize;
 use ibc_client_tendermint::types::Misbehaviour;
 use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use prost::Message;
 use solana_ibc_types::borsh_header::conversions::misbehaviour_to_borsh;
 
-fn main() -> Result<()> {
+/// Run the misbehaviour to borsh conversion.
+///
+/// Reads protobuf-encoded misbehaviour from stdin, converts to Borsh format,
+/// and outputs hex-encoded bytes to stdout.
+///
+/// # Errors
+/// Returns an error if reading from stdin, protobuf decoding, or borsh serialization fails.
+pub fn run() -> Result<()> {
     let mut input = Vec::new();
     io::stdin()
         .read_to_end(&mut input)

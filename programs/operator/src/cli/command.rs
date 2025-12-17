@@ -19,6 +19,8 @@ pub struct OperatorCli {
 pub enum Commands {
     /// The subcommand to produce the fixtures for testing.
     Fixtures(fixtures::Cmd),
+    /// Convert Solana misbehaviour from protobuf to Borsh format (stdin → stdout)
+    SolanaMisbehaviourToBorsh,
 }
 
 /// The trust options for client operations.
