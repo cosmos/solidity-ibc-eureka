@@ -45,6 +45,42 @@
   },
   {
     "type": "function",
+    "name": "getAccountIdentifier",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IICS27GMPMsgs.AccountIdentifier",
+        "components": [
+          {
+            "name": "clientId",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "sender",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "salt",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getOrComputeAccountAddress",
     "inputs": [
       {
@@ -585,6 +621,17 @@
     "type": "error",
     "name": "FailedDeployment",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ICS27AccountNotFound",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",

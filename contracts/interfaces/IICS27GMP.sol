@@ -23,6 +23,12 @@ interface IICS27GMP {
         view
         returns (address);
 
+    /// @notice Retrieve the AccountIdentifier for a given Account (proxy) contract address
+    /// @dev Reverts if the account does not exist
+    /// @param account The (proxy) Account contract address
+    /// @return The AccountIdentifier
+    function getAccountIdentifier(address account) external view returns (IICS27GMPMsgs.AccountIdentifier memory);
+
     /// @notice Send a GMP packet by calling IICS26Router.sendPacket
     /// @param msg_ The message for sending a GMP packet
     /// @return sequence The sequence number of the packet created

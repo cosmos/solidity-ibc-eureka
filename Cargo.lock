@@ -4806,6 +4806,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",
  "reqwest 0.11.27",
  "tendermint",
