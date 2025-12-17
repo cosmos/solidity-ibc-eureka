@@ -5,6 +5,7 @@ use tendermint::{block::Height, Hash};
 use tendermint_rpc::{Client, HttpClient};
 
 use anyhow::Result;
+use tracing::instrument;
 
 use crate::{
     chain::CosmosSdk,
@@ -33,6 +34,7 @@ impl ChainListener {
     ///
     /// # Errors
     /// Returns an error if the chain ID cannot be fetched.
+    #[instrument(skip(self), err)]
     pub async fn chain_id(&self) -> Result<String> {
         Ok(self
             .client()
@@ -47,6 +49,7 @@ impl ChainListener {
 
 #[async_trait::async_trait]
 impl ChainListenerService<CosmosSdk> for ChainListener {
+    #[instrument(skip(self), fields(tx_count = tx_ids.len()), err(Debug))]
     async fn fetch_tx_events(&self, tx_ids: Vec<Hash>) -> Result<Vec<EurekaEventWithHeight>> {
         Ok(
             future::try_join_all(tx_ids.into_iter().map(|tx_id| async move {
@@ -69,6 +72,7 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
         )
     }
 
+    #[instrument(skip(self), fields(block_range = format!("{}..={}", start_height, end_height)), err(Debug))]
     async fn fetch_events(
         &self,
         start_height: u64,

@@ -108,7 +108,7 @@ impl EthToCosmosRelayerModuleService {
 
 #[tonic::async_trait]
 impl RelayerService for EthToCosmosRelayerModuleService {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
@@ -133,7 +133,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         }))
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn relay_by_tx(
         &self,
         request: Request<api::RelayByTxRequest>,
@@ -190,7 +190,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         }))
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn create_client(
         &self,
         request: Request<api::CreateClientRequest>,
@@ -212,7 +212,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         }))
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn update_client(
         &self,
         request: Request<api::UpdateClientRequest>,
@@ -241,7 +241,7 @@ impl RelayerModule for EthToCosmosRelayerModule {
         "eth_to_cosmos"
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn create_service(
         &self,
         config: serde_json::Value,

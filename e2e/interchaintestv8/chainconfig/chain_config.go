@@ -18,10 +18,9 @@ func IbcGoChainSpec(name, chainId string) *interchaintest.ChainSpec {
 			ChainID: chainId,
 			Images: []ibc.DockerImage{
 				{
-					Repository: "ghcr.io/cosmos/ibc-go-wasm-simd",
-					// Version with GMP enabled
-					Version: "serdar-xxx-contract-calls",
-					UIDGID:  "1025:1025",
+					Repository: "ghcr.io/cosmos/ibc-go-wasm-simd", // FOR LOCAL IMAGE USE: Docker Image Name
+					Version:    "serdar-xxx-contract-calls",       // FOR LOCAL IMAGE USE: Docker Image Tag
+					UIDGID:     "1025:1025",
 				},
 			},
 			Bin:            "simd",
