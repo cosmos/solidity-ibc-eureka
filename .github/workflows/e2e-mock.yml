@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - 'justfile'
       - '**.rs'
       - '**.go'
       - '**.toml'
@@ -10,7 +11,8 @@ on:
       - '**.mod'
       - '**.sum'
       - '**.sol'
-      - '.github/workflows/quick-e2e.yml'
+      - '.github/workflows/e2e-mock.yml'
+      - '.github/actions/**'
       - 'bun.lockb'
 
 concurrency:
@@ -54,8 +56,17 @@ jobs:
         with:
           skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth,TestWithRelayerTestSuite/Test_MultiPeriodClientUpdateToCosmos,TestWithRelayerTestSuite/Test_5_FinalizedTimeoutPacketFromEth,TestWithRelayerTestSuite/Test_UpdateClientToCosmos
 
+  build-e2e-programs:
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build E2E artifacts
+        uses: ./.github/actions/e2e-build
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
   e2e:
-    needs: generate-matrix
+    needs: [generate-matrix, build-e2e-programs]
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
