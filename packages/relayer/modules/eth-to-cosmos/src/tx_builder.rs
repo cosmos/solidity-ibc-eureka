@@ -307,7 +307,7 @@ impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
 where
     P: Provider + Clone,
 {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
@@ -477,7 +477,7 @@ where
         Ok(tx_body.encode_to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         parameters
             .keys()
@@ -587,7 +587,7 @@ where
         .encode_to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
         let ethereum_client_state = self.ethereum_client_state(dst_client_id.clone()).await?;
         let finality_update = self.beacon_api_client.finality_update().await?;
@@ -691,7 +691,7 @@ impl<P> TxBuilderService<EthEureka, CosmosSdk> for MockTxBuilder<P>
 where
     P: Provider + Clone,
 {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
@@ -747,7 +747,7 @@ where
         Ok(tx_body.encode_to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         parameters
             .keys()
@@ -787,7 +787,7 @@ where
         .encode_to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
         tracing::info!(
             "Generating tx to update mock light client: {}",
