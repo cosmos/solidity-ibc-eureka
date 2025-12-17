@@ -15,8 +15,10 @@ runs:
       id: cache-sp1-toolchain
       uses: actions/cache@v4
       with:
-        path: ~/.sp1
-        key: ${{ runner.os }}-sp1-toolchain-v1
+        path: |
+          ~/.sp1
+          ~/.rustup/toolchains/succinct
+        key: ${{ runner.os }}-sp1-toolchain-v2
 
     - name: Install SP1 toolchain
       if: steps.cache-sp1-toolchain.outputs.cache-hit != 'true'
