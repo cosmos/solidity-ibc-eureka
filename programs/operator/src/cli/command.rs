@@ -1,6 +1,6 @@
 //! Contains the command line interface for the application.
 
-use clap::{command, Parser};
+use clap::Parser;
 use sp1_ics07_tendermint_prover::prover::SupportedZkAlgorithm;
 use std::{convert::Infallible, str::FromStr};
 use tendermint_light_client_verifier::types::TrustThreshold;
@@ -51,7 +51,7 @@ pub enum OutputPath {
 
 /// The cli interface for the fixtures.
 pub mod fixtures {
-    use super::{command, Parser};
+    use super::Parser;
 
     /// The cli interface for the fixtures.
     #[derive(Clone, Parser)]

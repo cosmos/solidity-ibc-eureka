@@ -6,11 +6,14 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { IICS27GMPMsgs } from "../../contracts/msgs/IICS27GMPMsgs.sol";
 
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
+import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
+import { IICS27Account } from "../../contracts/interfaces/IICS27Account.sol";
 
 import { IbcImpl } from "./utils/IbcImpl.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
@@ -18,6 +21,7 @@ import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
+import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { RefImplIBCERC20 } from "./utils/RefImplIBCERC20.sol";
 
@@ -558,5 +562,160 @@ contract Integration2Test is Test {
         vm.expectEmit();
         emit IICS26Router.Noop();
         ibcImplA.timeoutPacket(sentPacket);
+    }
+
+    function test_success_sendGmp() public {
+        address user = integrationEnv.createUser();
+        string memory receiver = th.randomString();
+
+        bytes memory mockPayload = bytes("mock");
+        IICS26RouterMsgs.Packet memory sentPacket = ibcImplA.sendGmpAsUser(user, receiver, mockPayload);
+
+        // check the fields of the packet
+        assertEq(sentPacket.sourceClient, th.FIRST_CLIENT_ID(), "source client mismatch");
+        assertEq(sentPacket.destClient, th.FIRST_CLIENT_ID(), "dest client mismatch");
+        assertEq(sentPacket.timeoutTimestamp, th.DEFAULT_TIMEOUT_TIMESTAMP(), "timeout timestamp mismatch");
+        assertEq(sentPacket.payloads.length, 1, "payload length mismatch");
+        assertEq(sentPacket.payloads[0].sourcePort, ICS27Lib.DEFAULT_PORT_ID, "source port mismatch");
+        assertEq(sentPacket.payloads[0].destPort, ICS27Lib.DEFAULT_PORT_ID, "dest port mismatch");
+        assertEq(sentPacket.payloads[0].version, ICS27Lib.ICS27_VERSION, "version mismatch");
+        assertEq(sentPacket.payloads[0].encoding, ICS27Lib.ICS27_ENCODING, "encoding mismatch");
+
+        IICS27GMPMsgs.GMPPacketData memory gmpPacketData =
+            abi.decode(sentPacket.payloads[0].value, (IICS27GMPMsgs.GMPPacketData));
+        assertEq(gmpPacketData.sender, Strings.toChecksumHexString(user), "sender mismatch");
+        assertEq(gmpPacketData.receiver, receiver, "receiver mismatch");
+        assertEq(gmpPacketData.payload, mockPayload, "payload mismatch");
+        assertEq(gmpPacketData.salt, bytes(""), "salt mismatch");
+        assertEq(gmpPacketData.memo, "", "memo mismatch");
+
+        // check that the packet was committed correctly
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sentPacket.sourceClient, sentPacket.sequence);
+        bytes32 expCommitment = ICS24Host.packetCommitmentBytes32(sentPacket);
+        bytes32 storedCommitment = ibcImplA.ics26Router().getCommitment(path);
+        assertEq(storedCommitment, expCommitment, "packet commitment mismatch");
+    }
+
+    function testFuzz_success_fullGmp(uint16 saltLen) public {
+        address user = integrationEnv.createUser();
+        address receiver = makeAddr("receiver");
+
+        // any function call as payload
+        bytes memory payload = abi.encodeCall(ILightClient.misbehaviour, (bytes("any")));
+        bytes memory callResp = bytes("any response");
+        vm.mockCall(receiver, payload, callResp);
+
+        // precompute account address
+        IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
+            clientId: th.FIRST_CLIENT_ID(), sender: Strings.toChecksumHexString(user), salt: vm.randomBytes(saltLen)
+        });
+        address computedAccount = ibcImplB.ics27Gmp().getOrComputeAccountAddress(accountId);
+
+        // send packet
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendGmpAsUser(user, Strings.toChecksumHexString(receiver), payload, accountId.salt);
+
+        // Receive the packet on B
+        vm.expectCall(receiver, 0, payload);
+        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
+        assertEq(acks.length, 1, "ack length mismatch");
+        assertEq(acks[0], ICS27Lib.acknowledgement(callResp), "ack mismatch");
+
+        // run the receive packet queries
+        assert(ibcImplB.relayerHelper().isPacketReceived(sentPacket));
+        assert(ibcImplB.relayerHelper().isPacketReceiveSuccessful(sentPacket));
+
+        // Verify that the account has been created
+        address storedAccount = ibcImplB.ics27Gmp().getOrComputeAccountAddress(accountId);
+        assertEq(storedAccount, address(computedAccount), "account address mismatch");
+        assertEq(IICS27Account(computedAccount).ics27(), address(ibcImplB.ics27Gmp()), "account nor deployed");
+
+        // Acknowledge the packet on A
+        ibcImplA.ackPacket(sentPacket, acks);
+
+        // commitment should be deleted
+        bytes32 storedCommitment =
+            ibcImplA.relayerHelper().queryPacketCommitment(sentPacket.sourceClient, sentPacket.sequence);
+        assertEq(storedCommitment, 0);
+    }
+
+    function testFuzz_success_errorGmp(uint16 saltLen) public {
+        address user = integrationEnv.createUser();
+        address receiver = makeAddr("receiver");
+
+        // any function call as payload
+        bytes memory payload = abi.encodeCall(ILightClient.misbehaviour, (bytes("any")));
+        bytes memory callResp = bytes("any response");
+        vm.mockCallRevert(receiver, payload, callResp);
+
+        // precompute account address
+        IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
+            clientId: th.FIRST_CLIENT_ID(), sender: Strings.toChecksumHexString(user), salt: vm.randomBytes(saltLen)
+        });
+
+        // send packet
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendGmpAsUser(user, Strings.toHexString(receiver), payload, accountId.salt);
+
+        // Receive the packet on B
+        vm.expectCall(receiver, 0, payload);
+        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
+        assertEq(acks.length, 1, "ack length mismatch");
+        assertEq(acks, th.SINGLE_ERROR_ACK(), "ack mismatch");
+
+        // run the receive packet queries
+        assert(ibcImplB.relayerHelper().isPacketReceived(sentPacket));
+        assertFalse(ibcImplB.relayerHelper().isPacketReceiveSuccessful(sentPacket));
+
+        // Acknowledge the packet on A
+        ibcImplA.ackPacket(sentPacket, acks);
+
+        // commitment should be deleted
+        bytes32 storedCommitment =
+            ibcImplA.relayerHelper().queryPacketCommitment(sentPacket.sourceClient, sentPacket.sequence);
+        assertEq(storedCommitment, 0);
+    }
+
+    function testFuzz_success_timeoutGmp(uint16 saltLen) public {
+        address user = integrationEnv.createUser();
+        address receiver = makeAddr("receiver");
+
+        // any function call as payload
+        bytes memory payload = abi.encodeCall(ILightClient.misbehaviour, (bytes("any")));
+        bytes memory callResp = bytes("any response");
+        vm.mockCallRevert(receiver, payload, callResp);
+
+        // precompute account address
+        IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
+            clientId: th.FIRST_CLIENT_ID(), sender: Strings.toChecksumHexString(user), salt: vm.randomBytes(saltLen)
+        });
+
+        // send packet
+        uint64 timeoutTimestamp = uint64(block.timestamp + 10 seconds);
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendGmpAsUser(user, Strings.toHexString(receiver), payload, accountId.salt, "", timeoutTimestamp);
+
+        // Set the block timestamp to the timeout
+        vm.warp(block.timestamp + 30 seconds);
+
+        // Fail to receive the packet on Chain B
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IICS26RouterErrors.IBCInvalidTimeoutTimestamp.selector, sentPacket.timeoutTimestamp, block.timestamp
+            )
+        );
+        ibcImplB.recvPacket(sentPacket);
+
+        // run the receive packet queries
+        assertFalse(ibcImplB.relayerHelper().isPacketReceived(sentPacket));
+        assertFalse(ibcImplB.relayerHelper().isPacketReceiveSuccessful(sentPacket));
+
+        // Timeout the packet on Chain A
+        ibcImplA.timeoutPacket(sentPacket);
+
+        // commitment should be deleted
+        bytes32 storedCommitment =
+            ibcImplA.relayerHelper().queryPacketCommitment(sentPacket.sourceClient, sentPacket.sequence);
+        assertEq(storedCommitment, 0);
     }
 }

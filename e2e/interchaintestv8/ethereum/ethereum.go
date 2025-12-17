@@ -127,8 +127,17 @@ func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract strin
 	return stdoutBytes, nil
 }
 
-func (e Ethereum) CreateAndFundUser() (*ecdsa.PrivateKey, error) {
+func (e Ethereum) CreateUser() (*ecdsa.PrivateKey, error) {
 	key, err := crypto.GenerateKey()
+	if err != nil {
+		return nil, err
+	}
+
+	return key, nil
+}
+
+func (e Ethereum) CreateAndFundUser() (*ecdsa.PrivateKey, error) {
+	key, err := e.CreateUser()
 	if err != nil {
 		return nil, err
 	}
