@@ -1572,6 +1572,225 @@ fn test_assemble_updates_latest_height() {
     }
 }
 
+/// Test that `chunk_count` exceeding `remaining_accounts` fails with `InvalidChunkCount`
+#[test]
+fn test_assemble_chunk_count_exceeds_remaining_accounts() {
+    let mollusk = setup_mollusk();
+
+    let chain_id = "test-chain";
+    let target_height = 100u64;
+    let submitter = Pubkey::new_unique();
+
+    // Create only 2 chunk accounts
+    let (_, chunks) = create_test_header_and_chunks(2);
+
+    let client_state_pda = derive_client_state_pda(chain_id);
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            crate::state::ConsensusStateStore::SEED,
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
+
+    // Only create PDAs for 2 chunks
+    let chunk_pdas = get_chunk_pdas(&submitter, chain_id, target_height, 2);
+
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
+    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
+
+    // Create instruction claiming 5 chunks but only provide 2 accounts
+    let mut account_metas = vec![
+        AccountMeta::new(client_state_pda, false),
+        AccountMeta::new_readonly(app_state_pda, false),
+        AccountMeta::new_readonly(access_manager_pda, false),
+        AccountMeta::new_readonly(trusted_consensus_pda, false),
+        AccountMeta::new(consensus_state_pda, false),
+        AccountMeta::new(submitter, true),
+        AccountMeta::new_readonly(system_program::ID, false),
+        AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+    ];
+
+    // Only add 2 chunk accounts to remaining_accounts
+    for chunk_pda in &chunk_pdas {
+        account_metas.push(AccountMeta::new(*chunk_pda, false));
+    }
+
+    // But claim chunk_count = 5 (more than provided)
+    let instruction = Instruction {
+        program_id: crate::ID,
+        accounts: account_metas,
+        data: crate::instruction::AssembleAndUpdateClient {
+            chain_id: chain_id.to_string(),
+            target_height,
+            chunk_count: 5, // Claiming 5 chunks but only 2 provided!
+        }
+        .data(),
+    };
+
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
+    let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
+        (client_state_pda, create_client_state_account(chain_id, 90)),
+        (
+            trusted_consensus_pda,
+            create_consensus_state_account([0; 32], [0; 32], 0),
+        ),
+        (consensus_state_pda, Account::default()),
+        (submitter, create_submitter_account(10_000_000_000)),
+        keyed_account_for_system_program(),
+    ];
+
+    // Add only 2 chunk accounts
+    for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
+        accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
+    }
+
+    // Add Clock sysvar
+    let clock = solana_sdk::sysvar::clock::Clock {
+        slot: 0,
+        epoch_start_timestamp: 0,
+        epoch: 0,
+        leader_schedule_epoch: 0,
+        unix_timestamp: 0,
+    };
+    let clock_data = bincode::serialize(&clock).expect("Failed to serialize Clock for test");
+    accounts.push((
+        solana_sdk::sysvar::clock::ID,
+        Account {
+            lamports: 1,
+            data: clock_data,
+            owner: solana_sdk::native_loader::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    // Add instructions sysvar
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
+
+    let result = mollusk.process_instruction(&instruction, &accounts);
+
+    // Should fail with InvalidChunkCount because chunk_count (5) > remaining_accounts.len() (2)
+    assert_error_code(
+        result,
+        ErrorCode::InvalidChunkCount,
+        "chunk_count exceeds remaining_accounts",
+    );
+}
+
+/// Test that `chunk_count` = 0 fails with `InvalidChunkCount`
+#[test]
+fn test_assemble_zero_chunk_count_rejected() {
+    let mollusk = setup_mollusk();
+
+    let chain_id = "test-chain";
+    let target_height = 100u64;
+    let submitter = Pubkey::new_unique();
+
+    let client_state_pda = derive_client_state_pda(chain_id);
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            crate::state::ConsensusStateStore::SEED,
+            client_state_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
+
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
+    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
+
+    // Create instruction with chunk_count = 0
+    let account_metas = vec![
+        AccountMeta::new(client_state_pda, false),
+        AccountMeta::new_readonly(app_state_pda, false),
+        AccountMeta::new_readonly(access_manager_pda, false),
+        AccountMeta::new_readonly(trusted_consensus_pda, false),
+        AccountMeta::new(consensus_state_pda, false),
+        AccountMeta::new(submitter, true),
+        AccountMeta::new_readonly(system_program::ID, false),
+        AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+    ];
+
+    let instruction = Instruction {
+        program_id: crate::ID,
+        accounts: account_metas,
+        data: crate::instruction::AssembleAndUpdateClient {
+            chain_id: chain_id.to_string(),
+            target_height,
+            chunk_count: 0, // Zero chunks - invalid
+        }
+        .data(),
+    };
+
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
+    let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
+        (client_state_pda, create_client_state_account(chain_id, 90)),
+        (
+            trusted_consensus_pda,
+            create_consensus_state_account([0; 32], [0; 32], 0),
+        ),
+        (consensus_state_pda, Account::default()),
+        (submitter, create_submitter_account(10_000_000_000)),
+        keyed_account_for_system_program(),
+    ];
+
+    // Add Clock sysvar
+    let clock = solana_sdk::sysvar::clock::Clock {
+        slot: 0,
+        epoch_start_timestamp: 0,
+        epoch: 0,
+        leader_schedule_epoch: 0,
+        unix_timestamp: 0,
+    };
+    let clock_data = bincode::serialize(&clock).expect("Failed to serialize Clock for test");
+    accounts.push((
+        solana_sdk::sysvar::clock::ID,
+        Account {
+            lamports: 1,
+            data: clock_data,
+            owner: solana_sdk::native_loader::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    // Add instructions sysvar
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
+
+    let result = mollusk.process_instruction(&instruction, &accounts);
+
+    // Should fail immediately with InvalidChunkCount because chunk_count must be > 0
+    assert_error_code(result, ErrorCode::InvalidChunkCount, "zero chunks rejected");
+}
+
 /// Test that header with invalid cryptographic proof fails during `update_client`
 /// and triggers `UpdateClientFailed` error
 #[test]
