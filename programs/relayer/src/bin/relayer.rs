@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use ibc_eureka_relayer::cli::{Commands, RelayerCli};
+use ibc_eureka_relayer::observability::init_observability;
 use ibc_eureka_relayer_core::{builder::RelayerBuilder, config::RelayerConfig};
 use ibc_eureka_relayer_cosmos_to_cosmos::CosmosToCosmosRelayerModule;
 use ibc_eureka_relayer_cosmos_to_eth::CosmosToEthRelayerModule;
@@ -11,6 +12,7 @@ use ibc_eureka_relayer_eth_to_cosmos_compat::EthToCosmosCompatRelayerModule;
 use ibc_eureka_relayer_solana_to_cosmos::SolanaToCosmosRelayerModule;
 
 use prometheus::{Encoder, TextEncoder};
+use tracing::info;
 use warp::Filter;
 
 #[tokio::main]
@@ -22,10 +24,12 @@ async fn main() -> anyhow::Result<()> {
             let config_bz = std::fs::read(config_path)?;
             let config: RelayerConfig = serde_json::from_slice(&config_bz)?;
 
-            // Initialize the logger with log level.
-            tracing_subscriber::fmt::fmt()
-                .with_max_level(config.server.log_level())
-                .init();
+            let _guard = init_observability(&config.observability)?;
+
+            info!(
+                "Observability initialized with level: {}",
+                config.observability.level()
+            );
 
             // Build the relayer server.
             let mut relayer_builder = RelayerBuilder::default();
@@ -46,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
                     String::from_utf8(buffer).unwrap()
                 });
 
-                tracing::info!("Metrics available at http://0.0.0.0:9000/metrics");
+                info!("Metrics available at http://0.0.0.0:9000/metrics");
                 warp::serve(metrics_route).run(([0, 0, 0, 0], 9000)).await;
             });
 

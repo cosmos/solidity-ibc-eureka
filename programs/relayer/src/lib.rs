@@ -2,3 +2,4 @@
 #![deny(clippy::nursery, clippy::pedantic, warnings, missing_docs)]
 
 pub mod cli;
+pub mod observability;

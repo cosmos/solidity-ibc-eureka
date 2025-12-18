@@ -123,6 +123,9 @@ impl Commitment {
     pub const PACKET_RECEIPT_SEED: &'static [u8] =
         solana_ibc_types::Commitment::PACKET_RECEIPT_SEED;
     pub const PACKET_ACK_SEED: &'static [u8] = solana_ibc_types::Commitment::PACKET_ACK_SEED;
+
+    /// Empty commitment value (used to detect newly initialized accounts)
+    pub const EMPTY: [u8; 32] = [0; 32];
 }
 
 /// Maximum timeout duration (1 day in seconds)

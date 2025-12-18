@@ -2,6 +2,7 @@
 
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 
+pub mod attestation;
 pub mod ics26;
 pub mod msgs;
 pub mod sp1_ics07;
