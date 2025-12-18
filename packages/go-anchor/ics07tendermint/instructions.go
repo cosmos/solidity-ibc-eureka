@@ -436,6 +436,7 @@ func NewUploadMisbehaviourChunkInstruction(
 func NewAssembleAndSubmitMisbehaviourInstruction(
 	// Params:
 	clientIdParam string,
+	chunkCountParam uint8,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
@@ -459,6 +460,13 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 		err = enc__.Encode(clientIdParam)
 		if err != nil {
 			return nil, errors.NewField("clientIdParam", err)
+		}
+	}
+	{
+		// Serialize `chunkCountParam`:
+		err = enc__.Encode(chunkCountParam)
+		if err != nil {
+			return nil, errors.NewField("chunkCountParam", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}

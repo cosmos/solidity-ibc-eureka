@@ -1,7 +1,10 @@
 use clap::Parser;
 use sp1_ics07_tendermint_operator::{
     cli::command::{fixtures, Commands, OperatorCli},
-    runners::fixtures::{membership, misbehaviour, uc_and_mem, update_client},
+    runners::{
+        fixtures::{membership, misbehaviour, uc_and_mem, update_client},
+        solana_misbehaviour_to_borsh,
+    },
 };
 use sp1_sdk::utils::setup_logger;
 
@@ -25,5 +28,6 @@ async fn main() -> anyhow::Result<()> {
             fixtures::Cmds::UpdateClientAndMembership(args) => uc_and_mem::run(args).await,
             fixtures::Cmds::Misbehaviour(args) => misbehaviour::run(args).await,
         },
+        Commands::SolanaMisbehaviourToBorsh => solana_misbehaviour_to_borsh::run(),
     }
 }
