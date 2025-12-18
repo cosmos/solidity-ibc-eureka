@@ -40,7 +40,14 @@ abstract contract IFTBaseUpgradeable is IIFTErrors, IIFT, ERC20Upgradeable, IBCC
     /// @param erc20Name The name of the ERC20 token
     /// @param erc20Symbol The symbol of the ERC20 token
     /// @param ics27Gmp The address of the ICS27-GMP contract
-    function __IFTBase_init(string memory erc20Name, string memory erc20Symbol, address ics27Gmp) internal onlyInitializing {
+    function __IFTBase_init(
+        string memory erc20Name,
+        string memory erc20Symbol,
+        address ics27Gmp
+    )
+        internal
+        onlyInitializing
+    {
         __ERC20_init(erc20Name, erc20Symbol);
 
         __IFTBase_init_unchained(ics27Gmp);
