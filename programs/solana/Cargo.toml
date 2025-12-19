@@ -4,6 +4,7 @@ members = [
   "programs/ics07-tendermint",
   "programs/ics26-router",
   "programs/ics27-gmp",
+  "programs/ics27-ift",
   "programs/gmp-counter-app",
   "programs/mock-light-client",
   "programs/mock-ibc-app",
@@ -90,6 +91,8 @@ solana-ibc-constants = { path = "./packages/solana-ibc-constants", default-featu
 solana-ibc-macros = { path = "./packages/solana-ibc-macros" }
 access-manager = { path = "./programs/access-manager", default-features = false }
 ics26-router = { path = "./programs/ics26-router", default-features = false }
+ics27-gmp = { path = "./programs/ics27-gmp", default-features = false }
+ics27-ift = { path = "./programs/ics27-ift", default-features = false }
 gmp-counter-app = { path = "./programs/gmp-counter-app", default-features = false }
 
 ibc-client-tendermint = { version = "0.57", default-features = false }

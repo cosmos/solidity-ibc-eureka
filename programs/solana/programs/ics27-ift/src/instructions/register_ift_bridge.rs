@@ -1,0 +1,79 @@
+use anchor_lang::prelude::*;
+
+use crate::constants::*;
+use crate::errors::IFTError;
+use crate::events::IFTBridgeRegistered;
+use crate::state::{AccountVersion, IFTAppState, IFTBridge, RegisterIFTBridgeMsg};
+
+#[derive(Accounts)]
+#[instruction(msg: RegisterIFTBridgeMsg)]
+pub struct RegisterIFTBridge<'info> {
+    #[account(
+        mut,
+        seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
+        bump = app_state.bump,
+        constraint = !app_state.paused @ IFTError::AppPaused
+    )]
+    pub app_state: Account<'info, IFTAppState>,
+
+    /// IFT bridge PDA (to be created)
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + IFTBridge::INIT_SPACE,
+        seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), msg.client_id.as_bytes()],
+        bump
+    )]
+    pub ift_bridge: Account<'info, IFTBridge>,
+
+    /// Authority with admin role
+    /// TODO: Validate role via access manager CPI
+    pub authority: Signer<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+pub fn register_ift_bridge(ctx: Context<RegisterIFTBridge>, msg: RegisterIFTBridgeMsg) -> Result<()> {
+    // Validate inputs
+    require!(!msg.client_id.is_empty(), IFTError::EmptyClientId);
+    require!(
+        msg.client_id.len() <= MAX_CLIENT_ID_LENGTH,
+        IFTError::InvalidClientIdLength
+    );
+    require!(
+        !msg.counterparty_ift_address.is_empty(),
+        IFTError::EmptyCounterpartyAddress
+    );
+    require!(
+        msg.counterparty_ift_address.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+        IFTError::InvalidCounterpartyAddressLength
+    );
+
+    // TODO: Validate authority has required role via access manager CPI
+
+    let bridge = &mut ctx.accounts.ift_bridge;
+    bridge.version = AccountVersion::V1;
+    bridge.bump = ctx.bumps.ift_bridge;
+    bridge.mint = ctx.accounts.app_state.mint;
+    bridge.client_id.clone_from(&msg.client_id);
+    bridge.counterparty_ift_address.clone_from(&msg.counterparty_ift_address);
+    bridge.counterparty_chain_type = msg.counterparty_chain_type;
+    bridge.active = true;
+    bridge.total_transfers = 0;
+
+    ctx.accounts.app_state.total_bridges += 1;
+
+    let clock = Clock::get()?;
+    emit!(IFTBridgeRegistered {
+        mint: ctx.accounts.app_state.mint,
+        client_id: msg.client_id,
+        counterparty_ift_address: msg.counterparty_ift_address,
+        counterparty_chain_type: msg.counterparty_chain_type,
+        timestamp: clock.unix_timestamp,
+    });
+
+    Ok(())
+}

@@ -1,0 +1,41 @@
+[package]
+name = "ics27-ift"
+version.workspace = true
+description = "ICS27 Interchain Fungible Token (IFT) for Solana"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "ift", "anchor", "token"]
+categories = ["cryptography", "blockchain"]
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ics27_ift"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl.workspace = true
+solana-ibc-types.workspace = true
+solana-ibc-proto.workspace = true
+ics26-router = { workspace = true, features = ["cpi"] }
+ics27-gmp = { workspace = true, features = ["cpi"] }
+access-manager = { workspace = true, features = ["cpi"] }
+solana-sha256-hasher.workspace = true
+
+[dev-dependencies]
+mollusk-svm.workspace = true
+mollusk-svm-bencher.workspace = true
+solana-sdk.workspace = true
+bincode.workspace = true

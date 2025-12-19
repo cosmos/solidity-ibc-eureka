@@ -2104,6 +2104,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "ics27-ift"
+version = "0.1.0"
+dependencies = [
+ "access-manager",
+ "anchor-lang",
+ "anchor-spl",
+ "bincode",
+ "ics26-router",
+ "ics27-gmp",
+ "mollusk-svm",
+ "mollusk-svm-bencher",
+ "solana-ibc-proto",
+ "solana-ibc-types",
+ "solana-sdk",
+ "solana-sha256-hasher",
+]
+
+[[package]]
 name = "icu_collections"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
