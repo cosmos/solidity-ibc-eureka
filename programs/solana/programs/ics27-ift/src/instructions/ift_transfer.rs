@@ -4,6 +4,7 @@ use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTTransferInitiated;
+use crate::evm_selectors::IFT_MINT_SELECTOR;
 use crate::state::{CounterpartyChainType, IFTAppState, IFTBridge, IFTTransferMsg};
 
 #[derive(Accounts)]
@@ -142,8 +143,8 @@ fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     let mut payload = Vec::with_capacity(68);
 
     // Function selector: keccak256("iftMint(address,uint256)")[:4]
-    // iftMint(address,uint256) = 0x12345678 (placeholder - needs actual calculation)
-    payload.extend_from_slice(&[0x12, 0x34, 0x56, 0x78]);
+    // Generated at compile time by build.rs
+    payload.extend_from_slice(&IFT_MINT_SELECTOR);
 
     // Parse receiver as hex address (remove 0x prefix if present)
     let receiver_hex = receiver.trim_start_matches("0x");

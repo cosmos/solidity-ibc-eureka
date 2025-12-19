@@ -34,6 +34,9 @@ ics27-gmp = { workspace = true, features = ["cpi"] }
 access-manager = { workspace = true, features = ["cpi"] }
 solana-sha256-hasher.workspace = true
 
+[build-dependencies]
+solana-keccak-hasher.workspace = true
+
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
