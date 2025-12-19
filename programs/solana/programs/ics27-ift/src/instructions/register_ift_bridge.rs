@@ -26,9 +26,21 @@ pub struct RegisterIFTBridge<'info> {
     )]
     pub ift_bridge: Account<'info, IFTBridge>,
 
+    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     /// Authority with admin role
-    /// TODO: Validate role via access manager CPI
     pub authority: Signer<'info>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -37,6 +49,15 @@ pub struct RegisterIFTBridge<'info> {
 }
 
 pub fn register_ift_bridge(ctx: Context<RegisterIFTBridge>, msg: RegisterIFTBridgeMsg) -> Result<()> {
+    // Validate authority has ADMIN_ROLE via access manager
+    access_manager::require_role(
+        &ctx.accounts.access_manager,
+        solana_ibc_types::roles::ADMIN_ROLE,
+        &ctx.accounts.authority,
+        &ctx.accounts.instructions_sysvar,
+        &crate::ID,
+    )?;
+
     // Validate inputs
     require!(!msg.client_id.is_empty(), IFTError::EmptyClientId);
     require!(
@@ -51,8 +72,6 @@ pub fn register_ift_bridge(ctx: Context<RegisterIFTBridge>, msg: RegisterIFTBrid
         msg.counterparty_ift_address.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
         IFTError::InvalidCounterpartyAddressLength
     );
-
-    // TODO: Validate authority has required role via access manager CPI
 
     let bridge = &mut ctx.accounts.ift_bridge;
     bridge.version = AccountVersion::V1;

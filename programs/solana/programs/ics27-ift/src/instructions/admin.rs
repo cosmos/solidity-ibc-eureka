@@ -15,13 +15,32 @@ pub struct PauseApp<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     /// Admin with pause role
-    /// TODO: Validate role via access manager CPI
     pub admin: Signer<'info>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 pub fn pause_app(ctx: Context<PauseApp>) -> Result<()> {
-    // TODO: Validate admin has required role via access manager CPI
+    // Validate admin has PAUSER_ROLE via access manager
+    access_manager::require_role(
+        &ctx.accounts.access_manager,
+        solana_ibc_types::roles::PAUSER_ROLE,
+        &ctx.accounts.admin,
+        &ctx.accounts.instructions_sysvar,
+        &crate::ID,
+    )?;
 
     ctx.accounts.app_state.paused = true;
 
@@ -45,13 +64,32 @@ pub struct UnpauseApp<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     /// Admin with unpause role
-    /// TODO: Validate role via access manager CPI
     pub admin: Signer<'info>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 pub fn unpause_app(ctx: Context<UnpauseApp>) -> Result<()> {
-    // TODO: Validate admin has required role via access manager CPI
+    // Validate admin has UNPAUSER_ROLE via access manager
+    access_manager::require_role(
+        &ctx.accounts.access_manager,
+        solana_ibc_types::roles::UNPAUSER_ROLE,
+        &ctx.accounts.admin,
+        &ctx.accounts.instructions_sysvar,
+        &crate::ID,
+    )?;
 
     ctx.accounts.app_state.paused = false;
 
@@ -74,13 +112,32 @@ pub struct SetAccessManager<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
     /// Admin with admin role
-    /// TODO: Validate role via access manager CPI
     pub admin: Signer<'info>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 pub fn set_access_manager(ctx: Context<SetAccessManager>, new_access_manager: Pubkey) -> Result<()> {
-    // TODO: Validate admin has required role via access manager CPI
+    // Validate admin has ADMIN_ROLE via access manager
+    access_manager::require_role(
+        &ctx.accounts.access_manager,
+        solana_ibc_types::roles::ADMIN_ROLE,
+        &ctx.accounts.admin,
+        &ctx.accounts.instructions_sysvar,
+        &crate::ID,
+    )?;
 
     ctx.accounts.app_state.access_manager = new_access_manager;
 
