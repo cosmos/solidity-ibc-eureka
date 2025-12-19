@@ -54,6 +54,9 @@ pub struct OnTimeoutPacket<'info> {
     )]
     pub sender_token_account: Account<'info, TokenAccount>,
 
+    /// Router program calling this instruction
+    pub router_program: Program<'info, ics26_router::program::Ics26Router>,
+
     /// CHECK: Instructions sysvar for CPI validation
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
@@ -69,8 +72,13 @@ pub fn on_timeout_packet(
     ctx: Context<OnTimeoutPacket>,
     _msg: solana_ibc_types::OnTimeoutPacketMsg,
 ) -> Result<()> {
-    // TODO: Validate CPI caller is router
-    // For now, we skip validation in the initial implementation
+    // Verify this function is called via CPI from the authorized router
+    solana_ibc_types::validate_cpi_caller(
+        &ctx.accounts.instruction_sysvar,
+        &ctx.accounts.router_program.key(),
+        &crate::ID,
+    )
+    .map_err(IFTError::from)?;
 
     let pending = &ctx.accounts.pending_transfer;
     let clock = Clock::get()?;
