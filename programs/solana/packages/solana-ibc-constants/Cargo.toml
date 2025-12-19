@@ -1,0 +1,16 @@
+[package]
+name = "solana-ibc-constants"
+version.workspace = true
+edition.workspace = true
+description = "Constants and program IDs for IBC on Solana"
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "constants"]
+categories = ["cryptography", "blockchain"]
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+# No dependencies needed - just constants

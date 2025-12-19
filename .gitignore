@@ -3,6 +3,7 @@ cache
 coverage
 node_modules
 out
+tmp
 
 # files
 *.env
@@ -28,6 +29,7 @@ broadcast/*/31337/
 .idea/
 *.iml
 *.code-workspace
+.vscode
 CLAUDE.md
 
 # Rust
@@ -40,3 +42,10 @@ bacon.toml
 programs/relayer/config.json
 scripts/genesis.json
 network_params.yaml
+test-ledger
+
+# Solana keypairs - only localnet is tracked for E2E tests
+solana-keypairs/**/*
+!solana-keypairs/localnet/
+!solana-keypairs/localnet/**
+!solana-keypairs/**/.gitkeep

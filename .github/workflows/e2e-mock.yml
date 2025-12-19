@@ -24,6 +24,9 @@ env:
   ETH_TESTNET_TYPE: pow
   SP1_PROVER: mock
   E2E_PROOF_TYPE: groth16
+  SOLANA_VERSION: "2.1.17"
+  ANCHOR_VERSION: "0.32.1"
+
 permissions:
   contents: read
 

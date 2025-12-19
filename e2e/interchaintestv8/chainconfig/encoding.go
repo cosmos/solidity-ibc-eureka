@@ -53,6 +53,7 @@ func codecAndEncodingConfig() (*codec.ProtoCodec, sdktestutil.TestEncodingConfig
 	cfg := sdktestutil.MakeTestEncodingConfig()
 
 	// ibc types
+	gmptypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	icacontrollertypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	icahosttypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	solomachine.RegisterInterfaces(cfg.InterfaceRegistry)
