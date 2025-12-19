@@ -17,7 +17,10 @@ use solana_sdk::{
 };
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
-use solana_ibc_types::router::{IBCApp, RouterState};
+use solana_ibc_types::{
+    router::{IBCApp, RouterState},
+    Client,
+};
 
 use super::{DEFAULT_PRIORITY_FEE, MAX_COMPUTE_UNIT_LIMIT};
 
@@ -85,6 +88,42 @@ impl super::TxBuilder {
         Ok(ibc_app.app_program_id)
     }
 
+    /// Resolve the light client program id.
+    pub(crate) fn resolve_client_program_id(&self, client_id: &str) -> Result<Pubkey> {
+        let (client_account, _) = Client::pda(client_id, self.solana_ics26_program_id);
+
+        let account = self
+            .target_solana_client
+            .get_account_with_commitment(&client_account, CommitmentConfig::confirmed())
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to fetch Client account for client '{}': {e}",
+                    client_id
+                )
+            })?
+            .value
+            .ok_or_else(|| {
+                anyhow::anyhow!("Client account not found for client '{}'", client_id)
+            })?;
+
+        if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
+            return Err(anyhow::anyhow!("Account data too short for Client account"));
+        }
+
+        // Deserialize Client account using borsh (skip discriminator)
+        let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
+        let client = solana_ibc_types::ClientAccount::deserialize(&mut data)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize Client account: {e}"))?;
+
+        tracing::info!(
+            "Resolved client '{}' to light client program ID: {}",
+            client_id,
+            client.client_program_id
+        );
+
+        Ok(client.client_program_id)
+    }
+
     /// Get chain ID from Cosmos
     pub(crate) async fn chain_id(&self) -> Result<String> {
         use tendermint_rpc::Client as _;
@@ -102,10 +141,11 @@ impl super::TxBuilder {
     pub(crate) fn cosmos_client_state(
         &self,
         chain_id: &str,
+        solana_ics07_program_id: Pubkey,
     ) -> Result<solana_ibc_types::ics07::ClientState> {
         use solana_ibc_types::ics07::ClientState;
 
-        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+        let (client_state_pda, _) = ClientState::pda(chain_id, solana_ics07_program_id);
 
         let account = self
             .target_solana_client

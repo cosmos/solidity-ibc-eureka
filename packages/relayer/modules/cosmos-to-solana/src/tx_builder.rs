@@ -119,8 +119,6 @@ pub struct TxBuilder {
     pub target_solana_client: Arc<RpcClient>,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: Pubkey,
-    /// The Solana ICS07 program ID.
-    pub solana_ics07_program_id: Pubkey,
     /// The fee payer address for transactions.
     pub fee_payer: Pubkey,
     /// Address Lookup Table address for reducing transaction size (optional).
@@ -138,7 +136,6 @@ impl TxBuilder {
     pub const fn new(
         src_tm_client: tendermint_rpc::HttpClient,
         target_solana_client: Arc<RpcClient>,
-        solana_ics07_program_id: Pubkey,
         solana_ics26_program_id: Pubkey,
         fee_payer: Pubkey,
         alt_address: Option<Pubkey>,
@@ -148,7 +145,6 @@ impl TxBuilder {
             src_tm_client,
             target_solana_client,
             solana_ics26_program_id,
-            solana_ics07_program_id,
             fee_payer,
             alt_address,
             skip_pre_verify_threshold,
@@ -195,8 +191,9 @@ impl TxBuilder {
     pub async fn update_client(&self, dst_client_id: String) -> Result<api::SolanaUpdateClient> {
         const ALT_EXTEND_BATCH_SIZE: usize = 20;
 
+        let solana_ics07_program_id = self.resolve_client_program_id(&dst_client_id)?;
         let chain_id = self.chain_id().await?;
-        let client_state = self.cosmos_client_state(&chain_id)?;
+        let client_state = self.cosmos_client_state(&chain_id, solana_ics07_program_id)?;
 
         let TmUpdateClientParams {
             target_height,
@@ -244,7 +241,12 @@ impl TxBuilder {
                 MAX_ACCOUNTS_WITHOUT_ALT
             );
 
-            let chunk_txs = self.build_chunk_transactions(&chunks, &chain_id, target_height)?;
+            let chunk_txs = self.build_chunk_transactions(
+                &chunks,
+                &chain_id,
+                target_height,
+                solana_ics07_program_id,
+            )?;
 
             let assembly_tx = self.build_assemble_and_update_client_tx(
                 &chain_id,
@@ -253,9 +255,16 @@ impl TxBuilder {
                 total_chunks,
                 &[],
                 None,
+                solana_ics07_program_id,
             )?;
 
-            let cleanup_tx = self.build_cleanup_tx(&chain_id, target_height, total_chunks, &[])?;
+            let cleanup_tx = self.build_cleanup_tx(
+                &chain_id,
+                target_height,
+                total_chunks,
+                &[],
+                solana_ics07_program_id,
+            )?;
 
             return Ok(api::SolanaUpdateClient {
                 chunk_txs,
@@ -274,10 +283,17 @@ impl TxBuilder {
 
         let mut prep_txs: Vec<Vec<u8>> = signature_data
             .iter()
-            .map(|sig_data| self.build_pre_verify_signature_transaction(sig_data))
+            .map(|sig_data| {
+                self.build_pre_verify_signature_transaction(sig_data, solana_ics07_program_id)
+            })
             .collect::<Result<Vec<_>>>()?;
 
-        prep_txs.extend(self.build_chunk_transactions(&chunks, &chain_id, target_height)?);
+        prep_txs.extend(self.build_chunk_transactions(
+            &chunks,
+            &chain_id,
+            target_height,
+            solana_ics07_program_id,
+        )?);
 
         let slot = self
             .target_solana_client
@@ -285,17 +301,11 @@ impl TxBuilder {
 
         let alt_create_tx = self.build_create_alt_tx(slot)?;
 
-        let (client_state_pda, _) = ClientState::pda(&chain_id, self.solana_ics07_program_id);
-        let (trusted_consensus_state, _) = ConsensusState::pda(
-            client_state_pda,
-            trusted_height,
-            self.solana_ics07_program_id,
-        );
-        let (new_consensus_state, _) = ConsensusState::pda(
-            client_state_pda,
-            target_height,
-            self.solana_ics07_program_id,
-        );
+        let (client_state_pda, _) = ClientState::pda(&chain_id, solana_ics07_program_id);
+        let (trusted_consensus_state, _) =
+            ConsensusState::pda(client_state_pda, trusted_height, solana_ics07_program_id);
+        let (new_consensus_state, _) =
+            ConsensusState::pda(client_state_pda, target_height, solana_ics07_program_id);
 
         let mut alt_accounts = vec![
             client_state_pda,
@@ -311,7 +321,7 @@ impl TxBuilder {
                 &chain_id,
                 target_height,
                 chunk_index,
-                self.solana_ics07_program_id,
+                solana_ics07_program_id,
             )
             .0
         }));
@@ -319,7 +329,7 @@ impl TxBuilder {
         alt_accounts.extend(signature_data.iter().map(|sig_data| {
             Pubkey::find_program_address(
                 &[b"sig_verify", &sig_data.signature_hash],
-                &self.solana_ics07_program_id,
+                &solana_ics07_program_id,
             )
             .0
         }));
@@ -336,10 +346,16 @@ impl TxBuilder {
             total_chunks,
             &signature_data,
             Some((slot, alt_accounts)),
+            solana_ics07_program_id,
         )?;
 
-        let cleanup_tx =
-            self.build_cleanup_tx(&chain_id, target_height, total_chunks, &signature_data)?;
+        let cleanup_tx = self.build_cleanup_tx(
+            &chain_id,
+            target_height,
+            total_chunks,
+            &signature_data,
+            solana_ics07_program_id,
+        )?;
 
         Ok(api::SolanaUpdateClient {
             chunk_txs: prep_txs,
@@ -374,8 +390,9 @@ impl TxBuilder {
             dst_packet_seqs,
         } = params;
 
+        let solana_ics07_program_id = self.resolve_client_program_id(&dst_client_id)?;
         let chain_id = self.chain_id().await?;
-        let client_state = self.cosmos_client_state(&chain_id)?;
+        let client_state = self.cosmos_client_state(&chain_id, solana_ics07_program_id)?;
 
         let proof_height = proof_height_override.map_or_else(
             || {
@@ -482,14 +499,19 @@ impl TxBuilder {
         &self,
         params: RelayParams,
     ) -> Result<(Vec<SolanaPacketTxs>, Option<api::SolanaUpdateClient>)> {
+        let solana_ics07_program_id = self.resolve_client_program_id(&params.dst_client_id)?;
         let chain_id = self.chain_id().await?;
-        let client_state = self.cosmos_client_state(&chain_id)?;
+        let client_state = self.cosmos_client_state(&chain_id, solana_ics07_program_id)?;
         let current_height = client_state.latest_height.revision_height;
 
         let max_timeout_ts = Self::max_timeout_timestamp(&params.dest_events);
         let consensus_ts = max_timeout_ts.and_then(|_| {
-            self.get_consensus_state_timestamp_secs(&chain_id, current_height)
-                .ok()
+            self.get_consensus_state_timestamp_secs(
+                &chain_id,
+                current_height,
+                solana_ics07_program_id,
+            )
+            .ok()
         });
 
         let update_client = match Self::needs_update_client(
@@ -526,10 +548,15 @@ impl TxBuilder {
             .max()
     }
 
-    fn get_consensus_state_timestamp_secs(&self, chain_id: &str, height: u64) -> Result<u64> {
-        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+    fn get_consensus_state_timestamp_secs(
+        &self,
+        chain_id: &str,
+        height: u64,
+        solana_ics07_program_id: Pubkey,
+    ) -> Result<u64> {
+        let (client_state_pda, _) = ClientState::pda(chain_id, solana_ics07_program_id);
         let (consensus_state_pda, _) =
-            ConsensusState::pda(client_state_pda, height, self.solana_ics07_program_id);
+            ConsensusState::pda(client_state_pda, height, solana_ics07_program_id);
 
         let account = self
             .target_solana_client

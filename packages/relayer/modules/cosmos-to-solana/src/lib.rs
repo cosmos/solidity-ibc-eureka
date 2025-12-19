@@ -18,7 +18,6 @@ use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
-use solana_sdk::pubkey::Pubkey;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
@@ -40,8 +39,6 @@ struct CosmosToSolanaRelayerModuleService {
     pub target_listener: solana::ChainListener,
     /// The transaction builder from Cosmos to Solana.
     pub tx_builder: tx_builder::TxBuilder,
-    /// The Solana ICS07 program ID.
-    pub solana_ics07_program_id: Pubkey,
 }
 
 /// The configuration for the Cosmos to Solana relayer module.
@@ -53,8 +50,6 @@ pub struct CosmosToSolanaConfig {
     pub target_rpc_url: String,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: String,
-    /// The Solana ICS07 Tendermint light client program ID.
-    pub solana_ics07_program_id: String,
     /// The Solana fee payer address.
     pub solana_fee_payer: String,
     /// Address Lookup Table address for reducing transaction size (optional).
@@ -86,11 +81,6 @@ impl CosmosToSolanaRelayerModuleService {
             .parse()
             .map_err(|e| anyhow::anyhow!("Invalid Solana ICS26 program ID: {e}"))?;
 
-        let solana_ics07_program_id: Pubkey = config
-            .solana_ics07_program_id
-            .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid Solana ICS07 program ID: {e}"))?;
-
         let target_listener =
             solana::ChainListener::new(config.target_rpc_url.clone(), solana_ics26_program_id);
 
@@ -109,7 +99,6 @@ impl CosmosToSolanaRelayerModuleService {
         let tx_builder = tx_builder::TxBuilder::new(
             src_listener.client().clone(),
             target_listener.client().clone(),
-            solana_ics07_program_id,
             solana_ics26_program_id,
             fee_payer,
             alt_address,
@@ -120,7 +109,6 @@ impl CosmosToSolanaRelayerModuleService {
             src_listener,
             target_listener,
             tx_builder,
-            solana_ics07_program_id,
         })
     }
 }
@@ -240,7 +228,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         Ok(Response::new(api::CreateClientResponse {
             tx,
-            address: self.solana_ics07_program_id.to_string(),
+            address: String::new(),
         }))
     }
 
@@ -265,7 +253,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         Ok(Response::new(api::UpdateClientResponse {
             tx,
-            address: self.solana_ics07_program_id.to_string(),
+            address: String::new(),
         }))
     }
 }
