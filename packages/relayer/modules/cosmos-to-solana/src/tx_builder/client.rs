@@ -61,6 +61,7 @@ impl super::TxBuilder {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn build_assemble_and_update_client_tx(
         &self,
         chain_id: &str,

@@ -96,15 +96,10 @@ impl super::TxBuilder {
             .target_solana_client
             .get_account_with_commitment(&client_account, CommitmentConfig::confirmed())
             .map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to fetch Client account for client '{}': {e}",
-                    client_id
-                )
+                anyhow::anyhow!("Failed to fetch Client account for client '{client_id}': {e}",)
             })?
             .value
-            .ok_or_else(|| {
-                anyhow::anyhow!("Client account not found for client '{}'", client_id)
-            })?;
+            .ok_or_else(|| anyhow::anyhow!("Client account not found for client '{client_id}'"))?;
 
         if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
             return Err(anyhow::anyhow!("Account data too short for Client account"));
@@ -116,8 +111,7 @@ impl super::TxBuilder {
             .map_err(|e| anyhow::anyhow!("Failed to deserialize Client account: {e}"))?;
 
         tracing::info!(
-            "Resolved client '{}' to light client program ID: {}",
-            client_id,
+            "Resolved client '{client_id}' to light client program ID: {}",
             client.client_program_id
         );
 
