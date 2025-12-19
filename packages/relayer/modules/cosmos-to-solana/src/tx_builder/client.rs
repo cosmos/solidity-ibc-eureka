@@ -24,14 +24,15 @@ impl super::TxBuilder {
         consensus_state: &ConsensusState,
         access_manager: Pubkey,
     ) -> Result<Instruction> {
-        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
-        let (consensus_state_pda, _) = ConsensusState::pda(
-            client_state_pda,
-            latest_height,
-            self.solana_ics07_program_id,
-        );
-        let (app_state_pda, _) =
-            solana_ibc_types::ics07::AppState::pda(self.solana_ics07_program_id);
+        // For create_client, we use the default ICS07 Tendermint light client.
+        let solana_ics07_program_id: Pubkey = solana_ibc_constants::ICS07_TENDERMINT_ID
+            .parse()
+            .expect("Invalid ICS07_TENDERMINT_ID constant");
+
+        let (client_state_pda, _) = ClientState::pda(chain_id, solana_ics07_program_id);
+        let (consensus_state_pda, _) =
+            ConsensusState::pda(client_state_pda, latest_height, solana_ics07_program_id);
+        let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
 
         let accounts = vec![
             AccountMeta::new(client_state_pda, false),
@@ -54,12 +55,13 @@ impl super::TxBuilder {
         instruction_data.extend_from_slice(&access_manager.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: self.solana_ics07_program_id,
+            program_id: solana_ics07_program_id,
             accounts,
             data: instruction_data,
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn build_assemble_and_update_client_tx(
         &self,
         chain_id: &str,
@@ -68,24 +70,18 @@ impl super::TxBuilder {
         total_chunks: u8,
         signature_data: &[SignatureData],
         alt_config: Option<(u64, Vec<Pubkey>)>,
+        solana_ics07_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
         use super::transaction::derive_alt_address;
         use solana_ibc_types::AccessManager;
 
-        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
-        let (trusted_consensus_state, _) = ConsensusState::pda(
-            client_state_pda,
-            trusted_height,
-            self.solana_ics07_program_id,
-        );
-        let (new_consensus_state, _) = ConsensusState::pda(
-            client_state_pda,
-            target_height,
-            self.solana_ics07_program_id,
-        );
+        let (client_state_pda, _) = ClientState::pda(chain_id, solana_ics07_program_id);
+        let (trusted_consensus_state, _) =
+            ConsensusState::pda(client_state_pda, trusted_height, solana_ics07_program_id);
+        let (new_consensus_state, _) =
+            ConsensusState::pda(client_state_pda, target_height, solana_ics07_program_id);
 
-        let (app_state_pda, _) =
-            solana_ibc_types::ics07::AppState::pda(self.solana_ics07_program_id);
+        let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);
@@ -107,7 +103,7 @@ impl super::TxBuilder {
                 chain_id,
                 target_height,
                 chunk_index,
-                self.solana_ics07_program_id,
+                solana_ics07_program_id,
             );
             AccountMeta::new(chunk_pda, false)
         }));
@@ -115,7 +111,7 @@ impl super::TxBuilder {
         accounts.extend(signature_data.iter().map(|sig_data| {
             let (sig_verify_pda, _) = Pubkey::find_program_address(
                 &[b"sig_verify", &sig_data.signature_hash],
-                &self.solana_ics07_program_id,
+                &solana_ics07_program_id,
             );
             AccountMeta::new_readonly(sig_verify_pda, false)
         }));
@@ -129,7 +125,7 @@ impl super::TxBuilder {
         data.extend_from_slice(&[total_chunks]);
 
         let ix = Instruction {
-            program_id: self.solana_ics07_program_id,
+            program_id: solana_ics07_program_id,
             accounts,
             data,
         };
@@ -152,6 +148,7 @@ impl super::TxBuilder {
         target_height: u64,
         total_chunks: u8,
         signature_data: &[SignatureData],
+        solana_ics07_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
         let mut accounts = vec![AccountMeta::new(self.fee_payer, true)];
 
@@ -161,7 +158,7 @@ impl super::TxBuilder {
                 chain_id,
                 target_height,
                 chunk_index,
-                self.solana_ics07_program_id,
+                solana_ics07_program_id,
             );
             AccountMeta::new(chunk_pda, false)
         }));
@@ -169,7 +166,7 @@ impl super::TxBuilder {
         accounts.extend(signature_data.iter().map(|sig_data| {
             let (sig_verify_pda, _) = Pubkey::find_program_address(
                 &[b"sig_verify", &sig_data.signature_hash],
-                &self.solana_ics07_program_id,
+                &solana_ics07_program_id,
             );
             AccountMeta::new(sig_verify_pda, false)
         }));
@@ -178,7 +175,7 @@ impl super::TxBuilder {
         data.extend_from_slice(&self.fee_payer.try_to_vec()?);
 
         let instruction = Instruction {
-            program_id: self.solana_ics07_program_id,
+            program_id: solana_ics07_program_id,
             accounts,
             data,
         };
@@ -195,6 +192,7 @@ impl super::TxBuilder {
         target_height: u64,
         chunk_index: u8,
         chunk_data: Vec<u8>,
+        solana_ics07_program_id: Pubkey,
     ) -> Result<Instruction> {
         let params = UploadChunkParams {
             chain_id: chain_id.to_string(),
@@ -203,13 +201,13 @@ impl super::TxBuilder {
             chunk_data,
         };
 
-        let (client_state_pda, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+        let (client_state_pda, _) = ClientState::pda(chain_id, solana_ics07_program_id);
         let (chunk_pda, _) = derive_header_chunk(
             self.fee_payer,
             chain_id,
             target_height,
             chunk_index,
-            self.solana_ics07_program_id,
+            solana_ics07_program_id,
         );
 
         let accounts = vec![
@@ -223,7 +221,7 @@ impl super::TxBuilder {
         data.extend_from_slice(&params.try_to_vec()?);
 
         Ok(Instruction {
-            program_id: self.solana_ics07_program_id,
+            program_id: solana_ics07_program_id,
             accounts,
             data,
         })
@@ -234,6 +232,7 @@ impl super::TxBuilder {
         chunks: &[Vec<u8>],
         chain_id: &str,
         target_height: u64,
+        light_client_program_id: Pubkey,
     ) -> Result<Vec<Vec<u8>>> {
         chunks
             .iter()
@@ -246,6 +245,7 @@ impl super::TxBuilder {
                     target_height,
                     chunk_index,
                     chunk_data.clone(),
+                    light_client_program_id,
                 )?;
                 self.create_tx_bytes(&[upload_ix])
             })
@@ -421,6 +421,7 @@ impl super::TxBuilder {
     pub(crate) fn build_pre_verify_signature_transaction(
         &self,
         sig_data: &SignatureData,
+        solana_ics07_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
         let mut instruction_data = vec![
             1u8, // number of signatures
@@ -461,7 +462,7 @@ impl super::TxBuilder {
 
         let (sig_verify_pda, _) = Pubkey::find_program_address(
             &[b"sig_verify", &sig_data.signature_hash],
-            &self.solana_ics07_program_id,
+            &solana_ics07_program_id,
         );
 
         let accounts = vec![
@@ -477,7 +478,7 @@ impl super::TxBuilder {
         data.extend_from_slice(&params_data);
 
         let pre_verify_ix = Instruction {
-            program_id: self.solana_ics07_program_id,
+            program_id: solana_ics07_program_id,
             accounts,
             data,
         };

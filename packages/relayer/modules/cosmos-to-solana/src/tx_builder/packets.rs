@@ -78,9 +78,13 @@ impl super::TxBuilder {
             self.solana_ics26_program_id,
         );
         let (client, _) = Client::pda(&msg.packet.dest_client, self.solana_ics26_program_id);
-        let (client_state, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+
+        // Resolve the light client program ID for this client
+        let solana_ics07_program_id = self.resolve_client_program_id(&msg.packet.dest_client)?;
+
+        let (client_state, _) = ClientState::pda(chain_id, solana_ics07_program_id);
         let (consensus_state, _) =
-            ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
+            ConsensusState::pda(client_state, msg.proof.height, solana_ics07_program_id);
 
         let ibc_app_program_id = self.resolve_port_program_id(payload_info.dest_port)?;
         let (ibc_app_state, _) = IBCAppState::pda(payload_info.dest_port, ibc_app_program_id);
@@ -100,7 +104,7 @@ impl super::TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
             AccountMeta::new_readonly(client, false),
-            AccountMeta::new_readonly(self.solana_ics07_program_id, false),
+            AccountMeta::new_readonly(solana_ics07_program_id, false),
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
@@ -166,10 +170,13 @@ impl super::TxBuilder {
         );
         let (client, _) = Client::pda(&msg.packet.source_client, self.solana_ics26_program_id);
 
+        // Resolve the light client program ID for this client
+        let solana_ics07_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
+
         let chain_id = self.chain_id().await?;
-        let (client_state, _) = ClientState::pda(&chain_id, self.solana_ics07_program_id);
+        let (client_state, _) = ClientState::pda(&chain_id, solana_ics07_program_id);
         let (consensus_state, _) =
-            ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
+            ConsensusState::pda(client_state, msg.proof.height, solana_ics07_program_id);
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);
@@ -186,7 +193,7 @@ impl super::TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
             AccountMeta::new_readonly(client, false),
-            AccountMeta::new_readonly(self.solana_ics07_program_id, false),
+            AccountMeta::new_readonly(solana_ics07_program_id, false),
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
@@ -253,9 +260,12 @@ impl super::TxBuilder {
         let ibc_app_program_id = self.resolve_port_program_id(source_port)?;
         let (ibc_app_state, _) = IBCAppState::pda(source_port, ibc_app_program_id);
         let (client, _) = Client::pda(&msg.packet.source_client, self.solana_ics26_program_id);
-        let (client_state, _) = ClientState::pda(chain_id, self.solana_ics07_program_id);
+
+        // Resolve the light client program ID for this client
+        let solana_ics07_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
+        let (client_state, _) = ClientState::pda(chain_id, solana_ics07_program_id);
         let (consensus_state, _) =
-            ConsensusState::pda(client_state, msg.proof.height, self.solana_ics07_program_id);
+            ConsensusState::pda(client_state, msg.proof.height, solana_ics07_program_id);
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);
@@ -272,7 +282,7 @@ impl super::TxBuilder {
             consensus_state,
             fee_payer: self.fee_payer,
             router_program_id: self.solana_ics26_program_id,
-            light_client_program_id: self.solana_ics07_program_id,
+            light_client_program_id: solana_ics07_program_id,
             chunk_accounts,
         }))
     }
