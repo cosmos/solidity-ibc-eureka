@@ -275,13 +275,57 @@ Per account rent: ~0.01 SOL (refundable when account closed)
 4. **Access Control**: Role-based permissions via access-manager
 5. **Commitment Integrity**: Only router can create/close commitment PDAs
 
+## Byte Encoding and Sequence Calculation
+
+### Namespaced Sequence Calculation
+
+The sequence used in packet PDAs is NOT a simple incrementing counter. It uses a namespaced formula for collision resistance:
+
+```
+sequence = base_sequence * 10000 + suffix
+
+where:
+  suffix = SHA256(app_program_id || sender)[0..2] % 10000
+```
+
+**Purpose**: Creates unique sequence ranges per `(app_program, sender)` pair, preventing collisions when multiple apps/senders send packets concurrently.
+
+**Example** (with suffix `1234`):
+- `base_sequence = 1` → `sequence = 11234`
+- `base_sequence = 2` → `sequence = 21234`
+- Same `(app, sender)` always produces the same suffix
+
+**Implementation**: `programs/solana/programs/ics26-router/src/utils/sequence.rs`
+
+### PDA Seed Encoding (Little-Endian)
+
+All numeric values in PDA seeds use **little-endian** encoding (`to_le_bytes()`).
+
+**Example**: sequence `1` → `[0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]`
+
+### IBC Commitment Path Encoding (Big-Endian)
+
+IBC commitment paths (for cross-chain proofs) use **big-endian** per IBC spec:
+
+```
+// Packet commitment path: sourceClient + 0x01 + sequence (big-endian)
+// Receipt path: destClient + 0x02 + sequence (big-endian)
+// Ack path: destClient + 0x03 + sequence (big-endian)
+```
+
+**Example**: sequence `1` → `[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]`
+
+### Sequence Management
+
+- **Base sequence**: Stored in `ClientSequence` PDA, starts at 1 (per IBC spec)
+- **Increment**: Base sequence incremented atomically on each `send_packet`
+- **Type**: u64, allowing ~1.8 × 10^15 packets per `(client, app, sender)` triple
+
 ## Configuration Constants
 
-```rust
-pub const CHUNK_DATA_SIZE: usize = 900;
-pub const MAX_CLIENT_ID_LENGTH: usize = 64;
-pub const MAX_PORT_ID_LENGTH: usize = 128;
-```
+- **CHUNK_DATA_SIZE**: 900 bytes (maximum chunk size for uploads)
+- **MAX_CLIENT_ID_LENGTH**: 64 bytes
+- **MAX_PORT_ID_LENGTH**: 128 bytes
 
 ## Future Considerations
 
