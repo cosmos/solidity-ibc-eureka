@@ -1,7 +1,8 @@
 # ADR: Solana IBC Storage Architecture
 
-**Status**: Proposed
+**Status**: Implemented
 **Date**: 2025-06-17
+**Updated**: 2025-12-19
 
 ## Context
 
@@ -9,299 +10,286 @@ The Solana IBC implementation requires efficient storage mechanisms for both lig
 
 ## Decision
 
-We will implement a PDA-based storage architecture with pruning strategies for both consensus states and packet commitments, maximizing rent reclamation.
+We implement a PDA-based storage architecture with chunked storage for large data that exceeds Solana's transaction size limits.
 
-### Key Insight: Everything is Temporary
+### Key Design Principles
 
-Both consensus states and packets have limited useful lifetimes:
-- **Consensus states**: Only recent states needed for active packet verification
-- **Packets**: Only needed from send → acknowledge/timeout
+1. **PDA-Based Storage**: All state stored in Program Derived Addresses
+2. **Chunked Uploads**: Large data (headers, proofs, payloads) split into ~900-byte chunks
+3. **Rent Reclamation**: Temporary accounts (chunks, commitments) closed after use
+4. **Access Control**: Centralized access-manager program for role-based permissions
 
-This enables aggressive pruning with rent reclamation for both.
+## Storage Architecture
 
-### Storage Strategy Comparison
+### 1. ICS07-Tendermint Light Client Storage
 
-**Consensus States:**
-- **Storage**: Rolling window of 100 most recent states per client
-- **Lifetime**: Hours to days
-- **Pruning**: Close old PDAs when window slides
-- **Cost**: ~0.2 SOL per client (constant, not annual)
-
-**Packets:**
-- **Storage**: Bitmap for status + PDAs for commitments
-- **Lifetime**: Minutes to hours
-- **Pruning**: Close PDAs on finalization
-- **Cost**: ~0.002 SOL per active packet (temporary)
-
-**Cost Example (1000 packets/day, 1000 consensus states/day):**
+**Client State PDA:**
 ```
-Traditional (no pruning):
-- Consensus: 1000/day × 365 = 365,000 PDAs × 0.002 = 730 SOL/year
-- Packets: 1000/day × 365 = 365,000 PDAs × 0.002 = 730 SOL/year
-- Total: 1,460 SOL/year
-
-With pruning:
-- Consensus: 100 PDAs × 0.002 × 10 clients = 2 SOL (one-time)
-- Packets: ~100 active × 0.002 = 0.2 SOL (rotating)
-- Total: 2.2 SOL constant + transaction fees
-
-Savings: 664x reduction
+Seeds: [b"client", chain_id.as_bytes()]
 ```
+Stores:
+- `chain_id`: String (max 64 bytes)
+- `trust_level_numerator`, `trust_level_denominator`: u64
+- `trusting_period`, `unbonding_period`, `max_clock_drift`: u64
+- `frozen_height`, `latest_height`: IbcHeight { revision_number, revision_height }
 
-### 1. Tendermint Light Client Storage (Prunable PDAs)
-
-**Rationale**: IBC verification only requires recent consensus states. Older states can be pruned.
-
-**Structure:**
-- Client state PDA: `["client", client_id]` - tracks latest and earliest heights
-- Consensus state PDAs: `["consensus_state", client_id, height_bytes]` - rolling window
-- Window size: 100 consensus states (configurable)
-
-**Pruning Logic:**
+**Consensus State PDAs:**
 ```
-When adding consensus state at height H:
-1. Create PDA for height H
-2. Update client state (latest_height = H)
-3. If window full (>100 states):
-   - Close PDA for height (H - 100)
-   - Update earliest_height in client state
-   - Reclaim ~0.002 SOL rent
+Seeds: [b"consensus_state", client_state_pubkey.as_ref(), height.to_le_bytes()]
 ```
+Stores:
+- `height`: u64
+- `consensus_state`: ConsensusState
+  - `timestamp`: u64 (nanoseconds since Unix epoch)
+  - `root`: [u8; 32] (commitment root)
+  - `next_validators_hash`: [u8; 32]
 
-**Why 100 States is Appropriate:**
-- High-frequency chains update every ~86 seconds (1000/day)
-- 100 states × 86 seconds = ~2.4 hours of history
-- Sufficient for packet finalization even with delays
-- Balances storage cost vs operational safety
-
-### 2. Packet Storage (Bitmap + Temporary PDAs)
-
-**Rationale**: Combine fast lookups via bitmap with rent-efficient PDA storage.
-
-**Router State Structure:**
-- Bitmap tracks packet status (1 bit per packet)
-- Window size: 10,000 packets
-- Router account size: ~2KB
-
-**Packet Commitment PDAs:**
-- Seeds: `["packet_commitment", channel_id, sequence_bytes]`
-- Created on send, closed on acknowledge/timeout
-- Rent (~0.002 SOL) fully reclaimed
-
-**State Transitions:**
+**App State PDA:**
 ```
-Send: Set bit → Create PDA → Emit event
-Acknowledge: Clear bit → Close PDA → Reclaim rent
-Timeout: Verify → Clear bit → Close PDA → Reclaim rent
+Seeds: [b"app_state"]
 ```
+Stores:
+- `access_manager`: Pubkey
+- `_reserved`: [u8; 256]
 
-### 3. Sequence Management
+### 2. ICS26-Router Storage
 
-**SequenceLock PDA:**
-- Seeds: `["sequence_lock", channel_id]`
-- Ensures sequence uniqueness
-- Serializes packet sends via Solana runtime
-
-### 4. Non-Membership Proofs (Destination Chain)
-
-**Rationale**: Prove packet was NOT received for timeout processing.
-
-**Approach:**
-- Bitmap in router tracks received packets
-- Periodic merkle commitments of bitmap chunks (every 100 packets)
-- Commitment PDAs: `["recv_commitment", channel_id, chunk_start_bytes]`
-
-**Pruning:**
-- Commitments can be closed after IBC challenge period
-- Typically 1-2 days retention sufficient
-
-### 5. Off-chain Archival System (optional)
-
-**Rationale**: Historical packet data needed for debugging/compliance but not for protocol operation
-
-**Archive Process**:
-1. Monitor window for sliding conditions
-2. Before sliding, collect all packet data from events
-3. Extract active packet sequences that will move to overflow
-4. Compute merkle root of archived packets
-5. Upload bundle to off-chain storage (IPFS/Arweave/S3)
-6. Store reference on-chain (optional)
-
-**Archive Bundle Structure**:
+**Router State PDA:**
 ```
-{
-  window_start: u64,
-  window_end: u64,
-  packets: Vec<PacketData>,        // From events
-  merkle_root: [u8; 32],           // For verification
-  active_sequences: Vec<u64>,      // Still in-flight packets
-  archived_at: i64,
-}
+Seeds: [b"router_state"]
+```
+Stores:
+- `version`: AccountVersion
+- `access_manager`: Pubkey
+- `_reserved`: [u8; 256]
+
+**Client Registry PDA:**
+```
+Seeds: [b"client", client_id.as_bytes()]
+```
+Stores:
+- `version`: AccountVersion
+- `client_id`: String (max 64 bytes)
+- `client_program_id`: Pubkey (light client program)
+- `counterparty_info`: CounterpartyInfo { client_id, merkle_prefix }
+- `active`: bool
+- `_reserved`: [u8; 256]
+
+**Client Sequence PDA:**
+```
+Seeds: [b"client_sequence", client_id.as_bytes()]
+```
+Stores:
+- `version`: AccountVersion
+- `next_sequence_send`: u64 (starts at 1 per IBC spec)
+- `_reserved`: [u8; 256]
+
+**IBC App Registry PDA:**
+```
+Seeds: [b"ibc_app", port_id.as_bytes()]
+```
+Stores:
+- `version`: AccountVersion
+- `port_id`: String (max 128 bytes)
+- `app_program_id`: Pubkey
+- `authority`: Pubkey
+- `_reserved`: [u8; 256]
+
+### 3. Packet Commitment Storage
+
+All packet commitments are 32-byte SHA256 hashes stored in Commitment PDAs.
+
+**Packet Commitment (for sent packets):**
+```
+Seeds: [b"packet_commitment", source_client.as_bytes(), sequence.to_le_bytes()]
 ```
 
-**On-chain Reference (Optional)**:
-- Seeds: `["archive", channel_id, archive_index]`
-- Stores: sequence range, merkle root, timestamp
-- Can be pruned after compliance period
+**Packet Receipt (for received packets):**
+```
+Seeds: [b"packet_receipt", dest_client.as_bytes(), sequence.to_le_bytes()]
+```
 
-**Verification Process**:
-- Retrieve bundle from off-chain storage
-- Verify merkle root matches on-chain reference
-- Extract historical packet data
-- Note: Relies on indexer/storage availability, not consensus
+**Packet Acknowledgement:**
+```
+Seeds: [b"packet_ack", dest_client.as_bytes(), sequence.to_le_bytes()]
+```
 
-**Why Optional**:
-- Active packets have PDAs with commitments
-- Events provide packet data during operation
-- Only needed for historical analysis after finalization
-- Not required for protocol security
+### 4. Chunked Storage Pattern
+
+Large data exceeding transaction limits is split into 900-byte chunks uploaded in separate transactions, then assembled.
+
+**Header Chunk (for client updates):**
+```
+Seeds: [b"header_chunk", submitter.as_ref(), chain_id.as_bytes(), target_height.to_le_bytes(), chunk_index]
+```
+Stores:
+- `submitter`: Pubkey
+- `chunk_data`: Vec<u8> (max 900 bytes)
+
+**Payload Chunk (for large packet payloads):**
+```
+Seeds: [b"payload_chunk", payer.as_ref(), client_id.as_bytes(), sequence.to_le_bytes(), payload_index, chunk_index]
+```
+Stores:
+- `client_id`: String
+- `sequence`: u64
+- `payload_index`: u8 (for multi-payload packets)
+- `chunk_index`: u8
+- `chunk_data`: Vec<u8> (max 900 bytes)
+
+**Proof Chunk (for membership/verification proofs):**
+```
+Seeds: [b"proof_chunk", payer.as_ref(), client_id.as_bytes(), sequence.to_le_bytes(), chunk_index]
+```
+Stores:
+- `client_id`: String
+- `sequence`: u64
+- `chunk_index`: u8
+- `chunk_data`: Vec<u8> (max 900 bytes)
+
+**Misbehaviour Chunk (for misbehaviour reports):**
+```
+Seeds: [b"misbehaviour_chunk", submitter.as_ref(), client_id.as_bytes(), chunk_index]
+```
+Stores:
+- `chunk_data`: Vec<u8> (max 900 bytes)
+
+**Signature Verification (cached verification results):**
+```
+Seeds: [b"sig_verify", signature_hash]
+```
+Stores:
+- `submitter`: Pubkey
+- `is_valid`: bool
+
+### 5. Chunked Upload Workflow
+
+```
+1. Upload Phase:
+   - Relayer uploads chunks in separate transactions
+   - Each chunk stored in deterministic PDA
+   - Per-submitter PDAs enable cleanup of failed uploads
+
+2. Assembly Phase:
+   - Single transaction reads all chunk accounts
+   - Assembles full data (header/proof/payload)
+   - Triggers verification/processing
+
+3. Cleanup Phase:
+   - Chunk accounts closed after successful assembly
+   - Rent (~0.01 SOL per chunk) reclaimed to payer
+```
+
+### 6. Access Control Integration
+
+The `access-manager` program provides centralized role-based access control.
+
+**Access Manager PDA:**
+```
+Seeds: [b"access_manager"]
+```
+Stores:
+- `roles`: Vec<RoleData> (max 16 entries)
+  - Each RoleData: { role_id: u64, members: Vec<Pubkey> }
+
+**Upgrade Authority PDA:**
+```
+Seeds: [b"upgrade_authority", target_program.as_ref()]
+```
+
+Programs reference `access_manager` pubkey in their state to validate permissions via CPI.
 
 ## Storage Lifecycle
-
-### Consensus State Lifecycle
-```
-1. Receive new header at height H
-2. Create PDA for consensus state at H
-3. Update client state (latest_height = H)
-4. If window > 15 states:
-   - Close oldest PDA
-   - Reclaim rent (~0.002 SOL)
-   - Update earliest_height
-```
 
 ### Packet Lifecycle
 ```
 1. Send:
-   - Set bitmap bit
+   - Increment sequence in ClientSequence
    - Create PacketCommitment PDA
    - Emit event
 
-2. Finalize (ack/timeout):
-   - Clear bitmap bit
-   - Close PDA
-   - Reclaim rent (~0.002 SOL)
+2. Receive:
+   - Create PacketReceipt PDA (prevents replay)
+   - Execute app callback
+   - Create PacketAck PDA
 
-3. Window slide:
-   - Create overflow PDAs for active packets
-   - Rotate bitmap
-   - Update window_start
+3. Acknowledge:
+   - Verify ack proof against commitment
+   - Close PacketCommitment PDA
+   - Reclaim rent
+
+4. Timeout:
+   - Verify non-receipt on destination
+   - Close PacketCommitment PDA
+   - Reclaim rent
 ```
 
-## Trade-offs
-
-### Prunable Consensus States
-
-**Pros:**
-- 3,650x cost reduction vs permanent storage (730 SOL/year → 0.2 SOL one-time)
-- Constant cost regardless of chain age
-- Still maintains sufficient history for IBC
-
-**Cons:**
-- Cannot verify ancient packets (not needed in practice)
-- Must track pruning window carefully
-- Slightly more complex than append-only
-
-### PDA-Based Packets
-
-**Pros:**
-- Rent reclamation on finalization
-- Parallel processing
-- No account size limits
-- Idiomatic Solana pattern
-
-**Cons:**
-- Temporary rent lock (~0.002 SOL per packet)
-- More accounts to manage
-
-## Caller Experience
-
-To simplify packet status queries, we provide view functions that abstract the storage complexity:
-
-**View Functions (Free RPC Calls)**:
-- `get_packet_status(sequence)` - Returns if packet is active
-- `get_packet_commitment(sequence)` - Returns commitment hash if exists
-- `get_window_info()` - Returns current window bounds and active count
-- `get_consensus_state(client_id, height)` - Returns consensus state if in window
-
-These abstract the storage layout from callers:
-- Check bitmap for quick status
-- Derive PDA only if commitment needed
-- Handle window boundaries transparently
-- No transaction fees (read-only)
-
-**Benefits**:
-- Single function call to check packet status
-- No need to understand storage layout
-- Consistent interface regardless of packet location
-- Free to call via RPC
-
-## Security Considerations
-
-1. **Consensus State Availability**: Ensure pruning window > maximum packet lifetime
-2. **Race Conditions**: Verify consensus state exists before pruning
-3. **Emergency Recovery**: Can reconstruct from chain if needed
-4. **Bitmap Integrity**: Only router can modify bitmap
-5. **PDA Determinism**: Consistent seeds prevent duplicates
-6. **Authority Checks**: Only authorized parties can close PDAs
-7. **Pruning Timing**: Don't prune states with active packets
-8. **Window Parameters**: Make configurable for different chains
+### Client Update Lifecycle
+```
+1. Upload header chunks (multiple transactions)
+2. Assemble and verify header (single transaction)
+3. Create/update ConsensusState PDA
+4. Close header chunk accounts
+5. Reclaim rent
+```
 
 ## Cost Analysis
 
-**Steady State Costs:**
+**Account Rent Costs (approximate):**
 ```
-Per Client:
-- 100 consensus states × 0.002 SOL = 0.2 SOL
-
-Per Channel:
-- ~100 active packets × 0.002 SOL = 0.2 SOL
-- RouterState account: ~0.002 SOL
-
-10 Clients + 5 Channels:
-- Total locked: ~3 SOL (constant, not annual)
-- Transaction fees: ~0.00001 SOL per packet
+Per account rent: ~0.01 SOL (refundable when account closed)
 ```
 
-**Annual Operating Cost (1000 packets/day, 1000 consensus states/day):**
+**Real-World Client Update Costs (Measured on Mainnet):**
+
+| Chain        | Validators | 2/3 Threshold | Prep Txs    | Total CUs | Total Cost (SOL) | USD Cost      | Latency |
+| ------------ | ---------- | ------------- | ----------- | --------- | ---------------- | ------------- | ------- |
+| **Noble**    | 20         | ~14 sigs      | 19 parallel | ~548k     | 0.000166         | ~$0.025-0.033 | ~18s    |
+| **Celestia** | 100        | ~67 sigs      | 83 parallel | ~2.16M    | 0.000721         | ~$0.11-0.14   | ~22s    |
+
+*Costs at $150-200/SOL. Latency depends on RPC throttling.*
+
+**Cost Breakdown:**
+- Transaction base fees: 5,000 lamports/tx
+- Priority fees: variable (market-driven)
+- Chunk rent: ~0.01 SOL per chunk (refunded after assembly)
+- Consensus state rent: ~0.01 SOL (permanent)
+
+**Per-Packet Cost:**
 ```
-Rent (rotating): ~0 (reclaimed)
-Transaction fees:
-  - Packets: 365,000 × 0.00001 = 3.65 SOL
-  - Consensus: 365,000 × 0.00001 = 3.65 SOL
-  - Total: ~7.3 SOL/year
+- Commitment creation: ~0.01 SOL (refunded on ack/timeout)
+- Transaction fees: ~0.000005 SOL
+- Net cost after reclaim: ~0.000005 SOL
 ```
 
-This is 200x cheaper than permanent storage approaches.
+**Key Insights:**
+- Cost scales roughly linearly with validator count (~5x validators = ~4x cost)
+- Chunk and commitment rent is fully refundable
+- Relayers must call cleanup instructions to reclaim rent
 
-## Configuration Parameters
+## Security Considerations
 
+1. **PDA Determinism**: Consistent seeds prevent duplicate accounts
+2. **Authority Checks**: Only authorized parties can modify state
+3. **Chunk Ownership**: Per-submitter PDAs prevent interference
+4. **Access Control**: Role-based permissions via access-manager
+5. **Commitment Integrity**: Only router can create/close commitment PDAs
+
+## Configuration Constants
+
+```rust
+pub const CHUNK_DATA_SIZE: usize = 900;
+pub const MAX_CLIENT_ID_LENGTH: usize = 64;
+pub const MAX_PORT_ID_LENGTH: usize = 128;
 ```
-CONSENSUS_STATE_WINDOW: 100  // Number of states to keep (~2.4 hours)
-PACKET_WINDOW_SIZE: 10,000  // Bitmap size
-RECV_COMMITMENT_INTERVAL: 100  // Packets per merkle commitment
-PRUNING_DELAY: 3600  // Seconds before pruning eligible
-```
 
-## Implementation Notes
+## Future Considerations
 
-1. **Pruning Safety**: Always verify no active packets reference a consensus state before pruning
-2. **Window Sizing**: Monitor typical packet lifetimes to optimize window sizes
-3. **Batch Operations**: Consider batching PDA closures for efficiency
-4. **Monitoring**: Track rent locked vs reclaimed metrics
-5. **Graceful Degradation**: Handle missing consensus states gracefully
+The following features are not currently implemented but may be added:
 
-## Alternatives Considered
-
-1. **Permanent Storage**: Too expensive (747.5 SOL/year)
-2. **Dense Arrays**: No rent reclamation, account size limits
-3. **Merkle Trees**: Complex, not Solana-native
-4. **State Compression**: Not suitable for frequently accessed data
-5. **No Bitmap**: Would require PDA derivation for every lookup
-
-## Sum up
-
-- Rolling window for consensus states (100 states)
-- Bitmap + PDAs for packets
+1. **Consensus State Pruning**: Rolling window to limit storage growth
+2. **Archival System**: Off-chain storage for historical packet data
+3. **Batch Operations**: Batching PDA closures for efficiency
 
 ## References
 
