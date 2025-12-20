@@ -10,10 +10,10 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-/// EVM function signatures: (constant_name, solidity_signature)
+/// EVM function signatures: `(constant_name, solidity_signature)`
 const EVM_SELECTORS: &[(&str, &str)] = &[("IFT_MINT_SELECTOR", "iftMint(address,uint256)")];
 
-/// Anchor discriminators: (constant_name, instruction_name)
+/// Anchor discriminators: `(constant_name, instruction_name)`
 const ANCHOR_DISCRIMINATORS: &[(&str, &str)] = &[("IFT_MINT_DISCRIMINATOR", "global:ift_mint")];
 
 fn main() {
@@ -28,7 +28,7 @@ fn main() {
     for (name, signature) in EVM_SELECTORS {
         let hash = solana_keccak_hasher::hash(signature.as_bytes());
         let selector = &hash.to_bytes()[..4];
-        writeln!(f, "/// keccak256(\"{signature}\")[0..4]").unwrap();
+        writeln!(f, "/// `keccak256(\"{signature}\")[0..4]`").unwrap();
         writeln!(
             f,
             "pub const {name}: [u8; 4] = [0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x}];",
@@ -44,7 +44,7 @@ fn main() {
         hasher.update(instruction.as_bytes());
         let hash = hasher.finalize();
         let disc = &hash[..8];
-        writeln!(f, "/// sha256(\"{instruction}\")[0..8]").unwrap();
+        writeln!(f, "/// `sha256(\"{instruction}\")[0..8]`").unwrap();
         writeln!(
             f,
             "pub const {name}: [u8; 8] = [0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x}];",

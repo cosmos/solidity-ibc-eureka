@@ -54,7 +54,7 @@ pub struct IFTTransfer<'info> {
     pub system_program: Program<'info, System>,
 
     /// GMP program
-    /// CHECK: Validated against stored gmp_program in app_state
+    /// CHECK: Validated against stored `gmp_program` in `app_state`
     #[account(
         address = app_state.gmp_program @ IFTError::InvalidGmpProgram
     )]
@@ -202,7 +202,7 @@ fn construct_mint_call(
             receiver,
             amount,
         )),
-        CounterpartyChainType::Solana => Ok(construct_solana_mint_call(receiver, amount)),
+        CounterpartyChainType::Solana => construct_solana_mint_call(receiver, amount),
     }
 }
 
@@ -243,13 +243,17 @@ fn construct_cosmos_mint_call(denom: &str, receiver: &str, amount: u64) -> Vec<u
 }
 
 /// Construct Solana instruction data for IFT mint
-fn construct_solana_mint_call(receiver: &str, amount: u64) -> Vec<u8> {
-    let mut payload = Vec::new();
+fn construct_solana_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
+    use std::str::FromStr;
+
+    let receiver_pubkey =
+        Pubkey::from_str(receiver).map_err(|_| IFTError::InvalidReceiver)?;
+
+    let mut payload = Vec::with_capacity(48); // 8 discriminator + 32 pubkey + 8 amount
     payload.extend_from_slice(&IFT_MINT_DISCRIMINATOR);
-    // TODO: Use proper base58 decoding for receiver pubkey
-    payload.extend_from_slice(receiver.as_bytes());
+    payload.extend_from_slice(&receiver_pubkey.to_bytes());
     payload.extend_from_slice(&amount.to_le_bytes());
-    payload
+    Ok(payload)
 }
 
 /// Simple hex string to bytes conversion

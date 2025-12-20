@@ -101,16 +101,25 @@ fn test_construct_cosmos_mint_call_with_ibc_denom() {
 
 #[test]
 fn test_construct_solana_mint_call() {
+    // Valid base58-encoded pubkey (system program)
     let receiver = "11111111111111111111111111111111";
     let amount = 999u64;
 
-    let payload = construct_solana_mint_call(receiver, amount);
+    let payload = construct_solana_mint_call(receiver, amount).unwrap();
 
-    assert_eq!(payload.len(), 8 + receiver.len() + 8);
+    // 8 bytes discriminator + 32 bytes pubkey + 8 bytes amount
+    assert_eq!(payload.len(), 48);
     assert_eq!(&payload[0..8], &IFT_MINT_DISCRIMINATOR);
+    assert_eq!(&payload[40..48], &amount.to_le_bytes());
+}
 
-    let amount_start = payload.len() - 8;
-    assert_eq!(&payload[amount_start..], &amount.to_le_bytes());
+#[test]
+fn test_construct_solana_mint_call_invalid_pubkey() {
+    let invalid_receiver = "not-a-valid-base58-pubkey";
+    let amount = 999u64;
+
+    let result = construct_solana_mint_call(invalid_receiver, amount);
+    assert!(result.is_err());
 }
 
 #[test]
@@ -140,11 +149,14 @@ fn test_construct_mint_call_cosmos() {
 
 #[test]
 fn test_construct_mint_call_solana() {
+    // Use valid base58 pubkey (system program)
     let result = construct_mint_call(
         CounterpartyChainType::Solana,
         "ignored",
-        "SomeBase58Pubkey",
+        "11111111111111111111111111111111",
         100,
     );
     assert!(result.is_ok());
+    // 8 bytes discriminator + 32 bytes pubkey + 8 bytes amount
+    assert_eq!(result.unwrap().len(), 48);
 }

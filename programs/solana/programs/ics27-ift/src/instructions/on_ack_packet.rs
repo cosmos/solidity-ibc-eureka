@@ -142,7 +142,7 @@ pub fn on_acknowledgement_packet(
 /// Parse GMP acknowledgement to determine success/failure
 ///
 /// IBC acknowledgements follow the ICS-04 pattern:
-/// - Error: Raw 32-byte `UNIVERSAL_ERROR_ACK` (sha256("UNIVERSAL_ERROR_ACKNOWLEDGEMENT"))
+/// - Error: Raw 32-byte `UNIVERSAL_ERROR_ACK` (`sha256("UNIVERSAL_ERROR_ACKNOWLEDGEMENT")`)
 /// - Success: Protobuf-encoded `GmpAcknowledgement { result: bytes }`
 ///
 /// We only need to check if the ack equals the error constant to determine failure.
