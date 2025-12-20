@@ -2,9 +2,6 @@
 
 use anchor_lang::prelude::*;
 
-/// GMP Port ID (must match ics27-gmp constants)
-pub const GMP_PORT_ID: &str = "gmpport";
-
 /// Accounts required for GMP `send_call` CPI
 pub struct SendGmpCallAccounts<'info> {
     pub gmp_program: AccountInfo<'info>,
