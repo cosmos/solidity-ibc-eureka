@@ -1301,51 +1301,11 @@ mod tests {
         // The GMP account PDA is used as a signer without storing state
     }
 
-    /// Verifies that CPI errors cause immediate transaction failure
+    /// Verifies that CPI errors cause immediate transaction failure.
     ///
-    /// Test Scenario:
-    /// 1. GMP receives a packet requesting a counter app CPI call
-    /// 2. The payer has insufficient lamports (3M - enough for `gmp_account_pda` but not for `user_counter`)
-    /// 3. GMP invokes counter app via CPI
-    /// 4. Counter app fails when attempting to create `user_counter` (insufficient lamports)
-    /// 5. The entire transaction aborts - no error acknowledgment is returned
-    ///
-    /// Solana Architectural Constraint:
-    /// Unlike IBC/EVM where execution errors can be caught and returned as error acknowledgments,
-    /// Solana CPIs (Cross-Program Invocations) fail atomically. When `invoke()` or `invoke_signed()`
-    /// fails, the entire transaction aborts immediately - by design to maintain atomicity.
-    ///
-    /// Technical Details:
-    /// CPI errors cannot be handled in Solana programs - when `invoke()` or `invoke_signed()`
-    /// fails, the entire transaction aborts immediately. This is by design to maintain
-    /// transaction atomicity.
-    ///
-    /// Runtime Implementation:
-    /// The error propagation happens at the VM/runtime level. When a child program returns
-    /// an error, it propagates immediately via the ? operator in `cpi_common()`:
-    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/program-runtime/src/cpi.rs#L843>
-    ///
-    /// Error propagation flow in `process_instruction()`:
-    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/program-runtime/src/invoke_context.rs#L488-L498>
-    ///
-    /// Unit Test Proof:
-    /// There's a test that proves CPI errors cause transaction abort even when the Result
-    /// is ignored.
-    ///
-    /// Test setup (expects transaction to fail with Custom(42)):
-    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/programs/sbf/tests/programs.rs#L1043-L1049>
-    ///
-    /// Parent program IGNORES the `invoke()` result with "let _ = invoke(...)":
-    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/programs/sbf/rust/invoke/src/lib.rs#L604>
-    ///
-    /// Child program returns error Custom(42):
-    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/programs/sbf/rust/invoked/src/lib.rs#L119>
-    ///
-    /// The test confirms that even though the parent ignores the Result, the transaction
-    /// aborts with the child's error. The parent program never gets to execute any code
-    /// after the failed `invoke()` call - the abort happens at the runtime/VM level.
-    ///
-    /// This is fundamentally different from EVM's try/catch mechanism or Cosmos SDK's error returns.
+    /// Unlike EVM/IBC where errors can return error acknowledgments, Solana CPIs fail
+    /// atomically - when `invoke()` fails, the entire transaction aborts at the VM level.
+    /// This test triggers a CPI failure (insufficient lamports) and expects tx abort.
     #[test]
     fn test_on_recv_packet_failed_execution_returns_error_ack() {
         // Create Mollusk instance and load both programs

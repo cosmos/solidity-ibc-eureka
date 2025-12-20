@@ -2115,6 +2115,7 @@ dependencies = [
  "ics27-gmp",
  "mollusk-svm",
  "mollusk-svm-bencher",
+ "sha2 0.10.9",
  "solana-ibc-proto",
  "solana-ibc-types",
  "solana-keccak-hasher",

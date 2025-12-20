@@ -9,8 +9,7 @@ use crate::errors::IFTError;
 use crate::events::IFTMintReceived;
 use crate::state::{IFTAppState, IFTMintMsg};
 
-/// IFT Mint instruction called by GMP when receiving a cross-chain mint request
-/// This is the TARGET of GMP CPI - GMP calls this instruction with GMP account as signer
+/// IFT Mint instruction - called by GMP via CPI when receiving a cross-chain mint request
 #[derive(Accounts)]
 #[instruction(msg: IFTMintMsg)]
 pub struct IFTMint<'info> {
@@ -52,9 +51,7 @@ pub struct IFTMint<'info> {
     )]
     pub receiver_owner: AccountInfo<'info>,
 
-    /// GMP account PDA that signs this call (validates caller is from registered bridge)
-    /// The GMP account PDA is derived from (`client_id`, sender, salt) in the GMP program
-    /// This signer proves the call came from a valid cross-chain source
+    /// GMP account PDA - signer proves call came from valid cross-chain source
     pub gmp_account: Signer<'info>,
 
     #[account(mut)]
@@ -66,12 +63,7 @@ pub struct IFTMint<'info> {
 }
 
 pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
-    // Validate amount
     require!(msg.amount > 0, IFTError::ZeroAmount);
-
-    // The GMP account PDA signing this call provides sender validation
-    // The GMP program only passes the signer if the packet came from a valid counterparty
-    // via IBC. The relayer constructs the correct accounts based on packet data.
 
     // Mint tokens to receiver
     let mint_key = ctx.accounts.mint.key();

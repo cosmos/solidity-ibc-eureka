@@ -244,17 +244,13 @@ fn construct_cosmos_mint_call(denom: &str, receiver: &str, amount: u64) -> Vec<u
 
 /// Construct Solana instruction data for IFT mint
 fn construct_solana_mint_call(receiver: &str, amount: u64) -> Vec<u8> {
-    // For Solana-to-Solana, encode as instruction data
-    // The receiver is a base58-encoded pubkey
     let mut payload = Vec::new();
 
-    // Anchor discriminator for ift_mint (first 8 bytes of sha256("global:ift_mint"))
+    // Anchor discriminator (first 8 bytes of sha256("global:ift_mint"))
     let discriminator = solana_sha256_hasher::hash(b"global:ift_mint").to_bytes();
     payload.extend_from_slice(&discriminator[..8]);
 
-    // Parse receiver as pubkey
-    // Note: In production, use proper base58 decoding
-    // For now, we just include the receiver string as bytes
+    // TODO: Use proper base58 decoding for receiver pubkey
     payload.extend_from_slice(receiver.as_bytes());
     payload.extend_from_slice(&amount.to_le_bytes());
 
@@ -277,10 +273,6 @@ fn hex_to_bytes(hex: &str) -> std::result::Result<Vec<u8>, ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // ============================================================================
-    // hex_to_bytes tests
-    // ============================================================================
 
     #[test]
     fn test_hex_to_bytes_valid() {
@@ -312,10 +304,6 @@ mod tests {
         assert!(hex_to_bytes("zz").is_err());
         assert!(hex_to_bytes("ab cd").is_err());
     }
-
-    // ============================================================================
-    // EVM mint call tests
-    // ============================================================================
 
     #[test]
     fn test_construct_evm_mint_call_basic() {
@@ -378,10 +366,6 @@ mod tests {
         assert_eq!(&payload[4..34], &[0u8; 30]);
     }
 
-    // ============================================================================
-    // Cosmos mint call tests
-    // ============================================================================
-
     #[test]
     fn test_construct_cosmos_mint_call() {
         let denom = "uatom";
@@ -410,10 +394,6 @@ mod tests {
         assert!(json_str.contains("\"denom\":\"ibc/ABC123\""));
     }
 
-    // ============================================================================
-    // Solana mint call tests
-    // ============================================================================
-
     #[test]
     fn test_construct_solana_mint_call() {
         let receiver = "11111111111111111111111111111111"; // 32 chars
@@ -433,10 +413,6 @@ mod tests {
         let amount_start = payload.len() - 8;
         assert_eq!(&payload[amount_start..], &amount.to_le_bytes());
     }
-
-    // ============================================================================
-    // construct_mint_call dispatcher tests
-    // ============================================================================
 
     #[test]
     fn test_construct_mint_call_evm() {
