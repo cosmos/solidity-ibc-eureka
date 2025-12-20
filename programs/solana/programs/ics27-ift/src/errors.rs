@@ -98,6 +98,9 @@ pub enum IFTError {
 
     #[msg("Unauthorized GMP caller")]
     UnauthorizedGmp,
+
+    #[msg("Invalid GMP account - not derived from expected counterparty bridge")]
+    InvalidGmpAccount,
 }
 
 /// Convert CPI validation errors to IFT errors

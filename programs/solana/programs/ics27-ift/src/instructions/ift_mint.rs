@@ -7,7 +7,7 @@ use anchor_spl::{
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTMintReceived;
-use crate::state::{IFTAppState, IFTMintMsg};
+use crate::state::{IFTAppState, IFTBridge, IFTMintMsg};
 
 /// IFT Mint instruction - called by GMP via CPI when receiving a cross-chain mint request
 #[derive(Accounts)]
@@ -20,6 +20,13 @@ pub struct IFTMint<'info> {
         constraint = !app_state.paused @ IFTError::AppPaused
     )]
     pub app_state: Account<'info, IFTAppState>,
+
+    /// IFT bridge - provides counterparty info for GMP account validation
+    #[account(
+        seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), msg.client_id.as_bytes()],
+        bump = ift_bridge.bump,
+    )]
+    pub ift_bridge: Account<'info, IFTBridge>,
 
     /// SPL Token mint
     #[account(
@@ -51,7 +58,11 @@ pub struct IFTMint<'info> {
     )]
     pub receiver_owner: AccountInfo<'info>,
 
-    /// GMP account PDA - signer proves call came from valid cross-chain source
+    /// CHECK: GMP program for PDA derivation
+    #[account(address = app_state.gmp_program @ IFTError::InvalidGmpProgram)]
+    pub gmp_program: AccountInfo<'info>,
+
+    /// GMP account PDA - validated to match counterparty bridge
     pub gmp_account: Signer<'info>,
 
     #[account(mut)]
@@ -64,6 +75,15 @@ pub struct IFTMint<'info> {
 
 pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     require!(msg.amount > 0, IFTError::ZeroAmount);
+    require!(
+        validate_gmp_account(
+            &ctx.accounts.gmp_account.key(),
+            &ctx.accounts.ift_bridge.client_id,
+            &ctx.accounts.ift_bridge.counterparty_ift_address,
+            &ctx.accounts.gmp_program.key()
+        ),
+        IFTError::InvalidGmpAccount
+    );
 
     // Mint tokens to receiver
     let mint_key = ctx.accounts.mint.key();
@@ -89,7 +109,7 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     let clock = Clock::get()?;
     emit!(IFTMintReceived {
         mint: ctx.accounts.mint.key(),
-        client_id: String::new(), // Would be extracted from GMP packet in full impl
+        client_id: ctx.accounts.ift_bridge.client_id.clone(),
         receiver: msg.receiver,
         amount: msg.amount,
         gmp_account: ctx.accounts.gmp_account.key(),
@@ -97,6 +117,26 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     });
 
     Ok(())
+}
+
+/// Validate GMP account is derived from expected counterparty bridge
+///
+/// The GMP account PDA is derived with seeds:
+/// `["gmp_account", client_id.as_bytes(), sha256(sender.as_bytes()), salt]`
+///
+/// For IFT, the sender is the counterparty IFT address and salt must be empty.
+fn validate_gmp_account(
+    gmp_account: &Pubkey,
+    client_id: &str,
+    counterparty_address: &str,
+    gmp_program: &Pubkey,
+) -> bool {
+    let sender_hash = solana_sha256_hasher::hash(counterparty_address.as_bytes()).to_bytes();
+    let (expected_pda, _) = Pubkey::find_program_address(
+        &[b"gmp_account", client_id.as_bytes(), &sender_hash, &[]],
+        gmp_program,
+    );
+    *gmp_account == expected_pda
 }
 
 #[cfg(test)]

@@ -196,6 +196,8 @@ pub struct IFTMintMsg {
     pub receiver: Pubkey,
     /// Amount to mint
     pub amount: u64,
+    /// IBC client identifier (for bridge lookup and GMP validation)
+    pub client_id: String,
 }
 
 #[cfg(test)]

@@ -375,3 +375,28 @@ pub fn deserialize_bridge(account: &SolanaAccount) -> IFTBridge {
         .expect("Failed to deserialize IFTBridge")
 }
 
+/// Get the expected GMP account PDA for IFT validation
+/// Seeds: ["gmp_account", client_id, sha256(counterparty_address), empty_salt]
+pub fn get_gmp_account_pda(
+    client_id: &str,
+    counterparty_address: &str,
+    gmp_program: &Pubkey,
+) -> (Pubkey, u8) {
+    let sender_hash = solana_sha256_hasher::hash(counterparty_address.as_bytes()).to_bytes();
+    Pubkey::find_program_address(
+        &[b"gmp_account", client_id.as_bytes(), &sender_hash, &[]],
+        gmp_program,
+    )
+}
+
+/// Create a GMP program account
+pub fn create_gmp_program_account() -> SolanaAccount {
+    SolanaAccount {
+        lamports: 1,
+        data: vec![],
+        owner: solana_sdk::native_loader::ID,
+        executable: true,
+        rent_epoch: 0,
+    }
+}
+
