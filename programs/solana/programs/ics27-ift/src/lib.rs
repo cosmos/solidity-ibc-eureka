@@ -4,6 +4,7 @@ pub mod constants;
 pub mod errors;
 pub mod events;
 pub mod evm_selectors;
+pub mod gmp_cpi;
 pub mod instructions;
 pub mod state;
 

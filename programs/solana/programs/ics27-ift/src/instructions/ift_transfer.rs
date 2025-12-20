@@ -5,6 +5,7 @@ use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTTransferInitiated;
 use crate::evm_selectors::IFT_MINT_SELECTOR;
+use crate::gmp_cpi::{SendGmpCallAccounts, SendGmpCallMsg, GMP_PORT_ID};
 use crate::state::{CounterpartyChainType, IFTAppState, IFTBridge, IFTTransferMsg};
 
 #[derive(Accounts)]
@@ -20,6 +21,7 @@ pub struct IFTTransfer<'info> {
 
     /// IFT bridge for the destination
     #[account(
+        mut,
         seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), msg.client_id.as_bytes()],
         bump = ift_bridge.bump,
         constraint = ift_bridge.active @ IFTError::BridgeNotActive
@@ -50,8 +52,55 @@ pub struct IFTTransfer<'info> {
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 
-    // Note: GMP CPI accounts would be passed as remaining_accounts
-    // This keeps the instruction more flexible
+    /// GMP program
+    /// CHECK: Validated against stored gmp_program in app_state
+    #[account(
+        address = app_state.gmp_program @ IFTError::InvalidGmpProgram
+    )]
+    pub gmp_program: AccountInfo<'info>,
+
+    /// GMP app state PDA
+    /// CHECK: Validated by GMP program via CPI
+    #[account(
+        mut,
+        seeds = [solana_ibc_types::GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
+        bump,
+        seeds::program = gmp_program.key()
+    )]
+    pub gmp_app_state: AccountInfo<'info>,
+
+    /// Router program
+    pub router_program: Program<'info, ics26_router::program::Ics26Router>,
+
+    /// Router state account
+    /// CHECK: Router program validates this
+    #[account()]
+    pub router_state: AccountInfo<'info>,
+
+    /// Client sequence account for packet sequencing
+    /// CHECK: Router program validates this
+    #[account(mut)]
+    pub client_sequence: AccountInfo<'info>,
+
+    /// Packet commitment account to be created
+    /// CHECK: Router program validates this
+    #[account(mut)]
+    pub packet_commitment: AccountInfo<'info>,
+
+    /// Instructions sysvar for CPI validation
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instruction_sysvar: AccountInfo<'info>,
+
+    /// GMP's IBC app registration account
+    /// CHECK: Router program validates this
+    #[account()]
+    pub gmp_ibc_app: AccountInfo<'info>,
+
+    /// IBC client account
+    /// CHECK: Router program validates this
+    #[account()]
+    pub ibc_client: AccountInfo<'info>,
 }
 
 pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u64> {
@@ -90,24 +139,40 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     token::burn(burn_ctx, msg.amount)?;
 
     // Construct mint call payload based on counterparty chain type
-    // TODO: Use this payload in GMP CPI call
-    let _mint_call_payload = construct_mint_call(
+    let mint_call_payload = construct_mint_call(
         ctx.accounts.ift_bridge.counterparty_chain_type,
         &ctx.accounts.ift_bridge.counterparty_ift_address,
         &msg.receiver,
         msg.amount,
     )?;
 
-    // TODO: Send GMP call via CPI
-    // For now, we return a placeholder sequence
-    // The actual implementation would:
-    // 1. Call ics27_gmp::send_call with the mint payload
-    // 2. Get back the sequence number
-    // 3. Create the pending transfer account
-    let sequence: u64 = clock.unix_timestamp as u64; // Placeholder
+    // Send GMP call via CPI
+    let gmp_accounts = SendGmpCallAccounts {
+        gmp_program: ctx.accounts.gmp_program.clone(),
+        gmp_app_state: ctx.accounts.gmp_app_state.clone(),
+        sender: ctx.accounts.sender.to_account_info(),
+        payer: ctx.accounts.payer.to_account_info(),
+        router_program: ctx.accounts.router_program.to_account_info(),
+        router_state: ctx.accounts.router_state.clone(),
+        client_sequence: ctx.accounts.client_sequence.clone(),
+        packet_commitment: ctx.accounts.packet_commitment.clone(),
+        instruction_sysvar: ctx.accounts.instruction_sysvar.clone(),
+        ibc_app: ctx.accounts.gmp_ibc_app.clone(),
+        client: ctx.accounts.ibc_client.clone(),
+        system_program: ctx.accounts.system_program.to_account_info(),
+    };
 
-    // Note: In the full implementation, we would create a PendingTransfer account here
-    // using the sequence returned from GMP
+    let gmp_msg = SendGmpCallMsg {
+        source_client: msg.client_id.clone(),
+        timeout_timestamp: timeout,
+        receiver: ctx.accounts.ift_bridge.counterparty_ift_address.clone(),
+        payload: mint_call_payload,
+    };
+
+    let sequence = crate::gmp_cpi::send_gmp_call(gmp_accounts, gmp_msg)?;
+
+    // Increment bridge transfer counter
+    ctx.accounts.ift_bridge.total_transfers += 1;
 
     emit!(IFTTransferInitiated {
         mint: ctx.accounts.app_state.mint,
@@ -131,9 +196,11 @@ fn construct_mint_call(
 ) -> Result<Vec<u8>> {
     match chain_type {
         CounterpartyChainType::Evm => construct_evm_mint_call(receiver, amount),
-        CounterpartyChainType::Cosmos => {
-            Ok(construct_cosmos_mint_call(counterparty_address, receiver, amount))
-        }
+        CounterpartyChainType::Cosmos => Ok(construct_cosmos_mint_call(
+            counterparty_address,
+            receiver,
+            amount,
+        )),
         CounterpartyChainType::Solana => Ok(construct_solana_mint_call(receiver, amount)),
     }
 }
