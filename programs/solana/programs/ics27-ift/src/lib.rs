@@ -8,6 +8,9 @@ pub mod gmp_cpi;
 pub mod instructions;
 pub mod state;
 
+#[cfg(test)]
+pub mod test_utils;
+
 use instructions::*;
 use state::{IFTMintMsg, IFTTransferMsg, RegisterIFTBridgeMsg};
 

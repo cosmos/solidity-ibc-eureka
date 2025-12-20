@@ -92,3 +92,6 @@ pub fn initialize(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

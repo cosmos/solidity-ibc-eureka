@@ -197,3 +197,6 @@ pub struct IFTMintMsg {
     /// Amount to mint
     pub amount: u64,
 }
+
+#[cfg(test)]
+mod tests;

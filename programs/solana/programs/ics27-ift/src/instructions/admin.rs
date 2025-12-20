@@ -143,3 +143,6 @@ pub fn set_access_manager(ctx: Context<SetAccessManager>, new_access_manager: Pu
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

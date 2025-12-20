@@ -100,3 +100,6 @@ pub fn register_ift_bridge(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

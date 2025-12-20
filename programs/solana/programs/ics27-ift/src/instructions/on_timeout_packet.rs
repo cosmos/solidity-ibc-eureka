@@ -118,3 +118,6 @@ pub fn on_timeout_packet(
     // Pending transfer account is closed via Anchor's close constraint
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

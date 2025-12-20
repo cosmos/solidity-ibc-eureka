@@ -98,3 +98,6 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
