@@ -72,7 +72,6 @@ pub fn on_timeout_packet(
     ctx: Context<OnTimeoutPacket>,
     _msg: solana_ibc_types::OnTimeoutPacketMsg,
 ) -> Result<()> {
-    // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
         &ctx.accounts.router_program.key(),
@@ -114,11 +113,7 @@ pub fn on_timeout_packet(
         timestamp: clock.unix_timestamp,
     });
 
-    ctx.accounts.app_state.total_pending = ctx
-        .accounts
-        .app_state
-        .total_pending
-        .saturating_sub(1);
+    ctx.accounts.app_state.total_pending = ctx.accounts.app_state.total_pending.saturating_sub(1);
 
     // Pending transfer account is closed via Anchor's close constraint
     Ok(())

@@ -5,7 +5,7 @@ use ics27_gmp::constants::GMP_PORT_ID;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTTransferInitiated;
-use crate::evm_selectors::IFT_MINT_SELECTOR;
+use crate::evm_selectors::{IFT_MINT_DISCRIMINATOR, IFT_MINT_SELECTOR};
 use crate::gmp_cpi::{SendGmpCallAccounts, SendGmpCallMsg};
 use crate::state::{CounterpartyChainType, IFTAppState, IFTBridge, IFTTransferMsg};
 
@@ -245,15 +245,10 @@ fn construct_cosmos_mint_call(denom: &str, receiver: &str, amount: u64) -> Vec<u
 /// Construct Solana instruction data for IFT mint
 fn construct_solana_mint_call(receiver: &str, amount: u64) -> Vec<u8> {
     let mut payload = Vec::new();
-
-    // Anchor discriminator (first 8 bytes of sha256("global:ift_mint"))
-    let discriminator = solana_sha256_hasher::hash(b"global:ift_mint").to_bytes();
-    payload.extend_from_slice(&discriminator[..8]);
-
+    payload.extend_from_slice(&IFT_MINT_DISCRIMINATOR);
     // TODO: Use proper base58 decoding for receiver pubkey
     payload.extend_from_slice(receiver.as_bytes());
     payload.extend_from_slice(&amount.to_le_bytes());
-
     payload
 }
 
@@ -403,11 +398,7 @@ mod tests {
 
         // Should have 8-byte discriminator + receiver bytes + 8-byte amount
         assert_eq!(payload.len(), 8 + receiver.len() + 8);
-
-        // First 8 bytes are discriminator
-        let expected_discriminator =
-            &solana_sha256_hasher::hash(b"global:ift_mint").to_bytes()[..8];
-        assert_eq!(&payload[0..8], expected_discriminator);
+        assert_eq!(&payload[0..8], &IFT_MINT_DISCRIMINATOR);
 
         // Last 8 bytes are amount (little-endian)
         let amount_start = payload.len() - 8;

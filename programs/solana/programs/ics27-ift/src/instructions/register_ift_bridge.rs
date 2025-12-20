@@ -48,8 +48,10 @@ pub struct RegisterIFTBridge<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn register_ift_bridge(ctx: Context<RegisterIFTBridge>, msg: RegisterIFTBridgeMsg) -> Result<()> {
-    // Validate authority has ADMIN_ROLE via access manager
+pub fn register_ift_bridge(
+    ctx: Context<RegisterIFTBridge>,
+    msg: RegisterIFTBridgeMsg,
+) -> Result<()> {
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::ADMIN_ROLE,
@@ -78,7 +80,9 @@ pub fn register_ift_bridge(ctx: Context<RegisterIFTBridge>, msg: RegisterIFTBrid
     bridge.bump = ctx.bumps.ift_bridge;
     bridge.mint = ctx.accounts.app_state.mint;
     bridge.client_id.clone_from(&msg.client_id);
-    bridge.counterparty_ift_address.clone_from(&msg.counterparty_ift_address);
+    bridge
+        .counterparty_ift_address
+        .clone_from(&msg.counterparty_ift_address);
     bridge.counterparty_chain_type = msg.counterparty_chain_type;
     bridge.active = true;
     bridge.total_transfers = 0;

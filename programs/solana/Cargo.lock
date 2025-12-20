@@ -2120,7 +2120,6 @@ dependencies = [
  "solana-ibc-types",
  "solana-keccak-hasher",
  "solana-sdk",
- "solana-sha256-hasher",
 ]
 
 [[package]]

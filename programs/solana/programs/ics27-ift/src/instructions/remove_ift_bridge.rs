@@ -48,7 +48,6 @@ pub struct RemoveIFTBridge<'info> {
 }
 
 pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>) -> Result<()> {
-    // Validate authority has ADMIN_ROLE via access manager
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::ADMIN_ROLE,
@@ -59,11 +58,7 @@ pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>) -> Result<()> {
 
     let client_id = ctx.accounts.ift_bridge.client_id.clone();
 
-    ctx.accounts.app_state.total_bridges = ctx
-        .accounts
-        .app_state
-        .total_bridges
-        .saturating_sub(1);
+    ctx.accounts.app_state.total_bridges = ctx.accounts.app_state.total_bridges.saturating_sub(1);
 
     let clock = Clock::get()?;
     emit!(IFTBridgeRemoved {
