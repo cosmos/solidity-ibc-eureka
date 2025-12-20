@@ -5,7 +5,7 @@ use anchor_lang::prelude::*;
 /// GMP Port ID (must match ics27-gmp constants)
 pub const GMP_PORT_ID: &str = "gmpport";
 
-/// Accounts required for GMP send_call CPI
+/// Accounts required for GMP `send_call` CPI
 pub struct SendGmpCallAccounts<'info> {
     pub gmp_program: AccountInfo<'info>,
     pub gmp_app_state: AccountInfo<'info>,
@@ -39,7 +39,7 @@ impl<'info> From<SendGmpCallAccounts<'info>> for ics27_gmp::cpi::accounts::SendC
     }
 }
 
-/// Message parameters for GMP send_call
+/// Message parameters for GMP `send_call`
 pub struct SendGmpCallMsg {
     pub source_client: String,
     pub timeout_timestamp: i64,
