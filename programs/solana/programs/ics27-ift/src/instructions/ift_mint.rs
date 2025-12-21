@@ -76,15 +76,12 @@ pub struct IFTMint<'info> {
 
 pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     require!(msg.amount > 0, IFTError::ZeroAmount);
-    require!(
-        validate_gmp_account(
-            &ctx.accounts.gmp_account.key(),
-            &ctx.accounts.ift_bridge.client_id,
-            &ctx.accounts.ift_bridge.counterparty_ift_address,
-            &ctx.accounts.gmp_program.key()
-        ),
-        IFTError::InvalidGmpAccount
-    );
+    validate_gmp_account(
+        &ctx.accounts.gmp_account.key(),
+        &ctx.accounts.ift_bridge.client_id,
+        &ctx.accounts.ift_bridge.counterparty_ift_address,
+        &ctx.accounts.gmp_program.key(),
+    )?;
 
     // Mint tokens to receiver
     let mint_key = ctx.accounts.mint.key();
@@ -131,13 +128,14 @@ fn validate_gmp_account(
     client_id: &str,
     counterparty_address: &str,
     gmp_program: &Pubkey,
-) -> bool {
+) -> Result<()> {
     let sender_hash = solana_sha256_hasher::hash(counterparty_address.as_bytes()).to_bytes();
     let (expected_pda, _) = Pubkey::find_program_address(
         &[b"gmp_account", client_id.as_bytes(), &sender_hash, &[]],
         gmp_program,
     );
-    *gmp_account == expected_pda
+    require!(*gmp_account == expected_pda, IFTError::InvalidGmpAccount);
+    Ok(())
 }
 
 #[cfg(test)]

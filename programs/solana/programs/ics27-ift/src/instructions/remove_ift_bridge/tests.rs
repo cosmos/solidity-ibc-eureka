@@ -1,4 +1,4 @@
-//! Tests for remove_ift_bridge instruction
+//! Tests for `remove_ift_bridge` instruction
 
 use anchor_lang::InstructionData;
 use solana_sdk::{

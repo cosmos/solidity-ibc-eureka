@@ -1,9 +1,8 @@
-//! Tests for admin instructions (pause, unpause, set_access_manager)
+//! Tests for admin instructions (pause, unpause, `set_access_manager`)
 
 use anchor_lang::InstructionData;
 use mollusk_svm::Mollusk;
 use solana_sdk::{
-    account::Account as SolanaAccount,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
 };
@@ -25,7 +24,7 @@ fn test_pause_app_success() {
     let mint = Pubkey::new_unique();
     let admin = Pubkey::new_unique();
     let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
-    let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+    let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
     let (access_manager_pda, access_manager_account) =
         create_access_manager_account_with_pauser(admin, admin);
     let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();

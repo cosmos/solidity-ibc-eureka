@@ -131,7 +131,7 @@ fn test_initialize_decimals_mismatch_fails() {
     );
 }
 
-/// Test that initialize fails when current_mint_authority is not a signer
+/// Test that initialize fails when `current_mint_authority` is not a signer
 #[test]
 fn test_initialize_no_authority_signer_fails() {
     let mollusk = setup_mollusk();
@@ -209,7 +209,7 @@ fn test_initialize_no_authority_signer_fails() {
     );
 }
 
-/// Test that initialize fails with wrong app_state PDA seeds
+/// Test that initialize fails with wrong `app_state` PDA seeds
 #[test]
 fn test_initialize_wrong_pda_fails() {
     let mollusk = setup_mollusk();

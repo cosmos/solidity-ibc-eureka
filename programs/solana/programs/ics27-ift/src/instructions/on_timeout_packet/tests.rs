@@ -1,4 +1,4 @@
-//! Tests for on_timeout_packet instruction
+//! Tests for `on_timeout_packet` instruction
 
 use anchor_lang::InstructionData;
 use solana_sdk::{
@@ -12,7 +12,7 @@ use crate::test_utils::*;
 // on_timeout_packet tests
 // ============================================================================
 
-/// Test that on_timeout_packet fails when called directly (not via CPI from router)
+/// Test that `on_timeout_packet` fails when called directly (not via CPI from router)
 #[test]
 fn test_on_timeout_packet_direct_call_fails() {
     let mollusk = setup_mollusk();
@@ -154,7 +154,7 @@ fn test_on_timeout_packet_direct_call_fails() {
     );
 }
 
-/// Test that on_timeout_packet fails with wrong sender token account owner
+/// Test that `on_timeout_packet` fails with wrong sender token account owner
 #[test]
 fn test_on_timeout_packet_wrong_token_owner_fails() {
     let mollusk = setup_mollusk();
@@ -290,7 +290,7 @@ fn test_on_timeout_packet_wrong_token_owner_fails() {
     );
 }
 
-/// Test that on_timeout_packet fails with wrong mint in token account
+/// Test that `on_timeout_packet` fails with wrong mint in token account
 #[test]
 fn test_on_timeout_packet_wrong_token_mint_fails() {
     let mollusk = setup_mollusk();

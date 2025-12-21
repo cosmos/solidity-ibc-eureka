@@ -1,4 +1,4 @@
-//! Tests for register_ift_bridge instruction
+//! Tests for `register_ift_bridge` instruction
 
 use anchor_lang::{InstructionData, Space};
 use solana_sdk::{
@@ -204,7 +204,7 @@ fn test_register_ift_bridge_empty_counterparty_fails() {
 
     let msg = RegisterIFTBridgeMsg {
         client_id: client_id.to_string(),
-        counterparty_ift_address: "".to_string(), // Empty!
+        counterparty_ift_address: String::new(), // Empty!
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 

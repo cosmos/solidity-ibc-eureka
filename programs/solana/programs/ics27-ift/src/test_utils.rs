@@ -376,7 +376,7 @@ pub fn deserialize_bridge(account: &SolanaAccount) -> IFTBridge {
 }
 
 /// Get the expected GMP account PDA for IFT validation
-/// Seeds: ["gmp_account", client_id, sha256(counterparty_address), empty_salt]
+/// Seeds: `["gmp_account", client_id, sha256(counterparty_address), empty_salt]`
 pub fn get_gmp_account_pda(
     client_id: &str,
     counterparty_address: &str,
