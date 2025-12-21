@@ -25,6 +25,7 @@ pub struct IFTMint<'info> {
     #[account(
         seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), msg.client_id.as_bytes()],
         bump = ift_bridge.bump,
+        constraint = ift_bridge.active @ IFTError::BridgeNotActive
     )]
     pub ift_bridge: Account<'info, IFTBridge>,
 
