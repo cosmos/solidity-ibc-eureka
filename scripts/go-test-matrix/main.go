@@ -127,7 +127,7 @@ func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems
 			if slices.Contains(excludedItems, fullTestName) {
 				continue
 			}
-			
+
 			gh.Include = append(gh.Include, testSuitePair{
 				Test:       testCaseName,
 				EntryPoint: testSuiteName,
