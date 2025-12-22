@@ -2,7 +2,7 @@ use crate::events::RoleGrantedEvent;
 use crate::state::AccessManager;
 use crate::{errors::AccessManagerError, WHITELISTED_CPI_PROGRAMS};
 use anchor_lang::prelude::*;
-use solana_ibc_types::{roles, validate_direct_or_whitelisted_cpi};
+use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
 
 #[derive(Accounts)]
 pub struct GrantRole<'info> {
@@ -23,7 +23,7 @@ pub struct GrantRole<'info> {
 
 pub fn grant_role(ctx: Context<GrantRole>, role_id: u64, account: Pubkey) -> Result<()> {
     // Validate caller
-    validate_direct_or_whitelisted_cpi(
+    require_direct_call_or_whitelisted_caller(
         &ctx.accounts.instructions_sysvar,
         WHITELISTED_CPI_PROGRAMS,
         &crate::ID,

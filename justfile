@@ -230,22 +230,14 @@ deploy-solana-full cluster="localnet" max_len_multiplier="2": (_validate-cluster
   done
   echo ""
 
-  # Step 4: Grant UPGRADER_ROLE (8) to deployer
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "👤 Step 4/4: Granting UPGRADER_ROLE (8) to deployer"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  just grant-solana-role 8 "" {{cluster}}
-  echo ""
-
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "✅ Full deployment complete for cluster: {{cluster}}"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
   echo "Summary:"
   echo "  ✓ All programs deployed"
-  echo "  ✓ AccessManager initialized"
+  echo "  ✓ AccessManager initialized (deployer has ADMIN_ROLE)"
   echo "  ✓ Upgrade authorities set to AccessManager PDAs"
-  echo "  ✓ UPGRADER_ROLE granted to deployer"
   echo ""
   echo "Next steps:"
   echo "  • Use 'just upgrade-solana-program <program> {{cluster}}' to upgrade programs"
@@ -509,15 +501,15 @@ prepare-solana-upgrade program upgrade_authority_pda cluster="localnet": build-s
   echo "   To complete the upgrade, call AccessManager.upgrade_program with:"
   echo "   - buffer: $BUFFER_ADDRESS"
   echo "   - target_program: <PROGRAM_ID>"
-  echo "   - authority: <ACCOUNT_WITH_UPGRADER_ROLE>"
+  echo "   - authority: <ACCOUNT_WITH_ADMIN_ROLE>"
   echo ""
   echo "   See e2e/interchaintestv8/solana_upgrade_test.go for implementation example"
 
 # Execute complete program upgrade (prepare buffer + execute upgrade instruction)
 # Usage: just upgrade-solana-program <program-name> [cluster] [upgrader-keypair]
 # Example: just upgrade-solana-program ics26_router
-# Example: just upgrade-solana-program ics26_router devnet solana-keypairs/devnet/upgrader.json
-# Note: Requires UPGRADER_ROLE granted to the upgrader keypair (defaults to deployer)
+# Example: just upgrade-solana-program ics26_router devnet solana-keypairs/devnet/admin.json
+# Note: Requires ADMIN_ROLE granted to the upgrader keypair (defaults to deployer)
 [group('solana')]
 upgrade-solana-program program cluster="localnet" upgrader_keypair="": (_validate-cluster cluster)
   #!/usr/bin/env bash
@@ -608,7 +600,7 @@ upgrade-solana-program program cluster="localnet" upgrader_keypair="": (_validat
   echo "Program Data Address: $PROGRAM_DATA_ADDR"
   echo ""
   echo "Step 4: Executing upgrade instruction..."
-  echo "(This requires UPGRADER_ROLE on the upgrader keypair)"
+  echo "(This requires ADMIN_ROLE on the upgrader keypair)"
   echo ""
 
   # Convert upgrader keypair to absolute path

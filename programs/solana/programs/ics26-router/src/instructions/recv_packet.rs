@@ -1,12 +1,12 @@
 use crate::errors::RouterError;
 use crate::router_cpi::LightClientCpi;
-use crate::router_cpi::{IbcAppCpi, IbcAppCpiAccounts};
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
 use crate::utils::{chunking, ics24, packet};
+use crate::{NoopEvent, WriteAcknowledgementEvent};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
-use solana_ibc_types::events::{NoopEvent, WriteAcknowledgementEvent};
+use solana_ibc_types::ibc_app::{on_recv_packet, OnRecvPacket, OnRecvPacketMsg};
 
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
@@ -208,22 +208,27 @@ pub fn recv_packet<'info>(
         msg.proof.total_chunks,
     );
 
-    let cpi_accounts = IbcAppCpiAccounts {
-        ibc_app_program: ctx.accounts.ibc_app_program.clone(),
-        app_state: ctx.accounts.ibc_app_state.clone(),
-        router_program: ctx.accounts.router_program.clone(),
-        instructions_sysvar: ctx.accounts.instructions_sysvar.clone(),
-        payer: ctx.accounts.relayer.to_account_info(),
-        system_program: ctx.accounts.system_program.to_account_info(),
+    let cpi_ctx = CpiContext::new(
+        ctx.accounts.ibc_app_program.clone(),
+        OnRecvPacket {
+            app_state: ctx.accounts.ibc_app_state.clone(),
+            router_program: ctx.accounts.router_program.clone(),
+            instructions_sysvar: ctx.accounts.instructions_sysvar.clone(),
+            payer: ctx.accounts.relayer.to_account_info(),
+            system_program: ctx.accounts.system_program.to_account_info(),
+        },
+    )
+    .with_remaining_accounts(app_remaining_accounts.to_vec());
+
+    let recv_msg = OnRecvPacketMsg {
+        source_client: packet.source_client.clone(),
+        dest_client: packet.dest_client.clone(),
+        sequence: packet.sequence,
+        payload: payload.clone(),
+        relayer: ctx.accounts.relayer.key(),
     };
 
-    let cpi = IbcAppCpi::new(cpi_accounts);
-    let acknowledgement = match cpi.on_recv_packet(
-        &packet,
-        payload,
-        &ctx.accounts.relayer.key(),
-        app_remaining_accounts,
-    ) {
+    let acknowledgement = match on_recv_packet(cpi_ctx, recv_msg) {
         Ok(ack) => {
             require!(
                 !ack.is_empty(),
