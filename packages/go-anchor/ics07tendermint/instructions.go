@@ -461,6 +461,11 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 		if err != nil {
 			return nil, errors.NewField("clientIdParam", err)
 		}
+		// Serialize `chunkCountParam`:
+		err = enc__.Encode(chunkCountParam)
+		if err != nil {
+			return nil, errors.NewField("chunkCountParam", err)
+		}
 	}
 	{
 		// Serialize `chunkCountParam`:

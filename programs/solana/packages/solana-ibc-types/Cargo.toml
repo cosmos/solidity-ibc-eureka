@@ -28,6 +28,7 @@ tendermint = { workspace = true, optional = true }
 [features]
 light-client = ["dep:ibc-client-tendermint", "dep:ibc-core-client-types", "dep:tendermint"]
 solana = []
+idl-build = ["anchor-lang/idl-build"]
 
 [lib]
 crate-type = ["cdylib", "lib"]

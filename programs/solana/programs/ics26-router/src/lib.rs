@@ -2,12 +2,19 @@ use anchor_lang::prelude::*;
 
 pub mod constants;
 pub mod errors;
+pub mod events;
 pub mod instructions;
 pub mod router_cpi;
 pub mod state;
 #[cfg(test)]
 pub mod test_utils;
 pub mod utils;
+
+// Re-export events for use by instructions
+pub use events::{
+    AccessManagerUpdated, AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded,
+    NoopEvent, SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
+};
 
 use instructions::client::MigrateClientParams;
 use instructions::*;
