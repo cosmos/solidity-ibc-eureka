@@ -83,6 +83,9 @@ runs:
       shell: bash
       run: cargo install --git https://github.com/coral-xyz/anchor --tag v${ANCHOR_VERSION} anchor-cli
 
+    - name: Install just
+      uses: extractions/setup-just@v2
+
     - name: Build Solana Programs
       if: steps.cache-solana.outputs.cache-hit != 'true'
       shell: bash
