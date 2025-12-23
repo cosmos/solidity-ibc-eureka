@@ -23,7 +23,8 @@ jobs:
       - name: Lint the code
         run: bun run lint:sol
 
-      - uses: srdtrk/natlint@main
+      -- TODO: update original repo
+      - uses: vaporif/natlint@drop-forge-fmt
         with:
           include: 'contracts/**/*.sol'
 

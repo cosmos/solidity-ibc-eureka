@@ -36,6 +36,9 @@ runs:
           ./programs/solana/target/sbpf-solana-solana/
         key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('programs/solana/**') }}
 
+    - name: Install just
+      uses: extractions/setup-just@v2
+
     - name: Install artifacts
       shell: bash
       run: |
