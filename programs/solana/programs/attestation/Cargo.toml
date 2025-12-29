@@ -1,0 +1,33 @@
+[package]
+name = "attestation"
+version.workspace = true
+description = "Attestation light client for IBC on Solana"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "attestation", "anchor"]
+categories = ["cryptography", "blockchain"]
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "attestation"
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+ics25-handler.workspace = true
+
+# Attestor light client integration
+# TODO: Re-enable after fixing alloy dependency compatibility issues
+# attestor-light-client = { workspace = true }
+# ethereum-keys = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Hashing
+solana-keccak-hasher = { workspace = true }

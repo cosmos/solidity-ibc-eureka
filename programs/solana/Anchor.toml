@@ -13,6 +13,7 @@ localnet = "http://localhost:8899"
 
 [programs.localnet]
 access_manager = "4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1"
+attestation = "4AFX7zqsHerxVuZGsNenjenS5R2cYHLmwwx53y6QN8Mk"
 dummy_ibc_app = "5E73beFMq9QZvbwPN5i84psh2WcyJ9PgqF4avBaRDgCC"
 gmp_counter_app = "GdEUjpVtKvHKStM3Hph6PnLSUMsJXvcVqugubhtQ5QUD"
 ics07_tendermint = "HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD"
