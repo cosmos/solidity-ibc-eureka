@@ -1,0 +1,36 @@
+[package]
+name = "ibc-eureka-relayer-solana-to-cosmos"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+ibc-eureka-relayer-core = { workspace = true, default-features = false }
+ibc-eureka-relayer-lib = { workspace = true }
+ibc-eureka-utils.workspace = true
+
+serde = { workspace = true, features = ["derive"] }
+prost = { workspace = true, features = ["std"] }
+serde_json.workspace = true
+
+tonic = { workspace = true, default-features = true }
+anyhow = { workspace = true, features = ["std"] }
+tracing = { workspace = true, default-features = true }
+async-trait   = { workspace = true }
+
+tendermint = { workspace = true, features = ["std"] }
+tendermint-rpc = { workspace = true, features = ["http-client"] }
+
+# Solana specific dependencies
+solana-client.workspace = true
+solana-sdk.workspace = true
+solana-transaction-status.workspace = true
+anchor-lang.workspace = true
+anchor-client.workspace = true
+borsh.workspace = true
+base64.workspace = true
+hex.workspace = true
+
+ibc-proto-eureka.workspace = true
+solana-ibc-types = { path = "../../../../programs/solana/packages/solana-ibc-types" }

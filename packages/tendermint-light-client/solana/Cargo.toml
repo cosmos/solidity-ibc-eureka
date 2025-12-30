@@ -1,0 +1,21 @@
+[package]
+name = "tendermint-light-client-solana"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+tendermint = { workspace = true, features = ["rust-crypto"] }
+tendermint-light-client-verifier = { workspace = true }
+brine-ed25519 = { workspace = true, features = ["std"] }
+sha2 = { workspace = true }
+ibc-core-commitment-types = { workspace = true }
+ics23 = { workspace = true }
+
+solana-account-info.workspace = true
+solana-pubkey.workspace = true
+solana-sha256-hasher.workspace = true
+solana-keccak-hasher.workspace = true
+solana-msg.workspace = true
+

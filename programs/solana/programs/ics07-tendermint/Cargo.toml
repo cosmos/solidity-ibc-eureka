@@ -1,0 +1,62 @@
+[package]
+name = "ics07-tendermint"
+version.workspace = true
+description = "ICS-07 Tendermint light client for IBC on Solana"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "tendermint", "anchor"]
+categories = ["cryptography", "blockchain"]
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ics07_tendermint"
+
+[features]
+default = ["custom-heap"]
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+custom-heap = ["dep:solana-allocator"]
+
+
+[dependencies]
+solana-allocator = { version = "0.1", optional = true }
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+access-manager = { workspace = true, features = ["cpi"] }
+borsh.workspace = true
+ics25-handler.workspace = true
+solana-ibc-types = { workspace = true, features = ["light-client"] }
+solana-ibc-constants.workspace = true
+solana-sdk-ids.workspace = true
+solana-define-syscall.workspace = true
+
+tendermint-light-client-update-client = { workspace = true, features = ["solana"] }
+tendermint-light-client-membership = { workspace = true, features = ["solana"] }
+tendermint-light-client-misbehaviour = { workspace = true, features = ["solana"] }
+tendermint-light-client-solana = { workspace = true }
+
+ibc-client-tendermint.workspace = true
+ibc-core-client-types.workspace = true
+ibc-core-host-types.workspace = true
+ibc-core-commitment-types.workspace = true
+ibc-primitives.workspace = true
+ibc-proto.workspace = true
+tendermint.workspace = true
+time = { workspace = true, features = ["macros"] }
+
+[dev-dependencies]
+mollusk-svm.workspace = true
+mollusk-svm-bencher.workspace = true
+solana-sdk.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+bincode.workspace = true
+prost.workspace = true

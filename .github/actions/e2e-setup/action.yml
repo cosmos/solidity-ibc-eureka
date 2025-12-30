@@ -18,45 +18,36 @@ runs:
         check-latest: true
         cache-dependency-path: e2e/interchaintestv8/go.sum
 
-    - name: Cache Relayer and Operator
-      id: cache-relayer
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: e2e-build-artifacts
+        path: e2e-artifacts/
+
+    - name: Cache Solana
+      id: cache-solana
       uses: actions/cache@v4
       with:
         path: |
-          ~/.cargo/bin/relayer
-          ~/.cargo/bin/operator
-          ./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
-        key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'packages/**', 'programs/**', 'abi/**') }}
+          ~/.cache/solana/
+          ~/.local/share/solana/
+          ~/.cargo/bin/anchor
+          ./programs/solana/target/deploy/
+          ./programs/solana/target/sbpf-solana-solana/
+        key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('programs/solana/**') }}
 
-    - name: Install SP1 toolchain
-      if: (steps.cache-relayer.outputs.cache-hit != 'true')
+    - name: Install artifacts
       shell: bash
       run: |
-        curl -L https://sp1.succinct.xyz | bash
-        ~/.sp1/bin/sp1up --token ${{ inputs.github_token }}
-        ~/.sp1/bin/cargo-prove prove --version
+        # Install binaries
+        chmod +x e2e-artifacts/bin/*
+        mkdir -p ~/.cargo/bin
+        cp e2e-artifacts/bin/* ~/.cargo/bin/
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-    - name: Install operator
-      if: steps.cache-relayer.outputs.cache-hit != 'true'
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: --bin operator --path programs/operator --locked
-
-    - name: Install relayer
-      if: steps.cache-relayer.outputs.cache-hit != 'true'
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: --bin relayer --path programs/relayer --locked
-
-    - name: Install just
-      if: (steps.cache-relayer.outputs.cache-hit != 'true')
-      uses: extractions/setup-just@v2
-    - name: Build SP1 Programs
-      if: (steps.cache-relayer.outputs.cache-hit != 'true')
-      shell: bash
-      run: just build-sp1-programs
+        # Install SP1 programs
+        mkdir -p programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
+        cp -r e2e-artifacts/sp1-programs/* programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
 
     - name: Setup Kurtosis
       if: env.ETH_TESTNET_TYPE == 'pos'
@@ -68,3 +59,31 @@ runs:
         kurtosis engine start
         kurtosis analytics disable
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
+
+    - name: Setup Solana Dependencies
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential pkg-config libudev-dev llvm libclang-dev protobuf-compiler libssl-dev
+
+    - name: Setup Solana
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        sh -c "$(curl -sSfL https://release.anza.xyz/v${SOLANA_VERSION}/install)"
+
+    - name: Add Solana to PATH
+      shell: bash
+      run: |
+        echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+    - name: Setup Anchor
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      shell: bash
+      run: cargo install --git https://github.com/coral-xyz/anchor --tag v${ANCHOR_VERSION} anchor-cli
+
+    - name: Build Solana Programs
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      shell: bash
+      run: just build-solana
