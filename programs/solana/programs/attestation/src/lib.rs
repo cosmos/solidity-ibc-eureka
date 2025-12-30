@@ -5,7 +5,7 @@ pub mod helpers;
 pub mod instructions;
 pub mod state;
 
-use state::{ClientState, ConsensusStateStore};
+use state::{ClientState, ConsensusStateStore, UpdateResult};
 
 declare_id!("4AFX7zqsHerxVuZGsNenjenS5R2cYHLmwwx53y6QN8Mk");
 
@@ -74,6 +74,22 @@ pub struct VerifyNonMembership<'info> {
     pub consensus_state: Account<'info, ConsensusStateStore>,
 }
 
+#[derive(Accounts)]
+#[instruction(update_msg: Vec<u8>)]
+pub struct UpdateClient<'info> {
+    #[account(mut)]
+    pub client_state: Account<'info, ClientState>,
+
+    /// CHECK: PDA validation and initialization handled in handler
+    #[account(mut)]
+    pub consensus_state: AccountInfo<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
 #[program]
 pub mod attestation {
     use super::*;
@@ -94,6 +110,15 @@ pub mod attestation {
             initial_height,
             initial_timestamp,
         )
+    }
+
+    /// Update the client with a new consensus state
+    /// Implements the logic from AttestationLightClient.sol:88-122
+    /// Returns UpdateResult indicating success, no-op, or misbehavior
+    pub fn update_client(ctx: Context<UpdateClient>, update_msg: Vec<u8>) -> Result<UpdateResult> {
+        let result = instructions::update_client::handler(ctx, update_msg)?;
+
+        Ok(result)
     }
 
     // TODO: CRITICAL - Add signature verification before calling handler
@@ -129,28 +154,6 @@ pub mod attestation {
     ) -> Result<()> {
         instructions::verify_non_membership::handler(ctx, msg)
     }
-
-    // TODO: CRITICAL - Implement update_client instruction
-    // Missing instruction that corresponds to updateClient() in Solidity.
-    // This instruction should:
-    // 1. Accept an AttestationProof containing StateAttestation data
-    // 2. Compute sha256 digest of proof.attestationData
-    // 3. Verify signatures using _verifySignaturesThreshold logic
-    // 4. Decode StateAttestation from proof.attestationData
-    // 5. Validate state.height > 0 && state.timestamp > 0
-    // 6. Check if consensus state already exists at this height:
-    //    a. If exists with same timestamp -> return NoOp
-    //    b. If exists with different timestamp -> freeze client, return Misbehaviour
-    //    c. If doesn't exist -> create new consensus state
-    // 7. Update clientState.latestHeight if new height is higher
-    // 8. Return UpdateResult enum (Update, NoOp, or Misbehaviour)
-    // See: contracts/light-clients/attestation/AttestationLightClient.sol:88-122
-    //
-    // The Accounts struct should include:
-    // - client_state: Account<ClientState> (mutable)
-    // - consensus_state: Account<ConsensusStateStore> (init if doesn't exist)
-    // - payer: Signer (for creating new consensus states)
-    // - system_program: Program<System>
 
     // TODO: Add getter view functions for querying state
     // The Solidity implementation provides several view functions that are missing here:

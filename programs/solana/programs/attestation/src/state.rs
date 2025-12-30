@@ -1,5 +1,17 @@
 use anchor_lang::prelude::*;
 
+/// Result of an update_client operation
+/// Matches ILightClientMsgs.UpdateResult from Solidity (contracts/msgs/ILightClientMsgs.sol:32-39)
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum UpdateResult {
+    /// The update was successful
+    Update,
+    /// A misbehaviour was detected
+    Misbehaviour,
+    /// Client is already up to date
+    NoOp,
+}
+
 /// Client state for the attestation light client. Stores the fixed attestor
 /// set, quorum threshold, and latest verified height
 #[account]
@@ -17,7 +29,6 @@ pub struct ClientState {
 
     /// Whether the client is frozen due to misbehavior
     pub is_frozen: bool,
-
     // TODO: Consider adding access control fields
     // The Solidity implementation uses OpenZeppelin's AccessControl with roles.
     // For Solana, consider adding:
