@@ -6,7 +6,7 @@ use crate::utils::chunking::total_payload_chunks;
 use crate::utils::{chunking, ics24, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
-use solana_ibc_types::ibc_app::{OnRecvPacket, OnRecvPacketMsg, on_recv_packet};
+use solana_ibc_types::ibc_app::{on_recv_packet, OnRecvPacket, OnRecvPacketMsg};
 
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
@@ -284,9 +284,9 @@ mod tests {
     use super::*;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
-    use mollusk_svm::Mollusk;
     use mollusk_svm::result::Check;
-    use solana_ibc_types::{Payload, PayloadMetadata, ProofMetadata, roles};
+    use mollusk_svm::Mollusk;
+    use solana_ibc_types::{roles, Payload, PayloadMetadata, ProofMetadata};
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
