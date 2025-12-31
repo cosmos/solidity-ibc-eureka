@@ -1,6 +1,6 @@
 use crate::errors::RouterError;
+use crate::events::IBCAppAdded;
 use crate::state::{AccountVersion, IBCApp, RouterState};
-use crate::IBCAppAdded;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]

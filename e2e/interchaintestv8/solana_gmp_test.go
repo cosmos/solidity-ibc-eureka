@@ -460,14 +460,14 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 		simd := s.CosmosChains[0]
 
 		// Helper to verify ack content on Solana and relay to Cosmos
-		// The WriteAcknowledgementEvent on Solana contains the protobuf-encoded GmpAcknowledgement
+		// The AcknowledgementWritten event on Solana contains the protobuf-encoded GmpAcknowledgement
 		// with the counter value returned by the GMP counter app
 		verifyAndRelayAck := func(solanaRelayTxSig solanago.Signature, label string, expectedCounterValue uint64) {
 			// First verify the ack content on Solana
 			s.Require().True(s.Run(fmt.Sprintf("Verify %s ack on Solana", label), func() {
-				events, err := s.SolanaChain.GetWriteAcknowledgementEvents(ctx, solanaRelayTxSig)
-				s.Require().NoError(err, "Failed to get WriteAcknowledgementEvents")
-				s.Require().Len(events, 1, "Should have exactly one WriteAcknowledgementEvent")
+				events, err := s.SolanaChain.GetAcknowledgementWrittenEvents(ctx, solanaRelayTxSig)
+				s.Require().NoError(err, "Failed to get AcknowledgementWritten events")
+				s.Require().Len(events, 1, "Should have exactly one AcknowledgementWritten event")
 
 				event := events[0]
 				s.Require().Len(event.Acknowledgements, 1, "Should have exactly one ack (one payload)")
@@ -711,9 +711,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	s.Require().True(s.Run("Verify and Relay Acknowledgment", func() {
 		// Verify ack on Solana
 		s.Require().True(s.Run("Verify ack on Solana", func() {
-			events, err := s.SolanaChain.GetWriteAcknowledgementEvents(ctx, solanaRelayTxSig)
-			s.Require().NoError(err, "Failed to get WriteAcknowledgementEvents")
-			s.Require().Len(events, 1, "Should have exactly one WriteAcknowledgementEvent")
+			events, err := s.SolanaChain.GetAcknowledgementWrittenEvents(ctx, solanaRelayTxSig)
+			s.Require().NoError(err, "Failed to get AcknowledgementWritten events")
+			s.Require().Len(events, 1, "Should have exactly one AcknowledgementWritten event")
 
 			event := events[0]
 			s.Require().Len(event.Acknowledgements, 1, "Should have exactly one ack")

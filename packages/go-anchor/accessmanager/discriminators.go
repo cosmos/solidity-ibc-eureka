@@ -10,10 +10,10 @@ var (
 
 // Event discriminators
 var (
-	Event_AccessManagerEventsProgramExtendedEvent = [8]byte{159, 188, 199, 254, 187, 64, 46, 13}
-	Event_AccessManagerEventsProgramUpgradedEvent = [8]byte{187, 15, 83, 36, 251, 96, 19, 210}
-	Event_AccessManagerEventsRoleGrantedEvent     = [8]byte{221, 21, 92, 108, 136, 12, 105, 112}
-	Event_AccessManagerEventsRoleRevokedEvent     = [8]byte{104, 105, 52, 114, 39, 94, 217, 251}
+	Event_AccessManagerEventsProgramExtended = [8]byte{72, 55, 219, 203, 72, 77, 67, 116}
+	Event_AccessManagerEventsProgramUpgraded = [8]byte{116, 102, 220, 4, 220, 250, 209, 13}
+	Event_AccessManagerEventsRoleGranted     = [8]byte{220, 183, 89, 228, 143, 63, 246, 58}
+	Event_AccessManagerEventsRoleRevoked     = [8]byte{167, 183, 52, 229, 126, 206, 62, 61}
 )
 
 // Instruction discriminators

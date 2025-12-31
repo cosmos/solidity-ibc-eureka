@@ -1,9 +1,9 @@
 use crate::errors::RouterError;
+use crate::events::{Noop, PacketAcknowledged};
 use crate::router_cpi::LightClientCpi;
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
 use crate::utils::{chunking, ics24, packet};
-use crate::{AckPacketEvent, NoopEvent};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::ibc_app::{
@@ -175,7 +175,7 @@ pub fn ack_packet<'info>(
     // Check if packet commitment exists (no-op case)
     // An uninitialized account will be owned by System Program
     if packet_commitment_account.owner != &crate::ID || packet_commitment_account.data_is_empty() {
-        emit!(NoopEvent {});
+        emit!(Noop {});
         return Ok(());
     }
 
@@ -232,7 +232,7 @@ pub fn ack_packet<'info>(
         **packet_commitment_account.lamports.borrow_mut() = 0;
     }
 
-    emit!(AckPacketEvent {
+    emit!(PacketAcknowledged {
         client_id: packet.source_client.clone(),
         sequence: packet.sequence,
         packet,

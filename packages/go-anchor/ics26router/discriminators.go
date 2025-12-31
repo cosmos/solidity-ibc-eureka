@@ -16,15 +16,15 @@ var (
 
 // Event discriminators
 var (
-	Event_Ics26RouterEventsAccessManagerUpdated      = [8]byte{115, 113, 220, 181, 221, 128, 58, 186}
-	Event_Ics26RouterEventsAckPacketEvent            = [8]byte{77, 168, 233, 72, 104, 170, 223, 187}
-	Event_Ics26RouterEventsClientAddedEvent          = [8]byte{115, 228, 28, 166, 212, 126, 80, 103}
-	Event_Ics26RouterEventsClientUpdatedEvent        = [8]byte{153, 180, 170, 210, 48, 212, 204, 6}
-	Event_Ics26RouterEventsIbcAppAdded               = [8]byte{203, 71, 209, 220, 197, 188, 7, 160}
-	Event_Ics26RouterEventsNoopEvent                 = [8]byte{59, 182, 57, 141, 7, 255, 75, 55}
-	Event_Ics26RouterEventsSendPacketEvent           = [8]byte{193, 230, 168, 142, 93, 141, 211, 151}
-	Event_Ics26RouterEventsTimeoutPacketEvent        = [8]byte{175, 73, 51, 208, 241, 155, 242, 254}
-	Event_Ics26RouterEventsWriteAcknowledgementEvent = [8]byte{10, 54, 186, 209, 240, 25, 50, 0}
+	Event_Ics26RouterEventsAccessManagerUpdated   = [8]byte{115, 113, 220, 181, 221, 128, 58, 186}
+	Event_Ics26RouterEventsAcknowledgementWritten = [8]byte{62, 251, 126, 229, 132, 152, 233, 32}
+	Event_Ics26RouterEventsClientAdded            = [8]byte{7, 65, 172, 61, 228, 147, 79, 250}
+	Event_Ics26RouterEventsClientUpdated          = [8]byte{137, 200, 153, 165, 185, 37, 104, 61}
+	Event_Ics26RouterEventsIbcAppAdded            = [8]byte{203, 71, 209, 220, 197, 188, 7, 160}
+	Event_Ics26RouterEventsNoop                   = [8]byte{24, 136, 224, 238, 45, 178, 143, 170}
+	Event_Ics26RouterEventsPacketAcknowledged     = [8]byte{199, 36, 235, 151, 125, 90, 168, 165}
+	Event_Ics26RouterEventsPacketSent             = [8]byte{88, 91, 33, 67, 248, 122, 173, 51}
+	Event_Ics26RouterEventsPacketTimedOut         = [8]byte{45, 30, 55, 154, 41, 253, 155, 196}
 )
 
 // Instruction discriminators

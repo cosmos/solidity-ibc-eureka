@@ -1,12 +1,12 @@
 use crate::errors::RouterError;
+use crate::events::{AcknowledgementWritten, Noop};
 use crate::router_cpi::LightClientCpi;
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
 use crate::utils::{chunking, ics24, packet};
-use crate::{NoopEvent, WriteAcknowledgementEvent};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
-use solana_ibc_types::ibc_app::{on_recv_packet, OnRecvPacket, OnRecvPacketMsg};
+use solana_ibc_types::ibc_app::{OnRecvPacket, OnRecvPacketMsg, on_recv_packet};
 
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
@@ -194,7 +194,7 @@ pub fn recv_packet<'info>(
     // Check if packet_receipt already exists (non-empty means it was saved before)
     if packet_receipt.value != Commitment::EMPTY {
         if packet_receipt.value == receipt_commitment {
-            emit!(NoopEvent {});
+            emit!(Noop {});
             return Ok(());
         }
         return Err(RouterError::PacketReceiptMismatch.into());
@@ -269,7 +269,7 @@ pub fn recv_packet<'info>(
     let ack_commitment = ics24::packet_acknowledgement_commitment_bytes32(&acknowledgements)?;
     packet_ack.value = ack_commitment;
 
-    emit!(WriteAcknowledgementEvent {
+    emit!(AcknowledgementWritten {
         client_id: packet.dest_client.clone(),
         sequence: packet.sequence,
         packet,
@@ -284,9 +284,9 @@ mod tests {
     use super::*;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
-    use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_ibc_types::{roles, Payload, PayloadMetadata, ProofMetadata};
+    use mollusk_svm::result::Check;
+    use solana_ibc_types::{Payload, PayloadMetadata, ProofMetadata, roles};
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;

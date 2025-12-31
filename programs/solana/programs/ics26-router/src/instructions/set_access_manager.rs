@@ -1,5 +1,5 @@
+use crate::events::AccessManagerUpdated;
 use crate::state::RouterState;
-use crate::AccessManagerUpdated;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]

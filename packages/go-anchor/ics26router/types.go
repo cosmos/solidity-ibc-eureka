@@ -72,15 +72,15 @@ func UnmarshalIcs26RouterEventsAccessManagerUpdated(buf []byte) (*Ics26RouterEve
 	return obj, nil
 }
 
-// Event emitted when a packet is acknowledged
-type Ics26RouterEventsAckPacketEvent struct {
-	ClientId        string                     `json:"clientId"`
-	Sequence        uint64                     `json:"sequence"`
-	Packet          SolanaIbcTypesRouterPacket `json:"packet"`
-	Acknowledgement [][]byte                   `json:"acknowledgement"`
+// Event emitted when a packet acknowledgement is written
+type Ics26RouterEventsAcknowledgementWritten struct {
+	ClientId         string                     `json:"clientId"`
+	Sequence         uint64                     `json:"sequence"`
+	Packet           SolanaIbcTypesRouterPacket `json:"packet"`
+	Acknowledgements [][]byte                   `json:"acknowledgements"`
 }
 
-func (obj Ics26RouterEventsAckPacketEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics26RouterEventsAcknowledgementWritten) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `ClientId`:
 	err = encoder.Encode(obj.ClientId)
 	if err != nil {
@@ -96,25 +96,25 @@ func (obj Ics26RouterEventsAckPacketEvent) MarshalWithEncoder(encoder *binary.En
 	if err != nil {
 		return errors.NewField("Packet", err)
 	}
-	// Serialize `Acknowledgement`:
-	err = encoder.Encode(obj.Acknowledgement)
+	// Serialize `Acknowledgements`:
+	err = encoder.Encode(obj.Acknowledgements)
 	if err != nil {
-		return errors.NewField("Acknowledgement", err)
+		return errors.NewField("Acknowledgements", err)
 	}
 	return nil
 }
 
-func (obj Ics26RouterEventsAckPacketEvent) Marshal() ([]byte, error) {
+func (obj Ics26RouterEventsAcknowledgementWritten) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics26RouterEventsAckPacketEvent: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics26RouterEventsAcknowledgementWritten: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *Ics26RouterEventsAckPacketEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics26RouterEventsAcknowledgementWritten) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `ClientId`:
 	err = decoder.Decode(&obj.ClientId)
 	if err != nil {
@@ -130,24 +130,24 @@ func (obj *Ics26RouterEventsAckPacketEvent) UnmarshalWithDecoder(decoder *binary
 	if err != nil {
 		return errors.NewField("Packet", err)
 	}
-	// Deserialize `Acknowledgement`:
-	err = decoder.Decode(&obj.Acknowledgement)
+	// Deserialize `Acknowledgements`:
+	err = decoder.Decode(&obj.Acknowledgements)
 	if err != nil {
-		return errors.NewField("Acknowledgement", err)
+		return errors.NewField("Acknowledgements", err)
 	}
 	return nil
 }
 
-func (obj *Ics26RouterEventsAckPacketEvent) Unmarshal(buf []byte) error {
+func (obj *Ics26RouterEventsAcknowledgementWritten) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics26RouterEventsAckPacketEvent: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics26RouterEventsAcknowledgementWritten: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalIcs26RouterEventsAckPacketEvent(buf []byte) (*Ics26RouterEventsAckPacketEvent, error) {
-	obj := new(Ics26RouterEventsAckPacketEvent)
+func UnmarshalIcs26RouterEventsAcknowledgementWritten(buf []byte) (*Ics26RouterEventsAcknowledgementWritten, error) {
+	obj := new(Ics26RouterEventsAcknowledgementWritten)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -156,11 +156,11 @@ func UnmarshalIcs26RouterEventsAckPacketEvent(buf []byte) (*Ics26RouterEventsAck
 }
 
 // Event emitted when a client is added
-type Ics26RouterEventsClientAddedEvent struct {
+type Ics26RouterEventsClientAdded struct {
 	Client SolanaIbcTypesRouterClientAccount `json:"client"`
 }
 
-func (obj Ics26RouterEventsClientAddedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics26RouterEventsClientAdded) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `Client`:
 	err = encoder.Encode(obj.Client)
 	if err != nil {
@@ -169,17 +169,17 @@ func (obj Ics26RouterEventsClientAddedEvent) MarshalWithEncoder(encoder *binary.
 	return nil
 }
 
-func (obj Ics26RouterEventsClientAddedEvent) Marshal() ([]byte, error) {
+func (obj Ics26RouterEventsClientAdded) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics26RouterEventsClientAddedEvent: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics26RouterEventsClientAdded: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *Ics26RouterEventsClientAddedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics26RouterEventsClientAdded) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `Client`:
 	err = decoder.Decode(&obj.Client)
 	if err != nil {
@@ -188,16 +188,16 @@ func (obj *Ics26RouterEventsClientAddedEvent) UnmarshalWithDecoder(decoder *bina
 	return nil
 }
 
-func (obj *Ics26RouterEventsClientAddedEvent) Unmarshal(buf []byte) error {
+func (obj *Ics26RouterEventsClientAdded) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics26RouterEventsClientAddedEvent: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics26RouterEventsClientAdded: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalIcs26RouterEventsClientAddedEvent(buf []byte) (*Ics26RouterEventsClientAddedEvent, error) {
-	obj := new(Ics26RouterEventsClientAddedEvent)
+func UnmarshalIcs26RouterEventsClientAdded(buf []byte) (*Ics26RouterEventsClientAdded, error) {
+	obj := new(Ics26RouterEventsClientAdded)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -206,11 +206,11 @@ func UnmarshalIcs26RouterEventsClientAddedEvent(buf []byte) (*Ics26RouterEventsC
 }
 
 // Event emitted when a client is updated
-type Ics26RouterEventsClientUpdatedEvent struct {
+type Ics26RouterEventsClientUpdated struct {
 	Client SolanaIbcTypesRouterClientAccount `json:"client"`
 }
 
-func (obj Ics26RouterEventsClientUpdatedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics26RouterEventsClientUpdated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `Client`:
 	err = encoder.Encode(obj.Client)
 	if err != nil {
@@ -219,17 +219,17 @@ func (obj Ics26RouterEventsClientUpdatedEvent) MarshalWithEncoder(encoder *binar
 	return nil
 }
 
-func (obj Ics26RouterEventsClientUpdatedEvent) Marshal() ([]byte, error) {
+func (obj Ics26RouterEventsClientUpdated) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics26RouterEventsClientUpdatedEvent: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics26RouterEventsClientUpdated: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *Ics26RouterEventsClientUpdatedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics26RouterEventsClientUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `Client`:
 	err = decoder.Decode(&obj.Client)
 	if err != nil {
@@ -238,16 +238,16 @@ func (obj *Ics26RouterEventsClientUpdatedEvent) UnmarshalWithDecoder(decoder *bi
 	return nil
 }
 
-func (obj *Ics26RouterEventsClientUpdatedEvent) Unmarshal(buf []byte) error {
+func (obj *Ics26RouterEventsClientUpdated) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics26RouterEventsClientUpdatedEvent: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics26RouterEventsClientUpdated: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalIcs26RouterEventsClientUpdatedEvent(buf []byte) (*Ics26RouterEventsClientUpdatedEvent, error) {
-	obj := new(Ics26RouterEventsClientUpdatedEvent)
+func UnmarshalIcs26RouterEventsClientUpdated(buf []byte) (*Ics26RouterEventsClientUpdated, error) {
+	obj := new(Ics26RouterEventsClientUpdated)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -317,36 +317,119 @@ func UnmarshalIcs26RouterEventsIbcAppAdded(buf []byte) (*Ics26RouterEventsIbcApp
 }
 
 // No-op event for testing
-type Ics26RouterEventsNoopEvent struct{}
+type Ics26RouterEventsNoop struct{}
 
-func (obj Ics26RouterEventsNoopEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics26RouterEventsNoop) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	return nil
 }
 
-func (obj Ics26RouterEventsNoopEvent) Marshal() ([]byte, error) {
+func (obj Ics26RouterEventsNoop) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics26RouterEventsNoopEvent: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics26RouterEventsNoop: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *Ics26RouterEventsNoopEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics26RouterEventsNoop) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	return nil
 }
 
-func (obj *Ics26RouterEventsNoopEvent) Unmarshal(buf []byte) error {
+func (obj *Ics26RouterEventsNoop) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics26RouterEventsNoopEvent: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics26RouterEventsNoop: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalIcs26RouterEventsNoopEvent(buf []byte) (*Ics26RouterEventsNoopEvent, error) {
-	obj := new(Ics26RouterEventsNoopEvent)
+func UnmarshalIcs26RouterEventsNoop(buf []byte) (*Ics26RouterEventsNoop, error) {
+	obj := new(Ics26RouterEventsNoop)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Event emitted when a packet is acknowledged
+type Ics26RouterEventsPacketAcknowledged struct {
+	ClientId        string                     `json:"clientId"`
+	Sequence        uint64                     `json:"sequence"`
+	Packet          SolanaIbcTypesRouterPacket `json:"packet"`
+	Acknowledgement [][]byte                   `json:"acknowledgement"`
+}
+
+func (obj Ics26RouterEventsPacketAcknowledged) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Serialize `Packet`:
+	err = encoder.Encode(obj.Packet)
+	if err != nil {
+		return errors.NewField("Packet", err)
+	}
+	// Serialize `Acknowledgement`:
+	err = encoder.Encode(obj.Acknowledgement)
+	if err != nil {
+		return errors.NewField("Acknowledgement", err)
+	}
+	return nil
+}
+
+func (obj Ics26RouterEventsPacketAcknowledged) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics26RouterEventsPacketAcknowledged: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics26RouterEventsPacketAcknowledged) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Deserialize `Packet`:
+	err = decoder.Decode(&obj.Packet)
+	if err != nil {
+		return errors.NewField("Packet", err)
+	}
+	// Deserialize `Acknowledgement`:
+	err = decoder.Decode(&obj.Acknowledgement)
+	if err != nil {
+		return errors.NewField("Acknowledgement", err)
+	}
+	return nil
+}
+
+func (obj *Ics26RouterEventsPacketAcknowledged) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics26RouterEventsPacketAcknowledged: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs26RouterEventsPacketAcknowledged(buf []byte) (*Ics26RouterEventsPacketAcknowledged, error) {
+	obj := new(Ics26RouterEventsPacketAcknowledged)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -355,14 +438,14 @@ func UnmarshalIcs26RouterEventsNoopEvent(buf []byte) (*Ics26RouterEventsNoopEven
 }
 
 // Event emitted when a packet is sent
-type Ics26RouterEventsSendPacketEvent struct {
+type Ics26RouterEventsPacketSent struct {
 	ClientId         string                     `json:"clientId"`
 	Sequence         uint64                     `json:"sequence"`
 	Packet           SolanaIbcTypesRouterPacket `json:"packet"`
 	TimeoutTimestamp int64                      `json:"timeoutTimestamp"`
 }
 
-func (obj Ics26RouterEventsSendPacketEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics26RouterEventsPacketSent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `ClientId`:
 	err = encoder.Encode(obj.ClientId)
 	if err != nil {
@@ -386,17 +469,17 @@ func (obj Ics26RouterEventsSendPacketEvent) MarshalWithEncoder(encoder *binary.E
 	return nil
 }
 
-func (obj Ics26RouterEventsSendPacketEvent) Marshal() ([]byte, error) {
+func (obj Ics26RouterEventsPacketSent) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics26RouterEventsSendPacketEvent: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics26RouterEventsPacketSent: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *Ics26RouterEventsSendPacketEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics26RouterEventsPacketSent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `ClientId`:
 	err = decoder.Decode(&obj.ClientId)
 	if err != nil {
@@ -420,16 +503,16 @@ func (obj *Ics26RouterEventsSendPacketEvent) UnmarshalWithDecoder(decoder *binar
 	return nil
 }
 
-func (obj *Ics26RouterEventsSendPacketEvent) Unmarshal(buf []byte) error {
+func (obj *Ics26RouterEventsPacketSent) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics26RouterEventsSendPacketEvent: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics26RouterEventsPacketSent: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalIcs26RouterEventsSendPacketEvent(buf []byte) (*Ics26RouterEventsSendPacketEvent, error) {
-	obj := new(Ics26RouterEventsSendPacketEvent)
+func UnmarshalIcs26RouterEventsPacketSent(buf []byte) (*Ics26RouterEventsPacketSent, error) {
+	obj := new(Ics26RouterEventsPacketSent)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -438,13 +521,13 @@ func UnmarshalIcs26RouterEventsSendPacketEvent(buf []byte) (*Ics26RouterEventsSe
 }
 
 // Event emitted when a packet times out
-type Ics26RouterEventsTimeoutPacketEvent struct {
+type Ics26RouterEventsPacketTimedOut struct {
 	ClientId string                     `json:"clientId"`
 	Sequence uint64                     `json:"sequence"`
 	Packet   SolanaIbcTypesRouterPacket `json:"packet"`
 }
 
-func (obj Ics26RouterEventsTimeoutPacketEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics26RouterEventsPacketTimedOut) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `ClientId`:
 	err = encoder.Encode(obj.ClientId)
 	if err != nil {
@@ -463,17 +546,17 @@ func (obj Ics26RouterEventsTimeoutPacketEvent) MarshalWithEncoder(encoder *binar
 	return nil
 }
 
-func (obj Ics26RouterEventsTimeoutPacketEvent) Marshal() ([]byte, error) {
+func (obj Ics26RouterEventsPacketTimedOut) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics26RouterEventsTimeoutPacketEvent: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics26RouterEventsPacketTimedOut: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *Ics26RouterEventsTimeoutPacketEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics26RouterEventsPacketTimedOut) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `ClientId`:
 	err = decoder.Decode(&obj.ClientId)
 	if err != nil {
@@ -492,99 +575,16 @@ func (obj *Ics26RouterEventsTimeoutPacketEvent) UnmarshalWithDecoder(decoder *bi
 	return nil
 }
 
-func (obj *Ics26RouterEventsTimeoutPacketEvent) Unmarshal(buf []byte) error {
+func (obj *Ics26RouterEventsPacketTimedOut) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics26RouterEventsTimeoutPacketEvent: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics26RouterEventsPacketTimedOut: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalIcs26RouterEventsTimeoutPacketEvent(buf []byte) (*Ics26RouterEventsTimeoutPacketEvent, error) {
-	obj := new(Ics26RouterEventsTimeoutPacketEvent)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Event emitted when a packet acknowledgement is written
-type Ics26RouterEventsWriteAcknowledgementEvent struct {
-	ClientId         string                     `json:"clientId"`
-	Sequence         uint64                     `json:"sequence"`
-	Packet           SolanaIbcTypesRouterPacket `json:"packet"`
-	Acknowledgements [][]byte                   `json:"acknowledgements"`
-}
-
-func (obj Ics26RouterEventsWriteAcknowledgementEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Serialize `Packet`:
-	err = encoder.Encode(obj.Packet)
-	if err != nil {
-		return errors.NewField("Packet", err)
-	}
-	// Serialize `Acknowledgements`:
-	err = encoder.Encode(obj.Acknowledgements)
-	if err != nil {
-		return errors.NewField("Acknowledgements", err)
-	}
-	return nil
-}
-
-func (obj Ics26RouterEventsWriteAcknowledgementEvent) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics26RouterEventsWriteAcknowledgementEvent: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *Ics26RouterEventsWriteAcknowledgementEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Deserialize `Packet`:
-	err = decoder.Decode(&obj.Packet)
-	if err != nil {
-		return errors.NewField("Packet", err)
-	}
-	// Deserialize `Acknowledgements`:
-	err = decoder.Decode(&obj.Acknowledgements)
-	if err != nil {
-		return errors.NewField("Acknowledgements", err)
-	}
-	return nil
-}
-
-func (obj *Ics26RouterEventsWriteAcknowledgementEvent) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics26RouterEventsWriteAcknowledgementEvent: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalIcs26RouterEventsWriteAcknowledgementEvent(buf []byte) (*Ics26RouterEventsWriteAcknowledgementEvent, error) {
-	obj := new(Ics26RouterEventsWriteAcknowledgementEvent)
+func UnmarshalIcs26RouterEventsPacketTimedOut(buf []byte) (*Ics26RouterEventsPacketTimedOut, error) {
+	obj := new(Ics26RouterEventsPacketTimedOut)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

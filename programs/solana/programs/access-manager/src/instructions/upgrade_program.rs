@@ -1,5 +1,5 @@
 use crate::errors::AccessManagerError;
-use crate::events::ProgramUpgradedEvent;
+use crate::events::ProgramUpgraded;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
@@ -108,7 +108,7 @@ pub fn upgrade_program(ctx: Context<UpgradeProgram>, target_program: Pubkey) -> 
         ]],
     )?;
 
-    emit!(ProgramUpgradedEvent {
+    emit!(ProgramUpgraded {
         program: target_program,
         authority: ctx.accounts.authority.key(),
         timestamp: ctx.accounts.clock.unix_timestamp,
