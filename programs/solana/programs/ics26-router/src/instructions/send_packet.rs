@@ -1,9 +1,9 @@
 use crate::errors::RouterError;
+use crate::events::PacketSent;
 use crate::state::*;
 use crate::utils::ics24;
 use crate::utils::sequence;
 use anchor_lang::prelude::*;
-use solana_ibc_types::events::SendPacketEvent;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgSendPacket)]
@@ -111,7 +111,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     let mut data = packet_commitment_info.try_borrow_mut_data()?;
     data[8..40].copy_from_slice(&commitment);
 
-    emit!(SendPacketEvent {
+    emit!(PacketSent {
         client_id: msg.source_client,
         sequence,
         packet,

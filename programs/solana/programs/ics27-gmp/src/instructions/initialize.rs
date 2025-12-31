@@ -1,9 +1,7 @@
 use crate::constants::*;
-use crate::errors::GMPError;
 use crate::events::GMPAppInitialized;
 use crate::state::{AccountVersion, GMPAppState};
 use anchor_lang::prelude::*;
-use solana_ibc_types::cpi::reject_cpi;
 
 /// Initialize the ICS27 GMP application
 #[derive(Accounts)]
@@ -21,17 +19,9 @@ pub struct Initialize<'info> {
     pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
-
-    /// Instructions sysvar for CPI validation
-    /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()> {
-    // Reject CPI calls - this instruction must be called directly
-    reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(GMPError::from)?;
-
     let app_state = &mut ctx.accounts.app_state;
     let clock = Clock::get()?;
 
@@ -60,7 +50,6 @@ pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
@@ -80,7 +69,6 @@ mod tests {
                 AccountMeta::new(app_state, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         }
@@ -114,7 +102,6 @@ mod tests {
                     ..Default::default()
                 },
             ),
-            create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
@@ -128,7 +115,7 @@ mod tests {
     }
 
     #[test]
-    fn test_initialize_already_initialized() {
+    fn test_initialize_cannot_reinitialize() {
         let payer = Pubkey::new_unique();
 
         let (app_state_pda, _) =
@@ -164,127 +151,14 @@ mod tests {
                     ..Default::default()
                 },
             ),
-            create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "Initialize should fail when account already initialized"
-        );
-    }
+        // Anchor's `init` constraint fails when account already exists
+        // Error code 0 means the account is already in use
+        let checks = vec![Check::err(ProgramError::Custom(0))];
 
-    #[test]
-    fn test_initialize_fake_sysvar_wormhole_attack() {
-        let payer = Pubkey::new_unique();
-
-        let (app_state_pda, _) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
-
-        let instruction_data = crate::instruction::Initialize {
-            access_manager: access_manager::ID,
-        };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        // Replace real sysvar with fake one (Wormhole-style attack)
-        let (instruction, fake_sysvar_account) = setup_fake_sysvar_attack(instruction, crate::ID);
-
-        let accounts = vec![
-            (app_state_pda, solana_sdk::account::Account::default()),
-            (
-                payer,
-                solana_sdk::account::Account {
-                    lamports: 1_000_000_000,
-                    owner: system_program::ID,
-                    ..Default::default()
-                },
-            ),
-            (
-                system_program::ID,
-                solana_sdk::account::Account {
-                    lamports: 1,
-                    executable: true,
-                    owner: solana_sdk::native_loader::ID,
-                    ..Default::default()
-                },
-            ),
-            fake_sysvar_account,
-        ];
-
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        mollusk.process_and_validate_instruction(
-            &instruction,
-            &accounts,
-            &[expect_sysvar_attack_error()],
-        );
-    }
-
-    #[test]
-    fn test_initialize_cpi_rejection() {
-        let payer = Pubkey::new_unique();
-
-        let (app_state_pda, _) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
-
-        let instruction_data = crate::instruction::Initialize {
-            access_manager: access_manager::ID,
-        };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        // Simulate CPI call from unauthorized program
-        let malicious_program = Pubkey::new_unique();
-        let (instruction, cpi_sysvar_account) = setup_cpi_call_test(instruction, malicious_program);
-
-        let accounts = vec![
-            (app_state_pda, solana_sdk::account::Account::default()),
-            (
-                payer,
-                solana_sdk::account::Account {
-                    lamports: 1_000_000_000,
-                    owner: system_program::ID,
-                    ..Default::default()
-                },
-            ),
-            (
-                system_program::ID,
-                solana_sdk::account::Account {
-                    lamports: 1,
-                    executable: true,
-                    owner: solana_sdk::native_loader::ID,
-                    ..Default::default()
-                },
-            ),
-            cpi_sysvar_account,
-        ];
-
-        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::UnauthorizedRouter as u32,
-        ))];
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }

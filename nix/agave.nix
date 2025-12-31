@@ -420,8 +420,37 @@ let
                 END { printf "%s", program }
               ')
 
+              # Extract events from "--- IDL begin event ---" / "--- IDL end event ---" sections
+              events_json=$(cat "$temp_output" | awk '
+                BEGIN { in_event=0; events="[" }
+                /--- IDL begin event ---/ { in_event=1; event_content=""; next }
+                /--- IDL end event ---/ {
+                  in_event=0
+                  if (events != "[") events = events ","
+                  events = events event_content
+                  next
+                }
+                in_event { event_content = event_content $0 }
+                END { printf "%s]", events }
+              ')
+
               if [ -n "$idl_json" ] && [ "$(echo "$idl_json" | tr -d '[:space:]')" != "" ]; then
                 idl_filename=$(echo "$program_name" | tr '-' '_')
+
+                # Merge events into the IDL if we found any
+                if [ -n "$events_json" ] && [ "$events_json" != "[]" ]; then
+                  # Extract event entries and types from each event block, then merge into IDL
+                  idl_json=$(echo "$idl_json" | ${jq}/bin/jq --argjson events "$events_json" '
+                    # Collect all event definitions
+                    ($events | map(.event)) as $event_defs |
+                    # Collect all types from events
+                    ($events | map(.types) | flatten) as $event_types |
+                    # Merge into IDL
+                    .events = $event_defs |
+                    .types = ((.types // []) + $event_types | unique_by(.name))
+                  ')
+                  echo "    → Merged $(echo "$events_json" | ${jq}/bin/jq 'length') event(s) into IDL"
+                fi
 
                 # Get program ID from keypair if it exists
                 keypair_file="target/deploy/''${idl_filename}-keypair.json"

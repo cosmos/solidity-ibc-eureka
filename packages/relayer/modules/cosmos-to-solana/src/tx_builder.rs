@@ -540,10 +540,10 @@ impl TxBuilder {
         dest_events
             .iter()
             .filter_map(|e| match &e.event {
-                SolanaEurekaEvent::SendPacket(event) => {
+                SolanaEurekaEvent::PacketSent(event) => {
                     Some(u64::try_from(event.timeout_timestamp).unwrap_or_default())
                 }
-                SolanaEurekaEvent::WriteAcknowledgement(_) => None,
+                SolanaEurekaEvent::AcknowledgementWritten(_) => None,
             })
             .max()
     }
