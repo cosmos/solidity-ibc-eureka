@@ -51,7 +51,7 @@ pub fn on_acknowledgement_packet(
     app_state.packets_acknowledged = app_state.packets_acknowledged.saturating_add(1);
 
     // Emit event
-    emit!(PacketAcknowledged {
+    emit!(DummyAppPacketAcknowledged {
         source_client: msg.source_client.clone(),
         dest_client: msg.dest_client.clone(),
         sequence: msg.sequence,

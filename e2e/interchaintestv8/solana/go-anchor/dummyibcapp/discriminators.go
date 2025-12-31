@@ -15,11 +15,11 @@ var (
 
 // Event discriminators
 var (
-	Event_DummyIbcAppInstructionsSendPacketPacketSent = [8]byte{88, 91, 33, 67, 248, 122, 173, 51}
-	Event_DummyIbcAppStatePacketAcknowledged          = [8]byte{199, 36, 235, 151, 125, 90, 168, 165}
-	Event_DummyIbcAppStatePacketReceived              = [8]byte{58, 84, 51, 248, 117, 120, 242, 178}
-	Event_DummyIbcAppStatePacketTimedOut              = [8]byte{45, 30, 55, 154, 41, 253, 155, 196}
-	Event_DummyIbcAppStateTransferSent                = [8]byte{1, 174, 197, 32, 9, 145, 255, 214}
+	Event_DummyIbcAppInstructionsSendPacketDummyAppPacketSent = [8]byte{155, 3, 248, 96, 249, 116, 241, 118}
+	Event_DummyIbcAppStateDummyAppPacketAcknowledged          = [8]byte{193, 42, 40, 231, 146, 136, 63, 56}
+	Event_DummyIbcAppStateDummyAppPacketTimedOut              = [8]byte{59, 156, 106, 212, 120, 83, 2, 183}
+	Event_DummyIbcAppStatePacketReceived                      = [8]byte{58, 84, 51, 248, 117, 120, 242, 178}
+	Event_DummyIbcAppStateTransferSent                        = [8]byte{1, 174, 197, 32, 9, 145, 255, 214}
 )
 
 // Instruction discriminators

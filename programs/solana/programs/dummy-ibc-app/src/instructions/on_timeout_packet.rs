@@ -57,7 +57,7 @@ pub fn on_timeout_packet(ctx: Context<OnTimeoutPacket>, msg: OnTimeoutPacketMsg)
     app_state.packets_timed_out = app_state.packets_timed_out.saturating_add(1);
 
     // Emit event
-    emit!(PacketTimedOut {
+    emit!(DummyAppPacketTimedOut {
         source_client: msg.source_client.clone(),
         dest_client: msg.dest_client.clone(),
         sequence: msg.sequence,
