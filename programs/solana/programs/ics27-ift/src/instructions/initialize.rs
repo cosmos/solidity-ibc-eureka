@@ -69,7 +69,6 @@ pub fn initialize(
     // Initialize app state
     let app_state = &mut ctx.accounts.app_state;
     app_state.version = AccountVersion::V1;
-    app_state.paused = false;
     app_state.bump = ctx.bumps.app_state;
     app_state.mint = ctx.accounts.mint.key();
     app_state.mint_authority_bump = ctx.bumps.mint_authority;

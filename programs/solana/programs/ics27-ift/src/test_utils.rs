@@ -29,11 +29,9 @@ pub fn create_ift_app_state_account(
     mint_authority_bump: u8,
     access_manager: Pubkey,
     gmp_program: Pubkey,
-    paused: bool,
 ) -> SolanaAccount {
     let app_state = IFTAppState {
         version: AccountVersion::V1,
-        paused,
         bump,
         mint,
         mint_authority_bump,
@@ -207,86 +205,6 @@ pub fn create_access_manager_account_with_admin(admin: Pubkey) -> (Pubkey, Solan
             role_id: roles::ADMIN_ROLE,
             members: vec![admin],
         }],
-    };
-
-    let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
-    data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
-    access_manager.serialize(&mut &mut data[8..]).unwrap();
-
-    (
-        access_manager_pda,
-        SolanaAccount {
-            lamports: 1_000_000,
-            data,
-            owner: access_manager::ID,
-            executable: false,
-            rent_epoch: 0,
-        },
-    )
-}
-
-/// Create access manager account with pauser role for a user
-pub fn create_access_manager_account_with_pauser(
-    admin: Pubkey,
-    pauser: Pubkey,
-) -> (Pubkey, SolanaAccount) {
-    use access_manager::state::AccessManager;
-    use solana_ibc_types::roles;
-
-    let (access_manager_pda, _) =
-        Pubkey::find_program_address(&[AccessManager::SEED], &access_manager::ID);
-
-    let access_manager = AccessManager {
-        roles: vec![
-            access_manager::types::RoleData {
-                role_id: roles::ADMIN_ROLE,
-                members: vec![admin],
-            },
-            access_manager::types::RoleData {
-                role_id: roles::PAUSER_ROLE,
-                members: vec![pauser],
-            },
-        ],
-    };
-
-    let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
-    data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
-    access_manager.serialize(&mut &mut data[8..]).unwrap();
-
-    (
-        access_manager_pda,
-        SolanaAccount {
-            lamports: 1_000_000,
-            data,
-            owner: access_manager::ID,
-            executable: false,
-            rent_epoch: 0,
-        },
-    )
-}
-
-/// Create access manager account with unpauser role for a user
-pub fn create_access_manager_account_with_unpauser(
-    admin: Pubkey,
-    unpauser: Pubkey,
-) -> (Pubkey, SolanaAccount) {
-    use access_manager::state::AccessManager;
-    use solana_ibc_types::roles;
-
-    let (access_manager_pda, _) =
-        Pubkey::find_program_address(&[AccessManager::SEED], &access_manager::ID);
-
-    let access_manager = AccessManager {
-        roles: vec![
-            access_manager::types::RoleData {
-                role_id: roles::ADMIN_ROLE,
-                members: vec![admin],
-            },
-            access_manager::types::RoleData {
-                role_id: roles::UNPAUSER_ROLE,
-                members: vec![unpauser],
-            },
-        ],
     };
 
     let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];

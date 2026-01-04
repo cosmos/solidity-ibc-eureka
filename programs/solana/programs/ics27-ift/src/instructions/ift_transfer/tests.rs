@@ -212,7 +212,6 @@ fn create_mint_account(mint_authority: Option<&Pubkey>) -> solana_sdk::account::
 }
 
 fn build_ift_transfer_test_setup(
-    paused: bool,
     bridge_active: bool,
     token_amount: u64,
 ) -> (
@@ -240,7 +239,6 @@ fn build_ift_transfer_test_setup(
         mint_authority_bump,
         access_manager::ID,
         gmp_program,
-        paused,
     );
 
     let ift_bridge_account = create_ift_bridge_account(
@@ -335,31 +333,12 @@ fn build_ift_transfer_test_setup(
     (instruction, accounts, mint, sender)
 }
 
-/// Test that `ift_transfer` fails when app is paused
-#[test]
-fn test_ift_transfer_when_paused_fails() {
-    let mollusk = setup_mollusk();
-
-    let (instruction, accounts, _, _) = build_ift_transfer_test_setup(
-        true,  // paused
-        true,  // bridge active
-        10000, // token amount
-    );
-
-    let result = mollusk.process_instruction(&instruction, &accounts);
-    assert!(
-        result.program_result.is_err(),
-        "ift_transfer should fail when app is paused"
-    );
-}
-
 /// Test that `ift_transfer` fails when bridge is not active
 #[test]
 fn test_ift_transfer_inactive_bridge_fails() {
     let mollusk = setup_mollusk();
 
     let (instruction, accounts, _, _) = build_ift_transfer_test_setup(
-        false, // not paused
         false, // bridge NOT active
         10000, // token amount
     );
@@ -393,7 +372,6 @@ fn test_ift_transfer_zero_amount_fails() {
         mint_authority_bump,
         access_manager::ID,
         gmp_program,
-        false,
     );
 
     let ift_bridge_account = create_ift_bridge_account(
@@ -512,7 +490,6 @@ fn test_ift_transfer_empty_receiver_fails() {
         mint_authority_bump,
         access_manager::ID,
         gmp_program,
-        false,
     );
 
     let ift_bridge_account = create_ift_bridge_account(
@@ -631,7 +608,6 @@ fn test_ift_transfer_sender_not_signer_fails() {
         mint_authority_bump,
         access_manager::ID,
         gmp_program,
-        false,
     );
 
     let ift_bridge_account = create_ift_bridge_account(
@@ -751,7 +727,6 @@ fn test_ift_transfer_wrong_token_account_owner_fails() {
         mint_authority_bump,
         access_manager::ID,
         gmp_program,
-        false,
     );
 
     let ift_bridge_account = create_ift_bridge_account(
@@ -871,7 +846,6 @@ fn test_ift_transfer_wrong_token_mint_fails() {
         mint_authority_bump,
         access_manager::ID,
         gmp_program,
-        false,
     );
 
     let ift_bridge_account = create_ift_bridge_account(
@@ -990,7 +964,6 @@ fn test_ift_transfer_timeout_in_past_fails() {
         mint_authority_bump,
         access_manager::ID,
         gmp_program,
-        false,
     );
 
     let ift_bridge_account = create_ift_bridge_account(

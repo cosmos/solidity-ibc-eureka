@@ -70,16 +70,6 @@ pub mod ics27_ift {
         instructions::on_timeout_packet(ctx, msg)
     }
 
-    /// Pause the IFT app (admin only)
-    pub fn pause_app(ctx: Context<PauseApp>) -> Result<()> {
-        instructions::pause_app(ctx)
-    }
-
-    /// Unpause the IFT app (admin only)
-    pub fn unpause_app(ctx: Context<UnpauseApp>) -> Result<()> {
-        instructions::unpause_app(ctx)
-    }
-
     /// Set the access manager program (admin only)
     pub fn set_access_manager(
         ctx: Context<SetAccessManager>,

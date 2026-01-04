@@ -33,9 +33,6 @@ pub struct IFTAppState {
     /// Schema version for upgrades
     pub version: AccountVersion,
 
-    /// Emergency pause flag
-    pub paused: bool,
-
     /// PDA bump seed
     pub bump: u8,
 

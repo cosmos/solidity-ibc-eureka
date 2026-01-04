@@ -11,7 +11,6 @@ pub struct RemoveIFTBridge<'info> {
         mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
-        constraint = !app_state.paused @ IFTError::AppPaused
     )]
     pub app_state: Account<'info, IFTAppState>,
 

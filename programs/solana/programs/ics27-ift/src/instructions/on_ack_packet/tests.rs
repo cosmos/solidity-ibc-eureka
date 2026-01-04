@@ -96,7 +96,6 @@ fn test_on_ack_packet_direct_call_fails() {
         mint_authority_bump,
         access_manager::ID,
         Pubkey::new_unique(),
-        false,
     );
 
     let pending_account =
@@ -226,7 +225,6 @@ fn test_on_ack_packet_wrong_token_owner_fails() {
         mint_authority_bump,
         access_manager::ID,
         Pubkey::new_unique(),
-        false,
     );
 
     let pending_account =
@@ -355,7 +353,6 @@ fn test_on_ack_packet_wrong_token_mint_fails() {
         mint_authority_bump,
         access_manager::ID,
         Pubkey::new_unique(),
-        false,
     );
 
     let pending_account =
@@ -485,7 +482,6 @@ fn test_on_ack_packet_pending_mint_mismatch_fails() {
         mint_authority_bump,
         access_manager::ID,
         Pubkey::new_unique(),
-        false,
     );
 
     // Pending transfer with wrong mint

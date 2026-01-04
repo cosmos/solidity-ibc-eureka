@@ -123,25 +123,3 @@ pub enum RefundReason {
     /// Transfer failed on destination
     Failed,
 }
-
-/// Event emitted when IFT app is paused
-#[event]
-pub struct IFTAppPaused {
-    /// SPL Token mint address
-    pub mint: Pubkey,
-    /// Admin who paused the app
-    pub admin: Pubkey,
-    /// Pause timestamp
-    pub timestamp: i64,
-}
-
-/// Event emitted when IFT app is unpaused
-#[event]
-pub struct IFTAppUnpaused {
-    /// SPL Token mint address
-    pub mint: Pubkey,
-    /// Admin who unpaused the app
-    pub admin: Pubkey,
-    /// Unpause timestamp
-    pub timestamp: i64,
-}

@@ -81,7 +81,6 @@ pub struct IFTAppState {
     pub mint_authority_bump: u8,         // PDA bump for signing
     pub access_manager: Pubkey,          // Role-based access control
     pub gmp_program: Pubkey,             // ICS27-GMP program
-    pub paused: bool,                    // Emergency pause
 }
 
 // IFT Bridge - one per destination chain
@@ -153,13 +152,13 @@ seeds = [b"pending_transfer", mint.as_ref(), client_id.as_bytes(), &sequence.to_
 | `initialize` | Set up IFT for an existing token, transfer mint authority to PDA |
 | `register_ift_bridge` | Register counterparty IFT contract for a destination chain |
 | `remove_ift_bridge` | Deactivate/remove a registered bridge |
-| `admin` | Pause/unpause app, update access manager |
+| `set_access_manager` | Update access manager program |
 
 ### Access Control
 
 | Role | Capability |
 |------|------------|
-| **Admin** | Register/remove bridges, pause app |
+| **Admin** | Register/remove bridges, update access manager |
 | **Mint Authority PDA** | Sole authority to mint tokens |
 | **GMP Account PDA** | Validates incoming mint requests |
 | **Users** | Initiate transfers (burn their own tokens) |
@@ -190,8 +189,6 @@ seeds = [b"pending_transfer", mint.as_ref(), client_id.as_bytes(), &sequence.to_
    ```
 
 5. **Replay Protection**: Pending transfers use sequence numbers, closed after processing
-
-6. **Pause Capability**: Admin can pause transfers in emergencies
 
 ## Integration with ICS27-GMP
 

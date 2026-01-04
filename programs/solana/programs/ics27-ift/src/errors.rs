@@ -3,11 +3,8 @@ use anchor_lang::prelude::*;
 /// Custom errors for ICS27 IFT program
 #[error_code]
 pub enum IFTError {
-    #[msg("App is currently paused")]
-    AppPaused = 7000,
-
     #[msg("Client ID cannot be empty")]
-    EmptyClientId,
+    EmptyClientId = 7000,
 
     #[msg("Counterparty address cannot be empty")]
     EmptyCounterpartyAddress,
@@ -108,7 +105,9 @@ impl From<solana_ibc_types::CpiValidationError> for IFTError {
     fn from(err: solana_ibc_types::CpiValidationError) -> Self {
         match err {
             solana_ibc_types::CpiValidationError::InvalidSysvar => Self::InvalidSysvar,
-            solana_ibc_types::CpiValidationError::DirectCallNotAllowed => Self::DirectCallNotAllowed,
+            solana_ibc_types::CpiValidationError::DirectCallNotAllowed => {
+                Self::DirectCallNotAllowed
+            }
             solana_ibc_types::CpiValidationError::UnauthorizedCaller => Self::UnauthorizedGmp,
         }
     }

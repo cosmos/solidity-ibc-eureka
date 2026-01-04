@@ -18,7 +18,6 @@ fn test_ift_app_state_signer_seeds() {
     let mint = Pubkey::new_unique();
     let app_state = IFTAppState {
         version: AccountVersion::V1,
-        paused: false,
         bump: 255,
         mint,
         mint_authority_bump: 254,
