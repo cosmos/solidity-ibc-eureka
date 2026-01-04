@@ -219,16 +219,6 @@ IFT maintains its own mint authority and doesn't delegate token control to GMP P
 2. **Mint Authority Transfer**: Original authority loses control permanently
 3. **No WSOL**: Native currency bridging requires ICS-20
 
-## Comparison with ICS-20
-
-| Aspect | ICS-20 (Lock/Unlock) | IFT (Burn/Mint) |
-|--------|---------------------|-----------------|
-| **Escrow** | Required | None |
-| **Mint Authority** | N/A (wrapped tokens) | IFT controls |
-| **Native Tokens** | Supported | Not supported |
-| **Multi-chain Tokens** | Creates wrapped | Uses canonical |
-| **SPL Operations** | Transfer, Create | Burn, Mint, SetAuthority |
-
 ## References
 
 - [ICS-20 Fungible Token Transfer](https://github.com/cosmos/ibc/tree/main/spec/app/ics-020-fungible-token-transfer)
