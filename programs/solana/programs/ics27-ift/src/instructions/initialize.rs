@@ -50,10 +50,7 @@ pub fn initialize(
     let mint = &ctx.accounts.mint;
 
     // Verify decimals match the mint
-    require!(
-        mint.decimals == decimals,
-        IFTError::InvalidMintAuthority
-    );
+    require!(mint.decimals == decimals, IFTError::InvalidMintAuthority);
 
     // Transfer mint authority to IFT PDA
     let cpi_accounts = anchor_spl::token::SetAuthority {
@@ -78,8 +75,6 @@ pub fn initialize(
     app_state.mint_authority_bump = ctx.bumps.mint_authority;
     app_state.access_manager = access_manager;
     app_state.gmp_program = gmp_program;
-    app_state.total_bridges = 0;
-    app_state.total_pending = 0;
 
     let clock = Clock::get()?;
     emit!(IFTAppInitialized {

@@ -81,19 +81,16 @@ pub struct IFTAppState {
     pub mint_authority_bump: u8,         // PDA bump for signing
     pub access_manager: Pubkey,          // Role-based access control
     pub gmp_program: Pubkey,             // ICS27-GMP program
-    pub total_bridges: u32,              // Number of registered bridges
-    pub total_pending: u32,              // Outstanding transfers
     pub paused: bool,                    // Emergency pause
 }
 
 // IFT Bridge - one per destination chain
 pub struct IFTBridge {
-    pub mint: Pubkey,                    // Associated token
+    pub mint: Pubkey,
     pub client_id: String,               // IBC client (e.g., "07-tendermint-0")
     pub counterparty_ift_address: String,// IFT contract on destination
     pub counterparty_chain_type: ChainType,
     pub active: bool,
-    pub total_transfers: u64,
 }
 
 // Pending Transfer - tracks in-flight transfers for refunds

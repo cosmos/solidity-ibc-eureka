@@ -3,14 +3,18 @@ use anchor_lang::prelude::*;
 use crate::constants::*;
 
 /// Account schema version for upgrades
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug, Default)]
+#[derive(
+    AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug, Default,
+)]
 pub enum AccountVersion {
     #[default]
     V1,
 }
 
 /// Counterparty chain type for constructing mint calls
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug, Default)]
+#[derive(
+    AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug, Default,
+)]
 pub enum CounterpartyChainType {
     /// EVM chain - encode as ABI call to iftMint(address, uint256)
     #[default]
@@ -46,12 +50,6 @@ pub struct IFTAppState {
 
     /// GMP program address for sending cross-chain calls
     pub gmp_program: Pubkey,
-
-    /// Total bridges registered
-    pub total_bridges: u64,
-
-    /// Total pending transfers
-    pub total_pending: u64,
 
     /// Reserved space for future fields
     pub _reserved: [u8; 128],
@@ -100,9 +98,6 @@ pub struct IFTBridge {
 
     /// Whether bridge is active
     pub active: bool,
-
-    /// Total transfers sent via this bridge
-    pub total_transfers: u64,
 
     /// Reserved space for future fields
     pub _reserved: [u8; 64],

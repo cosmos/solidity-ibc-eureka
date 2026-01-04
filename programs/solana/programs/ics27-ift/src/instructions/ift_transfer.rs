@@ -172,9 +172,6 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
 
     let sequence = crate::gmp_cpi::send_gmp_call(gmp_accounts, gmp_msg)?;
 
-    // Increment bridge transfer counter
-    ctx.accounts.ift_bridge.total_transfers += 1;
-
     emit!(IFTTransferInitiated {
         mint: ctx.accounts.app_state.mint,
         client_id: msg.client_id.clone(),
@@ -246,8 +243,7 @@ fn construct_cosmos_mint_call(denom: &str, receiver: &str, amount: u64) -> Vec<u
 fn construct_solana_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     use std::str::FromStr;
 
-    let receiver_pubkey =
-        Pubkey::from_str(receiver).map_err(|_| IFTError::InvalidReceiver)?;
+    let receiver_pubkey = Pubkey::from_str(receiver).map_err(|_| IFTError::InvalidReceiver)?;
 
     let mut payload = Vec::with_capacity(48); // 8 discriminator + 32 pubkey + 8 amount
     payload.extend_from_slice(&IFT_MINT_DISCRIMINATOR);

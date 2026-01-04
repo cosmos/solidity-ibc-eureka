@@ -24,8 +24,6 @@ fn test_ift_app_state_signer_seeds() {
         mint_authority_bump: 254,
         access_manager: Pubkey::new_unique(),
         gmp_program: Pubkey::new_unique(),
-        total_bridges: 0,
-        total_pending: 0,
         _reserved: [0; 128],
     };
 

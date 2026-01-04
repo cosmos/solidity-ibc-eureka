@@ -85,9 +85,6 @@ pub fn register_ift_bridge(
         .clone_from(&msg.counterparty_ift_address);
     bridge.counterparty_chain_type = msg.counterparty_chain_type;
     bridge.active = true;
-    bridge.total_transfers = 0;
-
-    ctx.accounts.app_state.total_bridges += 1;
 
     let clock = Clock::get()?;
     emit!(IFTBridgeRegistered {

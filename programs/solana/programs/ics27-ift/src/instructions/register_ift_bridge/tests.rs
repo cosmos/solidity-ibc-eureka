@@ -96,7 +96,11 @@ fn test_register_ift_bridge_success() {
         .1
         .clone();
 
-    assert_eq!(bridge_account.owner, crate::ID, "Bridge should be owned by IFT program");
+    assert_eq!(
+        bridge_account.owner,
+        crate::ID,
+        "Bridge should be owned by IFT program"
+    );
     let bridge = deserialize_bridge(&bridge_account);
     assert_eq!(bridge.client_id, client_id);
     assert_eq!(bridge.counterparty_ift_address, counterparty_address);

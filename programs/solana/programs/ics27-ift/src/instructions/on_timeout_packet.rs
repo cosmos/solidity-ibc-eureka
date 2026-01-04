@@ -113,8 +113,6 @@ pub fn on_timeout_packet(
         timestamp: clock.unix_timestamp,
     });
 
-    ctx.accounts.app_state.total_pending = ctx.accounts.app_state.total_pending.saturating_sub(1);
-
     // Pending transfer account is closed via Anchor's close constraint
     Ok(())
 }

@@ -25,8 +25,7 @@ fn test_on_timeout_packet_direct_call_fails() {
 
     let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
     let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
-    let (pending_pda, pending_bump) =
-        get_pending_transfer_pda(&mint, client_id, sequence);
+    let (pending_pda, pending_bump) = get_pending_transfer_pda(&mint, client_id, sequence);
     let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
     let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
     let (system_program, system_account) = create_system_program_account();
@@ -40,14 +39,8 @@ fn test_on_timeout_packet_direct_call_fails() {
         false,
     );
 
-    let pending_account = create_pending_transfer_account(
-        mint,
-        client_id,
-        sequence,
-        sender,
-        1000,
-        pending_bump,
-    );
+    let pending_account =
+        create_pending_transfer_account(mint, client_id, sequence, sender, 1000, pending_bump);
 
     // Create mock mint account (minimal)
     let mint_account = solana_sdk::account::Account {
@@ -70,7 +63,7 @@ fn test_on_timeout_packet_direct_call_fails() {
     // Create mock sender token account
     let sender_token_account_pda = Pubkey::new_unique();
     let mut sender_token_data = vec![0u8; 165]; // SPL token account size
-    // Set mint at offset 0
+                                                // Set mint at offset 0
     sender_token_data[0..32].copy_from_slice(&mint.to_bytes());
     // Set owner at offset 32
     sender_token_data[32..64].copy_from_slice(&sender.to_bytes());
@@ -168,8 +161,7 @@ fn test_on_timeout_packet_wrong_token_owner_fails() {
 
     let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
     let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
-    let (pending_pda, pending_bump) =
-        get_pending_transfer_pda(&mint, client_id, sequence);
+    let (pending_pda, pending_bump) = get_pending_transfer_pda(&mint, client_id, sequence);
     let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
     // Use router as caller so CPI validation passes
     let (instructions_sysvar, instructions_account) =
@@ -185,14 +177,8 @@ fn test_on_timeout_packet_wrong_token_owner_fails() {
         false,
     );
 
-    let pending_account = create_pending_transfer_account(
-        mint,
-        client_id,
-        sequence,
-        sender,
-        1000,
-        pending_bump,
-    );
+    let pending_account =
+        create_pending_transfer_account(mint, client_id, sequence, sender, 1000, pending_bump);
 
     let mint_account = solana_sdk::account::Account {
         lamports: 1_000_000,
@@ -304,8 +290,7 @@ fn test_on_timeout_packet_wrong_token_mint_fails() {
 
     let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
     let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
-    let (pending_pda, pending_bump) =
-        get_pending_transfer_pda(&mint, client_id, sequence);
+    let (pending_pda, pending_bump) = get_pending_transfer_pda(&mint, client_id, sequence);
     let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
     let (instructions_sysvar, instructions_account) =
         create_instructions_sysvar_account_with_caller(ics26_router::ID);
@@ -320,14 +305,8 @@ fn test_on_timeout_packet_wrong_token_mint_fails() {
         false,
     );
 
-    let pending_account = create_pending_transfer_account(
-        mint,
-        client_id,
-        sequence,
-        sender,
-        1000,
-        pending_bump,
-    );
+    let pending_account =
+        create_pending_transfer_account(mint, client_id, sequence, sender, 1000, pending_bump);
 
     let mint_account = solana_sdk::account::Account {
         lamports: 1_000_000,

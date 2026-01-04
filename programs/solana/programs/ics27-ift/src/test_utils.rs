@@ -4,14 +4,12 @@
 
 use anchor_lang::prelude::*;
 use mollusk_svm::Mollusk;
-use solana_sdk::{
-    account::Account as SolanaAccount,
-    pubkey::Pubkey,
-    system_program,
-};
+use solana_sdk::{account::Account as SolanaAccount, pubkey::Pubkey, system_program};
 
 use crate::constants::*;
-use crate::state::{AccountVersion, IFTAppState, IFTBridge, PendingTransfer, CounterpartyChainType};
+use crate::state::{
+    AccountVersion, CounterpartyChainType, IFTAppState, IFTBridge, PendingTransfer,
+};
 
 /// Path to the compiled IFT program binary
 pub const IFT_PROGRAM_PATH: &str = "../../target/deploy/ics27_ift";
@@ -41,8 +39,6 @@ pub fn create_ift_app_state_account(
         mint_authority_bump,
         access_manager,
         gmp_program,
-        total_bridges: 0,
-        total_pending: 0,
         _reserved: [0; 128],
     };
 
@@ -75,7 +71,6 @@ pub fn create_ift_bridge_account(
         counterparty_ift_address: counterparty_ift_address.to_string(),
         counterparty_chain_type,
         active,
-        total_transfers: 0,
         _reserved: [0; 64],
     };
 
@@ -399,4 +394,3 @@ pub fn create_gmp_program_account() -> SolanaAccount {
         rent_epoch: 0,
     }
 }
-

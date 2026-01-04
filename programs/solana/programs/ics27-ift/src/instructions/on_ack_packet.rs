@@ -129,12 +129,6 @@ pub fn on_acknowledgement_packet(
         });
     }
 
-    ctx.accounts.app_state.total_pending = ctx
-        .accounts
-        .app_state
-        .total_pending
-        .saturating_sub(1);
-
     // Pending transfer account is closed via Anchor's close constraint
     Ok(())
 }

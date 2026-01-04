@@ -58,8 +58,6 @@ pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>) -> Result<()> {
 
     let client_id = ctx.accounts.ift_bridge.client_id.clone();
 
-    ctx.accounts.app_state.total_bridges = ctx.accounts.app_state.total_bridges.saturating_sub(1);
-
     let clock = Clock::get()?;
     emit!(IFTBridgeRemoved {
         mint: ctx.accounts.app_state.mint,
