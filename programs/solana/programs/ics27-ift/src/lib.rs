@@ -14,7 +14,7 @@ pub mod test_utils;
 use instructions::*;
 use state::{IFTMintMsg, IFTTransferMsg, RegisterIFTBridgeMsg};
 
-declare_id!("Bedm6bv1H5oCzBYZdQtesZTgHeUjLp7XuUmnhiYwXHn5");
+declare_id!("DQU7WYvJTdpbLSzpLjHtCRF7wiaWe7thXwboafEN4kcy");
 
 #[program]
 pub mod ics27_ift {
