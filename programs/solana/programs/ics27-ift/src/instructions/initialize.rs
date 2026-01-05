@@ -50,6 +50,11 @@ pub fn initialize(
     let mint = &ctx.accounts.mint;
 
     require!(mint.decimals == decimals, IFTError::DecimalsMismatch);
+    require!(
+        mint.mint_authority
+            .contains(&ctx.accounts.current_mint_authority.key()),
+        IFTError::InvalidMintAuthority
+    );
 
     // Transfer mint authority to IFT PDA
     let cpi_accounts = anchor_spl::token::SetAuthority {

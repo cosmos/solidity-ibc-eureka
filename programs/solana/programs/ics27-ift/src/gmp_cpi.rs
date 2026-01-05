@@ -61,6 +61,7 @@ impl From<SendGmpCallMsg> for ics27_gmp::state::SendCallMsg {
 pub fn send_gmp_call(accounts: SendGmpCallAccounts, msg: SendGmpCallMsg) -> Result<u64> {
     let gmp_program = accounts.gmp_program.clone();
     let cpi_ctx = CpiContext::new(gmp_program, accounts.into());
-    let sequence = ics27_gmp::cpi::send_call(cpi_ctx, msg.into())?;
+    let sequence = ics27_gmp::cpi::send_call(cpi_ctx, msg.into())
+        .map_err(|_| error!(crate::errors::IFTError::GmpCallFailed))?;
     Ok(sequence.get())
 }

@@ -21,9 +21,6 @@ pub enum IFTError {
     #[msg("IFT bridge is not active")]
     BridgeNotActive,
 
-    #[msg("Unauthorized mint caller")]
-    UnauthorizedMint,
-
     #[msg("Invalid receiver address")]
     InvalidReceiver,
 
@@ -36,23 +33,11 @@ pub enum IFTError {
     #[msg("Pending transfer not found")]
     PendingTransferNotFound,
 
-    #[msg("Refund account missing")]
-    RefundAccountMissing,
-
-    #[msg("Failed to parse sequence from router")]
-    SequenceParseError,
-
     #[msg("Direct calls not allowed, must be called via CPI")]
     DirectCallNotAllowed,
 
-    #[msg("Unauthorized router calling")]
-    UnauthorizedRouter,
-
     #[msg("Invalid acknowledgement format")]
     InvalidAcknowledgement,
-
-    #[msg("Unauthorized admin operation")]
-    UnauthorizedAdmin,
 
     #[msg("Salt must be empty for IFT")]
     SaltNotEmpty,
@@ -63,20 +48,8 @@ pub enum IFTError {
     #[msg("Invalid GMP program")]
     InvalidGmpProgram,
 
-    #[msg("Bridge already exists")]
-    BridgeAlreadyExists,
-
     #[msg("Invalid mint authority")]
     InvalidMintAuthority,
-
-    #[msg("Token mint failed")]
-    TokenMintFailed,
-
-    #[msg("Token burn failed")]
-    TokenBurnFailed,
-
-    #[msg("Invalid counterparty chain type")]
-    InvalidChainType,
 
     #[msg("GMP call failed")]
     GmpCallFailed,
