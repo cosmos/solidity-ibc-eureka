@@ -39,8 +39,8 @@ contract IFTTest is Test {
 
     uint256 public constant INITIAL_BALANCE = 1000 ether;
 
-    bytes32 private constant IFT_STORAGE_SLOT =
-        0x35d0029e62ce5824ad5e38215107659b8aa50b0046e8bc44a0f4a32b87d61a00;
+    string public constant TOKEN_NAME = "Test IFT";
+    string public constant TOKEN_SYMBOL = "TIFT";
 
     function setUp() public {
         ics27Gmp = makeAddr("ics27Gmp");
@@ -52,8 +52,7 @@ contract IFTTest is Test {
         evmCallConstructor = new EVMIFTSendCallConstructor();
 
         ift = new IFTOwnable();
-        ift.initialize(authority);
-        _setIcs27(address(ift), ics27Gmp);
+        ift.initialize(authority, TOKEN_NAME, TOKEN_SYMBOL, ics27Gmp);
 
         // Give user1 some tokens
         deal(address(ift), user1, INITIAL_BALANCE, true);
@@ -65,11 +64,6 @@ contract IFTTest is Test {
         string memory clientId = th.FIRST_CLIENT_ID();
         vm.prank(authority);
         ift.registerIFTBridge(clientId, COUNTERPARTY_IFT, address(evmCallConstructor));
-    }
-
-    function _setIcs27(address token, address ics27) internal {
-        // IFTAccessManaged/IFTOwnable do not expose an initializer for IFTBase storage.
-        vm.store(token, IFT_STORAGE_SLOT, bytes32(uint256(uint160(ics27))));
     }
 
     function _mockSendCall(
@@ -121,7 +115,13 @@ contract IFTTest is Test {
             sourceClient: sourceClient,
             destinationClient: th.SECOND_CLIENT_ID(),
             sequence: sequence,
-            payload: IICS26RouterMsgs.Payload({ sourcePort: ICS27Lib.DEFAULT_PORT_ID, destPort: ICS27Lib.DEFAULT_PORT_ID, version: ICS27Lib.ICS27_VERSION, encoding: ICS27Lib.ICS27_ENCODING, value: "" }),
+            payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                destPort: ICS27Lib.DEFAULT_PORT_ID,
+                version: ICS27Lib.ICS27_VERSION,
+                encoding: ICS27Lib.ICS27_ENCODING,
+                value: ""
+            }),
             acknowledgement: ack,
             relayer: relayer
         });
@@ -139,7 +139,13 @@ contract IFTTest is Test {
             sourceClient: sourceClient,
             destinationClient: th.SECOND_CLIENT_ID(),
             sequence: sequence,
-            payload: IICS26RouterMsgs.Payload({ sourcePort: ICS27Lib.DEFAULT_PORT_ID, destPort: ICS27Lib.DEFAULT_PORT_ID, version: ICS27Lib.ICS27_VERSION, encoding: ICS27Lib.ICS27_ENCODING, value: "" }),
+            payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                destPort: ICS27Lib.DEFAULT_PORT_ID,
+                version: ICS27Lib.ICS27_VERSION,
+                encoding: ICS27Lib.ICS27_ENCODING,
+                value: ""
+            }),
             relayer: relayer
         });
     }
@@ -147,14 +153,16 @@ contract IFTTest is Test {
     // registerIFTBridge Tests
 
     function test_registerIFTBridge_success() public {
+        string memory clientId = th.FIRST_CLIENT_ID();
+
         vm.expectEmit(true, true, true, true);
-        emit IIFT.IFTBridgeRegistered(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, address(evmCallConstructor));
+        emit IIFT.IFTBridgeRegistered(clientId, COUNTERPARTY_IFT, address(evmCallConstructor));
 
         vm.prank(authority);
-        ift.registerIFTBridge(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, address(evmCallConstructor));
+        ift.registerIFTBridge(clientId, COUNTERPARTY_IFT, address(evmCallConstructor));
 
-        IIFTMsgs.IFTBridge memory bridge = ift.getIFTBridge(th.FIRST_CLIENT_ID());
-        assertEq(bridge.clientId, th.FIRST_CLIENT_ID());
+        IIFTMsgs.IFTBridge memory bridge = ift.getIFTBridge(clientId);
+        assertEq(bridge.clientId, clientId);
         assertEq(bridge.counterpartyIFTAddress, COUNTERPARTY_IFT);
         assertEq(address(bridge.iftSendCallConstructor), address(evmCallConstructor));
     }
@@ -162,13 +170,14 @@ contract IFTTest is Test {
     function test_registerIFTBridge_overwrite() public {
         _registerBridge();
 
+        string memory clientId = th.FIRST_CLIENT_ID();
         string memory newCounterparty = "0xabcdef1234567890abcdef1234567890abcdef12";
         EVMIFTSendCallConstructor newConstructor = new EVMIFTSendCallConstructor();
 
         vm.prank(authority);
-        ift.registerIFTBridge(th.FIRST_CLIENT_ID(), newCounterparty, address(newConstructor));
+        ift.registerIFTBridge(clientId, newCounterparty, address(newConstructor));
 
-        IIFTMsgs.IFTBridge memory bridge = ift.getIFTBridge(th.FIRST_CLIENT_ID());
+        IIFTMsgs.IFTBridge memory bridge = ift.getIFTBridge(clientId);
         assertEq(bridge.counterpartyIFTAddress, newCounterparty);
         assertEq(address(bridge.iftSendCallConstructor), address(newConstructor));
     }
@@ -180,21 +189,24 @@ contract IFTTest is Test {
     }
 
     function test_registerIFTBridge_unauthorizedCaller_reverts() public {
+        string memory clientId = th.FIRST_CLIENT_ID();
         vm.prank(user1);
         vm.expectRevert();
-        ift.registerIFTBridge(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, address(evmCallConstructor));
+        ift.registerIFTBridge(clientId, COUNTERPARTY_IFT, address(evmCallConstructor));
     }
 
     function test_registerIFTBridge_zeroAddressConstructor_reverts() public {
+        string memory clientId = th.FIRST_CLIENT_ID();
         vm.prank(authority);
         vm.expectRevert(IIFTErrors.IFTZeroAddressConstructor.selector);
-        ift.registerIFTBridge(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, address(0));
+        ift.registerIFTBridge(clientId, COUNTERPARTY_IFT, address(0));
     }
 
     function test_registerIFTBridge_emptyCounterpartyAddress_reverts() public {
+        string memory clientId = th.FIRST_CLIENT_ID();
         vm.prank(authority);
         vm.expectRevert(IIFTErrors.IFTEmptyCounterpartyAddress.selector);
-        ift.registerIFTBridge(th.FIRST_CLIENT_ID(), "", address(evmCallConstructor));
+        ift.registerIFTBridge(clientId, "", address(evmCallConstructor));
     }
 
     // iftTransfer Tests
@@ -206,20 +218,21 @@ contract IFTTest is Test {
         string memory receiver = Strings.toHexString(user2);
         uint64 expectedSeq = 1;
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory clientId = th.FIRST_CLIENT_ID();
 
-        _mockSendCall(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, receiver, transferAmount, timeout, expectedSeq);
+        _mockSendCall(clientId, COUNTERPARTY_IFT, receiver, transferAmount, timeout, expectedSeq);
 
         uint256 balanceBefore = ift.balanceOf(user1);
 
         vm.expectEmit(true, true, true, true);
-        emit IIFT.IFTTransferInitiated(th.FIRST_CLIENT_ID(), expectedSeq, user1, receiver, transferAmount);
+        emit IIFT.IFTTransferInitiated(clientId, expectedSeq, user1, receiver, transferAmount);
 
         vm.prank(user1);
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, transferAmount, timeout);
+        ift.iftTransfer(clientId, receiver, transferAmount, timeout);
 
         assertEq(ift.balanceOf(user1), balanceBefore - transferAmount);
 
-        IIFTMsgs.PendingTransfer memory pending = ift.getPendingTransfer(th.FIRST_CLIENT_ID(), expectedSeq);
+        IIFTMsgs.PendingTransfer memory pending = ift.getPendingTransfer(clientId, expectedSeq);
         assertEq(pending.sender, user1);
         assertEq(pending.amount, transferAmount);
     }
@@ -261,42 +274,46 @@ contract IFTTest is Test {
         _registerBridge();
         amount = bound(amount, 1, INITIAL_BALANCE);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory clientId = th.FIRST_CLIENT_ID();
 
         vm.prank(user1);
         vm.expectRevert(IIFTErrors.IFTEmptyReceiver.selector);
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), "", amount, timeout);
+        ift.iftTransfer(clientId, "", amount, timeout);
     }
 
     function test_iftTransfer_zeroAmount_reverts() public {
         _registerBridge();
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory clientId = th.FIRST_CLIENT_ID();
 
         vm.prank(user1);
         vm.expectRevert(IIFTErrors.IFTZeroAmount.selector);
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, 0, timeout);
+        ift.iftTransfer(clientId, receiver, 0, timeout);
     }
 
     function testFuzz_iftTransfer_bridgeNotFound_reverts(uint256 amount) public {
         amount = bound(amount, 1, INITIAL_BALANCE);
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory invalidId = th.INVALID_ID();
 
         vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTBridgeNotFound.selector, th.INVALID_ID()));
-        ift.iftTransfer(th.INVALID_ID(), receiver, amount, timeout);
+        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTBridgeNotFound.selector, invalidId));
+        ift.iftTransfer(invalidId, receiver, amount, timeout);
     }
 
     function testFuzz_iftTransfer_insufficientBalance_reverts(uint256 amount) public {
         _registerBridge();
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory clientId = th.FIRST_CLIENT_ID();
         amount = bound(amount, 1, type(uint256).max - INITIAL_BALANCE);
         amount += INITIAL_BALANCE;
 
         vm.prank(user1);
         vm.expectRevert();
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, amount, timeout);
+        ift.iftTransfer(clientId, receiver, amount, timeout);
     }
 
     function testFuzz_iftTransfer_timeoutInPast_reverts(uint256 amount) public {
@@ -304,12 +321,13 @@ contract IFTTest is Test {
         amount = bound(amount, 1, INITIAL_BALANCE);
         string memory receiver = Strings.toHexString(user2);
         uint64 pastTimeout = uint64(block.timestamp) - 1;
+        string memory clientId = th.FIRST_CLIENT_ID();
 
         vm.prank(user1);
         vm.expectRevert(
             abi.encodeWithSelector(IIFTErrors.IFTTimeoutInPast.selector, pastTimeout, uint64(block.timestamp))
         );
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, amount, pastTimeout);
+        ift.iftTransfer(clientId, receiver, amount, pastTimeout);
     }
 
     function testFuzz_iftTransfer_timeoutAtCurrentTimestamp_reverts(uint256 amount) public {
@@ -317,12 +335,13 @@ contract IFTTest is Test {
         amount = bound(amount, 1, INITIAL_BALANCE);
         string memory receiver = Strings.toHexString(user2);
         uint64 currentTimestamp = uint64(block.timestamp);
+        string memory clientId = th.FIRST_CLIENT_ID();
 
         vm.prank(user1);
         vm.expectRevert(
             abi.encodeWithSelector(IIFTErrors.IFTTimeoutInPast.selector, currentTimestamp, uint64(block.timestamp))
         );
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, amount, currentTimestamp);
+        ift.iftTransfer(clientId, receiver, amount, currentTimestamp);
     }
 
     function testFuzz_iftTransfer_defaultTimeout(uint256 transferAmount) public {
@@ -331,21 +350,22 @@ contract IFTTest is Test {
         transferAmount = bound(transferAmount, 1, INITIAL_BALANCE);
         string memory receiver = Strings.toHexString(user2);
         uint64 expectedSeq = 1;
+        string memory clientId = th.FIRST_CLIENT_ID();
 
         uint64 expectedTimeout = uint64(block.timestamp) + 15 minutes;
-        _mockSendCall(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, receiver, transferAmount, expectedTimeout, expectedSeq);
+        _mockSendCall(clientId, COUNTERPARTY_IFT, receiver, transferAmount, expectedTimeout, expectedSeq);
 
         uint256 balanceBefore = ift.balanceOf(user1);
 
         vm.expectEmit(true, true, true, true);
-        emit IIFT.IFTTransferInitiated(th.FIRST_CLIENT_ID(), expectedSeq, user1, receiver, transferAmount);
+        emit IIFT.IFTTransferInitiated(clientId, expectedSeq, user1, receiver, transferAmount);
 
         vm.prank(user1);
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, transferAmount); // 3-param version with default timeout
+        ift.iftTransfer(clientId, receiver, transferAmount); // 3-param version with default timeout
 
         assertEq(ift.balanceOf(user1), balanceBefore - transferAmount);
 
-        IIFTMsgs.PendingTransfer memory pending = ift.getPendingTransfer(th.FIRST_CLIENT_ID(), expectedSeq);
+        IIFTMsgs.PendingTransfer memory pending = ift.getPendingTransfer(clientId, expectedSeq);
         assertEq(pending.sender, user1);
         assertEq(pending.amount, transferAmount);
     }
@@ -374,11 +394,12 @@ contract IFTTest is Test {
     function testFuzz_iftMint_bridgeNotFound_reverts(uint256 amount) public {
         address ics27Account = makeAddr("ics27Account");
         amount = bound(amount, 1, type(uint256).max);
+        string memory invalidId = th.INVALID_ID();
 
-        _mockAccountIdentifier(ics27Account, th.INVALID_ID(), COUNTERPARTY_IFT, "");
+        _mockAccountIdentifier(ics27Account, invalidId, COUNTERPARTY_IFT, "");
 
         vm.prank(ics27Account);
-        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTBridgeNotFound.selector, th.INVALID_ID()));
+        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTBridgeNotFound.selector, invalidId));
         ift.iftMint(user2, amount);
     }
 
@@ -457,16 +478,18 @@ contract IFTTest is Test {
         transferAmount = bound(transferAmount, 1, INITIAL_BALANCE);
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory clientId = th.FIRST_CLIENT_ID();
 
-        _mockSendCall(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+        _mockSendCall(clientId, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
 
         vm.prank(user1);
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, transferAmount, timeout);
+        ift.iftTransfer(clientId, receiver, transferAmount, timeout);
 
         uint64 seq = 1;
         bytes memory successAck = hex"01";
 
-        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(th.FIRST_CLIENT_ID(), seq, successAck);
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg =
+            _createAckCallback(th.FIRST_CLIENT_ID(), seq, successAck);
 
         vm.expectEmit(true, true, true, true);
         emit IIFT.IFTTransferCompleted(th.FIRST_CLIENT_ID(), seq, user1, transferAmount);
@@ -485,11 +508,12 @@ contract IFTTest is Test {
         transferAmount = bound(transferAmount, 1, INITIAL_BALANCE);
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory clientId = th.FIRST_CLIENT_ID();
 
-        _mockSendCall(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+        _mockSendCall(clientId, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
 
         vm.prank(user1);
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, transferAmount, timeout);
+        ift.iftTransfer(clientId, receiver, transferAmount, timeout);
 
         uint256 balanceAfterTransfer = ift.balanceOf(user1);
         assertEq(balanceAfterTransfer, INITIAL_BALANCE - transferAmount);
@@ -497,7 +521,8 @@ contract IFTTest is Test {
         uint64 seq = 1;
         bytes memory errorAck = ICS24Host.UNIVERSAL_ERROR_ACK;
 
-        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(th.FIRST_CLIENT_ID(), seq, errorAck);
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg =
+            _createAckCallback(th.FIRST_CLIENT_ID(), seq, errorAck);
 
         vm.expectEmit(true, true, true, true);
         emit IIFT.IFTTransferRefunded(th.FIRST_CLIENT_ID(), seq, user1, transferAmount);
@@ -512,7 +537,8 @@ contract IFTTest is Test {
     }
 
     function test_onAckPacket_notICS27GMP_reverts() public {
-        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(th.FIRST_CLIENT_ID(), 1, hex"01");
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg =
+            _createAckCallback(th.FIRST_CLIENT_ID(), 1, hex"01");
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTOnlyICS27GMP.selector, user1));
@@ -520,11 +546,12 @@ contract IFTTest is Test {
     }
 
     function test_onAckPacket_noPendingTransfer_reverts() public {
+        string memory clientId = th.FIRST_CLIENT_ID();
         IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg =
-            _createAckCallback(th.FIRST_CLIENT_ID(), 999, ICS24Host.UNIVERSAL_ERROR_ACK);
+            _createAckCallback(clientId, 999, ICS24Host.UNIVERSAL_ERROR_ACK);
 
         vm.prank(ics27Gmp);
-        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, th.FIRST_CLIENT_ID(), 999));
+        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, 999));
         ift.onAckPacket(false, ackMsg);
     }
 
@@ -534,16 +561,17 @@ contract IFTTest is Test {
         transferAmount = bound(transferAmount, 1, INITIAL_BALANCE);
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory clientId = th.FIRST_CLIENT_ID();
 
-        _mockSendCall(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+        _mockSendCall(clientId, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
 
         vm.prank(user1);
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, transferAmount, timeout);
+        ift.iftTransfer(clientId, receiver, transferAmount, timeout);
 
         uint64 seq = 1;
         bytes memory successAck = hex"01";
 
-        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(th.FIRST_CLIENT_ID(), seq, successAck);
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(clientId, seq, successAck);
 
         // First ack succeeds
         vm.prank(ics27Gmp);
@@ -553,16 +581,17 @@ contract IFTTest is Test {
         // With success=true, it just deletes and emits (no revert on empty)
         // With success=false, it tries to refund and reverts
         vm.prank(ics27Gmp);
-        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, th.FIRST_CLIENT_ID(), seq));
+        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, seq));
         ift.onAckPacket(false, ackMsg);
     }
 
     function test_onAckPacket_success_noPendingTransfer_reverts() public {
         // When success=true and no pending transfer exists, it should revert
-        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(th.FIRST_CLIENT_ID(), 999, hex"01");
+        string memory clientId = th.FIRST_CLIENT_ID();
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(clientId, 999, hex"01");
 
         vm.prank(ics27Gmp);
-        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, th.FIRST_CLIENT_ID(), 999));
+        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, 999));
         ift.onAckPacket(true, ackMsg);
     }
 
@@ -574,11 +603,12 @@ contract IFTTest is Test {
         transferAmount = bound(transferAmount, 1, INITIAL_BALANCE);
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory clientId = th.FIRST_CLIENT_ID();
 
-        _mockSendCall(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+        _mockSendCall(clientId, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
 
         vm.prank(user1);
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, transferAmount, timeout);
+        ift.iftTransfer(clientId, receiver, transferAmount, timeout);
 
         uint256 balanceAfterTransfer = ift.balanceOf(user1);
         assertEq(balanceAfterTransfer, INITIAL_BALANCE - transferAmount);
@@ -608,10 +638,11 @@ contract IFTTest is Test {
     }
 
     function test_onTimeoutPacket_noPendingTransfer_reverts() public {
-        IIBCAppCallbacks.OnTimeoutPacketCallback memory timeoutMsg = _createTimeoutCallback(th.FIRST_CLIENT_ID(), 999);
+        string memory clientId = th.FIRST_CLIENT_ID();
+        IIBCAppCallbacks.OnTimeoutPacketCallback memory timeoutMsg = _createTimeoutCallback(clientId, 999);
 
         vm.prank(ics27Gmp);
-        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, th.FIRST_CLIENT_ID(), 999));
+        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, 999));
         ift.onTimeoutPacket(timeoutMsg);
     }
 
@@ -621,14 +652,15 @@ contract IFTTest is Test {
         transferAmount = bound(transferAmount, 1, INITIAL_BALANCE);
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory clientId = th.FIRST_CLIENT_ID();
 
-        _mockSendCall(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+        _mockSendCall(clientId, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
 
         vm.prank(user1);
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, transferAmount, timeout);
+        ift.iftTransfer(clientId, receiver, transferAmount, timeout);
 
         uint64 seq = 1;
-        IIBCAppCallbacks.OnTimeoutPacketCallback memory timeoutMsg = _createTimeoutCallback(th.FIRST_CLIENT_ID(), seq);
+        IIBCAppCallbacks.OnTimeoutPacketCallback memory timeoutMsg = _createTimeoutCallback(clientId, seq);
 
         // First timeout succeeds
         vm.prank(ics27Gmp);
@@ -636,7 +668,7 @@ contract IFTTest is Test {
 
         // Second timeout should fail (pending transfer already cleared)
         vm.prank(ics27Gmp);
-        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, th.FIRST_CLIENT_ID(), seq));
+        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, seq));
         ift.onTimeoutPacket(timeoutMsg);
     }
 
@@ -691,23 +723,24 @@ contract IFTTest is Test {
     // Integration Scenario Tests
 
     function testFuzz_fullTransferCycle_success(uint256 transferAmount) public {
-        vm.assume(transferAmount > 0);
         _registerBridge();
 
         transferAmount = bound(transferAmount, 1, INITIAL_BALANCE);
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory clientId = th.FIRST_CLIENT_ID();
 
-        _mockSendCall(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+        _mockSendCall(clientId, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
 
         // Step 1: User1 initiates transfer
         vm.prank(user1);
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, transferAmount, timeout);
+        ift.iftTransfer(clientId, receiver, transferAmount, timeout);
 
         assertEq(ift.balanceOf(user1), INITIAL_BALANCE - transferAmount);
 
         // Step 2: Simulate successful ack
-        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(th.FIRST_CLIENT_ID(), 1, hex"01");
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg =
+            _createAckCallback(th.FIRST_CLIENT_ID(), 1, hex"01");
 
         vm.prank(ics27Gmp);
         ift.onAckPacket(true, ackMsg);
@@ -723,12 +756,13 @@ contract IFTTest is Test {
         transferAmount = bound(transferAmount, 1, INITIAL_BALANCE);
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory clientId = th.FIRST_CLIENT_ID();
 
-        _mockSendCall(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+        _mockSendCall(clientId, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
 
         // Step 1: User1 initiates transfer
         vm.prank(user1);
-        ift.iftTransfer(th.FIRST_CLIENT_ID(), receiver, transferAmount, timeout);
+        ift.iftTransfer(clientId, receiver, transferAmount, timeout);
 
         assertEq(ift.balanceOf(user1), INITIAL_BALANCE - transferAmount);
 
@@ -758,8 +792,6 @@ contract IFTTest is Test {
     }
 
     function testFuzz_multipleBridges_independentTransfers(uint256 amount1, uint256 amount2) public {
-        vm.assume(amount1 > 0 && amount2 > 0);
-
         string memory clientId2 = th.SECOND_CLIENT_ID();
         string memory counterparty2 = "0xabcdef1234567890abcdef1234567890abcdef12";
         EVMIFTSendCallConstructor constructor2 = new EVMIFTSendCallConstructor();
