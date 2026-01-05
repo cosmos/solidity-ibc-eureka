@@ -161,7 +161,7 @@ fn create_token_account(
     }
 }
 
-/// Mint layout: authority_option (4) + authority (32) + supply (8) + decimals (1) + is_initialized (1)
+/// Mint layout: `authority_option` (4) + authority (32) + supply (8) + decimals (1) + `is_initialized` (1)
 fn create_mint_account(mint_authority: Option<&Pubkey>) -> solana_sdk::account::Account {
     let mut data = vec![0u8; 82];
     if let Some(authority) = mint_authority {
@@ -294,7 +294,7 @@ fn build_ift_transfer_test_setup(
         (system_program, system_account),
         (gmp_program, create_gmp_program_account()),
         (gmp_app_state_pda, create_signer_account()),
-        (router_program, token_program_account.clone()), // executable
+        (router_program, token_program_account), // executable
         (router_state, create_signer_account()),
         (client_sequence, create_signer_account()),
         (packet_commitment, create_uninitialized_pda()),

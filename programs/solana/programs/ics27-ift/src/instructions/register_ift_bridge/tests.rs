@@ -348,7 +348,7 @@ fn test_register_ift_bridge_client_id_too_long_fails() {
     };
 
     let msg = RegisterIFTBridgeMsg {
-        client_id: long_client_id.clone(),
+        client_id: long_client_id,
         counterparty_ift_address: "0x1234".to_string(),
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
