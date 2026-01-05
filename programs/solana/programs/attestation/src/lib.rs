@@ -90,7 +90,7 @@ pub struct UpdateClient<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// TODO: Add access control
+// TODO: Implement access control
 #[program]
 pub mod attestation {
     use super::*;
@@ -116,9 +116,7 @@ pub mod attestation {
     /// Update the client with a new consensus state. Returns UpdateResult
     /// indicating success, no-op, or misbehavior
     pub fn update_client(ctx: Context<UpdateClient>, update_msg: Vec<u8>) -> Result<UpdateResult> {
-        let result = instructions::update_client::handler(ctx, update_msg)?;
-
-        Ok(result)
+        instructions::update_client::handler(ctx, update_msg)
     }
 
     /// Verify membership
@@ -129,45 +127,11 @@ pub mod attestation {
         instructions::verify_membership::handler(ctx, msg)
     }
 
-    // TODO: CRITICAL - Add signature verification before calling handler
-    // The Solidity implementation verifies attestor signatures in verifyNonMembership()
-    // by calling _verifySignaturesThreshold() which:
-    // 1. Computes sha256 digest of proof.attestationData
-    // 2. Recovers signer from each ECDSA signature (65 bytes: r||s||v)
-    // 3. Verifies each recovered signer is in the attestor set
-    // 4. Checks for duplicate signers
-    // 5. Ensures signature count meets minRequiredSigs threshold
-    // Currently, this implementation does NOT verify signatures at all!
-    // See: contracts/light-clients/attestation/AttestationLightClient.sol:165-201
+    /// Verify non membership
     pub fn verify_non_membership(
         ctx: Context<VerifyNonMembership>,
         msg: ics25_handler::NonMembershipMsg,
     ) -> Result<()> {
         instructions::verify_non_membership::handler(ctx, msg)
     }
-
-    // TODO: Add getter view functions for querying state
-    // The Solidity implementation provides several view functions that are missing here:
-    // 1. get_client_state() -> returns serialized ClientState
-    //    See: AttestationLightClient.sol:74-76
-    // 2. get_attestation_set() -> returns (Vec<[u8; 20]>, u8) with attestor addresses and min_required_sigs
-    //    See: AttestationLightClient.sol:79-81
-    // 3. get_consensus_timestamp(height: u64) -> returns u64 timestamp
-    //    See: AttestationLightClient.sol:84-86
-    // These could be implemented as read-only instructions or as part of the client state account
-
-    // TODO: Implement access control mechanism
-    // The Solidity implementation uses OpenZeppelin's AccessControl with PROOF_SUBMITTER_ROLE.
-    // Key features:
-    // 1. PROOF_SUBMITTER_ROLE constant (keccak256("PROOF_SUBMITTER_ROLE"))
-    // 2. If address(0) has the role, anyone can submit proofs
-    // 3. Otherwise, only addresses with the role can call verify_membership, verify_non_membership, update_client
-    // 4. Role management via DEFAULT_ADMIN_ROLE
-    // See: AttestationLightClient.sol:25, 37-70, 257-262
-    // Consider using Solana's account-based permissions or implementing a role-based system in state
-
-    // TODO: Implement misbehaviour instruction
-    // The Solidity implementation has a misbehaviour() function (currently just returns FeatureNotSupported)
-    // This is a placeholder for future misbehavior handling beyond the automatic detection in update_client.
-    // See: AttestationLightClient.sol:204-207
 }
