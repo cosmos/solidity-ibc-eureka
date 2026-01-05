@@ -129,10 +129,6 @@ pub fn sha256(data: &[u8]) -> [u8; 32] {
 }
 
 /// Verifies a single ECDSA signature and returns the recovered Ethereum address.
-///
-/// # Arguments
-/// * `digest` - SHA256 hash of attestation_data
-/// * `signature` - 65-byte ECDSA signature (r||s||v format)
 fn verify_signature(digest: &[u8; 32], signature: &[u8]) -> Result<EthereumAddress> {
     // Verify signature length
     require!(
@@ -175,12 +171,6 @@ fn verify_signature(digest: &[u8; 32], signature: &[u8]) -> Result<EthereumAddre
 }
 
 /// Verifies that `signatures` over `digest` are valid, unique, and meet the threshold.
-///
-/// # Arguments
-/// * `digest` - SHA256 hash of attestation_data
-/// * `signatures` - Array of 65-byte ECDSA signatures (r||s||v format)
-/// * `attestor_addresses` - Known attestor set
-/// * `min_required_sigs` - Minimum signatures needed
 pub fn verify_signatures_threshold(
     digest: [u8; 32],
     signatures: &Vec<Vec<u8>>,
@@ -220,28 +210,6 @@ pub fn verify_signatures_threshold(
 
     Ok(())
 }
-
-// TODO: Re-enable after fixing alloy dependency compatibility issues
-// /// Convert attestor-light-client error to Anchor error
-// pub fn convert_attestor_error(
-//     err: attestor_light_client::error::IbcAttestorClientError,
-// ) -> Error {
-//     match err {
-//         attestor_light_client::error::IbcAttestorClientError::ClientFrozen => {
-//             ErrorCode::ClientFrozen.into()
-//         }
-//         attestor_light_client::error::IbcAttestorClientError::InvalidSignature => {
-//             ErrorCode::InvalidSignature.into()
-//         }
-//         attestor_light-client::error::IbcAttestorClientError::UnknownAddressRecovered { .. } => {
-//             ErrorCode::UnknownSigner.into()
-//         }
-//         attestor_light_client::error::IbcAttestorClientError::InvalidAttestedData { .. } => {
-//             ErrorCode::AttestationVerificationFailed.into()
-//         }
-//         _ => ErrorCode::AttestationVerificationFailed.into(),
-//     }
-// }
 
 #[cfg(test)]
 mod tests {

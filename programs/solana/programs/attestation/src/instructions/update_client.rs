@@ -20,7 +20,7 @@ pub fn handler(ctx: Context<UpdateClient>, update_msg: Vec<u8>) -> Result<Update
     // Decode AttestationProof from updateMsg
     // TODO: In what format is the proof in?
     let proof: AttestationProof =
-        serde_json::from_slice(&update_msg).map_err(|_| ErrorCode::JsonDeserializationFailed)?;
+        serde_json::from_slice(&update_msg).map_err(|_| ErrorCode::DeserializationFailed)?;
 
     // Verify signature
     // TODO: Check in what format is the attestation_data. So that we know how to deserialize

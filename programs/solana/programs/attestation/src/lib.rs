@@ -119,19 +119,19 @@ pub mod attestation {
         instructions::update_client::handler(ctx, update_msg)
     }
 
-    /// Verify membership
+    /// Verify membership. Returns the consensus timestamp at the proof height
     pub fn verify_membership(
         ctx: Context<VerifyMembership>,
         msg: ics25_handler::MembershipMsg,
-    ) -> Result<()> {
+    ) -> Result<u64> {
         instructions::verify_membership::handler(ctx, msg)
     }
 
-    /// Verify non membership
+    /// Verify non membership. Returns the consensus timestamp at the proof height
     pub fn verify_non_membership(
         ctx: Context<VerifyNonMembership>,
         msg: ics25_handler::NonMembershipMsg,
-    ) -> Result<()> {
+    ) -> Result<u64> {
         instructions::verify_non_membership::handler(ctx, msg)
     }
 }

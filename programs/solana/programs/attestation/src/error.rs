@@ -2,11 +2,8 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum ErrorCode {
-    #[msg("Client is frozen due to misbehaviour")]
+    #[msg("Client is frozen due to misbehavior")]
     ClientFrozen,
-
-    #[msg("Invalid attestor configuration")]
-    InvalidAttestorConfig,
 
     #[msg("No attestors provided")]
     NoAttestors,
@@ -41,9 +38,6 @@ pub enum ErrorCode {
     #[msg("Commitment is not zero (not a non-member)")]
     CommitmentNotZero,
 
-    #[msg("Consensus state not found at height")]
-    ConsensusStateNotFound,
-
     #[msg("Deserialization failed")]
     DeserializationFailed,
 
@@ -59,23 +53,14 @@ pub enum ErrorCode {
     #[msg("Invalid path length")]
     InvalidPathLength,
 
-    #[msg("Misbehaviour detected: conflicting state at same height")]
-    MisbehaviourDetected,
-
     #[msg("Invalid state: height and timestamp must be > 0")]
     InvalidState,
-
-    #[msg("Feature not supported")]
-    FeatureNotSupported,
 
     #[msg("Empty signatures")]
     EmptySignatures,
 
     #[msg("Attestation verification failed")]
     AttestationVerificationFailed,
-
-    #[msg("JSON deserialization failed")]
-    JsonDeserializationFailed,
 
     #[msg("ABI decoding failed")]
     AbiDecodingFailed,

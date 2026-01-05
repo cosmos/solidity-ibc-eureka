@@ -5,7 +5,7 @@ use crate::helpers::{
 use anchor_lang::prelude::*;
 use ics25_handler::NonMembershipMsg;
 
-pub fn handler(ctx: Context<crate::VerifyNonMembership>, msg: NonMembershipMsg) -> Result<()> {
+pub fn handler(ctx: Context<crate::VerifyNonMembership>, msg: NonMembershipMsg) -> Result<u64> {
     let client_state = &ctx.accounts.client_state;
     let consensus_state = &ctx.accounts.consensus_state;
 
@@ -18,7 +18,7 @@ pub fn handler(ctx: Context<crate::VerifyNonMembership>, msg: NonMembershipMsg) 
     // Deserialize proof from JSON
     // TODO: Check the proof format
     let proof: AttestationProof =
-        serde_json::from_slice(&msg.proof).map_err(|_| ErrorCode::JsonDeserializationFailed)?;
+        serde_json::from_slice(&msg.proof).map_err(|_| ErrorCode::DeserializationFailed)?;
 
     // Validate attestor signatures
     let digest = sha256(&proof.attestation_data);
@@ -60,11 +60,11 @@ pub fn handler(ctx: Context<crate::VerifyNonMembership>, msg: NonMembershipMsg) 
     require!(packet.commitment == [0u8; 32], ErrorCode::CommitmentNotZero);
 
     msg!(
-        "Non-membership verified: height={}, path_hash={:?}",
+        "Non-membership verified: height={}, path_hash={:?}, timestamp={}",
         consensus_state.height,
-        path_hash
+        path_hash,
+        consensus_state.timestamp
     );
 
-    // TODO: Return consensus timestamp at proof height
-    Ok(())
+    Ok(consensus_state.timestamp)
 }
