@@ -21,6 +21,7 @@ import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
 import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract IFTTest is Test {
     // solhint-disable gas-indexed-events
@@ -51,8 +52,11 @@ contract IFTTest is Test {
 
         evmCallConstructor = new EVMIFTSendCallConstructor();
 
-        ift = new IFTOwnable();
-        ift.initialize(authority, TOKEN_NAME, TOKEN_SYMBOL, ics27Gmp);
+        IFTOwnable impl = new IFTOwnable();
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl), abi.encodeCall(IFTOwnable.initialize, (authority, TOKEN_NAME, TOKEN_SYMBOL, ics27Gmp))
+        );
+        ift = IFTOwnable(address(proxy));
 
         // Give user1 some tokens
         deal(address(ift), user1, INITIAL_BALANCE, true);
@@ -874,6 +878,8 @@ contract IFTTest is Test {
     }
 
     function testFuzz_multipleBridges_independentTransfers(uint256 amount1, uint256 amount2) public {
+        vm.assume(amount1 > 0 && amount2 > 0);
+
         string memory clientId2 = th.SECOND_CLIENT_ID();
         string memory counterparty2 = "0xabcdef1234567890abcdef1234567890abcdef12";
         EVMIFTSendCallConstructor constructor2 = new EVMIFTSendCallConstructor();

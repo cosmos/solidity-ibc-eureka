@@ -17,6 +17,7 @@ import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
 import { IFTAccessManaged } from "../../contracts/utils/IFTAccessManaged.sol";
 import { EVMIFTSendCallConstructor } from "../../contracts/utils/EVMIFTSendCallConstructor.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract IFTIntegrationTest is Test {
     IbcImpl public ibcImplA;
@@ -47,10 +48,25 @@ contract IFTIntegrationTest is Test {
 
         sendCallConstructor = new EVMIFTSendCallConstructor();
 
-        iftOnA = new IFTAccessManaged();
-        iftOnB = new IFTAccessManaged();
-        iftOnA.initialize(address(ibcImplA.accessManager()), TOKEN_NAME, TOKEN_SYMBOL, address(ibcImplA.ics27Gmp()));
-        iftOnB.initialize(address(ibcImplB.accessManager()), TOKEN_NAME, TOKEN_SYMBOL, address(ibcImplB.ics27Gmp()));
+        IFTAccessManaged impl = new IFTAccessManaged();
+
+        ERC1967Proxy proxyA = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(
+                IFTAccessManaged.initialize,
+                (address(ibcImplA.accessManager()), TOKEN_NAME, TOKEN_SYMBOL, address(ibcImplA.ics27Gmp()))
+            )
+        );
+        iftOnA = IFTAccessManaged(address(proxyA));
+
+        ERC1967Proxy proxyB = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(
+                IFTAccessManaged.initialize,
+                (address(ibcImplB.accessManager()), TOKEN_NAME, TOKEN_SYMBOL, address(ibcImplB.ics27Gmp()))
+            )
+        );
+        iftOnB = IFTAccessManaged(address(proxyB));
 
         _setupBridgePermissions();
         _registerBridges();
