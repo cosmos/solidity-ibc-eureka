@@ -297,10 +297,12 @@ func NewIftMintInstruction(
 
 	// Accounts:
 	appStateAccount solanago.PublicKey,
+	iftBridgeAccount solanago.PublicKey,
 	mintAccount solanago.PublicKey,
 	mintAuthorityAccount solanago.PublicKey,
 	receiverTokenAccountAccount solanago.PublicKey,
 	receiverOwnerAccount solanago.PublicKey,
+	gmpProgramAccount solanago.PublicKey,
 	gmpAccountAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	tokenProgramAccount solanago.PublicKey,
@@ -328,29 +330,32 @@ func NewIftMintInstruction(
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "mint": Writable, Non-signer, Required
+		// Account 1 "ift_bridge": Read-only, Non-signer, Required
+		// IFT bridge - provides counterparty info for GMP account validation
+		accounts__.Append(solanago.NewAccountMeta(iftBridgeAccount, false, false))
+		// Account 2 "mint": Writable, Non-signer, Required
 		// SPL Token mint
 		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, false))
-		// Account 2 "mint_authority": Read-only, Non-signer, Required
+		// Account 3 "mint_authority": Read-only, Non-signer, Required
 		// Mint authority PDA
 		accounts__.Append(solanago.NewAccountMeta(mintAuthorityAccount, false, false))
-		// Account 3 "receiver_token_account": Writable, Non-signer, Required
+		// Account 4 "receiver_token_account": Writable, Non-signer, Required
 		// Receiver's token account (will be created if needed)
 		accounts__.Append(solanago.NewAccountMeta(receiverTokenAccountAccount, true, false))
-		// Account 4 "receiver_owner": Read-only, Non-signer, Required
+		// Account 5 "receiver_owner": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(receiverOwnerAccount, false, false))
-		// Account 5 "gmp_account": Read-only, Signer, Required
-		// GMP account PDA that signs this call (validates caller is from registered bridge)
-		// The GMP account PDA is derived from (`client_id`, sender, salt) in the GMP program
-		// This signer proves the call came from a valid cross-chain source
+		// Account 6 "gmp_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(gmpProgramAccount, false, false))
+		// Account 7 "gmp_account": Read-only, Signer, Required
+		// GMP account PDA - validated to match counterparty bridge
 		accounts__.Append(solanago.NewAccountMeta(gmpAccountAccount, false, true))
-		// Account 6 "payer": Writable, Signer, Required
+		// Account 8 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 7 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Account 9 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
-		// Account 8 "associated_token_program": Read-only, Non-signer, Required, Address: ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL
+		// Account 10 "associated_token_program": Read-only, Non-signer, Required, Address: ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL
 		accounts__.Append(solanago.NewAccountMeta(associatedTokenProgramAccount, false, false))
-		// Account 9 "system_program": Read-only, Non-signer, Required
+		// Account 11 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -503,70 +508,6 @@ func NewOnTimeoutPacketInstruction(
 		ProgramID,
 		accounts__,
 		buf__.Bytes(),
-	), nil
-}
-
-// Builds a "pause_app" instruction.
-// Pause the IFT app (admin only)
-func NewPauseAppInstruction(
-	appStateAccount solanago.PublicKey,
-	accessManagerAccount solanago.PublicKey,
-	adminAccount solanago.PublicKey,
-	instructionsSysvarAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "app_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "access_manager": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
-		// Account 2 "admin": Read-only, Signer, Required
-		// Admin with pause role
-		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
-		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
-		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		nil,
-	), nil
-}
-
-// Builds a "unpause_app" instruction.
-// Unpause the IFT app (admin only)
-func NewUnpauseAppInstruction(
-	appStateAccount solanago.PublicKey,
-	accessManagerAccount solanago.PublicKey,
-	adminAccount solanago.PublicKey,
-	instructionsSysvarAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "app_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "access_manager": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
-		// Account 2 "admin": Read-only, Signer, Required
-		// Admin with unpause role
-		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
-		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
-		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		nil,
 	), nil
 }
 

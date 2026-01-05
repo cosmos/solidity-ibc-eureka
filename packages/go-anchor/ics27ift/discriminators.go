@@ -22,7 +22,5 @@ var (
 	Instruction_IftMint                 = [8]byte{156, 201, 217, 144, 114, 175, 170, 83}
 	Instruction_OnAcknowledgementPacket = [8]byte{1, 142, 48, 169, 216, 66, 198, 31}
 	Instruction_OnTimeoutPacket         = [8]byte{152, 10, 26, 185, 36, 193, 95, 76}
-	Instruction_PauseApp                = [8]byte{142, 191, 211, 112, 238, 129, 131, 66}
-	Instruction_UnpauseApp              = [8]byte{73, 253, 89, 192, 87, 42, 245, 3}
 	Instruction_SetAccessManager        = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
 )

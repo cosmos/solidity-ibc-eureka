@@ -55,9 +55,6 @@ type Ics27IftStateIftAppState struct {
 	// Schema version for upgrades
 	Version Ics27IftStateAccountVersion `json:"version"`
 
-	// Emergency pause flag
-	Paused bool `json:"paused"`
-
 	// PDA bump seed
 	Bump uint8 `json:"bump"`
 
@@ -73,12 +70,6 @@ type Ics27IftStateIftAppState struct {
 	// GMP program address for sending cross-chain calls
 	GmpProgram solanago.PublicKey `json:"gmpProgram"`
 
-	// Total bridges registered
-	TotalBridges uint64 `json:"totalBridges"`
-
-	// Total pending transfers
-	TotalPending uint64 `json:"totalPending"`
-
 	// Reserved space for future fields
 	Reserved [128]uint8 `json:"reserved"`
 }
@@ -88,11 +79,6 @@ func (obj Ics27IftStateIftAppState) MarshalWithEncoder(encoder *binary.Encoder) 
 	err = encoder.Encode(obj.Version)
 	if err != nil {
 		return errors.NewField("Version", err)
-	}
-	// Serialize `Paused`:
-	err = encoder.Encode(obj.Paused)
-	if err != nil {
-		return errors.NewField("Paused", err)
 	}
 	// Serialize `Bump`:
 	err = encoder.Encode(obj.Bump)
@@ -119,16 +105,6 @@ func (obj Ics27IftStateIftAppState) MarshalWithEncoder(encoder *binary.Encoder) 
 	if err != nil {
 		return errors.NewField("GmpProgram", err)
 	}
-	// Serialize `TotalBridges`:
-	err = encoder.Encode(obj.TotalBridges)
-	if err != nil {
-		return errors.NewField("TotalBridges", err)
-	}
-	// Serialize `TotalPending`:
-	err = encoder.Encode(obj.TotalPending)
-	if err != nil {
-		return errors.NewField("TotalPending", err)
-	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
 	if err != nil {
@@ -152,11 +128,6 @@ func (obj *Ics27IftStateIftAppState) UnmarshalWithDecoder(decoder *binary.Decode
 	err = decoder.Decode(&obj.Version)
 	if err != nil {
 		return errors.NewField("Version", err)
-	}
-	// Deserialize `Paused`:
-	err = decoder.Decode(&obj.Paused)
-	if err != nil {
-		return errors.NewField("Paused", err)
 	}
 	// Deserialize `Bump`:
 	err = decoder.Decode(&obj.Bump)
@@ -182,16 +153,6 @@ func (obj *Ics27IftStateIftAppState) UnmarshalWithDecoder(decoder *binary.Decode
 	err = decoder.Decode(&obj.GmpProgram)
 	if err != nil {
 		return errors.NewField("GmpProgram", err)
-	}
-	// Deserialize `TotalBridges`:
-	err = decoder.Decode(&obj.TotalBridges)
-	if err != nil {
-		return errors.NewField("TotalBridges", err)
-	}
-	// Deserialize `TotalPending`:
-	err = decoder.Decode(&obj.TotalPending)
-	if err != nil {
-		return errors.NewField("TotalPending", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)
@@ -242,9 +203,6 @@ type Ics27IftStateIftBridge struct {
 	// Whether bridge is active
 	Active bool `json:"active"`
 
-	// Total transfers sent via this bridge
-	TotalTransfers uint64 `json:"totalTransfers"`
-
 	// Reserved space for future fields
 	Reserved [64]uint8 `json:"reserved"`
 }
@@ -284,11 +242,6 @@ func (obj Ics27IftStateIftBridge) MarshalWithEncoder(encoder *binary.Encoder) (e
 	err = encoder.Encode(obj.Active)
 	if err != nil {
 		return errors.NewField("Active", err)
-	}
-	// Serialize `TotalTransfers`:
-	err = encoder.Encode(obj.TotalTransfers)
-	if err != nil {
-		return errors.NewField("TotalTransfers", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -344,11 +297,6 @@ func (obj *Ics27IftStateIftBridge) UnmarshalWithDecoder(decoder *binary.Decoder)
 	if err != nil {
 		return errors.NewField("Active", err)
 	}
-	// Deserialize `TotalTransfers`:
-	err = decoder.Decode(&obj.TotalTransfers)
-	if err != nil {
-		return errors.NewField("TotalTransfers", err)
-	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)
 	if err != nil {
@@ -381,6 +329,9 @@ type Ics27IftStateIftMintMsg struct {
 
 	// Amount to mint
 	Amount uint64 `json:"amount"`
+
+	// IBC client identifier (for bridge lookup and GMP validation)
+	ClientId string `json:"clientId"`
 }
 
 func (obj Ics27IftStateIftMintMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -393,6 +344,11 @@ func (obj Ics27IftStateIftMintMsg) MarshalWithEncoder(encoder *binary.Encoder) (
 	err = encoder.Encode(obj.Amount)
 	if err != nil {
 		return errors.NewField("Amount", err)
+	}
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
 	}
 	return nil
 }
@@ -417,6 +373,11 @@ func (obj *Ics27IftStateIftMintMsg) UnmarshalWithDecoder(decoder *binary.Decoder
 	err = decoder.Decode(&obj.Amount)
 	if err != nil {
 		return errors.NewField("Amount", err)
+	}
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
 	}
 	return nil
 }
