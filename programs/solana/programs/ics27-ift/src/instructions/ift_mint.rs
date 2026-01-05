@@ -82,7 +82,6 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
         &ctx.accounts.gmp_program.key(),
     )?;
 
-    // Mint tokens to receiver
     let mint_key = ctx.accounts.mint.key();
     let seeds = &[
         MINT_AUTHORITY_SEED,

@@ -116,7 +116,6 @@ pub struct IFTTransfer<'info> {
 pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u64> {
     let clock = Clock::get()?;
 
-    // Validate inputs
     require!(msg.amount > 0, IFTError::ZeroAmount);
     require!(!msg.receiver.is_empty(), IFTError::EmptyReceiver);
     require!(
@@ -139,7 +138,6 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         msg.timeout_timestamp
     };
 
-    // Burn tokens from sender
     let burn_accounts = Burn {
         mint: ctx.accounts.mint.to_account_info(),
         from: ctx.accounts.sender_token_account.to_account_info(),
@@ -295,7 +293,6 @@ fn create_pending_transfer_account<'info>(
 ) -> Result<()> {
     let sequence_bytes = sequence.to_le_bytes();
 
-    // Validate PDA
     let (expected_pda, bump) = Pubkey::find_program_address(
         &[
             PENDING_TRANSFER_SEED,
@@ -310,7 +307,6 @@ fn create_pending_transfer_account<'info>(
         IFTError::InvalidPendingTransfer
     );
 
-    // Create account
     let account_size = 8 + PendingTransfer::INIT_SPACE;
     let lamports = Rent::get()?.minimum_balance(account_size);
 
@@ -338,7 +334,6 @@ fn create_pending_transfer_account<'info>(
         signer_seeds,
     )?;
 
-    // Initialize account data
     let pending = PendingTransfer {
         version: AccountVersion::V1,
         bump,

@@ -59,7 +59,6 @@ pub fn register_ift_bridge(
         &crate::ID,
     )?;
 
-    // Validate inputs
     require!(!msg.client_id.is_empty(), IFTError::EmptyClientId);
     require!(
         msg.client_id.len() <= MAX_CLIENT_ID_LENGTH,

@@ -64,7 +64,6 @@ pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>) -> Result<()> {
         timestamp: clock.unix_timestamp,
     });
 
-    // Bridge account is closed via Anchor's close constraint
     Ok(())
 }
 

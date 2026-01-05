@@ -113,7 +113,6 @@ pub fn on_timeout_packet(
         timestamp: clock.unix_timestamp,
     });
 
-    // Pending transfer account is closed via Anchor's close constraint
     Ok(())
 }
 

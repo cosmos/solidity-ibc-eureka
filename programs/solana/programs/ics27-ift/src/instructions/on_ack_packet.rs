@@ -129,7 +129,6 @@ pub fn on_acknowledgement_packet(
         });
     }
 
-    // Pending transfer account is closed via Anchor's close constraint
     Ok(())
 }
 
