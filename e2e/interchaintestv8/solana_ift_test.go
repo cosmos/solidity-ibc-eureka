@@ -52,51 +52,6 @@ func TestWithIbcEurekaSolanaIFTTestSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
-// initializeIFTProgram initializes the IFT program with a new SPL token
-func (s *IbcEurekaSolanaIFTTestSuite) initializeIFTProgram(ctx context.Context) {
-	s.Require().True(s.Run("Create SPL Token Mint", func() {
-		// Create a new SPL token mint that IFT will control
-		mint, err := s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaRelayer, IFTTokenDecimals)
-		s.Require().NoError(err)
-		s.IFTMint = mint
-		s.T().Logf("Created SPL Token Mint: %s", mint)
-	}))
-
-	s.Require().True(s.Run("Initialize IFT Program", func() {
-		// Derive IFT PDAs
-		appStatePDA, _ := solana.Ics27Ift.IftAppStatePDA(ics27_ift.ProgramID, s.IFTMint[:])
-		mintAuthorityPDA, _ := solana.Ics27Ift.IftMintAuthorityPDA(ics27_ift.ProgramID, s.IFTMint[:])
-
-		s.IFTAppState = appStatePDA
-		s.IFTMintAuthority = mintAuthorityPDA
-
-		// Initialize IFT - transfers mint authority to the IFT program
-		initIx, err := ics27_ift.NewInitializeInstruction(
-			IFTTokenDecimals,
-			access_manager.ProgramID,
-			ics27_gmp.ProgramID,
-			appStatePDA,
-			s.IFTMint,
-			mintAuthorityPDA,
-			s.SolanaRelayer.PublicKey(), // Current mint authority (will be transferred)
-			s.SolanaRelayer.PublicKey(), // Payer
-			token.ProgramID,
-			solanago.SystemProgramID,
-		)
-		s.Require().NoError(err)
-
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initIx)
-		s.Require().NoError(err)
-
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
-		s.Require().NoError(err)
-
-		s.T().Logf("IFT Program initialized")
-		s.T().Logf("  App State PDA: %s", appStatePDA)
-		s.T().Logf("  Mint Authority PDA: %s", mintAuthorityPDA)
-	}))
-}
-
 // registerIFTBridge registers an IFT bridge for the Cosmos counterparty
 func (s *IbcEurekaSolanaIFTTestSuite) registerIFTBridge(ctx context.Context, clientID string, counterpartyAddress string) {
 	s.Require().True(s.Run("Register IFT Bridge", func() {
@@ -135,22 +90,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerIFTBridge(ctx context.Context, cli
 		s.T().Logf("IFT Bridge registered for client %s", clientID)
 		s.T().Logf("  Bridge PDA: %s", bridgePDA)
 		s.T().Logf("  Counterparty: %s (Cosmos)", counterpartyAddress)
-	}))
-}
-
-// setupSenderTokenAccount creates and funds a token account for the sender
-func (s *IbcEurekaSolanaIFTTestSuite) setupSenderTokenAccount(ctx context.Context, amount uint64) {
-	s.Require().True(s.Run("Setup Sender Token Account", func() {
-		// Create token account for sender
-		tokenAccount, err := s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, s.IFTMint, s.SolanaRelayer.PublicKey())
-		s.Require().NoError(err)
-		s.SenderTokenAccount = tokenAccount
-		s.T().Logf("Created sender token account: %s", tokenAccount)
-
-		// Mint initial tokens to sender
-		// Note: Since IFT has taken over mint authority, we need to use the IFT mint capability
-		// For initial setup, we mint before IFT initialization OR use a test helper
-		s.T().Logf("Sender token account ready (amount will be minted via IFT or pre-initialization)")
 	}))
 }
 
@@ -377,34 +316,54 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 
 	// Construct GMP payload for ift_mint instruction and send via MsgSendCall
 	s.Require().True(s.Run("Send GMP Call from Cosmos", func() {
-		// Build the ift_mint instruction data
-		// Discriminator (8 bytes) + receiver pubkey (32 bytes) + amount (8 bytes)
+		// Build the ift_mint instruction data using proper Borsh serialization
 		receiverPubkey := s.SolanaRelayer.PublicKey()
 
-		iftMintData := make([]byte, 0, 48)
+		// Derive GMP account PDA to get the bump
+		gmpAccountPDA, gmpAccountBump := solana.Ics27Gmp.GmpAccountPDA(
+			ics27_gmp.ProgramID,
+			[]byte(SolanaClientID),
+			[]byte(cosmosUser.FormattedAddress()),
+			[]byte{}, // empty salt
+		)
+
+		// Create the IFTMintMsg with all required fields
+		iftMintMsg := ics27_ift.Ics27IftStateIftMintMsg{
+			Receiver:       receiverPubkey,
+			Amount:         IFTTransferAmount,
+			ClientId:       SolanaClientID,
+			GmpAccountBump: gmpAccountBump,
+		}
+
+		// Serialize the message using Borsh
+		msgBytes, err := iftMintMsg.Marshal()
+		s.Require().NoError(err)
+
+		// Build instruction data: discriminator + serialized message
+		iftMintData := make([]byte, 0, len(ics27_ift.Instruction_IftMint)+len(msgBytes))
 		iftMintData = append(iftMintData, ics27_ift.Instruction_IftMint[:]...)
-
-		// Append receiver pubkey
-		iftMintData = append(iftMintData, receiverPubkey[:]...)
-
-		// Append amount (little endian)
-		amountBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(amountBytes, IFTTransferAmount)
-		iftMintData = append(iftMintData, amountBytes...)
+		iftMintData = append(iftMintData, msgBytes...)
 
 		// Build accounts list for ift_mint
-		// The GMP program will inject the payer at the specified position
-		payerPosition := uint32(6)
+		// GMP will inject: gmp_account (as signer) and payer at PayerPosition
+		// Account order must match IFTMint struct in Anchor
+		payerPosition := uint32(8) // payer is at position 8 in IFTMint struct
+
+		associatedTokenProgramID := solanago.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
 
 		accounts := []*solanatypes.SolanaAccountMeta{
 			{Pubkey: s.IFTAppState[:], IsWritable: true, IsSigner: false},        // 0: app_state
-			{Pubkey: s.IFTMint[:], IsWritable: true, IsSigner: false},            // 1: mint
-			{Pubkey: s.IFTMintAuthority[:], IsWritable: false, IsSigner: false},  // 2: mint_authority
-			{Pubkey: receiverTokenAccount[:], IsWritable: true, IsSigner: false}, // 3: receiver_token_account
-			{Pubkey: receiverPubkey[:], IsWritable: false, IsSigner: false},      // 4: receiver (owner)
-			{Pubkey: ics27_gmp.ProgramID[:], IsWritable: false, IsSigner: false}, // 5: gmp_program
-			// 6: payer (injected by GMP at PayerPosition)
-			{Pubkey: token.ProgramID[:], IsWritable: false, IsSigner: false}, // 7: token_program (after payer injection)
+			{Pubkey: s.IFTBridge[:], IsWritable: false, IsSigner: false},         // 1: ift_bridge
+			{Pubkey: s.IFTMint[:], IsWritable: true, IsSigner: false},            // 2: mint
+			{Pubkey: s.IFTMintAuthority[:], IsWritable: false, IsSigner: false},  // 3: mint_authority
+			{Pubkey: receiverTokenAccount[:], IsWritable: true, IsSigner: false}, // 4: receiver_token_account
+			{Pubkey: receiverPubkey[:], IsWritable: false, IsSigner: false},      // 5: receiver_owner
+			{Pubkey: ics27_gmp.ProgramID[:], IsWritable: false, IsSigner: false}, // 6: gmp_program
+			{Pubkey: gmpAccountPDA[:], IsWritable: false, IsSigner: true},        // 7: gmp_account (GMP signs)
+			// 8: payer (injected by GMP at PayerPosition)
+			{Pubkey: token.ProgramID[:], IsWritable: false, IsSigner: false},          // 9: token_program
+			{Pubkey: associatedTokenProgramID[:], IsWritable: false, IsSigner: false}, // 10: associated_token_program
+			{Pubkey: solanago.SystemProgramID[:], IsWritable: false, IsSigner: false}, // 11: system_program
 		}
 
 		gmpPayload := &solanatypes.GMPSolanaPayload{

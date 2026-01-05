@@ -332,6 +332,9 @@ type Ics27IftStateIftMintMsg struct {
 
 	// IBC client identifier (for bridge lookup and GMP validation)
 	ClientId string `json:"clientId"`
+
+	// GMP account PDA bump (for efficient validation with `create_program_address`)
+	GmpAccountBump uint8 `json:"gmpAccountBump"`
 }
 
 func (obj Ics27IftStateIftMintMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -349,6 +352,11 @@ func (obj Ics27IftStateIftMintMsg) MarshalWithEncoder(encoder *binary.Encoder) (
 	err = encoder.Encode(obj.ClientId)
 	if err != nil {
 		return errors.NewField("ClientId", err)
+	}
+	// Serialize `GmpAccountBump`:
+	err = encoder.Encode(obj.GmpAccountBump)
+	if err != nil {
+		return errors.NewField("GmpAccountBump", err)
 	}
 	return nil
 }
@@ -378,6 +386,11 @@ func (obj *Ics27IftStateIftMintMsg) UnmarshalWithDecoder(decoder *binary.Decoder
 	err = decoder.Decode(&obj.ClientId)
 	if err != nil {
 		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `GmpAccountBump`:
+	err = decoder.Decode(&obj.GmpAccountBump)
+	if err != nil {
+		return errors.NewField("GmpAccountBump", err)
 	}
 	return nil
 }
