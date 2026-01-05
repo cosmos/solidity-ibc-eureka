@@ -1,11 +1,11 @@
-use crate::{error::ErrorCode, Initialize};
+use crate::{error::ErrorCode, state::EthereumAddress, Initialize};
 use anchor_lang::prelude::*;
 use std::collections::HashSet;
 
 pub fn handler(
     ctx: Context<Initialize>,
     _client_id: String,
-    attestor_addresses: Vec<Pubkey>,
+    attestor_addresses: Vec<EthereumAddress>,
     min_required_sigs: u8,
     initial_height: u64,
     initial_timestamp: u64,

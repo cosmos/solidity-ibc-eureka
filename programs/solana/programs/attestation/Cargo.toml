@@ -31,5 +31,7 @@ serde_json = { workspace = true }
 
 # Hashing
 solana-keccak-hasher = { workspace = true }
-
 sha2 = "0.10"
+
+# ECDSA signature verification
+solana-program = { workspace = true }

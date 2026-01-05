@@ -5,14 +5,14 @@ pub mod helpers;
 pub mod instructions;
 pub mod state;
 
-use state::{ClientState, ConsensusStateStore, UpdateResult};
+use state::{ClientState, ConsensusStateStore, EthereumAddress, UpdateResult};
 
 declare_id!("4AFX7zqsHerxVuZGsNenjenS5R2cYHLmwwx53y6QN8Mk");
 
 pub use ics25_handler::{MembershipMsg, NonMembershipMsg};
 
 #[derive(Accounts)]
-#[instruction(client_id: String, attestor_addresses: Vec<[u8; 20]>, min_required_sigs: u8, initial_height: u64, initial_timestamp: u64)]
+#[instruction(client_id: String, attestor_addresses: Vec<EthereumAddress>, min_required_sigs: u8, initial_height: u64, initial_timestamp: u64)]
 pub struct Initialize<'info> {
     #[account(
         init,
@@ -98,7 +98,7 @@ pub mod attestation {
     pub fn initialize(
         ctx: Context<Initialize>,
         client_id: String,
-        attestor_addresses: Vec<Pubkey>,
+        attestor_addresses: Vec<EthereumAddress>,
         min_required_sigs: u8,
         initial_height: u64,
         initial_timestamp: u64,

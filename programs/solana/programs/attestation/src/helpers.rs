@@ -1,6 +1,11 @@
 use crate::error::ErrorCode;
+use crate::state::EthereumAddress;
 use anchor_lang::prelude::*;
 use sha2::{Digest, Sha256};
+use solana_program::secp256k1_recover::secp256k1_recover;
+
+/// ECDSA signature length (r || s || v)
+const ECDSA_SIGNATURE_LENGTH: usize = 65;
 
 /// Attestation data structures (matching Solidity ABI encoding)
 #[derive(Debug, Clone)]
@@ -123,76 +128,115 @@ pub fn sha256(data: &[u8]) -> [u8; 32] {
     hasher.finalize().into()
 }
 
+/// Verifies a single ECDSA signature and returns the recovered Ethereum address.
+///
+/// # Arguments
+/// * `digest` - SHA256 hash of attestation_data
+/// * `signature` - 65-byte ECDSA signature (r||s||v format)
+/// * `attestor_addresses` - Known attestor set for validation
+///
+/// # Returns
+/// The recovered Ethereum address if verification succeeds
+///
+/// # Errors
+/// * `InvalidSignature` - If signature length is not 65 bytes or recovery fails
+/// * `UnknownSigner` - If recovered address is not in the attestor set
+fn verify_signature(
+    digest: &[u8; 32],
+    signature: &[u8],
+    attestor_addresses: &[EthereumAddress],
+) -> Result<EthereumAddress> {
+    // Verify signature length
+    require!(
+        signature.len() == ECDSA_SIGNATURE_LENGTH,
+        ErrorCode::InvalidSignature
+    );
+
+    // Extract r, s, v from signature (r: [0..32], s: [32..64], v: [64])
+    // Note: Ethereum uses v = 27 or 28, but secp256k1_recover expects recovery_id = 0 or 1
+    let recovery_id = signature[64]
+        .checked_sub(27)
+        .ok_or(ErrorCode::InvalidSignature)?;
+
+    // Prepare the signature for secp256k1_recover (r || s format, 64 bytes)
+    let sig_bytes: [u8; 64] = signature[0..64]
+        .try_into()
+        .map_err(|_| ErrorCode::InvalidSignature)?;
+
+    // Recover the public key using Solana's secp256k1_recover syscall
+    let recovered_pubkey = secp256k1_recover(digest, recovery_id, &sig_bytes)
+        .map_err(|_| ErrorCode::InvalidSignature)?;
+
+    // Derive Ethereum address: keccak256(pubkey)[12..32]
+    // The recovered pubkey is 64 bytes (uncompressed, without 0x04 prefix)
+    let pubkey_hash = keccak256(&recovered_pubkey.to_bytes());
+    let addr_bytes: [u8; 20] = pubkey_hash[12..32]
+        .try_into()
+        .map_err(|_| ErrorCode::InvalidSignature)?;
+    let recovered_address = EthereumAddress::from(addr_bytes);
+
+    // Verify the address is not zero (invalid signature)
+    require!(
+        recovered_address.0 != [0u8; 20],
+        ErrorCode::InvalidSignature
+    );
+
+    // Verify the recovered address is in the attestor set
+    require!(
+        attestor_addresses.contains(&recovered_address),
+        ErrorCode::UnknownSigner
+    );
+
+    Ok(recovered_address)
+}
+
 /// Verifies that `signatures` over `digest` are valid, unique, and meet the threshold.
 ///
-/// Parameters:
-/// - digest: SHA256 hash of attestation_data
-/// - signatures: Array of 65-byte ECDSA signatures (r||s||v format)
-/// - attestor_addresses: Known attestor set
-/// - min_required_sigs: Minimum signatures needed
+/// # Arguments
+/// * `digest` - SHA256 hash of attestation_data
+/// * `signatures` - Array of 65-byte ECDSA signatures (r||s||v format)
+/// * `attestor_addresses` - Known attestor set
+/// * `min_required_sigs` - Minimum signatures needed
+///
+/// # Errors
+/// * `EmptySignatures` - If no signatures provided
+/// * `ThresholdNotMet` - If signature count is less than minimum required
+/// * `InvalidSignature` - If any signature is invalid
+/// * `UnknownSigner` - If any signer is not in the attestor set
+/// * `DuplicateSignature` - If duplicate signers detected
 pub fn verify_signatures_threshold(
     digest: [u8; 32],
     signatures: &Vec<Vec<u8>>,
-    attestor_addresses: &[Pubkey],
+    attestor_addresses: &[EthereumAddress],
     min_required_sigs: u8,
 ) -> Result<()> {
-    todo!()
+    // Verify we have at least one signature
+    require!(!signatures.is_empty(), ErrorCode::EmptySignatures);
+
+    // Verify we meet the threshold
+    require!(
+        signatures.len() >= min_required_sigs as usize,
+        ErrorCode::ThresholdNotMet
+    );
+
+    // Track seen addresses to detect duplicates
+    let mut seen_addresses = Vec::with_capacity(signatures.len());
+
+    for signature in signatures {
+        // Verify the signature and recover the signer address
+        let recovered = verify_signature(&digest, signature, attestor_addresses)?;
+
+        // Check for duplicate signers
+        require!(
+            !seen_addresses.contains(&recovered),
+            ErrorCode::DuplicateSignature
+        );
+
+        seen_addresses.push(recovered);
+    }
+
+    Ok(())
 }
-
-// TODO: CRITICAL - Implement verify_signatures_threshold function
-// This function must verify that the provided signatures meet the attestor threshold.
-// It should replicate the logic from AttestationLightClient.sol:214-233:
-//
-// Parameters:
-// - digest: [u8; 32] - SHA256 hash of attestation_data
-// - signatures: Vec<Vec<u8>> - Array of 65-byte ECDSA signatures (r||s||v format)
-// - attestor_addresses: &Vec<[u8; 20]> - Known attestor set
-// - min_required_sigs: u8 - Minimum signatures needed
-//
-// Logic:
-// 1. Verify signatures.len() >= min_required_sigs
-// 2. For each signature:
-//    a. Verify signature length is exactly 65 bytes (ECDSA_SIGNATURE_LENGTH)
-//    b. Recover signer address using ECDSA recovery (secp256k1_recover)
-//    c. Verify recovered address is in attestor_addresses set
-//    d. Check for duplicate signers (track seen addresses)
-// 3. Return Ok(()) if all checks pass, Err otherwise
-//
-// Solana-specific notes:
-// - Use solana_program::secp256k1_recover for ECDSA recovery
-// - Ethereum addresses are last 20 bytes of keccak256(pubkey)
-// - The digest needs to be prefixed with Ethereum's "\x19Ethereum Signed Message:\n32" for ecrecover compatibility
-// - Consider using k256 or libsecp256k1 crates for signature verification
-//
-// See: contracts/light-clients/attestation/AttestationLightClient.sol:214-233
-
-// TODO: CRITICAL - Implement verify_signature helper function
-// This function should verify a single ECDSA signature and return the recovered signer address.
-// It should replicate the logic from AttestationLightClient.sol:240-248:
-//
-// Parameters:
-// - digest: [u8; 32] - SHA256 hash of attestation_data
-// - signature: &[u8] - 65-byte ECDSA signature (r||s||v format)
-// - attestor_addresses: &Vec<[u8; 20]> - Known attestor set for validation
-//
-// Logic:
-// 1. Verify signature.len() == 65 (ECDSA_SIGNATURE_LENGTH constant)
-// 2. Perform ECDSA recovery to get public key:
-//    a. Extract r, s, v from signature (first 32 bytes = r, next 32 = s, last byte = v)
-//    b. Use secp256k1_recover with digest and signature
-// 3. Derive Ethereum address from recovered public key:
-//    a. Take keccak256 hash of the uncompressed public key (64 bytes, without 0x04 prefix)
-//    b. Take last 20 bytes as Ethereum address
-// 4. Verify recovered address != [0; 20] (invalid signature)
-// 5. Verify recovered address is in attestor_addresses (known signer)
-// 6. Return recovered address
-//
-// Errors:
-// - InvalidSignatureLength if len != 65
-// - InvalidSignature if recovery fails or address is zero
-// - UnknownSigner if recovered address not in attestor set
-//
-// See: contracts/light-clients/attestation/AttestationLightClient.sol:240-248
 
 // TODO: Re-enable after fixing alloy dependency compatibility issues
 // /// Convert attestor-light-client error to Anchor error
