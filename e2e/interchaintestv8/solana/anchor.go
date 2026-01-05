@@ -48,14 +48,17 @@ func DeploySolanaProgram(ctx context.Context, programSoFile, programKeypairFile,
 	cmd.Env = os.Environ()
 
 	var stdoutBuf bytes.Buffer
+	var stderrBuf bytes.Buffer
 	multiWriter := io.MultiWriter(os.Stdout, &stdoutBuf)
+	stderrMultiWriter := io.MultiWriter(os.Stderr, &stderrBuf)
 
 	cmd.Stdout = multiWriter
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = stderrMultiWriter
 
 	if err := cmd.Run(); err != nil {
-		fmt.Println("Error deploy command", cmd.Args, err)
-		return solana.PublicKey{}, solana.Signature{}, err
+		fmt.Printf("Error deploy command: %v\nArgs: %v\nStderr: %s\nStdout: %s\n",
+			err, cmd.Args, stderrBuf.String(), stdoutBuf.String())
+		return solana.PublicKey{}, solana.Signature{}, fmt.Errorf("%w: stderr=%s", err, stderrBuf.String())
 	}
 
 	stdoutBytes := stdoutBuf.Bytes()
