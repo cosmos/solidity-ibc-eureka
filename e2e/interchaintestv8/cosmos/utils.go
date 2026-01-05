@@ -1,14 +1,20 @@
 package cosmos
 
 import (
+	"context"
 	"fmt"
 
 	"cosmossdk.io/collections"
 
+	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
+
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 )
 
 // CloneAppend returns a new slice with the contents of the provided slices.
@@ -41,4 +47,21 @@ func GetEventValue(events []abcitypes.Event, eventType, attrKey string) (string,
 	}
 
 	return "", fmt.Errorf("event type %s with attribute key %s not found", eventType, attrKey)
+}
+
+// FetchCosmosHeader fetches the latest header from the given chain.
+func FetchCosmosHeader(ctx context.Context, chain *cosmos.CosmosChain) (*cmtservice.Header, error) {
+	latestHeight, err := chain.Height(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	headerResp, err := e2esuite.GRPCQuery[cmtservice.GetBlockByHeightResponse](ctx, chain, &cmtservice.GetBlockByHeightRequest{
+		Height: latestHeight,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &headerResp.SdkBlock.Header, nil
 }

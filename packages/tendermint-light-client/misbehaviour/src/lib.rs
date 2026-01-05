@@ -1,12 +1,9 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-misbehaviour`
 //! program.
-#![deny(
-    missing_docs,
-    clippy::nursery,
-    clippy::pedantic,
-    warnings,
-    unused_crate_dependencies
-)]
+#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings)]
+#![cfg_attr(not(test), deny(unused_crate_dependencies))]
+
+use sha2 as _;
 
 use ibc_client_tendermint::client_state::{
     check_for_misbehaviour_on_misbehavior, verify_misbehaviour,
@@ -15,11 +12,15 @@ use ibc_client_tendermint::types::{ConsensusState, Misbehaviour, TENDERMINT_CLIE
 use ibc_core_client_types::Height;
 use ibc_core_host_types::identifiers::{ChainId, ClientId};
 use std::time::Duration;
+use tendermint::{crypto::Sha256, merkle::MerkleHash};
 use tendermint_light_client_update_client::types::validation::ClientValidationCtx;
 pub use tendermint_light_client_update_client::{ClientState, TrustThreshold};
 use tendermint_light_client_verifier::{
-    options::Options, types::TrustThreshold as TmTrustThreshold, ProdVerifier,
+    options::Options, types::TrustThreshold as TmTrustThreshold,
 };
+
+#[cfg(not(feature = "solana"))]
+use tendermint_light_client_verifier::ProdVerifier;
 
 /// Output from misbehaviour verification
 #[derive(Clone, Debug)]
@@ -69,6 +70,7 @@ pub enum MisbehaviourError {
 /// Returns `MisbehaviourError::MisbehaviourVerificationFailed` if misbehaviour verification fails.
 /// Returns `MisbehaviourError::CheckForMisbehaviourFailed` if misbehaviour check fails.
 /// Returns `MisbehaviourError::MisbehaviourNotDetected` if no misbehaviour is detected.
+#[cfg(not(feature = "solana"))]
 pub fn check_for_misbehaviour(
     client_state: &ClientState,
     misbehaviour: &Misbehaviour,
@@ -76,6 +78,68 @@ pub fn check_for_misbehaviour(
     trusted_consensus_state_2: ConsensusState,
     time: u128,
 ) -> Result<MisbehaviourOutput, MisbehaviourError> {
+    check_for_misbehaviour_impl::<_, sha2::Sha256>(
+        client_state,
+        misbehaviour,
+        trusted_consensus_state_1,
+        trusted_consensus_state_2,
+        time,
+        &ProdVerifier::default(),
+    )
+}
+
+/// IBC light client misbehaviour check with Solana signature verification
+///
+/// # Errors
+///
+/// Returns `MisbehaviourError::InvalidClientId` if client ID creation fails.
+/// Returns `MisbehaviourError::InvalidChainId` if chain ID is invalid.
+/// Returns `MisbehaviourError::ChainIdMismatch` if chain ID doesn't match between client state and misbehaviour header.
+/// Returns `MisbehaviourError::MisbehaviourVerificationFailed` if misbehaviour verification fails.
+/// Returns `MisbehaviourError::CheckForMisbehaviourFailed` if misbehaviour check fails.
+/// Returns `MisbehaviourError::MisbehaviourNotDetected` if no misbehaviour is detected.
+#[cfg(feature = "solana")]
+pub fn check_for_misbehaviour<'a>(
+    client_state: &ClientState,
+    misbehaviour: &Misbehaviour,
+    trusted_consensus_state_1: ConsensusState,
+    trusted_consensus_state_2: ConsensusState,
+    time: u128,
+    verification_accounts: &'a [anchor_lang::prelude::AccountInfo<'a>],
+    program_id: &'a anchor_lang::prelude::Pubkey,
+) -> Result<MisbehaviourOutput, MisbehaviourError> {
+    let verifier = tendermint_light_client_solana::SolanaVerifier::new(
+        tendermint_light_client_solana::SolanaPredicates,
+        tendermint_light_client_solana::SolanaVotingPowerCalculator::new(
+            tendermint_light_client_solana::SolanaSignatureVerifier::new(
+                verification_accounts,
+                program_id,
+            ),
+        ),
+        tendermint_light_client_verifier::operations::commit_validator::ProdCommitValidator,
+    );
+    check_for_misbehaviour_impl::<_, tendermint_light_client_solana::SolanaSha256>(
+        client_state,
+        misbehaviour,
+        trusted_consensus_state_1,
+        trusted_consensus_state_2,
+        time,
+        &verifier,
+    )
+}
+
+fn check_for_misbehaviour_impl<V, H>(
+    client_state: &ClientState,
+    misbehaviour: &Misbehaviour,
+    trusted_consensus_state_1: ConsensusState,
+    trusted_consensus_state_2: ConsensusState,
+    time: u128,
+    verifier: &V,
+) -> Result<MisbehaviourOutput, MisbehaviourError>
+where
+    V: tendermint_light_client_verifier::Verifier,
+    H: MerkleHash + Sha256 + Default,
+{
     let client_id =
         ClientId::new(TENDERMINT_CLIENT_TYPE, 0).map_err(|_| MisbehaviourError::InvalidClientId)?;
     let chain_id = ChainId::new(&client_state.chain_id)
@@ -118,13 +182,13 @@ pub fn check_for_misbehaviour(
     };
 
     // Call into ibc-rs verify_misbehaviour function to verify that both headers are valid given their respective trusted consensus states
-    verify_misbehaviour::<_, sha2::Sha256>(
+    verify_misbehaviour::<_, H>(
         &ctx,
         misbehaviour,
         &client_id,
         &chain_id,
         &options,
-        &ProdVerifier::default(),
+        verifier,
     )
     .map_err(|_| MisbehaviourError::MisbehaviourVerificationFailed)?;
 

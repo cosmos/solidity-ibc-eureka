@@ -8,6 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/gagliardetto/solana-go"
+
 	"cosmossdk.io/math"
 
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
@@ -23,6 +25,9 @@ const (
 
 	// TransferAmount is the default transfer amount
 	TransferAmount int64 = 1_000_000_000
+
+	// InitialSolBalance is the default amount of SOL to give a new user
+	InitialSolBalance uint64 = solana.LAMPORTS_PER_SOL * 1
 
 	// EnvKeyTendermintRPC Tendermint RPC URL.
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"
@@ -96,6 +101,26 @@ const (
 	// otherwise, it will download the version from the github release with the given tag
 	EnvKeyE2EWasmLightClientTag = "E2E_WASM_LIGHT_CLIENT_TAG"
 
+	// EnvKeySolanaTestnetType is the environment variable name to configure the Solana testnet type.
+	EnvKeySolanaTestnetType = "SOLANA_TESTNET_TYPE"
+	// SolanaTestnetType_Localnet is the Solana testnet type for using a local testnet.
+	SolanaTestnetType_Localnet = "localnet"
+	// SolanaTestnetType_None is the Solana testnet type for using no chain.
+	SolanaTestnetType_None = "none"
+	// SolanaChainID is the chain identifier for Solana localnet used in relayer config.
+	SolanaChainID = "solana-localnet"
+	// SolanaLocalnetRPC is the default RPC URL for Solana localnet.
+	SolanaLocalnetRPC = "http://localhost:8899"
+	// SolanaGMPPortID is the port identifier for GMP (General Message Passing) application.
+	SolanaGMPPortID = "gmpport"
+
+	// Ics27Version is the ICS27 GMP protocol version.
+	Ics27Version = "ics27-2"
+	// Ics27AbiEncoding is the solidity abi encoding type for the ICS27 packets.
+	Ics27AbiEncoding = "application/x-solidity-abi"
+	// Ics27ProtobufEncoding is the protobuf encoding type for ICS27 packets (used for Solana).
+	Ics27ProtobufEncoding = "application/x-protobuf"
+
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
 	Sp1GenesisFilePath = "scripts/genesis.json"
@@ -109,6 +134,8 @@ const (
 	RelayerConfigFilePath = "programs/relayer/config.json"
 	// E2EDeployScriptPath is the path to the E2E deploy script.
 	E2EDeployScriptPath = "scripts/E2ETestDeploy.s.sol:E2ETestDeploy"
+	// SolanaLedgerDir is the path to the Solana ledger directory.
+	SolanaLedgerDir = "test-ledger"
 	// TendermintLightClientFixturesDir is the directory where the Tendermint light client fixtures are stored.
 	TendermintLightClientFixturesDir = "packages/tendermint-light-client/fixtures/"
 
@@ -134,9 +161,6 @@ const (
 	ParameterKey_RoleManager = "role_manager"
 	// Checksum hex parameter key for the relayer's ethereum light client creation.
 	ParameterKey_ChecksumHex = "checksum_hex"
-
-	// Ics27AbiEncoding is the solidity abi encoding type for the ICS27 packets.
-	Ics27AbiEncoding = "application/x-solidity-abi"
 )
 
 var (
@@ -156,6 +180,9 @@ var (
 	// DefaultTrustPeriod is the trust period used by the SP1ICS07Tendermint contract.
 	// 129600 seconds = 14 days
 	DefaultTrustPeriod = 1209600
+
+	// DefaultMaxClockDrift is the default maximum clock drift used by ICS07Tendermint (in seconds).
+	DefaultMaxClockDrift = 15
 
 	// MaxUint256 is the maximum value for a uint256.
 	MaxUint256 = uint256.MustFromHex("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")

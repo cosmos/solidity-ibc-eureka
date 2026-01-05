@@ -6,13 +6,20 @@ edition     = { workspace = true }
 repository  = { workspace = true }
 license     = { workspace = true }
 
+[features]
+default = []
+solana = ["dep:tendermint-light-client-solana", "dep:anchor-lang"]
+
 [dependencies]
 tendermint-light-client-verifier = { workspace = true }
+tendermint-light-client-solana   = { workspace = true, optional = true }
+anchor-lang                      = { workspace = true, optional = true}
 ibc-client-tendermint            = { workspace = true, features = ["serde"] }
 ibc-core-host-types              = { workspace = true }
 ibc-core-client                  = { workspace = true }
 ibc-core-client-types            = { workspace = true }
 ibc-primitives                   = { workspace = true }
+tendermint                       = { workspace = true }
 sha2                             = { workspace = true }
 thiserror                        = { workspace = true }
 

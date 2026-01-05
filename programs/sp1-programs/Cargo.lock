@@ -1762,6 +1762,7 @@ dependencies = [
  "ibc-core-client-types",
  "ibc-core-host-types",
  "sha2 0.10.8",
+ "tendermint",
  "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
  "thiserror",
@@ -1788,6 +1789,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-primitives",
  "sha2 0.10.8",
+ "tendermint",
  "tendermint-light-client-verifier",
  "thiserror",
 ]

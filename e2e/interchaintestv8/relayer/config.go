@@ -14,6 +14,8 @@ const (
 	ModuleCosmosToEth       = "cosmos_to_eth"
 	ModuleEthToCosmos       = "eth_to_cosmos"
 	ModuleEthToCosmosCompat = "eth_to_cosmos_compat"
+	ModuleSolanaToCosmos    = "solana_to_cosmos"
+	ModuleCosmosToSolana    = "cosmos_to_solana"
 )
 
 // Config represents the relayer configuration structure aligned with the Rust RelayerConfig

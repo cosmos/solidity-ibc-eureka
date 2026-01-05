@@ -1,0 +1,21 @@
+[package]
+name = "solana-ibc-macros"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories = ["cryptography::cryptocurrencies", "development-tools"]
+description = "Procedural macros for IBC on Solana"
+readme = "README.md"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+
+[lints]
+workspace = true

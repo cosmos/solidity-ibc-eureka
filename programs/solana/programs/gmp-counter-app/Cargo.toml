@@ -1,0 +1,36 @@
+[package]
+name = "gmp-counter-app"
+version.workspace = true
+description = "GMP Counter App for testing cross-chain calls"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "gmp", "counter", "anchor"]
+categories = ["cryptography", "blockchain"]
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "gmp_counter_app"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl.workspace = true
+solana-ibc-types.workspace = true
+
+[dev-dependencies]
+mollusk-svm.workspace = true
+mollusk-svm-bencher.workspace = true
+solana-sdk.workspace = true
+bincode.workspace = true

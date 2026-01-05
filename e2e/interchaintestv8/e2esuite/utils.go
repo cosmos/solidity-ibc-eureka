@@ -22,7 +22,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -95,7 +94,7 @@ func (s *TestSuite) CreateAndFundCosmosUser(ctx context.Context, chain *cosmos.C
 	return s.CreateAndFundCosmosUserWithBalance(ctx, chain, testvalues.InitialBalance)
 }
 
-// CreateAndFundCosmosUser returns a new cosmos user with the given balance and funds it with the native chain denom.
+// CreateAndFundCosmosUserWithBalance returns a new cosmos user with the given balance and funds it with the native chain denom.
 func (s *TestSuite) CreateAndFundCosmosUserWithBalance(ctx context.Context, chain *cosmos.CosmosChain, balance int64) ibc.Wallet {
 	cosmosUserFunds := sdkmath.NewInt(balance)
 	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, chain)
@@ -384,23 +383,6 @@ func (s *TestSuite) GetTopLevelTestName() string {
 	}
 
 	return s.T().Name()
-}
-
-// FetchCosmosHeader fetches the latest header from the given chain.
-func (s *TestSuite) FetchCosmosHeader(ctx context.Context, chain *cosmos.CosmosChain) (*cmtservice.Header, error) {
-	latestHeight, err := chain.Height(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	headerResp, err := GRPCQuery[cmtservice.GetBlockByHeightResponse](ctx, chain, &cmtservice.GetBlockByHeightRequest{
-		Height: latestHeight,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &headerResp.SdkBlock.Header, nil
 }
 
 func (s *TestSuite) MustBroadcastSdkTxBody(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) *sdk.TxResponse {
