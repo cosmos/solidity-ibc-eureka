@@ -36,12 +36,6 @@ pub enum IFTError {
     #[msg("Direct calls not allowed, must be called via CPI")]
     DirectCallNotAllowed,
 
-    #[msg("Invalid acknowledgement format")]
-    InvalidAcknowledgement,
-
-    #[msg("Salt must be empty for IFT")]
-    SaltNotEmpty,
-
     #[msg("Token account owner mismatch")]
     TokenAccountOwnerMismatch,
 
@@ -59,9 +53,6 @@ pub enum IFTError {
 
     #[msg("Invalid counterparty address length")]
     InvalidCounterpartyAddressLength,
-
-    #[msg("Pending transfer already exists")]
-    PendingTransferExists,
 
     #[msg("Invalid sysvar account provided")]
     InvalidSysvar,
