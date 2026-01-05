@@ -101,6 +101,9 @@ pub enum IFTError {
 
     #[msg("Invalid pending transfer account")]
     InvalidPendingTransfer,
+
+    #[msg("Mint decimals mismatch")]
+    DecimalsMismatch,
 }
 
 /// Convert CPI validation errors to IFT errors
