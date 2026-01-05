@@ -49,7 +49,6 @@ pub fn initialize(
 ) -> Result<()> {
     let mint = &ctx.accounts.mint;
 
-    // Verify decimals match the mint
     require!(mint.decimals == decimals, IFTError::InvalidMintAuthority);
 
     // Transfer mint authority to IFT PDA
