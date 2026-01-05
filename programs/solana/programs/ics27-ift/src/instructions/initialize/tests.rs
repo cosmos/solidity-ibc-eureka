@@ -366,3 +366,83 @@ fn test_initialize_wrong_mint_owner_fails() {
         "initialize should fail when mint is not owned by token program"
     );
 }
+
+/// Test that initialize fails when signer is not the actual mint authority
+#[test]
+fn test_initialize_wrong_mint_authority_fails() {
+    let mollusk = setup_mollusk();
+
+    let mint = Pubkey::new_unique();
+    let actual_mint_authority = Pubkey::new_unique();
+    let wrong_mint_authority = Pubkey::new_unique(); // Different from actual!
+    let payer = Pubkey::new_unique();
+    let access_manager = Pubkey::new_unique();
+    let gmp_program = Pubkey::new_unique();
+
+    let (app_state_pda, _) = get_app_state_pda(&mint);
+    let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
+    let (system_program, system_account) = create_system_program_account();
+
+    // Mint has `actual_mint_authority` as its authority
+    let mint_account = create_mock_mint_account(6, actual_mint_authority);
+
+    let app_state_account = solana_sdk::account::Account {
+        lamports: Rent::default().minimum_balance(8 + IFTAppState::INIT_SPACE),
+        data: vec![],
+        owner: solana_sdk::system_program::ID,
+        executable: false,
+        rent_epoch: 0,
+    };
+
+    let mint_authority_account = solana_sdk::account::Account {
+        lamports: 0,
+        data: vec![],
+        owner: solana_sdk::system_program::ID,
+        executable: false,
+        rent_epoch: 0,
+    };
+
+    let token_program_account = solana_sdk::account::Account {
+        lamports: 1,
+        data: vec![],
+        owner: solana_sdk::native_loader::ID,
+        executable: true,
+        rent_epoch: 0,
+    };
+
+    // Pass `wrong_mint_authority` as signer when mint expects `actual_mint_authority`
+    let instruction = Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(app_state_pda, false),
+            AccountMeta::new(mint, false),
+            AccountMeta::new_readonly(mint_authority_pda, false),
+            AccountMeta::new_readonly(wrong_mint_authority, true), // Wrong authority!
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(anchor_spl::token::ID, false),
+            AccountMeta::new_readonly(system_program, false),
+        ],
+        data: crate::instruction::Initialize {
+            decimals: 6,
+            access_manager,
+            gmp_program,
+        }
+        .data(),
+    };
+
+    let accounts = vec![
+        (app_state_pda, app_state_account),
+        (mint, mint_account),
+        (mint_authority_pda, mint_authority_account),
+        (wrong_mint_authority, create_signer_account()),
+        (payer, create_signer_account()),
+        (anchor_spl::token::ID, token_program_account),
+        (system_program, system_account),
+    ];
+
+    let result = mollusk.process_instruction(&instruction, &accounts);
+    assert!(
+        result.program_result.is_err(),
+        "initialize should fail when signer is not the actual mint authority"
+    );
+}

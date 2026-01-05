@@ -1052,3 +1052,248 @@ fn test_ift_transfer_timeout_in_past_fails() {
         "ift_transfer should fail with timeout in the past"
     );
 }
+
+/// Test that `ift_transfer` fails with timeout too far in the future
+#[test]
+fn test_ift_transfer_timeout_too_long_fails() {
+    let mollusk = setup_mollusk();
+
+    let mint = Pubkey::new_unique();
+    let sender = Pubkey::new_unique();
+    let payer = Pubkey::new_unique();
+    let gmp_program = Pubkey::new_unique();
+
+    let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+    let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
+    let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
+    let (system_program, system_account) = create_system_program_account();
+    let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
+    let (clock_sysvar, clock_account) = create_clock_sysvar_account(1_700_000_000);
+
+    let app_state_account = create_ift_app_state_account(
+        mint,
+        app_state_bump,
+        mint_authority_bump,
+        access_manager::ID,
+        gmp_program,
+    );
+
+    let ift_bridge_account = create_ift_bridge_account(
+        mint,
+        TEST_CLIENT_ID,
+        TEST_COUNTERPARTY_ADDRESS,
+        CounterpartyChainType::Evm,
+        ift_bridge_bump,
+        true,
+    );
+
+    let mint_account = create_mint_account(None);
+    let sender_token_pda = Pubkey::new_unique();
+    let sender_token_account = create_token_account(&mint, &sender, 10000);
+
+    let token_program_account = solana_sdk::account::Account {
+        lamports: 1,
+        data: vec![],
+        owner: solana_sdk::native_loader::ID,
+        executable: true,
+        rent_epoch: 0,
+    };
+
+    let (gmp_app_state_pda, _) = Pubkey::find_program_address(
+        &[
+            solana_ibc_types::GMPAppState::SEED,
+            ics27_gmp::constants::GMP_PORT_ID.as_bytes(),
+        ],
+        &gmp_program,
+    );
+
+    let router_state = Pubkey::new_unique();
+    let client_sequence = Pubkey::new_unique();
+    let packet_commitment = Pubkey::new_unique();
+    let gmp_ibc_app = Pubkey::new_unique();
+    let ibc_client = Pubkey::new_unique();
+    let pending_transfer = Pubkey::new_unique();
+
+    // Timeout too far in future (> 24 hours from clock time 1_700_000_000)
+    let msg = IFTTransferMsg {
+        client_id: TEST_CLIENT_ID.to_string(),
+        receiver: "0xabcdef1234567890abcdef1234567890abcdef12".to_string(),
+        amount: 1000,
+        timeout_timestamp: 1_700_000_000 + crate::constants::MAX_TIMEOUT_DURATION + 1,
+    };
+
+    let instruction = Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(app_state_pda, false),
+            AccountMeta::new(ift_bridge_pda, false),
+            AccountMeta::new(mint, false),
+            AccountMeta::new(sender_token_pda, false),
+            AccountMeta::new_readonly(sender, true),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(anchor_spl::token::ID, false),
+            AccountMeta::new_readonly(system_program, false),
+            AccountMeta::new_readonly(gmp_program, false),
+            AccountMeta::new(gmp_app_state_pda, false),
+            AccountMeta::new_readonly(ics26_router::ID, false),
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new(client_sequence, false),
+            AccountMeta::new(packet_commitment, false),
+            AccountMeta::new_readonly(instructions_sysvar, false),
+            AccountMeta::new_readonly(gmp_ibc_app, false),
+            AccountMeta::new_readonly(ibc_client, false),
+            AccountMeta::new(pending_transfer, false),
+        ],
+        data: crate::instruction::IftTransfer { msg }.data(),
+    };
+
+    let accounts = vec![
+        (app_state_pda, app_state_account),
+        (ift_bridge_pda, ift_bridge_account),
+        (mint, mint_account),
+        (sender_token_pda, sender_token_account),
+        (sender, create_signer_account()),
+        (payer, create_signer_account()),
+        (anchor_spl::token::ID, token_program_account.clone()),
+        (system_program, system_account),
+        (gmp_program, create_gmp_program_account()),
+        (gmp_app_state_pda, create_signer_account()),
+        (ics26_router::ID, token_program_account),
+        (router_state, create_signer_account()),
+        (client_sequence, create_signer_account()),
+        (packet_commitment, create_uninitialized_pda()),
+        (instructions_sysvar, instructions_account),
+        (gmp_ibc_app, create_signer_account()),
+        (ibc_client, create_signer_account()),
+        (pending_transfer, create_uninitialized_pda()),
+        (clock_sysvar, clock_account),
+    ];
+
+    let result = mollusk.process_instruction(&instruction, &accounts);
+    assert!(
+        result.program_result.is_err(),
+        "ift_transfer should fail with timeout too far in future"
+    );
+}
+
+/// Test that `ift_transfer` fails when receiver exceeds max length
+#[test]
+fn test_ift_transfer_receiver_too_long_fails() {
+    let mollusk = setup_mollusk();
+
+    let mint = Pubkey::new_unique();
+    let sender = Pubkey::new_unique();
+    let payer = Pubkey::new_unique();
+    let gmp_program = Pubkey::new_unique();
+
+    let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+    let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
+    let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
+    let (system_program, system_account) = create_system_program_account();
+    let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
+
+    let app_state_account = create_ift_app_state_account(
+        mint,
+        app_state_bump,
+        mint_authority_bump,
+        access_manager::ID,
+        gmp_program,
+    );
+
+    let ift_bridge_account = create_ift_bridge_account(
+        mint,
+        TEST_CLIENT_ID,
+        TEST_COUNTERPARTY_ADDRESS,
+        CounterpartyChainType::Evm,
+        ift_bridge_bump,
+        true,
+    );
+
+    let mint_account = create_mint_account(None);
+    let sender_token_pda = Pubkey::new_unique();
+    let sender_token_account = create_token_account(&mint, &sender, 10000);
+
+    let token_program_account = solana_sdk::account::Account {
+        lamports: 1,
+        data: vec![],
+        owner: solana_sdk::native_loader::ID,
+        executable: true,
+        rent_epoch: 0,
+    };
+
+    let (gmp_app_state_pda, _) = Pubkey::find_program_address(
+        &[
+            solana_ibc_types::GMPAppState::SEED,
+            ics27_gmp::constants::GMP_PORT_ID.as_bytes(),
+        ],
+        &gmp_program,
+    );
+
+    let router_state = Pubkey::new_unique();
+    let client_sequence = Pubkey::new_unique();
+    let packet_commitment = Pubkey::new_unique();
+    let gmp_ibc_app = Pubkey::new_unique();
+    let ibc_client = Pubkey::new_unique();
+    let pending_transfer = Pubkey::new_unique();
+
+    // Receiver too long (> 128 chars)
+    let long_receiver = "x".repeat(crate::constants::MAX_RECEIVER_LENGTH + 1);
+    let msg = IFTTransferMsg {
+        client_id: TEST_CLIENT_ID.to_string(),
+        receiver: long_receiver,
+        amount: 1000,
+        timeout_timestamp: 0,
+    };
+
+    let instruction = Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(app_state_pda, false),
+            AccountMeta::new(ift_bridge_pda, false),
+            AccountMeta::new(mint, false),
+            AccountMeta::new(sender_token_pda, false),
+            AccountMeta::new_readonly(sender, true),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(anchor_spl::token::ID, false),
+            AccountMeta::new_readonly(system_program, false),
+            AccountMeta::new_readonly(gmp_program, false),
+            AccountMeta::new(gmp_app_state_pda, false),
+            AccountMeta::new_readonly(ics26_router::ID, false),
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new(client_sequence, false),
+            AccountMeta::new(packet_commitment, false),
+            AccountMeta::new_readonly(instructions_sysvar, false),
+            AccountMeta::new_readonly(gmp_ibc_app, false),
+            AccountMeta::new_readonly(ibc_client, false),
+            AccountMeta::new(pending_transfer, false),
+        ],
+        data: crate::instruction::IftTransfer { msg }.data(),
+    };
+
+    let accounts = vec![
+        (app_state_pda, app_state_account),
+        (ift_bridge_pda, ift_bridge_account),
+        (mint, mint_account),
+        (sender_token_pda, sender_token_account),
+        (sender, create_signer_account()),
+        (payer, create_signer_account()),
+        (anchor_spl::token::ID, token_program_account.clone()),
+        (system_program, system_account),
+        (gmp_program, create_gmp_program_account()),
+        (gmp_app_state_pda, create_signer_account()),
+        (ics26_router::ID, token_program_account),
+        (router_state, create_signer_account()),
+        (client_sequence, create_signer_account()),
+        (packet_commitment, create_uninitialized_pda()),
+        (instructions_sysvar, instructions_account),
+        (gmp_ibc_app, create_signer_account()),
+        (ibc_client, create_signer_account()),
+        (pending_transfer, create_uninitialized_pda()),
+    ];
+
+    let result = mollusk.process_instruction(&instruction, &accounts);
+    assert!(
+        result.program_result.is_err(),
+        "ift_transfer should fail when receiver exceeds max length"
+    );
+}
